@@ -1,0 +1,25 @@
+{
+  "task": "FS-008c",
+  "validation": "정적 메타데이터 검증 + FS-013 R1~R5",
+  "database_applied": false,
+  "tables": 71,
+  "tables_by_schema": {
+    "core": 10,
+    "erp": 27,
+    "fems": 13,
+    "mes": 21
+  },
+  "columns": 712,
+  "foreign_keys": 161,
+  "constraints_and_policies": 526,
+  "source_sha256": "7e97937e7bd0df6fdae97b309444dbfdac584dd2efae71ad4f0bad7eed2d5e44",
+  "errors": [],
+  "not_tested": [
+    "실제 DDL 적용",
+    "PostgreSQL CHECK 구문·트리거 동작",
+    "동시성·성능·권한·마이그레이션",
+    "Excel 네이티브 앱 동작",
+    "SERVICE 정책 실행·소명 동시성·금액 계산",
+    "법정 세무·회계 기준 적합성"
+  ]
+}

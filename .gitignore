@@ -1,0 +1,26 @@
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+node_modules/
+dist/
+coverage/
+.DS_Store
+.idea/
+.vscode/
+*.log
+*.pem
+*.key
+work/
+
+# 사용자 제공 참고 자료. FS-012 V-1 결정으로 저장소 밖으로 옵긴다.
+# 설계 입력으로 이미 흡수됐으며 공개 저장소에 올리지 않는다.
+docs/references/
+
+# 스키마 점검 덤프. schema.json에서 언제든 재생성하는 파생 산출물이다.
+# 판정 결과는 docs/db/시드_2차스키마확인_FS-005g.md에 남는다.
+fs005g_check*.txt
