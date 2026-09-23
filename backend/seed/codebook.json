@@ -1,0 +1,32 @@
+{
+  "site": {"code": "S01", "name": "제1공장"},
+  "locations": [
+    {"code": "L-INJ", "name": "사출동", "kind": "workcenter"},
+    {"code": "L-ASM", "name": "조립동", "kind": "workcenter"},
+    {"code": "L-INS", "name": "검사실", "kind": "workcenter"},
+    {"code": "L-UTL", "name": "유틸리티실", "kind": "zone", "fems_only": true}
+  ],
+  "equipment": [
+    {"code": "INJ-01", "name": "사출기 1호", "location": "L-INJ", "type": "INJ"},
+    {"code": "INJ-02", "name": "사출기 2호", "location": "L-INJ", "type": "INJ"},
+    {"code": "INJ-03", "name": "사출기 3호", "location": "L-INJ", "type": "INJ"},
+    {"code": "ASM-01", "name": "조립기 1호", "location": "L-ASM", "type": "ASM"},
+    {"code": "ASM-02", "name": "조립기 2호", "location": "L-ASM", "type": "ASM"},
+    {"code": "ASM-03", "name": "조립기 3호", "location": "L-ASM", "type": "ASM"},
+    {"code": "INS-01", "name": "검사기 1호", "location": "L-INS", "type": "INS"},
+    {"code": "INS-02", "name": "검사기 2호", "location": "L-INS", "type": "INS"}
+  ],
+  "items": [
+    {"code": "FG-C100", "name": "커넥터 C100", "type": "finished", "unit": "EA", "tax": "TAXABLE"},
+    {"code": "FG-C200", "name": "커넥터 C200", "type": "finished", "unit": "EA", "tax": "TAXABLE"},
+    {"code": "FG-T300", "name": "터미널블록 T300", "type": "finished", "unit": "EA", "tax": "ZERO"},
+    {"code": "SF-H100", "name": "사출 하우징 H100", "type": "semi_finished", "unit": "EA", "tax": "TAXABLE"},
+    {"code": "RM-PBT", "name": "PBT 수지", "type": "raw", "unit": "KG", "tax": "TAXABLE"},
+    {"code": "RM-PIN", "name": "단자 핀", "type": "raw", "unit": "EA", "tax": "TAXABLE"}
+  ],
+  "processes": [
+    {"code": "INJ", "name": "사출", "type": "INJ"},
+    {"code": "ASM", "name": "조립", "type": "ASM"},
+    {"code": "INS", "name": "검사", "type": "INS"}
+  ]
+}
