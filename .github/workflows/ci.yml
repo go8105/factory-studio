@@ -1,0 +1,48 @@
+name: FS-009 runtime and schema
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: factory_studio_test
+          POSTGRES_USER: factory_studio
+          POSTGRES_PASSWORD: ci-only-disposable-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U factory_studio -d factory_studio_test"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql+psycopg://factory_studio:ci-only-disposable-password@localhost:5432/factory_studio_test
+      TEST_DATABASE_URL: postgresql+psycopg://factory_studio:ci-only-disposable-password@localhost:5432/factory_studio_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --project backend --python 3.14 --locked
+      - run: echo "$GITHUB_WORKSPACE/backend/.venv/bin" >> "$GITHUB_PATH"
+      - run: npm ci && npm --prefix frontend ci
+      - run: python --version && node --version
+      - run: python -c "from fs.main import app; from fastapi import FastAPI; assert isinstance(app, FastAPI)"
+      - run: npm run db:validate
+      - run: python tools/audit_schema_isolation.py
+      - run: python -m unittest discover -s tools -p 'test_fs0*.py' -v
+      - run: uv run --project backend ruff check --config backend/pyproject.toml backend tools/verify_ddl_matches_schema.py
+      - run: uv run --project backend ruff format --config backend/pyproject.toml --check backend tools/verify_ddl_matches_schema.py
+      - run: uv run --project backend alembic -c backend/alembic.ini upgrade head
+      - run: python tools/verify_ddl_matches_schema.py
+      - run: uv run --project backend pytest backend/tests -q
+      - run: uv run --project backend alembic -c backend/alembic.ini downgrade base
+      - run: uv run --project backend alembic -c backend/alembic.ini upgrade head
+      - run: python tools/verify_ddl_matches_schema.py
+      - run: npm --prefix frontend run lint && npm --prefix frontend run format:check && npm --prefix frontend run build

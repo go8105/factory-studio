@@ -1,0 +1,250 @@
+[
+  {
+    "command": [
+      "python3",
+      "--version"
+    ],
+    "exit_code": 0,
+    "output": "Python 3.14.7\n"
+  },
+  {
+    "command": [
+      "node",
+      "--version"
+    ],
+    "exit_code": 0,
+    "output": "v24.21.0\n"
+  },
+  {
+    "command": [
+      "docker",
+      "compose",
+      "version"
+    ],
+    "exit_code": 0,
+    "output": "Docker Compose version 5.5.1\n"
+  },
+  {
+    "command": [
+      "docker",
+      "compose",
+      "exec",
+      "-T",
+      "db",
+      "psql",
+      "--version"
+    ],
+    "exit_code": 0,
+    "output": "psql (PostgreSQL) 18.6 (Debian 18.6-1.pgdg13+2)\n"
+  },
+  {
+    "command": [
+      "docker",
+      "compose",
+      "exec",
+      "-T",
+      "db",
+      "pg_dump",
+      "--version"
+    ],
+    "exit_code": 0,
+    "output": "pg_dump (PostgreSQL) 18.6 (Debian 18.6-1.pgdg13+2)\n"
+  },
+  {
+    "command": [
+      "docker",
+      "compose",
+      "exec",
+      "-T",
+      "db",
+      "psql",
+      "-U",
+      "factory_studio",
+      "-d",
+      "factory_studio",
+      "-Atc",
+      "SHOW server_version"
+    ],
+    "exit_code": 0,
+    "output": "18.6 (Debian 18.6-1.pgdg13+2)\n"
+  },
+  {
+    "command": [
+      "npm",
+      "run",
+      "db:validate"
+    ],
+    "exit_code": 0,
+    "output": "\n> factory-studio-tools@0.2.0 db:validate\n> python3 tools/validate_db_design.py\n\n{\n  \"task\": \"FS-008c\",\n  \"validation\": \"정적 메타데이터 검증 + FS-013 R1~R5\",\n  \"database_applied\": false,\n  \"tables\": 71,\n  \"tables_by_schema\": {\n    \"core\": 10,\n    \"erp\": 27,\n    \"fems\": 13,\n    \"mes\": 21\n  },\n  \"columns\": 712,\n  \"foreign_keys\": 161,\n  \"constraints_and_policies\": 526,\n  \"source_sha256\": \"7e97937e7bd0df6fdae97b309444dbfdac584dd2efae71ad4f0bad7eed2d5e44\",\n  \"errors\": [],\n  \"not_tested\": [\n    \"실제 DDL 적용\",\n    \"PostgreSQL CHECK 구문·트리거 동작\",\n    \"동시성·성능·권한·마이그레이션\",\n    \"Excel 네이티브 앱 동작\",\n    \"SERVICE 정책 실행·소명 동시성·금액 계산\",\n    \"법정 세무·회계 기준 적합성\"\n  ]\n}\n"
+  },
+  {
+    "command": [
+      "python3",
+      "tools/audit_schema_isolation.py"
+    ],
+    "exit_code": 0,
+    "output": "{\n  \"rules\": \"R1–R5\",\n  \"tables\": 71,\n  \"foreign_keys\": 161,\n  \"errors\": []\n}\n"
+  },
+  {
+    "command": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tools",
+      "-p",
+      "test_fs0*.py",
+      "-v"
+    ],
+    "exit_code": 0,
+    "output": "ABORT: injected replace failure\nABORT: injected replace failure\nABORT: injected replace failure\ntest_applied_invalid_rejected (test_fs008b.FS008b.test_applied_invalid_rejected) ... ok\ntest_atomic_replace_failure_preserves_source (test_fs008b.FS008b.test_atomic_replace_failure_preserves_source) ... ok\ntest_check_backup_and_idempotence (test_fs008b.FS008b.test_check_backup_and_idempotence) ... ok\ntest_invalid_source_aborts_without_write (test_fs008b.FS008b.test_invalid_source_aborts_without_write) ... ok\ntest_inventory_and_column_delta (test_fs008b.FS008b.test_inventory_and_column_delta) ... ok\ntest_missing_policy_rejected (test_fs008b.FS008b.test_missing_policy_rejected) ... ok\ntest_no_input_mutation (test_fs008b.FS008b.test_no_input_mutation) ... ok\ntest_null_due_is_required (test_fs008b.FS008b.test_null_due_is_required) ... ok\ntest_target_unique_is_required (test_fs008b.FS008b.test_target_unique_is_required) ... ok\ntest_unchanged_business_tables (test_fs008b.FS008b.test_unchanged_business_tables) ... ok\ntest_unit_fk_cannot_be_weakened (test_fs008b.FS008b.test_unit_fk_cannot_be_weakened) ... ok\ntest_atomic_failure_preserves_source (test_fs008c.FS008c.test_atomic_failure_preserves_source) ... ok\ntest_backup_collision_preserves_source (test_fs008c.FS008c.test_backup_collision_preserves_source) ... ok\ntest_channel_unchanged (test_fs008c.FS008c.test_channel_unchanged) ... ok\ntest_check_backup_and_file_idempotence (test_fs008c.FS008c.test_check_backup_and_file_idempotence) ... ok\ntest_defects_absent (test_fs008c.FS008c.test_defects_absent) ... ok\ntest_invalid_applied_state_rejected (test_fs008c.FS008c.test_invalid_applied_state_rejected) ... ok\ntest_invalid_input_preserves_source (test_fs008c.FS008c.test_invalid_input_preserves_source) ... ok\ntest_new_task_retains_existing_validation (test_fs008c.FS008c.test_new_task_retains_existing_validation) ... ok\ntest_only_two_constraints_removed (test_fs008c.FS008c.test_only_two_constraints_removed) ... ok\ntest_partial_input_rejected (test_fs008c.FS008c.test_partial_input_rejected) ... ok\ntest_transform_idempotence (test_fs008c.FS008c.test_transform_idempotence) ... ok\ntest_backup_dry_run_and_byte_idempotence (test_fs014.FS014Tests.test_backup_dry_run_and_byte_idempotence) ... ok\ntest_cli_audit_exit_status (test_fs014.FS014Tests.test_cli_audit_exit_status) ... ok\ntest_input_not_mutated (test_fs014.FS014Tests.test_input_not_mutated) ... ok\ntest_invalid_applied_state_is_not_silently_accepted (test_fs014.FS014Tests.test_invalid_applied_state_is_not_silently_accepted) ... ok\ntest_invalid_input_leaves_source_untouched (test_fs014.FS014Tests.test_invalid_input_leaves_source_untouched) ... ok\ntest_inventory_and_mapping (test_fs014.FS014Tests.test_inventory_and_mapping) ... ok\ntest_r1_to_r5_reject_independent_violations (test_fs014.FS014Tests.test_r1_to_r5_reject_independent_violations) ... ok\ntest_r5_nullable_scope_rejected (test_fs014.FS014Tests.test_r5_nullable_scope_rejected) ... ok\ntest_scope_type_unique_and_calendar (test_fs014.FS014Tests.test_scope_type_unique_and_calendar) ... ok\ntest_structural_corruption (test_fs014.FS014Tests.test_structural_corruption) ... ok\ntest_aggregate_cannot_be_reclassified_as_check (test_fs014b.AccountingTests.test_aggregate_cannot_be_reclassified_as_check) ... ok\ntest_atomic_replace_failure_preserves_source_and_backup (test_fs014b.AccountingTests.test_atomic_replace_failure_preserves_source_and_backup) ... ok\ntest_balance_status_and_cancel_flags_rejected (test_fs014b.AccountingTests.test_balance_status_and_cancel_flags_rejected) ... ok\ntest_cross_schema_and_nullable_scope_rejected (test_fs014b.AccountingTests.test_cross_schema_and_nullable_scope_rejected) ... ok\ntest_currency_and_restrict (test_fs014b.AccountingTests.test_currency_and_restrict) ... ok\ntest_dry_run_backup_and_byte_mtime_idempotence (test_fs014b.AccountingTests.test_dry_run_backup_and_byte_mtime_idempotence) ... ok\ntest_exact_preview_mapping_and_accounts (test_fs014b.AccountingTests.test_exact_preview_mapping_and_accounts) ... ok\ntest_invalid_input_and_applied_state_preserved (test_fs014b.AccountingTests.test_invalid_input_and_applied_state_preserved) ... ok\ntest_inventory_and_input_preservation (test_fs014b.AccountingTests.test_inventory_and_input_preservation) ... ok\ntest_missing_cancellation_or_limit_policies_rejected (test_fs014b.AccountingTests.test_missing_cancellation_or_limit_policies_rejected) ... ok\ntest_missing_source_uniqueness_and_party_fk_rejected (test_fs014b.AccountingTests.test_missing_source_uniqueness_and_party_fk_rejected) ... ok\ntest_tax_cardinality_and_two_states (test_fs014b.AccountingTests.test_tax_cardinality_and_two_states) ... ok\n\n----------------------------------------------------------------------\nRan 44 tests in 2.269s\n\nOK\n"
+  },
+  {
+    "command": [
+      "ruff",
+      "check",
+      "--config",
+      "backend/pyproject.toml",
+      "backend",
+      "tools/verify_ddl_matches_schema.py"
+    ],
+    "exit_code": 0,
+    "output": "All checks passed!\n"
+  },
+  {
+    "command": [
+      "ruff",
+      "format",
+      "--config",
+      "backend/pyproject.toml",
+      "--check",
+      "backend",
+      "tools/verify_ddl_matches_schema.py"
+    ],
+    "exit_code": 0,
+    "output": "11 files already formatted\n"
+  },
+  {
+    "command": [
+      "alembic",
+      "-c",
+      "backend/alembic.ini",
+      "downgrade",
+      "base"
+    ],
+    "exit_code": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "docker",
+      "compose",
+      "exec",
+      "-T",
+      "db",
+      "psql",
+      "-U",
+      "factory_studio",
+      "-d",
+      "factory_studio",
+      "-Atc",
+      "SELECT count(*) FROM information_schema.tables WHERE table_schema IN ('core','mes','erp','fems'); SELECT count(*) FROM public.alembic_version;"
+    ],
+    "exit_code": 0,
+    "output": "0\n0\n"
+  },
+  {
+    "command": [
+      "alembic",
+      "-c",
+      "backend/alembic.ini",
+      "upgrade",
+      "head"
+    ],
+    "exit_code": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "python3",
+      "tools/verify_ddl_matches_schema.py",
+      "--output",
+      "docs/db/ddl-verification-report.json"
+    ],
+    "exit_code": 0,
+    "output": "{\n  \"schema_version\": \"0.9.1\",\n  \"server_version\": \"18.6 (Debian 18.6-1.pgdg13+2)\",\n  \"expected\": {\n    \"PK\": 71,\n    \"UK\": 166,\n    \"CHECK\": 163,\n    \"UNIQUE_INDEX\": 8,\n    \"INDEX\": 38,\n    \"tables\": 71,\n    \"columns\": 712,\n    \"FK\": 161\n  },\n  \"actual\": {\n    \"tables\": 71,\n    \"columns\": 712,\n    \"PK\": 71,\n    \"UK\": 166,\n    \"CHECK\": 163,\n    \"INDEX\": 38,\n    \"UNIQUE_INDEX\": 8,\n    \"FK\": 161\n  },\n  \"service_policies_not_db_constraints\": 80,\n  \"errors\": [],\n  \"schema_sha256\": \"7e97937e7bd0df6fdae97b309444dbfdac584dd2efae71ad4f0bad7eed2d5e44\"\n}\n"
+  },
+  {
+    "command": [
+      "pytest",
+      "backend/tests",
+      "-q"
+    ],
+    "exit_code": 0,
+    "output": ".........                                                                [100%]\n9 passed in 14.18s\n"
+  },
+  {
+    "command": [
+      "npm",
+      "--prefix",
+      "frontend",
+      "run",
+      "typecheck"
+    ],
+    "exit_code": 0,
+    "output": "\n> factory-studio-frontend@0.1.0 typecheck\n> tsc --noEmit\n\n"
+  },
+  {
+    "command": [
+      "npm",
+      "--prefix",
+      "frontend",
+      "run",
+      "lint"
+    ],
+    "exit_code": 0,
+    "output": "\n> factory-studio-frontend@0.1.0 lint\n> eslint src vite.config.ts\n\n"
+  },
+  {
+    "command": [
+      "npm",
+      "--prefix",
+      "frontend",
+      "run",
+      "format:check"
+    ],
+    "exit_code": 0,
+    "output": "\n> factory-studio-frontend@0.1.0 format:check\n> prettier --check src vite.config.ts tsconfig.json package.json\n\nChecking formatting...\nAll matched files use Prettier code style!\n"
+  },
+  {
+    "command": [
+      "npm",
+      "--prefix",
+      "frontend",
+      "run",
+      "build"
+    ],
+    "exit_code": 0,
+    "output": "\n> factory-studio-frontend@0.1.0 build\n> tsc --noEmit && vite build\n\nvite v8.3.0 building client environment for production...\ntransforming...\n✓ 2 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/factory-studio.js  0.10 kB │ gzip: 0.11 kB\n\n✓ built in 11ms\n"
+  },
+  {
+    "command": [
+      "docker",
+      "compose",
+      "exec",
+      "-T",
+      "db",
+      "pg_dump",
+      "-U",
+      "factory_studio",
+      "-d",
+      "factory_studio",
+      "--schema-only",
+      "--no-owner",
+      "--no-privileges"
+    ],
+    "exit_code": 0,
+    "output": "dump: /Users/hwang-kyoungho/projects/factory-studio/work/fs009-schema-pg18.sql; 182957 bytes\n"
+  }
+]

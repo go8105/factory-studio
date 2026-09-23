@@ -1,12 +1,12 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **2026-09-23 전체 설계 승인 완료. V-1 완료, 결과 확인 후 FS-009 착수.**
+- 단계: **2026-09-23 전체 설계 승인 완료. V-1 결과 확인 완료. FS-009 실행 기반 완료, 결과 확인 대기.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
-- DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. DB·서비스 미적용
+- DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **FS-005g 정의 확정**(7,469행, `sv-20260923-1`). 생성기·실제 INSERT 검증은 FS-015
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio`
-- 제품 구현: 미착수
+- 제품 구현: FS-009 뼈대·최초 마이그레이션 완료. 업무 API·화면·시드 생성기는 미구현
 
 ## 2026-09-20 프로젝트 준비
 - 완료: 독립 프로젝트 디렉터리와 기본 디렉터리 구조 생성, 로컬 Git main 브랜치 초기화.
@@ -481,3 +481,19 @@
 - 실행 환경: Python 3.9.6, Node v26.7.0, psql (PostgreSQL) 16.15 클라이언트. PostgreSQL 서버 접속·버전 검증 미실행. 목표 런타임 고정은 FS-009에서 수행한다.
 - schema.json SHA256 `7e97937e7bd0df6fdae97b309444dbfdac584dd2efae71ad4f0bad7eed2d5e44` 유지. UI·prototypes 파일 내용 보존. DB validate/build·회귀·DB 적용 검증은 이번 Git 작업에서 미실행.
 - 원격 생성·push·force push 미실행. 다음: V-1 결과 사용자 확인 후 FS-009. 원격 등록·push 역시 별도 사용자 확인 전 실행하지 않는다.
+
+## 2026-09-23 FS-009 실행 기반 완료
+
+- 사용자 V-1 결과 확인 후 작업 브랜치 fs-009-runtime-base에서 수행. V-1 보고서를 docs/agent/V-1_결과보고.md에 보존하고 AGENTS.md에 Codex/antigravity 역할·별도 브랜치 리뷰·mirror push 금지를 반영했다.
+- 가장 먼저 .python-version=3.14, .nvmrc=24, package engines, backend requires-python, postgres:18 Compose를 고정했다. Python 3.14.7·Node 24.21.0 설치. Docker/Compose/Colima가 없어 설치하고 전용 factory-studio 프로필(2CPU/4GB/20GB)로 기동했다. 서버와 컨테이너 psql/pg_dump 모두 PostgreSQL 18.6.
+- backend/src/fs 및 frontend/src 독립 모듈 경계·content 자리·FastAPI 조립·React/TypeScript/Vite 빌드 기반, uv.lock/package-lock.json, Ruff/ESLint/Prettier, CI workflow 작성. 업무 API·화면은 만들지 않았다.
+- 최초 리비전 7e97937e7bd0을 schema v0.9.1 기준으로 수기 작성했다. 실행 시 schema.json을 읽어 DDL을 생성하지 않는다. 모든 테이블·키 이후 FK를 생성하여 core 순환 앵커를 처리한다. CHECK는 C 번호(0-based constraints 배열)와 원문을 보존했다. PostgreSQL CHECK 실패 없음.
+- 실제 DB 대조: core10/mes21/erp27/fems13=71, 712컬럼, 161 FK, PK71/UK166/CHECK163/일반INDEX38/유니크INDEX8. SERVICE/DB_POLICY80은 DB 제약에서 제외하고 미구현으로 명시했다. public.alembic_version은 업무 71개와 별도다.
+- 빈 DB 적용 → 다운그레이드 → 업무 테이블·리비전 행 각각 0 확인 → 재적용 → 전수 대사 통과. 대조 검사기는 컬럼 순서·타입·nullable·default/identity·키·CHECK 정규화 식·인덱스 조건·FK 범위/대상/RESTRICT를 확인한다. 검사 식은 세션 임시 테이블에서 정규화하고 롤백한다.
+- 최종 21명령 모두 exit0, 전체 원문은 docs/agent/FS-009_검증실행.json. 기존 unittest 44개 및 실제 DB 변조 감지 테스트 9개 통과, db:validate 오류0, isolation R1~R5 위반0. frontend typecheck/lint/format/build, Ruff 통과. 컨테이너 pg_dump18 스키마 덤프 생성.
+- 초기 실행 중 Prettier 경로 지정 exit2 및 Ruff 스타일 exit1을 수정 후 재검증했다. 기존 Excel 도구 npm audit moderate2건은 남음(ExcelJS/uuid); 별도 npm audit exit1, 주버전 자동 변경은 미적용. frontend audit0. 이전 Python3.9.6/Node26.7.0 대비 기존 회귀 결과 차이 없음.
+- schema.json SHA256 7e97937e7bd0df6fdae97b309444dbfdac584dd2efae71ad4f0bad7eed2d5e44 유지. 사용자 지시로 migration_revision=null 유지. UI/prototypes·Excel·ERD 변경 없음. 정적 validation-report와 실제 DB ddl-verification-report는 구분한다.
+- 미실행/범위 밖: 원격 CI·push·mirror push·배포, 시드 생성/INSERT, 업무 API·화면·SERVICE 정책·인증/세션·동시성·성능. Git 커밋하지 않음.
+- 결과/실행 안내/antigravity 인계 가능 목록: docs/agent/실행기반_FS-009.md. 다음 ID는 결과 보고 후 사용자 확인을 기다린다.
+
+- 최종 패키지 보강: 빈 디렉터리 상태에서 초기 설치된 editable 패키지 import 실패(exit1)를 uv sync --reinstall-package로 해소(exit0). FastAPI 앱 import·라우트0 검증 exit0, CI import 검사 추가. schema/Excel/ERD/UI/prototypes 16파일 바이트 보존 및 git diff --check exit0.
