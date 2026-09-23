@@ -1,7 +1,7 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **2026-09-23 전체 설계 승인 완료. V-1 결과 확인 완료. FS-009 실행 기반 완료, 결과 확인 대기.**
+- 단계: **2026-09-23 전체 설계 승인·V-1 완료. FS-009 결과 확인 및 main fast-forward 병합 완료. 다음 작업 지시 대기.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **FS-005g 정의 확정**(7,469행, `sv-20260923-1`). 생성기·실제 INSERT 검증은 FS-015
@@ -484,6 +484,7 @@
 
 ## 2026-09-23 FS-009 실행 기반 완료
 
+- 사용자 diff 확인 후 `fs-009-runtime-base`의 `895caa453acf1028b92dcd0e97cb94e34cb02a3c`를 main에 fast-forward 병합했다. `content/help/{portal,fems,erp,mes}/`와 AGENTS.md 8장 역할 분담 존재를 확인했다. 원격 push는 실행하지 않았다.
 - 사용자 V-1 결과 확인 후 작업 브랜치 fs-009-runtime-base에서 수행. V-1 보고서를 docs/agent/V-1_결과보고.md에 보존하고 AGENTS.md에 Codex/antigravity 역할·별도 브랜치 리뷰·mirror push 금지를 반영했다.
 - 가장 먼저 .python-version=3.14, .nvmrc=24, package engines, backend requires-python, postgres:18 Compose를 고정했다. Python 3.14.7·Node 24.21.0 설치. Docker/Compose/Colima가 없어 설치하고 전용 factory-studio 프로필(2CPU/4GB/20GB)로 기동했다. 서버와 컨테이너 psql/pg_dump 모두 PostgreSQL 18.6.
 - backend/src/fs 및 frontend/src 독립 모듈 경계·content 자리·FastAPI 조립·React/TypeScript/Vite 빌드 기반, uv.lock/package-lock.json, Ruff/ESLint/Prettier, CI workflow 작성. 업무 API·화면은 만들지 않았다.
