@@ -30,3 +30,25 @@ class EnergySourceUpdate(ApiModel):
     measure_unit: MeasureUnit | None = Field(None, alias="measureUnit")
     is_billable: bool | None = Field(None, alias="isBillable")
     is_active: bool | None = Field(None, alias="isActive")
+
+
+class EquipmentCreate(ApiModel):
+    equipment_code: str = Field(
+        alias="equipmentCode", pattern=r"^[A-Z][A-Z0-9_\-]{1,29}$"
+    )
+    name: str = Field(min_length=1, max_length=100)
+    equipment_type: str = Field(alias="equipmentType", min_length=1, max_length=40)
+    location_id: int = Field(alias="locationId", gt=0)
+    is_active: bool = Field(True, alias="isActive")
+
+
+class EquipmentUpdate(ApiModel):
+    equipment_code: str | None = Field(
+        None, alias="equipmentCode", pattern=r"^[A-Z][A-Z0-9_\-]{1,29}$"
+    )
+    name: str | None = Field(None, min_length=1, max_length=100)
+    equipment_type: str | None = Field(
+        None, alias="equipmentType", min_length=1, max_length=40
+    )
+    location_id: int | None = Field(None, alias="locationId", gt=0)
+    is_active: bool | None = Field(None, alias="isActive")

@@ -1,7 +1,7 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-016 main 병합 완료, AG-03(test_seed 분리·perf 마커) main 병합 완료. AG-04(test_common 11개 분리) antigravity/ag-04 브랜치 완료.**
+- 단계: **FS-018a 완료, AG-05(F-10 설비 복제 구현) antigravity/ag-05-f10 브랜치 완료.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
@@ -619,3 +619,25 @@
 - 참조 중인 에너지원의 계측 단위 변경 금지(`UNIT_IN_USE`). 스키마·마이그레이션 변경 없음.
 - 공통 컴포넌트 확장(PageTitle help 키, ErrorNotice 참조 건수 목록, DataTable empty). FEMS·도움말 lazy 로딩으로 번들 경고 해소.
 - 테스트: backend +22(전체 62), frontend +12(전체 84), Playwright +4(전체 20). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018a.md`.
+
+## 2026-09-24 AG-05 완료 (antigravity)
+
+- F-10 설비 화면 및 백엔드 CRUD 복제 구현 (`antigravity/ag-05-f10` 브랜치).
+- 백엔드 (`fs/fems/`):
+  - `schema.py`: `EquipmentCreate`, `EquipmentUpdate` 정의 (설비 코드 정규식: `^[A-Z][A-Z0-9_\-]{1,29}$`).
+  - `repository.py`: `EQUIPMENT_COLUMNS`, `EQUIPMENT_SORT`, `EQUIPMENT_REFERENCES` (5개 참조 테이블: `fems.meter`, `fems.energy_target`, `fems.energy_baseline`, `fems.energy_allocation`, `fems.production_record`), CRUD 함수 및 `equipment_meter_references`, `list_locations` 구현.
+  - `service.py`: `list_equipments`, `get_equipment`, `list_locations`, `create_equipment`, `update_equipment`, `delete_equipment` 구현.
+  - 결함 수정: 계측기(`fems.meter`)가 달린 설비의 `location_id` 변경 시 409 `PRECONDITION_NOT_MET` (`details.reason="LOCATION_IN_USE"`, `details.references=[{table,label,count}]`) 거부 처리.
+  - `router.py`: `GET/POST /equipments`, `GET/PATCH/DELETE /equipments/{id}`, `GET /locations` 엔드포인트 연결.
+- 프론트엔드 (`frontend/src/fems/`):
+  - `Equipments.tsx`: F-11 에너지원 패턴 복제, 공간 셀렉트/비어있을 시 `EmptyState` 안내, 5개 참조처별 삭제 실패 건수 안내.
+  - `FemsLayout.tsx`: `femsScreens`에 F-10 설비 등록.
+  - `index.tsx`: F-10 라우트 등록.
+  - `energy-sources.test.tsx`: 사이드바 화면 개수 단언을 `toHaveLength(femsScreens.length)`로 수정 (승인 반영).
+- 테스트 및 검증:
+  - `backend/tests/test_fems_equipment.py`: 25개 테스트 신규 작성 (계측기 있는 설비 공간 변경 409, 계측기 없는 설비 공간 변경 200 포함).
+  - `frontend/src/fems/equipments.test.tsx`: 12개 테스트 신규 작성.
+  - 백엔드 전체 테스트 통과: `pytest backend/tests -q` 87 passed (테스트 DB: `factory_studio_test`, exit 0).
+  - 프론트엔드 전체 테스트 통과: `npm --prefix frontend test` 9개 파일 96개 테스트 ALL PASSED (exit 0).
+  - typecheck, lint, format:check, build, ruff check/format, git diff --check 모두 exit 0.
+- main 병합·push 없음.

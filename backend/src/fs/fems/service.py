@@ -178,3 +178,183 @@ def delete_source(context: AuthContext, source_id: int, key: str) -> None:
             {},
             204,
         )
+
+
+def _equipment_not_found() -> ApiError:
+    return ApiError(404, "NOT_FOUND", "설비를 찾을 수 없습니다.")
+
+
+def _duplicate_equipment_code() -> ApiError:
+    return ApiError(
+        400,
+        "VALIDATION_FAILED",
+        "입력값을 확인해 주세요.",
+        {"fields": {"equipmentCode": "이미 사용 중인 코드입니다."}},
+    )
+
+
+def _invalid_location() -> ApiError:
+    return ApiError(
+        400,
+        "VALIDATION_FAILED",
+        "입력값을 확인해 주세요.",
+        {"fields": {"locationId": "유효하지 않은 공간입니다."}},
+    )
+
+
+def _equipment_order(sort: str | None) -> str:
+    if sort is None:
+        return "equipment_code ASC"
+    field, _, direction = sort.partition(":")
+    column = repo.EQUIPMENT_SORT.get(field)
+    if column is None or direction not in ("asc", "desc"):
+        raise ApiError(
+            400,
+            "VALIDATION_FAILED",
+            "정렬 조건이 올바르지 않습니다.",
+            {"fields": {"sort": f"허용: {', '.join(repo.EQUIPMENT_SORT)} (asc|desc)"}},
+        )
+    return f"{column} {direction.upper()}"
+
+
+def list_equipments(
+    context: AuthContext,
+    active: bool | None,
+    location_id: int | None,
+    sort: str | None,
+    offset: int,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int]:
+    order = _equipment_order(sort)
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return repo.list_equipments(
+            connection, scoped, active, location_id, order, offset, limit
+        )
+
+
+def get_equipment(context: AuthContext, equipment_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = repo.get_equipment(connection, scoped, equipment_id)
+    if found is None:
+        raise _equipment_not_found()
+    return found
+
+
+def list_locations(context: AuthContext) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return repo.list_locations(connection, scoped)
+
+
+def create_equipment(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.equipment.create"
+        digest, cached = _replay(connection, scoped, operation, key, values)
+        if cached is not None:
+            return cached
+        if not repo.location_exists(connection, scoped, values["location_id"]):
+            raise _invalid_location()
+        if repo.equipment_code_taken(
+            connection, scoped, values["equipment_code"], None
+        ):
+            raise _duplicate_equipment_code()
+        created = repo.insert_equipment(connection, scoped, values)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            "equipment",
+            created["id"],
+            created,
+            201,
+        )
+        return created
+
+
+def update_equipment(
+    context: AuthContext, equipment_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    if not values:
+        raise ApiError(400, "VALIDATION_FAILED", "변경할 항목이 없습니다.")
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.equipment.update"
+        digest, cached = _replay(
+            connection, scoped, operation, key, {"id": equipment_id, **values}
+        )
+        if cached is not None:
+            return cached
+        current = repo.get_equipment(connection, scoped, equipment_id)
+        if current is None:
+            raise _equipment_not_found()
+        if "location_id" in values and not repo.location_exists(
+            connection, scoped, values["location_id"]
+        ):
+            raise _invalid_location()
+        if "location_id" in values and values["location_id"] != current["locationId"]:
+            references = repo.equipment_meter_references(
+                connection, scoped, equipment_id
+            )
+            if references:
+                raise ApiError(
+                    409,
+                    "PRECONDITION_NOT_MET",
+                    "계측기가 연결된 설비는 공간을 바꿀 수 없습니다. 계측기를 먼저 정리하세요.",
+                    {"reason": "LOCATION_IN_USE", "references": references},
+                )
+        if "equipment_code" in values and repo.equipment_code_taken(
+            connection, scoped, values["equipment_code"], equipment_id
+        ):
+            raise _duplicate_equipment_code()
+        updated = repo.update_equipment(connection, scoped, equipment_id, values)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            "equipment",
+            equipment_id,
+            updated,
+        )
+        return updated
+
+
+def delete_equipment(context: AuthContext, equipment_id: int, key: str) -> None:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.equipment.delete"
+        digest, cached = _replay(
+            connection, scoped, operation, key, {"id": equipment_id}
+        )
+        if cached is not None:
+            return
+        if repo.get_equipment(connection, scoped, equipment_id) is None:
+            raise _equipment_not_found()
+        references = repo.equipment_references(connection, scoped, equipment_id)
+        if references:
+            raise ApiError(
+                409,
+                "REFERENCED_BY_OTHERS",
+                "다른 기준정보가 참조 중이라 삭제할 수 없습니다. 사용 안 함으로 바꾸면 새 입력에서 제외됩니다.",
+                {"references": references},
+            )
+        repo.delete_equipment(connection, scoped, equipment_id)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            "equipment",
+            equipment_id,
+            {},
+            204,
+        )
