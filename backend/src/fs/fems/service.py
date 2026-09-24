@@ -691,9 +691,13 @@ MAX_EMISSION_DAYS = 366
 SIX = Decimal("0.000001")
 
 
-def _emission_source(
-    rows: list[dict[str, Any]], factors: dict[tuple[int, str], dict[str, Any]]
+def _converted_source(
+    rows: list[dict[str, Any]],
+    factors: dict[tuple[int, str], dict[str, Any]],
+    kind: str,
+    key: str,
 ) -> dict[str, Any]:
+    """에너지원 1개의 소비량 × 연도별 계수. key는 결과 필드 이름(emission 또는 toe)."""
     head = rows[0]
     quantity = sum((r["quantity"] for r in rows), Decimal(0)).quantize(SIX)
     result: dict[str, Any] = {
@@ -703,7 +707,7 @@ def _emission_source(
         "sourceKind": head["source_kind"],
         "consumption": {"quantity": str(quantity), "unit": head["unit"]},
         "excludedReadings": sum(r["excluded"] for r in rows),
-        "emission": None,
+        key: None,
         "segments": [],
     }
     # 용수 같은 UTILITY는 대상 아님이다. 계수 누락(계산 불가)과 구별한다(FS-005g D-1).
@@ -721,28 +725,45 @@ def _emission_source(
                 "unit": r["unit"],
             },
             "factor": None,
-            "emission": None,
+            key: None,
         }
         if factor is None:
             status = "FACTOR_MISSING"
         elif not factor["factor_unit"].endswith("/" + r["unit"]):
             status = "UNIT_MISMATCH"
-            segment["factor"] = _factor(factor, r["reading_year"])
+            segment["factor"] = _factor(factor, r["reading_year"], kind)
         else:
-            emission = (r["quantity"] * factor["factor_value"]).quantize(SIX)
-            segment["factor"] = _factor(factor, r["reading_year"])
-            segment["emission"] = str(emission)
-            total += emission
+            value = (r["quantity"] * factor["factor_value"]).quantize(SIX)
+            segment["factor"] = _factor(factor, r["reading_year"], kind)
+            segment[key] = str(value)
+            total += value
         result["segments"].append(segment)
     result["status"] = status
     if status == "CALCULATED":
-        result["emission"] = str(total)
+        result[key] = str(total)
     return result
 
 
-def _factor(factor: dict[str, Any], year: str) -> dict[str, str]:
+def _converted(
+    rows: list[dict[str, Any]],
+    factors: dict[tuple[int, str], dict[str, Any]],
+    kind: str,
+    key: str,
+) -> tuple[list[dict[str, Any]], str, bool]:
+    """에너지원별 결과, 계산된 것만의 합계, 대상이 모두 계산됐는지."""
+    groups: dict[tuple[int, str], list[dict[str, Any]]] = {}
+    for r in rows:
+        groups.setdefault((r["source_id"], r["unit"]), []).append(r)
+    sources = [_converted_source(g, factors, kind, key) for g in groups.values()]
+    applicable = [s for s in sources if s["status"] != "NOT_APPLICABLE"]
+    calculated = [s for s in applicable if s["status"] == "CALCULATED"]
+    total = sum((Decimal(s[key]) for s in calculated), Decimal(0))
+    return sources, str(total), len(calculated) == len(applicable)
+
+
+def _factor(factor: dict[str, Any], year: str, kind: str) -> dict[str, str]:
     return {
-        "kind": "EMISSION",
+        "kind": kind,
         "year": year,
         "value": str(factor["factor_value"]),
         "unit": factor["factor_unit"],
@@ -769,20 +790,144 @@ def emissions(
                 }
             date_from = date_to.replace(day=1)
         rows = repo.emission_consumption(connection, scoped, date_from, date_to)
-        factors = repo.emission_factors(connection, scoped)
-    groups: dict[tuple[int, str], list[dict[str, Any]]] = {}
-    for r in rows:
-        groups.setdefault((r["source_id"], r["unit"]), []).append(r)
-    sources = [_emission_source(g, factors) for g in groups.values()]
-    applicable = [s for s in sources if s["status"] != "NOT_APPLICABLE"]
-    calculated = [s for s in applicable if s["status"] == "CALCULATED"]
+        factors = repo.factors(connection, scoped, "EMISSION")
+    # 계산된 에너지원만 합한다. 하나라도 계산 불가면 complete=false로 알린다.
+    sources, total, complete = _converted(rows, factors, "EMISSION", "emission")
     return {
         "period": {"from": date_from.isoformat(), "to": date_to.isoformat()},
         "sources": sources,
-        # 계산된 에너지원만 합한다. 하나라도 계산 불가면 complete=false로 알린다.
-        "totalEmission": str(
-            sum((Decimal(s["emission"]) for s in calculated), Decimal(0))
-        ),
+        "totalEmission": total,
         "unit": "tCO2eq",
-        "complete": len(calculated) == len(applicable),
+        "complete": complete,
+    }
+
+
+# ---- F-01 대시보드 (FS-018f) ----
+# 1차에너지(TOE)는 PRIMARY, 배출량은 EMISSION 계수로 따로 계산한다. 단위가 다른 에너지원은 TOE 환산 후에만 더한다.
+WON = Decimal(1)
+
+
+def _month_period(connection: Connection, scoped: AuthContext, month: str | None):
+    latest = repo.latest_reading_date(connection, scoped)
+    if month is None:
+        if latest is None:
+            return None
+        month = latest.strftime("%Y-%m")
+    first = date(int(month[:4]), int(month[5:]), 1)
+    next_month = (first.replace(day=28) + timedelta(days=4)).replace(day=1)
+    last = next_month - timedelta(days=1)
+    # 당월은 최근 계측일까지(누계). 계측이 없는 달은 달 전체를 기간으로 둔다.
+    if latest is not None and first <= latest < last:
+        last = latest
+    return month, first, last
+
+
+def _charges(
+    rows: list[dict[str, Any]],
+    tariffs: dict[int, dict[str, Any]],
+    billable: set[int],
+) -> tuple[list[dict[str, Any]], str, bool]:
+    usage: dict[int, dict[str, Any]] = {}
+    for r in rows:
+        entry = usage.setdefault(
+            r["source_id"],
+            {"code": r["source_code"], "unit": r["unit"], "quantity": Decimal(0)},
+        )
+        entry["quantity"] += r["quantity"]
+    charges = []
+    for source_id, entry in usage.items():
+        if source_id not in billable:
+            continue
+        tariff = tariffs.get(source_id)
+        item: dict[str, Any] = {
+            "sourceCode": entry["code"],
+            "usage": {
+                "quantity": str(entry["quantity"].quantize(SIX)),
+                "unit": entry["unit"],
+            },
+            "tariffCode": tariff["tariff_code"] if tariff else None,
+            "amount": None,
+            "status": "TARIFF_MISSING",
+        }
+        if tariff:
+            # 기본요금 + 사용량 × 단가. 시간대 가중치 없음(FS-008a F-08).
+            amount = tariff["basic_charge"] + entry["quantity"] * tariff["usage_rate"]
+            item["amount"] = str(amount.quantize(WON))
+            item["status"] = "CALCULATED"
+        charges.append(item)
+    total = sum((Decimal(c["amount"]) for c in charges if c["amount"]), Decimal(0))
+    return charges, str(total), all(c["amount"] for c in charges)
+
+
+def _daily_toe(
+    rows: list[dict[str, Any]], factors: dict[tuple[int, str], dict[str, Any]]
+) -> list[dict[str, str]]:
+    daily: dict[str, Decimal] = {}
+    for r in rows:
+        daily.setdefault(r["reading_date"], Decimal(0))
+        factor = factors.get((r["source_id"], r["reading_date"][:4]))
+        if (
+            r["source_kind"] == "UTILITY"
+            or factor is None
+            or not factor["factor_unit"].endswith("/" + r["unit"])
+        ):
+            continue
+        daily[r["reading_date"]] += r["quantity"] * factor["factor_value"]
+    return [{"date": d, "toe": str(v.quantize(SIX))} for d, v in sorted(daily.items())]
+
+
+def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        period = _month_period(connection, scoped, month)
+        if period is None:
+            return {"period": None}
+        month, first, last = period
+        rows = repo.emission_consumption(connection, scoped, first, last)
+        primary = repo.factors(connection, scoped, "PRIMARY")
+        emission = repo.factors(connection, scoped, "EMISSION")
+        daily_rows = repo.daily_consumption(connection, scoped, first, last)
+        target = repo.site_toe_target(connection, scoped, month)
+        tariffs = repo.tariffs_for_month(connection, scoped, month)
+        billable = repo.billable_sources(connection, scoped)
+        summary = repo.allocation_summary(connection, scoped, {}, first, last)
+        issues, recent = repo.quality_issues(connection, scoped, first, last)
+    toe_sources, toe_total, toe_complete = _converted(rows, primary, "PRIMARY", "toe")
+    _, emission_total, emission_complete = _converted(
+        rows, emission, "EMISSION", "emission"
+    )
+    charges, charge_total, charge_complete = _charges(rows, tariffs, billable)
+    achievement = None
+    if target:
+        # 달성률 = 실적 ÷ 목표. 100% 이하면 목표 이내.
+        achievement = str((Decimal(toe_total) / target * 100).quantize(Decimal("0.1")))
+    return {
+        "period": {"month": month, "from": first.isoformat(), "to": last.isoformat()},
+        "primaryEnergy": {
+            "total": toe_total,
+            "unit": "TOE",
+            "complete": toe_complete,
+            "sources": toe_sources,
+        },
+        "target": {
+            "status": "SET" if target else "UNSET",
+            "target": str(target) if target else None,
+            "actual": toe_total,
+            "unit": "TOE",
+            "achievementRate": achievement,
+        },
+        "charge": {
+            "total": charge_total,
+            "currency": "KRW",
+            "complete": charge_complete,
+            "sources": charges,
+        },
+        "emission": {
+            "total": emission_total,
+            "unit": "tCO2eq",
+            "complete": emission_complete,
+        },
+        "daily": _daily_toe(daily_rows, primary),
+        "topEquipment": [s for s in summary if s["unit"] == "kWh"][:5],
+        "quality": {"issues": issues, "recent": recent},
     }

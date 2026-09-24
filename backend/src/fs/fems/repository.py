@@ -901,15 +901,108 @@ def emission_consumption(
     return [dict(r) for r in rows]
 
 
-def emission_factors(
-    connection: Connection, context: AuthContext
+def factors(
+    connection: Connection, context: AuthContext, kind: str
 ) -> dict[tuple[int, str], dict[str, Any]]:
+    """(에너지원, 연도) → 계수. kind는 'EMISSION' 또는 'PRIMARY' 하나만 받는다(섞지 않는다)."""
     rows = connection.execute(
         text(
             "SELECT energy_source_id,effective_year,factor_value,factor_unit,source_note "
             "FROM fems.energy_factor "
-            "WHERE workspace_id=:w AND generation_id=:g AND factor_kind='EMISSION'"
+            "WHERE workspace_id=:w AND generation_id=:g AND factor_kind=:kind"
         ),
-        _s(context),
+        {**_s(context), "kind": kind},
     ).mappings()
     return {(r["energy_source_id"], r["effective_year"]): dict(r) for r in rows}
+
+
+# ---- F-01 대시보드 (FS-018f) ----
+def daily_consumption(
+    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+) -> list[dict[str, Any]]:
+    """최상위 계측기 기준 에너지원 × 단위 × 날짜별 소비량(invalid 제외, 배수 적용)."""
+    rows = connection.execute(
+        text(
+            "SELECT e.id source_id,e.source_kind,c.unit,"
+            "to_char((r.observed_at - interval '1 microsecond') AT TIME ZONE s.timezone,'YYYY-MM-DD') reading_date,"
+            "coalesce(sum(r.value*c.multiplier) FILTER (WHERE r.quality<>'invalid'),0) quantity "
+            + READING_FROM
+            + READING_PERIOD
+            + " AND m.parent_meter_id IS NULL"
+            " GROUP BY e.id,e.source_kind,c.unit,reading_date ORDER BY reading_date"
+        ),
+        {**_s(context), "date_from": date_from, "date_to": date_to},
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
+def site_toe_target(connection: Connection, context: AuthContext, month: str) -> Any:
+    # 사업장 전체 목표는 에너지원 NULL + TOE 단위다(FS-005g 5.5). 용수는 포함하지 않는다.
+    return connection.execute(
+        text(
+            "SELECT sum(target_value) FROM fems.energy_target "
+            "WHERE workspace_id=:w AND generation_id=:g AND target_scope='SITE' "
+            "AND energy_source_id IS NULL AND unit='TOE' AND target_month=:m"
+        ),
+        {**_s(context), "m": month},
+    ).scalar_one()
+
+
+def tariffs_for_month(
+    connection: Connection, context: AuthContext, month: str
+) -> dict[int, dict[str, Any]]:
+    """요금 부과 대상 에너지원별로 그 달에 적용되는 요금제 1건(기간 겹침은 F-14가 막는다)."""
+    rows = connection.execute(
+        text(
+            """
+            SELECT DISTINCT ON (t.energy_source_id)
+                   t.energy_source_id,t.tariff_code,t.name,t.basic_charge,t.usage_rate,t.currency
+            FROM fems.tariff t
+            JOIN fems.energy_source e
+              ON e.workspace_id=t.workspace_id AND e.generation_id=t.generation_id AND e.id=t.energy_source_id
+            WHERE t.workspace_id=:w AND t.generation_id=:g AND e.is_billable
+              AND t.effective_from<=:m AND (t.effective_to IS NULL OR t.effective_to>=:m)
+            ORDER BY t.energy_source_id, t.effective_from DESC
+            """
+        ),
+        {**_s(context), "m": month},
+    ).mappings()
+    return {r["energy_source_id"]: dict(r) for r in rows}
+
+
+def billable_sources(connection: Connection, context: AuthContext) -> set[int]:
+    return set(
+        connection.execute(
+            text(
+                "SELECT id FROM fems.energy_source "
+                "WHERE workspace_id=:w AND generation_id=:g AND is_billable"
+            ),
+            _s(context),
+        ).scalars()
+    )
+
+
+def quality_issues(
+    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+) -> tuple[int, list[dict[str, Any]]]:
+    """정상(valid)이 아닌 계측값. 하위 계측기를 포함한 모든 채널이 대상이다."""
+    where = READING_FROM + READING_PERIOD + " AND r.quality<>'valid'"
+    params = {**_s(context), "date_from": date_from, "date_to": date_to}
+    count = connection.execute(text("SELECT count(*) " + where), params).scalar_one()
+    rows = connection.execute(
+        text(
+            "SELECT r.observed_at,r.quality,s.timezone,c.name channel_name "
+            + where
+            + " ORDER BY r.observed_at DESC, c.channel_code LIMIT 5"
+        ),
+        params,
+    ).mappings()
+    return count, [
+        {
+            "observedAt": r["observed_at"].isoformat(),
+            "timezone": r["timezone"],
+            "channelName": r["channel_name"],
+            "quality": r["quality"],
+        }
+        for r in rows
+    ]

@@ -318,3 +318,11 @@ def get_emissions(
     date_to: Annotated[date | None, Query(alias="to")] = None,
 ) -> dict[str, object]:
     return {"data": service.emissions(context, date_from, date_to)}
+
+
+@router.get("/dashboard")
+def get_dashboard(
+    context: Auth,
+    month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
+) -> dict[str, object]:
+    return {"data": service.dashboard(context, month)}
