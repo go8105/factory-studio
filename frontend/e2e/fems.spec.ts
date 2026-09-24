@@ -5,9 +5,14 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole("button", { name: /가입 없이 둘러보기/ }).click();
   await expect(page).toHaveURL("/home");
 });
-test("런처 FEMS에서 계측 조회로 이동", async ({ page }) => {
+test("런처 FEMS에서 대시보드로 이동", async ({ page }) => {
   await page.getByRole("link", { name: /FEMS 에너지관리/ }).click();
-  await expect(page).toHaveURL("/fems/readings");
+  await expect(page).toHaveURL("/fems/dashboard");
+  await expect(page.getByLabel("목표 대비")).toContainText("%");
+  await expect(page.getByLabel("계측 품질 이상")).toContainText("6건");
+});
+test("계측 조회는 서버가 정한 기간으로 시작", async ({ page }) => {
+  await page.goto("/fems/readings");
   await expect(page.getByLabel("시작일")).not.toHaveValue("");
   await expect(
     page.getByRole("cell", { name: "수전 전력" }).first(),
@@ -72,4 +77,9 @@ test("배출량은 총량과 에너지원별 상태를 보여준다", async ({ p
   const elec = page.getByRole("row", { name: /전력/ });
   await elec.getByText("근거").click();
   await expect(elec.getByText("tCO2eq/kWh")).toBeVisible();
+});
+test("대시보드 전월은 목표 초과로 표시", async ({ page }) => {
+  await page.goto("/fems/dashboard");
+  await page.getByLabel("조회 월").fill("2026-08");
+  await expect(page.getByLabel("목표 대비")).toContainText("목표 초과");
 });

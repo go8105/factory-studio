@@ -79,9 +79,9 @@ function show(path = "/fems/readings") {
     </MemoryRouter>,
   );
 }
-it("FEMS 진입은 F-02 계측 조회로 이동한다", async () => {
+it("F-02 계측 조회 화면을 표시한다", async () => {
   mockApi();
-  show("/fems");
+  show("/fems/readings");
   expect(
     await screen.findByRole("heading", { name: "계측 조회" }),
   ).toBeVisible();

@@ -87,6 +87,7 @@ for (const [route, title] of [
   ["help", "도움말"],
   ["workspace", "내 공간"],
   ["records", "페이지를 찾을 수 없습니다"],
+  ["fems/dashboard", "에너지 개요"],
   ["fems/energy-sources", "에너지원"],
   ["fems/readings", "계측 조회"],
   ["fems/allocations", "설비별 배분"],

@@ -691,3 +691,8 @@
 - 목표 95% 고정 → 월·대상별 90~105% 고정 비율표(`seed/common.py TARGET_RATIOS`). seed_version `sv-20260924-2`. 생성기·V8 검증기·test_seed.py V8 쿼리 동시 수정.
 - 신규 `test_seed_targets.py` 6개. backend 163, Playwright 28(템플릿 7,469 재생성), frontend 144, 모든 검증 exit 0.
 - 기존 템플릿·게스트 세대는 옛 값 유지(FS-005g 11장). 로컬 DB는 `seed.cli template` 재실행 필요.
+
+## 2026-09-24 FS-018f 완료 (Claude Code)
+
+- F-01 대시보드 `GET /dashboard?month`: TOE(PRIMARY, 환산 후 합산), 사업장 TOE 목표 달성률, 예상 요금(그 달 요금제), 배출량(F-04 동일), 일자별 TOE, 설비 상위 5, 품질 이상. 시드 9월 99.0% 목표 이내, 8월 104.2% 초과.
+- 테스트: backend +20(전체 183), frontend +14(전체 158), Playwright +3(전체 31). 모든 검증 exit 0. 360px 스크린샷 확인. 보고서 `docs/agent/FEMS_FS-018f.md`.

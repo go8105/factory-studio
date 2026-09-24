@@ -1075,3 +1075,58 @@ th button {
   font-size: 13px;
   margin: 4px 0 0;
 }
+/* F-01 대시보드 (FS-018f) */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 16px;
+  margin: 0 0 20px;
+}
+.kpi-grid .stat-tile {
+  margin: 0;
+}
+.kpi-grid .stat-tile strong {
+  font-size: 26px;
+}
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 16px;
+}
+.bar-list,
+.rank-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.bar-list li {
+  display: grid;
+  grid-template-columns: 5em minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.bar-list .bar {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.bar-list .bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+}
+.rank-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}
+.rank-list {
+  counter-reset: rank;
+}
