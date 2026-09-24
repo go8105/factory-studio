@@ -309,3 +309,12 @@ def list_allocations(
         "range": period,
         "summary": summary,
     }
+
+
+@router.get("/emissions")
+def get_emissions(
+    context: Auth,
+    date_from: Annotated[date | None, Query(alias="from")] = None,
+    date_to: Annotated[date | None, Query(alias="to")] = None,
+) -> dict[str, object]:
+    return {"data": service.emissions(context, date_from, date_to)}

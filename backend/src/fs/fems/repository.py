@@ -581,6 +581,10 @@ JOIN fems.energy_source e
   ON e.workspace_id=c.workspace_id AND e.generation_id=c.generation_id AND e.id=c.energy_source_id
 WHERE r.workspace_id=:w AND r.generation_id=:g
 """
+READING_PERIOD = (
+    " AND r.observed_at > (CAST(CAST(:date_from AS date) AS timestamp) AT TIME ZONE s.timezone)"
+    " AND r.observed_at <= (CAST(CAST(:date_to AS date) + 1 AS timestamp) AT TIME ZONE s.timezone)"
+)
 READING_FILTERS = {
     "site_id": "s.id=:site_id",
     "meter_id": "m.id=:meter_id",
@@ -631,11 +635,7 @@ def list_readings(
     offset: int,
     limit: int,
 ) -> tuple[list[dict[str, Any]], int]:
-    where = (
-        READING_FROM
-        + " AND r.observed_at > (CAST(CAST(:date_from AS date) AS timestamp) AT TIME ZONE s.timezone)"
-        + " AND r.observed_at <= (CAST(CAST(:date_to AS date) + 1 AS timestamp) AT TIME ZONE s.timezone)"
-    )
+    where = READING_FROM + READING_PERIOD
     for key in filters:
         where += f" AND {READING_FILTERS[key]}"
     params = {
@@ -873,3 +873,43 @@ def allocation_summary(
         }
         for r in rows
     ]
+
+
+# ---- F-04 배출량 (FS-018d) ----
+def emission_consumption(
+    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+) -> list[dict[str, Any]]:
+    """에너지원 × 계측 단위 × 연도별 소비량.
+
+    최상위 계측기(parent_meter_id IS NULL)만 합한다. 하위 계측기는 수전에 이미 포함돼 있어
+    더하면 이중 합산이다. 결측(invalid)은 빼고 건수를 센다. 계기 배수를 곱한다.
+    """
+    rows = connection.execute(
+        text(
+            "SELECT e.id source_id,e.source_code,e.name,e.source_kind,c.unit,"
+            "to_char((r.observed_at - interval '1 microsecond') AT TIME ZONE s.timezone,'YYYY') reading_year,"
+            "coalesce(sum(r.value*c.multiplier) FILTER (WHERE r.quality<>'invalid'),0) quantity,"
+            "count(*) FILTER (WHERE r.quality='invalid') excluded "
+            + READING_FROM
+            + READING_PERIOD
+            + " AND m.parent_meter_id IS NULL"
+            " GROUP BY e.id,e.source_code,e.name,e.source_kind,c.unit,reading_year"
+            " ORDER BY e.source_code,c.unit,reading_year"
+        ),
+        {**_s(context), "date_from": date_from, "date_to": date_to},
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
+def emission_factors(
+    connection: Connection, context: AuthContext
+) -> dict[tuple[int, str], dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            "SELECT energy_source_id,effective_year,factor_value,factor_unit,source_note "
+            "FROM fems.energy_factor "
+            "WHERE workspace_id=:w AND generation_id=:g AND factor_kind='EMISSION'"
+        ),
+        _s(context),
+    ).mappings()
+    return {(r["energy_source_id"], r["effective_year"]): dict(r) for r in rows}

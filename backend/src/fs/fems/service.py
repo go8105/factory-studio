@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import Connection
@@ -572,7 +573,9 @@ MAX_READING_DAYS = 31
 DEFAULT_READING_DAYS = 7
 
 
-def _check_period(date_from: date | None, date_to: date | None) -> None:
+def _check_period(
+    date_from: date | None, date_to: date | None, max_days: int = MAX_READING_DAYS
+) -> None:
     if (date_from is None) != (date_to is None):
         raise ApiError(
             400,
@@ -588,12 +591,12 @@ def _check_period(date_from: date | None, date_to: date | None) -> None:
                 "조회 기간이 올바르지 않습니다.",
                 {"fields": {"to": "시작일 이후여야 합니다."}},
             )
-        if (date_to - date_from).days >= MAX_READING_DAYS:
+        if (date_to - date_from).days >= max_days:
             raise ApiError(
                 400,
                 "VALIDATION_FAILED",
                 "조회 기간이 너무 깁니다.",
-                {"fields": {"to": f"최대 {MAX_READING_DAYS}일까지 조회합니다."}},
+                {"fields": {"to": f"최대 {max_days}일까지 조회합니다."}},
             )
 
 
@@ -679,3 +682,107 @@ def list_allocations(
         summary,
         {"from": date_from.isoformat(), "to": date_to.isoformat()},
     )
+
+
+# ---- F-04 배출량 (FS-018d) ----
+# 저장하지 않는 계산(FS-010 §7). 배출계수(EMISSION)만 쓴다. 1차에너지 환산계수(PRIMARY)와 섞지 않는다.
+MAX_EMISSION_DAYS = 366
+# 배출량 tCO2eq와 소비량 모두 소수 6자리로 낸다.
+SIX = Decimal("0.000001")
+
+
+def _emission_source(
+    rows: list[dict[str, Any]], factors: dict[tuple[int, str], dict[str, Any]]
+) -> dict[str, Any]:
+    head = rows[0]
+    quantity = sum((r["quantity"] for r in rows), Decimal(0)).quantize(SIX)
+    result: dict[str, Any] = {
+        "energySourceId": head["source_id"],
+        "sourceCode": head["source_code"],
+        "name": head["name"],
+        "sourceKind": head["source_kind"],
+        "consumption": {"quantity": str(quantity), "unit": head["unit"]},
+        "excludedReadings": sum(r["excluded"] for r in rows),
+        "emission": None,
+        "segments": [],
+    }
+    # 용수 같은 UTILITY는 대상 아님이다. 계수 누락(계산 불가)과 구별한다(FS-005g D-1).
+    if head["source_kind"] == "UTILITY":
+        result["status"] = "NOT_APPLICABLE"
+        return result
+    total = Decimal(0)
+    status = "CALCULATED"
+    for r in rows:
+        factor = factors.get((head["source_id"], r["reading_year"]))
+        segment: dict[str, Any] = {
+            "year": r["reading_year"],
+            "consumption": {
+                "quantity": str(r["quantity"].quantize(SIX)),
+                "unit": r["unit"],
+            },
+            "factor": None,
+            "emission": None,
+        }
+        if factor is None:
+            status = "FACTOR_MISSING"
+        elif not factor["factor_unit"].endswith("/" + r["unit"]):
+            status = "UNIT_MISMATCH"
+            segment["factor"] = _factor(factor, r["reading_year"])
+        else:
+            emission = (r["quantity"] * factor["factor_value"]).quantize(SIX)
+            segment["factor"] = _factor(factor, r["reading_year"])
+            segment["emission"] = str(emission)
+            total += emission
+        result["segments"].append(segment)
+    result["status"] = status
+    if status == "CALCULATED":
+        result["emission"] = str(total)
+    return result
+
+
+def _factor(factor: dict[str, Any], year: str) -> dict[str, str]:
+    return {
+        "kind": "EMISSION",
+        "year": year,
+        "value": str(factor["factor_value"]),
+        "unit": factor["factor_unit"],
+        "source": factor["source_note"],
+    }
+
+
+def emissions(
+    context: AuthContext, date_from: date | None, date_to: date | None
+) -> dict[str, Any]:
+    _check_period(date_from, date_to, MAX_EMISSION_DAYS)
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        if date_to is None:
+            # 기본은 가장 최근 계측일이 속한 달의 1일부터 그날까지(당월 누계).
+            date_to = repo.latest_reading_date(connection, scoped)
+            if date_to is None:
+                return {
+                    "period": None,
+                    "sources": [],
+                    "totalEmission": None,
+                    "unit": "tCO2eq",
+                    "complete": True,
+                }
+            date_from = date_to.replace(day=1)
+        rows = repo.emission_consumption(connection, scoped, date_from, date_to)
+        factors = repo.emission_factors(connection, scoped)
+    groups: dict[tuple[int, str], list[dict[str, Any]]] = {}
+    for r in rows:
+        groups.setdefault((r["source_id"], r["unit"]), []).append(r)
+    sources = [_emission_source(g, factors) for g in groups.values()]
+    applicable = [s for s in sources if s["status"] != "NOT_APPLICABLE"]
+    calculated = [s for s in applicable if s["status"] == "CALCULATED"]
+    return {
+        "period": {"from": date_from.isoformat(), "to": date_to.isoformat()},
+        "sources": sources,
+        # 계산된 에너지원만 합한다. 하나라도 계산 불가면 complete=false로 알린다.
+        "totalEmission": str(
+            sum((Decimal(s["emission"]) for s in calculated), Decimal(0))
+        ),
+        "unit": "tCO2eq",
+        "complete": len(calculated) == len(applicable),
+    }
