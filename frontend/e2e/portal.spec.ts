@@ -92,6 +92,7 @@ for (const [route, title] of [
   ["fems/readings", "계측 조회"],
   ["fems/allocations", "설비별 배분"],
   ["fems/emissions", "배출량 현황"],
+  ["fems/targets", "목표 대비 실적"],
 ]) {
   test(`360px ${route} 가로 스크롤 없음`, async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });

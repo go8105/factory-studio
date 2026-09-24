@@ -696,3 +696,9 @@
 
 - F-01 대시보드 `GET /dashboard?month`: TOE(PRIMARY, 환산 후 합산), 사업장 TOE 목표 달성률, 예상 요금(그 달 요금제), 배출량(F-04 동일), 일자별 TOE, 설비 상위 5, 품질 이상. 시드 9월 99.0% 목표 이내, 8월 104.2% 초과.
 - 테스트: backend +20(전체 183), frontend +14(전체 158), Playwright +3(전체 31). 모든 검증 exit 0. 360px 스크린샷 확인. 보고서 `docs/agent/FEMS_FS-018f.md`.
+
+## 2026-09-24 FS-018g 완료 (Claude Code)
+
+- F-07 `GET /targets/performance`: 범위별 섹션, 단위 불일치는 계산 불가, 목표 없으면 미설정, 당월 누계 표시. 시드 9월 사업장·설비 모두 이내·초과 혼재.
+- F-14 기준정보 그룹 이동, 360px 달성률·상태 열 앞으로, 스모크 포트 검사 SO_REUSEADDR(연속 실행 오검출 수정).
+- 테스트: backend +18(전체 201), frontend +11(전체 169), Playwright +2(전체 33). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018g.md`.

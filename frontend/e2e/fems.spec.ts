@@ -83,3 +83,13 @@ test("대시보드 전월은 목표 초과로 표시", async ({ page }) => {
   await page.getByLabel("조회 월").fill("2026-08");
   await expect(page.getByLabel("목표 대비")).toContainText("목표 초과");
 });
+test("목표 대비 실적은 범위별 섹션과 미설정을 보여준다", async ({ page }) => {
+  await page.goto("/fems/targets");
+  await expect(
+    page.getByRole("heading", { name: "사업장 목표" }),
+  ).toBeVisible();
+  const ins02 = page.getByRole("row", { name: /INS-02/ });
+  await expect(ins02.getByText("미설정")).toBeVisible();
+  await expect(page.getByText("목표 이내").first()).toBeVisible();
+  await expect(page.getByText("목표 초과").first()).toBeVisible();
+});

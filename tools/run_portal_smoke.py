@@ -31,6 +31,8 @@ def main() -> None:
     # 기존 개발 서버를 잘못 테스트하거나 종료하지 않는다.
     for port in (8000, 5173):
         with socket.socket() as probe:
+            # 직전 실행의 TIME_WAIT 소켓은 무시하고, 실제로 LISTEN 중인 서버만 막는다.
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 probe.bind(("127.0.0.1", port))
             except OSError as error:
