@@ -14,6 +14,8 @@ from fs.fems.schema import (
     EnergySourceUpdate,
     EquipmentCreate,
     EquipmentUpdate,
+    TariffCreate,
+    TariffUpdate,
 )
 
 router = APIRouter()
@@ -152,6 +154,75 @@ def delete_equipment(
 ) -> Response:
     key = _mutation(context, x_csrf_token, idempotency_key)
     service.delete_equipment(context, equipment_id, key)
+    return Response(status_code=204)
+
+
+@router.get("/tariffs")
+def list_tariffs(
+    context: Auth,
+    offset: int = 0,
+    limit: int = 50,
+    sort: str | None = None,
+    energy_source_id: Annotated[int | None, Query(alias="energySourceId")] = None,
+) -> dict[str, object]:
+    page = Page(offset, limit).checked()
+    data, total = service.list_tariffs(
+        context, energy_source_id, sort, page.offset, page.limit
+    )
+    return {
+        "data": data,
+        "page": {"offset": page.offset, "limit": page.limit, "total": total},
+    }
+
+
+@router.get("/tariffs/{tariff_id}")
+def get_tariff(context: Auth, tariff_id: int) -> dict[str, object]:
+    return {"data": service.get_tariff(context, tariff_id)}
+
+
+@router.post("/tariffs", status_code=201)
+def post_tariff(
+    payload: TariffCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_tariff(context, payload.model_dump(), key)}
+
+
+@router.patch("/tariffs/{tariff_id}")
+def patch_tariff(
+    tariff_id: int,
+    payload: TariffUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(exclude_unset=True)
+    non_null_fields = {
+        "energy_source_id",
+        "tariff_code",
+        "name",
+        "basic_charge",
+        "usage_rate",
+        "effective_from",
+    }
+    if any(values.get(f) is None for f in non_null_fields if f in values):
+        raise ApiError(400, "VALIDATION_FAILED", "필수 항목은 null로 비울 수 없습니다.")
+    return {"data": service.update_tariff(context, tariff_id, values, key)}
+
+
+@router.delete("/tariffs/{tariff_id}", status_code=204)
+def delete_tariff(
+    tariff_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> Response:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    service.delete_tariff(context, tariff_id, key)
     return Response(status_code=204)
 
 

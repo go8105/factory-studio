@@ -361,6 +361,212 @@ def delete_equipment(context: AuthContext, equipment_id: int, key: str) -> None:
         )
 
 
+def _tariff_not_found() -> ApiError:
+    return ApiError(404, "NOT_FOUND", "요금제를 찾을 수 없습니다.")
+
+
+def _duplicate_tariff_code() -> ApiError:
+    return ApiError(
+        400,
+        "VALIDATION_FAILED",
+        "입력값을 확인해 주세요.",
+        {"fields": {"tariffCode": "이미 사용 중인 코드입니다."}},
+    )
+
+
+def _invalid_energy_source() -> ApiError:
+    return ApiError(
+        400,
+        "VALIDATION_FAILED",
+        "입력값을 확인해 주세요.",
+        {"fields": {"energySourceId": "유효하지 않은 에너지원입니다."}},
+    )
+
+
+def _invalid_effective_to() -> ApiError:
+    return ApiError(
+        400,
+        "VALIDATION_FAILED",
+        "입력값을 확인해 주세요.",
+        {
+            "fields": {
+                "effectiveTo": "적용 종료 연월은 적용 시작 연월 이상이어야 합니다."
+            }
+        },
+    )
+
+
+def _tariff_order(sort: str | None) -> str:
+    if sort is None:
+        return "tariff_code ASC"
+    field, _, direction = sort.partition(":")
+    column = repo.TARIFF_SORT.get(field)
+    if column is None or direction not in ("asc", "desc"):
+        raise ApiError(
+            400,
+            "VALIDATION_FAILED",
+            "정렬 조건이 올바르지 않습니다.",
+            {"fields": {"sort": f"허용: {', '.join(repo.TARIFF_SORT)} (asc|desc)"}},
+        )
+    return f"{column} {direction.upper()}"
+
+
+def list_tariffs(
+    context: AuthContext,
+    energy_source_id: int | None,
+    sort: str | None,
+    offset: int,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int]:
+    order = _tariff_order(sort)
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return repo.list_tariffs(
+            connection, scoped, energy_source_id, order, offset, limit
+        )
+
+
+def get_tariff(context: AuthContext, tariff_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = repo.get_tariff(connection, scoped, tariff_id)
+    if found is None:
+        raise _tariff_not_found()
+    return found
+
+
+def create_tariff(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.tariff.create"
+        digest, cached = _replay(connection, scoped, operation, key, values)
+        if cached is not None:
+            return cached
+        if not repo.source_exists(connection, scoped, values["energy_source_id"]):
+            raise _invalid_energy_source()
+        if (
+            values.get("effective_to") is not None
+            and values["effective_to"] < values["effective_from"]
+        ):
+            raise _invalid_effective_to()
+        if repo.tariff_code_taken(connection, scoped, values["tariff_code"], None):
+            raise _duplicate_tariff_code()
+        conflicts = repo.find_overlapping_tariffs(
+            connection,
+            scoped,
+            values["energy_source_id"],
+            values["effective_from"],
+            values.get("effective_to"),
+        )
+        if conflicts:
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "같은 에너지원에 적용 기간이 겹치는 요금제가 있습니다.",
+                {"reason": "PERIOD_OVERLAP", "conflicts": conflicts},
+            )
+        created = repo.insert_tariff(connection, scoped, values)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            "tariff",
+            created["id"],
+            created,
+            201,
+        )
+        return created
+
+
+def update_tariff(
+    context: AuthContext, tariff_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    if not values:
+        raise ApiError(400, "VALIDATION_FAILED", "변경할 항목이 없습니다.")
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.tariff.update"
+        digest, cached = _replay(
+            connection, scoped, operation, key, {"id": tariff_id, **values}
+        )
+        if cached is not None:
+            return cached
+        current = repo.get_tariff(connection, scoped, tariff_id)
+        if current is None:
+            raise _tariff_not_found()
+        if "energy_source_id" in values and not repo.source_exists(
+            connection, scoped, values["energy_source_id"]
+        ):
+            raise _invalid_energy_source()
+        final_source_id = values.get("energy_source_id", current["energySourceId"])
+        final_from = values.get("effective_from", current["effectiveFrom"])
+        final_to = (
+            values["effective_to"]
+            if "effective_to" in values
+            else current["effectiveTo"]
+        )
+        if final_to is not None and final_to < final_from:
+            raise _invalid_effective_to()
+        if "tariff_code" in values and repo.tariff_code_taken(
+            connection, scoped, values["tariff_code"], tariff_id
+        ):
+            raise _duplicate_tariff_code()
+        conflicts = repo.find_overlapping_tariffs(
+            connection,
+            scoped,
+            final_source_id,
+            final_from,
+            final_to,
+            exclude_tariff_id=tariff_id,
+        )
+        if conflicts:
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "같은 에너지원에 적용 기간이 겹치는 요금제가 있습니다.",
+                {"reason": "PERIOD_OVERLAP", "conflicts": conflicts},
+            )
+        updated = repo.update_tariff(connection, scoped, tariff_id, values)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            "tariff",
+            tariff_id,
+            updated,
+        )
+        return updated
+
+
+def delete_tariff(context: AuthContext, tariff_id: int, key: str) -> None:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.tariff.delete"
+        digest, cached = _replay(connection, scoped, operation, key, {"id": tariff_id})
+        if cached is not None:
+            return
+        if repo.get_tariff(connection, scoped, tariff_id) is None:
+            raise _tariff_not_found()
+        repo.delete_tariff(connection, scoped, tariff_id)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            "tariff",
+            tariff_id,
+            {},
+            204,
+        )
+
+
 # ---- F-02 계측 조회 (FS-018b) ----
 MAX_READING_DAYS = 31
 DEFAULT_READING_DAYS = 7

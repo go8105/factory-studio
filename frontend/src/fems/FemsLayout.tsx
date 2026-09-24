@@ -11,6 +11,7 @@ export const femsScreens = [
   },
   { path: "equipments", id: "F-10", label: "설비", group: "기준정보" },
   { path: "energy-sources", id: "F-11", label: "에너지원", group: "기준정보" },
+  { path: "tariffs", id: "F-14", label: "요금제", group: "요금" },
 ];
 export function FemsLayout() {
   return (

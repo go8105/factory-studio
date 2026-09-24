@@ -1,7 +1,7 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-018a 완료, AG-05(F-10 설비 복제 구현) antigravity/ag-05-f10 브랜치 완료.**
+- 단계: **FS-018c 완료, AG-06(F-14 요금제 복제 구현) antigravity/ag-06-f14 브랜치 완료.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
@@ -655,3 +655,27 @@
 - 화면: 단위별 합계 패널, 결과 표, 행별 계산 근거 패널(`<details>`), 이전 산정 결과 포함 옵션.
 - 사용자 결정: F-14 요금제 적용 기간 겹침은 409 `PERIOD_OVERLAP`. FS-010 §7 기록.
 - 테스트: backend +16(전체 121), frontend +11(전체 121), Playwright +3(전체 26). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018c.md`.
+
+## 2026-09-24 AG-06 F-14 요금제 복제 완료 (antigravity)
+
+- F-14 요금제: F-10 설비 화면 패턴 그대로 복제 구현.
+- 백엔드 (`backend/src/fs/fems/`):
+  - `schema.py`: `TariffCreate`, `TariffUpdate` 스키마 추가. 금액(basicCharge, usageRate)은 소수점 4자리 이하 문자열, effectiveFrom/effectiveTo는 `YYYY-MM` 정규식 검증.
+  - `repository.py`: `TARIFF_COLUMNS`, `TARIFF_SORT`, `source_exists`, `tariff_dict`, `list_tariffs`, `get_tariff`, `tariff_code_taken`, `insert_tariff`, `update_tariff`, `delete_tariff`, `find_overlapping_tariffs` 구현.
+  - `service.py`: `list_tariffs`, `get_tariff`, `create_tariff`, `update_tariff`, `delete_tariff` 구현.
+    - 부모 에너지원(`energy_source_id`) 존재 검증 실패 시 400 `fields.energySourceId` (`INVALID_ENERGY_SOURCE`).
+    - `effective_to < effective_from` 시 400 `fields.effectiveTo` (`INVALID_EFFECTIVE_TO`).
+    - 기간 겹침 시 409 `PRECONDITION_NOT_MET` (`details.reason="PERIOD_OVERLAP"`, `details.conflicts=[{id, tariffCode, effectiveFrom, effectiveTo}]`).
+    - 삭제는 참조 테이블이 없어 멱등 삭제 지원.
+  - `router.py`: `GET/POST /tariffs`, `GET/PATCH/DELETE /tariffs/{id}` 라우트 등록.
+- 프론트엔드 (`frontend/src/fems/`):
+  - `Tariffs.tsx`: F-10 설비 화면 패턴 복제 구현. 에너지원 필터 및 선택, 기본요금/사용요금 쉼표 포맷팅, 적용 기간 표시(진행중/기간), 에너지원 부재 시 EmptyState, 등록/수정 모달 및 기간 겹침(PERIOD_OVERLAP) 충돌 정보 표시, 삭제 확인 다이얼로그.
+  - `FemsLayout.tsx`: `femsScreens`에 F-14 요금제 등록 (group: "요금").
+  - `index.tsx`: F-14 라우트 등록 (`/tariffs`).
+- 테스트 및 검증:
+  - `backend/tests/test_fems_tariff.py`: 21개 테스트 신규 작성 (에너지원 검증, 코드 중복, 기간 검증, 겹침 409 충돌정보 검증, CRUD 등).
+  - `frontend/src/fems/tariffs.test.tsx`: 12개 테스트 신규 작성 (목록/필터/등록/수정/삭제/충돌 표시 등).
+  - 백엔드 전체 테스트 통과: `pytest backend/tests -q` 142 passed (테스트 DB: `factory_studio_test`, exit 0).
+  - 프론트엔드 전체 테스트 통과: `npm --prefix frontend test` 12개 파일 133개 테스트 ALL PASSED (exit 0).
+  - typecheck, lint, format:check, build, ruff check/format, git diff --check 모두 exit 0.
+- main 병합·push 없음.

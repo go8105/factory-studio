@@ -6,6 +6,7 @@ import { EnergySources } from "./EnergySources";
 import { Readings } from "./Readings";
 import { Allocations } from "./Allocations";
 import { Equipments } from "./Equipments";
+import { Tariffs } from "./Tariffs";
 export default function FemsRoutes() {
   return (
     <Routes>
@@ -15,6 +16,7 @@ export default function FemsRoutes() {
         <Route path="readings" element={<Readings />} />
         <Route path="allocations" element={<Allocations />} />
         <Route path="energy-sources" element={<EnergySources />} />
+        <Route path="tariffs" element={<Tariffs />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

@@ -52,3 +52,39 @@ class EquipmentUpdate(ApiModel):
     )
     location_id: int | None = Field(None, alias="locationId", gt=0)
     is_active: bool | None = Field(None, alias="isActive")
+
+
+class TariffCreate(ApiModel):
+    energy_source_id: int = Field(alias="energySourceId", gt=0)
+    tariff_code: str = Field(alias="tariffCode", pattern=r"^[A-Z][A-Z0-9_\-]{1,29}$")
+    name: str = Field(min_length=1, max_length=100)
+    contract_type: str | None = Field(None, alias="contractType", max_length=50)
+    basic_charge: str = Field(alias="basicCharge", pattern=r"^\d+(\.\d{1,4})?$")
+    usage_rate: str = Field(alias="usageRate", pattern=r"^\d+(\.\d{1,4})?$")
+    effective_from: str = Field(
+        alias="effectiveFrom", pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$"
+    )
+    effective_to: str | None = Field(
+        None, alias="effectiveTo", pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$"
+    )
+
+
+class TariffUpdate(ApiModel):
+    energy_source_id: int | None = Field(None, alias="energySourceId", gt=0)
+    tariff_code: str | None = Field(
+        None, alias="tariffCode", pattern=r"^[A-Z][A-Z0-9_\-]{1,29}$"
+    )
+    name: str | None = Field(None, min_length=1, max_length=100)
+    contract_type: str | None = Field(None, alias="contractType", max_length=50)
+    basic_charge: str | None = Field(
+        None, alias="basicCharge", pattern=r"^\d+(\.\d{1,4})?$"
+    )
+    usage_rate: str | None = Field(
+        None, alias="usageRate", pattern=r"^\d+(\.\d{1,4})?$"
+    )
+    effective_from: str | None = Field(
+        None, alias="effectiveFrom", pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$"
+    )
+    effective_to: str | None = Field(
+        None, alias="effectiveTo", pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$"
+    )

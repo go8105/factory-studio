@@ -184,6 +184,13 @@ EQUIPMENT_REFERENCES = (
     ("fems.production_record", "생산 실적"),
 )
 LOCATION_COLUMNS = "id,location_code,name,kind"
+TARIFF_COLUMNS = "id,energy_source_id,tariff_code,name,contract_type,basic_charge,usage_rate,currency,effective_from,effective_to,created_at"
+TARIFF_SORT = {
+    "tariffCode": "tariff_code",
+    "name": "name",
+    "effectiveFrom": "effective_from",
+    "createdAt": "created_at",
+}
 
 
 def equipment_dict(row: Any) -> dict[str, Any]:
@@ -379,6 +386,184 @@ def list_locations(
         _s(context),
     ).mappings()
     return [location_dict(r) for r in rows]
+
+
+def source_exists(connection: Connection, context: AuthContext, source_id: int) -> bool:
+    count = connection.execute(
+        text(
+            "SELECT count(*) FROM fems.energy_source "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), "id": source_id},
+    ).scalar_one()
+    return count > 0
+
+
+def tariff_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "energySourceId": row["energy_source_id"],
+        "tariffCode": row["tariff_code"],
+        "name": row["name"],
+        "contractType": row["contract_type"],
+        "basicCharge": str(row["basic_charge"]),
+        "usageRate": str(row["usage_rate"]),
+        "currency": row["currency"],
+        "effectiveFrom": row["effective_from"],
+        "effectiveTo": row["effective_to"],
+        "createdAt": row["created_at"].isoformat(),
+    }
+
+
+def list_tariffs(
+    connection: Connection,
+    context: AuthContext,
+    energy_source_id: int | None,
+    order: str,
+    offset: int,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int]:
+    where = "workspace_id=:w AND generation_id=:g"
+    params: dict[str, Any] = {**_s(context), "offset": offset, "limit": limit}
+    if energy_source_id is not None:
+        where += " AND energy_source_id=:energy_source_id"
+        params["energy_source_id"] = energy_source_id
+    total = connection.execute(
+        text(f"SELECT count(*) FROM fems.tariff WHERE {where}"), params
+    ).scalar_one()
+    rows = connection.execute(
+        text(
+            f"SELECT {TARIFF_COLUMNS} FROM fems.tariff WHERE {where} "
+            f"ORDER BY {order}, id OFFSET :offset LIMIT :limit"
+        ),
+        params,
+    ).mappings()
+    return [tariff_dict(r) for r in rows], total
+
+
+def get_tariff(
+    connection: Connection, context: AuthContext, tariff_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(
+                f"SELECT {TARIFF_COLUMNS} FROM fems.tariff "
+                "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+            ),
+            {**_s(context), "id": tariff_id},
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else tariff_dict(row)
+
+
+def tariff_code_taken(
+    connection: Connection,
+    context: AuthContext,
+    tariff_code: str,
+    tariff_id: int | None,
+) -> bool:
+    where = "workspace_id=:w AND generation_id=:g AND tariff_code=:code"
+    params: dict[str, Any] = {**_s(context), "code": tariff_code}
+    if tariff_id is not None:
+        where += " AND id!=:id"
+        params["id"] = tariff_id
+    count = connection.execute(
+        text(f"SELECT count(*) FROM fems.tariff WHERE {where}"), params
+    ).scalar_one()
+    return count > 0
+
+
+def insert_tariff(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    payload = {"currency": "KRW", **values}
+    columns = ",".join(payload.keys())
+    placeholders = ",".join(f":{column}" for column in payload)
+    row = (
+        connection.execute(
+            text(
+                f"INSERT INTO fems.tariff (workspace_id, generation_id, {columns}) "
+                f"VALUES (:w, :g, {placeholders}) RETURNING {TARIFF_COLUMNS}"
+            ),
+            {**_s(context), **payload},
+        )
+        .mappings()
+        .one()
+    )
+    return tariff_dict(row)
+
+
+def update_tariff(
+    connection: Connection,
+    context: AuthContext,
+    tariff_id: int,
+    values: dict[str, Any],
+) -> dict[str, Any]:
+    assignments = ",".join(f"{column}=:{column}" for column in values)
+    row = (
+        connection.execute(
+            text(
+                f"UPDATE fems.tariff SET {assignments} "
+                f"WHERE workspace_id=:w AND generation_id=:g AND id=:id RETURNING {TARIFF_COLUMNS}"
+            ),
+            {**_s(context), **values, "id": tariff_id},
+        )
+        .mappings()
+        .one()
+    )
+    return tariff_dict(row)
+
+
+def delete_tariff(connection: Connection, context: AuthContext, tariff_id: int) -> None:
+    connection.execute(
+        text(
+            "DELETE FROM fems.tariff WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), "id": tariff_id},
+    )
+
+
+def find_overlapping_tariffs(
+    connection: Connection,
+    context: AuthContext,
+    energy_source_id: int,
+    effective_from: str,
+    effective_to: str | None,
+    exclude_tariff_id: int | None = None,
+) -> list[dict[str, Any]]:
+    where = (
+        "workspace_id=:w AND generation_id=:g AND energy_source_id=:energy_source_id"
+    )
+    params: dict[str, Any] = {**_s(context), "energy_source_id": energy_source_id}
+    if exclude_tariff_id is not None:
+        where += " AND id!=:exclude_id"
+        params["exclude_id"] = exclude_tariff_id
+    rows = connection.execute(
+        text(
+            f"SELECT {TARIFF_COLUMNS} FROM fems.tariff WHERE {where} "
+            "ORDER BY effective_from ASC, id ASC"
+        ),
+        params,
+    ).mappings()
+    conflicts = []
+    for r in rows:
+        r_from = r["effective_from"]
+        r_to = r["effective_to"]
+        if (effective_to is not None and effective_to < r_from) or (
+            r_to is not None and r_to < effective_from
+        ):
+            continue
+        conflicts.append(
+            {
+                "id": r["id"],
+                "tariffCode": r["tariff_code"],
+                "effectiveFrom": r_from,
+                "effectiveTo": r_to,
+            }
+        )
+    return conflicts
 
 
 # ---- F-02 계측 조회 (FS-018b) ----
