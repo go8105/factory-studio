@@ -890,3 +890,79 @@ th button {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+/* 조회 화면 필터 한 줄 (FS-018b) */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  margin: 0 0 16px;
+}
+.filter-bar label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.filter-bar input,
+.filter-bar select {
+  font: inherit;
+  color: var(--ink);
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  max-width: 100%;
+}
+.reading-chart {
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.reading-chart figcaption {
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+.reading-chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.reading-chart .series {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.reading-chart .axis,
+.reading-chart .grid {
+  stroke: var(--border);
+}
+.reading-chart .grid {
+  stroke-dasharray: 2 4;
+}
+.reading-chart .crosshair {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+.reading-chart .marker {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.reading-chart .tick {
+  font-size: 11px;
+  fill: var(--muted);
+}
+.chart-tooltip {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 8px 0 0;
+}
+@media (max-width: 400px) {
+  .filter-bar label {
+    flex: 1 1 100%;
+  }
+}

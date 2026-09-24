@@ -20,4 +20,8 @@ def get_settings() -> Settings:
         raise RuntimeError("DATABASE_URL is required")
     if not session_secret or len(session_secret) < 32:
         raise RuntimeError("SESSION_SECRET must contain at least 32 characters")
-    return Settings(database_url=database_url, session_secret=session_secret)
+    return Settings(
+        database_url=database_url,
+        session_secret=session_secret,
+        guest_limit=int(os.environ.get("GUEST_LIMIT", "20")),
+    )

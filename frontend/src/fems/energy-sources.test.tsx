@@ -82,9 +82,9 @@ it("런처의 FEMS 카드는 FEMS 화면으로 연결된다", async () => {
     await screen.findByRole("link", { name: /FEMS 에너지관리/ }),
   ).toHaveAttribute("href", "/fems");
 });
-it("FEMS 진입은 F-11로 이동해 실제 목록을 표시한다", async () => {
+it("F-11은 실제 목록을 표시한다", async () => {
   mockApi();
-  show("/fems");
+  show("/fems/energy-sources");
   expect(await screen.findByRole("cell", { name: "도시가스" })).toBeVisible();
 });
 it("사이드바는 구현된 화면만 보여준다", async () => {

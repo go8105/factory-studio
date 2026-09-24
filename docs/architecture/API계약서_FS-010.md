@@ -256,6 +256,8 @@ POST /sales-records/{id}/cancel      취소
 - 코드 중복은 400 `VALIDATION_FAILED` + `details.fields.<필드>`로 준다(화면 인라인 오류).
 - `details.references`는 `[{ "table", "label", "count" }]` 배열이다.
 - 참조 중인 에너지원의 계측 단위 변경은 409 `PRECONDITION_NOT_MET`, `reason = "UNIT_IN_USE"`.
+- 계측기가 연결된 설비의 공간 변경은 409 `PRECONDITION_NOT_MET`, `reason = "LOCATION_IN_USE"` (AG-05).
+- `GET /readings` (FS-018b): 날짜 `D`는 사업장 시간대의 `(D 00:00, D+1 00:00]`. 기간을 생략하면 최근 계측일까지 7일, 응답 `range`로 알린다. 최대 31일. **`quality = invalid` 행의 `value`는 `null`**(0 합산 방지).
 
 ### 계산 결과를 저장하지 않는 엔드포인트
 

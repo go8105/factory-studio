@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { App } from "../app/App";
+import { femsScreens } from "./FemsLayout";
 
 const session = {
   actorKind: "GUEST",
@@ -99,7 +100,9 @@ it("사이드바는 구현된 화면(F-10, F-11)을 보여준다", async () => {
   mockApi();
   show("/fems/equipments");
   const menu = await screen.findByRole("complementary", { name: "FEMS 메뉴" });
-  expect(menu.querySelectorAll('a[href^="/fems/"]')).toHaveLength(2);
+  expect(menu.querySelectorAll('a[href^="/fems/"]')).toHaveLength(
+    femsScreens.length,
+  );
   expect(screen.getByRole("link", { name: /F-10 설비/ })).toBeVisible();
   expect(screen.getByRole("link", { name: /F-11 에너지원/ })).toBeVisible();
 });

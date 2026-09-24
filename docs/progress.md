@@ -641,3 +641,10 @@
   - 프론트엔드 전체 테스트 통과: `npm --prefix frontend test` 9개 파일 96개 테스트 ALL PASSED (exit 0).
   - typecheck, lint, format:check, build, ruff check/format, git diff --check 모두 exit 0.
 - main 병합·push 없음.
+
+## 2026-09-24 FS-018b 완료 (Claude Code)
+
+- AG-05 검토: 저장소 대조 일치, frontend 96·backend 87 재현. 저장소 ruff 설정 기준 `test_fems_equipment.py` import 정렬 오류를 이 브랜치에서 수정(`test_common.py`의 같은 오류는 antigravity 소유라 보류).
+- F-02 계측 조회: `GET /readings`(사업장 시간대 날짜 기간, 기본 최근 7일, 최대 31일, 결측 value=null), `/meters`, `/sites`. 화면은 초안/적용 필터, 표 기본, 채널 1개일 때만 선 그래프(결측은 선 끊김).
+- `GUEST_LIMIT` 환경 변수(기본 20). 스모크가 23개로 늘어 상한에 걸린 것을 재현 후 테스트 서버만 200으로 올렸다.
+- 테스트: backend +18(전체 105), frontend +14(전체 110), Playwright +4(전체 23). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018b.md`.

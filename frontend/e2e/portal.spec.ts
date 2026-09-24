@@ -88,6 +88,7 @@ for (const [route, title] of [
   ["workspace", "내 공간"],
   ["records", "페이지를 찾을 수 없습니다"],
   ["fems/energy-sources", "에너지원"],
+  ["fems/readings", "계측 조회"],
 ]) {
   test(`360px ${route} 가로 스크롤 없음`, async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });

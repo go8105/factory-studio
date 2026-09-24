@@ -3,13 +3,15 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { NotFound } from "../shared/components";
 import { FemsLayout } from "./FemsLayout";
 import { EnergySources } from "./EnergySources";
+import { Readings } from "./Readings";
 import { Equipments } from "./Equipments";
 export default function FemsRoutes() {
   return (
     <Routes>
       <Route element={<FemsLayout />}>
-        <Route index element={<Navigate to="energy-sources" replace />} />
+        <Route index element={<Navigate to="readings" replace />} />
         <Route path="equipments" element={<Equipments />} />
+        <Route path="readings" element={<Readings />} />
         <Route path="energy-sources" element={<EnergySources />} />
         <Route path="*" element={<NotFound />} />
       </Route>

@@ -41,6 +41,8 @@ def main() -> None:
         **os.environ,
         "DATABASE_URL": url.render_as_string(hide_password=False),
         "SESSION_SECRET": secrets.token_urlsafe(48),
+        # 테스트마다 새 게스트를 만든다. 제품 기본 상한(20)과 무관하게 스모크 전체를 수용한다.
+        "GUEST_LIMIT": "200",
     }
     admin = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
     with admin.connect() as connection:
