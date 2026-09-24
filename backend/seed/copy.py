@@ -2,7 +2,7 @@ from __future__ import annotations
 # ruff: noqa: I001
 
 from collections import defaultdict
-from datetime import date
+from datetime import UTC, date, datetime
 from time import perf_counter
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
@@ -79,6 +79,100 @@ def copy_template(
         .where(workspace.c.id == target_workspace_id)
         .values(active_generation_id=target_generation_id)
     )
+    counts = _copy_business_rows(
+        connection,
+        metadata,
+        source_workspace_id,
+        source_generation_id,
+        target_workspace_id,
+        target_generation_id,
+        source_date,
+        target_date,
+        copy_modules=True,
+    )
+    return target_workspace_id, target_generation_id, counts, perf_counter() - started
+
+
+def copy_template_generation(
+    connection: Connection,
+    source_workspace_id: int,
+    source_generation_id: int,
+    target_workspace_id: int,
+    target_date: date,
+) -> tuple[int, dict[str, int], float]:
+    """기존 공간에 새 세대를 복사한다. 공간 설정은 유지한다."""
+    metadata = MetaData()
+    for schema in ("core", *SCHEMAS):
+        metadata.reflect(connection, schema=schema)
+    workspace = metadata.tables["core.workspace"]
+    generation = metadata.tables["core.data_generation"]
+    source_date = connection.execute(
+        text(
+            "SELECT seed_date FROM core.data_generation WHERE workspace_id=:w AND id=:g"
+        ),
+        {"w": source_workspace_id, "g": source_generation_id},
+    ).scalar_one()
+    started = perf_counter()
+    current_generation_id = connection.execute(
+        text("SELECT active_generation_id FROM core.workspace WHERE id=:w FOR UPDATE"),
+        {"w": target_workspace_id},
+    ).scalar_one()
+    target_generation_id = connection.execute(
+        generation.insert()
+        .values(
+            workspace_id=target_workspace_id,
+            seed_version=SEED_VERSION,
+            seed_date=target_date,
+            activated_at=None,
+            retired_at=None,
+            purged_at=None,
+            created_at=at(target_date, 0),
+            status="preparing",
+        )
+        .returning(generation.c.id)
+    ).scalar_one()
+    counts = _copy_business_rows(
+        connection,
+        metadata,
+        source_workspace_id,
+        source_generation_id,
+        target_workspace_id,
+        target_generation_id,
+        source_date,
+        target_date,
+        copy_modules=False,
+    )
+    now = datetime.now(UTC)
+    connection.execute(
+        update(generation)
+        .where(generation.c.id == current_generation_id)
+        .values(status="retired", retired_at=now)
+    )
+    connection.execute(
+        update(generation)
+        .where(generation.c.id == target_generation_id)
+        .values(status="active", activated_at=now)
+    )
+    connection.execute(
+        update(workspace)
+        .where(workspace.c.id == target_workspace_id)
+        .values(active_generation_id=target_generation_id)
+    )
+    return target_generation_id, counts, perf_counter() - started
+
+
+def _copy_business_rows(
+    connection: Connection,
+    metadata: MetaData,
+    source_workspace_id: int,
+    source_generation_id: int,
+    target_workspace_id: int,
+    target_generation_id: int,
+    source_date: date,
+    target_date: date,
+    *,
+    copy_modules: bool,
+) -> dict[str, int]:
     params = {
         "source_workspace": source_workspace_id,
         "source_generation": source_generation_id,
@@ -87,17 +181,18 @@ def copy_template(
         "source_date": source_date,
         "target_date": target_date,
     }
-    connection.execute(
-        text(
-            """
-            INSERT INTO core.workspace_module (workspace_id,module_key,enabled,updated_at)
-            SELECT :target_workspace,module_key,enabled,
-                   updated_at + (:target_date - :source_date) * interval '1 day'
-            FROM core.workspace_module WHERE workspace_id=:source_workspace
-            """
-        ),
-        params,
-    )
+    if copy_modules:
+        connection.execute(
+            text(
+                """
+                INSERT INTO core.workspace_module (workspace_id,module_key,enabled,updated_at)
+                SELECT :target_workspace,module_key,enabled,
+                       updated_at + (:target_date - :source_date) * interval '1 day'
+                FROM core.workspace_module WHERE workspace_id=:source_workspace
+                """
+            ),
+            params,
+        )
     seeded = _seeded_tables(connection, source_workspace_id, source_generation_id)
     inspector = inspect(connection)
     foreign_keys = _foreign_keys(inspector, seeded)
@@ -123,7 +218,7 @@ def copy_template(
             ),
             params,
         )
-    counts: dict[str, int] = {"core.workspace_module": 4}
+    counts: dict[str, int] = {"core.workspace_module": 4} if copy_modules else {}
     for table_name in _table_order(seeded, foreign_keys):
         result = connection.execute(
             text(
@@ -137,7 +232,7 @@ def copy_template(
             params,
         )
         counts[table_name] = result.rowcount
-    return target_workspace_id, target_generation_id, counts, perf_counter() - started
+    return counts
 
 
 def _seeded_tables(

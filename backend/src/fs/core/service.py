@@ -1,0 +1,640 @@
+from __future__ import annotations
+
+import secrets
+from datetime import UTC, date, datetime, timedelta
+from typing import Any
+
+from seed.copy import copy_template, copy_template_generation
+from sqlalchemy import Connection, inspect, text
+
+from fs.common.auth import AuthContext
+from fs.common.config import get_settings
+from fs.common.errors import ApiError
+from fs.common.idempotency import (
+    find_receipt,
+    request_digest,
+    save_receipt,
+)
+from fs.common.security import (
+    guest_csrf_token,
+    member_csrf_token,
+    new_session_token,
+    token_hash,
+    verify_password,
+)
+
+GUEST_POOL_LOCK = 7_160_016
+
+
+def _workspace_lock(connection: Connection, workspace_id: int) -> None:
+    connection.execute(
+        text("SELECT pg_advisory_xact_lock(:namespace,:workspace)"),
+        {"namespace": 16, "workspace": workspace_id},
+    )
+
+
+def create_guest(
+    connection: Connection, target_date: date, idempotency_key: str
+) -> tuple[dict[str, Any], str]:
+    settings = get_settings()
+    connection.execute(
+        text("SELECT pg_advisory_xact_lock(:key)"), {"key": GUEST_POOL_LOCK}
+    )
+    count = connection.execute(
+        text("SELECT count(*) FROM core.workspace WHERE workspace_kind='GUEST'")
+    ).scalar_one()
+    if count >= settings.guest_limit:
+        raise ApiError(429, "RATE_LIMITED", "게스트 공간 상한에 도달했습니다.")
+    template = (
+        connection.execute(
+            text(
+                """
+            SELECT w.id workspace_id,g.id generation_id
+            FROM core.workspace w
+            JOIN core.data_generation g ON g.workspace_id=w.id
+            WHERE w.workspace_kind='TEMPLATE' AND g.status='active'
+              AND w.active_generation_id=g.id
+            ORDER BY g.created_at DESC,g.id DESC LIMIT 1
+            FOR SHARE OF w,g
+                """
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if template is None:
+        raise ApiError(409, "PRECONDITION_NOT_MET", "활성 템플릿이 없습니다.")
+    token = new_session_token("g")
+    workspace_id, generation_id, _counts, _elapsed = copy_template(
+        connection,
+        template["workspace_id"],
+        template["generation_id"],
+        target_date,
+        token_hash(token),
+    )
+    workspace = (
+        connection.execute(
+            text(
+                "SELECT guest_actor_key::text actor_key,expires_at FROM core.workspace WHERE id=:id"
+            ),
+            {"id": workspace_id},
+        )
+        .mappings()
+        .one()
+    )
+    csrf = guest_csrf_token(settings.session_secret, token)
+    data = {
+        "actorKind": "GUEST",
+        "workspaceId": workspace_id,
+        "generationId": generation_id,
+        "expiresAt": workspace["expires_at"].isoformat(),
+        "csrfToken": csrf,
+    }
+    context = AuthContext(
+        actor_kind="GUEST",
+        actor_key=workspace["actor_key"],
+        workspace_id=workspace_id,
+        generation_id=generation_id,
+        user_id=None,
+        roles=frozenset({"GUEST"}),
+        token=token,
+    )
+    save_receipt(
+        connection,
+        context,
+        "guest.session.create",
+        idempotency_key,
+        request_digest({}),
+        "workspace",
+        workspace_id,
+        {key: value for key, value in data.items() if key != "csrfToken"},
+        201,
+    )
+    _audit(
+        connection,
+        workspace_id,
+        "GUEST",
+        workspace["actor_key"],
+        None,
+        "guest_session.created",
+        "workspace",
+        str(workspace_id),
+    )
+    return data, token
+
+
+def login_member(
+    connection: Connection, login_id: str, password: str, idempotency_key: str
+) -> tuple[dict[str, Any], str]:
+    row = (
+        connection.execute(
+            text(
+                """
+            SELECT u.id,u.password_hash,u.display_name,w.id workspace_id,
+                   w.active_generation_id,
+                   array_remove(array_agg(r.role_key),NULL) roles
+            FROM core.app_user u
+            JOIN core.workspace w ON w.owner_user_id=u.id AND w.workspace_kind='MEMBER'
+            LEFT JOIN core.user_role ur ON ur.user_id=u.id
+            LEFT JOIN core.role r ON r.id=ur.role_id
+            WHERE u.login_id=:login AND u.status='active' AND u.disabled_at IS NULL
+            GROUP BY u.id,u.password_hash,u.display_name,w.id,w.active_generation_id
+            """
+            ),
+            {"login": login_id.strip().lower()},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None or not verify_password(password, row["password_hash"]):
+        raise ApiError(401, "SESSION_EXPIRED", "로그인 정보가 올바르지 않습니다.")
+    token = new_session_token("m")
+    csrf = member_csrf_token(get_settings().session_secret, token)
+    expires = datetime.now(UTC) + timedelta(minutes=get_settings().session_idle_minutes)
+    connection.execute(
+        text(
+            """
+            INSERT INTO core.auth_session(user_id,token_hash,csrf_token_hash,expires_at)
+            VALUES (:user,:token,:csrf,:expires)
+            """
+        ),
+        {
+            "user": row["id"],
+            "token": token_hash(token),
+            "csrf": token_hash(csrf),
+            "expires": expires,
+        },
+    )
+    _audit(
+        connection,
+        row["workspace_id"],
+        "MEMBER",
+        str(row["id"]),
+        row["id"],
+        "member_session.created",
+        "app_user",
+        str(row["id"]),
+    )
+    data = {
+        "actorKind": "MEMBER",
+        "workspaceId": row["workspace_id"],
+        "generationId": row["active_generation_id"],
+        "displayName": row["display_name"],
+        "roles": row["roles"],
+        "expiresAt": expires.isoformat(),
+        "csrfToken": csrf,
+    }
+    context = AuthContext(
+        actor_kind="MEMBER",
+        actor_key=str(row["id"]),
+        workspace_id=row["workspace_id"],
+        generation_id=row["active_generation_id"],
+        user_id=row["id"],
+        roles=frozenset(row["roles"]),
+        token=token,
+    )
+    save_receipt(
+        connection,
+        context,
+        "member.session.create",
+        idempotency_key,
+        request_digest({"loginId": login_id.strip().lower(), "password": password}),
+        "auth_session",
+        connection.execute(
+            text("SELECT id FROM core.auth_session WHERE token_hash=:token"),
+            {"token": token_hash(token)},
+        ).scalar_one(),
+        {key: value for key, value in data.items() if key != "csrfToken"},
+        201,
+    )
+    return data, token
+
+
+def current_session(connection: Connection, context: AuthContext) -> dict[str, Any]:
+    _workspace_lock(connection, context.workspace_id)
+    workspace = (
+        connection.execute(
+            text(
+                "SELECT workspace_kind,expires_at FROM core.workspace WHERE id=:id AND active_generation_id=:g"
+            ),
+            {"id": context.workspace_id, "g": context.generation_id},
+        )
+        .mappings()
+        .one()
+    )
+    return {
+        "actorKind": context.actor_kind,
+        "workspaceId": context.workspace_id,
+        "generationId": context.generation_id,
+        "userId": context.user_id,
+        "roles": sorted(context.roles),
+        "expiresAt": workspace["expires_at"].isoformat()
+        if workspace["expires_at"]
+        else None,
+    }
+
+
+def logout(connection: Connection, context: AuthContext) -> None:
+    _workspace_lock(connection, context.workspace_id)
+    if context.actor_kind == "GUEST":
+        # 별도 revoked_at이 없으므로 새 난수 해시로 교체하고 활성 토큰 형식에서 제외한다.
+        replacement = "revoked_" + token_hash(secrets.token_urlsafe(32))
+        result = connection.execute(
+            text(
+                "UPDATE core.workspace SET guest_session_key=:replacement WHERE id=:id AND guest_session_key=:current"
+            ),
+            {
+                "replacement": replacement,
+                "id": context.workspace_id,
+                "current": token_hash(context.token),
+            },
+        )
+    else:
+        result = connection.execute(
+            text(
+                "UPDATE core.auth_session SET revoked_at=now() WHERE token_hash=:token AND revoked_at IS NULL"
+            ),
+            {"token": token_hash(context.token)},
+        )
+    if result.rowcount != 1:
+        raise ApiError(401, "SESSION_EXPIRED", "이미 종료된 세션입니다.")
+    _audit(
+        connection,
+        context.workspace_id,
+        context.actor_kind,
+        context.actor_key,
+        context.user_id,
+        "session.revoked",
+        "workspace",
+        str(context.workspace_id),
+    )
+
+
+def workspace_info(connection: Connection, context: AuthContext) -> dict[str, Any]:
+    _workspace_lock(connection, context.workspace_id)
+    row = (
+        connection.execute(
+            text(
+                """
+            SELECT id,workspace_kind,config_version,energy_input_revision,created_at,expires_at
+            FROM core.workspace WHERE id=:id AND active_generation_id=:g
+            """
+            ),
+            {"id": context.workspace_id, "g": context.generation_id},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise ApiError(404, "NOT_FOUND", "공간을 찾을 수 없습니다.")
+    return {
+        "id": row["id"],
+        "workspaceKind": row["workspace_kind"],
+        "configVersion": row["config_version"],
+        "energyInputRevision": row["energy_input_revision"],
+        "createdAt": row["created_at"].isoformat(),
+        "expiresAt": row["expires_at"].isoformat() if row["expires_at"] else None,
+    }
+
+
+def list_modules(connection: Connection, context: AuthContext) -> list[dict[str, Any]]:
+    _workspace_lock(connection, context.workspace_id)
+    rows = connection.execute(
+        text(
+            "SELECT module_key,enabled,updated_at FROM core.workspace_module WHERE workspace_id=:w ORDER BY module_key"
+        ),
+        {"w": context.workspace_id},
+    ).mappings()
+    return [
+        {
+            "moduleKey": row["module_key"],
+            "enabled": row["enabled"],
+            "updatedAt": row["updated_at"].isoformat() if row["updated_at"] else None,
+        }
+        for row in rows
+    ]
+
+
+def list_admin_records(
+    connection: Connection,
+    context: AuthContext,
+    resource: str,
+    offset: int,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int]:
+    if "ADMIN" not in context.roles:
+        if context.actor_kind == "GUEST":
+            raise ApiError(404, "NOT_FOUND", "대상을 찾을 수 없습니다.")
+        raise ApiError(403, "FORBIDDEN", "관리자 권한이 필요합니다.")
+    if resource == "job-runs":
+        table = "core.job_run"
+        columns = "id,job_kind,status,scope_kind,started_at,finished_at"
+    elif resource == "audit-events":
+        table = "core.audit_event"
+        columns = "id,action,entity_kind,entity_key,actor_kind,created_at"
+    else:
+        raise ValueError("unknown admin resource")
+    total = connection.execute(text(f"SELECT count(*) FROM {table}")).scalar_one()
+    rows = connection.execute(
+        text(
+            f"SELECT {columns} FROM {table} ORDER BY id DESC OFFSET :offset LIMIT :limit"
+        ),
+        {"offset": offset, "limit": limit},
+    ).mappings()
+    data = []
+    for row in rows:
+        data.append(
+            {
+                _camel(key): value.isoformat() if isinstance(value, datetime) else value
+                for key, value in row.items()
+            }
+        )
+    return data, total
+
+
+def _camel(value: str) -> str:
+    first, *rest = value.split("_")
+    return first + "".join(part.title() for part in rest)
+
+
+def update_module(
+    connection: Connection,
+    context: AuthContext,
+    module_key: str,
+    enabled: bool,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if module_key == "core" and not enabled:
+        raise ApiError(409, "PRECONDITION_NOT_MET", "core 모듈은 끌 수 없습니다.")
+    _workspace_lock(connection, context.workspace_id)
+    digest = request_digest({"enabled": enabled})
+    cached = find_receipt(
+        connection, context, "workspace.module.update", idempotency_key, digest
+    )
+    if cached is not None:
+        return cached
+    row = (
+        connection.execute(
+            text(
+                """
+            UPDATE core.workspace_module SET enabled=:enabled,updated_at=now()
+            WHERE workspace_id=:w AND module_key=:module
+            RETURNING id,module_key,enabled,updated_at
+            """
+            ),
+            {"enabled": enabled, "w": context.workspace_id, "module": module_key},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise ApiError(404, "NOT_FOUND", "모듈을 찾을 수 없습니다.")
+    response = {
+        "moduleKey": row["module_key"],
+        "enabled": row["enabled"],
+        "updatedAt": row["updated_at"].isoformat(),
+    }
+    save_receipt(
+        connection,
+        context,
+        "workspace.module.update",
+        idempotency_key,
+        digest,
+        "workspace_module",
+        row["id"],
+        response,
+    )
+    _audit(
+        connection,
+        context.workspace_id,
+        context.actor_kind,
+        context.actor_key,
+        context.user_id,
+        "workspace_module.updated",
+        "workspace_module",
+        str(row["id"]),
+        {"moduleKey": module_key, "enabled": enabled},
+    )
+    return response
+
+
+def reset_generation(
+    connection: Connection,
+    context: AuthContext,
+    target_date: date,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    _workspace_lock(connection, context.workspace_id)
+    digest = request_digest({"targetDate": target_date.isoformat()})
+    cached = find_receipt(
+        connection, context, "workspace.generation.reset", idempotency_key, digest
+    )
+    if cached is not None:
+        return cached
+    template = (
+        connection.execute(
+            text(
+                """
+            SELECT w.id workspace_id,g.id generation_id
+            FROM core.workspace w JOIN core.data_generation g ON g.workspace_id=w.id
+            WHERE w.workspace_kind='TEMPLATE' AND w.active_generation_id=g.id
+              AND g.status='active'
+            ORDER BY g.created_at DESC,g.id DESC LIMIT 1 FOR SHARE OF w,g
+                """
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if template is None:
+        raise ApiError(409, "PRECONDITION_NOT_MET", "활성 템플릿이 없습니다.")
+    generation_id, counts, elapsed = copy_template_generation(
+        connection,
+        template["workspace_id"],
+        template["generation_id"],
+        context.workspace_id,
+        target_date,
+    )
+    response = {
+        "generationId": generation_id,
+        "seedDate": target_date.isoformat(),
+        "copiedRows": sum(counts.values()),
+        "elapsedSeconds": round(elapsed, 6),
+    }
+    new_context = AuthContext(
+        actor_kind=context.actor_kind,
+        actor_key=context.actor_key,
+        workspace_id=context.workspace_id,
+        generation_id=generation_id,
+        user_id=context.user_id,
+        roles=context.roles,
+        token=context.token,
+    )
+    save_receipt(
+        connection,
+        new_context,
+        "workspace.generation.reset",
+        idempotency_key,
+        digest,
+        "data_generation",
+        generation_id,
+        response,
+        201,
+    )
+    _audit(
+        connection,
+        context.workspace_id,
+        context.actor_kind,
+        context.actor_key,
+        context.user_id,
+        "workspace_generation.reset",
+        "data_generation",
+        str(generation_id),
+        {"seedDate": target_date.isoformat()},
+    )
+    return response
+
+
+def cleanup_expired_guests(connection: Connection) -> int:
+    connection.execute(
+        text("SELECT pg_advisory_xact_lock(:key)"), {"key": GUEST_POOL_LOCK}
+    )
+    candidates = (
+        connection.execute(
+            text(
+                """
+            SELECT id FROM core.workspace
+            WHERE workspace_kind='GUEST' AND expires_at<=now()
+            ORDER BY id FOR UPDATE SKIP LOCKED
+                """
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for workspace_id in candidates:
+        _workspace_lock(connection, workspace_id)
+        _delete_guest(connection, workspace_id)
+    return len(candidates)
+
+
+def _delete_guest(connection: Connection, workspace_id: int) -> None:
+    generation_ids = (
+        connection.execute(
+            text("SELECT id FROM core.data_generation WHERE workspace_id=:w"),
+            {"w": workspace_id},
+        )
+        .scalars()
+        .all()
+    )
+    for table_name in reversed(_business_table_order(connection)):
+        schema, table = table_name.split(".")
+        connection.execute(
+            text(f'DELETE FROM "{schema}"."{table}" WHERE workspace_id=:w'),
+            {"w": workspace_id},
+        )
+    connection.execute(
+        text("DELETE FROM core.request_receipt WHERE workspace_id=:w"),
+        {"w": workspace_id},
+    )
+    connection.execute(
+        text("DELETE FROM core.workspace_module WHERE workspace_id=:w"),
+        {"w": workspace_id},
+    )
+    connection.execute(
+        text(
+            """
+            UPDATE core.audit_event SET workspace_id=NULL,job_run_id=NULL,
+              scope_kind='RETIRED',workspace_snapshot_id=:w
+            WHERE workspace_id=:w
+            """
+        ),
+        {"w": workspace_id},
+    )
+    connection.execute(
+        text(
+            """
+            UPDATE core.job_run SET workspace_id=NULL,target_generation_id=NULL,
+              scope_kind='RETIRED',workspace_snapshot_id=:w,
+              generation_snapshot_id=COALESCE(generation_snapshot_id,:g)
+            WHERE workspace_id=:w
+            """
+        ),
+        {"w": workspace_id, "g": generation_ids[0] if generation_ids else None},
+    )
+    connection.execute(
+        text("UPDATE core.workspace SET active_generation_id=NULL WHERE id=:w"),
+        {"w": workspace_id},
+    )
+    connection.execute(
+        text("DELETE FROM core.data_generation WHERE workspace_id=:w"),
+        {"w": workspace_id},
+    )
+    connection.execute(
+        text("DELETE FROM core.workspace WHERE id=:w"), {"w": workspace_id}
+    )
+
+
+def _business_table_order(connection: Connection) -> list[str]:
+    inspector = inspect(connection)
+    tables = {
+        f"{schema}.{table}"
+        for schema in ("mes", "erp", "fems")
+        for table in inspector.get_table_names(schema=schema)
+    }
+    dependencies: dict[str, set[str]] = {}
+    for table_name in tables:
+        schema, table = table_name.split(".")
+        dependencies[table_name] = {
+            f"{fk['referred_schema']}.{fk['referred_table']}"
+            for fk in inspector.get_foreign_keys(table, schema=schema)
+            if f"{fk['referred_schema']}.{fk['referred_table']}" in tables
+            and f"{fk['referred_schema']}.{fk['referred_table']}" != table_name
+        }
+    ordered: list[str] = []
+    remaining = set(tables)
+    while remaining:
+        ready = sorted(
+            table for table in remaining if not (dependencies[table] & remaining)
+        )
+        if not ready:
+            raise RuntimeError(f"guest cleanup FK cycle: {sorted(remaining)}")
+        ordered.extend(ready)
+        remaining.difference_update(ready)
+    return ordered
+
+
+def _audit(
+    connection: Connection,
+    workspace_id: int,
+    actor_kind: str,
+    actor_key: str,
+    actor_user_id: int | None,
+    action: str,
+    entity_kind: str,
+    entity_key: str,
+    summary: dict[str, Any] | None = None,
+) -> None:
+    import json
+
+    connection.execute(
+        text(
+            """
+            INSERT INTO core.audit_event
+              (workspace_id,actor_user_id,action,entity_kind,entity_key,summary,
+               actor_kind,actor_key,scope_kind)
+            VALUES (:w,:user,:action,:entity,:entity_key,CAST(:summary AS jsonb),
+                    :kind,:actor,'WORKSPACE')
+            """
+        ),
+        {
+            "w": workspace_id,
+            "user": actor_user_id,
+            "action": action,
+            "entity": entity_kind,
+            "entity_key": entity_key,
+            "summary": json.dumps(summary or {}, ensure_ascii=False),
+            "kind": actor_kind,
+            "actor": actor_key,
+        },
+    )

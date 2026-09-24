@@ -1,7 +1,7 @@
 # FS-010 API 계약서
 
 작성일: 2026-09-23
-전제: 스키마 v0.9.0 / FS-008b (71테이블) · [FS-013 전환 결정](../plan/독립솔루션_전환결정_FS-013.md)
+전제: 스키마 v0.9.1 / FS-008c (71테이블) · [FS-013 전환 결정](../plan/독립솔루션_전환결정_FS-013.md)
 대상: [FS-008a 화면 설계](../ui/화면설계_포털_FS-008a.md) 54화면이 호출하는 HTTP 계약
 성격: **구현 전 명세.** 실제 서버는 없으며 동작을 검증한 적이 없다.
 
@@ -37,11 +37,15 @@
 | 항목 | 방식 |
 |---|---|
 | 자격 증명 | HttpOnly · Secure · SameSite=Lax 쿠키 |
-| 저장 | `core.auth_session.token_hash` (원문 미보관) |
-| CSRF | `csrf_token_hash`. 상태를 바꾸는 요청은 `X-CSRF-Token` 헤더 필수 |
-| 게스트 | 동일한 세션 쿠키. `workspace.guest_actor_key`로 주체를 식별 |
+| 저장 | 회원은 `core.auth_session.token_hash`, 게스트는 `core.workspace.guest_session_key` (모두 원문 미보관) |
+| CSRF | 회원은 `csrf_token_hash`, 게스트는 서버 비밀과 세션 키의 HMAC 파생 토큰. 상태를 바꾸는 요청은 모두 `X-CSRF-Token` 헤더 필수 |
+| 게스트 | 회원과 같은 쿠키 속성·검증 흐름. `workspace.guest_actor_key`로 주체를 식별 |
 
-**게스트도 정식 세션을 받는다.** 별도 인증 경로를 만들지 않는다. 다른 점은 만료가 있다는 것뿐이다.
+**게스트도 정식 세션을 받는다.** 회원과 게스트는 HttpOnly·Secure·SameSite=Lax 쿠키와 하나의 인증 해석기를 공유한다. 토큰의 `m_`/`g_` 접두어로 조회 저장소를 먼저 결정하며 두 저장소를 차례로 조회하지 않는다. 인증 해석 결과는 `{actor_kind, actor_key, workspace_id, user_id}` 단일 문맥이다. 업무 코드는 저장소 차이를 알지 못한다.
+
+게스트 종료 시 `revoked_at` 대신 `guest_session_key`를 새 난수 해시로 교체해 기존 쿠키를 무효화한다. `expires_at`이 지난 요청은 거부하며 만료 공간을 신규 세션으로 재개하지 않는다. `request_receipt`와 `audit_event`의 `actor_key`는 회원은 사용자 식별 키, 게스트는 `workspace.guest_actor_key`를 사용한다. 토큰·쿠키·해시는 감사·요청 결과·요청 로그에 기록하지 않는다.
+
+> **FS-016 정정 이력 (2026-09-24):** 이전 문구는 게스트도 `auth_session`에 저장되는 것으로 읽힐 수 있었다. FS-006b 정책 284·287의 GUEST 주체 계약, `workspace.guest_session_key` 부분 유니크(사유: 게스트 세션 식별), 계정 없는 게스트의 `actor_kind='GUEST'` + 공간 UUID `actor_key` 구조를 근거로 저장소를 위와 같이 명시했다. 스키마와 마이그레이션은 변경하지 않았다.
 
 ### 2-2. 범위 키는 클라이언트가 보내지 않는다
 

@@ -521,3 +521,23 @@
 - 시드 값과 같은 T의 결과 바이트가 바뀌므로 FS-005g §11에 따라 `seed_version`을 `sv-20260923-1`에서 **`sv-20260924-1`**로 올렸다. 기존 세대는 변경하지 않는다.
 - 템플릿 7,469행, CHECK/FK/UK, 결정성, 서로 다른 T 2개, V1~V12를 다시 통과했다. 복사 10회 중앙값 **0.4548초**, 최대 **0.5582초**다.
 - schema.json·마이그레이션·제품 코드·화면은 변경하지 않았다. 브랜치 `fs-015b-created-at`, main 병합·push 미실행.
+
+## 2026-09-24 FS-016 공통 계층 완료
+
+- 착수 전 FS-015b `90703e6`을 main에 fast-forward 병합하고 `fs-016-common` 브랜치를 만들었다. 시작 작업 트리는 깨끗했다. main 병합·push는 실행하지 않았다.
+- FS-006b 원래 계약에 맞춰 게스트 저장소를 `workspace.guest_session_key`, 회원 저장소를 `auth_session`으로 구현하고 FS-010 2.1의 모호한 문구를 정정했다. schema.json·마이그레이션은 변경하지 않았다.
+- `g_`/`m_` 접두어를 쓰는 단일 인증 해석기, 공통 인증 문맥, 회원/게스트 CSRF, scrypt 로그인, Secure·HttpOnly·SameSite=Lax 쿠키, 공통 오류 봉투·페이지·요청 로그를 구현했다.
+- guest_pool 잠금·상한 20·FS-015 복사, 세대 초기화, 종료 시 게스트 키 난수 해시 교체, 만료 요청 거부, guest_pool→workspace 잠금 기반 자식→부모 정리와 감사/job 스냅샷 분리를 구현했다.
+- `request_receipt` 멱등 처리를 게스트/회원 세션 생성, 모듈 변경, 세대 초기화에 적용했다. actor_key는 회원 사용자 ID·게스트 공간 UUID이며 토큰/쿠키/해시를 로그·감사·요청 결과에 기록하지 않는다.
+- 실제 PostgreSQL 18 통합 테스트에서 게스트 진입→7,467행 복사→인증→세대 초기화→종료→만료→정리, 타 게스트 격리, 같은 키 재요청, 토큰 종류 오용, 회원·게스트 CSRF, 관리자 접근, 비밀 문자열 부재를 검증했다.
+- 개발 의존성 `httpx 0.28.1`과 전이 의존성을 `uv.lock`에 추가했다. FastAPI/Starlette TestClient의 upstream 폐기 예정 경고 2건이 남지만 기능 실패는 없다. 비밀번호 해시는 표준 `hashlib.scrypt`라 별도 의존성이 없다.
+- 최종 환경 Python 3.14.7 / Node 24.21.0 / PostgreSQL·psql 18.6. backend 11개·도구 44개 테스트, ruff lint/format, db:validate, R1~R5, 실제 DB 대사, frontend lint/format/build, diff check 모두 exit 0.
+- 미실행: 동시 게스트 20명·guest_pool 대기·정리 경합 주입(FS-021), 배치 스케줄러·IP 레이트 리밋·배포, 업무 API·화면. `backend/tests/test_seed.py`는 수정하지 않았다.
+- 상세: [공통 계층 FS-016](agent/공통계층_FS-016.md). 다음 ID는 사용자 확인 후 시작한다.
+
+## 2026-09-24 FS-016 마무리·수량 대사
+
+- 전체 71테이블 실제 DB 대사, 템플릿/게스트 수량 일치·누락 0. 7,467=업무 7,463+모듈 4, 7,469=앞 수량+공간 1+세대 1. 보고서에 테이블별 포함 기준을 명시했다.
+- Node 24 PATH 선지정, Python 3.14.7 / Node 24.21.0 / PostgreSQL 18.6, factory_studio_fs016_test 사용. 대사 명령 exit 0, 트랜잭션 롤백.
+- 사용자 지시에 따라 FS-016 미커밋 구현을 커밋 후 main에 fast-forward 병합한다. 스키마·마이그레이션 변경과 push 없음. FS-017 규약 누락·업무 화면 이동 처리 질문은 별도로 확인 중이다.
+- 마무리 검증: backend 11개·회귀 44개, db:validate·R1~R5, Ruff lint/format, 프론트 lint/format/build(tsc 포함), diff check 모두 exit 0. 명령·exit code는 FS-016 보고서에 기록했다.
