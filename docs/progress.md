@@ -731,3 +731,11 @@
 
 - AG-07 위로 FS-018h rebase. Chromium 153 재현 결함 2건 수정: (1) 모바일 첫 진입에 메뉴가 펼쳐짐 (2) 넓은 화면에서 메뉴 링크 클릭 시 사이드바가 사라지고 다시 열 수 없음. `matchMedia(max-width:800px)`일 때만 닫고 좁은 화면은 닫힌 채 시작.
 - sidebar 테스트 조정·추가(frontend 194), Playwright 1280/360 사이드바 테스트 2개 추가(37). backend는 검증된 FS-018h와 동일.
+
+## 2026-09-24 CI 실패 원인 수정 (Claude Code)
+
+- GitHub Actions `FS-009 runtime and schema`가 첫 push(AG-04 `2cece7b`)부터 10회 연속 실패. 원인: CI는 `ruff check backend`(디렉터리 전체)인데 `backend/tests/test_common.py`(AG-04)와 `backend/alembic/env.py`에 import 정렬 오류(I001) 2건. 로컬 검증은 FEMS 파일만 지정해 ruff를 돌려 놓쳤다.
+- 두 파일 import 정렬만 수정(`ruff --fix`, 동작 변화 없음). test_common.py는 antigravity 소유이나 정렬 한 줄이라 수정했다.
+- 나머지 CI 단계를 CI 환경 변수만으로(.env 미사용, 빈 `factory_studio_ci_test`) 재생: alembic upgrade → DDL 대사(SHA 7e97937e…d5e44 불변) → pytest 217 → downgrade/upgrade → DDL 대사 → frontend lint/format/build 모두 exit 0.
+- CI에 없던 frontend `typecheck`와 단위 테스트(`npm --prefix frontend test`) 단계를 추가했다. Playwright는 CI에 없다(로컬 `tools/run_portal_smoke.py`).
+- 규칙: 완료 전 ruff는 CI와 같은 범위로 실행한다 — `ruff check --config backend/pyproject.toml backend tools/verify_ddl_matches_schema.py`.

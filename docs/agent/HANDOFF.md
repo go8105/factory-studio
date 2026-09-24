@@ -60,6 +60,8 @@
 
 ## 주의점
 
+- **ruff는 CI와 같은 범위로 돌린다**: `uv run --project backend ruff check --config backend/pyproject.toml backend tools/verify_ddl_matches_schema.py` + 같은 범위 `ruff format --check`. 파일을 골라 돌리면 CI가 실패한다(2026-09-24, 첫 push부터 10회 실패 원인).
+
 - schema.json·마이그레이션 변경 금지. `test_common.py`·`test_seed.py`는 antigravity 소유, `conftest.py`는 Codex 소유.
 - 업무 쓰기는 반드시 `write_scope` 뒤에 한다. 세션의 generation_id를 그대로 쓰지 않는다(초기화 경합).
 - 마스터 CRUD는 audit_event를 남기지 않는다(결정 보류, FS-021).

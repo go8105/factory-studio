@@ -8,13 +8,12 @@ from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, inspect, text
-
 from fs.common.db import reset_engine
 from fs.common.security import hash_password, token_hash
 from fs.core.service import cleanup_expired_guests
 from fs.main import create_app
 from seed.generate import create_template
+from sqlalchemy import Engine, inspect, text
 
 
 def _business_count(engine: Engine, workspace_id: int, generation_id: int) -> int:

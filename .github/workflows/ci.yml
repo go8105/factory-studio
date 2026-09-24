@@ -45,4 +45,5 @@ jobs:
       - run: uv run --project backend alembic -c backend/alembic.ini downgrade base
       - run: uv run --project backend alembic -c backend/alembic.ini upgrade head
       - run: python tools/verify_ddl_matches_schema.py
-      - run: npm --prefix frontend run lint && npm --prefix frontend run format:check && npm --prefix frontend run build
+      - run: npm --prefix frontend run typecheck && npm --prefix frontend run lint && npm --prefix frontend run format:check && npm --prefix frontend run build
+      - run: npm --prefix frontend test
