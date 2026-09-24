@@ -739,3 +739,9 @@
 - 나머지 CI 단계를 CI 환경 변수만으로(.env 미사용, 빈 `factory_studio_ci_test`) 재생: alembic upgrade → DDL 대사(SHA 7e97937e…d5e44 불변) → pytest 217 → downgrade/upgrade → DDL 대사 → frontend lint/format/build 모두 exit 0.
 - CI에 없던 frontend `typecheck`와 단위 테스트(`npm --prefix frontend test`) 단계를 추가했다. Playwright는 CI에 없다(로컬 `tools/run_portal_smoke.py`).
 - 규칙: 완료 전 ruff는 CI와 같은 범위로 실행한다 — `ruff check --config backend/pyproject.toml backend tools/verify_ddl_matches_schema.py`.
+
+## 2026-09-24 FS-018i 완료 (Claude Code)
+
+- F-05 `/production-records`: 초안 CRUD, confirm, revise. ALREADY_CONFIRMED·DRAFT_EXISTS·NOT_LATEST·REVISION_FIELDS_FIXED·PERIOD_OVERLAP. 날짜 → 사업장 시간대 반개구간.
+- 공통 ErrorNotice conflicts 표시. 360px에서 상태·관리 열 앞으로, 필터 체크박스 한 줄.
+- 테스트: backend +27(전체 244, CI 환경), frontend +13(전체 207), Playwright +2(전체 39). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018i.md`.

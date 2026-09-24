@@ -264,6 +264,7 @@ POST /sales-records/{id}/cancel      취소
 - `GET /dashboard?month=YYYY-MM` (FS-018f): 총 소비 TOE(PRIMARY, 환산 후 합산, UTILITY 제외), 사업장 TOE 목표 달성률(실적÷목표, 목표 없으면 UNSET), 예상 요금(부과 대상별 기본요금 + 누계 사용량 × 그 달 요금제 단가, 원 단위), 배출량(F-04와 동일), 일자별 TOE, 설비 상위 5(kWh), 품질 이상(valid 아님, 전체 채널). 기본은 최근 계측월 누계.
 - `GET /targets/performance?month=YYYY-MM` (FS-018g): `site`(에너지원별 + TOE)와 `equipment`(kWh) 섹션을 나눠 합산하지 않는다. 상태 `WITHIN`/`EXCEEDED`/`UNSET`/`NOT_CALCULABLE`(실적 없음 또는 목표·실적 단위 불일치). 당월은 `monthToDate=true`(최근 계측일까지 누계).
 - `GET /billing?from=YYYY-MM&to=YYYY-MM` (FS-018h): 월 요금 = 기본요금 + 사용량 × 단가(원 단위), 요금제는 월마다 선택(개정 월에서 구간 분할). 상태 `CALCULATED`/`TARIFF_MISSING`/`NOT_BILLABLE`. 계측 없는 달은 미청구. 기본 전월~당월, 최대 12개월. 대시보드 요금은 같은 계산을 쓴다.
+- `/production-records` (FS-018i): 초안 등록(`MAN-YYYYMMDD-NNN`)·수정·삭제, `POST /{id}/confirm`, `POST /{id}/revise`(다음 버전 초안). 확정 불변 409 `ALREADY_CONFIRMED`, 정정 제약 409 `DRAFT_EXISTS`/`NOT_LATEST`/`REVISION_FIELDS_FIXED`, 확정 시 같은 설비·품목·단위 구간 겹침 409 `PERIOD_OVERLAP`(+`conflicts`). 날짜 입력은 사업장 시간대 `[시작 00:00, 종료+1 00:00)`.
 
 ### 계산 결과를 저장하지 않는 엔드포인트
 

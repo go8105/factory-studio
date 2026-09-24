@@ -1170,3 +1170,18 @@ th button {
     margin-top: 14px;
   }
 }
+/* 필터 줄 안의 체크박스는 글자와 한 줄로 둔다(FS-018i 360px 확인) */
+.filter-bar label.inline-check {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  align-self: center;
+  flex: 0 0 auto;
+  color: var(--ink);
+}
+.filter-bar label.inline-check input {
+  width: auto;
+  padding: 0;
+  margin: 0;
+}

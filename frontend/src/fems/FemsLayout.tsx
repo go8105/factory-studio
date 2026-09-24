@@ -13,6 +13,12 @@ export const femsScreens = [
   },
   { path: "emissions", id: "F-04", label: "배출량 현황", group: "에너지 현황" },
   {
+    path: "production",
+    id: "F-05",
+    label: "생산량 등록",
+    group: "원단위·목표",
+  },
+  {
     path: "targets",
     id: "F-07",
     label: "목표 대비 실적",

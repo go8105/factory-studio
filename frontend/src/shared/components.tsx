@@ -67,7 +67,9 @@ export function ErrorNotice({
                   ? "참조처별 건수"
                   : key === "fields"
                     ? "입력 항목"
-                    : key}
+                    : key === "conflicts"
+                      ? "겹치는 기록"
+                      : key}
               </dt>
               <dd>
                 {key === "references" && Array.isArray(value) ? (
@@ -75,6 +77,17 @@ export function ErrorNotice({
                     {(value as { label: string; count: number }[]).map((r) => (
                       <li key={r.label}>
                         {r.label} {r.count.toLocaleString()}건
+                      </li>
+                    ))}
+                  </ul>
+                ) : key === "conflicts" && Array.isArray(value) ? (
+                  <ul>
+                    {(value as Record<string, unknown>[]).map((c, i) => (
+                      <li key={String(c.id ?? i)}>
+                        {Object.entries(c)
+                          .filter(([k]) => k !== "id")
+                          .map(([, v]) => String(v ?? "계속"))
+                          .join(" · ")}
                       </li>
                     ))}
                   </ul>

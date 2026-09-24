@@ -92,6 +92,7 @@ for (const [route, title] of [
   ["fems/readings", "계측 조회"],
   ["fems/allocations", "설비별 배분"],
   ["fems/emissions", "배출량 현황"],
+  ["fems/production", "생산량 등록"],
   ["fems/targets", "목표 대비 실적"],
   ["fems/billing", "요금 산정"],
 ]) {

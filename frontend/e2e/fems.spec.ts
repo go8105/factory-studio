@@ -123,3 +123,22 @@ test("좁은 화면은 메뉴가 접힌 채 시작하고 펼쳐서 이동한다"
   await expect(page).toHaveURL("/fems/readings");
   await expect(link).toBeHidden();
 });
+test("생산량은 초안 등록 → 확정 → 정정 초안 순서로 흐른다", async ({
+  page,
+}) => {
+  await page.goto("/fems/production");
+  const form = page.getByRole("form", { name: "생산량 등록" });
+  await form.getByLabel("설비").selectOption({ label: "INS-01 검사기 1호" });
+  await form.getByLabel("품목 코드").fill("fg-c100");
+  await form.getByLabel("시작일").fill("2026-09-20");
+  await form.getByLabel("종료일 (포함)").fill("2026-09-20");
+  await form.getByLabel("생산량").fill("50");
+  await form.getByRole("button", { name: "초안 등록" }).click();
+  await expect(page.getByRole("status")).toContainText("MAN-20260920-001 v1");
+  const row = page.getByRole("row", { name: /MAN-20260920-001/ });
+  await row.getByRole("button", { name: "확정" }).click();
+  await expect(row.getByText("확정 · 원단위 반영")).toBeVisible();
+  await row.getByRole("button", { name: "정정" }).click();
+  await expect(page.getByRole("status")).toContainText("v2 정정 초안");
+  await expect(page.getByLabel("설비")).toBeDisabled();
+});
