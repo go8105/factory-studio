@@ -1,12 +1,12 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-009·FS-015 main 병합 완료. FS-015b created_at 수정·검증 완료, 사용자 확인 대기.**
+- 단계: **FS-016 main 병합 완료, AG-03(test_seed 분리·perf 마커) main 병합 완료. AG-04(test_common 11개 분리) antigravity/ag-04 브랜치 완료.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
-- 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio`
-- 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드 생성·복사 완료. 업무 API·화면은 미구현
+- 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
+- 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
 ## 2026-09-20 프로젝트 준비
 - 완료: 독립 프로젝트 디렉터리와 기본 디렉터리 구조 생성, 로컬 Git main 브랜치 초기화.
@@ -541,3 +541,36 @@
 - Node 24 PATH 선지정, Python 3.14.7 / Node 24.21.0 / PostgreSQL 18.6, factory_studio_fs016_test 사용. 대사 명령 exit 0, 트랜잭션 롤백.
 - 사용자 지시에 따라 FS-016 미커밋 구현을 커밋 후 main에 fast-forward 병합한다. 스키마·마이그레이션 변경과 push 없음. FS-017 규약 누락·업무 화면 이동 처리 질문은 별도로 확인 중이다.
 - 마무리 검증: backend 11개·회귀 44개, db:validate·R1~R5, Ruff lint/format, 프론트 lint/format/build(tsc 포함), diff check 모두 exit 0. 명령·exit code는 FS-016 보고서에 기록했다.
+
+## 2026-09-24 AG-03 마무리 (rebase·병합)
+
+- `antigravity/ag-03` 브랜치를 FS-016이 병합된 `main`(`e08f5d8`) 위로 rebase했다.
+- `backend/pyproject.toml`의 `[tool.pytest.ini_options]`에 `markers = ["perf: performance benchmark test"]` 1줄을 추가해 perf 마커 경고를 해소했다.
+- 백엔드 전체 테스트 26개(기존 11 - test_seed 1 + 분리 16) 전부 통과(exit 0), perf 마커 경고 0건 확인. (남은 경고 2건은 FastAPI/Starlette upstream StarletteDeprecationWarning 및 anyio DeprecationWarning)
+- worktree 점검 후 `git fetch . antigravity/ag-03:main`으로 `main`에 fast-forward 병합 완료 (`af6f266`).
+
+## 2026-09-24 AG-04 test_common.py 단위 테스트 분리 완료
+
+- 브랜치: `antigravity/ag-04` (`main` 기준 분기).
+- 단일 거대 테스트 함수로 직렬 수행되던 `backend/tests/test_common.py`를 11개 독립 단위 테스트로 분리했다:
+  1. `test_guest_entry_and_copy_count`: 게스트 진입·복사 수량(7,467행) 및 세대 재생성(reset generations) 복사 수량/상태 대사
+  2. `test_idempotency_identical_result`: 멱등 재호출 시 동일 결과 반환 (게스트 세션 생성, 회원 로그인, 모듈 PATCH, 세대 재생성)
+  3. `test_idempotency_conflicting_payload_422`: 동일 멱등 키에 다른 요청 본문 전달 시 422 IDEMPOTENCY_CONFLICT
+  4. `test_guest_scope_isolation`: 게스트 간 데이터/설정 격리 및 타 게스트 변경 미영향
+  5. `test_token_kind_tampering_401`: 세션 쿠키 접두어 변조(`g_` ↔ `m_`) 시 401
+  6. `test_csrf_missing_and_mismatch_403`: CSRF 토큰 누락 및 불일치 시 403 (게스트·회원 각각) 및 정상 토큰 200
+  7. `test_ended_guest_cookie_401`: 게스트 세션 종료(DELETE) 후 기존 쿠키 재사용 시 401
+  8. `test_expired_cookie_410`: 만료된 게스트 공간에 대한 쿠키 요청 시 410
+  9. `test_cleanup_separates_data_and_audit`: 만료 게스트 정리 시 워크스페이스 물리 삭제(0) 및 감사/운영 기록 보존
+  10. `test_no_token_or_hash_in_logs_audit_receipts`: 요청 로그, 감사 이벤트, 멱등 영수증에 토큰 및 해시 미노출
+  11. `test_admin_access_and_guest_admin_404`: 미인식 경로 404 NOT_FOUND, 관리자 API 회원 200 / 게스트 404
+- 판정식과 기대값은 원본과 동일하게 100% 보존했다.
+- 템플릿 생성은 `common_env` (module scope) fixture에서 1회만 실행하고, 모듈 종료 시 TRUNCATE teardown을 수행하여 후속 테스트 모듈과의 DB 격리를 보장했다.
+- 각 단위 테스트는 게스트 공간을 새로 생성하여 상태를 격리하고, 만료/청소 테스트 상호 간섭을 방지하도록 격리 보강했다.
+- `conftest.py`는 수정하지 않았다 (Codex 소유 불변 유지).
+- 검증 결과:
+  - 백엔드 전체 테스트: 36개 (common 11 + verifier 9 + seed 16) 통과 (exit 0, `38.26s`).
+  - 단독 실행 격리 검증: `-k test_cleanup_separates_data_and_audit`, `-k test_expired_cookie_410` 단독 통과.
+  - 변조 실패 검증: `test_expired_cookie_410` 기대값을 400으로 임의 수정 시 해당 테스트만 단독 실패(`assert 410 == 400`) 확인 후 410으로 원복.
+  - 정적 도구: `npm run db:validate` exit 0, `tools/audit_schema_isolation.py` exit 0, `tools/test_fs0*.py` 44개 통과 exit 0, Ruff lint/format exit 0.
+- 커밋: `antigravity/ag-04`에만 커밋 (`cb53470`). `main` 병합 및 원격 push는 하지 않고 사용자 확인 대기.
