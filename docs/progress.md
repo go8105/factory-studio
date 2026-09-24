@@ -604,3 +604,10 @@
 - rebase 후 모든 지정 명령 exit 0: frontend typecheck/lint/format/build/test(72), Playwright(16), backend 전체(40), tools unittest(44), db:validate, audit_schema_isolation(R1~R5), git diff --check. 실행 런타임 Python 3.14.7/Node 24.21.0/PostgreSQL 18.6, 테스트 DB factory_studio_fs016_test/factory_studio_fs017_test, DB 검증은 순차 실행.
 - content/·schema.json·마이그레이션·test_common.py·test_seed.py 직접 수정 없음. conftest.py 변경 없음. .env/work 제외. main 병합·push·antigravity 폴더/브랜치 조작 없음.
 - 상세 명령·exit code·미실행 항목은 포털_FS-017c.md, 이어받기는 HANDOFF.md. 다음 ID는 사용자 확인을 기다린다.
+
+## 2026-09-24 FS-017c 검토 (Claude Code)
+
+- Codex 보고를 저장소에서 재현했다: main `2cece7b` 위 fast-forward 가능, test_common/test_seed는 main과 diff 0, content·schema·alembic·conftest는 cbcd5c5 대비 변경 0.
+- 재실행 결과(모두 exit 0): frontend typecheck/lint/format/build, 테스트 72개, backend 전체 40개(`factory_studio_fs016_test`), `tools/run_portal_smoke.py` Playwright 16개(`factory_studio_fs017_test`, 템플릿 7,469행). 둘은 순차로 실행했다.
+- README IntelliJ 표의 브라우저 스모크 작업 디렉터리가 `<repo>/frontend`와 `<repo>`로 서로 어긋나 `<repo>`로 정정했다.
+- 미재현: tools unittest 44, db:validate, R1~R5(이번 변경과 무관해 재실행 안 함).

@@ -123,7 +123,7 @@ npm --prefix frontend run dev
 | 프론트 개발 | `<repo>/frontend` | `npm run dev` | `PATH=/opt/homebrew/opt/node@24/bin:기존PATH`; 별도 VITE 환경변수 없음 |
 | DB 기동 | `<repo>` | `docker compose up -d --wait` | `.env`: `POSTGRES_PASSWORD`, 선택 `POSTGRES_PORT=55432`; Colima 사용 시 위 Docker 환경 설정 |
 | 프론트 단위/화면 | `<repo>/frontend` | `npm test` | Node 24 PATH |
-| 브라우저 스모크 | `<repo>/frontend` | `uv run --project backend --env-file .env python tools/run_portal_smoke.py` | 작업 디렉터리를 `<repo>`로 지정; Node 24 PATH·.env의 DB 접속 정보 |
+| 브라우저 스모크 | `<repo>` | `uv run --project backend --env-file .env python tools/run_portal_smoke.py` | Node 24 PATH·.env의 DB 접속 정보. 8000·5173 포트가 비어 있어야 함 |
 
 ### 브라우저·컴포넌트 검증
 
