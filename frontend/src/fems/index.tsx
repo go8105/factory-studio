@@ -4,6 +4,7 @@ import { NotFound } from "../shared/components";
 import { FemsLayout } from "./FemsLayout";
 import { EnergySources } from "./EnergySources";
 import { Readings } from "./Readings";
+import { Allocations } from "./Allocations";
 import { Equipments } from "./Equipments";
 export default function FemsRoutes() {
   return (
@@ -12,6 +13,7 @@ export default function FemsRoutes() {
         <Route index element={<Navigate to="readings" replace />} />
         <Route path="equipments" element={<Equipments />} />
         <Route path="readings" element={<Readings />} />
+        <Route path="allocations" element={<Allocations />} />
         <Route path="energy-sources" element={<EnergySources />} />
         <Route path="*" element={<NotFound />} />
       </Route>

@@ -966,3 +966,47 @@ th button {
     flex: 1 1 100%;
   }
 }
+/* 계산 근거 패널·합계 (FS-018c) */
+.basis-panel summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.basis-panel dl {
+  display: grid;
+  gap: 2px;
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+.basis-panel dl div {
+  display: flex;
+  gap: 8px;
+}
+.basis-panel dt {
+  color: var(--muted);
+}
+.basis-panel dd {
+  margin: 0;
+}
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+  margin: 0 0 20px;
+}
+.summary-grid table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.summary-grid caption {
+  text-align: left;
+  color: var(--muted);
+  font-size: 12px;
+  padding-bottom: 6px;
+}
+.summary-grid th,
+.summary-grid td {
+  text-align: left;
+  padding: 6px 4px;
+  border-top: 1px solid var(--border);
+}

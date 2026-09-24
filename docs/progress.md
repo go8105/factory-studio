@@ -648,3 +648,10 @@
 - F-02 계측 조회: `GET /readings`(사업장 시간대 날짜 기간, 기본 최근 7일, 최대 31일, 결측 value=null), `/meters`, `/sites`. 화면은 초안/적용 필터, 표 기본, 채널 1개일 때만 선 그래프(결측은 선 끊김).
 - `GUEST_LIMIT` 환경 변수(기본 20). 스모크가 23개로 늘어 상한에 걸린 것을 재현 후 테스트 서버만 200으로 올렸다.
 - 테스트: backend +18(전체 105), frontend +14(전체 110), Playwright +4(전체 23). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018b.md`.
+
+## 2026-09-24 FS-018c 완료 (Claude Code)
+
+- F-03 설비별 배분: 저장된 배분 결과 조회. 현재 결과 = 같은 설비·채널·구간의 최대 input_revision·method_version. 필터는 현재 판정 뒤에 건다(방법 필터로 옛 결과가 현재로 보이는 문제 방지, 테스트 고정). 합계는 현재 결과·invalid 제외·단위별.
+- 화면: 단위별 합계 패널, 결과 표, 행별 계산 근거 패널(`<details>`), 이전 산정 결과 포함 옵션.
+- 사용자 결정: F-14 요금제 적용 기간 겹침은 409 `PERIOD_OVERLAP`. FS-010 §7 기록.
+- 테스트: backend +16(전체 121), frontend +11(전체 121), Playwright +3(전체 26). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018c.md`.

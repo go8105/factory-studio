@@ -3,6 +3,12 @@ import { NavLink, Outlet } from "react-router-dom";
 // 구현된 화면만 메뉴에 둔다. 준비 중 항목을 나열하지 않는다(FS-008a 포털 §1).
 export const femsScreens = [
   { path: "readings", id: "F-02", label: "계측 조회", group: "에너지 현황" },
+  {
+    path: "allocations",
+    id: "F-03",
+    label: "설비별 배분",
+    group: "에너지 현황",
+  },
   { path: "equipments", id: "F-10", label: "설비", group: "기준정보" },
   { path: "energy-sources", id: "F-11", label: "에너지원", group: "기준정보" },
 ];

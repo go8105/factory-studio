@@ -46,3 +46,21 @@ test("참조 중인 전력 삭제는 참조 건수로 거부", async ({ page }) 
   await expect(page.getByText(/계측 채널 \d+건/)).toBeVisible();
   await expect(page.getByRole("cell", { name: "전력" })).toBeVisible();
 });
+test("설비별 배분은 단위별 합계와 근거를 보여준다", async ({ page }) => {
+  await page.goto("/fems/allocations");
+  await expect(
+    page.getByRole("heading", { name: "설비별 합계 · kWh" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "설비별 합계 · m3" }),
+  ).toBeVisible();
+  await page.getByText("근거").first().click();
+  await expect(page.getByText("배분 방법").first()).toBeVisible();
+});
+test("결측이 있던 날의 배분은 추정으로 표시", async ({ page }) => {
+  await page.goto("/fems/allocations");
+  await page.getByLabel("시작일").fill("2026-09-07");
+  await page.getByLabel("종료일").fill("2026-09-07");
+  await page.getByRole("button", { name: "조회" }).click();
+  await expect(page.getByText("추정 1일")).toBeVisible();
+});
