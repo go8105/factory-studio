@@ -931,3 +931,126 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
         "topEquipment": [s for s in summary if s["unit"] == "kWh"][:5],
         "quality": {"issues": issues, "recent": recent},
     }
+
+
+# ---- F-07 목표 대비 실적 (FS-018g) ----
+# 범위(SITE·EQUIPMENT)가 다른 목표를 한 표에 합하지 않는다(FS-008a F-07). 목표 없으면 UNSET, 달성률 없음.
+def _performance(target: Any, actual: Decimal | None) -> dict[str, Any]:
+    if target is None:
+        return {"target": None, "achievementRate": None, "status": "UNSET"}
+    if actual is None:
+        return {
+            "target": str(target),
+            "achievementRate": None,
+            "status": "NOT_CALCULABLE",
+        }
+    rate = (actual / target * 100).quantize(Decimal("0.1")) if target else None
+    return {
+        "target": str(target),
+        "achievementRate": str(rate) if rate is not None else None,
+        "status": "WITHIN" if rate is not None and rate <= 100 else "EXCEEDED",
+    }
+
+
+def target_performance(context: AuthContext, month: str | None) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        period = _month_period(connection, scoped, month)
+        if period is None:
+            return {"period": None, "site": [], "equipment": []}
+        month, first, last = period
+        latest = repo.latest_reading_date(connection, scoped)
+        rows = repo.emission_consumption(connection, scoped, first, last)
+        primary = repo.factors(connection, scoped, "PRIMARY")
+        targets = repo.targets_for_month(connection, scoped, month)
+        sources = repo.active_sources(connection, scoped)
+        summary = repo.allocation_summary(connection, scoped, {}, first, last)
+    _, toe_total, toe_complete = _converted(rows, primary, "PRIMARY", "toe")
+    consumption: dict[tuple[int, str], Decimal] = {}
+    for r in rows:
+        key = (r["source_id"], r["unit"])
+        consumption[key] = consumption.get(key, Decimal(0)) + r["quantity"]
+    site_targets = {
+        t["energy_source_id"]: t for t in targets if t["target_scope"] == "SITE"
+    }
+    site = []
+    for source in sources:
+        target = site_targets.get(source["id"])
+        unit = target["unit"] if target else source["measure_unit"]
+        # 목표 단위와 실적 단위가 다르면 비교하지 않는다(단위 환산을 추측하지 않는다).
+        actual = consumption.get((source["id"], unit))
+        site.append(
+            {
+                "energySourceCode": source["source_code"],
+                "name": source["name"],
+                "unit": unit,
+                "actual": str(actual.quantize(SIX)) if actual is not None else None,
+                **_performance(target["target_value"] if target else None, actual),
+            }
+        )
+    toe_target = site_targets.get(None)
+    toe_actual = Decimal(toe_total) if toe_complete else None
+    site.append(
+        {
+            "energySourceCode": None,
+            "name": "사업장 전체 (1차에너지 환산)",
+            "unit": "TOE",
+            "actual": toe_total if toe_complete else None,
+            **_performance(
+                toe_target["target_value"] if toe_target else None, toe_actual
+            ),
+        }
+    )
+    equipment_targets = {
+        (t["equipment_id"], t["unit"]): t
+        for t in targets
+        if t["target_scope"] == "EQUIPMENT"
+    }
+    target_units = {unit for _, unit in equipment_targets}
+    equipment = []
+    seen = set()
+    for s in summary:
+        key = (s["equipmentId"], s["unit"])
+        if s["unit"] not in target_units:
+            continue
+        seen.add(key)
+        target = equipment_targets.get(key)
+        equipment.append(
+            {
+                "equipmentId": s["equipmentId"],
+                "equipmentCode": s["equipmentCode"],
+                "equipmentName": s["equipmentName"],
+                "unit": s["unit"],
+                "actual": s["quantity"],
+                "estimatedDays": s["estimatedDays"],
+                **_performance(
+                    target["target_value"] if target else None, Decimal(s["quantity"])
+                ),
+            }
+        )
+    for key, target in equipment_targets.items():
+        if key in seen:
+            continue
+        equipment.append(
+            {
+                "equipmentId": target["equipment_id"],
+                "equipmentCode": target["equipment_code"],
+                "equipmentName": target["equipment_name"],
+                "unit": target["unit"],
+                "actual": None,
+                "estimatedDays": 0,
+                **_performance(target["target_value"], None),
+            }
+        )
+    equipment.sort(key=lambda e: e["equipmentCode"])
+    return {
+        "period": {
+            "month": month,
+            "from": first.isoformat(),
+            "to": last.isoformat(),
+            # 당월은 최근 계측일까지의 누계다. 목표도 같은 기준으로 만들어졌다(FS-005g 5.5).
+            "monthToDate": latest is not None and first <= latest == last,
+        },
+        "site": site,
+        "equipment": equipment,
+    }

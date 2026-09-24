@@ -1006,3 +1006,39 @@ def quality_issues(
         }
         for r in rows
     ]
+
+
+# ---- F-07 목표 대비 실적 (FS-018g) ----
+def targets_for_month(
+    connection: Connection, context: AuthContext, month: str
+) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            """
+            SELECT t.id,t.target_scope,t.equipment_id,t.energy_source_id,t.target_value,t.unit,
+                   e.source_code,e.name source_name,q.equipment_code,q.name equipment_name
+            FROM fems.energy_target t
+            LEFT JOIN fems.energy_source e
+              ON e.workspace_id=t.workspace_id AND e.generation_id=t.generation_id AND e.id=t.energy_source_id
+            LEFT JOIN fems.equipment q
+              ON q.workspace_id=t.workspace_id AND q.generation_id=t.generation_id AND q.id=t.equipment_id
+            WHERE t.workspace_id=:w AND t.generation_id=:g AND t.target_month=:m
+            ORDER BY t.target_scope, e.source_code NULLS LAST, q.equipment_code
+            """
+        ),
+        {**_s(context), "m": month},
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
+def active_sources(
+    connection: Connection, context: AuthContext
+) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            "SELECT id,source_code,name,measure_unit FROM fems.energy_source "
+            "WHERE workspace_id=:w AND generation_id=:g AND is_active ORDER BY source_code"
+        ),
+        _s(context),
+    ).mappings()
+    return [dict(r) for r in rows]

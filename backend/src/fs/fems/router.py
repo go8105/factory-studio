@@ -326,3 +326,11 @@ def get_dashboard(
     month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
 ) -> dict[str, object]:
     return {"data": service.dashboard(context, month)}
+
+
+@router.get("/targets/performance")
+def get_target_performance(
+    context: Auth,
+    month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
+) -> dict[str, object]:
+    return {"data": service.target_performance(context, month)}
