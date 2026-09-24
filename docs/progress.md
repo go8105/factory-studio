@@ -574,3 +574,14 @@
   - 변조 실패 검증: `test_expired_cookie_410` 기대값을 400으로 임의 수정 시 해당 테스트만 단독 실패(`assert 410 == 400`) 확인 후 410으로 원복.
   - 정적 도구: `npm run db:validate` exit 0, `tools/audit_schema_isolation.py` exit 0, `tools/test_fs0*.py` 44개 통과 exit 0, Ruff lint/format exit 0.
 - 커밋: `antigravity/ag-04`에만 커밋 (`cb53470`). `main` 병합 및 원격 push는 하지 않고 사용자 확인 대기.
+
+
+## 2026-09-24 FS-017a 완료·분할 인계
+
+- FS-016 `e08f5d8ef3cc09477263d3e29d566cc4fd5f781a`를 main에 fast-forward 병합했다. 복사 누락 0: 업무 7,463+모듈 4=7,467, 공간·세대 2를 포함하면 7,469. 이후 fs-017-portal에서 작업했다.
+- 사용자 분할 지시 직후 `9244801` (`WIP FS-017a: 중단 시점 보존`) 커밋. `.env`·work/ 제외 확인. 이전에 작성한 b/c 산출물은 초안으로 보존했다.
+- FS-017a 완료: 현재 세션 CSRF 토큰 복구·만료 쿠키 삭제, 독립 회귀 파일 4개 테스트, 공통 컴포넌트, P-01/P-02. 게스트 생성 응답 roles 누락을 클라이언트에서 정상 해석한다. 로그인 폼을 연 상태의 게스트 재시도가 다른 요청으로 바뀌지 않도록 수정했다.
+- backend 전체 15개 통과, frontend 전체 39개 및 a 대상 19개 통과, typecheck/lint/format/build exit 0. Python 3.14.7 / Node 24.21.0 / PostgreSQL 18.6. backend 전체 DB=factory_studio_fs016_test. 상세 명령·exit code는 FS-017a 보고서.
+- 분할 지시 전 실제 브라우저 5개·360px 검증도 실행했지만 FS-017c 완료로 처리하지 않는다. 초기 Vite content 접근 누락(exit 1)과 테스트 서버 SESSION_SECRET 미주입(브라우저 exit 1)을 수정·재실행해 통과했다. 비밀 값은 Git/보고서에 넣지 않았다.
+- 이번 세션에서 schema.json·마이그레이션·test_common.py·test_seed.py 변경 없음. antigravity worktree·브랜치 미접촉, main rebase·병합·push 없음. 30분 WIP·종료 HANDOFF를 상시 규칙에 반영했다.
+- 다음은 FS-017b. FS-017c 종료 때 최신 main에 한 번만 rebase한다. 현재 main 전진분은 이번에 반영하지 않았다.

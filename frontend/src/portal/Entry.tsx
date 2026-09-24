@@ -13,8 +13,10 @@ export function Entry() {
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const keys = useRef(new MutationKeys());
+  const lastAttempt = useRef(false);
   if (session) return <Navigate to="/home" replace />;
   async function enter(member: boolean) {
+    lastAttempt.current = member;
     setBusy(true);
     setError(undefined);
     const operation = member ? JSON.stringify({ loginId, password }) : "guest";
@@ -79,7 +81,7 @@ export function Entry() {
         )}
         <ErrorNotice
           error={error}
-          retry={!busy ? () => void enter(login) : undefined}
+          retry={!busy ? () => void enter(lastAttempt.current) : undefined}
         />
         <button
           className="link-button"
