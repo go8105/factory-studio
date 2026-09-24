@@ -1,11 +1,12 @@
 // P-07 운영 기록
 import { useEffect, useState } from "react";
 import { useSession } from "../app/session";
-import { api } from "../shared/api";
+import { api, ApiError } from "../shared/api";
 import {
   DataTable,
   ErrorNotice,
   Loading,
+  NotFound,
   PageTitle,
   type Column,
 } from "../shared/components";
@@ -52,17 +53,20 @@ export function Records() {
       signal: controller.signal,
     })
       .then((r) => {
+        if (controller.signal.aborted) return;
         setData(r.data);
         setTotal(r.page?.total ?? 0);
       })
       .catch((e) => {
         if (!controller.signal.aborted) {
           setError(e);
-          fail(e);
+          if (e instanceof ApiError && [401, 410].includes(e.status)) fail(e);
         }
       });
     return () => controller.abort();
   }, [kind, offset, retry]);
+  if (error instanceof ApiError && [403, 404].includes(error.status))
+    return <NotFound />;
   return (
     <>
       <PageTitle

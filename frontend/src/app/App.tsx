@@ -8,7 +8,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { SessionProvider, useSession } from "./session";
 import { api } from "../shared/api";
 import { ErrorNotice, NotFound } from "../shared/components";
@@ -18,7 +18,7 @@ import { FlowMap, Cards, Help } from "../portal/ContentPages";
 import { Workspace } from "../portal/Workspace";
 import { Records } from "../portal/Records";
 function Layout() {
-  const { session, setSession, busy, fail } = useSession();
+  const { session, setSession, busy, navigationBlocked, fail } = useSession();
   const navigate = useNavigate();
   const [error, setError] = useState<unknown>();
   const [leaving, setLeaving] = useState(false);
@@ -69,7 +69,7 @@ function Layout() {
           {session ? (
             <button
               className="link-button"
-              disabled={busy || leaving}
+              disabled={busy || navigationBlocked || leaving}
               onClick={() => void logout()}
             >
               나가기
@@ -101,10 +101,30 @@ function Admin() {
     <NotFound />
   );
 }
-export function App() {
+function PortalRoutes() {
+  const location = useLocation();
+  const { busy, navigationBlocked } = useSession();
+  const visibleLocation = useRef(location);
+  const blocked = busy || navigationBlocked;
+  // 초기화가 끝날 때까지 뒤로가기·프로그램 이동도 현재 화면을 유지한다.
+  if (!blocked) visibleLocation.current = location;
   return (
-    <SessionProvider>
-      <Routes>
+    <div
+      onClickCapture={(event) => {
+        if (
+          blocked &&
+          event.target instanceof Element &&
+          event.target.closest("a")
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+      onAuxClickCapture={(event) => {
+        if (blocked) event.preventDefault();
+      }}
+    >
+      <Routes location={visibleLocation.current}>
         <Route path="/" element={<Entry />} />
         <Route element={<Layout />}>
           <Route path="/help/*" element={<Help />} />
@@ -118,6 +138,14 @@ export function App() {
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
+    </div>
+  );
+}
+
+export function App() {
+  return (
+    <SessionProvider>
+      <PortalRoutes />
     </SessionProvider>
   );
 }

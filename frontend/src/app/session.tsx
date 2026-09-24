@@ -14,6 +14,8 @@ type State = {
   refresh: () => Promise<void>;
   setSession: (value: Session | null) => void;
   fail: (error: unknown) => void;
+  navigationBlocked: boolean;
+  setNavigationBlocked: (value: boolean) => void;
   busy: boolean;
   setBusy: (value: boolean) => void;
 };
@@ -29,11 +31,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<unknown>();
   const [expired, setExpired] = useState<number>();
   const [busy, setBusy] = useState(false);
+  const [navigationBlocked, setNavigationBlocked] = useState(false);
+  useEffect(() => {
+    if (!busy && !navigationBlocked) return;
+    const preventUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", preventUnload);
+    return () => window.removeEventListener("beforeunload", preventUnload);
+  }, [busy, navigationBlocked]);
   const location = useLocation();
   const initial = useRef(location.pathname);
   function fail(e: unknown) {
     if (e instanceof ApiError && [401, 410].includes(e.status)) {
       setSession(null);
+      setBusy(false);
+      setNavigationBlocked(false);
       setExpired(e.status);
     } else setError(e);
   }
@@ -86,6 +100,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         fail,
         busy,
         setBusy,
+        navigationBlocked,
+        setNavigationBlocked,
       }}
     >
       {error ? (

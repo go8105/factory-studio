@@ -11,7 +11,8 @@ import {
 import { Badge, ErrorNotice, Loading, PageTitle } from "../shared/components";
 import { solutions } from "./Home";
 export function Workspace() {
-  const { session, refresh, fail, busy, setBusy } = useSession();
+  const { session, refresh, fail, busy, setBusy, setNavigationBlocked } =
+    useSession();
   const [workspace, setWorkspace] = useState<WorkspaceData>();
   const [modules, setModules] = useState<Module[]>([]);
   const [error, setError] = useState<unknown>();
@@ -19,6 +20,12 @@ export function Workspace() {
   const [done, setDone] = useState("");
   const [now, setNow] = useState(Date.now());
   const keys = useRef(new MutationKeys());
+  const inFlight = useRef(false);
+  const [reloadNeeded, setReloadNeeded] = useState(false);
+  function showError(e: unknown) {
+    setError(e);
+    if (e instanceof ApiError && [401, 410].includes(e.status)) fail(e);
+  }
   const [uncertain, setUncertain] = useState<{ module?: Module } | null>(null);
   async function load() {
     const [w, m] = await Promise.all([
@@ -29,15 +36,30 @@ export function Workspace() {
     setModules(m.data);
   }
   useEffect(() => {
-    load().catch((e) => {
-      setError(e);
-      fail(e);
-    });
+    load().catch(showError);
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
-  async function mutate(module?: Module) {
+  async function reload() {
     setBusy(true);
+    setError(undefined);
+    try {
+      await refresh();
+      await load();
+      setReloadNeeded(false);
+    } catch (e) {
+      setReloadNeeded(true);
+      showError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function mutate(module?: Module) {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    if (!module) setNavigationBlocked(true);
+    let keepNavigationBlocked = false;
     setError(undefined);
     setDone("");
     const operation = module
@@ -63,18 +85,31 @@ export function Workspace() {
           ? "앱 사용 여부를 변경했습니다."
           : "새 예시 데이터 세대로 초기화했습니다.",
       );
-      await refresh().catch(fail);
-      await load().catch(fail);
+      // 변경은 이미 성공했다. 후속 조회 실패는 GET만 재시도한다.
+      try {
+        await refresh();
+        await load();
+        setReloadNeeded(false);
+      } catch (e) {
+        setReloadNeeded(true);
+        showError(e);
+      }
     } catch (e) {
-      if (e instanceof ApiError && (e.status === 0 || e.status >= 500))
+      if (e instanceof ApiError && (e.status === 0 || e.status >= 500)) {
         setUncertain({ module });
-      setError(e);
-      if (e instanceof ApiError && [401, 410].includes(e.status)) fail(e);
+        keepNavigationBlocked = !module;
+      } else {
+        setUncertain(null);
+      }
+      showError(e);
     } finally {
+      inFlight.current = false;
+      if (!module) setNavigationBlocked(keepNavigationBlocked);
       setBusy(false);
     }
   }
-  const expiresAt = session?.expiresAt ?? workspace?.expiresAt;
+  const expiresAt =
+    workspace?.workspaceKind === "GUEST" ? workspace.expiresAt : null;
   const left = expiresAt
     ? Math.max(0, Math.ceil((Date.parse(expiresAt) - now) / 60000))
     : null;
@@ -88,7 +123,11 @@ export function Workspace() {
       <ErrorNotice
         error={error}
         retry={
-          uncertain && !busy ? () => void mutate(uncertain.module) : undefined
+          !busy
+            ? uncertain
+              ? () => void mutate(uncertain.module)
+              : () => void reload()
+            : undefined
         }
       />
       {done && (
@@ -97,7 +136,7 @@ export function Workspace() {
         </p>
       )}
       {!workspace ? (
-        <Loading />
+        !error && <Loading />
       ) : (
         <>
           <section className="panel workspace-summary">
@@ -116,7 +155,13 @@ export function Workspace() {
             {expiresAt && (
               <div>
                 <strong>남은 시간 {left}분</strong>
-                <p>만료 예정 {new Date(expiresAt).toLocaleString("ko-KR")}</p>
+                <p>
+                  만료 예정{" "}
+                  {new Date(expiresAt).toLocaleString("ko-KR", {
+                    timeZone: "Asia/Seoul",
+                  })}{" "}
+                  KST
+                </p>
                 <small>
                   게스트 공간의 만료 시각은 활동 여부와 관계없이 고정됩니다.
                 </small>
@@ -142,7 +187,7 @@ export function Workspace() {
                         role="switch"
                         aria-checked={m.enabled}
                         aria-label={`${s.key.toUpperCase()} 사용`}
-                        disabled={busy || !!uncertain}
+                        disabled={busy || !!uncertain || reloadNeeded}
                         onClick={() => void mutate(m)}
                       >
                         {m.enabled ? "켜짐" : "꺼짐"}
@@ -168,14 +213,14 @@ export function Workspace() {
                 <div className="actions">
                   <button
                     aria-describedby="reset-warning"
-                    disabled={busy || !!uncertain}
+                    disabled={busy || !!uncertain || reloadNeeded}
                     onClick={() => void mutate()}
                   >
                     초기화 확인
                   </button>
                   <button
                     className="secondary"
-                    disabled={busy || !!uncertain}
+                    disabled={busy || !!uncertain || reloadNeeded}
                     onClick={() => setConfirm(false)}
                   >
                     취소
@@ -185,7 +230,7 @@ export function Workspace() {
             ) : (
               <button
                 className="secondary"
-                disabled={busy || !!uncertain}
+                disabled={busy || !!uncertain || reloadNeeded}
                 onClick={() => setConfirm(true)}
               >
                 예시 데이터 초기화

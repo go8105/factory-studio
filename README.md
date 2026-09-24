@@ -8,7 +8,7 @@
 - [FS-013 아키텍처](docs/plan/독립솔루션_전환결정_FS-013.md), [FS-011 개발 규약](docs/architecture/개발규약_FS-011.md)
 - [FS-009 실행·검증 보고](docs/agent/실행기반_FS-009.md), [진행 기록](docs/progress.md)
 
-전체 설계는 2026-09-23 승인됐습니다. FS-009 실행 기반, FS-015 시드, FS-016 공통 API에 이어 FS-017a 공통 컴포넌트와 P-01/P-02를 완료했습니다. P-03~P-07·브라우저 테스트·아래 실행 안내는 분할 지시 전에 작성된 초안이며 FS-017b/c에서 검토·확정합니다. 업무 API·MES/ERP/FEMS 업무 화면은 후속 범위이며, 현재 앱 런처의 솔루션 선택은 해당 솔루션 도움말로 연결됩니다.
+전체 설계는 2026-09-23 승인됐습니다. FS-009 실행 기반, FS-015 시드, FS-016 공통 API에 이어 FS-017 포털 P-01~P-07과 공통 컴포넌트를 구현했습니다. 업무 API·MES/ERP/FEMS 업무 화면은 후속 범위이며, 현재 앱 런처의 솔루션 선택은 해당 솔루션 도움말로 연결됩니다.
 
 ## 런타임과 설치
 
@@ -21,7 +21,7 @@ uv sync --project backend --python 3.14 --locked
 . backend/.venv/bin/activate
 npm ci
 npm --prefix frontend ci
-cp .env.example .env
+test -f .env || cp .env.example .env
 ```
 
 `.env`의 비밀번호를 임의의 로컬 값으로 바꾸고 `DATABASE_URL`에도 같은 값을 넣습니다. `SESSION_SECRET`에는 32자 이상의 임의 값을 설정합니다 (`uv run --project backend python -c "import secrets; print(secrets.token_urlsafe(48))"`로 로컬 생성 가능). `.env`는 Git 제외 대상입니다. 기존 `.env`가 있으면 복사로 덮어쓰지 않습니다. DB는 `127.0.0.1:55432`에만 공개됩니다.
@@ -72,13 +72,13 @@ uv run --project backend --env-file .env alembic -c backend/alembic.ini downgrad
 uv run --project backend --env-file .env alembic -c backend/alembic.ini upgrade head
 ```
 
-DB는 core 10 / mes 21 / erp 27 / fems 13, 총 **71테이블**입니다. `public.alembic_version`은 별도 이력 관리 테이블입니다. `schema.json`은 v0.9.1 원본을 그대로 유지하며 SERVICE/DB_POLICY 80개는 아직 구현하지 않았습니다. `validation-report.json`은 정적 검사 결과이고 실제 DB 대사는 `docs/db/ddl-verification-report.json`을 봅니다.
+DB는 core 10 / mes 21 / erp 27 / fems 13, 총 **71테이블**입니다. `public.alembic_version`은 별도 이력 관리 테이블입니다. `schema.json`은 v0.9.1 원본을 그대로 유지하며 업무 SERVICE 정책은 후속 구현 범위입니다. `validation-report.json`은 정적 검사 결과이고 실제 DB 대사는 `docs/db/ddl-verification-report.json`을 봅니다.
 
 ## 디렉터리와 협업
 
-- `backend/src/fs/`: FastAPI 조립 자리와 common/core/mes/erp/fems 경계
+- `backend/src/fs/`: 공통 API·인증과 core/mes/erp/fems 경계
 - `backend/alembic/`: 최초 마이그레이션. 기존 `backend/migrations/`는 과거 빈 자리
-- `frontend/src/`: app/shared/portal/mes/erp/fems 뼈대
+- `frontend/src/`: app/shared/portal 구현과 후속 mes/erp/fems 경계
 - `content/`: 도움말·설명 카드 Markdown, 흐름 맵 JSON/JSON Schema
 - `backend/seed/`: FS-015 결정적 템플릿·게스트 복사 생성기
 - `docs/`, `tools/`: 설계·검증·문서 생성 도구
@@ -123,18 +123,37 @@ npm --prefix frontend run dev
 | 프론트 개발 | `<repo>/frontend` | `npm run dev` | `PATH=/opt/homebrew/opt/node@24/bin:기존PATH`; 별도 VITE 환경변수 없음 |
 | DB 기동 | `<repo>` | `docker compose up -d --wait` | `.env`: `POSTGRES_PASSWORD`, 선택 `POSTGRES_PORT=55432`; Colima 사용 시 위 Docker 환경 설정 |
 | 프론트 단위/화면 | `<repo>/frontend` | `npm test` | Node 24 PATH |
-| 브라우저 스모크 | `<repo>/frontend` | `npm run test:e2e` | Node 24 PATH; 8000에 전용 `*_test` DB를 사용하는 백엔드 실행 |
+| 브라우저 스모크 | `<repo>/frontend` | `uv run --project backend --env-file .env python tools/run_portal_smoke.py` | 작업 디렉터리를 `<repo>`로 지정; Node 24 PATH·.env의 DB 접속 정보 |
 
 ### 브라우저·컴포넌트 검증
+
+저장소 루트, Node 24 PATH에서 실행한다.
 
 ```sh
 npm --prefix frontend test
 npm --prefix frontend exec -- playwright install chromium
-npm --prefix frontend run test:e2e
+uv run --project backend --env-file .env python tools/run_portal_smoke.py
 ```
 
-Playwright는 5173의 Vite 서버를 직접 시작·종료한다. 이미 개발 프론트가 켜져 있으면 종료한 뒤 실행한다. 브라우저 테스트는 실제 API로 게스트 공간을 생성하므로 반드시 전용 테스트 DB를 사용한다. `DATABASE_URL`을 해당 `*_test` DB로 지정하고 마이그레이션·시드 템플릿을 적용한 뒤 위 백엔드 명령을 실행한다. 세션 비밀도 테스트용 임의 값을 주입한다. 테스트를 반복해 게스트 20개 상한에 도달하면 테스트 DB에서만 만료 시간을 경과시키거나 전용 DB를 재구성한다. 제품 DB를 테스트에 연결하지 않는다.
+`run_portal_smoke.py`는 .env의 DB 접속 자격을 사용하되 DB 이름을 **factory_studio_fs017_test**로 고정한다. 이 전용 DB가 없으면 생성하고 기존 Alembic head를 적용한다. **매 실행 전 이 테스트 DB의 core/mes/erp/fems 데이터를 정리하고 시드 템플릿을 다시 만든다.** 제품 DB는 변경하지 않는다. DB 계정에는 이 테스트 DB 생성·접속 권한이 필요하다.
 
-전체 백엔드 테스트는 별도 `TEST_DATABASE_URL`의 테이블을 정리한다. **브라우저 서버 DB와 전체 pytest DB를 공유해 동시에 실행하지 않는다.** 이번 검증은 브라우저 `factory_studio_fs017_test`, 전체 pytest `factory_studio_fs016_test`를 사용했다.
+이 명령은 임의 SESSION_SECRET을 테스트 프로세스에만 주입하고 8000의 백엔드를 시작한 뒤 `npm --prefix frontend run test:e2e`를 실행한다. Playwright는 5173의 프론트를 시작한다. 두 서버는 검증 종료 시 종료한다. 포트가 사용 중이면 기존 서버를 재사용하거나 종료하지 않고 실행을 거부한다. 먼저 개발 서버를 종료한 후 실행한다. 브라우저 테스트는 API 응답을 모킹하지 않는다. 결과·실패 로그와 스크린샷은 Git 제외된 `work/fs017c/` 및 `work/fs017/playwright-results/`에 남는다.
+
+전체 pytest는 별도 `TEST_DATABASE_URL`의 테스트 데이터를 정리한다. **브라우저 검증과 backend 전체 pytest를 동시에 실행하지 않는다.** 전체 pytest DB는 `factory_studio_fs016_test`, 브라우저는 `factory_studio_fs017_test`를 사용한다. 새 머신에서는 `_test` DB를 생성하고 기존 마이그레이션을 적용해야 한다.
+
+기존 로컬 테스트 DB로 backend 전체를 실행하는 예:
+
+```sh
+uv run --project backend --env-file .env python - <<'PYTEST'
+import os, subprocess
+from sqlalchemy.engine import make_url
+url = make_url(os.environ['DATABASE_URL']).set(database='factory_studio_fs016_test')
+assert url.database.endswith('_test')
+os.environ['TEST_DATABASE_URL'] = url.render_as_string(hide_password=False)
+subprocess.run(['uv', 'run', '--project', 'backend', 'pytest', 'backend/tests', '-q'], check=True)
+PYTEST
+```
+
+P-07은 ADMIN만 접근한다. 게스트/OWNER에게 메뉴를 숨기고 직접 SPA 경로 접근은 404 화면으로 표시한다. 신규 관리자 생성 화면은 범위 밖이다. API는 독립된 서버 권한 검사를 유지한다.
 
 컴포넌트 사용법은 [FS-017 공통 패턴](docs/architecture/프론트엔드_공통패턴_FS-017.md)을 따른다.
