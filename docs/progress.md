@@ -679,3 +679,9 @@
   - 프론트엔드 전체 테스트 통과: `npm --prefix frontend test` 12개 파일 133개 테스트 ALL PASSED (exit 0).
   - typecheck, lint, format:check, build, ruff check/format, git diff --check 모두 exit 0.
 - main 병합·push 없음.
+
+## 2026-09-24 FS-018d 완료 (Claude Code)
+
+- AG-06(F-14 요금제) 검토: 저장소 일치, 겹침·nullable PATCH 처리 확인, frontend 133·backend 142·Playwright 26 재현.
+- F-04 배출량 `GET /emissions`: 최상위 계측기만 합산, invalid 제외, 배수 적용, 연도별 EMISSION 계수, PRIMARY 미사용, 상태 4종, 부분 계산 표시. 화면은 총량 타일 + 에너지원별 표 + 근거 패널.
+- 테스트: backend +15(전체 157), frontend +11(전체 144), Playwright +2(전체 28). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018d.md`.

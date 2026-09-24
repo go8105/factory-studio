@@ -64,3 +64,12 @@ test("결측이 있던 날의 배분은 추정으로 표시", async ({ page }) =
   await page.getByRole("button", { name: "조회" }).click();
   await expect(page.getByText("추정 1일")).toBeVisible();
 });
+test("배출량은 총량과 에너지원별 상태를 보여준다", async ({ page }) => {
+  await page.goto("/fems/emissions");
+  await expect(page.getByLabel("총 배출량")).toContainText("tCO2eq");
+  const water = page.getByRole("row", { name: /용수/ });
+  await expect(water.getByText("대상 아님")).toBeVisible();
+  const elec = page.getByRole("row", { name: /전력/ });
+  await elec.getByText("근거").click();
+  await expect(elec.getByText("tCO2eq/kWh")).toBeVisible();
+});

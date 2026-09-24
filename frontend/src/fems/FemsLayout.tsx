@@ -9,6 +9,7 @@ export const femsScreens = [
     label: "설비별 배분",
     group: "에너지 현황",
   },
+  { path: "emissions", id: "F-04", label: "배출량 현황", group: "에너지 현황" },
   { path: "equipments", id: "F-10", label: "설비", group: "기준정보" },
   { path: "energy-sources", id: "F-11", label: "에너지원", group: "기준정보" },
   { path: "tariffs", id: "F-14", label: "요금제", group: "요금" },

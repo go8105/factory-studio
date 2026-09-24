@@ -260,6 +260,7 @@ POST /sales-records/{id}/cancel      취소
 - `GET /readings` (FS-018b): 날짜 `D`는 사업장 시간대의 `(D 00:00, D+1 00:00]`. 기간을 생략하면 최근 계측일까지 7일, 응답 `range`로 알린다. 최대 31일. **`quality = invalid` 행의 `value`는 `null`**(0 합산 방지).
 - `GET /allocations` (FS-018c): 구간 `[D 00:00, D+1 00:00)`. 같은 설비·채널·구간에서 `input_revision`, `method_version`이 가장 큰 행이 현재 결과(`isLatest`). 기본은 현재 결과만, `includeSuperseded=true`로 이전 결과 포함. 필터는 현재 판정 뒤에 적용. `summary`는 현재 결과·invalid 제외·설비×단위별 합계.
 - 요금제(F-14): 같은 에너지원에서 적용 기간 `[effective_from, effective_to]`(NULL = 계속 적용)이 겹치는 등록·수정은 409 `PRECONDITION_NOT_MET`, `reason = "PERIOD_OVERLAP"` (사용자 승인 2026-09-24).
+- `GET /emissions` (FS-018d): 최상위 계측기(`parent_meter_id IS NULL`)만 합산, invalid 제외, 배수 적용, 계측 연도별 EMISSION 계수. 상태 `CALCULATED`/`NOT_APPLICABLE`(UTILITY)/`FACTOR_MISSING`/`UNIT_MISMATCH`. 총량은 계산된 에너지원만, 계산 불가가 있으면 `complete=false`. 기본 당월 누계, 최대 366일.
 
 ### 계산 결과를 저장하지 않는 엔드포인트
 

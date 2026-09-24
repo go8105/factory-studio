@@ -1010,3 +1010,68 @@ th button {
   padding: 6px 4px;
   border-top: 1px solid var(--border);
 }
+/* 핵심 수치 타일·배출량 표 (FS-018d) */
+.stat-tile {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 0 0 20px;
+}
+.stat-tile p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.stat-tile strong {
+  font-size: 32px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.stat-tile strong span {
+  font-size: 15px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.stat-tile small {
+  color: var(--muted);
+}
+.emission-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.emission-table caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 8px;
+}
+.emission-table th,
+.emission-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 8px;
+  border-top: 1px solid var(--border);
+}
+.basis-panel table {
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 6px;
+}
+.basis-panel caption {
+  text-align: left;
+  color: var(--muted);
+}
+.basis-panel th,
+.basis-panel td {
+  padding: 4px 8px 4px 0;
+  border-top: 1px solid var(--border);
+  text-align: left;
+}
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 4px 0 0;
+}

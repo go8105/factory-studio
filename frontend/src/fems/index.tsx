@@ -5,6 +5,7 @@ import { FemsLayout } from "./FemsLayout";
 import { EnergySources } from "./EnergySources";
 import { Readings } from "./Readings";
 import { Allocations } from "./Allocations";
+import { Emissions } from "./Emissions";
 import { Equipments } from "./Equipments";
 import { Tariffs } from "./Tariffs";
 export default function FemsRoutes() {
@@ -15,6 +16,7 @@ export default function FemsRoutes() {
         <Route path="equipments" element={<Equipments />} />
         <Route path="readings" element={<Readings />} />
         <Route path="allocations" element={<Allocations />} />
+        <Route path="emissions" element={<Emissions />} />
         <Route path="energy-sources" element={<EnergySources />} />
         <Route path="tariffs" element={<Tariffs />} />
         <Route path="*" element={<NotFound />} />
