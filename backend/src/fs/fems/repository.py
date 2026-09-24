@@ -948,38 +948,38 @@ def site_toe_target(connection: Connection, context: AuthContext, month: str) ->
     ).scalar_one()
 
 
-def tariffs_for_month(
-    connection: Connection, context: AuthContext, month: str
-) -> dict[int, dict[str, Any]]:
-    """요금 부과 대상 에너지원별로 그 달에 적용되는 요금제 1건(기간 겹침은 F-14가 막는다)."""
+def monthly_consumption(
+    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+) -> list[dict[str, Any]]:
+    """최상위 계측기 기준 에너지원 × 단위 × 월별 사용량(invalid 제외, 배수 적용)."""
     rows = connection.execute(
         text(
-            """
-            SELECT DISTINCT ON (t.energy_source_id)
-                   t.energy_source_id,t.tariff_code,t.name,t.basic_charge,t.usage_rate,t.currency
-            FROM fems.tariff t
-            JOIN fems.energy_source e
-              ON e.workspace_id=t.workspace_id AND e.generation_id=t.generation_id AND e.id=t.energy_source_id
-            WHERE t.workspace_id=:w AND t.generation_id=:g AND e.is_billable
-              AND t.effective_from<=:m AND (t.effective_to IS NULL OR t.effective_to>=:m)
-            ORDER BY t.energy_source_id, t.effective_from DESC
-            """
+            "SELECT e.id source_id,e.source_code,e.name,e.is_billable,c.unit,"
+            "to_char((r.observed_at - interval '1 microsecond') AT TIME ZONE s.timezone,'YYYY-MM') reading_month,"
+            "coalesce(sum(r.value*c.multiplier) FILTER (WHERE r.quality<>'invalid'),0) quantity "
+            + READING_FROM
+            + READING_PERIOD
+            + " AND m.parent_meter_id IS NULL"
+            " GROUP BY e.id,e.source_code,e.name,e.is_billable,c.unit,reading_month"
+            " ORDER BY e.source_code,reading_month"
         ),
-        {**_s(context), "m": month},
+        {**_s(context), "date_from": date_from, "date_to": date_to},
     ).mappings()
-    return {r["energy_source_id"]: dict(r) for r in rows}
+    return [dict(r) for r in rows]
 
 
-def billable_sources(connection: Connection, context: AuthContext) -> set[int]:
-    return set(
-        connection.execute(
-            text(
-                "SELECT id FROM fems.energy_source "
-                "WHERE workspace_id=:w AND generation_id=:g AND is_billable"
-            ),
-            _s(context),
-        ).scalars()
-    )
+def billing_tariffs(
+    connection: Connection, context: AuthContext
+) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            "SELECT energy_source_id,tariff_code,name,basic_charge,usage_rate,"
+            "effective_from,effective_to FROM fems.tariff "
+            "WHERE workspace_id=:w AND generation_id=:g ORDER BY effective_from DESC"
+        ),
+        _s(context),
+    ).mappings()
+    return [dict(r) for r in rows]
 
 
 def quality_issues(

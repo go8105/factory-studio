@@ -822,41 +822,154 @@ def _month_period(connection: Connection, scoped: AuthContext, month: str | None
     return month, first, last
 
 
-def _charges(
-    rows: list[dict[str, Any]],
-    tariffs: dict[int, dict[str, Any]],
-    billable: set[int],
+def _tariff_for(
+    tariffs: list[dict[str, Any]], source_id: int, month: str
+) -> dict[str, Any] | None:
+    # 같은 에너지원의 기간 겹침은 F-14가 409로 막는다. 겹친 옛 데이터가 있으면 최신 시작월을 쓴다.
+    for t in tariffs:
+        if (
+            t["energy_source_id"] == source_id
+            and t["effective_from"] <= month
+            and (t["effective_to"] is None or t["effective_to"] >= month)
+        ):
+            return t
+    return None
+
+
+def _billing(
+    rows: list[dict[str, Any]], tariffs: list[dict[str, Any]]
 ) -> tuple[list[dict[str, Any]], str, bool]:
-    usage: dict[int, dict[str, Any]] = {}
+    """에너지원별로 월마다 그 달의 요금제를 적용한다. 요금제가 바뀌는 달에서 구간이 나뉜다.
+
+    월 요금 = 기본요금 + 사용량 × 단가(원 단위 반올림). 시간대 가중치 없음(FS-008a F-08).
+    """
+    sources: dict[tuple[int, str], dict[str, Any]] = {}
     for r in rows:
-        entry = usage.setdefault(
-            r["source_id"],
-            {"code": r["source_code"], "unit": r["unit"], "quantity": Decimal(0)},
-        )
-        entry["quantity"] += r["quantity"]
-    charges = []
-    for source_id, entry in usage.items():
-        if source_id not in billable:
-            continue
-        tariff = tariffs.get(source_id)
-        item: dict[str, Any] = {
-            "sourceCode": entry["code"],
-            "usage": {
-                "quantity": str(entry["quantity"].quantize(SIX)),
-                "unit": entry["unit"],
+        source = sources.setdefault(
+            (r["source_id"], r["unit"]),
+            {
+                "energySourceId": r["source_id"],
+                "sourceCode": r["source_code"],
+                "name": r["name"],
+                "unit": r["unit"],
+                "status": "CALCULATED" if r["is_billable"] else "NOT_BILLABLE",
+                "usage": Decimal(0),
+                "total": Decimal(0),
+                "segments": [],
             },
-            "tariffCode": tariff["tariff_code"] if tariff else None,
+        )
+        source["usage"] += r["quantity"]
+        if not r["is_billable"]:
+            continue
+        tariff = _tariff_for(tariffs, r["source_id"], r["reading_month"])
+        segment: dict[str, Any] = {
+            "month": r["reading_month"],
+            "usage": str(r["quantity"].quantize(SIX)),
+            "tariff": None,
+            "basicCharge": None,
+            "usageCharge": None,
             "amount": None,
-            "status": "TARIFF_MISSING",
         }
-        if tariff:
-            # 기본요금 + 사용량 × 단가. 시간대 가중치 없음(FS-008a F-08).
-            amount = tariff["basic_charge"] + entry["quantity"] * tariff["usage_rate"]
-            item["amount"] = str(amount.quantize(WON))
-            item["status"] = "CALCULATED"
-        charges.append(item)
-    total = sum((Decimal(c["amount"]) for c in charges if c["amount"]), Decimal(0))
-    return charges, str(total), all(c["amount"] for c in charges)
+        if tariff is None:
+            source["status"] = "TARIFF_MISSING"
+        else:
+            usage_charge = (r["quantity"] * tariff["usage_rate"]).quantize(WON)
+            basic = tariff["basic_charge"].quantize(WON)
+            segment.update(
+                tariff={
+                    "tariffCode": tariff["tariff_code"],
+                    "name": tariff["name"],
+                    "basicCharge": str(tariff["basic_charge"]),
+                    "usageRate": str(tariff["usage_rate"]),
+                    "effectiveFrom": tariff["effective_from"],
+                    "effectiveTo": tariff["effective_to"],
+                },
+                basicCharge=str(basic),
+                usageCharge=str(usage_charge),
+                amount=str(basic + usage_charge),
+            )
+            source["total"] += basic + usage_charge
+        source["segments"].append(segment)
+    result = []
+    for source in sources.values():
+        billable = source["status"] != "NOT_BILLABLE"
+        source["usage"] = str(source["usage"].quantize(SIX))
+        # 요금제가 빠진 달이 있으면 그 달을 뺀 부분 합계이며 status로 알린다.
+        source["total"] = str(source["total"]) if billable else None
+        result.append(source)
+    billed = [s for s in result if s["status"] != "NOT_BILLABLE"]
+    total = sum((Decimal(s["total"]) for s in billed), Decimal(0))
+    return result, str(total), all(s["status"] == "CALCULATED" for s in billed)
+
+
+MAX_BILLING_MONTHS = 12
+
+
+def _months_between(first: str, last: str) -> int:
+    return (int(last[:4]) - int(first[:4])) * 12 + int(last[5:]) - int(first[5:]) + 1
+
+
+def billing(
+    context: AuthContext, month_from: str | None, month_to: str | None
+) -> dict[str, Any]:
+    if (month_from is None) != (month_to is None):
+        raise ApiError(
+            400,
+            "VALIDATION_FAILED",
+            "조회 기간은 시작월과 종료월을 함께 지정합니다.",
+            {"fields": {"from" if month_from is None else "to": "필요합니다."}},
+        )
+    if month_from and month_to:
+        span = _months_between(month_from, month_to)
+        if span < 1:
+            raise ApiError(
+                400,
+                "VALIDATION_FAILED",
+                "조회 기간이 올바르지 않습니다.",
+                {"fields": {"to": "시작월 이후여야 합니다."}},
+            )
+        if span > MAX_BILLING_MONTHS:
+            raise ApiError(
+                400,
+                "VALIDATION_FAILED",
+                "조회 기간이 너무 깁니다.",
+                {"fields": {"to": f"최대 {MAX_BILLING_MONTHS}개월까지 조회합니다."}},
+            )
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        latest = repo.latest_reading_date(connection, scoped)
+        if month_to is None:
+            if latest is None:
+                return {
+                    "period": None,
+                    "sources": [],
+                    "total": "0",
+                    "currency": "KRW",
+                    "complete": True,
+                }
+            # 기본은 전월 ~ 당월. 요금제 개정이 있으면 구간 분할이 바로 보인다.
+            month_to = latest.strftime("%Y-%m")
+            previous = latest.replace(day=1) - timedelta(days=1)
+            month_from = previous.strftime("%Y-%m")
+        _, first, _ = _month_period(connection, scoped, month_from)
+        _, _, last = _month_period(connection, scoped, month_to)
+        rows = repo.monthly_consumption(connection, scoped, first, last)
+        tariffs = repo.billing_tariffs(connection, scoped)
+    sources, total, complete = _billing(rows, tariffs)
+    return {
+        "period": {
+            "from": month_from,
+            "to": month_to,
+            "dateFrom": first.isoformat(),
+            "dateTo": last.isoformat(),
+            # 마지막 달이 최근 계측일에서 끝나면 그 달은 당월 누계다.
+            "monthToDate": latest is not None and last == latest,
+        },
+        "sources": sources,
+        "total": total,
+        "currency": "KRW",
+        "complete": complete,
+    }
 
 
 def _daily_toe(
@@ -888,15 +1001,29 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
         emission = repo.factors(connection, scoped, "EMISSION")
         daily_rows = repo.daily_consumption(connection, scoped, first, last)
         target = repo.site_toe_target(connection, scoped, month)
-        tariffs = repo.tariffs_for_month(connection, scoped, month)
-        billable = repo.billable_sources(connection, scoped)
+        monthly = repo.monthly_consumption(connection, scoped, first, last)
+        tariffs = repo.billing_tariffs(connection, scoped)
         summary = repo.allocation_summary(connection, scoped, {}, first, last)
         issues, recent = repo.quality_issues(connection, scoped, first, last)
     toe_sources, toe_total, toe_complete = _converted(rows, primary, "PRIMARY", "toe")
     _, emission_total, emission_complete = _converted(
         rows, emission, "EMISSION", "emission"
     )
-    charges, charge_total, charge_complete = _charges(rows, tariffs, billable)
+    billed, charge_total, charge_complete = _billing(monthly, tariffs)
+    # 대시보드는 한 달이라 구간이 하나다. 부과 대상만 요약한다.
+    charges = [
+        {
+            "sourceCode": b["sourceCode"],
+            "usage": {"quantity": b["usage"], "unit": b["unit"]},
+            "tariffCode": (b["segments"][0]["tariff"] or {}).get("tariffCode")
+            if b["segments"]
+            else None,
+            "amount": b["total"] if b["status"] == "CALCULATED" else None,
+            "status": b["status"],
+        }
+        for b in billed
+        if b["status"] != "NOT_BILLABLE"
+    ]
     achievement = None
     if target:
         # 달성률 = 실적 ÷ 목표. 100% 이하면 목표 이내.

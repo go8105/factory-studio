@@ -334,3 +334,16 @@ def get_target_performance(
     month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
 ) -> dict[str, object]:
     return {"data": service.target_performance(context, month)}
+
+
+@router.get("/billing")
+def get_billing(
+    context: Auth,
+    month_from: Annotated[
+        str | None, Query(alias="from", pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    ] = None,
+    month_to: Annotated[
+        str | None, Query(alias="to", pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    ] = None,
+) -> dict[str, object]:
+    return {"data": service.billing(context, month_from, month_to)}
