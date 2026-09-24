@@ -47,20 +47,24 @@ export async function api<T>(
 ): Promise<Envelope<T>> {
   let response: Response;
   try {
-    response = await fetch(`/api/v1/core${path}`, {
-      method: options.method ?? "GET",
-      credentials: "same-origin",
-      signal: options.signal,
-      headers: {
-        ...(options.body !== undefined
-          ? { "Content-Type": "application/json" }
-          : {}),
-        ...(options.csrf ? { "X-CSRF-Token": options.csrf } : {}),
-        ...(options.key ? { "Idempotency-Key": options.key } : {}),
+    // "/api/"로 시작하면 솔루션 경로 그대로, 아니면 포털(core) 경로다.
+    response = await fetch(
+      path.startsWith("/api/") ? path : `/api/v1/core${path}`,
+      {
+        method: options.method ?? "GET",
+        credentials: "same-origin",
+        signal: options.signal,
+        headers: {
+          ...(options.body !== undefined
+            ? { "Content-Type": "application/json" }
+            : {}),
+          ...(options.csrf ? { "X-CSRF-Token": options.csrf } : {}),
+          ...(options.key ? { "Idempotency-Key": options.key } : {}),
+        },
+        body:
+          options.body !== undefined ? JSON.stringify(options.body) : undefined,
       },
-      body:
-        options.body !== undefined ? JSON.stringify(options.body) : undefined,
-    });
+    );
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError")
       throw error;

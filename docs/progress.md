@@ -611,3 +611,11 @@
 - 재실행 결과(모두 exit 0): frontend typecheck/lint/format/build, 테스트 72개, backend 전체 40개(`factory_studio_fs016_test`), `tools/run_portal_smoke.py` Playwright 16개(`factory_studio_fs017_test`, 템플릿 7,469행). 둘은 순차로 실행했다.
 - README IntelliJ 표의 브라우저 스모크 작업 디렉터리가 `<repo>/frontend`와 `<repo>`로 서로 어긋나 `<repo>`로 정정했다.
 - 미재현: tools unittest 44, db:validate, R1~R5(이번 변경과 무관해 재실행 안 함).
+
+## 2026-09-24 FS-018a 완료 (Claude Code)
+
+- `fs-018-fems` 브랜치. FEMS 레이아웃 + F-11 에너지원(목록·등록·수정·삭제 RESTRICT 참조 건수·비활성화). 런처 FEMS 카드를 실제 화면으로 연결했다.
+- 신규 `fs/common/scope.py`: 업무 API가 같은 트랜잭션에서 활성 세대·모듈 사용 여부를 재확인하고, 쓰기는 core와 같은 공간 잠금을 먼저 잡는다. 모듈 꺼짐은 409 `MODULE_DISABLED`.
+- 참조 중인 에너지원의 계측 단위 변경 금지(`UNIT_IN_USE`). 스키마·마이그레이션 변경 없음.
+- 공통 컴포넌트 확장(PageTitle help 키, ErrorNotice 참조 건수 목록, DataTable empty). FEMS·도움말 lazy 로딩으로 번들 경고 해소.
+- 테스트: backend +22(전체 62), frontend +12(전체 84), Playwright +4(전체 20). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018a.md`.

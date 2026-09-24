@@ -248,6 +248,15 @@ POST /sales-records/{id}/cancel      취소
 | GET | `/billing` | F-08 |
 | — | `/sites` `/locations` `/equipments` `/energy-sources` `/meters` `/meters/{id}/channels` `/energy-factors` `/tariffs` | F-09~14 |
 
+### FS-018a에서 확정한 업무 API 공통 규칙
+
+- 업무 모듈 API는 요청마다 같은 트랜잭션에서 활성 세대와 `workspace_module.enabled`를 다시 읽는다(`fs/common/scope.py`). 꺼진 모듈은 조회·쓰기 모두 409 `PRECONDITION_NOT_MET`, `details.reason = "MODULE_DISABLED"`.
+- 변경 요청(POST·PATCH·DELETE)은 CSRF와 `Idempotency-Key`를 모두 요구한다.
+- 요청 본문의 모르는 필드는 400. 범위 키를 본문으로 받지 않는다는 2-2 규칙의 구현이다.
+- 코드 중복은 400 `VALIDATION_FAILED` + `details.fields.<필드>`로 준다(화면 인라인 오류).
+- `details.references`는 `[{ "table", "label", "count" }]` 배열이다.
+- 참조 중인 에너지원의 계측 단위 변경은 409 `PRECONDITION_NOT_MET`, `reason = "UNIT_IN_USE"`.
+
 ### 계산 결과를 저장하지 않는 엔드포인트
 
 `/emissions` · `/billing` · `/intensity`는 **조회 시 계산**한다. 결과를 담는 테이블이 없다(FS-008a G-04).

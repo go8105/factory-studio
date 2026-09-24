@@ -70,9 +70,19 @@ export function ErrorNotice({
                     : key}
               </dt>
               <dd>
-                {typeof value === "object"
-                  ? JSON.stringify(value)
-                  : String(value)}
+                {key === "references" && Array.isArray(value) ? (
+                  <ul>
+                    {(value as { label: string; count: number }[]).map((r) => (
+                      <li key={r.label}>
+                        {r.label} {r.count.toLocaleString()}건
+                      </li>
+                    ))}
+                  </ul>
+                ) : typeof value === "object" ? (
+                  JSON.stringify(value)
+                ) : (
+                  String(value)
+                )}
               </dd>
             </div>
           ))}
@@ -136,10 +146,12 @@ export function PageTitle({
   id,
   title,
   subtitle,
+  help = `portal/${id.toLowerCase()}`,
 }: {
   id: string;
   title: string;
   subtitle?: string;
+  help?: string;
 }) {
   return (
     <div className="page-title">
@@ -151,7 +163,7 @@ export function PageTitle({
       <Link
         className="help-link"
         aria-label={`${title} 도움말`}
-        to={`/help/portal/${id.toLowerCase()}`}
+        to={`/help/${help}`}
       >
         ? 도움말
       </Link>
@@ -226,6 +238,7 @@ export function DataTable<T extends { id: number }>({
   total,
   limit,
   onPage,
+  empty,
 }: {
   rows: T[];
   columns: Column<T>[];
@@ -234,6 +247,7 @@ export function DataTable<T extends { id: number }>({
   total: number;
   limit: number;
   onPage: (offset: number) => void;
+  empty?: ReactNode;
 }) {
   const [sort, setSort] = useState<{ key: keyof T; desc: boolean }>();
   const ordered = [...rows].sort((a, b) =>
@@ -314,11 +328,13 @@ export function DataTable<T extends { id: number }>({
           </table>
         </div>
       ) : (
-        <EmptyState
-          reason="아직 기록된 작업이 없습니다. 작업을 실행한 뒤 다시 확인할 수 있습니다."
-          to="/home"
-          action="앱 런처로"
-        />
+        (empty ?? (
+          <EmptyState
+            reason="아직 기록된 작업이 없습니다. 작업을 실행한 뒤 다시 확인할 수 있습니다."
+            to="/home"
+            action="앱 런처로"
+          />
+        ))
       )}
       <nav className="pagination" aria-label={`${caption} 페이지`}>
         <button

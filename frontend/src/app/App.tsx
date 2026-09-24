@@ -8,15 +8,20 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { SessionProvider, useSession } from "./session";
 import { api } from "../shared/api";
-import { ErrorNotice, NotFound } from "../shared/components";
+import { ErrorNotice, Loading, NotFound } from "../shared/components";
 import { Entry } from "../portal/Entry";
 import { Home } from "../portal/Home";
-import { FlowMap, Cards, Help } from "../portal/ContentPages";
+// Markdown 렌더러와 정적 콘텐츠는 첫 화면에 필요 없으므로 분리한다.
+const content = () => import("../portal/ContentPages");
+const FlowMap = lazy(() => content().then((m) => ({ default: m.FlowMap })));
+const Cards = lazy(() => content().then((m) => ({ default: m.Cards })));
+const Help = lazy(() => content().then((m) => ({ default: m.Help })));
 import { Workspace } from "../portal/Workspace";
 import { Records } from "../portal/Records";
+const FemsRoutes = lazy(() => import("../fems"));
 function Layout() {
   const { session, setSession, busy, navigationBlocked, fail } = useSession();
   const navigate = useNavigate();
@@ -81,7 +86,9 @@ function Layout() {
       </header>
       <main id="main" key={pathname} tabIndex={-1}>
         <ErrorNotice error={error} />
-        <Outlet />
+        <Suspense fallback={<Loading />}>
+          <Outlet />
+        </Suspense>
       </main>
       <footer className="site-footer">
         <span>Factory Studio</span>
@@ -134,6 +141,7 @@ function PortalRoutes() {
             <Route path="/cards/:card?" element={<Cards />} />
             <Route path="/workspace" element={<Workspace />} />
             <Route path="/records" element={<Admin />} />
+            <Route path="/fems/*" element={<FemsRoutes />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Route>

@@ -15,19 +15,19 @@ export const solutions = [
     key: "mes",
     name: "생산관리",
     description: "계획에서 실적, 패킹과 입고까지",
-    help: "mes/m-01",
+    to: "/help/mes/m-01",
   },
   {
     key: "erp",
     name: "경영관리",
     description: "수주에서 출하, 매출과 수금까지",
-    help: "erp/e-01",
+    to: "/help/erp/e-01",
   },
   {
     key: "fems",
     name: "에너지관리",
     description: "계측에서 원단위, 목표와 요금까지",
-    help: "fems/f-01",
+    to: "/fems",
   },
 ];
 export function Home() {
@@ -78,7 +78,7 @@ export function Home() {
       </Link>
       <div className="section-heading">
         <h2>솔루션 둘러보기</h2>
-        <span>업무 안내로 연결됩니다</span>
+        <span>FEMS는 화면으로, MES·ERP는 업무 안내로 연결됩니다</span>
       </div>
       <ErrorNotice error={error} />
       {!modules ? (
@@ -92,7 +92,7 @@ export function Home() {
             return (
               <Link
                 key={s.key}
-                to={enabled ? `/help/${s.help}` : "/workspace"}
+                to={enabled ? s.to : "/workspace"}
                 className={`solution-card ${enabled ? "" : "disabled"}`}
               >
                 <LineIcon kind={s.key} />
