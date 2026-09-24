@@ -52,7 +52,7 @@ def copy_template(
             active_generation_id=None,
             config_version=1,
             energy_input_revision=1,
-            created_at=at(target_date, 0),
+            created_at=at(target_date, -91, 9),
             workspace_kind="GUEST",
             guest_session_key=guest_session_key,
             expires_at=at(target_date, 1),
@@ -69,7 +69,7 @@ def copy_template(
             activated_at=at(target_date, 0),
             retired_at=None,
             purged_at=None,
-            created_at=at(target_date, 0),
+            created_at=at(target_date, -91, 9),
             status="active",
         )
         .returning(generation.c.id)

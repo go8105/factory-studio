@@ -290,8 +290,9 @@ def validate_all(
     """,
         params,
     )
+    policy_errors += _created_at_order_errors(connection, workspace_id, generation_id)
     _require(policy_errors == 0, f"V12 policy errors={policy_errors}")
-    results["V12"] = "DB 밖 시드 정책 6종 일치"
+    results["V12"] = "DB 밖 시드 정책 및 created_at 확정·취소·부모-자식 순서 일치"
     return results
 
 
@@ -319,6 +320,58 @@ def _counts(
 
 def _scalar(connection: Connection, sql: str, params: dict[str, Any]) -> int:
     return int(connection.execute(text(sql), params).scalar_one())
+
+
+def _created_at_order_errors(
+    connection: Connection, workspace_id: int, generation_id: int
+) -> int:
+    params = {"w": workspace_id, "g": generation_id}
+    inspector = inspect(connection)
+    errors = 0
+    for schema in ("mes", "erp", "fems"):
+        for table in inspector.get_table_names(schema=schema):
+            columns = {
+                column["name"] for column in inspector.get_columns(table, schema=schema)
+            }
+            if "created_at" not in columns:
+                continue
+            for later in ("confirmed_at", "cancelled_at"):
+                if later in columns:
+                    errors += _scalar(
+                        connection,
+                        f'SELECT count(*) FROM "{schema}"."{table}" '
+                        f"WHERE workspace_id=:w AND generation_id=:g "
+                        f'AND "{later}" IS NOT NULL AND created_at>"{later}"',
+                        params,
+                    )
+            for fk in inspector.get_foreign_keys(table, schema=schema):
+                parent_schema = fk["referred_schema"]
+                parent_table = fk["referred_table"]
+                if parent_schema not in {"mes", "erp", "fems"}:
+                    continue
+                parent_columns = {
+                    column["name"]
+                    for column in inspector.get_columns(
+                        parent_table, schema=parent_schema
+                    )
+                }
+                if "created_at" not in parent_columns:
+                    continue
+                join = " AND ".join(
+                    f'c."{local}"=p."{remote}"'
+                    for local, remote in zip(
+                        fk["constrained_columns"], fk["referred_columns"], strict=True
+                    )
+                )
+                errors += _scalar(
+                    connection,
+                    f'SELECT count(*) FROM "{schema}"."{table}" c '
+                    f'JOIN "{parent_schema}"."{parent_table}" p ON {join} '
+                    "WHERE c.workspace_id=:w AND c.generation_id=:g "
+                    "AND c.created_at<p.created_at",
+                    params,
+                )
+    return errors
 
 
 def _require(condition: bool, message: str) -> None:

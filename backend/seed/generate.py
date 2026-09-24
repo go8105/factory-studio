@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_CEILING
 from typing import Any
 
-from sqlalchemy import MetaData, Table, insert, update
+from sqlalchemy import MetaData, Table, inspect, insert, text, update
 from sqlalchemy.engine import Connection
 
 from seed.common import (
@@ -189,7 +189,7 @@ class SeedWriter:
             if "generation_id" in table.c and "generation_id" not in row:
                 row["generation_id"] = self.generation_id
             if "created_at" in table.c and "created_at" not in row:
-                row["created_at"] = at(self.seed_date, 0)
+                row["created_at"] = at(self.seed_date, -91, 9)
             materialized.append(row)
         if not materialized:
             return {}
@@ -224,7 +224,7 @@ def create_template(
             active_generation_id=None,
             config_version=1,
             energy_input_revision=1,
-            created_at=at(seed_date, 0),
+            created_at=at(seed_date, -91, 9),
             workspace_kind="TEMPLATE",
             guest_session_key=None,
             expires_at=None,
@@ -241,7 +241,7 @@ def create_template(
             activated_at=at(seed_date, 0),
             retired_at=None,
             purged_at=None,
-            created_at=at(seed_date, 0),
+            created_at=at(seed_date, -91, 9),
             status="active",
         )
         .returning(generation.c.id)
@@ -270,7 +270,93 @@ def create_template(
     context = _plans_and_mes(writer)
     _erp(writer, context)
     _fems(writer, context)
+    normalize_created_at(connection, workspace_id, generation_id, seed_date)
     return workspace_id, generation_id, dict(writer.counts)
+
+
+def normalize_created_at(
+    connection: Connection, workspace_id: int, generation_id: int, seed_date: date
+) -> None:
+    """업무 시각 우선순위와 부모-자식 순서에 맞춰 created_at을 확정한다."""
+    params = {"w": workspace_id, "g": generation_id, "master": at(seed_date, -91, 9)}
+    timestamp_priority = (
+        "occurred_at",
+        "started_at",
+        "observed_at",
+        "period_start",
+        "issued_at",
+        "received_at",
+        "shipped_at",
+        "recognized_at",
+        "changed_at",
+        "applied_at",
+        "released_at",
+        "published_at",
+        "confirmed_at",
+        "completed_at",
+    )
+    date_priority = (
+        "quoted_on",
+        "ordered_on",
+        "invoice_date",
+        "received_on",
+        "paid_on",
+        "issued_on",
+    )
+    inspector = inspect(connection)
+    tables: list[tuple[str, str, set[str]]] = []
+    for schema in ("mes", "erp", "fems"):
+        for table in inspector.get_table_names(schema=schema):
+            columns = {
+                column["name"] for column in inspector.get_columns(table, schema=schema)
+            }
+            if "created_at" not in columns:
+                continue
+            tables.append((schema, table, columns))
+            candidates = [f'"{name}"' for name in timestamp_priority if name in columns]
+            candidates += [
+                f"(\"{name}\" + time '09:00') AT TIME ZONE 'Asia/Seoul'"
+                for name in date_priority
+                if name in columns
+            ]
+            expression = (
+                f"coalesce({','.join(candidates)}, :master)"
+                if candidates
+                else ":master"
+            )
+            connection.execute(
+                text(
+                    f'UPDATE "{schema}"."{table}" SET created_at={expression} '
+                    "WHERE workspace_id=:w AND generation_id=:g"
+                ),
+                params,
+            )
+    for _ in range(len(tables)):
+        changed = 0
+        for schema, table, _ in tables:
+            for fk in inspector.get_foreign_keys(table, schema=schema):
+                parent_schema = fk["referred_schema"]
+                parent_table = fk["referred_table"]
+                if parent_schema not in {"mes", "erp", "fems"}:
+                    continue
+                join = " AND ".join(
+                    f'c."{local}"=p."{remote}"'
+                    for local, remote in zip(
+                        fk["constrained_columns"], fk["referred_columns"], strict=True
+                    )
+                )
+                result = connection.execute(
+                    text(
+                        f'UPDATE "{schema}"."{table}" c SET created_at=p.created_at '
+                        f'FROM "{parent_schema}"."{parent_table}" p '
+                        f"WHERE {join} AND c.workspace_id=:w AND c.generation_id=:g "
+                        "AND c.created_at<p.created_at"
+                    ),
+                    params,
+                )
+                changed += result.rowcount
+        if changed == 0:
+            break
 
 
 def _masters(writer: SeedWriter) -> None:
