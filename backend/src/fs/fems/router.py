@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Annotated
+from datetime import date
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Header, Response
+from fastapi import APIRouter, Depends, Header, Query, Response
 
 from fs.common.auth import AuthContext, require_csrf, resolve_auth
 from fs.common.errors import ApiError
@@ -152,3 +153,49 @@ def delete_equipment(
     key = _mutation(context, x_csrf_token, idempotency_key)
     service.delete_equipment(context, equipment_id, key)
     return Response(status_code=204)
+
+
+@router.get("/sites")
+def list_sites(context: Auth) -> dict[str, object]:
+    return {"data": service.list_sites(context)}
+
+
+@router.get("/meters")
+def list_meters(context: Auth) -> dict[str, object]:
+    return {"data": service.list_meters(context)}
+
+
+@router.get("/readings")
+def list_readings(
+    context: Auth,
+    date_from: Annotated[date | None, Query(alias="from")] = None,
+    date_to: Annotated[date | None, Query(alias="to")] = None,
+    site_id: Annotated[int | None, Query(alias="siteId")] = None,
+    meter_id: Annotated[int | None, Query(alias="meterId")] = None,
+    channel_id: Annotated[int | None, Query(alias="channelId")] = None,
+    energy_source_id: Annotated[int | None, Query(alias="energySourceId")] = None,
+    quality: Literal["valid", "estimated", "reset", "invalid"] | None = None,
+    sort: str | None = None,
+    offset: int = 0,
+    limit: int = 50,
+) -> dict[str, object]:
+    page = Page(offset, limit).checked()
+    filters = {
+        key: value
+        for key, value in {
+            "site_id": site_id,
+            "meter_id": meter_id,
+            "channel_id": channel_id,
+            "energy_source_id": energy_source_id,
+            "quality": quality,
+        }.items()
+        if value is not None
+    }
+    data, total, period = service.list_readings(
+        context, filters, date_from, date_to, sort, page.offset, page.limit
+    )
+    return {
+        "data": data,
+        "page": {"offset": page.offset, "limit": page.limit, "total": total},
+        "range": period,
+    }

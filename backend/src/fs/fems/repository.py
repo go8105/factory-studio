@@ -379,3 +379,157 @@ def list_locations(
         _s(context),
     ).mappings()
     return [location_dict(r) for r in rows]
+
+
+# ---- F-02 계측 조회 (FS-018b) ----
+# 계측값은 구간 끝 시각(observed_at)에 기록된다. 00:00 관측값은 전날 23~24시 구간이다.
+# 조회 기간 [from, to]는 계측기 사업장 시간대의 날짜이며 (from 00:00, to+1 00:00]로 변환한다.
+READING_FROM = """
+FROM fems.energy_reading r
+JOIN fems.meter_channel c
+  ON c.workspace_id=r.workspace_id AND c.generation_id=r.generation_id AND c.id=r.meter_channel_id
+JOIN fems.meter m
+  ON m.workspace_id=c.workspace_id AND m.generation_id=c.generation_id AND m.id=c.meter_id
+JOIN fems.site s
+  ON s.workspace_id=m.workspace_id AND s.generation_id=m.generation_id AND s.id=m.site_id
+JOIN fems.energy_source e
+  ON e.workspace_id=c.workspace_id AND e.generation_id=c.generation_id AND e.id=c.energy_source_id
+WHERE r.workspace_id=:w AND r.generation_id=:g
+"""
+READING_FILTERS = {
+    "site_id": "s.id=:site_id",
+    "meter_id": "m.id=:meter_id",
+    "channel_id": "c.id=:channel_id",
+    "energy_source_id": "e.id=:energy_source_id",
+    "quality": "r.quality=:quality",
+}
+READING_SORT = {"observedAt": "r.observed_at"}
+
+
+def reading_dict(row: Any) -> dict[str, Any]:
+    # 결측(invalid)은 value=0으로 저장돼 있다(FS-005g 5.2). 0이 소비량으로 합산되지 않게 null로 낸다.
+    missing = row["quality"] == "invalid"
+    return {
+        "id": row["id"],
+        "observedAt": row["observed_at"].isoformat(),
+        "periodStart": row["period_start"].isoformat() if row["period_start"] else None,
+        "timezone": row["timezone"],
+        "meterCode": row["meter_code"],
+        "channelId": row["channel_id"],
+        "channelCode": row["channel_code"],
+        "channelName": row["channel_name"],
+        "energySourceCode": row["source_code"],
+        "value": None if missing else str(row["value"]),
+        "unit": row["unit"],
+        "quality": row["quality"],
+        "inputRevision": row["input_revision"],
+    }
+
+
+def latest_reading_date(connection: Connection, context: AuthContext) -> Any:
+    return connection.execute(
+        text(
+            "SELECT max(((r.observed_at - interval '1 microsecond') AT TIME ZONE s.timezone)::date) "
+            + READING_FROM
+        ),
+        _s(context),
+    ).scalar_one()
+
+
+def list_readings(
+    connection: Connection,
+    context: AuthContext,
+    filters: dict[str, Any],
+    date_from: Any,
+    date_to: Any,
+    order: str,
+    offset: int,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int]:
+    where = (
+        READING_FROM
+        + " AND r.observed_at > (CAST(CAST(:date_from AS date) AS timestamp) AT TIME ZONE s.timezone)"
+        + " AND r.observed_at <= (CAST(CAST(:date_to AS date) + 1 AS timestamp) AT TIME ZONE s.timezone)"
+    )
+    for key in filters:
+        where += f" AND {READING_FILTERS[key]}"
+    params = {
+        **_s(context),
+        **filters,
+        "date_from": date_from,
+        "date_to": date_to,
+        "offset": offset,
+        "limit": limit,
+    }
+    total = connection.execute(text("SELECT count(*) " + where), params).scalar_one()
+    rows = connection.execute(
+        text(
+            "SELECT r.id,r.observed_at,r.period_start,r.value,r.unit,r.quality,r.input_revision,"
+            "s.timezone,m.meter_code,c.id channel_id,c.channel_code,c.name channel_name,e.source_code "
+            + where
+            + f" ORDER BY {order}, c.channel_code, r.id OFFSET :offset LIMIT :limit"
+        ),
+        params,
+    ).mappings()
+    return [reading_dict(r) for r in rows], total
+
+
+def list_sites(connection: Connection, context: AuthContext) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            "SELECT id,site_code,name,timezone FROM fems.site "
+            "WHERE workspace_id=:w AND generation_id=:g ORDER BY site_code"
+        ),
+        _s(context),
+    ).mappings()
+    return [
+        {
+            "id": r["id"],
+            "siteCode": r["site_code"],
+            "name": r["name"],
+            "timezone": r["timezone"],
+        }
+        for r in rows
+    ]
+
+
+def list_meters(connection: Connection, context: AuthContext) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            """
+            SELECT m.id,m.meter_code,m.name,m.site_id,
+                   c.id channel_id,c.channel_code,c.name channel_name,c.unit,
+                   c.energy_source_id,c.multiplier
+            FROM fems.meter m
+            LEFT JOIN fems.meter_channel c
+              ON c.workspace_id=m.workspace_id AND c.generation_id=m.generation_id AND c.meter_id=m.id
+            WHERE m.workspace_id=:w AND m.generation_id=:g
+            ORDER BY m.meter_code, c.channel_code
+            """
+        ),
+        _s(context),
+    ).mappings()
+    meters: dict[int, dict[str, Any]] = {}
+    for r in rows:
+        meter = meters.setdefault(
+            r["id"],
+            {
+                "id": r["id"],
+                "meterCode": r["meter_code"],
+                "name": r["name"],
+                "siteId": r["site_id"],
+                "channels": [],
+            },
+        )
+        if r["channel_id"] is not None:
+            meter["channels"].append(
+                {
+                    "id": r["channel_id"],
+                    "channelCode": r["channel_code"],
+                    "name": r["channel_name"],
+                    "unit": r["unit"],
+                    "energySourceId": r["energy_source_id"],
+                    "multiplier": str(r["multiplier"]),
+                }
+            )
+    return list(meters.values())

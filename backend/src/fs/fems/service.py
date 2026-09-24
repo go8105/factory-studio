@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import Any
 
 from sqlalchemy import Connection
@@ -358,3 +359,74 @@ def delete_equipment(context: AuthContext, equipment_id: int, key: str) -> None:
             {},
             204,
         )
+
+
+# ---- F-02 계측 조회 (FS-018b) ----
+MAX_READING_DAYS = 31
+DEFAULT_READING_DAYS = 7
+
+
+def list_readings(
+    context: AuthContext,
+    filters: dict[str, Any],
+    date_from: date | None,
+    date_to: date | None,
+    sort: str | None,
+    offset: int,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int, dict[str, str] | None]:
+    if (date_from is None) != (date_to is None):
+        raise ApiError(
+            400,
+            "VALIDATION_FAILED",
+            "조회 기간은 시작일과 종료일을 함께 지정합니다.",
+            {"fields": {"from" if date_from is None else "to": "필요합니다."}},
+        )
+    if date_from and date_to:
+        if date_from > date_to:
+            raise ApiError(
+                400,
+                "VALIDATION_FAILED",
+                "조회 기간이 올바르지 않습니다.",
+                {"fields": {"to": "시작일 이후여야 합니다."}},
+            )
+        if (date_to - date_from).days >= MAX_READING_DAYS:
+            raise ApiError(
+                400,
+                "VALIDATION_FAILED",
+                "조회 기간이 너무 깁니다.",
+                {"fields": {"to": f"최대 {MAX_READING_DAYS}일까지 조회합니다."}},
+            )
+    order = "r.observed_at ASC"
+    if sort is not None:
+        field, _, direction = sort.partition(":")
+        if field not in repo.READING_SORT or direction not in ("asc", "desc"):
+            raise ApiError(
+                400,
+                "VALIDATION_FAILED",
+                "정렬 조건이 올바르지 않습니다.",
+                {"fields": {"sort": "허용: observedAt (asc|desc)"}},
+            )
+        order = f"{repo.READING_SORT[field]} {direction.upper()}"
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        if date_to is None:
+            # 기간을 주지 않으면 가장 최근 계측일까지 7일. 빈 화면으로 시작하지 않는다.
+            date_to = repo.latest_reading_date(connection, scoped)
+            if date_to is None:
+                return [], 0, None
+            date_from = date_to - timedelta(days=DEFAULT_READING_DAYS - 1)
+        rows, total = repo.list_readings(
+            connection, scoped, filters, date_from, date_to, order, offset, limit
+        )
+    return rows, total, {"from": date_from.isoformat(), "to": date_to.isoformat()}
+
+
+def list_sites(context: AuthContext) -> list[dict[str, Any]]:
+    with _read() as connection:
+        return repo.list_sites(connection, read_scope(connection, context, MODULE))
+
+
+def list_meters(context: AuthContext) -> list[dict[str, Any]]:
+    with _read() as connection:
+        return repo.list_meters(connection, read_scope(connection, context, MODULE))

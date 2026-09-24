@@ -4,11 +4,10 @@ from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, text
-
 from fs.common.db import reset_engine
 from fs.main import create_app
 from seed.generate import create_template
+from sqlalchemy import Engine, text
 
 BASE = "/api/v1/fems/equipments"
 LOCATIONS = "/api/v1/fems/locations"
