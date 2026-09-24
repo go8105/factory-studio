@@ -498,3 +498,17 @@
 - 결과/실행 안내/antigravity 인계 가능 목록: docs/agent/실행기반_FS-009.md. 다음 ID는 결과 보고 후 사용자 확인을 기다린다.
 
 - 최종 패키지 보강: 빈 디렉터리 상태에서 초기 설치된 editable 패키지 import 실패(exit1)를 uv sync --reinstall-package로 해소(exit0). FastAPI 앱 import·라우트0 검증 exit0, CI import 검사 추가. schema/Excel/ERD/UI/prototypes 16파일 바이트 보존 및 git diff --check exit0.
+
+## 2026-09-24 FS-015 결정적 시드 생성기·게스트 복사 완료
+
+- 재개 전 `fs-015-seed` 브랜치, 깨끗한 작업 트리, WIP 커밋 `dfb705a`를 확인했다. main은 antigravity AG-01 도움말·AG-02 설명 카드 5커밋이 앞선 상태였고 antigravity worktree/브랜치는 체크아웃하지 않았다.
+- `backend/seed/`에 단일 코드 사전, 결정적 템플릿 생성기, 게스트 복사기, V1~V12 검증기, CLI를 구현했다. 난수는 사용하지 않는다.
+- PostgreSQL 18.6 별도 검증 DB에 `sv-20260923-1`, T0 2026-09-23 템플릿 **7,469행**을 실제 INSERT했다. 문서의 테이블별 행 수와 일치했고 CHECK·FK·UK 위반은 0건이다.
+- 복사 대상 업무 데이터 **7,463행**은 테이블별 `INSERT ... SELECT`로 처리한다. 자식이 참조하는 부모에만 임시 old/new id 매핑을 만들고 sequence 선발급 + `OVERRIDING SYSTEM VALUE`를 쓴다. leaf는 id를 생략한다.
+- PL/pgSQL 함수 1회 호출 대신 테이블별 문장을 선택했다. `statement_timeout`이 복사 전체가 아닌 각 문장에 적용되고, 바깥 단일 트랜잭션이 전부 성공/롤백을 보장한다.
+- 같은 `(seed_version,T)` 두 번 생성한 전체 정렬 JSON 바이트가 일치했다. 복사 T `2026-10-07`, `2027-01-05`에서 FS-005g §1.2 연월·ISO 주차·연도·적용월 재계산을 확인했다.
+- V1~V12를 실제 DB 자동 테스트로 구현해 템플릿과 모든 복사 세대에서 통과했다. 복사 10회 최종 실측은 중앙값 **0.4555초**, 최대 **0.4758초**로 2초 목표 안이다. 동시 guest_pool 대기·API·네트워크 시간은 미측정이다.
+- FS-005g §10.5의 미대조 NOT NULL 일반 규칙(created_at, KRW, 행 번호, 견적 이력, 출하·매출 시각, 확정·취소, 소명 키)을 `docs/agent/시드생성기_FS-015.md`에 표로 기록했다.
+- `backend/pyproject.toml`에 seed 패키지를 포함시켜 editable 설치 후 `import seed`를 확인했다. schema.json·마이그레이션·제품 API·화면은 변경하지 않았다.
+- antigravity 병합 기록: main의 AG-01 화면 도움말 3커밋과 AG-02 카드 2커밋(`fbf7af7`, `40e534c`)을 현황에 반영했다. FS-015 브랜치는 완료 후 main 위로 rebase하고 사용자 지시 전 병합·push하지 않는다.
+- 상세: `docs/agent/시드생성기_FS-015.md`.

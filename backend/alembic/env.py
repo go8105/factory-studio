@@ -2,8 +2,9 @@
 
 import os
 
-from alembic import context
 from sqlalchemy import create_engine, pool
+
+from alembic import context
 
 url = os.environ["DATABASE_URL"]
 if context.is_offline_mode():

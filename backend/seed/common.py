@@ -1,15 +1,15 @@
 from __future__ import annotations
+# ruff: noqa: I001, FURB157, PYI041
 
 import json
 from calendar import monthrange
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 SEED_VERSION = "sv-20260923-1"
 SEOUL = ZoneInfo("Asia/Seoul")
-UTC = timezone.utc
 CODEBOOK_PATH = Path(__file__).with_name("codebook.json")
 
 
@@ -36,7 +36,9 @@ def month_mondays(value: date, months: int = 0) -> list[str]:
         for day in range(1, 22)
         if shifted.replace(day=day).weekday() == 0
     ]
-    return [f"{day.isocalendar().year:04d}-W{day.isocalendar().week:02d}" for day in mondays]
+    return [
+        f"{day.isocalendar().year:04d}-W{day.isocalendar().week:02d}" for day in mondays
+    ]
 
 
 def at(seed_date: date, day: int, hour: int = 0, minute: int = 0) -> datetime:
