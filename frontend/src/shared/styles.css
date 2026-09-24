@@ -1130,3 +1130,48 @@ th button {
 .rank-list {
   counter-reset: rank;
 }
+
+/* FEMS 사이드바 모바일 접는 메뉴 (AG-07) */
+@media (min-width: 801px) {
+  .solution-sidebar details summary {
+    display: none;
+  }
+  .solution-sidebar details:not([open]) > .eyebrow {
+    display: block;
+  }
+  .solution-sidebar details:not([open]) > nav {
+    display: grid;
+  }
+}
+@media (max-width: 800px) {
+  .solution-sidebar details {
+    margin-bottom: 16px;
+  }
+  .solution-sidebar details summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .solution-sidebar details summary::-webkit-details-marker {
+    display: none;
+  }
+  .solution-sidebar details summary::after {
+    content: "▾";
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .solution-sidebar details[open] summary::after {
+    content: "▴";
+  }
+  .solution-sidebar details[open] .eyebrow {
+    margin-top: 14px;
+  }
+}

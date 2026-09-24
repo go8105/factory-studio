@@ -1,7 +1,7 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-018c 완료, AG-06(F-14 요금제 복제 구현) antigravity/ag-06-f14 브랜치 완료.**
+- 단계: **FS-018g 완료, AG-07(FEMS 사이드바 모바일 접는 메뉴) antigravity/ag-07-sidebar 브랜치 완료.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
@@ -702,3 +702,21 @@
 - F-07 `GET /targets/performance`: 범위별 섹션, 단위 불일치는 계산 불가, 목표 없으면 미설정, 당월 누계 표시. 시드 9월 사업장·설비 모두 이내·초과 혼재.
 - F-14 기준정보 그룹 이동, 360px 달성률·상태 열 앞으로, 스모크 포트 검사 SO_REUSEADDR(연속 실행 오검출 수정).
 - 테스트: backend +18(전체 201), frontend +11(전체 169), Playwright +2(전체 33). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018g.md`.
+
+## 2026-09-24 AG-07 FEMS 사이드바 모바일 접는 메뉴 완료 (antigravity)
+
+- FEMS 사이드바 반응형 접기 구현: 800px 이하에서 네이티브 `<details><summary>`로 접힘 메뉴 제공.
+- `FemsLayout.tsx`:
+  - `useLocation()` 기반 현재 화면 식별하여 summary에 "FEMS 메뉴 · 현재 화면 ID와 이름" 노출.
+  - `<details open>` 및 `ref` 기반, 메뉴 링크(`NavLink`) 클릭 시 `onClick`에서 `details.open = false`로 자동 닫힘.
+  - `aside[aria-label="FEMS 메뉴"]` 및 `femsScreens` 배열 구조 100% 보존.
+- `shared/styles.css`:
+  - 파일 끝에 801px 이상에서 summary 숨김 및 nav/eyebrow 항상 펼침 CSS 추가 (JS 화면 크기 감지 없음).
+  - 800px 이하에서 summary 스타일(터치 영역, 화살표 인디케이터, 테두리, 배경) 추가.
+- 테스트 및 검증:
+  - `frontend/src/fems/sidebar.test.tsx` 11개 단위 테스트 신규 작성 (현재 화면 이름 노출, 메뉴/다른앱 링크 클릭 시 details 닫힘, aria-label/목록 구조 유지).
+  - 프론트엔드 전체 테스트 통과: `npm --prefix frontend test` 16개 파일 180 passed (exit code 0).
+  - typecheck, lint, format:check, build 모두 exit code 0.
+  - 브라우저 스모크 검증: `tools/run_portal_smoke.py` 33 passed (exit code 0, 360px 모바일 8개 화면 포함).
+  - 수정 금지 파일(다른 FEMS 화면, 백엔드, content, conftest 등) 변경 0.
+- main 병합·push 없음.
