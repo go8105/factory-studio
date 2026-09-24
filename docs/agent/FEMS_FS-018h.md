@@ -45,3 +45,16 @@
 ## 남은 것
 
 F-05 생산량 등록 → F-06 원단위 → F-13·F-12·F-09. backend 테스트가 8분을 넘었다 — 세션 범위 템플릿 fixture(conftest, Codex) 제안의 우선순위가 올라갔다.
+
+## AG-07 통합 (같은 브랜치, rebase 후)
+
+AG-07(antigravity/ag-07-sidebar `6f99461`) 위로 이 브랜치를 rebase했다(문서 2개 충돌만, 양쪽 기록 보존). 검토 중 실제 Chromium 153으로 확인한 결함 2건을 여기서 고쳤다.
+
+1. **모바일에서 메뉴가 펼쳐진 채 시작**했다. `<details open>`이 좁은 화면에도 적용돼 원래 문제(본문이 화면 절반 아래)가 첫 진입에서 그대로였다. 링크를 누른 뒤에야 접혔다.
+2. **넓은 화면에서 메뉴 링크를 한 번 누르면 사이드바 전체가 사라졌다.** 클릭 시 `details.open=false`가 되는데, 801px 이상에서는 summary를 숨기므로 다시 열 방법이 없었다. CSS의 `details:not([open]) > nav { display: grid }` 덮어쓰기는 브라우저의 닫힌 details 숨김을 이기지 못한다(Chromium에서 재현). jsdom은 레이아웃이 없어 AG-07 테스트가 잡지 못했다.
+
+수정: `window.matchMedia("(max-width: 800px)")`(styles.css 미디어 쿼리와 같은 기준)일 때만 닫는다. 좁은 화면은 그리기 전(`useLayoutEffect`)에 닫힌 상태로 시작하고, 넓은 화면은 절대 닫지 않는다. matchMedia가 없으면 넓은 화면으로 본다. 효과 없는 CSS 덮어쓰기 규칙은 지웠다. 원래 프롬프트에서 제가 "JS 화면 크기 감지 금지 + `<details open>`"을 지시한 것이 원인의 일부다.
+
+- `sidebar.test.tsx`: 닫힘 테스트 2개를 좁은 화면 조건으로 바꾸고, 좁은 화면 접힌 채 시작 / 넓은 화면 펼친 채 시작 / **넓은 화면 링크 클릭 후에도 열림**(회귀 방지) 3개 추가. 전체 frontend 194 passed.
+- Playwright: 1280px 메뉴 링크 클릭 후 사이드바 유지, 360px 접힌 채 시작 → 펼쳐 이동 → 다시 접힘. 37 passed. 360px 스크린샷에서 메뉴 한 줄 아래로 본문이 바로 시작함을 확인.
+- backend는 rebase 전 검증한 FS-018h와 바이트 동일(diff 0)이라 전체 pytest 217 결과를 유지한다.

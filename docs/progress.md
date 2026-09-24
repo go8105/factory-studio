@@ -703,12 +703,6 @@
 - F-14 기준정보 그룹 이동, 360px 달성률·상태 열 앞으로, 스모크 포트 검사 SO_REUSEADDR(연속 실행 오검출 수정).
 - 테스트: backend +18(전체 201), frontend +11(전체 169), Playwright +2(전체 33). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018g.md`.
 
-## 2026-09-24 FS-018h 완료 (Claude Code)
-
-- F-08 `GET /billing`: 월별 요금제 선택·구간 분할, TARIFF_MISSING·NOT_BILLABLE, 계측 없는 달 미청구. 시드 8~9월 합계 11,240,597원(전력 8월 120원·9월 130원).
-- 대시보드 요금 계산 삭제 후 `_billing` 공통 사용(대시보드 테스트 무수정 통과). AG-07 충돌 회피로 styles.css 무수정.
-- 테스트: backend +16(전체 217), frontend +11(전체 180), Playwright +2(전체 35). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018h.md`.
-
 ## 2026-09-24 AG-07 FEMS 사이드바 모바일 접는 메뉴 완료 (antigravity)
 
 - FEMS 사이드바 반응형 접기 구현: 800px 이하에서 네이티브 `<details><summary>`로 접힘 메뉴 제공.
@@ -726,3 +720,14 @@
   - 브라우저 스모크 검증: `tools/run_portal_smoke.py` 33 passed (exit code 0, 360px 모바일 8개 화면 포함).
   - 수정 금지 파일(다른 FEMS 화면, 백엔드, content, conftest 등) 변경 0.
 - main 병합·push 없음.
+
+## 2026-09-24 FS-018h 완료 (Claude Code)
+
+- F-08 `GET /billing`: 월별 요금제 선택·구간 분할, TARIFF_MISSING·NOT_BILLABLE, 계측 없는 달 미청구. 시드 8~9월 합계 11,240,597원(전력 8월 120원·9월 130원).
+- 대시보드 요금 계산 삭제 후 `_billing` 공통 사용(대시보드 테스트 무수정 통과). AG-07 충돌 회피로 styles.css 무수정.
+- 테스트: backend +16(전체 217), frontend +11(전체 180), Playwright +2(전체 35). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018h.md`.
+
+## 2026-09-24 AG-07 검토·통합 (Claude Code)
+
+- AG-07 위로 FS-018h rebase. Chromium 153 재현 결함 2건 수정: (1) 모바일 첫 진입에 메뉴가 펼쳐짐 (2) 넓은 화면에서 메뉴 링크 클릭 시 사이드바가 사라지고 다시 열 수 없음. `matchMedia(max-width:800px)`일 때만 닫고 좁은 화면은 닫힌 채 시작.
+- sidebar 테스트 조정·추가(frontend 194), Playwright 1280/360 사이드바 테스트 2개 추가(37). backend는 검증된 FS-018h와 동일.

@@ -1133,14 +1133,9 @@ th button {
 
 /* FEMS 사이드바 모바일 접는 메뉴 (AG-07) */
 @media (min-width: 801px) {
+  /* 넓은 화면은 항상 펼친다. 닫지 않는 것은 FemsLayout의 collapsible()이 보장한다. */
   .solution-sidebar details summary {
     display: none;
-  }
-  .solution-sidebar details:not([open]) > .eyebrow {
-    display: block;
-  }
-  .solution-sidebar details:not([open]) > nav {
-    display: grid;
   }
 }
 @media (max-width: 800px) {

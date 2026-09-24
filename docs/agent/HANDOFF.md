@@ -5,7 +5,7 @@
 ## Git 상태
 
 - 저장소: `/Users/hwang-kyoungho/projects/factory-studio` **메인 폴더만 사용**.
-- 브랜치: **`fs-018h-billing`**, main `dc4071f`(FS-018g까지 origin push 완료)에서 분기. AG-07(antigravity/ag-07-sidebar)이 병행 중이며 `FemsLayout.tsx`를 함께 만진다.
+- 브랜치: **`fs-018h-billing`**, main `dc4071f`(FS-018g까지 origin push 완료)에서 분기. AG-07(`6f99461`) 위로 rebase했고 사이드바 결함 2건을 이 브랜치에서 고쳤다. `git fetch . fs-018h-billing:main`이 AG-07까지 함께 ff한다.
 - 구현·인계 커밋: `FS-018h: F-08 요금 산정`. WIP `1a31436` 포함. 최종 HEAD는 `git log -1 --oneline`.
 - main 병합·push는 사용자만 한다(`git fetch . fs-018-fems:main`, ff만).
 - `../factory-studio-ag`는 main `2cece7b` 기준이다. antigravity 작업 전 최신 main에서 새 `antigravity/*` 브랜치를 만들어야 한다.
@@ -68,7 +68,7 @@
 
 ## 실제 검증 (FS-018h 최종 코드)
 
-Python 3.14.7 / Node 24.21.0 / PostgreSQL 18.6. 모두 exit 0: frontend typecheck/lint/format/build/test(180), ruff check/format, backend 전체 pytest 217(`factory_studio_fs016_test`), `tools/run_portal_smoke.py` Playwright 35(`factory_studio_fs017_test`), tools unittest 44, db:validate, audit_schema_isolation, git diff --check. pytest와 브라우저는 순차 실행.
+Python 3.14.7 / Node 24.21.0 / PostgreSQL 18.6. 모두 exit 0: frontend typecheck/lint/format/build/test(194), ruff check/format, backend 전체 pytest 217(`factory_studio_fs016_test`), `tools/run_portal_smoke.py` Playwright 37(`factory_studio_fs017_test`), tools unittest 44, db:validate, audit_schema_isolation, git diff --check. pytest와 브라우저는 순차 실행.
 
 ## 재현 명령
 

@@ -100,3 +100,26 @@ test("요금 산정은 요금제 개정 월에서 구간을 나눈다", async ({
   await expect(elec.getByText(/TR-ELEC-02/)).toBeVisible();
   await expect(page.getByLabel("예상 요금 합계")).toContainText("원");
 });
+test("넓은 화면은 메뉴 링크를 눌러도 사이드바가 남는다", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/fems/dashboard");
+  const menu = page.getByRole("complementary", { name: "FEMS 메뉴" });
+  await menu.getByRole("link", { name: /F-02 계측 조회/ }).click();
+  await expect(page).toHaveURL("/fems/readings");
+  await expect(
+    menu.getByRole("link", { name: /F-03 설비별 배분/ }),
+  ).toBeVisible();
+});
+test("좁은 화면은 메뉴가 접힌 채 시작하고 펼쳐서 이동한다", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto("/fems/dashboard");
+  const menu = page.getByRole("complementary", { name: "FEMS 메뉴" });
+  const link = menu.getByRole("link", { name: /F-02 계측 조회/ });
+  await expect(link).toBeHidden();
+  await menu.getByText("FEMS 메뉴 · F-01 대시보드").click();
+  await link.click();
+  await expect(page).toHaveURL("/fems/readings");
+  await expect(link).toBeHidden();
+});

@@ -118,29 +118,58 @@ it("summary에 현재 화면 이름(ID와 라벨)이 보인다 - 요금제", () 
   expect(summary?.textContent).toBe("FEMS 메뉴 · F-14 요금제");
 });
 
-it("메뉴 링크를 누르면 details가 닫힌다", () => {
+// jsdom에는 matchMedia가 없어 기본은 넓은 화면이다. 좁은 화면은 800px 이하로 흉내 낸다.
+function narrow() {
+  const stub = vi.fn(() => ({ matches: true }) as MediaQueryList);
+  vi.stubGlobal("matchMedia", stub);
+  return () => vi.unstubAllGlobals();
+}
+
+it("좁은 화면은 메뉴가 접힌 채 시작한다", () => {
+  const restore = narrow();
   mockApi();
   const { container } = show("/fems/dashboard");
-  const details = container.querySelector("details") as HTMLDetailsElement;
-  expect(details).toBeInTheDocument();
-  expect(details.open).toBe(true);
-
-  // 메뉴 링크(계측 조회)를 누른다
-  const targetLink = screen.getByRole("link", { name: /F-02/ });
-  fireEvent.click(targetLink);
-
-  // details가 닫힌다
-  expect(details.open).toBe(false);
+  expect((container.querySelector("details") as HTMLDetailsElement).open).toBe(
+    false,
+  );
+  restore();
 });
 
-it("다른 앱 링크를 눌러도 details가 닫힌다", () => {
+it("좁은 화면에서 메뉴 링크를 누르면 details가 닫힌다", () => {
+  const restore = narrow();
   mockApi();
   const { container } = show("/fems/dashboard");
   const details = container.querySelector("details") as HTMLDetailsElement;
-  expect(details.open).toBe(true);
-
-  const homeLink = screen.getByRole("link", { name: "포털 홈" });
-  fireEvent.click(homeLink);
-
+  details.open = true;
+  fireEvent.click(screen.getByRole("link", { name: /F-02/ }));
   expect(details.open).toBe(false);
+  restore();
+});
+
+it("좁은 화면에서 다른 앱 링크를 눌러도 details가 닫힌다", () => {
+  const restore = narrow();
+  mockApi();
+  const { container } = show("/fems/dashboard");
+  const details = container.querySelector("details") as HTMLDetailsElement;
+  details.open = true;
+  fireEvent.click(screen.getByRole("link", { name: "포털 홈" }));
+  expect(details.open).toBe(false);
+  restore();
+});
+
+it("넓은 화면은 메뉴가 펼쳐진 채 시작한다", () => {
+  mockApi();
+  const { container } = show("/fems/dashboard");
+  expect((container.querySelector("details") as HTMLDetailsElement).open).toBe(
+    true,
+  );
+});
+
+it("넓은 화면은 메뉴 링크를 눌러도 닫히지 않는다", () => {
+  // summary가 숨겨진 화면에서 닫으면 다시 열 방법이 없다(AG-07 결함 회귀 방지).
+  mockApi();
+  const { container } = show("/fems/dashboard");
+  const details = container.querySelector("details") as HTMLDetailsElement;
+  fireEvent.click(screen.getByRole("link", { name: /F-02/ }));
+  expect(details.open).toBe(true);
 });

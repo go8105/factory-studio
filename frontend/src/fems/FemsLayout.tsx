@@ -1,5 +1,5 @@
 // FEMS 솔루션 레이아웃: 좌측 사이드바 + 포털 공통 헤더 (FS-008a 포털 §6-5)
-import { useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 // 구현된 화면만 메뉴에 둔다. 준비 중 항목을 나열하지 않는다(FS-008a 포털 §1).
 export const femsScreens = [
@@ -32,11 +32,16 @@ export function FemsLayout() {
       location.pathname.startsWith(`/fems/${s.path}/`),
   );
 
+  // 접는 메뉴는 좁은 화면에서만 닫는다. 넓은 화면은 summary가 숨겨져(styles.css 801px 이상)
+  // 다시 열 방법이 없으므로 절대 닫지 않는다. 기준 800px은 styles.css의 미디어 쿼리와 같다.
+  // matchMedia가 없는 환경은 넓은 화면으로 본다(닫지 않는 쪽이 안전하다).
+  const collapsible = () =>
+    window.matchMedia?.("(max-width: 800px)").matches ?? false;
   const closeMenu = () => {
-    if (detailsRef.current) {
-      detailsRef.current.open = false;
-    }
+    if (detailsRef.current && collapsible()) detailsRef.current.open = false;
   };
+  // 좁은 화면은 닫힌 상태로 시작한다. 그리기 전에 실행해 펼쳐진 메뉴가 깜빡이지 않는다.
+  useLayoutEffect(closeMenu, []);
 
   const summaryTitle = currentScreen
     ? `FEMS 메뉴 · ${currentScreen.id} ${currentScreen.label}`
