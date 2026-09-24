@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
 
-from seed.common import month_mondays, month_text
+from seed.common import equipment_ratio_sql, month_mondays, month_text
 
 
 EXPECTED_COUNTS = {
@@ -219,21 +219,24 @@ def validate_all(
     if workspace_kind == "TEMPLATE":
         target_diff = _scalar(
             connection,
-            """
-        SELECT count(*) FROM fems.energy_target t JOIN fems.energy_source s
-          ON s.workspace_id=t.workspace_id AND s.generation_id=t.generation_id AND s.id=t.energy_source_id
+            f"""
+        WITH ratio(code, month, ratio) AS (VALUES {equipment_ratio_sql(seed_date)})
+        SELECT count(*) FROM fems.energy_target t
+        JOIN fems.equipment e
+          ON e.workspace_id=t.workspace_id AND e.generation_id=t.generation_id AND e.id=t.equipment_id
+        LEFT JOIN ratio x ON x.code=e.equipment_code AND x.month=t.target_month
         WHERE t.workspace_id=:w AND t.generation_id=:g AND t.target_scope='EQUIPMENT'
-          AND t.target_value<>(SELECT round(coalesce(sum(a.quantity),0)*0.95,6)
+          AND (x.ratio IS NULL OR t.target_value<>(SELECT round(coalesce(sum(a.quantity),0)*x.ratio,6)
                               FROM fems.energy_allocation a
                               WHERE a.workspace_id=t.workspace_id AND a.generation_id=t.generation_id
                                 AND a.equipment_id=t.equipment_id AND a.method_key='DIRECT_METER'
-                                AND to_char(a.period_start AT TIME ZONE 'Asia/Seoul','YYYY-MM')=t.target_month)
+                                AND to_char(a.period_start AT TIME ZONE 'Asia/Seoul','YYYY-MM')=t.target_month))
             """,
             params,
         )
-    _require(target_diff == 0, f"V8 target 95% diff={target_diff}")
+    _require(target_diff == 0, f"V8 target ratio diff={target_diff}")
     results["V8"] = (
-        "직접 배분=유효 시간값 합, 용수 공용 8 제외, 템플릿 설비 목표=월 실적 95%"
+        "직접 배분=유효 시간값 합, 용수 공용 8 제외, 템플릿 설비 목표=월 실적×비율표(90~105%)"
     )
 
     money_errors = _scalar(

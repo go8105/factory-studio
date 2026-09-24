@@ -8,7 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-SEED_VERSION = "sv-20260924-1"
+SEED_VERSION = "sv-20260924-2"
 SEOUL = ZoneInfo("Asia/Seoul")
 CODEBOOK_PATH = Path(__file__).with_name("codebook.json")
 
@@ -56,3 +56,37 @@ def decimal(value: str | int | float, places: str = "0.001") -> Decimal:
 
 def round_half_up(value: Decimal) -> int:
     return int(value.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+# 에너지 목표 = 해당 월 실적 × 비율 (FS-005g 5.5, sv-20260924-2).
+# 난수 대신 고정 표다. 90~105% 범위에서 월·대상마다 달라 달성(≥1.00)과 초과(<1.00)가 섞인다.
+# 값: (M−1 비율, M0 비율). SITE는 에너지원 코드와 TOE, EQUIPMENT는 설비 코드.
+TARGET_RATIOS: dict[str, tuple[Decimal, Decimal]] = {
+    "ELEC": (Decimal("0.97"), Decimal("1.02")),
+    "GAS": (Decimal("0.93"), Decimal("0.98")),
+    "WATER": (Decimal("1.05"), Decimal("0.95")),
+    "TOE": (Decimal("0.96"), Decimal("1.01")),
+    "INJ-01": (Decimal("1.03"), Decimal("0.97")),
+    "INJ-02": (Decimal("0.92"), Decimal("1.05")),
+    "INJ-03": (Decimal("0.98"), Decimal("0.94")),
+    "ASM-01": (Decimal("1.00"), Decimal("1.02")),
+    "ASM-02": (Decimal("0.95"), Decimal("0.90")),
+    "ASM-03": (Decimal("1.04"), Decimal("0.99")),
+    "INS-01": (Decimal("0.91"), Decimal("0.96")),
+    "INS-02": (Decimal("1.01"), Decimal("1.00")),  # M0은 미설정(5.5)이라 쓰지 않는다
+}
+
+
+def target_ratio(key: str, month_offset: int) -> Decimal:
+    return TARGET_RATIOS[key][0 if month_offset == -1 else 1]
+
+
+def equipment_ratio_sql(seed_date: date) -> str:
+    """검증용 VALUES 목록 (설비 코드, 목표 월, 비율). 상수만 넣으므로 바인딩 없이 쓴다."""
+    rows = [
+        f"('{code}','{month_text(seed_date, offset)}',{target_ratio(code, offset)})"
+        for code in TARGET_RATIOS
+        if "-" in code
+        for offset in (-1, 0)
+    ]
+    return ",".join(rows)

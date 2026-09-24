@@ -685,3 +685,9 @@
 - AG-06(F-14 요금제) 검토: 저장소 일치, 겹침·nullable PATCH 처리 확인, frontend 133·backend 142·Playwright 26 재현.
 - F-04 배출량 `GET /emissions`: 최상위 계측기만 합산, invalid 제외, 배수 적용, 연도별 EMISSION 계수, PRIMARY 미사용, 상태 4종, 부분 계산 표시. 화면은 총량 타일 + 에너지원별 표 + 근거 패널.
 - 테스트: backend +15(전체 157), frontend +11(전체 144), Playwright +2(전체 28). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018d.md`.
+
+## 2026-09-24 FS-018e 에너지 목표 비율표 (Claude Code)
+
+- 목표 95% 고정 → 월·대상별 90~105% 고정 비율표(`seed/common.py TARGET_RATIOS`). seed_version `sv-20260924-2`. 생성기·V8 검증기·test_seed.py V8 쿼리 동시 수정.
+- 신규 `test_seed_targets.py` 6개. backend 163, Playwright 28(템플릿 7,469 재생성), frontend 144, 모든 검증 exit 0.
+- 기존 템플릿·게스트 세대는 옛 값 유지(FS-005g 11장). 로컬 DB는 `seed.cli template` 재실행 필요.

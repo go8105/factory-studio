@@ -12,6 +12,7 @@ from sqlalchemy.engine import Connection
 
 from seed.common import (
     SEED_VERSION,
+    target_ratio,
     SEOUL,
     at,
     calendar_date,
@@ -1960,7 +1961,9 @@ def _energy_targets_and_baselines(
                     "target_scope": "SITE",
                     "target_month": month,
                     "target_value": decimal(
-                        site_actual[(source, month)] * Decimal("0.95"), "0.000001"
+                        site_actual[(source, month)]
+                        * target_ratio(source, month_offset),
+                        "0.000001",
                     ),
                     "unit": unit,
                 }
@@ -1975,7 +1978,9 @@ def _energy_targets_and_baselines(
                 "energy_source_id": None,
                 "target_scope": "SITE",
                 "target_month": month,
-                "target_value": decimal(toe * Decimal("0.95"), "0.000001"),
+                "target_value": decimal(
+                    toe * target_ratio("TOE", month_offset), "0.000001"
+                ),
                 "unit": "TOE",
             }
         )
@@ -1990,7 +1995,8 @@ def _energy_targets_and_baselines(
                     "target_scope": "EQUIPMENT",
                     "target_month": month,
                     "target_value": decimal(
-                        equipment_actual[(equipment_id, month)] * Decimal("0.95"),
+                        equipment_actual[(equipment_id, month)]
+                        * target_ratio(code, month_offset),
                         "0.000001",
                     ),
                     "unit": "kWh",

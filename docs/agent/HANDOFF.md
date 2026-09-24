@@ -1,14 +1,19 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-24 (FS-018d 완료, Claude Code). 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-24 (FS-018e 완료, Claude Code). 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git 상태
 
 - 저장소: `/Users/hwang-kyoungho/projects/factory-studio` **메인 폴더만 사용**.
-- 브랜치: **`fs-018d-fems`**, AG-06 `2159103`(main `734d5cc` + F-14) 위. `git fetch . fs-018d-fems:main`이 AG-06까지 함께 ff한다.
-- 구현·인계 커밋: `FS-018d: F-04 배출량과 AG-06 검토`. WIP `794b0bc` 포함. 최종 HEAD는 `git log -1 --oneline`.
+- 브랜치: **`fs-018e-target`**, main `e34c834`(FS-018d까지 origin push 완료)에서 분기.
+- 구현·인계 커밋: `FS-018e: 에너지 목표 비율표와 seed sv-20260924-2`. 최종 HEAD는 `git log -1 --oneline`.
 - main 병합·push는 사용자만 한다(`git fetch . fs-018-fems:main`, ff만).
 - `../factory-studio-ag`는 main `2cece7b` 기준이다. antigravity 작업 전 최신 main에서 새 `antigravity/*` 브랜치를 만들어야 한다.
+
+## FS-018e에서 끝난 것
+
+- 에너지 목표 = 월 실적 × 월·대상별 90~105% 비율표(`backend/seed/common.py TARGET_RATIOS`). seed `sv-20260924-2`. `test_seed.py` V8 쿼리 1개 수정(antigravity에 알릴 것).
+- 로컬 개발 DB의 기존 템플릿은 옛 값. 새 비율을 보려면 `seed.cli template` 재실행.
 
 ## FS-018d에서 끝난 것
 
