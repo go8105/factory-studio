@@ -533,3 +533,158 @@ def list_meters(connection: Connection, context: AuthContext) -> list[dict[str, 
                 }
             )
     return list(meters.values())
+
+
+# ---- F-03 설비별 배분 (FS-018c) ----
+# 배분 구간은 [D 00:00, D+1 00:00) (설비 → 공간 → 사업장 시간대, FS-005g 5.3).
+# 같은 설비·채널·구간에 결과가 여러 개면 input_revision, method_version이 가장 큰 것이 현재 결과다.
+ALLOCATION_BASE = """
+SELECT a.id,a.period_start,a.period_end,a.quantity,a.unit,a.method_key,a.method_version,
+       a.input_revision,a.quality,a.basis,
+       eq.id equipment_id,eq.equipment_code,eq.name equipment_name,
+       c.channel_code,c.name channel_name,e.id energy_source_id,e.source_code,s.timezone,
+       row_number() OVER (
+         PARTITION BY a.equipment_id,a.meter_channel_id,a.period_start,a.period_end
+         ORDER BY a.input_revision DESC,a.method_version DESC,a.id DESC
+       ) = 1 is_latest
+FROM fems.energy_allocation a
+JOIN fems.equipment eq
+  ON eq.workspace_id=a.workspace_id AND eq.generation_id=a.generation_id AND eq.id=a.equipment_id
+JOIN fems.location l
+  ON l.workspace_id=eq.workspace_id AND l.generation_id=eq.generation_id AND l.id=eq.location_id
+JOIN fems.site s
+  ON s.workspace_id=l.workspace_id AND s.generation_id=l.generation_id AND s.id=l.site_id
+JOIN fems.meter_channel c
+  ON c.workspace_id=a.workspace_id AND c.generation_id=a.generation_id AND c.id=a.meter_channel_id
+JOIN fems.energy_source e
+  ON e.workspace_id=c.workspace_id AND e.generation_id=c.generation_id AND e.id=c.energy_source_id
+WHERE a.workspace_id=:w AND a.generation_id=:g
+  AND a.period_start >= (CAST(CAST(:date_from AS date) AS timestamp) AT TIME ZONE s.timezone)
+  AND a.period_end <= (CAST(CAST(:date_to AS date) + 1 AS timestamp) AT TIME ZONE s.timezone)
+"""
+# 필터는 현재 결과 판정(row_number) 밖에서 건다. 안에서 걸면 걸러진 행끼리 최신을 고른다.
+ALLOCATION_FILTERS = {
+    "equipment_id": "x.equipment_id=:equipment_id",
+    "energy_source_id": "x.energy_source_id=:energy_source_id",
+    "method_key": "x.method_key=:method_key",
+}
+
+
+def allocation_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "periodStart": row["period_start"].isoformat(),
+        "periodEnd": row["period_end"].isoformat(),
+        "timezone": row["timezone"],
+        "equipmentId": row["equipment_id"],
+        "equipmentCode": row["equipment_code"],
+        "equipmentName": row["equipment_name"],
+        "channelCode": row["channel_code"],
+        "channelName": row["channel_name"],
+        "energySourceCode": row["source_code"],
+        "quantity": str(row["quantity"]),
+        "unit": row["unit"],
+        "methodKey": row["method_key"],
+        "methodVersion": row["method_version"],
+        "inputRevision": row["input_revision"],
+        "quality": row["quality"],
+        "basis": row["basis"],
+        "isLatest": row["is_latest"],
+    }
+
+
+def latest_allocation_date(connection: Connection, context: AuthContext) -> Any:
+    return connection.execute(
+        text(
+            """
+            SELECT max(((a.period_end - interval '1 microsecond') AT TIME ZONE s.timezone)::date)
+            FROM fems.energy_allocation a
+            JOIN fems.equipment eq
+              ON eq.workspace_id=a.workspace_id AND eq.generation_id=a.generation_id AND eq.id=a.equipment_id
+            JOIN fems.location l
+              ON l.workspace_id=eq.workspace_id AND l.generation_id=eq.generation_id AND l.id=eq.location_id
+            JOIN fems.site s
+              ON s.workspace_id=l.workspace_id AND s.generation_id=l.generation_id AND s.id=l.site_id
+            WHERE a.workspace_id=:w AND a.generation_id=:g
+            """
+        ),
+        _s(context),
+    ).scalar_one()
+
+
+def _allocation_scope(filters: dict[str, Any]) -> str:
+    """현재 결과 판정 후 필터를 적용한 행 집합. 별칭 x로 감싼다."""
+    where = "".join(f" AND {ALLOCATION_FILTERS[key]}" for key in filters)
+    return f"SELECT x.* FROM ({ALLOCATION_BASE}) x WHERE TRUE{where}"
+
+
+def list_allocations(
+    connection: Connection,
+    context: AuthContext,
+    filters: dict[str, Any],
+    date_from: Any,
+    date_to: Any,
+    include_superseded: bool,
+    offset: int,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int]:
+    scope = f"SELECT * FROM ({_allocation_scope(filters)}) z" + (
+        "" if include_superseded else " WHERE z.is_latest"
+    )
+    params = {
+        **_s(context),
+        **filters,
+        "date_from": date_from,
+        "date_to": date_to,
+        "offset": offset,
+        "limit": limit,
+    }
+    total = connection.execute(
+        text(f"SELECT count(*) FROM ({scope}) y"), params
+    ).scalar_one()
+    rows = connection.execute(
+        text(
+            scope
+            + " ORDER BY period_start, equipment_code, channel_code, input_revision DESC, id"
+            + " OFFSET :offset LIMIT :limit"
+        ),
+        params,
+    ).mappings()
+    return [allocation_dict(r) for r in rows], total
+
+
+def allocation_summary(
+    connection: Connection,
+    context: AuthContext,
+    filters: dict[str, Any],
+    date_from: Any,
+    date_to: Any,
+) -> list[dict[str, Any]]:
+    # 현재 결과만, invalid 제외, 단위별로 따로 합한다(단위가 다른 에너지원을 더하지 않는다).
+    rows = connection.execute(
+        text(
+            f"""
+            SELECT equipment_id,equipment_code,equipment_name,source_code,unit,
+                   sum(quantity) quantity,count(*) days,
+                   count(*) FILTER (WHERE quality='estimated') estimated_days
+            FROM ({_allocation_scope(filters)}) z
+            WHERE z.is_latest AND z.quality<>'invalid'
+            GROUP BY equipment_id,equipment_code,equipment_name,source_code,unit
+            ORDER BY unit, sum(quantity) DESC, equipment_code
+            """
+        ),
+        {**_s(context), **filters, "date_from": date_from, "date_to": date_to},
+    ).mappings()
+    return [
+        {
+            "equipmentId": r["equipment_id"],
+            "equipmentCode": r["equipment_code"],
+            "equipmentName": r["equipment_name"],
+            "energySourceCode": r["source_code"],
+            "unit": r["unit"],
+            "quantity": str(r["quantity"]),
+            "days": r["days"],
+            "estimatedDays": r["estimated_days"],
+        }
+        for r in rows
+    ]

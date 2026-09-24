@@ -199,3 +199,42 @@ def list_readings(
         "page": {"offset": page.offset, "limit": page.limit, "total": total},
         "range": period,
     }
+
+
+@router.get("/allocations")
+def list_allocations(
+    context: Auth,
+    date_from: Annotated[date | None, Query(alias="from")] = None,
+    date_to: Annotated[date | None, Query(alias="to")] = None,
+    equipment_id: Annotated[int | None, Query(alias="equipmentId")] = None,
+    energy_source_id: Annotated[int | None, Query(alias="energySourceId")] = None,
+    method_key: Annotated[str | None, Query(alias="methodKey", max_length=40)] = None,
+    include_superseded: Annotated[bool, Query(alias="includeSuperseded")] = False,
+    offset: int = 0,
+    limit: int = 50,
+) -> dict[str, object]:
+    page = Page(offset, limit).checked()
+    filters = {
+        key: value
+        for key, value in {
+            "equipment_id": equipment_id,
+            "energy_source_id": energy_source_id,
+            "method_key": method_key,
+        }.items()
+        if value is not None
+    }
+    data, total, summary, period = service.list_allocations(
+        context,
+        filters,
+        date_from,
+        date_to,
+        include_superseded,
+        page.offset,
+        page.limit,
+    )
+    return {
+        "data": data,
+        "page": {"offset": page.offset, "limit": page.limit, "total": total},
+        "range": period,
+        "summary": summary,
+    }

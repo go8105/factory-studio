@@ -366,15 +366,7 @@ MAX_READING_DAYS = 31
 DEFAULT_READING_DAYS = 7
 
 
-def list_readings(
-    context: AuthContext,
-    filters: dict[str, Any],
-    date_from: date | None,
-    date_to: date | None,
-    sort: str | None,
-    offset: int,
-    limit: int,
-) -> tuple[list[dict[str, Any]], int, dict[str, str] | None]:
+def _check_period(date_from: date | None, date_to: date | None) -> None:
     if (date_from is None) != (date_to is None):
         raise ApiError(
             400,
@@ -397,6 +389,18 @@ def list_readings(
                 "조회 기간이 너무 깁니다.",
                 {"fields": {"to": f"최대 {MAX_READING_DAYS}일까지 조회합니다."}},
             )
+
+
+def list_readings(
+    context: AuthContext,
+    filters: dict[str, Any],
+    date_from: date | None,
+    date_to: date | None,
+    sort: str | None,
+    offset: int,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int, dict[str, str] | None]:
+    _check_period(date_from, date_to)
     order = "r.observed_at ASC"
     if sort is not None:
         field, _, direction = sort.partition(":")
@@ -430,3 +434,42 @@ def list_sites(context: AuthContext) -> list[dict[str, Any]]:
 def list_meters(context: AuthContext) -> list[dict[str, Any]]:
     with _read() as connection:
         return repo.list_meters(connection, read_scope(connection, context, MODULE))
+
+
+# ---- F-03 설비별 배분 (FS-018c) ----
+def list_allocations(
+    context: AuthContext,
+    filters: dict[str, Any],
+    date_from: date | None,
+    date_to: date | None,
+    include_superseded: bool,
+    offset: int,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int, list[dict[str, Any]], dict[str, str] | None]:
+    _check_period(date_from, date_to)
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        if date_to is None:
+            date_to = repo.latest_allocation_date(connection, scoped)
+            if date_to is None:
+                return [], 0, [], None
+            date_from = date_to - timedelta(days=DEFAULT_READING_DAYS - 1)
+        rows, total = repo.list_allocations(
+            connection,
+            scoped,
+            filters,
+            date_from,
+            date_to,
+            include_superseded,
+            offset,
+            limit,
+        )
+        summary = repo.allocation_summary(
+            connection, scoped, filters, date_from, date_to
+        )
+    return (
+        rows,
+        total,
+        summary,
+        {"from": date_from.isoformat(), "to": date_to.isoformat()},
+    )
