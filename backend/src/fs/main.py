@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fs.common.errors import install_error_handlers
 from fs.common.request_logging import RequestLogMiddleware
 from fs.core.router import router as core_router
+from fs.fems.router import router as fems_router
 
 
 def create_app() -> FastAPI:
@@ -14,6 +15,7 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestLogMiddleware)
     install_error_handlers(app)
     app.include_router(core_router, prefix="/api/v1/core")
+    app.include_router(fems_router, prefix="/api/v1/fems")
     return app
 
 
