@@ -93,3 +93,10 @@ test("목표 대비 실적은 범위별 섹션과 미설정을 보여준다", as
   await expect(page.getByText("목표 이내").first()).toBeVisible();
   await expect(page.getByText("목표 초과").first()).toBeVisible();
 });
+test("요금 산정은 요금제 개정 월에서 구간을 나눈다", async ({ page }) => {
+  await page.goto("/fems/billing");
+  const elec = page.getByLabel("전력 요금");
+  await expect(elec.getByText(/TR-ELEC-01/)).toBeVisible();
+  await expect(elec.getByText(/TR-ELEC-02/)).toBeVisible();
+  await expect(page.getByLabel("예상 요금 합계")).toContainText("원");
+});

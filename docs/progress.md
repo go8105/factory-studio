@@ -702,3 +702,9 @@
 - F-07 `GET /targets/performance`: 범위별 섹션, 단위 불일치는 계산 불가, 목표 없으면 미설정, 당월 누계 표시. 시드 9월 사업장·설비 모두 이내·초과 혼재.
 - F-14 기준정보 그룹 이동, 360px 달성률·상태 열 앞으로, 스모크 포트 검사 SO_REUSEADDR(연속 실행 오검출 수정).
 - 테스트: backend +18(전체 201), frontend +11(전체 169), Playwright +2(전체 33). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018g.md`.
+
+## 2026-09-24 FS-018h 완료 (Claude Code)
+
+- F-08 `GET /billing`: 월별 요금제 선택·구간 분할, TARIFF_MISSING·NOT_BILLABLE, 계측 없는 달 미청구. 시드 8~9월 합계 11,240,597원(전력 8월 120원·9월 130원).
+- 대시보드 요금 계산 삭제 후 `_billing` 공통 사용(대시보드 테스트 무수정 통과). AG-07 충돌 회피로 styles.css 무수정.
+- 테스트: backend +16(전체 217), frontend +11(전체 180), Playwright +2(전체 35). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018h.md`.

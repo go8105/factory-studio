@@ -1,14 +1,18 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-24 (FS-018g 완료, Claude Code). 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-24 (FS-018h 완료, Claude Code). 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git 상태
 
 - 저장소: `/Users/hwang-kyoungho/projects/factory-studio` **메인 폴더만 사용**.
-- 브랜치: **`fs-018g-targets`**, main `db52e23`(FS-018f까지 origin push 완료)에서 분기.
-- 구현·인계 커밋: `FS-018g: F-07 목표 대비 실적`. WIP `b0a670d` 포함. 최종 HEAD는 `git log -1 --oneline`.
+- 브랜치: **`fs-018h-billing`**, main `dc4071f`(FS-018g까지 origin push 완료)에서 분기. AG-07(antigravity/ag-07-sidebar)이 병행 중이며 `FemsLayout.tsx`를 함께 만진다.
+- 구현·인계 커밋: `FS-018h: F-08 요금 산정`. WIP `1a31436` 포함. 최종 HEAD는 `git log -1 --oneline`.
 - main 병합·push는 사용자만 한다(`git fetch . fs-018-fems:main`, ff만).
 - `../factory-studio-ag`는 main `2cece7b` 기준이다. antigravity 작업 전 최신 main에서 새 `antigravity/*` 브랜치를 만들어야 한다.
+
+## FS-018h에서 끝난 것
+
+- F-08 요금 산정(`GET /billing`, `frontend/src/fems/Billing.tsx`). 대시보드 요금도 `service._billing`을 쓴다.
 
 ## FS-018g에서 끝난 것
 
@@ -51,7 +55,7 @@
 
 ## 다음 할 일
 
-1. 남은 FEMS 화면(사용자 승인 순서): F-08 요금 산정(여러 달 구간 분할) → F-05 생산량 등록(확정 불변·새 버전) → F-06 원단위(생산량 0이면 "생산량 없음") → F-09 사업장·공간(자기 참조 계층), F-12 계측기·채널(마스터-디테일), F-13 환산·배출계수(PRIMARY/EMISSION 탭).
+1. 남은 FEMS 화면(사용자 승인 순서): F-05 생산량 등록(확정 불변·새 버전) → F-06 원단위(생산량 0이면 "생산량 없음") → F-09 사업장·공간(자기 참조 계층), F-12 계측기·채널(마스터-디테일), F-13 환산·배출계수(PRIMARY/EMISSION 탭).
 2. 제안: 모바일 FEMS 사이드바 접기(작은 작업, antigravity 가능), backend 테스트 시간 단축(conftest, Codex).
 
 ## 주의점
@@ -62,9 +66,9 @@
 - 흐름 맵 `energy_master` 노드는 아직 도움말 연결. content 계약 변경은 FEMS 화면이 더 생긴 뒤.
 - `.env`에 SESSION_SECRET(32자 이상)이 필요하다. 테스트는 프로세스에 합성 값을 주입한다.
 
-## 실제 검증 (FS-018g 최종 코드)
+## 실제 검증 (FS-018h 최종 코드)
 
-Python 3.14.7 / Node 24.21.0 / PostgreSQL 18.6. 모두 exit 0: frontend typecheck/lint/format/build/test(169), ruff check/format, backend 전체 pytest 201(`factory_studio_fs016_test`), `tools/run_portal_smoke.py` Playwright 33(`factory_studio_fs017_test`), tools unittest 44, db:validate, audit_schema_isolation, git diff --check. pytest와 브라우저는 순차 실행.
+Python 3.14.7 / Node 24.21.0 / PostgreSQL 18.6. 모두 exit 0: frontend typecheck/lint/format/build/test(180), ruff check/format, backend 전체 pytest 217(`factory_studio_fs016_test`), `tools/run_portal_smoke.py` Playwright 35(`factory_studio_fs017_test`), tools unittest 44, db:validate, audit_schema_isolation, git diff --check. pytest와 브라우저는 순차 실행.
 
 ## 재현 명령
 

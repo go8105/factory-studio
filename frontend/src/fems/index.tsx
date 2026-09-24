@@ -8,6 +8,7 @@ import { Dashboard } from "./Dashboard";
 import { Allocations } from "./Allocations";
 import { Emissions } from "./Emissions";
 import { Targets } from "./Targets";
+import { Billing } from "./Billing";
 import { Equipments } from "./Equipments";
 import { Tariffs } from "./Tariffs";
 export default function FemsRoutes() {
@@ -21,6 +22,7 @@ export default function FemsRoutes() {
         <Route path="allocations" element={<Allocations />} />
         <Route path="emissions" element={<Emissions />} />
         <Route path="targets" element={<Targets />} />
+        <Route path="billing" element={<Billing />} />
         <Route path="energy-sources" element={<EnergySources />} />
         <Route path="tariffs" element={<Tariffs />} />
         <Route path="*" element={<NotFound />} />

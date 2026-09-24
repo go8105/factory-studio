@@ -17,6 +17,7 @@ export const femsScreens = [
     label: "목표 대비 실적",
     group: "원단위·목표",
   },
+  { path: "billing", id: "F-08", label: "요금 산정", group: "요금" },
   { path: "equipments", id: "F-10", label: "설비", group: "기준정보" },
   { path: "energy-sources", id: "F-11", label: "에너지원", group: "기준정보" },
   { path: "tariffs", id: "F-14", label: "요금제", group: "기준정보" },
