@@ -6,6 +6,7 @@
 
 - 저장소: `/Users/hwang-kyoungho/projects/factory-studio` 메인 폴더만 사용.
 - 브랜치: **fs-017-portal**. FS-017a/b/c 전체 완료, 사용자 보고 후 정지.
+- 마지막 구현·검증 완료 커밋: **2e7889b19c3528eec9bdcd620896bb865cda53b6** (`FS-017c: 내 공간·운영 기록 확정과 rebase 후 전체 검증 완료`). 이 해시를 기록하는 인계 커밋이 그 다음 HEAD다.
 - 구현 보존 WIP: **4f5cea9** (rebase 전 **88f69b1**). 최신 완료·인계 커밋은 `git log -2 --oneline`으로 확인한다.
 - 착수 HEAD **cbcd5c5**에서 시작했고, **main 2cece7bac99fd08998746f70da1a21896901e089로 rebase를 한 번 완료**했다. 다시 rebase할 필요 없다.
 - a/b의 현재 커밋: **425fc61** / **730671a**. 옛 보고서의 8f16d52/cbcd5c5 등은 rebase 전 이력이다.
