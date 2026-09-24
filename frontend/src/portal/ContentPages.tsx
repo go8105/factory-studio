@@ -84,7 +84,7 @@ export function Cards() {
 }
 export function Help() {
   const { "*": key } = useParams();
-  if (key && !help[key]) return <NotFound />;
+  if (key && !Object.hasOwn(help, key)) return <NotFound />;
   return (
     <>
       <PageTitle

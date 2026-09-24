@@ -585,3 +585,11 @@
 - 분할 지시 전 실제 브라우저 5개·360px 검증도 실행했지만 FS-017c 완료로 처리하지 않는다. 초기 Vite content 접근 누락(exit 1)과 테스트 서버 SESSION_SECRET 미주입(브라우저 exit 1)을 수정·재실행해 통과했다. 비밀 값은 Git/보고서에 넣지 않았다.
 - 이번 세션에서 schema.json·마이그레이션·test_common.py·test_seed.py 변경 없음. antigravity worktree·브랜치 미접촉, main rebase·병합·push 없음. 30분 WIP·종료 HANDOFF를 상시 규칙에 반영했다.
 - 다음은 FS-017b. FS-017c 종료 때 최신 main에 한 번만 rebase한다. 현재 main 전진분은 이번에 반영하지 않았다.
+
+## 2026-09-24 FS-017b 완료
+
+- Claude Code가 FS-017a 보존 초안을 검토·보완했다. P-03 흐름 맵은 FS-005a 노드 17·연결 19와 일치, P-04 카드 3종 3항목, P-05 도움말 54개 파일(포털 7·MES 15·ERP 18·FEMS 14).
+- 수정: P-05 도움말 키 조회를 `Object.hasOwn`으로 바꿔 객체 기본 속성 이름(`constructor` 등)이 404를 통과하던 결함 제거. 수정 전 실패 재현 테스트 포함.
+- `frontend/src/portal/content-pages.test.tsx` 12개 추가. frontend 전체 51개 통과, typecheck/lint/format/build/`git diff --check` exit 0. backend·schema·마이그레이션 변경 없음(재실행 안 함). 브라우저 검증은 FS-017c.
+- 다음: FS-017c. main rebase는 c 끝에 한 번.
+

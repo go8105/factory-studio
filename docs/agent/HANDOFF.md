@@ -1,19 +1,27 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-24. 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-24 (FS-017b 완료, Claude Code). 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git 상태
 
 - 저장소: `/Users/hwang-kyoungho/projects/factory-studio` **메인 폴더만 사용**.
 - 브랜치: **`fs-017-portal`**.
-- 이 인계 문서 작성 직전 마지막 구현 커밋: **`8f16d52db63608536cd65c5ba414a9a242b35c62`**, `FS-017a: 세션 복구·공통 컴포넌트와 게스트 진입·런처 완료`.
+- FS-017b 구현·인계는 커밋 `FS-017b: 흐름·카드·도움말 계약 검토와 도움말 키 결함 수정` 하나에 담겼다. `git log -1 --oneline`으로 확인한다.
+- FS-017a 구현 커밋: `8f16d52db63608536cd65c5ba414a9a242b35c62`.
 - WIP 보존: `9244801`, `WIP FS-017a: 중단 시점 보존`.
 - 이 파일은 구현 커밋 다음의 별도 인계 커밋에 담긴다. 인계 커밋을 포함한 최종 HEAD는 `git log -1 --oneline`으로 확인한다.
 - FS-016 main fast-forward 완료 기준: `e08f5d8ef3cc09477263d3e29d566cc4fd5f781a`.
 - 마지막 확인 main: **`2cece7bac99fd08998746f70da1a21896901e089`**. 별도 AG 작업으로 전진했지만 **rebase하지 않았다**. FS-017c 끝에 한 번만 최신 main으로 rebase한다. main 병합·push 금지.
 - `../factory-studio-ag` 및 `antigravity/*` 브랜치는 열거나 조작하지 않는다.
 
-## 이번에 끝난 것: FS-017a만
+## FS-017b 완료 (최신)
+
+- P-03/P-04/P-05와 `content/flow-map*.json` 초안을 FS-005a §3·§4, FS-008a, FS-011과 대조했다. 노드 17·연결 19 문구까지 일치. 결과: `docs/agent/포털_FS-017b.md`.
+- 결함 수정 1건: `ContentPages.tsx` Help의 키 조회 `help[key]` → `Object.hasOwn(help, key)` (`/help/constructor`가 404를 통과해 렌더 예외).
+- 신규 `frontend/src/portal/content-pages.test.tsx` 12개. frontend 51개 통과, typecheck/lint/format/build exit 0. backend·schema 변경 없음.
+- **b 초안 파일은 이제 완료로 취급한다.** c 초안(아래 목록의 FS-017c)은 여전히 검토 대상이다.
+
+## FS-017a에서 끝난 것
 
 1. FS-016 기존 현재 세션 API에 CSRF 토큰 복구를 추가했다. 만료·종료 세션 오류 응답이 HttpOnly 쿠키를 삭제해 재진입을 허용한다.
 2. 별도 회귀 파일 `backend/tests/test_portal_session.py`: CSRF 복구 / 복구 후 변경 / 만료 쿠키 삭제 / 만료 후 새 공간, 4개 독립 테스트.
@@ -35,8 +43,8 @@
 ### 다음 순서
 
 1. AGENTS.md → 현재기획_진행현황.md → 이 문서 → 포털_FS-017a.md를 읽는다.
-2. 사용자 다음 작업 승인을 받고 **FS-017b만** 완료·보고·정지한다.
-3. FS-017c에서 P-06/P-07과 브라우저·360px·README·패턴을 최종 점검한다. **c 끝에 최신 main으로 한 번만 rebase**한다. AG-04 등 후속 테스트 보강을 보존한다.
+2. ~~FS-017b~~ 완료.
+3. 사용자 승인 후 FS-017c에서 P-06/P-07과 브라우저·360px·README·패턴을 최종 점검한다. **c 끝에 최신 main으로 한 번만 rebase**한다. AG-04 등 후속 테스트 보강을 보존한다.
 
 ## 주의점·승인된 결정
 
