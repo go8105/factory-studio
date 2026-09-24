@@ -124,7 +124,14 @@ def get_current_session(
     context: Annotated[AuthContext, Depends(resolve_auth)],
 ) -> dict[str, object]:
     with get_engine().connect() as connection:
-        return {"data": current_session(connection, context)}
+        data = current_session(connection, context)
+    secret = get_settings().session_secret
+    data["csrfToken"] = (
+        guest_csrf_token(secret, context.token)
+        if context.actor_kind == "GUEST"
+        else member_csrf_token(secret, context.token)
+    )
+    return {"data": data}
 
 
 @router.delete("/sessions/current", status_code=204)

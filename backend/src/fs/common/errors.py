@@ -35,7 +35,12 @@ def _content(error: ApiError) -> dict[str, object]:
 def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def api_error_handler(_request: Request, error: ApiError) -> JSONResponse:
-        return JSONResponse(status_code=error.status_code, content=_content(error))
+        response = JSONResponse(status_code=error.status_code, content=_content(error))
+        if error.code in {"SESSION_EXPIRED", "WORKSPACE_EXPIRED"}:
+            response.delete_cookie(
+                "fs_session", path="/", secure=True, httponly=True, samesite="lax"
+            )
+        return response
 
     @app.exception_handler(RequestValidationError)
     async def validation_handler(

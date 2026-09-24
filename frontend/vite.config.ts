@@ -1,14 +1,24 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
-
-// FS-009는 빌드 기반만 검증한다. 포털 진입 화면은 FS-017에서 작성한다.
+import { fileURLToPath } from "node:url";
 export default defineConfig({
   plugins: [react()],
-  build: {
-    lib: {
-      entry: "src/app/index.ts",
-      formats: ["es"],
-      fileName: "factory-studio",
+  server: {
+    fs: {
+      allow: [
+        fileURLToPath(new URL(".", import.meta.url)),
+        fileURLToPath(new URL("../content", import.meta.url)),
+      ],
     },
+    host: "localhost",
+    port: 5173,
+    strictPort: true,
+    proxy: { "/api": "http://127.0.0.1:8000" },
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
+    restoreMocks: true,
   },
 });

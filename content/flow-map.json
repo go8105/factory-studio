@@ -1,0 +1,240 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "master_data",
+      "label": "거래처·품목 기준정보",
+      "module": "erp",
+      "kind": "solution",
+      "helpKey": "erp/e-15"
+    },
+    {
+      "id": "sales_plan",
+      "label": "판매계획 수립",
+      "module": "erp",
+      "kind": "solution",
+      "helpKey": "erp/e-03"
+    },
+    {
+      "id": "production_plan",
+      "label": "생산계획(MPS)",
+      "module": "mes",
+      "kind": "solution",
+      "helpKey": "mes/m-02"
+    },
+    {
+      "id": "work_order",
+      "label": "작업지시",
+      "module": "mes",
+      "kind": "solution",
+      "helpKey": "mes/m-03"
+    },
+    {
+      "id": "lot_issue",
+      "label": "LOT 생성",
+      "module": "mes",
+      "kind": "solution",
+      "helpKey": "mes/m-04"
+    },
+    {
+      "id": "operation_run",
+      "label": "공정 투입·실행",
+      "module": "mes",
+      "kind": "solution",
+      "helpKey": "mes/m-05"
+    },
+    {
+      "id": "operation_result",
+      "label": "실적 확정",
+      "module": "mes",
+      "kind": "solution",
+      "helpKey": "mes/m-07"
+    },
+    {
+      "id": "quality_inspection",
+      "label": "품질검사",
+      "module": "qms",
+      "kind": "card",
+      "helpKey": null
+    },
+    {
+      "id": "packing",
+      "label": "패킹(박스/팔레트)",
+      "module": "mes",
+      "kind": "solution",
+      "helpKey": "mes/m-08"
+    },
+    {
+      "id": "fg_receipt",
+      "label": "완제품 입고",
+      "module": "mes",
+      "kind": "solution",
+      "helpKey": "mes/m-09"
+    },
+    {
+      "id": "inventory_move",
+      "label": "재고·비계획 입출고",
+      "module": "wms",
+      "kind": "card",
+      "helpKey": null
+    },
+    {
+      "id": "sales_order",
+      "label": "수주",
+      "module": "erp",
+      "kind": "solution",
+      "helpKey": "erp/e-04"
+    },
+    {
+      "id": "shipment_order",
+      "label": "출하지시",
+      "module": "erp",
+      "kind": "solution",
+      "helpKey": "erp/e-05"
+    },
+    {
+      "id": "shipment",
+      "label": "출하",
+      "module": "erp",
+      "kind": "solution",
+      "helpKey": "erp/e-06"
+    },
+    {
+      "id": "sales_record",
+      "label": "매출 인식",
+      "module": "erp",
+      "kind": "solution",
+      "helpKey": "erp/e-07"
+    },
+    {
+      "id": "energy_master",
+      "label": "에너지 기준정보·조회",
+      "module": "fems",
+      "kind": "solution",
+      "helpKey": "fems/f-01"
+    },
+    {
+      "id": "building_energy",
+      "label": "건물 에너지",
+      "module": "bems",
+      "kind": "card",
+      "helpKey": null
+    }
+  ],
+  "edges": [
+    {
+      "from": "master_data",
+      "to": "sales_plan",
+      "label": "품목이 있어야 계획을 세운다",
+      "kind": "solution"
+    },
+    {
+      "from": "sales_plan",
+      "to": "production_plan",
+      "label": "판매계획이 생산계획의 근거가 된다",
+      "kind": "solution"
+    },
+    {
+      "from": "production_plan",
+      "to": "work_order",
+      "label": "계획을 실행 단위로 전개한다",
+      "kind": "solution"
+    },
+    {
+      "from": "work_order",
+      "to": "lot_issue",
+      "label": "지시마다 추적 단위를 만든다",
+      "kind": "solution"
+    },
+    {
+      "from": "lot_issue",
+      "to": "operation_run",
+      "label": "LOT이 경로를 따라 흐른다",
+      "kind": "solution"
+    },
+    {
+      "from": "operation_run",
+      "to": "operation_result",
+      "label": "실행 결과를 확정한다",
+      "kind": "solution"
+    },
+    {
+      "from": "operation_result",
+      "to": "quality_inspection",
+      "label": "확정 수량이 검사 대상이 된다",
+      "kind": "card"
+    },
+    {
+      "from": "quality_inspection",
+      "to": "packing",
+      "label": "합격분만 포장한다",
+      "kind": "card"
+    },
+    {
+      "from": "operation_result",
+      "to": "packing",
+      "label": "(QMS 미구현 시 현재 경로) 확정 양품을 포장한다",
+      "kind": "solution"
+    },
+    {
+      "from": "packing",
+      "to": "fg_receipt",
+      "label": "포장 단위를 재고로 확정한다",
+      "kind": "solution"
+    },
+    {
+      "from": "fg_receipt",
+      "to": "inventory_move",
+      "label": "재고 상태를 원장이 관리한다",
+      "kind": "card"
+    },
+    {
+      "from": "master_data",
+      "to": "sales_order",
+      "label": "거래처가 있어야 수주가 가능하다",
+      "kind": "solution"
+    },
+    {
+      "from": "sales_order",
+      "to": "shipment_order",
+      "label": "수주 라인을 출하 지시로 전개한다",
+      "kind": "solution"
+    },
+    {
+      "from": "fg_receipt",
+      "to": "shipment",
+      "label": "입고된 패킹 단위가 출하 대상이다",
+      "kind": "solution"
+    },
+    {
+      "from": "shipment_order",
+      "to": "shipment",
+      "label": "지시에 따라 출하한다",
+      "kind": "solution"
+    },
+    {
+      "from": "shipment",
+      "to": "sales_record",
+      "label": "출하 시점에 매출을 인식한다",
+      "kind": "solution"
+    },
+    {
+      "from": "sales_record",
+      "to": "sales_plan",
+      "label": "계획 대비 실적을 비교한다 (되돌아오는 연결)",
+      "kind": "solution"
+    },
+    {
+      "from": "operation_run",
+      "to": "energy_master",
+      "label": "설비 가동 구간이 에너지 집계 대상이다",
+      "kind": "solution"
+    },
+    {
+      "from": "energy_master",
+      "to": "building_energy",
+      "label": "제조 에너지와 공용 에너지의 경계",
+      "kind": "card"
+    }
+  ]
+}
