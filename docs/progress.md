@@ -593,3 +593,14 @@
 - `frontend/src/portal/content-pages.test.tsx` 12개 추가. frontend 전체 51개 통과, typecheck/lint/format/build/`git diff --check` exit 0. backend·schema·마이그레이션 변경 없음(재실행 안 함). 브라우저 검증은 FS-017c.
 - 다음: FS-017c. main rebase는 c 끝에 한 번.
 
+
+
+## 2026-09-24 FS-017c 완료
+
+- 기존 P-06/P-07 초안 검토·보완. 초기화 경고/확인·중복 요청 차단, 헤더 외 도움말/푸터/뒤로가기 이동 차단, 불확실 응답의 동일 키 재확인, 변경 성공과 조회 실패 분리. 토글은 성공 전 표시 값을 바꾸지 않아 실패 시 원래 값 유지. 게스트 만료는 Asia/Seoul·KST로 고정 표시.
+- ADMIN만 운영 기록 조회. GUEST/OWNER 메뉴 비노출·직접 접근 404. offset/limit=20, 탭 전환 offset 초기화, 일반 조회 오류 인라인 재시도. API·DB 스키마 변경 없음.
+- 화면 테스트 신규 21개·Playwright 검증 항목 분리(16개). README 실행/IntelliJ 안내·패턴 문서 확정. `tools/run_portal_smoke.py`로 고정 테스트 DB 초기화·템플릿 생성·서버 시작/종료를 재현한다.
+- WIP `88f69b1` 보존 후 main `2cece7b`로 rebase 한 번. 현황/progress 문서 충돌은 양쪽 이력 보존으로 해결. rebase 후 WIP `4f5cea9`, AG-04 common 11개·AG-03 seed 16개 파일은 main과 바이트 동일.
+- rebase 후 모든 지정 명령 exit 0: frontend typecheck/lint/format/build/test(72), Playwright(16), backend 전체(40), tools unittest(44), db:validate, audit_schema_isolation(R1~R5), git diff --check. 실행 런타임 Python 3.14.7/Node 24.21.0/PostgreSQL 18.6, 테스트 DB factory_studio_fs016_test/factory_studio_fs017_test, DB 검증은 순차 실행.
+- content/·schema.json·마이그레이션·test_common.py·test_seed.py 직접 수정 없음. conftest.py 변경 없음. .env/work 제외. main 병합·push·antigravity 폴더/브랜치 조작 없음.
+- 상세 명령·exit code·미실행 항목은 포털_FS-017c.md, 이어받기는 HANDOFF.md. 다음 ID는 사용자 확인을 기다린다.
