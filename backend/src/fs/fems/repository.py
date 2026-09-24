@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import Connection, text
 
@@ -1040,5 +1042,235 @@ def active_sources(
             "WHERE workspace_id=:w AND generation_id=:g AND is_active ORDER BY source_code"
         ),
         _s(context),
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
+# ---- F-05 생산량 등록 (FS-018i) ----
+# 버전 규칙: 같은 source_key의 새 version_no가 개정이다. 확정 행은 바꾸지 않는다.
+PRODUCTION_BASE = """
+SELECT p.id,p.source_key,p.version_no,p.equipment_id,q.equipment_code,q.name equipment_name,
+       p.item_code,p.period_start,p.period_end,p.production_qty,p.unit,p.status,p.confirmed_at,
+       s.timezone,
+       p.version_no = max(p.version_no) OVER (PARTITION BY p.source_key) is_latest,
+       p.status='confirmed' AND p.version_no = max(p.version_no)
+         FILTER (WHERE p.status='confirmed') OVER (PARTITION BY p.source_key) is_effective
+FROM fems.production_record p
+JOIN fems.equipment q
+  ON q.workspace_id=p.workspace_id AND q.generation_id=p.generation_id AND q.id=p.equipment_id
+JOIN fems.location l
+  ON l.workspace_id=q.workspace_id AND l.generation_id=q.generation_id AND l.id=q.location_id
+JOIN fems.site s
+  ON s.workspace_id=l.workspace_id AND s.generation_id=l.generation_id AND s.id=l.site_id
+WHERE p.workspace_id=:w AND p.generation_id=:g
+"""
+
+
+def production_dict(row: Any) -> dict[str, Any]:
+    zone = ZoneInfo(row["timezone"])
+    return {
+        "id": row["id"],
+        "sourceKey": row["source_key"],
+        "versionNo": row["version_no"],
+        "equipmentId": row["equipment_id"],
+        "equipmentCode": row["equipment_code"],
+        "equipmentName": row["equipment_name"],
+        "itemCode": row["item_code"],
+        "startDate": row["period_start"].astimezone(zone).date().isoformat(),
+        # 종료는 반개구간 끝이므로 하루를 빼 포함 날짜로 보여 준다.
+        "endDate": (row["period_end"] - timedelta(microseconds=1))
+        .astimezone(zone)
+        .date()
+        .isoformat(),
+        "periodStart": row["period_start"].isoformat(),
+        "periodEnd": row["period_end"].isoformat(),
+        "productionQty": str(row["production_qty"]),
+        "unit": row["unit"],
+        "status": row["status"],
+        "confirmedAt": row["confirmed_at"].isoformat() if row["confirmed_at"] else None,
+        "isLatest": row["is_latest"],
+        "isEffective": bool(row["is_effective"]),
+    }
+
+
+def list_production(
+    connection: Connection,
+    context: AuthContext,
+    filters: dict[str, Any],
+    include_history: bool,
+    offset: int,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int]:
+    where = "WHERE TRUE" if include_history else "WHERE x.is_latest"
+    params: dict[str, Any] = {**_s(context), "offset": offset, "limit": limit}
+    if "equipment_id" in filters:
+        where += " AND x.equipment_id=:equipment_id"
+    if "status" in filters:
+        where += " AND x.status=:status"
+    if "item_code" in filters:
+        where += " AND x.item_code=:item_code"
+    params.update(filters)
+    scope = f"SELECT * FROM ({PRODUCTION_BASE}) x {where}"
+    total = connection.execute(
+        text(f"SELECT count(*) FROM ({scope}) y"), params
+    ).scalar_one()
+    rows = connection.execute(
+        text(
+            scope + " ORDER BY x.period_start DESC, x.source_key, x.version_no DESC"
+            " OFFSET :offset LIMIT :limit"
+        ),
+        params,
+    ).mappings()
+    return [production_dict(r) for r in rows], total
+
+
+def get_production(
+    connection: Connection, context: AuthContext, record_id: int, lock: bool = False
+) -> dict[str, Any] | None:
+    if lock:
+        # 같은 행을 바꾸려는 요청을 직렬화한다(공간 잠금 안에서도 명시한다).
+        connection.execute(
+            text(
+                "SELECT 1 FROM fems.production_record "
+                "WHERE workspace_id=:w AND generation_id=:g AND id=:id FOR UPDATE"
+            ),
+            {**_s(context), "id": record_id},
+        )
+    row = (
+        connection.execute(
+            text(f"SELECT * FROM ({PRODUCTION_BASE}) x WHERE x.id=:id"),
+            {**_s(context), "id": record_id},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    return production_dict(row) if row else None
+
+
+def site_timezone_of_equipment(
+    connection: Connection, context: AuthContext, equipment_id: int
+) -> str | None:
+    return connection.execute(
+        text(
+            """
+            SELECT s.timezone FROM fems.equipment q
+            JOIN fems.location l
+              ON l.workspace_id=q.workspace_id AND l.generation_id=q.generation_id AND l.id=q.location_id
+            JOIN fems.site s
+              ON s.workspace_id=l.workspace_id AND s.generation_id=l.generation_id AND s.id=l.site_id
+            WHERE q.workspace_id=:w AND q.generation_id=:g AND q.id=:id
+            """
+        ),
+        {**_s(context), "id": equipment_id},
+    ).scalar_one_or_none()
+
+
+def next_manual_source_key(
+    connection: Connection, context: AuthContext, day: str
+) -> str:
+    """직접 입력 원천 키 MAN-YYYYMMDD-NNN. 공간 잠금 안에서 부르므로 순번이 겹치지 않는다."""
+    prefix = f"MAN-{day}-"
+    count = connection.execute(
+        text(
+            "SELECT count(DISTINCT source_key) FROM fems.production_record "
+            "WHERE workspace_id=:w AND generation_id=:g AND source_key LIKE :p"
+        ),
+        {**_s(context), "p": prefix + "%"},
+    ).scalar_one()
+    return f"{prefix}{count + 1:03d}"
+
+
+def insert_production(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> int:
+    return connection.execute(
+        text(
+            """
+            INSERT INTO fems.production_record
+              (workspace_id,generation_id,source_key,version_no,equipment_id,item_code,
+               period_start,period_end,production_qty,unit,status)
+            VALUES (:w,:g,:source_key,:version_no,:equipment_id,:item_code,
+                    :period_start,:period_end,:production_qty,:unit,'draft')
+            RETURNING id
+            """
+        ),
+        {**_s(context), **values},
+    ).scalar_one()
+
+
+def update_production(
+    connection: Connection, context: AuthContext, record_id: int, values: dict[str, Any]
+) -> None:
+    assignments = ",".join(f"{column}=:{column}" for column in values)
+    connection.execute(
+        text(
+            f"UPDATE fems.production_record SET {assignments} "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id AND status='draft'"
+        ),
+        {**_s(context), **values, "id": record_id},
+    )
+
+
+def delete_production(
+    connection: Connection, context: AuthContext, record_id: int
+) -> None:
+    connection.execute(
+        text(
+            "DELETE FROM fems.production_record "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id AND status='draft'"
+        ),
+        {**_s(context), "id": record_id},
+    )
+
+
+def confirm_production(
+    connection: Connection, context: AuthContext, record_id: int
+) -> None:
+    connection.execute(
+        text(
+            "UPDATE fems.production_record SET status='confirmed', confirmed_at=now() "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id AND status='draft'"
+        ),
+        {**_s(context), "id": record_id},
+    )
+
+
+def overlapping_production(
+    connection: Connection, context: AuthContext, record: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """다른 원천 키의 현재 확정 기록 중 같은 설비·품목·단위이고 구간이 겹치는 것."""
+    rows = connection.execute(
+        text(
+            f"""
+            SELECT * FROM ({PRODUCTION_BASE}) x
+            WHERE x.is_effective AND x.source_key<>:key
+              AND x.equipment_id=:equipment AND x.item_code=:item AND x.unit=:unit
+              AND x.period_start < CAST(:end AS timestamptz)
+              AND CAST(:start AS timestamptz) < x.period_end
+            ORDER BY x.period_start
+            """
+        ),
+        {
+            **_s(context),
+            "key": record["sourceKey"],
+            "equipment": record["equipmentId"],
+            "item": record["itemCode"],
+            "unit": record["unit"],
+            "start": record["periodStart"],
+            "end": record["periodEnd"],
+        },
+    ).mappings()
+    return [production_dict(r) for r in rows]
+
+
+def source_versions(
+    connection: Connection, context: AuthContext, source_key: str
+) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            "SELECT version_no,status FROM fems.production_record "
+            "WHERE workspace_id=:w AND generation_id=:g AND source_key=:k ORDER BY version_no"
+        ),
+        {**_s(context), "k": source_key},
     ).mappings()
     return [dict(r) for r in rows]

@@ -14,6 +14,8 @@ from fs.fems.schema import (
     EnergySourceUpdate,
     EquipmentCreate,
     EquipmentUpdate,
+    ProductionCreate,
+    ProductionUpdate,
     TariffCreate,
     TariffUpdate,
 )
@@ -347,3 +349,97 @@ def get_billing(
     ] = None,
 ) -> dict[str, object]:
     return {"data": service.billing(context, month_from, month_to)}
+
+
+@router.get("/production-records")
+def list_production_records(
+    context: Auth,
+    equipment_id: Annotated[int | None, Query(alias="equipmentId")] = None,
+    item_code: Annotated[str | None, Query(alias="itemCode", max_length=40)] = None,
+    status: Literal["draft", "confirmed"] | None = None,
+    include_history: Annotated[bool, Query(alias="includeHistory")] = False,
+    offset: int = 0,
+    limit: int = 50,
+) -> dict[str, object]:
+    page = Page(offset, limit).checked()
+    filters = {
+        k: v
+        for k, v in {
+            "equipment_id": equipment_id,
+            "item_code": item_code,
+            "status": status,
+        }.items()
+        if v is not None
+    }
+    data, total = service.list_production(
+        context, filters, include_history, page.offset, page.limit
+    )
+    return {
+        "data": data,
+        "page": {"offset": page.offset, "limit": page.limit, "total": total},
+    }
+
+
+@router.get("/production-records/{record_id}")
+def get_production_record(context: Auth, record_id: int) -> dict[str, object]:
+    return {"data": service.get_production(context, record_id)}
+
+
+@router.post("/production-records", status_code=201)
+def post_production_record(
+    payload: ProductionCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_production(context, payload.model_dump(), key)}
+
+
+@router.patch("/production-records/{record_id}")
+def patch_production_record(
+    record_id: int,
+    payload: ProductionUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(exclude_unset=True)
+    if any(value is None for value in values.values()):
+        raise ApiError(400, "VALIDATION_FAILED", "null로 비울 수 있는 항목이 없습니다.")
+    return {"data": service.update_production(context, record_id, values, key)}
+
+
+@router.delete("/production-records/{record_id}", status_code=204)
+def delete_production_record(
+    record_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> Response:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    service.delete_production(context, record_id, key)
+    return Response(status_code=204)
+
+
+@router.post("/production-records/{record_id}/confirm")
+def confirm_production_record(
+    record_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.confirm_production(context, record_id, key)}
+
+
+@router.post("/production-records/{record_id}/revise", status_code=201)
+def revise_production_record(
+    record_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.revise_production(context, record_id, key)}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -88,3 +89,28 @@ class TariffUpdate(ApiModel):
     effective_to: str | None = Field(
         None, alias="effectiveTo", pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$"
     )
+
+
+# ---- F-05 생산량 등록 (FS-018i) ----
+QTY = r"^\d{1,15}(\.\d{1,3})?$"  # numeric(18,3), 0 허용
+ITEM = r"^[A-Z0-9][A-Z0-9_\-]{1,39}$"
+
+
+class ProductionCreate(ApiModel):
+    equipment_id: int = Field(alias="equipmentId", gt=0)
+    item_code: str = Field(alias="itemCode", pattern=ITEM)
+    start_date: date = Field(alias="startDate")
+    end_date: date = Field(
+        alias="endDate"
+    )  # 포함. 서버가 [시작 00:00, 종료+1 00:00)로 바꾼다
+    production_qty: str = Field(alias="productionQty", pattern=QTY)
+    unit: str = Field(min_length=1, max_length=10)
+
+
+class ProductionUpdate(ApiModel):
+    equipment_id: int | None = Field(None, alias="equipmentId", gt=0)
+    item_code: str | None = Field(None, alias="itemCode", pattern=ITEM)
+    start_date: date | None = Field(None, alias="startDate")
+    end_date: date | None = Field(None, alias="endDate")
+    production_qty: str | None = Field(None, alias="productionQty", pattern=QTY)
+    unit: str | None = Field(None, min_length=1, max_length=10)

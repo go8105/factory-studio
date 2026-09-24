@@ -5,9 +5,10 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import Connection
 
@@ -1181,3 +1182,259 @@ def target_performance(context: AuthContext, month: str | None) -> dict[str, Any
         "site": site,
         "equipment": equipment,
     }
+
+
+# ---- F-05 생산량 등록 (FS-018i) ----
+# 확정은 불변, 정정은 같은 원천 키의 새 버전(초안)으로 한다(FS-005g, schema.json SERVICE/DB_POLICY).
+MAX_PRODUCTION_DAYS = 366
+REVISION_FIXED = ("equipment_id", "item_code", "unit")
+
+
+def _production_not_found() -> ApiError:
+    return ApiError(404, "NOT_FOUND", "생산량 기록을 찾을 수 없습니다.")
+
+
+def _confirmed_locked() -> ApiError:
+    return ApiError(
+        409,
+        "ALREADY_CONFIRMED",
+        "확정된 생산량은 바꿀 수 없습니다. 정정은 새 버전으로 만드세요.",
+    )
+
+
+def _production_period(
+    connection: Connection, scoped: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    """설비 사업장 시간대 기준 [시작일 00:00, 종료일+1 00:00)."""
+    timezone = repo.site_timezone_of_equipment(
+        connection, scoped, values["equipment_id"]
+    )
+    if timezone is None:
+        raise ApiError(
+            400,
+            "VALIDATION_FAILED",
+            "입력값을 확인해 주세요.",
+            {"fields": {"equipmentId": "유효하지 않은 설비입니다."}},
+        )
+    start, end = values.pop("start_date"), values.pop("end_date")
+    if end < start:
+        raise ApiError(
+            400,
+            "VALIDATION_FAILED",
+            "입력값을 확인해 주세요.",
+            {"fields": {"endDate": "시작일 이후여야 합니다."}},
+        )
+    if (end - start).days >= MAX_PRODUCTION_DAYS:
+        raise ApiError(
+            400,
+            "VALIDATION_FAILED",
+            "입력값을 확인해 주세요.",
+            {"fields": {"endDate": f"최대 {MAX_PRODUCTION_DAYS}일까지 입력합니다."}},
+        )
+    zone = ZoneInfo(timezone)
+    values["period_start"] = datetime.combine(start, time(0), zone)
+    values["period_end"] = datetime.combine(end + timedelta(days=1), time(0), zone)
+    return values
+
+
+def list_production(
+    context: AuthContext,
+    filters: dict[str, Any],
+    include_history: bool,
+    offset: int,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return repo.list_production(
+            connection, scoped, filters, include_history, offset, limit
+        )
+
+
+def get_production(context: AuthContext, record_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = repo.get_production(connection, scoped, record_id)
+    if found is None:
+        raise _production_not_found()
+    return found
+
+
+def _receipt(connection, scoped, operation, key, digest, record_id, data, status=200):
+    save_receipt(
+        connection,
+        scoped,
+        operation,
+        key,
+        digest,
+        "production_record",
+        record_id,
+        data,
+        status,
+    )
+
+
+def create_production(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    body = {
+        **values,
+        "start_date": str(values["start_date"]),
+        "end_date": str(values["end_date"]),
+    }
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.production_record.create"
+        digest, cached = _replay(connection, scoped, operation, key, body)
+        if cached is not None:
+            return cached
+        values = _production_period(connection, scoped, dict(values))
+        day = values["period_start"].strftime("%Y%m%d")
+        values["source_key"] = repo.next_manual_source_key(connection, scoped, day)
+        values["version_no"] = 1
+        record_id = repo.insert_production(connection, scoped, values)
+        created = repo.get_production(connection, scoped, record_id)
+        _receipt(connection, scoped, operation, key, digest, record_id, created, 201)
+        return created
+
+
+def update_production(
+    context: AuthContext, record_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    if not values:
+        raise ApiError(400, "VALIDATION_FAILED", "변경할 항목이 없습니다.")
+    body = {"id": record_id, **{k: str(v) for k, v in values.items()}}
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.production_record.update"
+        digest, cached = _replay(connection, scoped, operation, key, body)
+        if cached is not None:
+            return cached
+        current = repo.get_production(connection, scoped, record_id, lock=True)
+        if current is None:
+            raise _production_not_found()
+        if current["status"] == "confirmed":
+            raise _confirmed_locked()
+        fixed = {
+            "equipment_id": current["equipmentId"],
+            "item_code": current["itemCode"],
+            "unit": current["unit"],
+        }
+        changed = [f for f in REVISION_FIXED if f in values and values[f] != fixed[f]]
+        if current["versionNo"] > 1 and changed:
+            # 개정은 같은 기록의 정정이다. 설비·품목·단위가 바뀌면 다른 기록이다.
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "정정 버전은 설비·품목·단위를 바꿀 수 없습니다. 새 기록으로 등록하세요.",
+                {"reason": "REVISION_FIELDS_FIXED", "fields": changed},
+            )
+        merged = {
+            **fixed,
+            "start_date": date.fromisoformat(current["startDate"]),
+            "end_date": date.fromisoformat(current["endDate"]),
+            **values,
+        }
+        merged = _production_period(connection, scoped, merged)
+        changes = {
+            k: v for k, v in merged.items() if k in values or k.startswith("period_")
+        }
+        repo.update_production(connection, scoped, record_id, changes)
+        updated = repo.get_production(connection, scoped, record_id)
+        _receipt(connection, scoped, operation, key, digest, record_id, updated)
+        return updated
+
+
+def delete_production(context: AuthContext, record_id: int, key: str) -> None:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.production_record.delete"
+        digest, cached = _replay(connection, scoped, operation, key, {"id": record_id})
+        if cached is not None:
+            return
+        current = repo.get_production(connection, scoped, record_id, lock=True)
+        if current is None:
+            raise _production_not_found()
+        if current["status"] == "confirmed":
+            raise _confirmed_locked()
+        repo.delete_production(connection, scoped, record_id)
+        _receipt(connection, scoped, operation, key, digest, record_id, {}, 204)
+
+
+def confirm_production(
+    context: AuthContext, record_id: int, key: str
+) -> dict[str, Any]:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.production_record.confirm"
+        digest, cached = _replay(connection, scoped, operation, key, {"id": record_id})
+        if cached is not None:
+            return cached
+        current = repo.get_production(connection, scoped, record_id, lock=True)
+        if current is None:
+            raise _production_not_found()
+        if current["status"] == "confirmed":
+            raise _confirmed_locked()
+        # 최신 확정 기록끼리 같은 설비·품목·단위의 구간 중복을 거부한다(생산량 이중 합산 방지).
+        conflicts = repo.overlapping_production(connection, scoped, current)
+        if conflicts:
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "같은 설비·품목의 확정 생산량과 기간이 겹칩니다.",
+                {
+                    "reason": "PERIOD_OVERLAP",
+                    "conflicts": [
+                        {
+                            "id": c["id"],
+                            "sourceKey": c["sourceKey"],
+                            "startDate": c["startDate"],
+                            "endDate": c["endDate"],
+                        }
+                        for c in conflicts
+                    ],
+                },
+            )
+        repo.confirm_production(connection, scoped, record_id)
+        confirmed = repo.get_production(connection, scoped, record_id)
+        _receipt(connection, scoped, operation, key, digest, record_id, confirmed)
+        return confirmed
+
+
+def revise_production(context: AuthContext, record_id: int, key: str) -> dict[str, Any]:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.production_record.revise"
+        digest, cached = _replay(connection, scoped, operation, key, {"id": record_id})
+        if cached is not None:
+            return cached
+        current = repo.get_production(connection, scoped, record_id, lock=True)
+        if current is None:
+            raise _production_not_found()
+        versions = repo.source_versions(connection, scoped, current["sourceKey"])
+        if current["status"] != "confirmed" or not current["isLatest"]:
+            reason = (
+                "DRAFT_EXISTS"
+                if any(v["status"] == "draft" for v in versions)
+                else "NOT_LATEST"
+            )
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "정정은 원천 키의 최신 확정 버전에서만 만들 수 있습니다.",
+                {"reason": reason},
+            )
+        values = {
+            "source_key": current["sourceKey"],
+            "version_no": max(v["version_no"] for v in versions) + 1,
+            "equipment_id": current["equipmentId"],
+            "item_code": current["itemCode"],
+            "period_start": current["periodStart"],
+            "period_end": current["periodEnd"],
+            "production_qty": current["productionQty"],
+            "unit": current["unit"],
+        }
+        new_id = repo.insert_production(connection, scoped, values)
+        created = repo.get_production(connection, scoped, new_id)
+        _receipt(connection, scoped, operation, key, digest, new_id, created, 201)
+        return created
