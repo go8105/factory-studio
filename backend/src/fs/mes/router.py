@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from fs.common.auth import AuthContext, require_csrf, resolve_auth
 from fs.common.errors import ApiError
-from fs.mes import planning, service
+from fs.mes import execution, planning, service
 from fs.mes import repository as repo
 from fs.mes.repository import Master
 from fs.mes.schema import (
@@ -19,6 +19,8 @@ from fs.mes.schema import (
     ConversionUpdate,
     EquipmentCreate,
     EquipmentUpdate,
+    ExecutionResult,
+    ExecutionStart,
     ItemCreate,
     ItemUpdate,
     LocationCreate,
@@ -483,3 +485,47 @@ def post_order_lot(
 ) -> dict[str, object]:
     key = _mutation(context, x_csrf_token, idempotency_key)
     return {"data": planning.create_missing_lot(context, order_id, key)}
+
+
+# ---- M-04 LOT 현황 · M-05 공정 실행 ----
+@router.get("/lots")
+def list_lots(context: Auth) -> dict[str, object]:
+    return {"data": execution.list_lots(context)}
+
+
+@router.get("/lots/{lot_id}")
+def get_lot(context: Auth, lot_id: int) -> dict[str, object]:
+    return {"data": execution.get_lot(context, lot_id)}
+
+
+@router.get("/executions")
+def list_running(context: Auth) -> dict[str, object]:
+    return {"data": execution.list_running(context)}
+
+
+@router.post("/lots/{lot_id}/executions", status_code=201)
+def start_execution(
+    lot_id: int,
+    payload: ExecutionStart,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": execution.start(context, lot_id, payload.model_dump(), key)}
+
+
+@router.post("/executions/{execution_id}/result")
+def confirm_result(
+    execution_id: int,
+    payload: ExecutionResult,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": execution.confirm_result(
+            context, execution_id, payload.model_dump(), key
+        )
+    }

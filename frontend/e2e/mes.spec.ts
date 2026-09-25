@@ -102,3 +102,46 @@ test("게시된 BOM은 구성을 바꿀 수 없다", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "구성 저장" })).toHaveCount(0);
 });
+
+test("대기 LOT의 첫 공정을 시작하고 실적을 확정하면 이력에 남는다", async ({
+  page,
+}) => {
+  await page.goto("/mes/executions");
+  const startable = page.getByRole("table", { name: "시작할 수 있는 LOT" });
+  const row = startable.getByRole("row", { name: /1\/3 사출/ }).first();
+  const lotNo = (await row.getByRole("cell").first().textContent())!.trim();
+  await row.getByRole("button", { name: "시작" }).click();
+  await page
+    .getByRole("form", { name: "공정 시작" })
+    .getByRole("button", { name: "시작" })
+    .click();
+  const running = page.getByRole("table", { name: "실행 중인 공정" });
+  await running
+    .getByRole("row", { name: new RegExp(`^${lotNo}`) })
+    .getByRole("button", { name: "실적 확정" })
+    .click();
+  const input = await page
+    .getByText(/투입 [\d,]+ EA \(지시 수량\)/)
+    .textContent();
+  const total = Number(input!.match(/투입 ([\d,]+)/)![1].replaceAll(",", ""));
+  await page.getByLabel("양품").fill(String(total - 20));
+  await page.getByLabel("불량", { exact: true }).fill("20");
+  await page.getByLabel("불량 사유").fill("미성형");
+  await page
+    .getByRole("form", { name: "실적 확정" })
+    .getByRole("button", { name: "확정", exact: true })
+    .click();
+  await expect(page.getByRole("form", { name: "실적 확정" })).toHaveCount(0);
+  await page.goto("/mes/lots");
+  await page
+    .getByRole("table", { name: "LOT 목록" })
+    .getByRole("row", { name: new RegExp(`^${lotNo}`) })
+    .getByRole("button", { name: "이력" })
+    .click();
+  await expect(
+    page
+      .getByRole("table", { name: `${lotNo} 공정 이력` })
+      .getByRole("row")
+      .nth(1),
+  ).toContainText("미성형");
+});

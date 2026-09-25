@@ -188,3 +188,16 @@ class OrderUpdate(ApiModel):
 
 class OrderCancel(ApiModel):
     cancel_reason: str = Field(alias="cancelReason", min_length=1, max_length=300)
+
+
+# ---- M-05 공정 실행 ----
+class ExecutionStart(ApiModel):
+    route_step_id: int = Field(alias="routeStepId", gt=0)
+    equipment_id: int = Field(alias="equipmentId", gt=0)
+
+
+class ExecutionResult(ApiModel):
+    # 투입 수량은 서버가 정한다(첫 공정 = 지시 수량, 이후 = 직전 양품). 양품 + 불량 = 투입.
+    good_qty: str = Field(alias="goodQty", pattern=QTY)
+    defect_qty: str = Field("0", alias="defectQty", pattern=QTY)
+    defect_reason: str | None = Field(None, alias="defectReason", max_length=300)

@@ -10,6 +10,8 @@ import { Routes as RouteVersions } from "./Routes";
 import { Boms } from "./Boms";
 import { Plans } from "./Plans";
 import { Orders } from "./Orders";
+import { Lots } from "./Lots";
+import { Executions } from "./Executions";
 
 export default function MesRoutes() {
   return (
@@ -19,6 +21,8 @@ export default function MesRoutes() {
         <Route index element={<Navigate to="production-plans" replace />} />
         <Route path="production-plans" element={<Plans />} />
         <Route path="work-orders" element={<Orders />} />
+        <Route path="lots" element={<Lots />} />
+        <Route path="executions" element={<Executions />} />
         <Route path="sites" element={<Sites />} />
         <Route path="equipments" element={<Equipments />} />
         <Route path="items" element={<Items />} />

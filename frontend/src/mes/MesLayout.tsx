@@ -10,6 +10,8 @@ export const mesScreens = [
     group: "생산계획",
   },
   { path: "work-orders", id: "M-03", label: "작업지시", group: "생산계획" },
+  { path: "lots", id: "M-04", label: "LOT 현황", group: "생산실행" },
+  { path: "executions", id: "M-05", label: "공정 실행", group: "생산실행" },
   { path: "sites", id: "M-10", label: "사업장·공간", group: "기준정보" },
   { path: "equipments", id: "M-11", label: "설비", group: "기준정보" },
   { path: "items", id: "M-12", label: "품목", group: "기준정보" },

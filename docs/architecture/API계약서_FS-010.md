@@ -371,6 +371,11 @@ GET /journal-preview?kind=RECEIPT&applyId=...
 - `/work-orders`: 확정 계획 라인에서 생성(번호 자동), 배정 초과 409 `PLAN_QTY_EXCEEDED`(+잔여). `release`는 LOT을 같은 트랜잭션에서 생성, 경로·BOM 게시 재확인 409 `VERSION_NOT_PUBLISHED`. 발행 후 변경 409 `ORDER_RELEASED`.
 - `POST /work-orders/{id}/lot`(추가): 발행됐지만 LOT이 없는 지시의 LOT 생성. 그 외 409 `LOT_NOT_ALLOWED`.
 
+### 공정 실행 (FS-020d)
+
+- 시작은 `POST /lots/{id}/executions` `{routeStepId, equipmentId}`, 완료는 `POST /executions/{id}/result`(실적 확정 = 완료). 결과 없는 종료는 스키마상 없으므로 `/finish`는 두지 않는다.
+- 409 `reason`: `LOT_NOT_STARTABLE`·`STEP_RUNNING`·`OUT_OF_ORDER`·`PROCESS_INACTIVE`·`EQUIPMENT_BUSY`(+`lotNo`)·`ALREADY_COMPLETED`. 투입은 서버가 정하고 양품 + 불량 = 투입.
+
 ### LOT 상세가 핵심 응답이다
 
 `GET /lots/{id}`는 추적성을 보여주는 화면(M-04)을 받친다. 공정 실행 · 투입 자재 · 실적을 **한 번에 반환한다.** 화면이 세 번 호출하게 두지 않는다.

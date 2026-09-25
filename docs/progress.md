@@ -805,3 +805,9 @@
 - `mes/planning.py`: 생산계획(초안·확정·라인 교체)·작업지시(생성·수정·발행+LOT·취소·LOT 보충). 계획 라인 FOR UPDATE 배정 한도, 동시 요청 테스트.
 - MES 진입을 생산계획으로. 도움말 m-02·m-03 보강. FS-020b main `0f68b53` ff.
 - 테스트: backend +20(전체 404, CI 환경), frontend +8(전체 282), Playwright +3(전체 61). 보고서 `docs/agent/MES_FS-020c.md`.
+
+## 2026-09-25 FS-020d 완료 (Claude Code)
+
+- `mes/execution.py`: LOT 목록·추적 상세, 공정 시작(TX-01)·완료(TX-02). 잠금 공간→지시→LOT→실행, EQUIPMENT_BUSY, all_defective 종결.
+- 도움말 m-04·m-05 보강. FS-020c main `83c745d` ff.
+- 테스트: backend +16(전체 420, CI 환경), frontend +5(전체 287), Playwright +3(전체 64). 보고서 `docs/agent/MES_FS-020d.md`.
