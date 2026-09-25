@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { Canvas } from "@react-three/fiber";
+import { PCFShadowMap } from "three";
 import { Link } from "react-router-dom";
 import {
   START,
@@ -20,12 +21,15 @@ import {
 import "./Factory.css";
 const Scene = lazy(() => import("./Scene"));
 export class SceneBoundary extends Component<
-  { children: ReactNode },
+  { children: ReactNode; onFailure?: () => void },
   { failed: boolean }
 > {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
+  }
+  componentDidCatch() {
+    this.props.onFailure?.();
   }
   render() {
     return this.state.failed ? (
@@ -167,7 +171,7 @@ export default function Factory() {
             stage.current?.focus();
         }}
       >
-        <SceneBoundary>
+        <SceneBoundary onFailure={() => setReady(true)}>
           {contextLost ? (
             <div role="alert" className="factory-fallback">
               <p>그래픽 연결이 끊겼습니다.</p>
@@ -182,7 +186,7 @@ export default function Factory() {
             </div>
           ) : (
             <Canvas
-              shadows
+              shadows={{ type: PCFShadowMap }}
               dpr={[1, 1.5]}
               camera={{ position: [23, 22, 28], fov: 43, near: 0.1, far: 150 }}
               gl={{ antialias: true }}

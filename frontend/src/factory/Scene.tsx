@@ -149,7 +149,7 @@ function Desk({ at, animated }: { at: Vec; animated: boolean }) {
     </group>
   );
 }
-function Printer() {
+function Printer({ label }: { label: boolean }) {
   return (
     <group position={[-8, 0, 0]}>
       <Box at={[0, 0.8, 0]} size={[2.2, 1.6, 0.8]} color="#c1c8c2" />
@@ -163,7 +163,7 @@ function Printer() {
           color={colors.dark}
         />
       ))}
-      <Label at={[0, 2.55, 0]}>바코드 프린터</Label>
+      {label && <Label at={[0, 2.55, 0]}>바코드 프린터</Label>}
     </group>
   );
 }
@@ -280,7 +280,13 @@ function Worker({ animated }: { animated: boolean }) {
   const point = useRef({ x: -1.9, z: -2.8 });
   const segment = useRef(0);
   const pause = useRef(0);
-  const route = [[4, -2.8], [10.35, -2.8], [10.35, 4.2], [-1.9, 4.2], [-1.9, -2.8]];
+  const route = [
+    [4, -2.8],
+    [10.35, -2.8],
+    [10.35, 4.2],
+    [-1.9, 4.2],
+    [-1.9, -2.8],
+  ];
   useFrame((_, dt) => {
     if (!group.current) return;
     const step = Math.min(dt, 0.05);
@@ -295,14 +301,18 @@ function Worker({ animated }: { animated: boolean }) {
         segment.current = (segment.current + 1) % route.length;
         pause.current = 2;
       } else {
-        point.current.x += dx / length * step * 0.9;
-        point.current.z += dz / length * step * 0.9;
+        point.current.x += (dx / length) * step * 0.9;
+        point.current.z += (dz / length) * step * 0.9;
         group.current.rotation.y = Math.atan2(-dx, -dz);
       }
     }
     group.current.position.set(point.current.x, 0, point.current.z);
   });
-  return <group ref={group}><Person at={[0, 0, 0]} walking moving={moving} animated={animated} /></group>;
+  return (
+    <group ref={group}>
+      <Person at={[0, 0, 0]} walking moving={moving} animated={animated} />
+    </group>
+  );
 }
 export type SceneProps = {
   view: View;
@@ -331,7 +341,13 @@ export default function Scene({
   useEffect(() => {
     if (!walking) {
       const office = view === "office";
-      camera.position.set(...((office ? [-1, 16, 20] : [23, 22, 28]) as Vec));
+      camera.position.set(
+        ...((office
+          ? [-1, 16, 20]
+          : view === "ground"
+            ? [6, 20, 28]
+            : [23, 22, 28]) as Vec),
+      );
       camera.position.multiplyScalar(Math.max(1, size.height / size.width));
       controls.current?.target.set(office ? -7 : 0, office ? 4 : 0.5, 0);
       controls.current?.update();
@@ -385,8 +401,10 @@ export default function Scene({
       <Box at={[-3, 1.7, -2.5]} size={[0.14, 3.4, 9]} color="#b8c8c3" />
       <Box at={[-7.2, 0.015, -2]} size={[8, 0.025, 9.7]} color="#dad5c8" />
       <Desk at={[-8, 0, -3.5]} animated={animated} />
-      <Printer />
-      <Label at={[-7.3, 2.7, 2]}>1F 현장사무실 · 노트북 / 바코드 프린터</Label>
+      <Printer label={view === "ground" && !walking} />
+      {view === "ground" && !walking && (
+        <Label at={[-7.3, 2.7, 2]}>1F 현장사무실</Label>
+      )}
       <Label at={[4.5, 0.25, 5.6]}>생산 현장 · 조립 → 검사 → 포장</Label>
       {[1.75, 6.25].map((x) => (
         <Box
@@ -417,7 +435,9 @@ export default function Scene({
         <Box at={[-4, 3.86, 6.5]} size={[2, 0.28, 1]} color="#ded8ca" />
         <Desk at={[-8, 4, -3.5]} animated={animated} />
         <Desk at={[-8, 4, 1]} animated={animated} />
-        <Label at={[-7.5, 7, -3]}>2F 사무실 · 직원 2명</Label>
+        {view !== "ground" && !walking && (
+          <Label at={[-7.5, 7, -3]}>2F 사무실 · 직원 2명</Label>
+        )}
         <Box
           at={[-3.05, 4.9, -2.5]}
           size={[0.08, 0.08, 9]}

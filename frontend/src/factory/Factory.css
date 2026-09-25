@@ -193,7 +193,8 @@
   }
 }
 
-.factory-toolbar button, .factory-process-buttons button {
+.factory-toolbar button,
+.factory-process-buttons button {
   background: white;
   color: var(--accent);
   border: 1px solid var(--border);
@@ -204,4 +205,6 @@
   background: var(--accent);
   color: white;
 }
-.factory-pad button { color: var(--accent); }
+.factory-pad button {
+  color: var(--accent);
+}

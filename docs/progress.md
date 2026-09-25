@@ -854,3 +854,13 @@
 - Home.tsx + 전용 Home.css만 제품 코드 변경. 데스크톱 타일 104px/아이콘 48px, 480px 이하 타일 88px/아이콘 40px·2열. 공통 스타일 수정 없음.
 - Node 24.21.0: frontend typecheck·lint·format:check·build·test(314 passed) 각각 exit 0. git diff --check exit 0.
 - 브라우저 스모크·360px 직접 검증·backend는 미실행. 사용자 지시대로 Claude Code가 통합 후 스모크·360px를 담당한다. push·main 병합 없음.
+
+
+## 2026-09-26 3D 공장 둘러보기 구현 (Codex)
+
+- 사용자 승인한 별도 화면 `/factory`, 상단 앱 런처 오른쪽 3D 공장 메뉴. 전체 조감도·3인칭 이동·1/2층 전환·계단·충돌·모바일 이동 버튼.
+- 1층 현장사무실(직원 1·노트북·바코드 프린터), 조립→비전검사→포장 설비 3대/키오스크/이송과 순회 직원 1명, 2층 사무실 직원 2명. 사용자 캐릭터 별도. 실제 데이터와 연동하지 않는 합성 시연.
+- three 0.186.1, React Three Fiber 9.8.1, Drei 10.7.8, @types/three 0.186.0 추가. lazy load, 외부 모델/DB 변경 없음.
+- Node 24.21.0. frontend typecheck·lint·format:check·build·test(330 passed), 독립 Playwright(7 passed, 20.0초), git diff --check 각각 exit 0. 360px·2층 스크린샷 직접 확인.
+- 5186 포트/모의 API의 독립 검증만 실행. 공용 8000/5173·스모크 DB·backend 미사용. 통합 스모크는 Claude Code 담당, push/main 병합 없음.
+- 보고서 `docs/agent/3D공장_구현.md`. 다음: 통합 환경에서 확인 후 사용자 피드백. ERP 후속 업무 미착수.

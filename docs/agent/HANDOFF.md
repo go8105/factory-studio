@@ -87,11 +87,12 @@ git diff --check
 - 재현: 전용 factory-studio-codex에서 Node 24 PATH 지정 후 `npm --prefix frontend run typecheck`, `npm --prefix frontend run lint`, `npm --prefix frontend run format:check`, `npm --prefix frontend run build`, `npm --prefix frontend test`.
 - 메인 폴더 미사용, push·main 병합 없음. .env·work/·node_modules 제외.
 
-## Codex — 3D 공장 둘러보기 (2026-09-26, 진행 중)
+## Codex — 3D 공장 둘러보기 (2026-09-26)
 
-- 브랜치 `codex/fs-019a-erp-master`, 기준 `f9eb879`. 현재 구현을 WIP로 보존한다.
-- 사용자 승인: 조감도 + 3인칭 이동, 일반 조립/비전검사/포장 설비 3대·키오스크, 1층 현장사무실 1명·바코드 프린터, 2층 사무실 2명, 현장 순회 1명 + 사용자 캐릭터.
-- 구현: frontend/src/factory 및 App의 `/factory`·상단 메뉴. 외부 모델/DB/API 없이 합성 시연. 키보드/터치, 계단·충돌·층 전환·일시정지·오류 대체 안내.
-- 별도 5186 포트, 모의 API로 렌더링 사전 확인(공용 스모크 아님). 초기 frontend typecheck/lint exit 0, 선택 테스트 15/16 통과(부동소수점 비교 1건 수정, 재실행 대기). 브라우저 오류 0 및 360px 가로폭 확인. 최종 수정 후 전체 검증은 아직 미실행.
-- 다음: `npm --prefix frontend run test:factory-browser`, 최종 프론트 5종, 스크린샷 확인, 문서/커밋. 공용 8000/5173·스모크 DB 및 backend 미사용. push/main 병합 금지.
-- 실행은 Node 24 PATH 지정. 5186에 이전 preview Vite가 남았으면 본 세션 프로세스만 종료 후 테스트한다. 메인 폴더는 사용하지 않는다.
+- 브랜치 `codex/fs-019a-erp-master`, 마지막 보존 커밋 `5593693 WIP: 3D 공장 둘러보기 구현 보존`(기준 f9eb879). 이 인계·최종 수정은 후속 `3D 공장: 조감도와 3인칭 현장 둘러보기` 커밋에 포함한다. 최종 해시는 `git log -1`.
+- 끝난 것: 사용자 승인한 조감도·3인칭 이동, 일반 조립/비전검사/포장 설비 3대·키오스크, 1층 현장사무실 1명·바코드 프린터, 2층 사무실 2명, 현장 순회 1명 + 사용자 캐릭터. `/factory`, 상단 앱 런처 오른쪽 메뉴. 상세 `docs/agent/3D공장_구현.md`.
+- Node 24.21.0. 최종 frontend typecheck/lint/format:check/build/test(330 passed) 및 독립 브라우저 7개(20.0초), diff --check 각각 exit 0. 스크린샷 직접 확인. backend·DB·공용 스모크 미실행.
+- 새 의존성은 package-lock에 고정. 통합 시 `npm --prefix frontend ci`. three/Fiber/Drei와 @types/three. 공장 화면에만 lazy load. 코드 생성 모델로 외부 모델 자산 없음.
+- 재현: 전용 폴더에서 Node 24 PATH를 지정한 후 `npm --prefix frontend run test:factory-browser`. 전용 5186을 시작/종료하며 API는 모두 모의 응답한다. 공용 8000·5173·스모크 DB를 사용하지 않는다.
+- 다음: Claude Code가 새 main 통합 뒤 전체 스모크·360px 실행. 사용자는 Codex의 공용 스모크 실행을 금지했으므로 실행하지 않는다. 통합 시 ERP(4e2bc74)·런처(f9eb879)·3D(WIP+후속)의 범위를 구분한다. 수정 요청 대기.
+- 메인 폴더·antigravity 미사용. push/main 병합 없음. .env·work/·node_modules 제외. 별도 테스트 서버는 종료한다.
