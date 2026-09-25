@@ -3,36 +3,14 @@
 시드: 확정 27행, 원천 키 26개(MES:LT-0016:INS는 v1·v2 모두 확정), MES:LT-0018:INS는 생산량 0.
 """
 
-from datetime import date
-
 import pytest
-from fastapi.testclient import TestClient
-from fs.common.db import reset_engine
-from fs.main import create_app
-from seed.generate import create_template
-from sqlalchemy import Engine
 
 BASE = "/api/v1/fems/production-records"
 
 
 @pytest.fixture
-def fems(clean_database: Engine, monkeypatch: pytest.MonkeyPatch):
-    engine = clean_database
-    monkeypatch.setenv("DATABASE_URL", engine.url.render_as_string(hide_password=False))
-    # 게스트 복사 기준일을 템플릿 날짜로 고정한다(실제 날짜가 바뀌어도 결과가 같다).
-    monkeypatch.setenv("FS_TODAY", "2026-09-24")
-    monkeypatch.setenv(
-        "SESSION_SECRET", "fs018-synthetic-test-secret-at-least-32-characters"
-    )
-    reset_engine()
-    with engine.begin() as connection:
-        create_template(connection, date(2026, 9, 24))
-    with TestClient(create_app(), base_url="https://testserver") as client:
-        created = client.post(
-            "/api/v1/core/guest-sessions", headers={"Idempotency-Key": "production"}
-        ).json()["data"]
-        yield client, created
-    reset_engine()
+def fems(guest_space):
+    return guest_space[:2]
 
 
 def _h(created, key: str) -> dict[str, str]:

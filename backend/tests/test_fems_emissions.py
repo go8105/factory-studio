@@ -4,14 +4,9 @@
 시드 EMISSION 계수: 전력 2025=0.000470, 2026=0.000460 tCO2eq/kWh, 가스 0.002220 tCO2eq/Nm3.
 """
 
-from datetime import date
 from decimal import Decimal
 
 import pytest
-from fastapi.testclient import TestClient
-from fs.common.db import reset_engine
-from fs.main import create_app
-from seed.generate import create_template
 from sqlalchemy import Engine, text
 
 BASE = "/api/v1/fems/emissions"
@@ -20,23 +15,8 @@ SIX = Decimal("0.000001")
 
 
 @pytest.fixture
-def fems(clean_database: Engine, monkeypatch: pytest.MonkeyPatch):
-    engine = clean_database
-    monkeypatch.setenv("DATABASE_URL", engine.url.render_as_string(hide_password=False))
-    # 게스트 복사 기준일을 템플릿 날짜로 고정한다(실제 날짜가 바뀌어도 결과가 같다).
-    monkeypatch.setenv("FS_TODAY", "2026-09-24")
-    monkeypatch.setenv(
-        "SESSION_SECRET", "fs018-synthetic-test-secret-at-least-32-characters"
-    )
-    reset_engine()
-    with engine.begin() as connection:
-        create_template(connection, date(2026, 9, 24))
-    with TestClient(create_app(), base_url="https://testserver") as client:
-        created = client.post(
-            "/api/v1/core/guest-sessions", headers={"Idempotency-Key": "emis"}
-        ).json()["data"]
-        yield client, created, engine
-    reset_engine()
+def fems(guest_space):
+    return guest_space
 
 
 def _sql(engine: Engine, created, sql: str, **params):

@@ -4,14 +4,11 @@
 구간은 KST [D 00:00, D+1 00:00), 마지막 날 09-23. ASM-02 09-07은 estimated(결측 6시간).
 """
 
-from datetime import date
 from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
-from fs.common.db import reset_engine
 from fs.main import create_app
-from seed.generate import create_template
 from sqlalchemy import Engine, text
 
 BASE = "/api/v1/fems/allocations"
@@ -19,23 +16,8 @@ DAY = {"from": "2026-09-10", "to": "2026-09-10"}
 
 
 @pytest.fixture
-def fems(clean_database: Engine, monkeypatch: pytest.MonkeyPatch):
-    engine = clean_database
-    monkeypatch.setenv("DATABASE_URL", engine.url.render_as_string(hide_password=False))
-    # 게스트 복사 기준일을 템플릿 날짜로 고정한다(실제 날짜가 바뀌어도 결과가 같다).
-    monkeypatch.setenv("FS_TODAY", "2026-09-24")
-    monkeypatch.setenv(
-        "SESSION_SECRET", "fs018-synthetic-test-secret-at-least-32-characters"
-    )
-    reset_engine()
-    with engine.begin() as connection:
-        create_template(connection, date(2026, 9, 24))
-    with TestClient(create_app(), base_url="https://testserver") as client:
-        created = client.post(
-            "/api/v1/core/guest-sessions", headers={"Idempotency-Key": "alloc"}
-        ).json()["data"]
-        yield client, created, engine
-    reset_engine()
+def fems(guest_space):
+    return guest_space
 
 
 def _equipment(client, code: str) -> int:
