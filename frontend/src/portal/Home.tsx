@@ -1,4 +1,5 @@
 // P-02 앱 런처
+import "./Home.css";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSession } from "../app/session";
@@ -84,7 +85,7 @@ export function Home() {
       {!modules ? (
         <Loading />
       ) : (
-        <div className="solution-grid">
+        <div className="launcher-grid">
           {solutions.map((s) => {
             const enabled = modules.some(
               (m) => m.moduleKey === s.key && m.enabled,
@@ -93,14 +94,16 @@ export function Home() {
               <Link
                 key={s.key}
                 to={enabled ? s.to : "/workspace"}
-                className={`solution-card ${enabled ? "" : "disabled"}`}
+                className={`launcher-app ${enabled ? "" : "disabled"}`}
               >
-                <LineIcon kind={s.key} />
+                <span className="launcher-icon">
+                  <LineIcon kind={s.key} />
+                </span>
                 <h3>
                   {s.key.toUpperCase()} <span>{s.name}</span>
                 </h3>
                 <p>{s.description}</p>
-                <div>
+                <div className="launcher-status">
                   <Badge tone={enabled ? "normal" : "warning"}>
                     {enabled ? "사용 중" : "사용 꺼짐"}
                   </Badge>

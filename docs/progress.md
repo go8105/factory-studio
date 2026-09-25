@@ -846,3 +846,11 @@
 - 스모크에서 발견한 CHECK 위반(종료 < 시작)을 `clock_timestamp()`로 수정. Codex FS-019a 통합 main `cc8729d` ff.
 - 360px에서 파이프라인 순서(공정 코드 순) 결함 발견 → 경로 순번 정렬.
 - 테스트: backend +8(전체 531+1, CI 환경), frontend +5(전체 326), Playwright 76. 보고서 `docs/agent/MES_FS-020g.md`.
+
+
+## 2026-09-25 P-02 런처 아이콘 크기 조정 (Codex)
+
+- 사용자 이미지 요청: 큰 솔루션 카드를 정사각형 아이콘 타일 + 아래 이름 배치로 변경. 기존 단색·링크·사용 상태·설명 유지.
+- Home.tsx + 전용 Home.css만 제품 코드 변경. 데스크톱 타일 104px/아이콘 48px, 480px 이하 타일 88px/아이콘 40px·2열. 공통 스타일 수정 없음.
+- Node 24.21.0: frontend typecheck·lint·format:check·build·test(314 passed) 각각 exit 0. git diff --check exit 0.
+- 브라우저 스모크·360px 직접 검증·backend는 미실행. 사용자 지시대로 Claude Code가 통합 후 스모크·360px를 담당한다. push·main 병합 없음.
