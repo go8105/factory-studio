@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, available_timezones
 
 from sqlalchemy import Connection
 
@@ -732,6 +732,214 @@ def delete_factor(context: AuthContext, factor_id: int, key: str) -> None:
             factor_id,
             {},
             204,
+        )
+
+
+# ---- F-09 사업장·공간 (FS-018m) ----
+def _site_not_found() -> ApiError:
+    return ApiError(404, "NOT_FOUND", "사업장을 찾을 수 없습니다.")
+
+
+def _location_not_found() -> ApiError:
+    return ApiError(404, "NOT_FOUND", "공간을 찾을 수 없습니다.")
+
+
+def _check_site(
+    connection: Connection,
+    scoped: AuthContext,
+    values: dict[str, Any],
+    site_id: int | None,
+) -> None:
+    if "timezone" in values and values["timezone"] not in available_timezones():
+        raise _field("timezone", "IANA 시간대 이름이어야 합니다(예: Asia/Seoul).")
+    if "site_code" in values and repo.site_code_taken(
+        connection, scoped, values["site_code"], site_id
+    ):
+        raise _field("siteCode", "이미 사용 중인 코드입니다.")
+
+
+def create_site(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.site.create"
+        digest, cached = _replay(connection, scoped, operation, key, values)
+        if cached is not None:
+            return cached
+        _check_site(connection, scoped, values, None)
+        created = repo.insert_site(connection, scoped, values)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            "site",
+            created["id"],
+            created,
+            201,
+        )
+        return created
+
+
+def update_site(
+    context: AuthContext, site_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    if not values:
+        raise ApiError(400, "VALIDATION_FAILED", "변경할 항목이 없습니다.")
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.site.update"
+        digest, cached = _replay(
+            connection, scoped, operation, key, {"id": site_id, **values}
+        )
+        if cached is not None:
+            return cached
+        current = repo.get_site(connection, scoped, site_id)
+        if current is None:
+            raise _site_not_found()
+        _check_site(connection, scoped, values, site_id)
+        # 계측값·배분·생산량의 날짜 경계는 사업장 시간대로 정한다. 기록이 있는데 바꾸면 지난 일별 합계가 조용히 달라진다.
+        if values.get("timezone", current["timezone"]) != current["timezone"]:
+            references = repo.site_time_usage(connection, scoped, site_id)
+            if references:
+                raise ApiError(
+                    409,
+                    "PRECONDITION_NOT_MET",
+                    "기록이 있는 사업장은 시간대를 바꿀 수 없습니다. 날짜 경계가 달라져 지난 합계가 바뀝니다.",
+                    {"reason": "TIMEZONE_IN_USE", "references": references},
+                )
+        updated = repo.update_site(connection, scoped, site_id, values)
+        save_receipt(
+            connection, scoped, operation, key, digest, "site", site_id, updated
+        )
+        return updated
+
+
+def delete_site(context: AuthContext, site_id: int, key: str) -> None:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.site.delete"
+        digest, cached = _replay(connection, scoped, operation, key, {"id": site_id})
+        if cached is not None:
+            return
+        if repo.get_site(connection, scoped, site_id) is None:
+            raise _site_not_found()
+        references = repo.site_references(connection, scoped, site_id)
+        if references:
+            raise ApiError(
+                409,
+                "REFERENCED_BY_OTHERS",
+                "공간·계측기·목표가 있는 사업장은 삭제할 수 없습니다.",
+                {"references": references},
+            )
+        repo.delete_site(connection, scoped, site_id)
+        save_receipt(
+            connection, scoped, operation, key, digest, "site", site_id, {}, 204
+        )
+
+
+def _check_location(
+    connection: Connection,
+    scoped: AuthContext,
+    site_id: int,
+    values: dict[str, Any],
+    location_id: int | None,
+) -> None:
+    parent_id = values.get("parent_location_id")
+    if parent_id is not None:
+        parent = repo.get_location(connection, scoped, parent_id)
+        if parent is None or parent["siteId"] != site_id:
+            raise _field(
+                "parentLocationId", "같은 사업장의 공간만 상위로 지정할 수 있습니다."
+            )
+        if location_id is not None and location_id in repo.location_ancestors(
+            connection, scoped, parent_id
+        ):
+            raise _field(
+                "parentLocationId",
+                "자기 자신이나 하위 공간을 상위로 지정할 수 없습니다.",
+            )
+    if "location_code" in values and repo.location_code_taken(
+        connection, scoped, site_id, values["location_code"], location_id
+    ):
+        raise _field("locationCode", "이 사업장에 이미 있는 공간 코드입니다.")
+
+
+def create_location(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.location.create"
+        digest, cached = _replay(connection, scoped, operation, key, values)
+        if cached is not None:
+            return cached
+        if repo.get_site(connection, scoped, values["site_id"]) is None:
+            raise _field("siteId", "유효하지 않은 사업장입니다.")
+        _check_location(connection, scoped, values["site_id"], values, None)
+        created = repo.insert_location(connection, scoped, values)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            "location",
+            created["id"],
+            created,
+            201,
+        )
+        return created
+
+
+def update_location(
+    context: AuthContext, location_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    if not values:
+        raise ApiError(400, "VALIDATION_FAILED", "변경할 항목이 없습니다.")
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.location.update"
+        digest, cached = _replay(
+            connection, scoped, operation, key, {"id": location_id, **values}
+        )
+        if cached is not None:
+            return cached
+        current = repo.get_location(connection, scoped, location_id)
+        if current is None:
+            raise _location_not_found()
+        _check_location(connection, scoped, current["siteId"], values, location_id)
+        updated = repo.update_location(connection, scoped, location_id, values)
+        save_receipt(
+            connection, scoped, operation, key, digest, "location", location_id, updated
+        )
+        return updated
+
+
+def delete_location(context: AuthContext, location_id: int, key: str) -> None:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.location.delete"
+        digest, cached = _replay(
+            connection, scoped, operation, key, {"id": location_id}
+        )
+        if cached is not None:
+            return
+        if repo.get_location(connection, scoped, location_id) is None:
+            raise _location_not_found()
+        references = repo.location_references(connection, scoped, location_id)
+        if references:
+            raise ApiError(
+                409,
+                "REFERENCED_BY_OTHERS",
+                "하위 공간·설비·계측기가 있는 공간은 삭제할 수 없습니다.",
+                {"references": references},
+            )
+        repo.delete_location(connection, scoped, location_id)
+        save_receipt(
+            connection, scoped, operation, key, digest, "location", location_id, {}, 204
         )
 
 

@@ -185,7 +185,7 @@ EQUIPMENT_REFERENCES = (
     ("fems.energy_allocation", "에너지 배분"),
     ("fems.production_record", "생산 실적"),
 )
-LOCATION_COLUMNS = "id,location_code,name,kind"
+LOCATION_COLUMNS = "id,site_id,parent_location_id,location_code,name,kind"
 TARIFF_COLUMNS = "id,energy_source_id,tariff_code,name,contract_type,basic_charge,usage_rate,currency,effective_from,effective_to,created_at"
 TARIFF_SORT = {
     "tariffCode": "tariff_code",
@@ -210,6 +210,8 @@ def equipment_dict(row: Any) -> dict[str, Any]:
 def location_dict(row: Any) -> dict[str, Any]:
     return {
         "id": row["id"],
+        "siteId": row["site_id"],
+        "parentLocationId": row["parent_location_id"],
         "locationCode": row["location_code"],
         "name": row["name"],
         "kind": row["kind"],
@@ -383,7 +385,7 @@ def list_locations(
     rows = connection.execute(
         text(
             f"SELECT {LOCATION_COLUMNS} FROM fems.location "
-            "WHERE workspace_id=:w AND generation_id=:g ORDER BY location_code ASC"
+            "WHERE workspace_id=:w AND generation_id=:g ORDER BY site_id, location_code, id"
         ),
         _s(context),
     ).mappings()
@@ -941,6 +943,305 @@ def delete_channel(
     )
 
 
+# ---- F-09 사업장·공간 (FS-018m) ----
+SITE_COLUMNS = "id,site_code,name,timezone"
+
+
+def site_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "siteCode": row["site_code"],
+        "name": row["name"],
+        "timezone": row["timezone"],
+    }
+
+
+def _count(connection: Connection, context: AuthContext, sql: str, key: int) -> int:
+    return connection.execute(text(sql), {**_s(context), "id": key}).scalar_one()
+
+
+def _references(
+    connection: Connection,
+    context: AuthContext,
+    checks: tuple[tuple[str, str, str], ...],
+    key: int,
+) -> list[dict[str, Any]]:
+    """(테이블, 조건 SQL, 표시명) 목록을 세어 0이 아닌 것만 돌려준다."""
+    references = []
+    for table, sql, label in checks:
+        count = _count(connection, context, sql, key)
+        if count:
+            references.append({"table": table, "label": label, "count": count})
+    return references
+
+
+def get_site(
+    connection: Connection, context: AuthContext, site_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(
+                f"SELECT {SITE_COLUMNS} FROM fems.site "
+                "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+            ),
+            {**_s(context), "id": site_id},
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else site_dict(row)
+
+
+def site_code_taken(
+    connection: Connection, context: AuthContext, code: str, except_id: int | None
+) -> bool:
+    return (
+        connection.execute(
+            text(
+                "SELECT 1 FROM fems.site WHERE workspace_id=:w AND generation_id=:g "
+                "AND site_code=:code AND id IS DISTINCT FROM :except"
+            ),
+            {**_s(context), "code": code, "except": except_id},
+        ).first()
+        is not None
+    )
+
+
+def insert_site(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    columns = ",".join(values)
+    placeholders = ",".join(f":{column}" for column in values)
+    row = (
+        connection.execute(
+            text(
+                f"INSERT INTO fems.site (workspace_id, generation_id, {columns}) "
+                f"VALUES (:w, :g, {placeholders}) RETURNING {SITE_COLUMNS}"
+            ),
+            {**_s(context), **values},
+        )
+        .mappings()
+        .one()
+    )
+    return site_dict(row)
+
+
+def update_site(
+    connection: Connection, context: AuthContext, site_id: int, values: dict[str, Any]
+) -> dict[str, Any]:
+    assignments = ",".join(f"{column}=:{column}" for column in values)
+    row = (
+        connection.execute(
+            text(
+                f"UPDATE fems.site SET {assignments} "
+                f"WHERE workspace_id=:w AND generation_id=:g AND id=:id RETURNING {SITE_COLUMNS}"
+            ),
+            {**_s(context), **values, "id": site_id},
+        )
+        .mappings()
+        .one()
+    )
+    return site_dict(row)
+
+
+def delete_site(connection: Connection, context: AuthContext, site_id: int) -> None:
+    connection.execute(
+        text(
+            "DELETE FROM fems.site WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), "id": site_id},
+    )
+
+
+_S = "workspace_id=:w AND generation_id=:g"
+
+
+def site_references(
+    connection: Connection, context: AuthContext, site_id: int
+) -> list[dict[str, Any]]:
+    return _references(
+        connection,
+        context,
+        tuple(
+            (table, f"SELECT count(*) FROM {table} WHERE {_S} AND site_id=:id", label)
+            for table, label in (
+                ("fems.location", "공간"),
+                ("fems.meter", "계측기"),
+                ("fems.energy_target", "에너지 목표"),
+            )
+        ),
+        site_id,
+    )
+
+
+def site_time_usage(
+    connection: Connection, context: AuthContext, site_id: int
+) -> list[dict[str, Any]]:
+    """사업장 시간대로 날짜 경계를 정하는 기록 건수(계측값·배분·생산량)."""
+    by_equipment = (
+        "JOIN fems.equipment e ON e.workspace_id=t.workspace_id "
+        "AND e.generation_id=t.generation_id AND e.id=t.equipment_id "
+        "JOIN fems.location l ON l.workspace_id=e.workspace_id "
+        "AND l.generation_id=e.generation_id AND l.id=e.location_id "
+        "WHERE t.workspace_id=:w AND t.generation_id=:g AND l.site_id=:id"
+    )
+    return _references(
+        connection,
+        context,
+        (
+            (
+                "fems.energy_reading",
+                (
+                    "SELECT count(*) FROM fems.energy_reading t "
+                    "JOIN fems.meter_channel c ON c.workspace_id=t.workspace_id "
+                    "AND c.generation_id=t.generation_id AND c.id=t.meter_channel_id "
+                    "JOIN fems.meter m ON m.workspace_id=c.workspace_id "
+                    "AND m.generation_id=c.generation_id AND m.id=c.meter_id "
+                    "WHERE t.workspace_id=:w AND t.generation_id=:g AND m.site_id=:id"
+                ),
+                "계측값",
+            ),
+            (
+                "fems.energy_allocation",
+                f"SELECT count(*) FROM fems.energy_allocation t {by_equipment}",
+                "에너지 배분",
+            ),
+            (
+                "fems.production_record",
+                f"SELECT count(*) FROM fems.production_record t {by_equipment}",
+                "생산 실적",
+            ),
+        ),
+        site_id,
+    )
+
+
+def get_location(
+    connection: Connection, context: AuthContext, location_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(
+                f"SELECT {LOCATION_COLUMNS} FROM fems.location "
+                "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+            ),
+            {**_s(context), "id": location_id},
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else location_dict(row)
+
+
+def location_code_taken(
+    connection: Connection,
+    context: AuthContext,
+    site_id: int,
+    code: str,
+    except_id: int | None,
+) -> bool:
+    return (
+        connection.execute(
+            text(
+                "SELECT 1 FROM fems.location WHERE workspace_id=:w AND generation_id=:g "
+                "AND site_id=:site AND location_code=:code AND id IS DISTINCT FROM :except"
+            ),
+            {**_s(context), "site": site_id, "code": code, "except": except_id},
+        ).first()
+        is not None
+    )
+
+
+def location_ancestors(
+    connection: Connection, context: AuthContext, location_id: int
+) -> set[int]:
+    """location_id 자신과 그 위 상위 공간들. 상위로 지정하려는 공간에 자신이 있으면 순환이다."""
+    rows = connection.execute(
+        text(
+            "WITH RECURSIVE up(id, parent) AS ("
+            " SELECT id, parent_location_id FROM fems.location"
+            " WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+            " UNION"
+            " SELECT l.id, l.parent_location_id FROM fems.location l"
+            " JOIN up ON l.id=up.parent"
+            " WHERE l.workspace_id=:w AND l.generation_id=:g"
+            ") SELECT id FROM up"
+        ),
+        {**_s(context), "id": location_id},
+    ).scalars()
+    return set(rows)
+
+
+def insert_location(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    columns = ",".join(values)
+    placeholders = ",".join(f":{column}" for column in values)
+    row = (
+        connection.execute(
+            text(
+                f"INSERT INTO fems.location (workspace_id, generation_id, {columns}) "
+                f"VALUES (:w, :g, {placeholders}) RETURNING {LOCATION_COLUMNS}"
+            ),
+            {**_s(context), **values},
+        )
+        .mappings()
+        .one()
+    )
+    return location_dict(row)
+
+
+def update_location(
+    connection: Connection,
+    context: AuthContext,
+    location_id: int,
+    values: dict[str, Any],
+) -> dict[str, Any]:
+    assignments = ",".join(f"{column}=:{column}" for column in values)
+    row = (
+        connection.execute(
+            text(
+                f"UPDATE fems.location SET {assignments} "
+                f"WHERE workspace_id=:w AND generation_id=:g AND id=:id RETURNING {LOCATION_COLUMNS}"
+            ),
+            {**_s(context), **values, "id": location_id},
+        )
+        .mappings()
+        .one()
+    )
+    return location_dict(row)
+
+
+def delete_location(
+    connection: Connection, context: AuthContext, location_id: int
+) -> None:
+    connection.execute(
+        text(
+            "DELETE FROM fems.location "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), "id": location_id},
+    )
+
+
+def location_references(
+    connection: Connection, context: AuthContext, location_id: int
+) -> list[dict[str, Any]]:
+    return _references(
+        connection,
+        context,
+        tuple(
+            (table, f"SELECT count(*) FROM {table} WHERE {_S} AND {column}=:id", label)
+            for table, column, label in (
+                ("fems.location", "parent_location_id", "하위 공간"),
+                ("fems.equipment", "location_id", "설비"),
+                ("fems.meter", "location_id", "계측기"),
+            )
+        ),
+        location_id,
+    )
+
+
 def find_overlapping_tariffs(
     connection: Connection,
     context: AuthContext,
@@ -1078,20 +1379,12 @@ def list_readings(
 def list_sites(connection: Connection, context: AuthContext) -> list[dict[str, Any]]:
     rows = connection.execute(
         text(
-            "SELECT id,site_code,name,timezone FROM fems.site "
+            f"SELECT {SITE_COLUMNS} FROM fems.site "
             "WHERE workspace_id=:w AND generation_id=:g ORDER BY site_code"
         ),
         _s(context),
     ).mappings()
-    return [
-        {
-            "id": r["id"],
-            "siteCode": r["site_code"],
-            "name": r["name"],
-            "timezone": r["timezone"],
-        }
-        for r in rows
-    ]
+    return [site_dict(r) for r in rows]
 
 
 def list_meters(connection: Connection, context: AuthContext) -> list[dict[str, Any]]:

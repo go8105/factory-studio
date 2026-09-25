@@ -189,3 +189,23 @@ test("계측기 채널은 배수를 강조하고 사용 중인 단위를 잠근�
   await page.getByRole("button", { name: "저장" }).click();
   await expect(channels.getByText("× 2")).toBeVisible();
 });
+test("사업장 시간대는 기록이 있으면 잠기고 공간 삭제는 참조 건수를 알린다", async ({
+  page,
+}) => {
+  await page.goto("/fems/sites");
+  const sites = page.getByRole("table", { name: "사업장 목록" });
+  await sites
+    .getByRole("row", { name: /^S01/ })
+    .getByRole("button", { name: "수정" })
+    .click();
+  await page.getByLabel("시간대").fill("Asia/Tokyo");
+  await page.getByRole("button", { name: "저장" }).click();
+  await expect(
+    page.getByText(/날짜 경계가 달라져 지난 합계가 바뀝니다/),
+  ).toBeVisible();
+  const places = page.getByRole("table", { name: "공간 목록" });
+  const inj = places.getByRole("row", { name: /^L-INJ/ });
+  await inj.getByRole("button", { name: "삭제" }).click();
+  await inj.getByRole("button", { name: "삭제 확정" }).click();
+  await expect(page.getByText(/^설비 \d+건$/)).toBeVisible();
+});

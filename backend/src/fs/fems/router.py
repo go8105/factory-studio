@@ -18,10 +18,14 @@ from fs.fems.schema import (
     EquipmentUpdate,
     FactorCreate,
     FactorUpdate,
+    LocationCreate,
+    LocationUpdate,
     MeterCreate,
     MeterUpdate,
     ProductionCreate,
     ProductionUpdate,
+    SiteCreate,
+    SiteUpdate,
     TariffCreate,
     TariffUpdate,
 )
@@ -103,6 +107,44 @@ def list_locations(context: Auth) -> dict[str, object]:
     return {"data": service.list_locations(context)}
 
 
+@router.post("/locations", status_code=201)
+def post_location(
+    payload: LocationCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_location(context, payload.model_dump(), key)}
+
+
+@router.patch("/locations/{item_id}")
+def patch_location(
+    item_id: int,
+    payload: LocationUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(exclude_unset=True)
+    if any(v is None for k, v in values.items() if k != "parent_location_id"):
+        raise ApiError(400, "VALIDATION_FAILED", "필수 항목은 null로 비울 수 없습니다.")
+    return {"data": service.update_location(context, item_id, values, key)}
+
+
+@router.delete("/locations/{item_id}", status_code=204)
+def delete_location(
+    item_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> Response:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    service.delete_location(context, item_id, key)
+    return Response(status_code=204)
+
+
 @router.get("/equipments")
 def list_equipments(
     context: Auth,
@@ -162,6 +204,44 @@ def delete_equipment(
 ) -> Response:
     key = _mutation(context, x_csrf_token, idempotency_key)
     service.delete_equipment(context, equipment_id, key)
+    return Response(status_code=204)
+
+
+@router.post("/sites", status_code=201)
+def post_site(
+    payload: SiteCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_site(context, payload.model_dump(), key)}
+
+
+@router.patch("/sites/{item_id}")
+def patch_site(
+    item_id: int,
+    payload: SiteUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(exclude_unset=True)
+    if any(v is None for v in values.values()):
+        raise ApiError(400, "VALIDATION_FAILED", "필수 항목은 null로 비울 수 없습니다.")
+    return {"data": service.update_site(context, item_id, values, key)}
+
+
+@router.delete("/sites/{item_id}", status_code=204)
+def delete_site(
+    item_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> Response:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    service.delete_site(context, item_id, key)
     return Response(status_code=204)
 
 

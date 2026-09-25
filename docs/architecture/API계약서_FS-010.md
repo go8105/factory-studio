@@ -268,6 +268,7 @@ POST /sales-records/{id}/cancel      취소
 - `GET /intensity` (FS-018j): 기본 최근 계측일까지 31일, 최대 92일. 기록별 = 생산 구간에 완전히 포함된 설비 일별 배분(현재 결과, invalid 제외) ÷ 생산량, 단위별로 따로, TOE/EA는 PRIMARY 환산(용수 제외). 상태 `NO_PRODUCTION`(생산량 0)/`NO_ENERGY`. 품목별 = 검사(INS)까지 끝나고 모든 공정이 기간 안인 MES LOT만, LOT 전 공정 전력 ÷ 검사 양품. MAN- 기록은 품목에서 제외. 확정 기준선 대비 증감률.
 - `/energy-factors` (FS-018k): `factorKind`·`energySourceId` 필터. `factorUnit`은 서버가 유형(`TOE/`·`tCO2eq/`)과 에너지원 계측 단위로 정한다. 에너지원·유형은 수정 불가(PATCH는 연도·계수·출처). UTILITY 에너지원 400, 에너지원·유형·연도 중복 400 `fields.effectiveYear`, 계수 > 0. 참조 테이블이 없어 삭제는 자유이며 삭제된 연도는 계산에서 `FACTOR_MISSING`.
 - `/meters` (FS-018l): `GET /meters`는 계측기 전체와 `channels`를 함께 준다(F-02·F-12 공용, 페이지 없음). 사업장은 공간에서 도출, 설비는 같은 공간·상위 계측기는 같은 사업장만, 부모 순환 400. 채널에 계측값·배분이 있으면 계측기의 공간·설비·상위 계측기 변경 409 `METER_IN_USE`, 채널의 에너지원·측정 종류·단위 변경 409 `CHANNEL_IN_USE`(+`fields`·`references`). 누적 채널 단위는 에너지원 계측 단위와 같아야 한다. 삭제는 409 `REFERENCED_BY_OTHERS`(하위 계측기·채널 / 계측값·배분 건수).
+- `/sites` · `/locations` (FS-018m): 시간대는 IANA 이름만. 계측값·배분·생산 실적이 있는 사업장의 시간대 변경 409 `TIMEZONE_IN_USE`. 공간의 사업장은 수정 불가, 상위 공간은 같은 사업장·순환 금지. `GET /locations`에 `siteId`·`parentLocationId` 추가. 삭제 409 `REFERENCED_BY_OTHERS`(사업장 ← 공간·계측기·목표 / 공간 ← 하위 공간·설비·계측기).
 - 업무 기준일 (FS-018j): 게스트 복사·세대 초기화의 "오늘"은 `FS_TODAY`(테스트·스모크 전용) 또는 실제 KST 날짜. 게스트 만료는 항상 실제 생성일 다음 날 00:00 KST. `COOKIE_SECURE=false`면 세션 쿠키에서 Secure를 뺀다(로컬 HTTP 전용, 기본 true).
 
 ### 계산 결과를 저장하지 않는 엔드포인트

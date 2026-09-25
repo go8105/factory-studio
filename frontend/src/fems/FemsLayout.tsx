@@ -26,6 +26,7 @@ export const femsScreens = [
     group: "원단위·목표",
   },
   { path: "billing", id: "F-08", label: "요금 산정", group: "요금" },
+  { path: "sites", id: "F-09", label: "사업장·공간", group: "기준정보" },
   { path: "equipments", id: "F-10", label: "설비", group: "기준정보" },
   { path: "energy-sources", id: "F-11", label: "에너지원", group: "기준정보" },
   { path: "meters", id: "F-12", label: "계측기·채널", group: "기준정보" },

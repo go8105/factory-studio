@@ -775,3 +775,9 @@
 - 격리·세대 초기화·legacy 혼합 순서 선택 검증 6 passed(exit 0). 템플릿 내용 불변·게스트 잔여 0 검사 통과. CI 범위 Ruff check·format --check, AST/보호 파일 확인, git diff --check 각각 exit 0.
 - 남은 병목: 실제 게스트 복사/API, 독립 seed 결정성·복사 검증(준비 약 11~12초), 기존 portal/seed_targets 준비·schema verifier. 새 의존성·업무 코드·스키마·마이그레이션 변경 없음.
 - 상세 명령·결과·재현: [테스트 시간 단축](agent/테스트시간단축.md). HANDOFF 갱신. main 병합·push 없음. 다음: 사용자 결과 확인, 병행 main 반영 시 담당자가 rebase 후 회귀.
+
+## 2026-09-25 FS-018m 완료 — FEMS 14/14 (Claude Code)
+
+- F-09 `/sites`·`/locations` CRUD, 화면 `Sites.tsx`. TIMEZONE_IN_USE 잠금, 공간 사업장 고정, 부모 순환 방지. 도움말 f-09 수정. FS-018l은 main `70951d4` ff, CI 통과.
+- MES·ERP 작업 계획과 Codex 프롬프트 작성(`docs/agent/MES_ERP_작업계획_FS-019_020.md`).
+- 테스트: backend +20(전체 332, CI 환경), frontend +11(전체 254), Playwright +2(전체 47). 보고서 `docs/agent/FEMS_FS-018m.md`.

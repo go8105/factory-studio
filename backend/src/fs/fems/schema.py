@@ -158,6 +158,39 @@ class ChannelUpdate(ApiModel):
     is_active: bool | None = Field(None, alias="isActive")
 
 
+# ---- F-09 사업장·공간 (FS-018m) ----
+PLACE_CODE = r"^[A-Z][A-Z0-9_\-]{1,29}$"
+LocationKind = Literal["building", "zone", "workcenter"]
+
+
+class SiteCreate(ApiModel):
+    site_code: str = Field(alias="siteCode", pattern=PLACE_CODE)
+    name: str = Field(min_length=1, max_length=100)
+    timezone: str = Field("Asia/Seoul", min_length=1, max_length=60)
+
+
+class SiteUpdate(ApiModel):
+    site_code: str | None = Field(None, alias="siteCode", pattern=PLACE_CODE)
+    name: str | None = Field(None, min_length=1, max_length=100)
+    timezone: str | None = Field(None, min_length=1, max_length=60)
+
+
+class LocationCreate(ApiModel):
+    site_id: int = Field(alias="siteId", gt=0)
+    parent_location_id: int | None = Field(None, alias="parentLocationId", gt=0)
+    location_code: str = Field(alias="locationCode", pattern=PLACE_CODE)
+    name: str = Field(min_length=1, max_length=100)
+    kind: LocationKind
+
+
+class LocationUpdate(ApiModel):
+    # 사업장은 바꾸지 않는다. 계측기가 (공간, 사업장)을 함께 참조한다.
+    parent_location_id: int | None = Field(None, alias="parentLocationId", gt=0)
+    location_code: str | None = Field(None, alias="locationCode", pattern=PLACE_CODE)
+    name: str | None = Field(None, min_length=1, max_length=100)
+    kind: LocationKind | None = None
+
+
 # ---- F-05 생산량 등록 (FS-018i) ----
 QTY = r"^\d{1,15}(\.\d{1,3})?$"  # numeric(18,3), 0 허용
 ITEM = r"^[A-Z0-9][A-Z0-9_\-]{1,39}$"
