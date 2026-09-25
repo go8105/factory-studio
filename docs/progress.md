@@ -758,3 +758,9 @@
 - F-13 `/energy-factors` CRUD, 화면 `Factors.tsx`(탭 분리). 계수 단위 서버 결정, UTILITY 거부, 에너지원·유형 고정.
 - 도움말 f-13을 구현에 맞게 수정. FS-018j는 main `5bcc4d2` ff, main CI 통과(15분 13초).
 - 테스트: backend +21(전체 288, CI 환경), frontend +11(전체 231), Playwright +2(전체 43). 보고서 `docs/agent/FEMS_FS-018k.md`.
+
+## 2026-09-25 FS-018l 완료 (Claude Code)
+
+- F-12 `/meters` 계측기·채널 CRUD, 화면 `Meters.tsx`(마스터-디테일). 기존 `GET /meters`(F-02) 응답을 확장해 공용.
+- METER_IN_USE·CHANNEL_IN_USE 잠금, 부모 순환 방지, 누적 채널 단위 검사. 도움말 f-12 수정. FS-018k는 main `a5209b6` ff, CI 통과.
+- 테스트: backend +25(전체 312, CI 환경), frontend +12(전체 243), Playwright +2(전체 45). 보고서 `docs/agent/FEMS_FS-018l.md`.

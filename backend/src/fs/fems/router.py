@@ -10,12 +10,16 @@ from fs.common.errors import ApiError
 from fs.common.page import Page
 from fs.fems import service
 from fs.fems.schema import (
+    ChannelCreate,
+    ChannelUpdate,
     EnergySourceCreate,
     EnergySourceUpdate,
     EquipmentCreate,
     EquipmentUpdate,
     FactorCreate,
     FactorUpdate,
+    MeterCreate,
+    MeterUpdate,
     ProductionCreate,
     ProductionUpdate,
     TariffCreate,
@@ -158,6 +162,93 @@ def delete_equipment(
 ) -> Response:
     key = _mutation(context, x_csrf_token, idempotency_key)
     service.delete_equipment(context, equipment_id, key)
+    return Response(status_code=204)
+
+
+@router.get("/meters/{meter_id}")
+def get_meter(context: Auth, meter_id: int) -> dict[str, object]:
+    return {"data": service.get_meter(context, meter_id)}
+
+
+@router.post("/meters", status_code=201)
+def post_meter(
+    payload: MeterCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_meter(context, payload.model_dump(), key)}
+
+
+@router.patch("/meters/{meter_id}")
+def patch_meter(
+    meter_id: int,
+    payload: MeterUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(exclude_unset=True)
+    nullable = {"equipment_id", "parent_meter_id"}
+    if any(v is None for k, v in values.items() if k not in nullable):
+        raise ApiError(400, "VALIDATION_FAILED", "필수 항목은 null로 비울 수 없습니다.")
+    return {"data": service.update_meter(context, meter_id, values, key)}
+
+
+@router.delete("/meters/{meter_id}", status_code=204)
+def delete_meter(
+    meter_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> Response:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    service.delete_meter(context, meter_id, key)
+    return Response(status_code=204)
+
+
+@router.post("/meters/{meter_id}/channels", status_code=201)
+def post_channel(
+    meter_id: int,
+    payload: ChannelCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": service.create_channel(context, meter_id, payload.model_dump(), key)
+    }
+
+
+@router.patch("/meters/{meter_id}/channels/{channel_id}")
+def patch_channel(
+    meter_id: int,
+    channel_id: int,
+    payload: ChannelUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(exclude_unset=True)
+    if any(v is None for v in values.values()):
+        raise ApiError(400, "VALIDATION_FAILED", "필수 항목은 null로 비울 수 없습니다.")
+    return {"data": service.update_channel(context, meter_id, channel_id, values, key)}
+
+
+@router.delete("/meters/{meter_id}/channels/{channel_id}", status_code=204)
+def delete_channel(
+    meter_id: int,
+    channel_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> Response:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    service.delete_channel(context, meter_id, channel_id, key)
     return Response(status_code=204)
 
 

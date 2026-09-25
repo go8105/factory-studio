@@ -64,6 +64,8 @@ test("설비별 배분은 단위별 합계와 근거를 보여준다", async ({ 
 });
 test("결측이 있던 날의 배분은 추정으로 표시", async ({ page }) => {
   await page.goto("/fems/allocations");
+  // 첫 조회가 서버 기본 기간으로 입력을 덮어쓰지 않도록 로드를 기다린다.
+  await expect(page.getByLabel("시작일")).not.toHaveValue("");
   await page.getByLabel("시작일").fill("2026-09-07");
   await page.getByLabel("종료일").fill("2026-09-07");
   await page.getByRole("button", { name: "조회" }).click();
@@ -170,4 +172,20 @@ test("환산·배출계수는 탭으로 나뉘고 단위는 서버가 정한다"
   await expect(emission.getByRole("row", { name: /2027/ })).toContainText(
     "tCO2eq/kWh",
   );
+});
+test("계측기 채널은 배수를 강조하고 사용 중인 단위를 잠근다", async ({
+  page,
+}) => {
+  await page.goto("/fems/meters");
+  const meters = page.getByRole("table", { name: "계측기 목록" });
+  await meters
+    .getByRole("row", { name: /^M-MAIN/ })
+    .getByRole("button", { name: /채널/ })
+    .click();
+  const channels = page.getByRole("table", { name: "M-MAIN 채널 목록" });
+  await channels.getByRole("button", { name: "수정" }).click();
+  await expect(page.getByLabel("단위")).toBeDisabled();
+  await page.getByLabel("계기 배수").fill("2");
+  await page.getByRole("button", { name: "저장" }).click();
+  await expect(channels.getByText("× 2")).toBeVisible();
 });

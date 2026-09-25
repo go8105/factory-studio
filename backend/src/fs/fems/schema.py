@@ -113,6 +113,51 @@ class FactorUpdate(ApiModel):
     )
 
 
+# ---- F-12 계측기·채널 (FS-018l) ----
+METER_CODE = r"^[A-Z][A-Z0-9_\-]{1,39}$"
+CHANNEL_CODE = r"^[A-Z][A-Z0-9_\-]{1,19}$"
+ScopeKind = Literal["factory", "site_total"]
+MeasurementKind = Literal["CUMULATIVE", "INSTANT"]
+
+
+class MeterCreate(ApiModel):
+    meter_code: str = Field(alias="meterCode", pattern=METER_CODE)
+    name: str = Field(min_length=1, max_length=100)
+    location_id: int = Field(alias="locationId", gt=0)
+    equipment_id: int | None = Field(None, alias="equipmentId", gt=0)
+    parent_meter_id: int | None = Field(None, alias="parentMeterId", gt=0)
+    scope_kind: ScopeKind = Field(alias="scopeKind")
+
+
+class MeterUpdate(ApiModel):
+    meter_code: str | None = Field(None, alias="meterCode", pattern=METER_CODE)
+    name: str | None = Field(None, min_length=1, max_length=100)
+    location_id: int | None = Field(None, alias="locationId", gt=0)
+    equipment_id: int | None = Field(None, alias="equipmentId", gt=0)
+    parent_meter_id: int | None = Field(None, alias="parentMeterId", gt=0)
+    scope_kind: ScopeKind | None = Field(None, alias="scopeKind")
+
+
+class ChannelCreate(ApiModel):
+    channel_code: str = Field(alias="channelCode", pattern=CHANNEL_CODE)
+    name: str = Field(min_length=1, max_length=50)
+    energy_source_id: int = Field(alias="energySourceId", gt=0)
+    measurement_kind: MeasurementKind = Field(alias="measurementKind")
+    unit: str = Field(min_length=1, max_length=10)
+    multiplier: str = Field("1", pattern=FACTOR)
+    is_active: bool = Field(True, alias="isActive")
+
+
+class ChannelUpdate(ApiModel):
+    channel_code: str | None = Field(None, alias="channelCode", pattern=CHANNEL_CODE)
+    name: str | None = Field(None, min_length=1, max_length=50)
+    energy_source_id: int | None = Field(None, alias="energySourceId", gt=0)
+    measurement_kind: MeasurementKind | None = Field(None, alias="measurementKind")
+    unit: str | None = Field(None, min_length=1, max_length=10)
+    multiplier: str | None = Field(None, pattern=FACTOR)
+    is_active: bool | None = Field(None, alias="isActive")
+
+
 # ---- F-05 생산량 등록 (FS-018i) ----
 QTY = r"^\d{1,15}(\.\d{1,3})?$"  # numeric(18,3), 0 허용
 ITEM = r"^[A-Z0-9][A-Z0-9_\-]{1,39}$"

@@ -735,6 +735,323 @@ def delete_factor(context: AuthContext, factor_id: int, key: str) -> None:
         )
 
 
+# ---- F-12 계측기·채널 (FS-018l) ----
+# 계측값·배분이 쌓인 뒤 소유(공간·설비·부모)나 채널 단위를 바꾸면 지난 합계가 조용히 달라진다.
+METER_LOCKED = ("location_id", "equipment_id", "parent_meter_id")
+CHANNEL_LOCKED = ("energy_source_id", "measurement_kind", "unit")
+METER_KEYS = {
+    "location_id": "locationId",
+    "equipment_id": "equipmentId",
+    "parent_meter_id": "parentMeterId",
+}
+CHANNEL_KEYS = {
+    "energy_source_id": "energySourceId",
+    "measurement_kind": "measurementKind",
+    "unit": "unit",
+    "channel_code": "channelCode",
+    "multiplier": "multiplier",
+}
+
+
+def _field(field: str, message: str) -> ApiError:
+    return ApiError(
+        400,
+        "VALIDATION_FAILED",
+        "입력값을 확인해 주세요.",
+        {"fields": {field: message}},
+    )
+
+
+def _meter_not_found() -> ApiError:
+    return ApiError(404, "NOT_FOUND", "계측기를 찾을 수 없습니다.")
+
+
+def _channel_not_found() -> ApiError:
+    return ApiError(404, "NOT_FOUND", "채널을 찾을 수 없습니다.")
+
+
+def _check_meter(
+    connection: Connection,
+    scoped: AuthContext,
+    final: dict[str, Any],
+    meter_id: int | None,
+) -> int:
+    """최종 값 검증. 계측기의 사업장(공간의 사업장)을 돌려준다."""
+    site_id = repo.location_site(connection, scoped, final["location_id"])
+    if site_id is None:
+        raise _field("locationId", "유효하지 않은 공간입니다.")
+    if final["equipment_id"] is not None:
+        equipment = repo.get_equipment(connection, scoped, final["equipment_id"])
+        if equipment is None or equipment["locationId"] != final["location_id"]:
+            raise _field(
+                "equipmentId", "계측기와 같은 공간의 설비만 연결할 수 있습니다."
+            )
+    if final["parent_meter_id"] is not None:
+        parent = repo.get_meter(connection, scoped, final["parent_meter_id"])
+        if parent is None or parent["siteId"] != site_id:
+            raise _field(
+                "parentMeterId", "같은 사업장의 계측기만 부모로 지정할 수 있습니다."
+            )
+        if meter_id is not None and meter_id in repo.meter_ancestors(
+            connection, scoped, final["parent_meter_id"]
+        ):
+            raise _field(
+                "parentMeterId",
+                "자기 자신이나 하위 계측기를 부모로 지정할 수 없습니다.",
+            )
+    if repo.meter_code_taken(connection, scoped, final["meter_code"], meter_id):
+        raise _field("meterCode", "이미 사용 중인 코드입니다.")
+    return site_id
+
+
+def get_meter(context: AuthContext, meter_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = repo.get_meter(connection, scoped, meter_id)
+    if found is None:
+        raise _meter_not_found()
+    return found
+
+
+def create_meter(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.meter.create"
+        digest, cached = _replay(connection, scoped, operation, key, values)
+        if cached is not None:
+            return cached
+        site_id = _check_meter(connection, scoped, values, None)
+        meter_id = repo.insert_meter(connection, scoped, {**values, "site_id": site_id})
+        created = repo.get_meter(connection, scoped, meter_id)
+        save_receipt(
+            connection, scoped, operation, key, digest, "meter", meter_id, created, 201
+        )
+        return created
+
+
+def update_meter(
+    context: AuthContext, meter_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    if not values:
+        raise ApiError(400, "VALIDATION_FAILED", "변경할 항목이 없습니다.")
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.meter.update"
+        digest, cached = _replay(
+            connection, scoped, operation, key, {"id": meter_id, **values}
+        )
+        if cached is not None:
+            return cached
+        current = repo.get_meter(connection, scoped, meter_id)
+        if current is None:
+            raise _meter_not_found()
+        final = {
+            "meter_code": values.get("meter_code", current["meterCode"]),
+            **{
+                column: values[column] if column in values else current[api]
+                for column, api in METER_KEYS.items()
+            },
+        }
+        changed = [c for c in METER_LOCKED if final[c] != current[METER_KEYS[c]]]
+        if changed:
+            references = repo.channel_usage(connection, scoped, meter_id=meter_id)
+            if references:
+                raise ApiError(
+                    409,
+                    "PRECONDITION_NOT_MET",
+                    "계측값이 있는 계측기는 공간·설비·부모 계측기를 바꿀 수 없습니다. 새 계측기를 등록하세요.",
+                    {
+                        "reason": "METER_IN_USE",
+                        "fields": [METER_KEYS[c] for c in changed],
+                        "references": references,
+                    },
+                )
+        site_id = _check_meter(connection, scoped, final, meter_id)
+        repo.update_meter(connection, scoped, meter_id, {**values, "site_id": site_id})
+        updated = repo.get_meter(connection, scoped, meter_id)
+        save_receipt(
+            connection, scoped, operation, key, digest, "meter", meter_id, updated
+        )
+        return updated
+
+
+def delete_meter(context: AuthContext, meter_id: int, key: str) -> None:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.meter.delete"
+        digest, cached = _replay(connection, scoped, operation, key, {"id": meter_id})
+        if cached is not None:
+            return
+        if repo.get_meter(connection, scoped, meter_id) is None:
+            raise _meter_not_found()
+        references = repo.meter_references(connection, scoped, meter_id)
+        if references:
+            raise ApiError(
+                409,
+                "REFERENCED_BY_OTHERS",
+                "하위 계측기나 채널이 있어 삭제할 수 없습니다. 먼저 정리하세요.",
+                {"references": references},
+            )
+        repo.delete_meter(connection, scoped, meter_id)
+        save_receipt(
+            connection, scoped, operation, key, digest, "meter", meter_id, {}, 204
+        )
+
+
+def _check_channel(
+    connection: Connection,
+    scoped: AuthContext,
+    meter_id: int,
+    final: dict[str, Any],
+    channel_id: int | None,
+) -> None:
+    source = repo.get_source(connection, scoped, final["energy_source_id"])
+    if source is None:
+        raise _invalid_energy_source()
+    # 기간 합계·환산·요금은 누적 채널 값을 에너지원 계측 단위로 본다. 순시(kW 등)만 단위가 달라도 된다.
+    if (
+        final["measurement_kind"] == "CUMULATIVE"
+        and final["unit"] != source["measureUnit"]
+    ):
+        raise _field(
+            "unit",
+            f"누적 채널 단위는 에너지원 계측 단위({source['measureUnit']})와 같아야 합니다.",
+        )
+    if Decimal(final["multiplier"]) <= 0:
+        raise _field("multiplier", "계기 배수는 0보다 커야 합니다.")
+    if repo.channel_code_taken(
+        connection, scoped, meter_id, final["channel_code"], channel_id
+    ):
+        raise _field("channelCode", "이 계측기에 이미 있는 채널 코드입니다.")
+
+
+def create_channel(
+    context: AuthContext, meter_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.meter_channel.create"
+        digest, cached = _replay(
+            connection, scoped, operation, key, {"meterId": meter_id, **values}
+        )
+        if cached is not None:
+            return cached
+        if repo.get_meter(connection, scoped, meter_id) is None:
+            raise _meter_not_found()
+        _check_channel(connection, scoped, meter_id, values, None)
+        channel_id = repo.insert_channel(
+            connection, scoped, {**values, "meter_id": meter_id}
+        )
+        created = repo.get_channel(connection, scoped, meter_id, channel_id)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            "meter_channel",
+            channel_id,
+            created,
+            201,
+        )
+        return created
+
+
+def update_channel(
+    context: AuthContext,
+    meter_id: int,
+    channel_id: int,
+    values: dict[str, Any],
+    key: str,
+) -> dict[str, Any]:
+    if not values:
+        raise ApiError(400, "VALIDATION_FAILED", "변경할 항목이 없습니다.")
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.meter_channel.update"
+        digest, cached = _replay(
+            connection,
+            scoped,
+            operation,
+            key,
+            {"meterId": meter_id, "id": channel_id, **values},
+        )
+        if cached is not None:
+            return cached
+        current = repo.get_channel(connection, scoped, meter_id, channel_id)
+        if current is None:
+            raise _channel_not_found()
+        final = {
+            column: values.get(column, current[api])
+            for column, api in CHANNEL_KEYS.items()
+        }
+        changed = [c for c in CHANNEL_LOCKED if final[c] != current[CHANNEL_KEYS[c]]]
+        if changed and current["observed"]:
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "계측값이나 배분 결과가 있는 채널은 에너지원·측정 종류·단위를 바꿀 수 없습니다. 새 채널을 등록하세요.",
+                {
+                    "reason": "CHANNEL_IN_USE",
+                    "fields": [CHANNEL_KEYS[c] for c in changed],
+                    "references": repo.channel_usage(
+                        connection, scoped, channel_id=channel_id
+                    ),
+                },
+            )
+        _check_channel(connection, scoped, meter_id, final, channel_id)
+        repo.update_channel(connection, scoped, channel_id, values)
+        updated = repo.get_channel(connection, scoped, meter_id, channel_id)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            "meter_channel",
+            channel_id,
+            updated,
+        )
+        return updated
+
+
+def delete_channel(
+    context: AuthContext, meter_id: int, channel_id: int, key: str
+) -> None:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.meter_channel.delete"
+        digest, cached = _replay(
+            connection, scoped, operation, key, {"meterId": meter_id, "id": channel_id}
+        )
+        if cached is not None:
+            return
+        if repo.get_channel(connection, scoped, meter_id, channel_id) is None:
+            raise _channel_not_found()
+        references = repo.channel_usage(connection, scoped, channel_id=channel_id)
+        if references:
+            raise ApiError(
+                409,
+                "REFERENCED_BY_OTHERS",
+                "계측값이나 배분 결과가 있는 채널은 삭제할 수 없습니다. 사용 안 함으로 바꾸세요.",
+                {"references": references},
+            )
+        repo.delete_channel(connection, scoped, channel_id)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            "meter_channel",
+            channel_id,
+            {},
+            204,
+        )
+
+
 # ---- F-02 계측 조회 (FS-018b) ----
 MAX_READING_DAYS = 31
 DEFAULT_READING_DAYS = 7

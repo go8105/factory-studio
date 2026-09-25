@@ -13,6 +13,7 @@ import { Production } from "./Production";
 import { Intensity } from "./Intensity";
 import { Equipments } from "./Equipments";
 import { Factors } from "./Factors";
+import { Meters } from "./Meters";
 import { Tariffs } from "./Tariffs";
 export default function FemsRoutes() {
   return (
@@ -29,6 +30,7 @@ export default function FemsRoutes() {
         <Route path="targets" element={<Targets />} />
         <Route path="billing" element={<Billing />} />
         <Route path="energy-sources" element={<EnergySources />} />
+        <Route path="meters" element={<Meters />} />
         <Route path="energy-factors" element={<Factors />} />
         <Route path="tariffs" element={<Tariffs />} />
         <Route path="*" element={<NotFound />} />

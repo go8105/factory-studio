@@ -667,6 +667,280 @@ def delete_factor(connection: Connection, context: AuthContext, factor_id: int) 
     )
 
 
+# ---- F-12 계측기·채널 (FS-018l) ----
+# 채널에 계측값이나 배분 결과가 있으면 "사용 중"이다(소유·단위 변경과 삭제를 막는다).
+CHANNEL_USAGE = (
+    ("fems.energy_reading", "계측값"),
+    ("fems.energy_allocation", "에너지 배분"),
+)
+_USED = " OR ".join(
+    f"EXISTS (SELECT 1 FROM {table} t WHERE t.workspace_id=c.workspace_id "
+    "AND t.generation_id=c.generation_id AND t.meter_channel_id=c.id)"
+    for table, _ in CHANNEL_USAGE
+)
+METER_SELECT = (
+    "SELECT m.id,m.site_id,m.location_id,m.parent_meter_id,m.equipment_id,m.meter_code,"
+    "m.name,m.scope_kind,m.created_at,"
+    "(SELECT count(*) FROM fems.meter_channel c WHERE c.workspace_id=m.workspace_id "
+    "AND c.generation_id=m.generation_id AND c.meter_id=m.id) channel_count,"
+    "EXISTS (SELECT 1 FROM fems.meter_channel c WHERE c.workspace_id=m.workspace_id "
+    f"AND c.generation_id=m.generation_id AND c.meter_id=m.id AND ({_USED})) observed "
+    "FROM fems.meter m WHERE m.workspace_id=:w AND m.generation_id=:g"
+)
+CHANNEL_SELECT = (
+    "SELECT c.id,c.meter_id,c.energy_source_id,c.channel_code,c.name,c.measurement_kind,"
+    f"c.unit,c.multiplier,c.is_active,c.created_at,({_USED}) observed "
+    "FROM fems.meter_channel c WHERE c.workspace_id=:w AND c.generation_id=:g"
+)
+
+
+def meter_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "siteId": row["site_id"],
+        "locationId": row["location_id"],
+        "parentMeterId": row["parent_meter_id"],
+        "equipmentId": row["equipment_id"],
+        "meterCode": row["meter_code"],
+        "name": row["name"],
+        "scopeKind": row["scope_kind"],
+        "channelCount": row["channel_count"],
+        "observed": row["observed"],
+        "createdAt": row["created_at"].isoformat(),
+    }
+
+
+def channel_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "meterId": row["meter_id"],
+        "energySourceId": row["energy_source_id"],
+        "channelCode": row["channel_code"],
+        "name": row["name"],
+        "measurementKind": row["measurement_kind"],
+        "unit": row["unit"],
+        "multiplier": str(row["multiplier"]),
+        "isActive": row["is_active"],
+        "observed": row["observed"],
+        "createdAt": row["created_at"].isoformat(),
+    }
+
+
+def get_meter(
+    connection: Connection, context: AuthContext, meter_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(f"{METER_SELECT} AND m.id=:id"), {**_s(context), "id": meter_id}
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else meter_dict(row)
+
+
+def meter_code_taken(
+    connection: Connection, context: AuthContext, code: str, except_id: int | None
+) -> bool:
+    return (
+        connection.execute(
+            text(
+                "SELECT 1 FROM fems.meter WHERE workspace_id=:w AND generation_id=:g "
+                "AND meter_code=:code AND id IS DISTINCT FROM :except"
+            ),
+            {**_s(context), "code": code, "except": except_id},
+        ).first()
+        is not None
+    )
+
+
+def location_site(
+    connection: Connection, context: AuthContext, location_id: int
+) -> int | None:
+    return connection.execute(
+        text(
+            "SELECT site_id FROM fems.location "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), "id": location_id},
+    ).scalar_one_or_none()
+
+
+def meter_ancestors(
+    connection: Connection, context: AuthContext, meter_id: int
+) -> set[int]:
+    """meter_id 자신과 그 위 부모들. 부모로 지정하려는 계측기에 자신이 있으면 순환이다."""
+    rows = connection.execute(
+        text(
+            "WITH RECURSIVE up(id, parent) AS ("
+            " SELECT id, parent_meter_id FROM fems.meter"
+            " WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+            " UNION"
+            " SELECT m.id, m.parent_meter_id FROM fems.meter m JOIN up ON m.id=up.parent"
+            " WHERE m.workspace_id=:w AND m.generation_id=:g"
+            ") SELECT id FROM up"
+        ),
+        {**_s(context), "id": meter_id},
+    ).scalars()
+    return set(rows)
+
+
+def insert_meter(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> int:
+    columns = ",".join(values)
+    placeholders = ",".join(f":{column}" for column in values)
+    return connection.execute(
+        text(
+            f"INSERT INTO fems.meter (workspace_id, generation_id, {columns}) "
+            f"VALUES (:w, :g, {placeholders}) RETURNING id"
+        ),
+        {**_s(context), **values},
+    ).scalar_one()
+
+
+def update_meter(
+    connection: Connection, context: AuthContext, meter_id: int, values: dict[str, Any]
+) -> None:
+    assignments = ",".join(f"{column}=:{column}" for column in values)
+    connection.execute(
+        text(
+            f"UPDATE fems.meter SET {assignments} "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), **values, "id": meter_id},
+    )
+
+
+def delete_meter(connection: Connection, context: AuthContext, meter_id: int) -> None:
+    connection.execute(
+        text(
+            "DELETE FROM fems.meter WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), "id": meter_id},
+    )
+
+
+def meter_references(
+    connection: Connection, context: AuthContext, meter_id: int
+) -> list[dict[str, Any]]:
+    references = []
+    for table, column, label in (
+        ("fems.meter", "parent_meter_id", "하위 계측기"),
+        ("fems.meter_channel", "meter_id", "계측 채널"),
+    ):
+        count = connection.execute(
+            text(
+                f"SELECT count(*) FROM {table} "
+                f"WHERE workspace_id=:w AND generation_id=:g AND {column}=:id"
+            ),
+            {**_s(context), "id": meter_id},
+        ).scalar_one()
+        if count:
+            references.append({"table": table, "label": label, "count": count})
+    return references
+
+
+def channel_usage(
+    connection: Connection,
+    context: AuthContext,
+    *,
+    meter_id: int | None = None,
+    channel_id: int | None = None,
+) -> list[dict[str, Any]]:
+    """계측기 전체(meter_id) 또는 채널 하나(channel_id)의 계측값·배분 건수."""
+    condition = "c.meter_id=:id" if meter_id is not None else "c.id=:id"
+    references = []
+    for table, label in CHANNEL_USAGE:
+        count = connection.execute(
+            text(
+                f"SELECT count(*) FROM {table} t JOIN fems.meter_channel c "
+                "ON c.workspace_id=t.workspace_id AND c.generation_id=t.generation_id "
+                "AND c.id=t.meter_channel_id "
+                f"WHERE t.workspace_id=:w AND t.generation_id=:g AND {condition}"
+            ),
+            {**_s(context), "id": meter_id if meter_id is not None else channel_id},
+        ).scalar_one()
+        if count:
+            references.append({"table": table, "label": label, "count": count})
+    return references
+
+
+def get_channel(
+    connection: Connection, context: AuthContext, meter_id: int, channel_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(f"{CHANNEL_SELECT} AND c.meter_id=:meter AND c.id=:id"),
+            {**_s(context), "meter": meter_id, "id": channel_id},
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else channel_dict(row)
+
+
+def channel_code_taken(
+    connection: Connection,
+    context: AuthContext,
+    meter_id: int,
+    code: str,
+    except_id: int | None,
+) -> bool:
+    return (
+        connection.execute(
+            text(
+                "SELECT 1 FROM fems.meter_channel WHERE workspace_id=:w AND generation_id=:g "
+                "AND meter_id=:meter AND channel_code=:code AND id IS DISTINCT FROM :except"
+            ),
+            {**_s(context), "meter": meter_id, "code": code, "except": except_id},
+        ).first()
+        is not None
+    )
+
+
+def insert_channel(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> int:
+    columns = ",".join(values)
+    placeholders = ",".join(f":{column}" for column in values)
+    return connection.execute(
+        text(
+            f"INSERT INTO fems.meter_channel (workspace_id, generation_id, {columns}) "
+            f"VALUES (:w, :g, {placeholders}) RETURNING id"
+        ),
+        {**_s(context), **values},
+    ).scalar_one()
+
+
+def update_channel(
+    connection: Connection,
+    context: AuthContext,
+    channel_id: int,
+    values: dict[str, Any],
+) -> None:
+    assignments = ",".join(f"{column}=:{column}" for column in values)
+    connection.execute(
+        text(
+            f"UPDATE fems.meter_channel SET {assignments} "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), **values, "id": channel_id},
+    )
+
+
+def delete_channel(
+    connection: Connection, context: AuthContext, channel_id: int
+) -> None:
+    connection.execute(
+        text(
+            "DELETE FROM fems.meter_channel "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), "id": channel_id},
+    )
+
+
 def find_overlapping_tariffs(
     connection: Connection,
     context: AuthContext,
@@ -821,44 +1095,17 @@ def list_sites(connection: Connection, context: AuthContext) -> list[dict[str, A
 
 
 def list_meters(connection: Connection, context: AuthContext) -> list[dict[str, Any]]:
-    rows = connection.execute(
-        text(
-            """
-            SELECT m.id,m.meter_code,m.name,m.site_id,
-                   c.id channel_id,c.channel_code,c.name channel_name,c.unit,
-                   c.energy_source_id,c.multiplier
-            FROM fems.meter m
-            LEFT JOIN fems.meter_channel c
-              ON c.workspace_id=m.workspace_id AND c.generation_id=m.generation_id AND c.meter_id=m.id
-            WHERE m.workspace_id=:w AND m.generation_id=:g
-            ORDER BY m.meter_code, c.channel_code
-            """
-        ),
-        _s(context),
-    ).mappings()
-    meters: dict[int, dict[str, Any]] = {}
-    for r in rows:
-        meter = meters.setdefault(
-            r["id"],
-            {
-                "id": r["id"],
-                "meterCode": r["meter_code"],
-                "name": r["name"],
-                "siteId": r["site_id"],
-                "channels": [],
-            },
-        )
-        if r["channel_id"] is not None:
-            meter["channels"].append(
-                {
-                    "id": r["channel_id"],
-                    "channelCode": r["channel_code"],
-                    "name": r["channel_name"],
-                    "unit": r["unit"],
-                    "energySourceId": r["energy_source_id"],
-                    "multiplier": str(r["multiplier"]),
-                }
-            )
+    """모든 계측기와 채널. F-02 채널 선택과 F-12 관리 화면이 함께 쓴다(한 사업장 수십 대 규모)."""
+    meters = {
+        r["id"]: {**meter_dict(r), "channels": []}
+        for r in connection.execute(
+            text(f"{METER_SELECT} ORDER BY m.meter_code, m.id"), _s(context)
+        ).mappings()
+    }
+    for r in connection.execute(
+        text(f"{CHANNEL_SELECT} ORDER BY c.channel_code, c.id"), _s(context)
+    ).mappings():
+        meters[r["meter_id"]]["channels"].append(channel_dict(r))
     return list(meters.values())
 
 

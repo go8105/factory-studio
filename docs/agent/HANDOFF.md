@@ -1,20 +1,21 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-25 (FS-018k F-13 완료, Claude Code). **다음 세션은 이 문서부터 읽는다.**
+갱신: 2026-09-25 (FS-018l F-12 완료, Claude Code). **다음 세션은 이 문서부터 읽는다.**
 
 ## Git 상태
 
 - 저장소: `/Users/hwang-kyoungho/projects/factory-studio`
-- main·origin: `5bcc4d2`(FS-018j + COOKIE_SECURE 수정), CI 통과.
-- 브랜치 **`fs-018k-f13`**: F-13 환산·배출계수 커밋. push·main 병합은 사용자 확인 뒤.
+- main·origin: `a5209b6`(FS-018k F-13까지), CI 통과.
+- 브랜치 **`fs-018l-f12`**: F-12 계측기·채널 커밋. push·main 병합은 사용자 확인 뒤.
+- 사용자 결정 후보: 사용 중 채널의 배수 변경 허용 여부(`FEMS_FS-018l.md` 참조).
 - `gh` CLI 로그인 완료(go8105). CI는 `gh run list` / `gh run watch <id> --exit-status`로 직접 확인한다.
 - 정정: 이전 인계의 "`78e1206` CI도 날짜 때문에 실패했을 것"은 틀렸다. 그 실행은 09-24에 돌아 성공했다.
 
 ## 다음 작업
 
-1. `fs-018k-f13` push → CI 확인 → main ff.
-2. F-12 계측기·채널 → F-09 사업장·공간.
-3. Codex는 main `5bcc4d2` 이후 conftest 단축 작업 가능. 병합 순서는 아래 규칙.
+1. `fs-018l-f12` push → CI 확인 → main ff.
+2. F-09 사업장·공간(FEMS 마지막).
+3. Codex는 main `a5209b6` 이후 conftest 단축 작업 가능. 병합 순서는 아래 규칙.
 
 ## 병행 운영 (2026-09-25 사용자 지시)
 

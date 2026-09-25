@@ -96,6 +96,7 @@ for (const [route, title] of [
   ["fems/intensity", "원단위 분석"],
   ["fems/targets", "목표 대비 실적"],
   ["fems/billing", "요금 산정"],
+  ["fems/meters", "계측기·채널"],
   ["fems/energy-factors", "환산·배출계수"],
 ]) {
   test(`360px ${route} 가로 스크롤 없음`, async ({ page }) => {
