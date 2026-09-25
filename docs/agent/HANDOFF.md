@@ -86,3 +86,12 @@ git diff --check
 - 다음: Claude Code가 새 main 통합 뒤 스모크·360px(ERP 및 런처 포함) 직접 검증. Codex는 사용자 지시로 스모크를 실행하지 않는다. 결과에 따른 수정 요청 대기. backend 검증 미실행(UI만 변경).
 - 재현: 전용 factory-studio-codex에서 Node 24 PATH 지정 후 `npm --prefix frontend run typecheck`, `npm --prefix frontend run lint`, `npm --prefix frontend run format:check`, `npm --prefix frontend run build`, `npm --prefix frontend test`.
 - 메인 폴더 미사용, push·main 병합 없음. .env·work/·node_modules 제외.
+
+## Codex — 3D 공장 둘러보기 (2026-09-26, 진행 중)
+
+- 브랜치 `codex/fs-019a-erp-master`, 기준 `f9eb879`. 현재 구현을 WIP로 보존한다.
+- 사용자 승인: 조감도 + 3인칭 이동, 일반 조립/비전검사/포장 설비 3대·키오스크, 1층 현장사무실 1명·바코드 프린터, 2층 사무실 2명, 현장 순회 1명 + 사용자 캐릭터.
+- 구현: frontend/src/factory 및 App의 `/factory`·상단 메뉴. 외부 모델/DB/API 없이 합성 시연. 키보드/터치, 계단·충돌·층 전환·일시정지·오류 대체 안내.
+- 별도 5186 포트, 모의 API로 렌더링 사전 확인(공용 스모크 아님). 초기 frontend typecheck/lint exit 0, 선택 테스트 15/16 통과(부동소수점 비교 1건 수정, 재실행 대기). 브라우저 오류 0 및 360px 가로폭 확인. 최종 수정 후 전체 검증은 아직 미실행.
+- 다음: `npm --prefix frontend run test:factory-browser`, 최종 프론트 5종, 스크린샷 확인, 문서/커밋. 공용 8000/5173·스모크 DB 및 backend 미사용. push/main 병합 금지.
+- 실행은 Node 24 PATH 지정. 5186에 이전 preview Vite가 남았으면 본 세션 프로세스만 종료 후 테스트한다. 메인 폴더는 사용하지 않는다.

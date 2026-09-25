@@ -24,6 +24,7 @@ import { Records } from "../portal/Records";
 const FemsRoutes = lazy(() => import("../fems"));
 const MesRoutes = lazy(() => import("../mes"));
 const ErpRoutes = lazy(() => import("../erp"));
+const Factory = lazy(() => import("../factory/Factory"));
 function Layout() {
   const { session, setSession, busy, navigationBlocked, fail } = useSession();
   const navigate = useNavigate();
@@ -65,6 +66,7 @@ function Layout() {
           {session && (
             <>
               <NavLink to="/home">앱 런처</NavLink>
+              <NavLink to="/factory">3D 공장</NavLink>
               <NavLink to="/flow">전체 흐름</NavLink>
               <NavLink to="/workspace">내 공간</NavLink>
             </>
@@ -139,6 +141,7 @@ function PortalRoutes() {
           <Route path="/help/*" element={<Help />} />
           <Route element={<Private />}>
             <Route path="/home" element={<Home />} />
+            <Route path="/factory" element={<Factory />} />
             <Route path="/flow" element={<FlowMap />} />
             <Route path="/cards/:card?" element={<Cards />} />
             <Route path="/workspace" element={<Workspace />} />
