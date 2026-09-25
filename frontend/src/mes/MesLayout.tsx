@@ -80,8 +80,8 @@ export function MesLayout() {
               <NavLink to="/fems" onClick={closeMenu}>
                 FEMS 에너지관리
               </NavLink>
-              <NavLink to="/help/erp/e-01" onClick={closeMenu}>
-                ERP 업무 안내
+              <NavLink to="/erp" onClick={closeMenu}>
+                ERP 경영관리
               </NavLink>
               <NavLink to="/home" onClick={closeMenu}>
                 포털 홈
