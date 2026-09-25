@@ -752,3 +752,9 @@
 - `fs.common.clock`: `FS_TODAY` 업무 기준일, 게스트 만료는 실제 시각. FEMS 테스트 fixture·스모크 날짜 고정.
 - `COOKIE_SECURE` 변경(다른 작성자)의 무세션 500 결함을 `config.cookie_secure()` 분리로 수정, 사용자 결정 ③.
 - 테스트: backend +23(전체 267, CI 환경), frontend +13(전체 220). 보고서 `docs/agent/FEMS_FS-018j.md`.
+
+## 2026-09-25 FS-018k 완료 (Claude Code)
+
+- F-13 `/energy-factors` CRUD, 화면 `Factors.tsx`(탭 분리). 계수 단위 서버 결정, UTILITY 거부, 에너지원·유형 고정.
+- 도움말 f-13을 구현에 맞게 수정. FS-018j는 main `5bcc4d2` ff, main CI 통과(15분 13초).
+- 테스트: backend +21(전체 288, CI 환경), frontend +11(전체 231), Playwright +2(전체 43). 보고서 `docs/agent/FEMS_FS-018k.md`.

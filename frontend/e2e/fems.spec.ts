@@ -152,3 +152,22 @@ test("원단위는 기준선을 재현하고 생산량 0을 구분한다", async
   const zero = page.getByRole("row", { name: /MES:LT-0018:INS/ });
   await expect(zero.getByText("생산량 없음 · 계산 불가")).toBeVisible();
 });
+test("환산·배출계수는 탭으로 나뉘고 단위는 서버가 정한다", async ({ page }) => {
+  await page.goto("/fems/energy-factors");
+  const primary = page.getByRole("table", { name: "1차에너지 환산계수 목록" });
+  await expect(
+    primary.getByRole("cell", { name: "TOE/kWh" }).first(),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "온실가스 배출계수" }).click();
+  const emission = page.getByRole("table", { name: "온실가스 배출계수 목록" });
+  await expect(
+    emission.getByRole("cell", { name: "tCO2eq/kWh" }).first(),
+  ).toBeVisible();
+  await page.getByLabel("적용 연도").fill("2027");
+  await page.getByLabel(/^계수 \(/).fill("0.000450");
+  await page.getByLabel("출처").fill("e2e 예시값");
+  await page.getByRole("button", { name: "등록" }).click();
+  await expect(emission.getByRole("row", { name: /2027/ })).toContainText(
+    "tCO2eq/kWh",
+  );
+});

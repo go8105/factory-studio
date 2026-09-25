@@ -569,6 +569,172 @@ def delete_tariff(context: AuthContext, tariff_id: int, key: str) -> None:
         )
 
 
+# ---- F-13 환산·배출계수 (FS-018k) ----
+# 계수 단위는 유형과 에너지원 계측 단위로 서버가 정한다. 계산은 단위 끝(/kWh 등)이 채널 단위와 같을 때만 쓴다.
+FACTOR_UNIT_PREFIX = {"PRIMARY": "TOE/", "EMISSION": "tCO2eq/"}
+
+
+def _factor_not_found() -> ApiError:
+    return ApiError(404, "NOT_FOUND", "계수를 찾을 수 없습니다.")
+
+
+def _factor_field(field: str, message: str) -> ApiError:
+    return ApiError(
+        400,
+        "VALIDATION_FAILED",
+        "입력값을 확인해 주세요.",
+        {"fields": {field: message}},
+    )
+
+
+def _check_factor(
+    connection: Connection,
+    scoped: AuthContext,
+    source_id: int,
+    kind: str,
+    year: str,
+    value: str,
+    exclude_id: int | None,
+) -> None:
+    if Decimal(value) <= 0:
+        raise _factor_field("factorValue", "계수는 0보다 커야 합니다.")
+    if repo.factor_taken(connection, scoped, source_id, kind, year, exclude_id):
+        raise _factor_field(
+            "effectiveYear", f"이 에너지원의 {year}년 계수가 이미 있습니다."
+        )
+
+
+def list_factors(
+    context: AuthContext,
+    factor_kind: str | None,
+    energy_source_id: int | None,
+    offset: int,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return repo.list_factors(
+            connection, scoped, factor_kind, energy_source_id, offset, limit
+        )
+
+
+def get_factor(context: AuthContext, factor_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = repo.get_factor(connection, scoped, factor_id)
+    if found is None:
+        raise _factor_not_found()
+    return found
+
+
+def create_factor(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.energy_factor.create"
+        digest, cached = _replay(connection, scoped, operation, key, values)
+        if cached is not None:
+            return cached
+        source = repo.get_source(connection, scoped, values["energy_source_id"])
+        if source is None:
+            raise _invalid_energy_source()
+        # 용수(UTILITY)는 TOE 합산·배출량 계산에서 빠진다. 계수를 두면 쓰이지 않는 값이 남는다.
+        if source["sourceKind"] == "UTILITY":
+            raise _factor_field(
+                "energySourceId",
+                "용수 등 UTILITY 에너지원은 환산·배출 계산 대상이 아닙니다.",
+            )
+        _check_factor(
+            connection,
+            scoped,
+            source["id"],
+            values["factor_kind"],
+            values["effective_year"],
+            values["factor_value"],
+            None,
+        )
+        unit = FACTOR_UNIT_PREFIX[values["factor_kind"]] + source["measureUnit"]
+        created = repo.insert_factor(
+            connection, scoped, {**values, "factor_unit": unit}
+        )
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            "energy_factor",
+            created["id"],
+            created,
+            201,
+        )
+        return created
+
+
+def update_factor(
+    context: AuthContext, factor_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    if not values:
+        raise ApiError(400, "VALIDATION_FAILED", "변경할 항목이 없습니다.")
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.energy_factor.update"
+        digest, cached = _replay(
+            connection, scoped, operation, key, {"id": factor_id, **values}
+        )
+        if cached is not None:
+            return cached
+        current = repo.get_factor(connection, scoped, factor_id)
+        if current is None:
+            raise _factor_not_found()
+        _check_factor(
+            connection,
+            scoped,
+            current["energySourceId"],
+            current["factorKind"],
+            values.get("effective_year", current["effectiveYear"]),
+            values.get("factor_value", current["factorValue"]),
+            factor_id,
+        )
+        updated = repo.update_factor(connection, scoped, factor_id, values)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            "energy_factor",
+            factor_id,
+            updated,
+        )
+        return updated
+
+
+def delete_factor(context: AuthContext, factor_id: int, key: str) -> None:
+    # 계수를 참조하는 테이블은 없다. 지우면 그 연도 계산이 "계수 없음"으로 바뀐다(추정으로 대체하지 않는다).
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.energy_factor.delete"
+        digest, cached = _replay(connection, scoped, operation, key, {"id": factor_id})
+        if cached is not None:
+            return
+        if repo.get_factor(connection, scoped, factor_id) is None:
+            raise _factor_not_found()
+        repo.delete_factor(connection, scoped, factor_id)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            "energy_factor",
+            factor_id,
+            {},
+            204,
+        )
+
+
 # ---- F-02 계측 조회 (FS-018b) ----
 MAX_READING_DAYS = 31
 DEFAULT_READING_DAYS = 7

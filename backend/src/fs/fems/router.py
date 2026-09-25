@@ -14,6 +14,8 @@ from fs.fems.schema import (
     EnergySourceUpdate,
     EquipmentCreate,
     EquipmentUpdate,
+    FactorCreate,
+    FactorUpdate,
     ProductionCreate,
     ProductionUpdate,
     TariffCreate,
@@ -156,6 +158,69 @@ def delete_equipment(
 ) -> Response:
     key = _mutation(context, x_csrf_token, idempotency_key)
     service.delete_equipment(context, equipment_id, key)
+    return Response(status_code=204)
+
+
+@router.get("/energy-factors")
+def list_factors(
+    context: Auth,
+    offset: int = 0,
+    limit: int = 50,
+    factor_kind: Annotated[
+        Literal["PRIMARY", "EMISSION"] | None, Query(alias="factorKind")
+    ] = None,
+    energy_source_id: Annotated[int | None, Query(alias="energySourceId")] = None,
+) -> dict[str, object]:
+    page = Page(offset, limit).checked()
+    data, total = service.list_factors(
+        context, factor_kind, energy_source_id, page.offset, page.limit
+    )
+    return {
+        "data": data,
+        "page": {"offset": page.offset, "limit": page.limit, "total": total},
+    }
+
+
+@router.get("/energy-factors/{factor_id}")
+def get_factor(context: Auth, factor_id: int) -> dict[str, object]:
+    return {"data": service.get_factor(context, factor_id)}
+
+
+@router.post("/energy-factors", status_code=201)
+def post_factor(
+    payload: FactorCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_factor(context, payload.model_dump(), key)}
+
+
+@router.patch("/energy-factors/{factor_id}")
+def patch_factor(
+    factor_id: int,
+    payload: FactorUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(exclude_unset=True)
+    if any(v is None for v in values.values()):
+        raise ApiError(400, "VALIDATION_FAILED", "필수 항목은 null로 비울 수 없습니다.")
+    return {"data": service.update_factor(context, factor_id, values, key)}
+
+
+@router.delete("/energy-factors/{factor_id}", status_code=204)
+def delete_factor(
+    factor_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> Response:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    service.delete_factor(context, factor_id, key)
     return Response(status_code=204)
 
 

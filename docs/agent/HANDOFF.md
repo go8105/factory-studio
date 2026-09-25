@@ -1,18 +1,20 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-25 (FS-018j 완료, Claude Code). **다음 세션은 이 문서부터 읽는다.**
+갱신: 2026-09-25 (FS-018k F-13 완료, Claude Code). **다음 세션은 이 문서부터 읽는다.**
 
 ## Git 상태
 
 - 저장소: `/Users/hwang-kyoungho/projects/factory-studio`
-- 브랜치: **`fs-018j-intensity`**, main·origin `78e1206`(FS-018i까지)에서 분기. 아직 push·main 병합 전.
-- 커밋 2개: `FS-018j: F-06 원단위와 업무 기준일 고정`, `COOKIE_SECURE 설정과 무세션 500 수정`(다른 작성자 변경 + 결함 수정, 사용자 결정 ③).
-- 상세: `docs/agent/FEMS_FS-018j.md`. 검증: frontend 220, backend 267(CI 환경), Playwright 41, ruff(CI 범위) 모두 통과.
+- main·origin: `5bcc4d2`(FS-018j + COOKIE_SECURE 수정), CI 통과.
+- 브랜치 **`fs-018k-f13`**: F-13 환산·배출계수 커밋. push·main 병합은 사용자 확인 뒤.
+- `gh` CLI 로그인 완료(go8105). CI는 `gh run list` / `gh run watch <id> --exit-status`로 직접 확인한다.
+- 정정: 이전 인계의 "`78e1206` CI도 날짜 때문에 실패했을 것"은 틀렸다. 그 실행은 09-24에 돌아 성공했다.
 
 ## 다음 작업
 
-1. 사용자 확인 후 push → CI 통과 확인 → main ff. 그 뒤 Codex가 conftest 단축을 시작할 수 있다.
-2. F-13 → F-12 → F-09 순서로 진행.
+1. `fs-018k-f13` push → CI 확인 → main ff.
+2. F-12 계측기·채널 → F-09 사업장·공간.
+3. Codex는 main `5bcc4d2` 이후 conftest 단축 작업 가능. 병합 순서는 아래 규칙.
 
 ## 병행 운영 (2026-09-25 사용자 지시)
 

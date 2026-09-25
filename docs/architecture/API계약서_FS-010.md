@@ -266,6 +266,7 @@ POST /sales-records/{id}/cancel      취소
 - `GET /billing?from=YYYY-MM&to=YYYY-MM` (FS-018h): 월 요금 = 기본요금 + 사용량 × 단가(원 단위), 요금제는 월마다 선택(개정 월에서 구간 분할). 상태 `CALCULATED`/`TARIFF_MISSING`/`NOT_BILLABLE`. 계측 없는 달은 미청구. 기본 전월~당월, 최대 12개월. 대시보드 요금은 같은 계산을 쓴다.
 - `/production-records` (FS-018i): 초안 등록(`MAN-YYYYMMDD-NNN`)·수정·삭제, `POST /{id}/confirm`, `POST /{id}/revise`(다음 버전 초안). 확정 불변 409 `ALREADY_CONFIRMED`, 정정 제약 409 `DRAFT_EXISTS`/`NOT_LATEST`/`REVISION_FIELDS_FIXED`, 확정 시 같은 설비·품목·단위 구간 겹침 409 `PERIOD_OVERLAP`(+`conflicts`). 날짜 입력은 사업장 시간대 `[시작 00:00, 종료+1 00:00)`.
 - `GET /intensity` (FS-018j): 기본 최근 계측일까지 31일, 최대 92일. 기록별 = 생산 구간에 완전히 포함된 설비 일별 배분(현재 결과, invalid 제외) ÷ 생산량, 단위별로 따로, TOE/EA는 PRIMARY 환산(용수 제외). 상태 `NO_PRODUCTION`(생산량 0)/`NO_ENERGY`. 품목별 = 검사(INS)까지 끝나고 모든 공정이 기간 안인 MES LOT만, LOT 전 공정 전력 ÷ 검사 양품. MAN- 기록은 품목에서 제외. 확정 기준선 대비 증감률.
+- `/energy-factors` (FS-018k): `factorKind`·`energySourceId` 필터. `factorUnit`은 서버가 유형(`TOE/`·`tCO2eq/`)과 에너지원 계측 단위로 정한다. 에너지원·유형은 수정 불가(PATCH는 연도·계수·출처). UTILITY 에너지원 400, 에너지원·유형·연도 중복 400 `fields.effectiveYear`, 계수 > 0. 참조 테이블이 없어 삭제는 자유이며 삭제된 연도는 계산에서 `FACTOR_MISSING`.
 - 업무 기준일 (FS-018j): 게스트 복사·세대 초기화의 "오늘"은 `FS_TODAY`(테스트·스모크 전용) 또는 실제 KST 날짜. 게스트 만료는 항상 실제 생성일 다음 날 00:00 KST. `COOKIE_SECURE=false`면 세션 쿠키에서 Secure를 뺀다(로컬 HTTP 전용, 기본 true).
 
 ### 계산 결과를 저장하지 않는 엔드포인트

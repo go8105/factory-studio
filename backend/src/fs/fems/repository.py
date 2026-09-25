@@ -527,6 +527,146 @@ def delete_tariff(connection: Connection, context: AuthContext, tariff_id: int) 
     )
 
 
+# ---- F-13 환산·배출계수 (FS-018k) ----
+FACTOR_COLUMNS = "id,energy_source_id,factor_kind,effective_year,factor_value,factor_unit,source_note,created_at"
+
+
+def factor_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "energySourceId": row["energy_source_id"],
+        "factorKind": row["factor_kind"],
+        "effectiveYear": row["effective_year"],
+        "factorValue": str(row["factor_value"]),
+        "factorUnit": row["factor_unit"],
+        "sourceNote": row["source_note"],
+        "createdAt": row["created_at"].isoformat(),
+    }
+
+
+def list_factors(
+    connection: Connection,
+    context: AuthContext,
+    factor_kind: str | None,
+    energy_source_id: int | None,
+    offset: int,
+    limit: int,
+) -> tuple[list[dict[str, Any]], int]:
+    where = "workspace_id=:w AND generation_id=:g"
+    params: dict[str, Any] = {**_s(context), "offset": offset, "limit": limit}
+    if factor_kind is not None:
+        where += " AND factor_kind=:kind"
+        params["kind"] = factor_kind
+    if energy_source_id is not None:
+        where += " AND energy_source_id=:source"
+        params["source"] = energy_source_id
+    total = connection.execute(
+        text(f"SELECT count(*) FROM fems.energy_factor WHERE {where}"), params
+    ).scalar_one()
+    rows = connection.execute(
+        text(
+            f"SELECT {FACTOR_COLUMNS} FROM fems.energy_factor WHERE {where} "
+            "ORDER BY effective_year DESC, energy_source_id, id OFFSET :offset LIMIT :limit"
+        ),
+        params,
+    ).mappings()
+    return [factor_dict(r) for r in rows], total
+
+
+def get_factor(
+    connection: Connection, context: AuthContext, factor_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(
+                f"SELECT {FACTOR_COLUMNS} FROM fems.energy_factor "
+                "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+            ),
+            {**_s(context), "id": factor_id},
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else factor_dict(row)
+
+
+def factor_taken(
+    connection: Connection,
+    context: AuthContext,
+    energy_source_id: int,
+    factor_kind: str,
+    effective_year: str,
+    exclude_id: int | None,
+) -> bool:
+    return (
+        connection.execute(
+            text(
+                "SELECT count(*) FROM fems.energy_factor "
+                "WHERE workspace_id=:w AND generation_id=:g AND energy_source_id=:source "
+                "AND factor_kind=:kind AND effective_year=:year AND id IS DISTINCT FROM :id"
+            ),
+            {
+                **_s(context),
+                "source": energy_source_id,
+                "kind": factor_kind,
+                "year": effective_year,
+                "id": exclude_id,
+            },
+        ).scalar_one()
+        > 0
+    )
+
+
+def insert_factor(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    columns = ",".join(values)
+    placeholders = ",".join(f":{column}" for column in values)
+    row = (
+        connection.execute(
+            text(
+                f"INSERT INTO fems.energy_factor (workspace_id, generation_id, {columns}) "
+                f"VALUES (:w, :g, {placeholders}) RETURNING {FACTOR_COLUMNS}"
+            ),
+            {**_s(context), **values},
+        )
+        .mappings()
+        .one()
+    )
+    return factor_dict(row)
+
+
+def update_factor(
+    connection: Connection,
+    context: AuthContext,
+    factor_id: int,
+    values: dict[str, Any],
+) -> dict[str, Any]:
+    assignments = ",".join(f"{column}=:{column}" for column in values)
+    row = (
+        connection.execute(
+            text(
+                f"UPDATE fems.energy_factor SET {assignments} "
+                f"WHERE workspace_id=:w AND generation_id=:g AND id=:id RETURNING {FACTOR_COLUMNS}"
+            ),
+            {**_s(context), **values, "id": factor_id},
+        )
+        .mappings()
+        .one()
+    )
+    return factor_dict(row)
+
+
+def delete_factor(connection: Connection, context: AuthContext, factor_id: int) -> None:
+    connection.execute(
+        text(
+            "DELETE FROM fems.energy_factor "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), "id": factor_id},
+    )
+
+
 def find_overlapping_tariffs(
     connection: Connection,
     context: AuthContext,

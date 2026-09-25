@@ -28,6 +28,12 @@ export const femsScreens = [
   { path: "billing", id: "F-08", label: "요금 산정", group: "요금" },
   { path: "equipments", id: "F-10", label: "설비", group: "기준정보" },
   { path: "energy-sources", id: "F-11", label: "에너지원", group: "기준정보" },
+  {
+    path: "energy-factors",
+    id: "F-13",
+    label: "환산·배출계수",
+    group: "기준정보",
+  },
   { path: "tariffs", id: "F-14", label: "요금제", group: "기준정보" },
 ];
 export function FemsLayout() {

@@ -91,6 +91,28 @@ class TariffUpdate(ApiModel):
     )
 
 
+# ---- F-13 환산·배출계수 (FS-018k) ----
+FACTOR = r"^\d{1,12}(\.\d{1,6})?$"  # numeric(18,6). 0은 서비스에서 거부(> 0)
+YEAR = r"^[0-9]{4}$"
+
+
+class FactorCreate(ApiModel):
+    energy_source_id: int = Field(alias="energySourceId", gt=0)
+    factor_kind: Literal["PRIMARY", "EMISSION"] = Field(alias="factorKind")
+    effective_year: str = Field(alias="effectiveYear", pattern=YEAR)
+    factor_value: str = Field(alias="factorValue", pattern=FACTOR)
+    source_note: str = Field(alias="sourceNote", min_length=1, max_length=200)
+
+
+class FactorUpdate(ApiModel):
+    # 에너지원·계수 유형은 바꾸지 않는다(단위가 함께 바뀌고 탭을 넘나든다). 새로 등록한다.
+    effective_year: str | None = Field(None, alias="effectiveYear", pattern=YEAR)
+    factor_value: str | None = Field(None, alias="factorValue", pattern=FACTOR)
+    source_note: str | None = Field(
+        None, alias="sourceNote", min_length=1, max_length=200
+    )
+
+
 # ---- F-05 생산량 등록 (FS-018i) ----
 QTY = r"^\d{1,15}(\.\d{1,3})?$"  # numeric(18,3), 0 허용
 ITEM = r"^[A-Z0-9][A-Z0-9_\-]{1,39}$"
