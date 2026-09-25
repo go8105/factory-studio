@@ -832,3 +832,10 @@
 - backend guest_space 회귀 78개, frontend 20개 추가. 최종 프론트 전체 314 passed 및 typecheck/lint/format/build, CI Ruff check/format, db:validate, audit_schema_isolation, diff --check exit 0. backend 전체 **510 passed, 580.736초, exit 0**(CI 네 변수·전용 DB).
 - Playwright ERP CRUD 1개·360px 4개 추가. 공용 포트/DB 사용 승인을 기다리고 있어 실행·스크린샷 확인은 미실행. 완료 판정 보류.
 - API 계약 §8·도움말·진행현황·Codex HANDOFF 갱신. 보고서 `docs/agent/ERP_FS-019a.md`. 새 의존성·스키마 변경 없음. push·main 병합 없음.
+
+## 2026-09-25 통합: Codex FS-019a ERP 기준정보 (Claude Code)
+
+- Codex `4e2bc74`를 FS-020f(`25f4312`) 위로 rebase해 `fs-019a-erp-integrate`로 통합. 코드는 충돌 없음, 진행현황·progress·HANDOFF 충돌은 두 내용 보존.
+- 통합 수정: FEMS·MES 사이드바의 ERP 링크를 도움말 대신 `/erp` 화면으로.
+- 통합 검증(CI 환경): backend **524 passed**(9분 6초), frontend **321 passed**, 스모크 **75 passed**(ERP 360px 포함), ruff(CI 범위)·tools unittest·db:validate·audit·git diff --check 통과. Codex 대신 Claude Code가 통합 상태로 스모크를 실행(Codex 사용량 절약).
+- 후속(Codex FS-019b에서): ERP 화면의 관리 버튼이 FEMS·MES의 `link-button`과 다르고, 등록 폼 select가 좁은 기본 모양이다. 동작 문제는 없어 통합을 막지 않았다.
