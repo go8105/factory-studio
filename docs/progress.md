@@ -1,7 +1,7 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-018g 완료, AG-07(FEMS 사이드바 모바일 접는 메뉴) antigravity/ag-07-sidebar 브랜치 완료.**
+- 단계: **FS-018l(FEMS 13/14화면) 및 backend 테스트 시간 단축 완료(codex/test-speed, main 병합·push 전).**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
@@ -764,3 +764,14 @@
 - F-12 `/meters` 계측기·채널 CRUD, 화면 `Meters.tsx`(마스터-디테일). 기존 `GET /meters`(F-02) 응답을 확장해 공용.
 - METER_IN_USE·CHANNEL_IN_USE 잠금, 부모 순환 방지, 누적 채널 단위 검사. 도움말 f-12 수정. FS-018k는 main `a5209b6` ff, CI 통과.
 - 테스트: backend +25(전체 312, CI 환경), frontend +12(전체 243), Playwright +2(전체 45). 보고서 `docs/agent/FEMS_FS-018l.md`.
+
+## 2026-09-25 backend 테스트 시간 단축 완료 (Codex)
+
+- 전용 worktree `factory-studio-codex`, `codex/test-speed`를 `origin/main 70951d4`로 rebase. 메인 작업 폴더·antigravity worktree 사용 안 함.
+- 공유 템플릿은 세션당 1회, 각 테스트는 실제 게스트 API로 별도 공간 생성. 게스트만 FK 자식 → 부모 순 정리하고 템플릿을 보존한다. FS_TODAY·GUEST_LIMIT은 fixture에서 설정.
+- 전체 DB 정리 fixture를 먼저 실행하도록 수명을 분리. FEMS fixture 13개를 공용 guest_space에 연결. 테스트 본문 261개/보조 함수 AST와 test_common.py·test_seed.py 원본 보존. 직접 SQL 변경은 게스트 S 범위임을 확인했다.
+- Python 3.14.7 / Node 24.21.0 / PostgreSQL 18.6, `factory_studio_codex_test`만 사용. `.env` 없이 DATABASE_URL·TEST_DATABASE_URL·PATH·HOME만 전달.
+- `uv run --project backend pytest backend/tests -q --durations=15`: 개선 전 **782.272초, 312 passed, exit 0** → 개선 후 연속 **368.737초 / 308.066초, 각 312 passed, exit 0**. 평균 **56.7% 단축**. 예전 78e1206의 실패 포함 측정은 비교에서 제외.
+- 격리·세대 초기화·legacy 혼합 순서 선택 검증 6 passed(exit 0). 템플릿 내용 불변·게스트 잔여 0 검사 통과. CI 범위 Ruff check·format --check, AST/보호 파일 확인, git diff --check 각각 exit 0.
+- 남은 병목: 실제 게스트 복사/API, 독립 seed 결정성·복사 검증(준비 약 11~12초), 기존 portal/seed_targets 준비·schema verifier. 새 의존성·업무 코드·스키마·마이그레이션 변경 없음.
+- 상세 명령·결과·재현: [테스트 시간 단축](agent/테스트시간단축.md). HANDOFF 갱신. main 병합·push 없음. 다음: 사용자 결과 확인, 병행 main 반영 시 담당자가 rebase 후 회귀.
