@@ -8,8 +8,8 @@ from pydantic import BaseModel
 
 from fs.common.auth import AuthContext, require_csrf, resolve_auth
 from fs.common.errors import ApiError
+from fs.mes import planning, service
 from fs.mes import repository as repo
-from fs.mes import service
 from fs.mes.repository import Master
 from fs.mes.schema import (
     BomCreate,
@@ -23,6 +23,12 @@ from fs.mes.schema import (
     ItemUpdate,
     LocationCreate,
     LocationUpdate,
+    OrderCancel,
+    OrderCreate,
+    OrderUpdate,
+    PlanCreate,
+    PlanLines,
+    PlanUpdate,
     ProcessCreate,
     ProcessUpdate,
     RouteCreate,
@@ -334,3 +340,146 @@ def put_lines(
             context, service.BOMS, row_id, rows, key, service.validate_lines
         )
     }
+
+
+# ---- M-02 생산계획 ----
+@router.get("/production-plans")
+def list_plans(context: Auth) -> dict[str, object]:
+    return {"data": planning.list_plans(context)}
+
+
+@router.post("/production-plans", status_code=201)
+def post_plan(
+    payload: PlanCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": planning.create_plan(context, payload.model_dump(), key)}
+
+
+@router.patch("/production-plans/{plan_id}")
+def patch_plan(
+    plan_id: int,
+    payload: PlanUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = _values(payload, frozenset({"sales_plan_code"}))
+    return {"data": planning.update_plan(context, plan_id, values, key)}
+
+
+@router.put("/production-plans/{plan_id}/lines")
+def put_plan_lines(
+    plan_id: int,
+    payload: PlanLines,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    lines = [line.model_dump() for line in payload.lines]
+    return {"data": planning.set_plan_lines(context, plan_id, lines, key)}
+
+
+@router.post("/production-plans/{plan_id}/confirm")
+def confirm_plan(
+    plan_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": planning.confirm_plan(context, plan_id, key)}
+
+
+@router.delete("/production-plans/{plan_id}", status_code=204)
+def delete_plan(
+    plan_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> Response:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    planning.delete_plan(context, plan_id, key)
+    return Response(status_code=204)
+
+
+# ---- M-03 작업지시 ----
+@router.get("/work-orders")
+def list_orders(context: Auth) -> dict[str, object]:
+    return {"data": planning.list_orders(context)}
+
+
+@router.post("/work-orders", status_code=201)
+def post_order(
+    payload: OrderCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": planning.create_order(context, payload.model_dump(mode="json"), key)
+    }
+
+
+@router.patch("/work-orders/{order_id}")
+def patch_order(
+    order_id: int,
+    payload: OrderUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    # 날짜는 JSON 문자열로 받아 멱등 해시·영수증에 그대로 쓴다(DB가 date로 바꾼다).
+    values = payload.model_dump(mode="json", exclude_unset=True)
+    if any(v is None for k, v in values.items() if k != "bom_version_id"):
+        raise ApiError(400, "VALIDATION_FAILED", "필수 항목은 null로 비울 수 없습니다.")
+    return {"data": planning.update_order(context, order_id, values, key)}
+
+
+@router.post("/work-orders/{order_id}/release")
+def release_order(
+    order_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": planning.release_order(context, order_id, key)}
+
+
+@router.post("/work-orders/{order_id}/cancel")
+def cancel_order(
+    order_id: int,
+    payload: OrderCancel,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    reason = payload.cancel_reason.strip()
+    if not reason:
+        raise ApiError(
+            400,
+            "VALIDATION_FAILED",
+            "입력값을 확인해 주세요.",
+            {"fields": {"cancelReason": "취소 사유를 입력하세요."}},
+        )
+    return {"data": planning.cancel_order(context, order_id, reason, key)}
+
+
+@router.post("/work-orders/{order_id}/lot", status_code=201)
+def post_order_lot(
+    order_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": planning.create_missing_lot(context, order_id, key)}

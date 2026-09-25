@@ -99,6 +99,8 @@ for (const [route, title] of [
   ["fems/sites", "사업장·공간"],
   ["fems/meters", "계측기·채널"],
   ["fems/energy-factors", "환산·배출계수"],
+  ["mes/production-plans", "생산계획"],
+  ["mes/work-orders", "작업지시"],
   ["mes/sites", "사업장·공간"],
   ["mes/equipments", "설비"],
   ["mes/items", "품목"],

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -138,3 +139,52 @@ class BomLineIn(ApiModel):
 
 class BomLines(ApiModel):
     lines: list[BomLineIn] = Field(max_length=100)
+
+
+# ---- M-02 생산계획 · M-03 작업지시 ----
+MONTH = r"^[0-9]{4}-(0[1-9]|1[0-2])$"
+WEEK = r"^[0-9]{4}-W(0[1-9]|[1-4][0-9]|5[0-3])$"
+
+
+class PlanCreate(ApiModel):
+    plan_code: str = Field(alias="planCode", pattern=ITEM_CODE)
+    target_month: str = Field(alias="targetMonth", pattern=MONTH)
+    sales_plan_code: str | None = Field(None, alias="salesPlanCode", max_length=40)
+
+
+class PlanUpdate(ApiModel):
+    plan_code: str | None = Field(None, alias="planCode", pattern=ITEM_CODE)
+    target_month: str | None = Field(None, alias="targetMonth", pattern=MONTH)
+    sales_plan_code: str | None = Field(None, alias="salesPlanCode", max_length=40)
+
+
+class PlanLineIn(ApiModel):
+    item_id: int = Field(alias="itemId", gt=0)
+    target_week: str = Field(alias="targetWeek", pattern=WEEK)
+    plan_qty: str = Field(alias="planQty", pattern=QTY)
+
+
+class PlanLines(ApiModel):
+    lines: list[PlanLineIn] = Field(max_length=200)
+
+
+class OrderCreate(ApiModel):
+    production_plan_line_id: int = Field(alias="productionPlanLineId", gt=0)
+    route_version_id: int = Field(alias="routeVersionId", gt=0)
+    bom_version_id: int | None = Field(None, alias="bomVersionId", gt=0)
+    plan_qty: str = Field(alias="planQty", pattern=QTY)
+    plan_start_date: date = Field(alias="planStartDate")
+    plan_end_date: date = Field(alias="planEndDate")
+
+
+class OrderUpdate(ApiModel):
+    # 계획 라인·품목은 바꾸지 않는다. 다른 라인에 배정하려면 취소 후 새로 만든다.
+    route_version_id: int | None = Field(None, alias="routeVersionId", gt=0)
+    bom_version_id: int | None = Field(None, alias="bomVersionId", gt=0)
+    plan_qty: str | None = Field(None, alias="planQty", pattern=QTY)
+    plan_start_date: date | None = Field(None, alias="planStartDate")
+    plan_end_date: date | None = Field(None, alias="planEndDate")
+
+
+class OrderCancel(ApiModel):
+    cancel_reason: str = Field(alias="cancelReason", min_length=1, max_length=300)

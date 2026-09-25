@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -29,7 +29,7 @@ def _camel(name: str) -> str:
 def _value(value: Any) -> Any:
     if isinstance(value, Decimal):
         return str(value)
-    if isinstance(value, datetime):
+    if isinstance(value, (date, datetime)):
         return value.isoformat()
     return value
 

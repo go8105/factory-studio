@@ -799,3 +799,9 @@
 - M-14·M-15 버전 API·화면. `service.Versioned`로 두 흐름 공통 처리. 게시·폐기 엔드포인트의 쿼리 파라미터 노출 결함을 작성 중 발견해 클로저로 수정.
 - 도움말 m-14·m-15 수정. FS-020a main `8294164` ff.
 - 테스트: backend +24(전체 384, CI 환경), frontend +8(전체 274), Playwright +4(전체 58). 보고서 `docs/agent/MES_FS-020b.md`.
+
+## 2026-09-25 FS-020c 완료 (Claude Code)
+
+- `mes/planning.py`: 생산계획(초안·확정·라인 교체)·작업지시(생성·수정·발행+LOT·취소·LOT 보충). 계획 라인 FOR UPDATE 배정 한도, 동시 요청 테스트.
+- MES 진입을 생산계획으로. 도움말 m-02·m-03 보강. FS-020b main `0f68b53` ff.
+- 테스트: backend +20(전체 404, CI 환경), frontend +8(전체 282), Playwright +3(전체 61). 보고서 `docs/agent/MES_FS-020c.md`.

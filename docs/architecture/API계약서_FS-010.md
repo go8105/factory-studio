@@ -365,6 +365,12 @@ GET /journal-preview?kind=RECEIPT&applyId=...
 - `/routes` · `/boms`: 목록에 `steps`/`lines`. 생성은 초안, `POST /{id}/revise`(BOM은 `bomCode` 필수)·`/publish`·`/retire`, `PUT /routes/{id}/steps` `{processIds}`·`PUT /boms/{id}/lines` `{lines}`는 초안만 통째 교체, `DELETE`는 초안만.
 - 409 `reason`: `VERSION_LOCKED`·`IS_DRAFT`·`DRAFT_EXISTS`·`INVALID_TRANSITION`·`EMPTY_VERSION`. BOM 자재 오류는 400 `fields.lines`.
 
+### 생산계획·작업지시 (FS-020c)
+
+- `/production-plans`: 라인에 `allocatedQty`·`remainingQty`. `PUT /{id}/lines` 초안 통째 교체, `POST /{id}/confirm`. 확정 후 409 `PLAN_CONFIRMED`, 빈 계획 확정 409 `EMPTY_PLAN`.
+- `/work-orders`: 확정 계획 라인에서 생성(번호 자동), 배정 초과 409 `PLAN_QTY_EXCEEDED`(+잔여). `release`는 LOT을 같은 트랜잭션에서 생성, 경로·BOM 게시 재확인 409 `VERSION_NOT_PUBLISHED`. 발행 후 변경 409 `ORDER_RELEASED`.
+- `POST /work-orders/{id}/lot`(추가): 발행됐지만 LOT이 없는 지시의 LOT 생성. 그 외 409 `LOT_NOT_ALLOWED`.
+
 ### LOT 상세가 핵심 응답이다
 
 `GET /lots/{id}`는 추적성을 보여주는 화면(M-04)을 받친다. 공정 실행 · 투입 자재 · 실적을 **한 번에 반환한다.** 화면이 세 번 호출하게 두지 않는다.

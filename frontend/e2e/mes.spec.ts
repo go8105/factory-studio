@@ -7,12 +7,38 @@ test.beforeEach(async ({ page }) => {
   await expect(page).toHaveURL("/home");
 });
 
-test("포털에서 MES로 들어가면 기준정보 화면이 열린다", async ({ page }) => {
+test("포털에서 MES로 들어가면 생산계획 화면이 열린다", async ({ page }) => {
   await page.getByRole("link", { name: /MES 생산관리/ }).click();
-  await expect(page).toHaveURL(/\/mes\/sites$/);
+  await expect(page).toHaveURL(/\/mes\/production-plans$/);
   await expect(
-    page.getByRole("heading", { name: "사업장·공간", exact: true }),
+    page.getByRole("heading", { name: "생산계획", level: 1 }),
   ).toBeVisible();
+});
+
+test("계획 라인에서 작업지시를 만들어 발행하면 LOT이 생긴다", async ({
+  page,
+}) => {
+  await page.goto("/mes/production-plans");
+  await page
+    .getByRole("table", { name: "생산계획 목록" })
+    .getByRole("row", { name: /^PP-2026-09/ })
+    .getByRole("button", { name: /라인/ })
+    .click();
+  await page
+    .getByRole("table", { name: "PP-2026-09 계획 라인" })
+    .getByRole("link", { name: "지시 만들기" })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/mes\/work-orders\?line=\d+$/);
+  await page.getByLabel("지시 수량").fill("100");
+  await page.getByLabel("계획 시작일").fill("2026-09-28");
+  await page.getByLabel("계획 종료일").fill("2026-09-30");
+  await page.getByRole("button", { name: "등록" }).click();
+  const orders = page.getByRole("table", { name: "작업지시 목록" });
+  const created = orders.getByRole("row", { name: /^WO-0031/ });
+  await expect(created).toContainText("등록");
+  await created.getByRole("button", { name: "발행" }).click();
+  await expect(created).toContainText("LT-0027");
 });
 
 test("품목 단위 환산을 보고 기준 단위 잠금을 확인한다", async ({ page }) => {
