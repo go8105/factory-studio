@@ -29,11 +29,12 @@ router = APIRouter()
 
 
 def _set_cookie(response: Response, token: str) -> None:
+    settings = get_settings()
     response.set_cookie(
-        key=get_settings().session_cookie,
+        key=settings.session_cookie,
         value=token,
         httponly=True,
-        secure=True,
+        secure=settings.cookie_secure,
         samesite="lax",
         path="/",
     )

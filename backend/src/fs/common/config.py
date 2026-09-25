@@ -11,6 +11,13 @@ class Settings:
     session_cookie: str = "fs_session"
     session_idle_minutes: int = 30
     guest_limit: int = 20
+    cookie_secure: bool = True
+
+
+def cookie_secure() -> bool:
+    # COOKIE_SECURE=false 이면 로컬 HTTP 환경에서도 쿠키가 저장된다 (기본값: true).
+    # SESSION_SECRET 없이도 읽을 수 있어야 오류 핸들러가 500으로 바뀌지 않는다.
+    return os.environ.get("COOKIE_SECURE", "true").lower() not in {"false", "0", "no"}
 
 
 def get_settings() -> Settings:
@@ -24,4 +31,5 @@ def get_settings() -> Settings:
         database_url=database_url,
         session_secret=session_secret,
         guest_limit=int(os.environ.get("GUEST_LIMIT", "20")),
+        cookie_secure=cookie_secure(),
     )

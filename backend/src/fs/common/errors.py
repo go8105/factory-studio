@@ -7,6 +7,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
+from fs.common.config import cookie_secure
+
 
 class ApiError(Exception):
     def __init__(
@@ -38,7 +40,11 @@ def install_error_handlers(app: FastAPI) -> None:
         response = JSONResponse(status_code=error.status_code, content=_content(error))
         if error.code in {"SESSION_EXPIRED", "WORKSPACE_EXPIRED"}:
             response.delete_cookie(
-                "fs_session", path="/", secure=True, httponly=True, samesite="lax"
+                "fs_session",
+                path="/",
+                secure=cookie_secure(),
+                httponly=True,
+                samesite="lax",
             )
         return response
 
