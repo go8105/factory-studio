@@ -443,3 +443,12 @@ def revise_production_record(
 ) -> dict[str, object]:
     key = _mutation(context, x_csrf_token, idempotency_key)
     return {"data": service.revise_production(context, record_id, key)}
+
+
+@router.get("/intensity")
+def get_intensity(
+    context: Auth,
+    date_from: Annotated[date | None, Query(alias="from")] = None,
+    date_to: Annotated[date | None, Query(alias="to")] = None,
+) -> dict[str, object]:
+    return {"data": service.intensity(context, date_from, date_to)}

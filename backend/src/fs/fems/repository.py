@@ -1050,6 +1050,7 @@ def active_sources(
 # 버전 규칙: 같은 source_key의 새 version_no가 개정이다. 확정 행은 바꾸지 않는다.
 PRODUCTION_BASE = """
 SELECT p.id,p.source_key,p.version_no,p.equipment_id,q.equipment_code,q.name equipment_name,
+       q.equipment_type,
        p.item_code,p.period_start,p.period_end,p.production_qty,p.unit,p.status,p.confirmed_at,
        s.timezone,
        p.version_no = max(p.version_no) OVER (PARTITION BY p.source_key) is_latest,
@@ -1274,3 +1275,52 @@ def source_versions(
         {**_s(context), "k": source_key},
     ).mappings()
     return [dict(r) for r in rows]
+
+
+# ---- F-06 원단위 분석 (FS-018j) ----
+def effective_production(
+    connection: Connection, context: AuthContext
+) -> list[dict[str, Any]]:
+    """원천 키별 최신 확정 버전(원단위 분모 후보). 초안·이전 버전은 제외한다."""
+    rows = connection.execute(
+        text(f"SELECT * FROM ({PRODUCTION_BASE}) x WHERE x.is_effective"),
+        _s(context),
+    ).mappings()
+    return [{**production_dict(r), "equipmentType": r["equipment_type"]} for r in rows]
+
+
+def current_allocations(
+    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+) -> list[dict[str, Any]]:
+    """기간 안의 현재 배분 결과(invalid 제외). 원단위 분자 후보."""
+    rows = connection.execute(
+        text(
+            f"SELECT * FROM ({_allocation_scope({})}) z "
+            "WHERE z.is_latest AND z.quality<>'invalid'"
+        ),
+        {**_s(context), "date_from": date_from, "date_to": date_to},
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
+def item_baselines(
+    connection: Connection, context: AuthContext
+) -> dict[str, dict[str, Any]]:
+    """품목별 확정 기준선 중 가장 최근 기간. 초안은 비교에 쓰지 않는다."""
+    rows = connection.execute(
+        text(
+            """
+            SELECT DISTINCT ON (b.item_code)
+                   b.item_code,b.baseline_code,b.baseline_value,b.unit,b.period_from,b.period_to,
+                   e.source_code
+            FROM fems.energy_baseline b
+            LEFT JOIN fems.energy_source e
+              ON e.workspace_id=b.workspace_id AND e.generation_id=b.generation_id AND e.id=b.energy_source_id
+            WHERE b.workspace_id=:w AND b.generation_id=:g
+              AND b.baseline_scope='ITEM' AND b.status='confirmed'
+            ORDER BY b.item_code, b.period_to DESC, b.baseline_code DESC
+            """
+        ),
+        _s(context),
+    ).mappings()
+    return {r["item_code"]: dict(r) for r in rows}

@@ -22,6 +22,8 @@ SIX = Decimal("0.000001")
 def fems(clean_database: Engine, monkeypatch: pytest.MonkeyPatch):
     engine = clean_database
     monkeypatch.setenv("DATABASE_URL", engine.url.render_as_string(hide_password=False))
+    # 게스트 복사 기준일을 템플릿 날짜로 고정한다(실제 날짜가 바뀌어도 결과가 같다).
+    monkeypatch.setenv("FS_TODAY", "2026-09-24")
     monkeypatch.setenv(
         "SESSION_SECRET", "fs018-synthetic-test-secret-at-least-32-characters"
     )

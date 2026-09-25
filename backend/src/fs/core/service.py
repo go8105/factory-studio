@@ -8,6 +8,7 @@ from seed.copy import copy_template, copy_template_generation
 from sqlalchemy import Connection, inspect, text
 
 from fs.common.auth import AuthContext
+from fs.common.clock import guest_expires_at
 from fs.common.config import get_settings
 from fs.common.errors import ApiError
 from fs.common.idempotency import (
@@ -71,6 +72,12 @@ def create_guest(
         template["generation_id"],
         target_date,
         token_hash(token),
+    )
+    # 복사는 데이터 기준일(target_date)로 만료를 정한다. 만료는 실제 시간이어야 하므로 다시 쓴다.
+    # FS_TODAY가 없으면 두 날짜가 같아 값이 바뀌지 않는다.
+    connection.execute(
+        text("UPDATE core.workspace SET expires_at=:expires WHERE id=:id"),
+        {"expires": guest_expires_at(), "id": workspace_id},
     )
     workspace = (
         connection.execute(

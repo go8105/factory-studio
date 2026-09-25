@@ -1438,3 +1438,181 @@ def revise_production(context: AuthContext, record_id: int, key: str) -> dict[st
         created = repo.get_production(connection, scoped, new_id)
         _receipt(connection, scoped, operation, key, digest, new_id, created, 201)
         return created
+
+
+# ---- F-06 원단위 분석 (FS-018j) ----
+# 원단위 = 생산 구간에 포함된 설비 일별 배분(현재 결과, invalid 제외)의 합 ÷ 생산량(FS-005g 5.6).
+# 부분 구간을 비례 추정하지 않는다. 에너지원이 다르면 단위별로 따로 내고, 합계는 PRIMARY 환산(TOE)만.
+MAX_INTENSITY_DAYS = 92
+DEFAULT_INTENSITY_DAYS = 31
+FINAL_PROCESS = "INS"  # 품목 원단위 분모 = 최종 공정(검사) 양품(FS-005g 5.5 D-2)
+
+
+def _lot_of(source_key: str) -> str | None:
+    # 원천 키 규칙 MES:<LOT>:<공정>(FS-005g 5.6). 직접 입력(MAN-)은 LOT 정보가 없다.
+    parts = source_key.split(":")
+    return parts[1] if len(parts) == 3 and parts[0] == "MES" else None
+
+
+def _record_energy(
+    record: dict[str, Any],
+    allocations: list[dict[str, Any]],
+    factors: dict[tuple[int, str], dict[str, Any]],
+) -> tuple[dict[str, Decimal], Decimal | None]:
+    """기록 구간 안에 완전히 들어가는 배분만 단위별로 합하고 TOE로도 환산한다."""
+    start = datetime.fromisoformat(record["periodStart"])
+    end = datetime.fromisoformat(record["periodEnd"])
+    energy: dict[str, Decimal] = {}
+    toe: Decimal | None = Decimal(0)
+    for a in allocations:
+        if (
+            a["equipment_id"] != record["equipmentId"]
+            or a["period_start"] < start
+            or a["period_end"] > end
+        ):
+            continue
+        energy[a["unit"]] = energy.get(a["unit"], Decimal(0)) + a["quantity"]
+        if a["source_code"] == "WATER" or toe is None:
+            continue
+        year = (
+            (a["period_end"] - timedelta(microseconds=1))
+            .astimezone(ZoneInfo(a["timezone"]))
+            .strftime("%Y")
+        )
+        factor = factors.get((a["energy_source_id"], year))
+        if factor is None or not factor["factor_unit"].endswith("/" + a["unit"]):
+            toe = None  # 계수가 없으면 환산 합계를 내지 않는다(부분 합을 전체처럼 보이지 않게).
+        else:
+            toe += a["quantity"] * factor["factor_value"]
+    return energy, toe
+
+
+def _per_unit(value: Decimal, qty: Decimal) -> str:
+    return str((value / qty).quantize(SIX))
+
+
+def intensity(
+    context: AuthContext, date_from: date | None, date_to: date | None
+) -> dict[str, Any]:
+    _check_period(date_from, date_to, MAX_INTENSITY_DAYS)
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        if date_to is None:
+            date_to = repo.latest_reading_date(connection, scoped)
+            if date_to is None:
+                return {"period": None, "records": [], "items": []}
+            date_from = date_to - timedelta(days=DEFAULT_INTENSITY_DAYS - 1)
+        production = repo.effective_production(connection, scoped)
+        allocations = repo.current_allocations(connection, scoped, date_from, date_to)
+        factors = repo.factors(connection, scoped, "PRIMARY")
+        baselines = repo.item_baselines(connection, scoped)
+    first, last = date_from.isoformat(), date_to.isoformat()
+    inside = [p for p in production if p["startDate"] >= first and p["endDate"] <= last]
+    records = []
+    energy_of: dict[int, dict[str, Decimal]] = {}
+    for p in sorted(inside, key=lambda r: (r["startDate"], r["sourceKey"])):
+        energy, toe = _record_energy(p, allocations, factors)
+        energy_of[p["id"]] = energy
+        qty = Decimal(p["productionQty"])
+        status = (
+            "NO_PRODUCTION" if qty == 0 else "NO_ENERGY" if not energy else "CALCULATED"
+        )
+        records.append(
+            {
+                "id": p["id"],
+                "sourceKey": p["sourceKey"],
+                "versionNo": p["versionNo"],
+                "equipmentCode": p["equipmentCode"],
+                "equipmentName": p["equipmentName"],
+                "itemCode": p["itemCode"],
+                "startDate": p["startDate"],
+                "endDate": p["endDate"],
+                "productionQty": p["productionQty"],
+                "unit": p["unit"],
+                "energy": [
+                    {"quantity": str(v.quantize(SIX)), "unit": u}
+                    for u, v in sorted(energy.items())
+                ],
+                "intensity": [
+                    {"value": _per_unit(v, qty), "unit": f"{u}/{p['unit']}"}
+                    for u, v in sorted(energy.items())
+                ]
+                if status == "CALCULATED"
+                else [],
+                "toePerUnit": _per_unit(toe, qty)
+                if status == "CALCULATED" and toe is not None
+                else None,
+                "status": status,
+            }
+        )
+    # 품목 원단위: 모든 공정 기록이 기간 안에 있고 검사까지 끝난 LOT만 묶는다.
+    lots: dict[str, list[dict[str, Any]]] = {}
+    for p in production:
+        lot = _lot_of(p["sourceKey"])
+        if lot:
+            lots.setdefault(lot, []).append(p)
+    inside_ids = {p["id"] for p in inside}
+    items: dict[str, dict[str, Any]] = {}
+    for lot, lot_records in sorted(lots.items()):
+        finals = [r for r in lot_records if r["equipmentType"] == FINAL_PROCESS]
+        if not finals or any(r["id"] not in inside_ids for r in lot_records):
+            continue
+        item = items.setdefault(
+            lot_records[0]["itemCode"],
+            {
+                "lots": [],
+                "energy": Decimal(0),
+                "output": Decimal(0),
+                "unit": finals[0]["unit"],
+            },
+        )
+        item["lots"].append(lot)
+        item["energy"] += sum(
+            energy_of[r["id"]].get("kWh", Decimal(0)) for r in lot_records
+        )
+        item["output"] += sum(Decimal(r["productionQty"]) for r in finals)
+    item_rows = []
+    for code, item in sorted(items.items()):
+        value = item["energy"] / item["output"] if item["output"] else None
+        base = baselines.get(code)
+        comparable = (
+            base is not None
+            and base["source_code"] == "ELEC"
+            and base["unit"] == f"kWh/{item['unit']}"
+        )
+        item_rows.append(
+            {
+                "itemCode": code,
+                "lots": item["lots"],
+                "energy": {
+                    "quantity": str(item["energy"].quantize(SIX)),
+                    "unit": "kWh",
+                },
+                "output": {"quantity": str(item["output"]), "unit": item["unit"]},
+                "intensity": str(value.quantize(SIX)) if value is not None else None,
+                "intensityUnit": f"kWh/{item['unit']}",
+                "status": "CALCULATED" if value is not None else "NO_PRODUCTION",
+                "baseline": {
+                    "code": base["baseline_code"],
+                    "value": str(base["baseline_value"]),
+                    "unit": base["unit"],
+                    "periodFrom": base["period_from"],
+                    "periodTo": base["period_to"],
+                }
+                if comparable
+                else None,
+                "changeRate": str(
+                    (
+                        (value - base["baseline_value"]) / base["baseline_value"] * 100
+                    ).quantize(Decimal("0.1"))
+                    + 0  # -0.0을 0.0으로
+                )
+                if comparable and value is not None
+                else None,
+            }
+        )
+    return {
+        "period": {"from": first, "to": last},
+        "records": records,
+        "items": item_rows,
+    }

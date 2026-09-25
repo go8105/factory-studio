@@ -1,80 +1,33 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-24 (FS-018i 완료, Claude Code). 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-25 (FS-018j 완료, Claude Code). **다음 세션은 이 문서부터 읽는다.**
 
 ## Git 상태
 
-- 저장소: `/Users/hwang-kyoungho/projects/factory-studio` **메인 폴더만 사용**.
-- 브랜치: **`fs-018i-production`**, main `95ae521`(AG-07·CI 수정까지 origin push·CI 통과)에서 분기. `fs-018h-billing`(4930355)은 폐기 — origin과 이력이 다르다.
-- 구현·인계 커밋: `FS-018i: F-05 생산량 등록`. WIP `f952855` 포함. 최종 HEAD는 `git log -1 --oneline`.
-- main 병합·push는 사용자만 한다(`git fetch . fs-018-fems:main`, ff만).
-- `../factory-studio-ag`는 main `2cece7b` 기준이다. antigravity 작업 전 최신 main에서 새 `antigravity/*` 브랜치를 만들어야 한다.
+- 저장소: `/Users/hwang-kyoungho/projects/factory-studio`
+- 브랜치: **`fs-018j-intensity`**, main·origin `78e1206`(FS-018i까지)에서 분기. 아직 push·main 병합 전.
+- 커밋 2개: `FS-018j: F-06 원단위와 업무 기준일 고정`, `COOKIE_SECURE 설정과 무세션 500 수정`(다른 작성자 변경 + 결함 수정, 사용자 결정 ③).
+- 상세: `docs/agent/FEMS_FS-018j.md`. 검증: frontend 220, backend 267(CI 환경), Playwright 41, ruff(CI 범위) 모두 통과.
 
-## FS-018i에서 끝난 것
+## 다음 작업
 
-- F-05 생산량 등록(`/production-records`, `frontend/src/fems/Production.tsx`). F-06 원단위는 `isEffective`(원천 키별 최대 확정 버전)만 분모로 써야 한다.
+1. 사용자 확인 후 push → CI 통과 확인 → main ff. 그 뒤 Codex가 conftest 단축을 시작할 수 있다.
+2. F-13 → F-12 → F-09 순서로 진행.
 
-## FS-018h에서 끝난 것
+## 병행 운영 (2026-09-25 사용자 지시)
 
-- F-08 요금 산정(`GET /billing`, `frontend/src/fems/Billing.tsx`). 대시보드 요금도 `service._billing`을 쓴다.
-
-## FS-018g에서 끝난 것
-
-- F-07 목표 대비 실적(`GET /targets/performance`, `frontend/src/fems/Targets.tsx`). F-14 사이드바 그룹 기준정보로 이동. 스모크 포트 검사 수정.
-
-## FS-018f에서 끝난 것
-
-- F-01 대시보드(`GET /dashboard`, `frontend/src/fems/Dashboard.tsx`). FEMS 진입 화면. 계산 규칙은 FS-010 §7, `docs/agent/FEMS_FS-018f.md`.
-
-## FS-018e에서 끝난 것
-
-- 에너지 목표 = 월 실적 × 월·대상별 90~105% 비율표(`backend/seed/common.py TARGET_RATIOS`). seed `sv-20260924-2`. `test_seed.py` V8 쿼리 1개 수정(antigravity에 알릴 것).
-- 로컬 개발 DB의 기존 템플릿은 옛 값. 새 비율을 보려면 `seed.cli template` 재실행.
-
-## FS-018d에서 끝난 것
-
-- F-04 배출량(`GET /emissions`, `frontend/src/fems/Emissions.tsx`). 규칙은 FS-010 §7과 `docs/agent/FEMS_FS-018d.md`. F-01은 이 계산(service.emissions)을 재사용한다.
-- AG-06 F-14 요금제 검토 완료.
-
-## FS-018c에서 끝난 것
-
-- F-03 설비별 배분(`GET /allocations`, `frontend/src/fems/Allocations.tsx`). 현재 결과 판정·이전 결과 토글·단위별 합계·계산 근거 패널. 상세 `docs/agent/FEMS_FS-018c.md`.
-- 사용자 결정: F-14 요금제 적용 기간 겹침은 409 `PERIOD_OVERLAP`(FS-010 §7).
-
-## FS-018b에서 끝난 것
-
-- F-02 계측 조회(`GET /readings`·`/meters`·`/sites`, `frontend/src/fems/Readings.tsx`). 조회 패턴과 복제 가이드: `docs/agent/FEMS_FS-018b.md`.
-- 결측(`quality=invalid`)은 API에서 `value=null`. 합계 화면은 서버 집계에서 invalid를 제외해야 한다.
-- `GUEST_LIMIT` 환경 변수(기본 20). 스모크 테스트 서버만 200.
-- AG-05(F-10) 검토·재현, ruff import 정렬 1건 수정.
-
-## FS-018a에서 끝난 것
-
-- FEMS 레이아웃(좌측 사이드바, `femsScreens`에 구현 화면만) + F-11 에너지원 CRUD. 런처 FEMS 카드 → `/fems`.
-- `backend/src/fs/common/scope.py`: 업무 API의 세대·모듈 재확인과 공간 잠금. **ERP·MES도 이것을 쓴다.**
-- `backend/src/fs/fems/`: router/schema/service/repository. 규칙은 FS-010 §7 "FS-018a에서 확정한 업무 API 공통 규칙".
-- 공통 컴포넌트: `PageTitle help`, `ErrorNotice` 참조 건수 목록, `DataTable empty`. `api()`는 `/api/`로 시작하는 경로를 그대로 호출.
-- FEMS·도움말 lazy 로딩(번들 경고 해소).
-- 상세·antigravity 복제 가이드: `docs/agent/FEMS_FS-018a.md`.
-
-## 다음 할 일
-
-1. 남은 FEMS 화면(사용자 승인 순서): F-06 원단위(생산량 0이면 "생산량 없음") → F-09 사업장·공간(자기 참조 계층), F-12 계측기·채널(마스터-디테일), F-13 환산·배출계수(PRIMARY/EMISSION 탭).
-2. 제안: 모바일 FEMS 사이드바 접기(작은 작업, antigravity 가능), backend 테스트 시간 단축(conftest, Codex).
+- **Claude Code**: 메인 폴더에서 FEMS 남은 화면을 순차 진행(F-06 마무리 → F-13 → F-12 → F-09).
+- **Codex**: **메인 폴더를 쓰지 않는다.** 전용 worktree `../factory-studio-codex`, 브랜치 `codex/*`. 이번 쿠키 변경처럼 같은 폴더를 동시에 쓰면 서로의 미커밋 변경이 섞인다.
+- Codex 첫 작업: backend 테스트 시간 단축(conftest). FEMS 테스트 fixture를 건드리므로 **F-06이 main에 들어간 뒤** 시작한다.
+- 병합 순서: 먼저 끝난 쪽을 main에 ff, 나중 쪽이 rebase. rebase는 Claude Code가 맡는다.
 
 ## 주의점
 
-- **ruff는 CI와 같은 범위로 돌린다**: `uv run --project backend ruff check --config backend/pyproject.toml backend tools/verify_ddl_matches_schema.py` + 같은 범위 `ruff format --check`. 파일을 골라 돌리면 CI가 실패한다(2026-09-24, 첫 push부터 10회 실패 원인).
-
+- **ruff는 CI와 같은 범위로 돌린다**: `uv run --project backend ruff check --config backend/pyproject.toml backend tools/verify_ddl_matches_schema.py` + 같은 범위 `ruff format --check`. `tools` 폴더 전체를 넣으면 CI 밖 파일 오류가 쏟아진다.
+- **backend 테스트는 CI 환경으로**: DATABASE_URL·TEST_DATABASE_URL·PATH·HOME만. `.env`를 쓰면 SESSION_SECRET 등이 섞여 CI와 결과가 달라진다.
+- **날짜에 의존하는 테스트를 만들지 않는다**: 게스트를 만드는 테스트는 `FS_TODAY`를 템플릿 날짜로 고정한다.
 - schema.json·마이그레이션 변경 금지. `test_common.py`·`test_seed.py`는 antigravity 소유, `conftest.py`는 Codex 소유.
-- 업무 쓰기는 반드시 `write_scope` 뒤에 한다. 세션의 generation_id를 그대로 쓰지 않는다(초기화 경합).
-- 마스터 CRUD는 audit_event를 남기지 않는다(결정 보류, FS-021).
-- 흐름 맵 `energy_master` 노드는 아직 도움말 연결. content 계약 변경은 FEMS 화면이 더 생긴 뒤.
-- `.env`에 SESSION_SECRET(32자 이상)이 필요하다. 테스트는 프로세스에 합성 값을 주입한다.
-
-## 실제 검증 (FS-018i 최종 코드)
-
-Python 3.14.7 / Node 24.21.0 / PostgreSQL 18.6. 모두 exit 0: frontend typecheck/lint/format/build/test(207), ruff check/format(CI 범위), backend 전체 pytest 244(CI 환경)(`factory_studio_fs016_test`), `tools/run_portal_smoke.py` Playwright 39(`factory_studio_fs017_test`), tools unittest 44, db:validate, audit_schema_isolation, git diff --check. pytest와 브라우저는 순차 실행.
+- 확정·게시 데이터 불변, 업무 쓰기는 `write_scope` 뒤, 결측(invalid)은 합계에서 제외.
 
 ## 재현 명령
 

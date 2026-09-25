@@ -745,3 +745,10 @@
 - F-05 `/production-records`: 초안 CRUD, confirm, revise. ALREADY_CONFIRMED·DRAFT_EXISTS·NOT_LATEST·REVISION_FIELDS_FIXED·PERIOD_OVERLAP. 날짜 → 사업장 시간대 반개구간.
 - 공통 ErrorNotice conflicts 표시. 360px에서 상태·관리 열 앞으로, 필터 체크박스 한 줄.
 - 테스트: backend +27(전체 244, CI 환경), frontend +13(전체 207), Playwright +2(전체 39). 모든 검증 exit 0. 보고서 `docs/agent/FEMS_FS-018i.md`.
+
+## 2026-09-25 FS-018j 완료 (Claude Code)
+
+- F-06 `GET /intensity`: 기록별·품목별 원단위, 확정 기준선 증감. NO_PRODUCTION·NO_ENERGY. 화면 `Intensity.tsx`.
+- `fs.common.clock`: `FS_TODAY` 업무 기준일, 게스트 만료는 실제 시각. FEMS 테스트 fixture·스모크 날짜 고정.
+- `COOKIE_SECURE` 변경(다른 작성자)의 무세션 500 결함을 `config.cookie_secure()` 분리로 수정, 사용자 결정 ③.
+- 테스트: backend +23(전체 267, CI 환경), frontend +13(전체 220). 보고서 `docs/agent/FEMS_FS-018j.md`.

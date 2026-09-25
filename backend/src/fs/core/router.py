@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Annotated
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Cookie, Depends, Header, Response
 
 from fs.common.auth import AuthContext, require_csrf, resolve_auth, resolve_token
+from fs.common.clock import business_today
 from fs.common.config import get_settings
 from fs.common.db import get_engine
 from fs.common.errors import ApiError
@@ -70,7 +69,7 @@ def guest_session(
                 get_settings().session_secret, fs_session
             )
         return {"data": cached}
-    target_date = datetime.now(ZoneInfo("Asia/Seoul")).date()
+    target_date = business_today()
     with get_engine().begin() as connection:
         data, token = create_guest(connection, target_date, idempotency_key)
     _set_cookie(response, token)
@@ -189,7 +188,7 @@ def post_generation(
     require_csrf(context, x_csrf_token)
     if not idempotency_key or len(idempotency_key) > 100:
         raise ApiError(400, "VALIDATION_FAILED", "Idempotency-Key가 필요합니다.")
-    target_date = datetime.now(ZoneInfo("Asia/Seoul")).date()
+    target_date = business_today()
     with get_engine().begin() as connection:
         data = reset_generation(connection, context, target_date, idempotency_key)
     return {"data": data}

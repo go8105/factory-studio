@@ -18,6 +18,7 @@ export const femsScreens = [
     label: "생산량 등록",
     group: "원단위·목표",
   },
+  { path: "intensity", id: "F-06", label: "원단위 분석", group: "원단위·목표" },
   {
     path: "targets",
     id: "F-07",

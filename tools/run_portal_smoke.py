@@ -11,15 +11,17 @@ import secrets
 import socket
 import subprocess
 import time
-from datetime import datetime
+from datetime import date
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
-from zoneinfo import ZoneInfo
 
 from seed.generate import create_template
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import make_url
+
+# 템플릿·게스트 복사 기준일. 실제 날짜와 무관하게 e2e의 날짜가 유효하다(FS_TODAY로 서버에 전달).
+SMOKE_DATE = date(2026, 9, 24)
 
 
 def main() -> None:
@@ -45,6 +47,8 @@ def main() -> None:
         "SESSION_SECRET": secrets.token_urlsafe(48),
         # 테스트마다 새 게스트를 만든다. 제품 기본 상한(20)과 무관하게 스모크 전체를 수용한다.
         "GUEST_LIMIT": "200",
+        # 템플릿과 게스트 복사 기준일을 고정한다. e2e의 날짜(09-07 결측, 8월 요금제 등)가 매일 유효하다.
+        "FS_TODAY": SMOKE_DATE.isoformat(),
     }
     admin = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
     with admin.connect() as connection:
@@ -77,9 +81,7 @@ def main() -> None:
             for table in inspect(connection).get_table_names(schema=schema)
         ]
         connection.execute(text(f"TRUNCATE {','.join(names)} RESTART IDENTITY CASCADE"))
-        _, _, counts = create_template(
-            connection, datetime.now(ZoneInfo("Asia/Seoul")).date()
-        )
+        _, _, counts = create_template(connection, SMOKE_DATE)
         print(
             f"DB={url.database}; PostgreSQL={connection.execute(text('SHOW server_version')).scalar_one()}; template={sum(counts.values())}",
             flush=True,

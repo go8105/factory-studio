@@ -142,3 +142,13 @@ test("생산량은 초안 등록 → 확정 → 정정 초안 순서로 흐른�
   await expect(page.getByRole("status")).toContainText("v2 정정 초안");
   await expect(page.getByLabel("설비")).toBeDisabled();
 });
+test("원단위는 기준선을 재현하고 생산량 0을 구분한다", async ({ page }) => {
+  await page.goto("/fems/intensity");
+  const items = page.getByLabel("품목 원단위");
+  await expect(items.getByRole("row", { name: /FG-C100/ })).toContainText(
+    "2.003 kWh/EA",
+  );
+  await expect(items.getByText("기준선과 같음").first()).toBeVisible();
+  const zero = page.getByRole("row", { name: /MES:LT-0018:INS/ });
+  await expect(zero.getByText("생산량 없음 · 계산 불가")).toBeVisible();
+});
