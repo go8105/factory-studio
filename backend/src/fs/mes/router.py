@@ -21,6 +21,7 @@ from fs.mes.schema import (
     EquipmentUpdate,
     ExecutionResult,
     ExecutionStart,
+    IssueCreate,
     ItemCreate,
     ItemUpdate,
     LocationCreate,
@@ -529,3 +530,46 @@ def confirm_result(
             context, execution_id, payload.model_dump(), key
         )
     }
+
+
+# ---- M-06 자재 투입 · M-07 실적 ----
+@router.get("/executions/{execution_id}/bom-requirement")
+def get_bom_requirement(context: Auth, execution_id: int) -> dict[str, object]:
+    return {"data": execution.bom_requirement(context, execution_id)}
+
+
+@router.get("/executions/{execution_id}/material-issues")
+def list_issues(context: Auth, execution_id: int) -> dict[str, object]:
+    return {"data": execution.list_issues(context, execution_id)}
+
+
+@router.post("/executions/{execution_id}/material-issues", status_code=201)
+def post_issue(
+    execution_id: int,
+    payload: IssueCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": execution.add_issue(context, execution_id, payload.model_dump(), key)
+    }
+
+
+@router.delete("/executions/{execution_id}/material-issues/{issue_id}", status_code=204)
+def delete_issue(
+    execution_id: int,
+    issue_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> Response:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    execution.delete_issue(context, execution_id, issue_id, key)
+    return Response(status_code=204)
+
+
+@router.get("/results")
+def list_results(context: Auth) -> dict[str, object]:
+    return {"data": execution.list_results(context)}

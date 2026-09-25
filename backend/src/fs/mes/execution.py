@@ -403,3 +403,274 @@ def _detail(connection, scoped, lot_id: int) -> dict[str, Any]:
     lot = repo.row_dict(row)
     steps = _steps(connection, scoped, lot)
     return {**_summary(lot, steps), "steps": steps}
+
+
+# ---- M-06 자재 투입 ----
+# 투입은 기록만 한다. 재고를 차감하지 않는다(재고 원장은 WMS 소유, schema.json SERVICE).
+ISSUE_SQL = """
+SELECT m.id, m.execution_id, m.material_item_id, m.material_lot_id, l.lot_no material_lot_no,
+       m.bom_version_id, m.issued_qty, m.unit, m.issued_at
+FROM mes.material_issue m
+LEFT JOIN mes.lot l ON l.workspace_id=m.workspace_id AND l.generation_id=m.generation_id
+ AND l.id=m.material_lot_id
+WHERE m.workspace_id=:w AND m.generation_id=:g
+"""
+
+
+def _execution_lot(
+    connection, scoped, execution_id: int
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """실행과 그 LOT(지시 포함). 없으면 404."""
+    row = (
+        connection.execute(
+            text(
+                f"SELECT id, lot_id, status, route_step_id FROM mes.operation_execution "
+                f"WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "id": execution_id},
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        raise _not_found("공정 실행")
+    lot = repo.row_dict(
+        connection.execute(
+            text(LOT_SQL + " AND t.id=:id"), {**_s(scoped), "id": row["lot_id"]}
+        )
+        .mappings()
+        .one()
+    )
+    return dict(row), lot
+
+
+def _issued_for_lot(connection, scoped, lot_id: int) -> dict[int, Decimal]:
+    rows = connection.execute(
+        text(
+            "SELECT m.material_item_id, sum(m.issued_qty) FROM mes.material_issue m "
+            "JOIN mes.operation_execution e ON e.workspace_id=m.workspace_id "
+            "AND e.generation_id=m.generation_id AND e.id=m.execution_id "
+            "WHERE m.workspace_id=:w AND m.generation_id=:g AND e.lot_id=:lot "
+            "GROUP BY m.material_item_id"
+        ),
+        {**_s(scoped), "lot": lot_id},
+    )
+    return {item: qty for item, qty in rows}
+
+
+def bom_requirement(context: AuthContext, execution_id: int) -> list[dict[str, Any]]:
+    """지시에 고정된 BOM의 기준 소요량. 소요 = LOT 계획 수량 × 1개당 소요량 × (1 + 손실률%).
+    같은 LOT에 이미 투입한 양을 빼서 제안량을 준다. BOM 없는 지시는 빈 배열(FS-010 §9)."""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        _, lot = _execution_lot(connection, scoped, execution_id)
+        if lot["bomVersionId"] is None:
+            return []
+        lines = repo.list_rows(
+            connection, scoped, repo.LINE, {"bom_version_id": lot["bomVersionId"]}
+        )
+        issued = _issued_for_lot(connection, scoped, lot["id"])
+    result = []
+    for line in lines:
+        raw = (
+            Decimal(lot["planQty"])
+            * Decimal(line["qtyPerUnit"])
+            * (1 + Decimal(line["lossRate"]) / 100)
+        )
+        # EA는 올림 정수, 그 밖의 단위는 소수 3자리(시드 생성 규칙과 같다)
+        required = (
+            raw.to_integral_value(rounding="ROUND_CEILING")
+            if line["unit"] == "EA"
+            else raw.quantize(Decimal("0.001"))
+        )
+        done = issued.get(line["materialItemId"], Decimal(0))
+        result.append(
+            {
+                "materialItemId": line["materialItemId"],
+                "unit": line["unit"],
+                "qtyPerUnit": line["qtyPerUnit"],
+                "lossRate": line["lossRate"],
+                "requiredQty": str(required),
+                "issuedQty": str(done),
+                "suggestedQty": str(max(required - done, Decimal(0))),
+            }
+        )
+    return result
+
+
+def list_issues(context: AuthContext, execution_id: int) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        _execution_lot(connection, scoped, execution_id)
+        return [
+            repo.row_dict(r)
+            for r in connection.execute(
+                text(ISSUE_SQL + " AND m.execution_id=:e ORDER BY m.issued_at, m.id"),
+                {**_s(scoped), "e": execution_id},
+            ).mappings()
+        ]
+
+
+def _running_execution(connection, scoped, execution_id: int) -> dict[str, Any]:
+    """잠금(공간 → 지시 → LOT → 실행) 후 실적 확정 전인지 확인한다."""
+    _, lot = _execution_lot(connection, scoped, execution_id)
+    lot = _lock_lot(connection, scoped, lot["id"])
+    execution = (
+        connection.execute(
+            text(
+                f"SELECT id, status FROM mes.operation_execution WHERE {_S} AND id=:id FOR UPDATE"
+            ),
+            {**_s(scoped), "id": execution_id},
+        )
+        .mappings()
+        .one()
+    )
+    if execution["status"] != "running":
+        raise _conflict(
+            "실적을 확정한 공정에는 자재 투입을 추가하거나 바꿀 수 없습니다.",
+            "RESULT_CONFIRMED",
+        )
+    return lot
+
+
+def add_issue(
+    context: AuthContext, execution_id: int, values: dict[str, Any], key: str
+):
+    def run(connection, scoped):
+        lot = _running_execution(connection, scoped, execution_id)
+        material = repo.get_row(
+            connection, scoped, repo.ITEM, values["material_item_id"]
+        )
+        if material is None:
+            raise _field("materialItemId", "유효하지 않은 품목입니다.")
+        conversions = repo.list_rows(
+            connection, scoped, repo.CONVERSION, {"item_id": material["id"]}
+        )
+        units = {material["baseUnit"], *(c["fromUnit"] for c in conversions)}
+        if values["unit"] not in units:
+            raise _field(
+                "unit", f"단위는 {', '.join(sorted(units))} 중 하나여야 합니다."
+            )
+        if Decimal(values["issued_qty"]) <= 0:
+            raise _field("issuedQty", "투입 수량은 0보다 커야 합니다.")
+        material_lot = values.get("material_lot_id")
+        if material_lot is not None:
+            source = connection.execute(
+                text(
+                    "SELECT o.item_id, t.status FROM mes.lot t JOIN mes.work_order o "
+                    "ON o.workspace_id=t.workspace_id AND o.generation_id=t.generation_id "
+                    "AND o.id=t.work_order_id WHERE t.workspace_id=:w AND t.generation_id=:g "
+                    "AND t.id=:id"
+                ),
+                {**_s(scoped), "id": material_lot},
+            ).first()
+            if source is None or source.item_id != material["id"]:
+                raise _field(
+                    "materialLotId", "투입 자재와 같은 품목의 LOT만 지정합니다."
+                )
+            if source.status != "completed":
+                raise _field("materialLotId", "생산이 끝난 LOT만 자재로 투입합니다.")
+        # LOT 미지정(NULL)은 UNIQUE가 중복을 못 막는다 → 같은 실행·자재·LOT 조합을 서비스에서 검사
+        duplicate = connection.execute(
+            text(
+                f"SELECT 1 FROM mes.material_issue WHERE {_S} AND execution_id=:e "
+                "AND material_item_id=:m AND material_lot_id IS NOT DISTINCT FROM :l"
+            ),
+            {**_s(scoped), "e": execution_id, "m": material["id"], "l": material_lot},
+        ).first()
+        if duplicate:
+            raise _conflict(
+                "이 공정에 같은 자재(같은 LOT)의 투입 기록이 이미 있습니다. 기존 기록을 지우고 다시 입력하세요.",
+                "DUPLICATE_ISSUE",
+            )
+        in_bom = lot["bomVersionId"] is not None and repo.exists_where(
+            connection,
+            scoped,
+            "mes.bom_line",
+            {"bom_version_id": lot["bomVersionId"], "material_item_id": material["id"]},
+        )
+        issue_id = connection.execute(
+            text(
+                "INSERT INTO mes.material_issue (workspace_id, generation_id, execution_id, "
+                "material_item_id, material_lot_id, bom_version_id, issued_qty, unit, issued_at) "
+                "VALUES (:w, :g, :e, :m, :l, :bom, :qty, :unit, now()) RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "e": execution_id,
+                "m": material["id"],
+                "l": material_lot,
+                # 이론 소요량과 비교할 근거: BOM에 있는 자재일 때만 지시의 BOM 버전을 남긴다
+                "bom": lot["bomVersionId"] if in_bom else None,
+                "qty": values["issued_qty"],
+                "unit": values["unit"],
+            },
+        ).scalar_one()
+        row = (
+            connection.execute(
+                text(ISSUE_SQL + " AND m.id=:id"), {**_s(scoped), "id": issue_id}
+            )
+            .mappings()
+            .one()
+        )
+        return repo.row_dict(row), "material_issue", issue_id
+
+    return _action(
+        context,
+        "mes.material_issue.create",
+        key,
+        {"executionId": execution_id, **values},
+        run,
+        201,
+    )
+
+
+def delete_issue(
+    context: AuthContext, execution_id: int, issue_id: int, key: str
+) -> None:
+    def run(connection, scoped):
+        _running_execution(connection, scoped, execution_id)
+        deleted = connection.execute(
+            text(
+                f"DELETE FROM mes.material_issue WHERE {_S} AND id=:id AND execution_id=:e"
+            ),
+            {**_s(scoped), "id": issue_id, "e": execution_id},
+        ).rowcount
+        if not deleted:
+            raise _not_found("자재 투입")
+        return {}, "material_issue", issue_id
+
+    _action(
+        context,
+        "mes.material_issue.delete",
+        key,
+        {"executionId": execution_id, "id": issue_id},
+        run,
+        204,
+    )
+
+
+# ---- M-07 실적 ----
+def list_results(context: AuthContext) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return [
+            repo.row_dict(r)
+            for r in connection.execute(
+                text(
+                    "SELECT x.id, x.execution_id, t.id lot_id, t.lot_no, t.completion_reason, "
+                    "s.sequence_no, s.process_id, e.equipment_id, x.input_qty, x.good_qty, "
+                    "x.defect_qty, x.unit, x.defect_reason, x.confirmed_at "
+                    "FROM mes.operation_result x "
+                    "JOIN mes.operation_execution e ON e.workspace_id=x.workspace_id "
+                    "AND e.generation_id=x.generation_id AND e.id=x.execution_id "
+                    "JOIN mes.lot t ON t.workspace_id=e.workspace_id "
+                    "AND t.generation_id=e.generation_id AND t.id=e.lot_id "
+                    "JOIN mes.route_step s ON s.workspace_id=e.workspace_id "
+                    "AND s.generation_id=e.generation_id AND s.id=e.route_step_id "
+                    "WHERE x.workspace_id=:w AND x.generation_id=:g "
+                    "ORDER BY x.confirmed_at DESC, x.id DESC"
+                ),
+                _s(scoped),
+            ).mappings()
+        ]

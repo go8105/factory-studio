@@ -387,6 +387,8 @@ GET /journal-preview?kind=RECEIPT&applyId=...
 - **BOM이 없는 지시면 빈 배열을 반환한다.** 404가 아니다. BOM 없는 지시는 정상 경로다(FS-008b D-2).
 - 투입은 기록일 뿐 재고를 차감하지 않는다. 응답에 그 사실을 표시하는 플래그를 두지 않는다 — **화면의 고정 안내로 처리한다.**
 
+- (FS-020e) 제안량 = 기준 소요(LOT 계획 × 소요량 × (1+손실률)) − 같은 LOT 누적 투입. 투입은 실적 확정 전만(409 `RESULT_CONFIRMED`), 같은 실행·자재·자재 LOT(NULL 포함) 중복 409 `DUPLICATE_ISSUE`, `DELETE /executions/{id}/material-issues/{issueId}`로 정정. `GET /results`는 확정 실적 목록.
+
 ### 실적 확정
 
 `POST /executions/{id}/result`는 `양품 + 불량 = 산출` 등식을 서버가 검증한다. 불량이 있는데 사유가 없으면 `400 VALIDATION_FAILED`.

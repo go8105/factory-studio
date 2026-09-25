@@ -145,3 +145,37 @@ test("대기 LOT의 첫 공정을 시작하고 실적을 확정하면 이력에 
       .nth(1),
   ).toContainText("미성형");
 });
+
+test("새로 시작한 공정에 BOM 제안량으로 자재를 투입한다", async ({ page }) => {
+  await page.goto("/mes/executions");
+  const row = page
+    .getByRole("table", { name: "시작할 수 있는 LOT" })
+    .getByRole("row", { name: /1\/3 사출/ })
+    .first();
+  const lotNo = (await row.getByRole("cell").first().textContent())!.trim();
+  await row.getByRole("button", { name: "시작" }).click();
+  await page
+    .getByRole("form", { name: "공정 시작" })
+    .getByRole("button", { name: "시작" })
+    .click();
+  await page.goto("/mes/material-issues");
+  await expect(page.getByText(/재고를 차감하지 않습니다/)).toBeVisible();
+  await page
+    .getByRole("table", { name: "실행 중인 공정" })
+    .getByRole("row", { name: new RegExp(`^${lotNo}`) })
+    .getByRole("button", { name: "투입" })
+    .click();
+  await page
+    .getByRole("table", { name: "BOM 기준 소요량" })
+    .getByRole("row", { name: /RM-PBT/ })
+    .getByRole("button", { name: "제안량 채우기" })
+    .click();
+  await page.getByRole("button", { name: "투입 기록" }).click();
+  const issues = page.getByRole("table", { name: "이 공정의 투입 기록" });
+  await expect(issues.getByRole("row", { name: /RM-PBT/ })).toContainText("KG");
+  await expect(
+    page
+      .getByRole("table", { name: "BOM 기준 소요량" })
+      .getByRole("row", { name: /RM-PBT/ }),
+  ).toContainText("투입 완료");
+});

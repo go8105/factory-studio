@@ -811,3 +811,9 @@
 - `mes/execution.py`: LOT 목록·추적 상세, 공정 시작(TX-01)·완료(TX-02). 잠금 공간→지시→LOT→실행, EQUIPMENT_BUSY, all_defective 종결.
 - 도움말 m-04·m-05 보강. FS-020c main `83c745d` ff.
 - 테스트: backend +16(전체 420, CI 환경), frontend +5(전체 287), Playwright +3(전체 64). 보고서 `docs/agent/MES_FS-020d.md`.
+
+## 2026-09-25 FS-020e 완료 (Claude Code)
+
+- 자재 투입 API·화면(BOM 제안량, RESULT_CONFIRMED, DUPLICATE_ISSUE, 삭제 정정), 실적 조회 `GET /results`, 공통 `ResultForm`.
+- 도움말 m-06·m-07 보강. FS-020d main `2a0717e` ff.
+- 테스트: backend +12(전체 432, CI 환경), frontend +7(전체 294), Playwright +3(전체 67). 보고서 `docs/agent/MES_FS-020e.md`.

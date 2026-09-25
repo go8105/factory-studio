@@ -103,6 +103,8 @@ for (const [route, title] of [
   ["mes/work-orders", "작업지시"],
   ["mes/lots", "LOT 현황"],
   ["mes/executions", "공정 실행"],
+  ["mes/material-issues", "자재 투입"],
+  ["mes/results", "실적 확정"],
   ["mes/sites", "사업장·공간"],
   ["mes/equipments", "설비"],
   ["mes/items", "품목"],

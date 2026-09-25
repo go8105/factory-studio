@@ -4,7 +4,6 @@ import {
   DataTable,
   EmptyState,
   ErrorNotice,
-  Field,
   Loading,
   PageTitle,
   type Column,
@@ -18,6 +17,7 @@ import {
   type Equipment,
 } from "./common";
 import type { Lot } from "./Lots";
+import { ResultForm } from "./ResultForm";
 
 type Running = {
   id: number;
@@ -56,12 +56,7 @@ export function Executions() {
     lotId: number;
     equipmentId: number;
   }>();
-  const [confirming, setConfirming] = useState<{
-    id: number;
-    good: string;
-    defect: string;
-    reason: string;
-  }>();
+  const [confirming, setConfirming] = useState<{ id: number }>();
 
   if (moduleOff(error)) return <ModuleOff />;
   const [lots, running, processes, equipments, items] = data ?? [
@@ -118,17 +113,6 @@ export function Executions() {
     if (ok) setStarting(undefined);
   }
 
-  async function submitConfirm(event: FormEvent) {
-    event.preventDefault();
-    if (pending || !confirming) return;
-    const ok = await send(`/executions/${confirming.id}/result`, "POST", {
-      goodQty: confirming.good.trim(),
-      defectQty: confirming.defect.trim() || "0",
-      defectReason: confirming.reason.trim() || null,
-    });
-    if (ok) setConfirming(undefined);
-  }
-
   const runningColumns: Column<Running>[] = [
     { key: "lotNo", label: "LOT" },
     {
@@ -139,7 +123,7 @@ export function Executions() {
           type="button"
           className="link-button"
           onClick={() => {
-            setConfirming({ id: r.id, good: "", defect: "0", reason: "" });
+            setConfirming({ id: r.id });
             setStarting(undefined);
             setError(undefined);
           }}
@@ -309,63 +293,18 @@ export function Executions() {
               </div>
             </form>
           ) : confirmRun && confirming ? (
-            <form
-              className="panel"
-              aria-label="실적 확정"
-              onSubmit={(e) => void submitConfirm(e)}
-            >
-              <h2>
-                {confirmRun.lotNo} · {process(confirmRun.processId)?.name} 실적
-              </h2>
-              <p className="muted">
-                {inputQty !== null &&
-                  `투입 ${num(inputQty)} ${confirmRun.unit}${confirmRun.sequenceNo === 1 ? " (지시 수량)" : " (직전 공정 양품)"}. `}
-                양품 + 불량 = 투입이어야 하고, 확정 후에는 고칠 수 없습니다.
-                품질 검사는 QMS 영역으로 범위에서 제외했으므로 작업자가 직접
-                판정합니다.
-              </p>
-              <Field
-                label="양품"
-                value={confirming.good}
-                required
-                inputMode="decimal"
-                error={errors.goodQty}
-                onChange={(e) =>
-                  setConfirming({ ...confirming, good: e.target.value })
-                }
-              />
-              <Field
-                label="불량"
-                value={confirming.defect}
-                inputMode="decimal"
-                error={errors.defectQty}
-                onChange={(e) =>
-                  setConfirming({ ...confirming, defect: e.target.value })
-                }
-              />
-              <Field
-                label="불량 사유"
-                value={confirming.reason}
-                maxLength={300}
-                required={Number(confirming.defect) > 0}
-                error={errors.defectReason}
-                onChange={(e) =>
-                  setConfirming({ ...confirming, reason: e.target.value })
-                }
-              />
-              <div className="form-actions">
-                <button type="submit" disabled={pending}>
-                  확정
-                </button>
-                <button
-                  type="button"
-                  className="link-button"
-                  onClick={() => setConfirming(undefined)}
-                >
-                  닫기
-                </button>
-              </div>
-            </form>
+            <ResultForm
+              key={confirmRun.id}
+              executionId={confirmRun.id}
+              title={`${confirmRun.lotNo} · ${process(confirmRun.processId)?.name ?? ""} 실적`}
+              inputQty={inputQty}
+              unit={confirmRun.unit}
+              sequenceNo={confirmRun.sequenceNo}
+              send={send}
+              pending={pending}
+              errors={errors}
+              onClose={() => setConfirming(undefined)}
+            />
           ) : (
             <p className="muted">
               시작할 LOT의 &quot;시작&quot; 또는 실행 중 공정의 &quot;실적

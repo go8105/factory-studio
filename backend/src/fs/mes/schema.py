@@ -201,3 +201,11 @@ class ExecutionResult(ApiModel):
     good_qty: str = Field(alias="goodQty", pattern=QTY)
     defect_qty: str = Field("0", alias="defectQty", pattern=QTY)
     defect_reason: str | None = Field(None, alias="defectReason", max_length=300)
+
+
+# ---- M-06 자재 투입 ----
+class IssueCreate(ApiModel):
+    material_item_id: int = Field(alias="materialItemId", gt=0)
+    material_lot_id: int | None = Field(None, alias="materialLotId", gt=0)
+    issued_qty: str = Field(alias="issuedQty", pattern=QTY)
+    unit: str = Field(min_length=1, max_length=10)

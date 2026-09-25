@@ -1,13 +1,13 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-25 (FS-020d MES LOT 현황·공정 실행 완료, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-25 (FS-020e MES 자재 투입·실적 확정 완료, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
 - 저장소(메인 폴더, Claude Code 전용): `/Users/hwang-kyoungho/projects/factory-studio`
 - **Codex는 `/Users/hwang-kyoungho/projects/factory-studio-codex`만 사용**, 브랜치 `codex/*`. 메인 폴더를 열거나 수정하지 않는다. antigravity worktree·브랜치도 건드리지 않는다.
-- main·origin `83c745d`(FS-020c까지), CI 통과.
-- **Claude Code**: 브랜치 `fs-020d-mes-lot-execution`(FS-020d).
+- main·origin `2a0717e`(FS-020d까지), CI 통과.
+- **Claude Code**: 브랜치 `fs-020e-mes-material-result`(FS-020e).
 - **Codex**: `../factory-studio-codex` `codex/fs-019a-erp-master`에 **미커밋 작업이 남은 채 사용 한도로 중단**(9d896fd 기준). 재개 시 최신 main으로 rebase 필요 — 공유 파일 main.py·App.tsx·Home.tsx(안내 문구 줄 포함)·portal.spec.ts·styles.css 충돌 예상. 부분 코드의 `frontend/src/erp/Master.tsx`는 공통 `Field`에 자식 요소를 넘기고 있어 타입 검사에서 막힐 가능성이 크다.
 - **MES·ERP 작업 계획과 프롬프트: `docs/agent/MES_ERP_작업계획_FS-019_020.md`** (분배·순서·병행 규칙·FEMS 함정·프롬프트 §9).
 - `gh` CLI 로그인 완료(go8105). CI는 `gh run list --branch <b>` / `gh run watch <id> --exit-status`.
@@ -23,7 +23,7 @@
 
 ## 다음 할 일
 
-1. Claude Code: `fs-020d-mes-lot-execution` push → CI → main ff → FS-020e 자재 투입·실적 확정 화면.
+1. Claude Code: `fs-020e-mes-material-result` push → CI → main ff → FS-020f 패킹·완제품 입고.
 2. Codex: FS-019a 진행 중. 먼저 끝난 쪽이 main ff, 나중 쪽이 rebase(공유 파일: main.py·App.tsx·Home.tsx·portal.spec.ts·styles.css).
 3. 사용자 결정 대기: E-G07(0원 매출 세금계산서, FS-019d 전), 사용 중 채널 배수 변경 허용 유지(`FEMS_FS-018l.md`).
 4. **스모크(`tools/run_portal_smoke.py`)는 8000·5173 포트와 `factory_studio_fs017_test`를 고정 사용** — Claude Code와 Codex가 동시에 실행하지 않는다.
