@@ -510,7 +510,7 @@ def release_order(context: AuthContext, order_id: int, key: str):
                 )
         connection.execute(
             text(
-                f"UPDATE mes.work_order SET status='released', released_at=now() "
+                f"UPDATE mes.work_order SET status='released', released_at=clock_timestamp() "
                 f"WHERE {_S} AND id=:id"
             ),
             {**_s(scoped), "id": order_id},

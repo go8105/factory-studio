@@ -138,11 +138,11 @@ async function row(table: string, code: string) {
   return within(t).getByRole("row", { name: new RegExp(`^${code}`) });
 }
 
-it("MES 진입은 생산계획으로 가고 사이드바에 구현 화면만 둔다", async () => {
+it("MES 진입은 대시보드로 가고 사이드바에 구현 화면만 둔다", async () => {
   mockApi();
   show("/mes");
   expect(
-    await screen.findByRole("heading", { name: "생산계획", level: 1 }),
+    await screen.findByRole("heading", { name: "생산 개요", level: 1 }),
   ).toBeVisible();
   const menu = screen.getByRole("complementary", { name: "MES 메뉴" });
   expect(menu.querySelectorAll('a[href^="/mes/"]')).toHaveLength(

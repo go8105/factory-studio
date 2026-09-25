@@ -390,7 +390,7 @@ def receive(context: AuthContext, pallet_id: int, key: str):
         connection.execute(
             text(
                 "INSERT INTO mes.finished_goods_receipt (workspace_id, generation_id, "
-                "packing_unit_id, received_at) VALUES (:w, :g, :p, now())"
+                "packing_unit_id, received_at) VALUES (:w, :g, :p, clock_timestamp())"
             ),
             {**_s(scoped), "p": pallet_id},
         )

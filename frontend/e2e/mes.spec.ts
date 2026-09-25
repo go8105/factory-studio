@@ -7,12 +7,11 @@ test.beforeEach(async ({ page }) => {
   await expect(page).toHaveURL("/home");
 });
 
-test("포털에서 MES로 들어가면 생산계획 화면이 열린다", async ({ page }) => {
+test("포털에서 MES로 들어가면 대시보드가 열린다", async ({ page }) => {
   await page.getByRole("link", { name: /MES 생산관리/ }).click();
-  await expect(page).toHaveURL(/\/mes\/production-plans$/);
-  await expect(
-    page.getByRole("heading", { name: "생산계획", level: 1 }),
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/mes\/dashboard$/);
+  await expect(page.getByLabel("양품률")).toContainText("%");
+  await expect(page.getByLabel("공정별 진행 현황")).toContainText("실행 중");
 });
 
 test("계획 라인에서 작업지시를 만들어 발행하면 LOT이 생긴다", async ({

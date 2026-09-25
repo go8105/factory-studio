@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 // 구현된 화면만 메뉴에 둔다. 준비 중 항목을 나열하지 않는다(FS-008a 포털 §1).
 export const mesScreens = [
+  { path: "dashboard", id: "M-01", label: "대시보드", group: "생산 현황" },
   {
     path: "production-plans",
     id: "M-02",

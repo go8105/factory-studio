@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from fs.common.auth import AuthContext, require_csrf, resolve_auth
 from fs.common.errors import ApiError
-from fs.mes import execution, packing, planning, service
+from fs.mes import dashboard, execution, packing, planning, service
 from fs.mes import repository as repo
 from fs.mes.repository import Master
 from fs.mes.schema import (
@@ -670,3 +670,9 @@ def post_receipt(
 ) -> dict[str, object]:
     key = _mutation(context, x_csrf_token, idempotency_key)
     return {"data": packing.receive(context, payload.packing_unit_id, key)}
+
+
+# ---- M-01 대시보드 ----
+@router.get("/dashboard")
+def get_dashboard(context: Auth, month: str | None = None) -> dict[str, object]:
+    return {"data": dashboard.dashboard(context, month)}

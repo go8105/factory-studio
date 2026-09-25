@@ -213,7 +213,7 @@ def set_status(
     status: str,
     stamp: str | None,
 ) -> dict[str, Any]:
-    stamp_sql = f", {stamp}=now()" if stamp else ""
+    stamp_sql = f", {stamp}=clock_timestamp()" if stamp else ""
     row = (
         connection.execute(
             text(

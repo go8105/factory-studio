@@ -839,3 +839,10 @@
 - 통합 수정: FEMS·MES 사이드바의 ERP 링크를 도움말 대신 `/erp` 화면으로.
 - 통합 검증(CI 환경): backend **524 passed**(9분 6초), frontend **321 passed**, 스모크 **75 passed**(ERP 360px 포함), ruff(CI 범위)·tools unittest·db:validate·audit·git diff --check 통과. Codex 대신 Claude Code가 통합 상태로 스모크를 실행(Codex 사용량 절약).
 - 후속(Codex FS-019b에서): ERP 화면의 관리 버튼이 FEMS·MES의 `link-button`과 다르고, 등록 폼 select가 좁은 기본 모양이다. 동작 문제는 없어 통합을 막지 않았다.
+
+## 2026-09-25 FS-020g 완료 — MES 15/15 (Claude Code)
+
+- `mes/dashboard.py`·`Dashboard.tsx`: M-01 지표·파이프라인·불량 사유·계획 대비 실적·처리 대기. MES 진입을 대시보드로. 도움말 m-01 보강.
+- 스모크에서 발견한 CHECK 위반(종료 < 시작)을 `clock_timestamp()`로 수정. Codex FS-019a 통합 main `cc8729d` ff.
+- 360px에서 파이프라인 순서(공정 코드 순) 결함 발견 → 경로 순번 정렬.
+- 테스트: backend +8(전체 531+1, CI 환경), frontend +5(전체 326), Playwright 76. 보고서 `docs/agent/MES_FS-020g.md`.

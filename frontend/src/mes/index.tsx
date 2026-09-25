@@ -2,6 +2,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { NotFound } from "../shared/components";
 import { MesLayout } from "./MesLayout";
+import { Dashboard } from "./Dashboard";
 import { Sites } from "./Sites";
 import { Equipments } from "./Equipments";
 import { Items } from "./Items";
@@ -21,8 +22,8 @@ export default function MesRoutes() {
   return (
     <Routes>
       <Route element={<MesLayout />}>
-        {/* 대시보드(M-01)가 생기기 전까지는 생산계획으로 들어간다. */}
-        <Route index element={<Navigate to="production-plans" replace />} />
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<Dashboard />} />
         <Route path="production-plans" element={<Plans />} />
         <Route path="work-orders" element={<Orders />} />
         <Route path="lots" element={<Lots />} />

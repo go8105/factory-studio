@@ -3,6 +3,10 @@
 공정 시작(TX-01): 공간 → 작업지시 → LOT 잠금 뒤 경로 순서·선행 양품·허용 설비·설비 점유를 확인하고 실행을 만든다.
 공정 완료(TX-02): 실적(양품·불량) 1건을 확정하면서 실행을 completed로 바꾸고, 마지막 공정이거나 양품이 0이면
 LOT·작업지시를 함께 completed로 종결한다. 실적은 확정 후 수정하지 않는다(operation_result UPDATE/DELETE 금지).
+
+업무 시각은 now()(트랜잭션 시작 시각)가 아니라 clock_timestamp()(잠금을 얻은 뒤 실제 시각)로 남긴다.
+완료 요청이 시작 요청보다 먼저 트랜잭션을 열고 공간 잠금을 기다리면 now()로는 종료가 시작보다 앞서
+CHECK(ended_at >= started_at)에 걸린다(FS-020g 스모크에서 발견).
 """
 
 from __future__ import annotations
@@ -256,7 +260,7 @@ def start(context: AuthContext, lot_id: int, values: dict[str, Any], key: str):
             # 첫 공정 시작: 지시 released → in_progress, LOT ready → in_progress (같은 트랜잭션)
             connection.execute(
                 text(
-                    f"UPDATE mes.work_order SET status='in_progress', started_at=now() "
+                    f"UPDATE mes.work_order SET status='in_progress', started_at=clock_timestamp() "
                     f"WHERE {_S} AND id=:id"
                 ),
                 {**_s(scoped), "id": lot["workOrderId"]},
@@ -269,7 +273,7 @@ def start(context: AuthContext, lot_id: int, values: dict[str, Any], key: str):
             text(
                 "INSERT INTO mes.operation_execution (workspace_id, generation_id, lot_id, "
                 "route_version_id, route_step_id, equipment_id, unit, started_at) "
-                "VALUES (:w, :g, :lot, :route, :step, :eq, :unit, now()) RETURNING id"
+                "VALUES (:w, :g, :lot, :route, :step, :eq, :unit, clock_timestamp()) RETURNING id"
             ),
             {
                 **_s(scoped),
@@ -344,7 +348,7 @@ def confirm_result(
             text(
                 "INSERT INTO mes.operation_result (workspace_id, generation_id, execution_id, "
                 "input_qty, output_qty, good_qty, defect_qty, unit, defect_reason, confirmed_at) "
-                "VALUES (:w, :g, :e, :input, :input, :good, :defect, :unit, :reason, now())"
+                "VALUES (:w, :g, :e, :input, :input, :good, :defect, :unit, :reason, clock_timestamp())"
             ),
             {
                 **_s(scoped),
@@ -358,7 +362,7 @@ def confirm_result(
         )
         connection.execute(
             text(
-                f"UPDATE mes.operation_execution SET status='completed', ended_at=now() "
+                f"UPDATE mes.operation_execution SET status='completed', ended_at=clock_timestamp() "
                 f"WHERE {_S} AND id=:id"
             ),
             {**_s(scoped), "id": execution_id},
@@ -376,7 +380,7 @@ def confirm_result(
             )
             connection.execute(
                 text(
-                    f"UPDATE mes.work_order SET status='completed', completed_at=now(), "
+                    f"UPDATE mes.work_order SET status='completed', completed_at=clock_timestamp(), "
                     f"completion_reason=:r WHERE {_S} AND id=:id"
                 ),
                 {**_s(scoped), "r": reason_code, "id": lot["workOrderId"]},
@@ -593,7 +597,7 @@ def add_issue(
             text(
                 "INSERT INTO mes.material_issue (workspace_id, generation_id, execution_id, "
                 "material_item_id, material_lot_id, bom_version_id, issued_qty, unit, issued_at) "
-                "VALUES (:w, :g, :e, :m, :l, :bom, :qty, :unit, now()) RETURNING id"
+                "VALUES (:w, :g, :e, :m, :l, :bom, :qty, :unit, clock_timestamp()) RETURNING id"
             ),
             {
                 **_s(scoped),

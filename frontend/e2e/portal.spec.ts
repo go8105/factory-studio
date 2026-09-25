@@ -103,6 +103,7 @@ for (const [route, title] of [
   ["fems/sites", "사업장·공간"],
   ["fems/meters", "계측기·채널"],
   ["fems/energy-factors", "환산·배출계수"],
+  ["mes/dashboard", "생산 개요"],
   ["mes/production-plans", "생산계획"],
   ["mes/work-orders", "작업지시"],
   ["mes/lots", "LOT 현황"],

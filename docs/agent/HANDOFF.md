@@ -1,13 +1,13 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-25 (Codex FS-019a 통합, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-25 (FS-020 MES 15/15 완료, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
 - 저장소(메인 폴더, Claude Code 전용): `/Users/hwang-kyoungho/projects/factory-studio`
 - **Codex는 `/Users/hwang-kyoungho/projects/factory-studio-codex`만 사용**, 브랜치 `codex/*`. 메인 폴더를 열거나 수정하지 않는다. antigravity worktree·브랜치도 건드리지 않는다.
-- main·origin `25f4312`(FS-020f까지), CI 통과. 통합 브랜치 `fs-019a-erp-integrate`(Codex FS-019a + 통합 수정) push → CI → main ff 진행.
-- **Claude Code**: 다음 FS-020g M-01 MES 대시보드.
+- main·origin `cc8729d`(MES 6/7 + Codex FS-019a 통합), CI 통과.
+- **Claude Code**: 브랜치 `fs-020g-mes-dashboard`(FS-020g, MES 15/15) push → CI → main ff.
 - **Codex**: `../factory-studio-codex` · `codex/fs-019a-erp-master`(`4e2bc74`). 통합은 Claude Code가 새 브랜치로 진행했으므로 Codex는 다음 ID를 새 main에서 분기한다. 아래 **Codex — FS-019a** 절 참고.
 - **MES·ERP 작업 계획과 프롬프트: `docs/agent/MES_ERP_작업계획_FS-019_020.md`** (분배·순서·병행 규칙·FEMS 함정·프롬프트 §9).
 - `gh` CLI 로그인 완료(go8105). CI는 `gh run list --branch <b>` / `gh run watch <id> --exit-status`.
@@ -23,7 +23,7 @@
 
 ## 다음 할 일
 
-1. Claude Code: 통합 브랜치 main ff 확인 → FS-020g M-01 대시보드.
+1. Claude Code: FS-020g main ff. MES 완료 — 다음은 사용자와 정한다(ERP 분담 또는 FS-021 통합 검증 준비).
 1-1. Codex: 새 main에서 `codex/fs-019b-...` 분기 → FS-019b. ERP 화면 관리 버튼(`link-button`)·등록 폼 select(`.field` 안 전체 폭) 모양을 FEMS·MES와 맞춘다. 스모크는 실행 전 사용자에게 묻는다.
 2. Codex: FS-019a 진행 중. 먼저 끝난 쪽이 main ff, 나중 쪽이 rebase(공유 파일: main.py·App.tsx·Home.tsx·portal.spec.ts·styles.css).
 3. 사용자 결정 대기: E-G07(0원 매출 세금계산서, FS-019d 전), 사용 중 채널 배수 변경 허용 유지(`FEMS_FS-018l.md`).
