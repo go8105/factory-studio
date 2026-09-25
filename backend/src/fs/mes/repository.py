@@ -112,6 +112,122 @@ PROCESS = Master(
     (("mes.route_step", "process_id", "공정 경로 단계"),),
     "process_code, id",
 )
+# ---- M-14 공정 경로 · M-15 BOM (버전: draft → published → retired) ----
+ROUTE = Master(
+    "mes.route_version",
+    "id,item_id,route_code,version,status,published_at,retired_at,created_at",
+    "route_code",
+    None,
+    (("mes.work_order", "route_version_id", "작업지시"),),
+    "route_code, version, id",
+)
+STEP = Master(
+    "mes.route_step",
+    "id,route_version_id,process_id,sequence_no,created_at",
+    "sequence_no",
+    "route_version_id",
+    (),
+    "route_version_id, sequence_no, id",
+)
+BOM = Master(
+    "mes.bom_version",
+    "id,bom_code,item_id,version_no,status,published_at,created_at",
+    "bom_code",
+    None,
+    (
+        ("mes.work_order", "bom_version_id", "작업지시"),
+        ("mes.material_issue", "bom_version_id", "자재 투입"),
+    ),
+    "item_id, version_no, id",
+)
+LINE = Master(
+    "mes.bom_line",
+    "id,bom_version_id,line_no,material_item_id,qty_per_unit,unit,loss_rate,created_at",
+    "line_no",
+    "bom_version_id",
+    (),
+    "bom_version_id, line_no, id",
+)
+
+
+def next_number(
+    connection: Connection,
+    context: AuthContext,
+    table: str,
+    column: str,
+    key_column: str,
+    key: Any,
+) -> int:
+    return connection.execute(
+        text(
+            f"SELECT coalesce(max({column}), 0) + 1 FROM {table} "
+            f"WHERE {_S} AND {key_column}=:key"
+        ),
+        {**_s(context), "key": key},
+    ).scalar_one()
+
+
+def exists_where(
+    connection: Connection, context: AuthContext, table: str, where: dict[str, Any]
+) -> bool:
+    condition = "".join(f" AND {column}=:{column}" for column in where)
+    return (
+        connection.execute(
+            text(f"SELECT 1 FROM {table} WHERE {_S}{condition}"),
+            {**_s(context), **where},
+        ).first()
+        is not None
+    )
+
+
+def replace_children(
+    connection: Connection,
+    context: AuthContext,
+    table: str,
+    parent_column: str,
+    parent_id: int,
+    rows: list[dict[str, Any]],
+) -> None:
+    connection.execute(
+        text(f"DELETE FROM {table} WHERE {_S} AND {parent_column}=:p"),
+        {**_s(context), "p": parent_id},
+    )
+    for row in rows:
+        values = {parent_column: parent_id, **row}
+        columns = ",".join(values)
+        placeholders = ",".join(f":{column}" for column in values)
+        connection.execute(
+            text(
+                f"INSERT INTO {table} (workspace_id, generation_id, {columns}) "
+                f"VALUES (:w, :g, {placeholders})"
+            ),
+            {**_s(context), **values},
+        )
+
+
+def set_status(
+    connection: Connection,
+    context: AuthContext,
+    master: Master,
+    row_id: int,
+    status: str,
+    stamp: str | None,
+) -> dict[str, Any]:
+    stamp_sql = f", {stamp}=now()" if stamp else ""
+    row = (
+        connection.execute(
+            text(
+                f"UPDATE {master.table} SET status=:status{stamp_sql} "
+                f"WHERE {_S} AND id=:id RETURNING {master.columns}"
+            ),
+            {**_s(context), "status": status, "id": row_id},
+        )
+        .mappings()
+        .one()
+    )
+    return row_dict(row)
+
+
 # 기준 단위를 참조하는 행(복합 FK (item_id, 단위) → item(id, base_unit)). 있으면 기준 단위를 바꿀 수 없다.
 ITEM_UNIT_REFERENCES = (
     ("mes.item_unit_conversion", "item_id", "단위 환산"),

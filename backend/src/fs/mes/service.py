@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 from zoneinfo import available_timezones
@@ -330,3 +331,300 @@ def delete_process_links(process_id: int):
         repo.replace_process_equipment(connection, scoped, process_id, [])
 
     return before
+
+
+# ---- M-14 공정 경로 · M-15 BOM ----
+# 두 화면은 같은 버전 규칙을 따른다: 초안(draft)만 편집, 게시(published)·폐기(retired)는 불변,
+# 바꾸려면 새 버전으로 개정한다(schema.json SERVICE: route_version·bom_version).
+@dataclass(frozen=True)
+class Versioned:
+    master: Master
+    child: Master
+    parent_column: str
+    number: str  # 버전 번호 컬럼
+    number_key: str  # 버전 번호를 매기는 범위 컬럼(경로 코드 / 품목)
+    label: str
+    children_label: str
+
+
+ROUTES = Versioned(
+    repo.ROUTE,
+    repo.STEP,
+    "route_version_id",
+    "version",
+    "route_code",
+    "공정 경로",
+    "공정 단계",
+)
+BOMS = Versioned(
+    repo.BOM, repo.LINE, "bom_version_id", "version_no", "item_id", "BOM", "구성 자재"
+)
+
+
+def _locked(message: str, reason: str) -> ApiError:
+    return ApiError(409, "PRECONDITION_NOT_MET", message, {"reason": reason})
+
+
+def _action(
+    context: AuthContext,
+    operation: str,
+    key: str,
+    body: Any,
+    fn: Callable[[Connection, AuthContext], tuple[dict[str, Any], str, int]],
+    status: int = 200,
+) -> dict[str, Any]:
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        digest = request_digest(body)
+        cached = find_receipt(connection, scoped, operation, key, digest)
+        if cached is not None:
+            return cached
+        result, entity, entity_id = fn(connection, scoped)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            entity,
+            entity_id,
+            result,
+            status,
+        )
+        return result
+
+
+def _with_children(
+    connection, scoped, v: Versioned, row: dict[str, Any]
+) -> dict[str, Any]:
+    children = repo.list_rows(connection, scoped, v.child, {v.parent_column: row["id"]})
+    key = "steps" if v is ROUTES else "lines"
+    return {**row, key: children}
+
+
+def list_versions(context: AuthContext, v: Versioned) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        rows = repo.list_rows(connection, scoped, v.master)
+        children = repo.list_rows(connection, scoped, v.child)
+    key = "steps" if v is ROUTES else "lines"
+    by_parent: dict[int, list[dict[str, Any]]] = {}
+    for c in children:
+        by_parent.setdefault(c[repo._camel(v.parent_column)], []).append(c)
+    return [{**r, key: by_parent.get(r["id"], [])} for r in rows]
+
+
+def _get_version(connection, scoped, v: Versioned, row_id: int) -> dict[str, Any]:
+    row = repo.get_row(connection, scoped, v.master, row_id)
+    if row is None:
+        raise _not_found(v.label)
+    return row
+
+
+def _no_draft(connection, scoped, v: Versioned, key_value: Any) -> None:
+    if repo.exists_where(
+        connection, scoped, v.master.table, {v.number_key: key_value, "status": "draft"}
+    ):
+        raise _locked(
+            f"이미 편집 중인 {v.label} 초안이 있습니다. 그 초안을 이어서 편집하세요.",
+            "DRAFT_EXISTS",
+        )
+
+
+def create_version(
+    context: AuthContext, v: Versioned, values: dict[str, Any], key: str
+):
+    def run(connection, scoped):
+        if repo.get_row(connection, scoped, repo.ITEM, values["item_id"]) is None:
+            raise _field("itemId", "유효하지 않은 품목입니다.")
+        code = v.master.code
+        if repo.exists_where(connection, scoped, v.master.table, {code: values[code]}):
+            hint = " 기존 버전을 개정하세요." if v is ROUTES else ""
+            raise _field(repo._camel(code), f"이미 있는 코드입니다.{hint}")
+        _no_draft(connection, scoped, v, values[v.number_key])
+        number = repo.next_number(
+            connection,
+            scoped,
+            v.master.table,
+            v.number,
+            v.number_key,
+            values[v.number_key],
+        )
+        row = repo.insert_row(
+            connection, scoped, v.master, {**values, v.number: number}
+        )
+        return _with_children(connection, scoped, v, row), v.master.table, row["id"]
+
+    return _action(context, f"{v.master.table}.create", key, values, run, 201)
+
+
+def revise_version(
+    context: AuthContext, v: Versioned, row_id: int, values: dict[str, Any], key: str
+):
+    """게시·폐기 버전을 복사해 다음 번호의 초안을 만든다."""
+
+    def run(connection, scoped):
+        source = _get_version(connection, scoped, v, row_id)
+        if source["status"] == "draft":
+            raise _locked("초안은 개정하지 않고 바로 편집합니다.", "IS_DRAFT")
+        key_value = source[repo._camel(v.number_key)]
+        _no_draft(connection, scoped, v, key_value)
+        code = v.master.code
+        new_code = values.get(code, source[repo._camel(code)])
+        if v is BOMS and repo.exists_where(
+            connection, scoped, v.master.table, {code: new_code}
+        ):
+            raise _field(
+                repo._camel(code), "이미 있는 코드입니다. 새 BOM 코드를 입력하세요."
+            )
+        number = repo.next_number(
+            connection, scoped, v.master.table, v.number, v.number_key, key_value
+        )
+        row = repo.insert_row(
+            connection,
+            scoped,
+            v.master,
+            {"item_id": source["itemId"], code: new_code, v.number: number},
+        )
+        children = repo.list_rows(
+            connection, scoped, v.child, {v.parent_column: row_id}
+        )
+        skip = {"id", "createdAt", repo._camel(v.parent_column)}
+        repo.replace_children(
+            connection,
+            scoped,
+            v.child.table,
+            v.parent_column,
+            row["id"],
+            [{_snake(k): c[k] for k in c if k not in skip} for c in children],
+        )
+        return _with_children(connection, scoped, v, row), v.master.table, row["id"]
+
+    return _action(
+        context, f"{v.master.table}.revise", key, {"id": row_id, **values}, run, 201
+    )
+
+
+def set_children(
+    context: AuthContext,
+    v: Versioned,
+    row_id: int,
+    rows: list[dict[str, Any]],
+    key: str,
+    validate: Callable[
+        [Connection, AuthContext, dict[str, Any], list[dict[str, Any]]],
+        list[dict[str, Any]],
+    ],
+):
+    """초안의 공정 단계 / 구성 자재를 요청 순서대로 통째로 바꾼다."""
+
+    def run(connection, scoped):
+        version = _get_version(connection, scoped, v, row_id)
+        if version["status"] != "draft":
+            raise _locked(
+                f"게시·폐기된 {v.label}은(는) 바꿀 수 없습니다. 개정해서 새 버전으로 편집하세요.",
+                "VERSION_LOCKED",
+            )
+        children = validate(connection, scoped, version, rows)
+        repo.replace_children(
+            connection, scoped, v.child.table, v.parent_column, row_id, children
+        )
+        return _with_children(connection, scoped, v, version), v.master.table, row_id
+
+    return _action(
+        context, f"{v.master.table}.children", key, {"id": row_id, "rows": rows}, run
+    )
+
+
+def transition(context: AuthContext, v: Versioned, row_id: int, target: str, key: str):
+    def run(connection, scoped):
+        version = _get_version(connection, scoped, v, row_id)
+        source = {"published": "draft", "retired": "published"}[target]
+        if version["status"] != source:
+            done = "게시" if target == "published" else "폐기"
+            raise _locked(
+                f"{version['status']} 상태에서는 {done}할 수 없습니다.",
+                "INVALID_TRANSITION",
+            )
+        if target == "published" and not repo.exists_where(
+            connection, scoped, v.child.table, {v.parent_column: row_id}
+        ):
+            raise _locked(
+                f"{v.children_label}이(가) 없는 {v.label}은(는) 게시할 수 없습니다.",
+                "EMPTY_VERSION",
+            )
+        # 폐기 시각은 경로에만 있다(bom_version에는 retired_at 컬럼이 없다).
+        stamp = (
+            "published_at"
+            if target == "published"
+            else ("retired_at" if v is ROUTES else None)
+        )
+        row = repo.set_status(connection, scoped, v.master, row_id, target, stamp)
+        return _with_children(connection, scoped, v, row), v.master.table, row_id
+
+    return _action(context, f"{v.master.table}.{target}", key, {"id": row_id}, run)
+
+
+def delete_version(context: AuthContext, v: Versioned, row_id: int, key: str) -> None:
+    def run(connection, scoped):
+        version = _get_version(connection, scoped, v, row_id)
+        if version["status"] != "draft":
+            raise _locked(
+                "초안만 삭제할 수 있습니다. 게시한 버전은 폐기하세요.", "VERSION_LOCKED"
+            )
+        references = repo.count_references(
+            connection, scoped, v.master.references, row_id
+        )
+        if references:
+            raise ApiError(
+                409,
+                "REFERENCED_BY_OTHERS",
+                f"다른 데이터가 참조 중인 {v.label}은(는) 삭제할 수 없습니다.",
+                {"references": references},
+            )
+        repo.replace_children(
+            connection, scoped, v.child.table, v.parent_column, row_id, []
+        )
+        repo.delete_row(connection, scoped, v.master, row_id)
+        return {}, v.master.table, row_id
+
+    _action(context, f"{v.master.table}.delete", key, {"id": row_id}, run, 204)
+
+
+def validate_steps(connection, scoped, version, rows) -> list[dict[str, Any]]:
+    ids = [r["process_id"] for r in rows]
+    if set(ids) - repo.existing_ids(connection, scoped, "mes.process", ids):
+        raise _field("steps", "유효하지 않은 공정이 있습니다.")
+    # 같은 공정을 두 번 거치는 경로(재검사 등)는 허용한다. 순서는 요청 순서 1, 2, 3 …
+    return [{"process_id": pid, "sequence_no": n} for n, pid in enumerate(ids, 1)]
+
+
+def validate_lines(connection, scoped, version, rows) -> list[dict[str, Any]]:
+    items = {i["id"]: i for i in repo.list_rows(connection, scoped, repo.ITEM)}
+    conversions = repo.list_rows(connection, scoped, repo.CONVERSION)
+    seen: set[int] = set()
+    result = []
+    for n, r in enumerate(rows, 1):
+        material = items.get(r["material_item_id"])
+        where = f"{n}번째 자재: "
+        if material is None:
+            raise _field("lines", where + "유효하지 않은 품목입니다.")
+        if material["id"] == version["itemId"]:
+            raise _field("lines", where + "만들 품목 자신은 자재가 될 수 없습니다.")
+        if material["id"] in seen:
+            raise _field("lines", where + "같은 자재가 이미 있습니다.")
+        seen.add(material["id"])
+        units = {material["baseUnit"]} | {
+            c["fromUnit"] for c in conversions if c["itemId"] == material["id"]
+        }
+        if r["unit"] not in units:
+            raise _field(
+                "lines",
+                where + f"단위는 {', '.join(sorted(units))} 중 하나여야 합니다.",
+            )
+        if Decimal(r["qty_per_unit"]) <= 0:
+            raise _field("lines", where + "소요량은 0보다 커야 합니다.")
+        if not 0 <= Decimal(r["loss_rate"]) < 100:
+            raise _field("lines", where + "손실률은 0 이상 100 미만입니다.")
+        result.append({**r, "line_no": n})
+    return result

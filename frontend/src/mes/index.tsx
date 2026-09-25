@@ -6,6 +6,8 @@ import { Sites } from "./Sites";
 import { Equipments } from "./Equipments";
 import { Items } from "./Items";
 import { Processes } from "./Processes";
+import { Routes as RouteVersions } from "./Routes";
+import { Boms } from "./Boms";
 
 export default function MesRoutes() {
   return (
@@ -17,6 +19,8 @@ export default function MesRoutes() {
         <Route path="equipments" element={<Equipments />} />
         <Route path="items" element={<Items />} />
         <Route path="processes" element={<Processes />} />
+        <Route path="routes" element={<RouteVersions />} />
+        <Route path="boms" element={<Boms />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

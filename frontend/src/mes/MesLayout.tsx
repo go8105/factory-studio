@@ -7,6 +7,8 @@ export const mesScreens = [
   { path: "equipments", id: "M-11", label: "설비", group: "기준정보" },
   { path: "items", id: "M-12", label: "품목", group: "기준정보" },
   { path: "processes", id: "M-13", label: "공정", group: "기준정보" },
+  { path: "routes", id: "M-14", label: "공정 경로", group: "기준정보" },
+  { path: "boms", id: "M-15", label: "BOM", group: "기준정보" },
 ];
 export function MesLayout() {
   const location = useLocation();

@@ -39,3 +39,40 @@ test("공정은 허용 설비를 보여준다", async ({ page }) => {
       .getByRole("row", { name: /^INJ/ }),
   ).toContainText("INJ-01");
 });
+
+test("공정 경로를 개정해 초안 순서를 바꾸고 게시한다", async ({ page }) => {
+  await page.goto("/mes/routes");
+  const routes = page.getByRole("table", { name: "공정 경로 목록" });
+  await routes
+    .getByRole("row", { name: /^RT-C100 .* v1/ })
+    .getByRole("button", { name: "개정" })
+    .click();
+  const steps = page.getByRole("table", { name: "RT-C100 v2 공정 순서" });
+  await expect(steps.getByRole("row")).toHaveCount(4);
+  await page.getByRole("button", { name: "3번째 공정 위로" }).click();
+  await page.getByRole("button", { name: "순서 저장" }).click();
+  await expect(steps.getByRole("row").nth(2)).toContainText("INS");
+  await routes
+    .getByRole("row", { name: /^RT-C100 .* v2/ })
+    .getByRole("button", { name: "게시" })
+    .click();
+  // 게시된 버전에만 "폐기" 버튼이 생긴다.
+  await expect(
+    routes
+      .getByRole("row", { name: /^RT-C100 .* v2/ })
+      .getByRole("button", { name: "폐기" }),
+  ).toBeVisible();
+});
+
+test("게시된 BOM은 구성을 바꿀 수 없다", async ({ page }) => {
+  await page.goto("/mes/boms");
+  await page
+    .getByRole("table", { name: "BOM 목록" })
+    .getByRole("row", { name: /^BOM-C100/ })
+    .getByRole("button", { name: /자재/ })
+    .click();
+  await expect(
+    page.getByText(/게시·폐기된 버전은 바꿀 수 없습니다/),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "구성 저장" })).toHaveCount(0);
+});

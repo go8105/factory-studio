@@ -104,3 +104,37 @@ class ProcessUpdate(ApiModel):
     )
     is_active: bool | None = Field(None, alias="isActive")
     equipment_ids: list[int] | None = Field(None, alias="equipmentIds")
+
+
+# ---- M-14 공정 경로 · M-15 BOM ----
+QTY = r"^\d{1,15}(\.\d{1,3})?$"  # numeric(18,3)
+RATE = r"^\d{1,3}(\.\d{1,2})?$"  # numeric(5,2), 100 미만은 서비스에서
+
+
+class RouteCreate(ApiModel):
+    item_id: int = Field(alias="itemId", gt=0)
+    route_code: str = Field(alias="routeCode", pattern=ITEM_CODE)
+
+
+class BomCreate(ApiModel):
+    item_id: int = Field(alias="itemId", gt=0)
+    bom_code: str = Field(alias="bomCode", pattern=ITEM_CODE)
+
+
+class BomRevise(ApiModel):
+    bom_code: str = Field(alias="bomCode", pattern=ITEM_CODE)
+
+
+class RouteSteps(ApiModel):
+    process_ids: list[int] = Field(alias="processIds", max_length=50)
+
+
+class BomLineIn(ApiModel):
+    material_item_id: int = Field(alias="materialItemId", gt=0)
+    qty_per_unit: str = Field(alias="qtyPerUnit", pattern=QTY)
+    unit: str = Field(min_length=1, max_length=10)
+    loss_rate: str = Field("0", alias="lossRate", pattern=RATE)
+
+
+class BomLines(ApiModel):
+    lines: list[BomLineIn] = Field(max_length=100)

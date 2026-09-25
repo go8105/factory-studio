@@ -12,6 +12,9 @@ from fs.mes import repository as repo
 from fs.mes import service
 from fs.mes.repository import Master
 from fs.mes.schema import (
+    BomCreate,
+    BomLines,
+    BomRevise,
     ConversionCreate,
     ConversionUpdate,
     EquipmentCreate,
@@ -22,6 +25,8 @@ from fs.mes.schema import (
     LocationUpdate,
     ProcessCreate,
     ProcessUpdate,
+    RouteCreate,
+    RouteSteps,
     SiteCreate,
     SiteUpdate,
 )
@@ -215,3 +220,117 @@ def delete_conversion(
         service.conversion_owner(item_id, row_id),
     )
     return Response(status_code=204)
+
+
+# ---- M-14 공정 경로 · M-15 BOM: 버전(초안 → 게시 → 폐기) ----
+def _transition_endpoint(v: service.Versioned, target: str):
+    # target은 클로저로 고정한다. 함수 인자로 두면 FastAPI가 쿼리 파라미터로 받는다.
+    def change(
+        row_id: int,
+        context: Auth,
+        idempotency_key: IdempotencyKey = None,
+        x_csrf_token: CsrfToken = None,
+    ) -> dict[str, object]:
+        key = _mutation(context, x_csrf_token, idempotency_key)
+        return {"data": service.transition(context, v, row_id, target, key)}
+
+    return change
+
+
+def _versions(path: str, v: service.Versioned, create_model: type[BaseModel]) -> None:
+    @router.get(path, name=f"list {path}")
+    def list_(context: Auth) -> dict[str, object]:
+        return {"data": service.list_versions(context, v)}
+
+    @router.post(path, status_code=201, name=f"create {path}")
+    def create_(
+        payload: create_model,  # type: ignore[valid-type]
+        context: Auth,
+        idempotency_key: IdempotencyKey = None,
+        x_csrf_token: CsrfToken = None,
+    ) -> dict[str, object]:
+        key = _mutation(context, x_csrf_token, idempotency_key)
+        return {"data": service.create_version(context, v, payload.model_dump(), key)}
+
+    router.post(f"{path}/{{row_id}}/publish", name=f"publish {path}")(
+        _transition_endpoint(v, "published")
+    )
+    router.post(f"{path}/{{row_id}}/retire", name=f"retire {path}")(
+        _transition_endpoint(v, "retired")
+    )
+
+    @router.delete(f"{path}/{{row_id}}", status_code=204, name=f"delete {path}")
+    def delete_(
+        row_id: int,
+        context: Auth,
+        idempotency_key: IdempotencyKey = None,
+        x_csrf_token: CsrfToken = None,
+    ) -> Response:
+        key = _mutation(context, x_csrf_token, idempotency_key)
+        service.delete_version(context, v, row_id, key)
+        return Response(status_code=204)
+
+
+_versions("/routes", service.ROUTES, RouteCreate)
+_versions("/boms", service.BOMS, BomCreate)
+
+
+@router.post("/routes/{row_id}/revise", status_code=201)
+def revise_route(
+    row_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.revise_version(context, service.ROUTES, row_id, {}, key)}
+
+
+@router.post("/boms/{row_id}/revise", status_code=201)
+def revise_bom(
+    row_id: int,
+    payload: BomRevise,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": service.revise_version(
+            context, service.BOMS, row_id, payload.model_dump(), key
+        )
+    }
+
+
+@router.put("/routes/{row_id}/steps")
+def put_steps(
+    row_id: int,
+    payload: RouteSteps,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    rows = [{"process_id": pid} for pid in payload.process_ids]
+    return {
+        "data": service.set_children(
+            context, service.ROUTES, row_id, rows, key, service.validate_steps
+        )
+    }
+
+
+@router.put("/boms/{row_id}/lines")
+def put_lines(
+    row_id: int,
+    payload: BomLines,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    rows = [line.model_dump() for line in payload.lines]
+    return {
+        "data": service.set_children(
+            context, service.BOMS, row_id, rows, key, service.validate_lines
+        )
+    }

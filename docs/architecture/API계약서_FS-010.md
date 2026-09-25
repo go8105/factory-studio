@@ -360,6 +360,11 @@ GET /journal-preview?kind=RECEIPT&applyId=...
 - `/items` 목록에 `conversions`, `/items/{id}/conversions` 등록·수정·삭제(결과 단위 = 기준 단위, 서버 결정).
 - `/processes` 목록·응답에 `equipmentIds`. 본문 `equipmentIds`는 허용 설비 목록 전체 교체.
 
+### 공정 경로·BOM 버전 (FS-020b)
+
+- `/routes` · `/boms`: 목록에 `steps`/`lines`. 생성은 초안, `POST /{id}/revise`(BOM은 `bomCode` 필수)·`/publish`·`/retire`, `PUT /routes/{id}/steps` `{processIds}`·`PUT /boms/{id}/lines` `{lines}`는 초안만 통째 교체, `DELETE`는 초안만.
+- 409 `reason`: `VERSION_LOCKED`·`IS_DRAFT`·`DRAFT_EXISTS`·`INVALID_TRANSITION`·`EMPTY_VERSION`. BOM 자재 오류는 400 `fields.lines`.
+
 ### LOT 상세가 핵심 응답이다
 
 `GET /lots/{id}`는 추적성을 보여주는 화면(M-04)을 받친다. 공정 실행 · 투입 자재 · 실적을 **한 번에 반환한다.** 화면이 세 번 호출하게 두지 않는다.

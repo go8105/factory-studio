@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "../app/session";
 import { api, ApiError, MutationKeys } from "../shared/api";
-import { EmptyState } from "../shared/components";
+import { Badge, EmptyState } from "../shared/components";
 
 export const MES = "/api/v1/mes";
 
@@ -35,6 +35,7 @@ export function MesOrder() {
       <li>사업장 → 공간 → 설비</li>
       <li>공정 (허용 설비 필요)</li>
       <li>품목 → 단위 환산</li>
+      <li>공정 경로 · BOM (품목·공정 필요)</li>
     </ol>
   );
 }
@@ -172,4 +173,58 @@ export function useSend(onDone: () => void) {
   }
 
   return { send, pending, error, setError, deleteButtons };
+}
+
+// ---- 버전(공정 경로·BOM): 초안 → 게시 → 폐기 ----
+export type VersionStatus = "draft" | "published" | "retired";
+const STATUS: Record<VersionStatus, [string, "normal" | "warning" | "issue"]> =
+  {
+    draft: ["초안", "warning"],
+    published: ["게시", "normal"],
+    retired: ["폐기", "issue"],
+  };
+export function StatusBadge({ status }: { status: VersionStatus }) {
+  const [label, tone] = STATUS[status];
+  return <Badge tone={tone}>{label}</Badge>;
+}
+
+/** 상태에 맞는 버전 작업 버튼. 초안: 게시·삭제 / 게시: 개정·폐기 / 폐기: 개정. */
+export function versionButtons(
+  row: { id: number; status: VersionStatus },
+  base: string,
+  send: ReturnType<typeof useSend>["send"],
+  deleteButtons: ReturnType<typeof useSend>["deleteButtons"],
+  revise: () => void,
+) {
+  const post = (action: string) =>
+    void send(`${base}/${row.id}/${action}`, "POST");
+  return (
+    <>
+      {row.status === "draft" && (
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => post("publish")}
+        >
+          게시
+        </button>
+      )}
+      {row.status !== "draft" && (
+        <button type="button" className="link-button" onClick={revise}>
+          개정
+        </button>
+      )}
+      {row.status === "published" && (
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => post("retire")}
+        >
+          폐기
+        </button>
+      )}
+      {row.status === "draft" &&
+        deleteButtons(`v:${row.id}`, `${base}/${row.id}`)}
+    </>
+  );
 }

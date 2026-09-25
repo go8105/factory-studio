@@ -793,3 +793,9 @@
 - MES 기준정보 4화면 + API. 표 명세(`Master`) 기반 공통 CRUD, 품목 기준 단위 잠금(UNIT_IN_USE), 공간 순환 방지, 공정 허용 설비 교체.
 - 공통 스타일 체크박스 보정(별도 커밋). 도움말 m-10·m-12 수정. 포털·FEMS의 MES 링크를 `/mes`로.
 - 테스트: backend +28(전체 360, CI 환경), frontend +12(전체 266), Playwright +7(전체 54). 보고서 `docs/agent/MES_FS-020a.md`.
+
+## 2026-09-25 FS-020b 완료 (Claude Code)
+
+- M-14·M-15 버전 API·화면. `service.Versioned`로 두 흐름 공통 처리. 게시·폐기 엔드포인트의 쿼리 파라미터 노출 결함을 작성 중 발견해 클로저로 수정.
+- 도움말 m-14·m-15 수정. FS-020a main `8294164` ff.
+- 테스트: backend +24(전체 384, CI 환경), frontend +8(전체 274), Playwright +4(전체 58). 보고서 `docs/agent/MES_FS-020b.md`.
