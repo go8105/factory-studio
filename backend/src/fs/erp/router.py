@@ -28,8 +28,8 @@ def mutation(context, csrf, key):
 @router.get("/partners")
 def list_partners(
     context: Auth,
-    offset: int = 0,
-    limit: int = 50,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     sort: str | None = None,
     active: bool | None = None,
 ):
@@ -87,8 +87,8 @@ def delete_partners(
 @router.get("/items")
 def list_items(
     context: Auth,
-    offset: int = 0,
-    limit: int = 50,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     sort: str | None = None,
     active: bool | None = None,
 ):
@@ -146,8 +146,8 @@ def delete_items(
 @router.get("/partner-prices")
 def list_partner_prices(
     context: Auth,
-    offset: int = 0,
-    limit: int = 50,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     sort: str | None = None,
     active: bool | None = None,
     partner_id: int | None = Query(None, alias="partnerId", gt=0),
@@ -217,8 +217,8 @@ def delete_partner_prices(
 def list_conversions(
     item_id: int,
     context: Auth,
-    offset: int = 0,
-    limit: int = 50,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     sort: str | None = None,
 ):
     page = Page(offset, limit).checked()
@@ -289,7 +289,10 @@ def delete_conversions(
 
 @router.get("/accounts")
 def list_accounts(
-    context: Auth, offset: int = 0, limit: int = 50, sort: str | None = None
+    context: Auth,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    sort: str | None = None,
 ):
     page = Page(offset, limit).checked()
     data, total = service.listing(
@@ -308,7 +311,10 @@ def get_accounts(row_id: int, context: Auth):
 
 @router.get("/posting-rules")
 def list_posting_rules(
-    context: Auth, offset: int = 0, limit: int = 50, sort: str | None = None
+    context: Auth,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    sort: str | None = None,
 ):
     page = Page(offset, limit).checked()
     data, total = service.listing(

@@ -5,8 +5,18 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 export const erpScreens = [
   { path: "partners", id: "E-15", label: "거래처", group: "기준정보" },
   { path: "items", id: "E-16", label: "품목", group: "기준정보" },
-  { path: "partner-prices", id: "E-17", label: "거래처별 단가", group: "기준정보" },
-  { path: "accounts", id: "E-18", label: "계정과목·분개규칙", group: "기준정보" },
+  {
+    path: "partner-prices",
+    id: "E-17",
+    label: "거래처별 단가",
+    group: "기준정보",
+  },
+  {
+    path: "accounts",
+    id: "E-18",
+    label: "계정과목·분개규칙",
+    group: "기준정보",
+  },
 ];
 export function ErpLayout() {
   const location = useLocation();
@@ -57,8 +67,8 @@ export function ErpLayout() {
             ))}
             <section>
               <h2>다른 앱</h2>
-              <NavLink to="/help/mes/m-01" onClick={closeMenu}>
-                MES 업무 안내
+              <NavLink to="/mes" onClick={closeMenu}>
+                MES 생산관리
               </NavLink>
               <NavLink to="/fems" onClick={closeMenu}>
                 FEMS 에너지관리

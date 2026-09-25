@@ -309,6 +309,29 @@ POST /sales-records/{id}/cancel      취소
 | GET | `/journal-preview` | E-14 |
 | — | `/partners` `/items` `/partner-prices` `/accounts` `/posting-rules` | E-15~18 |
 
+### FS-019a 기준정보 구현 계약
+
+- 공통: 세션에서 S를 결정하며 읽기는 `read_scope`, 쓰기는 `write_scope`의 공간 잠금·세대 재확인 뒤 실행한다. `X-CSRF-Token`·`Idempotency-Key` 필수, 성공 영수증 재전송 동일 결과. 다른 공간/이전 세대 ID는 404. ERP 사용 중단은 409 `MODULE_DISABLED`.
+- 목록은 `data` + `page(offset,limit,total)`(기본 50, 최대 200). `sort=응답필드:asc|desc`, 결정적인 id 보조 정렬. 입력·페이지 오류는 400 `VALIDATION_FAILED` + `details.fields`.
+
+| 경로 | 메서드 | 입력/응답 주요 필드 |
+|---|---|---|
+| `/partners`, `/partners/{id}` | GET·POST / GET·PATCH·DELETE | partnerCode, partnerName, partnerKind(CUSTOMER/SUPPLIER), paymentTermDays(nullable, 0 이상), isActive |
+| `/items`, `/items/{id}` | GET·POST / GET·PATCH·DELETE | itemCode, name, baseUnit(EA/BOX/KG/M/L/SET), itemType(finished/semi_finished/raw/auxiliary), taxCategory(TAXABLE/ZERO/EXEMPT), isActive |
+| `/items/{itemId}/conversions`, `…/{id}` | GET·POST / GET·PATCH·DELETE | fromUnit, factor(양수 문자열, 소수 6자리). itemId·toUnit은 서버 결정, 응답에 포함 |
+| `/partner-prices`, `/partner-prices/{id}` | GET·POST / GET·PATCH·DELETE | partnerId, itemId, priceKind(기본 SALE), unitPrice(0 이상 문자열, 소수 4자리), currency(대문자 3자리, 기본 KRW), effectiveFrom, effectiveTo(nullable), isActive |
+| `/accounts`, `/accounts/{id}` | GET | accountCode, accountName |
+| `/posting-rules`, `/posting-rules/{id}` | GET | transactionKind, lineNo, entrySide, accountId, accountCode, amountBasis |
+
+- POST 201, PATCH 200, DELETE 204. 계정·분개규칙에는 쓰기 라우트가 없다. `id`, `createdAt`은 응답 전용이다.
+- 거래처·품목·단가 목록은 `active` 필터. 단가 목록은 `partnerId`·`itemId` 필터도 제공한다.
+- 코드 중복, 환산 전 단위 중복, 명시적 null 금지 필드, 빈 PATCH는 400 + 필드 오류다. PATCH에서 결제조건·종료월만 null로 비울 수 있다.
+- 환산 후 단위는 품목 기준 단위다. fromUnit은 기준 단위와 달라야 한다. 단위환산·전표 등이 참조 중이면 품목 기준 단위 변경은 409 `PRECONDITION_NOT_MET`, reason `UNIT_IN_USE` + references 건수.
+- 참조 중인 거래처·품목 삭제는 409 `REFERENCED_BY_OTHERS`, 같은 reason + references(테이블·표시명·건수). 단위환산도 품목의 참조처로 센다. 사용 여부 변경은 별도 기능이다.
+- 단가 적용 구간은 YYYY-MM, **양 끝 월 포함**, 종료월 null은 무기한. 종료월 < 시작월은 400. 같은 거래처·품목의 구간은 **단가 구분·통화·사용 여부와 무관하게** 겹침을 거부한다(화면 설계 §8 기준). 생성·수정 모두 409 `PERIOD_OVERLAP`, reason·references·conflicts(겹치는 id와 구간) 제공. 수정 대상 자신은 제외한다.
+- 단가/환산 계수는 Decimal 문자열을 그대로 보존한다. 전표에 복사한 단가는 마스터 수정으로 소급 변경하지 않는다. 견적 자동 선택은 후속 FS-019b 범위다.
+- E-16은 MES 품목과 독립임을 표시한다. E-18은 7계정·10규칙의 매핑 사유를 안내하는 읽기 전용이다.
+
 ### 소명 계약
 
 - **`POST /receipts/{id}/applications`는 수금 확정 후에도 호출 가능하다.** 확정되는 것은 금액이지 배분이 아니다(FS-014b).

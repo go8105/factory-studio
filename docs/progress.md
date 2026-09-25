@@ -823,3 +823,12 @@
 - `mes/packing.py`: 담을 LOT, 포장 CRUD·담기·닫기·묶기, PALLET 입고. 도움말 m-08·m-09 보강. FS-020e main `6bcbe1e` ff.
 - 스모크는 처음에 사용자 개발 서버(8000·5173) 때문에 미실행 → 종료 후 70 passed.
 - 테스트: backend +14(전체 446, CI 환경), frontend +7(전체 301), Playwright +3(전체 70). 보고서 `docs/agent/MES_FS-020f.md`.
+
+
+## 2026-09-25 FS-019a 구현 — 스모크 승인 대기 (Codex)
+
+- WIP 보존 뒤 `origin/main 6bcbe1e`로 rebase. MES·ERP 라우트 모두 보존, ERP 런처 연결 및 Home 안내 수정.
+- E-15 거래처·E-16 품목/단위환산·E-17 거래처별 단가 CRUD, E-18 계정/분개규칙 읽기 전용. S 격리·write_scope·CSRF/멱등 영수증·참조 건수·단가 구간 겹침 거부. ERP 독립 안내, Field/select/checkbox 사용 보정.
+- backend guest_space 회귀 78개, frontend 20개 추가. 최종 프론트 전체 314 passed 및 typecheck/lint/format/build, CI Ruff check/format, db:validate, audit_schema_isolation, diff --check exit 0. backend 전체 **510 passed, 580.736초, exit 0**(CI 네 변수·전용 DB).
+- Playwright ERP CRUD 1개·360px 4개 추가. 공용 포트/DB 사용 승인을 기다리고 있어 실행·스크린샷 확인은 미실행. 완료 판정 보류.
+- API 계약 §8·도움말·진행현황·Codex HANDOFF 갱신. 보고서 `docs/agent/ERP_FS-019a.md`. 새 의존성·스키마 변경 없음. push·main 병합 없음.

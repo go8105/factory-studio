@@ -7,8 +7,8 @@
 - 저장소(메인 폴더, Claude Code 전용): `/Users/hwang-kyoungho/projects/factory-studio`
 - **Codex는 `/Users/hwang-kyoungho/projects/factory-studio-codex`만 사용**, 브랜치 `codex/*`. 메인 폴더를 열거나 수정하지 않는다. antigravity worktree·브랜치도 건드리지 않는다.
 - main·origin `6bcbe1e`(FS-020e까지), CI 통과.
-- **Claude Code**: 브랜치 `fs-020f-mes-packing`(FS-020f) → 다음 Codex `4e2bc74`(FS-019a ERP 기준정보) 통합.
-- **Codex**: `../factory-studio-codex` `codex/fs-019a-erp-master`에 **미커밋 작업이 남은 채 사용 한도로 중단**(9d896fd 기준). 재개 시 최신 main으로 rebase 필요 — 공유 파일 main.py·App.tsx·Home.tsx(안내 문구 줄 포함)·portal.spec.ts·styles.css 충돌 예상. 부분 코드의 `frontend/src/erp/Master.tsx`는 공통 `Field`에 자식 요소를 넘기고 있어 타입 검사에서 막힐 가능성이 크다.
+- **Claude Code**: `fs-020f-mes-packing`(FS-020f) → `fs-019a-erp-integrate`(Codex `4e2bc74`를 FS-020f 위로 rebase, 통합 스모크 담당).
+- **Codex**: `../factory-studio-codex` · `codex/fs-019a-erp-master`(`4e2bc74`). 통합은 Claude Code가 새 브랜치로 진행했으므로 Codex는 다음 ID를 새 main에서 분기한다. 아래 **Codex — FS-019a** 절 참고.
 - **MES·ERP 작업 계획과 프롬프트: `docs/agent/MES_ERP_작업계획_FS-019_020.md`** (분배·순서·병행 규칙·FEMS 함정·프롬프트 §9).
 - `gh` CLI 로그인 완료(go8105). CI는 `gh run list --branch <b>` / `gh run watch <id> --exit-status`.
 - 정정: 예전 인계의 "`78e1206` CI도 날짜 때문에 실패했을 것"은 틀렸다(09-24에 돌아 성공).
@@ -48,4 +48,30 @@ env -i HOME="$HOME" PATH="$PATH" DATABASE_URL="$db_url" TEST_DATABASE_URL="$test
   uv run --project backend pytest backend/tests -q
 uv run --project backend --env-file .env python tools/run_portal_smoke.py   # 8000·5173 비어 있어야 함
 python -m unittest discover -s tools && npm run db:validate && python tools/audit_schema_isolation.py && git diff --check
+```
+
+
+## Codex — FS-019a (2026-09-25)
+
+- 브랜치: `codex/fs-019a-erp-master`, 전용 `factory-studio-codex`만 사용.
+- 마지막 커밋: `5ad511d WIP FS-019a`(보존 커밋 d47b8a4를 6bcbe1e 위로 rebase한 결과). 이 절과 최종 결과는 후속 `FS-019a: ERP 기준정보 구현 및 회귀 검증` 커밋에 포함한다. 최신 커밋은 `git log -1`로 확인한다.
+- 끝난 것: ERP E-15~18 API·화면·도움말·API 계약, guest_space 기반 ERP 회귀 78개, 프론트 ERP 테스트 20개. MES/ERP 라우트를 모두 보존했고 Home은 세 솔루션 화면 진입으로 변경. Field children 제거, select 직접 렌더링, checkbox inline-check 적용.
+- 검증: 최종 frontend 5종(314 tests), CI Ruff 2종, db:validate, audit_schema_isolation, diff --check exit 0. backend 전체 510 passed, 580.736초, exit 0(CI 환경 네 변수만, 전용 DB).
+- 다음: 사용자 승인 후 공용 포트/DB 스모크 실행 및 ERP 360px 스크린샷 직접 확인. 아직 실행 승인이 없어 미실행. FS-019a 완료 판정은 이 검증 뒤이며 FS-019b 착수·push·main 병합은 사용자 확인 뒤.
+- 주의: pytest DB는 `factory_studio_codex_test`, 스모크는 `factory_studio_fs017_test` + 8000/5173(Claude Code와 공유). 동시 실행 금지. schema.json·마이그레이션·test_common.py·test_seed.py·conftest 변경 없음. 새 의존성 없음.
+- 보고서: `docs/agent/ERP_FS-019a.md`(명령·exit·런타임·남은 검증).
+
+```sh
+cd /Users/hwang-kyoungho/projects/factory-studio-codex
+export PATH="/opt/homebrew/opt/node@24/bin:$PWD/backend/.venv/bin:/opt/homebrew/bin:/usr/bin:/bin"
+npm --prefix frontend run typecheck && npm --prefix frontend run lint && npm --prefix frontend run format:check
+npm --prefix frontend run build && npm --prefix frontend test
+# task_test_url은 factory_studio_codex_test 접속 URL. .env 없이 네 변수만 전달.
+env -i HOME="$HOME" PATH="$PATH" DATABASE_URL="$task_test_url" TEST_DATABASE_URL="$task_test_url" uv run --project backend pytest backend/tests -q --durations=15
+uv run --project backend ruff check --config backend/pyproject.toml backend tools/verify_ddl_matches_schema.py
+uv run --project backend ruff format --check --config backend/pyproject.toml backend tools/verify_ddl_matches_schema.py
+npm run db:validate
+uv run --project backend python tools/audit_schema_isolation.py
+git diff --check
+# 스모크는 사용자 승인 후 tools/run_portal_smoke.py 실행.
 ```

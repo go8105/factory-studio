@@ -87,6 +87,10 @@ for (const [route, title] of [
   ["help", "도움말"],
   ["workspace", "내 공간"],
   ["records", "페이지를 찾을 수 없습니다"],
+  ["erp/partners", "거래처"],
+  ["erp/items", "품목"],
+  ["erp/partner-prices", "거래처별 단가"],
+  ["erp/accounts", "계정과목·분개규칙"],
   ["fems/dashboard", "에너지 개요"],
   ["fems/energy-sources", "에너지원"],
   ["fems/readings", "계측 조회"],
@@ -140,4 +144,24 @@ test("360px 진입 화면 가로 스크롤 없음", async ({ page }) => {
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(360);
+});
+
+test("ERP 거래처 등록 → 수정 → 삭제", async ({ page }) => {
+  await page.getByRole("link", { name: /ERP/ }).click();
+  await expect(page).toHaveURL("/erp/partners");
+  await expect(
+    page.getByRole("heading", { name: "거래처", exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("거래처 코드", { exact: true }).fill("E2E-ERP");
+  await page.getByLabel("거래처명", { exact: true }).fill("브라우저 거래처");
+  await page.getByRole("button", { name: "저장", exact: true }).click();
+  const row = page.getByRole("row", { name: /^E2E-ERP/ });
+  await expect(row).toBeVisible();
+  await row.getByRole("button", { name: "수정", exact: true }).click();
+  await page.getByLabel("거래처명", { exact: true }).fill("변경 거래처");
+  await page.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(row).toContainText("변경 거래처");
+  await row.getByRole("button", { name: "삭제", exact: true }).click();
+  await page.getByRole("button", { name: "삭제 확인", exact: true }).click();
+  await expect(row).toHaveCount(0);
 });
