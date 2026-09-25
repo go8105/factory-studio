@@ -105,6 +105,8 @@ for (const [route, title] of [
   ["mes/executions", "공정 실행"],
   ["mes/material-issues", "자재 투입"],
   ["mes/results", "실적 확정"],
+  ["mes/packing", "패킹"],
+  ["mes/receipts", "완제품 입고"],
   ["mes/sites", "사업장·공간"],
   ["mes/equipments", "설비"],
   ["mes/items", "품목"],

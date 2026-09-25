@@ -14,6 +14,8 @@ import { Lots } from "./Lots";
 import { Executions } from "./Executions";
 import { Materials } from "./Materials";
 import { Results } from "./Results";
+import { Packing } from "./Packing";
+import { Receipts } from "./Receipts";
 
 export default function MesRoutes() {
   return (
@@ -27,6 +29,8 @@ export default function MesRoutes() {
         <Route path="executions" element={<Executions />} />
         <Route path="material-issues" element={<Materials />} />
         <Route path="results" element={<Results />} />
+        <Route path="packing" element={<Packing />} />
+        <Route path="receipts" element={<Receipts />} />
         <Route path="sites" element={<Sites />} />
         <Route path="equipments" element={<Equipments />} />
         <Route path="items" element={<Items />} />

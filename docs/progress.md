@@ -817,3 +817,9 @@
 - 자재 투입 API·화면(BOM 제안량, RESULT_CONFIRMED, DUPLICATE_ISSUE, 삭제 정정), 실적 조회 `GET /results`, 공통 `ResultForm`.
 - 도움말 m-06·m-07 보강. FS-020d main `2a0717e` ff.
 - 테스트: backend +12(전체 432, CI 환경), frontend +7(전체 294), Playwright +3(전체 67). 보고서 `docs/agent/MES_FS-020e.md`.
+
+## 2026-09-25 FS-020f 완료 (Claude Code)
+
+- `mes/packing.py`: 담을 LOT, 포장 CRUD·담기·닫기·묶기, PALLET 입고. 도움말 m-08·m-09 보강. FS-020e main `6bcbe1e` ff.
+- 스모크는 처음에 사용자 개발 서버(8000·5173) 때문에 미실행 → 종료 후 70 passed.
+- 테스트: backend +14(전체 446, CI 환경), frontend +7(전체 301), Playwright +3(전체 70). 보고서 `docs/agent/MES_FS-020f.md`.

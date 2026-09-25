@@ -19,6 +19,8 @@ export const mesScreens = [
     group: "생산실행",
   },
   { path: "results", id: "M-07", label: "실적 확정", group: "생산실행" },
+  { path: "packing", id: "M-08", label: "패킹", group: "포장·입고" },
+  { path: "receipts", id: "M-09", label: "완제품 입고", group: "포장·입고" },
   { path: "sites", id: "M-10", label: "사업장·공간", group: "기준정보" },
   { path: "equipments", id: "M-11", label: "설비", group: "기준정보" },
   { path: "items", id: "M-12", label: "품목", group: "기준정보" },

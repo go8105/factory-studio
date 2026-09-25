@@ -209,3 +209,21 @@ class IssueCreate(ApiModel):
     material_lot_id: int | None = Field(None, alias="materialLotId", gt=0)
     issued_qty: str = Field(alias="issuedQty", pattern=QTY)
     unit: str = Field(min_length=1, max_length=10)
+
+
+# ---- M-08 패킹 · M-09 완제품 입고 ----
+class UnitCreate(ApiModel):
+    packing_kind: Literal["BOX", "PALLET"] = Field(alias="packingKind")
+
+
+class MemberSet(ApiModel):
+    lot_id: int = Field(alias="lotId", gt=0)
+    packed_qty: str = Field(alias="packedQty", pattern=QTY)  # 0이면 BOX에서 뺀다
+
+
+class UnitParent(ApiModel):
+    parent_packing_unit_id: int | None = Field(alias="parentPackingUnitId", gt=0)
+
+
+class ReceiptCreate(ApiModel):
+    packing_unit_id: int = Field(alias="packingUnitId", gt=0)

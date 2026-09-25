@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from fs.common.auth import AuthContext, require_csrf, resolve_auth
 from fs.common.errors import ApiError
-from fs.mes import execution, planning, service
+from fs.mes import execution, packing, planning, service
 from fs.mes import repository as repo
 from fs.mes.repository import Master
 from fs.mes.schema import (
@@ -26,6 +26,7 @@ from fs.mes.schema import (
     ItemUpdate,
     LocationCreate,
     LocationUpdate,
+    MemberSet,
     OrderCancel,
     OrderCreate,
     OrderUpdate,
@@ -34,10 +35,13 @@ from fs.mes.schema import (
     PlanUpdate,
     ProcessCreate,
     ProcessUpdate,
+    ReceiptCreate,
     RouteCreate,
     RouteSteps,
     SiteCreate,
     SiteUpdate,
+    UnitCreate,
+    UnitParent,
 )
 
 router = APIRouter()
@@ -573,3 +577,96 @@ def delete_issue(
 @router.get("/results")
 def list_results(context: Auth) -> dict[str, object]:
     return {"data": execution.list_results(context)}
+
+
+# ---- M-08 패킹 · M-09 완제품 입고 ----
+@router.get("/packable-lots")
+def packable_lots(context: Auth) -> dict[str, object]:
+    return {"data": packing.packable_lots(context)}
+
+
+@router.get("/packing-units")
+def list_units(context: Auth) -> dict[str, object]:
+    return {"data": packing.list_units(context)}
+
+
+@router.post("/packing-units", status_code=201)
+def post_unit(
+    payload: UnitCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": packing.create_unit(context, payload.packing_kind, key)}
+
+
+@router.delete("/packing-units/{unit_id}", status_code=204)
+def delete_unit(
+    unit_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> Response:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    packing.delete_unit(context, unit_id, key)
+    return Response(status_code=204)
+
+
+@router.put("/packing-units/{unit_id}/members")
+def put_member(
+    unit_id: int,
+    payload: MemberSet,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": packing.set_member(
+            context, unit_id, payload.lot_id, payload.packed_qty, key
+        )
+    }
+
+
+@router.post("/packing-units/{unit_id}/close")
+def close_unit(
+    unit_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": packing.close_unit(context, unit_id, key)}
+
+
+@router.put("/packing-units/{unit_id}/parent")
+def put_parent(
+    unit_id: int,
+    payload: UnitParent,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": packing.set_parent(
+            context, unit_id, payload.parent_packing_unit_id, key
+        )
+    }
+
+
+@router.get("/finished-goods-receipts")
+def list_receipts(context: Auth) -> dict[str, object]:
+    return {"data": packing.list_receipts(context)}
+
+
+@router.post("/finished-goods-receipts", status_code=201)
+def post_receipt(
+    payload: ReceiptCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": packing.receive(context, payload.packing_unit_id, key)}

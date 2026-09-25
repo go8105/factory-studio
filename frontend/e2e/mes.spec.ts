@@ -179,3 +179,34 @@ test("새로 시작한 공정에 BOM 제안량으로 자재를 투입한다", as
       .getByRole("row", { name: /RM-PBT/ }),
   ).toContainText("투입 완료");
 });
+
+test("남은 양품을 BOX에 담아 PALLET으로 묶고 입고한다", async ({ page }) => {
+  await page.goto("/mes/packing");
+  await page.getByRole("button", { name: "새 PALLET" }).click();
+  await expect(page.getByRole("heading", { name: /PL-0007/ })).toBeVisible();
+  await page.getByRole("button", { name: "새 BOX" }).click();
+  await expect(page.getByRole("heading", { name: /BX-0031/ })).toBeVisible();
+  await page.getByRole("button", { name: "담기" }).click();
+  await expect(
+    page.getByRole("table", { name: "BX-0031 구성" }).getByRole("row"),
+  ).toHaveCount(2);
+  await page.getByRole("button", { name: "BOX 닫기" }).click();
+  await page.getByRole("button", { name: "PALLET에 묶기" }).click();
+  const units = page.getByRole("table", { name: "포장 목록" });
+  await units
+    .getByRole("row", { name: /^PL-0007/ })
+    .getByRole("button", { name: "열기" })
+    .click();
+  await page.getByRole("button", { name: "PALLET 닫기" }).click();
+  await page.goto("/mes/receipts");
+  await page
+    .getByRole("table", { name: "입고할 PALLET" })
+    .getByRole("row", { name: /^PL-0007/ })
+    .getByRole("button", { name: "입고" })
+    .click();
+  await expect(
+    page
+      .getByRole("table", { name: "입고 내역" })
+      .getByRole("row", { name: /^PL-0007/ }),
+  ).toBeVisible();
+});

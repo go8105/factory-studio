@@ -376,6 +376,11 @@ GET /journal-preview?kind=RECEIPT&applyId=...
 - 시작은 `POST /lots/{id}/executions` `{routeStepId, equipmentId}`, 완료는 `POST /executions/{id}/result`(실적 확정 = 완료). 결과 없는 종료는 스키마상 없으므로 `/finish`는 두지 않는다.
 - 409 `reason`: `LOT_NOT_STARTABLE`·`STEP_RUNNING`·`OUT_OF_ORDER`·`PROCESS_INACTIVE`·`EQUIPMENT_BUSY`(+`lotNo`)·`ALREADY_COMPLETED`. 투입은 서버가 정하고 양품 + 불량 = 투입.
 
+### 패킹·완제품 입고 (FS-020f)
+
+- `/packable-lots`, `/packing-units`(`members`·`childIds`·`displayStatus`), `PUT /packing-units/{id}/members`(0이면 빼기), `/close`, `PUT /packing-units/{id}/parent`, `/finished-goods-receipts`.
+- 409 `reason`: `EXCEEDS_GOOD_QTY`(+`availableQty`)·`NOT_A_BOX`·`MIXED_ITEM`·`UNIT_CLOSED`·`UNIT_EMPTY`·`BOX_NOT_CLOSED`·`BOX_OPEN`·`NOT_A_PALLET`·`UNIT_OPEN`·`ALREADY_RECEIVED`·`UNIT_NOT_EMPTY`. 입고 시 하위 BOX는 closed 유지, `displayStatus`는 부모 상태.
+
 ### LOT 상세가 핵심 응답이다
 
 `GET /lots/{id}`는 추적성을 보여주는 화면(M-04)을 받친다. 공정 실행 · 투입 자재 · 실적을 **한 번에 반환한다.** 화면이 세 번 호출하게 두지 않는다.
