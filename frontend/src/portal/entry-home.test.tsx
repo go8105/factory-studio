@@ -151,5 +151,5 @@ it("P-02 활성 앱은 승인된 기존 솔루션 도움말로 연결한다", as
   );
   expect(
     await screen.findByRole("link", { name: /MES 생산관리/ }),
-  ).toHaveAttribute("href", "/help/mes/m-01");
+  ).toHaveAttribute("href", "/mes");
 });

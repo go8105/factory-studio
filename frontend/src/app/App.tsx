@@ -22,6 +22,7 @@ const Help = lazy(() => content().then((m) => ({ default: m.Help })));
 import { Workspace } from "../portal/Workspace";
 import { Records } from "../portal/Records";
 const FemsRoutes = lazy(() => import("../fems"));
+const MesRoutes = lazy(() => import("../mes"));
 function Layout() {
   const { session, setSession, busy, navigationBlocked, fail } = useSession();
   const navigate = useNavigate();
@@ -142,6 +143,7 @@ function PortalRoutes() {
             <Route path="/workspace" element={<Workspace />} />
             <Route path="/records" element={<Admin />} />
             <Route path="/fems/*" element={<FemsRoutes />} />
+            <Route path="/mes/*" element={<MesRoutes />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Route>

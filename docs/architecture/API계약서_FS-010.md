@@ -353,6 +353,13 @@ GET /journal-preview?kind=RECEIPT&applyId=...
 | — | `/finished-goods-receipts` | M-09 |
 | — | `/sites` `/locations` `/equipments` `/items` `/processes` `/routes` `/boms` | M-10~15 |
 
+### 기준정보 (FS-020a)
+
+- `/sites` `/locations` `/equipments` `/items` `/processes`: 목록은 페이지 없이 전체(`data`만). 삭제 409 `REFERENCED_BY_OTHERS` + 건수.
+- 공간의 사업장 수정 불가, 상위 공간 같은 사업장·순환 금지. 품목 기준 단위는 단위 환산·작업지시가 있으면 409 `UNIT_IN_USE`.
+- `/items` 목록에 `conversions`, `/items/{id}/conversions` 등록·수정·삭제(결과 단위 = 기준 단위, 서버 결정).
+- `/processes` 목록·응답에 `equipmentIds`. 본문 `equipmentIds`는 허용 설비 목록 전체 교체.
+
 ### LOT 상세가 핵심 응답이다
 
 `GET /lots/{id}`는 추적성을 보여주는 화면(M-04)을 받친다. 공정 실행 · 투입 자재 · 실적을 **한 번에 반환한다.** 화면이 세 번 호출하게 두지 않는다.

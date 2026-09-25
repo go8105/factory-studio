@@ -87,8 +87,8 @@ export function FemsLayout() {
             ))}
             <section>
               <h2>다른 앱</h2>
-              <NavLink to="/help/mes/m-01" onClick={closeMenu}>
-                MES 업무 안내
+              <NavLink to="/mes" onClick={closeMenu}>
+                MES 생산관리
               </NavLink>
               <NavLink to="/help/erp/e-01" onClick={closeMenu}>
                 ERP 업무 안내

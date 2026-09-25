@@ -1,12 +1,14 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-25 (FS-018 FEMS 14/14 완료 + Codex 테스트 시간 단축 통합, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-25 (FS-020a MES 기준정보 완료, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
 - 저장소(메인 폴더, Claude Code 전용): `/Users/hwang-kyoungho/projects/factory-studio`
 - **Codex는 `/Users/hwang-kyoungho/projects/factory-studio-codex`만 사용**, 브랜치 `codex/*`. 메인 폴더를 열거나 수정하지 않는다. antigravity worktree·브랜치도 건드리지 않는다.
-- 통합 브랜치 `fs-018m-f09` = main `70951d4` + Codex `codex/test-speed`(fcdd7f5·83e5a54) + 계획서 + F-09. push → CI → main ff는 사용자 확인 뒤.
+- main·origin `9d896fd`(FEMS 14/14 + 테스트 시간 단축 + 계획서), CI 통과.
+- **Claude Code**: 브랜치 `fs-020a-mes-master`(공통 스타일 커밋 + FS-020a). push·main ff는 사용자 확인 뒤.
+- **Codex**: `../factory-studio-codex`에서 FS-019a ERP(`codex/fs-019a-erp-master`).
 - **MES·ERP 작업 계획과 프롬프트: `docs/agent/MES_ERP_작업계획_FS-019_020.md`** (분배·순서·병행 규칙·FEMS 함정·프롬프트 §9).
 - `gh` CLI 로그인 완료(go8105). CI는 `gh run list --branch <b>` / `gh run watch <id> --exit-status`.
 - 정정: 예전 인계의 "`78e1206` CI도 날짜 때문에 실패했을 것"은 틀렸다(09-24에 돌아 성공).
@@ -21,9 +23,10 @@
 
 ## 다음 할 일
 
-1. `fs-018m-f09` push → CI → main ff (사용자 확인 뒤).
-2. 사용자 결정: 분배(Codex ERP · Claude MES 병렬 / Codex 순차), E-G07(0원 매출 세금계산서, FS-019d 전), 사용 중 채널 배수 변경 허용 유지(`FEMS_FS-018l.md`).
-3. Codex: 새 main으로 `codex/fs-019a-erp-master` 분기 → 계획서 §9-B. Claude Code: 분배 확정 시 FS-020a(§9-D).
+1. Claude Code: `fs-020a-mes-master` push → CI → main ff(사용자 확인 뒤) → FS-020b 공정 경로·BOM.
+2. Codex: FS-019a 진행 중. 먼저 끝난 쪽이 main ff, 나중 쪽이 rebase(공유 파일: main.py·App.tsx·Home.tsx·portal.spec.ts·styles.css).
+3. 사용자 결정 대기: E-G07(0원 매출 세금계산서, FS-019d 전), 사용 중 채널 배수 변경 허용 유지(`FEMS_FS-018l.md`).
+4. **스모크(`tools/run_portal_smoke.py`)는 8000·5173 포트와 `factory_studio_fs017_test`를 고정 사용** — Claude Code와 Codex가 동시에 실행하지 않는다.
 4. **새 업무 테스트는 `guest_space` fixture를 쓴다**(FEMS 테스트 파일 참고: `def fems(guest_space): return guest_space[:2]`).
 
 ## 재현·주의점

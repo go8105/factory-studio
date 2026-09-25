@@ -787,3 +787,9 @@
 - `fs-018m-f09`를 `codex/test-speed`(83e5a54) 위로 rebase. HANDOFF·진행현황·progress 충돌은 두 내용을 모두 보존해 해결.
 - `test_fems_sites.py` fixture를 `guest_space`로 전환(테스트 본문 동일).
 - 검증(CI 환경): backend **332 passed, 5분 36초**(통합 전 15분 8초), frontend 254, 스모크 47, ruff(CI 범위)·tools unittest 44·db:validate·audit·git diff --check 모두 exit 0.
+
+## 2026-09-25 FS-020a 완료 (Claude Code)
+
+- MES 기준정보 4화면 + API. 표 명세(`Master`) 기반 공통 CRUD, 품목 기준 단위 잠금(UNIT_IN_USE), 공간 순환 방지, 공정 허용 설비 교체.
+- 공통 스타일 체크박스 보정(별도 커밋). 도움말 m-10·m-12 수정. 포털·FEMS의 MES 링크를 `/mes`로.
+- 테스트: backend +28(전체 360, CI 환경), frontend +12(전체 266), Playwright +7(전체 54). 보고서 `docs/agent/MES_FS-020a.md`.

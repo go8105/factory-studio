@@ -15,7 +15,7 @@ export const solutions = [
     key: "mes",
     name: "생산관리",
     description: "계획에서 실적, 패킹과 입고까지",
-    to: "/help/mes/m-01",
+    to: "/mes",
   },
   {
     key: "erp",
@@ -78,7 +78,7 @@ export function Home() {
       </Link>
       <div className="section-heading">
         <h2>솔루션 둘러보기</h2>
-        <span>FEMS는 화면으로, MES·ERP는 업무 안내로 연결됩니다</span>
+        <span>FEMS·MES는 화면으로, ERP는 업무 안내로 연결됩니다</span>
       </div>
       <ErrorNotice error={error} />
       {!modules ? (

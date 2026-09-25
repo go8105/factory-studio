@@ -76,7 +76,8 @@ FS-012 §3: ERP와 MES는 코드가 서로를 참조하지 않으므로 병렬 �
 | `frontend/src/app/App.tsx` | 모듈 라우트 한 줄씩 |
 | `frontend/e2e/portal.spec.ts` 360px 목록 · `tools/run_portal_smoke.py` | 자기 모듈 항목만 추가 |
 | `frontend/src/shared/*` (공통 컴포넌트·스타일) | 바꿔야 하면 **별도 작은 커밋** + 보고서에 명시. 다른 모듈 화면을 깨지 않는지 frontend 전체 테스트 |
-| `backend/tests/conftest.py` | Codex 소유. Claude는 수정하지 않는다 |
+| `backend/tests/conftest.py` | Codex 소유. Claude는 수정하지 않는다. 새 테스트는 `guest_space` fixture 사용 |
+| `tools/run_portal_smoke.py` 실행 | 8000·5173 포트와 스모크 DB를 고정 사용 → **동시에 실행하지 않는다.** Codex는 실행 전 사용자에게 묻는다 |
 | `test_common.py`·`test_seed.py` | antigravity 소유 |
 | `docs/plan/현재기획_진행현황.md`·`docs/progress.md`·`docs/agent/HANDOFF.md` | 자기 ID 절만 추가. HANDOFF는 담당자별 절을 나눈다 |
 

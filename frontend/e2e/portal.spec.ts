@@ -99,6 +99,10 @@ for (const [route, title] of [
   ["fems/sites", "사업장·공간"],
   ["fems/meters", "계측기·채널"],
   ["fems/energy-factors", "환산·배출계수"],
+  ["mes/sites", "사업장·공간"],
+  ["mes/equipments", "설비"],
+  ["mes/items", "품목"],
+  ["mes/processes", "공정"],
 ]) {
   test(`360px ${route} 가로 스크롤 없음`, async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });
