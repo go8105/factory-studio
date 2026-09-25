@@ -781,3 +781,9 @@
 - F-09 `/sites`·`/locations` CRUD, 화면 `Sites.tsx`. TIMEZONE_IN_USE 잠금, 공간 사업장 고정, 부모 순환 방지. 도움말 f-09 수정. FS-018l은 main `70951d4` ff, CI 통과.
 - MES·ERP 작업 계획과 Codex 프롬프트 작성(`docs/agent/MES_ERP_작업계획_FS-019_020.md`).
 - 테스트: backend +20(전체 332, CI 환경), frontend +11(전체 254), Playwright +2(전체 47). 보고서 `docs/agent/FEMS_FS-018m.md`.
+
+## 2026-09-25 통합: Codex 테스트 시간 단축 + FS-018m (Claude Code)
+
+- `fs-018m-f09`를 `codex/test-speed`(83e5a54) 위로 rebase. HANDOFF·진행현황·progress 충돌은 두 내용을 모두 보존해 해결.
+- `test_fems_sites.py` fixture를 `guest_space`로 전환(테스트 본문 동일).
+- 검증(CI 환경): backend **332 passed, 5분 36초**(통합 전 15분 8초), frontend 254, 스모크 47, ruff(CI 범위)·tools unittest 44·db:validate·audit·git diff --check 모두 exit 0.
