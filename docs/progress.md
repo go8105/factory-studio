@@ -954,3 +954,7 @@
 - 범위: 건물 외관↔내부 전환(외벽·지붕·하역장·옥상 공조기), 바닥·금속 재질과 그림자, 조립·비전검사·포장 Blender 모델(glb 4개 1.4MB)과 동작, 자재 선반·공구대, MES·ERP·FEMS 진입 카드. 새 의존성 없음, 3D 번들은 `/factory` 진입 때만 지연 로딩(Factory 925kB, gzip 247kB).
 - 검증(메인 폴더에서 재실행): frontend typecheck·lint·format:check·build·test **393 passed**, 3D 전용 브라우저 테스트 **10 passed**, 스모크 **107 passed**, diff --check. 외관·내부·360px 스크린샷 직접 확인. backend 변경 없음.
 - 참고: 업무 데이터(설비 상태 등)와의 실시간 연동은 아직 없다(화면에 "3D 합성 시연 · 실시간 설비 정보 아님" 표시).
+
+## 2026-09-26 FS-022 배포 절차서 (Claude Code)
+
+- Codex 3D 공장 고도화 main ff(CI 통과) 뒤 작성. `docs/deploy/배포절차_FS-022.md` — 사용자가 Vultr VM에서 직접 실행하는 절차(IP 단계 → 도메인·HTTPS 단계). Claude Code는 서버에 접속하지 않았다.
