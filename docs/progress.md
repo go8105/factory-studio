@@ -966,3 +966,13 @@
 - 실행: Docker·uv 설치(apt upgrade 없음) → factory 사용자·읽기 전용 deploy key → clone `c41c274`·.env(서버 생성 비밀값) → PG18 Docker·마이그레이션·템플릿 시드 → systemd API(8021)·회수 타이머 → 프런트 맥북 빌드 rsync → CSR·Cloudflare Origin CA → Nginx 사이트(기본 서버 TLS 거절, fs→eip 301, CF real IP) → ufw 443 → reload.
 - 문제와 해결: Nginx 1.24가 `http2 on;` 미지원 → `listen 443 ssl http2`. Cloudflare 레코드가 처음 `@`로 들어가 eip 미해결 → 사용자가 eip 추가. 루트·www·aegis가 FS를 보여 443 기본 서버로 TLS 거절(525). 맥북 DNS 음성 캐시로 로컬 curl 실패 → Cloudflare IP 고정으로 확인.
 - 절차서를 실행한 그대로 재작성(`docs/deploy/배포절차_FS-022.md`).
+
+## 2026-09-26 UI-01 공통 디자인 시스템·앱 레이아웃 (Claude Code)
+
+- 브랜치 `ui-01-design-system`(기준 `b197491`, 커밋 `a5dddc2`·`7d7cbaf`·최종 UI-01 커밋). 상세 `docs/ui/디자인시스템_UI-01.md`.
+- 원인: `main` 1160px 제한과 헤더 중앙 정렬 패딩, h1 36px·패널 28px·본문 15px/1.65, 레이아웃 3벌 복제, 스타일 없는 공통 클래스(`form-actions`·`toolbar`·`filter-inline`·`field-error`).
+- 변경: 토큰(색·글자·간격·모양·컨트롤·앱 틀), 공통 `SolutionLayout`(접기·서랍·키보드), 한 줄 페이지 헤더, 공통 입력·버튼 상태, 표 숫자 정렬·긴 값 title, KPI 4열/모바일 2열, 알림 종류별 색, 목록 아래 상세 자동 스크롤, 도움말 읽기 폭, 3D 공장 캔버스 높이·툴바·설비 상세 오버레이. 직접 쓴 표 5화면에 금액 열 정렬.
+- 전후(1366×768, F-01): KPI 3+1줄 → 4개 한 줄, KPI 시작 약 370px → 약 213px, 주요 차트 시작 약 700px(첫 화면 밖) → 약 350px.
+- 검증: typecheck·lint·format:check·build exit 0, vitest 393 passed, 3D 브라우저 10 passed, 스모크 107 passed(5.7분, exit 0), `git diff --check`. 55경로 × 5해상도 넘침·작은 글자 점검 0건.
+- 미실행: backend pytest(백엔드 변경 없음), Safari·실기기.
+- DB migration / Excel / seed: 변경 없음. push·main 병합 없음.
