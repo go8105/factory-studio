@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, Query, Response
 from fs.common.auth import AuthContext, require_csrf, resolve_auth
 from fs.common.errors import ApiError
 from fs.common.page import Page
-from fs.erp import sales, schema, service, shipping
+from fs.erp import revenue, sales, schema, service, shipping
 
 router = APIRouter()
 Auth = Annotated[AuthContext, Depends(resolve_auth)]
@@ -567,3 +567,50 @@ def post_shipment(
     key = mutation(context, x_csrf_token, idempotency_key)
     values = payload.model_dump(mode="json")
     return {"data": shipping.confirm_shipment(context, values, key)}
+
+
+# ---- FS-019d 매출·세금계산서 ----
+@router.get("/sales-records")
+def list_sales_records(context: Auth):
+    return {"data": revenue.list_sales(context)}
+
+
+@router.post("/sales-records/{record_id}/cancel")
+def post_sales_record_cancel(
+    record_id: int,
+    payload: schema.CancelIn,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": revenue.cancel_sale(context, record_id, payload.reason, key)}
+
+
+@router.get("/tax-invoices")
+def list_tax_invoices(context: Auth):
+    return {"data": revenue.list_invoices(context)}
+
+
+@router.post("/tax-invoices", status_code=201)
+def post_tax_invoice(
+    payload: schema.TaxInvoiceCreate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": revenue.create_invoice(context, payload.sales_record_id, key)}
+
+
+@router.post("/tax-invoices/{invoice_id}/issue")
+def post_tax_invoice_issue(
+    invoice_id: int,
+    payload: schema.TaxInvoiceIssue,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(mode="json")
+    return {"data": revenue.issue_invoice(context, invoice_id, values, key)}

@@ -206,3 +206,13 @@ class ShipmentCreate(ApiModel):
     shipment_no: Code = Field(alias="shipmentNo")
     shipment_order_id: int = Field(alias="shipmentOrderId", gt=0)
     lines: list[ShipmentLineIn] = Field([], max_length=200)  # 패킹번호만. 수량은 서버
+
+
+# ---- FS-019d 매출·세금계산서 ----
+class TaxInvoiceCreate(ApiModel):
+    sales_record_id: int = Field(alias="salesRecordId", gt=0)
+
+
+class TaxInvoiceIssue(ApiModel):
+    approval_no: str = Field(alias="approvalNo", min_length=1, max_length=60)
+    issued_on: date = Field(alias="issuedOn")
