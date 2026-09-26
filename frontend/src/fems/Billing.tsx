@@ -80,9 +80,13 @@ export function SourceBilling({ source }: { source: BillingSource }) {
           <thead>
             <tr>
               <th scope="col">월</th>
-              <th scope="col">요금</th>
+              <th scope="col" className="num">
+                요금
+              </th>
               <th scope="col">요금제</th>
-              <th scope="col">기본요금</th>
+              <th scope="col" className="num">
+                기본요금
+              </th>
               <th scope="col">사용량 × 단가</th>
             </tr>
           </thead>
@@ -90,13 +94,15 @@ export function SourceBilling({ source }: { source: BillingSource }) {
             {source.segments.map((s) => (
               <tr key={s.month}>
                 <th scope="row">{s.month}</th>
-                <td>{s.amount === null ? "요금제 없음" : won(s.amount)}</td>
+                <td className="num">
+                  {s.amount === null ? "요금제 없음" : won(s.amount)}
+                </td>
                 <td>
                   {s.tariff
                     ? `${s.tariff.tariffCode} (${s.tariff.effectiveFrom} ~ ${s.tariff.effectiveTo ?? "계속"})`
                     : "—"}
                 </td>
-                <td>{won(s.basicCharge)}</td>
+                <td className="num">{won(s.basicCharge)}</td>
                 <td>
                   {num(s.usage)} {source.unit}
                   {s.tariff &&

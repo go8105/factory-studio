@@ -390,7 +390,7 @@ export function Tariffs() {
       />
       <div className="master-grid">
         <section>
-          <div className="toolbar" style={{ marginBottom: "1rem" }}>
+          <div className="toolbar">
             <label className="filter-inline" htmlFor="tariff-source-filter">
               에너지원 필터:
             </label>

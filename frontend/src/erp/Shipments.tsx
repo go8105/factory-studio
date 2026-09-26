@@ -8,6 +8,7 @@ import {
   Loading,
   PageTitle,
   type Column,
+  RevealAnchor,
 } from "../shared/components";
 import {
   fieldErrors,
@@ -198,6 +199,8 @@ export function Shipments() {
               />
             }
           />
+
+          <RevealAnchor when={selected} />
 
           {selected && (
             <section className="panel" aria-label="출하 명세">

@@ -139,7 +139,9 @@ export function AllocationSummary({ rows }: { rows: SummaryRow[] }) {
             <thead>
               <tr>
                 <th scope="col">설비</th>
-                <th scope="col">합계</th>
+                <th scope="col" className="num">
+                  합계
+                </th>
                 <th scope="col">일수</th>
               </tr>
             </thead>
@@ -151,7 +153,9 @@ export function AllocationSummary({ rows }: { rows: SummaryRow[] }) {
                     <td>
                       {r.equipmentCode} {r.equipmentName}
                     </td>
-                    <td>{Number(r.quantity).toLocaleString()}</td>
+                    <td className="num">
+                      {Number(r.quantity).toLocaleString()}
+                    </td>
                     <td>
                       {r.days}
                       {r.estimatedDays > 0 && (

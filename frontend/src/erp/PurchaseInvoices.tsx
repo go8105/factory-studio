@@ -9,6 +9,7 @@ import {
   Loading,
   PageTitle,
   type Column,
+  RevealAnchor,
 } from "../shared/components";
 import {
   fieldErrors,
@@ -497,6 +498,8 @@ export function PurchaseInvoices() {
               </div>
             </section>
           )}
+
+          <RevealAnchor when={selected} />
 
           {selected && (
             <section className="panel" aria-label="매입 명세">

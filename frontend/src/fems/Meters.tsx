@@ -11,6 +11,7 @@ import {
   Loading,
   PageTitle,
   type Column,
+  RevealAnchor,
 } from "../shared/components";
 import { MasterOrder } from "./EnergySources";
 
@@ -628,6 +629,8 @@ export function Meters() {
               </div>
             </form>
           </div>
+
+          <RevealAnchor when={selected} />
 
           {selected ? (
             <div className="master-grid">

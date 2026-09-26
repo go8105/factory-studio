@@ -1,6 +1,7 @@
 import {
   useEffect,
   useId,
+  useRef,
   useState,
   type ReactNode,
   type InputHTMLAttributes,
@@ -185,6 +186,23 @@ export function PageTitle({
     </div>
   );
 }
+/** 목록에서 고른 상세가 화면 아래쪽(60% 밑)에 열리면 보이도록 스크롤한다. 이미 보이면 움직이지 않는다.
+ *  when은 선택한 행(또는 id). 행 객체면 id가 바뀔 때만 반응한다. */
+export function RevealAnchor({ when }: { when: unknown }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const key =
+    when && typeof when === "object" && "id" in when
+      ? (when as { id: unknown }).id
+      : when;
+  useEffect(() => {
+    const el = ref.current;
+    if (!key || !el) return;
+    const top = el.getBoundingClientRect().top;
+    if (top > window.innerHeight * 0.6 || top < 0)
+      el.scrollIntoView?.({ block: "start", behavior: "smooth" });
+  }, [key]);
+  return <div ref={ref} className="reveal-anchor" aria-hidden="true" />;
+}
 export function NotFound() {
   return (
     <section className="panel">
@@ -275,7 +293,7 @@ export function DataTable<T extends { id: number }>({
               "ko",
             )) * (sort.desc ? -1 : 1),
   );
-  // 숫자 열은 오른쪽 정렬한다. id 열은 행 작업(관리) 열이므로 제외한다.
+  // 숫자 열은 오른쪽 정렬한다. id 열(행 작업)과 *Id 참조 열(이름으로 표시)은 제외한다.
   const isNumber = (v: unknown) =>
     typeof v === "number" ||
     (typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v));
@@ -284,6 +302,7 @@ export function DataTable<T extends { id: number }>({
       .filter(
         (c) =>
           c.key !== "id" &&
+          !c.key.endsWith("Id") &&
           rows.some((r) => r[c.key] != null) &&
           rows.every((r) => r[c.key] == null || isNumber(r[c.key])),
       )

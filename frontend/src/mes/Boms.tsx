@@ -8,6 +8,7 @@ import {
   Loading,
   PageTitle,
   type Column,
+  RevealAnchor,
 } from "../shared/components";
 import {
   fieldErrors,
@@ -391,6 +392,8 @@ export function Boms() {
               </form>
             )}
           </div>
+
+          <RevealAnchor when={selected} />
 
           {selected ? (
             <section className="panel" aria-label="구성 자재">

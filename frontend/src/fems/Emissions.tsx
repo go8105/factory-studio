@@ -67,7 +67,9 @@ export function EmissionBasis({ source }: { source: EmissionSource }) {
             <th scope="col">소비량</th>
             <th scope="col">배출계수</th>
             <th scope="col">출처</th>
-            <th scope="col">배출량</th>
+            <th scope="col" className="num">
+              배출량
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -81,7 +83,9 @@ export function EmissionBasis({ source }: { source: EmissionSource }) {
                 {s.factor ? `${s.factor.value} ${s.factor.unit}` : "없음"}
               </td>
               <td>{s.factor?.source ?? "—"}</td>
-              <td>{s.emission === null ? "계산 불가" : num(s.emission, 6)}</td>
+              <td className="num">
+                {s.emission === null ? "계산 불가" : num(s.emission, 6)}
+              </td>
             </tr>
           ))}
         </tbody>

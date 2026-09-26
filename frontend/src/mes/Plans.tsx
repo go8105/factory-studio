@@ -10,6 +10,7 @@ import {
   Loading,
   PageTitle,
   type Column,
+  RevealAnchor,
 } from "../shared/components";
 import { fieldErrors, ModuleOff, moduleOff, useLists, useSend } from "./common";
 
@@ -331,6 +332,8 @@ export function Plans() {
               </div>
             </form>
           </div>
+
+          <RevealAnchor when={selected} />
 
           {selected ? (
             <section className="panel" aria-label="계획 라인">

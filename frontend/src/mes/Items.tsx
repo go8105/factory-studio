@@ -9,6 +9,7 @@ import {
   Loading,
   PageTitle,
   type Column,
+  RevealAnchor,
 } from "../shared/components";
 import {
   changed,
@@ -326,6 +327,8 @@ export function Items() {
               </div>
             </form>
           </div>
+
+          <RevealAnchor when={selected} />
 
           {selected ? (
             <div className="master-grid">

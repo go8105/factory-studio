@@ -9,6 +9,7 @@ import {
   Loading,
   PageTitle,
   type Column,
+  RevealAnchor,
 } from "../shared/components";
 import {
   customers,
@@ -364,6 +365,8 @@ export function SalesOrders() {
               />
             }
           />
+
+          <RevealAnchor when={selected} />
 
           {selected && (
             <section className="panel" aria-label="수주 명세">

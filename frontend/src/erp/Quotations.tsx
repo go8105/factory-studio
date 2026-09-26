@@ -9,6 +9,7 @@ import {
   Loading,
   PageTitle,
   type Column,
+  RevealAnchor,
 } from "../shared/components";
 import {
   customers,
@@ -455,6 +456,8 @@ export function Quotations() {
               </div>
             </form>
           </div>
+
+          <RevealAnchor when={selected} />
 
           {selected ? (
             <section className="panel" aria-label="견적 상세">

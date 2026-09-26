@@ -120,9 +120,15 @@ export function Receivables({ side = RECEIVABLE }: { side?: Side }) {
                     <th scope="col">{side.doc}</th>
                     <th scope="col">관리</th>
                     <th scope="col">거래처</th>
-                    <th scope="col">원금</th>
-                    <th scope="col">소명액</th>
-                    <th scope="col">잔액</th>
+                    <th scope="col" className="num">
+                      원금
+                    </th>
+                    <th scope="col" className="num">
+                      소명액
+                    </th>
+                    <th scope="col" className="num">
+                      잔액
+                    </th>
                     <th scope="col">상태</th>
                     <th scope="col">만기</th>
                   </tr>
@@ -145,9 +151,9 @@ export function Receivables({ side = RECEIVABLE }: { side?: Side }) {
                           </button>
                         </td>
                         <td>{name.partner(r.partnerId)}</td>
-                        <td>{won(r.amount)}</td>
-                        <td>{won(r.appliedAmount)}</td>
-                        <td>{won(r.balance)}</td>
+                        <td className="num">{won(r.amount)}</td>
+                        <td className="num">{won(r.appliedAmount)}</td>
+                        <td className="num">{won(r.balance)}</td>
                         <td>
                           <Badge tone={STATUS[r.status][1]}>
                             {STATUS[r.status][0]}
@@ -183,9 +189,9 @@ export function Receivables({ side = RECEIVABLE }: { side?: Side }) {
                     <th scope="row">합계</th>
                     <td />
                     <td />
-                    <td>{won(sum(rows, "amount"))}</td>
-                    <td>{won(sum(rows, "appliedAmount"))}</td>
-                    <td>{won(sum(rows, "balance"))}</td>
+                    <td className="num">{won(sum(rows, "amount"))}</td>
+                    <td className="num">{won(sum(rows, "appliedAmount"))}</td>
+                    <td className="num">{won(sum(rows, "balance"))}</td>
                     <td />
                     <td />
                   </tr>

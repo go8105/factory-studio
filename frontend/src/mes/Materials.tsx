@@ -9,6 +9,7 @@ import {
   Loading,
   PageTitle,
   type Column,
+  RevealAnchor,
 } from "../shared/components";
 import {
   fieldErrors,
@@ -316,6 +317,7 @@ export function Materials() {
                   {processes.find((p) => p.id === selected.processId)?.name}{" "}
                   투입
                 </h2>
+                <RevealAnchor when={selectedLot} />
                 {selectedLot && (
                   <p className="muted">
                     LOT 계획 {num(selectedLot.planQty)} {selectedLot.unit} 기준

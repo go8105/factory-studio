@@ -11,6 +11,7 @@ import {
   Loading,
   PageTitle,
   type Column,
+  RevealAnchor,
 } from "../shared/components";
 import {
   ERP,
@@ -390,6 +391,8 @@ export function Receipts({ side = RECEIVABLE }: { side?: Side }) {
               </div>
             </form>
           </div>
+
+          <RevealAnchor when={selected} />
 
           {selected && (
             <section className="panel" aria-label="소명">

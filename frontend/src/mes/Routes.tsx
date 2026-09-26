@@ -8,6 +8,7 @@ import {
   Loading,
   PageTitle,
   type Column,
+  RevealAnchor,
 } from "../shared/components";
 import {
   fieldErrors,
@@ -276,6 +277,8 @@ export function Routes() {
               </div>
             </form>
           </div>
+
+          <RevealAnchor when={selected} />
 
           {selected ? (
             <section className="panel" aria-label="공정 순서">

@@ -1669,3 +1669,11 @@ th[aria-sort="none"] button span {
     font-size: 11px;
   }
 }
+/* 읽기 중심 패널(도움말·설명 카드)은 본문 폭을 줄인다. */
+.panel:has(> .markdown) {
+  max-width: 880px;
+}
+/* 상세로 스크롤할 때 고정 헤더에 가리지 않게 한다(RevealAnchor). */
+.reveal-anchor {
+  scroll-margin-top: calc(var(--header-h) + var(--s3));
+}
