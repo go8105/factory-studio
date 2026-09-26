@@ -13,6 +13,13 @@ export const erpScreens = [
     group: "출하·매출",
   },
   { path: "shipments", id: "E-06", label: "출하", group: "출하·매출" },
+  { path: "sales-records", id: "E-07", label: "매출", group: "출하·매출" },
+  {
+    path: "tax-invoices",
+    id: "E-08",
+    label: "세금계산서",
+    group: "출하·매출",
+  },
   { path: "partners", id: "E-15", label: "거래처", group: "기준정보" },
   { path: "items", id: "E-16", label: "품목", group: "기준정보" },
   {

@@ -10,6 +10,8 @@ import { SalesPlans } from "./SalesPlans";
 import { SalesOrders } from "./SalesOrders";
 import { ShipmentOrders } from "./ShipmentOrders";
 import { Shipments } from "./Shipments";
+import { SalesRecords } from "./SalesRecords";
+import { TaxInvoices } from "./TaxInvoices";
 export default function ErpRoutes() {
   return (
     <Routes>
@@ -20,6 +22,8 @@ export default function ErpRoutes() {
         <Route path="sales-orders" element={<SalesOrders />} />
         <Route path="shipment-orders" element={<ShipmentOrders />} />
         <Route path="shipments" element={<Shipments />} />
+        <Route path="sales-records" element={<SalesRecords />} />
+        <Route path="tax-invoices" element={<TaxInvoices />} />
         <Route path="partners" element={<Partners />} />
         <Route path="items" element={<Items />} />
         <Route path="partner-prices" element={<Prices />} />
