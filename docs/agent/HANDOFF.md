@@ -1,34 +1,33 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-25 (FS-020 MES 15/15 완료, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-26 (3D 공장·런처 타일 통합, MES 15/15 완료, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
 - 저장소(메인 폴더, Claude Code 전용): `/Users/hwang-kyoungho/projects/factory-studio`
 - **Codex는 `/Users/hwang-kyoungho/projects/factory-studio-codex`만 사용**, 브랜치 `codex/*`. 메인 폴더를 열거나 수정하지 않는다. antigravity worktree·브랜치도 건드리지 않는다.
-- main·origin `cc8729d`(MES 6/7 + Codex FS-019a 통합), CI 통과.
-- **Claude Code**: 브랜치 `fs-020g-mes-dashboard`(FS-020g, MES 15/15) push → CI → main ff.
-- **Codex**: `../factory-studio-codex` · `codex/fs-019a-erp-master`(`4e2bc74`). 통합은 Claude Code가 새 브랜치로 진행했으므로 Codex는 다음 ID를 새 main에서 분기한다. 아래 **Codex — FS-019a** 절 참고.
-- **MES·ERP 작업 계획과 프롬프트: `docs/agent/MES_ERP_작업계획_FS-019_020.md`** (분배·순서·병행 규칙·FEMS 함정·프롬프트 §9).
+- main·origin: `factory-3d-integrate`(3D 공장·런처 타일) ff 후가 최신. 그 전 `626ba35`(MES 15/15).
+- Codex의 `codex/fs-019a-erp-master`에는 **이미 main에 통합된 커밋만** 남아 있다(FS-019a는 `5da9019`·`945a78a`, 런처·3D는 `a0f71ae`·`7c83bc7`·`c3f3213`으로 통합). **Codex는 다음 작업을 새 main에서 새 브랜치로 시작**한다.
 - `gh` CLI 로그인 완료(go8105). CI는 `gh run list --branch <b>` / `gh run watch <id> --exit-status`.
-- 정정: 예전 인계의 "`78e1206` CI도 날짜 때문에 실패했을 것"은 틀렸다(09-24에 돌아 성공).
 
-## 끝난 것
+## 현재 진행
 
-- **FS-018 FEMS 14화면 완료**(018a~m). 마지막 018k F-13 · 018l F-12 · 018m F-09. 보고서 `docs/agent/FEMS_FS-018*.md`.
-- **Codex 테스트 시간 단축**: 개선 전 312 passed 782.272초 → 개선 후 368.737초 / 308.066초(평균 56.7% 단축). 상세 [테스트 시간 단축](테스트시간단축.md).
-  - `conftest.py`: 공유 `guest_template`은 세션당 1회, `guest_space`는 실제 guest API로 테스트마다 새 공간. `FS_TODAY=2026-09-24`·`GUEST_LIMIT=10000` 고정. 게스트만 자식 → 부모로 정리, 템플릿 불변·게스트 잔여 0을 세션 끝에 검사.
-  - 전체 DB를 TRUNCATE하는 legacy 테스트를 먼저 실행. **한 테스트에서 `clean_database`와 `guest_space`를 섞으면 수집 오류.**
-- F-09 테스트(`test_fems_sites.py`)도 통합 시 `guest_space`로 전환했다.
+| 영역 | 상태 |
+|---|---|
+| 포털 | 7/7 + 3D 공장(`/factory`) + 런처 아이콘 타일 |
+| FEMS | 14/14 (FS-018a~m) |
+| MES | 15/15 (FS-020a~g) — `docs/agent/MES_FS-020*.md` |
+| ERP | 4/18 (FS-019a 기준정보 E-15~18) — 계획 `docs/agent/MES_ERP_작업계획_FS-019_020.md` §3 |
+| 다음 | FS-019b~h ERP 14화면 → FS-021 통합 검증 → FS-022 배포 |
 
 ## 다음 할 일
 
-1. Claude Code: FS-020g main ff. MES 완료 — 다음은 사용자와 정한다(ERP 분담 또는 FS-021 통합 검증 준비).
-1-1. Codex: 새 main에서 `codex/fs-019b-...` 분기 → FS-019b. ERP 화면 관리 버튼(`link-button`)·등록 폼 select(`.field` 안 전체 폭) 모양을 FEMS·MES와 맞춘다. 스모크는 실행 전 사용자에게 묻는다.
-2. Codex: FS-019a 진행 중. 먼저 끝난 쪽이 main ff, 나중 쪽이 rebase(공유 파일: main.py·App.tsx·Home.tsx·portal.spec.ts·styles.css).
-3. 사용자 결정 대기: E-G07(0원 매출 세금계산서, FS-019d 전), 사용 중 채널 배수 변경 허용 유지(`FEMS_FS-018l.md`).
-4. **스모크(`tools/run_portal_smoke.py`)는 8000·5173 포트와 `factory_studio_fs017_test`를 고정 사용** — Claude Code와 Codex가 동시에 실행하지 않는다.
-4. **새 업무 테스트는 `guest_space` fixture를 쓴다**(FEMS 테스트 파일 참고: `def fems(guest_space): return guest_space[:2]`).
+1. ERP FS-019b(견적·판매계획·수주)부터. 분담은 사용자와 정한다(제안: Codex 019b~d, Claude Code 019e~h).
+2. FS-019d 전에 사용자 결정 E-G07(0원 매출 세금계산서 발급 여부).
+3. ERP 화면 모양을 FEMS·MES와 맞춘다: 관리 버튼 `link-button`, 등록 폼 select는 `.field` 안 전체 폭.
+4. 후속: 360px에서 상단 메뉴가 두 줄('나가기'가 둘째 줄). 사용 중 채널 배수 변경 허용 유지 여부(FEMS_FS-018l).
+5. **새 업무 테스트는 `guest_space` fixture**, 스모크는 8000·5173·`factory_studio_fs017_test`를 고정 사용하므로 **동시에 한 명만** 돌린다. 사용자가 개발 서버(8000·5173)를 켜 두면 스모크가 멈춘다 — 종료를 요청한다.
+6. 판단 기록: MES `/work-orders/{id}/lot` 추가(020c), `/executions/{id}/finish`를 `/result`로 통합(020d), MES 업무 시각 `clock_timestamp()`(020g).
 
 ## 재현·주의점
 
