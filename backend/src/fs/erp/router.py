@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, Query, Response
 from fs.common.auth import AuthContext, require_csrf, resolve_auth
 from fs.common.errors import ApiError
 from fs.common.page import Page
-from fs.erp import receipts, revenue, sales, schema, service, shipping
+from fs.erp import purchases, receipts, revenue, sales, schema, service, shipping
 
 router = APIRouter()
 Auth = Annotated[AuthContext, Depends(resolve_auth)]
@@ -616,93 +616,197 @@ def post_tax_invoice_issue(
     return {"data": revenue.issue_invoice(context, invoice_id, values, key)}
 
 
-# ---- FS-019e 매출채권·수금·소명 ----
-@router.get("/receivables")
-def list_receivables(
-    context: Auth,
-    partner_id: int | None = Query(None, alias="partnerId", gt=0),
-    status: Literal["OPEN", "PARTIAL", "CLOSED"] | None = None,
+# ---- FS-019e·019f 채권·채무와 수금·지급 소명 (같은 규칙, receipts.Side로 구분) ----
+def _settlement_routes(
+    side, open_path, money_path, create_schema, update_schema, lines
 ):
-    return {"data": receipts.list_receivables(context, partner_id, status)}
+    @router.get(open_path, name=f"list_{side.open_item}s")
+    def list_open(
+        context: Auth,
+        partner_id: int | None = Query(None, alias="partnerId", gt=0),
+        status: Literal["OPEN", "PARTIAL", "CLOSED"] | None = None,
+    ):
+        return {"data": receipts.list_open_items(side, context, partner_id, status)}
+
+    @router.get(money_path, name=f"list_{side.money}s")
+    def list_money(context: Auth):
+        return {"data": receipts.list_monies(side, context)}
+
+    @router.post(money_path, status_code=201, name=f"post_{side.money}")
+    def post_money(
+        payload: create_schema,
+        context: Auth,
+        idempotency_key: Key = None,
+        x_csrf_token: Csrf = None,
+    ):
+        key = mutation(context, x_csrf_token, idempotency_key)
+        values = payload.model_dump(mode="json")
+        return {"data": receipts.create_money(side, context, values, key)}
+
+    @router.patch(money_path + "/{money_id}", name=f"patch_{side.money}")
+    def patch_money(
+        money_id: int,
+        payload: update_schema,
+        context: Auth,
+        idempotency_key: Key = None,
+        x_csrf_token: Csrf = None,
+    ):
+        key = mutation(context, x_csrf_token, idempotency_key)
+        values = _json(payload)
+        return {"data": receipts.update_money(side, context, money_id, values, key)}
+
+    @router.post(money_path + "/{money_id}/confirm", name=f"confirm_{side.money}")
+    def confirm_money(
+        money_id: int,
+        context: Auth,
+        idempotency_key: Key = None,
+        x_csrf_token: Csrf = None,
+    ):
+        key = mutation(context, x_csrf_token, idempotency_key)
+        return {"data": receipts.confirm_money(side, context, money_id, key)}
+
+    @router.delete(
+        money_path + "/{money_id}", status_code=204, name=f"delete_{side.money}"
+    )
+    def delete_money(
+        money_id: int,
+        context: Auth,
+        idempotency_key: Key = None,
+        x_csrf_token: Csrf = None,
+    ):
+        key = mutation(context, x_csrf_token, idempotency_key)
+        receipts.delete_money(side, context, money_id, key)
+        return Response(status_code=204)
+
+    @router.post(
+        money_path + "/{money_id}/applications",
+        status_code=201,
+        name=f"post_{side.apply}",
+    )
+    def post_applications(
+        money_id: int,
+        payload: lines,
+        context: Auth,
+        idempotency_key: Key = None,
+        x_csrf_token: Csrf = None,
+    ):
+        key = mutation(context, x_csrf_token, idempotency_key)
+        rows = payload.model_dump(mode="json")["lines"]
+        return {"data": receipts.add_applications(side, context, money_id, rows, key)}
+
+    @router.delete(
+        money_path + "/{money_id}/applications/{apply_id}",
+        name=f"delete_{side.apply}",
+    )
+    def delete_application(
+        money_id: int,
+        apply_id: int,
+        context: Auth,
+        idempotency_key: Key = None,
+        x_csrf_token: Csrf = None,
+    ):
+        key = mutation(context, x_csrf_token, idempotency_key)
+        return {
+            "data": receipts.delete_application(side, context, money_id, apply_id, key)
+        }
+
+    @router.get(money_path + "/{money_id}/fifo-suggestion", name=f"fifo_{side.money}")
+    def fifo(money_id: int, context: Auth):
+        return {"data": receipts.fifo_suggestion(side, context, money_id)}
 
 
-@router.get("/receipts")
-def list_receipts(context: Auth):
-    return {"data": receipts.list_receipts(context)}
+_settlement_routes(
+    receipts.RECEIVABLE,
+    "/receivables",
+    "/receipts",
+    schema.ReceiptCreate,
+    schema.ReceiptUpdate,
+    schema.Applications,
+)
+_settlement_routes(
+    receipts.PAYABLE,
+    "/payables",
+    "/payments",
+    schema.PaymentCreate,
+    schema.PaymentUpdate,
+    schema.PaymentApplications,
+)
 
 
-@router.post("/receipts", status_code=201)
-def post_receipt(
-    payload: schema.ReceiptCreate,
+# ---- FS-019f 매입 전표 ----
+@router.get("/purchase-invoices")
+def list_purchase_invoices(context: Auth):
+    return {"data": purchases.list_invoices(context)}
+
+
+@router.post("/purchase-invoices", status_code=201)
+def post_purchase_invoice(
+    payload: schema.PurchaseInvoiceCreate,
     context: Auth,
     idempotency_key: Key = None,
     x_csrf_token: Csrf = None,
 ):
     key = mutation(context, x_csrf_token, idempotency_key)
     values = payload.model_dump(mode="json")
-    return {"data": receipts.create_receipt(context, values, key)}
+    return {"data": purchases.create_invoice(context, values, key)}
 
 
-@router.patch("/receipts/{receipt_id}")
-def patch_receipt(
-    receipt_id: int,
-    payload: schema.ReceiptUpdate,
+@router.patch("/purchase-invoices/{invoice_id}")
+def patch_purchase_invoice(
+    invoice_id: int,
+    payload: schema.PurchaseInvoiceUpdate,
     context: Auth,
     idempotency_key: Key = None,
     x_csrf_token: Csrf = None,
 ):
     key = mutation(context, x_csrf_token, idempotency_key)
-    return {"data": receipts.update_receipt(context, receipt_id, _json(payload), key)}
+    values = _json(payload, frozenset({"due_date"}))
+    return {"data": purchases.update_invoice(context, invoice_id, values, key)}
 
 
-@router.post("/receipts/{receipt_id}/confirm")
-def post_receipt_confirm(
-    receipt_id: int,
-    context: Auth,
-    idempotency_key: Key = None,
-    x_csrf_token: Csrf = None,
-):
-    key = mutation(context, x_csrf_token, idempotency_key)
-    return {"data": receipts.confirm_receipt(context, receipt_id, key)}
-
-
-@router.delete("/receipts/{receipt_id}", status_code=204)
-def delete_receipt(
-    receipt_id: int,
-    context: Auth,
-    idempotency_key: Key = None,
-    x_csrf_token: Csrf = None,
-):
-    key = mutation(context, x_csrf_token, idempotency_key)
-    receipts.delete_receipt(context, receipt_id, key)
-    return Response(status_code=204)
-
-
-@router.post("/receipts/{receipt_id}/applications", status_code=201)
-def post_receipt_applications(
-    receipt_id: int,
-    payload: schema.Applications,
+@router.put("/purchase-invoices/{invoice_id}/lines")
+def put_purchase_lines(
+    invoice_id: int,
+    payload: schema.PurchaseLines,
     context: Auth,
     idempotency_key: Key = None,
     x_csrf_token: Csrf = None,
 ):
     key = mutation(context, x_csrf_token, idempotency_key)
     lines = payload.model_dump(mode="json")["lines"]
-    return {"data": receipts.add_applications(context, receipt_id, lines, key)}
+    return {"data": purchases.set_lines(context, invoice_id, lines, key)}
 
 
-@router.delete("/receipts/{receipt_id}/applications/{apply_id}")
-def delete_receipt_application(
-    receipt_id: int,
-    apply_id: int,
+@router.post("/purchase-invoices/{invoice_id}/confirm")
+def post_purchase_confirm(
+    invoice_id: int,
     context: Auth,
     idempotency_key: Key = None,
     x_csrf_token: Csrf = None,
 ):
     key = mutation(context, x_csrf_token, idempotency_key)
-    return {"data": receipts.delete_application(context, receipt_id, apply_id, key)}
+    return {"data": purchases.confirm_invoice(context, invoice_id, key)}
 
 
-@router.get("/receipts/{receipt_id}/fifo-suggestion")
-def get_fifo_suggestion(receipt_id: int, context: Auth):
-    return {"data": receipts.fifo_suggestion(context, receipt_id)}
+@router.post("/purchase-invoices/{invoice_id}/cancel")
+def post_purchase_cancel(
+    invoice_id: int,
+    payload: schema.CancelIn,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": purchases.cancel_invoice(context, invoice_id, payload.reason, key)}
+
+
+@router.delete("/purchase-invoices/{invoice_id}", status_code=204)
+def delete_purchase_invoice(
+    invoice_id: int,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    purchases.delete_invoice(context, invoice_id, key)
+    return Response(status_code=204)

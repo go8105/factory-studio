@@ -33,14 +33,18 @@ WHERE sl.workspace_id=:w AND sl.generation_id=:g AND sl.shipment_id=:id
 ORDER BY sl.id"""
 
 
+def line_amounts(qty, price, category) -> tuple[Decimal, Decimal]:
+    """명세 1줄의 (공급가액, 세액). 매입 전표(019f)도 이 함수로 계산한다."""
+    supply = (Decimal(qty) * Decimal(price)).quantize(WON, ROUND_HALF_UP)
+    return supply, (supply * TAX_RATE[category]).quantize(WON, ROUND_HALF_UP)
+
+
 def amounts(lines) -> tuple[Decimal, Decimal]:
-    """(공급가액, 세액). lines: (수량, 단가, 과세구분)."""
-    supply = tax = Decimal(0)
-    for qty, price, category in lines:
-        line_supply = (Decimal(qty) * Decimal(price)).quantize(WON, ROUND_HALF_UP)
-        supply += line_supply
-        tax += (line_supply * TAX_RATE[category]).quantize(WON, ROUND_HALF_UP)
-    return supply, tax
+    """(공급가액, 세액) 합계. lines: (수량, 단가, 과세구분)."""
+    pairs = [line_amounts(*line) for line in lines]
+    return sum((p[0] for p in pairs), Decimal(0)), sum(
+        (p[1] for p in pairs), Decimal(0)
+    )
 
 
 def recognize(connection, scoped, shipment_id: int, partner_id: int) -> int:

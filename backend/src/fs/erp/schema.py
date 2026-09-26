@@ -243,3 +243,52 @@ class ApplicationIn(ApiModel):
 
 class Applications(ApiModel):
     lines: list[ApplicationIn] = Field(min_length=1, max_length=200)
+
+
+# ---- FS-019f 매입·지급 ----
+class PaymentCreate(ApiModel):
+    payment_no: Code = Field(alias="paymentNo")
+    partner_id: int = Field(alias="partnerId", gt=0)
+    paid_on: date = Field(alias="paidOn")
+    amount: Money
+
+
+class PaymentUpdate(ApiModel):
+    payment_no: Code | None = Field(None, alias="paymentNo")
+    partner_id: int | None = Field(None, alias="partnerId", gt=0)
+    paid_on: date | None = Field(None, alias="paidOn")
+    amount: Money | None = None
+
+
+class PaymentApplicationIn(ApiModel):
+    payable_id: int = Field(alias="payableId", gt=0)
+    amount: Money
+
+
+class PaymentApplications(ApiModel):
+    lines: list[PaymentApplicationIn] = Field(min_length=1, max_length=200)
+
+
+class PurchaseLineIn(ApiModel):
+    item_id: int = Field(alias="itemId", gt=0)
+    quantity: Qty
+    unit: str = Field(min_length=1, max_length=10)
+    unit_price: Price = Field(alias="unitPrice")
+
+
+class PurchaseInvoiceCreate(ApiModel):
+    invoice_no: Code = Field(alias="invoiceNo")
+    partner_id: int = Field(alias="partnerId", gt=0)
+    invoice_date: date = Field(alias="invoiceDate")
+    due_date: date | None = Field(None, alias="dueDate")  # 비우면 확정 때 결제조건
+
+
+class PurchaseInvoiceUpdate(ApiModel):
+    invoice_no: Code | None = Field(None, alias="invoiceNo")
+    partner_id: int | None = Field(None, alias="partnerId", gt=0)
+    invoice_date: date | None = Field(None, alias="invoiceDate")
+    due_date: date | None = Field(None, alias="dueDate")
+
+
+class PurchaseLines(ApiModel):
+    lines: list[PurchaseLineIn] = Field(max_length=200)
