@@ -24,7 +24,8 @@ def _scope(
         connection.execute(
             text(
                 """
-            SELECT w.active_generation_id, m.enabled
+            SELECT w.active_generation_id, m.enabled,
+                   w.workspace_kind='GUEST' AND w.expires_at <= clock_timestamp() expired
             FROM core.workspace w
             LEFT JOIN core.workspace_module m
               ON m.workspace_id=w.id AND m.module_key=:module
@@ -36,8 +37,11 @@ def _scope(
         .mappings()
         .one_or_none()
     )
-    if row is None:
+    if row is None:  # 회수(삭제)된 공간
         raise ApiError(401, "SESSION_EXPIRED", "공간을 찾을 수 없습니다.")
+    # 인증은 잠금 전에 만료를 봤다. 잠금을 기다리는 사이 만료될 수 있어 서버 현재 시각으로 다시 본다(FS-006b §4.2).
+    if row["expired"]:
+        raise ApiError(410, "WORKSPACE_EXPIRED", "게스트 공간이 만료되었습니다.")
     if not row["enabled"]:
         raise ApiError(
             409,
