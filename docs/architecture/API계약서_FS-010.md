@@ -356,7 +356,7 @@ POST /sales-records/{id}/cancel      취소
 
 ### 매출채권·수금·소명 (FS-019e)
 
-- `GET /receivables?partnerId=&status=OPEN|PARTIAL|CLOSED`: **유효 채권만**(취소 매출 제외). `amount`·`appliedAmount`·`balance`·`status`는 조회 파생(원금 0은 CLOSED), `dueDate`(null = 미설정), `applications`(수금번호·금액·시각). 구현 `erp/receipts.py`의 `RECEIVABLE_SQL` 하나 — 019h 대시보드도 재사용한다.
+- `GET /receivables?partnerId=&status=OPEN|PARTIAL|CLOSED`: **유효 채권만**(취소 매출 제외). `amount`·`appliedAmount`·`balance`·`status`는 조회 파생(원금 0은 CLOSED), `dueDate`(null = 미설정), `applications`(수금번호·금액·시각). 구현 `erp/receipts.py`의 `open_items(RECEIVABLE)` 하나 — 019h 대시보드도 재사용한다.
 - `/receipts`(목록에 `appliedAmount`·`unappliedAmount`·`applications`): POST·PATCH·DELETE는 draft만(409 `RECEIPT_CONFIRMED`), `POST /{id}/confirm`.
 - `POST /receipts/{id}/applications` `{lines:[{receivableId, amount}]}`: 확정 수금만(`RECEIPT_NOT_CONFIRMED`). 매출 → 채권(id 오름차순) → 수금 잠금 뒤 최신 합계로 채권·수금 양쪽 한도, 초과 시 전체 롤백 409 `LIMIT_EXCEEDED` + `limit`(`RECEIVABLE`·`RECEIPT`)·`receivableId`/`shipmentNo` 또는 `receiptId`·`availableAmount`. 같은 거래처가 아니면 400, 취소 매출 채권 409 `SALES_CANCELLED`. `apply_key`는 수금·요청 키·행 번호의 해시.
 - `DELETE /receipts/{id}/applications/{applyId}`: 채권 → 수금 → 소명 잠금, 물리 삭제 + `core.audit_event`(`erp.receipt_apply.delete`, summary에 세대·양쪽 부모·소명 id·apply_key·금액·통화·사유) 같은 트랜잭션. 응답은 갱신된 수금.
