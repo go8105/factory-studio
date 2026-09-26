@@ -3,6 +3,9 @@ import { useLayoutEffect, useRef } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 // 구현된 화면만 메뉴에 둔다. 준비 중 항목을 나열하지 않는다(FS-008a 포털 §1).
 export const erpScreens = [
+  { path: "quotations", id: "E-02", label: "견적", group: "영업" },
+  { path: "sales-plans", id: "E-03", label: "판매계획", group: "영업" },
+  { path: "sales-orders", id: "E-04", label: "수주", group: "영업" },
   { path: "partners", id: "E-15", label: "거래처", group: "기준정보" },
   { path: "items", id: "E-16", label: "품목", group: "기준정보" },
   {

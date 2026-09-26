@@ -87,6 +87,9 @@ for (const [route, title] of [
   ["help", "도움말"],
   ["workspace", "내 공간"],
   ["records", "페이지를 찾을 수 없습니다"],
+  ["erp/quotations", "견적"],
+  ["erp/sales-plans", "판매계획"],
+  ["erp/sales-orders", "수주"],
   ["erp/partners", "거래처"],
   ["erp/items", "품목"],
   ["erp/partner-prices", "거래처별 단가"],
@@ -149,7 +152,8 @@ test("360px 진입 화면 가로 스크롤 없음", async ({ page }) => {
 
 test("ERP 거래처 등록 → 수정 → 삭제", async ({ page }) => {
   await page.getByRole("link", { name: /ERP/ }).click();
-  await expect(page).toHaveURL("/erp/partners");
+  await expect(page).toHaveURL("/erp/quotations");
+  await page.getByRole("link", { name: /E-15 거래처/ }).click();
   await expect(
     page.getByRole("heading", { name: "거래처", exact: true }),
   ).toBeVisible();
@@ -165,4 +169,31 @@ test("ERP 거래처 등록 → 수정 → 삭제", async ({ page }) => {
   await row.getByRole("button", { name: "삭제", exact: true }).click();
   await page.getByRole("button", { name: "삭제 확인", exact: true }).click();
   await expect(row).toHaveCount(0);
+});
+
+test("ERP 견적 작성 → 확정 → 제출 → 수주 전환", async ({ page }) => {
+  await page.goto("/erp/quotations");
+  const create = page.getByRole("form", { name: "견적 만들기" });
+  await create.getByLabel("견적번호").fill("E2E-Q1");
+  await create.getByRole("button", { name: "만들기" }).click();
+  const detail = page.getByRole("region", { name: "견적 상세" });
+  await expect(detail.getByRole("heading", { name: /E2E-Q1 1차/ })).toBeVisible();
+  await detail.getByRole("button", { name: "라인 추가" }).click();
+  const item = detail.getByLabel("1번째 품목");
+  const option = await item.locator("option", { hasText: "FG-C100" }).first();
+  await item.selectOption((await option.getAttribute("value"))!);
+  await detail.getByLabel("1번째 수량").fill("10");
+  await detail.getByRole("button", { name: "라인 저장" }).click();
+  await expect(detail.getByText("거래처 단가 적용")).toBeVisible();
+  await detail.getByRole("button", { name: "확정", exact: true }).click();
+  await detail.getByRole("button", { name: "제출", exact: true }).click();
+  const convert = detail.getByRole("form", { name: "수주 전환" });
+  await convert.getByLabel("수주번호").fill("E2E-SO1");
+  await convert.getByLabel("납기일").fill("2026-12-31");
+  await convert.getByRole("button", { name: "수주로 전환" }).click();
+  await expect(detail.getByText(/수주로 전환된 견적입니다/)).toBeVisible();
+  await page.getByRole("link", { name: /E-04 수주/ }).click();
+  await expect(page.getByRole("row", { name: /^E2E-SO1/ })).toContainText(
+    "E2E-Q1 (1차)",
+  );
 });

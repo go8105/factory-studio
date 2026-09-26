@@ -1,0 +1,56 @@
+// ERP 영업·출하 화면 공통: 공통 훅(shared/hooks)에 ERP 접두사, 금액·수량 표시, 거래처·품목 이름
+import { EmptyState } from "../shared/components";
+import { useApiLists, useApiSend } from "../shared/hooks";
+export { fieldErrors, moduleOff } from "../shared/hooks";
+
+export const ERP = "/api/v1/erp";
+export type Partner = {
+  id: number;
+  partnerCode: string;
+  partnerName: string;
+  partnerKind: "CUSTOMER" | "SUPPLIER";
+  isActive: boolean;
+};
+export type Item = {
+  id: number;
+  itemCode: string;
+  name: string;
+  baseUnit: string;
+  isActive: boolean;
+};
+// 기준정보 목록은 페이지 API다. 영업 화면 선택지에는 한 번에 최대 200건을 쓴다.
+export const PARTNERS = "/partners?limit=200";
+export const ITEMS = "/items?limit=200";
+
+export const useLists = <T extends unknown[]>(paths: string[]) =>
+  useApiLists<T>(ERP, paths);
+export const useSend = (onDone: () => void) => useApiSend(ERP, onDone);
+
+export const won = (value: string) => `${Number(value).toLocaleString()}원`;
+export const qty = (value: string) => Number(value).toLocaleString();
+
+export function labels(partners: Partner[], items: Item[]) {
+  return {
+    partner: (id: number) => {
+      const p = partners.find((x) => x.id === id);
+      return p ? `${p.partnerCode} ${p.partnerName}` : String(id);
+    },
+    item: (id: number) => {
+      const i = items.find((x) => x.id === id);
+      return i ? `${i.itemCode} ${i.name}` : String(id);
+    },
+  };
+}
+
+export const customers = (partners: Partner[]) =>
+  partners.filter((p) => p.partnerKind === "CUSTOMER" && p.isActive);
+
+export function ModuleOff() {
+  return (
+    <EmptyState
+      reason="ERP를 사용하지 않도록 설정했습니다. 내 공간에서 다시 켤 수 있습니다."
+      to="/workspace"
+      action="내 공간으로"
+    />
+  );
+}
