@@ -94,6 +94,8 @@ for (const [route, title] of [
   ["erp/shipments", "출하"],
   ["erp/sales-records", "매출"],
   ["erp/tax-invoices", "세금계산서"],
+  ["erp/receivables", "매출채권 현황"],
+  ["erp/receipts", "수금 등록·소명"],
   ["erp/partners", "거래처"],
   ["erp/items", "품목"],
   ["erp/partner-prices", "거래처별 단가"],
@@ -249,4 +251,24 @@ test("ERP 세금계산서 발급 → 매출 취소 막힘", async ({ page }) => 
       .getByRole("row", { name: /^SH-0004/ })
       .getByRole("button", { name: "취소" }),
   ).toBeDisabled();
+});
+
+test("ERP 수금 등록 → 확정 → FIFO 소명 → 채권 회수완료", async ({ page }) => {
+  await page.goto("/erp/receipts");
+  const create = page.getByRole("form", { name: "수금 등록" });
+  await create.getByLabel("수금번호").fill("E2E-RC1");
+  await create.getByLabel("수금액").fill("1827800");
+  await create.getByRole("button", { name: "등록" }).click();
+  const row = page.getByRole("row", { name: /^E2E-RC1/ });
+  await row.getByRole("button", { name: "확정" }).click();
+  await expect(row).toContainText("확정");
+  const panel = page.getByRole("region", { name: "소명" });
+  await panel.getByRole("button", { name: "FIFO로 채우기" }).click();
+  await expect(panel.getByLabel("SH-0001 소명액")).toHaveValue("1827800");
+  await panel.getByRole("button", { name: "소명 저장" }).click();
+  await expect(panel.getByText(/미소명 0원/).first()).toBeVisible();
+  await page.getByRole("link", { name: /E-09 매출채권 현황/ }).click();
+  await expect(page.getByRole("row", { name: /^SH-0001/ })).toContainText(
+    "회수완료",
+  );
 });

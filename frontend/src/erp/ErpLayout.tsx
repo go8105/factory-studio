@@ -20,6 +20,18 @@ export const erpScreens = [
     label: "세금계산서",
     group: "출하·매출",
   },
+  {
+    path: "receivables",
+    id: "E-09",
+    label: "매출채권 현황",
+    group: "채권·수금",
+  },
+  {
+    path: "receipts",
+    id: "E-10",
+    label: "수금 등록·소명",
+    group: "채권·수금",
+  },
   { path: "partners", id: "E-15", label: "거래처", group: "기준정보" },
   { path: "items", id: "E-16", label: "품목", group: "기준정보" },
   {
