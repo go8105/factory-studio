@@ -6,6 +6,7 @@ from fs.common.auth import AuthContext, require_csrf, resolve_auth
 from fs.common.errors import ApiError
 from fs.common.page import Page
 from fs.erp import (
+    dashboard,
     journal,
     purchases,
     receipts,
@@ -838,3 +839,9 @@ def get_journal_preview(
     if needed is None:
         raise service.invalid(field, f"{kind}는 {field}가 필요합니다.")
     return {"data": journal.preview(context, kind, needed)}
+
+
+# ---- FS-019h 대시보드 ----
+@router.get("/dashboard")
+def get_dashboard(context: Auth, month: str | None = None):
+    return {"data": dashboard.dashboard(context, month)}
