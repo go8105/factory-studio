@@ -8,7 +8,7 @@
 - [FS-013 아키텍처](docs/plan/독립솔루션_전환결정_FS-013.md), [FS-011 개발 규약](docs/architecture/개발규약_FS-011.md)
 - [FS-009 실행·검증 보고](docs/agent/실행기반_FS-009.md), [진행 기록](docs/progress.md)
 
-전체 설계는 2026-09-23 승인됐습니다. FS-009 실행 기반, FS-015 시드, FS-016 공통 API에 이어 FS-017 포털 P-01~P-07과 공통 컴포넌트를 구현했습니다. 업무 API·MES/ERP/FEMS 업무 화면은 후속 범위이며, 현재 앱 런처의 솔루션 선택은 해당 솔루션 도움말로 연결됩니다.
+전체 설계는 2026-09-23 승인됐습니다. 현재 포털 7화면과 **3D 공장 둘러보기**, **FEMS 14/14**, **MES 15/15**, **ERP 4/18**(기준정보)을 구현했습니다. 앱 런처에서 세 솔루션 모두 화면으로 들어갑니다. 남은 것은 ERP 나머지 화면, 통합 검증(FS-021), 배포(FS-022)이며 최신 상태는 [현재 기획과 진행 현황](docs/plan/현재기획_진행현황.md)과 [작업 인계](docs/agent/HANDOFF.md)를 봅니다.
 
 ## 런타임과 설치
 
@@ -74,18 +74,34 @@ uv run --project backend --env-file .env alembic -c backend/alembic.ini upgrade 
 
 DB는 core 10 / mes 21 / erp 27 / fems 13, 총 **71테이블**입니다. `public.alembic_version`은 별도 이력 관리 테이블입니다. `schema.json`은 v0.9.1 원본을 그대로 유지하며 업무 SERVICE 정책은 후속 구현 범위입니다. `validation-report.json`은 정적 검사 결과이고 실제 DB 대사는 `docs/db/ddl-verification-report.json`을 봅니다.
 
-## 디렉터리와 협업
+## 저장소 구성
 
-- `backend/src/fs/`: 공통 API·인증과 core/mes/erp/fems 경계
-- `backend/alembic/`: 최초 마이그레이션. 기존 `backend/migrations/`는 과거 빈 자리
-- `frontend/src/`: app/shared/portal 구현과 후속 mes/erp/fems 경계
-- `content/`: 도움말·설명 카드 Markdown, 흐름 맵 JSON/JSON Schema
-- `backend/seed/`: FS-015 결정적 템플릿·게스트 복사 생성기
-- `docs/`, `tools/`: 설계·검증·문서 생성 도구
-- `prototypes/`: 기존 시제품, 제품 UI와 분리
+루트의 폴더·파일이 무엇인지 정리했습니다. **Git 제외** 항목은 각자 로컬에만 있고 저장소에 올라가지 않습니다.
+
+| 경로 | 의미 |
+|---|---|
+| `.github/` | GitHub Actions CI(`workflows/ci.yml`): 마이그레이션·DDL 대사·backend 테스트·frontend 검사 |
+| `.idea/` | IntelliJ 프로젝트 설정 (Git 제외) |
+| `backend/` | API 서버(Python 3.14·FastAPI). `src/fs/`에 common(인증·세션·멱등·오류)과 core·fems·mes·erp 모듈, `alembic/` 마이그레이션, `seed/` 합성 시드 생성기, `tests/` pytest. `migrations/`는 과거에 비워 둔 자리 |
+| `frontend/` | 웹 화면(React·Vite·TypeScript). `src/` 아래 app·shared·portal·fems·mes·erp·factory(3D 공장), `e2e/` Playwright 브라우저 테스트 |
+| `content/` | 도움말·설명 카드 Markdown과 전체 흐름 맵 JSON (DB가 아닌 정적 파일, FS-013 D6) |
+| `docs/` | 설계·결정·작업 보고 문서. 시작점은 [docs/README.md](docs/README.md). `docs/archive/prototypes/`는 설계 초기 HTML 시제품(참고용, 제품 UI 아님) |
+| `tools/` | 설계·검증 도구: DB 설계서 검증·생성(`validate_db_design.py`, `build_db_design.mjs`), 스키마 격리 검사, DDL 대사, 브라우저 스모크 실행기(`run_portal_smoke.py`) |
+| `node_modules/` | 루트 `package.json`의 도구 의존성(exceljs) 설치 폴더 (Git 제외). 제품 프론트 의존성은 `frontend/node_modules/` |
+| `work/` | 검증 로그·스크린샷·임시 추출본 등 작업 산출물 (Git 제외). 예: `work/fs017c/` 스모크 결과, `work/fs005g-check2/` 스키마 덤프 |
+| `.env` | 로컬 DB 비밀번호·`DATABASE_URL`·`SESSION_SECRET` (Git 제외, 절대 커밋하지 않음) |
+| `.env.example` | `.env` 작성용 견본(비밀 값 없음) |
+| `.gitignore` | Git 제외 목록 |
+| `.nvmrc` | Node 버전 고정(24) |
+| `.python-version` | Python 버전 고정(3.14) |
+| `AGENTS.md` | AI 작업자(Claude Code·Codex·antigravity) 공통 작업 규칙 |
+| `README.md` | 이 문서 |
+| `docker-compose.yml` | 로컬 PostgreSQL 18 컨테이너(127.0.0.1:55432) |
+| `package.json` · `package-lock.json` | **루트 도구 전용** Node 의존성(`npm run db:validate`, `npm run db:build`). 제품 프론트엔드는 `frontend/package.json` |
+
+저장소 밖 형제 폴더: `factory-studio-codex`(Codex 전용 worktree), `factory-studio-ag`(antigravity worktree), `factory-studio-backups`(V-1 외부 백업), `factory-studio-references`(원본 참고자료, 공개 제외).
 
 역할 분담은 AGENTS.md 8장을 따릅니다. 원격 push는 사용자 확인 후 수행하며 **`git push --mirror`는 금지**합니다.
-
 
 ## 로컬 포털 실행 (FS-017)
 

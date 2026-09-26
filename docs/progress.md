@@ -871,3 +871,11 @@
 - 새 의존성: `three` 0.186.1, `@react-three/fiber` 9.8.1, `@react-three/drei` 10.7.8, `@types/three`(dev). `npm audit --omit=dev` 0건. 3D 번들(`Factory-*.js` 919kB, gzip 245kB)은 `/factory` 진입 때만 지연 로딩.
 - 통합 검증: frontend typecheck·lint·format:check·build·test **342 passed**, 스모크 **83 passed**, 3D 전용 브라우저 테스트(`npm --prefix frontend run test:factory-browser`, API 모의) **7 passed**. backend는 변경 없음(CI에서 전체 실행).
 - 후속: 360px에서 상단 메뉴가 두 줄(‘나가기’가 둘째 줄)이 된다. 가로 스크롤은 없다.
+
+## 2026-09-26 저장소 정리 (Claude Code)
+
+- 사용자 요청으로 루트를 정리: 빈 `seed/`·`tests/`(초기 뼈대의 `.gitkeep`만, 실제는 `backend/seed`·`backend/tests`) 삭제, `prototypes/` → `docs/archive/prototypes/`, Git 제외 임시 추출본 `fs005g_check2_*.txt` 4개 → `work/fs005g-check2/`.
+- 현재 문서의 시제품 경로(화면 설계서 3개, 설계 결정, 진행현황 표) 갱신. 지난 작업 보고의 옛 경로는 기록이라 그대로 둠.
+- README에 루트 폴더·파일 의미 표와 현재 진행 상태 반영. 기존에 깨져 있던 `구현인계패키지_FS-012.md` 상대 링크 2개 수정(문서 내 깨진 상대 링크 0).
+- 유지: 루트 `package.json`·`node_modules`(DB 설계서 도구), `work/`, `docker-compose.yml`, 형제 worktree·백업·참고자료 폴더.
+- 검증: db:validate, audit_schema_isolation, tools unittest 44 OK. 코드 변경 없음(CI에서 전체 실행).
