@@ -390,6 +390,7 @@ GET /journal-preview?kind=RECEIPT&applyId=...
 - 수금·지급은 **소명 행 단위**다. `applyId`를 받는다.
 - 응답에 미소명 잔여를 `unapplied`로 별도 표기한다. **분개 라인에 섞지 않는다.**
 - 저장하지 않으므로 POST가 없다.
+- (FS-019g 구현) 응답 `{kind, id, doc, lines:[{lineNo, entrySide, accountCode, accountName, amountBasis, amount}], debitTotal, creditTotal, balanced, unapplied}`. 금액 기준 TOTAL·SUPPLY·TAX는 매출·매입 금액, APPLY는 소명 1행 금액. SALES·PURCHASE는 `sourceId`, RECEIPT·PAYMENT는 `applyId` 필수(없으면 400 `fields`). 취소 매출·작성/취소 매입은 409 `NOT_POSTABLE`. `unapplied`는 수금·지급의 미소명 잔여(매출·매입은 null). 구현 `erp/journal.py`.
 
 ---
 

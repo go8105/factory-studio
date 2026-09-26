@@ -908,3 +908,8 @@
 - FS-019e main ff(`55c39c1`, CI 통과) 뒤 진행. E-11 매입 전표 · E-12 매입채무 · E-13 지급·소명.
 - 019e 수금·소명 백엔드(`receipts.Side`)·화면(`settlement.ts` + `side` 속성)을 일반화해 매입 쪽에 재사용. 세액은 `revenue.line_amounts` 공용.
 - 검증: frontend 381, backend 607(CI 환경), 스모크 100, 360px 직접 확인. 상세 `docs/agent/ERP_FS-019f.md`.
+
+## 2026-09-26 FS-019g 완료 — ERP 17/18 (Claude Code)
+
+- E-14 분개 미리보기 API(`GET /journal-preview`, 저장 없음)·독립 화면·공통 패널. 매출·수금·매입·지급 화면에 "분개" 버튼.
+- 검증: frontend 384, backend 614(CI 환경), 스모크 102, 360px 직접 확인. 상세 `docs/agent/ERP_FS-019g.md`.

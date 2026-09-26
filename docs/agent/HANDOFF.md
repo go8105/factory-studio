@@ -1,6 +1,6 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-26 (FS-019f 완료 — ERP 16/18, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-26 (FS-019g 완료 — ERP 17/18, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
@@ -17,8 +17,8 @@
 | 포털 | 7/7 + 3D 공장(`/factory`) + 런처 아이콘 타일 |
 | FEMS | 14/14 (FS-018a~m) |
 | MES | 15/15 (FS-020a~g) — `docs/agent/MES_FS-020*.md` |
-| ERP | 16/18 (019a 기준정보 E-15~18, 019b 영업 E-02~04, 019c 출하 E-05~06 + 매출·채권 생성, 019d 매출·세금계산서 E-07~08, 019e 채권·수금·소명 E-09~10, 019f 매입·채무·지급 E-11~13) — 계획 `docs/agent/MES_ERP_작업계획_FS-019_020.md` §3, 보고 `docs/agent/ERP_FS-019*.md` |
-| 다음 | FS-019g(분개 미리보기) → h(대시보드, `receipts.open_items(RECEIVABLE/PAYABLE)` 재사용) → FS-021 → FS-022 |
+| ERP | 17/18 (019a 기준정보 E-15~18, 019b 영업 E-02~04, 019c 출하 E-05~06 + 매출·채권 생성, 019d 매출·세금계산서 E-07~08, 019e 채권·수금·소명 E-09~10, 019f 매입·채무·지급 E-11~13, 019g 분개 미리보기 E-14) — 계획 `docs/agent/MES_ERP_작업계획_FS-019_020.md` §3, 보고 `docs/agent/ERP_FS-019*.md` |
+| 다음 | FS-019h(대시보드, `receipts.open_items(RECEIVABLE/PAYABLE)` 재사용) → FS-021 → FS-022 |
 
 ## 다음 할 일
 
