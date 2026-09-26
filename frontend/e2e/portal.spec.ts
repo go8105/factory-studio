@@ -314,9 +314,9 @@ test("ERP 매출 분개 보기 → 차대 합계 일치", async ({ page }) => {
 test("ERP 대시보드 → 처리 대기에서 세금계산서로 이동", async ({ page }) => {
   await page.goto("/erp");
   await expect(page).toHaveURL("/erp/dashboard");
-  await expect(page.getByRole("region", { name: "미수금" })).toContainText(
-    "원",
-  );
+  await expect(
+    page.getByRole("region", { name: "미수금", exact: true }),
+  ).toContainText("원");
   await page.getByRole("link", { name: "세금계산서 미발급 매출" }).click();
   await expect(page).toHaveURL("/erp/tax-invoices");
 });

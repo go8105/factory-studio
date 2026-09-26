@@ -20,6 +20,8 @@ test("계측 조회는 서버가 정한 기간으로 시작", async ({ page }) =
 });
 test("결측 구간은 결측으로 표시", async ({ page }) => {
   await page.goto("/fems/readings");
+  // 첫 로드가 서버 기본 기간으로 입력을 덮어쓰므로 먼저 기다린다(계획서 §7-8).
+  await expect(page.getByLabel("시작일")).not.toHaveValue("");
   await page.getByLabel("품질").selectOption("invalid");
   await page.getByLabel("시작일").fill("2026-08-25");
   await page.getByLabel("종료일").fill("2026-09-23");

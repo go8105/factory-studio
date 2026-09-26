@@ -913,3 +913,9 @@
 
 - E-14 분개 미리보기 API(`GET /journal-preview`, 저장 없음)·독립 화면·공통 패널. 매출·수금·매입·지급 화면에 "분개" 버튼.
 - 검증: frontend 384, backend 614(CI 환경), 스모크 102, 360px 직접 확인. 상세 `docs/agent/ERP_FS-019g.md`.
+
+## 2026-09-26 FS-019h 완료 — ERP 18/18, FS-019 종료 (Claude Code)
+
+- FS-019g main ff(`49a291d`, CI 통과) 뒤 진행. E-01 ERP 대시보드 API·화면·도움말, ERP 진입을 대시보드로.
+- 기존 FEMS e2e "결측 구간"의 첫 로드 대기 누락(§7-8 함정)을 수정.
+- 검증: frontend 389, backend 622(CI 환경), 스모크 104, 360px 직접 확인. 상세 `docs/agent/ERP_FS-019h.md`.
