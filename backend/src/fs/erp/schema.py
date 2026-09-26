@@ -216,3 +216,30 @@ class TaxInvoiceCreate(ApiModel):
 class TaxInvoiceIssue(ApiModel):
     approval_no: str = Field(alias="approvalNo", min_length=1, max_length=60)
     issued_on: date = Field(alias="issuedOn")
+
+
+# ---- FS-019e 수금·소명 ----
+Money = Annotated[str, Field(pattern=r"^\d{1,16}(\.\d{1,2})?$")]  # numeric(18,2)
+
+
+class ReceiptCreate(ApiModel):
+    receipt_no: Code = Field(alias="receiptNo")
+    partner_id: int = Field(alias="partnerId", gt=0)
+    received_on: date = Field(alias="receivedOn")
+    amount: Money
+
+
+class ReceiptUpdate(ApiModel):
+    receipt_no: Code | None = Field(None, alias="receiptNo")
+    partner_id: int | None = Field(None, alias="partnerId", gt=0)
+    received_on: date | None = Field(None, alias="receivedOn")
+    amount: Money | None = None
+
+
+class ApplicationIn(ApiModel):
+    receivable_id: int = Field(alias="receivableId", gt=0)
+    amount: Money
+
+
+class Applications(ApiModel):
+    lines: list[ApplicationIn] = Field(min_length=1, max_length=200)
