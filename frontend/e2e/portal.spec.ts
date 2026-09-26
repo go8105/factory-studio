@@ -90,6 +90,8 @@ for (const [route, title] of [
   ["erp/quotations", "견적"],
   ["erp/sales-plans", "판매계획"],
   ["erp/sales-orders", "수주"],
+  ["erp/shipment-orders", "출하지시"],
+  ["erp/shipments", "출하"],
   ["erp/partners", "거래처"],
   ["erp/items", "품목"],
   ["erp/partner-prices", "거래처별 단가"],
@@ -197,5 +199,30 @@ test("ERP 견적 작성 → 확정 → 제출 → 수주 전환", async ({ page 
   await page.getByRole("link", { name: /E-04 수주/ }).click();
   await expect(page.getByRole("row", { name: /^E2E-SO1/ })).toContainText(
     "E2E-Q1 (1차)",
+  );
+});
+
+test("ERP 수주 출하지시 → 출하 확정 → 수주 완료", async ({ page }) => {
+  await page.goto("/erp/shipment-orders");
+  const form = page.getByRole("form", { name: "출하지시 만들기" });
+  await form.getByLabel("출하지시번호").fill("E2E-SHO1");
+  const order = form.getByLabel("수주");
+  const option = order.locator("option", { hasText: "SO-0008" });
+  await order.selectOption((await option.getAttribute("value"))!);
+  await form.getByRole("button", { name: "출하지시" }).click();
+  await expect(page.getByRole("row", { name: /^E2E-SHO1/ })).toContainText(
+    "미출하",
+  );
+  await page.getByRole("link", { name: /E-06 출하$/ }).click();
+  const ship = page.getByRole("form", { name: "출하 확정" });
+  await ship.getByLabel("출하번호").fill("E2E-SH1");
+  const target = ship.getByLabel("출하지시");
+  const pick = target.locator("option", { hasText: "E2E-SHO1" });
+  await target.selectOption((await pick.getAttribute("value"))!);
+  await ship.getByRole("button", { name: "출하 확정" }).click();
+  await expect(page.getByRole("row", { name: /^E2E-SH1/ })).toContainText("원");
+  await page.getByRole("link", { name: /E-04 수주/ }).click();
+  await expect(page.getByRole("row", { name: /^SO-0008/ })).toContainText(
+    "완료",
   );
 });

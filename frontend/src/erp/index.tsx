@@ -8,6 +8,8 @@ import { Accounts } from "./Accounts";
 import { Quotations } from "./Quotations";
 import { SalesPlans } from "./SalesPlans";
 import { SalesOrders } from "./SalesOrders";
+import { ShipmentOrders } from "./ShipmentOrders";
+import { Shipments } from "./Shipments";
 export default function ErpRoutes() {
   return (
     <Routes>
@@ -16,6 +18,8 @@ export default function ErpRoutes() {
         <Route path="quotations" element={<Quotations />} />
         <Route path="sales-plans" element={<SalesPlans />} />
         <Route path="sales-orders" element={<SalesOrders />} />
+        <Route path="shipment-orders" element={<ShipmentOrders />} />
+        <Route path="shipments" element={<Shipments />} />
         <Route path="partners" element={<Partners />} />
         <Route path="items" element={<Items />} />
         <Route path="partner-prices" element={<Prices />} />
