@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -93,3 +94,87 @@ class PriceUpdate(ApiModel):
     effective_from: Month | None = Field(None, alias="effectiveFrom")
     effective_to: Month | None = Field(None, alias="effectiveTo")
     is_active: bool | None = Field(None, alias="isActive")
+
+
+# ---- FS-019b 영업: 견적·판매계획·수주 ----
+Qty = Annotated[str, Field(pattern=r"^\d{1,15}(\.\d{1,3})?$")]  # numeric(18,3)
+Price = Annotated[str, Field(pattern=r"^\d{1,14}(\.\d{1,4})?$")]  # numeric(18,4)
+Rate = Annotated[str, Field(pattern=r"^\d{1,3}(\.\d{1,2})?$")]  # 0~100은 서비스
+Reason = Annotated[str, Field(min_length=1, max_length=200)]
+
+
+class QuotationCreate(ApiModel):
+    quote_no: Code = Field(alias="quoteNo")
+    partner_id: int = Field(alias="partnerId", gt=0)
+    quoted_on: date = Field(alias="quotedOn")
+    valid_until: date | None = Field(None, alias="validUntil")
+    remark: str | None = Field(None, max_length=1000)
+
+
+class QuotationUpdate(ApiModel):
+    partner_id: int | None = Field(None, alias="partnerId", gt=0)
+    quoted_on: date | None = Field(None, alias="quotedOn")
+    valid_until: date | None = Field(None, alias="validUntil")
+    remark: str | None = Field(None, max_length=1000)
+
+
+class QuotationLineIn(ApiModel):
+    item_id: int = Field(alias="itemId", gt=0)
+    quote_qty: Qty = Field(alias="quoteQty")
+    unit_price: Price | None = Field(None, alias="unitPrice")  # 비우면 거래처 단가
+    discount_rate: Rate = Field("0", alias="discountRate")
+
+
+class QuotationLines(ApiModel):
+    lines: list[QuotationLineIn] = Field(max_length=200)
+
+
+class QuotationStatus(ApiModel):
+    status: Literal["confirmed", "sent", "accepted", "rejected", "cancelled"]
+    reason: Reason | None = None
+
+
+class QuotationConvert(ApiModel):
+    order_no: Code = Field(alias="orderNo")
+    ordered_on: date = Field(alias="orderedOn")
+    due_on: date = Field(alias="dueOn")
+
+
+class SalesPlanCreate(ApiModel):
+    plan_code: Code = Field(alias="planCode")
+    target_month: Month = Field(alias="targetMonth")
+
+
+class SalesPlanUpdate(ApiModel):
+    plan_code: Code | None = Field(None, alias="planCode")
+    target_month: Month | None = Field(None, alias="targetMonth")
+
+
+class SalesPlanLineIn(ApiModel):
+    item_id: int = Field(alias="itemId", gt=0)
+    plan_qty: Qty = Field(alias="planQty")
+
+
+class SalesPlanLines(ApiModel):
+    lines: list[SalesPlanLineIn] = Field(max_length=200)
+
+
+class OrderLineIn(ApiModel):
+    item_id: int = Field(alias="itemId", gt=0)
+    order_qty: Qty = Field(alias="orderQty")
+    unit_price: Price | None = Field(None, alias="unitPrice")  # 비우면 거래처 단가
+
+
+class SalesOrderCreate(ApiModel):
+    order_no: Code = Field(alias="orderNo")
+    partner_id: int = Field(alias="partnerId", gt=0)
+    ordered_on: date = Field(alias="orderedOn")
+    due_on: date = Field(alias="dueOn")
+    lines: list[OrderLineIn] = Field(min_length=1, max_length=200)
+
+
+class SalesOrderUpdate(ApiModel):
+    partner_id: int | None = Field(None, alias="partnerId", gt=0)
+    ordered_on: date | None = Field(None, alias="orderedOn")
+    due_on: date | None = Field(None, alias="dueOn")
+    lines: list[OrderLineIn] | None = Field(None, min_length=1, max_length=200)

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, Query, Response
 from fs.common.auth import AuthContext, require_csrf, resolve_auth
 from fs.common.errors import ApiError
 from fs.common.page import Page
-from fs.erp import schema, service
+from fs.erp import sales, schema, service
 
 router = APIRouter()
 Auth = Annotated[AuthContext, Depends(resolve_auth)]
@@ -329,3 +329,192 @@ def list_posting_rules(
 @router.get("/posting-rules/{row_id}")
 def get_posting_rules(row_id: int, context: Auth):
     return {"data": service.detail(context, "posting-rules", row_id)}
+
+
+# ---- FS-019b 영업: 견적·판매계획·수주 (목록은 페이지 없이 전체) ----
+def _json(payload, nullable=frozenset()):
+    values = payload.model_dump(mode="json", exclude_unset=True)
+    for field, value in values.items():
+        if value is None and field not in nullable:
+            raise service.invalid(field, "null로 비울 수 없습니다.")
+    return values
+
+
+@router.get("/quotations")
+def list_quotations(context: Auth):
+    return {"data": sales.list_quotations(context)}
+
+
+@router.get("/quotations/{quote_id}/revisions")
+def list_quotation_revisions(quote_id: int, context: Auth):
+    return {"data": sales.quotation_revisions(context, quote_id)}
+
+
+@router.post("/quotations", status_code=201)
+def post_quotation(
+    payload: schema.QuotationCreate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": sales.create_quotation(context, payload.model_dump(mode="json"), key)
+    }
+
+
+@router.patch("/quotations/{quote_id}")
+def patch_quotation(
+    quote_id: int,
+    payload: schema.QuotationUpdate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    values = _json(payload, frozenset({"valid_until", "remark"}))
+    return {"data": sales.update_quotation(context, quote_id, values, key)}
+
+
+@router.put("/quotations/{quote_id}/lines")
+def put_quotation_lines(
+    quote_id: int,
+    payload: schema.QuotationLines,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    lines = payload.model_dump(mode="json")["lines"]
+    return {"data": sales.set_quotation_lines(context, quote_id, lines, key)}
+
+
+@router.post("/quotations/{quote_id}/status")
+def post_quotation_status(
+    quote_id: int,
+    payload: schema.QuotationStatus,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": sales.change_quotation_status(
+            context, quote_id, payload.status, payload.reason, key
+        )
+    }
+
+
+@router.post("/quotations/{quote_id}/revise", status_code=201)
+def post_quotation_revise(
+    quote_id: int, context: Auth, idempotency_key: Key = None, x_csrf_token: Csrf = None
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": sales.revise_quotation(context, quote_id, key)}
+
+
+@router.post("/quotations/{quote_id}/convert", status_code=201)
+def post_quotation_convert(
+    quote_id: int,
+    payload: schema.QuotationConvert,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(mode="json")
+    return {"data": sales.convert_quotation(context, quote_id, values, key)}
+
+
+@router.get("/sales-plans")
+def list_sales_plans(context: Auth):
+    return {"data": sales.list_plans(context)}
+
+
+@router.post("/sales-plans", status_code=201)
+def post_sales_plan(
+    payload: schema.SalesPlanCreate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": sales.create_plan(context, payload.model_dump(mode="json"), key)}
+
+
+@router.patch("/sales-plans/{plan_id}")
+def patch_sales_plan(
+    plan_id: int,
+    payload: schema.SalesPlanUpdate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": sales.update_plan(context, plan_id, _json(payload), key)}
+
+
+@router.put("/sales-plans/{plan_id}/lines")
+def put_sales_plan_lines(
+    plan_id: int,
+    payload: schema.SalesPlanLines,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    lines = payload.model_dump(mode="json")["lines"]
+    return {"data": sales.set_plan_lines(context, plan_id, lines, key)}
+
+
+@router.post("/sales-plans/{plan_id}/confirm")
+def post_sales_plan_confirm(
+    plan_id: int, context: Auth, idempotency_key: Key = None, x_csrf_token: Csrf = None
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": sales.confirm_plan(context, plan_id, key)}
+
+
+@router.delete("/sales-plans/{plan_id}", status_code=204)
+def delete_sales_plan(
+    plan_id: int, context: Auth, idempotency_key: Key = None, x_csrf_token: Csrf = None
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    sales.delete_plan(context, plan_id, key)
+    return Response(status_code=204)
+
+
+@router.get("/sales-orders")
+def list_sales_orders(context: Auth):
+    return {"data": sales.list_orders(context)}
+
+
+@router.post("/sales-orders", status_code=201)
+def post_sales_order(
+    payload: schema.SalesOrderCreate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": sales.create_order(context, payload.model_dump(mode="json"), key)}
+
+
+@router.patch("/sales-orders/{order_id}")
+def patch_sales_order(
+    order_id: int,
+    payload: schema.SalesOrderUpdate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": sales.update_order(context, order_id, _json(payload), key)}
+
+
+@router.post("/sales-orders/{order_id}/cancel")
+def post_sales_order_cancel(
+    order_id: int, context: Auth, idempotency_key: Key = None, x_csrf_token: Csrf = None
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": sales.cancel_order(context, order_id, key)}
