@@ -463,3 +463,140 @@ def test_ac78_shipment_rejects_line_of_other_instruction(guest_space):
     )
     assert response.status_code == 400
     assert "lines" in response.json()["error"]["details"]["fields"]
+
+
+# ---- 부분 → 검증 보강 (사용자 요청 2026-09-26) ----
+def test_ac68_two_guest_copies_have_own_scope_and_full_rows(guest_space):
+    _, created, engine = guest_space
+    other = _new_guest().json()["data"]
+    with engine.connect() as connection:
+        template = connection.execute(
+            text(
+                "SELECT id, active_generation_id FROM core.workspace "
+                "WHERE workspace_kind='TEMPLATE'"
+            )
+        ).one()
+        tables = (
+            connection.execute(
+                text(
+                    "SELECT table_schema || '.' || table_name FROM information_schema.columns "
+                    "WHERE table_schema IN ('mes','erp','fems') AND column_name='generation_id'"
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for table in tables:
+            counts = {}
+            for w, g in (
+                (template.id, template.active_generation_id),
+                (created["workspaceId"], created["generationId"]),
+                (other["workspaceId"], other["generationId"]),
+            ):
+                rows = connection.execute(
+                    text(
+                        f"SELECT count(*) total, count(*) FILTER (WHERE generation_id=:g) mine "
+                        f"FROM {table} WHERE workspace_id=:w"
+                    ),
+                    {"w": w, "g": g},
+                ).one()
+                assert rows.total == rows.mine, (
+                    table
+                )  # 모든 행이 자기 S(공간·활성 세대)
+                counts[w] = rows.total
+            assert len(set(counts.values())) == 1, (table, counts)  # 원본과 같은 행 수
+    assert (
+        created["generationId"]
+        != other["generationId"]
+        != template.active_generation_id
+    )
+
+
+def test_ac73_rejected_order_leaves_every_plan_allocation(guest_space):
+    client, created, _ = guest_space
+
+    def allocations():
+        return {
+            line["id"]: line["allocatedQty"]
+            for plan in client.get(f"{MES}/production-plans").json()["data"]
+            for line in plan["lines"]
+        }
+
+    items = {i["itemCode"]: i["id"] for i in client.get(f"{MES}/items").json()["data"]}
+    line = next(
+        line
+        for plan in client.get(f"{MES}/production-plans").json()["data"]
+        if plan["status"] == "confirmed"
+        for line in plan["lines"]
+        if line["itemId"] == items["FG-C100"] and float(line["remainingQty"]) > 0
+    )
+    foreign_route = next(
+        r["id"]
+        for r in client.get(f"{MES}/routes").json()["data"]
+        if r["routeCode"] == "RT-C200" and r["status"] == "published"
+    )
+    before = allocations()
+    response = client.post(
+        f"{MES}/work-orders",
+        json={
+            "productionPlanLineId": line["id"],
+            "routeVersionId": foreign_route,
+            "planQty": "10",
+            "planStartDate": "2026-09-28",
+            "planEndDate": "2026-09-30",
+        },
+        headers=_headers(created),
+    )
+    assert response.status_code == 400
+    assert allocations() == before
+
+
+def test_ac74_unfinished_lot_cannot_be_packed(guest_space):
+    client, created, _ = guest_space
+    lot = next(
+        x
+        for x in client.get(f"{MES}/lots").json()["data"]
+        if x["status"] == "in_progress"
+    )
+    box = client.post(
+        f"{MES}/packing-units", json={"packingKind": "BOX"}, headers=_headers(created)
+    ).json()["data"]
+    response = client.put(
+        f"{MES}/packing-units/{box['id']}/members",
+        json={"lotId": lot["id"], "packedQty": "1"},
+        headers=_headers(created),
+    )
+    assert response.status_code == 400
+    assert "lotId" in response.json()["error"]["details"]["fields"]
+
+
+def test_ac75_received_pallet_structure_is_unchanged_after_rejections(guest_space):
+    client, created, _ = guest_space
+
+    def pallet():
+        return next(
+            u
+            for u in client.get(f"{MES}/packing-units").json()["data"]
+            if u["packingNo"] == "PL-0002"
+        )
+
+    before = pallet()
+    assert before["status"] == "received"
+    child = before["childIds"][0]
+    detach = client.put(
+        f"{MES}/packing-units/{child}/parent",
+        json={"parentPackingUnitId": None},
+        headers=_headers(created),
+    )
+    single = client.post(
+        f"{MES}/finished-goods-receipts",
+        json={"packingUnitId": child},
+        headers=_headers(created),
+    )
+    assert detach.status_code == 409 and single.status_code == 409
+    after = pallet()
+    assert (after["childIds"], after["totalQty"], after["status"]) == (
+        before["childIds"],
+        before["totalQty"],
+        "received",
+    )

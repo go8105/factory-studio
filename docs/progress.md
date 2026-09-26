@@ -926,3 +926,4 @@
 - 테스트 추가: `test_integration_policies.py`(범위 격리 횡단·멱등 4개), `test_integration_ac.py`(AC 보강 15개). `tools/measure_fs021.py` 실측 도구.
 - 결함 수정: `common/scope.py` 잠금 뒤 게스트 만료 재확인(AC-63).
 - 상세 `docs/agent/통합검증_FS-021.md`.
+- 사용자 결정 반영: 동시 게스트 생성 지연은 현행 유지, 미구현 기능은 1차 범위 밖(FS-012 §4-3에 추가), AC-68·73·74·75 단언 추가로 검증됨 33.
