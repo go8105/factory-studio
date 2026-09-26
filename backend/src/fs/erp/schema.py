@@ -178,3 +178,31 @@ class SalesOrderUpdate(ApiModel):
     ordered_on: date | None = Field(None, alias="orderedOn")
     due_on: date | None = Field(None, alias="dueOn")
     lines: list[OrderLineIn] | None = Field(None, min_length=1, max_length=200)
+
+
+# ---- FS-019c 출하지시·출하 ----
+class ShipOrderLineIn(ApiModel):
+    sales_order_line_id: int = Field(alias="salesOrderLineId", gt=0)
+    order_qty: Qty = Field(alias="orderQty")
+
+
+class ShipOrderCreate(ApiModel):
+    ship_order_no: Code = Field(alias="shipOrderNo")
+    sales_order_id: int = Field(alias="salesOrderId", gt=0)
+    ordered_on: date = Field(alias="orderedOn")
+    lines: list[ShipOrderLineIn] = Field(min_length=1, max_length=200)
+
+
+class CancelIn(ApiModel):
+    reason: str = Field(min_length=1, max_length=300)
+
+
+class ShipmentLineIn(ApiModel):
+    shipment_order_line_id: int = Field(alias="shipmentOrderLineId", gt=0)
+    packing_no: str | None = Field(None, alias="packingNo", max_length=40)
+
+
+class ShipmentCreate(ApiModel):
+    shipment_no: Code = Field(alias="shipmentNo")
+    shipment_order_id: int = Field(alias="shipmentOrderId", gt=0)
+    lines: list[ShipmentLineIn] = Field([], max_length=200)  # 패킹번호만. 수량은 서버

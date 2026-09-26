@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, Query, Response
 from fs.common.auth import AuthContext, require_csrf, resolve_auth
 from fs.common.errors import ApiError
 from fs.common.page import Page
-from fs.erp import sales, schema, service
+from fs.erp import sales, schema, service, shipping
 
 router = APIRouter()
 Auth = Annotated[AuthContext, Depends(resolve_auth)]
@@ -518,3 +518,52 @@ def post_sales_order_cancel(
 ):
     key = mutation(context, x_csrf_token, idempotency_key)
     return {"data": sales.cancel_order(context, order_id, key)}
+
+
+# ---- FS-019c 출하지시·출하 ----
+@router.get("/shipment-orders")
+def list_shipment_orders(context: Auth):
+    return {"data": shipping.list_ship_orders(context)}
+
+
+@router.post("/shipment-orders", status_code=201)
+def post_shipment_order(
+    payload: schema.ShipOrderCreate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(mode="json")
+    return {"data": shipping.create_ship_order(context, values, key)}
+
+
+@router.post("/shipment-orders/{ship_order_id}/cancel")
+def post_shipment_order_cancel(
+    ship_order_id: int,
+    payload: schema.CancelIn,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": shipping.cancel_ship_order(context, ship_order_id, payload.reason, key)
+    }
+
+
+@router.get("/shipments")
+def list_shipments(context: Auth):
+    return {"data": shipping.list_shipments(context)}
+
+
+@router.post("/shipments", status_code=201)
+def post_shipment(
+    payload: schema.ShipmentCreate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(mode="json")
+    return {"data": shipping.confirm_shipment(context, values, key)}
