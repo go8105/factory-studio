@@ -947,3 +947,10 @@
 - Node 24.21.0: typecheck/lint/format:check/build exit 0. 전체 테스트는 자원 경합을 줄인 `npm --prefix frontend test -- --maxWorkers=2`로 346개 통과. 독립 Chromium 브라우저 10개 통과(2.1분, exit 0). 외관/내부/모바일 스크린샷 직접 확인.
 - Blender 5.2.2 LTS. 생성 스크립트와 .blend/GLB를 저장. 새 npm 의존성 없음. 상세 `docs/agent/3D공장_공간고도화.md`.
 - backend/DB/공용 통합 스모크·Safari/실기기 성능은 미실행. main 병합·push 없음. 다음: 사용자 시각 피드백 및 통합 담당자 main 통합. 최종 커밋은 이 인계를 포함한 `3D 공장: 건물·재질·생산라인 공간 고도화`이며 `git log -1`로 확인.
+
+## 2026-09-26 통합: Codex 3D 공장 고도화 (Claude Code)
+
+- Codex `codex/factory-building`의 커밋 2개(`b352514` Blender 비전검사 설비, `d3eaf31` 건물·재질·생산라인)를 main `907fed8` 위로 cherry-pick(`factory-building-integrate`). 문서 2개(진행현황·progress) 끝 절 충돌만 두 내용 보존으로 해결.
+- 범위: 건물 외관↔내부 전환(외벽·지붕·하역장·옥상 공조기), 바닥·금속 재질과 그림자, 조립·비전검사·포장 Blender 모델(glb 4개 1.4MB)과 동작, 자재 선반·공구대, MES·ERP·FEMS 진입 카드. 새 의존성 없음, 3D 번들은 `/factory` 진입 때만 지연 로딩(Factory 925kB, gzip 247kB).
+- 검증(메인 폴더에서 재실행): frontend typecheck·lint·format:check·build·test **393 passed**, 3D 전용 브라우저 테스트 **10 passed**, 스모크 **107 passed**, diff --check. 외관·내부·360px 스크린샷 직접 확인. backend 변경 없음.
+- 참고: 업무 데이터(설비 상태 등)와의 실시간 연동은 아직 없다(화면에 "3D 합성 시연 · 실시간 설비 정보 아님" 표시).
