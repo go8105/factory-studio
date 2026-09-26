@@ -78,7 +78,8 @@ it("P-03의 품질검사 노드는 QMS 카드로 연결된다", async () => {
   mockApi();
   show("/flow");
   expect(
-    await screen.findByRole("link", { name: /08 \/ QMS/ }),
+    // 흐름 화면은 노드가 많아 역할 조회가 느리다. 병렬 실행에서 기본 1초를 넘긴다.
+    await screen.findByRole("link", { name: /08 \/ QMS/ }, { timeout: 5000 }),
   ).toHaveAttribute("href", "/cards/qms");
 });
 it("P-04는 원본 QMS 문안을 표시한다", async () => {

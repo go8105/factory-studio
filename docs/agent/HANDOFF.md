@@ -1,12 +1,12 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-26 (FS-019b 완료 — ERP 7/18, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-26 (FS-019c 완료 — ERP 9/18, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
 - 저장소(메인 폴더, Claude Code 전용): `/Users/hwang-kyoungho/projects/factory-studio`
 - **Codex는 `/Users/hwang-kyoungho/projects/factory-studio-codex`만 사용**, 브랜치 `codex/*`. 메인 폴더를 열거나 수정하지 않는다. antigravity worktree·브랜치도 건드리지 않는다.
-- main·origin: `factory-3d-integrate`(3D 공장·런처 타일) ff 후가 최신. 그 전 `626ba35`(MES 15/15).
+- main·origin: `0addc2e`(FS-019b) 이후 ERP 하위 ID를 순서대로 ff. 매출·채권 생성은 `erp/revenue.py`(019c)에 있고 019d~e가 이어 쓴다.
 - Codex의 `codex/fs-019a-erp-master`에는 **이미 main에 통합된 커밋만** 남아 있다(FS-019a는 `5da9019`·`945a78a`, 런처·3D는 `a0f71ae`·`7c83bc7`·`c3f3213`으로 통합). **Codex는 다음 작업을 새 main에서 새 브랜치로 시작**한다.
 - `gh` CLI 로그인 완료(go8105). CI는 `gh run list --branch <b>` / `gh run watch <id> --exit-status`.
 
@@ -17,8 +17,8 @@
 | 포털 | 7/7 + 3D 공장(`/factory`) + 런처 아이콘 타일 |
 | FEMS | 14/14 (FS-018a~m) |
 | MES | 15/15 (FS-020a~g) — `docs/agent/MES_FS-020*.md` |
-| ERP | 7/18 (019a 기준정보 E-15~18, 019b 견적·판매계획·수주 E-02~04) — 계획 `docs/agent/MES_ERP_작업계획_FS-019_020.md` §3, 보고 `docs/agent/ERP_FS-019*.md` |
-| 다음 | FS-019c(출하지시·출하) → d~h → FS-021 통합 검증 → FS-022 배포 |
+| ERP | 9/18 (019a 기준정보 E-15~18, 019b 견적·판매계획·수주 E-02~04, 019c 출하지시·출하 E-05~06 + 매출·채권 생성) — 계획 `docs/agent/MES_ERP_작업계획_FS-019_020.md` §3, 보고 `docs/agent/ERP_FS-019*.md` |
+| 다음 | FS-019d(매출 목록·취소 · 세금계산서) → e~h → FS-021 통합 검증 → FS-022 배포 |
 
 ## 다음 할 일
 

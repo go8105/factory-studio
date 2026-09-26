@@ -885,3 +885,9 @@
 - 사용자 결정: FS-019b~h 전부 Claude Code, E-G07 0원 매출 세금계산서 발급 금지.
 - E-02 견적 · E-03 판매계획 · E-04 수주 API·화면·도움말. 목록·저장 훅을 `shared/hooks.tsx`로 옮겨 MES·ERP 공용(별도 커밋).
 - 검증: frontend 354 passed, backend 561 passed(CI 환경), 스모크 87 passed, 360px 직접 확인. 상세 `docs/agent/ERP_FS-019b.md`.
+
+## 2026-09-26 FS-019c 완료 — ERP 9/18 (Claude Code)
+
+- FS-019b main ff(`0addc2e`, CI 통과) 뒤 진행. E-05 출하지시 · E-06 출하 API·화면·도움말, 출하 확정 트랜잭션 안에서 매출·채권 생성(TX-09를 019c에 포함 — 설계상 분리 불가).
+- 포털 흐름 화면 테스트의 역할 조회 대기를 5초로(병렬 실행 타이밍 실패 해결).
+- 검증: frontend 360, backend 574(CI 환경), 스모크 90, 360px 직접 확인. 상세 `docs/agent/ERP_FS-019c.md`.

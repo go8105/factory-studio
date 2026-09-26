@@ -341,6 +341,13 @@ POST /sales-records/{id}/cancel      취소
 - `/sales-orders`: POST는 머리글 + `lines` 함께. 라인 `instructedQty`(취소 안 된 출하지시)·`shippedQty`(확정 출하), `shipmentOrderCount`, 근거 견적 `quoteNo`·`quoteRevisionNo`. PATCH(`lines`는 통째 교체)·`POST /{id}/cancel`은 open이고 유효 출하지시가 없을 때만(409 `ORDER_LOCKED`). 견적 전환 수주는 거래처 변경 400.
 - 고객 거래처만(CUSTOMER·사용 중), 사용 중 품목만 선택할 수 있다. 같은 공간의 쓰기는 `write_scope` 공간 잠금으로 직렬화된다.
 
+### 출하지시·출하 (FS-019c): TX-07·TX-08(+TX-09)
+
+- `/shipment-orders`(목록에 `lines`·`orderNo`·`partnerId`·`shipmentNo`): POST `{shipOrderNo, salesOrderId, orderedOn, lines:[{salesOrderLineId, orderQty}]}`. 수주 → 수주 명세 잠금 뒤 Σ(취소 안 된 지시) + 신규 ≤ 수주수량, 초과 409 `ORDER_QTY_EXCEEDED`(+`lineNo`·`remainingQty`). 접수·출하 중 수주만(`ORDER_NOT_SHIPPABLE`). `POST /{id}/cancel` `{reason}`은 미출하만(`SHIPMENT_ORDER_NOT_OPEN`).
+- `/shipments`(목록에 `lines`·매출 `salesRecordId`·`supplyAmount`·`taxAmount`·`totalAmount`): POST `{shipmentNo, shipmentOrderId, lines:[{shipmentOrderLineId, packingNo}]}`. 지시당 1건, 지시 전 명세를 지시 수량 그대로(서버 산출) 출하. 등록 = 확정(`status=confirmed`, 작성 단계 없음). 패킹번호는 선택 수기 코드, ERP 안 중복은 409 `PACKING_ALREADY_SHIPPED`(+`packingNos`).
+- 출하 확정 트랜잭션 안에서 매출 1건 + 채권 1건 생성(TX-09, `erp/revenue.py`). 세액: 품목 과세구분 TAXABLE 10%·ZERO/EXEMPT 0%, 명세별 공급가액·세액 1원 사사오입 후 합산. 채권 원금 = 합계, 만기 = 인식일(Asia/Seoul) + 결제일수(조건 없으면 NULL). 실패 시 출하 전체 롤백.
+- 수주 상태는 같은 트랜잭션에서 재계산: 유효 지시 없음 open / 있음 shipping / 전 명세 출하 완료 closed.
+
 ### 소명 계약
 
 - **`POST /receipts/{id}/applications`는 수금 확정 후에도 호출 가능하다.** 확정되는 것은 금액이지 배분이 아니다(FS-014b).
