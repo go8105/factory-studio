@@ -89,3 +89,31 @@ test("그래픽 연결 손실은 재시도 안내로 대체한다", async ({ pag
     page.getByRole("button", { name: "3D 다시 열기" }),
   ).toBeVisible();
 });
+test("Blender 설비를 불러오고 검사·정지·재개를 시연한다", async ({ page }) => {
+  const model = await page.request.get("/models/vision-cell.glb");
+  expect(model.ok()).toBe(true);
+  expect((await model.body()).subarray(0, 4).toString()).toBe("glTF");
+  await page.getByRole("button", { name: /02 비전검사/ }).click();
+  await page.getByRole("button", { name: "설비 가까이 보기" }).click();
+  await expect(page.getByTestId("vision-count")).not.toHaveText("0개", {
+    timeout: 15000,
+  });
+  await page.getByRole("button", { name: "이상 상황 시연" }).click();
+  await expect(page.getByTestId("vision-phase")).toHaveText("이상 정지");
+  const count = await page.getByTestId("vision-count").textContent();
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId("vision-count")).toHaveText(count!);
+  await page.getByRole("button", { name: "이상 해제" }).click();
+  await expect(page.getByTestId("vision-phase")).not.toHaveText("이상 정지");
+  await page.getByRole("button", { name: "시연 일시정지" }).click();
+  await expect(page.getByTestId("vision-phase")).toHaveText("일시정지");
+  await expect(
+    page.getByRole("link", { name: /MES에서 업무 확인/ }),
+  ).toHaveAttribute("href", "/mes");
+  await page.screenshot({ path: "../work/vision-desktop.png", fullPage: true });
+  await page.setViewportSize({ width: 360, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    360,
+  );
+  await page.screenshot({ path: "../work/vision-mobile.png", fullPage: true });
+});

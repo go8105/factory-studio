@@ -927,3 +927,13 @@
 - 결함 수정: `common/scope.py` 잠금 뒤 게스트 만료 재확인(AC-63).
 - 상세 `docs/agent/통합검증_FS-021.md`.
 - 사용자 결정 반영: 동시 게스트 생성 지연은 현행 유지, 미구현 기능은 1차 범위 밖(FS-012 §4-3에 추가), AC-68·73·74·75 단언 추가로 검증됨 33.
+
+
+## 2026-09-26 Blender 비전검사 설비 (Codex)
+
+- 사용자 "참고자료 없이 바로 진행" 승인. `codex/factory-vision-blender`에서 기존 공장의 비전검사 1대를 Blender 원본/GLB로 교체.
+- 카메라·링 조명·컨베이어·경광등, 6초 검사 주기·5번째 불합격, 상태/수량 패널·가까이 보기·이상 정지/해제·MES 대시보드 진입. 합성 시연이며 업무 데이터에 저장하지 않음.
+- Node 24.21.0: frontend typecheck/lint/format:check/build/test(345 passed), 독립 Chromium 브라우저 8개 통과(exit 0). 360px/데스크톱 직접 확인. Blender 5.2.2 GLB 생성 성공.
+- DB/API 변경·새 의존성 없음. backend/DB/공용 통합 스모크 미실행. main 병합·push 없음.
+- 원본 `assets/blender/vision-cell.blend`, 재생성 `tools/blender/build_vision.py`, 상세 보고 `docs/agent/3D공장_Blender_비전검사.md`.
+- 다음: 시각 피드백·통합 담당자 main 통합. MES 실제 레코드 연결 및 FEMS는 후속 설계.

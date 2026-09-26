@@ -1,3 +1,5 @@
+import VisionCell from "./VisionCell";
+import type { VisionSnapshot } from "./vision";
 import { useEffect, useRef, type RefObject } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Html, OrbitControls } from "@react-three/drei";
@@ -170,7 +172,13 @@ function Printer({ label }: { label: boolean }) {
 function Station({
   index,
   onSelect,
+  animated,
+  fault,
+  onSnapshot,
 }: {
+  animated: boolean;
+  fault: boolean;
+  onSnapshot: (value: VisionSnapshot) => void;
   index: number;
   onSelect: (i: number) => void;
 }) {
@@ -183,64 +191,90 @@ function Station({
           onSelect(index);
         }}
       >
-        <Box at={[0, 0.6, 0]} size={[2.5, 1.2, 2.2]} color={colors.wall} />
-        <Box
-          at={[0, 0.62, 1.12]}
-          size={[2.1, 0.85, 0.05]}
-          color={colors.teal}
-        />
-        <Box at={[0, 1.3, 0]} size={[2.8, 0.16, 1.05]} color={colors.dark} />
-        {[-1, 1].map((side) => (
-          <Box
-            key={side}
-            at={[side, 2.1, -0.7]}
-            size={[0.16, 1.6, 0.16]}
-            color={colors.dark}
+        {index === 1 ? (
+          <VisionCell
+            animated={animated}
+            fault={fault}
+            onSnapshot={onSnapshot}
           />
-        ))}
-        <Box at={[0, 2.9, -0.7]} size={[2.2, 0.2, 0.3]} color={colors.teal} />
-        {index === 0 && (
+        ) : (
           <>
+            <Box at={[0, 0.6, 0]} size={[2.5, 1.2, 2.2]} color={colors.wall} />
             <Box
-              at={[0, 2.3, -0.6]}
-              size={[0.3, 1, 0.35]}
-              color={colors.yellow}
+              at={[0, 0.62, 1.12]}
+              size={[2.1, 0.85, 0.05]}
+              color={colors.teal}
             />
             <Box
-              at={[0, 1.82, -0.2]}
-              size={[0.22, 0.16, 0.8]}
-              color={colors.yellow}
-            />
-          </>
-        )}
-        {index === 1 && (
-          <>
-            <Box
-              at={[0, 2.42, -0.35]}
-              size={[0.55, 0.35, 0.55]}
+              at={[0, 1.3, 0]}
+              size={[2.8, 0.16, 1.05]}
               color={colors.dark}
             />
-            <mesh position={[0, 2.17, -0.2]} rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[0.3, 0.05, 8, 20]} />
-              <meshStandardMaterial
-                color="#c7e2d9"
-                emissive="#70b5ad"
-                emissiveIntensity={0.4}
+            {[-1, 1].map((side) => (
+              <Box
+                key={side}
+                at={[side, 2.1, -0.7]}
+                size={[0.16, 1.6, 0.16]}
+                color={colors.dark}
               />
-            </mesh>
-          </>
-        )}
-        {index === 2 && (
-          <>
+            ))}
             <Box
-              at={[0, 2.2, -0.5]}
-              size={[1.4, 0.18, 0.5]}
-              color={colors.yellow}
+              at={[0, 2.9, -0.7]}
+              size={[2.2, 0.2, 0.3]}
+              color={colors.teal}
             />
-            <Box at={[0, 1.58, 0]} size={[0.7, 0.45, 0.7]} color="#bdaa83" />
+            {index === 0 && (
+              <>
+                <Box
+                  at={[0, 2.3, -0.6]}
+                  size={[0.3, 1, 0.35]}
+                  color={colors.yellow}
+                />
+                <Box
+                  at={[0, 1.82, -0.2]}
+                  size={[0.22, 0.16, 0.8]}
+                  color={colors.yellow}
+                />
+              </>
+            )}
+            {index === 1 && (
+              <>
+                <Box
+                  at={[0, 2.42, -0.35]}
+                  size={[0.55, 0.35, 0.55]}
+                  color={colors.dark}
+                />
+                <mesh position={[0, 2.17, -0.2]} rotation={[Math.PI / 2, 0, 0]}>
+                  <torusGeometry args={[0.3, 0.05, 8, 20]} />
+                  <meshStandardMaterial
+                    color="#c7e2d9"
+                    emissive="#70b5ad"
+                    emissiveIntensity={0.4}
+                  />
+                </mesh>
+              </>
+            )}
+            {index === 2 && (
+              <>
+                <Box
+                  at={[0, 2.2, -0.5]}
+                  size={[1.4, 0.18, 0.5]}
+                  color={colors.yellow}
+                />
+                <Box
+                  at={[0, 1.58, 0]}
+                  size={[0.7, 0.45, 0.7]}
+                  color="#bdaa83"
+                />
+              </>
+            )}
+            <Box
+              at={[1.1, 3.1, -0.7]}
+              size={[0.12, 0.25, 0.12]}
+              color="#77ae8b"
+            />
           </>
         )}
-        <Box at={[1.1, 3.1, -0.7]} size={[0.12, 0.25, 0.12]} color="#77ae8b" />
       </group>
       <group position={[1.25, 0, 2]}>
         <Box at={[0, 0.68, 0]} size={[0.16, 1.36, 0.16]} color={colors.dark} />
@@ -259,6 +293,7 @@ function Products({ animated }: { animated: boolean }) {
     if (animated) time.current += Math.min(dt, 0.05);
     group.current?.children.forEach((box, i) => {
       box.position.x = -1.4 + ((time.current * 0.65 + i * 2.3) % 11);
+      box.visible = box.position.x < 2.5 || box.position.x > 5.5;
     });
   });
   return (
@@ -315,6 +350,9 @@ function Worker({ animated }: { animated: boolean }) {
   );
 }
 export type SceneProps = {
+  fault: boolean;
+  onSnapshot: (value: VisionSnapshot) => void;
+  focused: boolean;
   view: View;
   walking: boolean;
   animated: boolean;
@@ -324,6 +362,9 @@ export type SceneProps = {
   onSelect: (i: number) => void;
 };
 export default function Scene({
+  fault,
+  onSnapshot,
+  focused,
   view,
   walking,
   animated,
@@ -348,11 +389,16 @@ export default function Scene({
             ? [6, 20, 28]
             : [23, 22, 28]) as Vec),
       );
+      if (focused) camera.position.set(8, 5, 7);
       camera.position.multiplyScalar(Math.max(1, size.height / size.width));
-      controls.current?.target.set(office ? -7 : 0, office ? 4 : 0.5, 0);
+      controls.current?.target.set(
+        focused ? 4 : office ? -7 : 0,
+        focused ? 1.7 : office ? 4 : 0.5,
+        0,
+      );
       controls.current?.update();
     }
-  }, [view, walking, reset, camera, size.width, size.height]);
+  }, [view, walking, reset, camera, size.width, size.height, focused]);
   useFrame((_, dt) => {
     if (upper.current)
       upper.current.visible = walking
@@ -415,7 +461,14 @@ export default function Scene({
         />
       ))}
       {[0, 1, 2].map((i) => (
-        <Station key={i} index={i} onSelect={onSelect} />
+        <Station
+          key={i}
+          index={i}
+          onSelect={onSelect}
+          animated={animated}
+          fault={fault}
+          onSnapshot={onSnapshot}
+        />
       ))}
       <Products animated={animated} />
       <Worker animated={animated} />

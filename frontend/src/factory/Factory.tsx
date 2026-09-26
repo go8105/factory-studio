@@ -1,3 +1,4 @@
+import { visionAt } from "./vision";
 import {
   Component,
   Suspense,
@@ -60,6 +61,9 @@ const keyMap: Record<string, Direction> = {
   ArrowRight: "right",
 };
 export default function Factory() {
+  const [vision, setVision] = useState(() => visionAt(0));
+  const [fault, setFault] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [view, setView] = useState<View>("all");
   const [walking, setWalking] = useState(false);
   const [animated, setAnimated] = useState(
@@ -89,6 +93,7 @@ export default function Factory() {
     if (walking) stage.current?.focus();
   }, [walking, reset]);
   function viewpoint(next: View) {
+    setFocused(false);
     setView(next);
     position.current = { ...(next === "office" ? OFFICE_START : START) };
     setReset((n) => n + 1);
@@ -210,6 +215,9 @@ export default function Factory() {
             >
               <Suspense fallback={null}>
                 <Scene
+                  fault={fault}
+                  focused={focused}
+                  onSnapshot={setVision}
                   view={view}
                   walking={walking}
                   animated={animated}
@@ -266,6 +274,58 @@ export default function Factory() {
           </div>
         )}
       </div>
+      {selected === 1 && (
+        <section className="vision-panel" aria-label="비전검사 설비 상세">
+          <div>
+            <span className="eyebrow">VISION CELL / DEMO-02</span>
+            <h2>비전검사 설비</h2>
+            <p>
+              카메라·링 조명으로 검사하는 가상 설비입니다. 아래 수치는 반복
+              시연이며 MES 실적에 저장되지 않습니다.
+            </p>
+          </div>
+          <dl>
+            <div>
+              <dt>설비 상태</dt>
+              <dd data-testid="vision-phase">
+                {fault ? "이상 정지" : !animated ? "일시정지" : vision.phase}
+              </dd>
+            </div>
+            <div>
+              <dt>최근 판정</dt>
+              <dd>{vision.result}</dd>
+            </div>
+            <div>
+              <dt>검사 수량</dt>
+              <dd data-testid="vision-count">{vision.inspected}개</dd>
+            </div>
+            <div>
+              <dt>불합격</dt>
+              <dd>{vision.rejected}개</dd>
+            </div>
+          </dl>
+          <div className="factory-actions">
+            <button
+              onClick={() => {
+                setWalking(false);
+                setView("ground");
+                setFocused(true);
+                setReset((n) => n + 1);
+              }}
+            >
+              설비 가까이 보기
+            </button>
+            <button aria-pressed={fault} onClick={() => setFault(!fault)}>
+              {fault ? "이상 해제" : "이상 상황 시연"}
+            </button>
+            <Link to="/mes">MES에서 업무 확인 →</Link>
+          </div>
+          <p>
+            MES 링크는 업무 대시보드로 이동합니다. 시연 설비와 실제 업무
+            레코드는 연결되지 않습니다.
+          </p>
+        </section>
+      )}
       <div className="factory-bottom">
         <section className="factory-process">
           <span className="eyebrow">PROCESS LINE / 1F</span>
