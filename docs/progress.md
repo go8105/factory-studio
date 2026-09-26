@@ -864,3 +864,10 @@
 - Node 24.21.0. frontend typecheck·lint·format:check·build·test(330 passed), 독립 Playwright(7 passed, 20.0초), git diff --check 각각 exit 0. 360px·2층 스크린샷 직접 확인.
 - 5186 포트/모의 API의 독립 검증만 실행. 공용 8000/5173·스모크 DB·backend 미사용. 통합 스모크는 Claude Code 담당, push/main 병합 없음.
 - 보고서 `docs/agent/3D공장_구현.md`. 다음: 통합 환경에서 확인 후 사용자 피드백. ERP 후속 업무 미착수.
+
+## 2026-09-26 통합: Codex 런처 아이콘 타일 + 3D 공장 (Claude Code)
+
+- Codex `codex/fs-019a-erp-master`의 새 커밋 3개(`f9eb879` P-02 런처 타일, `5593693`·`31a4472` 3D 공장)를 main `626ba35` 위로 cherry-pick해 `factory-3d-integrate`로 통합(이미 통합한 FS-019a 커밋 2개는 제외). 문서 충돌만 두 내용 보존으로 해결.
+- 새 의존성: `three` 0.186.1, `@react-three/fiber` 9.8.1, `@react-three/drei` 10.7.8, `@types/three`(dev). `npm audit --omit=dev` 0건. 3D 번들(`Factory-*.js` 919kB, gzip 245kB)은 `/factory` 진입 때만 지연 로딩.
+- 통합 검증: frontend typecheck·lint·format:check·build·test **342 passed**, 스모크 **83 passed**, 3D 전용 브라우저 테스트(`npm --prefix frontend run test:factory-browser`, API 모의) **7 passed**. backend는 변경 없음(CI에서 전체 실행).
+- 후속: 360px에서 상단 메뉴가 두 줄(‘나가기’가 둘째 줄)이 된다. 가로 스크롤은 없다.
