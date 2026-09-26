@@ -368,6 +368,10 @@ POST /sales-records/{id}/cancel      취소
 - `POST /{id}/confirm`: SUPPLIER·명세 1개 이상(`EMPTY_INVOICE`), 확정 순간 과세구분으로 재계산, 만기 = 입력 우선 → 매입일 + 결제일수 → NULL, 같은 트랜잭션에서 채무 1건. `POST /{id}/cancel` `{reason}`: draft는 바로, 확정은 지급 소명 0행만(`PAYMENT_APPLIED`, `ALREADY_CANCELLED`). 매입(6) → 채무(7) 잠금.
 - `/payables`·`/payments`는 `/receivables`·`/receipts`와 **같은 규칙·같은 경로 구조**(`receipts.Side` 한 벌): 키만 `payableId`·`paymentId`·`paymentNo`·`paidOn`·`invoiceNo`·`invoiceDate`, 409 `PAYMENT_CONFIRMED`·`PAYMENT_NOT_CONFIRMED`·`PURCHASE_CANCELLED`, `LIMIT_EXCEEDED`의 `limit`은 `PAYABLE`·`PAYMENT`. 소명 취소 감사 action `erp.payment_apply.delete`.
 
+### 대시보드 (FS-019h)
+
+- `GET /dashboard?month=YYYY-MM`(기본: 업무 기준일의 달, 잘못된 월 400): `salesSupply`·`salesTotal`·`salesCount`(그 달 KST 인식 유효 매출), `receivableBalance`·`payableBalance`(`receipts.open_items` 잔액 합, 월 무관), `orderBacklog`(취소 안 된 수주 (수주 − 출하) × 단가, 원 반올림), `monthlySales`(조회 월까지 6개월 공급가액), `topReceivables`(거래처별 잔액 상위 5), `receivableByDue`(`overdue`·`notDue`·`unset` — 만기 NULL은 연체로 분류하지 않음), `planVsActual`(그 달 확정 판매계획 수량 vs 유효 매출 출하 수량, 품목별), `pending`(`uninvoicedSales`·`unappliedReceipts`). 저장 없음, 구현 `erp/dashboard.py`.
+
 ### 소명 계약
 
 - **`POST /receipts/{id}/applications`는 수금 확정 후에도 호출 가능하다.** 확정되는 것은 금액이지 배분이 아니다(FS-014b).

@@ -87,6 +87,7 @@ for (const [route, title] of [
   ["help", "도움말"],
   ["workspace", "내 공간"],
   ["records", "페이지를 찾을 수 없습니다"],
+  ["erp/dashboard", "경영 개요"],
   ["erp/quotations", "견적"],
   ["erp/sales-plans", "판매계획"],
   ["erp/sales-orders", "수주"],
@@ -162,7 +163,7 @@ test("360px 진입 화면 가로 스크롤 없음", async ({ page }) => {
 
 test("ERP 거래처 등록 → 수정 → 삭제", async ({ page }) => {
   await page.getByRole("link", { name: /ERP/ }).click();
-  await expect(page).toHaveURL("/erp/quotations");
+  await expect(page).toHaveURL("/erp/dashboard");
   await page.getByRole("link", { name: /E-15 거래처/ }).click();
   await expect(
     page.getByRole("heading", { name: "거래처", exact: true }),
@@ -308,4 +309,14 @@ test("ERP 매출 분개 보기 → 차대 합계 일치", async ({ page }) => {
   await expect(panel).toContainText(
     "차변 합계 3,627,800원 · 대변 합계 3,627,800원",
   );
+});
+
+test("ERP 대시보드 → 처리 대기에서 세금계산서로 이동", async ({ page }) => {
+  await page.goto("/erp");
+  await expect(page).toHaveURL("/erp/dashboard");
+  await expect(page.getByRole("region", { name: "미수금" })).toContainText(
+    "원",
+  );
+  await page.getByRole("link", { name: "세금계산서 미발급 매출" }).click();
+  await expect(page).toHaveURL("/erp/tax-invoices");
 });

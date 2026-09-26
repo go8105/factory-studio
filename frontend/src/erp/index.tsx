@@ -17,11 +17,13 @@ import { Receipts } from "./Receipts";
 import { PurchaseInvoices } from "./PurchaseInvoices";
 import { PAYABLE } from "./settlement";
 import { Journal } from "./Journal";
+import { Dashboard } from "./Dashboard";
 export default function ErpRoutes() {
   return (
     <Routes>
       <Route element={<ErpLayout />}>
-        <Route index element={<Navigate to="quotations" replace />} />
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<Dashboard />} />
         <Route path="quotations" element={<Quotations />} />
         <Route path="sales-plans" element={<SalesPlans />} />
         <Route path="sales-orders" element={<SalesOrders />} />
