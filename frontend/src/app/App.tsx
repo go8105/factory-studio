@@ -88,7 +88,15 @@ function Layout() {
           )}
         </nav>
       </header>
-      <main id="main" key={pathname} tabIndex={-1}>
+      {/* 업무 화면(솔루션·3D)은 사이드바·캔버스가 폭을 직접 쓴다. */}
+      <main
+        id="main"
+        key={pathname}
+        tabIndex={-1}
+        className={
+          /^\/(fems|mes|erp)(\/|$)/.test(pathname) ? "wide" : undefined
+        }
+      >
         <ErrorNotice error={error} />
         <Suspense fallback={<Loading />}>
           <Outlet />

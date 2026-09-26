@@ -169,8 +169,10 @@ export function PageTitle({
   return (
     <div className="page-title">
       <div>
-        <span className="eyebrow">FACTORY STUDIO / {id}</span>
-        <h1>{title}</h1>
+        <div className="page-title-row">
+          <h1>{title}</h1>
+          <span className="page-id">{id}</span>
+        </div>
         {subtitle && <p>{subtitle}</p>}
       </div>
       <Link
@@ -273,6 +275,20 @@ export function DataTable<T extends { id: number }>({
               "ko",
             )) * (sort.desc ? -1 : 1),
   );
+  // 숫자 열은 오른쪽 정렬한다. id 열은 행 작업(관리) 열이므로 제외한다.
+  const isNumber = (v: unknown) =>
+    typeof v === "number" ||
+    (typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v));
+  const numeric = new Set(
+    columns
+      .filter(
+        (c) =>
+          c.key !== "id" &&
+          rows.some((r) => r[c.key] != null) &&
+          rows.every((r) => r[c.key] == null || isNumber(r[c.key])),
+      )
+      .map((c) => c.key),
+  );
   function download() {
     const url = URL.createObjectURL(
       new Blob([csvText(ordered, columns)], { type: "text/csv;charset=utf-8" }),
@@ -286,7 +302,10 @@ export function DataTable<T extends { id: number }>({
   return (
     <section>
       <div className="table-toolbar">
-        <p>총 {total.toLocaleString()}건 · 열 정렬은 현재 페이지 기준</p>
+        <p>
+          총 <strong>{total.toLocaleString()}</strong>건 · 열 정렬은 현재 페이지
+          기준
+        </p>
         <button
           className="secondary"
           onClick={download}
@@ -305,6 +324,7 @@ export function DataTable<T extends { id: number }>({
                   <th
                     key={c.key}
                     scope="col"
+                    className={numeric.has(c.key) ? "num" : undefined}
                     aria-sort={
                       sort?.key === c.key
                         ? sort.desc
@@ -321,7 +341,7 @@ export function DataTable<T extends { id: number }>({
                         })
                       }
                     >
-                      {c.label} ↕
+                      {c.label} <span>↕</span>
                     </button>
                   </th>
                 ))}
@@ -330,11 +350,22 @@ export function DataTable<T extends { id: number }>({
             <tbody>
               {ordered.map((row) => (
                 <tr key={row.id}>
-                  {columns.map((c) => (
-                    <td key={c.key}>
-                      {c.render ? c.render(row) : String(row[c.key] ?? "—")}
-                    </td>
-                  ))}
+                  {columns.map((c) => {
+                    const text = String(row[c.key] ?? "—");
+                    // 렌더러가 없는 긴 글자는 줄이고 전체 값은 title로 보여 준다.
+                    const long = !c.render && text.length > 28;
+                    return (
+                      <td
+                        key={c.key}
+                        className={
+                          numeric.has(c.key) ? "num" : long ? "clip" : undefined
+                        }
+                        title={long ? text : undefined}
+                      >
+                        {c.render ? c.render(row) : text}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -349,24 +380,27 @@ export function DataTable<T extends { id: number }>({
           />
         ))
       )}
-      <nav className="pagination" aria-label={`${caption} 페이지`}>
-        <button
-          onClick={() => onPage(Math.max(0, offset - limit))}
-          disabled={offset === 0}
-        >
-          이전
-        </button>
-        <span>
-          {Math.floor(offset / limit) + 1} /{" "}
-          {Math.max(1, Math.ceil(total / limit))}
-        </span>
-        <button
-          onClick={() => onPage(offset + limit)}
-          disabled={offset + limit >= total}
-        >
-          다음
-        </button>
-      </nav>
+      {/* 한 페이지뿐이면 페이지 이동을 숨긴다. */}
+      {total > limit && (
+        <nav className="pagination" aria-label={`${caption} 페이지`}>
+          <button
+            onClick={() => onPage(Math.max(0, offset - limit))}
+            disabled={offset === 0}
+          >
+            이전
+          </button>
+          <span>
+            {Math.floor(offset / limit) + 1} /{" "}
+            {Math.max(1, Math.ceil(total / limit))}
+          </span>
+          <button
+            onClick={() => onPage(offset + limit)}
+            disabled={offset + limit >= total}
+          >
+            다음
+          </button>
+        </nav>
+      )}
     </section>
   );
 }

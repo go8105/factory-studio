@@ -5,22 +5,34 @@
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 24px;
+  gap: var(--s4);
+  margin-bottom: var(--s3);
 }
 .factory-heading h1 {
-  font-size: clamp(24px, 3vw, 36px);
-  margin: 12px 0;
-  letter-spacing: -0.05em;
-}
-.factory-heading p {
+  font-size: var(--fs-xl);
   margin: 0;
 }
+.factory-heading p {
+  margin: 2px 0 0;
+  font-size: var(--fs-sm);
+}
+/* 건물 표시·층·시연 조작을 한 줄 툴바로 둔다. */
+.factory-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2) var(--s4);
+}
+.factory-controls > .factory-toolbar {
+  flex: 1 1 auto;
+}
 .factory-demo {
-  background: #e7ece7;
-  padding: 8px 12px;
-  border-radius: 20px;
-  font-size: 11px;
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
   white-space: nowrap;
 }
 .factory-toolbar,
@@ -33,9 +45,11 @@
 .factory-toolbar {
   justify-content: space-between;
 }
-.factory-toolbar button {
-  padding: 9px 13px;
-  font-size: 12px;
+.factory-toolbar button,
+.factory-building-switch button {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: var(--fs-sm);
 }
 .factory-tabs button[aria-pressed="true"],
 .factory-process-buttons button[aria-pressed="true"] {
@@ -44,22 +58,25 @@
   border-color: var(--accent);
 }
 .factory-instructions {
-  font-size: 12px;
-  margin: 14px 0;
+  font-size: var(--fs-xs);
+  margin: var(--s2) 0;
+}
+.factory-view {
+  position: relative;
 }
 .factory-stage {
   position: relative;
-  height: min(66vh, 700px);
-  min-height: 440px;
-  border-radius: 18px;
+  /* 헤더·페이지 제목·툴바를 뺀 나머지 높이를 캔버스에 준다. */
+  height: clamp(420px, calc(100vh - var(--header-h) - 170px), 900px);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   overflow: hidden;
   isolation: isolate;
   background: #e8ece8;
 }
 .factory-stage:focus-visible {
-  outline: 3px solid #a27e36;
-  outline-offset: 3px;
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 .factory-stage canvas {
   display: block;
@@ -136,16 +153,16 @@
 .factory-bottom {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
-  gap: 32px;
-  margin-top: 28px;
+  gap: var(--s6);
+  margin-top: var(--s5);
 }
 .factory-bottom h2 {
-  font-size: 18px;
-  margin: 8px 0 16px;
+  font-size: var(--fs-lg);
+  margin: 0 0 var(--s3);
 }
 .factory-bottom p {
-  font-size: 12px;
-  line-height: 1.8;
+  font-size: var(--fs-sm);
+  line-height: 1.7;
 }
 .factory-process-buttons {
   display: flex;
@@ -153,8 +170,9 @@
   flex-wrap: wrap;
 }
 .factory-process-buttons button {
-  font-size: 12px;
-  padding: 8px 12px;
+  min-height: 32px;
+  font-size: var(--fs-sm);
+  padding: 0 12px;
 }
 .factory-spaces {
   border-left: 1px solid var(--border);
@@ -174,8 +192,7 @@
     white-space: normal;
   }
   .factory-stage {
-    min-height: 400px;
-    height: 58vh;
+    height: clamp(360px, 62vh, 560px);
   }
   .factory-bottom {
     grid-template-columns: 1fr;
@@ -195,9 +212,9 @@
 
 .factory-toolbar button,
 .factory-process-buttons button {
-  background: white;
+  background: var(--surface);
   color: var(--accent);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
 }
 .factory-toolbar button.primary,
 .factory-tabs button[aria-pressed="true"],
@@ -210,48 +227,62 @@
 }
 
 .vision-panel {
-  margin-top: 20px;
-  padding: 24px;
+  margin-top: var(--s3);
+  padding: var(--s4);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #f7f7f6;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 .vision-panel h2 {
-  margin: 8px 0;
-  font-size: 22px;
+  margin: 0 0 var(--s1);
+  font-size: var(--fs-lg);
 }
 .vision-panel p {
-  font-size: 12px;
-  line-height: 1.8;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
 }
 .vision-panel dl {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin: 20px 0;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s2) var(--s4);
+  margin: var(--s3) 0;
 }
 .vision-panel dt {
-  font-size: 12px;
-  color: #55645e;
+  font-size: var(--fs-xs);
+  color: var(--muted);
 }
 .vision-panel dd {
-  margin: 6px 0;
-  font-size: 18px;
+  margin: 2px 0 0;
+  font-size: var(--fs-lg);
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* 넓은 화면: 설비 상세는 장면 오른쪽 위에 띄워 캔버스를 밀어내지 않는다.
+   아래쪽 이동 패드와 겹치지 않도록 높이를 제한한다. */
+@media (min-width: 1100px) {
+  .factory-view .vision-panel {
+    position: absolute;
+    top: var(--s3);
+    right: var(--s3);
+    z-index: 2;
+    width: 340px;
+    max-height: calc(100% - 150px);
+    overflow-y: auto;
+    margin: 0;
+  }
 }
 .vision-panel .factory-actions {
   align-items: center;
 }
 .vision-panel a {
-  font-size: 13px;
-  padding: 10px;
+  font-size: var(--fs-sm);
+  color: var(--accent);
+  padding: 6px 4px;
 }
 @media (max-width: 700px) {
   .vision-panel {
     padding: 16px;
-  }
-  .vision-panel dl {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -259,22 +290,20 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 18px;
+  gap: var(--s2);
 }
 .factory-building-switch button {
-  background: white;
+  background: var(--surface);
   color: var(--accent);
-  border: 1px solid var(--border);
-  padding: 10px 16px;
+  border: 1px solid var(--border-strong);
 }
 .factory-building-switch button[aria-pressed="true"] {
   background: var(--accent);
   color: white;
 }
 .factory-building-switch span {
-  font-size: 12px;
-  color: #55645e;
+  font-size: var(--fs-xs);
+  color: var(--muted);
   margin-left: 6px;
 }
 @media (max-width: 700px) {
@@ -291,35 +320,44 @@
 .factory-work-links {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-top: 24px;
+  gap: var(--s3);
+  margin-top: var(--s4);
 }
 .factory-work-links a {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 20px;
+  gap: var(--s1);
+  padding: var(--s3) var(--s4);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   text-decoration: none;
   color: var(--ink);
 }
 .factory-work-links a:hover {
-  background: #edf0ed;
+  background: var(--surface-2);
 }
 .factory-work-links span {
-  color: #56665f;
-  font-size: 11px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
 }
 .factory-work-links strong {
-  font-size: 16px;
+  font-size: var(--fs);
 }
 .factory-work-links small {
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: var(--fs-xs);
+  color: var(--muted);
 }
 @media (max-width: 700px) {
   .factory-work-links {
     grid-template-columns: 1fr;
   }
+}
+/* 흰 버튼은 hover 때 옅은 면으로만 바꾼다(공통 button:hover의 진한 색을 쓰지 않는다). */
+.factory-toolbar
+  button:not(.primary, [aria-pressed="true"]):hover:not(:disabled),
+.factory-building-switch button:not([aria-pressed="true"]):hover:not(:disabled),
+.factory-process-buttons button:not([aria-pressed="true"]):hover:not(:disabled),
+.factory-pad button:hover:not(:disabled) {
+  background: var(--surface-2);
 }

@@ -112,7 +112,6 @@ export default function Factory() {
     <div className="factory-page">
       <div className="factory-heading">
         <div>
-          <span className="eyebrow">FACTORY STUDIO / SPATIAL TOUR</span>
           <h1>공장, 한눈에 그리고 한 걸음씩</h1>
           <p>사무실에서 생산 현장까지, 제조가 이루어지는 공간을 둘러보세요.</p>
         </div>
@@ -120,82 +119,84 @@ export default function Factory() {
           3D 합성 시연 · 실시간 설비 정보 아님
         </span>
       </div>
-      <div
-        className="factory-building-switch"
-        role="group"
-        aria-label="건물 표시"
-      >
-        <button
-          aria-pressed={exterior}
-          onClick={() => {
-            setExterior(true);
-            setWalking(false);
-            setFocused(false);
-            setReset((n) => n + 1);
-          }}
+      <div className="factory-controls">
+        <div
+          className="factory-building-switch"
+          role="group"
+          aria-label="건물 표시"
         >
-          건물 외관
-        </button>
-        <button
-          aria-pressed={!exterior}
-          onClick={() => {
-            setExterior(false);
-            setView("all");
-            setFocused(false);
-            setReset((n) => n + 1);
-          }}
-        >
-          내부 펼쳐보기
-        </button>
-        <span>
-          {exterior
-            ? "사무동 · 생산동 · 하역장 · 옥상 공조 설비"
-            : "지붕과 전면·오른쪽 외벽을 열어 내부를 표시합니다."}
-        </span>
-      </div>
-      <div className="factory-toolbar" aria-label="공장 보기 설정">
-        <div className="factory-tabs" role="group" aria-label="층 선택">
-          {(
-            [
-              ["all", "전체"],
-              ["ground", "1층 현장"],
-              ["office", "2층 사무실"],
-            ] as const
-          ).map(([value, title]) => (
-            <button
-              key={value}
-              aria-pressed={view === value}
-              onClick={() => viewpoint(value)}
-            >
-              {title}
-            </button>
-          ))}
-        </div>
-        <div className="factory-actions">
           <button
-            className="primary"
-            aria-pressed={walking}
-            onClick={toggleWalk}
-          >
-            {walking ? "전체 조감도로" : "걸어서 둘러보기"}
-          </button>
-          <button
-            aria-pressed={!animated}
-            onClick={() => setAnimated(!animated)}
-          >
-            {animated ? "시연 일시정지" : "시연 재생"}
-          </button>
-          <button
+            aria-pressed={exterior}
             onClick={() => {
+              setExterior(true);
+              setWalking(false);
               setFocused(false);
-              position.current = {
-                ...(view === "office" ? OFFICE_START : START),
-              };
               setReset((n) => n + 1);
             }}
           >
-            시점 초기화
+            건물 외관
           </button>
+          <button
+            aria-pressed={!exterior}
+            onClick={() => {
+              setExterior(false);
+              setView("all");
+              setFocused(false);
+              setReset((n) => n + 1);
+            }}
+          >
+            내부 펼쳐보기
+          </button>
+          <span>
+            {exterior
+              ? "사무동 · 생산동 · 하역장 · 옥상 공조 설비"
+              : "지붕과 전면·오른쪽 외벽을 열어 내부를 표시합니다."}
+          </span>
+        </div>
+        <div className="factory-toolbar" aria-label="공장 보기 설정">
+          <div className="factory-tabs" role="group" aria-label="층 선택">
+            {(
+              [
+                ["all", "전체"],
+                ["ground", "1층 현장"],
+                ["office", "2층 사무실"],
+              ] as const
+            ).map(([value, title]) => (
+              <button
+                key={value}
+                aria-pressed={view === value}
+                onClick={() => viewpoint(value)}
+              >
+                {title}
+              </button>
+            ))}
+          </div>
+          <div className="factory-actions">
+            <button
+              className="primary"
+              aria-pressed={walking}
+              onClick={toggleWalk}
+            >
+              {walking ? "전체 조감도로" : "걸어서 둘러보기"}
+            </button>
+            <button
+              aria-pressed={!animated}
+              onClick={() => setAnimated(!animated)}
+            >
+              {animated ? "시연 일시정지" : "시연 재생"}
+            </button>
+            <button
+              onClick={() => {
+                setFocused(false);
+                position.current = {
+                  ...(view === "office" ? OFFICE_START : START),
+                };
+                setReset((n) => n + 1);
+              }}
+            >
+              시점 초기화
+            </button>
+          </div>
         </div>
       </div>
       <p id="factory-controls" className="factory-instructions">
@@ -203,183 +204,190 @@ export default function Factory() {
           ? "노란 조끼가 나입니다. 화면을 선택한 뒤 WASD·방향키 또는 이동 버튼으로 걸어보세요. 계단으로 2층 이동 · Esc 조감도"
           : "마우스로 드래그하여 회전 · 휠로 확대 / 축소 · 터치로 회전 · 설비를 선택하면 공정 설명"}
       </p>
-      <div
-        ref={stage}
-        className={`factory-stage${exterior ? " factory-exterior" : ""}`}
-        tabIndex={0}
-        role="region"
-        aria-label="3D 공장 탐색"
-        aria-describedby="factory-controls"
-        onKeyDown={(e) => {
-          if (!walking || e.target !== stage.current) return;
-          if (keyMap[e.code]) {
-            e.preventDefault();
-            keys.current.add(keyMap[e.code]);
-          }
-          if (e.code === "Escape") setWalking(false);
-        }}
-        onBlur={() => keys.current.clear()}
-        onPointerDown={(e) => {
-          if (e.target instanceof HTMLCanvasElement && walking)
-            stage.current?.focus();
-        }}
-      >
-        <SceneBoundary onFailure={() => setReady(true)}>
-          {contextLost ? (
-            <div role="alert" className="factory-fallback">
-              <p>그래픽 연결이 끊겼습니다.</p>
+      <div className="factory-view">
+        <div
+          ref={stage}
+          className={`factory-stage${exterior ? " factory-exterior" : ""}`}
+          tabIndex={0}
+          role="region"
+          aria-label="3D 공장 탐색"
+          aria-describedby="factory-controls"
+          onKeyDown={(e) => {
+            if (!walking || e.target !== stage.current) return;
+            if (keyMap[e.code]) {
+              e.preventDefault();
+              keys.current.add(keyMap[e.code]);
+            }
+            if (e.code === "Escape") setWalking(false);
+          }}
+          onBlur={() => keys.current.clear()}
+          onPointerDown={(e) => {
+            if (e.target instanceof HTMLCanvasElement && walking)
+              stage.current?.focus();
+          }}
+        >
+          <SceneBoundary onFailure={() => setReady(true)}>
+            {contextLost ? (
+              <div role="alert" className="factory-fallback">
+                <p>그래픽 연결이 끊겼습니다.</p>
+                <button
+                  onClick={() => {
+                    setContextLost(false);
+                    setReady(false);
+                  }}
+                >
+                  3D 다시 열기
+                </button>
+              </div>
+            ) : (
+              <Canvas
+                shadows={{ type: PCFShadowMap }}
+                dpr={[1, 1.5]}
+                camera={{
+                  position: [23, 22, 28],
+                  fov: 43,
+                  near: 0.1,
+                  far: 150,
+                }}
+                gl={{ antialias: true }}
+                onCreated={({ gl }) => {
+                  gl.domElement.addEventListener(
+                    "webglcontextlost",
+                    (e) => {
+                      e.preventDefault();
+                      setContextLost(true);
+                    },
+                    { once: true },
+                  );
+                }}
+                fallback={
+                  <div className="factory-fallback">
+                    이 브라우저에서는 3D 그래픽을 사용할 수 없습니다. 아래 공간
+                    설명을 확인해 주세요.
+                  </div>
+                }
+              >
+                <Suspense fallback={null}>
+                  <Scene
+                    onReady={markReady}
+                    exterior={exterior}
+                    fault={fault}
+                    focused={focused}
+                    onSnapshot={setVision}
+                    view={view}
+                    walking={walking}
+                    animated={animated}
+                    position={position}
+                    keys={keys}
+                    reset={reset}
+                    onSelect={setSelected}
+                  />
+                </Suspense>
+              </Canvas>
+            )}
+          </SceneBoundary>
+          {!ready && !contextLost && (
+            <span className="factory-loading" role="status">
+              3D 공간 준비 중…
+            </span>
+          )}
+          <div className="factory-view-badge" aria-live="polite">
+            {exterior
+              ? "EXTERIOR · 공장 외관"
+              : walking
+                ? "WALK · 자유 이동"
+                : "CUTAWAY · 내부 둘러보기"}
+          </div>
+          {walking && (
+            <div className="factory-pad" role="group" aria-label="캐릭터 이동">
+              {(
+                [
+                  ["up", "↑", "앞으로"],
+                  ["left", "←", "왼쪽으로"],
+                  ["down", "↓", "뒤로"],
+                  ["right", "→", "오른쪽으로"],
+                ] as const
+              ).map(([direction, arrow, label]) => (
+                <button
+                  key={direction}
+                  className={`pad-${direction}`}
+                  aria-label={label}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    keys.current.add(direction);
+                  }}
+                  onPointerUp={() => keys.current.delete(direction)}
+                  onPointerCancel={() => keys.current.delete(direction)}
+                  onLostPointerCapture={() => keys.current.delete(direction)}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.key === "Enter") {
+                      e.preventDefault();
+                      keys.current.add(direction);
+                    }
+                  }}
+                  onKeyUp={() => keys.current.delete(direction)}
+                >
+                  {arrow}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {selected === 1 && (
+          <section className="vision-panel" aria-label="비전검사 설비 상세">
+            <div>
+              <span className="eyebrow">VISION CELL / DEMO-02</span>
+              <h2>비전검사 설비</h2>
+              <p>
+                카메라·링 조명으로 검사하는 가상 설비입니다. 아래 수치는 반복
+                시연이며 MES 실적에 저장되지 않습니다.
+              </p>
+            </div>
+            <dl>
+              <div>
+                <dt>설비 상태</dt>
+                <dd data-testid="vision-phase">
+                  {fault ? "이상 정지" : !animated ? "일시정지" : vision.phase}
+                </dd>
+              </div>
+              <div>
+                <dt>최근 판정</dt>
+                <dd>{vision.result}</dd>
+              </div>
+              <div>
+                <dt>검사 수량</dt>
+                <dd data-testid="vision-count">{vision.inspected}개</dd>
+              </div>
+              <div>
+                <dt>불합격</dt>
+                <dd>{vision.rejected}개</dd>
+              </div>
+            </dl>
+            <div className="factory-actions">
               <button
                 onClick={() => {
-                  setContextLost(false);
-                  setReady(false);
+                  setExterior(false);
+                  setWalking(false);
+                  setView("ground");
+                  setFocused(true);
+                  setReset((n) => n + 1);
                 }}
               >
-                3D 다시 열기
+                설비 가까이 보기
               </button>
+              <button aria-pressed={fault} onClick={() => setFault(!fault)}>
+                {fault ? "이상 해제" : "이상 상황 시연"}
+              </button>
+              <Link to="/mes">MES에서 업무 확인 →</Link>
             </div>
-          ) : (
-            <Canvas
-              shadows={{ type: PCFShadowMap }}
-              dpr={[1, 1.5]}
-              camera={{ position: [23, 22, 28], fov: 43, near: 0.1, far: 150 }}
-              gl={{ antialias: true }}
-              onCreated={({ gl }) => {
-                gl.domElement.addEventListener(
-                  "webglcontextlost",
-                  (e) => {
-                    e.preventDefault();
-                    setContextLost(true);
-                  },
-                  { once: true },
-                );
-              }}
-              fallback={
-                <div className="factory-fallback">
-                  이 브라우저에서는 3D 그래픽을 사용할 수 없습니다. 아래 공간
-                  설명을 확인해 주세요.
-                </div>
-              }
-            >
-              <Suspense fallback={null}>
-                <Scene
-                  onReady={markReady}
-                  exterior={exterior}
-                  fault={fault}
-                  focused={focused}
-                  onSnapshot={setVision}
-                  view={view}
-                  walking={walking}
-                  animated={animated}
-                  position={position}
-                  keys={keys}
-                  reset={reset}
-                  onSelect={setSelected}
-                />
-              </Suspense>
-            </Canvas>
-          )}
-        </SceneBoundary>
-        {!ready && !contextLost && (
-          <span className="factory-loading" role="status">
-            3D 공간 준비 중…
-          </span>
-        )}
-        <div className="factory-view-badge" aria-live="polite">
-          {exterior
-            ? "EXTERIOR · 공장 외관"
-            : walking
-              ? "WALK · 자유 이동"
-              : "CUTAWAY · 내부 둘러보기"}
-        </div>
-        {walking && (
-          <div className="factory-pad" role="group" aria-label="캐릭터 이동">
-            {(
-              [
-                ["up", "↑", "앞으로"],
-                ["left", "←", "왼쪽으로"],
-                ["down", "↓", "뒤로"],
-                ["right", "→", "오른쪽으로"],
-              ] as const
-            ).map(([direction, arrow, label]) => (
-              <button
-                key={direction}
-                className={`pad-${direction}`}
-                aria-label={label}
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  e.currentTarget.setPointerCapture(e.pointerId);
-                  keys.current.add(direction);
-                }}
-                onPointerUp={() => keys.current.delete(direction)}
-                onPointerCancel={() => keys.current.delete(direction)}
-                onLostPointerCapture={() => keys.current.delete(direction)}
-                onKeyDown={(e) => {
-                  if (e.key === " " || e.key === "Enter") {
-                    e.preventDefault();
-                    keys.current.add(direction);
-                  }
-                }}
-                onKeyUp={() => keys.current.delete(direction)}
-              >
-                {arrow}
-              </button>
-            ))}
-          </div>
+            <p>
+              MES 링크는 업무 대시보드로 이동합니다. 시연 설비와 실제 업무
+              레코드는 연결되지 않습니다.
+            </p>
+          </section>
         )}
       </div>
-      {selected === 1 && (
-        <section className="vision-panel" aria-label="비전검사 설비 상세">
-          <div>
-            <span className="eyebrow">VISION CELL / DEMO-02</span>
-            <h2>비전검사 설비</h2>
-            <p>
-              카메라·링 조명으로 검사하는 가상 설비입니다. 아래 수치는 반복
-              시연이며 MES 실적에 저장되지 않습니다.
-            </p>
-          </div>
-          <dl>
-            <div>
-              <dt>설비 상태</dt>
-              <dd data-testid="vision-phase">
-                {fault ? "이상 정지" : !animated ? "일시정지" : vision.phase}
-              </dd>
-            </div>
-            <div>
-              <dt>최근 판정</dt>
-              <dd>{vision.result}</dd>
-            </div>
-            <div>
-              <dt>검사 수량</dt>
-              <dd data-testid="vision-count">{vision.inspected}개</dd>
-            </div>
-            <div>
-              <dt>불합격</dt>
-              <dd>{vision.rejected}개</dd>
-            </div>
-          </dl>
-          <div className="factory-actions">
-            <button
-              onClick={() => {
-                setExterior(false);
-                setWalking(false);
-                setView("ground");
-                setFocused(true);
-                setReset((n) => n + 1);
-              }}
-            >
-              설비 가까이 보기
-            </button>
-            <button aria-pressed={fault} onClick={() => setFault(!fault)}>
-              {fault ? "이상 해제" : "이상 상황 시연"}
-            </button>
-            <Link to="/mes">MES에서 업무 확인 →</Link>
-          </div>
-          <p>
-            MES 링크는 업무 대시보드로 이동합니다. 시연 설비와 실제 업무
-            레코드는 연결되지 않습니다.
-          </p>
-        </section>
-      )}
       <section className="factory-work-links" aria-label="공간과 업무 연결">
         <Link to="/mes">
           <span>01 / 생산 현장</span>
