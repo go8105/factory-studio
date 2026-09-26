@@ -354,6 +354,14 @@ POST /sales-records/{id}/cancel      취소
 - `POST /sales-records/{id}/cancel` `{reason}`: 매출 → 세금계산서 → 채권 잠금 뒤 위 조건 재확인, 막히면 409 + 같은 `reason`. 발급대기 계산서는 같은 트랜잭션에서 물리 삭제, `cancelled_at`·`cancel_reason` 기록. 채권 원금은 유지(유효 집계 제외), 출하 물류는 그대로.
 - `/tax-invoices`: POST `{salesRecordId}` → pending(매출당 1건 `INVOICE_EXISTS`, 취소 매출 `SALES_CANCELLED`, **0원 매출 `ZERO_AMOUNT_SALE` — E-G07 결정**). `POST /{id}/issue` `{approvalNo, issuedOn}`: pending만(`ALREADY_ISSUED`), 발급일 ≥ 매출일(KST) 400 `fields.issuedOn`, 승인번호 중복 400 `fields.approvalNo`. issued는 불변.
 
+### 매출채권·수금·소명 (FS-019e)
+
+- `GET /receivables?partnerId=&status=OPEN|PARTIAL|CLOSED`: **유효 채권만**(취소 매출 제외). `amount`·`appliedAmount`·`balance`·`status`는 조회 파생(원금 0은 CLOSED), `dueDate`(null = 미설정), `applications`(수금번호·금액·시각). 구현 `erp/receipts.py`의 `RECEIVABLE_SQL` 하나 — 019h 대시보드도 재사용한다.
+- `/receipts`(목록에 `appliedAmount`·`unappliedAmount`·`applications`): POST·PATCH·DELETE는 draft만(409 `RECEIPT_CONFIRMED`), `POST /{id}/confirm`.
+- `POST /receipts/{id}/applications` `{lines:[{receivableId, amount}]}`: 확정 수금만(`RECEIPT_NOT_CONFIRMED`). 매출 → 채권(id 오름차순) → 수금 잠금 뒤 최신 합계로 채권·수금 양쪽 한도, 초과 시 전체 롤백 409 `LIMIT_EXCEEDED` + `limit`(`RECEIVABLE`·`RECEIPT`)·`receivableId`/`shipmentNo` 또는 `receiptId`·`availableAmount`. 같은 거래처가 아니면 400, 취소 매출 채권 409 `SALES_CANCELLED`. `apply_key`는 수금·요청 키·행 번호의 해시.
+- `DELETE /receipts/{id}/applications/{applyId}`: 채권 → 수금 → 소명 잠금, 물리 삭제 + `core.audit_event`(`erp.receipt_apply.delete`, summary에 세대·양쪽 부모·소명 id·apply_key·금액·통화·사유) 같은 트랜잭션. 응답은 갱신된 수금.
+- `GET /receipts/{id}/fifo-suggestion`: 미소명 잔여를 매출일이 오래된 유효 채권부터 채운 `[{receivableId, amount}]`. 저장하지 않는다.
+
 ### 소명 계약
 
 - **`POST /receipts/{id}/applications`는 수금 확정 후에도 호출 가능하다.** 확정되는 것은 금액이지 배분이 아니다(FS-014b).

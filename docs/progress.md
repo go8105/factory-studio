@@ -896,3 +896,9 @@
 
 - FS-019c main ff(`22055ef`, CI 통과) 뒤 진행. E-07 매출 · E-08 세금계산서 API·화면·도움말. E-G07 0원 매출 발급 금지 구현.
 - 검증: frontend 367, backend 582(CI 환경), 스모크 93 ×2, 360px 직접 확인(E-08 select 모양 수정). 상세 `docs/agent/ERP_FS-019d.md`.
+
+## 2026-09-26 FS-019e 완료 — ERP 13/18 (Claude Code)
+
+- FS-019d main ff(`40efad7`, CI 통과) 뒤 진행. E-09 매출채권 현황 · E-10 수금 등록·소명 API·화면·도움말.
+- 동시성 주입: 병렬 소명 한도, 매출 취소 vs 소명 경합. 소명 취소는 `core.audit_event` 기록.
+- 검증: frontend 375, backend 594(CI 환경), 스모크 96, 360px 직접 확인. 상세 `docs/agent/ERP_FS-019e.md`.
