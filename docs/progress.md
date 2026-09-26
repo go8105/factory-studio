@@ -919,3 +919,10 @@
 - FS-019g main ff(`49a291d`, CI 통과) 뒤 진행. E-01 ERP 대시보드 API·화면·도움말, ERP 진입을 대시보드로.
 - 기존 FEMS e2e "결측 구간"의 첫 로드 대기 누락(§7-8 함정)을 수정.
 - 검증: frontend 389, backend 622(CI 환경), 스모크 104, 360px 직접 확인. 상세 `docs/agent/ERP_FS-019h.md`.
+
+## 2026-09-26 FS-021 통합 검증 (Claude Code)
+
+- FS-019h main ff(`2827f39`, CI 통과) 뒤 진행. 사용자 결정: AC-35~80 추적표, 로컬 성능 실측 포함.
+- 테스트 추가: `test_integration_policies.py`(범위 격리 횡단·멱등 4개), `test_integration_ac.py`(AC 보강 15개). `tools/measure_fs021.py` 실측 도구.
+- 결함 수정: `common/scope.py` 잠금 뒤 게스트 만료 재확인(AC-63).
+- 상세 `docs/agent/통합검증_FS-021.md`.
