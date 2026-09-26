@@ -959,3 +959,10 @@
 
 - Codex 3D 공장 고도화 main ff(CI 통과) 뒤 작성. `docs/deploy/배포절차_FS-022.md` — 사용자가 Vultr VM에서 직접 실행하는 절차(IP 단계 → 도메인·HTTPS 단계). Claude Code는 서버에 접속하지 않았다.
 - 절차서를 **이지스 공존판**으로 교체(사용자 제공 수정본 채택 + 보완): 대상은 이지스 운영 서버 158.247.236.136(1 vCPU·2GB·55GB). 포트 분리(FS Nginx 8080·uvicorn 8021), Nginx default 유지, ufw 규칙 선반영, uv `/usr/local/bin`. Claude Code 보완: `apt upgrade` 제외, 프런트 맥북 빌드 기본(서버 Node 불필요), systemd `uv run --frozen`, RAM 여유·스왑 점검과 스왑 파일 절차. compose DB 바인드는 이미 `127.0.0.1:55432`.
+
+## 2026-09-26 FS-022 배포 완료 — https://eip.hugh-d.com (Claude Code)
+
+- 사용자 요청으로 서버에서 직접 실행(맥북 SSH 키, 비밀번호 입력 없음). 스냅샷은 사용자가 먼저 생성.
+- 실행: Docker·uv 설치(apt upgrade 없음) → factory 사용자·읽기 전용 deploy key → clone `c41c274`·.env(서버 생성 비밀값) → PG18 Docker·마이그레이션·템플릿 시드 → systemd API(8021)·회수 타이머 → 프런트 맥북 빌드 rsync → CSR·Cloudflare Origin CA → Nginx 사이트(기본 서버 TLS 거절, fs→eip 301, CF real IP) → ufw 443 → reload.
+- 문제와 해결: Nginx 1.24가 `http2 on;` 미지원 → `listen 443 ssl http2`. Cloudflare 레코드가 처음 `@`로 들어가 eip 미해결 → 사용자가 eip 추가. 루트·www·aegis가 FS를 보여 443 기본 서버로 TLS 거절(525). 맥북 DNS 음성 캐시로 로컬 curl 실패 → Cloudflare IP 고정으로 확인.
+- 절차서를 실행한 그대로 재작성(`docs/deploy/배포절차_FS-022.md`).
