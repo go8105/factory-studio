@@ -958,3 +958,4 @@
 ## 2026-09-26 FS-022 배포 절차서 (Claude Code)
 
 - Codex 3D 공장 고도화 main ff(CI 통과) 뒤 작성. `docs/deploy/배포절차_FS-022.md` — 사용자가 Vultr VM에서 직접 실행하는 절차(IP 단계 → 도메인·HTTPS 단계). Claude Code는 서버에 접속하지 않았다.
+- 절차서를 **이지스 공존판**으로 교체(사용자 제공 수정본 채택 + 보완): 대상은 이지스 운영 서버 158.247.236.136(1 vCPU·2GB·55GB). 포트 분리(FS Nginx 8080·uvicorn 8021), Nginx default 유지, ufw 규칙 선반영, uv `/usr/local/bin`. Claude Code 보완: `apt upgrade` 제외, 프런트 맥북 빌드 기본(서버 Node 불필요), systemd `uv run --frozen`, RAM 여유·스왑 점검과 스왑 파일 절차. compose DB 바인드는 이미 `127.0.0.1:55432`.
