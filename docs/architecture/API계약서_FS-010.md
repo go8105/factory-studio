@@ -362,6 +362,12 @@ POST /sales-records/{id}/cancel      취소
 - `DELETE /receipts/{id}/applications/{applyId}`: 채권 → 수금 → 소명 잠금, 물리 삭제 + `core.audit_event`(`erp.receipt_apply.delete`, summary에 세대·양쪽 부모·소명 id·apply_key·금액·통화·사유) 같은 트랜잭션. 응답은 갱신된 수금.
 - `GET /receipts/{id}/fifo-suggestion`: 미소명 잔여를 매출일이 오래된 유효 채권부터 채운 `[{receivableId, amount}]`. 저장하지 않는다.
 
+### 매입·채무·지급 (FS-019f)
+
+- `/purchase-invoices`(목록에 `lines`·`payableId`·`appliedAmount`·`cancelBlockedReason`): POST·PATCH(`dueDate` null 허용)·`PUT /{id}/lines` `{lines:[{itemId, quantity, unit, unitPrice}]}`·DELETE는 draft만(409 `INVOICE_LOCKED`). 원재료(raw) 품목만, 단위는 기준 단위 또는 단위환산 원 단위(400 `fields.lines`). 명세 공급가액·세액은 서버가 `revenue.line_amounts`로 계산, 머리글 합계 = 명세 합계.
+- `POST /{id}/confirm`: SUPPLIER·명세 1개 이상(`EMPTY_INVOICE`), 확정 순간 과세구분으로 재계산, 만기 = 입력 우선 → 매입일 + 결제일수 → NULL, 같은 트랜잭션에서 채무 1건. `POST /{id}/cancel` `{reason}`: draft는 바로, 확정은 지급 소명 0행만(`PAYMENT_APPLIED`, `ALREADY_CANCELLED`). 매입(6) → 채무(7) 잠금.
+- `/payables`·`/payments`는 `/receivables`·`/receipts`와 **같은 규칙·같은 경로 구조**(`receipts.Side` 한 벌): 키만 `payableId`·`paymentId`·`paymentNo`·`paidOn`·`invoiceNo`·`invoiceDate`, 409 `PAYMENT_CONFIRMED`·`PAYMENT_NOT_CONFIRMED`·`PURCHASE_CANCELLED`, `LIMIT_EXCEEDED`의 `limit`은 `PAYABLE`·`PAYMENT`. 소명 취소 감사 action `erp.payment_apply.delete`.
+
 ### 소명 계약
 
 - **`POST /receipts/{id}/applications`는 수금 확정 후에도 호출 가능하다.** 확정되는 것은 금액이지 배분이 아니다(FS-014b).

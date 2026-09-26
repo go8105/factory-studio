@@ -902,3 +902,9 @@
 - FS-019d main ff(`40efad7`, CI 통과) 뒤 진행. E-09 매출채권 현황 · E-10 수금 등록·소명 API·화면·도움말.
 - 동시성 주입: 병렬 소명 한도, 매출 취소 vs 소명 경합. 소명 취소는 `core.audit_event` 기록.
 - 검증: frontend 375, backend 594(CI 환경), 스모크 96, 360px 직접 확인. 상세 `docs/agent/ERP_FS-019e.md`.
+
+## 2026-09-26 FS-019f 완료 — ERP 16/18 (Claude Code)
+
+- FS-019e main ff(`55c39c1`, CI 통과) 뒤 진행. E-11 매입 전표 · E-12 매입채무 · E-13 지급·소명.
+- 019e 수금·소명 백엔드(`receipts.Side`)·화면(`settlement.ts` + `side` 속성)을 일반화해 매입 쪽에 재사용. 세액은 `revenue.line_amounts` 공용.
+- 검증: frontend 381, backend 607(CI 환경), 스모크 100, 360px 직접 확인. 상세 `docs/agent/ERP_FS-019f.md`.
