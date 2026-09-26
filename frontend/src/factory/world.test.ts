@@ -30,3 +30,8 @@ it("계단 중간에서 옆으로 뛰어내릴 수 없다", () => {
 });
 it("창 바깥으로 이동할 수 없다", () =>
   expect(move({ x: 10.65, y: 0, z: 5 }, 0.15, 0).x).toBe(10.65));
+it("자재 선반과 공구대 안으로 들어갈 수 없다", () => {
+  expect(canStand({ x: 0, y: 0, z: -5 })).toBe(false);
+  expect(canStand({ x: -1, y: 0, z: -3.7 })).toBe(false);
+  expect(canStand({ x: 4, y: 0, z: -2.8 })).toBe(true);
+});

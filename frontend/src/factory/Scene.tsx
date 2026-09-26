@@ -1,3 +1,7 @@
+import ProductionCell from "./ProductionCell";
+import Workshop from "./Workshop";
+import { FactoryEnvironment, FactoryFloor } from "./Surface";
+import Building from "./Building";
 import VisionCell from "./VisionCell";
 import type { VisionSnapshot } from "./vision";
 import { useEffect, useRef, type RefObject } from "react";
@@ -198,82 +202,7 @@ function Station({
             onSnapshot={onSnapshot}
           />
         ) : (
-          <>
-            <Box at={[0, 0.6, 0]} size={[2.5, 1.2, 2.2]} color={colors.wall} />
-            <Box
-              at={[0, 0.62, 1.12]}
-              size={[2.1, 0.85, 0.05]}
-              color={colors.teal}
-            />
-            <Box
-              at={[0, 1.3, 0]}
-              size={[2.8, 0.16, 1.05]}
-              color={colors.dark}
-            />
-            {[-1, 1].map((side) => (
-              <Box
-                key={side}
-                at={[side, 2.1, -0.7]}
-                size={[0.16, 1.6, 0.16]}
-                color={colors.dark}
-              />
-            ))}
-            <Box
-              at={[0, 2.9, -0.7]}
-              size={[2.2, 0.2, 0.3]}
-              color={colors.teal}
-            />
-            {index === 0 && (
-              <>
-                <Box
-                  at={[0, 2.3, -0.6]}
-                  size={[0.3, 1, 0.35]}
-                  color={colors.yellow}
-                />
-                <Box
-                  at={[0, 1.82, -0.2]}
-                  size={[0.22, 0.16, 0.8]}
-                  color={colors.yellow}
-                />
-              </>
-            )}
-            {index === 1 && (
-              <>
-                <Box
-                  at={[0, 2.42, -0.35]}
-                  size={[0.55, 0.35, 0.55]}
-                  color={colors.dark}
-                />
-                <mesh position={[0, 2.17, -0.2]} rotation={[Math.PI / 2, 0, 0]}>
-                  <torusGeometry args={[0.3, 0.05, 8, 20]} />
-                  <meshStandardMaterial
-                    color="#c7e2d9"
-                    emissive="#70b5ad"
-                    emissiveIntensity={0.4}
-                  />
-                </mesh>
-              </>
-            )}
-            {index === 2 && (
-              <>
-                <Box
-                  at={[0, 2.2, -0.5]}
-                  size={[1.4, 0.18, 0.5]}
-                  color={colors.yellow}
-                />
-                <Box
-                  at={[0, 1.58, 0]}
-                  size={[0.7, 0.45, 0.7]}
-                  color="#bdaa83"
-                />
-              </>
-            )}
-            <Box
-              at={[1.1, 3.1, -0.7]}
-              size={[0.12, 0.25, 0.12]}
-              color="#77ae8b"
-            />
-          </>
+          <ProductionCell index={index} animated={animated} />
         )}
       </group>
       <group position={[1.25, 0, 2]}>
@@ -293,7 +222,10 @@ function Products({ animated }: { animated: boolean }) {
     if (animated) time.current += Math.min(dt, 0.05);
     group.current?.children.forEach((box, i) => {
       box.position.x = -1.4 + ((time.current * 0.65 + i * 2.3) % 11);
-      box.visible = box.position.x < 2.5 || box.position.x > 5.5;
+      box.visible =
+        (box.position.x > 1 && box.position.x < 2.5) ||
+        (box.position.x > 5.5 && box.position.x < 7) ||
+        box.position.x > 9.95;
     });
   });
   return (
@@ -350,6 +282,8 @@ function Worker({ animated }: { animated: boolean }) {
   );
 }
 export type SceneProps = {
+  onReady: () => void;
+  exterior: boolean;
   fault: boolean;
   onSnapshot: (value: VisionSnapshot) => void;
   focused: boolean;
@@ -362,6 +296,8 @@ export type SceneProps = {
   onSelect: (i: number) => void;
 };
 export default function Scene({
+  onReady,
+  exterior,
   fault,
   onSnapshot,
   focused,
@@ -374,6 +310,9 @@ export default function Scene({
   onSelect,
 }: SceneProps) {
   const { camera, size } = useThree();
+  useEffect(() => {
+    onReady();
+  }, [onReady]);
   const avatar = useRef<Group>(null);
   const moving = useRef(false);
   const upper = useRef<Group>(null);
@@ -389,16 +328,26 @@ export default function Scene({
             ? [6, 20, 28]
             : [23, 22, 28]) as Vec),
       );
-      if (focused) camera.position.set(8, 5, 7);
+      if (exterior) camera.position.set(29, 23, 33);
+      else if (focused) camera.position.set(8, 5, 7);
       camera.position.multiplyScalar(Math.max(1, size.height / size.width));
       controls.current?.target.set(
-        focused ? 4 : office ? -7 : 0,
-        focused ? 1.7 : office ? 4 : 0.5,
+        exterior ? 0 : focused ? 4 : office ? -7 : 0,
+        exterior ? 3 : focused ? 1.7 : office ? 4 : 0.5,
         0,
       );
       controls.current?.update();
     }
-  }, [view, walking, reset, camera, size.width, size.height, focused]);
+  }, [
+    view,
+    walking,
+    reset,
+    camera,
+    size.width,
+    size.height,
+    focused,
+    exterior,
+  ]);
   useFrame((_, dt) => {
     if (upper.current)
       upper.current.visible = walking
@@ -420,118 +369,118 @@ export default function Scene({
   return (
     <>
       <color attach="background" args={["#e8ece8"]} />
-      <ambientLight intensity={1.5} />
+      <FactoryEnvironment />
+      <ambientLight intensity={0.45} />
       <directionalLight
         position={[5, 22, 10]}
-        intensity={2.4}
+        intensity={2.6}
         castShadow
-        shadow-mapSize={[1024, 1024]}
-        shadow-camera-left={-18}
-        shadow-camera-right={18}
-        shadow-camera-top={16}
-        shadow-camera-bottom={-16}
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-24}
+        shadow-camera-right={24}
+        shadow-camera-top={22}
+        shadow-camera-bottom={-22}
         shadow-bias={-0.001}
       />
-      <hemisphereLight args={["#e8f0f4", "#a2aaa2", 1]} />
+      <hemisphereLight args={["#e8f0f4", "#a2aaa2", 0.7]} />
       <Box at={[0, -0.25, 0]} size={[23, 0.5, 15]} color={colors.floor} />
-      <Box at={[0, 1.9, -7]} size={[23, 3.8, 0.18]} />
-      <Box at={[-11.4, 3.8, 0]} size={[0.18, 7.6, 14]} />
-      {[-8, -3, 2, 7].map((x) => (
-        <Box
-          key={x}
-          at={[x, 2.5, -6.88]}
-          size={[3.4, 1.5, 0.04]}
-          color="#aac4c6"
-        />
-      ))}
-      <Box at={[-3, 1.7, -2.5]} size={[0.14, 3.4, 9]} color="#b8c8c3" />
-      <Box at={[-7.2, 0.015, -2]} size={[8, 0.025, 9.7]} color="#dad5c8" />
-      <Desk at={[-8, 0, -3.5]} animated={animated} />
-      <Printer label={view === "ground" && !walking} />
-      {view === "ground" && !walking && (
-        <Label at={[-7.3, 2.7, 2]}>1F 현장사무실</Label>
-      )}
-      <Label at={[4.5, 0.25, 5.6]}>생산 현장 · 조립 → 검사 → 포장</Label>
-      {[1.75, 6.25].map((x) => (
-        <Box
-          key={x}
-          at={[x, 1.3, 0]}
-          size={[1.9, 0.15, 0.9]}
-          color={colors.dark}
-        />
-      ))}
-      {[0, 1, 2].map((i) => (
-        <Station
-          key={i}
-          index={i}
-          onSelect={onSelect}
-          animated={animated}
-          fault={fault}
-          onSnapshot={onSnapshot}
-        />
-      ))}
-      <Products animated={animated} />
-      <Worker animated={animated} />
-      {Array.from({ length: 22 }, (_, i) => (
-        <Box
-          key={i}
-          at={[-1.4 + i * 0.55, 0.03, 3.2]}
-          size={[0.32, 0.025, 0.06]}
-          color={colors.yellow}
-        />
-      ))}
-      <Box at={[4, 0.02, -3.4]} size={[13, 0.02, 0.07]} color={colors.yellow} />
-      {/* Office floor includes an open stairwell; no roof or front wall obscures the interior. */}
-      <group ref={upper}>
-        <Box at={[-8, 3.86, 0]} size={[6, 0.28, 14]} color="#ded8ca" />
-        <Box at={[-4, 3.86, -2.5]} size={[2, 0.28, 9]} color="#ded8ca" />
-        <Box at={[-4, 3.86, 6.5]} size={[2, 0.28, 1]} color="#ded8ca" />
-        <Desk at={[-8, 4, -3.5]} animated={animated} />
-        <Desk at={[-8, 4, 1]} animated={animated} />
-        {view !== "ground" && !walking && (
-          <Label at={[-7.5, 7, -3]}>2F 사무실 · 직원 2명</Label>
+      <FactoryFloor />
+      <Building exterior={exterior} walking={walking} />
+      <group visible={!exterior}>
+        <Workshop />
+        <Box at={[-3, 1.7, -2.5]} size={[0.14, 3.4, 9]} color="#b8c8c3" />
+        <Box at={[-7.2, 0.015, -2]} size={[8, 0.025, 9.7]} color="#dad5c8" />
+        <Desk at={[-8, 0, -3.5]} animated={animated} />
+        <Printer label={view === "ground" && !walking} />
+        {view === "ground" && !walking && (
+          <Label at={[-7.3, 2.7, 2]}>1F 현장사무실</Label>
         )}
-        <Box
-          at={[-3.05, 4.9, -2.5]}
-          size={[0.08, 0.08, 9]}
-          color={colors.dark}
-        />
-        {[-6, -4, -2, 0, 1.8].map((z) => (
+        <Label at={[4.5, 0.25, 5.6]}>생산 현장 · 조립 → 검사 → 포장</Label>
+        {[1.75, 6.25].map((x) => (
           <Box
-            key={z}
-            at={[-3.05, 4.45, z]}
-            size={[0.05, 0.9, 0.05]}
+            key={x}
+            at={[x, 1.3, 0]}
+            size={[1.9, 0.15, 0.9]}
             color={colors.dark}
           />
         ))}
-      </group>
-      {Array.from({ length: 16 }, (_, i) => (
-        <Box
-          key={i}
-          at={[-4.15, (i + 1) * 0.125, 5.875 - i * 0.25]}
-          size={[1.7, (i + 1) * 0.25, 0.25]}
-          color="#adb8b3"
-        />
-      ))}
-      <Label at={[-4.2, 0.35, 6.7]}>↑ 2F 계단</Label>
-      {walking && (
-        <group
-          ref={avatar}
-          position={[
-            position.current.x,
-            position.current.y,
-            position.current.z,
-          ]}
-        >
-          <Person
-            at={[0, 0, 0]}
-            visitor
-            walking
-            moving={moving}
+        {[0, 1, 2].map((i) => (
+          <Station
+            key={i}
+            index={i}
+            onSelect={onSelect}
             animated={animated}
+            fault={fault}
+            onSnapshot={onSnapshot}
           />
+        ))}
+        <Products animated={animated} />
+        <Worker animated={animated} />
+        {Array.from({ length: 22 }, (_, i) => (
+          <Box
+            key={i}
+            at={[-1.4 + i * 0.55, 0.03, 3.2]}
+            size={[0.32, 0.025, 0.06]}
+            color={colors.yellow}
+          />
+        ))}
+        <Box
+          at={[4, 0.02, -3.4]}
+          size={[13, 0.02, 0.07]}
+          color={colors.yellow}
+        />
+        {/* Office floor keeps the existing stairwell opening. */}
+        <group ref={upper}>
+          <Box at={[-8, 3.86, 0]} size={[6, 0.28, 14]} color="#ded8ca" />
+          <Box at={[-4, 3.86, -2.5]} size={[2, 0.28, 9]} color="#ded8ca" />
+          <Box at={[-4, 3.86, 6.5]} size={[2, 0.28, 1]} color="#ded8ca" />
+          <Desk at={[-8, 4, -3.5]} animated={animated} />
+          <Desk at={[-8, 4, 1]} animated={animated} />
+          {view !== "ground" && !walking && (
+            <Label at={[-7.5, 7, -3]}>2F 사무실 · 직원 2명</Label>
+          )}
+          <Box
+            at={[-3.05, 4.9, -2.5]}
+            size={[0.08, 0.08, 9]}
+            color={colors.dark}
+          />
+          {[-6, -4, -2, 0, 1.8].map((z) => (
+            <Box
+              key={z}
+              at={[-3.05, 4.45, z]}
+              size={[0.05, 0.9, 0.05]}
+              color={colors.dark}
+            />
+          ))}
         </group>
-      )}
+        {Array.from({ length: 16 }, (_, i) => (
+          <Box
+            key={i}
+            at={[-4.15, (i + 1) * 0.125, 5.875 - i * 0.25]}
+            size={[1.7, (i + 1) * 0.25, 0.25]}
+            color="#adb8b3"
+          />
+        ))}
+        <Label at={[-4.2, 0.35, 6.7]}>↑ 2F 계단</Label>
+        {walking && (
+          <group
+            ref={avatar}
+            position={[
+              position.current.x,
+              position.current.y,
+              position.current.z,
+            ]}
+          >
+            <Person
+              at={[0, 0, 0]}
+              visitor
+              walking
+              moving={moving}
+              animated={animated}
+            />
+          </group>
+        )}
+      </group>
       {!walking && (
         <OrbitControls
           ref={controls}
@@ -539,7 +488,11 @@ export default function Scene({
           minDistance={10}
           maxDistance={85}
           maxPolarAngle={Math.PI / 2.2}
-          target={[0, 0.5, 0]}
+          target={[
+            exterior ? 0 : focused ? 4 : view === "office" ? -7 : 0,
+            exterior ? 3 : focused ? 1.7 : view === "office" ? 4 : 0.5,
+            0,
+          ]}
         />
       )}
     </>

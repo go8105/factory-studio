@@ -4,6 +4,7 @@ import {
   Suspense,
   lazy,
   useEffect,
+  useCallback,
   useRef,
   useState,
   type ReactNode,
@@ -61,6 +62,7 @@ const keyMap: Record<string, Direction> = {
   ArrowRight: "right",
 };
 export default function Factory() {
+  const [exterior, setExterior] = useState(true);
   const [vision, setVision] = useState(() => visionAt(0));
   const [fault, setFault] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -72,6 +74,7 @@ export default function Factory() {
   const [reset, setReset] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [ready, setReady] = useState(false);
+  const markReady = useCallback(() => setReady(true), []);
   const [contextLost, setContextLost] = useState(false);
   const position = useRef<Point>({ ...START });
   const keys = useRef(new Set<Direction>());
@@ -93,12 +96,14 @@ export default function Factory() {
     if (walking) stage.current?.focus();
   }, [walking, reset]);
   function viewpoint(next: View) {
+    setExterior(false);
     setFocused(false);
     setView(next);
     position.current = { ...(next === "office" ? OFFICE_START : START) };
     setReset((n) => n + 1);
   }
   function toggleWalk() {
+    setExterior(false);
     setWalking(!walking);
     if (!walking)
       position.current = { ...(view === "office" ? OFFICE_START : START) };
@@ -113,6 +118,39 @@ export default function Factory() {
         </div>
         <span className="factory-demo">
           3D 합성 시연 · 실시간 설비 정보 아님
+        </span>
+      </div>
+      <div
+        className="factory-building-switch"
+        role="group"
+        aria-label="건물 표시"
+      >
+        <button
+          aria-pressed={exterior}
+          onClick={() => {
+            setExterior(true);
+            setWalking(false);
+            setFocused(false);
+            setReset((n) => n + 1);
+          }}
+        >
+          건물 외관
+        </button>
+        <button
+          aria-pressed={!exterior}
+          onClick={() => {
+            setExterior(false);
+            setView("all");
+            setFocused(false);
+            setReset((n) => n + 1);
+          }}
+        >
+          내부 펼쳐보기
+        </button>
+        <span>
+          {exterior
+            ? "사무동 · 생산동 · 하역장 · 옥상 공조 설비"
+            : "지붕과 전면·오른쪽 외벽을 열어 내부를 표시합니다."}
         </span>
       </div>
       <div className="factory-toolbar" aria-label="공장 보기 설정">
@@ -147,7 +185,17 @@ export default function Factory() {
           >
             {animated ? "시연 일시정지" : "시연 재생"}
           </button>
-          <button onClick={() => viewpoint(view)}>시점 초기화</button>
+          <button
+            onClick={() => {
+              setFocused(false);
+              position.current = {
+                ...(view === "office" ? OFFICE_START : START),
+              };
+              setReset((n) => n + 1);
+            }}
+          >
+            시점 초기화
+          </button>
         </div>
       </div>
       <p id="factory-controls" className="factory-instructions">
@@ -157,7 +205,7 @@ export default function Factory() {
       </p>
       <div
         ref={stage}
-        className="factory-stage"
+        className={`factory-stage${exterior ? " factory-exterior" : ""}`}
         tabIndex={0}
         role="region"
         aria-label="3D 공장 탐색"
@@ -196,7 +244,6 @@ export default function Factory() {
               camera={{ position: [23, 22, 28], fov: 43, near: 0.1, far: 150 }}
               gl={{ antialias: true }}
               onCreated={({ gl }) => {
-                setReady(true);
                 gl.domElement.addEventListener(
                   "webglcontextlost",
                   (e) => {
@@ -215,6 +262,8 @@ export default function Factory() {
             >
               <Suspense fallback={null}>
                 <Scene
+                  onReady={markReady}
+                  exterior={exterior}
                   fault={fault}
                   focused={focused}
                   onSnapshot={setVision}
@@ -236,7 +285,11 @@ export default function Factory() {
           </span>
         )}
         <div className="factory-view-badge" aria-live="polite">
-          {walking ? "WALK · 자유 이동" : "OVERVIEW · 공간 둘러보기"}
+          {exterior
+            ? "EXTERIOR · 공장 외관"
+            : walking
+              ? "WALK · 자유 이동"
+              : "CUTAWAY · 내부 둘러보기"}
         </div>
         {walking && (
           <div className="factory-pad" role="group" aria-label="캐릭터 이동">
@@ -307,6 +360,7 @@ export default function Factory() {
           <div className="factory-actions">
             <button
               onClick={() => {
+                setExterior(false);
                 setWalking(false);
                 setView("ground");
                 setFocused(true);
@@ -326,6 +380,23 @@ export default function Factory() {
           </p>
         </section>
       )}
+      <section className="factory-work-links" aria-label="공간과 업무 연결">
+        <Link to="/mes">
+          <span>01 / 생산 현장</span>
+          <strong>MES · 생산 업무</strong>
+          <small>작업지시부터 공정 실행·실적까지 →</small>
+        </Link>
+        <Link to="/erp">
+          <span>02 / 사무실</span>
+          <strong>ERP · 영업 업무</strong>
+          <small>거래처·품목과 영업 업무 화면으로 →</small>
+        </Link>
+        <Link to="/fems">
+          <span>03 / 설비 에너지</span>
+          <strong>FEMS · 에너지 관리</strong>
+          <small>계측값과 에너지 분석 화면으로 →</small>
+        </Link>
+      </section>
       <div className="factory-bottom">
         <section className="factory-process">
           <span className="eyebrow">PROCESS LINE / 1F</span>
