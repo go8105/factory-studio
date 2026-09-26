@@ -24,6 +24,7 @@ import {
   type Item,
   type Partner,
 } from "./common";
+import { JournalPanel } from "./Journal";
 
 type Line = {
   id: number;
@@ -92,6 +93,7 @@ export function PurchaseInvoices() {
   const [lines, setLines] = useState<DraftLine[]>();
   const [cancelId, setCancelId] = useState<number>();
   const [reason, setReason] = useState("");
+  const [journalId, setJournalId] = useState<number>();
   const blank = {
     invoiceNo: "",
     partnerId: 0,
@@ -186,6 +188,16 @@ export function PurchaseInvoices() {
           >
             명세 {r.lines.length}
           </button>
+          {r.status === "confirmed" && (
+            <button
+              type="button"
+              className="link-button"
+              aria-pressed={r.id === journalId}
+              onClick={() => setJournalId(r.id)}
+            >
+              분개
+            </button>
+          )}
           {r.status === "draft" && (
             <button
               type="button"
@@ -450,6 +462,13 @@ export function PurchaseInvoices() {
             </form>
           </div>
 
+          {journalId && (
+            <JournalPanel
+              kind="PURCHASE"
+              id={journalId}
+              onClose={() => setJournalId(undefined)}
+            />
+          )}
           {cancelTarget && (
             <section className="panel" aria-label="매입 취소">
               <h2>{cancelTarget.invoiceNo} 취소</h2>

@@ -45,6 +45,12 @@ export const erpScreens = [
     label: "지급 등록·소명",
     group: "매입·채무",
   },
+  {
+    path: "journal-preview",
+    id: "E-14",
+    label: "분개 미리보기",
+    group: "회계",
+  },
   { path: "partners", id: "E-15", label: "거래처", group: "기준정보" },
   { path: "items", id: "E-16", label: "품목", group: "기준정보" },
   {

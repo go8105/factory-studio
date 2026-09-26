@@ -33,6 +33,7 @@ import {
   type OpenItem,
   type Side,
 } from "./settlement";
+import { JournalPanel } from "./Journal";
 
 type Raw = Record<string, unknown>;
 const today = () => new Date().toLocaleDateString("sv-SE");
@@ -65,6 +66,7 @@ export function Receipts({ side = RECEIVABLE }: { side?: Side }) {
   const [selectedId, setSelectedId] = useState<number>();
   const [amounts, setAmounts] = useState<Record<number, string>>({});
   const [confirmUndo, setConfirmUndo] = useState<number>();
+  const [journalId, setJournalId] = useState<number>();
   const blank = { no: "", partnerId: 0, on: today(), amount: "" };
   const [create, setCreate] = useState(blank);
 
@@ -255,13 +257,23 @@ export function Receipts({ side = RECEIVABLE }: { side?: Side }) {
             </button>
           </span>
         ) : (
-          <button
-            type="button"
-            className="link-button"
-            onClick={() => setConfirmUndo(a.id)}
-          >
-            소명 취소
-          </button>
+          <span className="row-actions">
+            <button
+              type="button"
+              className="link-button"
+              aria-pressed={a.id === journalId}
+              onClick={() => setJournalId(a.id)}
+            >
+              분개
+            </button>
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => setConfirmUndo(a.id)}
+            >
+              소명 취소
+            </button>
+          </span>
         ),
     },
     { key: "amount", label: "소명액", render: (a) => won(a.amount) },
@@ -447,6 +459,14 @@ export function Receipts({ side = RECEIVABLE }: { side?: Side }) {
                 onPage={() => undefined}
                 empty={<p className="muted">소명이 없습니다.</p>}
               />
+              {journalId &&
+                selected.applications.some((a) => a.id === journalId) && (
+                  <JournalPanel
+                    kind={receivable ? "RECEIPT" : "PAYMENT"}
+                    id={journalId}
+                    onClose={() => setJournalId(undefined)}
+                  />
+                )}
             </section>
           )}
         </>

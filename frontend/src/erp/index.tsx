@@ -16,6 +16,7 @@ import { Receivables } from "./Receivables";
 import { Receipts } from "./Receipts";
 import { PurchaseInvoices } from "./PurchaseInvoices";
 import { PAYABLE } from "./settlement";
+import { Journal } from "./Journal";
 export default function ErpRoutes() {
   return (
     <Routes>
@@ -33,6 +34,7 @@ export default function ErpRoutes() {
         <Route path="purchase-invoices" element={<PurchaseInvoices />} />
         <Route path="payables" element={<Receivables side={PAYABLE} />} />
         <Route path="payments" element={<Receipts side={PAYABLE} />} />
+        <Route path="journal-preview" element={<Journal />} />
         <Route path="partners" element={<Partners />} />
         <Route path="items" element={<Items />} />
         <Route path="partner-prices" element={<Prices />} />

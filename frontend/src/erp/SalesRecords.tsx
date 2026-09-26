@@ -21,6 +21,7 @@ import {
   won,
   type Partner,
 } from "./common";
+import { JournalPanel } from "./Journal";
 
 export type Sale = {
   id: number;
@@ -58,6 +59,7 @@ export function SalesRecords() {
   const { send, pending, error: saveError, setError } = useSend(reload);
   const [cancelId, setCancelId] = useState<number>();
   const [reason, setReason] = useState("");
+  const [journalId, setJournalId] = useState<number>();
 
   if (moduleOff(error)) return <ModuleOff />;
   const [sales, partners] = data ?? [undefined, []];
@@ -82,22 +84,34 @@ export function SalesRecords() {
       key: "id",
       label: "관리",
       render: (r) => (
-        <button
-          type="button"
-          className="link-button"
-          disabled={!!r.cancelBlockedReason}
-          title={
-            r.cancelBlockedReason
-              ? BLOCKED[r.cancelBlockedReason]
-              : "매출을 취소합니다"
-          }
-          onClick={() => {
-            setCancelId(r.id);
-            setError(undefined);
-          }}
-        >
-          취소
-        </button>
+        <span className="row-actions">
+          {!r.cancelledAt && (
+            <button
+              type="button"
+              className="link-button"
+              aria-pressed={r.id === journalId}
+              onClick={() => setJournalId(r.id)}
+            >
+              분개
+            </button>
+          )}
+          <button
+            type="button"
+            className="link-button"
+            disabled={!!r.cancelBlockedReason}
+            title={
+              r.cancelBlockedReason
+                ? BLOCKED[r.cancelBlockedReason]
+                : "매출을 취소합니다"
+            }
+            onClick={() => {
+              setCancelId(r.id);
+              setError(undefined);
+            }}
+          >
+            취소
+          </button>
+        </span>
       ),
     },
     { key: "orderNo", label: "수주" },
@@ -176,6 +190,13 @@ export function SalesRecords() {
               />
             }
           />
+          {journalId && (
+            <JournalPanel
+              kind="SALES"
+              id={journalId}
+              onClose={() => setJournalId(undefined)}
+            />
+          )}
           {target && (
             <section className="panel" aria-label="매출 취소">
               <h2>{target.shipmentNo} 매출 취소</h2>

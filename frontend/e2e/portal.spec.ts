@@ -99,6 +99,7 @@ for (const [route, title] of [
   ["erp/purchase-invoices", "매입 전표"],
   ["erp/payables", "매입채무 현황"],
   ["erp/payments", "지급 등록·소명"],
+  ["erp/journal-preview", "분개 미리보기"],
   ["erp/partners", "거래처"],
   ["erp/items", "품목"],
   ["erp/partner-prices", "거래처별 단가"],
@@ -293,5 +294,18 @@ test("ERP 매입 전표 작성 → 확정 → 매입채무 생성", async ({ pag
   await page.getByRole("link", { name: /E-12 매입채무 현황/ }).click();
   await expect(page.getByRole("row", { name: /^E2E-PI1/ })).toContainText(
     "미지급",
+  );
+});
+
+test("ERP 매출 분개 보기 → 차대 합계 일치", async ({ page }) => {
+  await page.goto("/erp/sales-records");
+  await page
+    .getByRole("row", { name: /^SH-0001/ })
+    .getByRole("button", { name: "분개" })
+    .click();
+  const panel = page.getByRole("region", { name: "분개 미리보기" });
+  await expect(panel).toContainText("외상매출금 3,627,800원");
+  await expect(panel).toContainText(
+    "차변 합계 3,627,800원 · 대변 합계 3,627,800원",
   );
 });
