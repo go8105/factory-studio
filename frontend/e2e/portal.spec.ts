@@ -177,7 +177,9 @@ test("ERP 견적 작성 → 확정 → 제출 → 수주 전환", async ({ page 
   await create.getByLabel("견적번호").fill("E2E-Q1");
   await create.getByRole("button", { name: "만들기" }).click();
   const detail = page.getByRole("region", { name: "견적 상세" });
-  await expect(detail.getByRole("heading", { name: /E2E-Q1 1차/ })).toBeVisible();
+  await expect(
+    detail.getByRole("heading", { name: /E2E-Q1 1차/ }),
+  ).toBeVisible();
   await detail.getByRole("button", { name: "라인 추가" }).click();
   const item = detail.getByLabel("1번째 품목");
   const option = await item.locator("option", { hasText: "FG-C100" }).first();

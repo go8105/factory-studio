@@ -332,6 +332,15 @@ POST /sales-records/{id}/cancel      취소
 - 단가/환산 계수는 Decimal 문자열을 그대로 보존한다. 전표에 복사한 단가는 마스터 수정으로 소급 변경하지 않는다. 견적 자동 선택은 후속 FS-019b 범위다.
 - E-16은 MES 품목과 독립임을 표시한다. E-18은 7계정·10규칙의 매핑 사유를 안내하는 읽기 전용이다.
 
+### 영업 (FS-019b): 견적·판매계획·수주
+
+- 목록은 페이지 없이 전체(`data`만)이며 명세(`lines`)를 포함한다. 쓰기 공통 규칙은 FS-019a와 같다(CSRF·멱등, 400 `fields`, 409 `PRECONDITION_NOT_MET` + `reason`).
+- `/quotations`: **최신 개정본만** 반환(`isLatest`·`revisionCount`·`salesOrderId`는 조회 시 파생). `GET /quotations/{id}/revisions`는 같은 견적번호의 전 차수(`lines`·`history`). POST(1차 draft + 이력), PATCH·`PUT /{id}/lines`는 최신 draft만(409 `QUOTATION_LOCKED`/`NOT_LATEST_REVISION`). `POST /{id}/status` `{status, reason}`: draft→confirmed→sent→accepted|rejected, 종결 전 cancelled(거절·취소 사유 필수, 빈 견적 확정 409 `EMPTY_QUOTATION`, 그 외 `INVALID_TRANSITION`). `POST /{id}/revise`(confirmed·sent·rejected, 라인 복사한 다음 차수 draft, 아니면 `REVISE_NOT_ALLOWED`). `POST /{id}/convert` `{orderNo, orderedOn, dueOn}`: sent·accepted만, 할인 반영 단가로 수주 생성, sent면 accepted로(`ALREADY_CONVERTED`). 삭제 없음(상태 이력 불변).
+- 라인 `unitPrice`를 비우면 기준일(견적일·수주일)이 속한 달의 사용 중 SALE 거래처 단가를 복사한다. 없으면 400 `fields.lines`. 응답 `masterPrice`(현재 단가표 값)·`priceSource`(`partner_price`/`manual`, 비교로 파생)·`amount`(수량 × 단가 × (100 − 할인율)%, 원 반올림)·`totalAmount`.
+- `/sales-plans`: POST·PATCH·`PUT /{id}/lines`(품목당 1행, 단위 = 품목 기준 단위)·`POST /{id}/confirm`(`confirmedAt`, 빈 계획 409 `EMPTY_PLAN`)·DELETE는 draft만(409 `PLAN_CONFIRMED`).
+- `/sales-orders`: POST는 머리글 + `lines` 함께. 라인 `instructedQty`(취소 안 된 출하지시)·`shippedQty`(확정 출하), `shipmentOrderCount`, 근거 견적 `quoteNo`·`quoteRevisionNo`. PATCH(`lines`는 통째 교체)·`POST /{id}/cancel`은 open이고 유효 출하지시가 없을 때만(409 `ORDER_LOCKED`). 견적 전환 수주는 거래처 변경 400.
+- 고객 거래처만(CUSTOMER·사용 중), 사용 중 품목만 선택할 수 있다. 같은 공간의 쓰기는 `write_scope` 공간 잠금으로 직렬화된다.
+
 ### 소명 계약
 
 - **`POST /receipts/{id}/applications`는 수금 확정 후에도 호출 가능하다.** 확정되는 것은 금액이지 배분이 아니다(FS-014b).

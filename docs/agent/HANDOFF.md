@@ -1,6 +1,6 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-26 (ERP 전부 Claude Code·E-G07 결정 기록, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-26 (FS-019b 완료 — ERP 7/18, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
@@ -17,14 +17,14 @@
 | 포털 | 7/7 + 3D 공장(`/factory`) + 런처 아이콘 타일 |
 | FEMS | 14/14 (FS-018a~m) |
 | MES | 15/15 (FS-020a~g) — `docs/agent/MES_FS-020*.md` |
-| ERP | 4/18 (FS-019a 기준정보 E-15~18) — 계획 `docs/agent/MES_ERP_작업계획_FS-019_020.md` §3 |
-| 다음 | FS-019b~h ERP 14화면 → FS-021 통합 검증 → FS-022 배포 |
+| ERP | 7/18 (019a 기준정보 E-15~18, 019b 견적·판매계획·수주 E-02~04) — 계획 `docs/agent/MES_ERP_작업계획_FS-019_020.md` §3, 보고 `docs/agent/ERP_FS-019*.md` |
+| 다음 | FS-019c(출하지시·출하) → d~h → FS-021 통합 검증 → FS-022 배포 |
 
 ## 다음 할 일
 
 1. ERP 분담 확정(2026-09-26): **FS-019b~h 전부 Claude Code**(메인 폴더, `fs-019<x>-*`). Codex는 ERP를 하지 않는다.
 2. E-G07 결정(2026-09-26): **0원 매출 세금계산서 발급 금지**(0원 매출은 허용, 발급 API 409·버튼 비활성).
-3. ERP 화면 모양을 FEMS·MES와 맞춘다: 관리 버튼 `link-button`, 등록 폼 select는 `.field` 안 전체 폭.
+3. ERP 화면 모양을 FEMS·MES와 맞춘다: 관리 버튼 `link-button`, 등록 폼 select는 `.field` 안 전체 폭. 019b부터 ERP 화면은 `erp/common.tsx`(shared/hooks 위 ERP 접두사)와 `SalesOrders.tsx`의 `LineEditor`를 재사용한다.
 4. 후속: 360px에서 상단 메뉴가 두 줄('나가기'가 둘째 줄). 사용 중 채널 배수 변경 허용 유지 여부(FEMS_FS-018l).
 5. **새 업무 테스트는 `guest_space` fixture**, 스모크는 8000·5173·`factory_studio_fs017_test`를 고정 사용하므로 **동시에 한 명만** 돌린다. 사용자가 개발 서버(8000·5173)를 켜 두면 스모크가 멈춘다 — 종료를 요청한다.
 6. 판단 기록: MES `/work-orders/{id}/lot` 추가(020c), `/executions/{id}/finish`를 `/result`로 통합(020d), MES 업무 시각 `clock_timestamp()`(020g).

@@ -879,3 +879,9 @@
 - README에 루트 폴더·파일 의미 표와 현재 진행 상태 반영. 기존에 깨져 있던 `구현인계패키지_FS-012.md` 상대 링크 2개 수정(문서 내 깨진 상대 링크 0).
 - 유지: 루트 `package.json`·`node_modules`(DB 설계서 도구), `work/`, `docker-compose.yml`, 형제 worktree·백업·참고자료 폴더.
 - 검증: db:validate, audit_schema_isolation, tools unittest 44 OK. 코드 변경 없음(CI에서 전체 실행).
+
+## 2026-09-26 FS-019b 완료 — ERP 7/18 (Claude Code)
+
+- 사용자 결정: FS-019b~h 전부 Claude Code, E-G07 0원 매출 세금계산서 발급 금지.
+- E-02 견적 · E-03 판매계획 · E-04 수주 API·화면·도움말. 목록·저장 훅을 `shared/hooks.tsx`로 옮겨 MES·ERP 공용(별도 커밋).
+- 검증: frontend 354 passed, backend 561 passed(CI 환경), 스모크 87 passed, 360px 직접 확인. 상세 `docs/agent/ERP_FS-019b.md`.
