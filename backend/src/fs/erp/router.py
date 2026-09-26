@@ -5,7 +5,16 @@ from fastapi import APIRouter, Depends, Header, Query, Response
 from fs.common.auth import AuthContext, require_csrf, resolve_auth
 from fs.common.errors import ApiError
 from fs.common.page import Page
-from fs.erp import purchases, receipts, revenue, sales, schema, service, shipping
+from fs.erp import (
+    journal,
+    purchases,
+    receipts,
+    revenue,
+    sales,
+    schema,
+    service,
+    shipping,
+)
 
 router = APIRouter()
 Auth = Annotated[AuthContext, Depends(resolve_auth)]
@@ -810,3 +819,22 @@ def delete_purchase_invoice(
     key = mutation(context, x_csrf_token, idempotency_key)
     purchases.delete_invoice(context, invoice_id, key)
     return Response(status_code=204)
+
+
+# ---- FS-019g 분개 미리보기 (저장 없음, GET만) ----
+@router.get("/journal-preview")
+def get_journal_preview(
+    context: Auth,
+    kind: Literal["SALES", "PURCHASE", "RECEIPT", "PAYMENT"],
+    source_id: int | None = Query(None, alias="sourceId", gt=0),
+    apply_id: int | None = Query(None, alias="applyId", gt=0),
+):
+    # 매출·매입은 원천 id, 수금·지급은 소명 행 id(소명 1행 = 분개 1세트)
+    needed, field = (
+        (source_id, "sourceId")
+        if kind in ("SALES", "PURCHASE")
+        else (apply_id, "applyId")
+    )
+    if needed is None:
+        raise service.invalid(field, f"{kind}는 {field}가 필요합니다.")
+    return {"data": journal.preview(context, kind, needed)}
