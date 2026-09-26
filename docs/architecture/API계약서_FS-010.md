@@ -348,6 +348,12 @@ POST /sales-records/{id}/cancel      취소
 - 출하 확정 트랜잭션 안에서 매출 1건 + 채권 1건 생성(TX-09, `erp/revenue.py`). 세액: 품목 과세구분 TAXABLE 10%·ZERO/EXEMPT 0%, 명세별 공급가액·세액 1원 사사오입 후 합산. 채권 원금 = 합계, 만기 = 인식일(Asia/Seoul) + 결제일수(조건 없으면 NULL). 실패 시 출하 전체 롤백.
 - 수주 상태는 같은 트랜잭션에서 재계산: 유효 지시 없음 open / 있음 shipping / 전 명세 출하 완료 closed.
 
+### 매출·세금계산서 (FS-019d)
+
+- `GET /sales-records`: 공급가액·세액·합계·`recognizedAt`, `receivableId`·`dueDate`·`appliedAmount`(Σ소명), `taxInvoiceId`·`taxInvoiceStatus`, **`cancelBlockedReason`**(서버 파생: `ALREADY_CANCELLED` > `INVOICE_ISSUED` > `RECEIPT_APPLIED`, 없으면 null — 화면 툴팁용).
+- `POST /sales-records/{id}/cancel` `{reason}`: 매출 → 세금계산서 → 채권 잠금 뒤 위 조건 재확인, 막히면 409 + 같은 `reason`. 발급대기 계산서는 같은 트랜잭션에서 물리 삭제, `cancelled_at`·`cancel_reason` 기록. 채권 원금은 유지(유효 집계 제외), 출하 물류는 그대로.
+- `/tax-invoices`: POST `{salesRecordId}` → pending(매출당 1건 `INVOICE_EXISTS`, 취소 매출 `SALES_CANCELLED`, **0원 매출 `ZERO_AMOUNT_SALE` — E-G07 결정**). `POST /{id}/issue` `{approvalNo, issuedOn}`: pending만(`ALREADY_ISSUED`), 발급일 ≥ 매출일(KST) 400 `fields.issuedOn`, 승인번호 중복 400 `fields.approvalNo`. issued는 불변.
+
 ### 소명 계약
 
 - **`POST /receipts/{id}/applications`는 수금 확정 후에도 호출 가능하다.** 확정되는 것은 금액이지 배분이 아니다(FS-014b).

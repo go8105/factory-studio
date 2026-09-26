@@ -202,21 +202,23 @@ export function TaxInvoices() {
             onSubmit={(e) => void create(e)}
           >
             <h2>새 세금계산서</h2>
-            <div className="field">
-              <label htmlFor="tax-invoice-sale">매출</label>
-              <select
-                id="tax-invoice-sale"
-                value={saleId || ""}
-                onChange={(e) => setSaleId(Number(e.target.value))}
-              >
-                <option value="">매출 선택</option>
-                {eligible.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.shipmentNo} · {name.partner(s.partnerId)} ·{" "}
-                    {won(s.totalAmount)}
-                  </option>
-                ))}
-              </select>
+            <div className="master-grid">
+              <div className="field">
+                <label htmlFor="tax-invoice-sale">매출</label>
+                <select
+                  id="tax-invoice-sale"
+                  value={saleId || ""}
+                  onChange={(e) => setSaleId(Number(e.target.value))}
+                >
+                  <option value="">매출 선택</option>
+                  {eligible.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.shipmentNo} · {name.partner(s.partnerId)} ·{" "}
+                      {won(s.totalAmount)}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <p className="muted">
               취소되지 않았고 계산서가 없는 매출만 고를 수 있습니다.

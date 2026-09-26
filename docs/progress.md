@@ -891,3 +891,8 @@
 - FS-019b main ff(`0addc2e`, CI 통과) 뒤 진행. E-05 출하지시 · E-06 출하 API·화면·도움말, 출하 확정 트랜잭션 안에서 매출·채권 생성(TX-09를 019c에 포함 — 설계상 분리 불가).
 - 포털 흐름 화면 테스트의 역할 조회 대기를 5초로(병렬 실행 타이밍 실패 해결).
 - 검증: frontend 360, backend 574(CI 환경), 스모크 90, 360px 직접 확인. 상세 `docs/agent/ERP_FS-019c.md`.
+
+## 2026-09-26 FS-019d 완료 — ERP 11/18 (Claude Code)
+
+- FS-019c main ff(`22055ef`, CI 통과) 뒤 진행. E-07 매출 · E-08 세금계산서 API·화면·도움말. E-G07 0원 매출 발급 금지 구현.
+- 검증: frontend 367, backend 582(CI 환경), 스모크 93 ×2, 360px 직접 확인(E-08 select 모양 수정). 상세 `docs/agent/ERP_FS-019d.md`.
