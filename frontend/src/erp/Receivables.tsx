@@ -1,4 +1,4 @@
-// E-09 매출채권 현황 — 잔액·상태는 서버가 조회 때 계산, 행을 펼치면 소명 이력 (FS-019e)
+// E-09 매출채권 현황 · E-12 매입채무 현황 — 잔액·상태는 서버가 조회 때 계산, 행을 펼치면 소명 이력
 import { Fragment, useState } from "react";
 import {
   Badge,
@@ -8,7 +8,6 @@ import {
   PageTitle,
 } from "../shared/components";
 import {
-  customers,
   labels,
   ModuleOff,
   moduleOff,
@@ -17,70 +16,57 @@ import {
   won,
   type Partner,
 } from "./common";
+import { RECEIVABLE, toOpen, type OpenItem, type Side } from "./settlement";
 
-export type Application = {
-  id: number;
-  receiptId: number;
-  receivableId: number;
-  amount: string;
-  appliedAt: string;
-  receiptNo: string;
-  shipmentNo: string;
-};
-export type Receivable = {
-  id: number;
-  salesRecordId: number;
-  partnerId: number;
-  amount: string;
-  appliedAmount: string;
-  balance: string;
-  status: "OPEN" | "PARTIAL" | "CLOSED";
-  dueDate: string | null;
-  recognizedAt: string;
-  shipmentNo: string;
-  applications: Application[];
-};
 export const RV_STATUS: Record<
-  Receivable["status"],
+  OpenItem["status"],
   [string, "normal" | "warning" | "issue"]
 > = {
   OPEN: ["미회수", "issue"],
   PARTIAL: ["일부회수", "warning"],
   CLOSED: ["회수완료", "normal"],
 };
-const sum = (rows: Receivable[], key: "amount" | "appliedAmount" | "balance") =>
+const PV_STATUS: typeof RV_STATUS = {
+  OPEN: ["미지급", "issue"],
+  PARTIAL: ["일부지급", "warning"],
+  CLOSED: ["지급완료", "normal"],
+};
+const sum = (rows: OpenItem[], key: "amount" | "appliedAmount" | "balance") =>
   String(rows.reduce((total, r) => total + Number(r[key]), 0));
 
-export function Receivables() {
-  const { data, error, reload } = useLists<[Receivable[], Partner[]]>([
-    "/receivables",
-    PARTNERS,
-  ]);
+export function Receivables({ side = RECEIVABLE }: { side?: Side }) {
+  const receivable = side === RECEIVABLE;
+  const STATUS = receivable ? RV_STATUS : PV_STATUS;
+  const { data, error, reload } = useLists<
+    [Record<string, unknown>[], Partner[]]
+  >([side.openPath, PARTNERS]);
   const [partnerId, setPartnerId] = useState(0);
   const [status, setStatus] = useState("");
   const [open, setOpen] = useState<number>();
 
   if (moduleOff(error)) return <ModuleOff />;
-  const [all, partners] = data ?? [undefined, []];
+  const all = data?.[0].map(toOpen(side));
+  const partners = data?.[1] ?? [];
   const name = labels(partners, []);
   const rows = (all ?? []).filter(
     (r) =>
       (!partnerId || r.partnerId === partnerId) &&
       (!status || r.status === status),
   );
+  const title = receivable ? "매출채권 현황" : "매입채무 현황";
 
   return (
     <>
       <PageTitle
-        id="E-09"
-        title="매출채권 현황"
-        subtitle="매출채권의 원금·소명액·잔액과 회수 상태를 봅니다"
-        help="erp/e-09"
+        id={receivable ? "E-09" : "E-12"}
+        title={title}
+        subtitle={`${side.source}${side.item}의 원금·소명액·잔액과 ${receivable ? "회수" : "지급"} 상태를 봅니다`}
+        help={receivable ? "erp/e-09" : "erp/e-12"}
       />
       <p className="muted">
         잔액과 상태는 저장하지 않고 조회할 때 원금 − 소명액으로 계산합니다.
-        취소된 매출의 채권은 빠집니다. 만기 기준이 없는 채권이 있어
-        연령분석(aging)은 이번 범위에서 제공하지 않습니다.
+        취소된 {side.source}의 {side.item}은 빠집니다. 만기 기준이 없는{" "}
+        {side.item}이 있어 연령분석(aging)은 이번 범위에서 제공하지 않습니다.
       </p>
       <ErrorNotice error={error} retry={reload} />
       {!all ? (
@@ -95,11 +81,13 @@ export function Receivables() {
                 onChange={(e) => setPartnerId(Number(e.target.value))}
               >
                 <option value="">전체</option>
-                {customers(partners).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.partnerCode} {p.partnerName}
-                  </option>
-                ))}
+                {partners
+                  .filter((p) => p.partnerKind === side.partnerKind)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.partnerCode} {p.partnerName}
+                    </option>
+                  ))}
               </select>
             </label>
             <label>
@@ -109,7 +97,7 @@ export function Receivables() {
                 onChange={(e) => setStatus(e.target.value)}
               >
                 <option value="">전체</option>
-                {Object.entries(RV_STATUS).map(([key, [label]]) => (
+                {Object.entries(STATUS).map(([key, [label]]) => (
                   <option key={key} value={key}>
                     {label}
                   </option>
@@ -119,17 +107,17 @@ export function Receivables() {
           </div>
           {rows.length === 0 ? (
             <EmptyState
-              reason="조건에 맞는 매출채권이 없습니다. 출하를 확정하면 채권이 생깁니다."
-              to="/erp/shipments"
-              action="출하로"
+              reason={`조건에 맞는 ${side.item}이 없습니다. ${side.source}을 확정하면 ${side.item}이 생깁니다.`}
+              to={side.sourcePath}
+              action={`${side.source}로`}
             />
           ) : (
             <div className="table-scroll">
               <table>
-                <caption>매출채권 목록</caption>
+                <caption>{title.replace("현황", "목록")}</caption>
                 <thead>
                   <tr>
-                    <th scope="col">매출(출하번호)</th>
+                    <th scope="col">{side.doc}</th>
                     <th scope="col">관리</th>
                     <th scope="col">거래처</th>
                     <th scope="col">원금</th>
@@ -143,7 +131,7 @@ export function Receivables() {
                   {rows.map((r) => (
                     <Fragment key={r.id}>
                       <tr>
-                        <td>{r.shipmentNo}</td>
+                        <td>{r.doc}</td>
                         <td>
                           <button
                             type="button"
@@ -161,8 +149,8 @@ export function Receivables() {
                         <td>{won(r.appliedAmount)}</td>
                         <td>{won(r.balance)}</td>
                         <td>
-                          <Badge tone={RV_STATUS[r.status][1]}>
-                            {RV_STATUS[r.status][0]}
+                          <Badge tone={STATUS[r.status][1]}>
+                            {STATUS[r.status][0]}
                           </Badge>
                         </td>
                         <td>{r.dueDate ?? "미설정"}</td>
@@ -171,10 +159,10 @@ export function Receivables() {
                         <tr>
                           <td colSpan={8}>
                             {r.applications.length ? (
-                              <ul aria-label={`${r.shipmentNo} 소명 이력`}>
+                              <ul aria-label={`${r.doc} 소명 이력`}>
                                 {r.applications.map((a) => (
                                   <li key={a.id}>
-                                    {a.receiptNo} · {won(a.amount)} ·{" "}
+                                    {a.moneyNo} · {won(a.amount)} ·{" "}
                                     {new Date(a.appliedAt).toLocaleString()}
                                   </li>
                                 ))}

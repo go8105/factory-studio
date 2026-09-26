@@ -14,6 +14,8 @@ import { SalesRecords } from "./SalesRecords";
 import { TaxInvoices } from "./TaxInvoices";
 import { Receivables } from "./Receivables";
 import { Receipts } from "./Receipts";
+import { PurchaseInvoices } from "./PurchaseInvoices";
+import { PAYABLE } from "./settlement";
 export default function ErpRoutes() {
   return (
     <Routes>
@@ -28,6 +30,9 @@ export default function ErpRoutes() {
         <Route path="tax-invoices" element={<TaxInvoices />} />
         <Route path="receivables" element={<Receivables />} />
         <Route path="receipts" element={<Receipts />} />
+        <Route path="purchase-invoices" element={<PurchaseInvoices />} />
+        <Route path="payables" element={<Receivables side={PAYABLE} />} />
+        <Route path="payments" element={<Receipts side={PAYABLE} />} />
         <Route path="partners" element={<Partners />} />
         <Route path="items" element={<Items />} />
         <Route path="partner-prices" element={<Prices />} />

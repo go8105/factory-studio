@@ -32,6 +32,19 @@ export const erpScreens = [
     label: "수금 등록·소명",
     group: "채권·수금",
   },
+  {
+    path: "purchase-invoices",
+    id: "E-11",
+    label: "매입 전표",
+    group: "매입·채무",
+  },
+  { path: "payables", id: "E-12", label: "매입채무 현황", group: "매입·채무" },
+  {
+    path: "payments",
+    id: "E-13",
+    label: "지급 등록·소명",
+    group: "매입·채무",
+  },
   { path: "partners", id: "E-15", label: "거래처", group: "기준정보" },
   { path: "items", id: "E-16", label: "품목", group: "기준정보" },
   {

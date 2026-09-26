@@ -96,6 +96,9 @@ for (const [route, title] of [
   ["erp/tax-invoices", "세금계산서"],
   ["erp/receivables", "매출채권 현황"],
   ["erp/receipts", "수금 등록·소명"],
+  ["erp/purchase-invoices", "매입 전표"],
+  ["erp/payables", "매입채무 현황"],
+  ["erp/payments", "지급 등록·소명"],
   ["erp/partners", "거래처"],
   ["erp/items", "품목"],
   ["erp/partner-prices", "거래처별 단가"],
@@ -270,5 +273,25 @@ test("ERP 수금 등록 → 확정 → FIFO 소명 → 채권 회수완료", asy
   await page.getByRole("link", { name: /E-09 매출채권 현황/ }).click();
   await expect(page.getByRole("row", { name: /^SH-0001/ })).toContainText(
     "회수완료",
+  );
+});
+
+test("ERP 매입 전표 작성 → 확정 → 매입채무 생성", async ({ page }) => {
+  await page.goto("/erp/purchase-invoices");
+  const create = page.getByRole("form", { name: "매입 전표 등록" });
+  await create.getByLabel("전표번호").fill("E2E-PI1");
+  await create.getByRole("button", { name: "등록" }).click();
+  const detail = page.getByRole("region", { name: "매입 명세" });
+  await detail.getByRole("button", { name: "라인 추가" }).click();
+  await detail.getByLabel("1번째 수량").fill("10");
+  await detail.getByLabel("1번째 단가").fill("1000");
+  await detail.getByRole("button", { name: "명세 저장" }).click();
+  await expect(detail).toContainText("합계 11,000원");
+  const row = page.getByRole("row", { name: /^E2E-PI1/ });
+  await row.getByRole("button", { name: "확정", exact: true }).click();
+  await expect(row).toContainText("확정");
+  await page.getByRole("link", { name: /E-12 매입채무 현황/ }).click();
+  await expect(page.getByRole("row", { name: /^E2E-PI1/ })).toContainText(
+    "미지급",
   );
 });
