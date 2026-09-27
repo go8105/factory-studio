@@ -18,11 +18,12 @@ test("런처에서 전체 흐름으로 이동", async ({ page }) => {
     page.getByRole("heading", { name: "전체 업무 흐름", exact: true }),
   ).toBeVisible();
 });
-test("흐름 노드에서 QMS 설명 카드로 이동", async ({ page }) => {
+test("흐름 노드에서 QMS 검사 대기 도움말로 이동", async ({ page }) => {
   await page.goto("/flow");
   await page.getByRole("link", { name: /08 \/ QMS/ }).click();
+  await expect(page).toHaveURL("/help/qms/q-03");
   await expect(
-    page.getByRole("heading", { name: "품질관리 (QMS)" }),
+    page.getByRole("heading", { name: "검사 대기", exact: true }).first(),
   ).toBeVisible();
 });
 test("도움말 허브에서 공통 도움말로 이동", async ({ page }) => {

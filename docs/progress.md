@@ -1,12 +1,21 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-023b QMS API·Q-01~06 완료 + UI-03 B2(E-02)·Codex 비전검사 AI 설명/합성 이미지 검사실 main 통합. 다음 FS-023c.**
+- 단계: **FS-023c QMS 시드·도움말·흐름 맵 완료(로컬). 다음: 사용자 확인 후 push·운영 배포(템플릿 재생성).**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-27 FS-023c QMS 시드·게스트 복사·도움말·흐름 맵 (Claude Code)
+- 시드: `backend/seed/generate.py` `_qms` 113행(불량 유형 6·기준 4·항목 16·검사 17·측정값 68·보류 2), `sv-20260927-1`, 템플릿 7,583행·게스트 복사 7,581행. `validate.py` EXPECTED_COUNTS·V2(검사 월·번호 날짜)·V3(LOT 스냅샷 = MES 완료 LOT).
+- 복사: `seed/copy.py` `inspection_month` = 옮긴 검사일의 월, `QI-`/`QH-` 번호 속 날짜 이동. 복사 중앙값 0.359→0.405초(10회).
+- 테스트: `test_seed.py`·`test_common.py` 기대값(7,583/7,581, qms 스키마 포함), `test_qms.py` fixture가 QMS 시드를 지운 빈 상태에서 시작 + `test_seed_demo_flow` 추가. e2e `qms.spec.ts`를 시드 기준(LT-0017 검사→보류→배지→재검사 해제, FG-C100 v2 초안 게시)으로, `portal.spec.ts` QMS 노드 → `/help/qms/q-03`.
+- 도움말 `content/help/qms/q-01~06.md`, 공통 안내 절 추가. 흐름 맵 품질검사 노드 `solution`(스키마 qms 허용), 직결선 "QMS를 끄면 이 경로"(점선 아님). 설명 카드 QMS 제거, P-05에 QMS 구역. 노드정의서 FS-005a·배포절차(시드 변경 시 템플릿 재생성) 갱신.
+- 검증: pytest **683 passed**(11.9분, fs016_test), vitest **434 passed**, tsc·eslint·prettier·build 0, ruff check·format 0, db:validate 0, audit_schema_isolation 0, tools unittest 49 OK, diff --check 0. 공식 스모크 **188 passed**(11.5분, exit 0). 첫 실행은 187 passed·1 failed(`portal.spec.ts` QMS 카드 이동 — 카드 제거에 맞춰 도움말 이동으로 고침) 후 재실행.
+- 미실행: push·운영 배포·운영 템플릿 재생성(사용자 확인 대기). 360px는 스모크 portal 경로 목록으로만 확인.
+- 다음: 사용자 확인 → push·배포.
 
 ## 2026-09-27 통합·배포 (FS-023b·UI-03 B2·비전검사)
 - 통합·배포(2026-09-27, Claude Code): main에 FS-023b + UI-03 B2(`d194cb9`) + Codex 비전검사 AI 설명(`0f16bb6`)·합성 이미지 검사실(`da2f02a`) 병합(`2ef0578`). 검증: ruff·격리 R1~R6 0, vitest 435, 백엔드 설명 테스트 13, 공식 스모크 **187 passed**(11.8분). push `8851772..2ef0578`, 서버 pull·`alembic upgrade head`(→ `fs023b_qms_module`)·API 재시작, 프런트 빌드·rsync(번들 `index-aVsvqfGf.js` 일치). 운영 게스트 확인: QMS Q-01~06·MES 패킹·E-02 견적 패널·`/factory/vision-lab` 열림, 페이지 오류 0·5xx 0. OPENAI_API_KEY 미설정 → AI 설명은 데모 응답.
