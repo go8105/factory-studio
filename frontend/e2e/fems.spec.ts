@@ -170,10 +170,11 @@ test("환산·배출계수는 탭으로 나뉘고 단위는 서버가 정한다"
   await expect(
     emission.getByRole("cell", { name: "tCO2eq/kWh" }).first(),
   ).toBeVisible();
+  await page.getByRole("button", { name: "계수 등록" }).click();
   await page.getByLabel("적용 연도").fill("2027");
   await page.getByLabel(/^계수 \(/).fill("0.000450");
   await page.getByLabel("출처").fill("e2e 예시값");
-  await page.getByRole("button", { name: "등록" }).click();
+  await page.getByRole("button", { name: "등록", exact: true }).click();
   await expect(emission.getByRole("row", { name: /2027/ })).toContainText(
     "tCO2eq/kWh",
   );
@@ -208,6 +209,9 @@ test("사업장 시간대는 기록이 있으면 잠기고 공간 삭제는 참�
   await expect(
     page.getByText(/날짜 경계가 달라져 지난 합계가 바뀝니다/),
   ).toBeVisible();
+  // 저장이 막힌 패널은 오류와 함께 열려 있다. 변경을 버리고 닫은 뒤 목록을 쓴다.
+  await page.getByRole("button", { name: "취소" }).click();
+  await page.getByRole("button", { name: "변경 버리기" }).click();
   const places = page.getByRole("table", { name: "공간 목록" });
   const inj = places.getByRole("row", { name: /^L-INJ/ });
   await inj.getByRole("button", { name: "삭제" }).click();

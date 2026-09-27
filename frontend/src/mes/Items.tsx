@@ -188,10 +188,14 @@ export function Items() {
             type="button"
             className="link-button"
             aria-pressed={r.id === selectedId}
-            onClick={() => {
-              setSelectedId(r.id);
-              openConvPanel(null);
-            }}
+            // 환산 목록만 보여 준다. 등록은 목록 머리의 "환산 등록"으로 연다
+            // (겹침 화면에서 자동으로 열린 패널이 방금 고른 목록을 가리지 않게).
+            onClick={() =>
+              guard.guard(() => {
+                setSelectedId(r.id);
+                if (panel?.type === "conv") closePanel();
+              })
+            }
           >
             환산 {r.conversions.length}
           </button>

@@ -94,11 +94,13 @@ export function Shipments() {
     setError(undefined);
   }
 
+  // 저장 직후에는 방금 저장한 폼이 아직 '변경됨'으로 보이므로 가드 없이 고른다(UI-02 검토).
+  function choose(id: number | undefined) {
+    setSelectedId(id);
+    setError(undefined);
+  }
   function select(id: number | undefined) {
-    guard.guard(() => {
-      setSelectedId(id);
-      setError(undefined);
-    });
+    guard.guard(() => choose(id));
   }
 
   async function submit(event: FormEvent) {
@@ -116,7 +118,7 @@ export function Shipments() {
       setCreate({ shipmentNo: "", shipmentOrderId: 0 });
       setPacking({});
       setPanelOpen(false);
-      select(created.id);
+      choose(created.id);
     }
   }
 

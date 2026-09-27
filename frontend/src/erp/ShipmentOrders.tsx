@@ -107,12 +107,14 @@ export function ShipmentOrders() {
     setError(undefined);
   }
 
+  // 저장 직후에는 방금 저장한 폼이 아직 '변경됨'으로 보이므로 가드 없이 고른다(UI-02 검토).
+  function choose(id: number | undefined) {
+    setSelectedId(id);
+    setReason("");
+    setError(undefined);
+  }
   function select(id: number | undefined) {
-    guard.guard(() => {
-      setSelectedId(id);
-      setReason("");
-      setError(undefined);
-    });
+    guard.guard(() => choose(id));
   }
 
   function chooseOrder(id: number) {
@@ -144,7 +146,7 @@ export function ShipmentOrders() {
       setCreate({ shipOrderNo: "", salesOrderId: 0, orderedOn: today() });
       setQtys({});
       setPanelOpen(false);
-      select(created.id);
+      choose(created.id);
     }
   }
 

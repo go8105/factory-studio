@@ -109,13 +109,15 @@ export function Receipts({ side = RECEIVABLE }: { side?: Side }) {
     setError(undefined);
   }
 
+  // 저장 직후에는 방금 저장한 폼이 아직 '변경됨'으로 보이므로 가드 없이 고른다(UI-02 검토).
+  function choose(id: number | undefined) {
+    setSelectedId(id);
+    setAmounts({});
+    setConfirmUndo(undefined);
+    setError(undefined);
+  }
   function select(id: number | undefined) {
-    guard.guard(() => {
-      setSelectedId(id);
-      setAmounts({});
-      setConfirmUndo(undefined);
-      setError(undefined);
-    });
+    guard.guard(() => choose(id));
   }
 
   async function submitCreate(event: FormEvent) {
@@ -130,7 +132,7 @@ export function Receipts({ side = RECEIVABLE }: { side?: Side }) {
     if (created) {
       setCreate(blank);
       setPanelOpen(false);
-      select(created.id as number);
+      choose(created.id as number);
     }
   }
 

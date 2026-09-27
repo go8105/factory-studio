@@ -237,7 +237,10 @@ it("환산을 누르면 그 품목의 단위 환산을 보여준다", async () =
   expect(
     within(table).getByRole("cell", { name: "1 BOX = 10,000 EA" }),
   ).toBeVisible();
-  expect(screen.getByLabelText("환산 계수 (1 BOX = ? EA)")).toBeVisible();
+  // 목록만 보여 주고, 등록 패널은 "환산 등록"으로 연다.
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "환산 등록" }));
+  expect(await screen.findByLabelText(/^환산 계수/)).toBeVisible();
 });
 
 it("기준 단위 잠금 오류를 보여준다", async () => {

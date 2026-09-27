@@ -168,9 +168,10 @@ test("ERP 거래처 등록 → 수정 → 삭제", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "거래처", exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "거래처 등록" }).click();
   await page.getByLabel("거래처 코드", { exact: true }).fill("E2E-ERP");
   await page.getByLabel("거래처명", { exact: true }).fill("브라우저 거래처");
-  await page.getByRole("button", { name: "저장", exact: true }).click();
+  await page.getByRole("button", { name: "등록", exact: true }).click();
   const row = page.getByRole("row", { name: /^E2E-ERP/ });
   await expect(row).toBeVisible();
   await row.getByRole("button", { name: "수정", exact: true }).click();
@@ -213,6 +214,7 @@ test("ERP 견적 작성 → 확정 → 제출 → 수주 전환", async ({ page 
 
 test("ERP 수주 출하지시 → 출하 확정 → 수주 완료", async ({ page }) => {
   await page.goto("/erp/shipment-orders");
+  await page.getByRole("button", { name: "출하지시 만들기" }).click();
   const form = page.getByRole("form", { name: "출하지시 만들기" });
   await form.getByLabel("출하지시번호").fill("E2E-SHO1");
   const order = form.getByLabel("수주");
@@ -223,6 +225,10 @@ test("ERP 수주 출하지시 → 출하 확정 → 수주 완료", async ({ pag
     "미출하",
   );
   await page.getByRole("link", { name: /E-06 출하$/ }).click();
+  await page
+    .locator(".page-actions")
+    .getByRole("button", { name: "출하 확정" })
+    .click();
   const ship = page.getByRole("form", { name: "출하 확정" });
   await ship.getByLabel("출하번호").fill("E2E-SH1");
   const target = ship.getByLabel("출하지시");
@@ -238,7 +244,8 @@ test("ERP 수주 출하지시 → 출하 확정 → 수주 완료", async ({ pag
 
 test("ERP 세금계산서 발급 → 매출 취소 막힘", async ({ page }) => {
   await page.goto("/erp/tax-invoices");
-  const create = page.getByRole("form", { name: "세금계산서 만들기" });
+  await page.getByRole("button", { name: "계산서 만들기" }).click();
+  const create = page.getByRole("form", { name: "새 세금계산서" });
   const sale = create.getByLabel("매출");
   const option = sale.locator("option", { hasText: "SH-0004" });
   await sale.selectOption((await option.getAttribute("value"))!);
@@ -246,7 +253,7 @@ test("ERP 세금계산서 발급 → 매출 취소 막힘", async ({ page }) => 
   const row = page.getByRole("row", { name: /^SH-0004/ });
   await expect(row).toContainText("발급대기");
   await row.getByRole("button", { name: "발급" }).click();
-  const issue = page.getByRole("form", { name: "세금계산서 발급" });
+  const issue = page.getByRole("form", { name: "SH-0004 발급" });
   await issue.getByLabel("승인번호").fill("E2E-TI-1");
   await issue.getByRole("button", { name: "발급완료로 기록" }).click();
   await expect(row).toContainText("E2E-TI-1");
@@ -260,6 +267,10 @@ test("ERP 세금계산서 발급 → 매출 취소 막힘", async ({ page }) => 
 
 test("ERP 수금 등록 → 확정 → FIFO 소명 → 채권 회수완료", async ({ page }) => {
   await page.goto("/erp/receipts");
+  await page
+    .locator(".page-actions")
+    .getByRole("button", { name: "수금 등록" })
+    .click();
   const create = page.getByRole("form", { name: "수금 등록" });
   await create.getByLabel("수금번호").fill("E2E-RC1");
   await create.getByLabel("수금액").fill("1827800");
@@ -280,7 +291,8 @@ test("ERP 수금 등록 → 확정 → FIFO 소명 → 채권 회수완료", asy
 
 test("ERP 매입 전표 작성 → 확정 → 매입채무 생성", async ({ page }) => {
   await page.goto("/erp/purchase-invoices");
-  const create = page.getByRole("form", { name: "매입 전표 등록" });
+  await page.getByRole("button", { name: "매입 전표 등록" }).click();
+  const create = page.getByRole("form", { name: "새 매입 전표" });
   await create.getByLabel("전표번호").fill("E2E-PI1");
   await create.getByRole("button", { name: "등록" }).click();
   const detail = page.getByRole("region", { name: "매입 명세" });

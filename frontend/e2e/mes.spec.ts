@@ -32,7 +32,10 @@ test("계획 라인에서 작업지시를 만들어 발행하면 LOT이 생긴�
   await page.getByLabel("지시 수량").fill("100");
   await page.getByLabel("계획 시작일").fill("2026-09-28");
   await page.getByLabel("계획 종료일").fill("2026-09-30");
-  await page.getByRole("button", { name: "등록" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "등록", exact: true })
+    .click();
   const orders = page.getByRole("table", { name: "작업지시 목록" });
   const created = orders.getByRole("row", { name: /^WO-0031/ });
   await expect(created).toContainText("등록");
@@ -183,6 +186,8 @@ test("남은 양품을 BOX에 담아 PALLET으로 묶고 입고한다", async ({
   await page.goto("/mes/packing");
   await page.getByRole("button", { name: "새 PALLET" }).click();
   await expect(page.getByRole("heading", { name: /PL-0007/ })).toBeVisible();
+  // 만든 포장은 오른쪽 패널로 열린다. 닫고 다음 포장을 만든다.
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "새 BOX" }).click();
   await expect(page.getByRole("heading", { name: /BX-0031/ })).toBeVisible();
   await page.getByRole("button", { name: "담기" }).click();
@@ -191,6 +196,7 @@ test("남은 양품을 BOX에 담아 PALLET으로 묶고 입고한다", async ({
   ).toHaveCount(2);
   await page.getByRole("button", { name: "BOX 닫기" }).click();
   await page.getByRole("button", { name: "PALLET에 묶기" }).click();
+  await page.keyboard.press("Escape");
   const units = page.getByRole("table", { name: "포장 목록" });
   await units
     .getByRole("row", { name: /^PL-0007/ })

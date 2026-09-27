@@ -349,26 +349,6 @@ export function Materials() {
                   <Loading />
                 ) : (
                   <>
-                    {detail.req.length === 0 ? (
-                      <p className="notice">
-                        BOM 없이 발행된 지시라 기준 소요량이 없습니다. 투입량을
-                        직접 입력하세요.
-                      </p>
-                    ) : (
-                      <DataTable
-                        rows={detail.req.map((r) => ({
-                          ...r,
-                          id: r.materialItemId,
-                        }))}
-                        columns={reqColumns}
-                        caption="BOM 기준 소요량"
-                        offset={0}
-                        total={detail.req.length}
-                        limit={detail.req.length}
-                        onPage={() => undefined}
-                        empty={null}
-                      />
-                    )}
                     <DataTable
                       rows={detail.issues}
                       columns={issueColumns}
@@ -413,6 +393,30 @@ export function Materials() {
               }
             >
               <p className="muted">{selected.lotNo} 자재 투입</p>
+              {/* 제안량 채우기는 입력과 같은 패널에 둔다. 겹침 화면에서 목록 쪽 버튼은 패널에 가려진다. */}
+              {detail &&
+                (detail.req.length === 0 ? (
+                  <p className="notice">
+                    BOM 없이 발행된 지시라 기준 소요량이 없습니다. 투입량을 직접
+                    입력하세요.
+                  </p>
+                ) : (
+                  <div className="section-block">
+                    <DataTable
+                      rows={detail.req.map((r) => ({
+                        ...r,
+                        id: r.materialItemId,
+                      }))}
+                      columns={reqColumns}
+                      caption="BOM 기준 소요량"
+                      offset={0}
+                      total={detail.req.length}
+                      limit={detail.req.length}
+                      onPage={() => undefined}
+                      empty={null}
+                    />
+                  </div>
+                ))}
               <ErrorNotice
                 error={Object.keys(errors).length ? undefined : saveError}
               />
