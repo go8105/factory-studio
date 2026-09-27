@@ -1,6 +1,6 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-27 (UI-02 공통 UI 확정·main 통합 · 운영 후속 — 이지스 도메인·:8000 차단·UI-01 배포·운영자 계정 도구, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-27 (UI-02 A1 대시보드 조회 월 위치 완료, Antigravity). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
@@ -22,8 +22,8 @@
 | FS-022 | **완료 — https://eip.hugh-d.com**. 이지스 서버 공존(Nginx 443 이름 기반, uvicorn 127.0.0.1:8021, PG18 Docker 55432, Cloudflare 프록시 + Origin CA). 절차·업데이트·걷어내기 `docs/deploy/배포절차_FS-022.md`. 서버 접속: 맥북 `ssh root@158.247.236.136`(키) |
 | UI-01 | 완료 `docs/ui/디자인시스템_UI-01.md` — main 통합·서버 배포(2026-09-26). 공통 토큰·`SolutionLayout`(접기·서랍)·넓은 업무 화면·3D 캔버스 확보. 393·10·107 통과 |
 | 운영 | 443은 Cloudflare IP만, 이지스는 https://aegis.hugh-d.com(Cloudflare Access)·:8000 외부 차단, 운영자 계정은 `tools/create_member.py`(서버에서 실행), DB는 SSH 터널(§12-5) |
-| UI-02 | **완료(main 통합)** `docs/ui/공통UI규약_UI-02.md` — 앱 틀 스크롤 소유권·목록 채움·`FormPanel`, 기준 화면 F-01·F-02·F-05, 적용표 55화면, Antigravity 지시서 A1~A6. vitest 402·스모크 121/122(3D 캔버스 캡처 시간 초과 1건, 단독 재실행 통과) |
-| 다음 | UI-02 서버 배포(사용자 확인 후) → Antigravity A1(`docs/agent/Antigravity_작업지시_UI-02.md`) · Claude UI-03(예외 패턴 8화면). SSH 비밀번호 로그인 끄기(보류), 옛 브랜치 정리(원격 삭제는 확인 후) |
+| UI-02 | **진행 중(A1 완료)** `docs/ui/공통UI규약_UI-02.md` — A1 대시보드(M-01, E-01) 완료, vitest 402 통과, 다음 A2 조회 목록 대기 |
+| 다음 | Antigravity A1 사용자 리뷰/확인 → A2(조회 목록 M-09, E-07, E-14, P-07) 진행 |
 
 ## 다음 할 일
 
@@ -121,3 +121,14 @@ git diff --check
 - Node 24.21.0: typecheck/lint/format:check/build exit 0. 전체 테스트는 자원 경합을 줄인 `npm --prefix frontend test -- --maxWorkers=2`로 346개 통과. 독립 Chromium 브라우저 10개 통과(2.1분, exit 0). 외관/내부/모바일 스크린샷 직접 확인.
 - Blender 5.2.2 LTS. 생성 스크립트와 .blend/GLB를 저장. 새 npm 의존성 없음. 상세 `docs/agent/3D공장_공간고도화.md`.
 - backend/DB/공용 통합 스모크·Safari/실기기 성능은 미실행. main 병합·push 없음. 다음: 사용자 시각 피드백 및 통합 담당자 main 통합. 최종 커밋은 이 인계를 포함한 `3D 공장: 건물·재질·생산라인 공간 고도화`이며 `git log -1`로 확인.
+
+## Antigravity — UI-02 A1 (2026-09-27)
+- 브랜치: `antigravity/ui02-a1` / 기준 커밋: `ed9f438cbbd1f2aacec67a3029304020e3d7865e` (main) / 마지막 커밋: `a2c2e76`
+- 옮긴 화면: M-01(`frontend/src/mes/Dashboard.tsx`), E-01(`frontend/src/erp/Dashboard.tsx`)
+- 내용:
+  - 별도 `filter-bar`의 조회 월 입력을 `PageTitle`의 `actions`로 이동
+  - 카드 순서·내용 및 2×2 유지, 쿼리 파라미터 및 KPI 보존
+  - `frontend/e2e/layout.spec.ts`에 M-01 및 E-01 조회 월 위치 검사 추가
+- 검증: typecheck·lint·format:check·build·test(43개 파일 402개 테스트 통과)·diff --check 모두 통과(exit 0)
+- 공통 컴포넌트 확장 요청: 없음
+- 남은 문제: 없음. 사용자 확인 후 A2 진행 대기

@@ -91,17 +91,17 @@ export function Dashboard() {
         title="경영 개요"
         subtitle="이번 달 매출과 미수금을 한눈에 봅니다"
         help="erp/e-01"
+        actions={
+          <label>
+            조회 월
+            <input
+              type="month"
+              value={month || data?.month || ""}
+              onChange={(e) => e.target.value && setMonth(e.target.value)}
+            />
+          </label>
+        }
       />
-      <div className="filter-bar">
-        <label>
-          조회 월
-          <input
-            type="month"
-            value={month || data?.month || ""}
-            onChange={(e) => e.target.value && setMonth(e.target.value)}
-          />
-        </label>
-      </div>
       <ErrorNotice error={error} />
       {!data ? (
         !error && <Loading />

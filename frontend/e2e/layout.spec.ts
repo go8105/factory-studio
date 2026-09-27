@@ -64,6 +64,18 @@ for (const route of ["/fems/dashboard", "/mes/dashboard", "/erp/dashboard"]) {
   }
 }
 
+for (const route of ["/mes/dashboard", "/erp/dashboard"]) {
+  test(`${route} 조회 월이 PageTitle actions 안에 있고 별도 필터바가 없다`, async ({
+    page,
+  }) => {
+    await page.goto(route);
+    await expect(
+      page.locator(".page-actions").getByLabel("조회 월"),
+    ).toBeVisible();
+    await expect(page.locator(".filter-bar")).toHaveCount(0);
+  });
+}
+
 test("1440 생산량 패널은 겹쳐 열리고 Esc로 닫혀 버튼으로 돌아간다", async ({
   page,
 }) => {

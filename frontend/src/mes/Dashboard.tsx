@@ -87,17 +87,17 @@ export function Dashboard() {
         title="생산 개요"
         subtitle="이번 달 생산·품질과 공정별로 LOT이 어디에 있는지 봅니다"
         help="mes/m-01"
+        actions={
+          <label>
+            조회 월
+            <input
+              type="month"
+              value={month || data?.month || ""}
+              onChange={(e) => e.target.value && setMonth(e.target.value)}
+            />
+          </label>
+        }
       />
-      <div className="filter-bar">
-        <label>
-          조회 월
-          <input
-            type="month"
-            value={month || data?.month || ""}
-            onChange={(e) => e.target.value && setMonth(e.target.value)}
-          />
-        </label>
-      </div>
       <ErrorNotice error={error} />
       {!data ? (
         !error && <Loading />
