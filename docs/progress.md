@@ -8,6 +8,13 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-09-27 P-02 홈 UI 정돈 main 통합 (Claude Code)
+- 확인: 로컬·원격 브랜치 중 main에 내용이 빠진 것은 `codex/home-ui-polish`(`086f4d7`, Codex) 하나였다. 나머지(3D·UI-01·FS-019a·FS-018h 등)는 다른 해시로 이미 통합됨.
+- 병합 `d93b757`: 새 홈 디자인 기준으로 `Home.tsx` 충돌 해결 — QMS 4번째 타일·방패 아이콘 추가, 사용자 결정으로 하단 "아직 만들지 않은 것"(WMS·BEMS·SCM 설명 카드 링크) 유지. 4열 격자, 540px 이하 2×2. 문서 3건은 양쪽 기록 모두 보존.
+- 테스트: `home-polish.test.tsx`(하단 링크·QMS 타일), `e2e/home.spec.ts`(QMS 타일, 360px QMS 안내 가로 넘침 없음), 도움말 p-02 갱신.
+- 검증: vitest **440 passed**, typecheck·lint·format 0, 홈 브라우저 8 passed, 공식 스모크 **196 passed**(11.4분). 데스크톱·360px 스크린샷 직접 확인.
+- 남은 것: 홈 제목 "제조 현장의 세 시스템" 문구는 그대로(QMS 포함 네 솔루션). push·배포 미실행.
+
 ## 2026-09-27 FS-023c QMS 시드·게스트 복사·도움말·흐름 맵 (Claude Code)
 - 시드: `backend/seed/generate.py` `_qms` 113행(불량 유형 6·기준 4·항목 16·검사 17·측정값 68·보류 2), `sv-20260927-1`, 템플릿 7,583행·게스트 복사 7,581행. `validate.py` EXPECTED_COUNTS·V2(검사 월·번호 날짜)·V3(LOT 스냅샷 = MES 완료 LOT).
 - 복사: `seed/copy.py` `inspection_month` = 옮긴 검사일의 월, `QI-`/`QH-` 번호 속 날짜 이동. 복사 중앙값 0.359→0.405초(10회).
