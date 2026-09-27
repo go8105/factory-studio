@@ -97,16 +97,20 @@ for (const route of [
   "/erp/partners",
   "/erp/items",
   "/erp/partner-prices",
-  "/erp/accounts",
   "/fems/sites",
   "/fems/equipments",
   "/fems/energy-sources",
   "/fems/energy-factors",
   "/fems/tariffs",
 ]) {
-  test(`${route} 조회 목록은 .page-fill 루트를 갖는다`, async ({ page }) => {
+  test(`1440×900 ${route} 목록 채움: 문서가 스크롤되지 않는다`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(route);
     await expect(page.locator(".page-fill")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    expect(await docHeight(page)).toBeLessThanOrEqual(900);
   });
 }
 
@@ -117,6 +121,7 @@ for (const route of [
   "/fems/targets",
   "/fems/billing",
   "/erp/receivables",
+  "/erp/accounts",
 ]) {
   test(`${route} 보고서형 조회는 .page-fill을 쓰지 않는다`, async ({
     page,

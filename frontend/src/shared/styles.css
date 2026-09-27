@@ -215,7 +215,8 @@ select[aria-invalid="true"] {
   margin-bottom: var(--s3);
   min-width: 0;
 }
-.field label {
+.field label,
+.field .label {
   display: block;
   margin-bottom: var(--s1);
   font-size: var(--fs-sm);
@@ -1103,6 +1104,16 @@ th[aria-sort="none"] button span {
   }
 }
 
+/* ---- 목록 칸에 섹션 여러 개 쌓기(section-block, UI-02) ----
+   한 화면에 목록이 둘 이상이면(사업장·공간, 대기 LOT·포장 목록 등) 각 목록을 .section-block으로 감싼다.
+   목록 채움 화면에서는 섹션을 쌓은 칸 전체가 스크롤하고, 각 표는 내용 높이만큼 차지한다. */
+.section-block {
+  margin-bottom: var(--s5);
+}
+.section-block:last-child {
+  margin-bottom: 0;
+}
+
 /* ---- 목록 채움(page-fill, UI-02) ----
    데스크톱 목록 화면은 헤더 아래 남은 높이를 쓴다. 문서는 스크롤하지 않고 결과 영역(.fill)만
    스크롤하므로 제목·필터·표 머리글·페이지 이동이 항상 보인다. 좁은 폭·낮은 높이·확대 상태는
@@ -1122,6 +1133,9 @@ th[aria-sort="none"] button span {
   }
   .page-fill .table-scroll {
     flex: 0 1 auto;
+  }
+  .page-fill .fill:has(> .section-block) {
+    overflow-y: auto;
   }
   .page-fill .pagination {
     position: static;

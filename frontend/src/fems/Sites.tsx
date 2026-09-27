@@ -396,16 +396,8 @@ export function Sites() {
         !loadError && <Loading />
       ) : (
         <div className="split-view fill">
-          <div
-            className="fill"
-            style={{
-              overflowY: "auto",
-              display: "flex",
-              flexDirection: "column",
-              gap: "var(--s5)",
-            }}
-          >
-            <section>
+          <div className="fill">
+            <section className="section-block">
               <div className="section-heading">
                 <h2>사업장</h2>
                 <button
@@ -439,7 +431,7 @@ export function Sites() {
                 공간은 사업장을 먼저 등록한 뒤 추가합니다.
               </p>
             ) : (
-              <section>
+              <section className="section-block">
                 <div className="section-heading">
                   <h2>공간</h2>
                   <button
