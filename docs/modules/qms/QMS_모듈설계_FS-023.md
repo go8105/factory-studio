@@ -1,7 +1,7 @@
 # FS-023 QMS 모듈 설계서
 
 작성일: 2026-09-27 (Claude Code)
-상태: **설계 초안 — 사용자 승인 대기.** 4장 테이블은 `schema.json`에 아직 반영하지 않았다(승인 후 FS-023a).
+상태: **확정 — 사용자 승인 2026-09-27.** 4장 테이블은 FS-023a에서 `schema.json` v0.10.0·마이그레이션 `fs023a_qms`로 반영. 13장 결정 3건은 권장안(서버 발번 · 서버가 정한 최근 월 · 패킹 여부와 무관하게 보류 생성)으로 확정.
 전제: [FS-023 결정서](../../plan/QMS도입_교차조회_결정_FS-023.md)(D8~D12, 조회 인터페이스 X1~X6), [FS-013](../../plan/독립솔루션_전환결정_FS-013.md)
 화면: [QMS 화면 설계 FS-023](../../ui/화면설계_QMS_FS-023.md)
 
@@ -65,7 +65,18 @@ MES를 꺼도 QMS만으로 "기준을 정하고, LOT 코드를 입력해 검사�
 ## 4. DB 차분 — `qms` 스키마 6테이블
 
 공통 컬럼(모든 테이블): `id bigint GENERATED ALWAYS AS IDENTITY` · `workspace_id bigint NN` · `generation_id bigint NN` · `created_at timestamptz NN default now()`.
-공통 제약: PK(id) · UK(workspace_id, id) · 범위 앵커 FK `(workspace_id, generation_id) → core.data_generation` · 업무 FK는 `(workspace_id, 참조 id)` 복합 참조, 삭제 RESTRICT · scope `generation` · retention `세대 정리`.
+공통 제약: PK(id) · UK(workspace_id, generation_id, id) · 범위 앵커 FK `(workspace_id, generation_id) → core.data_generation(workspace_id, id)` · 업무 FK는 `(workspace_id, generation_id, 참조 id) → (workspace_id, generation_id, id)` 복합 참조, 삭제·변경 RESTRICT · scope `generation` · retention `세대 정리`. FK 열마다 조회 INDEX. 아래 표의 `S`는 `(workspace_id, generation_id)`.
+
+엔티티 목록(검증기 `validate_db_design.py`가 읽는 기준 목록):
+
+| 엔티티 | 하위 모듈 | 역할 |
+|---|---|---|
+| `qms.defect_type` | qms_master | 불량 유형 |
+| `qms.inspection_spec` | spec | 품목별 검사 기준 버전. 게시 후 불변 |
+| `qms.inspection_spec_item` | spec | 검사 항목(RANGE / PASS_FAIL) |
+| `qms.inspection` | inspection | LOT 출하 전 최종검사 |
+| `qms.inspection_value` | inspection | 항목별 측정값·판정 |
+| `qms.quality_hold` | hold | 품질 보류와 처분 |
 
 ### 4.1 `qms.defect_type` 불량 유형 (`qms_master`)
 

@@ -21,7 +21,7 @@ from uuid import uuid4
 from sqlalchemy import Connection, create_engine, inspect, text
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMAS = ("core", "mes", "erp", "fems")
+SCHEMAS = ("core", "mes", "erp", "fems", "qms")
 
 
 def ident(value: str) -> str:

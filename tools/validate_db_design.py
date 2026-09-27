@@ -10,13 +10,21 @@ ROOT = Path(__file__).resolve().parents[1]
 DESIGN = ROOT/'docs/db/스키마_재구성_FS-014.md'
 
 
+# 작업 ID별 기준 엔티티 목록. 뒤 작업은 앞 작업의 목록을 이어받는다.
+LATER_THAN_014B = {'FS-014b', 'FS-008b', 'FS-008c', 'FS-023a'}
+LATER_THAN_008B = {'FS-008b', 'FS-008c', 'FS-023a'}
+QMS_DESIGN = ROOT/'docs/modules/qms/QMS_모듈설계_FS-023.md'
+
+
 def design_names(task='FS-014'):
     names = set(re.findall(r'^\| `((?:core|mes|erp|fems)\.[a-z_]+)` \|', DESIGN.read_text(encoding='utf-8'), re.M))
-    if task in {'FS-014b', 'FS-008b', 'FS-008c'}:
+    if task in LATER_THAN_014B:
         document = ROOT/'docs/db/스키마_재구성_FS-014b.md'
         names |= set(re.findall(r'^\| `(erp\.[a-z_]+)` \|', document.read_text(encoding='utf-8'), re.M))
-    if task in {'FS-008b', 'FS-008c'}:
+    if task in LATER_THAN_008B:
         names.discard('core.dashboard_layout')
+    if task == 'FS-023a':
+        names |= set(re.findall(r'^\| `(qms\.[a-z_]+)` \|', QMS_DESIGN.read_text(encoding='utf-8'), re.M))
     return names
 
 
@@ -84,10 +92,32 @@ def validate(d, expected=None, isolation=True):
         for name, column in obsolete.items():
             require(column not in columns.get(name, {}), f'{name}: obsolete column {column}')
             require(not any(c['table'] == name and re.search(r'\b'+column+r'\b', json.dumps(c, ensure_ascii=False)) for c in d['constraints']), f'{name}: stale rule referring to {column}')
-    if d.get('task') in {'FS-014b', 'FS-008b', 'FS-008c'} or d.get('version') in {'0.8.0', '0.9.0', '0.9.1'}:
+    if d.get('task') in LATER_THAN_014B or d.get('version') in {'0.8.0', '0.9.0', '0.9.1', '0.10.0'}:
         errors.extend(validate_accounting(d))
-    if d.get('task') in {'FS-008b', 'FS-008c'} or d.get('version') in {'0.9.0', '0.9.1'}:
+    if d.get('task') in LATER_THAN_008B or d.get('version') in {'0.9.0', '0.9.1', '0.10.0'}:
         errors.extend(validate_screen_gaps(d))
+    if d.get('task') == 'FS-023a':
+        errors.extend(validate_qms(d))
+    return errors
+
+
+def validate_qms(d):
+    """FS-023 설계 계약: 교차 스키마 FK 없음·게시/보류 부분 유니크·스냅샷 컬럼·모듈 키."""
+    errors = []
+    cs, ts = d['constraints'], {t['name']: {c['name']: c for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('FS-023: ' + message)
+    def partial(table, column, predicate):
+        return any(c['table'] == table and c['kind'] == 'UK_PARTIAL' and c['columns'] == SCOPE + [column]
+                   and c['expression'].endswith('WHERE ' + predicate) for c in cs)
+    require(partial('qms.inspection_spec', 'item_code', "status = 'published'"), 'one published spec per item')
+    require(partial('qms.inspection', 'lot_no', "status = 'draft'"), 'one draft inspection per LOT')
+    require(partial('qms.quality_hold', 'lot_no', "status = 'held'"), 'one active hold per LOT')
+    for table in ('qms.inspection', 'qms.quality_hold'):
+        require('lot_no' in ts.get(table, {}) and not any(k.endswith('lot_id') for k in ts.get(table, {})), f'{table}: LOT is a snapshot code, not an id')
+    require(not any(r['source'].startswith('qms.') and r['target'].split('.')[0] not in {'qms', 'core'} for r in d['relations']), 'no FK from qms to other business schemas')
+    require(any(c['table'] == 'core.workspace_module' and c['kind'] == 'CHECK' and "'qms'" in c['expression'] for c in cs), 'module key qms')
     return errors
 
 
@@ -199,7 +229,7 @@ def main():
     for t in d['tables']:
         schema = t['name'].split('.')[0]
         by_schema[schema] = by_schema.get(schema, 0) + 1
-    report = dict(task=d['task'], validation='정적 메타데이터 검증 + FS-013 R1~R5', database_applied=False,
+    report = dict(task=d['task'], validation='정적 메타데이터 검증 + FS-013 R1~R6', database_applied=False,
                   tables=len(d['tables']), tables_by_schema=dict(sorted(by_schema.items())),
                   columns=sum(len(t['columns']) for t in d['tables']), foreign_keys=len(d['relations']),
                   constraints_and_policies=len(d['constraints']), source_sha256=hashlib.sha256(raw).hexdigest(), errors=errors,

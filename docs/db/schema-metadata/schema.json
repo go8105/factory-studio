@@ -1,9 +1,9 @@
 {
-  "version": "0.9.1",
-  "task": "FS-008c",
-  "date": "2026-09-23",
+  "version": "0.10.0",
+  "task": "FS-023a",
+  "date": "2026-09-27",
   "status": "설계 초안 / DB 미적용",
-  "migration_revision": null,
+  "migration_revision": "fs023a_qms",
   "tables": [
     {
       "name": "core.app_user",
@@ -6539,6 +6539,656 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "qms.defect_type",
+      "label": "불량 유형",
+      "scope": "generation",
+      "phase": "Q1",
+      "retention": "세대 정리",
+      "note": "FS-023 4.1. 쓰인 유형은 삭제 대신 사용 안 함",
+      "sub_module": "qms_master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "불량 유형 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": "대문자로 시작; MES 불량 사유 코드와 같게 심되 FK 없음"
+        },
+        {
+          "name": "name",
+          "label": "불량 유형명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "qms.inspection_spec",
+      "label": "검사 기준 버전",
+      "scope": "generation",
+      "phase": "Q1",
+      "retention": "세대 정리",
+      "note": "FS-023 4.2. 게시 후 불변, 품목당 게시 1건, 검사 생성 시 고정",
+      "sub_module": "spec",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "item_code",
+          "label": "품목 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": "MES 조회 또는 직접 입력한 코드 스냅샷(D11)"
+        },
+        {
+          "name": "item_name",
+          "label": "품목명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": "스냅샷"
+        },
+        {
+          "name": "version_no",
+          "label": "버전 번호",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / published / retired"
+        },
+        {
+          "name": "published_at",
+          "label": "게시 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "note",
+          "label": "메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "qms.inspection_spec_item",
+      "label": "검사 항목",
+      "scope": "generation",
+      "phase": "Q1",
+      "retention": "세대 정리",
+      "note": "FS-023 4.3. RANGE는 하한·상한 중 1개 이상, PASS_FAIL은 한계·단위 없음",
+      "sub_module": "spec",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "spec_id",
+          "label": "검사 기준 버전",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "seq",
+          "label": "순서",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "항목명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "method",
+          "label": "판정 방식",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "RANGE / PASS_FAIL"
+        },
+        {
+          "name": "lower_limit",
+          "label": "하한",
+          "type": "numeric(15,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "upper_limit",
+          "label": "상한",
+          "type": "numeric(15,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(10)",
+          "nullable": true,
+          "default": null,
+          "rule": "RANGE이면 필수"
+        },
+        {
+          "name": "is_required",
+          "label": "필수 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "qms.inspection",
+      "label": "검사",
+      "scope": "generation",
+      "phase": "Q1",
+      "retention": "세대 정리",
+      "note": "FS-023 4.4. LOT 단위 출하 전 최종검사. 확정 후 불변, 정정은 재검사",
+      "sub_module": "inspection",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "inspection_no",
+          "label": "검사 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": "서버 발번 QI-YYYYMMDD-NNN"
+        },
+        {
+          "name": "source",
+          "label": "출처",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "MES(조회) / MANUAL(직접 입력)"
+        },
+        {
+          "name": "lot_no",
+          "label": "LOT 번호",
+          "type": "varchar(50)",
+          "nullable": false,
+          "default": null,
+          "rule": "스냅샷(D11). MES FK 없음"
+        },
+        {
+          "name": "item_code",
+          "label": "품목 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": "스냅샷"
+        },
+        {
+          "name": "item_name",
+          "label": "품목명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": "스냅샷"
+        },
+        {
+          "name": "lot_qty",
+          "label": "LOT 수량",
+          "type": "numeric(15,3)",
+          "nullable": false,
+          "default": null,
+          "rule": "검사 대상 수량 스냅샷"
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "sample_qty",
+          "label": "표본 수량",
+          "type": "numeric(15,3)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "spec_id",
+          "label": "적용 검사 기준",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "만들 때의 게시 버전 고정"
+        },
+        {
+          "name": "reinspection_of_id",
+          "label": "원 검사",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "재검사면 원 검사"
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / confirmed"
+        },
+        {
+          "name": "result",
+          "label": "판정",
+          "type": "varchar(10)",
+          "nullable": true,
+          "default": null,
+          "rule": "PASS / FAIL. 확정 시 서버 계산"
+        },
+        {
+          "name": "inspected_on",
+          "label": "검사일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "inspection_month",
+          "label": "검사 월",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY-MM'. inspected_on에서 파생"
+        },
+        {
+          "name": "confirmed_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "note",
+          "label": "메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "qms.inspection_value",
+      "label": "검사 측정값",
+      "scope": "generation",
+      "phase": "Q1",
+      "retention": "세대 정리",
+      "note": "FS-023 4.5. 항목 판정은 서버 계산. 확정 검사의 값은 불변",
+      "sub_module": "inspection",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "inspection_id",
+          "label": "검사",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "spec_item_id",
+          "label": "검사 항목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "measured_value",
+          "label": "측정값",
+          "type": "numeric(15,4)",
+          "nullable": true,
+          "default": null,
+          "rule": "RANGE 항목"
+        },
+        {
+          "name": "pass_value",
+          "label": "합·부 입력",
+          "type": "boolean",
+          "nullable": true,
+          "default": null,
+          "rule": "PASS_FAIL 항목"
+        },
+        {
+          "name": "judgement",
+          "label": "항목 판정",
+          "type": "varchar(4)",
+          "nullable": true,
+          "default": null,
+          "rule": "PASS / FAIL. 값이 없으면 NULL"
+        },
+        {
+          "name": "defect_type_id",
+          "label": "불량 유형",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "불합격 항목이면 확정 시 필수"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "qms.quality_hold",
+      "label": "품질 보류",
+      "scope": "generation",
+      "phase": "Q1",
+      "retention": "세대 정리",
+      "note": "FS-023 4.6. 불합격 확정 시 자동 생성, LOT당 활성 1건. MES 패킹을 막지 않는다(D10)",
+      "sub_module": "hold",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "hold_no",
+          "label": "보류 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": "서버 발번 QH-YYYYMMDD-NNN"
+        },
+        {
+          "name": "lot_no",
+          "label": "LOT 번호",
+          "type": "varchar(50)",
+          "nullable": false,
+          "default": null,
+          "rule": "스냅샷"
+        },
+        {
+          "name": "item_code",
+          "label": "품목 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": "스냅샷"
+        },
+        {
+          "name": "inspection_id",
+          "label": "원인 검사",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": "'held'",
+          "rule": "held / released"
+        },
+        {
+          "name": "held_at",
+          "label": "보류 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "disposition",
+          "label": "처분",
+          "type": "varchar(12)",
+          "nullable": true,
+          "default": null,
+          "rule": "REINSPECTED / CONCESSION / SCRAP"
+        },
+        {
+          "name": "release_inspection_id",
+          "label": "해제 재검사",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "release_reason",
+          "label": "해제 사유",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "released_at",
+          "label": "해제 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
     }
   ],
   "relations": [
@@ -9186,6 +9836,232 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "같은 공간·세대 ERP 내부 참조"
+    },
+    {
+      "source": "qms.defect_type",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.inspection_spec",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.inspection_spec_item",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.inspection",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.inspection_value",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.quality_hold",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.inspection_spec_item",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "spec_id"
+      ],
+      "target": "qms.inspection_spec",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "기준 소속"
+    },
+    {
+      "source": "qms.inspection",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "spec_id"
+      ],
+      "target": "qms.inspection_spec",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "적용 검사 기준(고정)"
+    },
+    {
+      "source": "qms.inspection",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "reinspection_of_id"
+      ],
+      "target": "qms.inspection",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "재검사의 원 검사"
+    },
+    {
+      "source": "qms.inspection_value",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "inspection_id"
+      ],
+      "target": "qms.inspection",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "검사 소속"
+    },
+    {
+      "source": "qms.inspection_value",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "spec_item_id"
+      ],
+      "target": "qms.inspection_spec_item",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "검사 항목"
+    },
+    {
+      "source": "qms.inspection_value",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "defect_type_id"
+      ],
+      "target": "qms.defect_type",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "불량 유형"
+    },
+    {
+      "source": "qms.quality_hold",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "inspection_id"
+      ],
+      "target": "qms.inspection",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "보류를 만든 불합격 검사"
+    },
+    {
+      "source": "qms.quality_hold",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "release_inspection_id"
+      ],
+      "target": "qms.inspection",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "보류를 푼 재검사"
     }
   ],
   "constraints": [
@@ -9383,7 +10259,7 @@
       "table": "core.workspace_module",
       "kind": "CHECK",
       "columns": [],
-      "expression": "module_key IN ('core','mes','erp','fems')",
+      "expression": "module_key IN ('core','mes','erp','fems','qms')",
       "reason": "행 내부 데이터 정합성"
     },
     {
@@ -14353,6 +15229,622 @@
       ],
       "expression": "시작 시 공간→세대→작업지시→LOT→실행의 기존 잠금 순서를 따른다. 동일 S의 공간 행 잠금으로 해당 설비의 모든 실행 시작·종료·설비 변경을 직렬화하고 잠금 획득 후 같은 equipment_id의 ended_at IS NULL 실행이 있으면 시작을 거부한다. 동시 시작 검사와 INSERT는 같은 트랜잭션이며 실패 시 전체 롤백. 공간 잠금 완화 전에는 설비별 직렬화 계약을 별도 설계해야 한다. 직접 DB 쓰기는 보호하지 않는다",
       "reason": "FS-008b 설비 동시 점유 방지"
+    },
+    {
+      "table": "qms.defect_type",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.defect_type",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.inspection_spec",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.inspection_spec",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.inspection_spec_item",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.inspection_spec_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.inspection_value",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.inspection_value",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.quality_hold",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.quality_hold",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.defect_type",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "qms.defect_type",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9_]{1,29}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "qms.defect_type",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "id"
+      ],
+      "expression": "검사 측정값에서 쓴 유형은 삭제를 거부하고 사용 안 함으로 바꾼다",
+      "reason": "불량 이력 보존"
+    },
+    {
+      "table": "qms.inspection_spec",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "item_code",
+        "version_no"
+      ],
+      "expression": "",
+      "reason": "품목별 버전 유일"
+    },
+    {
+      "table": "qms.inspection_spec",
+      "kind": "CHECK",
+      "columns": [
+        "version_no"
+      ],
+      "expression": "version_no >= 1",
+      "reason": "버전은 1부터"
+    },
+    {
+      "table": "qms.inspection_spec",
+      "kind": "CHECK",
+      "columns": [
+        "status"
+      ],
+      "expression": "status IN ('draft', 'published', 'retired')",
+      "reason": "상태 값"
+    },
+    {
+      "table": "qms.inspection_spec",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "published_at"
+      ],
+      "expression": "status = 'draft' OR published_at IS NOT NULL",
+      "reason": "게시·폐기 버전은 게시 시각 필수"
+    },
+    {
+      "table": "qms.inspection_spec",
+      "kind": "CHECK",
+      "columns": [
+        "item_code",
+        "item_name"
+      ],
+      "expression": "length(btrim(item_code)) > 0 AND length(btrim(item_name)) > 0",
+      "reason": "빈 품목 스냅샷 차단"
+    },
+    {
+      "table": "qms.inspection_spec",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "item_code"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, item_code) WHERE status = 'published'",
+      "reason": "품목당 게시 버전 1건"
+    },
+    {
+      "table": "qms.inspection_spec",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "published·retired 버전과 그 항목은 수정·삭제를 거부한다. 바꾸려면 개정(새 draft)",
+      "reason": "게시 기준 불변"
+    },
+    {
+      "table": "qms.inspection_spec",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "게시는 항목 1개 이상. 게시하면 같은 품목의 기존 published를 같은 트랜잭션에서 retired로 바꾼다(TX-Q1)",
+      "reason": "품목당 게시 1건 전환"
+    },
+    {
+      "table": "qms.inspection_spec_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "spec_id",
+        "seq"
+      ],
+      "expression": "",
+      "reason": "기준 내 순서 유일"
+    },
+    {
+      "table": "qms.inspection_spec_item",
+      "kind": "CHECK",
+      "columns": [
+        "seq"
+      ],
+      "expression": "seq >= 1",
+      "reason": "순서는 1부터"
+    },
+    {
+      "table": "qms.inspection_spec_item",
+      "kind": "CHECK",
+      "columns": [
+        "method"
+      ],
+      "expression": "method IN ('RANGE', 'PASS_FAIL')",
+      "reason": "판정 방식 값"
+    },
+    {
+      "table": "qms.inspection_spec_item",
+      "kind": "CHECK",
+      "columns": [
+        "method",
+        "lower_limit",
+        "upper_limit",
+        "unit"
+      ],
+      "expression": "(method = 'PASS_FAIL' AND lower_limit IS NULL AND upper_limit IS NULL AND unit IS NULL) OR (method = 'RANGE' AND unit IS NOT NULL AND (lower_limit IS NOT NULL OR upper_limit IS NOT NULL) AND (lower_limit IS NULL OR upper_limit IS NULL OR lower_limit <= upper_limit))",
+      "reason": "판정 방식별 한계·단위"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "inspection_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 검사 번호 유일"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "CHECK",
+      "columns": [
+        "source"
+      ],
+      "expression": "source IN ('MES', 'MANUAL')",
+      "reason": "출처 값"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "result",
+        "confirmed_at"
+      ],
+      "expression": "(status = 'draft' AND result IS NULL AND confirmed_at IS NULL) OR (status = 'confirmed' AND result IN ('PASS', 'FAIL') AND confirmed_at IS NOT NULL)",
+      "reason": "확정과 판정·확정 시각 일치"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "CHECK",
+      "columns": [
+        "lot_qty",
+        "sample_qty"
+      ],
+      "expression": "lot_qty > 0 AND sample_qty > 0 AND sample_qty <= lot_qty",
+      "reason": "표본은 LOT 수량 이하"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "CHECK",
+      "columns": [
+        "lot_no",
+        "item_code",
+        "item_name",
+        "unit"
+      ],
+      "expression": "length(btrim(lot_no)) > 0 AND length(btrim(item_code)) > 0 AND length(btrim(item_name)) > 0 AND length(btrim(unit)) > 0",
+      "reason": "빈 스냅샷 차단"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "CHECK",
+      "columns": [
+        "inspection_month"
+      ],
+      "expression": "inspection_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+      "reason": "연월 문자열 형식"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "CHECK",
+      "columns": [
+        "reinspection_of_id"
+      ],
+      "expression": "reinspection_of_id IS NULL OR reinspection_of_id <> id",
+      "reason": "자기 자신 재검사 차단"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "lot_no"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, lot_no) WHERE status = 'draft'",
+      "reason": "LOT당 작성 중 검사 1건"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "confirmed 검사와 측정값은 수정·삭제를 거부한다(세대 정리 제외). 정정은 재검사",
+      "reason": "확정 검사 불변"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "spec_id"
+      ],
+      "expression": "만들 때 같은 품목의 published 기준만 고를 수 있다. 이후 기준 개정과 무관하다",
+      "reason": "검사 기준 고정"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "result"
+      ],
+      "expression": "필수 항목 모두 입력·불합격 항목 모두 불량 유형이어야 확정. 한 항목이라도 FAIL이면 FAIL",
+      "reason": "검사 판정"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "inspection_month"
+      ],
+      "expression": "inspected_on의 'YYYY-MM'과 같아야 한다. 세대 복사 시 다시 계산한다",
+      "reason": "달력 파생 컬럼"
+    },
+    {
+      "table": "qms.inspection_value",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "inspection_id",
+        "spec_item_id"
+      ],
+      "expression": "",
+      "reason": "검사당 항목 1회"
+    },
+    {
+      "table": "qms.inspection_value",
+      "kind": "CHECK",
+      "columns": [
+        "measured_value",
+        "pass_value"
+      ],
+      "expression": "measured_value IS NULL OR pass_value IS NULL",
+      "reason": "측정값·합부 입력 중 하나만"
+    },
+    {
+      "table": "qms.inspection_value",
+      "kind": "CHECK",
+      "columns": [
+        "judgement"
+      ],
+      "expression": "judgement IS NULL OR judgement IN ('PASS', 'FAIL')",
+      "reason": "항목 판정 값"
+    },
+    {
+      "table": "qms.inspection_value",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "spec_item_id"
+      ],
+      "expression": "측정값의 항목은 검사의 spec_id에 속한 항목이어야 한다",
+      "reason": "기준-항목 일치"
+    },
+    {
+      "table": "qms.inspection_value",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "judgement"
+      ],
+      "expression": "항목 판정은 서버가 한계·합부로 계산한다. 클라이언트 판정을 쓰지 않는다",
+      "reason": "서버 판정"
+    },
+    {
+      "table": "qms.quality_hold",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "hold_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 보류 번호 유일"
+    },
+    {
+      "table": "qms.quality_hold",
+      "kind": "CHECK",
+      "columns": [
+        "status"
+      ],
+      "expression": "status IN ('held', 'released')",
+      "reason": "상태 값"
+    },
+    {
+      "table": "qms.quality_hold",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "disposition",
+        "released_at"
+      ],
+      "expression": "(status = 'held' AND disposition IS NULL AND released_at IS NULL AND release_inspection_id IS NULL AND release_reason IS NULL) OR (status = 'released' AND disposition IN ('REINSPECTED', 'CONCESSION', 'SCRAP') AND released_at IS NOT NULL)",
+      "reason": "해제와 처분·해제 시각 일치"
+    },
+    {
+      "table": "qms.quality_hold",
+      "kind": "CHECK",
+      "columns": [
+        "disposition",
+        "release_inspection_id",
+        "release_reason"
+      ],
+      "expression": "(disposition IS NULL) OR (disposition = 'REINSPECTED' AND release_inspection_id IS NOT NULL) OR (disposition IN ('CONCESSION', 'SCRAP') AND release_inspection_id IS NULL AND release_reason IS NOT NULL AND length(btrim(release_reason)) > 0)",
+      "reason": "처분별 재검사·사유"
+    },
+    {
+      "table": "qms.quality_hold",
+      "kind": "CHECK",
+      "columns": [
+        "lot_no",
+        "item_code"
+      ],
+      "expression": "length(btrim(lot_no)) > 0 AND length(btrim(item_code)) > 0",
+      "reason": "빈 스냅샷 차단"
+    },
+    {
+      "table": "qms.quality_hold",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "lot_no"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, lot_no) WHERE status = 'held'",
+      "reason": "LOT당 활성 보류 1건"
+    },
+    {
+      "table": "qms.quality_hold",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "released 보류는 수정·삭제를 거부한다. 불합격 확정과 같은 트랜잭션에서 생성한다(TX-Q2)",
+      "reason": "보류 불변·생성 시점"
+    },
+    {
+      "table": "qms.quality_hold",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "release_inspection_id"
+      ],
+      "expression": "해제 재검사는 같은 lot_no·confirmed·PASS·보류 이후 확정이어야 한다",
+      "reason": "재검사 해제 조건"
+    },
+    {
+      "table": "qms.quality_hold",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "disposition"
+      ],
+      "expression": "폐기 판정도 기록일 뿐 MES 양품·재고를 차감하지 않는다(D10·WMS 경계)",
+      "reason": "수량 불변"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "spec_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "reinspection_of_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "lot_no",
+        "status"
+      ],
+      "expression": "",
+      "reason": "LOT별 검사 조회·검사 대기 차집합"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "inspection_month"
+      ],
+      "expression": "",
+      "reason": "대시보드 월 집계"
+    },
+    {
+      "table": "qms.inspection_value",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "spec_item_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "qms.inspection_value",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "defect_type_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "qms.quality_hold",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "inspection_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "qms.quality_hold",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "release_inspection_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
     }
   ],
   "states": [
@@ -14590,6 +16082,37 @@
       ],
       "default": "pending",
       "transition": "pending→issued; issued 불변. pending은 매출 취소 시 함께 물리 삭제"
+    },
+    {
+      "table": "qms.inspection_spec",
+      "column": "status",
+      "values": [
+        "draft",
+        "published",
+        "retired"
+      ],
+      "default": "draft",
+      "transition": "draft→published→retired; 게시 시 같은 품목의 기존 published→retired; 게시 내용 불변"
+    },
+    {
+      "table": "qms.inspection",
+      "column": "status",
+      "values": [
+        "draft",
+        "confirmed"
+      ],
+      "default": "draft",
+      "transition": "draft→confirmed; 확정 시 판정 계산, FAIL이면 보류 생성(TX-Q2)"
+    },
+    {
+      "table": "qms.quality_hold",
+      "column": "status",
+      "values": [
+        "held",
+        "released"
+      ],
+      "default": "held",
+      "transition": "held→released; 처분 REINSPECTED/CONCESSION/SCRAP 중 하나"
     }
   ],
   "sources": [
@@ -14640,10 +16163,11 @@
         "core",
         "mes",
         "erp",
-        "fems"
+        "fems",
+        "qms"
       ],
       "default": null,
-      "note": "QMS·WMS·BEMS 설명 카드와 도움말은 정적 파일"
+      "note": "QMS는 FS-023으로 구현 솔루션. WMS·BEMS·SCM 설명 카드와 도움말은 정적 파일"
     },
     {
       "target": "공통 단위",
@@ -14750,6 +16274,37 @@
       ],
       "default": null,
       "note": "과세 10%, 영세 0%, 면세 0%. 세율 마스터 없음"
+    },
+    {
+      "target": "qms.inspection",
+      "column": "source",
+      "values": [
+        "MES",
+        "MANUAL"
+      ],
+      "default": null,
+      "note": "MES = 읽기 전용 조회로 만든 검사(D9)"
+    },
+    {
+      "target": "qms.inspection_spec_item",
+      "column": "method",
+      "values": [
+        "RANGE",
+        "PASS_FAIL"
+      ],
+      "default": null,
+      "note": "RANGE는 하한 ≤ 측정값 ≤ 상한(한쪽만 가능)"
+    },
+    {
+      "target": "qms.quality_hold",
+      "column": "disposition",
+      "values": [
+        "REINSPECTED",
+        "CONCESSION",
+        "SCRAP"
+      ],
+      "default": null,
+      "note": "재검사 합격 / 특채 / 폐기 판정"
     }
   ],
   "change_log": [
@@ -14899,6 +16454,13 @@
       "date": "2026-09-23",
       "change": "fems.meter의 삭제된 measurement_kind/unit 참조 CHECK 삭제(D-A), scope_kind 중복 CHECK 통합(D-B). 채널 변경 없음. 71테이블·712컬럼·161 FK·제약/정책 526개",
       "status": "정적 메타데이터 검증 대상 / DB 미적용"
+    },
+    {
+      "version": "0.10.0",
+      "task": "FS-023a",
+      "date": "2026-09-27",
+      "change": "qms 스키마 6테이블(불량 유형·검사 기준·검사 항목·검사·측정값·품질 보류), core.workspace_module module_key에 qms 추가. 스키마 간 FK 0건(D9 읽기 전용 조회는 코드 인터페이스)",
+      "status": "마이그레이션 fs023a_qms 적용 대상"
     }
   ]
 }
