@@ -75,11 +75,14 @@ test("공정 경로를 개정해 초안 순서를 바꾸고 게시한다", async
     .getByRole("row", { name: /^RT-C100 .* v1/ })
     .getByRole("button", { name: "개정" })
     .click();
-  const steps = page.getByRole("table", { name: "RT-C100 v2 공정 순서" });
+  const panel = page.getByRole("dialog", { name: /RT-C100 v2 공정 순서/ });
+  await expect(panel).toBeVisible();
+  const steps = panel.getByRole("table", { name: "RT-C100 v2 공정 순서" });
   await expect(steps.getByRole("row")).toHaveCount(4);
-  await page.getByRole("button", { name: "3번째 공정 위로" }).click();
-  await page.getByRole("button", { name: "순서 저장" }).click();
+  await panel.getByRole("button", { name: "3번째 공정 위로" }).click();
+  await panel.getByRole("button", { name: "순서 저장" }).click();
   await expect(steps.getByRole("row").nth(2)).toContainText("INS");
+  await page.getByRole("button", { name: "패널 닫기" }).click();
   await routes
     .getByRole("row", { name: /^RT-C100 .* v2/ })
     .getByRole("button", { name: "게시" })

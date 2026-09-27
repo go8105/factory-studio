@@ -271,3 +271,33 @@ test("E-04 수주 등록은 넓은 패널이고 명세 편집기가 가로로 �
   ).toBeInViewport();
   expect(await docHeight(page)).toBeLessThanOrEqual(900);
 });
+
+test("M-14 공정 경로 단계 패널 열기 및 Esc 닫기", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/mes/routes");
+  await page
+    .getByRole("table", { name: "공정 경로 목록" })
+    .getByRole("row", { name: /^RT-C100 / })
+    .getByRole("button", { name: /공정/ })
+    .click();
+  const panel = page.getByRole("dialog", { name: /공정 순서/ });
+  await expect(panel).toBeVisible();
+  expect(await docHeight(page)).toBeLessThanOrEqual(900);
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+});
+
+test("M-15 BOM 자재 패널 열기 및 Esc 닫기", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/mes/boms");
+  await page
+    .getByRole("table", { name: "BOM 목록" })
+    .getByRole("row", { name: /^BOM-C100 / })
+    .getByRole("button", { name: /자재/ })
+    .click();
+  const panel = page.getByRole("dialog", { name: /구성 자재/ });
+  await expect(panel).toBeVisible();
+  expect(await docHeight(page)).toBeLessThanOrEqual(900);
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+});

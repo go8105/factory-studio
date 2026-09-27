@@ -299,17 +299,17 @@ it("초안 BOM에 자재를 추가하면 단위는 기준 단위와 환산 단�
     }),
   );
   fireEvent.click(screen.getByRole("button", { name: "자재 추가" }));
-  const material = screen.getByLabelText("1번째 자재");
+  const material = screen.getByLabelText("자재");
   expect(material).not.toHaveTextContent("FG-C100");
   fireEvent.change(material, { target: { value: "6" } });
-  const unit = screen.getByLabelText("1번째 단위");
+  const unit = screen.getByLabelText("단위");
   expect(
     [...unit.querySelectorAll("option")].map((o) => o.textContent),
   ).toEqual(["EA", "BOX"]);
-  fireEvent.change(screen.getByLabelText("1번째 소요량"), {
+  fireEvent.change(screen.getByLabelText("소요량(1개당)"), {
     target: { value: "4" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "구성 저장" }));
+  fireEvent.click(screen.getByRole("button", { name: "추가" }));
   await waitFor(() =>
     expect(body(fetcher, "PUT")).toEqual({
       lines: [
@@ -341,7 +341,7 @@ it("BOM 자재 규칙 오류를 보여준다", async () => {
     }),
   );
   fireEvent.click(screen.getByRole("button", { name: "자재 추가" }));
-  fireEvent.click(screen.getByRole("button", { name: "구성 저장" }));
+  fireEvent.click(screen.getByRole("button", { name: "추가" }));
   expect(
     await screen.findByText("1번째 자재: 같은 자재가 이미 있습니다."),
   ).toBeVisible();

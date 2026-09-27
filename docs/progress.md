@@ -1160,3 +1160,24 @@
 - 배포 보류: 설계·따라하기·개념 문서가 없어 첫 화면에 구역 하나만 보인다. DOC-03·04 후 배포.
 - 다음: 사용자 확인 후 DOC-03(따라하기 3 + 개념 15).
 - UI-03 스모크·배포(2026-09-27): 공식 스모크 **164 passed**(7.7분, exit 0 — 로컬에서 실패하던 F-03·F-01도 통과, 데이터 의존 실패 확인). origin push `6e22e00..a35e895`(DOC-01·DOC-02 포함), 서버 pull(백엔드 변경 없음, API 재시작 없음) → `a35e895` 프런트 빌드·rsync. 확인: 새 번들 해시 일치·200·API 5xx 0, 운영 게스트 1920×1080에서 M-04·F-12·E-04 넓은 패널(640) 붙음, M-05·M-07 패널(380), 문서 1080px, 오류 0.
+
+## 2026-09-27 UI-03 B1 공정 경로·BOM F-12 부모-자식 패턴 적용 (Antigravity)
+
+- 브랜치: `antigravity/ui03-b1` (기준 커밋: `24179d1`)
+- 대상 화면 (2개):
+  - M-14 공정 경로(`frontend/src/mes/Routes.tsx`): 경로 버전 목록 → 단계 목록 `DetailPanel wide` → 단계 폼 `FormPanel`(닫으면 단계 목록으로). 게시한 버전 불변(수정·삭제 버튼 없음, 개정=새 버전), '개정'·'게시' 동작 유지, `RevealAnchor` 제거.
+  - M-15 BOM(`frontend/src/mes/Boms.tsx`): BOM 목록 → 자재 라인 `DetailPanel wide` → 라인 폼 `FormPanel`. 게시한 버전 불변, 개정 시 새 코드 입력 `FormPanel`, `RevealAnchor` 제거.
+- 테스트 및 레이아웃:
+  - `frontend/src/mes/versions.test.tsx`: BOM 라인 폼 전환에 맞추어 테스트 접근자(`자재`, `단위`, `소요량(1개당)`, `추가`) 갱신 (8 tests passed).
+  - `frontend/e2e/mes.spec.ts`: 공정 경로 개정 흐름 갱신(패널 열림 확인 → 순서 편집 → 저장 → 패널 닫기 후 목록에서 게시).
+  - `frontend/e2e/layout.spec.ts`: M-14 공정 경로 단계 패널 및 M-15 BOM 자재 패널 1440×900 문서 높이 ≤ 900 및 Esc 닫기 검사 추가.
+- 검증:
+  - `npm --prefix frontend run typecheck` 통과 (오류 0)
+  - `npm --prefix frontend run lint` 통과 (오류 0)
+  - `npm --prefix frontend run format:check` 통과 (전체 일치)
+  - `npm --prefix frontend run build` 통과
+  - `npm --prefix frontend test` 통과 (44개 파일, 410개 테스트 전체 통과)
+  - `git diff --check` 통과 (공백/줄바꿈 이상 없음)
+  - `uv run --project backend --env-file .env python tools/run_portal_smoke.py` 공식 스모크 통과 (**166 passed**, 8.0분, exit 0)
+- DB migration / Excel / seed: 변경 없음.
+- 다음: 사용자 확인 대기. 확인 후 UI-03 B2 (E-02 견적 넓은 행 편집 화면) 진행.
