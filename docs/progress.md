@@ -1127,3 +1127,10 @@
   - `git diff --check` 통과 (공백/줄바꿈 이상 없음)
 - DB migration / Excel / seed: 변경 없음.
 - 다음: 사용자 확인 대기. 확인 후 Claude 선행 8개 화면(F-12, M-04, M-05, M-07, M-14, M-15, E-02, E-04) 진행 대기.
+
+## 2026-09-27 UI-02 Antigravity 결과 검토·회귀 수정·main 통합 (Claude Code)
+
+- Claude 검토(2026-09-27): 공식 스모크를 처음 돌려 11건 실패를 찾았다(Antigravity 묶음 검증에는 스모크 없음). 실제 회귀 5건 수정 — M-06 BOM 제안량 표가 겹침 패널에 가려 채울 수 없음(→ 패널 안으로), M-12 '환산'이 등록 패널을 자동으로 열어 목록을 가림(→ 목록만, 등록은 버튼), E-05·E-06·E-10/13 저장 직후 새 행 선택이 미저장 보호에 막힘(→ 가드 없는 `choose()`), E-18 설명 패널이 표와 겹침(→ main 구조·R 패턴 복원), F-09 인라인 style·정의 없는 `section-block`(→ 공통 `.section-block` 추가). 나머지 6건은 e2e 흐름 갱신. 레이아웃 e2e를 '클래스 존재' → '1440×900 문서 높이'로 강화.
+- 검증: typecheck·lint·format:check·build, vitest 402, 스모크 **159 passed**(7.6분, exit 0), 55경로 × 1440·1600·390 전후 비교(가로 넘침·오류 0), S 화면 24개 패널 열기·저장 버튼·Esc(행 선택형 M-06·M-08 포함).
+- 통합: `antigravity/ui02-a6` + 검토 커밋(`e8b0d71`·`86e729f`)을 main에 fast-forward. push·서버 배포 전.
+- DB migration / Excel / seed: 변경 없음. backend pytest 미실행(백엔드 변경 없음).
