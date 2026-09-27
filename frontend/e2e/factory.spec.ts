@@ -350,3 +350,86 @@ test("합성 검사실 조건 비교와 JSON 저장", async ({ page }) => {
     fullPage: true,
   });
 });
+
+test("연속 검사 배치와 이력 및 JSON", async ({ page }) => {
+  await page.goto("/factory/vision-lab");
+  await page.getByRole("button", { name: "연속 검사", exact: true }).click();
+  const run = page.getByRole("region", { name: "연속 검사 관제" });
+  await run.getByLabel("투입 목표 간격").selectOption("200");
+  await run.getByRole("button", { name: "새 배치 시작" }).click();
+  await expect(run.getByRole("status").first()).toHaveText("배치 완료", {
+    timeout: 15000,
+  });
+  await expect(run.getByTestId("run-count")).toHaveText("20 / 20");
+  await expect(run.locator(".run-metrics")).toContainText("50.0%");
+  await run.getByRole("button", { name: /#2 · 이물/ }).click();
+  await expect(run.getByText(/이력 재조회 · #2/)).toBeVisible();
+  await run.getByRole("button", { name: "이진화 보기" }).click();
+  await expect(run.getByRole("button", { name: "원본 보기" })).toBeVisible();
+  const downloadEvent = page.waitForEvent("download");
+  await run.getByRole("button", { name: "배치 JSON 저장" }).click();
+  const download = await downloadEvent;
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream!) chunks.push(chunk);
+  const data = JSON.parse(Buffer.concat(chunks).toString());
+  expect(data.records).toHaveLength(20);
+  expect(data.summary).toMatchObject({ ok: 10, ng: 10 });
+  expect(data.records[1].request.recipe.minArea).toBe(20);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({
+    path: "../work/vision-run-desktop.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "레시피 설정", exact: true }).click();
+  await page.getByLabel("최소 면적", { exact: true }).fill("100");
+  await page.getByRole("button", { name: "연속 검사", exact: true }).click();
+  await expect(run.getByText(/배치 조건:.*최소 면적 20/)).toBeVisible();
+  await run.getByRole("button", { name: "새 배치 시작" }).click();
+  await run.getByRole("button", { name: "일시정지", exact: true }).click();
+  await expect(run.getByRole("status").first()).toHaveText("일시정지");
+  const count = await run.getByTestId("run-count").textContent();
+  await page.waitForTimeout(600);
+  await expect(run.getByTestId("run-count")).toHaveText(count!);
+  await run.getByRole("button", { name: "재개", exact: true }).click();
+  await expect(run.getByRole("status").first()).toHaveText("배치 완료", {
+    timeout: 15000,
+  });
+  await expect(run.locator(".run-metrics")).toContainText("100.0%");
+  await expect(run.getByText(/오검출 0 · 미검출 1160/)).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+  await page.screenshot({
+    path: "../work/vision-run-mobile.png",
+    fullPage: true,
+  });
+});
+
+test("연속 검사 설정 이동과 종료 및 화면 이탈", async ({ page }) => {
+  await page.goto("/factory/vision-lab");
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.getByRole("button", { name: "연속 검사", exact: true }).click();
+  const run = page.getByRole("region", { name: "연속 검사 관제" });
+  await run.getByRole("button", { name: "새 배치 시작" }).click();
+  await page.getByRole("button", { name: "레시피 설정", exact: true }).click();
+  await page.getByRole("button", { name: "연속 검사", exact: true }).click();
+  await expect(run.getByRole("status").first()).toHaveText("일시정지");
+  await run.getByRole("button", { name: "배치 종료", exact: true }).click();
+  const count = await run.getByTestId("run-count").textContent();
+  await page.waitForTimeout(700);
+  await expect(run.getByTestId("run-count")).toHaveText(count!);
+  await expect(run.getByRole("status").first()).toHaveText("종료");
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    360,
+  );
+  await run.getByRole("button", { name: "새 배치 시작" }).click();
+  await page.getByRole("link", { name: "앱 런처", exact: true }).click();
+  await page.goto("/factory/vision-lab");
+  await page.getByRole("button", { name: "연속 검사", exact: true }).click();
+  await expect(run.getByTestId("run-count")).toHaveText("0 / 20");
+  expect(errors).toEqual([]);
+});

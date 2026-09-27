@@ -151,3 +151,90 @@
   margin-top: 20px;
   font-size: 14px;
 }
+
+.lab-mode,
+.run-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.vision-lab button[aria-pressed="true"] {
+  background: #1f2d3d;
+  color: white;
+}
+.vision-lab button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.run-controls {
+  background: white;
+  border: 1px solid #e1e4e5;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.run-controls h2 {
+  margin: 0;
+  font-size: 19px;
+}
+.run-badge {
+  display: inline-block;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: #eef1f3;
+}
+.run-controls select {
+  padding: 8px;
+  margin-left: 8px;
+  max-width: 100%;
+}
+.run-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.run-metrics dt {
+  font-size: 12px;
+  color: #62676b;
+}
+.run-metrics dd {
+  margin: 8px 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+.run-history {
+  max-height: 320px;
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
+}
+.run-history button {
+  text-align: left;
+  line-height: 1.7;
+}
+.run-grid > div {
+  min-width: 0;
+}
+.run-regions {
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+@media (max-width: 760px) {
+  .run-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .run-controls {
+    padding: 16px;
+  }
+  .run-metrics dd {
+    font-size: 20px;
+  }
+}
+.vision-lab button:hover:not(:disabled),
+.vision-lab button:focus-visible {
+  background: #1f2d3d;
+  color: #fff;
+}
