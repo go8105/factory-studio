@@ -98,15 +98,17 @@
 .home-solutions {
   margin-top: 54px;
 }
+/* 앱 5개: 넓은 화면 3·2, 좁은 화면 2열. 마지막 줄은 가운데로 모은다(FS-024 화면 설계 1장). */
 .launcher-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 168px));
-  justify-content: space-between;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 36px;
-  max-width: 780px;
+  max-width: 580px; /* 168 × 3 + 36 × 2 = 576: 한 줄에 3개 */
   margin: 0 auto;
 }
 .launcher-item {
+  flex: 0 0 168px;
   position: relative;
   min-width: 0;
   padding-bottom: 18px;
@@ -281,8 +283,10 @@
     margin-top: 36px;
   }
   .launcher-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
+  }
+  .launcher-item {
+    flex-basis: calc(50% - 8px);
   }
   .launcher-icon {
     border-radius: 20px;

@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
               csrfToken: "preview",
               expiresAt: "2026-09-28T00:00:00+09:00",
             }
-          : ["mes", "erp", "fems", "qms"].map((moduleKey) => ({
+          : ["mes", "erp", "fems", "qms", "wms"].map((moduleKey) => ({
               moduleKey,
               enabled: true,
               updatedAt: null,
@@ -91,7 +91,7 @@ test("모바일 터치로 안내를 열고 닫을 수 있다", async ({ browser 
               roles: [],
               csrfToken: "preview",
             }
-          : ["mes", "erp", "fems", "qms"].map((moduleKey) => ({
+          : ["mes", "erp", "fems", "qms", "wms"].map((moduleKey) => ({
               moduleKey,
               enabled: true,
             })),

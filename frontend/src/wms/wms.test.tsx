@@ -1,0 +1,341 @@
+// FS-024b WMS 화면. 검증 항목별로 테스트를 나눈다.
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { expect, it, vi } from "vitest";
+import { App } from "../app/App";
+
+const W = "/api/v1/wms";
+type Reply = { status: number; body?: unknown };
+const ok = (data: unknown): Reply => ({ status: 200, body: { data } });
+
+function mount(path: string, replies: Record<string, Reply> = {}) {
+  const fetcher = vi
+    .spyOn(globalThis, "fetch")
+    .mockImplementation(async (input, init) => {
+      const url = String(input).split("?")[0];
+      const reply = replies[`${init?.method ?? "GET"} ${url}`];
+      if (reply)
+        return new Response(JSON.stringify(reply.body), {
+          status: reply.status,
+        });
+      if (url.endsWith("/sessions/current"))
+        return new Response(
+          JSON.stringify({
+            data: {
+              actorKind: "GUEST",
+              workspaceId: 1,
+              generationId: 2,
+              roles: ["GUEST"],
+              expiresAt: "2099-01-01T00:00:00Z",
+              csrfToken: "csrf-test",
+            },
+          }),
+        );
+      if (url.endsWith("/workspace/modules"))
+        return new Response(
+          JSON.stringify({
+            data: ["core", "mes", "erp", "fems", "qms", "wms"].map((m) => ({
+              moduleKey: m,
+              enabled: true,
+              updatedAt: null,
+            })),
+          }),
+        );
+      return new Response(JSON.stringify({ data: [] }));
+    });
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <App />
+    </MemoryRouter>,
+  );
+  return fetcher;
+}
+const sent = (
+  fetcher: ReturnType<typeof mount>,
+  method: string,
+  suffix: string,
+) =>
+  fetcher.mock.calls.filter(
+    ([url, init]) =>
+      (init?.method ?? "GET") === method &&
+      String(url).split("?")[0].endsWith(suffix),
+  );
+const body = (call: unknown[]) =>
+  JSON.parse(String((call[1] as RequestInit).body));
+
+const receipt = {
+  sourceKey: "MES:RECEIPT:PL-0006",
+  sourceRef: "PL-0006",
+  occurredAt: "2026-08-25T06:00:00+00:00",
+  lines: [
+    { itemCode: "FG-T300", qty: "982.000", unit: "EA", lotNo: "LT-0009" },
+  ],
+  state: "pending",
+  reason: null,
+  documentId: null,
+  documentNo: null,
+};
+const warehouses = [
+  {
+    id: 1,
+    code: "WH-FG",
+    name: "완제품 창고",
+    purpose: "FG",
+    isActive: true,
+    locationCount: 2,
+  },
+];
+const locations = [
+  {
+    id: 11,
+    warehouseId: 1,
+    warehouseCode: "WH-FG",
+    code: "F-A01",
+    name: "기본 보관",
+    isDefault: true,
+    isActive: true,
+    moveCount: 3,
+  },
+  {
+    id: 12,
+    warehouseId: 1,
+    warehouseCode: "WH-FG",
+    code: "F-A02",
+    name: "예비",
+    isDefault: false,
+    isActive: true,
+    moveCount: 0,
+  },
+];
+const items = [
+  {
+    id: 21,
+    itemCode: "FG-C100",
+    name: "커넥터 C100",
+    baseUnit: "EA",
+    itemClass: "FG",
+    lotTracked: true,
+    isActive: true,
+    moveCount: 2,
+    conversions: [],
+  },
+];
+
+it("W-01 대시보드와 사이드바 W-01~07", async () => {
+  mount("/wms/dashboard", {
+    [`GET ${W}/dashboard`]: ok({
+      month: "2026-09",
+      rawItems: 2,
+      fgLots: 11,
+      negativeCount: 0,
+      pendingSources: 9,
+      pendingByKind: {
+        MES_RECEIPT: 1,
+        MES_ISSUE: 6,
+        ERP_SHIPMENT: 1,
+        ERP_PURCHASE: 1,
+      },
+      items: [],
+      flows: [],
+    }),
+  });
+  expect(
+    await screen.findByRole("heading", { name: "재고 개요" }),
+  ).toBeVisible();
+  for (const id of ["W-01", "W-02", "W-03", "W-04", "W-05", "W-06", "W-07"])
+    expect(
+      screen.getAllByRole("link", { name: new RegExp(id) }).length,
+    ).toBeGreaterThan(0);
+  const pending = await screen.findByRole("region", { name: "미반영 원천" });
+  expect(within(pending).getByText("9")).toBeVisible();
+});
+
+it("W-03 행 반영은 원천 키로 반영 요청을 보내고 결과를 요약한다", async () => {
+  const fetcher = mount("/wms/sources", {
+    [`GET ${W}/sources`]: ok({
+      kind: "MES_RECEIPT",
+      disabled: false,
+      rows: [receipt],
+    }),
+    [`POST ${W}/sources/sync`]: ok({
+      results: [
+        { sourceKey: receipt.sourceKey, state: "synced", documentId: 5 },
+      ],
+      synced: 1,
+      blocked: 0,
+    }),
+  });
+  const table = await screen.findByRole("table", {
+    name: "MES 완제품 입고 원천",
+  });
+  expect(within(table).getByText(/FG-T300 982 EA \(LT-0009\)/)).toBeVisible();
+  fireEvent.click(within(table).getByRole("button", { name: "반영" }));
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/sources/sync")).toHaveLength(1),
+  );
+  expect(body(sent(fetcher, "POST", "/sources/sync")[0])).toEqual({
+    kind: "MES_RECEIPT",
+    sourceKeys: ["MES:RECEIPT:PL-0006"],
+  });
+  expect(await screen.findByRole("status")).toHaveTextContent("반영 1");
+});
+
+it("W-03 반영 불가 원천은 사유와 해결 화면 링크를 보인다", async () => {
+  mount("/wms/sources", {
+    [`GET ${W}/sources`]: ok({
+      kind: "MES_RECEIPT",
+      disabled: false,
+      rows: [
+        {
+          ...receipt,
+          state: "blocked",
+          reason: { code: "ITEM_NOT_REGISTERED", itemCode: "FG-T300" },
+        },
+      ],
+    }),
+  });
+  expect(await screen.findByText(/품목 미등록 · FG-T300/)).toBeVisible();
+  expect(screen.getByRole("link", { name: "품목·단위로" })).toHaveAttribute(
+    "href",
+    "/wms/items",
+  );
+  expect(
+    screen.queryByRole("button", { name: /모두 반영/ }),
+  ).not.toBeInTheDocument();
+});
+
+it("W-03 원천 솔루션이 꺼져 있으면 수동 전표로 안내한다", async () => {
+  mount("/wms/sources", {
+    [`GET ${W}/sources`]: ok({
+      kind: "MES_RECEIPT",
+      disabled: true,
+      sourceModule: "mes",
+      rows: [],
+    }),
+  });
+  expect(
+    await screen.findByText(/MES를 사용하지 않도록 설정했습니다/),
+  ).toBeVisible();
+  expect(screen.getByRole("button", { name: /재고 전표로/ })).toBeVisible();
+});
+
+it("W-02는 음수·LOT 미지정을 문구로 표시하고 ERP 꺼짐이면 가용을 계산하지 않는다", async () => {
+  mount("/wms/stock", {
+    [`GET ${W}/stock`]: ok({
+      rows: [
+        {
+          itemId: 21,
+          itemCode: "FG-C200",
+          itemName: "커넥터 C200",
+          itemClass: "FG",
+          unit: "EA",
+          locationId: 11,
+          locationCode: "F-A01",
+          warehouseId: 1,
+          warehouseCode: "WH-FG",
+          lotNo: null,
+          onHand: "-3842.000",
+          negative: true,
+          lotUnassigned: true,
+        },
+      ],
+      totals: [
+        {
+          itemCode: "FG-C200",
+          onHand: "-3842.000",
+          openShipmentQty: null,
+          available: null,
+        },
+      ],
+    }),
+  });
+  const table = await screen.findByRole("table", { name: "재고 현황" });
+  expect(within(table).getByText("음수")).toBeVisible();
+  expect(within(table).getByText("LOT 미지정")).toBeVisible();
+  expect(within(table).getByText("(미지정)")).toBeVisible();
+  expect(screen.getByText(/가용 계산 불가\(ERP 꺼짐\)/)).toBeVisible();
+});
+
+it("W-04 이동 전표는 보낼·받을 위치 쌍으로 보내고 줄 오류를 줄 아래에 보인다", async () => {
+  const fetcher = mount("/wms/documents", {
+    [`GET ${W}/items`]: ok(items),
+    [`GET ${W}/warehouses`]: ok(warehouses),
+    [`GET ${W}/warehouses/1/locations`]: ok(locations),
+    [`POST ${W}/documents`]: {
+      status: 400,
+      body: {
+        error: {
+          code: "VALIDATION_FAILED",
+          message: "입력값을 확인해 주세요.",
+          details: {
+            fields: { "lines.0.lotNo": "완제품 이동은 LOT을 지정해야 합니다." },
+          },
+        },
+      },
+    },
+  });
+  fireEvent.change(await screen.findByLabelText("전표 만들기"), {
+    target: { value: "TRANSFER" },
+  });
+  const dialog = await screen.findByRole("dialog", {
+    name: "창고 간 이동 전표 작성",
+  });
+  await waitFor(() =>
+    expect(
+      within(dialog).getAllByRole("option", { name: "WH-FG F-A02" }).length,
+    ).toBe(2),
+  );
+  fireEvent.change(within(dialog).getByLabelText("1번 줄 품목"), {
+    target: { value: "21" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("1번 줄 보낼 위치"), {
+    target: { value: "11" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("1번 줄 받을 위치"), {
+    target: { value: "12" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("1번 줄 수량"), {
+    target: { value: "500" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "임시 저장" }));
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/documents")).toHaveLength(1),
+  );
+  expect(body(sent(fetcher, "POST", "/documents")[0])).toMatchObject({
+    documentType: "TRANSFER",
+    lines: [{ itemId: 21, fromLocationId: 11, toLocationId: 12, qty: "500" }],
+  });
+  expect(
+    await within(dialog).findByText("완제품 이동은 LOT을 지정해야 합니다."),
+  ).toBeVisible();
+});
+
+it("W-06 위치 추가 폼을 닫으면 위치 상세로 돌아간다", async () => {
+  mount("/wms/warehouses", {
+    [`GET ${W}/warehouses`]: ok(warehouses),
+    [`GET ${W}/warehouses/1/locations`]: ok(locations),
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "위치 2" }));
+  const detail = await screen.findByRole("dialog", { name: "WH-FG 위치" });
+  expect(
+    within(within(detail).getByRole("row", { name: /F-A01/ })).getByText(
+      "기본",
+    ),
+  ).toBeVisible();
+  // 기본 위치는 삭제 버튼이 없다(기본 지정은 다른 위치를 기본으로 바꿔서 푼다).
+  expect(within(detail).getAllByRole("button", { name: "삭제" })).toHaveLength(
+    1,
+  );
+  fireEvent.click(within(detail).getByRole("button", { name: "위치 추가" }));
+  const form = await screen.findByRole("dialog", { name: "WH-FG 위치 추가" });
+  fireEvent.click(within(form).getByRole("button", { name: "취소" }));
+  expect(
+    await screen.findByRole("dialog", { name: "WH-FG 위치" }),
+  ).toBeVisible();
+});

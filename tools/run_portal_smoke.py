@@ -10,6 +10,7 @@ import os
 import secrets
 import socket
 import subprocess
+import sys
 import time
 from datetime import date
 from pathlib import Path
@@ -126,8 +127,12 @@ def main() -> None:
                 time.sleep(0.1)
             else:
                 raise RuntimeError("Backend startup timed out")
+            # 인자를 주면 Playwright에 넘긴다(예: e2e/wms.spec.ts). 공식 스모크는 인자 없이 전체를 돌린다.
+            extra = ["--", *sys.argv[1:]] if sys.argv[1:] else []
             subprocess.run(
-                ["npm", "--prefix", "frontend", "run", "test:e2e"], env=env, check=True
+                ["npm", "--prefix", "frontend", "run", "test:e2e", *extra],
+                env=env,
+                check=True,
             )
         finally:
             import signal

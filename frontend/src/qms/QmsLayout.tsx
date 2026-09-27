@@ -12,6 +12,7 @@ const others = [
   { to: "/mes", label: "MES 생산관리" },
   { to: "/erp", label: "ERP 경영관리" },
   { to: "/fems", label: "FEMS 에너지관리" },
+  { to: "/wms", label: "WMS 창고관리" },
   { to: "/home", label: "포털 홈" },
 ];
 export function QmsLayout() {

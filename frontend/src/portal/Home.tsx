@@ -1,4 +1,4 @@
-// P-02 앱 런처: 정보는 필요할 때 열고, 첫 화면은 네 솔루션에 집중한다.
+// P-02 앱 런처: 정보는 필요할 때 열고, 첫 화면은 다섯 솔루션에 집중한다.
 import "./Home.css";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -30,6 +30,12 @@ export const solutions = [
     description: "검사 기준에서 판정, 보류와 처분까지",
     to: "/qms",
   },
+  {
+    key: "wms",
+    name: "창고관리",
+    description: "창고·위치 재고 원장, 입출고 반영과 조정까지",
+    to: "/wms",
+  },
 ] as const;
 // 사용자 제공 Figma 시제품의 SVG 모양을 홈에만 적용한다.
 function AppIcon({ kind }: { kind: (typeof solutions)[number]["key"] }) {
@@ -54,6 +60,13 @@ function AppIcon({ kind }: { kind: (typeof solutions)[number]["key"] }) {
         </>
       ) : kind === "fems" ? (
         <path d="m24 4-10 24h8l-4 16 16-24h-8z" fill="#a68951" />
+      ) : kind === "wms" ? (
+        <>
+          <path d="M6 42V18L24 8l18 10v24h-6V24H12v18Z" fill="#6b6f5c" />
+          <rect x="15" y="27" width="8" height="7" fill="#a0a6af" />
+          <rect x="25" y="27" width="8" height="7" fill="#a69574" />
+          <rect x="20" y="35" width="8" height="7" fill="#a0a6af" />
+        </>
       ) : (
         <>
           <path

@@ -107,6 +107,12 @@ for (const route of [
   "/qms/holds",
   "/qms/specs",
   "/qms/defect-types",
+  "/wms/stock",
+  "/wms/sources",
+  "/wms/documents",
+  "/wms/moves",
+  "/wms/warehouses",
+  "/wms/items",
 ]) {
   test(`1440×900 ${route} 목록 채움: 문서가 스크롤되지 않는다`, async ({
     page,

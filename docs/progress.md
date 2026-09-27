@@ -1,12 +1,19 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS 설계 확정, FS-024a DB·FS-024b-1 API 완료(로컬, head `fs024b_wms_module`). 다음 FS-024b-2 화면.**
+- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024a DB·FS-024b API·화면 완료(로컬, head `fs024b_wms_module`). 다음 FS-024c 시드·도움말·흐름 맵.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-27 FS-024b-2 WMS 화면 W-01~07 (Claude Code)
+- 완료: `frontend/src/wms/` 7화면(D·L·L·W·L·P·S 패턴, 새 패턴 없음), 런처 WMS 타일(5개 3·2 배치), 내 공간 스위치, 다른 앱 링크 4곳, `LineIcon` wms, App 라우트. 사이드바 묶음 "재고"로 변경(화면 설계 1장 갱신 — W-02 제목과 중복 제목 방지).
+- 도구: `tools/run_portal_smoke.py`에 인자 전달(예: `... run_portal_smoke.py e2e/wms.spec.ts`). 인자 없으면 기존처럼 전체.
+- 검증: typecheck·lint·format·build 0, vitest **470 passed**(`wms.test.tsx` 7), 공식 스모크 전체 **215 passed · 1 failed**(`wms.spec` 선택자 중복 — 빈 상태 링크와 같은 이름) → 수정 후 `wms.spec` 3 passed, 이어서 홈 격자 3·2 조정 뒤 portal·layout·home·wms 묶음 **165 passed**. 360px 원천 반영·홈, 1440 홈 3·2 스크린샷 직접 확인. ruff 0.
+- 미실행: 수정 후 전체 스모크 재실행(바뀐 것은 wms.spec 선택자·홈 격자 CSS — 해당 묶음으로 확인).
+- 남은 것(FS-024c): WMS 시드, 게스트 복사 `document_month`·`WD-` 번호 날짜, 도움말 w-01~07, 흐름 맵 `inventory_move`, 홈 제목 "다섯 시스템"·설명 카드 WMS 제거.
 
 ## 2026-09-27 FS-024b-1 WMS 조회 인터페이스·API (Claude Code)
 - 사용자 지시: Codex 비전검사 병합·push 후 "제안대로" — FS-024b를 API(1부)·화면(2부)으로 나눠 중간 보고.

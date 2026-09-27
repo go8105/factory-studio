@@ -40,6 +40,7 @@ export const femsScreens: Screen[] = [
 const others = [
   { to: "/mes", label: "MES 생산관리" },
   { to: "/qms", label: "QMS 품질관리" },
+  { to: "/wms", label: "WMS 창고관리" },
   { to: "/erp", label: "ERP 경영관리" },
   { to: "/home", label: "포털 홈" },
 ];

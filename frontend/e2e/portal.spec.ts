@@ -158,6 +158,13 @@ for (const [route, title] of [
   ["qms/holds", "품질 보류"],
   ["qms/specs", "검사 기준"],
   ["qms/defect-types", "불량 유형"],
+  ["wms/dashboard", "재고 개요"],
+  ["wms/stock", "재고 현황"],
+  ["wms/sources", "원천 반영"],
+  ["wms/documents", "재고 전표"],
+  ["wms/moves", "재고 원장"],
+  ["wms/warehouses", "창고·위치"],
+  ["wms/items", "품목·단위"],
 ]) {
   test(`360px ${route} 가로 스크롤 없음`, async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });
