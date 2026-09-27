@@ -3,6 +3,8 @@ import {
   useId,
   useRef,
   useState,
+  type FormEvent,
+  type KeyboardEvent,
   type ReactNode,
   type InputHTMLAttributes,
 } from "react";
@@ -31,15 +33,24 @@ export function EmptyState({
   reason,
   to,
   action,
+  onAction,
 }: {
   reason: string;
-  to: string;
+  to?: string;
   action: string;
+  /** 링크 대신 같은 화면의 행동(예: 등록 패널 열기)을 실행한다. */
+  onAction?: () => void;
 }) {
   return (
     <div className="empty">
       <p>{reason}</p>
-      <Link to={to}>{action} →</Link>
+      {onAction ? (
+        <button type="button" className="link-button" onClick={onAction}>
+          {action} →
+        </button>
+      ) : (
+        <Link to={to ?? "/home"}>{action} →</Link>
+      )}
     </div>
   );
 }
@@ -161,11 +172,14 @@ export function PageTitle({
   title,
   subtitle,
   help = `portal/${id.toLowerCase()}`,
+  actions,
 }: {
   id: string;
   title: string;
   subtitle?: string;
   help?: string;
+  /** 화면의 주요 행동(등록 버튼·조회 월 등). 도움말 왼쪽에 둔다. */
+  actions?: ReactNode;
 }) {
   return (
     <div className="page-title">
@@ -176,13 +190,16 @@ export function PageTitle({
         </div>
         {subtitle && <p>{subtitle}</p>}
       </div>
-      <Link
-        className="help-link"
-        aria-label={`${title} 도움말`}
-        to={`/help/${help}`}
-      >
-        ? 도움말
-      </Link>
+      <div className="page-actions">
+        {actions}
+        <Link
+          className="help-link"
+          aria-label={`${title} 도움말`}
+          to={`/help/${help}`}
+        >
+          ? 도움말
+        </Link>
+      </div>
     </div>
   );
 }
@@ -249,7 +266,55 @@ export type Column<T> = {
   key: keyof T & string;
   label: string;
   render?: (row: T) => ReactNode;
+  /** 설명·메모처럼 줄바꿈해 읽는 열. 기본은 한 줄(수량·단위·배지·코드). */
+  wrap?: boolean;
 };
+/** 날짜 범위. 칸이 좁으면 시작일과 "~ 종료일"이 두 줄로 나뉜다. 같은 날이면 하나만 쓴다. */
+export function DateRange({ from, to }: { from: string; to: string }) {
+  return from === to ? (
+    <>{from}</>
+  ) : (
+    <span className="date-range">
+      <span>{from}</span> <span>~ {to}</span>
+    </span>
+  );
+}
+export function Pagination({
+  offset,
+  total,
+  limit,
+  onPage,
+  label,
+}: {
+  offset: number;
+  total: number;
+  limit: number;
+  onPage: (offset: number) => void;
+  label: string;
+}) {
+  // 한 페이지뿐이면 페이지 이동을 숨긴다.
+  if (total <= limit) return null;
+  return (
+    <nav className="pagination" aria-label={label}>
+      <button
+        onClick={() => onPage(Math.max(0, offset - limit))}
+        disabled={offset === 0}
+      >
+        이전
+      </button>
+      <span>
+        {Math.floor(offset / limit) + 1} /{" "}
+        {Math.max(1, Math.ceil(total / limit))}
+      </span>
+      <button
+        onClick={() => onPage(offset + limit)}
+        disabled={offset + limit >= total}
+      >
+        다음
+      </button>
+    </nav>
+  );
+}
 export function csvText<T>(rows: T[], columns: Column<T>[]) {
   const cell = (value: unknown) => {
     const s = String(value ?? "");
@@ -272,6 +337,7 @@ export function DataTable<T extends { id: number }>({
   limit,
   onPage,
   empty,
+  leading,
 }: {
   rows: T[];
   columns: Column<T>[];
@@ -281,6 +347,8 @@ export function DataTable<T extends { id: number }>({
   limit: number;
   onPage: (offset: number) => void;
   empty?: ReactNode;
+  /** 결과 수 왼쪽에 둘 보기 전환 등. */
+  leading?: ReactNode;
 }) {
   const [sort, setSort] = useState<{ key: keyof T; desc: boolean }>();
   const ordered = [...rows].sort((a, b) =>
@@ -319,12 +387,15 @@ export function DataTable<T extends { id: number }>({
     URL.revokeObjectURL(url);
   }
   return (
-    <section>
+    <section className="data-table fill">
       <div className="table-toolbar">
-        <p>
-          총 <strong>{total.toLocaleString()}</strong>건 · 열 정렬은 현재 페이지
-          기준
-        </p>
+        <div className="table-toolbar-lead">
+          {leading}
+          <p>
+            총 <strong>{total.toLocaleString()}</strong>건 · 열 정렬은 현재
+            페이지 기준
+          </p>
+        </div>
         <button
           className="secondary"
           onClick={download}
@@ -371,15 +442,22 @@ export function DataTable<T extends { id: number }>({
                 <tr key={row.id}>
                   {columns.map((c) => {
                     const text = String(row[c.key] ?? "—");
-                    // 렌더러가 없는 긴 글자는 줄이고 전체 값은 title로 보여 준다.
-                    const long = !c.render && text.length > 28;
+                    // 렌더러가 없는 긴 글자는 줄인다. 칸에 포커스(탭·터치)하거나 올리면 전체 값이 펼쳐진다.
+                    const long = !c.render && !c.wrap && text.length > 28;
                     return (
                       <td
                         key={c.key}
                         className={
-                          numeric.has(c.key) ? "num" : long ? "clip" : undefined
+                          numeric.has(c.key)
+                            ? "num"
+                            : c.wrap
+                              ? "wrap"
+                              : long
+                                ? "clip"
+                                : undefined
                         }
                         title={long ? text : undefined}
+                        tabIndex={long ? 0 : undefined}
                       >
                         {c.render ? c.render(row) : text}
                       </td>
@@ -399,27 +477,161 @@ export function DataTable<T extends { id: number }>({
           />
         ))
       )}
-      {/* 한 페이지뿐이면 페이지 이동을 숨긴다. */}
-      {total > limit && (
-        <nav className="pagination" aria-label={`${caption} 페이지`}>
-          <button
-            onClick={() => onPage(Math.max(0, offset - limit))}
-            disabled={offset === 0}
-          >
-            이전
-          </button>
-          <span>
-            {Math.floor(offset / limit) + 1} /{" "}
-            {Math.max(1, Math.ceil(total / limit))}
-          </span>
-          <button
-            onClick={() => onPage(offset + limit)}
-            disabled={offset + limit >= total}
-          >
-            다음
-          </button>
-        </nav>
-      )}
+      <Pagination
+        offset={offset}
+        total={total}
+        limit={limit}
+        onPage={onPage}
+        label={`${caption} 페이지`}
+      />
     </section>
+  );
+}
+
+/** 저장하지 않은 변경 보호. guard(action)은 변경이 없으면 바로 실행하고, 있으면 확인을 기다린다.
+ *  변경이 있는 동안 새로고침·탭 닫기도 브라우저가 확인한다. */
+export function useDiscardGuard(dirty: boolean) {
+  const [pending, setPending] = useState<() => void>();
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+  return {
+    pending: !!pending,
+    guard: (action: () => void) =>
+      dirty ? setPending(() => action) : action(),
+    discard: () => {
+      setPending(undefined);
+      pending?.();
+    },
+    keep: () => setPending(undefined),
+  };
+}
+export type DiscardGuard = ReturnType<typeof useDiscardGuard>;
+// FormPanel 겹침 기준. styles.css의 .form-panel 미디어 쿼리(1599px)와 같다.
+const OVERLAY = "(max-width: 1599px)";
+const FOCUSABLE =
+  'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+/** 목록 옆 등록·수정 패널(UI-02). 열 때만 렌더링한다.
+ *  넓은 화면은 목록 오른쪽에 붙고, 좁은 화면은 겹쳐 열린다(포커스 가둠·배경 클릭 닫기).
+ *  열리면 첫 입력으로, 닫히면 연 버튼으로 포커스가 돌아간다. Esc·✕·배경은 guard를 거쳐 닫는다. */
+export function FormPanel({
+  title,
+  onClose,
+  onSubmit,
+  guard,
+  actions,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  onSubmit: (event: FormEvent) => void;
+  guard: DiscardGuard;
+  actions: ReactNode;
+  children: ReactNode;
+}) {
+  const id = useId();
+  const ref = useRef<HTMLElement>(null);
+  const [overlay] = useState(
+    () => window.matchMedia?.(OVERLAY).matches ?? false,
+  );
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const body = ref.current?.querySelector(".form-panel-body");
+    (
+      body?.querySelector<HTMLElement>(FOCUSABLE) ??
+      ref.current?.querySelector<HTMLElement>("button")
+    )?.focus();
+    return () => {
+      // 연 버튼이 목록 갱신으로 사라졌으면 본문으로 돌아간다.
+      const back = opener?.isConnected
+        ? opener
+        : document.getElementById("main");
+      back?.focus({ preventScroll: true });
+    };
+  }, []);
+  useEffect(() => {
+    if (guard.pending)
+      ref.current?.querySelector<HTMLElement>("[data-keep]")?.focus();
+  }, [guard.pending]);
+  const requestClose = () => guard.guard(onClose);
+  function onKeyDown(e: KeyboardEvent) {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      if (guard.pending) guard.keep();
+      else requestClose();
+      return;
+    }
+    if (e.key !== "Tab" || !window.matchMedia?.(OVERLAY).matches) return;
+    const items = [
+      ...(ref.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []),
+    ];
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last?.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first?.focus();
+    }
+  }
+  return (
+    <>
+      <div
+        className="form-panel-backdrop"
+        aria-hidden="true"
+        onClick={requestClose}
+      />
+      <section
+        ref={ref}
+        className="form-panel"
+        role="dialog"
+        aria-modal={overlay || undefined}
+        aria-labelledby={id}
+        onKeyDown={onKeyDown}
+      >
+        <div className="form-panel-head">
+          <h2 id={id}>{title}</h2>
+          <button
+            type="button"
+            className="sidebar-toggle"
+            aria-label="패널 닫기"
+            onClick={requestClose}
+          >
+            ✕
+          </button>
+        </div>
+        <form onSubmit={onSubmit} aria-labelledby={id}>
+          <div className="form-panel-body">{children}</div>
+          <div className="form-panel-foot">
+            {guard.pending ? (
+              <>
+                <p role="alert">저장하지 않은 변경이 있습니다.</p>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={guard.discard}
+                >
+                  변경 버리기
+                </button>
+                <button
+                  type="button"
+                  className="link-button"
+                  data-keep
+                  onClick={guard.keep}
+                >
+                  계속 편집
+                </button>
+              </>
+            ) : (
+              actions
+            )}
+          </div>
+        </form>
+      </section>
+    </>
   );
 }

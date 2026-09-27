@@ -116,6 +116,8 @@ export function Readings() {
       signal: controller.signal,
     })
       .then((r) => {
+        // 보기·페이지를 바꾼 뒤 늦게 도착한 이전 응답은 버린다.
+        if (controller.signal.aborted) return;
         setRows(r.data);
         setTotal(r.page?.total ?? 0);
         // 기간을 비워 조회하면 서버가 최근 7일을 정한다. 입력 칸에 그 기간을 보여준다.
@@ -181,8 +183,32 @@ export function Readings() {
       [key]: value,
       ...(key === "meterId" ? { channelId: "" } : {}),
     }));
+  // 보기 전환은 결과 수·CSV와 같은 줄에 둔다(표·그래프 공통).
+  const viewTabs = (
+    <div className="tabs" role="group" aria-label="보기 방식">
+      {(
+        [
+          ["table", "표"],
+          ["chart", "선 그래프"],
+        ] as const
+      ).map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          aria-pressed={view === key}
+          onClick={() => {
+            setOffset(0);
+            setView(key);
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+  // 조회 목록 기준 화면(UI-02): 제목 → 조건 → 보기·결과 수 → 남은 높이를 쓰는 결과 → 페이지 이동
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="F-02"
         title="계측 조회"
@@ -270,33 +296,34 @@ export function Readings() {
         </label>
         <button type="submit">조회</button>
       </form>
-      <div className="tabs" role="group" aria-label="보기 방식">
-        {(
-          [
-            ["table", "표"],
-            ["chart", "선 그래프"],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            aria-pressed={view === key}
-            onClick={() => {
-              setOffset(0);
-              setView(key);
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
       <ErrorNotice error={error} retry={() => setReload((n) => n + 1)} />
-      {!rows ? (
-        !error && <Loading delay={300} />
-      ) : view === "chart" ? (
-        <ReadingChart rows={rows} channelSelected={!!applied.channelId} />
+      {view === "chart" ? (
+        <section className="fill">
+          <div className="table-toolbar">
+            <div className="table-toolbar-lead">
+              {viewTabs}
+              {rows && (
+                <p>
+                  총 <strong>{total.toLocaleString()}</strong>건 · 앞{" "}
+                  {CHART_LIMIT}건까지 그립니다
+                </p>
+              )}
+            </div>
+          </div>
+          {!rows ? (
+            !error && <Loading delay={300} />
+          ) : (
+            <ReadingChart rows={rows} channelSelected={!!applied.channelId} />
+          )}
+        </section>
+      ) : !rows ? (
+        <>
+          {viewTabs}
+          {!error && <Loading delay={300} />}
+        </>
       ) : (
         <DataTable
+          leading={viewTabs}
           rows={rows}
           columns={columns}
           caption="계측값"
@@ -313,7 +340,7 @@ export function Readings() {
           }
         />
       )}
-    </>
+    </div>
   );
 }
 // 채널 1개의 선 그래프. 결측은 0으로 그리지 않고 선을 끊는다(FS-005g 5.2).

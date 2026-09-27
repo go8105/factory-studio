@@ -107,28 +107,37 @@ export function TargetTile({ target }: { target: DashboardData["target"] }) {
   );
 }
 // 에너지원별 구성: TOE 환산 후 비중. 용수는 환산 대상이 아니라 막대에서 뺀다.
+// 주요 차트 옆 보조 영역이라 에너지원마다 이름·값 한 줄 + 막대 한 줄로 쌓는다.
 export function Composition({ sources }: { sources: Converted[] }) {
   const calculated = sources.filter((s) => s.toe !== null);
   const total = calculated.reduce((sum, s) => sum + Number(s.toe), 0);
   return (
     <section className="panel" aria-label="에너지원별 구성">
       <h2>에너지원별 구성 · TOE 환산</h2>
-      <ul className="bar-list">
+      <ul className="share-list">
         {calculated.map((s) => {
           const share = total ? (Number(s.toe) / total) * 100 : 0;
           return (
             <li key={s.sourceCode}>
-              <span>{s.name}</span>
-              <span className="bar" aria-hidden="true">
-                <span style={{ width: `${share}%` }} />
+              <span>
+                {s.name}{" "}
+                <small>
+                  {num(s.consumption.quantity)} {s.consumption.unit}
+                </small>
               </span>
               <span>
                 {num(s.toe!, 3)} TOE · {share.toFixed(1)}%
+              </span>
+              <span className="bar" aria-hidden="true">
+                <span style={{ width: `${share}%` }} />
               </span>
             </li>
           );
         })}
       </ul>
+      <p className="share-total">
+        환산 합계 <strong>{num(String(total), 3)} TOE</strong>
+      </p>
       {sources
         .filter((s) => s.toe === null)
         .map((s) => (
@@ -146,9 +155,10 @@ export function Composition({ sources }: { sources: Converted[] }) {
 export function DailyChart({ daily }: { daily: DashboardData["daily"] }) {
   const [hover, setHover] = useState<number>();
   if (!daily.length) return null;
+  // 3:2 격자의 주요 차트. 옆 구성 카드와 높이가 비슷하도록 가로로 긴 비율을 쓴다.
   const W = 720;
-  const H = 200;
-  const pad = { l: 48, r: 16, t: 12, b: 24 };
+  const H = 170;
+  const pad = { l: 48, r: 16, t: 12, b: 16 };
   const values = daily.map((d) => Number(d.toe));
   const max = Math.max(...values, 0.001);
   const x = (i: number) =>
@@ -261,18 +271,18 @@ export function Dashboard() {
             : "이번 달 사용량과 목표 대비"
         }
         help="fems/f-01"
+        actions={
+          <label>
+            조회 월
+            <input
+              type="month"
+              // 처음에는 서버가 정한 달을 보여 준다. 같은 조회를 다시 보내지 않는다.
+              value={month || data?.period?.month || ""}
+              onChange={(e) => e.target.value && setMonth(e.target.value)}
+            />
+          </label>
+        }
       />
-      <div className="filter-bar">
-        <label>
-          조회 월
-          <input
-            type="month"
-            // 처음에는 서버가 정한 달을 보여 준다. 같은 조회를 다시 보내지 않는다.
-            value={month || data?.period?.month || ""}
-            onChange={(e) => e.target.value && setMonth(e.target.value)}
-          />
-        </label>
-      </div>
       <ErrorNotice error={error} retry={() => setReload((n) => n + 1)} />
       {!data ? (
         !error && <Loading delay={300} />
@@ -320,9 +330,10 @@ export function Dashboard() {
               }
             />
           </div>
-          <div className="dashboard-grid">
-            <Composition sources={data.primaryEnergy.sources} />
+          {/* 주요 차트(일자별 추이) + 보조 영역 3:2. 읽는 순서는 화면 폭과 관계없이 같다. */}
+          <div className="dashboard-grid has-lead">
             <DailyChart daily={data.daily} />
+            <Composition sources={data.primaryEnergy.sources} />
             <section className="panel" aria-label="설비별 소비 상위 5">
               <h2>설비별 소비 상위 5 · kWh</h2>
               <ol className="rank-list">

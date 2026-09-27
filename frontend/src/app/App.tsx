@@ -31,6 +31,8 @@ function Layout() {
   const [error, setError] = useState<unknown>();
   const [leaving, setLeaving] = useState(false);
   const { pathname } = useLocation();
+  // 업무 화면(솔루션)은 사이드바·본문이 헤더 아래 높이를 모두 쓴다. 바닥글은 포털 화면에만 둔다.
+  const work = /^\/(fems|mes|erp)(\/|$)/.test(pathname);
   async function logout() {
     setLeaving(true);
     try {
@@ -48,7 +50,7 @@ function Layout() {
     }
   }
   return (
-    <>
+    <div className="app-shell">
       <a className="skip-link" href="#main">
         본문으로 건너뛰기
       </a>
@@ -93,21 +95,21 @@ function Layout() {
         id="main"
         key={pathname}
         tabIndex={-1}
-        className={
-          /^\/(fems|mes|erp)(\/|$)/.test(pathname) ? "wide" : undefined
-        }
+        className={work ? "wide" : undefined}
       >
         <ErrorNotice error={error} />
         <Suspense fallback={<Loading />}>
           <Outlet />
         </Suspense>
       </main>
-      <footer className="site-footer">
-        <span>Factory Studio</span>
-        <span>합성 데이터로 구성한 제조 업무 포트폴리오</span>
-        <Link to="/help/common">공통 이용 안내</Link>
-      </footer>
-    </>
+      {!work && (
+        <footer className="site-footer">
+          <span>Factory Studio</span>
+          <span>합성 데이터로 구성한 제조 업무 포트폴리오</span>
+          <Link to="/help/common">공통 이용 안내</Link>
+        </footer>
+      )}
+    </div>
   );
 }
 function Private() {

@@ -5,11 +5,14 @@ import { api, ApiError, MutationKeys } from "../shared/api";
 import {
   Badge,
   DataTable,
+  DateRange,
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
+  useDiscardGuard,
   type Column,
 } from "../shared/components";
 const BASE = "/api/v1/fems/production-records";
@@ -74,8 +77,13 @@ export function Production() {
   const [status, setStatus] = useState("");
   const [reload, setReload] = useState(0);
   const [loadError, setLoadError] = useState<unknown>();
-  const [editing, setEditing] = useState<ProductionRecord | null>(null);
+  // 패널: 닫힘(null) · 새 등록({ row: null }) · 초안 수정({ row })
+  const [panel, setPanel] = useState<{ row: ProductionRecord | null } | null>(
+    null,
+  );
+  const editing = panel?.row ?? null;
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [initial, setInitial] = useState<Draft>(EMPTY);
   const [saveError, setSaveError] = useState<unknown>();
   const [confirmDelete, setConfirmDelete] = useState<number>();
   const [pending, setPending] = useState(false);
@@ -109,20 +117,30 @@ export function Production() {
       });
     return () => controller.abort();
   }, [offset, history, status, reload]);
-  function startEdit(row: ProductionRecord | null) {
-    setEditing(row);
-    setDraft(
-      row
-        ? {
-            equipmentId: String(row.equipmentId),
-            itemCode: row.itemCode,
-            startDate: row.startDate,
-            endDate: row.endDate,
-            productionQty: String(Number(row.productionQty)),
-            unit: row.unit,
-          }
-        : EMPTY,
+  const dirty =
+    !!panel &&
+    (Object.keys(draft) as (keyof Draft)[]).some(
+      (k) => draft[k] !== initial[k],
     );
+  const guard = useDiscardGuard(dirty);
+  function openPanel(row: ProductionRecord | null) {
+    const values = row
+      ? {
+          equipmentId: String(row.equipmentId),
+          itemCode: row.itemCode,
+          startDate: row.startDate,
+          endDate: row.endDate,
+          productionQty: String(Number(row.productionQty)),
+          unit: row.unit,
+        }
+      : EMPTY;
+    setPanel({ row });
+    setDraft(values);
+    setInitial(values);
+    setSaveError(undefined);
+  }
+  function closePanel() {
+    setPanel(null);
     setSaveError(undefined);
   }
   async function send(
@@ -190,7 +208,7 @@ export function Production() {
       body,
     );
     if (saved) {
-      startEdit(null);
+      closePanel();
       setDone(
         `${saved.sourceKey} v${saved.versionNo} 초안을 저장했습니다. 확정해야 원단위에 반영됩니다.`,
       );
@@ -205,17 +223,21 @@ export function Production() {
     );
     if (!saved) return;
     if (action === "revise") {
-      startEdit(saved);
+      openPanel(saved);
       setDone(
         `${saved.sourceKey} v${saved.versionNo} 정정 초안을 만들었습니다.`,
       );
-    } else setDone(`${saved.sourceKey} v${saved.versionNo}을 확정했습니다.`);
+    } else {
+      // 확정한 초안은 더 고칠 수 없으므로 열려 있던 수정 패널을 닫는다.
+      if (editing?.id === row.id) closePanel();
+      setDone(`${saved.sourceKey} v${saved.versionNo}을 확정했습니다.`);
+    }
   }
   async function remove(row: ProductionRecord) {
     if (pending) return;
     await send(`delete:${row.id}`, `${BASE}/${row.id}`, "DELETE");
     setConfirmDelete(undefined);
-    if (editing?.id === row.id) startEdit(null);
+    if (editing?.id === row.id) closePanel();
   }
   if (
     loadError instanceof ApiError &&
@@ -261,7 +283,11 @@ export function Production() {
             </span>
           ) : (
             <span className="row-actions">
-              <button className="link-button" onClick={() => startEdit(r)}>
+              <button
+                className="link-button"
+                aria-pressed={editing?.id === r.id}
+                onClick={() => guard.guard(() => openPanel(r))}
+              >
                 수정
               </button>
               <button
@@ -283,7 +309,7 @@ export function Production() {
           <button
             className="link-button"
             disabled={pending}
-            onClick={() => void act(r, "revise")}
+            onClick={() => guard.guard(() => void act(r, "revise"))}
           >
             정정
           </button>
@@ -306,29 +332,37 @@ export function Production() {
     {
       key: "startDate",
       label: "기간",
-      render: (r) =>
-        r.startDate === r.endDate
-          ? r.startDate
-          : `${r.startDate} ~ ${r.endDate}`,
+      render: (r) => <DateRange from={r.startDate} to={r.endDate} />,
     },
   ];
+  const panelError = Object.keys(errors).length ? undefined : saveError;
+  // 목록+등록 패널 기준 화면(UI-02): 목록을 넓게 두고, 등록·수정·정정은 같은 오른쪽 패널에서 한다.
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="F-05"
         title="생산량 등록"
         subtitle="원단위의 분모 · 확정한 기록은 바꾸지 않고 새 버전으로 정정합니다"
         help="fems/f-05"
+        actions={
+          <button
+            type="button"
+            aria-pressed={!!panel && !editing}
+            onClick={() => guard.guard(() => openPanel(null))}
+          >
+            생산량 등록
+          </button>
+        }
       />
       <p className="muted" role="note">
         MES를 쓰는 환경이라면 생산실적에서 자동으로 넘어오는 값입니다. FEMS는
         독립 솔루션이라 여기서 직접 입력하고, 품목은 코드 문자열로 받습니다.
         시드의 MES:로 시작하는 기록은 MES 실행에서 파생된 예시입니다.
       </p>
-      <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
+      {!panel && <ErrorNotice error={panelError} />}
       {done && <p role="status">{done}</p>}
-      <div className="master-grid">
-        <section>
+      <div className="split-view fill">
+        <section className="fill">
           <div className="filter-bar">
             <label>
               상태
@@ -373,116 +407,127 @@ export function Production() {
               onPage={setOffset}
               empty={
                 <EmptyState
-                  reason="조건에 맞는 생산량 기록이 없습니다. 오른쪽에서 새 기록을 등록할 수 있습니다."
-                  to="#production-form"
+                  reason="조건에 맞는 생산량 기록이 없습니다. 새 기록을 등록할 수 있습니다."
                   action="생산량 등록"
+                  onAction={() => guard.guard(() => openPanel(null))}
                 />
               }
             />
           )}
         </section>
-        <form
-          id="production-form"
-          className="panel"
-          onSubmit={(e) => void submit(e)}
-          aria-label={editing ? "생산량 초안 수정" : "생산량 등록"}
-        >
-          <h2>
-            {editing
-              ? `${editing.sourceKey} v${editing.versionNo} 초안 수정`
-              : "생산량 등록 (초안)"}
-          </h2>
-          {revision && (
-            <p className="muted">
-              정정 버전은 설비·품목·단위를 바꿀 수 없습니다. 다른 기록이면 새로
-              등록하세요.
-            </p>
-          )}
-          <div className="field">
-            <label htmlFor="production-equipment">설비</label>
-            <select
-              id="production-equipment"
-              value={draft.equipmentId}
+        {panel && (
+          <FormPanel
+            key={editing?.id ?? "new"}
+            title={
+              editing
+                ? `${editing.sourceKey} v${editing.versionNo} 초안 수정`
+                : "생산량 등록 (초안)"
+            }
+            guard={guard}
+            onClose={closePanel}
+            onSubmit={(e) => void submit(e)}
+            actions={
+              <>
+                <button type="submit" disabled={pending} aria-busy={pending}>
+                  {editing ? "초안 저장" : "초안 등록"}
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => guard.guard(closePanel)}
+                >
+                  취소
+                </button>
+              </>
+            }
+          >
+            <ErrorNotice error={panelError} />
+            {revision && (
+              <p className="muted">
+                정정 버전은 설비·품목·단위를 바꿀 수 없습니다. 다른 기록이면
+                새로 등록하세요.
+              </p>
+            )}
+            <div className="field">
+              <label htmlFor="production-equipment">설비</label>
+              <select
+                id="production-equipment"
+                value={draft.equipmentId}
+                required
+                disabled={revision}
+                aria-invalid={!!errors.equipmentId}
+                onChange={(e) =>
+                  setDraft({ ...draft, equipmentId: e.target.value })
+                }
+              >
+                <option value="">선택</option>
+                {equipments.map((q) => (
+                  <option key={q.id} value={q.id}>
+                    {q.equipmentCode} {q.name}
+                  </option>
+                ))}
+              </select>
+              {errors.equipmentId && <small>{errors.equipmentId}</small>}
+            </div>
+            <Field
+              label="품목 코드"
+              value={draft.itemCode}
               required
               disabled={revision}
-              aria-invalid={!!errors.equipmentId}
+              maxLength={40}
+              error={errors.itemCode}
               onChange={(e) =>
-                setDraft({ ...draft, equipmentId: e.target.value })
+                setDraft({ ...draft, itemCode: e.target.value.toUpperCase() })
               }
-            >
-              <option value="">선택</option>
-              {equipments.map((q) => (
-                <option key={q.id} value={q.id}>
-                  {q.equipmentCode} {q.name}
-                </option>
-              ))}
-            </select>
-            {errors.equipmentId && <small>{errors.equipmentId}</small>}
-          </div>
-          <Field
-            label="품목 코드"
-            value={draft.itemCode}
-            required
-            disabled={revision}
-            maxLength={40}
-            error={errors.itemCode}
-            onChange={(e) =>
-              setDraft({ ...draft, itemCode: e.target.value.toUpperCase() })
-            }
-          />
-          <Field
-            label="시작일"
-            type="date"
-            value={draft.startDate}
-            required
-            error={errors.startDate}
-            onChange={(e) => setDraft({ ...draft, startDate: e.target.value })}
-          />
-          <Field
-            label="종료일 (포함)"
-            type="date"
-            value={draft.endDate}
-            required
-            error={errors.endDate}
-            onChange={(e) => setDraft({ ...draft, endDate: e.target.value })}
-          />
-          <Field
-            label="생산량"
-            inputMode="decimal"
-            value={draft.productionQty}
-            required
-            pattern="\d+(\.\d{1,3})?"
-            title="0 이상, 소수 3자리까지"
-            error={errors.productionQty}
-            onChange={(e) =>
-              setDraft({ ...draft, productionQty: e.target.value })
-            }
-          />
-          <Field
-            label="단위"
-            value={draft.unit}
-            required
-            disabled={revision}
-            maxLength={10}
-            error={errors.unit}
-            onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
-          />
-          <div className="row-actions">
-            <button type="submit" disabled={pending}>
-              {editing ? "초안 저장" : "초안 등록"}
-            </button>
-            {editing && (
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => startEdit(null)}
-              >
-                새로 등록
-              </button>
-            )}
-          </div>
-        </form>
+            />
+            <div className="field-row">
+              <Field
+                label="시작일"
+                type="date"
+                value={draft.startDate}
+                required
+                error={errors.startDate}
+                onChange={(e) =>
+                  setDraft({ ...draft, startDate: e.target.value })
+                }
+              />
+              <Field
+                label="종료일 (포함)"
+                type="date"
+                value={draft.endDate}
+                required
+                error={errors.endDate}
+                onChange={(e) =>
+                  setDraft({ ...draft, endDate: e.target.value })
+                }
+              />
+            </div>
+            <div className="field-row">
+              <Field
+                label="생산량"
+                inputMode="decimal"
+                value={draft.productionQty}
+                required
+                pattern="\d+(\.\d{1,3})?"
+                title="0 이상, 소수 3자리까지"
+                error={errors.productionQty}
+                onChange={(e) =>
+                  setDraft({ ...draft, productionQty: e.target.value })
+                }
+              />
+              <Field
+                label="단위"
+                value={draft.unit}
+                required
+                disabled={revision}
+                maxLength={10}
+                error={errors.unit}
+                onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
+              />
+            </div>
+          </FormPanel>
+        )}
       </div>
-    </>
+    </div>
   );
 }

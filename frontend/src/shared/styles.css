@@ -46,6 +46,9 @@
   --header-h: 52px;
   --sidebar-w: 232px;
   --gutter: 24px;
+  --panel-w: 380px; /* 등록·수정 패널(FormPanel) */
+  /* 헤더 아래 남은 뷰포트 높이. 높이 계산은 이 값 하나만 쓴다. */
+  --app-h: calc(100vh - var(--header-h));
 
   font-family:
     Pretendard,
@@ -61,6 +64,11 @@
   line-height: 1.5;
   font-size: var(--fs);
   -webkit-font-smoothing: antialiased;
+}
+@supports (height: 100dvh) {
+  :root {
+    --app-h: calc(100dvh - var(--header-h));
+  }
 }
 * {
   box-sizing: border-box;
@@ -220,6 +228,12 @@ select[aria-invalid="true"] {
   font-size: var(--fs-xs);
   color: var(--danger-fg);
 }
+/* 짧은 두 입력(시작일·종료일, 수량·단위)을 한 줄에 둔다. 좁으면 한 칸씩. */
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: 0 var(--s3);
+}
 fieldset.field {
   border: 0;
   padding: 0;
@@ -314,10 +328,17 @@ fieldset.field legend {
   padding: 0 10px;
   color: var(--muted);
 }
+/* 앱 틀: 헤더 · 본문(남은 높이) · 바닥글. 바닥글은 포털 화면에만 있다(업무 화면은 사이드바가 대신). */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
 /* 업무 화면은 폭 제한 없이 넓게 쓴다. 읽기 중심 요소(.markdown 등)만 자체 폭을 둔다. */
 main {
+  flex: 1 0 auto;
   padding: var(--s5) var(--gutter) var(--s6);
-  min-height: calc(100vh - var(--header-h) - 45px);
 }
 main.wide {
   padding: 0;
@@ -350,13 +371,13 @@ main:focus {
 .solution-layout {
   display: grid;
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
-  min-height: calc(100vh - var(--header-h) - 45px);
+  min-height: var(--app-h);
 }
 .solution-sidebar {
   position: sticky;
   top: var(--header-h);
   align-self: start;
-  height: calc(100vh - var(--header-h));
+  height: var(--app-h);
   overflow-y: auto;
   scrollbar-width: thin;
   padding: var(--s3) var(--s3) var(--s6) calc(var(--gutter) - 10px);
@@ -479,6 +500,26 @@ main:focus {
   margin-top: 2px;
   font-size: var(--fs-sm);
 }
+/* 제목 오른쪽: 화면의 주요 행동(등록·조회 월 등) + 도움말 */
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--s2);
+}
+.page-actions label {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--muted);
+}
+.page-actions input,
+.page-actions select {
+  width: auto;
+}
 .help-link {
   flex: 0 0 auto;
   display: inline-flex;
@@ -512,6 +553,10 @@ main:focus {
   color: var(--muted);
   font-size: var(--fs-sm);
   margin: var(--s1) 0 0;
+}
+/* 화면 안내문(role=note)은 아래 필터·목록과 간격을 둔다. */
+p.muted[role="note"] {
+  margin: 0 0 var(--s3);
 }
 
 /* ---- 패널(카드) ---- */
@@ -766,6 +811,15 @@ td .row-actions {
 .table-toolbar p {
   font-size: var(--fs-sm);
 }
+.table-toolbar-lead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s4);
+}
+.table-toolbar .tabs {
+  margin: 0;
+}
 .table-toolbar strong {
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -821,17 +875,51 @@ td:first-child {
 th:first-child {
   background: var(--surface-2);
 }
+/* 표 머리글은 표 스크롤 컨테이너 안에서 고정한다(목록 채움 화면에서 세로 스크롤). */
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+thead th:first-child {
+  z-index: 2;
+}
 /* 숫자·금액은 오른쪽 정렬, 자릿수 고정폭 */
 th.num,
 td.num {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-/* 긴 값은 줄이고 전체 값은 title로 확인한다(DataTable). */
+/* 긴 이름·코드: 줄임표. 칸은 포커스할 수 있고, 포커스·호버하면 줄바꿈해 전체 값을 보여 준다(터치·키보드). */
 td.clip {
   max-width: 28ch;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+td.clip:hover,
+td.clip:focus-visible,
+td.clip:focus {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+td.clip:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+/* 설명·메모: 자연스럽게 줄바꿈한다. 너무 좁아지지 않게 최소 폭을 둔다. */
+td.wrap {
+  white-space: normal;
+  min-width: 16ch;
+  max-width: 48ch;
+  overflow-wrap: anywhere;
+}
+/* 날짜 범위: 칸이 좁아지면 시작일 / ~ 종료일 두 줄로 나뉜다. 각 날짜는 끊지 않는다. */
+.date-range {
+  white-space: normal;
+}
+.date-range > span {
+  white-space: nowrap;
 }
 th button {
   min-height: 0;
@@ -850,13 +938,19 @@ th button:hover:not(:disabled) {
 th[aria-sort="none"] button span {
   opacity: 0.4;
 }
+/* 페이지 이동은 목록이 화면에 있는 동안 화면 아래에 붙어 있다(모바일·자연 스크롤에서도). */
 .pagination {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: var(--s3);
   font-size: var(--fs-sm);
-  margin-top: var(--s3);
+  margin-top: var(--s2);
+  padding: var(--s2) 0;
+  background: var(--bg);
   font-variant-numeric: tabular-nums;
 }
 .pagination button {
@@ -904,12 +998,170 @@ th[aria-sort="none"] button span {
   margin: 0;
 }
 
-/* ---- 핵심 지표(KPI) · 차트 ---- */
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+/* ---- 목록 + 등록·수정 패널(FormPanel, UI-02) ----
+   패널은 열 때만 나타난다. 1600px 이상은 목록 오른쪽에 붙이고(목록 최소 가독 폭 확보),
+   그보다 좁으면 오른쪽에서 겹쳐 열리며, 600px 이하는 전체 화면이다. 패널 높이는 내용만큼이고
+   필드 영역만 스크롤한다. 저장·취소는 패널 아래에 항상 보인다. */
+.form-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+.form-panel > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.form-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--s3);
+  padding: var(--s3) var(--s3) var(--s3) var(--s5);
+  border-bottom: 1px solid var(--border);
+}
+.form-panel-head h2 {
+  font-size: var(--fs);
+  overflow-wrap: anywhere;
+}
+.form-panel-body {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--s4) var(--s5) var(--s2);
+}
+.form-panel-body > .notice,
+.form-panel-body > p.muted {
+  margin: 0 0 var(--s3);
+}
+.form-panel-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  padding: var(--s3) var(--s5);
+  border-top: 1px solid var(--border);
+}
+.form-panel-foot p {
+  flex: 1 1 100%;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+}
+.form-panel-backdrop {
+  display: none;
+}
+@media (max-width: 1599px) {
+  .form-panel {
+    position: fixed;
+    top: var(--header-h);
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    width: min(var(--panel-w), 100%);
+    border-width: 0 0 0 1px;
+    border-radius: 0;
+  }
+  .form-panel-backdrop {
+    display: block;
+    position: fixed;
+    inset: var(--header-h) 0 0;
+    z-index: 44;
+    background: rgb(26 28 30 / 16%);
+  }
+}
+@media (max-width: 800px) {
+  /* 모바일 헤더는 고정이 아니므로 패널이 화면 전체 높이를 쓴다. */
+  .form-panel {
+    top: 0;
+  }
+  .form-panel-backdrop {
+    inset: 0;
+  }
+}
+@media (max-width: 600px) {
+  .form-panel {
+    width: 100%;
+    border-left: 0;
+  }
+}
+@media (min-width: 1600px) {
+  .split-view:has(> .form-panel) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--panel-w);
+    gap: var(--s4);
+    align-items: start;
+  }
+  .form-panel {
+    position: sticky;
+    top: calc(var(--header-h) + var(--s4));
+    max-height: calc(var(--app-h) - var(--s4) * 2);
+  }
+}
+
+/* ---- 목록 채움(page-fill, UI-02) ----
+   데스크톱 목록 화면은 헤더 아래 남은 높이를 쓴다. 문서는 스크롤하지 않고 결과 영역(.fill)만
+   스크롤하므로 제목·필터·표 머리글·페이지 이동이 항상 보인다. 좁은 폭·낮은 높이·확대 상태는
+   자연스러운 세로 스크롤로 돌아간다. 내용이 남은 높이보다 크면 넘친 만큼 문서가 스크롤된다(잘리지 않음). */
+@media (min-width: 1025px) and (min-height: 600px) {
+  .solution-content:has(> .page-fill) {
+    display: flex;
+    flex-direction: column;
+    height: var(--app-h);
+  }
+  .page-fill,
+  .page-fill .fill {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .page-fill .table-scroll {
+    flex: 0 1 auto;
+  }
+  .page-fill .pagination {
+    position: static;
+  }
+  .page-fill .reading-chart {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .page-fill .reading-chart svg {
+    flex: 0 1 auto;
+    min-height: 120px;
+  }
+}
+/* 채움 + 패널 붙임: 목록과 패널이 같은 높이 안에 있고, 패널은 내용만큼(최대 남은 높이)만 차지한다. */
+@media (min-width: 1600px) and (min-height: 600px) {
+  .page-fill .split-view:has(> .form-panel) {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .page-fill .split-view > .form-panel {
+    position: static;
+    max-height: 100%;
+  }
+}
+
+/* ---- 핵심 지표(KPI) · 차트 ---- */
+/* KPI: 본문 폭 640px 이상이면 한 줄, 그보다 좁으면 2열(3+1로 떨어지지 않는다).
+   flex-basis가 (640px − 본문 폭)에 비례해 음수(→0, 한 줄) 또는 매우 큰 값(→최대 폭 50%, 2열)이 된다. */
+.kpi-grid {
+  --kpi-gap: var(--s3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kpi-gap);
   margin: 0 0 var(--s4);
+}
+.kpi-grid > * {
+  flex: 1 1 calc((640px - 100%) * 999);
+  min-width: 0;
+  max-width: calc(50% - var(--kpi-gap) / 2);
 }
 .stat-tile {
   display: grid;
@@ -949,10 +1201,20 @@ th[aria-sort="none"] button span {
   color: var(--muted);
   font-size: var(--fs-xs);
 }
+/* 대시보드 하단: 넓은 화면 2열(2×2), 좁은 화면 1열. 폭에 따라 3+1·4열로 바뀌지 않고 읽는 순서가 같다.
+   .has-lead는 첫 카드(주요 차트)를 넓게 두는 3:2 격자다. 같은 열의 카드 외곽이 위아래로 맞는다. */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s4);
+}
+@media (min-width: 1100px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dashboard-grid.has-lead {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
 }
 .dashboard-grid > .panel,
 .dashboard-grid > figure {
@@ -1035,6 +1297,49 @@ th[aria-sort="none"] button span {
   height: 100%;
   background: var(--accent);
   border-radius: 4px;
+}
+.share-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--s3);
+  display: grid;
+  gap: var(--s3);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.share-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px var(--s2);
+}
+.share-list .bar {
+  grid-column: 1 / -1;
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.share-list .bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+}
+.share-list small {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.share-total {
+  display: flex;
+  justify-content: space-between;
+  padding-top: var(--s2);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.share-total strong {
+  color: var(--ink);
+  font-weight: 600;
 }
 .rank-list li {
   display: flex;

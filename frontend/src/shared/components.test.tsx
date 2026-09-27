@@ -5,10 +5,13 @@ import { act } from "react";
 import { ApiError } from "./api";
 import {
   DataTable,
+  DateRange,
   EmptyState,
   ErrorNotice,
   Field,
   Loading,
+  PageTitle,
+  Pagination,
   SessionExpired,
   csvText,
 } from "./components";
@@ -113,4 +116,53 @@ it("표 페이지 이동은 다음 offset을 전달한다", () => {
 });
 it("CSV는 따옴표와 수식 시작 문자를 이스케이프한다", () => {
   expect(csvText([{ id: 1, name: "=1+1" }], columns)).toContain('"\'=1+1"');
+});
+it("긴 값은 줄이되 칸에 포커스해 전체 값을 볼 수 있다", () => {
+  const long =
+    "아주 긴 설비 이름이 들어가서 한 줄에 다 보이지 않는 경우의 예시";
+  render(
+    <MemoryRouter>
+      <DataTable
+        rows={[{ id: 1, name: long, memo: "짧은 메모" }]}
+        columns={[
+          { key: "name", label: "이름" },
+          { key: "memo", label: "메모", wrap: true },
+        ]}
+        caption="목록"
+        offset={0}
+        total={1}
+        limit={20}
+        onPage={() => {}}
+      />
+    </MemoryRouter>,
+  );
+  const cell = screen.getByRole("cell", { name: long });
+  expect(cell).toHaveClass("clip");
+  expect(cell).toHaveAttribute("tabindex", "0");
+  expect(screen.getByRole("cell", { name: "짧은 메모" })).toHaveClass("wrap");
+});
+it("한 페이지뿐이면 페이지 이동을 숨긴다", () => {
+  render(
+    <Pagination offset={0} total={20} limit={20} onPage={() => {}} label="p" />,
+  );
+  expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+});
+it("날짜 범위는 같은 날이면 하나만 쓴다", () => {
+  const { container } = render(<DateRange from="2026-09-01" to="2026-09-01" />);
+  expect(container).toHaveTextContent(/^2026-09-01$/);
+});
+it("제목 줄에 화면의 주요 행동을 둘 수 있다", () => {
+  render(
+    <MemoryRouter>
+      <PageTitle
+        id="F-05"
+        title="생산량 등록"
+        actions={<button>등록</button>}
+      />
+    </MemoryRouter>,
+  );
+  expect(screen.getByRole("button", { name: "등록" })).toBeVisible();
+  expect(
+    screen.getByRole("link", { name: "생산량 등록 도움말" }),
+  ).toBeVisible();
 });

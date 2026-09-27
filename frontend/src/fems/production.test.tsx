@@ -151,6 +151,7 @@ it("등록은 대문자 품목 코드와 날짜로 초안을 요청한다", asyn
     [`POST ${BASE}`]: { status: 201, body: { data: draft } },
   });
   show();
+  fireEvent.click(await screen.findByRole("button", { name: "생산량 등록" }));
   await screen.findByRole("option", { name: "INS-01 검사기 1호" });
   fireEvent.change(screen.getByLabelText("설비"), {
     target: { value: "7" },
@@ -218,6 +219,66 @@ it("정정은 새 초안을 만들고 설비·품목·단위를 잠근다", asyn
   expect(screen.getByLabelText("품목 코드")).toBeDisabled();
   expect(screen.getByLabelText("단위")).toBeDisabled();
   expect(screen.getByLabelText("생산량")).toBeEnabled();
+});
+it("등록 패널은 버튼으로 열고 목록은 처음부터 넓게 쓴다", async () => {
+  mockApi();
+  show();
+  await screen.findByText("확정 · 원단위 반영");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "생산량 등록" }));
+  const panel = await screen.findByRole("dialog", {
+    name: "생산량 등록 (초안)",
+  });
+  expect(panel).toContainElement(screen.getByLabelText("설비"));
+  expect(screen.getByLabelText("설비")).toHaveFocus();
+});
+it("변경이 없으면 Esc로 닫고 연 버튼으로 포커스를 돌려준다", async () => {
+  mockApi();
+  show();
+  const opener = await screen.findByRole("button", { name: "생산량 등록" });
+  opener.focus();
+  fireEvent.click(opener);
+  const panel = await screen.findByRole("dialog");
+  fireEvent.keyDown(panel, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(opener).toHaveFocus();
+});
+it("저장하지 않은 변경이 있으면 닫기 전에 확인한다", async () => {
+  const fetcher = mockApi();
+  show();
+  fireEvent.click(await screen.findByRole("button", { name: "생산량 등록" }));
+  fireEvent.change(await screen.findByLabelText("품목 코드"), {
+    target: { value: "fg-1" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "취소" }));
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "저장하지 않은 변경이 있습니다",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "계속 편집" }));
+  expect(screen.getByLabelText("품목 코드")).toHaveValue("FG-1");
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+  fireEvent.click(screen.getByRole("button", { name: "변경 버리기" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(calls(fetcher, "POST")).toHaveLength(0);
+});
+it("수정 중 다른 기록의 정정은 변경을 버릴지 먼저 묻는다", async () => {
+  const fetcher = mockApi([record(), draft]);
+  show();
+  fireEvent.click(await screen.findByRole("button", { name: "수정" }));
+  fireEvent.change(await screen.findByLabelText("생산량"), {
+    target: { value: "99" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "정정" }));
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "저장하지 않은 변경이 있습니다",
+  );
+  expect(calls(fetcher, "POST")).toHaveLength(0);
+});
+it("기간은 시작일과 종료일을 나눠 표시한다", async () => {
+  mockApi([record({ startDate: "2026-09-10", endDate: "2026-09-12" })]);
+  show();
+  expect(await screen.findByText("~ 2026-09-12")).toBeVisible();
+  expect(screen.getByText("2026-09-10")).toBeVisible();
 });
 it("초안 삭제는 확정 전 요청하지 않는다", async () => {
   const fetcher = mockApi([draft]);

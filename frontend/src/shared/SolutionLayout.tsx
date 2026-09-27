@@ -136,6 +136,10 @@ export function SolutionLayout({
                     {o.label}
                   </NavLink>
                 ))}
+                {/* 업무 화면에는 바닥글이 없으므로 공통 안내를 여기에 둔다(UI-02). */}
+                <NavLink to="/help/common" onClick={closeMenu}>
+                  공통 이용 안내
+                </NavLink>
               </section>
             </nav>
           </div>
