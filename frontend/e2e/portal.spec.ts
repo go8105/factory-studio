@@ -182,9 +182,14 @@ test("360px 진입 화면 가로 스크롤 없음", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: /가입 없이 둘러보기/ }),
   ).toBeVisible();
+  await expect(page.locator(".entry-footer")).toContainText("QMS / 품질관리");
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(360);
+  await page.screenshot({
+    path: "../work/fs017c/entry-mobile.png",
+    fullPage: true,
+  });
 });
 
 test("ERP 거래처 등록 → 수정 → 삭제", async ({ page }) => {

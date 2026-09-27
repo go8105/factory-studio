@@ -120,6 +120,7 @@ export function Entry() {
         <span>MES / 생산관리</span>
         <span>ERP / 경영관리</span>
         <span>FEMS / 에너지관리</span>
+        <span>QMS / 품질관리</span>
       </footer>
     </main>
   );

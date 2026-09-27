@@ -1,12 +1,18 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-023c + P-02 홈 UI·제목 변경 운영 반영 완료(`be87546`, 템플릿 7,583행). 다음 작업은 사용자 확인 후.**
+- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). UI-03 포함 계획된 작업 ID 모두 완료 — 다음 작업은 사용자 결정.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-27 P-01 진입 화면 하단 목록에 QMS 추가 (Claude Code)
+- `Entry.tsx` 하단 목록에 "QMS / 품질관리"(4개). `portal.spec.ts` 360px 진입 테스트에 QMS 문구 확인·스크린샷 추가.
+- 검증: vitest 440, typecheck·lint·format·build 0, 공식 스모크 **196 passed**(12.1분). 360px 스크린샷 직접 확인(두 줄 배치, 가로 넘침 없음).
+- 확인: UI-03은 이미 8화면 전체 완료·배포 상태였다(HANDOFF '다음' 행이 낡아 있었음 → 수정). 정해진 다음 작업 ID 없음.
+- 미실행: push·운영 반영(사용자 확인 대기).
 
 ## 2026-09-27 운영 반영 (FS-023c·P-02 홈 UI·제목 변경)
 - 서버(사용자 실행): `git pull` `2ef0578..be87546`, `uv sync`, `alembic upgrade head`(변경 없음, head `fs023b_qms_module`), API 재시작. 템플릿 재생성 `seed.cli template` → 워크스페이스 15·세대 15, **7,583행·70테이블**(QMS 6테이블 113행 포함).
