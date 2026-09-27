@@ -30,6 +30,12 @@ export const solutions = [
     description: "계측에서 원단위, 목표와 요금까지",
     to: "/fems",
   },
+  {
+    key: "qms",
+    name: "품질관리",
+    description: "검사 기준에서 판정, 보류와 처분까지",
+    to: "/qms",
+  },
 ];
 export function Home() {
   const { session, fail } = useSession();
@@ -79,7 +85,7 @@ export function Home() {
       </Link>
       <div className="section-heading">
         <h2>솔루션 둘러보기</h2>
-        <span>세 솔루션 모두 화면으로 연결됩니다</span>
+        <span>네 솔루션 모두 화면으로 연결됩니다</span>
       </div>
       <ErrorNotice error={error} />
       {!modules ? (
@@ -122,7 +128,7 @@ export function Home() {
           보세요.
         </p>
         <div>
-          {["QMS 품질", "WMS 물류", "BEMS 건물", "SCM 공급망"].map((s) => (
+          {["WMS 물류", "BEMS 건물", "SCM 공급망"].map((s) => (
             <Link key={s} to={`/cards/${s.split(" ")[0].toLowerCase()}`}>
               {s} →
             </Link>

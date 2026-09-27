@@ -249,6 +249,14 @@ export function LineIcon({ kind }: { kind: string }) {
           <path d="M5 33V17l10 5V13l10 6V7h7v26H5Z" />
           <path d="M10 28h4m5 0h4m5 0h4" />
         </>
+      ) : kind === "qms" ? (
+        <>
+          <path d="M8 6h20v28H8z" />
+          <path d="m13 17 3 3 6-6" />
+          <path d="M13 26h8" />
+          <circle cx="28" cy="28" r="5" />
+          <path d="m32 32 4 4" />
+        </>
       ) : kind === "erp" ? (
         <>
           <rect x="9" y="5" width="23" height="30" rx="2" />

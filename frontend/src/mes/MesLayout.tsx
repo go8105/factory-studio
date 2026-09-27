@@ -31,6 +31,7 @@ export const mesScreens: Screen[] = [
 const others = [
   { to: "/fems", label: "FEMS 에너지관리" },
   { to: "/erp", label: "ERP 경영관리" },
+  { to: "/qms", label: "QMS 품질관리" },
   { to: "/home", label: "포털 홈" },
 ];
 export function MesLayout() {

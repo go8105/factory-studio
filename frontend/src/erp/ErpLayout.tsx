@@ -69,6 +69,7 @@ export const erpScreens: Screen[] = [
 const others = [
   { to: "/mes", label: "MES 생산관리" },
   { to: "/fems", label: "FEMS 에너지관리" },
+  { to: "/qms", label: "QMS 품질관리" },
   { to: "/home", label: "포털 홈" },
 ];
 export function ErpLayout() {

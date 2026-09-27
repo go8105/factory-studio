@@ -44,6 +44,8 @@ type PackableLot = {
   finalGoodQty: string;
   packedQty: string;
   remainingQty: string;
+  // QMS 보류(FS-023 D10): 표시만 하고 패킹을 막지 않는다. QMS를 끄면 null.
+  qualityHold?: boolean | null;
 };
 type Item = { id: number; itemCode: string; name: string };
 
@@ -142,7 +144,15 @@ export function Packing() {
   }
 
   const lotColumns: Column<PackableLot & { id: number }>[] = [
-    { key: "lotNo", label: "LOT" },
+    {
+      key: "lotNo",
+      label: "LOT",
+      render: (r) => (
+        <>
+          {r.lotNo} {r.qualityHold && <Badge tone="issue">QMS 보류</Badge>}
+        </>
+      ),
+    },
     { key: "itemId", label: "품목", render: (r) => itemCode(r.itemId) },
     {
       key: "finalGoodQty",
@@ -245,6 +255,12 @@ export function Packing() {
           <section className="fill">
             <div className="section-block">
               <h2>담을 수 있는 LOT</h2>
+              {lots.some((l) => l.qualityHold) && (
+                <p className="muted" role="note">
+                  QMS 보류는 표시만 하며 패킹을 막지 않습니다. 처분은 QMS 품질
+                  보류에서 합니다.
+                </p>
+              )}
               <DataTable
                 rows={lots.map((l) => ({ ...l, id: l.lotId }))}
                 columns={lotColumns}

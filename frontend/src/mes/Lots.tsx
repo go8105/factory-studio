@@ -53,6 +53,9 @@ export type Lot = {
   running: Step | null;
   nextStep: (Step & { inputQty: string }) | null;
   steps?: Step[];
+  // QMS 조회(FS-023 D9·D10). QMS를 끄면 null.
+  qualityHold?: boolean | null;
+  qualityResult?: "PASS" | "FAIL" | null;
 };
 type Named = { id: number; name: string };
 type Item = Named & { itemCode: string };
@@ -132,7 +135,16 @@ export function Lots() {
         </button>
       ),
     },
-    { key: "status", label: "상태", render: (r) => <LotStatus lot={r} /> },
+    {
+      key: "status",
+      label: "상태",
+      render: (r) => (
+        <>
+          <LotStatus lot={r} />{" "}
+          {r.qualityHold && <Badge tone="issue">QMS 보류</Badge>}
+        </>
+      ),
+    },
     { key: "orderNo", label: "지시" },
     { key: "itemId", label: "품목", render: (r) => itemLabel(r.itemId) },
     {
@@ -271,6 +283,15 @@ export function Lots() {
                     {detail.routeCode} v{detail.routeVersion}
                     {detail.finalGoodQty !== null &&
                       ` · 최종 양품 ${num(detail.finalGoodQty)}`}
+                    {detail.qualityHold !== null &&
+                      detail.qualityHold !== undefined &&
+                      ` · 품질 판정 ${
+                        detail.qualityResult === "PASS"
+                          ? "합격"
+                          : detail.qualityResult === "FAIL"
+                            ? "불합격"
+                            : "미검사"
+                      }${detail.qualityHold ? " (QMS 보류 중)" : ""}`}
                   </p>
                   <DataTable
                     rows={(detail.steps ?? []).map((s) => ({
