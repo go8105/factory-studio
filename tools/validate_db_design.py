@@ -11,9 +11,11 @@ DESIGN = ROOT/'docs/db/스키마_재구성_FS-014.md'
 
 
 # 작업 ID별 기준 엔티티 목록. 뒤 작업은 앞 작업의 목록을 이어받는다.
-LATER_THAN_014B = {'FS-014b', 'FS-008b', 'FS-008c', 'FS-023a'}
-LATER_THAN_008B = {'FS-008b', 'FS-008c', 'FS-023a'}
+LATER_THAN_014B = {'FS-014b', 'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a'}
+LATER_THAN_008B = {'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a'}
+LATER_THAN_023A = {'FS-023a', 'FS-024a'}
 QMS_DESIGN = ROOT/'docs/modules/qms/QMS_모듈설계_FS-023.md'
+WMS_DESIGN = ROOT/'docs/modules/wms/WMS_모듈설계_FS-024.md'
 
 
 def design_names(task='FS-014'):
@@ -23,8 +25,10 @@ def design_names(task='FS-014'):
         names |= set(re.findall(r'^\| `(erp\.[a-z_]+)` \|', document.read_text(encoding='utf-8'), re.M))
     if task in LATER_THAN_008B:
         names.discard('core.dashboard_layout')
-    if task == 'FS-023a':
+    if task in LATER_THAN_023A:
         names |= set(re.findall(r'^\| `(qms\.[a-z_]+)` \|', QMS_DESIGN.read_text(encoding='utf-8'), re.M))
+    if task == 'FS-024a':
+        names |= set(re.findall(r'^\| `(wms\.[a-z_]+)` \|', WMS_DESIGN.read_text(encoding='utf-8'), re.M))
     return names
 
 
@@ -92,12 +96,35 @@ def validate(d, expected=None, isolation=True):
         for name, column in obsolete.items():
             require(column not in columns.get(name, {}), f'{name}: obsolete column {column}')
             require(not any(c['table'] == name and re.search(r'\b'+column+r'\b', json.dumps(c, ensure_ascii=False)) for c in d['constraints']), f'{name}: stale rule referring to {column}')
-    if d.get('task') in LATER_THAN_014B or d.get('version') in {'0.8.0', '0.9.0', '0.9.1', '0.10.0'}:
+    if d.get('task') in LATER_THAN_014B or d.get('version') in {'0.8.0', '0.9.0', '0.9.1', '0.10.0', '0.11.0'}:
         errors.extend(validate_accounting(d))
-    if d.get('task') in LATER_THAN_008B or d.get('version') in {'0.9.0', '0.9.1', '0.10.0'}:
+    if d.get('task') in LATER_THAN_008B or d.get('version') in {'0.9.0', '0.9.1', '0.10.0', '0.11.0'}:
         errors.extend(validate_screen_gaps(d))
-    if d.get('task') == 'FS-023a':
+    if d.get('task') in LATER_THAN_023A:
         errors.extend(validate_qms(d))
+    if d.get('task') == 'FS-024a':
+        errors.extend(validate_wms(d))
+    return errors
+
+
+def validate_wms(d):
+    """FS-024 설계 계약: 교차 스키마 FK 없음·원천 반영 멱등 부분 유니크·스냅샷 원천·잔량 테이블 없음·모듈 키."""
+    errors = []
+    cs, ts = d['constraints'], {t['name']: {c['name']: c for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('FS-024: ' + message)
+    def partial(table, column, predicate):
+        return any(c['table'] == table and c['kind'] == 'UK_PARTIAL' and c['columns'] == SCOPE + [column]
+                   and c['expression'].endswith('WHERE ' + predicate) for c in cs)
+    require(partial('wms.stock_document', 'source_key', "document_type <> 'REVERSAL'"), 'one posting per source (D14)')
+    require(partial('wms.stock_document', 'reverses_document_id', 'reverses_document_id IS NOT NULL'), 'one reversal per document')
+    require(partial('wms.warehouse', 'purpose', 'is_active'), 'one active warehouse per purpose')
+    require(partial('wms.storage_location', 'warehouse_id', 'is_default'), 'one default location per warehouse')
+    require('lot_no' in ts.get('wms.stock_move', {}) and not any(k.endswith('lot_id') for k in ts.get('wms.stock_move', {})), 'LOT is a snapshot code, not an id')
+    require(not any(n.startswith('wms.') and ('balance' in n or 'stock_level' in n) for n in ts), 'no stored balance table (ledger is the source)')
+    require(not any(r['source'].startswith('wms.') and r['target'].split('.')[0] not in {'wms', 'core'} for r in d['relations']), 'no FK from wms to other business schemas')
+    require(any(c['table'] == 'core.workspace_module' and c['kind'] == 'CHECK' and "'wms'" in c['expression'] for c in cs), 'module key wms')
     return errors
 
 

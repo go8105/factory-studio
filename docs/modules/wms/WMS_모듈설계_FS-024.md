@@ -291,3 +291,13 @@ MES·ERP API는 바꾸지 않는다.
 2. **원천 반영 단위**: MES 투입은 공정 실행 1건 = 전표 1건(품목별 줄). 권장: 그대로 — LOT·공정으로 추적이 된다.
 3. **원천 반영 전표 되돌림**: 1차는 ERP 매입 취소 반영만 되돌림을 만든다. 사용자가 원천 반영 전표를 직접 되돌리는 기능은 두지 않는다(잘못된 수량은 조정 전표로). 권장: 그대로.
 4. **완제품 창고 이동 시 LOT**: 이동 전표는 LOT을 지정해야 한다(LOT 미지정 재고는 이동 불가, 조정으로만 정리). 권장: 그대로.
+
+## 14. 구현 기록 (FS-024a, 2026-09-27)
+
+| 항목 | 구현 |
+|---|---|
+| 메타데이터 | `tools/apply_fs024a.py`(멱등, 새 제약·관계는 끝에 붙여 기존 C·R 번호 유지) → `schema.json` **v0.11.0 / FS-024a / 83테이블**(wms 6), 제약·정책 647, FK 187. 제약 번호 C587~C646(60개), 관계 R175~R186 |
+| DB 제약으로 옮긴 SERVICE | 기본 위치는 사용 중(`NOT is_default OR is_active`), 완제품만 LOT 추적(`lot_tracked = (item_class = 'FG')`), 원천 반영·되돌림은 생성 시 posted, 원천 키 ↔ 원천·되돌림 유형 — 설계서 4장에서 SERVICE로 적었던 것 중 한 행 안에서 판정되는 것은 CHECK로 뒀다 |
+| 마이그레이션 | `20260927_fs024a_wms_schema.py`(revision `fs024a_wms`, down `fs023b_qms_module`, JSON 미참조 고정 SQL, 제약 이름 = C·R 번호, 모듈 CHECK `c22_check`에 `'wms'`). 모듈 행 데이터 마이그레이션은 FS-024b(QMS와 같은 순서) |
+| 검증 도구 | `validate_db_design.py` FS-024a 엔티티 목록(이 문서 4장 표)·`validate_wms`(원천 멱등·되돌림 1회·용도별 창고·기본 위치 부분 유니크, LOT 스냅샷, 잔량 테이블 없음, 교차 FK 없음, 모듈 키), `audit_schema_isolation.py` BUSINESS에 wms(R1·R5·R6), `verify_ddl_matches_schema.py`·Excel·ERD 생성기에 wms. `tools/test_fs024a.py` 3 |
+| 산출물 | Excel 27시트·ERD `wms.mmd` 재생성, 탐색기 설명 문구 정정(QMS·WMS 구현, 설명 카드 BEMS·SCM) |

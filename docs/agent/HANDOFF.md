@@ -1,6 +1,6 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-27 (FS-023c QMS 시드·도움말·흐름 맵 + P-02 홈 UI 통합(QMS 타일·네 시스템 제목) **운영 배포 완료 `be87546`**, 운영 템플릿 재생성(워크스페이스 15, 7,583행), Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-27 (FS-024 WMS 설계 확정 + **FS-024a DB 반영(로컬 head `fs024a_wms`, schema.json v0.11.0 / 83테이블)**. 운영은 `be87546`·head `fs023b_qms_module` 그대로, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
@@ -26,7 +26,7 @@
 | UI-02 검토 | Claude 검토·수정 후 main 통합(`86e729f` 이후 문서 커밋). 회귀 5건 수정·e2e 11건 갱신, 스모크 159 passed |
 | QMS | FS-023a DB·023b API·화면(운영 배포) + **FS-023c 시드 113행(`sv-20260927-1`, 템플릿 7,583)·복사 월/번호 재계산·도움말 Q-01~06·흐름 맵 업무 노드(로컬, 미배포)**. 시드 LOT: LT-0017 검사 대기, LT-0015 작성 중, LT-0016 보류 중(+재검사 초안), LT-0008 특채 해제. 교차 조회는 `fs/<솔루션>/interface.py`만(R6) |
 | UI-03 | **8화면 전체 완료·운영 배포** — Claude F-12·M-04·M-05·M-07·E-04(`a35e895` 배포), Antigravity B1(M-14·M-15) + B2(E-02 견적) — 브랜치 `antigravity/ui03-b2`, 스모크 171/171 통과. E-02: `FormPanel wide`(등록)·`DetailPanel wide`(상세·라인편집·확정·제출·수주 전환 통합). main 병합 완료 |
-| 다음 | **FS-024 WMS 화면 설계 확인 대기** — 결정서(D13~D17)·모듈 설계(`docs/modules/wms/WMS_모듈설계_FS-024.md`)는 2026-09-27 확정, 화면 설계 `docs/ui/화면설계_WMS_FS-024.md` 초안. 확인되면 전체 설계 확인으로 보고 FS-024a(DB)부터. 그 전에는 코드·schema.json 변경 금지 |
+| 다음 | **FS-024b WMS API·화면** — 설계 확정(결정서·모듈 설계 `docs/modules/wms/WMS_모듈설계_FS-024.md`·화면 설계 `docs/ui/화면설계_WMS_FS-024.md`). FS-024a 완료: schema.json v0.11.0(83테이블), 마이그레이션 `fs024a_wms`(로컬 head, 운영 미적용). 024b에서 `wms` 모듈 행 데이터 마이그레이션·MES/ERP 인터페이스·`/api/v1/wms`·W-01~07, 공간 정리(`_business_table_order`)·시드 복사 SCHEMAS에 wms 추가 |
 
 ## 다음 할 일
 
@@ -46,7 +46,7 @@
 - DB: Claude Code는 `factory_studio_fs016_test`(pytest)·`factory_studio_fs017_test`(스모크), Codex는 `factory_studio_codex_test`만. 같은 DB에 pytest를 동시에 돌리지 않는다.
 - Python 3.14.7 / Node 24.21.0 / PostgreSQL 18.6. backend 테스트는 `.env` 없이 DATABASE_URL·TEST_DATABASE_URL·PATH·HOME만.
 - **ruff는 CI 범위로만**: `ruff check --config backend/pyproject.toml backend tools/verify_ddl_matches_schema.py` + 같은 범위 `format --check`.
-- schema.json·마이그레이션 변경 금지. `test_common.py`·`test_seed.py`는 antigravity 소유, `conftest.py`는 Codex 소유.
+- schema.json·마이그레이션은 작업 ID 범위에서만(이미 적용한 revision 수정 금지). pytest DB는 새 head가 생기면 `alembic upgrade head`를 먼저 돌린다(`test_schema_verifier` 기준선). `test_common.py`·`test_seed.py`는 antigravity 소유, `conftest.py`는 Codex 소유.
 - 확정·게시 데이터 불변, 업무 쓰기는 `write_scope` 뒤, 결측(invalid)은 합계에서 제외.
 - 30분마다 WIP 커밋, 종료 시 이 문서 갱신·커밋. `.env`·`work/`·`node_modules`는 스테이징하지 않는다. `git push --mirror` 금지.
 

@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BUSINESS = {'mes', 'erp', 'fems', 'qms'}
+BUSINESS = {'mes', 'erp', 'fems', 'qms', 'wms'}
 ANCHORS = {'core.workspace', 'core.data_generation'}
 FORBIDDEN = {'learning', 'process_map', 'bems'}
 SCOPE = ['workspace_id', 'generation_id']

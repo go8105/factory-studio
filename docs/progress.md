@@ -1,12 +1,22 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS 결정·모듈 설계 확정, 화면 설계 초안 확인 대기.**
+- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS 설계 확정, FS-024a DB 반영 완료(로컬, head `fs024a_wms`). 다음 FS-024b.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-27 FS-024a WMS DB 반영 (Claude Code)
+- 사용자 승인: 화면 설계 권장안 → WMS 전체 설계 확인(결정서·모듈 설계·화면 설계 모두 "확정").
+- 메타데이터: `tools/apply_fs024a.py`(멱등) → `schema.json` v0.11.0 / 83테이블(wms 6: 창고·보관 위치·품목·단위 환산·재고 전표·재고 이동), 847컬럼, FK 187, 제약·정책 647(wms C587~C646, R175~R186). 모듈 CHECK에 `'wms'`.
+- 마이그레이션 `20260927_fs024a_wms_schema.py`(revision `fs024a_wms`, down `fs023b_qms_module`, 고정 SQL). 모듈 행 데이터 마이그레이션은 FS-024b.
+- 도구: `validate_db_design.py` FS-024a 엔티티 목록·`validate_wms`, `audit_schema_isolation.py` BUSINESS에 wms, `verify_ddl_matches_schema.py`·Excel·ERD 생성기에 wms, `tools/test_fs024a.py` 3. Excel 27시트·ERD `wms.mmd` 재생성, ERD 탐색기 문구 정정.
+- 검증: `npm run db:validate` 오류 0, 격리 R1~R6 오류 0, tools unittest 52 OK, 임시 DB에서 `alembic upgrade head` → `verify_ddl_matches_schema.py` 오류 0 → `downgrade base` → `upgrade head` → 오류 0(임시 DB 삭제). pytest DB `factory_studio_fs016_test`를 `fs024a_wms`로 올린 뒤 pytest **683 passed**(12.4분). ruff check·format(CI 범위) 0, diff --check 0.
+- 참고: 첫 전체 pytest는 pytest DB를 새 head로 올리기 전이라 `test_schema_verifier::test_baseline_matches` 1건 실패(예상된 것) → 업그레이드 후 재실행 통과.
+- 미실행: 공식 스모크(프런트·API 변경 없음), 운영 마이그레이션(배포 전). push 없음.
+- 다음: FS-024b — `fs/mes/interface.py` 함수 2개 추가·`fs/erp/interface.py` 신규, `/api/v1/wms`(TX-W1~W3), W-01~07 화면, `wms` 모듈 행 데이터 마이그레이션, 공간 정리·시드 복사 스키마 목록에 wms.
 
 ## 2026-09-27 FS-024 WMS 결정·모듈 설계 승인, 화면 설계 초안 (Claude Code)
 - 사용자 승인: 결정서 D13~D17·범위, 모듈 설계 13장 4건 모두 권장안 → 두 문서 상태 "확정".

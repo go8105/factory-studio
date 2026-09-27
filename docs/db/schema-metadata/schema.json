@@ -1,9 +1,9 @@
 {
-  "version": "0.10.0",
-  "task": "FS-023a",
+  "version": "0.11.0",
+  "task": "FS-024a",
   "date": "2026-09-27",
   "status": "설계 초안 / DB 미적용",
-  "migration_revision": "fs023a_qms",
+  "migration_revision": "fs024a_wms",
   "tables": [
     {
       "name": "core.app_user",
@@ -7189,6 +7189,568 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "wms.warehouse",
+      "label": "창고",
+      "scope": "generation",
+      "phase": "W1",
+      "retention": "세대 정리",
+      "note": "FS-024 4.1. 용도(RAW/FG)별 활성 창고 1개가 원천 반영 대상",
+      "sub_module": "wms_master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "창고 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "창고명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "purpose",
+          "label": "용도",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "RAW 원자재 / FG 완제품"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "wms.storage_location",
+      "label": "보관 위치",
+      "scope": "generation",
+      "phase": "W1",
+      "retention": "세대 정리",
+      "note": "FS-024 4.2. 창고 안 1단계 위치. core·mes location(공정 구역)과 다른 개념",
+      "sub_module": "wms_master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "warehouse_id",
+          "label": "창고",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "위치 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "위치명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_default",
+          "label": "기본 위치",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "rule": "창고당 1개. 원천 반영 입출고 위치"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "wms.item",
+      "label": "WMS 품목",
+      "scope": "generation",
+      "phase": "W1",
+      "retention": "세대 정리",
+      "note": "FS-024 4.3. WMS가 소유하는 재고 품목(FS-013 D1). 코드는 MES·ERP와 같게 심되 FK 없음",
+      "sub_module": "wms_master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "item_code",
+          "label": "품목 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "품목명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "base_unit",
+          "label": "기본 단위",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "원장 수량 단위"
+        },
+        {
+          "name": "item_class",
+          "label": "분류",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "RAW / FG"
+        },
+        {
+          "name": "lot_tracked",
+          "label": "LOT 추적",
+          "type": "boolean",
+          "nullable": false,
+          "default": null,
+          "rule": "FG = true, RAW = false(D16)"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "wms.item_unit_conversion",
+      "label": "품목 단위 환산",
+      "scope": "generation",
+      "phase": "W1",
+      "retention": "세대 정리",
+      "note": "FS-024 4.4. 1 from_unit = factor 기본 단위",
+      "sub_module": "wms_master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "item_id",
+          "label": "품목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "from_unit",
+          "label": "환산 단위",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "factor",
+          "label": "환산 계수",
+          "type": "numeric(18,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "wms.stock_document",
+      "label": "재고 전표",
+      "scope": "generation",
+      "phase": "W1",
+      "retention": "세대 정리",
+      "note": "FS-024 4.5. 원천 반영·기초·조정·이동·되돌림. 확정 후 불변, 정정은 되돌림 전표",
+      "sub_module": "ledger",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "document_no",
+          "label": "전표 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": "서버 발번 WD-YYYYMMDD-NNN"
+        },
+        {
+          "name": "document_type",
+          "label": "전표 유형",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": "OPENING / MES_RECEIPT / MES_ISSUE / ERP_SHIPMENT / ERP_PURCHASE / ADJUSTMENT / TRANSFER / REVERSAL"
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / posted. 원천 반영·되돌림은 만들 때 posted"
+        },
+        {
+          "name": "source_key",
+          "label": "원천 키",
+          "type": "varchar(100)",
+          "nullable": true,
+          "default": null,
+          "rule": "원천 반영·되돌림이면 필수. 예 MES:RECEIPT:PL-0006 (D14 멱등)"
+        },
+        {
+          "name": "source_ref",
+          "label": "원천 번호",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "화면 표시용 스냅샷(D11)"
+        },
+        {
+          "name": "reverses_document_id",
+          "label": "되돌린 전표",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "REVERSAL이면 필수"
+        },
+        {
+          "name": "reason_code",
+          "label": "조정 사유",
+          "type": "varchar(10)",
+          "nullable": true,
+          "default": null,
+          "rule": "ADJUSTMENT이면 필수: RETURN / SCRAP / COUNT / OTHER"
+        },
+        {
+          "name": "document_on",
+          "label": "업무일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "document_month",
+          "label": "업무 월",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY-MM'. document_on에서 파생"
+        },
+        {
+          "name": "posted_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "note",
+          "label": "메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": "사유 OTHER이면 필수"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "wms.stock_move",
+      "label": "재고 이동",
+      "scope": "generation",
+      "phase": "W1",
+      "retention": "세대 정리",
+      "note": "FS-024 4.6. 재고 원장. 현재고 = 확정 전표 이동 합(잔량 저장 없음, 음수 허용 D15)",
+      "sub_module": "ledger",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "document_id",
+          "label": "재고 전표",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "line_no",
+          "label": "줄 번호",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "item_id",
+          "label": "품목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "location_id",
+          "label": "보관 위치",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lot_no",
+          "label": "LOT 번호",
+          "type": "varchar(50)",
+          "nullable": true,
+          "default": null,
+          "rule": "스냅샷. LOT 추적 품목에서 NULL이면 LOT 미지정, RAW는 NULL만"
+        },
+        {
+          "name": "qty_delta",
+          "label": "증감 수량",
+          "type": "numeric(18,3)",
+          "nullable": false,
+          "default": null,
+          "rule": "기본 단위, 입고 + / 출고 −, 0 불가"
+        },
+        {
+          "name": "source_qty",
+          "label": "원천 수량",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": null,
+          "rule": "원천 단위 기준 스냅샷"
+        },
+        {
+          "name": "source_unit",
+          "label": "원천 단위",
+          "type": "varchar(10)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "moved_at",
+          "label": "이동 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "원천 시각 또는 전표 확정 시각"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
     }
   ],
   "relations": [
@@ -10062,6 +10624,198 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "보류를 푼 재검사"
+    },
+    {
+      "source": "wms.warehouse",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "wms.storage_location",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "wms.item",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "wms.item_unit_conversion",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "wms.stock_document",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "wms.stock_move",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "wms.storage_location",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "warehouse_id"
+      ],
+      "target": "wms.warehouse",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "위치의 창고"
+    },
+    {
+      "source": "wms.item_unit_conversion",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "item_id"
+      ],
+      "target": "wms.item",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "환산의 품목"
+    },
+    {
+      "source": "wms.stock_document",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "reverses_document_id"
+      ],
+      "target": "wms.stock_document",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "되돌린 원 전표"
+    },
+    {
+      "source": "wms.stock_move",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id"
+      ],
+      "target": "wms.stock_document",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "이동의 전표"
+    },
+    {
+      "source": "wms.stock_move",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "item_id"
+      ],
+      "target": "wms.item",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "이동 품목"
+    },
+    {
+      "source": "wms.stock_move",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "location_id"
+      ],
+      "target": "wms.storage_location",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "이동 위치"
     }
   ],
   "constraints": [
@@ -10259,7 +11013,7 @@
       "table": "core.workspace_module",
       "kind": "CHECK",
       "columns": [],
-      "expression": "module_key IN ('core','mes','erp','fems','qms')",
+      "expression": "module_key IN ('core','mes','erp','fems','qms','wms')",
       "reason": "행 내부 데이터 정합성"
     },
     {
@@ -15845,6 +16599,602 @@
       ],
       "expression": "",
       "reason": "FK 조회"
+    },
+    {
+      "table": "wms.warehouse",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "wms.warehouse",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "wms.storage_location",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "wms.storage_location",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "wms.item",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "wms.item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "wms.item_unit_conversion",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "wms.item_unit_conversion",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "wms.stock_move",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "wms.stock_move",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "wms.warehouse",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 창고 코드 유일"
+    },
+    {
+      "table": "wms.warehouse",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "wms.warehouse",
+      "kind": "CHECK",
+      "columns": [
+        "purpose"
+      ],
+      "expression": "purpose IN ('RAW', 'FG')",
+      "reason": "용도 값"
+    },
+    {
+      "table": "wms.warehouse",
+      "kind": "CHECK",
+      "columns": [
+        "name"
+      ],
+      "expression": "length(btrim(name)) > 0",
+      "reason": "빈 이름 차단"
+    },
+    {
+      "table": "wms.warehouse",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "purpose"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, purpose) WHERE is_active",
+      "reason": "용도별 활성 창고 1개(원천 반영 대상)"
+    },
+    {
+      "table": "wms.warehouse",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "id"
+      ],
+      "expression": "위치에 이동이 있는 창고는 삭제를 거부하고 사용 안 함으로 바꾼다",
+      "reason": "원장 보존"
+    },
+    {
+      "table": "wms.storage_location",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "warehouse_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "창고 내 위치 코드 유일"
+    },
+    {
+      "table": "wms.storage_location",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "wms.storage_location",
+      "kind": "CHECK",
+      "columns": [
+        "name"
+      ],
+      "expression": "length(btrim(name)) > 0",
+      "reason": "빈 이름 차단"
+    },
+    {
+      "table": "wms.storage_location",
+      "kind": "CHECK",
+      "columns": [
+        "is_default",
+        "is_active"
+      ],
+      "expression": "NOT is_default OR is_active",
+      "reason": "기본 위치는 사용 중이어야 한다"
+    },
+    {
+      "table": "wms.storage_location",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "warehouse_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, warehouse_id) WHERE is_default",
+      "reason": "창고당 기본 위치 1개"
+    },
+    {
+      "table": "wms.storage_location",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "id"
+      ],
+      "expression": "이동이 있는 위치는 삭제를 거부한다(참조처별 건수)",
+      "reason": "원장 보존"
+    },
+    {
+      "table": "wms.item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "item_code"
+      ],
+      "expression": "",
+      "reason": "세대 내 품목 코드 유일"
+    },
+    {
+      "table": "wms.item",
+      "kind": "CHECK",
+      "columns": [
+        "item_class"
+      ],
+      "expression": "item_class IN ('RAW', 'FG')",
+      "reason": "분류 값"
+    },
+    {
+      "table": "wms.item",
+      "kind": "CHECK",
+      "columns": [
+        "item_class",
+        "lot_tracked"
+      ],
+      "expression": "lot_tracked = (item_class = 'FG')",
+      "reason": "완제품만 LOT 추적(D16)"
+    },
+    {
+      "table": "wms.item",
+      "kind": "CHECK",
+      "columns": [
+        "item_code",
+        "name",
+        "base_unit"
+      ],
+      "expression": "length(btrim(item_code)) > 0 AND length(btrim(name)) > 0 AND length(btrim(base_unit)) > 0",
+      "reason": "빈 값 차단"
+    },
+    {
+      "table": "wms.item",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "id"
+      ],
+      "expression": "이동이 있는 품목은 삭제를 거부하고 사용 안 함으로 바꾼다",
+      "reason": "원장 보존"
+    },
+    {
+      "table": "wms.item_unit_conversion",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "item_id",
+        "from_unit"
+      ],
+      "expression": "",
+      "reason": "품목·단위별 환산 1개"
+    },
+    {
+      "table": "wms.item_unit_conversion",
+      "kind": "CHECK",
+      "columns": [
+        "factor"
+      ],
+      "expression": "factor > 0",
+      "reason": "환산 계수 양수"
+    },
+    {
+      "table": "wms.item_unit_conversion",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "from_unit"
+      ],
+      "expression": "환산 단위는 품목 기본 단위와 달라야 한다",
+      "reason": "자기 환산 차단"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 전표 번호 유일"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "CHECK",
+      "columns": [
+        "document_type"
+      ],
+      "expression": "document_type IN ('OPENING', 'MES_RECEIPT', 'MES_ISSUE', 'ERP_SHIPMENT', 'ERP_PURCHASE', 'ADJUSTMENT', 'TRANSFER', 'REVERSAL')",
+      "reason": "전표 유형 값"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "CHECK",
+      "columns": [
+        "status"
+      ],
+      "expression": "status IN ('draft', 'posted')",
+      "reason": "상태 값"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "posted_at"
+      ],
+      "expression": "(status = 'posted') = (posted_at IS NOT NULL)",
+      "reason": "확정과 확정 시각 일치"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "CHECK",
+      "columns": [
+        "document_type",
+        "status"
+      ],
+      "expression": "document_type IN ('OPENING', 'ADJUSTMENT', 'TRANSFER') OR status = 'posted'",
+      "reason": "원천 반영·되돌림은 만들 때 확정"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "CHECK",
+      "columns": [
+        "document_type",
+        "source_key"
+      ],
+      "expression": "(document_type IN ('MES_RECEIPT', 'MES_ISSUE', 'ERP_SHIPMENT', 'ERP_PURCHASE', 'REVERSAL')) = (source_key IS NOT NULL)",
+      "reason": "원천 반영·되돌림만 원천 키"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "CHECK",
+      "columns": [
+        "document_type",
+        "reverses_document_id"
+      ],
+      "expression": "(document_type = 'REVERSAL') = (reverses_document_id IS NOT NULL)",
+      "reason": "되돌림은 원 전표 필수"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "CHECK",
+      "columns": [
+        "reverses_document_id"
+      ],
+      "expression": "reverses_document_id IS NULL OR reverses_document_id <> id",
+      "reason": "자기 자신 되돌림 차단"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "CHECK",
+      "columns": [
+        "document_type",
+        "reason_code"
+      ],
+      "expression": "(document_type = 'ADJUSTMENT' AND reason_code IN ('RETURN', 'SCRAP', 'COUNT', 'OTHER')) OR (document_type <> 'ADJUSTMENT' AND reason_code IS NULL)",
+      "reason": "조정은 사유 필수"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "CHECK",
+      "columns": [
+        "reason_code",
+        "note"
+      ],
+      "expression": "reason_code IS DISTINCT FROM 'OTHER' OR (note IS NOT NULL AND length(btrim(note)) > 0)",
+      "reason": "기타 사유는 메모 필수"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "CHECK",
+      "columns": [
+        "document_month"
+      ],
+      "expression": "document_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+      "reason": "연월 문자열 형식"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "source_key"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, source_key) WHERE document_type <> 'REVERSAL'",
+      "reason": "원천 1건 = 반영 전표 1건(D14)"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "reverses_document_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, reverses_document_id) WHERE reverses_document_id IS NOT NULL",
+      "reason": "되돌림은 1번만"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "posted 전표와 그 이동은 수정·삭제를 거부한다(세대 정리 제외). 정정은 되돌림 전표",
+      "reason": "원장 불변"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "source_key"
+      ],
+      "expression": "원천 반영은 인터페이스로 읽은 확정 원천만. 같은 원천의 동시 반영은 부분 유니크 경합으로 판정하고 기존 전표를 돌려준다(TX-W1)",
+      "reason": "멱등 반영"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "document_month"
+      ],
+      "expression": "document_on의 'YYYY-MM'과 같아야 한다. 세대 복사 시 다시 계산한다",
+      "reason": "달력 파생 컬럼"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "document_type"
+      ],
+      "expression": "TRANSFER는 품목·LOT별 이동 합이 0이어야 확정한다. 같은 위치 간 이동 금지",
+      "reason": "이동 전표 균형"
+    },
+    {
+      "table": "wms.stock_move",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id",
+        "line_no"
+      ],
+      "expression": "",
+      "reason": "전표 내 줄 번호 유일"
+    },
+    {
+      "table": "wms.stock_move",
+      "kind": "CHECK",
+      "columns": [
+        "line_no"
+      ],
+      "expression": "line_no >= 1",
+      "reason": "줄 번호는 1부터"
+    },
+    {
+      "table": "wms.stock_move",
+      "kind": "CHECK",
+      "columns": [
+        "qty_delta"
+      ],
+      "expression": "qty_delta <> 0",
+      "reason": "0 이동 차단"
+    },
+    {
+      "table": "wms.stock_move",
+      "kind": "CHECK",
+      "columns": [
+        "source_qty",
+        "source_unit"
+      ],
+      "expression": "(source_qty IS NULL) = (source_unit IS NULL)",
+      "reason": "원천 수량·단위 함께"
+    },
+    {
+      "table": "wms.stock_move",
+      "kind": "CHECK",
+      "columns": [
+        "lot_no"
+      ],
+      "expression": "lot_no IS NULL OR length(btrim(lot_no)) > 0",
+      "reason": "빈 LOT 번호 차단"
+    },
+    {
+      "table": "wms.stock_move",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "lot_no"
+      ],
+      "expression": "LOT 추적하지 않는 품목(RAW)은 lot_no NULL만. LOT 추적 품목의 NULL은 LOT 미지정 출고",
+      "reason": "LOT 규칙(D16)"
+    },
+    {
+      "table": "wms.stock_move",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "qty_delta"
+      ],
+      "expression": "품목 기본 단위로 저장한다. 원천 단위가 다르면 WMS 단위 환산을 쓰고, 환산이 없으면 반영하지 않는다. 잔량 확인 없음(음수 허용 D15)",
+      "reason": "단위·음수"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "reverses_document_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "wms.stock_document",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_month"
+      ],
+      "expression": "",
+      "reason": "대시보드 월 집계"
+    },
+    {
+      "table": "wms.stock_move",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "item_id",
+        "location_id",
+        "lot_no"
+      ],
+      "expression": "",
+      "reason": "현재고 합계"
+    },
+    {
+      "table": "wms.stock_move",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "location_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
     }
   ],
   "states": [
@@ -16113,6 +17463,16 @@
       ],
       "default": "held",
       "transition": "held→released; 처분 REINSPECTED/CONCESSION/SCRAP 중 하나"
+    },
+    {
+      "table": "wms.stock_document",
+      "column": "status",
+      "values": [
+        "draft",
+        "posted"
+      ],
+      "default": "draft",
+      "transition": "draft→posted(기초·조정·이동); 원천 반영·되돌림은 posted로 생성; 확정 후 불변"
     }
   ],
   "sources": [
@@ -16164,10 +17524,11 @@
         "mes",
         "erp",
         "fems",
-        "qms"
+        "qms",
+        "wms"
       ],
       "default": null,
-      "note": "QMS는 FS-023으로 구현 솔루션. WMS·BEMS·SCM 설명 카드와 도움말은 정적 파일"
+      "note": "QMS(FS-023)·WMS(FS-024)는 구현 솔루션. BEMS·SCM 설명 카드와 도움말은 정적 파일"
     },
     {
       "target": "공통 단위",
@@ -16305,6 +17666,54 @@
       ],
       "default": null,
       "note": "재검사 합격 / 특채 / 폐기 판정"
+    },
+    {
+      "target": "wms.warehouse",
+      "column": "purpose",
+      "values": [
+        "RAW",
+        "FG"
+      ],
+      "default": null,
+      "note": "원천 반영이 들어갈 창고를 정한다"
+    },
+    {
+      "target": "wms.item",
+      "column": "item_class",
+      "values": [
+        "RAW",
+        "FG"
+      ],
+      "default": null,
+      "note": "FG만 LOT 추적"
+    },
+    {
+      "target": "wms.stock_document",
+      "column": "document_type",
+      "values": [
+        "OPENING",
+        "MES_RECEIPT",
+        "MES_ISSUE",
+        "ERP_SHIPMENT",
+        "ERP_PURCHASE",
+        "ADJUSTMENT",
+        "TRANSFER",
+        "REVERSAL"
+      ],
+      "default": null,
+      "note": "MES_*·ERP_* = 읽기 전용 조회로 반영한 원천(D14)"
+    },
+    {
+      "target": "wms.stock_document",
+      "column": "reason_code",
+      "values": [
+        "RETURN",
+        "SCRAP",
+        "COUNT",
+        "OTHER"
+      ],
+      "default": null,
+      "note": "반품 입고 / 폐기 / 실물 차이 / 기타"
     }
   ],
   "change_log": [
@@ -16461,6 +17870,13 @@
       "date": "2026-09-27",
       "change": "qms 스키마 6테이블(불량 유형·검사 기준·검사 항목·검사·측정값·품질 보류), core.workspace_module module_key에 qms 추가. 스키마 간 FK 0건(D9 읽기 전용 조회는 코드 인터페이스)",
       "status": "마이그레이션 fs023a_qms 적용 대상"
+    },
+    {
+      "version": "0.11.0",
+      "task": "FS-024a",
+      "date": "2026-09-27",
+      "change": "wms 스키마 6테이블(창고·보관 위치·품목·단위 환산·재고 전표·재고 이동), core.workspace_module module_key에 wms 추가. 스키마 간 FK 0건(원천은 D9 읽기 전용 조회)",
+      "status": "마이그레이션 fs024a_wms 적용 대상"
     }
   ]
 }
