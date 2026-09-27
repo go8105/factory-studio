@@ -1,6 +1,6 @@
 """MES 읽기 전용 조회 인터페이스 (FS-023 D9 · X1~X6).
 
-다른 솔루션(QMS)은 MES를 이 모듈로만 읽는다. 반환은 값(dict/list)이며 행을 잠그지 않는다.
+다른 솔루션(QMS·WMS)은 MES를 이 모듈로만 읽는다. 반환은 값(dict/list)이며 행을 잠그지 않는다.
 MES를 꺼 두었으면 None을 돌려주고, 호출 쪽은 직접 입력으로 줄여 동작한다(D12).
 호출자의 범위(scoped: 활성 세대가 확정된 AuthContext)로만 조회한다 — 다른 공간·세대는 보이지 않는다.
 """
@@ -92,19 +92,113 @@ def enabled(connection: Connection, scoped: AuthContext) -> bool:
     return _enabled(connection, scoped)
 
 
-def items(connection: Connection, scoped: AuthContext) -> list[dict[str, Any]] | None:
-    """사용 중인 완제품 품목(검사 기준 대상). MES가 꺼져 있으면 None."""
+def items(
+    connection: Connection, scoped: AuthContext, item_type: str | None = "finished"
+) -> list[dict[str, Any]] | None:
+    """사용 중인 품목. 기본은 완제품(QMS 검사 기준 대상), None이면 전 품목(WMS 가져오기). MES가 꺼져 있으면 None."""
     if not _enabled(connection, scoped):
         return None
     rows = connection.execute(
         text(
-            "SELECT item_code, name, base_unit FROM mes.item "
-            "WHERE workspace_id=:w AND generation_id=:g AND is_active AND item_type='finished' "
-            "ORDER BY item_code"
+            "SELECT item_code, name, base_unit, item_type FROM mes.item "
+            "WHERE workspace_id=:w AND generation_id=:g AND is_active "
+            "AND (CAST(:type AS text) IS NULL OR item_type=:type) ORDER BY item_code"
         ),
-        {"w": scoped.workspace_id, "g": scoped.generation_id},
+        {"w": scoped.workspace_id, "g": scoped.generation_id, "type": item_type},
     ).mappings()
     return [
-        {"itemCode": r["item_code"], "name": r["name"], "baseUnit": r["base_unit"]}
+        {
+            "itemCode": r["item_code"],
+            "name": r["name"],
+            "baseUnit": r["base_unit"],
+            "itemType": r["item_type"],
+        }
         for r in rows
     ]
+
+
+# 확정 입고 팔레트 1건 = WMS 원천 1건(FS-024 7.1). 줄은 팔레트 아래 BOX에 담긴 LOT별 합계.
+_RECEIPT_LINES = """
+SELECT p.packing_no, r.received_at, t.lot_no, i.item_code, t.unit, sum(m.packed_qty) qty
+FROM mes.finished_goods_receipt r
+JOIN mes.packing_unit p ON p.workspace_id=r.workspace_id AND p.generation_id=r.generation_id
+ AND p.id=r.packing_unit_id
+JOIN mes.packing_unit b ON b.workspace_id=p.workspace_id AND b.generation_id=p.generation_id
+ AND b.parent_packing_unit_id=p.id
+JOIN mes.packing_member m ON m.workspace_id=b.workspace_id AND m.generation_id=b.generation_id
+ AND m.packing_unit_id=b.id
+JOIN mes.lot t ON t.workspace_id=m.workspace_id AND t.generation_id=m.generation_id AND t.id=m.lot_id
+JOIN mes.work_order o ON o.workspace_id=t.workspace_id AND o.generation_id=t.generation_id
+ AND o.id=t.work_order_id
+JOIN mes.item i ON i.workspace_id=o.workspace_id AND i.generation_id=o.generation_id AND i.id=o.item_id
+WHERE r.workspace_id=:w AND r.generation_id=:g AND r.status='confirmed'
+GROUP BY p.packing_no, r.received_at, t.lot_no, i.item_code, t.unit
+ORDER BY r.received_at, p.packing_no, t.lot_no
+"""
+
+# 완료된 공정 실행 1건 = WMS 원천 1건. 실행 중에는 투입을 지울 수 있어 제외한다.
+_ISSUE_LINES = """
+SELECT t.lot_no, pr.process_code, e.ended_at, i.item_code, mi.unit, sum(mi.issued_qty) qty
+FROM mes.operation_execution e
+JOIN mes.lot t ON t.workspace_id=e.workspace_id AND t.generation_id=e.generation_id AND t.id=e.lot_id
+JOIN mes.route_step s ON s.workspace_id=e.workspace_id AND s.generation_id=e.generation_id
+ AND s.id=e.route_step_id
+JOIN mes.process pr ON pr.workspace_id=s.workspace_id AND pr.generation_id=s.generation_id
+ AND pr.id=s.process_id
+JOIN mes.material_issue mi ON mi.workspace_id=e.workspace_id AND mi.generation_id=e.generation_id
+ AND mi.execution_id=e.id
+JOIN mes.item i ON i.workspace_id=mi.workspace_id AND i.generation_id=mi.generation_id
+ AND i.id=mi.material_item_id
+WHERE e.workspace_id=:w AND e.generation_id=:g AND e.status='completed'
+GROUP BY t.lot_no, pr.process_code, e.ended_at, i.item_code, mi.unit
+ORDER BY e.ended_at, t.lot_no, pr.process_code, i.item_code
+"""
+
+
+def _grouped(rows: Any, key: Any, head: Any) -> list[dict[str, Any]]:
+    grouped: dict[Any, dict[str, Any]] = {}
+    for r in rows:
+        entry = grouped.setdefault(key(r), {**head(r), "lines": []})
+        line = {"itemCode": r["item_code"], "qty": str(r["qty"]), "unit": r["unit"]}
+        if "lot_no" in r and "packing_no" in r:
+            line["lotNo"] = r["lot_no"]
+        entry["lines"].append(line)
+    return list(grouped.values())
+
+
+def finished_goods_receipts(
+    connection: Connection, scoped: AuthContext
+) -> list[dict[str, Any]] | None:
+    """확정 완제품 입고(팔레트) `[{packingNo, receivedAt, lines:[{lotNo, itemCode, qty, unit}]}]`. MES 꺼짐이면 None."""
+    if not _enabled(connection, scoped):
+        return None
+    rows = connection.execute(
+        text(_RECEIPT_LINES), {"w": scoped.workspace_id, "g": scoped.generation_id}
+    ).mappings()
+    return _grouped(
+        rows,
+        lambda r: r["packing_no"],
+        lambda r: {
+            "packingNo": r["packing_no"],
+            "receivedAt": r["received_at"].isoformat(),
+        },
+    )
+
+
+def completed_material_issues(
+    connection: Connection, scoped: AuthContext
+) -> list[dict[str, Any]] | None:
+    """완료된 공정 실행의 자재 투입 `[{sourceRef:'LT-0013:INJ', endedAt, lines:[{itemCode, qty, unit}]}]`. MES 꺼짐이면 None."""
+    if not _enabled(connection, scoped):
+        return None
+    rows = connection.execute(
+        text(_ISSUE_LINES), {"w": scoped.workspace_id, "g": scoped.generation_id}
+    ).mappings()
+    return _grouped(
+        rows,
+        lambda r: (r["lot_no"], r["process_code"]),
+        lambda r: {
+            "sourceRef": f"{r['lot_no']}:{r['process_code']}",
+            "endedAt": r["ended_at"].isoformat(),
+        },
+    )

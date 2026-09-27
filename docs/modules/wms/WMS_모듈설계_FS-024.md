@@ -301,3 +301,14 @@ MES·ERP API는 바꾸지 않는다.
 | 마이그레이션 | `20260927_fs024a_wms_schema.py`(revision `fs024a_wms`, down `fs023b_qms_module`, JSON 미참조 고정 SQL, 제약 이름 = C·R 번호, 모듈 CHECK `c22_check`에 `'wms'`). 모듈 행 데이터 마이그레이션은 FS-024b(QMS와 같은 순서) |
 | 검증 도구 | `validate_db_design.py` FS-024a 엔티티 목록(이 문서 4장 표)·`validate_wms`(원천 멱등·되돌림 1회·용도별 창고·기본 위치 부분 유니크, LOT 스냅샷, 잔량 테이블 없음, 교차 FK 없음, 모듈 키), `audit_schema_isolation.py` BUSINESS에 wms(R1·R5·R6), `verify_ddl_matches_schema.py`·Excel·ERD 생성기에 wms. `tools/test_fs024a.py` 3 |
 | 산출물 | Excel 27시트·ERD `wms.mmd` 재생성, 탐색기 설명 문구 정정(QMS·WMS 구현, 설명 카드 BEMS·SCM) |
+
+## 15. 구현 기록 (FS-024b-1 API, 2026-09-27)
+
+| 항목 | 구현 |
+|---|---|
+| 모듈 행 | 데이터 마이그레이션 `fs024b_wms_module`(기존 공간에 `wms` 행). 회원 생성·시드 템플릿도 `wms` 포함(템플릿 모듈 행 5 → 6, 시드 7,583 → **7,584**, 복사 7,582). 공간·세대 정리(`_business_table_order`)·시드 복사·검증 스키마 목록에 wms |
+| 조회 인터페이스 | `fs/mes/interface.py` `finished_goods_receipts`(팔레트 아래 BOX의 LOT별 합)·`completed_material_issues`(완료 실행만, 품목·단위별 합)·`items(item_type=None)`. `fs/erp/interface.py` 신규 — `confirmed_shipments`·`purchase_receipts`(확정됐던 매입, 취소 시각 포함)·`open_shipment_qty`·`enabled` |
+| API | `fs/wms/{schema,service,router}.py`, `/api/v1/wms` — 8장 전부. 원천 반영은 원천마다 `_action` 한 번(작업 키 `wms.sync:<source_key>`)으로 따로 커밋해 반영 불가 한 건이 다른 건을 막지 않는다 |
+| 출하 LOT 결정 | 반영된 MES 입고 전표의 팔레트 번호가 같고 **수량이 전량 일치**할 때만 LOT별(그 입고 위치)로 나눈다. 부분 출하·불일치는 LOT 미지정 — `ponytail:` 주석(부분 출하 LOT 배분은 후속) |
+| 원장 조회 | `/moves`는 전체를 한 번에 돌려준다(시드 규모). 수천 행을 넘으면 페이지 나눔 — `ponytail:` 주석 |
+| 검증 | `test_wms.py` 14(AC-111~124 대응 — AC-111 동시 반영은 순차 경로와 공간 잠금·부분 유니크로 대신, AC-119 불균형은 API가 한 줄을 −/+ 쌍으로 만들어 생길 수 없어 같은 위치·LOT 누락 오류로 검사) |

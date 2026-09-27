@@ -1,12 +1,19 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS 설계 확정, FS-024a DB 반영 완료(로컬, head `fs024a_wms`). 다음 FS-024b.**
+- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS 설계 확정, FS-024a DB·FS-024b-1 API 완료(로컬, head `fs024b_wms_module`). 다음 FS-024b-2 화면.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-27 FS-024b-1 WMS 조회 인터페이스·API (Claude Code)
+- 사용자 지시: Codex 비전검사 병합·push 후 "제안대로" — FS-024b를 API(1부)·화면(2부)으로 나눠 중간 보고.
+- 완료: MES 인터페이스 3함수(입고·완료 실행 투입·품목 분류 옵션), ERP 인터페이스 신규(출하·매입·미출하 지시·사용 여부), `/api/v1/wms`(창고·위치·품목·단위·가져오기, 원천 목록·반영 TX-W1·매입 취소 되돌림 TX-W3, 기초·조정·이동 전표 TX-W2, 현재고·가용, 원장·누계, 대시보드), `fs024b_wms_module` 데이터 마이그레이션, 모듈 행 5 → 6(시드 7,584·복사 7,582), 공간 정리·시드 복사 목록에 wms. API 계약서 15장.
+- 검증: `test_wms.py` 14 passed, pytest 전체 **710 passed · 1 skipped**(13.9분, 네이티브 C++ 미빌드 skip), 격리 R1~R6 0(WMS는 `fs.mes.interface`·`fs.erp.interface`만 import), ruff check·format 0, db:validate 0, 임시 DB upgrade → DDL 대조 0 → downgrade base → upgrade → 0(head `fs024b_wms_module`).
+- 미실행: 공식 스모크(프런트 변경 없음 — 내 공간 화면은 알려진 솔루션만 그려 wms 행을 무시), 동시 반영 부하 시험(공간 잠금으로 직렬화).
+- 다음: FS-024b-2 — W-01~07 화면, 런처·내 공간 스위치·다른 앱 링크, e2e·layout.
 
 ## 2026-09-27 통합: Codex 비전검사 연속 검사·가상 PLC·C++ 엔진 연결 (codex/vision-ai `b6c82a0`) (Claude Code)
 - 병합: `74a4ec2` 연속 검사·배치 이력, `7ec4519` 가상 PLC 핸드셰이크·오류 복구, `848778b` C++ OpenCV 검사 코어·일치 테스트, `b6c82a0` 인증된 C++ 검사 API(`POST /api/v1/factory/vision/inspect`)·사용자 참고 문서(`content/help/portal/vision-lab.md`).

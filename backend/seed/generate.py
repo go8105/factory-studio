@@ -168,7 +168,7 @@ class SeedWriter:
         self.generation_id = generation_id
         self.seed_date = seed_date
         self.metadata = MetaData()
-        for schema in ("core", "mes", "erp", "fems", "qms"):
+        for schema in ("core", "mes", "erp", "fems", "qms", "wms"):
             self.metadata.reflect(connection, schema=schema)
         self.counts: dict[str, int] = defaultdict(int)
 
@@ -264,7 +264,7 @@ def create_template(
                 "enabled": True,
                 "updated_at": at(seed_date, 0),
             }
-            for module in ("core", "mes", "erp", "fems", "qms")
+            for module in ("core", "mes", "erp", "fems", "qms", "wms")
         ],
     )
     _masters(writer)
@@ -307,7 +307,7 @@ def normalize_created_at(
     )
     inspector = inspect(connection)
     tables: list[tuple[str, str, set[str]]] = []
-    for schema in ("mes", "erp", "fems", "qms"):
+    for schema in ("mes", "erp", "fems", "qms", "wms"):
         for table in inspector.get_table_names(schema=schema):
             columns = {
                 column["name"] for column in inspector.get_columns(table, schema=schema)
@@ -339,7 +339,7 @@ def normalize_created_at(
             for fk in inspector.get_foreign_keys(table, schema=schema):
                 parent_schema = fk["referred_schema"]
                 parent_table = fk["referred_table"]
-                if parent_schema not in {"mes", "erp", "fems", "qms"}:
+                if parent_schema not in {"mes", "erp", "fems", "qms", "wms"}:
                     continue
                 join = " AND ".join(
                     f'c."{local}"=p."{remote}"'

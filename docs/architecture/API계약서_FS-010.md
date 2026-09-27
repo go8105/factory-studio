@@ -542,3 +542,25 @@ A-1만 스키마와 관련이 있고 나머지는 구현 방침이다. **A-1을 
 **MES 응답 추가(읽기만, D10):** `GET /api/v1/mes/lots`·`/packable-lots`에 `qualityHold`(true/false, QMS 꺼짐이면 null), `GET /api/v1/mes/lots/{id}`에 `qualityHold`·`qualityResult`(PASS/FAIL/null).
 
 **조회 인터페이스(코드, HTTP 아님):** `fs/mes/interface.py` — `inspectable_lots`·`lot_snapshot`·`items`·`enabled`; `fs/qms/interface.py` — `held_lot_nos`·`latest_results`. 제공 모듈이 꺼져 있으면 `None`. 격리 검사 R6이 다른 import를 막는다.
+
+## 15. WMS API (`/api/v1/wms`, FS-024b)
+
+설계: [WMS 모듈 설계서](../modules/wms/WMS_모듈설계_FS-024.md) 8장 · 결정: [FS-024](../plan/WMS도입_재고원장_결정_FS-024.md). 공통 규약(3장)을 그대로 따른다 — 세션에서 S 결정, 쓰기는 `write_scope` 공간 잠금 뒤, 변경 요청은 `X-CSRF-Token`·`Idempotency-Key`, WMS 사용 중단은 409 `MODULE_DISABLED`. 수량은 문자열(소수 3자리), 원장 단위는 품목 기본 단위.
+
+| 메서드·경로 | 요약 | 주요 오류 `reason` |
+|---|---|---|
+| `GET /dashboard?month=` | 원자재 품목 수·완제품 LOT 수·음수 재고 수·미반영 원천 수(원천별, 꺼진 원천은 null)·품목별 현재고·가용·월 입출고(이동 제외). 월 생략 시 확정 전표가 있는 마지막 월 | — |
+| `GET/POST /warehouses` · `PATCH /warehouses/{id}` | 용도(`RAW`/`FG`)별 활성 창고 1개 | 400 `fields.code`·`fields.purpose`·`fields.isActive` |
+| `GET/POST /warehouses/{id}/locations` · `PATCH/DELETE /locations/{id}` | 창고의 첫 위치는 기본 위치. 기본 지정은 다른 위치를 기본으로 바꿔서만 푼다 | 400 `fields.isDefault`·`fields.isActive`, 409 `DEFAULT_LOCATION`·`REFERENCED_BY_OTHERS` |
+| `GET/POST /items` · `PATCH /items/{id}` | 분류 `RAW`/`FG`(FG만 LOT 추적). 쓰인 품목은 사용 안 함으로 | 400 `fields.itemCode` |
+| `GET /lookups/mes-items` · `POST /items/import {itemCodes}` | MES 원자재·완제품 중 WMS에 없는 것 → 스냅샷으로 등록 | 409 `SOURCE_MODULE_DISABLED`, 400 `fields.itemCodes` |
+| `POST /items/{id}/conversions {fromUnit, factor}` · `DELETE /items/{id}/conversions/{cid}` | 1 fromUnit = factor 기본 단위 | 400 `fields.fromUnit`·`fields.factor` |
+| `GET /stock?itemCode=&warehouseId=&lotNo=&negativeOnly=&unassignedOnly=` | `{rows:[창고·위치·품목·LOT·onHand·negative·lotUnassigned], totals:[FG 품목 onHand·openShipmentQty·available]}` — 0인 행 숨김, ERP 꺼짐이면 available null | — |
+| `GET /moves?itemCode=&lotNo=&warehouseId=&type=&from=&to=` | 확정 이동 줄(전표·원천 번호). `itemCode`를 주면 품목·LOT별 누계 `running` | — |
+| `GET /sources?kind=MES_RECEIPT\|MES_ISSUE\|ERP_SHIPMENT\|ERP_PURCHASE&state=pending\|synced\|all` | 원천 행 `state`: `pending`·`blocked`(사유 `ITEM_NOT_REGISTERED`·`UNIT_CONVERSION_MISSING`·`NO_WAREHOUSE`)·`synced`·`cancel_pending`·`reversed`·`cancelled`. 원천 솔루션 꺼짐이면 `{disabled:true, sourceModule}` | — |
+| `POST /sources/sync {kind, sourceKeys[]}` | TX-W1·W3. 원천마다 따로 커밋, 결과 `{results:[{sourceKey, state, documentId?, reason?}], synced, blocked}`. 같은 원천은 기존 전표를 돌려준다(멱등) | 409 `SOURCE_MODULE_DISABLED`; 원천별 `reason.code` `SOURCE_NOT_FOUND`·`SOURCE_CANCELLED` 등 |
+| `GET /documents?type=&status=&month=` · `GET /documents/{id}` | 전표·이동 줄(`moves`) | — |
+| `POST /documents` · `PATCH/DELETE /documents/{id}` | 기초·조정·이동 초안. `lines[]` 전체 교체. 이동 줄 `{itemId, lotNo, fromLocationId, toLocationId, qty}` → 저장 시 −/+ 두 줄 | 400 `fields.lines.<i>.<field>`·`fields.reasonCode`·`fields.note`, 409 `POSTED_IMMUTABLE` |
+| `POST /documents/{id}/post` | TX-W2. 잔량 확인 없음(음수 허용 D15) — 응답 `negative[]`에 음수가 된 품목·위치·LOT | 409 `NO_LINES`·`TRANSFER_UNBALANCED`·`POSTED_IMMUTABLE` |
+
+**조회 인터페이스(코드, HTTP 아님):** `fs/mes/interface.py` 추가 — `finished_goods_receipts`·`completed_material_issues`·`items(item_type=None)`; `fs/erp/interface.py`(신규) — `confirmed_shipments`·`purchase_receipts`·`open_shipment_qty`·`enabled`. MES·ERP API는 바뀌지 않는다.

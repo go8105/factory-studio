@@ -1,0 +1,360 @@
+# 주의: `from __future__ import annotations`를 쓰지 않는다. FastAPI가 본문 타입을 실제 클래스로 읽어야 한다.
+"""WMS API (/api/v1/wms, FS-024 모듈 설계 8장). 변경 요청은 CSRF와 Idempotency-Key가 필요하다."""
+
+from datetime import date
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, Header, Query
+from pydantic import BaseModel
+
+from fs.common.auth import AuthContext, require_csrf, resolve_auth
+from fs.common.errors import ApiError
+from fs.wms import service
+from fs.wms.schema import (
+    ConversionCreate,
+    DocumentCreate,
+    DocumentUpdate,
+    ItemCreate,
+    ItemImport,
+    ItemUpdate,
+    LocationCreate,
+    LocationUpdate,
+    ManualType,
+    SourceKind,
+    SourceSync,
+    WarehouseCreate,
+    WarehouseUpdate,
+)
+
+router = APIRouter()
+Auth = Annotated[AuthContext, Depends(resolve_auth)]
+IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
+CsrfToken = Annotated[str | None, Header(alias="X-CSRF-Token")]
+MONTH = r"^[0-9]{4}-(0[1-9]|1[0-2])$"
+DocumentType = ManualType | SourceKind | None
+
+
+def _mutation(context: AuthContext, csrf: str | None, key: str | None) -> str:
+    require_csrf(context, csrf)
+    if not key or len(key) > 100:
+        raise ApiError(400, "VALIDATION_FAILED", "Idempotency-Key가 필요합니다.")
+    return key
+
+
+def _values(
+    payload: BaseModel, nullable: frozenset[str] = frozenset()
+) -> dict[str, Any]:
+    values = payload.model_dump(mode="json", exclude_unset=True)
+    if any(v is None for k, v in values.items() if k not in nullable):
+        raise ApiError(400, "VALIDATION_FAILED", "필수 항목은 null로 비울 수 없습니다.")
+    return values
+
+
+def _data(value: Any) -> dict[str, Any]:
+    return {"data": value}
+
+
+# ---- 대시보드 (W-01) ----
+@router.get("/dashboard")
+def get_dashboard(
+    context: Auth, month: Annotated[str | None, Query(pattern=MONTH)] = None
+):
+    return _data(service.dashboard(context, month))
+
+
+# ---- 창고·위치 (W-06) ----
+@router.get("/warehouses")
+def list_warehouses(context: Auth):
+    return _data(service.list_warehouses(context))
+
+
+@router.post("/warehouses", status_code=201)
+def create_warehouse(
+    payload: WarehouseCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_warehouse(
+            context, payload.model_dump(), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.patch("/warehouses/{row_id}")
+def update_warehouse(
+    row_id: int,
+    payload: WarehouseUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_warehouse(
+            context, row_id, _values(payload), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.get("/warehouses/{warehouse_id}/locations")
+def list_locations(warehouse_id: int, context: Auth):
+    return _data(service.list_locations(context, warehouse_id))
+
+
+@router.post("/warehouses/{warehouse_id}/locations", status_code=201)
+def create_location(
+    warehouse_id: int,
+    payload: LocationCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_location(
+            context, warehouse_id, payload.model_dump(), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.patch("/locations/{row_id}")
+def update_location(
+    row_id: int,
+    payload: LocationUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_location(
+            context, row_id, _values(payload), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.delete("/locations/{row_id}")
+def delete_location(
+    row_id: int, context: Auth, csrf: CsrfToken = None, key: IdempotencyKey = None
+):
+    return _data(
+        service.delete_location(context, row_id, _mutation(context, csrf, key))
+    )
+
+
+# ---- 품목·단위 (W-07) ----
+@router.get("/items")
+def list_items(context: Auth):
+    return _data(service.list_items(context))
+
+
+@router.post("/items", status_code=201)
+def create_item(
+    payload: ItemCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_item(
+            context, payload.model_dump(), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.patch("/items/{row_id}")
+def update_item(
+    row_id: int,
+    payload: ItemUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_item(
+            context, row_id, _values(payload), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.get("/lookups/mes-items")
+def mes_items(context: Auth):
+    return _data(service.mes_item_candidates(context))
+
+
+@router.post("/items/import", status_code=201)
+def import_items(
+    payload: ItemImport,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.import_items(context, payload.item_codes, _mutation(context, csrf, key))
+    )
+
+
+@router.post("/items/{item_id}/conversions", status_code=201)
+def add_conversion(
+    item_id: int,
+    payload: ConversionCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.add_conversion(
+            context, item_id, payload.model_dump(), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.delete("/items/{item_id}/conversions/{conversion_id}")
+def delete_conversion(
+    item_id: int,
+    conversion_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.delete_conversion(
+            context, item_id, conversion_id, _mutation(context, csrf, key)
+        )
+    )
+
+
+# ---- 재고 현황·원장 (W-02·W-05) ----
+@router.get("/stock")
+def get_stock(
+    context: Auth,
+    item_code: Annotated[str | None, Query(alias="itemCode", max_length=40)] = None,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId")] = None,
+    lot_no: Annotated[str | None, Query(alias="lotNo", max_length=50)] = None,
+    negative_only: Annotated[bool, Query(alias="negativeOnly")] = False,
+    unassigned_only: Annotated[bool, Query(alias="unassignedOnly")] = False,
+):
+    return _data(
+        service.stock(
+            context,
+            {
+                "itemCode": item_code,
+                "warehouseId": warehouse_id,
+                "lotNo": lot_no,
+                "negativeOnly": negative_only,
+                "unassignedOnly": unassigned_only,
+            },
+        )
+    )
+
+
+@router.get("/moves")
+def list_moves(
+    context: Auth,
+    item_code: Annotated[str | None, Query(alias="itemCode", max_length=40)] = None,
+    lot_no: Annotated[str | None, Query(alias="lotNo", max_length=50)] = None,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId")] = None,
+    document_type: Annotated[DocumentType, Query(alias="type")] = None,
+    from_: Annotated[date | None, Query(alias="from")] = None,
+    to: Annotated[date | None, Query()] = None,
+):
+    return _data(
+        service.moves(
+            context,
+            {
+                "itemCode": item_code,
+                "lotNo": lot_no,
+                "warehouseId": warehouse_id,
+                "type": document_type,
+                "from": from_,
+                "to": to,
+            },
+        )
+    )
+
+
+# ---- 원천 반영 (W-03) ----
+@router.get("/sources")
+def list_sources(
+    context: Auth,
+    kind: SourceKind,
+    state: Annotated[str | None, Query(pattern="^(pending|synced|all)$")] = "pending",
+):
+    return _data(service.list_sources(context, kind, None if state == "all" else state))
+
+
+@router.post("/sources/sync")
+def sync_sources(
+    payload: SourceSync,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.sync_sources(
+            context, payload.kind, payload.source_keys, _mutation(context, csrf, key)
+        )
+    )
+
+
+# ---- 재고 전표 (W-04) ----
+@router.get("/documents")
+def list_documents(
+    context: Auth,
+    document_type: Annotated[DocumentType | None, Query(alias="type")] = None,
+    status: Annotated[str | None, Query(pattern="^(draft|posted)$")] = None,
+    month: Annotated[str | None, Query(pattern=MONTH)] = None,
+):
+    return _data(
+        service.list_documents(
+            context, {"type": document_type, "status": status, "month": month}
+        )
+    )
+
+
+@router.get("/documents/{doc_id}")
+def get_document(doc_id: int, context: Auth):
+    return _data(service.get_document(context, doc_id))
+
+
+@router.post("/documents", status_code=201)
+def create_document(
+    payload: DocumentCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_document(
+            context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.patch("/documents/{doc_id}")
+def update_document(
+    doc_id: int,
+    payload: DocumentUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    values = _values(payload, frozenset({"reason_code", "note", "document_on"}))
+    return _data(
+        service.update_document(context, doc_id, values, _mutation(context, csrf, key))
+    )
+
+
+@router.delete("/documents/{doc_id}")
+def delete_document(
+    doc_id: int, context: Auth, csrf: CsrfToken = None, key: IdempotencyKey = None
+):
+    return _data(
+        service.delete_document(context, doc_id, _mutation(context, csrf, key))
+    )
+
+
+@router.post("/documents/{doc_id}/post")
+def post_document(
+    doc_id: int, context: Auth, csrf: CsrfToken = None, key: IdempotencyKey = None
+):
+    return _data(service.post_document(context, doc_id, _mutation(context, csrf, key)))

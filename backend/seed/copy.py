@@ -13,7 +13,7 @@ from sqlalchemy.engine import Connection
 from seed.common import SEED_VERSION, at
 
 
-SCHEMAS = ("mes", "erp", "fems", "qms")
+SCHEMAS = ("mes", "erp", "fems", "qms", "wms")
 MONTH_COLUMNS = {
     ("erp.partner_item_price", "effective_from"),
     ("erp.partner_item_price", "effective_to"),
