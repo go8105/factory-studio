@@ -1,3 +1,5 @@
+import VisionExplanation from "./VisionExplanation";
+import { scenarios, scenarioEvidence, type Scenario } from "./scenarios";
 import { visionAt } from "./vision";
 import {
   Component,
@@ -83,7 +85,13 @@ export default function Factory() {
   }
   const [exterior, setExterior] = useState(true);
   const [vision, setVision] = useState(() => visionAt(0));
-  const [fault, setFault] = useState(false);
+  const [scenario, setScenario] = useState<Scenario>("normal");
+  const fault = scenario === "stopped";
+  function changeScenario(next: Scenario) {
+    if (next === scenario) return;
+    setScenario(next);
+    setVision(visionAt(0, next === "stopped", scenarios[next].rejectEvery));
+  }
   const [focused, setFocused] = useState(false);
   const [view, setView] = useState<View>("all");
   const [walking, setWalking] = useState(false);
@@ -349,6 +357,7 @@ export default function Factory() {
                     onTarget={setTarget}
                     onReady={markReady}
                     exterior={exterior}
+                    scenario={scenario}
                     fault={fault}
                     focused={focused}
                     onSnapshot={setVision}
@@ -465,6 +474,25 @@ export default function Factory() {
                 시연이며 MES 실적에 저장되지 않습니다.
               </p>
             </div>
+            <fieldset className="vision-scenarios">
+              <legend>시나리오 체험</legend>
+              <div>
+                {(Object.keys(scenarios) as Scenario[]).map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={scenario === id}
+                    onClick={() => changeScenario(id)}
+                  >
+                    {scenarios[id].label}
+                  </button>
+                ))}
+              </div>
+              <p>
+                {scenarios[scenario].description} 전환 시 현재 시연 누계가
+                초기화됩니다.
+              </p>
+            </fieldset>
             <dl>
               <div>
                 <dt>설비 상태</dt>
@@ -473,11 +501,11 @@ export default function Factory() {
                 </dd>
               </div>
               <div>
-                <dt>최근 판정</dt>
+                <dt>현재 제품 판정</dt>
                 <dd>{vision.result}</dd>
               </div>
               <div>
-                <dt>검사 수량</dt>
+                <dt>현재 시연 검사 수량</dt>
                 <dd data-testid="vision-count">{vision.inspected}개</dd>
               </div>
               <div>
@@ -485,6 +513,7 @@ export default function Factory() {
                 <dd>{vision.rejected}개</dd>
               </div>
             </dl>
+            <VisionExplanation key={scenario} scenario={scenario} />
             <dl className="vision-settings">
               <div>
                 <dt>검사 주기 · 설정</dt>
@@ -495,7 +524,7 @@ export default function Factory() {
               <div>
                 <dt>카메라 노출 · 설정</dt>
                 <dd>
-                  8.0 <small>ms</small>
+                  {scenarios[scenario].exposureMs.toFixed(1)} <small>ms</small>
                 </dd>
               </div>
               <div>
@@ -512,6 +541,18 @@ export default function Factory() {
             <p className="vision-source">
               데이터 출처: 브라우저 시뮬레이션 · 설정값은 시연용 고정값
             </p>
+            <details className="vision-evidence">
+              <summary>비교 구간 근거 보기</summary>
+              <p>
+                각 10분의 고정 시나리오 자료입니다. 위의 현재 시연 누계와
+                별도입니다.
+              </p>
+              <ul>
+                {scenarioEvidence(scenario).map((text, i) => (
+                  <li key={i}>{text}</li>
+                ))}
+              </ul>
+            </details>
             <div className="factory-actions">
               <button
                 className="vision-overview"
@@ -525,7 +566,10 @@ export default function Factory() {
               >
                 설비 가까이 보기
               </button>
-              <button aria-pressed={fault} onClick={() => setFault(!fault)}>
+              <button
+                aria-pressed={fault}
+                onClick={() => changeScenario(fault ? "normal" : "stopped")}
+              >
                 {fault ? "이상 해제" : "이상 상황 시연"}
               </button>
               <Link to="/mes">MES에서 업무 확인 →</Link>

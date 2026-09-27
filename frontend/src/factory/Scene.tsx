@@ -1,3 +1,4 @@
+import type { Scenario } from "./scenarios";
 import FirstPerson from "./FirstPerson";
 import InspectionZone from "./InspectionZone";
 import ProductionCell from "./ProductionCell";
@@ -185,6 +186,7 @@ function Printer({ label }: { label: boolean }) {
   );
 }
 function Station({
+  scenario,
   immersive,
   index,
   onSelect,
@@ -195,6 +197,7 @@ function Station({
   animated: boolean;
   fault: boolean;
   onSnapshot: (value: VisionSnapshot) => void;
+  scenario: Scenario;
   immersive: boolean;
   index: number;
   onSelect: (i: number) => void;
@@ -211,6 +214,8 @@ function Station({
       >
         {index === 1 ? (
           <VisionCell
+            key={scenario}
+            scenario={scenario}
             animated={animated}
             fault={fault}
             onSnapshot={onSnapshot}
@@ -296,6 +301,7 @@ function Worker({ animated }: { animated: boolean }) {
   );
 }
 export type SceneProps = {
+  scenario: Scenario;
   immersive: boolean;
   inspect: number;
   onTarget: (i: number | null) => void;
@@ -313,6 +319,7 @@ export type SceneProps = {
   onSelect: (i: number) => void;
 };
 export default function Scene({
+  scenario,
   immersive,
   inspect,
   onTarget,
@@ -442,6 +449,7 @@ export default function Scene({
           <Station
             key={i}
             index={i}
+            scenario={scenario}
             immersive={immersive}
             onSelect={onSelect}
             animated={animated}

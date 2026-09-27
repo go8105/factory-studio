@@ -472,3 +472,93 @@
     max-width: calc(100% - 40px);
   }
 }
+
+.vision-scenarios {
+  border: 0;
+  padding: 0;
+  margin: 16px 0;
+  min-width: 0;
+}
+.vision-scenarios legend {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.vision-scenarios > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vision-scenarios button {
+  padding: 8px 10px;
+  font-size: 12px;
+  background: white;
+  color: var(--ink);
+  border: 1px solid var(--border);
+}
+.vision-scenarios button[aria-pressed="true"] {
+  background: var(--accent);
+  color: white;
+}
+.vision-explanation {
+  margin: 18px 0;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.vision-explanation-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.vision-explanation h3 {
+  font-size: 15px;
+  margin: 0;
+}
+.vision-explanation h4 {
+  font-size: 12px;
+  margin: 18px 0 6px;
+}
+.vision-explanation button {
+  font-size: 12px;
+  padding: 8px 12px;
+}
+.vision-explanation-result {
+  border-radius: 8px;
+  background: #eef1ee;
+  padding: 14px;
+}
+.vision-explanation-source {
+  display: inline-block;
+  font-size: 11px;
+  padding: 4px 7px;
+  background: #e0e5df;
+  border-radius: 4px;
+}
+.vision-explanation-source.ai {
+  background: #dce6eb;
+}
+.vision-explanation-summary {
+  font-weight: 600;
+}
+.vision-explanation ul,
+.vision-explanation ol,
+.vision-evidence ul {
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.vision-explanation li + li,
+.vision-evidence li + li {
+  margin-top: 6px;
+}
+.vision-evidence {
+  margin: 12px 0;
+  font-size: 12px;
+}
+.vision-evidence summary {
+  cursor: pointer;
+  padding: 8px 0;
+}

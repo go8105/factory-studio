@@ -1,3 +1,4 @@
+import { demoExplanation } from "../src/factory/scenarios";
 import { test, expect } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/**", (route) =>
@@ -260,4 +261,61 @@ test("1인칭 직접 클릭과 시선 기준 이동", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "1인칭 비전검사 체험" }),
   ).toBeVisible();
+});
+
+test("비전검사 세 시나리오와 설명 출처를 구분한다", async ({ page }) => {
+  test.setTimeout(90000);
+  await page.route("**/api/v1/factory/vision/explanation", (route) => {
+    const { scenario } = route.request().postDataJSON();
+    return route.fulfill({
+      json: { data: demoExplanation(scenario, "not_configured") },
+    });
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole("button", { name: "1인칭 비전검사 체험" }).click();
+  await page
+    .getByRole("button", { name: "02 비전검사 · 상태 확인 (E)" })
+    .click();
+  const panel = page.getByRole("region", { name: "비전검사 설비 상세" });
+  await panel.getByRole("button", { name: "AI 설명", exact: true }).click();
+  await expect(panel.getByText("데모 설명 · AI 미연결")).toBeVisible();
+  await panel.getByRole("button", { name: "불합격 증가", exact: true }).click();
+  await expect(panel.getByText("데모 설명 · AI 미연결")).not.toBeVisible();
+  await panel.getByRole("button", { name: "AI 설명", exact: true }).click();
+  await expect(
+    panel.getByText("불합격률 변화: +18%p", { exact: true }).first(),
+  ).toBeVisible();
+  await panel.getByRole("button", { name: "정지", exact: true }).click();
+  await expect(page.getByTestId("vision-phase")).toHaveText("이상 정지");
+  const count = await page.getByTestId("vision-count").textContent();
+  await page.waitForTimeout(500);
+  await expect(page.getByTestId("vision-count")).toHaveText(count!);
+  await panel.getByRole("button", { name: "AI 설명", exact: true }).click();
+  await expect(
+    panel.getByText("불합격률 변화: +0%p", { exact: true }).first(),
+  ).toBeVisible();
+  await page.screenshot({ path: "../work/vision-ai-desktop.png" });
+});
+
+test("비전검사 설명 오류와 모바일 패널", async ({ page }) => {
+  test.setTimeout(60000);
+  await page.route("**/api/v1/factory/vision/explanation", (route) =>
+    route.fulfill({
+      status: 503,
+      json: { error: { code: "UNAVAILABLE", message: "Unavailable" } },
+    }),
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: /02 비전검사/ }).click();
+  const panel = page.getByRole("region", { name: "비전검사 설비 상세" });
+  await panel.getByRole("button", { name: "불합격 증가", exact: true }).click();
+  await panel.getByRole("button", { name: "AI 설명", exact: true }).click();
+  await expect(panel.getByText("데모 설명 · AI 미연결")).toBeVisible();
+  await expect(
+    panel.getByText("다음 확인 항목", { exact: true }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+  await panel.screenshot({ path: "../work/vision-ai-mobile.png" });
 });

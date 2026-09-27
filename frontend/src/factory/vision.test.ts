@@ -9,13 +9,13 @@ it("검사 중에는 제품이 중앙에서 멈추고 판정 수량은 증가하
   });
 });
 it("판정 시점에만 수량이 증가하고 다섯 번째 제품이 불합격이다", () => {
-  expect(visionAt(27.4).inspected).toBe(4);
-  expect(visionAt(27.5)).toMatchObject({
+  expect(visionAt(27.4, false, 5).inspected).toBe(4);
+  expect(visionAt(27.5, false, 5)).toMatchObject({
     inspected: 5,
     rejected: 1,
     result: "불합격",
   });
-  expect(visionAt(30)).toMatchObject({
+  expect(visionAt(30, false, 5)).toMatchObject({
     inspected: 5,
     rejected: 1,
     result: "판정 대기",
