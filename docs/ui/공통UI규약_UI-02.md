@@ -184,8 +184,52 @@ const guard = useDiscardGuard(dirty);          // 미저장 변경 보호(+새�
 
 200% 확대(1440×900 → CSS 720×450)는 모바일 규칙으로 동작한다. 저장 버튼·오류·필수 정보가 잘리지 않음을 확인했다.
 
-## 8. 레거시 패턴과 이전 방법
+## 8. UI-03 예외 패턴 (2026-09-27)
+
+공통 컴포넌트: `DetailPanel`(폼 없는 패널)·`FormPanel`/`DetailPanel`의 `wide`(640px, `--panel-w-wide`). 둘 다 `FormPanel`과 같은 틀(포커스·Esc·배경·가둠·guard)을 쓴다.
+
+| 패널 | 붙음 | 겹침 | 전체 화면 |
+|---|---|---|---|
+| 기본 380px | ≥1600 | ≤1599 | ≤600 |
+| 넓은 640px(`wide`) | ≥1920 | ≤1919 | ≤600 |
+
+### 읽기 전용 상세 — M-04 `mes/Lots.tsx`
+
+```tsx
+{selectedId && (
+  <DetailPanel wide key={selectedId} title={`${lot.lotNo} 이력`} onClose={() => setSelectedId(undefined)}>
+    <p>상태 배지</p><p className="muted">요약</p>
+    <DataTable … caption={`${lot.lotNo} 공정 이력`} />
+  </DetailPanel>
+)}
+```
+
+### 부모-자식 상세 — F-12 `fems/Meters.tsx`
+
+- 패널 상태 하나: `{kind:"meter",row}` · `{kind:"channels",meterId}` · `{kind:"channel",meterId,row}`. 한 번에 패널 하나만 연다.
+- 부모 행의 "채널 N" → 자식 목록 `DetailPanel wide`(foot에 "채널 등록"). 자식 "수정"·"채널 등록" → 같은 자리에 자식 `FormPanel`. 자식 폼의 닫기·취소·저장 성공은 **자식 목록으로 돌아간다**(`onClose={() => openChannels(id)}`).
+- 새 부모를 등록하면 바로 그 부모의 자식 목록을 연다.
+- 미저장 보호는 부모·자식 폼 draft와 열 때의 initial을 비교한 `dirty` 하나로 `useDiscardGuard`.
+
+### 넓은 행 편집 — E-04 `erp/SalesOrders.tsx`
+
+- 등록: 제목 줄 "수주 등록" → `FormPanel wide`(기본 정보는 `.field-row` 두 칸 + `LineEditor`). 저장 성공 → 새 행의 상세.
+- 상세: 행의 "명세 N" → `DetailPanel wide`(요약·명세 표, foot에 "명세 편집"은 편집 가능할 때만).
+- 편집: 같은 자리에 `FormPanel wide`, 닫기·취소·저장 성공은 상세로 돌아간다.
+- **저장 직후의 선택·전환은 guard를 거치지 않는다**(`openDetail` 직접 호출). guard는 사용자가 다른 행·버튼을 누를 때만 쓴다 — 저장 직후에는 폼이 아직 '변경됨'으로 보여 확인창이 잘못 뜬다(UI-02 검토에서 E-05·E-06·E-10에서 발견).
+
+### 상태 전이 — M-05 `mes/Executions.tsx`, M-07 `mes/Results.tsx`
+
+- 목록 여러 개는 `.section-block`으로 쌓는다. 시작·실적 확정은 기본 `FormPanel`. 실적 확정은 공통 `ResultForm`(내부에 guard).
+- 폼 이름(패널 제목)은 테스트·접근성 이름으로 쓰이므로 행동 이름('공정 시작'·'실적 확정')으로 두고, LOT·공정 같은 대상은 본문 `h3`에 쓴다.
+
+### 패널 안 목록 버튼 규칙
+
+- 패널을 연 채로 눌러야 하는 버튼(제안량 채우기 등)은 **패널 안**에 둔다. 1599px 이하에서는 목록이 패널 배경에 가려진다.
+- 행 버튼이 패널을 자동으로 열어 방금 보려던 목록을 가리지 않게 한다(M-12 '환산' 사례).
+
+## 9. 레거시 패턴과 이전 방법
 
 - `.master-grid`(항상 오른쪽 360px 폼)는 **레거시**다. 새 화면에 쓰지 않는다. 기존 화면은 적용표 순서대로 `split-view` + `FormPanel`로 옮긴다.
 - 화면별로 스타일을 새로 만들거나 기준 화면 코드를 복사해 따로 관리하지 않는다. 부족한 기능은 공통 컴포넌트 확장으로 요청한다(Claude 담당).
-- 공통 컴포넌트에 아직 없는 것(예외 패턴): 넓은 행 편집 패널(견적·수주 명세), 읽기 전용 상세 패널(LOT·실적), 부모-자식 상세(계측기-채널, 공정 경로-단계, BOM). 적용표에 "Claude 선행"으로 표시했다.
+- 예외 패턴 3종은 UI-03에서 확정했다(8장). 남은 M-14·M-15·E-02는 지시서 UI-03 B1·B2.

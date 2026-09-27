@@ -152,10 +152,26 @@ uv run --project backend --env-file .env python tools/run_portal_smoke.py
 
 - `erp/common.tsx`는 ERP 전용 공통이다. 여기 바꿀 것이 생기면 멈추고 Claude에게 넘긴다.
 
+## 3-2. UI-03 묶음 (예외 패턴 적용, 2026-09-27 추가)
+
+기준 커밋: UI-03 main 통합 커밋(`git log --grep "UI-03:" -1`). 규약 8장과 기준 화면 코드를 먼저 읽는다. 완료 기준은 위와 같고 **공식 스모크 필수**.
+
+### B1 — 부모-자식 상세 (F-12 `fems/Meters.tsx`를 따른다)
+
+| 대상 | 파일 | 주의 |
+|---|---|---|
+| M-14 공정 경로 | `mes/Routes.tsx` | 경로 버전 목록 → 단계 목록 `DetailPanel wide` → 단계 폼. 게시한 버전은 수정·삭제 버튼 없음(개정=새 버전), '개정'·'게시' 동작 유지. `e2e/mes.spec.ts` "공정 경로를 개정해…" 흐름 갱신 |
+| M-15 BOM | `mes/Boms.tsx` | BOM 목록 → 자재 라인 `DetailPanel wide` → 라인 폼. `RevealAnchor` 제거 |
+
+### B2 — 넓은 행 편집 (E-04 `erp/SalesOrders.tsx`를 따른다)
+
+| 대상 | 파일 | 주의 |
+|---|---|---|
+| E-02 견적 | `erp/Quotations.tsx` | 등록 `FormPanel wide`('견적 만들기'), 상세 `DetailPanel wide`('견적 상세' 대신 `${견적번호} ${차수}차` 제목), 라인 편집·확정·제출·**수주 전환 폼은 상세 패널 안**(패널 자체는 폼이 아니므로 안에 `<form>`을 둘 수 있다). `e2e/portal.spec.ts` "ERP 견적 작성 → 확정 → 제출 → 수주 전환" 갱신 |
+
 ## 4. 이번 지시에 포함하지 않는 화면 (Claude 선행)
 
-F-12 계측기·채널, M-04 LOT 현황, M-05 공정 실행, M-07 실적 확정, M-14 공정 경로, M-15 BOM, E-02 견적, E-04 수주.
-부모-자식 상세·읽기 전용 상세·넓은 행 편집 패널이 필요하다. Claude가 대표 구현(UI-03)을 확정한 뒤 별도 지시서를 낸다. 그 전에는 건드리지 않는다.
+없음 — UI-03에서 F-12·M-04·M-05·M-07·E-04를 Claude가 완료했고, M-14·M-15·E-02는 위 3-2 묶음이다.
 
 ## 5. 인계 형식
 
