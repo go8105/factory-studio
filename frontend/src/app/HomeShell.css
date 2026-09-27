@@ -1,0 +1,82 @@
+/* 홈에서만 Figma 참고 헤더/푸터를 사용한다. 업무 화면 높이 토큰은 변경하지 않는다. */
+.brand .brand-mark {
+  display: none;
+}
+.site-header.launcher-header {
+  height: 72px;
+  padding-inline: clamp(24px, 3vw, 48px);
+  background: var(--surface);
+  border-bottom-color: rgb(26 28 30 / 6%);
+}
+.launcher-header .brand {
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+}
+.launcher-header .brand .brand-mark {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--surface);
+  font-size: 18px;
+  font-weight: 700;
+}
+.launcher-header .brand .brand-tagline {
+  display: none;
+}
+.site-header.launcher-header nav {
+  gap: 8px;
+  font-size: 12px;
+}
+.site-header.launcher-header nav a {
+  padding: 8px 10px;
+}
+.site-header.launcher-header nav a.active {
+  background: var(--surface-2);
+}
+.site-footer.launcher-footer {
+  background: var(--surface);
+  border-top-color: rgb(26 28 30 / 6%);
+  padding: 20px clamp(24px, 3vw, 48px);
+  font-size: 11px;
+}
+@media (max-width: 1000px) and (min-width: 801px) {
+  .site-header.launcher-header {
+    gap: 12px;
+    padding-inline: 24px;
+  }
+  .site-header.launcher-header nav {
+    gap: 0;
+  }
+  .site-header.launcher-header nav a {
+    padding-inline: 8px;
+  }
+}
+@media (max-width: 800px) {
+  .site-header.launcher-header {
+    height: auto;
+    padding: 14px var(--gutter) 0;
+    gap: 12px;
+  }
+  .launcher-header .brand {
+    font-size: 16px;
+  }
+  .launcher-header .brand .brand-mark {
+    width: 30px;
+    height: 30px;
+    font-size: 15px;
+    border-radius: 8px;
+  }
+  .site-header.launcher-header nav .link-button {
+    top: 16px;
+  }
+  .site-header.launcher-header nav {
+    gap: 2px;
+  }
+  .site-footer.launcher-footer {
+    padding: 18px var(--gutter);
+  }
+}

@@ -9,12 +9,13 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
-    "lint": "eslint src vite.config.ts playwright.config.ts e2e playwright.factory.config.ts",
-    "format:check": "prettier --check src vite.config.ts playwright.config.ts e2e tsconfig.json package.json index.html playwright.factory.config.ts",
+    "lint": "eslint src vite.config.ts playwright.config.ts e2e playwright.factory.config.ts playwright.home.config.ts",
+    "format:check": "prettier --check src vite.config.ts playwright.config.ts e2e tsconfig.json package.json index.html playwright.factory.config.ts playwright.home.config.ts",
     "dev": "vite",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:factory-browser": "playwright test --config playwright.factory.config.ts"
+    "test:factory-browser": "playwright test --config playwright.factory.config.ts",
+    "test:home-browser": "playwright test --config playwright.home.config.ts"
   },
   "dependencies": {
     "@react-three/drei": "10.7.8",
