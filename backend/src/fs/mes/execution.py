@@ -21,6 +21,7 @@ from fs.common.errors import ApiError
 from fs.common.scope import read_scope
 from fs.mes import repository as repo
 from fs.mes.service import MODULE, _action, _field, _not_found, _read
+from fs.qms import interface as qms
 
 _S = "workspace_id=:w AND generation_id=:g"
 
@@ -120,8 +121,16 @@ def list_lots(context: AuthContext) -> list[dict[str, Any]]:
                 text(LOT_SQL + " ORDER BY t.lot_no DESC"), _s(scoped)
             ).mappings()
         ]
+        # QMS 보류는 배지로만 보여 준다(FS-023 D10). QMS를 끄면 null.
+        held = qms.held_lot_nos(connection, scoped)
         # ponytail: LOT마다 단계 조회(N+1). 한 공간 LOT 수십 건 규모라 충분하다. 수백 건이면 한 번에 묶는다.
-        return [_summary(lot, _steps(connection, scoped, lot)) for lot in lots]
+        return [
+            {
+                **_summary(lot, _steps(connection, scoped, lot)),
+                "qualityHold": None if held is None else lot["lotNo"] in held,
+            }
+            for lot in lots
+        ]
 
 
 def get_lot(context: AuthContext, lot_id: int) -> dict[str, Any]:
@@ -154,11 +163,18 @@ def get_lot(context: AuthContext, lot_id: int) -> dict[str, Any]:
                 {**_s(scoped), "lot": lot_id},
             ).mappings()
         ]
+        held = qms.held_lot_nos(connection, scoped)
+        results = qms.latest_results(connection, scoped, [lot["lotNo"]])
+    quality = {
+        "qualityHold": None if held is None else lot["lotNo"] in held,
+        # QMS 판정: PASS / FAIL / None(미검사). QMS를 끄면 키 값도 None이고 qualityHold가 null이다.
+        "qualityResult": None if results is None else results.get(lot["lotNo"]),
+    }
     for step in steps:
         step["materialIssues"] = [
             i for i in issues if i["executionId"] == step["executionId"]
         ]
-    return {**_summary(lot, steps), "steps": steps}
+    return {**_summary(lot, steps), "steps": steps, **quality}
 
 
 def list_running(context: AuthContext) -> list[dict[str, Any]]:

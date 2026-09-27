@@ -8,6 +8,7 @@ from fs.core.router import router as core_router
 from fs.erp.router import router as erp_router
 from fs.fems.router import router as fems_router
 from fs.mes.router import router as mes_router
+from fs.qms.router import router as qms_router
 
 
 def create_app() -> FastAPI:
@@ -20,6 +21,7 @@ def create_app() -> FastAPI:
     app.include_router(fems_router, prefix="/api/v1/fems")
     app.include_router(mes_router, prefix="/api/v1/mes")
     app.include_router(erp_router, prefix="/api/v1/erp")
+    app.include_router(qms_router, prefix="/api/v1/qms")
     return app
 
 

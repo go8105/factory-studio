@@ -275,7 +275,7 @@ def create_member_account(
     connection.execute(
         text(
             "INSERT INTO core.workspace_module(workspace_id,module_key,enabled) "
-            "SELECT :w,m,true FROM unnest(ARRAY['core','mes','erp','fems']) m"
+            "SELECT :w,m,true FROM unnest(ARRAY['core','mes','erp','fems','qms']) m"
         ),
         {"w": workspace_id},
     )
@@ -681,7 +681,7 @@ def _business_table_order(connection: Connection) -> list[str]:
     inspector = inspect(connection)
     tables = {
         f"{schema}.{table}"
-        for schema in ("mes", "erp", "fems")
+        for schema in ("mes", "erp", "fems", "qms")
         for table in inspector.get_table_names(schema=schema)
     }
     dependencies: dict[str, set[str]] = {}

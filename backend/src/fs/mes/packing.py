@@ -18,6 +18,7 @@ from fs.common.scope import read_scope
 from fs.mes import repository as repo
 from fs.mes.planning import _next_code
 from fs.mes.service import MODULE, _action, _field, _not_found, _read
+from fs.qms import interface as qms
 
 _S = "workspace_id=:w AND generation_id=:g"
 
@@ -63,7 +64,13 @@ def packable_lots(context: AuthContext) -> list[dict[str, Any]]:
         rows = connection.execute(
             text(LOT_GOOD_SQL + " ORDER BY t.lot_no"), _s(scoped)
         ).mappings()
-        return [lot for lot in map(_lot_row, rows) if Decimal(lot["remainingQty"]) > 0]
+        # 보류 LOT도 담을 수 있다. 배지로 알릴 뿐 막지 않는다(FS-023 D10).
+        held = qms.held_lot_nos(connection, scoped)
+        return [
+            {**lot, "qualityHold": None if held is None else lot["lotNo"] in held}
+            for lot in map(_lot_row, rows)
+            if Decimal(lot["remainingQty"]) > 0
+        ]
 
 
 UNIT_SQL = """

@@ -13,7 +13,7 @@ from sqlalchemy.engine import Connection
 from seed.common import SEED_VERSION, at
 
 
-SCHEMAS = ("mes", "erp", "fems")
+SCHEMAS = ("mes", "erp", "fems", "qms")
 MONTH_COLUMNS = {
     ("erp.partner_item_price", "effective_from"),
     ("erp.partner_item_price", "effective_to"),
@@ -181,8 +181,9 @@ def _copy_business_rows(
         "source_date": source_date,
         "target_date": target_date,
     }
+    module_rows = 0
     if copy_modules:
-        connection.execute(
+        module_rows = connection.execute(
             text(
                 """
                 INSERT INTO core.workspace_module (workspace_id,module_key,enabled,updated_at)
@@ -192,7 +193,7 @@ def _copy_business_rows(
                 """
             ),
             params,
-        )
+        ).rowcount
     seeded = _seeded_tables(connection, source_workspace_id, source_generation_id)
     inspector = inspect(connection)
     foreign_keys = _foreign_keys(inspector, seeded)
@@ -218,7 +219,9 @@ def _copy_business_rows(
             ),
             params,
         )
-    counts: dict[str, int] = {"core.workspace_module": 4} if copy_modules else {}
+    counts: dict[str, int] = (
+        {"core.workspace_module": module_rows} if copy_modules else {}
+    )
     for table_name in _table_order(seeded, foreign_keys):
         result = connection.execute(
             text(
