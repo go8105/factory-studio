@@ -42,9 +42,10 @@ it("화면 ID마다 도움말 파일이 있다", () => {
     count("mes/m-"),
     count("erp/e-"),
     count("fems/f-"),
-  ]).toEqual([7, 15, 18, 14]);
+    count("qms/q-"),
+  ]).toEqual([7, 15, 18, 14, 6]);
 });
-it.each(["qms", "wms", "bems"])("%s 카드는 세 항목을 모두 갖춘다", (key) => {
+it.each(["wms", "bems"])("%s 카드는 세 항목을 모두 갖춘다", (key) => {
   const headings = cards[key].match(/^## .+$/gm);
   expect(headings).toEqual([
     "## 무엇을 하는 시스템인가",
@@ -58,17 +59,19 @@ it("P-03 업무 노드는 해당 솔루션 도움말로 연결된다", async () 
     await screen.findByRole("link", { name: /07 \/ MES 실적 확정/ }),
   ).toHaveAttribute("href", "/help/mes/m-07");
 });
-it("P-03 QMS 미구현 동안 실적-패킹 직결 연결은 실선이다", async () => {
+it("P-03 실적 확정 뒤 품질검사·패킹 연결은 모두 실선이다", async () => {
   show("/flow");
   const list = await screen.findByRole("list", { name: "실적 확정 연결" });
-  const direct = within(list).getByRole("link", { name: /패킹/ });
-  expect(direct.closest("li")).not.toHaveClass("dashed");
+  for (const name of [/패킹/, /품질검사/])
+    expect(
+      within(list).getByRole("link", { name }).closest("li"),
+    ).not.toHaveClass("dashed");
 });
 it("P-03 설명 카드로 가는 연결은 점선이다", async () => {
   show("/flow");
-  const list = await screen.findByRole("list", { name: "실적 확정 연결" });
-  const inspection = within(list).getByRole("link", { name: /품질검사/ });
-  expect(inspection.closest("li")).toHaveClass("dashed");
+  const list = await screen.findByRole("list", { name: "완제품 입고 연결" });
+  const card = within(list).getByRole("link", { name: /재고/ });
+  expect(card.closest("li")).toHaveClass("dashed");
 });
 it("P-04 정의되지 않은 카드는 404로 처리한다", async () => {
   show("/cards/mes");

@@ -40,7 +40,7 @@ it("설명 카드로 향하는 연결은 점선이다", () => {
     ),
   ).toBe(true);
 });
-it("QMS를 거치지 않는 실적-패킹 직결 경로를 보존한다", () => {
+it("QMS를 끄면 쓰는 실적-패킹 직결 경로를 보존한다", () => {
   expect(flow.edges).toContainEqual(
     expect.objectContaining({
       from: "operation_result",

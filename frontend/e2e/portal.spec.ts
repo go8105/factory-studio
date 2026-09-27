@@ -102,7 +102,7 @@ test("게스트 운영 기록 직접 접근은 404", async ({ page }) => {
 for (const [route, title] of [
   ["home", "제조 현장의 세 시스템"],
   ["flow", "전체 업무 흐름"],
-  ["cards/qms", "설명 카드"],
+  ["cards/wms", "설명 카드"],
   ["help", "참고 문서"],
   ["workspace", "내 공간"],
   ["records", "페이지를 찾을 수 없습니다"],

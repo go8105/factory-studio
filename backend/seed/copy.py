@@ -373,6 +373,18 @@ def _column_expression(table_name: str, column: str, type_name: str) -> str:
     if table_name == "fems.energy_factor" and column == "effective_year":
         ordinal = "dense_rank() OVER (PARTITION BY src.energy_source_id,src.factor_kind ORDER BY src.effective_year)"
         return f"((extract(year from CAST(:target_date AS date))::int - 2 + {ordinal})::text)"
+    if table_name == "qms.inspection" and column == "inspection_month":
+        # 검사일을 업무일만큼 옮긴 뒤 월을 다시 구한다.
+        return "to_char(src.inspected_on + (:target_date - :source_date), 'YYYY-MM')"
+    if (table_name, column) in {
+        ("qms.inspection", "inspection_no"),
+        ("qms.quality_hold", "hold_no"),
+    }:
+        # QI-/QH-YYYYMMDD-NNN: 번호 속 날짜도 같은 일수만큼 옮긴다.
+        return (
+            f'left(src."{column}", 3) || to_char(to_date(substr(src."{column}", 4, 8), \'YYYYMMDD\') '
+            f"+ (:target_date - :source_date), 'YYYYMMDD') || substr(src.\"{column}\", 12)"
+        )
     if (table_name, column) in MONTH_COLUMNS:
         return f'CASE WHEN src."{column}" IS NULL THEN NULL ELSE {_month_expression(f'src."{column}"')} END'
     if type_name in {"TIMESTAMP", "DateTime"}:

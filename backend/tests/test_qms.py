@@ -1,21 +1,47 @@
 """FS-023b QMS API (AC-97~110). 검증 항목마다 테스트를 나눈다.
 
-템플릿에는 QMS 시드가 아직 없다(FS-023c). 기준·검사는 테스트가 API로 만든다.
+`qms` fixture는 게스트 공간의 QMS 시드(FS-023c)를 지우고 빈 QMS에서 시작한다. 기준·검사는 테스트가 API로 만든다.
 MES 시드의 정상 완료 LOT(패킹 대상 2건 등)을 읽기 전용 조회로 검사한다(D9).
+시드 자체는 `seeded` fixture로 따로 검사한다(파일 끝).
 """
 
 from decimal import Decimal
 from itertools import count
 
 import pytest
+from sqlalchemy import text
 
 Q = "/api/v1/qms"
 _keys = count()
 
 
+QMS_TABLES = (
+    "quality_hold",
+    "inspection_value",
+    "inspection",
+    "inspection_spec_item",
+    "inspection_spec",
+    "defect_type",
+)
+
+
+@pytest.fixture
+def seeded(guest_space):
+    return guest_space[:2]
+
+
 @pytest.fixture
 def qms(guest_space):
-    return guest_space[:2]
+    client, created, engine = guest_space
+    with engine.begin() as connection:
+        for table in QMS_TABLES:
+            connection.execute(
+                text(
+                    f"DELETE FROM qms.{table} WHERE workspace_id=:w AND generation_id=:g"
+                ),
+                {"w": created["workspaceId"], "g": created["generationId"]},
+            )
+    return client, created
 
 
 def _call(client, created, method: str, path: str, body=None):
@@ -571,7 +597,9 @@ def test_other_workspace_cannot_see_inspection(qms, guest_space):
         == 201
     )
     assert other.get(f"{Q}/inspections/{confirmed['id']}").status_code == 404
-    assert other.get(f"{Q}/holds?status=held").json()["data"] == []
+    # 다른 공간에는 그 공간의 시드 보류만 보인다.
+    held = other.get(f"{Q}/holds?status=held").json()["data"]
+    assert confirmed["id"] not in {h["inspectionId"] for h in held}
 
 
 def test_defect_type_in_use_cannot_be_deleted(qms):
@@ -603,3 +631,55 @@ def test_dashboard_counts_confirmed_month(qms):
     ) == ("2026-09", 1, "0.0", 1)
     assert data["topDefects"][0]["code"] == "DIMENSION"
     assert data["pendingLots"] is not None
+
+
+def test_seed_demo_flow(seeded):
+    """FS-023c 시드: 대기·작성 중·보류 LOT이 보이고, 시드 재검사로 보류를 해제할 수 있다."""
+    client, created = seeded
+    lots = {x["lotNo"]: x for x in _ok(client.get(f"{Q}/lookups/mes-lots"))}
+    assert {k: (v["status"], v["hasSpec"]) for k, v in lots.items()} == {
+        "LT-0015": ("drafting", True),
+        "LT-0017": ("pending", True),
+    }
+    inspections = _ok(client.get(f"{Q}/inspections"))
+    assert len(inspections) == 17
+    # 번호 속 날짜는 복사 후에도 검사일과 같다.
+    assert all(
+        i["inspectionNo"][3:11] == i["inspectedOn"].replace("-", "")
+        and i["inspectionMonth"] == i["inspectedOn"][:7]
+        for i in inspections
+    )
+    held = _ok(client.get(f"{Q}/holds?status=held"))
+    assert [h["lotNo"] for h in held] == ["LT-0016"]
+    packable = {
+        x["lotNo"]: x for x in client.get("/api/v1/mes/packable-lots").json()["data"]
+    }
+    assert packable["LT-0016"]["qualityHold"] is True
+    assert _ok(client.get(f"{Q}/dashboard"))["activeHolds"] == 1
+
+    retest = next(i for i in inspections if i["reinspectionOfId"])
+    detail = _ok(client.get(f"{Q}/inspections/{retest['id']}"))
+    by_name = {v["name"]: v["specItemId"] for v in detail["values"]}
+    values = [
+        {"specItemId": by_name["외관"], "passValue": True},
+        {"specItemId": by_name["핀 피치"], "measuredValue": "2.54"},
+        {"specItemId": by_name["하우징 높이"], "measuredValue": "9.00"},
+        {"specItemId": by_name["절연 저항"], "measuredValue": "300"},
+    ]
+    _ok(
+        _call(
+            client, created, "PATCH", f"/inspections/{retest['id']}", {"values": values}
+        )
+    )
+    passed = _ok(_call(client, created, "POST", f"/inspections/{retest['id']}/confirm"))
+    assert passed["result"] == "PASS"
+    released = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/holds/{held[0]['id']}/release",
+            {"disposition": "REINSPECTED", "releaseInspectionId": retest["id"]},
+        )
+    )
+    assert released["status"] == "released"

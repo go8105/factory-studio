@@ -271,6 +271,7 @@ def create_template(
     context = _plans_and_mes(writer)
     _erp(writer, context)
     _fems(writer, context)
+    _qms(writer, context)
     normalize_created_at(connection, workspace_id, generation_id, seed_date)
     return workspace_id, generation_id, dict(writer.counts)
 
@@ -2101,3 +2102,223 @@ def _production_records(
                 }
             )
     writer.add("fems.production_record", rows)
+
+
+# FS-023 §10. (순번, 이름, 방식, 하한, 상한, 단위). 절연 저항은 하한만 둔다.
+QMS_SPEC_ITEMS: dict[
+    str, list[tuple[int, str, str, str | None, str | None, str | None]]
+] = {
+    "FG-C100": [
+        (1, "외관", "PASS_FAIL", None, None, None),
+        (2, "핀 피치", "RANGE", "2.49", "2.59", "mm"),
+        (3, "하우징 높이", "RANGE", "8.90", "9.10", "mm"),
+        (4, "절연 저항", "RANGE", "100", None, "MΩ"),
+    ],
+    "FG-C200": [
+        (1, "외관", "PASS_FAIL", None, None, None),
+        (2, "핀 피치", "RANGE", "2.49", "2.59", "mm"),
+        (3, "하우징 높이", "RANGE", "11.90", "12.10", "mm"),
+        (4, "절연 저항", "RANGE", "100", None, "MΩ"),
+    ],
+    "FG-T300": [
+        (1, "외관", "PASS_FAIL", None, None, None),
+        (2, "단자 간격", "RANGE", "4.95", "5.05", "mm"),
+        (3, "조임 토크", "RANGE", "0.40", "0.60", "N·m"),
+        (4, "절연 저항", "RANGE", "100", None, "MΩ"),
+    ],
+}
+# 확정 검사 LOT 15건. E08은 핀 피치 초과로 불합격 → 특채 해제, W04는 외관 불합격 → 보류 중(패킹 대기 배지).
+# W03은 작성 중, W04 재검사는 작성 중, W05는 검사 대기로 남긴다.
+QMS_CONFIRMED = [f"E{i:02d}" for i in range(1, 13)] + ["W01", "W02", "W04"]
+QMS_FAILS = {"E08": (2, "2.6100", "PIN_MISALIGN"), "W04": (1, False, "APPEARANCE")}
+
+
+def _qms_value(
+    item: tuple[int, str, str, str | None, str | None, str | None], index: int
+) -> Decimal | None:
+    """항목 중앙값 근처의 결정적 측정값. 모두 한계 안이다."""
+    _, _, method, lower, upper, _ = item
+    if method == "PASS_FAIL":
+        return None
+    if upper is None:
+        return Decimal(250 + 10 * (index % 7))
+    low, high = Decimal(lower), Decimal(upper)
+    step = (high - low) / 10
+    return ((low + high) / 2 + step * ((index % 5) - 2)).quantize(Decimal("0.0001"))
+
+
+def _qms(writer: SeedWriter, context: dict[str, Any]) -> None:
+    seed_date = writer.seed_date
+    items = {row["code"]: row for row in codebook()["items"]}
+    defects = writer.add(
+        "qms.defect_type",
+        [
+            {"code": code, "name": name, "is_active": True}
+            for code, name in (
+                ("MOLD_DAMAGE", "금형 손상"),
+                ("SHORT_SHOT", "미충전"),
+                ("PIN_MISALIGN", "핀 정렬 불량"),
+                ("CONTACT_FAIL", "접촉 불량"),
+                ("APPEARANCE", "외관 불량"),
+                ("DIMENSION", "치수 불량"),
+            )
+        ],
+        "code",
+    )
+    spec_rows = [
+        {
+            "item_code": code,
+            "item_name": items[code]["name"],
+            "version_no": 1,
+            "status": "published",
+            "published_at": at(seed_date, -60, 10),
+            "note": None,
+        }
+        for code in QMS_SPEC_ITEMS
+    ] + [
+        {
+            "item_code": "FG-C100",
+            "item_name": items["FG-C100"]["name"],
+            "version_no": 2,
+            "status": "draft",
+            "published_at": None,
+            "note": "핀 피치 공차 축소 검토(2.50~2.58)",
+        }
+    ]
+    specs = writer.add("qms.inspection_spec", spec_rows, ("item_code", "version_no"))
+    spec_items: dict[tuple[str, int], list[int]] = {}
+    for (code, version), spec_id in specs.items():
+        rows = [
+            {
+                "spec_id": spec_id,
+                "seq": seq,
+                "name": name,
+                "method": method,
+                "lower_limit": Decimal("2.50")
+                if version == 2 and seq == 2
+                else None
+                if lower is None
+                else Decimal(lower),
+                "upper_limit": Decimal("2.58")
+                if version == 2 and seq == 2
+                else None
+                if upper is None
+                else Decimal(upper),
+                "unit": unit,
+                "is_required": True,
+            }
+            for seq, name, method, lower, upper, unit in QMS_SPEC_ITEMS[code]
+        ]
+        mapped = writer.add("qms.inspection_spec_item", rows, "seq")
+        spec_items[(code, version)] = [mapped[seq] for seq in sorted(mapped)]
+
+    final_good = {code: chain[-1][1] for code, chain in RESULT_CHAIN.items()}
+    numbers: dict[date, int] = defaultdict(int)
+
+    def number(day: date) -> str:
+        numbers[day] += 1
+        return f"QI-{day:%Y%m%d}-{numbers[day]:03d}"
+
+    def inspection(name: str, day: int, **values: Any) -> Row:
+        code = ITEM_FOR_LOT[name]
+        inspected_on = calendar_date(seed_date, day)
+        return {
+            "inspection_no": number(inspected_on),
+            "source": "MES",
+            "lot_no": context["lot_number"][name],
+            "item_code": code,
+            "item_name": items[code]["name"],
+            "lot_qty": Decimal(final_good[code]),
+            "unit": "EA",
+            "sample_qty": Decimal(min(final_good[code], 32)),
+            "spec_id": specs[(code, 1)],
+            "reinspection_of_id": None,
+            "status": "draft",
+            "result": None,
+            "inspected_on": inspected_on,
+            "inspection_month": f"{inspected_on:%Y-%m}",
+            "confirmed_at": None,
+            "note": None,
+            **values,
+        }
+
+    def inspection_day(name: str) -> int:
+        return SCHEDULE[name][-1][3] + 1
+
+    rows = [
+        inspection(
+            name,
+            inspection_day(name),
+            status="confirmed",
+            result="FAIL" if name in QMS_FAILS else "PASS",
+            confirmed_at=at(seed_date, inspection_day(name), 15),
+            note={"E08": "핀 피치 상한 초과", "W04": "외관 흑점 — 보류"}.get(name),
+        )
+        for name in QMS_CONFIRMED
+    ] + [inspection("W03", inspection_day("W03"))]
+    confirmed = writer.add("qms.inspection", rows, "lot_no")
+    retest = writer.add(
+        "qms.inspection",
+        [
+            inspection(
+                "W04",
+                -1,
+                reinspection_of_id=confirmed[context["lot_number"]["W04"]],
+                note="보류 LOT 재검사",
+            )
+        ],
+        "lot_no",
+    )
+    value_rows = []
+    for index, name in enumerate([*QMS_CONFIRMED, "W03", "W04-retest"]):
+        lot_name = name.removesuffix("-retest")
+        lot_no = context["lot_number"][lot_name]
+        inspection_id = (retest if name.endswith("-retest") else confirmed)[lot_no]
+        code = ITEM_FOR_LOT[lot_name]
+        for item, spec_item_id in zip(
+            QMS_SPEC_ITEMS[code], spec_items[(code, 1)], strict=True
+        ):
+            seq, method = item[0], item[2]
+            filled = name in QMS_CONFIRMED or (name == "W03" and seq <= 2)
+            measured = _qms_value(item, index + seq) if filled else None
+            passed = (True if method == "PASS_FAIL" else None) if filled else None
+            defect = None
+            fail = QMS_FAILS.get(name)
+            if fail and fail[0] == seq:
+                if method == "PASS_FAIL":
+                    passed = fail[1]
+                else:
+                    measured = Decimal(fail[1])
+                defect = defects[fail[2]]
+            value_rows.append(
+                {
+                    "inspection_id": inspection_id,
+                    "spec_item_id": spec_item_id,
+                    "measured_value": measured,
+                    "pass_value": passed,
+                    "judgement": None if not filled else "FAIL" if defect else "PASS",
+                    "defect_type_id": defect,
+                }
+            )
+    writer.add("qms.inspection_value", value_rows)
+    holds = []
+    for name, released in (("E08", True), ("W04", False)):
+        lot_no = context["lot_number"][name]
+        held_day = inspection_day(name)
+        holds.append(
+            {
+                "hold_no": f"QH-{calendar_date(seed_date, held_day):%Y%m%d}-001",
+                "lot_no": lot_no,
+                "item_code": ITEM_FOR_LOT[name],
+                "inspection_id": confirmed[lot_no],
+                "status": "released" if released else "held",
+                "held_at": at(seed_date, held_day, 15),
+                "disposition": "CONCESSION" if released else None,
+                "release_inspection_id": None,
+                "release_reason": "고객 승인 특채 — 핀 피치 0.02mm 초과, 조립 영향 없음"
+                if released
+                else None,
+                "released_at": at(seed_date, held_day + 2, 10) if released else None,
+            }
+        )
+    writer.add("qms.quality_hold", holds)

@@ -38,7 +38,7 @@ MTO 확장은 `mes.work_order.order_type` / `sales_order_line_id` 예약 컬럼�
         ↓                          │
 [MES] 실적 확정(양품/불량)         │
         ↓                          │
-[QMS] 품질검사 ······ (MAP_ONLY)   │
+[QMS] 품질검사 ···· (IMPLEMENTED)  │
         ↓                          │
 [MES] 패킹(박스→팔레트)            │
         ↓                          │
@@ -73,7 +73,7 @@ MTO 확장은 `mes.work_order.order_type` / `sales_order_line_id` 예약 컬럼�
 | 5 | `lot_issue` | LOT 생성 | mes | IMPLEMENTED |
 | 6 | `operation_run` | 공정 투입·실행 | mes | IMPLEMENTED |
 | 7 | `operation_result` | 실적 확정 | mes | IMPLEMENTED |
-| 8 | `quality_inspection` | 품질검사 | qms | **MAP_ONLY** |
+| 8 | `quality_inspection` | 품질검사 | qms | **IMPLEMENTED** (FS-023c) |
 | 9 | `packing` | 패킹(박스/팔레트) | mes | IMPLEMENTED |
 | 10 | `fg_receipt` | 완제품 입고 | mes | IMPLEMENTED |
 | 11 | `inventory_move` | 재고·비계획 입출고 | wms | **MAP_ONLY** |
@@ -162,10 +162,10 @@ MTO 확장은 `mes.work_order.order_type` / `sales_order_line_id` 예약 컬럼�
 - 자주 발생하는 오류: 투입 ≠ 양품 + 불량, 중복 확정 요청, 전량 불량
 - 완료 기준: 확정 결과가 저장되고 양품수량이 패킹 가능 수량으로 집계된다
 
-**8. `quality_inspection` 품질검사 — MAP_ONLY**
+**8. `quality_inspection` 품질검사 — IMPLEMENTED (FS-023, 도움말 `qms/q-03`)**
 - 담당 영역: 검사 기준·결과 기록, 합격/불합격 판정, **LOT 보류**
-- 연결: 실적 확정 결과를 입력으로 받고, 판정 결과가 패킹 진행 여부를 통제한다
-- 미구현 사유: QMS 모듈은 후속 범위다
+- 연결: MES 실적 확정 LOT을 읽기 전용으로 조회해 검사 대기로 삼는다. 보류는 패킹을 막지 않고 MES 패킹·LOT 화면에 배지로만 보인다(FS-023 D10)
+- (FS-023 이전 기록) 미구현 사유: QMS 모듈은 후속 범위였다
 - 카드에 명시할 내용: 품질 보류는 **모듈 설정 변경으로 해제되지 않는다**는 정책이 이미 설계되어 있음을 밝힌다
 
 **9. `packing` 패킹(박스/팔레트)**
@@ -268,9 +268,9 @@ MTO 확장은 `mes.work_order.order_type` / `sales_order_line_id` 예약 컬럼�
 | work_order | lot_issue | 지시마다 추적 단위를 만든다 |
 | lot_issue | operation_run | LOT이 경로를 따라 흐른다 |
 | operation_run | operation_result | 실행 결과를 확정한다 |
-| operation_result | quality_inspection | 확정 수량이 검사 대상이 된다 |
-| quality_inspection | packing | 합격분만 포장한다 |
-| operation_result | packing | (QMS 미구현 시 현재 경로) 확정 양품을 포장한다 |
+| operation_result | quality_inspection | 확정 LOT이 검사 대기가 된다(MES 조회) |
+| quality_inspection | packing | 불합격 LOT은 보류하고 패킹에는 배지만 보인다 |
+| operation_result | packing | QMS를 끄면 이 경로 — 확정 양품을 바로 포장한다 |
 | packing | fg_receipt | 포장 단위를 재고로 확정한다 |
 | fg_receipt | inventory_move | 재고 상태를 원장이 관리한다 |
 | master_data | sales_order | 거래처가 있어야 수주가 가능하다 |
@@ -282,7 +282,7 @@ MTO 확장은 `mes.work_order.order_type` / `sales_order_line_id` 예약 컬럼�
 | operation_run | energy_master | 설비 가동 구간이 에너지 집계 대상이다 |
 | energy_master | building_energy | 제조 에너지와 공용 에너지의 경계 |
 
-`quality_inspection`이 `MAP_ONLY`인 동안 `operation_result → packing` 직결 경로를 활성 경로로 표시하고, 검사 경로는 점선으로 구분한다. QMS 구현 시 직결 경로를 비활성화한다.
+FS-023c(2026-09-27)에서 `quality_inspection`을 `IMPLEMENTED`로 바꿨다. 보류가 패킹을 막지 않으므로(D10) `operation_result → packing` 직결 경로는 없애지 않고 "QMS를 끄면 이 경로"로 이름을 바꿔 남긴다. 흐름 맵 계약상 연결 종류는 `solution`/`card` 두 가지뿐이라 점선 구분 대신 연결 문구로 구분한다.
 
 ---
 

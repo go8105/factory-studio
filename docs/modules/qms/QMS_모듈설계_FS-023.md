@@ -339,3 +339,16 @@ AC-81~96은 FS-013에서 폐기된 번호라 **97부터** 쓴다.
 | 공간 정리·시드 | `_business_table_order`·시드 복사·검증의 스키마 목록에 `qms` 추가. QMS 시드는 FS-023c |
 | 화면 | Q-01~06(`frontend/src/qms/`), 런처·내 공간 스위치·다른 앱 링크·라인 아이콘, MES M-04·M-08 배지 |
 | 검증 | backend `test_qms.py` 21(AC-97~110 대응, AC-103은 순차 경로), frontend `qms.test.tsx` 10, e2e `qms.spec.ts` 2 + layout 5 + 360px 6 |
+
+## 15. 구현 기록 (FS-023c, 2026-09-27)
+
+| 항목 | 구현 |
+|---|---|
+| 시드 | `backend/seed/generate.py` `_qms` — **113행**(설계 추정 약 126행보다 적다: 항목 4 × 검사 17). seed_version `sv-20260927-1`, 템플릿 7,470 → **7,583행**(게스트 복사 7,581) |
+| 불량 유형 6 | `MOLD_DAMAGE`·`SHORT_SHOT`·`PIN_MISALIGN`·`CONTACT_FAIL`(MES 불량 사유와 같은 코드) + `APPEARANCE`·`DIMENSION` |
+| 검사 기준 4 · 항목 16 | FG-C100·C200·T300 v1 게시(T−60) + FG-C100 v2 초안(핀 피치 2.50~2.58 검토). 품목당 외관(PASS_FAIL)·치수 2(RANGE)·절연 저항(RANGE, 하한만) |
+| 검사 17 · 측정값 68 | 확정 15 = E01~E12·W01·W02·W04(LT-0001~0014·LT-0016), 합격 13 · 불합격 2(E08 LT-0008 핀 피치 2.61 → `PIN_MISALIGN`, W04 LT-0016 외관 → `APPEARANCE`). 작성 중 2 = W03 LT-0015(항목 2개만 입력), W04 재검사(빈 값). **W05 LT-0017은 검사 대기**로 남긴다. 검사일 = 최종 공정 완료 다음 날, 번호 `QI-검사일-순번` |
+| 보류 2 | LT-0008 `released` CONCESSION(+2일), LT-0016 `held` — 패킹 대기 LOT이라 M-08에 "QMS 보류" 배지. 시드 재검사를 확정하면 REINSPECTED로 해제할 수 있다 |
+| 게스트 복사 | `seed/copy.py`: `inspection_month` = 옮긴 `inspected_on`의 월(달력 파생 10종째). `inspection_no`·`hold_no` 속 `YYYYMMDD`도 같은 일수만큼 옮긴다(번호와 검사일 일치). 공간 정리·세대 정리는 FS-023b에서 qms 포함 |
+| 시드 검증 | V1 행 수, V2에 검사 월·번호 날짜 = 검사일, V3에 검사 LOT·품목 스냅샷 = MES 완료 LOT(값 비교, FK 아님) |
+| 도움말·흐름 맵 | `content/help/qms/q-01~06.md`, 공통 안내에 "솔루션 간 읽기 전용 조회". 흐름 맵 품질검사 노드 `solution`(도움말 `qms/q-03`) — 스키마에 qms 업무 노드 허용. 직결선은 "QMS를 끄면 이 경로"로 이름만 바꿨다(연결 종류가 solution/card 두 가지라 점선 구분은 하지 않음). 설명 카드는 WMS·BEMS·SCM만(`content/cards/qms.md` 삭제), P-05 참고 문서에 QMS 구역 |

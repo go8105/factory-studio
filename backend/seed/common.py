@@ -8,7 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-SEED_VERSION = "sv-20260924-2"
+SEED_VERSION = "sv-20260927-1"  # FS-023c: QMS 시드 +113행
 SEOUL = ZoneInfo("Asia/Seoul")
 CODEBOOK_PATH = Path(__file__).with_name("codebook.json")
 

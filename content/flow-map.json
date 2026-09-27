@@ -54,8 +54,8 @@
       "id": "quality_inspection",
       "label": "품질검사",
       "module": "qms",
-      "kind": "card",
-      "helpKey": null
+      "kind": "solution",
+      "helpKey": "qms/q-03"
     },
     {
       "id": "packing",
@@ -161,19 +161,19 @@
     {
       "from": "operation_result",
       "to": "quality_inspection",
-      "label": "확정 수량이 검사 대상이 된다",
-      "kind": "card"
+      "label": "확정 LOT이 검사 대기가 된다(MES 조회)",
+      "kind": "solution"
     },
     {
       "from": "quality_inspection",
       "to": "packing",
-      "label": "합격분만 포장한다",
-      "kind": "card"
+      "label": "불합격 LOT은 보류하고 패킹에는 배지만 보인다",
+      "kind": "solution"
     },
     {
       "from": "operation_result",
       "to": "packing",
-      "label": "(QMS 미구현 시 현재 경로) 확정 양품을 포장한다",
+      "label": "QMS를 끄면 이 경로 — 확정 양품을 바로 포장한다",
       "kind": "solution"
     },
     {

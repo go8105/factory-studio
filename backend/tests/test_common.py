@@ -19,7 +19,7 @@ from sqlalchemy import Engine, inspect, text
 def _business_count(engine: Engine, workspace_id: int, generation_id: int) -> int:
     total = 0
     with engine.connect() as connection:
-        for schema in ("mes", "erp", "fems"):
+        for schema in ("mes", "erp", "fems", "qms"):
             for table in inspect(connection).get_table_names(schema=schema):
                 total += connection.execute(
                     text(
@@ -107,7 +107,7 @@ def common_env(db_engine: Engine) -> Generator[CommonEnv]:
     with db_engine.begin() as connection:
         tables = [
             f'"{schema}"."{table}"'
-            for schema in ("core", "mes", "erp", "fems")
+            for schema in ("core", "mes", "erp", "fems", "qms")
             for table in inspect(connection).get_table_names(schema=schema)
         ]
         connection.execute(
@@ -128,7 +128,7 @@ def common_env(db_engine: Engine) -> Generator[CommonEnv]:
     with db_engine.begin() as connection:
         tables = [
             f'"{schema}"."{table}"'
-            for schema in ("core", "mes", "erp", "fems")
+            for schema in ("core", "mes", "erp", "fems", "qms")
             for table in inspect(connection).get_table_names(schema=schema)
         ]
         connection.execute(
@@ -175,9 +175,9 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     )
     assert guest_token.startswith("g_")
     assert (
-        # FS-023b: 모듈 행에 qms가 더해져 7,467 → 7,468
+        # FS-023c: QMS 시드 113행이 더해져 7,468 → 7,581
         _business_count(engine, guest_data["workspaceId"], guest_data["generationId"])
-        == 7468
+        == 7581
     )
 
     reset_headers = {
@@ -191,7 +191,7 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     reset_generation_id = reset_first.json()["data"]["generationId"]
     assert reset_generation_id != guest_data["generationId"]
     assert (
-        _business_count(engine, guest_data["workspaceId"], reset_generation_id) == 7468
+        _business_count(engine, guest_data["workspaceId"], reset_generation_id) == 7581
     )
     with engine.connect() as connection:
         assert (

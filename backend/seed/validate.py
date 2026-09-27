@@ -76,6 +76,12 @@ EXPECTED_COUNTS = {
     "fems.energy_reading": 6540,
     "fems.energy_allocation": 276,
     "fems.production_record": 27,
+    "qms.defect_type": 6,
+    "qms.inspection_spec": 4,
+    "qms.inspection_spec_item": 16,
+    "qms.inspection": 17,
+    "qms.inspection_value": 68,
+    "qms.quality_hold": 2,
 }
 
 
@@ -89,9 +95,8 @@ def validate_all(
         actual == EXPECTED_COUNTS,
         f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}",
     )
-    _require(sum(actual.values()) == 7470, f"V1 total={sum(actual.values())}")
-    # FS-023b: core.workspace_module에 qms 행 +1. QMS 업무 시드는 FS-023c.
-    results["V1"] = "77개 중 시드 64테이블, 7,470행 일치"
+    _require(sum(actual.values()) == 7583, f"V1 total={sum(actual.values())}")
+    results["V1"] = "77개 중 시드 70테이블, 7,583행 일치"
 
     plans = connection.execute(
         text(
@@ -121,7 +126,16 @@ def validate_all(
         set(weeks) == set(month_mondays(seed_date, -1) + month_mondays(seed_date)),
         f"V2 weeks={weeks}",
     )
-    results["V2"] = "T 기준 월·ISO 주차 재계산 일치(결정성은 통합 테스트에서 별도 비교)"
+    month_errors = _scalar(
+        connection,
+        "SELECT count(*) FROM qms.inspection WHERE workspace_id=:w AND generation_id=:g "
+        "AND (inspection_month<>to_char(inspected_on,'YYYY-MM') OR substr(inspection_no,4,8)<>to_char(inspected_on,'YYYYMMDD'))",
+        params,
+    )
+    _require(month_errors == 0, f"V2 qms inspection month={month_errors}")
+    results["V2"] = (
+        "T 기준 월·ISO 주차·QMS 검사 월 재계산 일치(결정성은 통합 테스트에서 별도 비교)"
+    )
 
     mismatch = connection.execute(
         text("""
@@ -140,6 +154,20 @@ def validate_all(
         == 6,
         "V3 mes item count",
     )
+    snapshot_errors = _scalar(
+        connection,
+        """
+        SELECT count(*) FROM qms.inspection i
+        WHERE i.workspace_id=:w AND i.generation_id=:g AND NOT EXISTS (
+          SELECT 1 FROM mes.lot l JOIN mes.work_order o ON o.workspace_id=l.workspace_id
+           AND o.generation_id=l.generation_id AND o.id=l.work_order_id
+          JOIN mes.item m ON m.workspace_id=o.workspace_id AND m.generation_id=o.generation_id AND m.id=o.item_id
+          WHERE l.workspace_id=i.workspace_id AND l.generation_id=i.generation_id
+            AND l.lot_no=i.lot_no AND m.item_code=i.item_code AND l.status='completed')
+    """,
+        params,
+    )
+    _require(snapshot_errors == 0, f"V3 qms lot snapshot={snapshot_errors}")
     results["V3"] = "단일 코드 사전의 품목·설비·사업장·공간·계획·패킹 코드 일치"
 
     overlaps = _scalar(

@@ -73,12 +73,13 @@
                   "enum": [
                     "mes",
                     "erp",
-                    "fems"
+                    "fems",
+                    "qms"
                   ]
                 },
                 "helpKey": {
                   "type": "string",
-                  "pattern": "^(mes/m|erp/e|fems/f)-[0-9]{2}$"
+                  "pattern": "^(mes/m|erp/e|fems/f|qms/q)-[0-9]{2}$"
                 }
               }
             },
@@ -86,7 +87,6 @@
               "properties": {
                 "module": {
                   "enum": [
-                    "qms",
                     "wms",
                     "bems",
                     "scm"

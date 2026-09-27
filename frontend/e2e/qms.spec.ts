@@ -1,71 +1,53 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// FS-023b QMS 실제 API 흐름. 테스트마다 새 게스트 공간(MES 시드 포함, QMS 시드 없음)을 쓴다.
+// FS-023 QMS 실제 API 흐름. 테스트마다 새 게스트 공간(MES·QMS 시드 포함, FS-023c)을 쓴다.
+// 시드: FG-C100·C200·T300 게시 기준 v1 + FG-C100 v2 초안, LT-0017(FG-C200) 검사 대기, LT-0016 보류 중.
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /가입 없이 둘러보기/ }).click();
   await expect(page).toHaveURL("/home");
 });
 
-async function publishSpec(page: Page) {
+test("시드 초안 기준 게시 · 불량 유형 등록", async ({ page }) => {
   await page.goto("/qms/specs");
-  await page.getByRole("button", { name: "기준 만들기", exact: true }).click();
-  const item = page.getByLabel("품목 (MES 조회)");
-  await item.selectOption({ label: "FG-C100 커넥터 C100" });
-  await page.getByRole("button", { name: "만들기", exact: true }).click();
-  for (const [name, method] of [
-    ["외관", "PASS_FAIL"],
-    ["핀 피치", "RANGE"],
-  ] as const) {
-    await page.getByRole("button", { name: "항목 추가", exact: true }).click();
-    await page.getByLabel("항목명").fill(name);
-    await page.getByLabel("판정 방식").selectOption(method);
-    if (method === "RANGE") {
-      await page.getByLabel("하한").fill("2.48");
-      await page.getByLabel("상한").fill("2.52");
-      await page.getByLabel("단위").fill("mm");
-    }
-    await page.getByRole("button", { name: "저장", exact: true }).click();
-    // 저장이 끝나면 항목 상세로 돌아온다. 그 전에 다음 조작을 하지 않는다.
-    await expect(page.getByRole("cell", { name, exact: true })).toBeVisible();
-  }
-  const items = page.getByRole("dialog", { name: "FG-C100 v1 검사 항목" });
-  await items.getByRole("button", { name: "패널 닫기" }).click();
-  await expect(items).toBeHidden();
-  const row = page
+  const draft = page
     .getByRole("table", { name: "검사 기준 목록" })
-    .getByRole("row", { name: /FG-C100/ });
-  await row.getByRole("button", { name: "게시" }).click();
-  await expect(row.getByRole("button", { name: "개정" })).toBeVisible();
+    .getByRole("row", { name: /FG-C100.*v2/ });
+  await draft.getByRole("button", { name: "게시" }).click();
+  await expect(draft.getByRole("button", { name: "개정" })).toBeVisible();
   await page.goto("/qms/defect-types");
   await page
     .getByRole("button", { name: "불량 유형 등록", exact: true })
     .click();
-  await page.getByLabel("코드").fill("DIMENSION");
-  await page.getByLabel("이름").fill("치수 불량");
+  await page.getByLabel("코드").fill("BURR");
+  await page.getByLabel("이름").fill("버");
   await page.getByRole("button", { name: "등록", exact: true }).click();
-  await expect(page.getByRole("cell", { name: "DIMENSION" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "BURR" })).toBeVisible();
+});
+
+async function fill(dialog: ReturnType<Page["getByRole"]>, pitch: string) {
+  await dialog.getByLabel("합격", { exact: true }).check();
+  await dialog.getByLabel("핀 피치 측정값").fill(pitch);
+  await dialog.getByLabel("하우징 높이 측정값").fill("12.00");
+  await dialog.getByLabel("절연 저항 측정값").fill("300");
 }
 
 test("MES LOT 검사 → 불합격 보류 → MES 배지 → 재검사 합격으로 해제", async ({
   page,
 }) => {
-  await publishSpec(page);
+  const lotNo = "LT-0017";
   await page.goto("/qms/pending");
-  const row = page
+  await page
     .getByRole("table", { name: "검사 대기 LOT" })
-    .getByRole("row", { name: /FG-C100/ })
-    .filter({ has: page.getByRole("button", { name: "검사 시작" }) })
-    .first();
-  const lotNo = (await row.getByRole("cell").first().innerText()).trim();
-  await row.getByRole("button", { name: "검사 시작" }).click();
+    .getByRole("row", { name: new RegExp(lotNo) })
+    .getByRole("button", { name: "검사 시작" })
+    .click();
   const dialog = page.getByRole("dialog", { name: new RegExp(lotNo) });
-  await dialog.getByLabel("합격", { exact: true }).check();
-  await dialog.getByLabel("핀 피치 측정값").fill("2.60");
+  await fill(dialog, "2.60");
   await expect(dialog.getByText("불합격").first()).toBeVisible();
   await dialog
     .getByLabel("핀 피치 불량 유형")
-    .selectOption({ label: "DIMENSION 치수 불량" });
+    .selectOption({ label: "PIN_MISALIGN 핀 정렬 불량" });
   await dialog.getByRole("button", { name: "확정" }).click();
   await expect(page.getByRole("status")).toContainText("품질 보류");
 
@@ -82,13 +64,15 @@ test("MES LOT 검사 → 불합격 보류 → MES 배지 → 재검사 합격으
     .click();
   await page.getByRole("button", { name: "재검사" }).click();
   const again = page.getByRole("dialog", { name: new RegExp(lotNo) });
-  await again.getByLabel("합격", { exact: true }).check();
-  await again.getByLabel("핀 피치 측정값").fill("2.50");
+  await fill(again, "2.54");
   await again.getByRole("button", { name: "확정" }).click();
   await expect(page.getByRole("status")).toContainText("합격 확정");
 
   await page.goto("/qms/holds");
-  await page.getByRole("button", { name: "상세" }).click();
+  await page
+    .getByRole("row", { name: new RegExp(lotNo) })
+    .getByRole("button", { name: "상세" })
+    .click();
   await page.getByRole("button", { name: "해제 처분" }).click();
   await page.getByRole("button", { name: "해제", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("재검사 합격");
@@ -96,6 +80,10 @@ test("MES LOT 검사 → 불합격 보류 → MES 배지 → 재검사 합격으
   await expect(
     page.getByRole("row", { name: new RegExp(lotNo) }).getByText("QMS 보류"),
   ).toHaveCount(0);
+  // 시드 보류 LT-0016은 그대로 남는다.
+  await expect(
+    page.getByRole("row", { name: /LT-0016/ }).getByText("QMS 보류"),
+  ).toBeVisible();
 });
 
 test("MES를 끄면 검사 대기는 직접 입력으로 전환된다", async ({ page }) => {
