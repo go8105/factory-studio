@@ -1,78 +1,316 @@
+/* P-02 only: 공통 업무 화면의 밀도·헤더 높이는 그대로 둔다. */
+.home-launcher {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 60px 20px 96px;
+}
+.home-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 32px;
+  margin-bottom: 44px;
+}
+.home-eyebrow {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 2.5px;
+}
+.home-hero h1 {
+  margin: 14px 0 14px;
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -1.1px;
+}
+.home-hero p {
+  font-size: 14px;
+}
+.home-context {
+  display: flex;
+  flex-direction: column;
+  align-items: end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.home-space {
+  text-align: right;
+}
+.home-space > span {
+  font-size: 13px;
+  font-weight: 600;
+}
+.home-space small {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.home-space:hover > span,
+.home-help:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.home-help {
+  color: var(--muted);
+  font-size: 11px;
+}
+.home-flow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 28px;
+  padding: 30px 32px;
+  border: 1px solid rgb(26 28 30 / 6%);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 3px 16px rgb(26 28 30 / 3%);
+}
+.home-flow .home-eyebrow {
+  letter-spacing: 1.5px;
+  color: var(--muted);
+}
+.home-flow h2 {
+  margin: 10px 0 7px;
+  font-size: 19px;
+  font-weight: 650;
+}
+.home-flow p {
+  font-size: 13px;
+}
+.home-flow-action {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 18px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+}
+.home-flow:hover .home-flow-action {
+  background: var(--accent-hover);
+}
+.home-solutions {
+  margin-top: 54px;
+}
 .launcher-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, 168px);
-  gap: 24px;
-  align-items: start;
+  grid-template-columns: repeat(4, minmax(0, 168px));
+  justify-content: space-between;
+  gap: 36px;
+  max-width: 780px;
+  margin: 0 auto;
+}
+.launcher-item {
+  position: relative;
+  min-width: 0;
+  padding-bottom: 18px;
+}
+.launcher-item:focus-within,
+.launcher-item:hover {
+  z-index: 2;
 }
 .launcher-app {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 0;
-  padding: 12px 8px;
-  border-radius: 16px;
   text-align: center;
+  border-radius: 24px;
 }
 .launcher-icon {
   display: grid;
   place-items: center;
-  width: 104px;
-  height: 104px;
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  background: white;
-  box-shadow: 0 4px 16px rgb(0 0 0 / 3%);
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid rgb(26 28 30 / 3%);
+  border-radius: 26px;
+  background: var(--surface);
+  box-shadow: 0 3px 16px rgb(26 28 30 / 4%);
   transition:
-    transform 0.15s,
-    border-color 0.15s;
+    transform 180ms ease,
+    border-color 180ms ease;
 }
 .launcher-icon svg {
   width: 48px;
   height: 48px;
+}
+.launcher-app:hover .launcher-icon,
+.launcher-app:focus-visible .launcher-icon {
+  transform: translateY(-4px);
+  border-color: var(--border-strong);
+}
+.launcher-app h2 {
+  margin: 16px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.launcher-app h2 span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.launcher-app.disabled .launcher-icon svg {
+  opacity: 0.5;
+}
+.launcher-info {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  min-height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-family: Georgia, serif;
+  font-style: italic;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+.launcher-info:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.launcher-item:hover .launcher-info,
+.launcher-item:focus-within .launcher-info {
+  opacity: 1;
+}
+.launcher-detail {
+  position: absolute;
+  top: calc(100% - 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 236px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 6px 24px rgb(26 28 30 / 4%);
+  z-index: 3;
+  text-align: left;
+}
+.launcher-detail p {
+  margin: 10px 0 12px;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.launcher-destination {
+  font-size: 11px;
   color: var(--accent);
 }
-.launcher-app:hover .launcher-icon {
-  transform: translateY(-3px);
-  border-color: #8c9aa7;
+@media (hover: none) {
+  .launcher-info {
+    opacity: 1;
+    min-height: 36px;
+    width: 36px;
+    top: 6px;
+    right: 6px;
+  }
 }
-.launcher-app h3 {
-  margin: 14px 0 0;
-  font-size: 18px;
+@media (prefers-reduced-motion: reduce) {
+  .launcher-icon,
+  .launcher-info {
+    transition: none;
+  }
+  .launcher-app:hover .launcher-icon,
+  .launcher-app:focus-visible .launcher-icon {
+    transform: none;
+  }
 }
-.launcher-app h3 span {
-  display: block;
-  margin-top: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--muted);
+@media (max-width: 800px) {
+  .home-launcher {
+    padding: 32px 8px 100px;
+  }
+  .home-hero {
+    gap: 24px;
+    align-items: start;
+  }
+  .home-hero h1 {
+    font-size: 27px;
+  }
+  .home-flow {
+    padding: 24px;
+    gap: 20px;
+  }
+  .home-flow-action {
+    padding: 12px;
+  }
+  .launcher-grid {
+    gap: 24px;
+  }
 }
-.launcher-app p {
-  margin: 10px 0 0;
-  font-size: 12px;
-}
-.launcher-status {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  font-size: 10px;
-}
-.launcher-app.disabled {
-  opacity: 0.55;
-}
-@media (max-width: 480px) {
+@media (max-width: 540px) {
+  .home-hero {
+    flex-direction: column;
+    gap: 24px;
+    margin-bottom: 28px;
+  }
+  .home-context {
+    width: 100%;
+    flex-direction: row;
+    align-items: end;
+    justify-content: space-between;
+  }
+  .home-space {
+    text-align: left;
+  }
+  .home-flow {
+    flex-direction: column;
+    align-items: start;
+    gap: 20px;
+    padding: 24px 20px;
+  }
+  .home-flow h2 {
+    font-size: 17px;
+  }
+  .home-flow p {
+    font-size: 12px;
+  }
+  .home-solutions {
+    margin-top: 36px;
+  }
   .launcher-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px 8px;
+    gap: 16px;
   }
   .launcher-icon {
-    width: 88px;
-    height: 88px;
     border-radius: 20px;
   }
   .launcher-icon svg {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
+  }
+  .launcher-app h2 {
+    font-size: 15px;
+  }
+  .launcher-app h2 span {
+    font-size: 11px;
+  }
+  .launcher-info {
+    top: 4px;
+    right: 4px;
+  }
+  .launcher-item:nth-child(odd) .launcher-detail {
+    left: 0;
+    transform: none;
+  }
+  .launcher-item:nth-child(even) .launcher-detail {
+    left: auto;
+    right: 0;
+    transform: none;
+  }
+  .launcher-detail {
+    width: min(236px, calc(100vw - 64px));
   }
 }

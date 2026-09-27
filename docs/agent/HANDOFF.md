@@ -300,3 +300,13 @@ git diff --check
 - `codex/vision-ai`, 기준 `0f16bb6`에 후속 구현. 프런트 425 tests / 47 files 통과, typecheck/lint/format/build 통과. 모의 API·5186에서 신규 Chromium 진입/조건 변경/JSON 다운로드/모바일 가로 넘침 검사 통과. 공용 DB 스모크·실장비·Safari 미검증.
 - 상세 설계·후속 연결 계약·재현 명령: `docs/agent/합성이미지검사실_FS-VISION-LAB01.md`. 이번 합성 범위 완료. 다음은 통합 검토와 사용자 체험이며 C++/C# 엔진은 별도 후속 범위. 원격 push·운영 배포 없음.
 - 통합·배포(2026-09-27, Claude Code): main에 FS-023b + UI-03 B2(`d194cb9`) + Codex 비전검사 AI 설명(`0f16bb6`)·합성 이미지 검사실(`da2f02a`) 병합(`2ef0578`). 검증: ruff·격리 R1~R6 0, vitest 435, 백엔드 설명 테스트 13, 공식 스모크 **187 passed**(11.8분). push `8851772..2ef0578`, 서버 pull·`alembic upgrade head`(→ `fs023b_qms_module`)·API 재시작, 프런트 빌드·rsync(번들 `index-aVsvqfGf.js` 일치). 운영 게스트 확인: QMS Q-01~06·MES 패킹·E-02 견적 패널·`/factory/vision-lab` 열림, 페이지 오류 0·5xx 0. OPENAI_API_KEY 미설정 → AI 설명은 데모 응답.
+
+
+## 2026-09-27 P-02 홈 UI 정돈 (Codex)
+
+- 작업 폴더 `factory-studio-codex`만 사용. 브랜치 `codex/home-ui-polish`, 기준/마지막 이전 커밋 `8851772`(origin/main). 이 인계는 `P-02: Figma 참고 홈 UI 정돈` 커밋에 포함하며 최종 해시는 `git log -1`로 확인한다. 기존 `codex/factory-building`은 그대로 보존.
+- 끝난 것: 흰색 홈 헤더·로고, 중앙 본문/배너, 기본 아이콘·이름·분류만 노출, 설명/상태 호버·포커스·터치 안내, 미구현 영역 제거. 현재 공간·도움말·실제 진입·역할 메뉴 유지. 보고서 `docs/agent/홈_UI_정돈.md`.
+- 검증: Node 24.21.0 PATH. typecheck/lint/format:check/build/test(418개/45파일) 및 독립 Chromium 8개, diff --check 각각 exit 0. 데스크톱/호버/360px 직접 확인. backend·DB·공용 포털 스모크 미실행.
+- 재현: 전용 폴더에서 `export PATH="/opt/homebrew/opt/node@24/bin:/opt/homebrew/bin:/usr/bin:/bin"`, `npm --prefix frontend run test:home-browser`. 5187 포트·모의 API만 사용, 테스트 서버 자동 종료. 공용 8000/5173과 DB는 사용하지 않는다.
+- 새 의존성 없음. package.json은 검증 스크립트만 추가. 공통 CSS·업무/3D·스키마 변경 없음. .env/work/node_modules 제외.
+- 다음: 사용자 시각 검토 후 통합 담당자가 main에 반영·운영 확인. Codex는 push/main 병합/배포 없이 멈춘다.

@@ -9,6 +9,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { lazy, Suspense, useRef, useState } from "react";
+import "./HomeShell.css";
 import { SessionProvider, useSession } from "./session";
 import { api } from "../shared/api";
 import { ErrorNotice, Loading, NotFound } from "../shared/components";
@@ -57,14 +58,18 @@ function Layout() {
         본문으로 건너뛰기
       </a>
       <header
-        className="site-header"
+        className={`site-header${pathname === "/home" ? " launcher-header" : ""}`}
         onClickCapture={(e) => {
           if (busy) e.preventDefault();
         }}
         aria-busy={busy}
       >
         <Link className="brand" to={session ? "/home" : "/"}>
-          Factory Studio<span>제조 현장의 세 시스템</span>
+          <span className="brand-mark" aria-hidden="true">
+            F
+          </span>
+          Factory Studio
+          <span className="brand-tagline">제조 현장의 세 시스템</span>
         </Link>
         <nav aria-label="주 메뉴">
           {session && (
@@ -105,7 +110,9 @@ function Layout() {
         </Suspense>
       </main>
       {!work && (
-        <footer className="site-footer">
+        <footer
+          className={`site-footer${pathname === "/home" ? " launcher-footer" : ""}`}
+        >
           <span>Factory Studio</span>
           <span>합성 데이터로 구성한 제조 업무 포트폴리오</span>
           <Link to="/help/common">공통 이용 안내</Link>
