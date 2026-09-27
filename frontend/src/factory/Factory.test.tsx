@@ -6,6 +6,9 @@ import Factory from "./Factory";
 vi.mock("@react-three/fiber", () => ({
   Canvas: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
+vi.mock("../app/session", () => ({
+  useSession: () => ({ session: { csrfToken: "test" }, fail: vi.fn() }),
+}));
 vi.mock("./Scene", () => ({ default: () => null }));
 function show() {
   render(
@@ -55,4 +58,21 @@ it("비전검사 공정 버튼으로 설명을 읽을 수 있다", () => {
   expect(
     screen.getByText(/카메라와 조명으로 제품의 외관을 검사/),
   ).toBeVisible();
+});
+
+it("정지 시나리오와 기존 이상 해제 동작이 같은 상태를 사용한다", () => {
+  show();
+  fireEvent.click(screen.getByRole("button", { name: /02 비전검사/ }));
+  fireEvent.click(screen.getByRole("button", { name: "정지" }));
+  expect(screen.getByTestId("vision-phase")).toHaveTextContent("이상 정지");
+  expect(screen.getByRole("button", { name: "정지" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "이상 해제" }));
+  expect(screen.getByRole("button", { name: "정상" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(screen.getByTestId("vision-phase")).not.toHaveTextContent("이상 정지");
 });

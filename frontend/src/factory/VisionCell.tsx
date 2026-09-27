@@ -1,13 +1,16 @@
+import { scenarios, type Scenario } from "./scenarios";
 import { useMemo, useRef } from "react";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { Mesh, MeshStandardMaterial } from "three";
 import { visionAt, type VisionSnapshot } from "./vision";
 export default function VisionCell({
+  scenario,
   animated,
   fault,
   onSnapshot,
 }: {
+  scenario: Scenario;
   animated: boolean;
   fault: boolean;
   onSnapshot: (value: VisionSnapshot) => void;
@@ -30,13 +33,17 @@ export default function VisionCell({
   const last = useRef("");
   useFrame((_, dt) => {
     if (animated && !fault) elapsed.current += Math.min(dt, 0.05);
-    const value = visionAt(elapsed.current, fault);
+    const value = visionAt(
+      elapsed.current,
+      fault,
+      scenarios[scenario].rejectEvery,
+    );
     if (product.current) product.current.position.x = value.x;
     for (const [name, enabled] of [
       ["Inspection_ring", value.scanning && animated],
       ["Lamp_red", fault],
-      ["Lamp_amber", !fault && !animated],
-      ["Lamp_green", !fault && animated],
+      ["Lamp_amber", !fault && (!animated || scenario === "reject-rise")],
+      ["Lamp_green", !fault && animated && scenario !== "reject-rise"],
     ] as const) {
       const mesh = model.getObjectByName(name) as Mesh | undefined;
       if (mesh?.material instanceof MeshStandardMaterial)

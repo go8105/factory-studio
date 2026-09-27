@@ -25,6 +25,7 @@ const FemsRoutes = lazy(() => import("../fems"));
 const MesRoutes = lazy(() => import("../mes"));
 const ErpRoutes = lazy(() => import("../erp"));
 const QmsRoutes = lazy(() => import("../qms"));
+const VisionLab = lazy(() => import("../factory/VisionLab"));
 const Factory = lazy(() => import("../factory/Factory"));
 function Layout() {
   const { session, setSession, busy, navigationBlocked, fail } = useSession();
@@ -153,6 +154,7 @@ function PortalRoutes() {
           <Route element={<Private />}>
             <Route path="/home" element={<Home />} />
             <Route path="/factory" element={<Factory />} />
+            <Route path="/factory/vision-lab" element={<VisionLab />} />
             <Route path="/flow" element={<FlowMap />} />
             <Route path="/cards/:card?" element={<Cards />} />
             <Route path="/workspace" element={<Workspace />} />

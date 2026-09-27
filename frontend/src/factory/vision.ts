@@ -7,8 +7,12 @@ export type VisionSnapshot = {
   scanning: boolean;
   fault: boolean;
 };
-// One deterministic six-second cycle; every fifth part is rejected (synthetic demo).
-export function visionAt(seconds: number, fault = false): VisionSnapshot {
+// Deterministic six-second cycle; frequency is selected by the synthetic scenario.
+export function visionAt(
+  seconds: number,
+  fault = false,
+  rejectEvery = 50,
+): VisionSnapshot {
   const cycle = Math.floor(seconds / 6);
   const t = seconds % 6;
   const judged = t >= 3.5;
@@ -23,9 +27,13 @@ export function visionAt(seconds: number, fault = false): VisionSnapshot {
           : t < 4.2
             ? "판정 완료"
             : "제품 배출",
-    result: judged ? ((cycle + 1) % 5 === 0 ? "불합격" : "합격") : "판정 대기",
+    result: judged
+      ? (cycle + 1) % rejectEvery === 0
+        ? "불합격"
+        : "합격"
+      : "판정 대기",
     inspected,
-    rejected: Math.floor(inspected / 5),
+    rejected: Math.floor(inspected / rejectEvery),
     x: t < 2 ? -1.25 + t * 0.625 : t < 4.2 ? 0 : ((t - 4.2) / 1.8) * 1.25,
     scanning: !fault && t >= 2 && t < 3.5,
     fault,

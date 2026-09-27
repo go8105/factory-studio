@@ -8,6 +8,7 @@ export default defineConfig({
       allow: [
         fileURLToPath(new URL(".", import.meta.url)),
         fileURLToPath(new URL("../content", import.meta.url)),
+        fileURLToPath(new URL("../backend/src/fs/factory", import.meta.url)),
       ],
     },
     host: "localhost",
