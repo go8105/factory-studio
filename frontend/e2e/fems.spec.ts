@@ -131,12 +131,14 @@ test("생산량은 초안 등록 → 확정 → 정정 초안 순서로 흐른�
   page,
 }) => {
   await page.goto("/fems/production");
+  // UI-02: 등록 폼은 제목 줄의 버튼으로 여는 오른쪽 패널이다.
+  await page.getByRole("button", { name: "생산량 등록" }).click();
   const form = page.getByRole("form", { name: "생산량 등록" });
   await form.getByLabel("설비").selectOption({ label: "INS-01 검사기 1호" });
   await form.getByLabel("품목 코드").fill("fg-c100");
   await form.getByLabel("시작일").fill("2026-09-20");
   await form.getByLabel("종료일 (포함)").fill("2026-09-20");
-  await form.getByLabel("생산량").fill("50");
+  await form.getByLabel("생산량", { exact: true }).fill("50");
   await form.getByRole("button", { name: "초안 등록" }).click();
   await expect(page.getByRole("status")).toContainText("MAN-20260920-001 v1");
   const row = page.getByRole("row", { name: /MAN-20260920-001/ });
@@ -144,7 +146,7 @@ test("생산량은 초안 등록 → 확정 → 정정 초안 순서로 흐른�
   await expect(row.getByText("확정 · 원단위 반영")).toBeVisible();
   await row.getByRole("button", { name: "정정" }).click();
   await expect(page.getByRole("status")).toContainText("v2 정정 초안");
-  await expect(page.getByLabel("설비")).toBeDisabled();
+  await expect(page.getByLabel("설비", { exact: true })).toBeDisabled();
 });
 test("원단위는 기준선을 재현하고 생산량 0을 구분한다", async ({ page }) => {
   await page.goto("/fems/intensity");

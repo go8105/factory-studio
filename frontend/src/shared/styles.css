@@ -1141,9 +1141,11 @@ th[aria-sort="none"] button span {
   .page-fill .split-view:has(> .form-panel) {
     display: grid;
     grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
   }
   .page-fill .split-view > .form-panel {
     position: static;
+    align-self: start;
     max-height: 100%;
   }
 }
