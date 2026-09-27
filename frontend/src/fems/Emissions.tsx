@@ -64,7 +64,9 @@ export function EmissionBasis({ source }: { source: EmissionSource }) {
         <thead>
           <tr>
             <th scope="col">연도</th>
-            <th scope="col">소비량</th>
+            <th scope="col" className="num">
+              소비량
+            </th>
             <th scope="col">배출계수</th>
             <th scope="col">출처</th>
             <th scope="col" className="num">
@@ -76,7 +78,7 @@ export function EmissionBasis({ source }: { source: EmissionSource }) {
           {source.segments.map((s) => (
             <tr key={s.year}>
               <td>{s.year}</td>
-              <td>
+              <td className="num">
                 {num(s.consumption.quantity)} {s.consumption.unit}
               </td>
               <td>
@@ -210,8 +212,12 @@ export function Emissions() {
               <thead>
                 <tr>
                   <th scope="col">에너지원</th>
-                  <th scope="col">소비량</th>
-                  <th scope="col">배출량 (tCO2eq)</th>
+                  <th scope="col" className="num">
+                    소비량
+                  </th>
+                  <th scope="col" className="num">
+                    배출량 (tCO2eq)
+                  </th>
                   <th scope="col">상태</th>
                   <th scope="col">근거</th>
                 </tr>
@@ -220,10 +226,10 @@ export function Emissions() {
                 {result.sources.map((s) => (
                   <tr key={`${s.energySourceId}-${s.consumption.unit}`}>
                     <th scope="row">{s.name}</th>
-                    <td>
+                    <td className="num">
                       {num(s.consumption.quantity)} {s.consumption.unit}
                     </td>
-                    <td>
+                    <td className="num">
                       {s.emission === null
                         ? s.status === "NOT_APPLICABLE"
                           ? "—"

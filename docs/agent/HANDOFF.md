@@ -1,6 +1,6 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-27 (UI-02 A2 조회 목록 완료, Antigravity). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-27 (UI-02 A3 보고서형 조회 완료, Antigravity). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
@@ -22,8 +22,8 @@
 | FS-022 | **완료 — https://eip.hugh-d.com**. 이지스 서버 공존(Nginx 443 이름 기반, uvicorn 127.0.0.1:8021, PG18 Docker 55432, Cloudflare 프록시 + Origin CA). 절차·업데이트·걷어내기 `docs/deploy/배포절차_FS-022.md`. 서버 접속: 맥북 `ssh root@158.247.236.136`(키) |
 | UI-01 | 완료 `docs/ui/디자인시스템_UI-01.md` — main 통합·서버 배포(2026-09-26). 공통 토큰·`SolutionLayout`(접기·서랍)·넓은 업무 화면·3D 캔버스 확보. 393·10·107 통과 |
 | 운영 | 443은 Cloudflare IP만, 이지스는 https://aegis.hugh-d.com(Cloudflare Access)·:8000 외부 차단, 운영자 계정은 `tools/create_member.py`(서버에서 실행), DB는 SSH 터널(§12-5) |
-| UI-02 | **진행 중(A1, A2 완료)** `docs/ui/공통UI규약_UI-02.md` — A1 대시보드(M-01, E-01), A2 조회 목록(M-09, E-07, E-14, P-07) 완료, vitest 402 통과, 다음 A3 보고서형 조회 대기 |
-| 다음 | Antigravity A2 사용자 리뷰/확인 → A3(보고서형 조회 F-03, F-04, F-06, F-07, F-08, E-09·12) 진행 |
+| UI-02 | **진행 중(A1~A3 완료)** `docs/ui/공통UI규약_UI-02.md` — A1 대시보드(M-01, E-01), A2 조회 목록(M-09, E-07, E-14, P-07), A3 보고서형 조회(F-03, F-04, F-06, F-07, F-08, E-09·12) 완료, vitest 402 통과, 다음 A4 FEMS 기준정보 대기 |
+| 다음 | Antigravity A3 사용자 리뷰/확인 → A4(FEMS 기준정보 F-09~11, F-13~14) 진행 |
 
 ## 다음 할 일
 
@@ -134,7 +134,7 @@ git diff --check
 - 남은 문제: 없음
 
 ## Antigravity — UI-02 A2 (2026-09-27)
-- 브랜치: `antigravity/ui02-a2` / 기준 커밋: `ce731ab` (`antigravity/ui02-a1`) / 마지막 커밋: `d2ec0f3`
+- 브랜치: `antigravity/ui02-a2` / 기준 커밋: `ce731ab` (`antigravity/ui02-a1`) / 마지막 커밋: `26e9ab3`
 - 옮긴 화면: M-09(`frontend/src/mes/Receipts.tsx`), E-07(`frontend/src/erp/SalesRecords.tsx`), E-14(`frontend/src/erp/Journal.tsx`), P-07(`frontend/src/portal/Records.tsx`)
 - 내용:
   - 각 화면 루트에 `.page-fill` 적용
@@ -144,4 +144,17 @@ git diff --check
   - `frontend/e2e/layout.spec.ts`에 A2 화면들(`.page-fill`) 레이아웃 검사 추가
 - 검증: typecheck·lint·format:check·build·test(43개 파일 402개 테스트 통과)·diff --check 모두 통과(exit 0)
 - 공통 컴포넌트 확장 요청: 없음
-- 남은 문제: 없음. 사용자 확인 후 A3 진행 대기
+- 남은 문제: 없음
+
+## Antigravity — UI-02 A3 (2026-09-27)
+- 브랜치: `antigravity/ui02-a3` / 기준 커밋: `26e9ab3` (`antigravity/ui02-a2`) / 마지막 커밋: `ad54b6c`
+- 대상 화면: F-03(`fems/Allocations.tsx`), F-04(`fems/Emissions.tsx`), F-06(`fems/Intensity.tsx`), F-07(`fems/Targets.tsx`), F-08(`fems/Billing.tsx`), E-09·12(`erp/Receivables.tsx`)
+- 내용:
+  - `.page-fill`을 쓰지 않고 자연스러운 문서 스크롤 유지 (합계·근거·표 복합 구조)
+  - 직접 쓴 표 숫자 열에 `th.num`, `td.num` 클래스 적용 (F-04 배출량·소비량, F-06 원단위·생산량, F-07 달성률·목표·실적, F-08 요금, E-09/12 채권·채무 원금·소명액·잔액)
+  - 합계 계산 표시, 계산 근거 펼침(`basis-panel`), 결측 제외 문구, 목표 초과 배지 글자 보존
+  - 안내문 `<p className="muted" role="note">` 및 `Loading delay={300}` 공통 규약 정비
+  - `frontend/e2e/layout.spec.ts`에 R 패턴 화면들(.page-fill 미사용) 레이아웃 검사 추가
+- 검증: typecheck·lint·format:check·build·test(43개 파일 402개 테스트 통과)·diff --check 모두 통과(exit 0)
+- 공통 컴포넌트 확장 요청: 없음
+- 남은 문제: 없음. 사용자 확인 후 A4 진행 대기

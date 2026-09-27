@@ -179,7 +179,9 @@ export function Intensity() {
                   <thead>
                     <tr>
                       <th scope="col">품목</th>
-                      <th scope="col">원단위</th>
+                      <th scope="col" className="num">
+                        원단위
+                      </th>
                       <th scope="col">기준선 대비</th>
                       <th scope="col">기준선</th>
                       <th scope="col">근거</th>
@@ -189,7 +191,7 @@ export function Intensity() {
                     {data.items.map((i) => (
                       <tr key={i.itemCode}>
                         <th scope="row">{i.itemCode}</th>
-                        <td>
+                        <td className="num">
                           {i.intensity === null
                             ? "생산량 없음"
                             : `${num(i.intensity)} ${i.intensityUnit}`}
@@ -247,10 +249,16 @@ export function Intensity() {
                 <thead>
                   <tr>
                     <th scope="col">원천 키</th>
-                    <th scope="col">원단위</th>
+                    <th scope="col" className="num">
+                      원단위
+                    </th>
                     <th scope="col">상태</th>
-                    <th scope="col">TOE 환산</th>
-                    <th scope="col">생산량</th>
+                    <th scope="col" className="num">
+                      TOE 환산
+                    </th>
+                    <th scope="col" className="num">
+                      생산량
+                    </th>
                     <th scope="col">설비·기간</th>
                   </tr>
                 </thead>
@@ -260,7 +268,7 @@ export function Intensity() {
                       <th scope="row">
                         {r.sourceKey} · v{r.versionNo}
                       </th>
-                      <td>
+                      <td className="num">
                         {r.intensity.length
                           ? r.intensity
                               .map((i) => `${num(i.value)} ${i.unit}`)
@@ -270,12 +278,12 @@ export function Intensity() {
                       <td>
                         <RecordStatus record={r} />
                       </td>
-                      <td>
+                      <td className="num">
                         {r.toePerUnit === null
                           ? "—"
                           : `${num(r.toePerUnit, 6)} TOE/${r.unit}`}
                       </td>
-                      <td>
+                      <td className="num">
                         {num(r.productionQty, 0)} {r.unit}
                       </td>
                       <td>

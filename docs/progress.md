@@ -1,7 +1,7 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **UI-02 A2(조회 목록 M-09, E-07, E-14, P-07) 완료 (antigravity/ui02-a2, 사용자 확인 대기).**
+- 단계: **UI-02 A3(보고서형 조회 F-03, F-04, F-06, F-07, F-08, E-09·12) 완료 (antigravity/ui02-a3, 사용자 확인 대기).**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
@@ -1034,3 +1034,23 @@
   - `git diff --check` 통과 (공백/줄바꿈 이상 없음)
 - DB migration / Excel / seed: 변경 없음.
 - 다음: 사용자 확인 대기. 확인 후 A3(보고서형 조회 F-03, F-04, F-06, F-07, F-08, E-09·12) 진행.
+
+## 2026-09-27 UI-02 A3 보고서형 조회 R 패턴 정비 (Antigravity)
+
+- 브랜치: `antigravity/ui02-a3` (기준: `26e9ab3`, `antigravity/ui02-a2`)
+- 대상: F-03(`fems/Allocations.tsx`), F-04(`fems/Emissions.tsx`), F-06(`fems/Intensity.tsx`), F-07(`fems/Targets.tsx`), F-08(`fems/Billing.tsx`), E-09·12(`erp/Receivables.tsx`)
+- 내용:
+  - `.page-fill` 미사용 확인 및 문서 스크롤 정책 유지 (합계·근거·표 복합 화면).
+  - 직접 쓴 표 숫자 열에 `th.num`, `td.num` 클래스 일관 적용 (F-04 소비량·배출량, F-06 원단위·생산량·TOE, F-07 달성률·목표·실적, F-08 요금·기본요금, E-09/12 원금·소명액·잔액).
+  - 계산 근거 패널(`basis-panel`), 결측 제외 문구, 목표 초과 배지 글자 보존.
+  - 안내문 `<p className="muted" role="note">` 및 `Loading delay={300}` 공통 규약 정비.
+  - `frontend/e2e/layout.spec.ts`에 R 패턴 화면들의 `.page-fill` 미사용 검증 추가.
+- 검증:
+  - `npm --prefix frontend run typecheck` 통과 (오류 0)
+  - `npm --prefix frontend run lint` 통과 (오류 0)
+  - `npm --prefix frontend run format:check` 통과 (전체 일치)
+  - `npm --prefix frontend run build` 통과
+  - `npm --prefix frontend test -- --run` 통과 (43개 테스트 파일 402개 테스트 통과)
+  - `git diff --check` 통과 (공백/줄바꿈 이상 없음)
+- DB migration / Excel / seed: 변경 없음.
+- 다음: 사용자 확인 대기. 확인 후 A4(FEMS 기준정보 F-09~11, F-13~14) 진행.

@@ -63,14 +63,14 @@ export function Receivables({ side = RECEIVABLE }: { side?: Side }) {
         subtitle={`${side.source}${side.item}의 원금·소명액·잔액과 ${receivable ? "회수" : "지급"} 상태를 봅니다`}
         help={receivable ? "erp/e-09" : "erp/e-12"}
       />
-      <p className="muted">
+      <p className="muted" role="note">
         잔액과 상태는 저장하지 않고 조회할 때 원금 − 소명액으로 계산합니다.
         취소된 {side.source}의 {side.item}은 빠집니다. 만기 기준이 없는{" "}
         {side.item}이 있어 연령분석(aging)은 이번 범위에서 제공하지 않습니다.
       </p>
       <ErrorNotice error={error} retry={reload} />
       {!all ? (
-        !error && <Loading />
+        !error && <Loading delay={300} />
       ) : (
         <>
           <div className="filter-bar">

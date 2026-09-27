@@ -87,6 +87,22 @@ for (const route of [
   });
 }
 
+for (const route of [
+  "/fems/allocations",
+  "/fems/emissions",
+  "/fems/intensity",
+  "/fems/targets",
+  "/fems/billing",
+  "/erp/receivables",
+]) {
+  test(`${route} 보고서형 조회는 .page-fill을 쓰지 않는다`, async ({
+    page,
+  }) => {
+    await page.goto(route);
+    await expect(page.locator(".solution-content > .page-fill")).toHaveCount(0);
+  });
+}
+
 test("1440 생산량 패널은 겹쳐 열리고 Esc로 닫혀 버튼으로 돌아간다", async ({
   page,
 }) => {

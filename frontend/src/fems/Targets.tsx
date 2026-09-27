@@ -60,17 +60,23 @@ export function TargetTable({
         <thead>
           <tr>
             <th scope="col">대상</th>
-            <th scope="col">달성률</th>
+            <th scope="col" className="num">
+              달성률
+            </th>
             <th scope="col">상태</th>
-            <th scope="col">목표</th>
-            <th scope="col">실적</th>
+            <th scope="col" className="num">
+              목표
+            </th>
+            <th scope="col" className="num">
+              실적
+            </th>
           </tr>
         </thead>
         <tbody>
           {rows.map(({ key, label, row }) => (
             <tr key={key}>
               <th scope="row">{label}</th>
-              <td>
+              <td className="num">
                 {row.achievementRate === null
                   ? "—"
                   : `${num(row.achievementRate)}%`}
@@ -80,10 +86,10 @@ export function TargetTable({
                   {STATUS[row.status][0]}
                 </Badge>
               </td>
-              <td>
+              <td className="num">
                 {num(row.target)} {row.target !== null && row.unit}
               </td>
-              <td>
+              <td className="num">
                 {num(row.actual)} {row.actual !== null && row.unit}
               </td>
             </tr>
