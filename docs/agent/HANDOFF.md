@@ -1,6 +1,6 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-26 (FS-022 배포 완료 — https://eip.hugh-d.com · UI-01 main 통합, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-27 (운영 후속 — 이지스 도메인·:8000 차단·UI-01 배포·운영자 계정 도구, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
@@ -21,7 +21,8 @@
 | FS-021 | 완료 `docs/agent/통합검증_FS-021.md` — 정책 7건 통과, AC-35~80 검증 33·부분 5·미구현 4·폐기 4(나머지는 1차 범위 밖), AC-63 결함 수정, 로컬 실측(동시 생성 지연은 현행 유지) |
 | FS-022 | **완료 — https://eip.hugh-d.com**. 이지스 서버 공존(Nginx 443 이름 기반, uvicorn 127.0.0.1:8021, PG18 Docker 55432, Cloudflare 프록시 + Origin CA). 절차·업데이트·걷어내기 `docs/deploy/배포절차_FS-022.md`. 서버 접속: 맥북 `ssh root@158.247.236.136`(키) |
 | UI-01 | 완료 `docs/ui/디자인시스템_UI-01.md` — main 통합·서버 배포(2026-09-26). 공통 토큰·`SolutionLayout`(접기·서랍)·넓은 업무 화면·3D 캔버스 확보. 393·10·107 통과 |
-| 다음 | 후속: 이지스 aegis.hugh-d.com(Cloudflare Access)·:8000 차단, SSH 비밀번호 로그인 끄기(보류) — 443은 Cloudflare IP만 허용 완료 |
+| 운영 | 443은 Cloudflare IP만, 이지스는 https://aegis.hugh-d.com(Cloudflare Access)·:8000 외부 차단, 운영자 계정은 `tools/create_member.py`(서버에서 실행), DB는 SSH 터널(§12-5) |
+| 다음 | SSH 비밀번호 로그인 끄기(보류), 옛 브랜치 정리(원격 삭제는 확인 후) |
 
 ## 다음 할 일
 

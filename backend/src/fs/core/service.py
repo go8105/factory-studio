@@ -18,6 +18,7 @@ from fs.common.idempotency import (
 )
 from fs.common.security import (
     guest_csrf_token,
+    hash_password,
     member_csrf_token,
     new_session_token,
     token_hash,
@@ -154,7 +155,10 @@ def login_member(
         .one_or_none()
     )
     if row is None or not verify_password(password, row["password_hash"]):
-        raise ApiError(401, "SESSION_EXPIRED", "로그인 정보가 올바르지 않습니다.")
+        # 세션 만료(SESSION_EXPIRED)와 구분한다. 아이디가 없는지·비밀번호가 틀렸는지는 알려 주지 않는다.
+        raise ApiError(
+            401, "INVALID_CREDENTIALS", "아이디 또는 비밀번호가 올바르지 않습니다."
+        )
     token = new_session_token("m")
     csrf = member_csrf_token(get_settings().session_secret, token)
     expires = datetime.now(UTC) + timedelta(minutes=get_settings().session_idle_minutes)
@@ -215,6 +219,97 @@ def login_member(
         201,
     )
     return data, token
+
+
+def create_member_account(
+    connection: Connection,
+    login_id: str,
+    display_name: str,
+    password: str,
+    target_date: date,
+    admin: bool = False,
+) -> dict[str, Any]:
+    """회원 계정 + 회원 공간 + 템플릿 세대 복사를 한 트랜잭션에서 만든다(tools/create_member.py).
+
+    제품에는 회원가입이 없다. 운영자가 서버에서 직접 실행한다. 비밀번호는 해시만 저장한다.
+    """
+    login_id = login_id.strip().lower()
+    if not login_id or len(password) < 10:
+        raise ValueError("아이디가 비었거나 비밀번호가 10자 미만입니다.")
+    exists = connection.execute(
+        text("SELECT 1 FROM core.app_user WHERE login_id=:login"), {"login": login_id}
+    ).first()
+    if exists:
+        raise ValueError(f"이미 있는 아이디입니다: {login_id}")
+    template = (
+        connection.execute(
+            text(
+                """
+            SELECT w.id workspace_id,g.id generation_id
+            FROM core.workspace w JOIN core.data_generation g ON g.workspace_id=w.id
+            WHERE w.workspace_kind='TEMPLATE' AND w.active_generation_id=g.id
+              AND g.status='active'
+            ORDER BY g.created_at DESC,g.id DESC LIMIT 1
+                """
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if template is None:
+        raise ValueError("활성 템플릿이 없습니다. seed.cli template을 먼저 실행하세요.")
+    user_id = connection.execute(
+        text(
+            "INSERT INTO core.app_user(login_id,password_hash,display_name,status) "
+            "VALUES (:login,:hash,:name,'active') RETURNING id"
+        ),
+        {"login": login_id, "hash": hash_password(password), "name": display_name},
+    ).scalar_one()
+    workspace_id = connection.execute(
+        text(
+            "INSERT INTO core.workspace(owner_user_id,active_generation_id,workspace_kind) "
+            "VALUES (:user,NULL,'MEMBER') RETURNING id"
+        ),
+        {"user": user_id},
+    ).scalar_one()
+    connection.execute(
+        text(
+            "INSERT INTO core.workspace_module(workspace_id,module_key,enabled) "
+            "SELECT :w,m,true FROM unnest(ARRAY['core','mes','erp','fems']) m"
+        ),
+        {"w": workspace_id},
+    )
+    if admin:
+        role_id = (
+            connection.execute(
+                text("SELECT id FROM core.role WHERE role_key='ADMIN'")
+            ).scalar()
+            or connection.execute(
+                text(
+                    "INSERT INTO core.role(role_key,description) VALUES ('ADMIN','관리자') "
+                    "RETURNING id"
+                )
+            ).scalar_one()
+        )
+        connection.execute(
+            text("INSERT INTO core.user_role(user_id,role_id) VALUES (:u,:r)"),
+            {"u": user_id, "r": role_id},
+        )
+    generation_id, counts, _ = copy_template_generation(
+        connection,
+        template["workspace_id"],
+        template["generation_id"],
+        workspace_id,
+        target_date,
+    )
+    return {
+        "userId": user_id,
+        "loginId": login_id,
+        "workspaceId": workspace_id,
+        "generationId": generation_id,
+        "copiedRows": sum(counts.values()),
+        "admin": admin,
+    }
 
 
 def current_session(connection: Connection, context: AuthContext) -> dict[str, Any]:

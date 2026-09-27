@@ -107,6 +107,7 @@ HTTP 상태와 도메인 코드를 함께 준다. 화면이 분기해야 하는 
 |---|---|---|
 | 400 | `VALIDATION_FAILED` | 입력 형식 오류. `details.fields`에 필드별 사유 |
 | 401 | `SESSION_EXPIRED` | 세션 없음·만료 |
+| 401 | `INVALID_CREDENTIALS` | 회원 로그인 아이디·비밀번호 불일치(어느 쪽이 틀렸는지는 알리지 않음) |
 | 403 | `FORBIDDEN` | 권한 없음 |
 | 404 | `NOT_FOUND` | 대상 없음. 범위 밖 자원도 여기로 |
 | 409 | `ALREADY_CONFIRMED` | 확정된 데이터 수정 시도 |

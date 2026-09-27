@@ -976,3 +976,9 @@
 - 검증: typecheck·lint·format:check·build exit 0, vitest 393 passed, 3D 브라우저 10 passed, 스모크 107 passed(5.7분, exit 0), `git diff --check`. 55경로 × 5해상도 넘침·작은 글자 점검 0건.
 - 미실행: backend pytest(백엔드 변경 없음), Safari·실기기.
 - DB migration / Excel / seed: 변경 없음. push·main 병합 없음.
+
+## 2026-09-27 운영 후속 — 443 제한·이지스 도메인·:8000 차단·UI-01 배포·운영자 계정 (Claude Code)
+
+- 443 ufw를 Cloudflare 대역 22개로 제한(원점 직접 443 차단 확인). 이지스 aegis.hugh-d.com: Access(사용자 설정) → Nginx aegis 사이트(office.html + `/api/`→127.0.0.1:8000) → office.html 수정 배포(secretary-ai `91baa61`, push) → 사용자 로그인 확인 → ufw 8000 제거(서비스 재시작 없음).
+- UI-01(다른 세션 작업, 미병합)을 새 main 위로 cherry-pick·문서 충돌 병합, 프런트 393·3D 10·스모크 107 통과(로컬 Colima DB 재기동 후), CI 통과 → main `6d48f5f` → 서버 git pull·프런트 rsync.
+- 회원 로그인 401 원인: 서버 `core.app_user` 0건. `tools/create_member.py`·`create_member_account` 추가, `INVALID_CREDENTIALS` 분리, 테스트 `test_member_account.py` 3개. 계정 생성은 운영 서버 비밀번호가 걸려 사용자가 직접 실행.
