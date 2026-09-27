@@ -5,6 +5,7 @@ import { api, ApiError } from "../shared/api";
 import {
   Badge,
   DataTable,
+  DetailPanel,
   EmptyState,
   ErrorNotice,
   Loading,
@@ -199,37 +200,37 @@ export function Lots() {
     },
   ];
 
+  // 읽기 전용 상세 기준 화면(UI-03): 목록 + "이력"으로 여는 넓은 상세 패널(폼 없음).
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="M-04"
         title="LOT 현황"
         subtitle="LOT마다 거친 공정·설비·실적·투입 자재를 한 화면에서 추적합니다"
         help="mes/m-04"
       />
-      <p className="muted">
+      <p className="muted" role="note">
         한 작업지시는 한 LOT으로 생산합니다(분할 생산 없음).
       </p>
       <ErrorNotice error={error} retry={reload} />
       {!lots ? (
         !error && <Loading />
       ) : (
-        <div className="master-grid">
-          <section>
-            <div className="toolbar">
-              <label htmlFor="lot-status" className="filter-inline">
-                상태:
+        <div className="split-view fill">
+          <section className="fill">
+            <div className="filter-bar">
+              <label>
+                상태
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="">전체</option>
+                  <option value="ready">대기</option>
+                  <option value="in_progress">진행</option>
+                  <option value="completed">완료</option>
+                </select>
               </label>
-              <select
-                id="lot-status"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="">전체</option>
-                <option value="ready">대기</option>
-                <option value="in_progress">진행</option>
-                <option value="completed">완료</option>
-              </select>
             </div>
             <DataTable
               rows={shown}
@@ -248,45 +249,48 @@ export function Lots() {
               }
             />
           </section>
-          <section className="panel" aria-label="LOT 이력">
-            {!selectedId ? (
-              <p className="muted">
-                목록에서 &quot;이력&quot;을 누르면 LOT의 전체 이력이 나옵니다.
-              </p>
-            ) : detailError ? (
-              <ErrorNotice error={detailError} />
-            ) : !detail ? (
-              <Loading />
-            ) : (
-              <>
-                <h2>
-                  {detail.lotNo} <LotStatus lot={detail} />
-                </h2>
-                <p className="muted">
-                  지시 {detail.orderNo} · {itemLabel(detail.itemId)} · 계획{" "}
-                  {num(detail.planQty)} {detail.unit} · 경로 {detail.routeCode}{" "}
-                  v{detail.routeVersion}
-                  {detail.finalGoodQty !== null &&
-                    ` · 최종 양품 ${num(detail.finalGoodQty)}`}
-                </p>
-                <DataTable
-                  rows={(detail.steps ?? []).map((s) => ({
-                    ...s,
-                    id: s.routeStepId,
-                  }))}
-                  columns={stepColumns}
-                  caption={`${detail.lotNo} 공정 이력`}
-                  offset={0}
-                  total={detail.steps?.length ?? 0}
-                  limit={detail.steps?.length || 1}
-                  onPage={() => undefined}
-                  empty={<p className="muted">경로에 공정이 없습니다.</p>}
-                />
-              </>
-            )}
-          </section>
+          {selectedId && (
+            <DetailPanel
+              wide
+              key={selectedId}
+              title={detail ? `${detail.lotNo} 이력` : "LOT 이력"}
+              onClose={() => setSelectedId(undefined)}
+            >
+              {detailError ? (
+                <ErrorNotice error={detailError} />
+              ) : !detail ? (
+                <Loading />
+              ) : (
+                <>
+                  <p>
+                    <LotStatus lot={detail} />
+                  </p>
+                  <p className="muted">
+                    지시 {detail.orderNo} · {itemLabel(detail.itemId)} · 계획{" "}
+                    {num(detail.planQty)} {detail.unit} · 경로{" "}
+                    {detail.routeCode} v{detail.routeVersion}
+                    {detail.finalGoodQty !== null &&
+                      ` · 최종 양품 ${num(detail.finalGoodQty)}`}
+                  </p>
+                  <DataTable
+                    rows={(detail.steps ?? []).map((s) => ({
+                      ...s,
+                      id: s.routeStepId,
+                    }))}
+                    columns={stepColumns}
+                    caption={`${detail.lotNo} 공정 이력`}
+                    offset={0}
+                    total={detail.steps?.length ?? 0}
+                    limit={detail.steps?.length || 1}
+                    onPage={() => undefined}
+                    empty={<p className="muted">경로에 공정이 없습니다.</p>}
+                  />
+                </>
+              )}
+            </DetailPanel>
+          )}
         </div>
       )}
-    </>
+    </div>
   );
 }

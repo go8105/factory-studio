@@ -3,13 +3,15 @@ import { useState, type FormEvent } from "react";
 import {
   Badge,
   DataTable,
+  DetailPanel,
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
+  useDiscardGuard,
   type Column,
-  RevealAnchor,
 } from "../shared/components";
 import {
   customers,
@@ -207,11 +209,26 @@ export function SalesOrders() {
     ITEMS,
   ]);
   const { send, pending, error: saveError, setError } = useSend(reload);
-  const [selectedId, setSelectedId] = useState<number>();
-  const [edit, setEdit] = useState<{ dueOn: string; lines: DraftLine[] }>();
+  // 넓은 행 편집 기준 화면(UI-03): 오른쪽 넓은 패널 하나 — 새 수주 · 명세 상세 · 명세 편집.
+  const [panel, setPanel] = useState<
+    | { kind: "create" }
+    | { kind: "detail"; id: number }
+    | { kind: "edit"; id: number }
+    | null
+  >(null);
+  type Edit = { dueOn: string; lines: DraftLine[] };
+  const [edit, setEdit] = useState<Edit>();
+  const [editInitial, setEditInitial] = useState<Edit>();
   const blank = { orderNo: "", partnerId: 0, orderedOn: today(), dueOn: "" };
   const [create, setCreate] = useState(blank);
   const [createLines, setCreateLines] = useState<DraftLine[]>([]);
+  const dirty =
+    (panel?.kind === "create" &&
+      (JSON.stringify(create) !== JSON.stringify(blank) ||
+        createLines.length > 0)) ||
+    (panel?.kind === "edit" &&
+      JSON.stringify(edit) !== JSON.stringify(editInitial));
+  const guard = useDiscardGuard(dirty);
 
   if (moduleOff(error)) return <ModuleOff />;
   const [orders, partners, allItems] = data ?? [undefined, [], []];
@@ -219,11 +236,35 @@ export function SalesOrders() {
   const buyers = customers(partners);
   const name = labels(partners, allItems);
   const errors = fieldErrors(saveError);
+  const selectedId = panel && "id" in panel ? panel.id : undefined;
   const selected = orders?.find((o) => o.id === selectedId);
 
-  function select(id: number | undefined) {
-    setSelectedId(id);
-    setEdit(undefined);
+  function openDetail(id: number) {
+    setPanel({ kind: "detail", id });
+    setError(undefined);
+  }
+  function openCreate() {
+    setCreate(blank);
+    setCreateLines([]);
+    setPanel({ kind: "create" });
+    setError(undefined);
+  }
+  function openEdit(order: Order) {
+    const values = {
+      dueOn: order.dueOn,
+      lines: order.lines.map((l) => ({
+        itemId: l.itemId,
+        qty: String(Number(l.orderQty)),
+        unitPrice: String(Number(l.unitPrice)),
+      })),
+    };
+    setEdit(values);
+    setEditInitial(values);
+    setPanel({ kind: "edit", id: order.id });
+    setError(undefined);
+  }
+  function closePanel() {
+    setPanel(null);
     setError(undefined);
   }
 
@@ -236,20 +277,18 @@ export function SalesOrders() {
       partnerId: create.partnerId || buyers[0]?.id,
       lines: orderLines(createLines),
     });
-    if (created) {
-      setCreate(blank);
-      setCreateLines([]);
-      select(created.id);
-    }
+    // 저장 직후에는 가드를 거치지 않고 새 수주의 명세 상세로 넘어간다.
+    if (created) openDetail(created.id);
   }
 
-  async function saveEdit() {
+  async function saveEdit(event: FormEvent) {
+    event.preventDefault();
     if (!selected || !edit || pending) return;
     const saved = await send(`/sales-orders/${selected.id}`, "PATCH", {
       dueOn: edit.dueOn,
       lines: orderLines(edit.lines),
     });
-    if (saved) setEdit(undefined);
+    if (saved) openDetail(selected.id);
   }
 
   const columns: Column<Order>[] = [
@@ -263,7 +302,7 @@ export function SalesOrders() {
             type="button"
             className="link-button"
             aria-pressed={r.id === selectedId}
-            onClick={() => select(r.id)}
+            onClick={() => guard.guard(() => openDetail(r.id))}
           >
             명세 {r.lines.length}
           </button>
@@ -330,205 +369,235 @@ export function SalesOrders() {
     },
   ];
 
+  const formError = Object.keys(errors).length ? undefined : saveError;
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="E-04"
         title="수주"
         subtitle="수주를 등록하고 명세별 출하 진행률을 봅니다"
         help="erp/e-04"
+        actions={
+          <button
+            type="button"
+            aria-pressed={panel?.kind === "create"}
+            onClick={() => guard.guard(openCreate)}
+          >
+            수주 등록
+          </button>
+        }
       />
-      <p className="muted">
+      <p className="muted" role="note">
         견적 없이 직접 등록하는 수주도 정상 경로입니다. 견적에서 만들려면 E-02
         견적의 &quot;수주 전환&quot;을 쓰세요. 납기일은 납품 기일이지 결제
         만기가 아닙니다. 출하지시가 생기면 수주 내용을 바꿀 수 없습니다.
       </p>
-      <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
+      {!panel && <ErrorNotice error={formError} />}
       <ErrorNotice error={error} retry={reload} />
       {!orders ? (
         !error && <Loading />
       ) : (
-        <>
-          <DataTable
-            rows={orders}
-            columns={columns}
-            caption="수주 목록"
-            offset={0}
-            total={orders.length}
-            limit={orders.length || 1}
-            onPage={() => undefined}
-            empty={
-              <EmptyState
-                reason="등록된 수주가 없습니다. 아래 폼에서 첫 수주를 등록하세요."
-                to="#sales-order-form"
-                action="수주 등록"
-              />
-            }
-          />
+        <div className="split-view fill">
+          <section className="fill">
+            <DataTable
+              rows={orders}
+              columns={columns}
+              caption="수주 목록"
+              offset={0}
+              total={orders.length}
+              limit={orders.length || 1}
+              onPage={() => undefined}
+              empty={
+                <EmptyState
+                  reason="등록된 수주가 없습니다. 첫 수주를 등록하세요."
+                  action="수주 등록"
+                  onAction={() => guard.guard(openCreate)}
+                />
+              }
+            />
+          </section>
 
-          <RevealAnchor when={selected} />
-
-          {selected && (
-            <section className="panel" aria-label="수주 명세">
-              <h2>
-                {selected.orderNo} 명세{" "}
+          {panel?.kind === "detail" && selected && (
+            <DetailPanel
+              wide
+              key={`detail-${selected.id}`}
+              title={`${selected.orderNo} 명세`}
+              onClose={closePanel}
+              actions={
+                editable(selected) && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => openEdit(selected)}
+                  >
+                    명세 편집
+                  </button>
+                )
+              }
+            >
+              <ErrorNotice error={formError} />
+              <p>
                 <Badge tone={STATUS[selected.status][1]}>
                   {STATUS[selected.status][0]}
-                </Badge>
-              </h2>
-              {edit ? (
-                <>
-                  <Field
-                    label="납기일"
-                    type="date"
-                    value={edit.dueOn}
-                    error={errors.dueOn}
-                    onChange={(e) =>
-                      setEdit({ ...edit, dueOn: e.target.value })
-                    }
-                  />
-                  <LineEditor
-                    lines={edit.lines}
-                    items={items}
-                    caption={`${selected.orderNo} 명세 편집`}
-                    onChange={(lines) => setEdit({ ...edit, lines })}
-                  />
-                  {errors.lines && <p className="notice">{errors.lines}</p>}
-                  <div className="form-actions">
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => setEdit(undefined)}
-                    >
-                      편집 취소
-                    </button>
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => void saveEdit()}
-                    >
-                      저장
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <DataTable
-                    rows={selected.lines}
-                    columns={lineColumns}
-                    caption={`${selected.orderNo} 수주 명세`}
-                    offset={0}
-                    total={selected.lines.length}
-                    limit={selected.lines.length || 1}
-                    onPage={() => undefined}
-                  />
-                  {editable(selected) ? (
-                    <div className="form-actions">
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() =>
-                          setEdit({
-                            dueOn: selected.dueOn,
-                            lines: selected.lines.map((l) => ({
-                              itemId: l.itemId,
-                              qty: String(Number(l.orderQty)),
-                              unitPrice: String(Number(l.unitPrice)),
-                            })),
-                          })
-                        }
-                      >
-                        명세 편집
-                      </button>
-                    </div>
-                  ) : (
-                    <p className="muted">
-                      출하지시가 있거나 종결된 수주라 내용을 바꿀 수 없습니다.
-                    </p>
-                  )}
-                </>
+                </Badge>{" "}
+                {name.partner(selected.partnerId)} · 수주일 {selected.orderedOn}{" "}
+                · 납기일 {selected.dueOn}
+              </p>
+              <DataTable
+                rows={selected.lines}
+                columns={lineColumns}
+                caption={`${selected.orderNo} 수주 명세`}
+                offset={0}
+                total={selected.lines.length}
+                limit={selected.lines.length || 1}
+                onPage={() => undefined}
+              />
+              {!editable(selected) && (
+                <p className="muted">
+                  출하지시가 있거나 종결된 수주라 내용을 바꿀 수 없습니다.
+                </p>
               )}
-            </section>
+            </DetailPanel>
           )}
 
-          <form
-            id="sales-order-form"
-            className="panel"
-            aria-label="수주 등록"
-            onSubmit={(e) => void submitCreate(e)}
-          >
-            <h2>새 수주</h2>
-            <div className="master-grid">
-              <Field
-                label="수주번호"
-                value={create.orderNo}
-                required
-                maxLength={40}
-                placeholder="예: SO-0101"
-                error={errors.orderNo}
-                onChange={(e) =>
-                  setCreate({
-                    ...create,
-                    orderNo: e.target.value.toUpperCase(),
-                  })
-                }
-              />
-              <div className="field">
-                <label htmlFor="order-partner">거래처</label>
-                <select
-                  id="order-partner"
-                  value={create.partnerId || buyers[0]?.id || ""}
-                  onChange={(e) =>
-                    setCreate({ ...create, partnerId: Number(e.target.value) })
-                  }
-                >
-                  {buyers.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.partnerCode} {p.partnerName}
-                    </option>
-                  ))}
-                </select>
-                {errors.partnerId && <small>{errors.partnerId}</small>}
-              </div>
-              <Field
-                label="수주일"
-                type="date"
-                value={create.orderedOn}
-                required
-                error={errors.orderedOn}
-                onChange={(e) =>
-                  setCreate({ ...create, orderedOn: e.target.value })
-                }
-              />
+          {panel?.kind === "edit" && selected && edit && (
+            <FormPanel
+              wide
+              key={`edit-${selected.id}`}
+              title={`${selected.orderNo} 명세 편집`}
+              guard={guard}
+              // 편집을 닫으면 명세 상세로 돌아간다.
+              onClose={() => openDetail(selected.id)}
+              onSubmit={(e) => void saveEdit(e)}
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
+                    저장
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(() => openDetail(selected.id))}
+                  >
+                    편집 취소
+                  </button>
+                </>
+              }
+            >
+              <ErrorNotice error={formError} />
               <Field
                 label="납기일"
                 type="date"
-                value={create.dueOn}
-                required
+                value={edit.dueOn}
                 error={errors.dueOn}
-                onChange={(e) =>
-                  setCreate({ ...create, dueOn: e.target.value })
-                }
+                onChange={(e) => setEdit({ ...edit, dueOn: e.target.value })}
               />
-            </div>
-            <LineEditor
-              lines={createLines}
-              items={items}
-              caption="새 수주 명세"
-              onChange={setCreateLines}
-            />
-            {errors.lines && <p className="notice">{errors.lines}</p>}
-            <div className="form-actions">
-              <button
-                type="submit"
-                disabled={pending || createLines.length === 0}
-              >
-                수주 등록
-              </button>
-            </div>
-          </form>
-        </>
+              <LineEditor
+                lines={edit.lines}
+                items={items}
+                caption={`${selected.orderNo} 명세 편집`}
+                onChange={(lines) => setEdit({ ...edit, lines })}
+              />
+              {errors.lines && <p className="notice">{errors.lines}</p>}
+            </FormPanel>
+          )}
+
+          {panel?.kind === "create" && (
+            <FormPanel
+              wide
+              title="수주 등록"
+              guard={guard}
+              onClose={closePanel}
+              onSubmit={(e) => void submitCreate(e)}
+              actions={
+                <>
+                  <button
+                    type="submit"
+                    disabled={pending || createLines.length === 0}
+                    aria-busy={pending}
+                  >
+                    수주 등록
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closePanel)}
+                  >
+                    취소
+                  </button>
+                </>
+              }
+            >
+              <ErrorNotice error={formError} />
+              <div className="field-row">
+                <Field
+                  label="수주번호"
+                  value={create.orderNo}
+                  required
+                  maxLength={40}
+                  placeholder="예: SO-0101"
+                  error={errors.orderNo}
+                  onChange={(e) =>
+                    setCreate({
+                      ...create,
+                      orderNo: e.target.value.toUpperCase(),
+                    })
+                  }
+                />
+                <div className="field">
+                  <label htmlFor="order-partner">거래처</label>
+                  <select
+                    id="order-partner"
+                    value={create.partnerId || buyers[0]?.id || ""}
+                    onChange={(e) =>
+                      setCreate({
+                        ...create,
+                        partnerId: Number(e.target.value),
+                      })
+                    }
+                  >
+                    {buyers.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.partnerCode} {p.partnerName}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.partnerId && <small>{errors.partnerId}</small>}
+                </div>
+              </div>
+              <div className="field-row">
+                <Field
+                  label="수주일"
+                  type="date"
+                  value={create.orderedOn}
+                  required
+                  error={errors.orderedOn}
+                  onChange={(e) =>
+                    setCreate({ ...create, orderedOn: e.target.value })
+                  }
+                />
+                <Field
+                  label="납기일"
+                  type="date"
+                  value={create.dueOn}
+                  required
+                  error={errors.dueOn}
+                  onChange={(e) =>
+                    setCreate({ ...create, dueOn: e.target.value })
+                  }
+                />
+              </div>
+              <LineEditor
+                lines={createLines}
+                items={items}
+                caption="새 수주 명세"
+                onChange={setCreateLines}
+              />
+              {errors.lines && <p className="notice">{errors.lines}</p>}
+            </FormPanel>
+          )}
+        </div>
       )}
-    </>
+    </div>
   );
 }

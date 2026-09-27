@@ -47,6 +47,7 @@
   --sidebar-w: 232px;
   --gutter: 24px;
   --panel-w: 380px; /* 등록·수정 패널(FormPanel) */
+  --panel-w-wide: 640px; /* 넓은 패널: 명세 편집·자식 표(UI-03) */
   /* 헤더 아래 남은 뷰포트 높이. 높이 계산은 이 값 하나만 쓴다. */
   --app-h: calc(100vh - var(--header-h));
 
@@ -1012,7 +1013,11 @@ th[aria-sort="none"] button span {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
 }
-.form-panel > form {
+.form-panel.wide {
+  --panel-w: var(--panel-w-wide);
+}
+.form-panel > form,
+.form-panel > .form-panel-content {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -1056,6 +1061,27 @@ th[aria-sort="none"] button span {
 .form-panel-backdrop {
   display: none;
 }
+@media (min-width: 1600px) and (max-width: 1919px) {
+  /* 넓은 패널은 1920px 전에는 목록 옆에 붙이지 않는다(목록 가독 폭 확보). */
+  .form-panel.wide {
+    position: fixed;
+    top: var(--header-h);
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    width: var(--panel-w);
+    max-height: none;
+    border-width: 0 0 0 1px;
+    border-radius: 0;
+  }
+  .split-view:has(> .form-panel.wide) > .form-panel-backdrop {
+    display: block;
+    position: fixed;
+    inset: var(--header-h) 0 0;
+    z-index: 44;
+    background: rgb(26 28 30 / 16%);
+  }
+}
 @media (max-width: 1599px) {
   .form-panel {
     position: fixed;
@@ -1091,7 +1117,7 @@ th[aria-sort="none"] button span {
   }
 }
 @media (min-width: 1600px) {
-  .split-view:has(> .form-panel) {
+  .split-view:has(> .form-panel:not(.wide)) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--panel-w);
     gap: var(--s4);
@@ -1101,6 +1127,14 @@ th[aria-sort="none"] button span {
     position: sticky;
     top: calc(var(--header-h) + var(--s4));
     max-height: calc(var(--app-h) - var(--s4) * 2);
+  }
+}
+@media (min-width: 1920px) {
+  .split-view:has(> .form-panel.wide) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--panel-w-wide);
+    gap: var(--s4);
+    align-items: start;
   }
 }
 
@@ -1152,12 +1186,24 @@ th[aria-sort="none"] button span {
 }
 /* 채움 + 패널 붙임: 목록과 패널이 같은 높이 안에 있고, 패널은 내용만큼(최대 남은 높이)만 차지한다. */
 @media (min-width: 1600px) and (min-height: 600px) {
-  .page-fill .split-view:has(> .form-panel) {
+  .page-fill .split-view:has(> .form-panel:not(.wide)) {
     display: grid;
     grid-template-rows: minmax(0, 1fr);
     align-items: stretch;
   }
-  .page-fill .split-view > .form-panel {
+  .page-fill .split-view > .form-panel:not(.wide) {
+    position: static;
+    align-self: start;
+    max-height: 100%;
+  }
+}
+@media (min-width: 1920px) and (min-height: 600px) {
+  .page-fill .split-view:has(> .form-panel.wide) {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .page-fill .split-view > .form-panel.wide {
     position: static;
     align-self: start;
     max-height: 100%;

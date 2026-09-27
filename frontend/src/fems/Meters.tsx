@@ -5,13 +5,15 @@ import { api, ApiError, MutationKeys } from "../shared/api";
 import {
   Badge,
   DataTable,
+  DetailPanel,
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
+  useDiscardGuard,
   type Column,
-  RevealAnchor,
 } from "../shared/components";
 import { MasterOrder } from "./EnergySources";
 
@@ -100,11 +102,17 @@ export function Meters() {
   const [sources, setSources] = useState<Source[]>([]);
   const [reload, setReload] = useState(0);
   const [loadError, setLoadError] = useState<unknown>();
-  const [selectedId, setSelectedId] = useState<number>();
-  const [editingMeter, setEditingMeter] = useState<Meter | null>(null);
+  // 오른쪽 패널(UI-03 부모-자식): 계측기 폼 · 계측기의 채널 상세 · 채널 폼. 한 번에 하나만.
+  const [panel, setPanel] = useState<
+    | { kind: "meter"; row: Meter | null }
+    | { kind: "channels"; meterId: number }
+    | { kind: "channel"; meterId: number; row: Channel | null }
+    | null
+  >(null);
   const [meterDraft, setMeterDraft] = useState<MeterDraft>();
-  const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
+  const [meterInitial, setMeterInitial] = useState<MeterDraft>();
   const [channelDraft, setChannelDraft] = useState<ChannelDraft>();
+  const [channelInitial, setChannelInitial] = useState<ChannelDraft>();
   const [saveError, setSaveError] = useState<unknown>();
   const [confirmDelete, setConfirmDelete] = useState<string>();
   const [pending, setPending] = useState(false);
@@ -133,7 +141,16 @@ export function Meters() {
     return () => controller.abort();
   }, [reload]);
 
+  const selectedId = panel && "meterId" in panel ? panel.meterId : undefined;
   const selected = meters?.find((m) => m.id === selectedId);
+  const editingMeter = panel?.kind === "meter" ? panel.row : null;
+  const editingChannel = panel?.kind === "channel" ? panel.row : null;
+  const dirty =
+    (panel?.kind === "meter" &&
+      JSON.stringify(meterDraft) !== JSON.stringify(meterInitial)) ||
+    (panel?.kind === "channel" &&
+      JSON.stringify(channelDraft) !== JSON.stringify(channelInitial));
+  const guard = useDiscardGuard(dirty);
   const emptyMeter = (): MeterDraft => ({
     meterCode: "",
     name: "",
@@ -154,44 +171,49 @@ export function Meters() {
   const mDraft = meterDraft ?? emptyMeter();
   const cDraft = channelDraft ?? emptyChannel();
 
-  function editMeter(row: Meter | null) {
-    setEditingMeter(row);
-    setMeterDraft(
-      row
-        ? {
-            meterCode: row.meterCode,
-            name: row.name,
-            locationId: row.locationId,
-            equipmentId: row.equipmentId,
-            parentMeterId: row.parentMeterId,
-            scopeKind: row.scopeKind,
-          }
-        : undefined,
-    );
+  function openMeter(row: Meter | null) {
+    const values = row
+      ? {
+          meterCode: row.meterCode,
+          name: row.name,
+          locationId: row.locationId,
+          equipmentId: row.equipmentId,
+          parentMeterId: row.parentMeterId,
+          scopeKind: row.scopeKind,
+        }
+      : emptyMeter();
+    setMeterDraft(values);
+    setMeterInitial(values);
+    setPanel({ kind: "meter", row });
     setSaveError(undefined);
   }
 
-  function editChannel(row: Channel | null) {
-    setEditingChannel(row);
-    setChannelDraft(
-      row
-        ? {
-            channelCode: row.channelCode,
-            name: row.name,
-            energySourceId: row.energySourceId,
-            measurementKind: row.measurementKind,
-            unit: row.unit,
-            multiplier: row.multiplier,
-            isActive: row.isActive,
-          }
-        : undefined,
-    );
+  function openChannels(meterId: number) {
+    setPanel({ kind: "channels", meterId });
     setSaveError(undefined);
   }
 
-  function select(id: number | undefined) {
-    setSelectedId(id);
-    editChannel(null);
+  function openChannel(meterId: number, row: Channel | null) {
+    const values = row
+      ? {
+          channelCode: row.channelCode,
+          name: row.name,
+          energySourceId: row.energySourceId,
+          measurementKind: row.measurementKind,
+          unit: row.unit,
+          multiplier: row.multiplier,
+          isActive: row.isActive,
+        }
+      : emptyChannel();
+    setChannelDraft(values);
+    setChannelInitial(values);
+    setPanel({ kind: "channel", meterId, row });
+    setSaveError(undefined);
+  }
+
+  function closePanel() {
+    setPanel(null);
+    setSaveError(undefined);
   }
 
   async function send(
@@ -241,9 +263,10 @@ export function Meters() {
       editingMeter ? "PATCH" : "POST",
       body,
     );
+    // 새 계측기는 바로 채널 상세로 넘어간다(채널을 이어서 등록하는 흐름).
     if (r) {
-      editMeter(null);
-      if (!editingMeter) select(r.data.id);
+      if (editingMeter) closePanel();
+      else openChannels(r.data.id);
     }
   }
 
@@ -267,7 +290,7 @@ export function Meters() {
       editingChannel ? "PATCH" : "POST",
       body,
     );
-    if (r) editChannel(null);
+    if (r) openChannels(selected.id);
   }
 
   if (
@@ -289,6 +312,18 @@ export function Meters() {
         title="계측기·채널"
         subtitle="계측기와 계측기가 재는 채널(에너지원·단위·배수)을 관리합니다"
         help="fems/f-12"
+        actions={
+          meters &&
+          sources.length > 0 && (
+            <button
+              type="button"
+              aria-pressed={panel?.kind === "meter" && !editingMeter}
+              onClick={() => guard.guard(() => openMeter(null))}
+            >
+              계측기 등록
+            </button>
+          )
+        }
       />
       <MasterOrder />
     </>
@@ -356,19 +391,24 @@ export function Meters() {
             type="button"
             className="link-button"
             aria-pressed={r.id === selectedId}
-            onClick={() => select(r.id)}
+            onClick={() => guard.guard(() => openChannels(r.id))}
           >
             채널 {r.channelCount}
           </button>
           <button
             type="button"
             className="link-button"
-            onClick={() => editMeter(r)}
+            aria-pressed={editingMeter?.id === r.id}
+            onClick={() => guard.guard(() => openMeter(r))}
           >
             수정
           </button>
           {deleteButtons(`meter:${r.id}`, () => {
-            void send(`delete-meter:${r.id}`, `${BASE}/${r.id}`, "DELETE");
+            void send(`delete-meter:${r.id}`, `${BASE}/${r.id}`, "DELETE").then(
+              (ok) => {
+                if (ok && selectedId === r.id) closePanel();
+              },
+            );
           })}
         </span>
       ),
@@ -402,7 +442,7 @@ export function Meters() {
           <button
             type="button"
             className="link-button"
-            onClick={() => editChannel(r)}
+            onClick={() => openChannel(r.meterId, r)}
           >
             수정
           </button>
@@ -452,45 +492,60 @@ export function Meters() {
     (e) => e.locationId === mDraft.locationId,
   );
 
+  const formError = Object.keys(errors).length ? undefined : saveError;
+  // 부모-자식 상세 기준 화면(UI-03): 계측기 목록 + 오른쪽 패널 하나(계측기 폼 · 채널 상세 · 채널 폼).
   return (
-    <>
+    <div className="page-fill">
       {title}
-      <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
+      {!panel && <ErrorNotice error={formError} />}
       <ErrorNotice error={loadError} retry={() => setReload((n) => n + 1)} />
       {!meters ? (
         !loadError && <Loading />
       ) : (
-        <>
-          <div className="master-grid">
-            <section>
-              <DataTable
-                rows={meters}
-                columns={meterColumns}
-                caption="계측기 목록"
-                offset={0}
-                total={meters.length}
-                limit={meters.length || 1}
-                onPage={() => undefined}
-                empty={
-                  <EmptyState
-                    reason="등록된 계측기가 없습니다. 우측 폼에서 첫 계측기를 등록하세요."
-                    to="#meter-form"
-                    action="계측기 등록"
-                  />
-                }
-              />
-            </section>
-            <form
-              id="meter-form"
-              className="panel"
-              aria-label={editingMeter ? "계측기 수정" : "계측기 등록"}
+        <div className="split-view fill">
+          <section className="fill">
+            <DataTable
+              rows={meters}
+              columns={meterColumns}
+              caption="계측기 목록"
+              offset={0}
+              total={meters.length}
+              limit={meters.length || 1}
+              onPage={() => undefined}
+              empty={
+                <EmptyState
+                  reason="등록된 계측기가 없습니다. 첫 계측기를 등록하세요."
+                  action="계측기 등록"
+                  onAction={() => guard.guard(() => openMeter(null))}
+                />
+              }
+            />
+          </section>
+          {panel?.kind === "meter" && (
+            <FormPanel
+              key={`meter-${editingMeter?.id ?? "new"}`}
+              title={
+                editingMeter ? `${editingMeter.meterCode} 수정` : "계측기 등록"
+              }
+              guard={guard}
+              onClose={closePanel}
               onSubmit={(e) => void submitMeter(e)}
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
+                    {editingMeter ? "저장" : "등록"}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closePanel)}
+                  >
+                    취소
+                  </button>
+                </>
+              }
             >
-              <h2>
-                {editingMeter
-                  ? `${editingMeter.meterCode} 수정`
-                  : "계측기 등록"}
-              </h2>
+              <ErrorNotice error={formError} />
               <Field
                 label="계측기 코드"
                 value={mDraft.meterCode}
@@ -613,205 +668,195 @@ export function Meters() {
                   ))}
                 </select>
               </div>
-              <div className="form-actions">
-                <button type="submit" disabled={pending}>
-                  {editingMeter ? "저장" : "등록"}
+            </FormPanel>
+          )}
+          {panel?.kind === "channels" && selected && (
+            <DetailPanel
+              wide
+              key={`channels-${selected.id}`}
+              title={`${selected.meterCode} ${selected.name} 채널`}
+              onClose={closePanel}
+              actions={
+                <button
+                  type="button"
+                  onClick={() => openChannel(selected.id, null)}
+                >
+                  채널 등록
                 </button>
-                {editingMeter && (
-                  <button
-                    type="button"
-                    className="link-button"
-                    onClick={() => editMeter(null)}
-                  >
-                    취소
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-
-          <RevealAnchor when={selected} />
-
-          {selected ? (
-            <div className="master-grid">
-              <section>
-                <h2>
-                  {selected.meterCode} {selected.name} 채널
-                </h2>
-                <DataTable
-                  rows={selected.channels}
-                  columns={channelColumns}
-                  caption={`${selected.meterCode} 채널 목록`}
-                  offset={0}
-                  total={selected.channels.length}
-                  limit={selected.channels.length || 1}
-                  onPage={() => undefined}
-                  empty={
-                    <EmptyState
-                      reason="이 계측기에 채널이 없습니다. 계측값은 채널 단위로 쌓입니다."
-                      to="#channel-form"
-                      action="채널 등록"
-                    />
-                  }
-                />
-              </section>
-              <form
-                id="channel-form"
-                className="panel"
-                aria-label={editingChannel ? "채널 수정" : "채널 등록"}
-                onSubmit={(e) => void submitChannel(e)}
-              >
-                <h2>
-                  {editingChannel
-                    ? `${editingChannel.channelCode} 수정`
-                    : "채널 등록"}
-                </h2>
-                <Field
-                  label="채널 코드"
-                  value={cDraft.channelCode}
-                  required
-                  maxLength={20}
-                  pattern="[A-Z][A-Z0-9_\-]{1,19}"
-                  title="영문 대문자로 시작하는 2~20자 (대문자·숫자·_·-)"
-                  error={errors.channelCode}
-                  onChange={(e) =>
-                    setChannelDraft({
-                      ...cDraft,
-                      channelCode: e.target.value.toUpperCase(),
-                    })
-                  }
-                />
-                <Field
-                  label="채널 이름"
-                  value={cDraft.name}
-                  required
-                  maxLength={50}
-                  error={errors.name}
-                  onChange={(e) =>
-                    setChannelDraft({ ...cDraft, name: e.target.value })
-                  }
-                />
-                {channelLocked && (
-                  <p className="muted">
-                    계측값이 있는 채널이라 에너지원·측정 종류·단위를 바꿀 수
-                    없습니다. 바꾸려면 새 채널을 등록하세요.
-                  </p>
-                )}
-                <div className="field">
-                  <label htmlFor="channel-source">에너지원</label>
-                  <select
-                    id="channel-source"
-                    value={cDraft.energySourceId}
-                    disabled={channelLocked}
-                    onChange={(e) => {
-                      const next = sources.find(
-                        (s) => s.id === Number(e.target.value),
-                      );
-                      setChannelDraft({
-                        ...cDraft,
-                        energySourceId: Number(e.target.value),
-                        unit:
-                          cDraft.measurementKind === "CUMULATIVE"
-                            ? (next?.measureUnit ?? cDraft.unit)
-                            : cDraft.unit,
-                      });
-                    }}
-                  >
-                    {sources.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.sourceCode})
-                      </option>
-                    ))}
-                  </select>
-                  {errors.energySourceId && (
-                    <small>{errors.energySourceId}</small>
-                  )}
-                </div>
-                <div className="field">
-                  <label htmlFor="channel-kind">측정 종류</label>
-                  <select
-                    id="channel-kind"
-                    value={cDraft.measurementKind}
-                    disabled={channelLocked}
-                    onChange={(e) => {
-                      const kind = e.target.value as Channel["measurementKind"];
-                      setChannelDraft({
-                        ...cDraft,
-                        measurementKind: kind,
-                        unit:
-                          kind === "CUMULATIVE"
-                            ? (source?.measureUnit ?? cDraft.unit)
-                            : cDraft.unit,
-                      });
-                    }}
-                  >
-                    <option value="CUMULATIVE">누적 (기간 합계에 사용)</option>
-                    <option value="INSTANT">순시 (합계에 쓰지 않음)</option>
-                  </select>
-                </div>
-                <Field
-                  label="단위"
-                  value={cDraft.unit}
-                  required
-                  maxLength={10}
-                  disabled={channelLocked}
-                  error={errors.unit}
-                  onChange={(e) =>
-                    setChannelDraft({ ...cDraft, unit: e.target.value })
-                  }
-                />
-                <Field
-                  label="계기 배수"
-                  value={cDraft.multiplier}
-                  required
-                  inputMode="decimal"
-                  title="0보다 큰 수, 소수 6자리까지"
-                  error={errors.multiplier}
-                  onChange={(e) =>
-                    setChannelDraft({ ...cDraft, multiplier: e.target.value })
-                  }
-                />
-                {Number(cDraft.multiplier) !== 1 && (
-                  <p className="notice" role="status">
-                    계기 배수가 1이 아닙니다. 모든 계측값에 ×{" "}
-                    {cDraft.multiplier}가 곱해져 합계·요금·배출량이 함께
-                    바뀝니다.
-                  </p>
-                )}
-                <label className="inline-check">
-                  <input
-                    type="checkbox"
-                    checked={cDraft.isActive}
-                    onChange={(e) =>
-                      setChannelDraft({ ...cDraft, isActive: e.target.checked })
-                    }
+              }
+            >
+              <ErrorNotice error={formError} />
+              <DataTable
+                rows={selected.channels}
+                columns={channelColumns}
+                caption={`${selected.meterCode} 채널 목록`}
+                offset={0}
+                total={selected.channels.length}
+                limit={selected.channels.length || 1}
+                onPage={() => undefined}
+                empty={
+                  <EmptyState
+                    reason="이 계측기에 채널이 없습니다. 계측값은 채널 단위로 쌓입니다."
+                    action="채널 등록"
+                    onAction={() => openChannel(selected.id, null)}
                   />
-                  사용
-                </label>
-                <div className="form-actions">
-                  <button type="submit" disabled={pending}>
+                }
+              />
+            </DetailPanel>
+          )}
+          {panel?.kind === "channel" && selected && (
+            <FormPanel
+              key={`channel-${editingChannel?.id ?? "new"}`}
+              title={
+                editingChannel
+                  ? `${selected.meterCode} · ${editingChannel.channelCode} 수정`
+                  : `${selected.meterCode} 채널 등록`
+              }
+              guard={guard}
+              // 채널 폼을 닫으면 그 계측기의 채널 상세로 돌아간다.
+              onClose={() => openChannels(selected.id)}
+              onSubmit={(e) => void submitChannel(e)}
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
                     {editingChannel ? "저장" : "등록"}
                   </button>
-                  {editingChannel && (
-                    <button
-                      type="button"
-                      className="link-button"
-                      onClick={() => editChannel(null)}
-                    >
-                      취소
-                    </button>
-                  )}
-                </div>
-              </form>
-            </div>
-          ) : (
-            <p className="muted">
-              계측기 목록에서 &quot;채널&quot;을 누르면 그 계측기의 채널을
-              관리할 수 있습니다.
-            </p>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(() => openChannels(selected.id))}
+                  >
+                    채널 목록으로
+                  </button>
+                </>
+              }
+            >
+              <ErrorNotice error={formError} />
+              <Field
+                label="채널 코드"
+                value={cDraft.channelCode}
+                required
+                maxLength={20}
+                pattern="[A-Z][A-Z0-9_\-]{1,19}"
+                title="영문 대문자로 시작하는 2~20자 (대문자·숫자·_·-)"
+                error={errors.channelCode}
+                onChange={(e) =>
+                  setChannelDraft({
+                    ...cDraft,
+                    channelCode: e.target.value.toUpperCase(),
+                  })
+                }
+              />
+              <Field
+                label="채널 이름"
+                value={cDraft.name}
+                required
+                maxLength={50}
+                error={errors.name}
+                onChange={(e) =>
+                  setChannelDraft({ ...cDraft, name: e.target.value })
+                }
+              />
+              {channelLocked && (
+                <p className="muted">
+                  계측값이 있는 채널이라 에너지원·측정 종류·단위를 바꿀 수
+                  없습니다. 바꾸려면 새 채널을 등록하세요.
+                </p>
+              )}
+              <div className="field">
+                <label htmlFor="channel-source">에너지원</label>
+                <select
+                  id="channel-source"
+                  value={cDraft.energySourceId}
+                  disabled={channelLocked}
+                  onChange={(e) => {
+                    const next = sources.find(
+                      (s) => s.id === Number(e.target.value),
+                    );
+                    setChannelDraft({
+                      ...cDraft,
+                      energySourceId: Number(e.target.value),
+                      unit:
+                        cDraft.measurementKind === "CUMULATIVE"
+                          ? (next?.measureUnit ?? cDraft.unit)
+                          : cDraft.unit,
+                    });
+                  }}
+                >
+                  {sources.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.sourceCode})
+                    </option>
+                  ))}
+                </select>
+                {errors.energySourceId && (
+                  <small>{errors.energySourceId}</small>
+                )}
+              </div>
+              <div className="field">
+                <label htmlFor="channel-kind">측정 종류</label>
+                <select
+                  id="channel-kind"
+                  value={cDraft.measurementKind}
+                  disabled={channelLocked}
+                  onChange={(e) => {
+                    const kind = e.target.value as Channel["measurementKind"];
+                    setChannelDraft({
+                      ...cDraft,
+                      measurementKind: kind,
+                      unit:
+                        kind === "CUMULATIVE"
+                          ? (source?.measureUnit ?? cDraft.unit)
+                          : cDraft.unit,
+                    });
+                  }}
+                >
+                  <option value="CUMULATIVE">누적 (기간 합계에 사용)</option>
+                  <option value="INSTANT">순시 (합계에 쓰지 않음)</option>
+                </select>
+              </div>
+              <Field
+                label="단위"
+                value={cDraft.unit}
+                required
+                maxLength={10}
+                disabled={channelLocked}
+                error={errors.unit}
+                onChange={(e) =>
+                  setChannelDraft({ ...cDraft, unit: e.target.value })
+                }
+              />
+              <Field
+                label="계기 배수"
+                value={cDraft.multiplier}
+                required
+                inputMode="decimal"
+                title="0보다 큰 수, 소수 6자리까지"
+                error={errors.multiplier}
+                onChange={(e) =>
+                  setChannelDraft({ ...cDraft, multiplier: e.target.value })
+                }
+              />
+              {Number(cDraft.multiplier) !== 1 && (
+                <p className="notice" role="status">
+                  계기 배수가 1이 아닙니다. 모든 계측값에 × {cDraft.multiplier}
+                  가 곱해져 합계·요금·배출량이 함께 바뀝니다.
+                </p>
+              )}
+              <label className="inline-check">
+                <input
+                  type="checkbox"
+                  checked={cDraft.isActive}
+                  onChange={(e) =>
+                    setChannelDraft({ ...cDraft, isActive: e.target.checked })
+                  }
+                />
+                사용
+              </label>
+            </FormPanel>
           )}
-        </>
+        </div>
       )}
-    </>
+    </div>
   );
 }

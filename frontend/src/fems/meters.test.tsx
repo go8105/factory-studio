@@ -174,6 +174,7 @@ it("계기 배수가 1이 아니면 강조한다", async () => {
 it("설비 선택지는 고른 공간의 설비만 보여준다", async () => {
   mockApi();
   show();
+  fireEvent.click(await screen.findByRole("button", { name: "계측기 등록" }));
   const location = await screen.findByLabelText("공간");
   fireEvent.change(location, { target: { value: "1" } });
   const equipment = screen.getByLabelText("설비");
@@ -186,6 +187,7 @@ it("계측기 등록은 CSRF·멱등 키와 대문자 코드로 보내고 채널
     [`POST ${BASE}`]: { status: 201, body: { data: { ...meters[1], id: 2 } } },
   });
   show();
+  fireEvent.click(await screen.findByRole("button", { name: "계측기 등록" }));
   fireEvent.change(await screen.findByLabelText("계측기 코드"), {
     target: { value: "m-new" },
   });
@@ -251,7 +253,9 @@ it("누적 채널은 에너지원을 바꾸면 단위가 계측 단위로 따라
   mockApi();
   show();
   await openChannels("M-MAIN");
-  const form = screen.getByRole("form", { name: "채널 등록" });
+  // 채널 상세 패널에서 "채널 등록"을 누르면 같은 자리가 채널 폼으로 바뀐다.
+  fireEvent.click(screen.getByRole("button", { name: "채널 등록" }));
+  const form = screen.getByRole("form", { name: "M-MAIN 채널 등록" });
   fireEvent.change(within(form).getByLabelText("에너지원"), {
     target: { value: "2" },
   });

@@ -510,39 +510,48 @@ export function useDiscardGuard(dirty: boolean) {
   };
 }
 export type DiscardGuard = ReturnType<typeof useDiscardGuard>;
-// FormPanel 겹침 기준. styles.css의 .form-panel 미디어 쿼리(1599px)와 같다.
+// 패널 겹침 기준. styles.css의 .form-panel 미디어 쿼리와 같다(기본 1599px, 넓은 패널 1919px).
 const OVERLAY = "(max-width: 1599px)";
+const OVERLAY_WIDE = "(max-width: 1919px)";
 const FOCUSABLE =
   'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
-/** 목록 옆 등록·수정 패널(UI-02). 열 때만 렌더링한다.
+const NO_GUARD: DiscardGuard = {
+  pending: false,
+  guard: (action) => action(),
+  discard: () => {},
+  keep: () => {},
+};
+/** 목록 옆 오른쪽 패널의 공통 틀(UI-02·UI-03). 열 때만 렌더링한다.
  *  넓은 화면은 목록 오른쪽에 붙고, 좁은 화면은 겹쳐 열린다(포커스 가둠·배경 클릭 닫기).
- *  열리면 첫 입력으로, 닫히면 연 버튼으로 포커스가 돌아간다. Esc·✕·배경은 guard를 거쳐 닫는다. */
-export function FormPanel({
+ *  열리면 첫 입력(없으면 닫기 버튼)으로, 닫히면 연 버튼으로 포커스가 돌아간다. Esc·✕·배경은 guard를 거쳐 닫는다. */
+function SidePanel({
   title,
   onClose,
   onSubmit,
-  guard,
+  guard = NO_GUARD,
   actions,
+  wide = false,
   children,
 }: {
   title: string;
   onClose: () => void;
-  onSubmit: (event: FormEvent) => void;
-  guard: DiscardGuard;
-  actions: ReactNode;
+  onSubmit?: (event: FormEvent) => void;
+  guard?: DiscardGuard;
+  actions?: ReactNode;
+  wide?: boolean;
   children: ReactNode;
 }) {
   const id = useId();
   const ref = useRef<HTMLElement>(null);
-  const [overlay] = useState(
-    () => window.matchMedia?.(OVERLAY).matches ?? false,
-  );
+  const query = wide ? OVERLAY_WIDE : OVERLAY;
+  const [overlay] = useState(() => window.matchMedia?.(query).matches ?? false);
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     const body = ref.current?.querySelector(".form-panel-body");
     (
-      body?.querySelector<HTMLElement>(FOCUSABLE) ??
-      ref.current?.querySelector<HTMLElement>("button")
+      body?.querySelector<HTMLElement>(
+        "input:not(:disabled), select:not(:disabled), textarea:not(:disabled)",
+      ) ?? ref.current?.querySelector<HTMLElement>("button")
     )?.focus();
     return () => {
       // 연 버튼이 목록 갱신으로 사라졌으면 본문으로 돌아간다.
@@ -564,7 +573,7 @@ export function FormPanel({
       else requestClose();
       return;
     }
-    if (e.key !== "Tab" || !window.matchMedia?.(OVERLAY).matches) return;
+    if (e.key !== "Tab" || !window.matchMedia?.(query).matches) return;
     const items = [
       ...(ref.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []),
     ];
@@ -578,6 +587,30 @@ export function FormPanel({
       first?.focus();
     }
   }
+  const foot = guard.pending ? (
+    <>
+      <p role="alert">저장하지 않은 변경이 있습니다.</p>
+      <button type="button" className="secondary" onClick={guard.discard}>
+        변경 버리기
+      </button>
+      <button
+        type="button"
+        className="link-button"
+        data-keep
+        onClick={guard.keep}
+      >
+        계속 편집
+      </button>
+    </>
+  ) : (
+    actions
+  );
+  const inner = (
+    <>
+      <div className="form-panel-body">{children}</div>
+      {foot && <div className="form-panel-foot">{foot}</div>}
+    </>
+  );
   return (
     <>
       <div
@@ -587,7 +620,7 @@ export function FormPanel({
       />
       <section
         ref={ref}
-        className="form-panel"
+        className={wide ? "form-panel wide" : "form-panel"}
         role="dialog"
         aria-modal={overlay || undefined}
         aria-labelledby={id}
@@ -604,34 +637,39 @@ export function FormPanel({
             ✕
           </button>
         </div>
-        <form onSubmit={onSubmit} aria-labelledby={id}>
-          <div className="form-panel-body">{children}</div>
-          <div className="form-panel-foot">
-            {guard.pending ? (
-              <>
-                <p role="alert">저장하지 않은 변경이 있습니다.</p>
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={guard.discard}
-                >
-                  변경 버리기
-                </button>
-                <button
-                  type="button"
-                  className="link-button"
-                  data-keep
-                  onClick={guard.keep}
-                >
-                  계속 편집
-                </button>
-              </>
-            ) : (
-              actions
-            )}
-          </div>
-        </form>
+        {onSubmit ? (
+          <form onSubmit={onSubmit} aria-labelledby={id}>
+            {inner}
+          </form>
+        ) : (
+          <div className="form-panel-content">{inner}</div>
+        )}
       </section>
     </>
   );
+}
+/** 등록·수정 패널(UI-02). 저장·취소는 actions, 미저장 보호는 guard. */
+export function FormPanel(props: {
+  title: string;
+  onClose: () => void;
+  onSubmit: (event: FormEvent) => void;
+  guard: DiscardGuard;
+  actions: ReactNode;
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return <SidePanel {...props} />;
+}
+/** 읽기 전용 상세·부모-자식 상세·행 편집 패널(UI-03). 패널 자체는 폼이 아니다 —
+ *  안의 편집 영역(행 편집기·전환 폼)은 각자 폼을 둔다. 편집 중 변경이 있으면 guard를 넘긴다.
+ *  wide는 명세 여러 줄·자식 표처럼 넓은 내용(640px). 1920px 이상에서만 목록 옆에 붙는다. */
+export function DetailPanel(props: {
+  title: string;
+  onClose: () => void;
+  guard?: DiscardGuard;
+  actions?: ReactNode;
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return <SidePanel {...props} />;
 }

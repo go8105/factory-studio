@@ -137,8 +137,9 @@ export function Results() {
     },
   ];
 
+  // 목록 두 개(확정 대기·확정된 실적)를 쌓고, 확정은 오른쪽 패널(ResultForm) — M-05와 같은 구성(UI-03).
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="M-07"
         title="실적 확정"
@@ -149,14 +150,18 @@ export function Results() {
         품질 검사는 QMS 영역으로 범위에서 제외했습니다. 양품·불량은 작업자가
         직접 판정하며, 확정한 실적은 고치지 않습니다.
       </p>
-      <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
+      {!confirming && (
+        <ErrorNotice
+          error={Object.keys(errors).length ? undefined : saveError}
+        />
+      )}
       <ErrorNotice error={error} retry={reload} />
       {!running ? (
         !error && <Loading />
       ) : (
-        <>
-          <div className="master-grid">
-            <section>
+        <div className="split-view fill">
+          <section className="fill">
+            <div className="section-block">
               <DataTable
                 rows={running}
                 columns={runningColumns}
@@ -167,49 +172,47 @@ export function Results() {
                 onPage={() => undefined}
                 empty={<p className="muted">실행 중인 공정이 없습니다.</p>}
               />
-            </section>
-            {confirming ? (
-              <ResultForm
-                key={confirming.id}
-                executionId={confirming.id}
-                title={`${confirming.lotNo} · ${processName(confirming.processId)} 실적`}
-                inputQty={confirmingLot?.running?.inputQty ?? null}
-                unit={confirming.unit}
-                sequenceNo={confirming.sequenceNo}
-                send={send}
-                pending={pending}
-                errors={errors}
-                onClose={() => setConfirmingId(undefined)}
+            </div>
+            <div className="section-block">
+              <div className="section-heading">
+                <h2>확정된 실적</h2>
+                <label className="inline-check">
+                  <input
+                    type="checkbox"
+                    checked={defectsOnly}
+                    onChange={(e) => setDefectsOnly(e.target.checked)}
+                  />
+                  불량이 있는 실적만
+                </label>
+              </div>
+              <DataTable
+                rows={shown}
+                columns={resultColumns}
+                caption="확정된 실적"
+                offset={0}
+                total={shown.length}
+                limit={shown.length || 1}
+                onPage={() => undefined}
+                empty={<p className="muted">확정된 실적이 없습니다.</p>}
               />
-            ) : (
-              <p className="muted">
-                확정할 공정의 &quot;실적 확정&quot;을 누르세요.
-              </p>
-            )}
-          </div>
-          <section>
-            <h2>확정된 실적</h2>
-            <label className="inline-check">
-              <input
-                type="checkbox"
-                checked={defectsOnly}
-                onChange={(e) => setDefectsOnly(e.target.checked)}
-              />
-              불량이 있는 실적만
-            </label>
-            <DataTable
-              rows={shown}
-              columns={resultColumns}
-              caption="확정된 실적"
-              offset={0}
-              total={shown.length}
-              limit={shown.length || 1}
-              onPage={() => undefined}
-              empty={<p className="muted">확정된 실적이 없습니다.</p>}
-            />
+            </div>
           </section>
-        </>
+          {confirming && (
+            <ResultForm
+              key={confirming.id}
+              executionId={confirming.id}
+              title={`${confirming.lotNo} · ${processName(confirming.processId)} 실적`}
+              inputQty={confirmingLot?.running?.inputQty ?? null}
+              unit={confirming.unit}
+              sequenceNo={confirming.sequenceNo}
+              send={send}
+              pending={pending}
+              errors={errors}
+              onClose={() => setConfirmingId(undefined)}
+            />
+          )}
+        </div>
       )}
-    </>
+    </div>
   );
 }

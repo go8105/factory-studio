@@ -218,6 +218,8 @@ it("수주 등록은 헤더와 명세를 함께 보낸다", async () => {
     [`GET ${E}/sales-orders`]: list([]),
     [`POST ${E}/sales-orders`]: { status: 201, body: { data: order() } },
   });
+  // 등록은 제목 줄 버튼으로 여는 넓은 패널이다(UI-03).
+  fireEvent.click(await screen.findByRole("button", { name: "수주 등록" }));
   const form = await screen.findByRole("form", { name: "수주 등록" });
   fireEvent.change(within(form).getByLabelText("수주번호"), {
     target: { value: "so-9" },
