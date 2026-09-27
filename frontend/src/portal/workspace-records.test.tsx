@@ -270,7 +270,7 @@ it("OWNER 직접 접근은 404다", async () => {
 it("OWNER에게 운영 기록 메뉴를 표시하지 않는다", async () => {
   mock(() => undefined, ["OWNER"]);
   show("/home");
-  await screen.findByRole("heading", { name: "제조 현장의 세 시스템" });
+  await screen.findByRole("heading", { name: "제조 현장의 네 시스템" });
   expect(
     screen.queryByRole("link", { name: "운영 기록" }),
   ).not.toBeInTheDocument();

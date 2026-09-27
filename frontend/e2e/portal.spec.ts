@@ -101,7 +101,7 @@ test("게스트 운영 기록 직접 접근은 404", async ({ page }) => {
   await expect(page.getByText("404 · NOT_FOUND")).toBeVisible();
 });
 for (const [route, title] of [
-  ["home", "제조 현장의 세 시스템"],
+  ["home", "제조 현장의 네 시스템"],
   ["flow", "전체 업무 흐름"],
   ["cards/wms", "설명 카드"],
   ["help", "참고 문서"],

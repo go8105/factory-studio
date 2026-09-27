@@ -57,10 +57,10 @@ export function Entry() {
         <span className="eyebrow">MANUFACTURING SYSTEMS / 01</span>
         <h1>
           제조 현장의
-          <br />세 시스템
+          <br />네 시스템
         </h1>
         <p className="lead">
-          MES · ERP · FEMS를 각각 독립된 솔루션으로 만들었습니다.
+          MES · ERP · FEMS · QMS를 각각 독립된 솔루션으로 만들었습니다.
           <br />
           가입 없이 바로 둘러보세요.
         </p>

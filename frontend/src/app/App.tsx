@@ -69,7 +69,7 @@ function Layout() {
             F
           </span>
           Factory Studio
-          <span className="brand-tagline">제조 현장의 세 시스템</span>
+          <span className="brand-tagline">제조 현장의 네 시스템</span>
         </Link>
         <nav aria-label="주 메뉴">
           {session && (
