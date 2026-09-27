@@ -522,3 +522,72 @@ test("가상 PLC 확인 누락 래치와 수동 확인 및 취소", async ({ pag
   await expect(run.getByTestId("run-count")).toHaveText("1 / 20");
   await expect(plc.getByTestId("plc-Vision_Busy")).toContainText("OFF");
 });
+
+test("C++ 실제 API 단건·배치·PLC와 사용자 참고 문서", async ({ page }) => {
+  test.skip(
+    !process.env.VISION_NATIVE_E2E,
+    "Requires local native preview server",
+  );
+  await page.route("**/api/v1/core/sessions/current", async (route) => {
+    const response = await route.fetch({
+      url: "http://127.0.0.1:5187/_test/session",
+    });
+    await route.fulfill({ response });
+  });
+  await page.route("**/api/v1/factory/vision/inspect", async (route) => {
+    const response = await route.fetch({
+      url: "http://127.0.0.1:5187/api/v1/factory/vision/inspect",
+    });
+    await route.fulfill({ response });
+  });
+  await page.goto("/factory/vision-lab");
+  const single = page.getByRole("region", { name: "C++ 단건 검사" });
+  await single
+    .getByRole("button", { name: "C++ 단건 검사", exact: true })
+    .click();
+  await expect(single.getByRole("status")).toContainText("NG");
+  await expect(single.getByRole("status")).toContainText("116");
+  const downloadEvent = page.waitForEvent("download");
+  await single.getByRole("button", { name: "C++ 결과 JSON 저장" }).click();
+  const stream = await (await downloadEvent).createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream!) chunks.push(chunk);
+  expect(JSON.parse(Buffer.concat(chunks).toString()).result.source).toBe(
+    "synthetic-opencv-cpp-v1",
+  );
+  await page.getByRole("button", { name: "연속 검사", exact: true }).click();
+  const run = page.getByRole("region", { name: "연속 검사 관제" });
+  await run.getByLabel("검사 엔진", { exact: true }).selectOption("native");
+  await run.getByRole("button", { name: "새 배치 시작" }).click();
+  await expect(run.getByTestId("run-count")).toHaveText("20 / 20", {
+    timeout: 20000,
+  });
+  await expect(run.locator(".run-metrics")).toContainText("50.0%");
+  await run.getByRole("checkbox", { name: "PLC 모드 사용" }).check();
+  await run.getByRole("button", { name: "새 배치 시작" }).click();
+  await expect(run.getByTestId("run-count")).toHaveText("20 / 20", {
+    timeout: 20000,
+  });
+  await page.screenshot({
+    path: "../work/vision-native-connected.png",
+    fullPage: true,
+  });
+  await page.getByRole("link", { name: "검사실 사용 도움말" }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: "합성 비전 검사실 · 연속 검사 · PLC · C++",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("사용자 참고 문서", { exact: true }).first(),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+  await page.screenshot({
+    path: "../work/vision-native-help.png",
+    fullPage: true,
+  });
+});

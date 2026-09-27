@@ -1,6 +1,6 @@
 # Synthetic inspection core — C++ / OpenCV
 
-합성 이미지 검사실의 요청 v1을 처리하는 독립 C++17 라이브러리와 콘솔 프로그램입니다. 원본 웹 검사 코드는 `frontend/src/factory/inspection.ts`이며 웹·PLC 패널은 아직 이 실행 파일을 호출하지 않습니다. 카메라·실영상·C#·서버 연결은 후속 범위입니다.
+합성 이미지 검사실의 요청 v1을 처리하는 독립 C++17 라이브러리와 콘솔 프로그램입니다. 원본 웹 검사 코드는 `frontend/src/factory/inspection.ts`입니다. 웹 검사실의 C++ 단건/연속/가상 PLC 모드는 인증 API를 통해 이 실행 파일을 호출합니다. 카메라·실영상·C# 연결은 후속 범위입니다.
 
 ## 빌드
 
@@ -58,6 +58,18 @@ JSON 키 순서는 의미가 없습니다. 영역 순서는 웹과 동일한 행
 오류 코드: INVALID_REQUEST, INPUT_TOO_LARGE, INPUT_OPEN_FAILED, INPUT_READ_FAILED, INVALID_ARGUMENTS, INSPECTION_FAILED. 문서 또는 NDJSON 한 줄당 최대 65,536바이트. 빈 입력/줄·잘못된 JSON·범위 밖 숫자·잘못된 타입을 거부합니다. 정수값인 `90.0`은 JavaScript와 같이 허용하지만 문자열 `"90"`·불리언은 거부합니다.
 
 NDJSON은 각 응답을 즉시 flush합니다. 잘못된 줄은 오류 응답 후 다음 줄로 진행하며 최종 exit2를 반환합니다. 크기 초과는 입력 소비를 중단하고 exit2. 파일 모드는 단일 JSON만 허용합니다.
+
+## 웹 API 연결
+
+서버 환경에 `VISION_CORE_EXECUTABLE`을 서버용 실행 파일의 절대 경로로 설정합니다. API 프로세스의 계정에 실행 권한이 있어야 합니다. macOS에서 만든 바이너리를 Linux 서버에 복사하지 말고 대상 서버에서 빌드하세요.
+
+`POST /api/v1/factory/vision/inspect`는 인증·CSRF 확인 후 고정 실행 파일을 `--timed` 모드로 호출합니다. 요청은 `{requestId, request}`, 응답 data는 `{requestId, result, inspectionMs}`입니다. `--timed`는 stdin의 단일 JSON을 받고 `{result,inspectionMs}`를 반환합니다. 기존 CLI 기본 모드·NDJSON 결과 계약은 유지합니다.
+
+서버는 프로세스당 최대 4개 동시 실행, 2초 제한, stdout/stderr 각각 1MiB 상한과 응답 모델 검증을 적용합니다. 클라이언트 제한은 3초이며 PLC 모드는 별도의 300ms 제한이 더 먼저 적용될 수 있습니다. 브라우저 취소 후 서버 작업이 즉시 취소되지 않을 수 있지만 서버 제한 시간 내 종료되며 화면에서는 늦은 응답을 폐기합니다. 검사 알고리즘 시간은 C++ steady_clock으로 측정하며 프로세스 기동·네트워크 지연은 제외합니다.
+
+실행 파일 미설정 503, 과부하 429, 엔진 실패/잘못된 출력 502, 시간 초과 504를 반환합니다. 자동 브라우저 대체는 없습니다. DB·MES 기록을 만들지 않습니다.
+
+로컬 통합 브라우저 검증은 빌드 후 `VISION_NATIVE_E2E=1 npm --prefix frontend run test:factory-browser -- --grep 'C\+\+ 실제'`를 실행합니다. 이때만 5187의 `backend/tests/factory_native_preview.py`를 사용합니다. 이 테스트 서버는 인증을 가짜로 대체하므로 운영에 배포하면 안 됩니다. 실제 API 라우터는 기존 인증·CSRF를 필수로 검사합니다.
 
 ## 검사 의미
 

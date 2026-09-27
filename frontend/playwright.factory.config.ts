@@ -8,9 +8,21 @@ export default defineConfig({
   outputDir: "../work/factory-browser",
   use: { baseURL: "http://127.0.0.1:5186", trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 5186",
-    url: "http://127.0.0.1:5186",
-    reuseExistingServer: false,
-  },
+  webServer: [
+    {
+      command: "npm run dev -- --host 127.0.0.1 --port 5186",
+      url: "http://127.0.0.1:5186",
+      reuseExistingServer: false,
+    },
+    ...(process.env.VISION_NATIVE_E2E
+      ? [
+          {
+            command:
+              "cd ../backend && PYTHONPATH=src:tests .venv/bin/python -m uvicorn factory_native_preview:app --host 127.0.0.1 --port 5187",
+            url: "http://127.0.0.1:5187/_test/session",
+            reuseExistingServer: false,
+          },
+        ]
+      : []),
+  ],
 });

@@ -8,6 +8,7 @@ import {
 } from "./inspectionRun";
 import { PlcHandshake } from "./plcHandshake";
 import PlcPanel from "./PlcPanel";
+import { useNativeEngine } from "./useNativeEngine";
 import InspectionView from "./InspectionView";
 const labels = {
   idle: "준비",
@@ -24,7 +25,20 @@ export default function VisionRun({
   recipe: Recipe;
   visible: boolean;
 }) {
-  const [plc] = useState(() => new PlcHandshake());
+  const native = useNativeEngine();
+  const [selection] = useState(() => ({ native: false }));
+  const [engineMode, setEngineMode] = useState("browser");
+  const [batchEngine, setBatchEngine] = useState("browser");
+  const [plc] = useState(
+    () =>
+      new PlcHandshake(
+        (request, id) =>
+          selection.native
+            ? native.execute(request, id)
+            : browserEngine(request, id),
+        native.cancel,
+      ),
+  );
   const [plcEnabled, setPlcEnabled] = useState(false);
   const [batchPlc, setBatchPlc] = useState(false);
   const plcState = useSyncExternalStore(plc.subscribe, plc.snapshot);
@@ -33,8 +47,15 @@ export default function VisionRun({
       new InspectionRun(
         recipe,
         (request, id) =>
-          plc.enabled ? plc.execute(request, id) : browserEngine(request, id),
-        () => plc.cancel(),
+          plc.enabled
+            ? plc.execute(request, id)
+            : selection.native
+              ? native.execute(request, id)
+              : browserEngine(request, id),
+        () => {
+          plc.cancel();
+          native.cancel();
+        },
       ),
   );
   const state = useSyncExternalStore(runner.subscribe, runner.snapshot);
@@ -63,7 +84,10 @@ export default function VisionRun({
           JSON.stringify(
             {
               ...state,
-              source: "synthetic-browser-v1",
+              source:
+                batchEngine === "native"
+                  ? "synthetic-opencv-cpp-v1"
+                  : "synthetic-browser-v1",
               sequence,
               summary,
               plc: {
@@ -113,12 +137,28 @@ export default function VisionRun({
           정상 → 이물 → 정상 → 조명 변화, 5회 반복 · 기존 샘플 3종으로 총 20회
           검사합니다.
         </p>
+        <label>
+          검사 엔진{" "}
+          <select
+            aria-label="검사 엔진"
+            value={engineMode}
+            disabled={active || plcState.phase === "fault"}
+            onChange={(e) => {
+              selection.native = e.target.value === "native";
+              setEngineMode(e.target.value);
+            }}
+          >
+            <option value="browser">브라우저</option>
+            <option value="native">C++ OpenCV (서버 호출)</option>
+          </select>
+        </label>
         <div className="run-actions">
           <button
             disabled={active || plcState.phase === "fault"}
             onClick={() => {
               setSelected(null);
               setBatchPlc(plcEnabled);
+              setBatchEngine(engineMode);
               plc.clearLog();
               runner.start(recipe, interval);
             }}
@@ -150,6 +190,7 @@ export default function VisionRun({
         </p>
         {state.runId && (
           <p>
+            배치 엔진: {batchEngine === "native" ? "C++ OpenCV" : "브라우저"} ·
             배치 조건: 임계값 {state.recipe.threshold} · 최소 면적{" "}
             {state.recipe.minArea} px² ·{" "}
             {state.recipe.roi === "full" ? "전체 표면" : "중앙 영역"} · 목표
@@ -193,8 +234,8 @@ export default function VisionRun({
         </dl>
         <p>
           합격률은 OK ÷ 완료 수입니다. 미검출도 OK가 될 수 있습니다. 처리 시간은
-          브라우저 검사 함수 실행만 측정하며 투입 대기·화면 렌더링을 제외합니다.
-          실장비 성능이나 생산 수율이 아닙니다.
+          선택한 엔진의 검사 함수 실행만 측정하며 투입 대기·화면 렌더링을
+          제외합니다. 실장비 성능이나 생산 수율이 아닙니다.
         </p>
       </div>
       <PlcPanel

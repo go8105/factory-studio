@@ -24,7 +24,7 @@ export type Region = {
 };
 export type InspectionResult = {
   version: 1;
-  source: "synthetic-browser-v1";
+  source: "synthetic-browser-v1" | "synthetic-opencv-cpp-v1";
   status: "OK" | "NG";
   regions: Region[];
   falsePixels: number;

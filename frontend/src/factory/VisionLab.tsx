@@ -9,6 +9,7 @@ import {
 } from "./inspection";
 import "./VisionLab.css";
 import InspectionView from "./InspectionView";
+import NativeSingle from "./NativeSingle";
 import VisionRun from "./VisionRun";
 export default function VisionLab() {
   const [sample, setSample] = useState<Sample>("foreign");
@@ -38,11 +39,14 @@ export default function VisionLab() {
           <span className="eyebrow">VISION LAB · SYNTHETIC</span>
           <h1>합성 이미지 검사실</h1>
           <p>
-            직접 만든 가상 표면 이미지로 검사 조건을 비교합니다.
-            실장비·OpenCV·AI 추론은 연결하지 않았습니다.
+            직접 만든 가상 표면 이미지로 검사 조건을 비교합니다. 브라우저 검사와
+            서버 C++ OpenCV 검사를 체험합니다. 실장비는 연결하지 않았습니다.
           </p>
         </div>
-        <Link to="/factory">3D 공장으로 돌아가기</Link>
+        <div>
+          <Link to="/help/portal/vision-lab">검사실 사용 도움말</Link> ·{" "}
+          <Link to="/factory">3D 공장으로 돌아가기</Link>
+        </div>
       </header>
       <nav className="lab-mode" aria-label="검사 모드">
         <button
@@ -134,6 +138,9 @@ export default function VisionLab() {
           </aside>
         </div>
       </div>
+      {mode === "teach" && (
+        <NativeSingle key={JSON.stringify(request)} request={request} />
+      )}
       <VisionRun recipe={recipe} visible={mode === "run"} />
     </main>
   );

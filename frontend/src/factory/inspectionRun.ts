@@ -146,13 +146,15 @@ export class InspectionRun {
         this.schedule(
           Math.max(0, this.state.intervalMs - (performance.now() - start)),
         );
-    } catch {
+    } catch (error) {
       if (token !== this.generation) return;
       this.pending = false;
       this.update({
         status: "error",
         error:
-          "검사 실행에 실패했습니다. 완료된 기록을 저장하고 새 배치를 시작하세요.",
+          error instanceof Error
+            ? error.message
+            : "검사 실행에 실패했습니다. 완료된 기록을 저장하고 새 배치를 시작하세요.",
       });
     }
   }

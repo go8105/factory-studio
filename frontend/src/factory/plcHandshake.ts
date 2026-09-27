@@ -54,7 +54,10 @@ export class PlcHandshake {
       }
     | undefined;
   private deadline = 0;
-  constructor(private engine: Engine = browserEngine) {}
+  constructor(
+    private engine: Engine = browserEngine,
+    private cancelEngine: () => void = () => {},
+  ) {}
   subscribe = (fn: () => void) => {
     this.listeners.add(fn);
     return () => {
@@ -187,6 +190,7 @@ export class PlcHandshake {
     resolve(output);
   }
   private fail(fault: PlcFault) {
+    this.cancelEngine();
     const reject = this.pending?.reject;
     this.clear();
     this.pending = undefined;
@@ -197,6 +201,7 @@ export class PlcHandshake {
     reject?.(new Error(fault));
   }
   cancel() {
+    this.cancelEngine();
     const reject = this.pending?.reject;
     this.clear();
     this.pending = undefined;
