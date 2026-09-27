@@ -204,13 +204,12 @@ test("ERP 거래처 등록 → 수정 → 삭제", async ({ page }) => {
 
 test("ERP 견적 작성 → 확정 → 제출 → 수주 전환", async ({ page }) => {
   await page.goto("/erp/quotations");
+  await page.getByRole("button", { name: "견적 만들기" }).click();
   const create = page.getByRole("form", { name: "견적 만들기" });
   await create.getByLabel("견적번호").fill("E2E-Q1");
   await create.getByRole("button", { name: "만들기" }).click();
-  const detail = page.getByRole("region", { name: "견적 상세" });
-  await expect(
-    detail.getByRole("heading", { name: /E2E-Q1 1차/ }),
-  ).toBeVisible();
+  const detail = page.getByRole("dialog", { name: /E2E-Q1 1차/ });
+  await expect(detail).toBeVisible();
   await detail.getByRole("button", { name: "라인 추가" }).click();
   const item = detail.getByLabel("1번째 품목");
   const option = await item.locator("option", { hasText: "FG-C100" }).first();
@@ -225,7 +224,7 @@ test("ERP 견적 작성 → 확정 → 제출 → 수주 전환", async ({ page 
   await convert.getByLabel("납기일").fill("2026-12-31");
   await convert.getByRole("button", { name: "수주로 전환" }).click();
   await expect(detail.getByText(/수주로 전환된 견적입니다/)).toBeVisible();
-  await page.getByRole("link", { name: /E-04 수주/ }).click();
+  await page.goto("/erp/sales-orders");
   await expect(page.getByRole("row", { name: /^E2E-SO1/ })).toContainText(
     "E2E-Q1 (1차)",
   );

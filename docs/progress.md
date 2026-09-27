@@ -1,12 +1,27 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **UI-02 A6(ERP 계획·출하·전표·기준정보 화면 S 패턴 전환 E-03, 05, 06, 08, 10, 11, 13, 15~18) 완료 — Antigravity UI-02 전 작업(A1~A6, 37개 화면) 완료 (antigravity/ui02-a6, 사용자 확인 대기).**
+- 단계: **UI-03 B2(ERP 견적 E-02 넓은 행 편집 패턴) 완료 — Antigravity UI-03 전 작업(B1·B2) 및 UI-02 A1~A6 전체 완료. 브랜치 antigravity/ui03-b2, 사용자 확인 대기.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-27 UI-03 B2 완료 — ERP 견적(E-02) 넓은 행 편집 패턴 적용
+
+- 작업 ID: UI-03 B2 · 브랜치: `antigravity/ui03-b2`
+- 변경 파일:
+  - `frontend/src/erp/Quotations.tsx` — E-04(`SalesOrders.tsx`) 패턴으로 전면 교체. 등록 `FormPanel wide`('견적 만들기'), 상세 `DetailPanel wide`(`${quoteNo} ${revisionNo}차`), 라인 편집·확정·제출·수주 전환 폼을 상세 패널 안에 통합. `RevealAnchor`·`master-grid` 제거.
+  - `frontend/e2e/portal.spec.ts` — "ERP 견적 작성 → 확정 → 제출 → 수주 전환" 테스트를 패널 흐름으로 갱신 (수주 전환 후 `page.goto("/erp/sales-orders")`로 이동).
+  - `frontend/e2e/layout.spec.ts` — E-02 등록 패널(FormPanel wide, 1440×900 높이 제한)·상세 패널(Esc 닫기) 레이아웃 테스트 2건 추가.
+- 검증 결과:
+  - typecheck ✅ / lint ✅ / format:check ✅ / build ✅ / unit test 44파일 412개 ✅ / git diff --check ✅
+  - 포털 스모크 **171/171 통과** (exit 0). 신규 E-02 레이아웃 테스트 2건 포함.
+  - `factory.spec.ts:116`(건물 외관 3D 타임아웃)은 기존 불안정 테스트 — B2 무관, 이번 실행에서 통과.
+- 스모크 트러블슈팅: `useDiscardGuard`가 dirty 상태에서 Escape를 차단하므로, 수주 전환 후 사이드바 링크 클릭 대신 `page.goto()`로 교체.
+- 문서 갱신: `메뉴적용표_UI-02.md` E-02 → 완료(antigravity, B2), 집계 ERP 18→18 완료·대기 0, 합계 48/55.
+- 다음: 사용자 확인 후 UI-03 B2 브랜치 리뷰 → main 병합.
 
 ## 2026-09-20 프로젝트 준비
 - 완료: 독립 프로젝트 디렉터리와 기본 디렉터리 구조 생성, 로컬 Git main 브랜치 초기화.
