@@ -62,6 +62,25 @@ const keyMap: Record<string, Direction> = {
   ArrowRight: "right",
 };
 export default function Factory() {
+  const [immersive, setImmersive] = useState(false);
+  const [target, setTarget] = useState<number | null>(null);
+  const [inspect, setInspect] = useState(0);
+  function enterInspection() {
+    setImmersive(true);
+    setExterior(false);
+    setWalking(false);
+    setView("ground");
+    setSelected(null);
+    setTarget(null);
+    position.current = { x: 4, y: 0, z: 4.6 };
+    setReset((n) => n + 1);
+  }
+  function leaveInspection() {
+    keys.current.clear();
+    setImmersive(false);
+    setFocused(true);
+    setReset((n) => n + 1);
+  }
   const [exterior, setExterior] = useState(true);
   const [vision, setVision] = useState(() => visionAt(0));
   const [fault, setFault] = useState(false);
@@ -93,8 +112,16 @@ export default function Factory() {
   }, []);
   useEffect(() => {
     keys.current.clear();
-    if (walking) stage.current?.focus();
-  }, [walking, reset]);
+    if (walking || immersive) stage.current?.focus();
+  }, [walking, immersive, reset]);
+  useEffect(() => {
+    if (!immersive) return;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = overflow;
+    };
+  }, [immersive]);
   function viewpoint(next: View) {
     setExterior(false);
     setFocused(false);
@@ -109,7 +136,35 @@ export default function Factory() {
       position.current = { ...(view === "office" ? OFFICE_START : START) };
   }
   return (
-    <div className="factory-page">
+    <div
+      className={`factory-page${immersive ? " factory-immersive" : ""}`}
+      role={immersive ? "dialog" : undefined}
+      aria-modal={immersive || undefined}
+      aria-label={immersive ? "1인칭 비전검사 체험" : undefined}
+      onKeyDown={(e) => {
+        if (!immersive) return;
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          leaveInspection();
+        }
+        if (e.key === "Tab") {
+          const items = Array.from(
+            e.currentTarget.querySelectorAll<HTMLElement>(
+              'button:not(:disabled), a[href], [tabindex="0"]',
+            ),
+          ).filter((item) => item.getClientRects().length > 0);
+          const first = items[0];
+          const last = items[items.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last?.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first?.focus();
+          }
+        }
+      }}
+    >
       <div className="factory-heading">
         <div>
           <h1>공장, 한눈에 그리고 한 걸음씩</h1>
@@ -173,6 +228,20 @@ export default function Factory() {
           </div>
           <div className="factory-actions">
             <button
+              className="primary inspection-enter"
+              onClick={enterInspection}
+            >
+              1인칭 비전검사 체험
+            </button>
+            {immersive && (
+              <>
+                <span className="factory-demo">
+                  합성 시연 · 실시간 계측 아님
+                </span>
+                <button onClick={leaveInspection}>체험 나가기</button>
+              </>
+            )}
+            <button
               className="primary"
               aria-pressed={walking}
               onClick={toggleWalk}
@@ -188,9 +257,9 @@ export default function Factory() {
             <button
               onClick={() => {
                 setFocused(false);
-                position.current = {
-                  ...(view === "office" ? OFFICE_START : START),
-                };
+                position.current = immersive
+                  ? { x: 4, y: 0, z: 4.6 }
+                  : { ...(view === "office" ? OFFICE_START : START) };
                 setReset((n) => n + 1);
               }}
             >
@@ -200,11 +269,15 @@ export default function Factory() {
         </div>
       </div>
       <p id="factory-controls" className="factory-instructions">
-        {walking
-          ? "노란 조끼가 나입니다. 화면을 선택한 뒤 WASD·방향키 또는 이동 버튼으로 걸어보세요. 계단으로 2층 이동 · Esc 조감도"
-          : "마우스로 드래그하여 회전 · 휠로 확대 / 축소 · 터치로 회전 · 설비를 선택하면 공정 설명"}
+        {immersive
+          ? "드래그로 시선 이동 · WASD / 방향키로 이동 · 설비 클릭 또는 정면을 향해 E · Esc 나가기"
+          : walking
+            ? "노란 조끼가 나입니다. 화면을 선택한 뒤 WASD·방향키 또는 이동 버튼으로 걸어보세요. 계단으로 2층 이동 · Esc 조감도"
+            : "마우스로 드래그하여 회전 · 휠로 확대 / 축소 · 터치로 회전 · 설비를 선택하면 공정 설명"}
       </p>
-      <div className="factory-view">
+      <div
+        className={`factory-view factory-workspace${immersive && selected !== null ? " has-inspector" : ""}`}
+      >
         <div
           ref={stage}
           className={`factory-stage${exterior ? " factory-exterior" : ""}`}
@@ -213,16 +286,18 @@ export default function Factory() {
           aria-label="3D 공장 탐색"
           aria-describedby="factory-controls"
           onKeyDown={(e) => {
-            if (!walking || e.target !== stage.current) return;
+            if ((!walking && !immersive) || e.target !== stage.current) return;
             if (keyMap[e.code]) {
               e.preventDefault();
               keys.current.add(keyMap[e.code]);
             }
-            if (e.code === "Escape") setWalking(false);
+            if (e.code === "KeyE" && immersive && !e.repeat)
+              setInspect((n) => n + 1);
+            if (e.code === "Escape" && !immersive) setWalking(false);
           }}
           onBlur={() => keys.current.clear()}
           onPointerDown={(e) => {
-            if (e.target instanceof HTMLCanvasElement && walking)
+            if (e.target instanceof HTMLCanvasElement && (walking || immersive))
               stage.current?.focus();
           }}
         >
@@ -269,6 +344,9 @@ export default function Factory() {
               >
                 <Suspense fallback={null}>
                   <Scene
+                    immersive={immersive}
+                    inspect={inspect}
+                    onTarget={setTarget}
                     onReady={markReady}
                     exterior={exterior}
                     fault={fault}
@@ -292,13 +370,32 @@ export default function Factory() {
             </span>
           )}
           <div className="factory-view-badge" aria-live="polite">
-            {exterior
-              ? "EXTERIOR · 공장 외관"
-              : walking
-                ? "WALK · 자유 이동"
-                : "CUTAWAY · 내부 둘러보기"}
+            {immersive
+              ? "FIRST PERSON · 비전검사 구역"
+              : exterior
+                ? "EXTERIOR · 공장 외관"
+                : walking
+                  ? "WALK · 자유 이동"
+                  : "CUTAWAY · 내부 둘러보기"}
           </div>
-          {walking && (
+          {immersive && (
+            <>
+              <span
+                className={`factory-reticle${target !== null ? " active" : ""}`}
+                aria-hidden="true"
+              />
+              <button
+                className="factory-inspect-target"
+                disabled={target === null}
+                onClick={() => setInspect((n) => n + 1)}
+              >
+                {target === null
+                  ? "설비를 향해 바라보세요"
+                  : `${stations[target].name} · 상태 확인 (E)`}
+              </button>
+            </>
+          )}
+          {(walking || immersive) && (
             <div className="factory-pad" role="group" aria-label="캐릭터 이동">
               {(
                 [
@@ -334,8 +431,32 @@ export default function Factory() {
             </div>
           )}
         </div>
+        {immersive && selected !== null && selected !== 1 && (
+          <section className="vision-panel" aria-label="공정 설명">
+            <button
+              onClick={() => {
+                setSelected(null);
+                stage.current?.focus();
+              }}
+            >
+              상세 닫기
+            </button>
+            <h2>{stations[selected].name}</h2>
+            <p>{stations[selected].detail}</p>
+            <p>이 공정의 계측값은 아직 연결되지 않았습니다.</p>
+          </section>
+        )}
         {selected === 1 && (
           <section className="vision-panel" aria-label="비전검사 설비 상세">
+            <button
+              className="inspector-close"
+              onClick={() => {
+                setSelected(null);
+                stage.current?.focus();
+              }}
+            >
+              상세 닫기
+            </button>
             <div>
               <span className="eyebrow">VISION CELL / DEMO-02</span>
               <h2>비전검사 설비</h2>
@@ -364,8 +485,36 @@ export default function Factory() {
                 <dd>{vision.rejected}개</dd>
               </div>
             </dl>
+            <dl className="vision-settings">
+              <div>
+                <dt>검사 주기 · 설정</dt>
+                <dd>
+                  6.0 <small>s</small>
+                </dd>
+              </div>
+              <div>
+                <dt>카메라 노출 · 설정</dt>
+                <dd>
+                  8.0 <small>ms</small>
+                </dd>
+              </div>
+              <div>
+                <dt>링 조명</dt>
+                <dd>
+                  {animated && !fault && vision.scanning ? "점등" : "대기"}
+                </dd>
+              </div>
+              <div>
+                <dt>합격 수량</dt>
+                <dd>{vision.inspected - vision.rejected}개</dd>
+              </div>
+            </dl>
+            <p className="vision-source">
+              데이터 출처: 브라우저 시뮬레이션 · 설정값은 시연용 고정값
+            </p>
             <div className="factory-actions">
               <button
+                className="vision-overview"
                 onClick={() => {
                   setExterior(false);
                   setWalking(false);

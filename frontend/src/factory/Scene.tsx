@@ -1,10 +1,18 @@
+import FirstPerson from "./FirstPerson";
+import InspectionZone from "./InspectionZone";
 import ProductionCell from "./ProductionCell";
 import Workshop from "./Workshop";
 import { FactoryEnvironment, FactoryFloor } from "./Surface";
 import Building from "./Building";
 import VisionCell from "./VisionCell";
 import type { VisionSnapshot } from "./vision";
-import { useEffect, useRef, type RefObject } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  type RefObject,
+} from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Html, OrbitControls } from "@react-three/drei";
 import { Group, Vector3 } from "three";
@@ -43,7 +51,10 @@ function Box({
     </mesh>
   );
 }
+const ImmersiveContext = createContext(false);
 function Label({ at, children }: { at: Vec; children: React.ReactNode }) {
+  const immersive = useContext(ImmersiveContext);
+  if (immersive) return null;
   return (
     <Html
       position={at}
@@ -174,6 +185,7 @@ function Printer({ label }: { label: boolean }) {
   );
 }
 function Station({
+  immersive,
   index,
   onSelect,
   animated,
@@ -183,16 +195,18 @@ function Station({
   animated: boolean;
   fault: boolean;
   onSnapshot: (value: VisionSnapshot) => void;
+  immersive: boolean;
   index: number;
   onSelect: (i: number) => void;
 }) {
   const { x } = stations[index];
   return (
-    <group position={[x, 0, 0]}>
+    <group position={[x, 0, 0]} userData={{ station: index }}>
       <group
         onClick={(event) => {
           event.stopPropagation();
-          onSelect(index);
+          if (!immersive && event.delta <= 5 && event.distance <= 40)
+            onSelect(index);
         }}
       >
         {index === 1 ? (
@@ -282,6 +296,9 @@ function Worker({ animated }: { animated: boolean }) {
   );
 }
 export type SceneProps = {
+  immersive: boolean;
+  inspect: number;
+  onTarget: (i: number | null) => void;
   onReady: () => void;
   exterior: boolean;
   fault: boolean;
@@ -296,6 +313,9 @@ export type SceneProps = {
   onSelect: (i: number) => void;
 };
 export default function Scene({
+  immersive,
+  inspect,
+  onTarget,
   onReady,
   exterior,
   fault,
@@ -319,7 +339,7 @@ export default function Scene({
   const controls = useRef<React.ComponentRef<typeof OrbitControls>>(null);
   const look = useRef(new Vector3());
   useEffect(() => {
-    if (!walking) {
+    if (!walking && !immersive) {
       const office = view === "office";
       camera.position.set(
         ...((office
@@ -339,6 +359,7 @@ export default function Scene({
       controls.current?.update();
     }
   }, [
+    immersive,
     view,
     walking,
     reset,
@@ -350,10 +371,9 @@ export default function Scene({
   ]);
   useFrame((_, dt) => {
     if (upper.current)
-      upper.current.visible = walking
-        ? position.current.y > 2
-        : view !== "ground";
-    if (!walking || !avatar.current) return;
+      upper.current.visible =
+        walking || immersive ? position.current.y > 2 : view !== "ground";
+    if (immersive || !walking || !avatar.current) return;
     const delta = inputVector(keys.current, dt);
     position.current = move(position.current, delta.x, delta.z);
     const p = position.current;
@@ -367,7 +387,7 @@ export default function Scene({
     camera.lookAt(look.current);
   });
   return (
-    <>
+    <ImmersiveContext.Provider value={immersive}>
       <color attach="background" args={["#e8ece8"]} />
       <FactoryEnvironment />
       <ambientLight intensity={0.45} />
@@ -385,7 +405,21 @@ export default function Scene({
       <hemisphereLight args={["#e8f0f4", "#a2aaa2", 0.7]} />
       <Box at={[0, -0.25, 0]} size={[23, 0.5, 15]} color={colors.floor} />
       <FactoryFloor />
-      <Building exterior={exterior} walking={walking} />
+      <Building
+        exterior={exterior}
+        walking={walking || immersive}
+        enclosed={immersive}
+      />
+      {immersive && (
+        <FirstPerson
+          position={position}
+          keys={keys}
+          reset={reset}
+          inspect={inspect}
+          onSelect={onSelect}
+          onTarget={onTarget}
+        />
+      )}
       <group visible={!exterior}>
         <Workshop />
         <Box at={[-3, 1.7, -2.5]} size={[0.14, 3.4, 9]} color="#b8c8c3" />
@@ -408,6 +442,7 @@ export default function Scene({
           <Station
             key={i}
             index={i}
+            immersive={immersive}
             onSelect={onSelect}
             animated={animated}
             fault={fault}
@@ -415,7 +450,8 @@ export default function Scene({
           />
         ))}
         <Products animated={animated} />
-        <Worker animated={animated} />
+        {!immersive && <Worker animated={animated} />}
+        <InspectionZone animated={animated} />
         {Array.from({ length: 22 }, (_, i) => (
           <Box
             key={i}
@@ -462,7 +498,7 @@ export default function Scene({
           />
         ))}
         <Label at={[-4.2, 0.35, 6.7]}>↑ 2F 계단</Label>
-        {walking && (
+        {walking && !immersive && (
           <group
             ref={avatar}
             position={[
@@ -481,7 +517,7 @@ export default function Scene({
           </group>
         )}
       </group>
-      {!walking && (
+      {!walking && !immersive && (
         <OrbitControls
           ref={controls}
           makeDefault
@@ -495,6 +531,6 @@ export default function Scene({
           ]}
         />
       )}
-    </>
+    </ImmersiveContext.Provider>
   );
 }

@@ -22,6 +22,7 @@ export const stations = [
   },
 ];
 const groundBlocks = [
+  { x: 2.35, z: 2.15, w: 0.65, d: 0.65 },
   ...[0, 4, 8].map((x) => ({ x, z: -5, w: 2.1, d: 1.1 })),
   { x: -1, z: -3.7, w: 1.3, d: 0.65 },
   { x: 10.4, z: -3.3, w: 0.65, d: 0.55 },
@@ -68,4 +69,11 @@ export function inputVector(keys: Set<Direction>, seconds: number) {
   const length = Math.hypot(x, z) || 1;
   const distance = Math.min(seconds, 0.05) * 3;
   return { x: (x / length) * distance, z: (z / length) * distance };
+}
+
+export function relativeStep(x: number, z: number, yaw: number) {
+  return {
+    x: x * Math.cos(yaw) + z * Math.sin(yaw),
+    z: -x * Math.sin(yaw) + z * Math.cos(yaw),
+  };
 }

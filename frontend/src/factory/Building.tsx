@@ -4,9 +4,11 @@ import { Mesh } from "three";
 export default function Building({
   exterior,
   walking,
+  enclosed = false,
 }: {
   exterior: boolean;
   walking: boolean;
+  enclosed?: boolean;
 }) {
   const { scene } = useGLTF("/models/factory-building.glb");
   const model = useMemo(() => {
@@ -33,7 +35,7 @@ export default function Building({
           object={object}
           visible={
             name === "Roof" || name === "Envelope"
-              ? exterior
+              ? exterior || enclosed
               : name === "Overhead"
                 ? exterior || walking
                 : true

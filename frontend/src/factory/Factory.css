@@ -361,3 +361,108 @@
 .factory-pad button:hover:not(:disabled) {
   background: var(--surface-2);
 }
+
+.factory-immersive {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  padding: 16px;
+  background: #edf0ef;
+  overflow: auto;
+}
+.factory-immersive .factory-heading,
+.factory-immersive .factory-building-switch,
+.factory-immersive .factory-tabs,
+.factory-immersive .inspection-enter,
+.factory-immersive .factory-toolbar .primary:not(.inspection-enter),
+.factory-immersive .factory-work-links,
+.factory-immersive .factory-bottom,
+.factory-immersive .factory-label,
+.factory-immersive .vision-overview {
+  display: none;
+}
+.factory-immersive .factory-toolbar {
+  justify-content: flex-end;
+}
+.factory-immersive .factory-workspace {
+  display: grid;
+  gap: 16px;
+}
+.factory-immersive .factory-workspace.has-inspector {
+  grid-template-columns: minmax(0, 1fr) 330px;
+}
+.factory-immersive .factory-stage {
+  height: calc(100dvh - 116px);
+  min-height: 320px;
+}
+.factory-immersive .vision-panel {
+  margin: 0;
+  padding: 20px;
+  max-height: calc(100dvh - 116px);
+  overflow-y: auto;
+}
+.factory-immersive .vision-panel dl {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 8px;
+}
+.factory-reticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border: 1px solid white;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #1f2d3d80;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+.factory-reticle.active {
+  background: #dfc685;
+  width: 12px;
+  height: 12px;
+}
+.factory-inspect-target {
+  position: absolute;
+  bottom: 24px;
+  left: 20px;
+  max-width: calc(100% - 190px);
+  padding: 12px;
+  background: #f7f7f6ed;
+  color: #1f2d3d;
+  font-size: 12px;
+}
+.inspector-close {
+  float: right;
+  font-size: 12px;
+  padding: 7px 10px;
+}
+.vision-settings {
+  border-top: 1px solid #dce1de;
+  padding-top: 18px;
+}
+.vision-settings small {
+  font-size: 12px;
+  font-weight: 400;
+}
+.vision-source {
+  color: #54625c;
+}
+@media (max-width: 900px) {
+  .factory-immersive {
+    padding: 8px;
+  }
+  .factory-immersive .factory-workspace.has-inspector {
+    grid-template-columns: 1fr;
+  }
+  .factory-immersive .factory-workspace.has-inspector .factory-stage {
+    height: 48dvh;
+  }
+  .factory-immersive .vision-panel {
+    max-height: none;
+  }
+  .factory-inspect-target {
+    bottom: 125px;
+    max-width: calc(100% - 40px);
+  }
+}

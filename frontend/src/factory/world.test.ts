@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { START, canStand, inputVector, move } from "./world";
+import { START, canStand, inputVector, move, relativeStep } from "./world";
 it("방문자 시작 위치는 장애물 밖이다", () =>
   expect(canStand(START)).toBe(true));
 it("조립 설비 안으로 들어갈 수 없다", () =>
@@ -34,4 +34,18 @@ it("자재 선반과 공구대 안으로 들어갈 수 없다", () => {
   expect(canStand({ x: 0, y: 0, z: -5 })).toBe(false);
   expect(canStand({ x: -1, y: 0, z: -3.7 })).toBe(false);
   expect(canStand({ x: 4, y: 0, z: -2.8 })).toBe(true);
+});
+
+it("1인칭 검사 시작점은 안전하며 작업자와 설비를 통과하지 않는다", () => {
+  expect(canStand({ x: 4, y: 0, z: 4.6 })).toBe(true);
+  expect(canStand({ x: 2.35, y: 0, z: 2.15 })).toBe(false);
+  let p = { x: 4, y: 0, z: 4.6 };
+  for (let i = 0; i < 100; i++) p = move(p, 0, -0.15);
+  expect(p.z).toBeGreaterThanOrEqual(1.58);
+  expect(p.z).toBeLessThan(1.8);
+});
+it("1인칭 전진은 바라보는 방향을 따른다", () => {
+  expect(relativeStep(0, -1, 0)).toEqual({ x: 0, z: -1 });
+  expect(relativeStep(0, -1, Math.PI / 2).x).toBeCloseTo(-1);
+  expect(relativeStep(1, 0, Math.PI / 2).z).toBeCloseTo(-1);
 });

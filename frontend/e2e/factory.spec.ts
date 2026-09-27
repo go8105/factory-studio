@@ -167,3 +167,97 @@ test("비전검사 상세 패널은 모바일에서 넘치지 않는다", async 
   );
   await page.screenshot({ path: "../work/vision-mobile.png", fullPage: true });
 });
+
+test("1인칭에서 설비를 선택하고 같은 화면에서 상태를 확인한다", async ({
+  page,
+}) => {
+  test.setTimeout(60000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole("button", { name: "1인칭 비전검사 체험" }).click();
+  const inspect = page.getByRole("button", {
+    name: "02 비전검사 · 상태 확인 (E)",
+  });
+  await expect(inspect).toBeEnabled({ timeout: 15000 });
+  await page.screenshot({ path: "../work/inspection-first-person.png" });
+  await page.getByRole("region", { name: "3D 공장 탐색" }).focus();
+  await page.keyboard.press("e");
+  const panel = page.getByRole("region", { name: "비전검사 설비 상세" });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByText("카메라 노출 · 설정")).toBeVisible();
+  await page.getByRole("button", { name: "이상 상황 시연" }).click();
+  await expect(page.getByTestId("vision-phase")).toHaveText("이상 정지");
+  await page.screenshot({ path: "../work/inspection-panel.png" });
+  await page.getByRole("button", { name: "상세 닫기" }).click();
+  await expect(panel).not.toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "1인칭 비전검사 체험" }),
+  ).toBeVisible();
+});
+
+test("1인칭 시선 회전과 모바일 설비 선택", async ({ page }) => {
+  test.setTimeout(60000);
+  await page.getByRole("button", { name: "시연 일시정지" }).click();
+  await page.getByRole("button", { name: "1인칭 비전검사 체험" }).click();
+  await expect(
+    page.getByRole("button", { name: "02 비전검사 · 상태 확인 (E)" }),
+  ).toBeEnabled();
+  const box = (await page.locator("canvas").boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 280, box.y + box.height / 2, {
+    steps: 12,
+  });
+  await page.mouse.up();
+  await expect(
+    page.getByRole("region", { name: "비전검사 설비 상세" }),
+  ).not.toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "02 비전검사 · 상태 확인 (E)" }),
+  ).not.toBeVisible();
+  await page.getByRole("button", { name: "시점 초기화" }).click();
+  await expect(
+    page.getByRole("button", { name: "02 비전검사 · 상태 확인 (E)" }),
+  ).toBeEnabled();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page
+    .getByRole("button", { name: "02 비전검사 · 상태 확인 (E)" })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "비전검사 설비 상세" }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+  await page.screenshot({
+    path: "../work/inspection-mobile.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "체험 나가기" }).click();
+});
+
+test("1인칭 직접 클릭과 시선 기준 이동", async ({ page }) => {
+  test.setTimeout(60000);
+  await page.getByRole("button", { name: "시연 일시정지" }).click();
+  await page.getByRole("button", { name: "1인칭 비전검사 체험" }).click();
+  await expect(
+    page.getByRole("button", { name: "02 비전검사 · 상태 확인 (E)" }),
+  ).toBeEnabled();
+  const panel = page.getByRole("region", { name: "비전검사 설비 상세" });
+  const canvas = page.locator("canvas");
+  const rect = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: rect.width / 2, y: rect.height / 2 } });
+  await expect(panel).toBeVisible();
+  await page.getByRole("button", { name: "상세 닫기" }).click();
+  await page.getByRole("region", { name: "3D 공장 탐색" }).focus();
+  const before = await canvas.screenshot();
+  await page.keyboard.down("d");
+  await page.waitForTimeout(500);
+  await page.keyboard.up("d");
+  expect((await canvas.screenshot()).equals(before)).toBe(false);
+
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "1인칭 비전검사 체험" }),
+  ).toBeVisible();
+});
