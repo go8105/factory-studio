@@ -8,6 +8,9 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-09-27 통합·배포 (FS-023b·UI-03 B2·비전검사)
+- 통합·배포(2026-09-27, Claude Code): main에 FS-023b + UI-03 B2(`d194cb9`) + Codex 비전검사 AI 설명(`0f16bb6`)·합성 이미지 검사실(`da2f02a`) 병합(`2ef0578`). 검증: ruff·격리 R1~R6 0, vitest 435, 백엔드 설명 테스트 13, 공식 스모크 **187 passed**(11.8분). push `8851772..2ef0578`, 서버 pull·`alembic upgrade head`(→ `fs023b_qms_module`)·API 재시작, 프런트 빌드·rsync(번들 `index-aVsvqfGf.js` 일치). 운영 게스트 확인: QMS Q-01~06·MES 패킹·E-02 견적 패널·`/factory/vision-lab` 열림, 페이지 오류 0·5xx 0. OPENAI_API_KEY 미설정 → AI 설명은 데모 응답.
+
 ## 2026-09-27 FS-023b QMS 조회 인터페이스·API·화면 (Claude Code)
 - 완료: `fs/mes/interface.py`·`fs/qms/interface.py`(R6 준수), `/api/v1/qms`(TX-Q1~Q3), Q-01~06 화면, MES 패킹·LOT `QMS 보류` 배지, 데이터 마이그레이션 `fs023b_qms_module`, 새 공간 qms 모듈 행, 시드 행 수 7,470.
 - 테스트: `test_qms.py` 21(AC-97~110), `qms.test.tsx` 10, e2e `qms.spec.ts`·layout·portal 360px.
