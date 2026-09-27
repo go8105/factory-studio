@@ -271,6 +271,12 @@
     overflow-y: auto;
     margin: 0;
   }
+  /* 1인칭 체험은 장면 옆 칸(.has-inspector 격자)에 상세를 둔다. 겹쳐 띄우지 않는다. */
+  .factory-immersive .factory-view .vision-panel {
+    position: static;
+    width: auto;
+    max-height: calc(100dvh - 116px);
+  }
 }
 .vision-panel .factory-actions {
   align-items: center;
