@@ -1,6 +1,13 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { samples, type Recipe } from "./inspection";
-import { InspectionRun, runSummary, sequence } from "./inspectionRun";
+import {
+  InspectionRun,
+  runSummary,
+  sequence,
+  browserEngine,
+} from "./inspectionRun";
+import { PlcHandshake } from "./plcHandshake";
+import PlcPanel from "./PlcPanel";
 import InspectionView from "./InspectionView";
 const labels = {
   idle: "준비",
@@ -17,7 +24,19 @@ export default function VisionRun({
   recipe: Recipe;
   visible: boolean;
 }) {
-  const [runner] = useState(() => new InspectionRun(recipe));
+  const [plc] = useState(() => new PlcHandshake());
+  const [plcEnabled, setPlcEnabled] = useState(false);
+  const [batchPlc, setBatchPlc] = useState(false);
+  const plcState = useSyncExternalStore(plc.subscribe, plc.snapshot);
+  const [runner] = useState(
+    () =>
+      new InspectionRun(
+        recipe,
+        (request, id) =>
+          plc.enabled ? plc.execute(request, id) : browserEngine(request, id),
+        () => plc.cancel(),
+      ),
+  );
   const state = useSyncExternalStore(runner.subscribe, runner.snapshot);
   const [interval, setInterval] = useState(500);
   const [selected, setSelected] = useState<string | null>(null);
@@ -42,7 +61,18 @@ export default function VisionRun({
       new Blob(
         [
           JSON.stringify(
-            { ...state, source: "synthetic-browser-v1", sequence, summary },
+            {
+              ...state,
+              source: "synthetic-browser-v1",
+              sequence,
+              summary,
+              plc: {
+                version: 1,
+                enabled: batchPlc,
+                protocol: "synthetic-handshake-v1",
+                ...plcState,
+              },
+            },
             null,
             2,
           ),
@@ -85,9 +115,11 @@ export default function VisionRun({
         </p>
         <div className="run-actions">
           <button
-            disabled={active}
+            disabled={active || plcState.phase === "fault"}
             onClick={() => {
               setSelected(null);
+              setBatchPlc(plcEnabled);
+              plc.clearLog();
               runner.start(recipe, interval);
             }}
           >
@@ -108,7 +140,7 @@ export default function VisionRun({
           <button disabled={!active} onClick={() => runner.stop()}>
             배치 종료
           </button>
-          <button disabled={!state.records.length} onClick={download}>
+          <button disabled={!state.runId} onClick={download}>
             배치 JSON 저장
           </button>
         </div>
@@ -124,7 +156,13 @@ export default function VisionRun({
             간격 {state.intervalMs} ms
           </p>
         )}
-        {state.error && <p role="alert">{state.error}</p>}
+        {state.error && (
+          <p role="alert">
+            {plcState.fault
+              ? "PLC 신호 교환이 중단됐습니다. 배치 JSON으로 로그를 저장하고 아래 PLC 리셋 후 새 배치를 시작하세요."
+              : state.error}
+          </p>
+        )}
         <dl className="run-metrics">
           <div>
             <dt>검사 완료</dt>
@@ -159,6 +197,16 @@ export default function VisionRun({
           실장비 성능이나 생산 수율이 아닙니다.
         </p>
       </div>
+      <PlcPanel
+        plc={plc}
+        state={plcState}
+        enabled={plcEnabled}
+        active={active}
+        onEnabled={(value) => {
+          plc.enabled = value;
+          setPlcEnabled(value);
+        }}
+      />
       <div className="lab-grid run-grid">
         <div>
           {record ? (

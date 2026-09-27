@@ -29,8 +29,9 @@ export type RunState = {
 };
 export type Engine = (
   request: InspectionRequest,
+  inspectionId?: string,
 ) => Promise<{ result: InspectionResult; inspectionMs: number }>;
-const browserEngine: Engine = async (request) => {
+export const browserEngine: Engine = async (request) => {
   const start = performance.now();
   const result = inspect(request);
   return { result, inspectionMs: performance.now() - start };
@@ -44,6 +45,7 @@ export class InspectionRun {
   constructor(
     recipe: Recipe,
     private engine: Engine = browserEngine,
+    private cancelEngine: () => void = () => {},
   ) {
     this.state = {
       version: 1,
@@ -100,6 +102,7 @@ export class InspectionRun {
   private cancel() {
     clearTimeout(this.timer);
     this.generation++;
+    this.cancelEngine();
     this.pending = false;
   }
   private schedule(delay = this.state.intervalMs) {
@@ -119,7 +122,10 @@ export class InspectionRun {
     const start = performance.now();
     this.pending = true;
     try {
-      const output = await this.engine(structuredClone(request));
+      const output = await this.engine(
+        structuredClone(request),
+        `${this.state.runId}:${index + 1}`,
+      );
       if (token !== this.generation) return;
       this.pending = false;
       const record: RunRecord = {

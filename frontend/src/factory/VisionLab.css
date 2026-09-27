@@ -238,3 +238,80 @@
   background: #1f2d3d;
   color: #fff;
 }
+.plc-panel {
+  padding: 20px;
+  border: 1px solid #e1e4e5;
+  background: white;
+  border-radius: 16px;
+  margin-bottom: 20px;
+}
+.plc-panel h2 {
+  font-size: 18px;
+  margin: 0;
+}
+.plc-panel input[type="checkbox"] {
+  width: auto;
+  margin-right: 8px;
+}
+.plc-signals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.plc-signal {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 10px;
+  background: #f7f7f6;
+  font-size: 12px;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+.plc-signal span {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: #b4b8bc;
+}
+.plc-signal.is-on span {
+  background: #43755c;
+}
+.plc-signal strong {
+  margin-left: auto;
+}
+.plc-events {
+  max-height: 240px;
+  overflow-y: auto;
+  padding-left: 24px;
+  font-size: 12px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.plc-events small {
+  display: block;
+  color: #62676b;
+}
+@media (max-width: 760px) {
+  .plc-panel {
+    padding: 16px;
+  }
+  .plc-signals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.plc-panel .lab-toolbar > label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.plc-panel input[type="checkbox"] {
+  margin: 0;
+}
+.plc-signal.is-alarm span {
+  background: #aa5249;
+}
+.plc-signal.is-alarm {
+  background: #f8edeb;
+}

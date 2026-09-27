@@ -433,3 +433,92 @@ test("연속 검사 설정 이동과 종료 및 화면 이탈", async ({ page })
   await expect(run.getByTestId("run-count")).toHaveText("0 / 20");
   expect(errors).toEqual([]);
 });
+
+test("가상 PLC 정상 배치와 검사 타임아웃 복구", async ({ page }) => {
+  await page.goto("/factory/vision-lab");
+  await page.clock.install();
+  await page.getByRole("button", { name: "연속 검사", exact: true }).click();
+  const run = page.getByRole("region", { name: "연속 검사 관제" });
+  const plc = page.getByRole("region", { name: "가상 PLC 핸드셰이크" });
+  await plc.getByRole("checkbox", { name: "PLC 모드 사용" }).check();
+  await run.getByLabel("투입 목표 간격").selectOption("200");
+  await run.getByRole("button", { name: "새 배치 시작" }).click();
+  await page.clock.runFor(5000);
+  await expect(run.getByTestId("run-count")).toHaveText("20 / 20");
+  await expect(plc.getByTestId("plc-Vision_Ready")).toHaveText(
+    "Vision_ReadyON",
+  );
+  await plc.getByRole("button", { name: "다음 검사 지연 주입" }).click();
+  await run.getByRole("button", { name: "새 배치 시작" }).click();
+  await page.clock.runFor(350);
+  await expect(plc.getByRole("alert")).toContainText("검사 응답 300ms 초과");
+  await expect(plc.getByTestId("plc-Interlock")).toContainText("ON");
+  await expect(run.getByTestId("run-count")).toHaveText("0 / 20");
+  await expect(
+    run.getByRole("button", { name: "새 배치 시작" }),
+  ).toBeDisabled();
+  const event = page.waitForEvent("download");
+  await run.getByRole("button", { name: "배치 JSON 저장" }).click();
+  const stream = await (await event).createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream!) chunks.push(chunk);
+  const data = JSON.parse(Buffer.concat(chunks).toString());
+  expect(data.plc).toMatchObject({
+    enabled: true,
+    fault: "INSPECTION_TIMEOUT",
+  });
+  expect(data.plc.events.at(-1).signals.Interlock).toBe(true);
+  expect(data.records).toHaveLength(0);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({
+    path: "../work/vision-plc-desktop.png",
+    fullPage: true,
+  });
+  await plc.getByRole("button", { name: "PLC 리셋" }).click();
+  await run.getByRole("button", { name: "새 배치 시작" }).click();
+  await page.clock.runFor(5000);
+  await expect(run.getByTestId("run-count")).toHaveText("20 / 20");
+});
+
+test("가상 PLC 확인 누락 래치와 수동 확인 및 취소", async ({ page }) => {
+  await page.goto("/factory/vision-lab");
+  await page.clock.install();
+  await page.getByRole("button", { name: "연속 검사", exact: true }).click();
+  const run = page.getByRole("region", { name: "연속 검사 관제" });
+  const plc = page.getByRole("region", { name: "가상 PLC 핸드셰이크" });
+  await plc.getByRole("checkbox", { name: "PLC 모드 사용" }).check();
+  await plc.getByRole("button", { name: "다음 결과 확인 누락" }).click();
+  await run.getByRole("button", { name: "새 배치 시작" }).click();
+  await page.clock.runFor(1200);
+  await expect(plc.getByRole("alert")).toContainText(
+    "PLC 결과 확인 1000ms 초과",
+  );
+  await expect(plc.getByTestId("plc-Inspection_Done")).toContainText("ON");
+  await expect(plc.getByTestId("plc-Result_OK")).toContainText("ON");
+  await expect(plc.getByTestId("plc-Result_NG")).toContainText("OFF");
+  await expect(run.getByTestId("run-count")).toHaveText("0 / 20");
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+  await page.screenshot({
+    path: "../work/vision-plc-mobile.png",
+    fullPage: true,
+  });
+  await plc.getByRole("button", { name: "PLC 리셋" }).click();
+  await plc.getByRole("button", { name: "다음 결과 확인 누락" }).click();
+  await run.getByRole("button", { name: "새 배치 시작" }).click();
+  await page.clock.runFor(80);
+  await plc.getByRole("button", { name: "중복 트리거 주입" }).click();
+  await run.getByRole("button", { name: "일시정지", exact: true }).click();
+  await plc.getByRole("button", { name: "PLC 결과 확인", exact: true }).click();
+  await page.clock.runFor(1500);
+  await expect(run.getByTestId("run-count")).toHaveText("1 / 20");
+  await expect(plc.getByTestId("plc-Vision_Ready")).toContainText("ON");
+  await run.getByRole("button", { name: "재개", exact: true }).click();
+  await page.clock.runFor(500);
+  await run.getByRole("button", { name: "배치 종료" }).click();
+  await page.clock.runFor(1500);
+  await expect(run.getByTestId("run-count")).toHaveText("1 / 20");
+  await expect(plc.getByTestId("plc-Vision_Busy")).toContainText("OFF");
+});
