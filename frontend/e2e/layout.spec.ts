@@ -102,6 +102,11 @@ for (const route of [
   "/fems/energy-sources",
   "/fems/energy-factors",
   "/fems/tariffs",
+  "/qms/pending",
+  "/qms/inspections",
+  "/qms/holds",
+  "/qms/specs",
+  "/qms/defect-types",
 ]) {
   test(`1440×900 ${route} 목록 채움: 문서가 스크롤되지 않는다`, async ({
     page,

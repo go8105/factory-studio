@@ -89,8 +89,9 @@ def validate_all(
         actual == EXPECTED_COUNTS,
         f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}",
     )
-    _require(sum(actual.values()) == 7469, f"V1 total={sum(actual.values())}")
-    results["V1"] = "71개 중 시드 64테이블, 7,469행 일치"
+    _require(sum(actual.values()) == 7470, f"V1 total={sum(actual.values())}")
+    # FS-023b: core.workspace_module에 qms 행 +1. QMS 업무 시드는 FS-023c.
+    results["V1"] = "77개 중 시드 64테이블, 7,470행 일치"
 
     plans = connection.execute(
         text(

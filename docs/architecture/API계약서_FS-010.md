@@ -518,3 +518,27 @@ A-1만 스키마와 관련이 있고 나머지는 구현 방침이다. **A-1을 
 - 성능·동시성·부하 검증. 게스트 생성 2초 목표는 여전히 미실측이다.
 - 보안 검토. 세션·CSRF 방식은 일반적 구성을 따랐을 뿐 위협 모델링을 하지 않았다.
 - OpenAPI·클라이언트 SDK 생성.
+
+---
+
+## 14. QMS API (`/api/v1/qms`, FS-023b)
+
+설계: [QMS 모듈 설계서](../modules/qms/QMS_모듈설계_FS-023.md) 8장 · 결정: [FS-023](../plan/QMS도입_교차조회_결정_FS-023.md). 공통 규약(3장)을 그대로 따른다 — 세션에서 S 결정, 쓰기는 `write_scope` 공간 잠금 뒤, 변경 요청은 `X-CSRF-Token`·`Idempotency-Key`, QMS 사용 중단은 409 `MODULE_DISABLED`.
+
+| 메서드·경로 | 요약 | 주요 오류 `reason` |
+|---|---|---|
+| `GET /dashboard?month=` | 검사 수·합격률(없으면 null)·활성 보류·검사 대기(MES 꺼짐이면 null)·일자별·불량 유형 상위 5·최근 불합격·활성 보류 목록. 월 생략 시 확정 검사가 있는 마지막 월 | — |
+| `GET/POST /defect-types` · `PATCH/DELETE /defect-types/{id}` | 코드는 등록 뒤 바꾸지 않는다 | 400 `fields.code`(중복), 409 `REFERENCED_BY_OTHERS`(참조처별 건수) |
+| `GET /inspection-specs?itemCode=&status=` · `POST` · `GET/PATCH/DELETE /{id}` | PATCH는 note와 **항목 전체 교체**(draft만) | 409 `DRAFT_EXISTS`·`PUBLISHED_IMMUTABLE`, 400 `fields.items.<i>.<field>` |
+| `POST /inspection-specs/{id}/publish·retire·revise` | TX-Q1: 게시 시 같은 품목의 기존 게시 → retired | 409 `NO_ITEMS`·`NOT_PUBLISHED`·`ALREADY_DRAFT`·`DRAFT_EXISTS` |
+| `GET /lookups/mes-lots?pending=true` | MES 정상 완료 LOT(최종 양품 > 0) + QMS 상태(`pending`/`drafting`/`inspected`, `hasSpec`) | 409 `SOURCE_MODULE_DISABLED` |
+| `GET /lookups/mes-items` | MES 사용 중 완제품 품목 | 409 `SOURCE_MODULE_DISABLED` |
+| `GET /inspections?status=&result=&month=&lotNo=` · `POST` · `GET/PATCH/DELETE /{id}` | POST `{source:'MES', lotNo, sampleQty}` 또는 `{source:'MANUAL', …, itemCode, itemName, lotQty, unit}`. 만들 때 기준 항목마다 빈 측정값 행을 만든다. PATCH `values[]`는 항목 판정을 서버가 계산 | 409 `LOT_NOT_INSPECTABLE`·`NO_PUBLISHED_SPEC`·`DRAFT_EXISTS`·`CONFIRMED_IMMUTABLE`·`SOURCE_MODULE_DISABLED`, 400 `fields.sampleQty`·`fields.values.<seq>` |
+| `POST /inspections/{id}/confirm` | TX-Q2: 필수 누락·불합격 불량 유형 누락은 400. FAIL이면 같은 트랜잭션에서 보류(`ON CONFLICT … WHERE status='held' DO NOTHING`) | 400 `fields.values.<seq>`·`fields.values.<seq>.defectTypeId` |
+| `POST /inspections/{id}/reinspect` | 같은 LOT 새 draft(현재 게시 기준, `reinspectionOfId`) | 409 `NOT_CONFIRMED`·`DRAFT_EXISTS`·`NO_PUBLISHED_SPEC` |
+| `GET /holds?status=` · `GET /holds/{id}` | 상세에 원인 불합격 항목·보류 이후 확정 검사(해제 후보) | — |
+| `POST /holds/{id}/release` | TX-Q3 `{disposition, releaseInspectionId?, reason?}` | 400 `fields.reason`·`fields.releaseInspectionId`, 409 `RELEASE_NOT_ALLOWED`·`ALREADY_RELEASED` |
+
+**MES 응답 추가(읽기만, D10):** `GET /api/v1/mes/lots`·`/packable-lots`에 `qualityHold`(true/false, QMS 꺼짐이면 null), `GET /api/v1/mes/lots/{id}`에 `qualityHold`·`qualityResult`(PASS/FAIL/null).
+
+**조회 인터페이스(코드, HTTP 아님):** `fs/mes/interface.py` — `inspectable_lots`·`lot_snapshot`·`items`·`enabled`; `fs/qms/interface.py` — `held_lot_nos`·`latest_results`. 제공 모듈이 꺼져 있으면 `None`. 격리 검사 R6이 다른 import를 막는다.

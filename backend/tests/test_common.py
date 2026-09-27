@@ -175,8 +175,9 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     )
     assert guest_token.startswith("g_")
     assert (
+        # FS-023b: 모듈 행에 qms가 더해져 7,467 → 7,468
         _business_count(engine, guest_data["workspaceId"], guest_data["generationId"])
-        == 7467
+        == 7468
     )
 
     reset_headers = {
@@ -190,7 +191,7 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     reset_generation_id = reset_first.json()["data"]["generationId"]
     assert reset_generation_id != guest_data["generationId"]
     assert (
-        _business_count(engine, guest_data["workspaceId"], reset_generation_id) == 7467
+        _business_count(engine, guest_data["workspaceId"], reset_generation_id) == 7468
     )
     with engine.connect() as connection:
         assert (

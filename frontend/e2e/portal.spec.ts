@@ -151,6 +151,12 @@ for (const [route, title] of [
   ["mes/processes", "공정"],
   ["mes/routes", "공정 경로"],
   ["mes/boms", "BOM"],
+  ["qms/dashboard", "품질 개요"],
+  ["qms/pending", "검사 대기"],
+  ["qms/inspections", "검사"],
+  ["qms/holds", "품질 보류"],
+  ["qms/specs", "검사 기준"],
+  ["qms/defect-types", "불량 유형"],
 ]) {
   test(`360px ${route} 가로 스크롤 없음`, async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });
