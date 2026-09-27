@@ -476,6 +476,7 @@ export default function Factory() {
             </div>
             <fieldset className="vision-scenarios">
               <legend>시나리오 체험</legend>
+              <Link to="/factory/vision-lab">합성 이미지 검사실 열기 →</Link>
               <div>
                 {(Object.keys(scenarios) as Scenario[]).map((id) => (
                   <button

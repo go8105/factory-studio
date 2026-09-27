@@ -319,3 +319,34 @@ test("비전검사 설명 오류와 모바일 패널", async ({ page }) => {
   );
   await panel.screenshot({ path: "../work/vision-ai-mobile.png" });
 });
+
+test("합성 검사실 조건 비교와 JSON 저장", async ({ page }) => {
+  await page.getByRole("button", { name: /02 비전검사/ }).click();
+  await page.getByRole("link", { name: "합성 이미지 검사실 열기" }).click();
+  await expect(
+    page.getByRole("heading", { name: "합성 이미지 검사실" }),
+  ).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("검출 2개");
+  await page.getByLabel("최소 면적", { exact: true }).fill("100");
+  await expect(page.getByRole("status")).toContainText("OK");
+  await expect(page.locator(".lab-metrics")).toContainText("116");
+  await page.getByRole("button", { name: "조건 초기화" }).click();
+  await page.getByLabel("합성 샘플").selectOption("lighting");
+  await page.getByLabel("이진화 임계값", { exact: true }).fill("130");
+  await expect(page.locator(".lab-metrics")).toContainText("4000");
+  const downloadEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "레시피·결과 JSON 저장" }).click();
+  expect((await downloadEvent).suggestedFilename()).toBe(
+    "vision-lighting.json",
+  );
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.screenshot({ path: "../work/vision-lab-desktop.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+  await page.screenshot({
+    path: "../work/vision-lab-mobile.png",
+    fullPage: true,
+  });
+});
