@@ -82,6 +82,12 @@ EXPECTED_COUNTS = {
     "qms.inspection": 17,
     "qms.inspection_value": 68,
     "qms.quality_hold": 2,
+    "wms.warehouse": 2,
+    "wms.storage_location": 4,
+    "wms.item": 5,
+    "wms.item_unit_conversion": 1,
+    "wms.stock_document": 40,
+    "wms.stock_move": 55,
 }
 
 
@@ -95,9 +101,8 @@ def validate_all(
         actual == EXPECTED_COUNTS,
         f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}",
     )
-    _require(sum(actual.values()) == 7584, f"V1 total={sum(actual.values())}")
-    # FS-024b: core.workspace_module에 wms 행 +1. WMS 업무 시드는 FS-024c.
-    results["V1"] = "83개 중 시드 70테이블, 7,584행 일치"
+    _require(sum(actual.values()) == 7691, f"V1 total={sum(actual.values())}")
+    results["V1"] = "83개 중 시드 76테이블, 7,691행 일치"
 
     plans = connection.execute(
         text(
@@ -134,6 +139,13 @@ def validate_all(
         params,
     )
     _require(month_errors == 0, f"V2 qms inspection month={month_errors}")
+    month_errors += _scalar(
+        connection,
+        "SELECT count(*) FROM wms.stock_document WHERE workspace_id=:w AND generation_id=:g "
+        "AND (document_month<>to_char(document_on,'YYYY-MM') OR substr(document_no,4,8)<>to_char(document_on,'YYYYMMDD'))",
+        params,
+    )
+    _require(month_errors == 0, f"V2 wms document month={month_errors}")
     results["V2"] = (
         "T 기준 월·ISO 주차·QMS 검사 월 재계산 일치(결정성은 통합 테스트에서 별도 비교)"
     )
@@ -320,6 +332,21 @@ def validate_all(
              + (SELECT count(*) FROM erp.tax_invoice WHERE workspace_id=:w AND generation_id=:g AND approval_no ~ '[0-9]{8}')
              + (SELECT count(*) FROM erp.receipt_apply WHERE workspace_id=:w AND generation_id=:g AND apply_key ~ '[0-9]{8}')
              + (SELECT count(*) FROM erp.payment_apply WHERE workspace_id=:w AND generation_id=:g AND apply_key ~ '[0-9]{8}')
+    """,
+        params,
+    )
+    # FS-024: 시드 원장 끝의 현재고는 모두 0 이상(음수는 게스트 조작에서만 생긴다), 이동 전표는 품목·LOT별 합 0.
+    policy_errors += _scalar(
+        connection,
+        """
+        SELECT (SELECT count(*) FROM (SELECT 1 FROM wms.stock_move m JOIN wms.stock_document d
+                 ON d.workspace_id=m.workspace_id AND d.generation_id=m.generation_id AND d.id=m.document_id AND d.status='posted'
+                 WHERE m.workspace_id=:w AND m.generation_id=:g
+                 GROUP BY m.item_id, m.location_id, m.lot_no HAVING sum(m.qty_delta) < 0) neg)
+             + (SELECT count(*) FROM (SELECT 1 FROM wms.stock_move m JOIN wms.stock_document d
+                 ON d.workspace_id=m.workspace_id AND d.generation_id=m.generation_id AND d.id=m.document_id AND d.document_type='TRANSFER'
+                 WHERE m.workspace_id=:w AND m.generation_id=:g
+                 GROUP BY m.document_id, m.item_id, m.lot_no HAVING sum(m.qty_delta) <> 0) unbalanced)
     """,
         params,
     )

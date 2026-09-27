@@ -30,7 +30,7 @@ function show(enabled = true) {
     </MemoryRouter>,
   );
 }
-it("홈은 네 솔루션과 미구현 WMS·BEMS·SCM 설명 카드 링크를 보인다", async () => {
+it("홈은 다섯 솔루션과 미구현 BEMS·SCM 설명 카드 링크를 보인다", async () => {
   show();
   await screen.findByRole("link", { name: /QMS 품질관리/ });
   expect(screen.getByRole("link", { name: /WMS 창고관리/ })).toHaveAttribute(
@@ -38,12 +38,12 @@ it("홈은 네 솔루션과 미구현 WMS·BEMS·SCM 설명 카드 링크를 보
     "/wms",
   );
   for (const [name, href] of [
-    [/WMS 물류/, "/cards/wms"],
     [/BEMS 건물/, "/cards/bems"],
     [/SCM 공급망/, "/cards/scm"],
   ] as const)
     expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
   expect(screen.queryByRole("link", { name: /QMS 품질 →/ })).toBeNull();
+  expect(screen.queryByRole("link", { name: /WMS 물류/ })).toBeNull();
 });
 it("상세 안내는 첫 화면에서 숨긴다", async () => {
   show();

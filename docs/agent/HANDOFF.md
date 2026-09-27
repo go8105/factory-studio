@@ -1,6 +1,6 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-27 (FS-024a DB + **FS-024b WMS API·화면 W-01~07**(로컬 head `fs024b_wms_module`). origin `ef9621f`까지 push, 이후 로컬 커밋. 운영은 `be87546`·head `fs023b_qms_module` 그대로, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-27 (**FS-024 WMS a~c 로컬 완료** — DB·API·W-01~07·시드 107행·도움말·흐름 맵, 홈 아이콘 84px·다섯 시스템. 운영은 `be87546`·head `fs023b_qms_module` 그대로, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
@@ -26,7 +26,7 @@
 | UI-02 검토 | Claude 검토·수정 후 main 통합(`86e729f` 이후 문서 커밋). 회귀 5건 수정·e2e 11건 갱신, 스모크 159 passed |
 | QMS | FS-023a DB·023b API·화면(운영 배포) + **FS-023c 시드 113행(`sv-20260927-1`, 템플릿 7,583)·복사 월/번호 재계산·도움말 Q-01~06·흐름 맵 업무 노드(로컬, 미배포)**. 시드 LOT: LT-0017 검사 대기, LT-0015 작성 중, LT-0016 보류 중(+재검사 초안), LT-0008 특채 해제. 교차 조회는 `fs/<솔루션>/interface.py`만(R6) |
 | UI-03 | **8화면 전체 완료·운영 배포** — Claude F-12·M-04·M-05·M-07·E-04(`a35e895` 배포), Antigravity B1(M-14·M-15) + B2(E-02 견적) — 브랜치 `antigravity/ui03-b2`, 스모크 171/171 통과. E-02: `FormPanel wide`(등록)·`DetailPanel wide`(상세·라인편집·확정·제출·수주 전환 통합). main 병합 완료 |
-| 다음 | **FS-024c WMS 시드·도움말·흐름 맵** — FS-024b 완료(API `/api/v1/wms` + 화면 `frontend/src/wms/` W-01~07, 로컬 head `fs024b_wms_module`, 운영 미적용). 024c: 시드 약 110행(모듈 설계 10장), 복사 시 `document_month`·`WD-` 번호 날짜 이동, `content/help/wms/w-01~07`, 흐름 맵 `inventory_move` 업무 노드, 홈 제목 "다섯 시스템"·설명 카드 WMS 제거(`content/cards/wms.md`), 통합 검증. 스모크 부분 실행: `run_portal_smoke.py e2e/<spec>` |
+| 다음 | **WMS 운영 배포 대기** — FS-024a~c 로컬 완료(시드 `sv-20260927-2` 7,691행, head `fs024b_wms_module`). 배포: 서버 pull·uv sync·**alembic upgrade head(fs024a_wms·fs024b_wms_module)**·API 재시작 → **`seed.cli template` 재실행** → 프런트 worktree 빌드·rsync. Codex C++ 비전 엔진은 `VISION_CORE_EXECUTABLE` 미설정이면 503(브라우저 검사는 동작) |
 
 ## 다음 할 일
 

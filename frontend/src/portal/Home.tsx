@@ -114,8 +114,8 @@ export function Home() {
       <div className="home-hero">
         <div>
           <span className="home-eyebrow">YOUR WORKSPACE</span>
-          <h1>제조 현장의 네 시스템</h1>
-          <p>하나의 공간에서 만나는 네 가지 독립 솔루션</p>
+          <h1>제조 현장의 다섯 시스템</h1>
+          <p>하나의 공간에서 만나는 다섯 가지 독립 솔루션</p>
         </div>
         <div className="home-context">
           <Link to="/workspace" className="home-space">
@@ -135,7 +135,7 @@ export function Home() {
       <Link to="/flow" className="home-flow">
         <div>
           <span className="home-eyebrow">THE BIG PICTURE</span>
-          <h2>네 시스템은 어떻게 이어지는가</h2>
+          <h2>다섯 시스템은 어떻게 이어지는가</h2>
           <p>판매계획에서 생산·출하·매출까지 전체 흐름 보기</p>
         </div>
         <span className="home-flow-action">
@@ -229,7 +229,7 @@ export function Home() {
           보세요.
         </p>
         <div>
-          {["WMS 물류", "BEMS 건물", "SCM 공급망"].map((s) => (
+          {["BEMS 건물", "SCM 공급망"].map((s) => (
             <Link key={s} to={`/cards/${s.split(" ")[0].toLowerCase()}`}>
               {s} →
             </Link>

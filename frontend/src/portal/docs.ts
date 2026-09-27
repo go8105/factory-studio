@@ -5,6 +5,7 @@ import { mesScreens } from "../mes/MesLayout";
 import { erpScreens } from "../erp/ErpLayout";
 import { femsScreens } from "../fems/FemsLayout";
 import { qmsScreens } from "../qms/QmsLayout";
+import { wmsScreens } from "../wms/WmsLayout";
 import { contentTitle } from "../shared/content";
 export { slug } from "../shared/content";
 export type DocGroup = { solution?: string; title: string; keys: string[] };
@@ -20,6 +21,7 @@ const solutions: [string, string, Screen[]][] = [
   ["erp", "ERP 경영관리", erpScreens],
   ["fems", "FEMS 에너지관리", femsScreens],
   ["qms", "QMS 품질관리", qmsScreens],
+  ["wms", "WMS 창고관리", wmsScreens],
 ];
 // 첫 화면 "많이 찾는 문서". 없는 키는 건너뛴다.
 export const popular = [

@@ -175,9 +175,9 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     )
     assert guest_token.startswith("g_")
     assert (
-        # FS-024b: 모듈 행에 wms가 더해져 7,581 → 7,582
+        # FS-024c: WMS 시드 107행이 더해져 7,582 → 7,689
         _business_count(engine, guest_data["workspaceId"], guest_data["generationId"])
-        == 7582
+        == 7689
     )
 
     reset_headers = {
@@ -191,7 +191,7 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     reset_generation_id = reset_first.json()["data"]["generationId"]
     assert reset_generation_id != guest_data["generationId"]
     assert (
-        _business_count(engine, guest_data["workspaceId"], reset_generation_id) == 7582
+        _business_count(engine, guest_data["workspaceId"], reset_generation_id) == 7689
     )
     with engine.connect() as connection:
         assert (

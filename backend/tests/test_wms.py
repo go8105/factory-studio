@@ -1,6 +1,7 @@
 """FS-024b WMS API (AC-111~124). 검증 항목마다 테스트를 나눈다.
 
-WMS 시드는 FS-024c다. 기준정보(창고·위치·품목·단위)는 `wms` fixture가 API로 만든다.
+API 테스트는 `blank` fixture가 게스트의 WMS 시드(FS-024c)를 지운 빈 상태에서 시작하고,
+기준정보(창고·위치·품목·단위)는 `wms` fixture가 API로 만든다. 시드 자체는 `test_seed_demo_flow`가 본다.
 원천은 템플릿의 MES·ERP 시드를 읽기 전용 조회로 읽는다(D9): 입고 PL-0001~0006, 출하 SH-0001~0004
 (PL-0001·0003·0005·0004), 매입 PI-0001~0004(확정)·PI-0006(확정 후 취소).
 """
@@ -11,6 +12,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 W = "/api/v1/wms"
 _keys = count()
@@ -97,9 +99,37 @@ def _setup(client, created, conversion=True) -> dict:
     return ids
 
 
+WMS_TABLES = (
+    "stock_move",
+    "stock_document",
+    "item_unit_conversion",
+    "item",
+    "storage_location",
+    "warehouse",
+)
+
+
+def _clear(engine, created) -> None:
+    with engine.begin() as connection:
+        for table in WMS_TABLES:
+            connection.execute(
+                text(
+                    f"DELETE FROM wms.{table} WHERE workspace_id=:w AND generation_id=:g"
+                ),
+                {"w": created["workspaceId"], "g": created["generationId"]},
+            )
+
+
 @pytest.fixture
-def wms(guest_space):
-    client, created, _ = guest_space
+def blank(guest_space):
+    client, created, engine = guest_space
+    _clear(engine, created)
+    return client, created
+
+
+@pytest.fixture
+def wms(blank):
+    client, created = blank
     return client, created, _setup(client, created)
 
 
@@ -128,9 +158,9 @@ def test_guest_has_wms_module(guest_space):
     assert modules["wms"] is True
 
 
-def test_master_rules(guest_space):
+def test_master_rules(blank):
     """용도별 활성 창고 1개, 첫 위치는 기본, 기본 위치는 지우지 못한다."""
-    client, created, _ = guest_space
+    client, created = blank
     ids = _setup(client, created, conversion=False)
     second = _call(
         client,
@@ -213,9 +243,9 @@ def test_shipment_uses_reflected_pallet_lots(wms):
     ] == [(None, "-3842.000", True, True)]
 
 
-def test_unit_conversion_and_missing_conversion(guest_space):
+def test_unit_conversion_and_missing_conversion(blank):
     """AC-115: BOX → EA 환산·원천 수량 보존. 환산이 없으면 반영 불가 사유."""
-    client, created, _ = guest_space
+    client, created = blank
     ids = _setup(client, created, conversion=False)
     listed = _ok(client.get(f"{W}/sources", params={"kind": "ERP_PURCHASE"}))
     pi1 = next(r for r in listed["rows"] if r["sourceRef"] == "PI-0001")
@@ -244,11 +274,11 @@ def test_unit_conversion_and_missing_conversion(guest_space):
     )
 
 
-def test_unregistered_item_blocks_only_that_source(wms):
+def test_unregistered_item_blocks_only_that_source(wms, guest_space):
     """AC-116"""
     client, _, _ = wms
     # FG-C100만 등록한 새 공간: PL-0001(FG-C100)은 반영되고 PL-0005(FG-T300)는 품목 미등록.
-    client2, created2 = _other_guest(client)
+    client2, created2 = _other_guest(client, guest_space[2])
     for code, name, purpose in (("WH-FG", "완제품", "FG"),):
         house = _ok(
             _call(
@@ -285,13 +315,17 @@ def test_unregistered_item_blocks_only_that_source(wms):
     )
 
 
-def _other_guest(client):
+def _other_guest(client, engine=None):
+    """새 게스트 공간. engine을 주면 WMS 시드를 지운 빈 상태로 만든다."""
     other = TestClient(client.app, base_url="https://testserver")
     response = other.post(
         "/api/v1/core/guest-sessions", headers={"Idempotency-Key": str(uuid4())}
     )
     assert response.status_code == 201
-    return other, response.json()["data"]
+    created = response.json()["data"]
+    if engine is not None:
+        _clear(engine, created)
+    return other, created
 
 
 def test_negative_stock_is_allowed_and_flagged(wms):
@@ -575,4 +609,39 @@ def test_other_workspace_cannot_see_documents(wms):
     ]
     other, _ = _other_guest(client)
     assert other.get(f"{W}/documents/{doc_id}").status_code == 404
-    assert other.get(f"{W}/stock").json()["data"]["rows"] == []
+    # 다른 공간에는 그 공간의 시드 전표만 보인다.
+    assert doc_id not in {d["id"] for d in other.get(f"{W}/documents").json()["data"]}
+
+
+def test_seed_demo_flow(guest_space):
+    """FS-024c 시드: 미반영 원천·음수 없음·이동 초안이 보이고, 시드 상태에서 반영·확정할 수 있다."""
+    client, created, _ = guest_space
+    pending = {
+        kind: {
+            r["sourceRef"]
+            for r in _ok(client.get(f"{W}/sources", params={"kind": kind}))["rows"]
+        }
+        for kind in ("MES_RECEIPT", "ERP_SHIPMENT", "ERP_PURCHASE", "MES_ISSUE")
+    }
+    assert pending["MES_RECEIPT"] == {"PL-0006"}
+    assert pending["ERP_SHIPMENT"] == {"SH-0004"}
+    assert pending["ERP_PURCHASE"] == {"PI-0004"}
+    assert pending["MES_ISSUE"] and all(
+        ref >= "LT-0013" for ref in pending["MES_ISSUE"]
+    )
+    assert _stock(client, negativeOnly="true") == []
+    docs = _ok(client.get(f"{W}/documents"))
+    assert len(docs) == 40 and all(
+        d["documentNo"][3:11] == d["documentOn"].replace("-", "")
+        and d["documentMonth"] == d["documentOn"][:7]
+        for d in docs
+    )
+    reversal = next(d for d in docs if d["documentType"] == "REVERSAL")
+    assert reversal["sourceRef"] == "PI-0006" and reversal["reversesDocumentNo"]
+    draft = next(d for d in docs if d["status"] == "draft")
+    assert draft["documentType"] == "TRANSFER"
+    _ok(_call(client, created, "POST", f"/documents/{draft['id']}/post"))
+    lt10 = {r["locationCode"]: r["onHand"] for r in _stock(client, lotNo="LT-0010")}
+    assert lt10 == {"F-A01": "1440.000", "F-A02": "500.000"}
+    assert _sync(client, created, "ERP_SHIPMENT", "ERP:SHIPMENT:SH-0004")["synced"] == 1
+    assert _stock(client, itemCode="FG-C200", lotNo="LT-0008") == []

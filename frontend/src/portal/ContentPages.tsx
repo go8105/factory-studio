@@ -66,8 +66,8 @@ export function FlowMap() {
   );
 }
 export function Cards() {
-  const { card = "wms" } = useParams();
-  if (!["wms", "bems", "scm"].includes(card)) return <NotFound />;
+  const { card = "bems" } = useParams();
+  if (!["bems", "scm"].includes(card)) return <NotFound />;
   return (
     <>
       <PageTitle
@@ -76,7 +76,7 @@ export function Cards() {
         subtitle="설계 범위와 시스템의 연결 지점"
       />
       <nav className="tabs" aria-label="설명 카드">
-        {["wms", "bems", "scm"].map((key) => (
+        {["bems", "scm"].map((key) => (
           <Link
             aria-current={key === card ? "page" : undefined}
             to={`/cards/${key}`}

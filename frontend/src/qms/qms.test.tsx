@@ -136,7 +136,7 @@ const inspection = (over: object = {}) => ({
   ...over,
 });
 
-it("런처에 QMS가 있고 설명 카드는 WMS·BEMS·SCM 3종이다", async () => {
+it("런처에 QMS가 있고 설명 카드는 BEMS·SCM 2종이다", async () => {
   mount("/home");
   expect(
     await screen.findByRole("link", { name: /QMS 품질관리/ }),
@@ -144,7 +144,8 @@ it("런처에 QMS가 있고 설명 카드는 WMS·BEMS·SCM 3종이다", async (
   expect(
     screen.queryByRole("link", { name: /^QMS 품질$/ }),
   ).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: /WMS 물류/ })).toBeVisible();
+  expect(screen.getByRole("link", { name: /BEMS 건물/ })).toBeVisible();
+  expect(screen.queryByRole("link", { name: /WMS 물류/ })).toBeNull();
 });
 
 it("검사 대기는 MES LOT을 읽어 오고 검사 시작은 MES 출처로 만든다", async () => {

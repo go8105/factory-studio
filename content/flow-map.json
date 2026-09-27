@@ -75,8 +75,8 @@
       "id": "inventory_move",
       "label": "재고·비계획 입출고",
       "module": "wms",
-      "kind": "card",
-      "helpKey": null
+      "kind": "solution",
+      "helpKey": "wms/w-03"
     },
     {
       "id": "sales_order",
@@ -185,8 +185,8 @@
     {
       "from": "fg_receipt",
       "to": "inventory_move",
-      "label": "재고 상태를 원장이 관리한다",
-      "kind": "card"
+      "label": "입고·출하를 재고 원장에 반영한다(MES·ERP 조회)",
+      "kind": "solution"
     },
     {
       "from": "master_data",

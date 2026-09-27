@@ -1,12 +1,21 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024a DB·FS-024b API·화면 완료(로컬, head `fs024b_wms_module`). 다음 FS-024c 시드·도움말·흐름 맵.**
+- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS 전체(a~c) 로컬 완료 — 시드 7,691행, head `fs024b_wms_module`. 다음: 사용자 확인 후 push·운영 배포.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-27 FS-024c WMS 시드·도움말·흐름 맵·포털 정리 + 홈 아이콘 크기 (Claude Code)
+- 사용자 지시: `d910955` push, FS-024c 진행, 홈 솔루션 아이콘의 흰 상자를 참고 이미지 크기로 축소.
+- 시드 `_wms` 107행(`sv-20260927-2`, 템플릿 7,691·복사 7,689), 게스트 복사 `document_month`·`WD-` 번호 날짜 이동, 검증 V2·V12 확장. 상세 `docs/modules/wms/WMS_모듈설계_FS-024.md` §17.
+- 도움말 `content/help/wms/w-01~07.md`, 공통 안내·M-06 문구, 흐름 맵 `inventory_move` 업무 노드(스키마 wms 허용), 노드정의서 FS-005a 11번. 홈·헤더·진입 "다섯 시스템", 진입 하단 WMS, 설명 카드 BEMS·SCM(`content/cards/wms.md` 삭제), P-05 WMS 구역.
+- 홈 아이콘: 흰 상자 168px → **84px**(아이콘 40px), 넓은 화면 5개 한 줄, 540px 이하 3·2(72px). 안내 `i` 버튼은 상자 모서리. 데스크톱·호버·360px 스크린샷 확인.
+- 테스트: `test_wms.py` `blank` fixture(시드 지운 빈 공간) + `test_seed_demo_flow`(15), `test_seed`·`test_common` 기대값, `wms.spec` 시드 기준, 흐름 맵·카드·홈 테스트 갱신.
+- 검증: pytest **711 passed · 1 skipped**(13.7분), vitest **470 passed**, typecheck·lint·format·build 0, ruff 0, 홈 브라우저 8 passed, 공식 스모크 첫 실행 209 passed·7 failed(개발 서버가 `ContentPages.tsx` 동적 import를 한 번 못 가져와 포털 문서 화면 7건 연쇄 실패 — portal.spec 단독 83 passed) → **재실행 216 passed**(12.7분). 복사 중앙값 0.470초.
+- 미실행: push·운영 배포(템플릿 재생성·마이그레이션 `fs024a_wms`·`fs024b_wms_module` 적용 필요).
 
 ## 2026-09-27 FS-024b-2 WMS 화면 W-01~07 (Claude Code)
 - 완료: `frontend/src/wms/` 7화면(D·L·L·W·L·P·S 패턴, 새 패턴 없음), 런처 WMS 타일(5개 3·2 배치), 내 공간 스위치, 다른 앱 링크 4곳, `LineIcon` wms, App 라우트. 사이드바 묶음 "재고"로 변경(화면 설계 1장 갱신 — W-02 제목과 중복 제목 방지).

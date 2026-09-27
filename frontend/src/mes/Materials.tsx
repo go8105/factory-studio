@@ -289,8 +289,8 @@ export function Materials() {
         help="mes/m-06"
       />
       <p className="notice" role="note">
-        투입 기록만 남기며 재고를 차감하지 않습니다. 재고 원장은 WMS 영역으로
-        범위에서 제외했습니다.
+        투입 기록만 남기며 MES는 재고를 차감하지 않습니다. 재고 차감은 공정
+        실행이 완료된 뒤 WMS가 이 기록을 반영할 때 합니다(WMS 원천 반영).
       </p>
       {!panelOpen && (
         <ErrorNotice

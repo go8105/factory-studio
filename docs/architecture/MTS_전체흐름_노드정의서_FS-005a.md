@@ -44,7 +44,7 @@ MTO 확장은 `mes.work_order.order_type` / `sales_order_line_id` 예약 컬럼�
         ↓                          │
 [MES] 완제품 입고                  │
         ↓                          │
-[WMS] 재고·비계획 입출고 ··· (MAP_ONLY)
+[WMS] 재고·비계획 입출고 ··· (IMPLEMENTED)
         ↓                          │
 [ERP] 수주                         │
         ↓                          │
@@ -76,7 +76,7 @@ MTO 확장은 `mes.work_order.order_type` / `sales_order_line_id` 예약 컬럼�
 | 8 | `quality_inspection` | 품질검사 | qms | **IMPLEMENTED** (FS-023c) |
 | 9 | `packing` | 패킹(박스/팔레트) | mes | IMPLEMENTED |
 | 10 | `fg_receipt` | 완제품 입고 | mes | IMPLEMENTED |
-| 11 | `inventory_move` | 재고·비계획 입출고 | wms | **MAP_ONLY** |
+| 11 | `inventory_move` | 재고·비계획 입출고 | wms | **IMPLEMENTED** (FS-024c) |
 | 12 | `sales_order` | 수주 | erp | IMPLEMENTED |
 | 13 | `shipment_order` | 출하지시 | erp | IMPLEMENTED |
 | 14 | `shipment` | 출하 | erp | IMPLEMENTED |
@@ -190,7 +190,8 @@ MTO 확장은 `mes.work_order.order_type` / `sales_order_line_id` 예약 컬럼�
 - 자주 발생하는 오류: 입고 후 구성 변경 시도
 - 완료 기준: 해당 패킹 단위가 출하 대상으로 조회된다
 
-**11. `inventory_move` 재고·비계획 입출고 — MAP_ONLY**
+**11. `inventory_move` 재고·비계획 입출고 — IMPLEMENTED (FS-024, 도움말 `wms/w-03`)**
+- FS-024: WMS가 MES 입고·투입과 ERP 출하·매입을 읽기 전용으로 조회해 재고 원장에 반영한다. 음수는 막지 않고 표시한다(D15). 아래는 FS-024 이전 기록이다.
 - 담당 영역: 창고 위치, 재고 이동 원장, 예약, **비계획 입출고**
 - 연결: 완제품 입고와 출하 사이의 재고 상태를 소유한다
 - 미구현 사유: WMS 후속 범위. 현재는 입고 이력과 출하 이력의 대사로 대체한다
@@ -272,7 +273,7 @@ MTO 확장은 `mes.work_order.order_type` / `sales_order_line_id` 예약 컬럼�
 | quality_inspection | packing | 불합격 LOT은 보류하고 패킹에는 배지만 보인다 |
 | operation_result | packing | QMS를 끄면 이 경로 — 확정 양품을 바로 포장한다 |
 | packing | fg_receipt | 포장 단위를 재고로 확정한다 |
-| fg_receipt | inventory_move | 재고 상태를 원장이 관리한다 |
+| fg_receipt | inventory_move | 입고·출하를 재고 원장에 반영한다(MES·ERP 조회) |
 | master_data | sales_order | 거래처가 있어야 수주가 가능하다 |
 | sales_order | shipment_order | 수주 라인을 출하 지시로 전개한다 |
 | fg_receipt | shipment | 입고된 패킹 단위가 출하 대상이다 |

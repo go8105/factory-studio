@@ -98,17 +98,17 @@
 .home-solutions {
   margin-top: 54px;
 }
-/* 앱 5개: 넓은 화면 3·2, 좁은 화면 2열. 마지막 줄은 가운데로 모은다(FS-024 화면 설계 1장). */
+/* 앱 5개: 작은 아이콘 타일(84px)을 넓은 화면 한 줄, 좁은 화면 3·2로. 마지막 줄은 가운데로 모은다. */
 .launcher-grid {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 36px;
-  max-width: 580px; /* 168 × 3 + 36 × 2 = 576: 한 줄에 3개 */
+  gap: 28px;
+  max-width: 780px;
   margin: 0 auto;
 }
 .launcher-item {
-  flex: 0 0 168px;
+  flex: 0 0 132px;
   position: relative;
   min-width: 0;
   padding-bottom: 18px;
@@ -127,10 +127,10 @@
 .launcher-icon {
   display: grid;
   place-items: center;
-  width: 100%;
+  width: 84px;
   aspect-ratio: 1;
   border: 1px solid rgb(26 28 30 / 3%);
-  border-radius: 26px;
+  border-radius: 22px;
   background: var(--surface);
   box-shadow: 0 3px 16px rgb(26 28 30 / 4%);
   transition:
@@ -138,8 +138,8 @@
     border-color 180ms ease;
 }
 .launcher-icon svg {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
 }
 .launcher-app:hover .launcher-icon,
 .launcher-app:focus-visible .launcher-icon {
@@ -147,7 +147,7 @@
   border-color: var(--border-strong);
 }
 .launcher-app h2 {
-  margin: 16px 0 0;
+  margin: 14px 0 0;
   font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.3px;
@@ -163,10 +163,11 @@
 .launcher-app.disabled .launcher-icon svg {
   opacity: 0.5;
 }
+/* 안내 버튼은 아이콘 상자(84px)의 오른쪽 위 모서리에 걸친다. */
 .launcher-info {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: -6px;
+  right: calc(50% - 48px);
   width: 26px;
   min-height: 26px;
   padding: 0;
@@ -216,8 +217,8 @@
     opacity: 1;
     min-height: 36px;
     width: 36px;
-    top: 6px;
-    right: 6px;
+    top: -10px;
+    right: calc(50% - 56px);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -286,14 +287,15 @@
     gap: 16px;
   }
   .launcher-item {
-    flex-basis: calc(50% - 8px);
+    flex-basis: calc((100% - 32px) / 3);
   }
   .launcher-icon {
+    width: 72px;
     border-radius: 20px;
   }
   .launcher-icon svg {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
   }
   .launcher-app h2 {
     font-size: 15px;
@@ -301,15 +303,11 @@
   .launcher-app h2 span {
     font-size: 11px;
   }
-  .launcher-info {
-    top: 4px;
-    right: 4px;
-  }
-  .launcher-item:nth-child(odd) .launcher-detail {
+  .launcher-item:nth-child(3n + 1) .launcher-detail {
     left: 0;
     transform: none;
   }
-  .launcher-item:nth-child(even) .launcher-detail {
+  .launcher-item:nth-child(3n) .launcher-detail {
     left: auto;
     right: 0;
     transform: none;

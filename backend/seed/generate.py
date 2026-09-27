@@ -272,6 +272,7 @@ def create_template(
     _erp(writer, context)
     _fems(writer, context)
     _qms(writer, context)
+    _wms(writer)
     normalize_created_at(connection, workspace_id, generation_id, seed_date)
     return workspace_id, generation_id, dict(writer.counts)
 
@@ -296,6 +297,8 @@ def normalize_created_at(
         "published_at",
         "confirmed_at",
         "completed_at",
+        "posted_at",
+        "moved_at",
     )
     date_priority = (
         "quoted_on",
@@ -2322,3 +2325,346 @@ def _qms(writer: SeedWriter, context: dict[str, Any]) -> None:
             }
         )
     writer.add("qms.quality_hold", holds)
+
+
+# FS-024 §10. 원천 반영 전표는 WMS가 "반영"을 눌렀을 때와 같은 모양으로 심는다(원천 키·LOT·단위 환산).
+# 시연용 미반영: MES 입고 PL-0006, ERP 매입 PI-0004, ERP 출하 SH-0004, W 계열 LOT의 완료 실행 투입.
+WMS_UNSYNCED = {"MES:RECEIPT:PL-0006", "ERP:PURCHASE:PI-0004", "ERP:SHIPMENT:SH-0004"}
+WMS_PIN_FACTOR = Decimal("10000")
+
+
+def _wms_sources(writer: SeedWriter) -> list[dict[str, Any]]:
+    """인터페이스(fs.mes/fs.erp interface)와 같은 조건으로 원천을 읽는다. 시간순."""
+    c, p = writer.connection, {"w": writer.workspace_id, "g": writer.generation_id}
+    sources: list[dict[str, Any]] = []
+    receipts: dict[str, dict[str, Any]] = {}
+    for r in c.execute(
+        text(
+            "SELECT p.packing_no, r.received_at, t.lot_no, i.item_code, t.unit, sum(m.packed_qty) qty "
+            "FROM mes.finished_goods_receipt r JOIN mes.packing_unit p ON p.workspace_id=r.workspace_id "
+            "AND p.generation_id=r.generation_id AND p.id=r.packing_unit_id "
+            "JOIN mes.packing_unit b ON b.workspace_id=p.workspace_id AND b.generation_id=p.generation_id AND b.parent_packing_unit_id=p.id "
+            "JOIN mes.packing_member m ON m.workspace_id=b.workspace_id AND m.generation_id=b.generation_id AND m.packing_unit_id=b.id "
+            "JOIN mes.lot t ON t.workspace_id=m.workspace_id AND t.generation_id=m.generation_id AND t.id=m.lot_id "
+            "JOIN mes.work_order o ON o.workspace_id=t.workspace_id AND o.generation_id=t.generation_id AND o.id=t.work_order_id "
+            "JOIN mes.item i ON i.workspace_id=o.workspace_id AND i.generation_id=o.generation_id AND i.id=o.item_id "
+            "WHERE r.workspace_id=:w AND r.generation_id=:g AND r.status='confirmed' "
+            "GROUP BY p.packing_no, r.received_at, t.lot_no, i.item_code, t.unit ORDER BY p.packing_no, t.lot_no"
+        ),
+        p,
+    ).mappings():
+        entry = receipts.setdefault(
+            r["packing_no"],
+            {
+                "kind": "MES_RECEIPT",
+                "key": f"MES:RECEIPT:{r['packing_no']}",
+                "ref": r["packing_no"],
+                "at": r["received_at"],
+                "lines": [],
+            },
+        )
+        entry["lines"].append((r["item_code"], r["qty"], r["unit"], r["lot_no"]))
+    sources += receipts.values()
+    issues: dict[str, dict[str, Any]] = {}
+    for r in c.execute(
+        text(
+            "SELECT t.lot_no, pr.process_code, e.ended_at, i.item_code, mi.unit, sum(mi.issued_qty) qty "
+            "FROM mes.operation_execution e JOIN mes.lot t ON t.workspace_id=e.workspace_id AND t.generation_id=e.generation_id AND t.id=e.lot_id "
+            "JOIN mes.route_step s ON s.workspace_id=e.workspace_id AND s.generation_id=e.generation_id AND s.id=e.route_step_id "
+            "JOIN mes.process pr ON pr.workspace_id=s.workspace_id AND pr.generation_id=s.generation_id AND pr.id=s.process_id "
+            "JOIN mes.material_issue mi ON mi.workspace_id=e.workspace_id AND mi.generation_id=e.generation_id AND mi.execution_id=e.id "
+            "JOIN mes.item i ON i.workspace_id=mi.workspace_id AND i.generation_id=mi.generation_id AND i.id=mi.material_item_id "
+            "WHERE e.workspace_id=:w AND e.generation_id=:g AND e.status='completed' "
+            "GROUP BY t.lot_no, pr.process_code, e.ended_at, i.item_code, mi.unit"
+        ),
+        p,
+    ).mappings():
+        ref = f"{r['lot_no']}:{r['process_code']}"
+        entry = issues.setdefault(
+            ref,
+            {
+                "kind": "MES_ISSUE",
+                "key": f"MES:ISSUE:{ref}",
+                "ref": ref,
+                "at": r["ended_at"],
+                "lines": [],
+            },
+        )
+        entry["lines"].append((r["item_code"], r["qty"], r["unit"], None))
+    sources += issues.values()
+    shipments: dict[str, dict[str, Any]] = {}
+    for r in c.execute(
+        text(
+            "SELECT sh.shipment_no, sh.shipped_at, i.item_code, l.shipped_qty qty, l.shipped_uom unit, l.packing_no "
+            "FROM erp.shipment sh JOIN erp.shipment_line l ON l.workspace_id=sh.workspace_id AND l.generation_id=sh.generation_id AND l.shipment_id=sh.id "
+            "JOIN erp.item i ON i.workspace_id=l.workspace_id AND i.generation_id=l.generation_id AND i.id=l.item_id "
+            "WHERE sh.workspace_id=:w AND sh.generation_id=:g AND sh.status='confirmed' ORDER BY sh.shipment_no, l.id"
+        ),
+        p,
+    ).mappings():
+        entry = shipments.setdefault(
+            r["shipment_no"],
+            {
+                "kind": "ERP_SHIPMENT",
+                "key": f"ERP:SHIPMENT:{r['shipment_no']}",
+                "ref": r["shipment_no"],
+                "at": r["shipped_at"],
+                "lines": [],
+            },
+        )
+        entry["lines"].append((r["item_code"], r["qty"], r["unit"], r["packing_no"]))
+    sources += shipments.values()
+    purchases: dict[str, dict[str, Any]] = {}
+    for r in c.execute(
+        text(
+            "SELECT p.invoice_no, p.confirmed_at, p.cancelled_at, i.item_code, l.quantity qty, l.unit "
+            "FROM erp.purchase_invoice p JOIN erp.purchase_invoice_line l ON l.workspace_id=p.workspace_id "
+            "AND l.generation_id=p.generation_id AND l.purchase_invoice_id=p.id "
+            "JOIN erp.item i ON i.workspace_id=l.workspace_id AND i.generation_id=l.generation_id AND i.id=l.item_id "
+            "WHERE p.workspace_id=:w AND p.generation_id=:g AND p.confirmed_at IS NOT NULL ORDER BY p.invoice_no, l.line_no"
+        ),
+        p,
+    ).mappings():
+        entry = purchases.setdefault(
+            r["invoice_no"],
+            {
+                "kind": "ERP_PURCHASE",
+                "key": f"ERP:PURCHASE:{r['invoice_no']}",
+                "ref": r["invoice_no"],
+                "at": r["confirmed_at"],
+                "cancelled": r["cancelled_at"],
+                "lines": [],
+            },
+        )
+        entry["lines"].append((r["item_code"], r["qty"], r["unit"], None))
+    sources += purchases.values()
+    return sorted(sources, key=lambda s: (s["at"], s["key"]))
+
+
+def _wms(writer: SeedWriter) -> None:
+    seed_date = writer.seed_date
+    items = {row["code"]: row for row in codebook()["items"]}
+    houses = writer.add(
+        "wms.warehouse",
+        [
+            {
+                "code": "WH-RAW",
+                "name": "원자재 창고",
+                "purpose": "RAW",
+                "is_active": True,
+            },
+            {
+                "code": "WH-FG",
+                "name": "완제품 창고",
+                "purpose": "FG",
+                "is_active": True,
+            },
+        ],
+        "code",
+    )
+    locations = writer.add(
+        "wms.storage_location",
+        [
+            {
+                "warehouse_id": houses[h],
+                "code": code,
+                "name": name,
+                "is_default": default,
+                "is_active": True,
+            }
+            for h, code, name, default in (
+                ("WH-RAW", "R-A01", "원자재 기본 보관", True),
+                ("WH-RAW", "R-A02", "원자재 예비", False),
+                ("WH-FG", "F-A01", "완제품 기본 보관", True),
+                ("WH-FG", "F-A02", "완제품 출하 대기", False),
+            )
+        ],
+        "code",
+    )
+    codes = ("RM-PBT", "RM-PIN", "FG-C100", "FG-C200", "FG-T300")
+    wms_items = writer.add(
+        "wms.item",
+        [
+            {
+                "item_code": code,
+                "name": items[code]["name"],
+                "base_unit": items[code]["unit"],
+                "item_class": "FG" if code.startswith("FG") else "RAW",
+                "lot_tracked": code.startswith("FG"),
+                "is_active": True,
+            }
+            for code in codes
+        ],
+        "item_code",
+    )
+    writer.add(
+        "wms.item_unit_conversion",
+        [
+            {
+                "item_id": wms_items["RM-PIN"],
+                "from_unit": "BOX",
+                "factor": WMS_PIN_FACTOR,
+            }
+        ],
+    )
+
+    numbers: dict[date, int] = defaultdict(int)
+    documents: list[tuple[Row, list[Row]]] = []
+    receipt_lots: dict[str, list[tuple[str, Decimal]]] = {}
+
+    def base_qty(code: str, qty: Decimal, unit: str) -> Decimal:
+        return qty * WMS_PIN_FACTOR if code == "RM-PIN" and unit == "BOX" else qty
+
+    def document(
+        kind: str, at_: datetime, status: str = "posted", **values: Any
+    ) -> Row:
+        on = at_.astimezone(SEOUL).date()
+        return {
+            "document_type": kind,
+            "status": status,
+            "source_key": None,
+            "source_ref": None,
+            "reverses_document_id": None,
+            "reason_code": None,
+            "document_on": on,
+            "document_month": f"{on:%Y-%m}",
+            "posted_at": at_ if status == "posted" else None,
+            "note": None,
+            **values,
+        }
+
+    def move(
+        code: str,
+        location: str,
+        qty: Decimal,
+        at_: datetime,
+        lot: str | None = None,
+        source: tuple[Decimal, str] | None = None,
+    ) -> Row:
+        return {
+            "item_id": wms_items[code],
+            "location_id": locations[location],
+            "lot_no": lot,
+            "qty_delta": qty,
+            "source_qty": None if source is None else source[0],
+            "source_unit": None if source is None else source[1],
+            "moved_at": at_,
+        }
+
+    opening_at = at(seed_date, -91, 9)
+    documents.append(
+        (
+            document("OPENING", opening_at, note="WMS 도입 기초재고"),
+            [
+                move("RM-PBT", "R-A01", Decimal("200"), opening_at),
+                move("RM-PIN", "R-A01", Decimal("50000"), opening_at),
+            ],
+        )
+    )
+    for source in _wms_sources(writer):
+        if source["key"] in WMS_UNSYNCED or (
+            source["kind"] == "MES_ISSUE"
+            and not source["ref"].startswith(
+                tuple(f"LT-{i:04d}:" for i in range(1, 13))
+            )
+        ):
+            continue
+        at_ = source["at"]
+        moves = []
+        for code, qty, unit, extra in source["lines"]:
+            if source["kind"] == "MES_RECEIPT":
+                moves.append(move(code, "F-A01", qty, at_, extra, (qty, unit)))
+                receipt_lots.setdefault(source["ref"], []).append((extra, qty))
+            elif source["kind"] == "ERP_SHIPMENT":
+                lots = receipt_lots.get(extra or "", [])
+                assert sum(q for _, q in lots) == qty, f"{source['ref']} LOT 전량 출하"
+                moves += [
+                    move(code, "F-A01", -q, at_, lot, (q, unit)) for lot, q in lots
+                ]
+            else:
+                sign = -1 if source["kind"] == "MES_ISSUE" else 1
+                moves.append(
+                    move(
+                        code,
+                        "R-A01",
+                        sign * base_qty(code, qty, unit),
+                        at_,
+                        None,
+                        (qty, unit),
+                    )
+                )
+        documents.append(
+            (
+                document(
+                    source["kind"],
+                    at_,
+                    source_key=source["key"],
+                    source_ref=source["ref"],
+                ),
+                moves,
+            )
+        )
+        if source.get("cancelled"):
+            cancelled = source["cancelled"]
+            documents.append(
+                (
+                    document(
+                        "REVERSAL",
+                        cancelled,
+                        source_key=source["key"],
+                        source_ref=source["ref"],
+                        note="ERP 매입 취소 반영",
+                        reverses=len(documents) - 1,
+                    ),
+                    [
+                        {**m, "qty_delta": -m["qty_delta"], "moved_at": cancelled}
+                        for m in moves
+                    ],
+                )
+            )
+    scrap_at = at(seed_date, -20, 14)
+    documents.append(
+        (
+            document(
+                "ADJUSTMENT",
+                scrap_at,
+                reason_code="SCRAP",
+                note="외관 손상 폐기(QMS 확인)",
+            ),
+            [move("FG-C100", "F-A01", Decimal("-20"), scrap_at, "LT-0007")],
+        )
+    )
+    draft_at = at(seed_date, -1, 16)
+    documents.append(
+        (
+            document(
+                "TRANSFER", draft_at, status="draft", note="출하 대기 위치로 이동 준비"
+            ),
+            [
+                move("FG-C100", "F-A01", Decimal("-500"), draft_at, "LT-0010"),
+                move("FG-C100", "F-A02", Decimal("500"), draft_at, "LT-0010"),
+            ],
+        )
+    )
+    move_rows: list[Row] = []
+    order = sorted(
+        range(len(documents)), key=lambda i: (documents[i][0]["document_on"], i)
+    )
+    doc_ids: dict[int, int] = {}
+    for index in order:
+        header, moves = documents[index]
+        numbers[header["document_on"]] += 1
+        row = {k: v for k, v in header.items() if k != "reverses"}
+        row["document_no"] = (
+            f"WD-{header['document_on']:%Y%m%d}-{numbers[header['document_on']]:03d}"
+        )
+        if "reverses" in header:
+            row["reverses_document_id"] = doc_ids[header["reverses"]]
+        doc_id = writer.add("wms.stock_document", [row], "document_no")[
+            row["document_no"]
+        ]
+        doc_ids[index] = doc_id
+        move_rows += [
+            {**m, "document_id": doc_id, "line_no": n} for n, m in enumerate(moves, 1)
+        ]
+    writer.add("wms.stock_move", move_rows)

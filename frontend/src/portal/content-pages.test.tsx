@@ -43,9 +43,10 @@ it("화면 ID마다 도움말 파일이 있다", () => {
     count("erp/e-"),
     count("fems/f-"),
     count("qms/q-"),
-  ]).toEqual([7, 15, 18, 14, 6]);
+    count("wms/w-"),
+  ]).toEqual([7, 15, 18, 14, 6, 7]);
 });
-it.each(["wms", "bems"])("%s 카드는 세 항목을 모두 갖춘다", (key) => {
+it.each(["bems"])("%s 카드는 세 항목을 모두 갖춘다", (key) => {
   const headings = cards[key].match(/^## .+$/gm);
   expect(headings).toEqual([
     "## 무엇을 하는 시스템인가",
@@ -69,9 +70,17 @@ it("P-03 실적 확정 뒤 품질검사·패킹 연결은 모두 실선이다", 
 });
 it("P-03 설명 카드로 가는 연결은 점선이다", async () => {
   show("/flow");
-  const list = await screen.findByRole("list", { name: "완제품 입고 연결" });
-  const card = within(list).getByRole("link", { name: /재고/ });
+  const list = await screen.findByRole("list", {
+    name: "에너지 기준정보·조회 연결",
+  });
+  const card = within(list).getByRole("link", { name: /건물 에너지/ });
   expect(card.closest("li")).toHaveClass("dashed");
+});
+it("P-03 완제품 입고 → 재고 연결은 실선(WMS 구현)이다", async () => {
+  show("/flow");
+  const list = await screen.findByRole("list", { name: "완제품 입고 연결" });
+  const stock = within(list).getByRole("link", { name: /재고/ });
+  expect(stock.closest("li")).not.toHaveClass("dashed");
 });
 it("P-04 정의되지 않은 카드는 404로 처리한다", async () => {
   show("/cards/mes");
