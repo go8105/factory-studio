@@ -30,7 +30,7 @@
 
 ## 다음 할 일
 
-- **FS-023c + 홈 UI 후속(사용자 확인 후)**: push(`881672e`·`d93b757` 포함) → 서버 pull·API 재시작·프런트 빌드 → **`seed.cli template --date 오늘` 재실행**(배포절차 4-3 아래 "시드가 바뀐 배포"). 마이그레이션 변경 없음(head `fs023b_qms_module` 유지). 운영 게스트로 Q-03에 LT-0017, M-08에 LT-0016 "QMS 보류" 배지 확인.
+- **운영 반영 대기(push 완료 `0739167`, 서버 미반영)**: Claude Code의 운영 SSH(`ssh root@158.247.236.136`)는 자동 모드 권한 분류기에 막혀 사용자가 실행한다. 순서: 배포절차 8장(pull·sync·alembic·API 재시작) → 6장(프런트 worktree 빌드·rsync) → 서버 pull·API 재시작·프런트 빌드 → **`seed.cli template --date 오늘` 재실행**(배포절차 4-3 아래 "시드가 바뀐 배포"). 마이그레이션 변경 없음(head `fs023b_qms_module` 유지). 운영 게스트로 Q-03에 LT-0017, M-08에 LT-0016 "QMS 보류" 배지 확인.
 - `test_qms.py`의 API 테스트는 `qms` fixture가 게스트 QMS 시드를 지우고 시작한다. 시드에 의존하는 검사는 `seeded` fixture를 쓴다.
 
 1. ERP 분담 확정(2026-09-26): **FS-019b~h 전부 Claude Code**(메인 폴더, `fs-019<x>-*`). Codex는 ERP를 하지 않는다.
