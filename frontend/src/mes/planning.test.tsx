@@ -201,6 +201,7 @@ it("판매계획 코드가 선택임을 안내하고 빈 값은 null로 보낸�
   expect(
     await screen.findByText(/판매계획 코드는 직접 입력합니다/),
   ).toBeVisible();
+  fireEvent.click(await screen.findByRole("button", { name: "계획 만들기" }));
   const form = await screen.findByRole("form", { name: "생산계획 만들기" });
   fireEvent.change(within(form).getByLabelText("계획 코드"), {
     target: { value: "pp-2026-11" },

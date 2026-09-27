@@ -6,10 +6,11 @@ import {
   DataTable,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
+  useDiscardGuard,
   type Column,
-  RevealAnchor,
 } from "../shared/components";
 import {
   fieldErrors,
@@ -76,6 +77,8 @@ export function Materials() {
     issuedQty: "",
     unit: "",
   });
+  const [panelOpen, setPanelOpen] = useState(false);
+
   const {
     send,
     pending,
@@ -106,6 +109,9 @@ export function Materials() {
     return () => controller.abort();
   }, [selectedId, tick]);
 
+  const dirty = panelOpen && Boolean(form.issuedQty.trim());
+  const guard = useDiscardGuard(dirty);
+
   if (moduleOff(error)) return <ModuleOff />;
   const [running, items, processes, equipments, lots] = data ?? [
     undefined,
@@ -126,7 +132,6 @@ export function Materials() {
     const i = item(id);
     return i ? [i.baseUnit, ...i.conversions.map((c) => c.fromUnit)] : [];
   };
-  // 자재로 투입할 수 있는 LOT: 같은 품목으로 생산이 끝난 LOT(반제품 등)
   const materialLots = lots.filter(
     (l) => l.itemId === form.materialItemId && l.status === "completed",
   );
@@ -142,6 +147,7 @@ export function Materials() {
       issuedQty: "",
       unit: first?.baseUnit ?? "",
     });
+    setPanelOpen(true);
   }
 
   function fillSuggestion(r: Requirement) {
@@ -151,6 +157,12 @@ export function Materials() {
       issuedQty: String(Number(r.suggestedQty)),
       unit: r.unit,
     });
+    setPanelOpen(true);
+    setError(undefined);
+  }
+
+  function closePanel() {
+    setPanelOpen(false);
     setError(undefined);
   }
 
@@ -180,7 +192,7 @@ export function Materials() {
           type="button"
           className="link-button"
           aria-pressed={r.id === selectedId}
-          onClick={() => select(r.id)}
+          onClick={() => guard.guard(() => select(r.id))}
         >
           투입
         </button>
@@ -200,6 +212,7 @@ export function Materials() {
         r.equipmentId,
     },
   ];
+
   const reqColumns: Column<Requirement & { id: number }>[] = [
     {
       key: "materialItemId",
@@ -239,6 +252,7 @@ export function Materials() {
     },
     { key: "suggestedQty", label: "제안", render: (r) => num(r.suggestedQty) },
   ];
+
   const issueColumns: Column<Issue>[] = [
     {
       key: "materialItemId",
@@ -267,7 +281,7 @@ export function Materials() {
   ];
 
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="M-06"
         title="자재 투입"
@@ -278,170 +292,204 @@ export function Materials() {
         투입 기록만 남기며 재고를 차감하지 않습니다. 재고 원장은 WMS 영역으로
         범위에서 제외했습니다.
       </p>
-      <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
+      {!panelOpen && (
+        <ErrorNotice
+          error={Object.keys(errors).length ? undefined : saveError}
+        />
+      )}
       <ErrorNotice error={error} retry={reload} />
       {!running ? (
         !error && <Loading />
       ) : (
-        <div className="master-grid">
-          <section>
-            <DataTable
-              rows={running}
-              columns={runningColumns}
-              caption="실행 중인 공정"
-              offset={0}
-              total={running.length}
-              limit={running.length || 1}
-              onPage={() => undefined}
-              empty={
-                <p className="muted">
-                  실행 중인 공정이 없습니다. 투입은 실적을 확정하기 전 공정에만
-                  기록합니다.
-                </p>
-              }
-            />
-          </section>
-          <section className="panel" aria-label="자재 투입 기록">
-            {!selected ? (
-              <p className="muted">
-                실행 중 공정의 &quot;투입&quot;을 누르세요.
-              </p>
-            ) : detailError ? (
-              <ErrorNotice error={detailError} />
-            ) : !detail ? (
-              <Loading />
-            ) : (
-              <>
-                <h2>
-                  {selected.lotNo} ·{" "}
-                  {processes.find((p) => p.id === selected.processId)?.name}{" "}
-                  투입
-                </h2>
-                <RevealAnchor when={selectedLot} />
-                {selectedLot && (
+        <div className="split-view fill">
+          <section className="fill">
+            <div className="section-block">
+              <DataTable
+                rows={running}
+                columns={runningColumns}
+                caption="실행 중인 공정"
+                offset={0}
+                total={running.length}
+                limit={running.length || 1}
+                onPage={() => undefined}
+                empty={
                   <p className="muted">
+                    실행 중인 공정이 없습니다. 투입은 실적을 확정하기 전
+                    공정에만 기록합니다.
+                  </p>
+                }
+              />
+            </div>
+            {selected && (
+              <div className="section-block">
+                <div className="section-heading">
+                  <h2>
+                    {selected.lotNo} ·{" "}
+                    {processes.find((p) => p.id === selected.processId)?.name}{" "}
+                    투입 상세
+                  </h2>
+                  {!panelOpen && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setPanelOpen(true)}
+                    >
+                      투입 기록 열기
+                    </button>
+                  )}
+                </div>
+                {selectedLot && (
+                  <p className="muted" role="note">
                     LOT 계획 {num(selectedLot.planQty)} {selectedLot.unit} 기준
                   </p>
                 )}
-                {detail.req.length === 0 ? (
-                  <p className="notice">
-                    BOM 없이 발행된 지시라 기준 소요량이 없습니다. 투입량을 직접
-                    입력하세요.
-                  </p>
+                {detailError ? (
+                  <ErrorNotice error={detailError} />
+                ) : !detail ? (
+                  <Loading />
                 ) : (
-                  <DataTable
-                    rows={detail.req.map((r) => ({
-                      ...r,
-                      id: r.materialItemId,
-                    }))}
-                    columns={reqColumns}
-                    caption="BOM 기준 소요량"
-                    offset={0}
-                    total={detail.req.length}
-                    limit={detail.req.length}
-                    onPage={() => undefined}
-                    empty={null}
-                  />
+                  <>
+                    {detail.req.length === 0 ? (
+                      <p className="notice">
+                        BOM 없이 발행된 지시라 기준 소요량이 없습니다. 투입량을
+                        직접 입력하세요.
+                      </p>
+                    ) : (
+                      <DataTable
+                        rows={detail.req.map((r) => ({
+                          ...r,
+                          id: r.materialItemId,
+                        }))}
+                        columns={reqColumns}
+                        caption="BOM 기준 소요량"
+                        offset={0}
+                        total={detail.req.length}
+                        limit={detail.req.length}
+                        onPage={() => undefined}
+                        empty={null}
+                      />
+                    )}
+                    <DataTable
+                      rows={detail.issues}
+                      columns={issueColumns}
+                      caption="이 공정의 투입 기록"
+                      offset={0}
+                      total={detail.issues.length}
+                      limit={detail.issues.length || 1}
+                      onPage={() => undefined}
+                      empty={
+                        <p className="muted">아직 투입 기록이 없습니다.</p>
+                      }
+                    />
+                  </>
                 )}
-                <DataTable
-                  rows={detail.issues}
-                  columns={issueColumns}
-                  caption="이 공정의 투입 기록"
-                  offset={0}
-                  total={detail.issues.length}
-                  limit={detail.issues.length || 1}
-                  onPage={() => undefined}
-                  empty={<p className="muted">아직 투입 기록이 없습니다.</p>}
-                />
-                <form
-                  aria-label="자재 투입 등록"
-                  onSubmit={(e) => void submit(e)}
-                >
-                  <div className="field">
-                    <label htmlFor="issue-item">자재</label>
-                    <select
-                      id="issue-item"
-                      value={form.materialItemId}
-                      onChange={(e) => {
-                        const id = Number(e.target.value);
-                        setForm({
-                          ...form,
-                          materialItemId: id,
-                          materialLotId: "",
-                          unit: item(id)?.baseUnit ?? "",
-                        });
-                      }}
-                    >
-                      {items.map((i) => (
-                        <option key={i.id} value={i.id}>
-                          {i.itemCode} {i.name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.materialItemId && (
-                      <small>{errors.materialItemId}</small>
-                    )}
-                  </div>
-                  <Field
-                    label="투입 수량"
-                    value={form.issuedQty}
-                    required
-                    inputMode="decimal"
-                    error={errors.issuedQty}
-                    onChange={(e) =>
-                      setForm({ ...form, issuedQty: e.target.value })
-                    }
-                  />
-                  <div className="field">
-                    <label htmlFor="issue-unit">단위</label>
-                    <select
-                      id="issue-unit"
-                      value={form.unit}
-                      onChange={(e) =>
-                        setForm({ ...form, unit: e.target.value })
-                      }
-                    >
-                      {units(form.materialItemId).map((u) => (
-                        <option key={u}>{u}</option>
-                      ))}
-                    </select>
-                    {errors.unit && <small>{errors.unit}</small>}
-                  </div>
-                  <div className="field">
-                    <label htmlFor="issue-lot">자재 LOT (선택)</label>
-                    <select
-                      id="issue-lot"
-                      value={form.materialLotId}
-                      onChange={(e) =>
-                        setForm({ ...form, materialLotId: e.target.value })
-                      }
-                    >
-                      <option value="">지정 안 함 (품목 단위 투입)</option>
-                      {materialLots.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.lotNo}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.materialLotId && (
-                      <small>{errors.materialLotId}</small>
-                    )}
-                  </div>
-                  <p className="muted">
-                    LOT을 지정하지 않은 같은 자재는 한 공정에 한 번만
-                    기록합니다. 바꾸려면 기존 기록을 지우고 다시 입력하세요.
-                  </p>
-                  <div className="form-actions">
-                    <button type="submit" disabled={pending}>
-                      투입 기록
-                    </button>
-                  </div>
-                </form>
-              </>
+              </div>
+            )}
+            {!selected && (
+              <p className="muted" role="note">
+                실행 중 공정의 &quot;투입&quot;을 누르세요.
+              </p>
             )}
           </section>
+          {panelOpen && selected && (
+            <FormPanel
+              title="자재 투입 등록"
+              guard={guard}
+              onClose={closePanel}
+              onSubmit={(e) => void submit(e)}
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
+                    투입 기록
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closePanel)}
+                  >
+                    닫기
+                  </button>
+                </>
+              }
+            >
+              <p className="muted">{selected.lotNo} 자재 투입</p>
+              <ErrorNotice
+                error={Object.keys(errors).length ? undefined : saveError}
+              />
+              <div className="field">
+                <label htmlFor="issue-item">자재</label>
+                <select
+                  id="issue-item"
+                  value={form.materialItemId}
+                  onChange={(e) => {
+                    const id = Number(e.target.value);
+                    setForm({
+                      ...form,
+                      materialItemId: id,
+                      materialLotId: "",
+                      unit: item(id)?.baseUnit ?? "",
+                    });
+                  }}
+                >
+                  {items.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.itemCode} {i.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.materialItemId && (
+                  <small>{errors.materialItemId}</small>
+                )}
+              </div>
+              <Field
+                label="투입 수량"
+                value={form.issuedQty}
+                required
+                inputMode="decimal"
+                error={errors.issuedQty}
+                onChange={(e) =>
+                  setForm({ ...form, issuedQty: e.target.value })
+                }
+              />
+              <div className="field">
+                <label htmlFor="issue-unit">단위</label>
+                <select
+                  id="issue-unit"
+                  value={form.unit}
+                  onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                >
+                  {units(form.materialItemId).map((u) => (
+                    <option key={u}>{u}</option>
+                  ))}
+                </select>
+                {errors.unit && <small>{errors.unit}</small>}
+              </div>
+              <div className="field">
+                <label htmlFor="issue-lot">자재 LOT (선택)</label>
+                <select
+                  id="issue-lot"
+                  value={form.materialLotId}
+                  onChange={(e) =>
+                    setForm({ ...form, materialLotId: e.target.value })
+                  }
+                >
+                  <option value="">지정 안 함 (품목 단위 투입)</option>
+                  {materialLots.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.lotNo}
+                    </option>
+                  ))}
+                </select>
+                {errors.materialLotId && <small>{errors.materialLotId}</small>}
+              </div>
+              <p className="muted">
+                LOT을 지정하지 않은 같은 자재는 한 공정에 한 번만 기록합니다.
+                바꾸려면 기존 기록을 지우고 다시 입력하세요.
+              </p>
+            </FormPanel>
+          )}
         </div>
       )}
-    </>
+    </div>
   );
 }

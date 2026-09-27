@@ -5,8 +5,10 @@ import {
   DataTable,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
+  useDiscardGuard,
   type Column,
 } from "../shared/components";
 import { fieldErrors, ModuleOff, moduleOff, useLists, useSend } from "./common";
@@ -77,6 +79,9 @@ export function Packing() {
   const [pallet, setPallet] = useState<number>();
   const [kindFilter, setKindFilter] = useState("");
 
+  const dirty = Boolean(selectedId && member.qty.trim());
+  const guard = useDiscardGuard(dirty);
+
   if (moduleOff(error)) return <ModuleOff />;
   const [units, lots, items] = data ?? [undefined, [], []];
   const errors = fieldErrors(saveError);
@@ -86,7 +91,7 @@ export function Packing() {
       : (items.find((i) => i.id === id)?.itemCode ?? String(id));
   const selected = units?.find((u) => u.id === selectedId);
   const byId = (id: number) => units?.find((u) => u.id === id);
-  // 한 BOX에는 같은 품목만: 이미 담긴 품목이 있으면 그 품목 LOT만 고른다
+
   const choices = lots.filter(
     (l) => selected?.itemId == null || l.itemId === selected.itemId,
   );
@@ -106,6 +111,13 @@ export function Packing() {
     setError(undefined);
     setMember({ lotId: 0, qty: "" });
     setPallet(undefined);
+  }
+
+  function closePanel() {
+    setSelectedId(undefined);
+    setMember({ lotId: 0, qty: "" });
+    setPallet(undefined);
+    setError(undefined);
   }
 
   async function create(kind: "BOX" | "PALLET") {
@@ -140,6 +152,7 @@ export function Packing() {
     { key: "packedQty", label: "담음", render: (r) => num(r.packedQty) },
     { key: "remainingQty", label: "잔여", render: (r) => num(r.remainingQty) },
   ];
+
   const unitColumns: Column<PackingUnit>[] = [
     { key: "packingNo", label: "포장 번호" },
     {
@@ -151,7 +164,7 @@ export function Packing() {
             type="button"
             className="link-button"
             aria-pressed={r.id === selectedId}
-            onClick={() => select(r.id)}
+            onClick={() => guard.guard(() => select(r.id))}
           >
             열기
           </button>
@@ -175,6 +188,7 @@ export function Packing() {
           : `BOX ${r.childIds.length}`,
     },
   ];
+
   const memberColumns: Column<Member>[] = [
     { key: "lotNo", label: "LOT" },
     {
@@ -206,40 +220,46 @@ export function Packing() {
   ];
 
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="M-08"
         title="패킹"
         subtitle="LOT 양품을 BOX에 담고, 닫힌 BOX를 PALLET에 묶습니다"
         help="mes/m-08"
       />
-      <p className="muted">
+      <p className="muted" role="note">
         BOX → PALLET 2단 포장이며 한 포장에는 한 품목만 담습니다. LOT마다 최종
         양품을 넘겨 담을 수 없고, 전량 불량 LOT은 담을 수 없습니다. 닫은 BOX의
         내용과 닫은 PALLET의 구성은 바꿀 수 없습니다.
       </p>
-      <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
+      {!selected && (
+        <ErrorNotice
+          error={Object.keys(errors).length ? undefined : saveError}
+        />
+      )}
       <ErrorNotice error={error} retry={reload} />
       {!units ? (
         !error && <Loading />
       ) : (
-        <>
-          <section>
-            <h2>담을 수 있는 LOT</h2>
-            <DataTable
-              rows={lots.map((l) => ({ ...l, id: l.lotId }))}
-              columns={lotColumns}
-              caption="담을 수 있는 LOT"
-              offset={0}
-              total={lots.length}
-              limit={lots.length || 1}
-              onPage={() => undefined}
-              empty={<p className="muted">담을 양품이 남은 LOT이 없습니다.</p>}
-            />
-          </section>
-          <div className="master-grid">
-            <section>
-              <div className="toolbar">
+        <div className="split-view fill">
+          <section className="fill">
+            <div className="section-block">
+              <h2>담을 수 있는 LOT</h2>
+              <DataTable
+                rows={lots.map((l) => ({ ...l, id: l.lotId }))}
+                columns={lotColumns}
+                caption="담을 수 있는 LOT"
+                offset={0}
+                total={lots.length}
+                limit={lots.length || 1}
+                onPage={() => undefined}
+                empty={
+                  <p className="muted">담을 양품이 남은 LOT이 없습니다.</p>
+                }
+              />
+            </div>
+            <div className="section-block">
+              <div className="filter-bar">
                 <button
                   type="button"
                   className="secondary"
@@ -256,9 +276,7 @@ export function Packing() {
                 >
                   새 PALLET
                 </button>
-                <label htmlFor="unit-kind" className="filter-inline">
-                  종류:
-                </label>
+                <label htmlFor="unit-kind">종류:</label>
                 <select
                   id="unit-kind"
                   value={kindFilter}
@@ -281,205 +299,223 @@ export function Packing() {
                   <p className="muted">포장이 없습니다. 새 BOX를 만드세요.</p>
                 }
               />
-            </section>
-            <section className="panel" aria-label="포장 구성">
-              {!selected ? (
-                <p className="muted">
-                  포장 목록에서 &quot;열기&quot;를 누르세요.
+            </div>
+          </section>
+          {selected && (
+            <FormPanel
+              key={selected.id}
+              title={selected.packingNo}
+              guard={guard}
+              onClose={closePanel}
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (
+                  selected.packingKind === "BOX" &&
+                  selected.status === "open"
+                ) {
+                  void submitMember(e);
+                }
+              }}
+              actions={
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => guard.guard(closePanel)}
+                >
+                  닫기
+                </button>
+              }
+            >
+              <div className="field">
+                <span className="label">포장 번호</span>
+                <p>
+                  <strong>{selected.packingNo}</strong>{" "}
+                  <UnitStatus unit={selected} />
                 </p>
-              ) : (
+              </div>
+              <ErrorNotice
+                error={Object.keys(errors).length ? undefined : saveError}
+              />
+              {selected.packingKind === "BOX" ? (
                 <>
-                  <h2>
-                    {selected.packingNo} <UnitStatus unit={selected} />
-                  </h2>
-                  {selected.packingKind === "BOX" ? (
-                    <>
-                      <DataTable
-                        rows={selected.members}
-                        columns={memberColumns}
-                        caption={`${selected.packingNo} 구성`}
-                        offset={0}
-                        total={selected.members.length}
-                        limit={selected.members.length || 1}
-                        onPage={() => undefined}
-                        empty={<p className="muted">비어 있습니다.</p>}
-                      />
-                      {selected.status === "open" && (
-                        <form
-                          aria-label="LOT 담기"
-                          onSubmit={(e) => void submitMember(e)}
-                        >
-                          {choices.length === 0 ? (
-                            <p className="muted">
-                              이 BOX에 담을 수 있는 LOT이 없습니다.
-                            </p>
-                          ) : (
-                            <>
-                              <div className="field">
-                                <label htmlFor="member-lot">LOT</label>
-                                <select
-                                  id="member-lot"
-                                  value={member.lotId || choices[0].lotId}
-                                  onChange={(e) =>
-                                    setMember({
-                                      lotId: Number(e.target.value),
-                                      qty: "",
-                                    })
-                                  }
-                                >
-                                  {choices.map((l) => (
-                                    <option key={l.lotId} value={l.lotId}>
-                                      {l.lotNo} · {itemCode(l.itemId)} · 잔여{" "}
-                                      {num(l.remainingQty)}
-                                    </option>
-                                  ))}
-                                </select>
-                                {errors.lotId && <small>{errors.lotId}</small>}
-                              </div>
-                              <Field
-                                label="담을 수량"
-                                value={member.qty}
-                                placeholder="비우면 잔여 전량"
-                                inputMode="decimal"
-                                error={errors.packedQty}
-                                onChange={(e) =>
-                                  setMember({ ...member, qty: e.target.value })
-                                }
-                              />
-                            </>
-                          )}
-                          <div className="form-actions">
-                            <button
-                              type="submit"
-                              disabled={pending || choices.length === 0}
+                  <DataTable
+                    rows={selected.members}
+                    columns={memberColumns}
+                    caption={`${selected.packingNo} 구성`}
+                    offset={0}
+                    total={selected.members.length}
+                    limit={selected.members.length || 1}
+                    onPage={() => undefined}
+                    empty={<p className="muted">비어 있습니다.</p>}
+                  />
+                  {selected.status === "open" && (
+                    <section aria-label="LOT 담기">
+                      {choices.length === 0 ? (
+                        <p className="muted">
+                          이 BOX에 담을 수 있는 LOT이 없습니다.
+                        </p>
+                      ) : (
+                        <>
+                          <div className="field">
+                            <label htmlFor="member-lot">LOT</label>
+                            <select
+                              id="member-lot"
+                              value={member.lotId || choices[0].lotId}
+                              onChange={(e) =>
+                                setMember({
+                                  lotId: Number(e.target.value),
+                                  qty: "",
+                                })
+                              }
                             >
-                              담기
-                            </button>
+                              {choices.map((l) => (
+                                <option key={l.lotId} value={l.lotId}>
+                                  {l.lotNo} · {itemCode(l.itemId)} · 잔여{" "}
+                                  {num(l.remainingQty)}
+                                </option>
+                              ))}
+                            </select>
+                            {errors.lotId && <small>{errors.lotId}</small>}
+                          </div>
+                          <Field
+                            label="담을 수량"
+                            value={member.qty}
+                            placeholder="비우면 잔여 전량"
+                            inputMode="decimal"
+                            error={errors.packedQty}
+                            onChange={(e) =>
+                              setMember({ ...member, qty: e.target.value })
+                            }
+                          />
+                        </>
+                      )}
+                      <div className="form-actions">
+                        <button
+                          type="submit"
+                          disabled={pending || choices.length === 0}
+                        >
+                          담기
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={pending || selected.members.length === 0}
+                          onClick={() =>
+                            void send(
+                              `/packing-units/${selected.id}/close`,
+                              "POST",
+                            )
+                          }
+                        >
+                          BOX 닫기
+                        </button>
+                      </div>
+                    </section>
+                  )}
+                  {selected.status === "closed" &&
+                    selected.displayStatus === "closed" && (
+                      <div className="form-actions">
+                        {selected.parentPackingUnitId === null ? (
+                          <>
+                            <label
+                              htmlFor="box-pallet"
+                              className="filter-inline"
+                            >
+                              묶을 PALLET
+                            </label>
+                            <select
+                              id="box-pallet"
+                              value={pallet ?? openPallets[0]?.id ?? ""}
+                              onChange={(e) =>
+                                setPallet(Number(e.target.value))
+                              }
+                            >
+                              {openPallets.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.packingNo}
+                                </option>
+                              ))}
+                            </select>
                             <button
                               type="button"
-                              className="secondary"
-                              disabled={
-                                pending || selected.members.length === 0
-                              }
+                              disabled={pending || openPallets.length === 0}
                               onClick={() =>
                                 void send(
-                                  `/packing-units/${selected.id}/close`,
-                                  "POST",
+                                  `/packing-units/${selected.id}/parent`,
+                                  "PUT",
+                                  {
+                                    parentPackingUnitId:
+                                      pallet ?? openPallets[0]?.id,
+                                  },
                                 )
                               }
                             >
-                              BOX 닫기
+                              PALLET에 묶기
                             </button>
-                          </div>
-                        </form>
-                      )}
-                      {selected.status === "closed" &&
-                        selected.displayStatus === "closed" && (
-                          <div className="form-actions">
-                            {selected.parentPackingUnitId === null ? (
-                              <>
-                                <label
-                                  htmlFor="box-pallet"
-                                  className="filter-inline"
-                                >
-                                  묶을 PALLET
-                                </label>
-                                <select
-                                  id="box-pallet"
-                                  value={pallet ?? openPallets[0]?.id ?? ""}
-                                  onChange={(e) =>
-                                    setPallet(Number(e.target.value))
-                                  }
-                                >
-                                  {openPallets.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                      {p.packingNo}
-                                    </option>
-                                  ))}
-                                </select>
-                                <button
-                                  type="button"
-                                  disabled={pending || openPallets.length === 0}
-                                  onClick={() =>
-                                    void send(
-                                      `/packing-units/${selected.id}/parent`,
-                                      "PUT",
-                                      {
-                                        parentPackingUnitId:
-                                          pallet ?? openPallets[0]?.id,
-                                      },
-                                    )
-                                  }
-                                >
-                                  PALLET에 묶기
-                                </button>
-                              </>
-                            ) : (
-                              byId(selected.parentPackingUnitId)?.status ===
-                                "open" && (
-                                <button
-                                  type="button"
-                                  className="secondary"
-                                  disabled={pending}
-                                  onClick={() =>
-                                    void send(
-                                      `/packing-units/${selected.id}/parent`,
-                                      "PUT",
-                                      {
-                                        parentPackingUnitId: null,
-                                      },
-                                    )
-                                  }
-                                >
-                                  {selected.parentPackingNo}에서 풀기
-                                </button>
-                              )
-                            )}
-                          </div>
+                          </>
+                        ) : (
+                          byId(selected.parentPackingUnitId)?.status ===
+                            "open" && (
+                            <button
+                              type="button"
+                              className="secondary"
+                              disabled={pending}
+                              onClick={() =>
+                                void send(
+                                  `/packing-units/${selected.id}/parent`,
+                                  "PUT",
+                                  {
+                                    parentPackingUnitId: null,
+                                  },
+                                )
+                              }
+                            >
+                              {selected.parentPackingNo}에서 풀기
+                            </button>
+                          )
                         )}
-                    </>
-                  ) : (
-                    <>
-                      <p className="muted">
-                        {itemCode(selected.itemId)} · 총{" "}
-                        {num(selected.totalQty)} {selected.unit ?? ""} · BOX{" "}
-                        {selected.childIds.length}개
-                      </p>
-                      <p className="muted">
-                        {selected.childIds
-                          .map((id) => byId(id)?.packingNo)
-                          .join(", ") ||
-                          "묶인 BOX가 없습니다. 닫힌 BOX를 열어 이 PALLET에 묶으세요."}
-                      </p>
-                      {selected.status === "open" && (
-                        <div className="form-actions">
-                          <button
-                            type="button"
-                            disabled={pending || selected.childIds.length === 0}
-                            onClick={() =>
-                              void send(
-                                `/packing-units/${selected.id}/close`,
-                                "POST",
-                              )
-                            }
-                          >
-                            PALLET 닫기
-                          </button>
-                        </div>
-                      )}
-                      {selected.status === "closed" && (
-                        <p className="muted">
-                          닫힌 PALLET은 완제품 입고 화면에서 입고합니다.
-                        </p>
-                      )}
-                    </>
+                      </div>
+                    )}
+                </>
+              ) : (
+                <>
+                  <p className="muted">
+                    {itemCode(selected.itemId)} · 총 {num(selected.totalQty)}{" "}
+                    {selected.unit ?? ""} · BOX {selected.childIds.length}개
+                  </p>
+                  <p className="muted">
+                    {selected.childIds
+                      .map((id) => byId(id)?.packingNo)
+                      .join(", ") ||
+                      "묶인 BOX가 없습니다. 닫힌 BOX를 열어 이 PALLET에 묶으세요."}
+                  </p>
+                  {selected.status === "open" && (
+                    <div className="form-actions">
+                      <button
+                        type="button"
+                        disabled={pending || selected.childIds.length === 0}
+                        onClick={() =>
+                          void send(
+                            `/packing-units/${selected.id}/close`,
+                            "POST",
+                          )
+                        }
+                      >
+                        PALLET 닫기
+                      </button>
+                    </div>
+                  )}
+                  {selected.status === "closed" && (
+                    <p className="muted">
+                      닫힌 PALLET은 완제품 입고 화면에서 입고합니다.
+                    </p>
                   )}
                 </>
               )}
-            </section>
-          </div>
-        </>
+            </FormPanel>
+          )}
+        </div>
       )}
-    </>
+    </div>
   );
 }

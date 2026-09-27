@@ -7,10 +7,11 @@ import {
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
+  useDiscardGuard,
   type Column,
-  RevealAnchor,
 } from "../shared/components";
 import { fieldErrors, ModuleOff, moduleOff, useLists, useSend } from "./common";
 
@@ -37,6 +38,12 @@ type DraftLine = { itemId: number; targetWeek: string; planQty: string };
 
 const qty = (value: string) => Number(value).toLocaleString();
 
+const EMPTY_CREATE = {
+  planCode: "",
+  targetMonth: "",
+  salesPlanCode: "",
+};
+
 export function Plans() {
   const { data, error, reload } = useLists<[Plan[], Item[]]>([
     "/production-plans",
@@ -49,13 +56,19 @@ export function Plans() {
     setError,
     deleteButtons,
   } = useSend(reload);
+
+  const [panel, setPanel] = useState(false);
   const [selectedId, setSelectedId] = useState<number>();
   const [lines, setLines] = useState<DraftLine[]>();
-  const [create, setCreate] = useState({
-    planCode: "",
-    targetMonth: "",
-    salesPlanCode: "",
-  });
+  const [create, setCreate] = useState(EMPTY_CREATE);
+  const [initialCreate, setInitialCreate] = useState(EMPTY_CREATE);
+
+  const createDirty =
+    panel &&
+    (create.planCode !== initialCreate.planCode ||
+      create.targetMonth !== initialCreate.targetMonth ||
+      create.salesPlanCode !== initialCreate.salesPlanCode);
+  const guard = useDiscardGuard(Boolean(createDirty));
 
   if (moduleOff(error)) return <ModuleOff />;
   const [plans, items] = data ?? [undefined, []];
@@ -74,6 +87,18 @@ export function Plans() {
     return i ? `${i.itemCode} ${i.name}` : String(id);
   };
 
+  function openPanel() {
+    setPanel(true);
+    setCreate(EMPTY_CREATE);
+    setInitialCreate(EMPTY_CREATE);
+    setError(undefined);
+  }
+
+  function closePanel() {
+    setPanel(false);
+    setError(undefined);
+  }
+
   function select(id: number | undefined) {
     setSelectedId(id);
     setLines(undefined);
@@ -89,7 +114,7 @@ export function Plans() {
       salesPlanCode: create.salesPlanCode.trim() || null,
     });
     if (created) {
-      setCreate({ planCode: "", targetMonth: "", salesPlanCode: "" });
+      closePanel();
       select(created.id);
     }
   }
@@ -214,6 +239,7 @@ export function Plans() {
       ),
     },
   ];
+
   const lineColumns: Column<PlanLine>[] = [
     { key: "targetWeek", label: "주차" },
     {
@@ -241,30 +267,44 @@ export function Plans() {
     },
     { key: "remainingQty", label: "잔여", render: (r) => qty(r.remainingQty) },
   ];
+
   const dirty =
     lines !== undefined && JSON.stringify(lines) !== JSON.stringify(original);
 
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="M-02"
         title="생산계획"
         subtitle="월 생산계획을 품목·주차별로 세우고 작업지시 배정 현황을 봅니다"
         help="mes/m-02"
+        actions={
+          <button
+            type="button"
+            aria-pressed={panel}
+            onClick={() => guard.guard(openPanel)}
+          >
+            계획 만들기
+          </button>
+        }
       />
-      <p className="muted">
+      <p className="muted" role="note">
         ERP와 독립이므로 판매계획 코드는 직접 입력합니다(선택). 실제 운영에서는
         인터페이스로 연계합니다. 확정한 계획의 라인에서만 작업지시를 만들 수
         있고, 확정 후에는 계획을 바꿀 수 없습니다.
       </p>
-      <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
+      {!panel && (
+        <ErrorNotice
+          error={Object.keys(errors).length ? undefined : saveError}
+        />
+      )}
       <ErrorNotice error={error} retry={reload} />
       {!plans ? (
         !error && <Loading />
       ) : (
-        <>
-          <div className="master-grid">
-            <section>
+        <div className="split-view fill">
+          <section className="fill">
+            <div className="section-block">
               <DataTable
                 rows={plans}
                 columns={columns}
@@ -275,20 +315,113 @@ export function Plans() {
                 onPage={() => undefined}
                 empty={
                   <EmptyState
-                    reason="등록된 생산계획이 없습니다. 우측 폼에서 첫 계획을 만드세요."
-                    to="#plan-form"
+                    reason="등록된 생산계획이 없습니다. 첫 계획을 만드세요."
                     action="계획 만들기"
+                    onAction={() => guard.guard(openPanel)}
                   />
                 }
               />
-            </section>
-            <form
-              id="plan-form"
-              className="panel"
-              aria-label="생산계획 만들기"
+            </div>
+            {selected ? (
+              <div className="section-block">
+                <div className="section-heading">
+                  <h2>
+                    {selected.planCode} 라인{" "}
+                    {selected.status === "confirmed" ? (
+                      <Badge>확정</Badge>
+                    ) : (
+                      <Badge tone="warning">초안</Badge>
+                    )}
+                  </h2>
+                  {editable && (
+                    <span className="row-actions">
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={items.length === 0}
+                        onClick={() =>
+                          setLines([
+                            ...draft,
+                            {
+                              itemId: items[0].id,
+                              targetWeek: "",
+                              planQty: "",
+                            },
+                          ])
+                        }
+                      >
+                        라인 추가
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending || !dirty}
+                        onClick={() => void saveLines()}
+                      >
+                        라인 저장
+                      </button>
+                    </span>
+                  )}
+                </div>
+                {editable ? (
+                  <DataTable
+                    rows={draftRows}
+                    columns={draftColumns}
+                    caption={`${selected.planCode} 계획 라인`}
+                    offset={0}
+                    total={draftRows.length}
+                    limit={draftRows.length || 1}
+                    onPage={() => undefined}
+                    empty={
+                      <p className="muted">
+                        라인이 없습니다. 라인이 없는 계획은 확정할 수 없습니다.
+                      </p>
+                    }
+                  />
+                ) : (
+                  <DataTable
+                    rows={selected.lines}
+                    columns={lineColumns}
+                    caption={`${selected.planCode} 계획 라인`}
+                    offset={0}
+                    total={selected.lines.length}
+                    limit={selected.lines.length || 1}
+                    onPage={() => undefined}
+                    empty={<p className="muted">라인이 없습니다.</p>}
+                  />
+                )}
+                {errors.lines && <p className="notice">{errors.lines}</p>}
+              </div>
+            ) : (
+              <p className="muted" role="note">
+                목록에서 &quot;라인&quot;을 누르면 품목·주차별 계획과 지시 배정
+                현황을 볼 수 있습니다.
+              </p>
+            )}
+          </section>
+          {panel && (
+            <FormPanel
+              title="생산계획 만들기"
+              guard={guard}
+              onClose={closePanel}
               onSubmit={(e) => void submitCreate(e)}
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
+                    만들기
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closePanel)}
+                  >
+                    취소
+                  </button>
+                </>
+              }
             >
-              <h2>새 생산계획</h2>
+              <ErrorNotice
+                error={Object.keys(errors).length ? undefined : saveError}
+              />
               <Field
                 label="계획 코드"
                 value={create.planCode}
@@ -325,87 +458,10 @@ export function Plans() {
                   setCreate({ ...create, salesPlanCode: e.target.value })
                 }
               />
-              <div className="form-actions">
-                <button type="submit" disabled={pending}>
-                  만들기
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <RevealAnchor when={selected} />
-
-          {selected ? (
-            <section className="panel" aria-label="계획 라인">
-              <h2>
-                {selected.planCode} 라인{" "}
-                {selected.status === "confirmed" ? (
-                  <Badge>확정</Badge>
-                ) : (
-                  <Badge tone="warning">초안</Badge>
-                )}
-              </h2>
-              {editable ? (
-                <DataTable
-                  rows={draftRows}
-                  columns={draftColumns}
-                  caption={`${selected.planCode} 계획 라인`}
-                  offset={0}
-                  total={draftRows.length}
-                  limit={draftRows.length || 1}
-                  onPage={() => undefined}
-                  empty={
-                    <p className="muted">
-                      라인이 없습니다. 라인이 없는 계획은 확정할 수 없습니다.
-                    </p>
-                  }
-                />
-              ) : (
-                <DataTable
-                  rows={selected.lines}
-                  columns={lineColumns}
-                  caption={`${selected.planCode} 계획 라인`}
-                  offset={0}
-                  total={selected.lines.length}
-                  limit={selected.lines.length || 1}
-                  onPage={() => undefined}
-                  empty={<p className="muted">라인이 없습니다.</p>}
-                />
-              )}
-              {errors.lines && <p className="notice">{errors.lines}</p>}
-              {editable && (
-                <div className="form-actions">
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={items.length === 0}
-                    onClick={() =>
-                      setLines([
-                        ...draft,
-                        { itemId: items[0].id, targetWeek: "", planQty: "" },
-                      ])
-                    }
-                  >
-                    라인 추가
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending || !dirty}
-                    onClick={() => void saveLines()}
-                  >
-                    라인 저장
-                  </button>
-                </div>
-              )}
-            </section>
-          ) : (
-            <p className="muted">
-              목록에서 &quot;라인&quot;을 누르면 품목·주차별 계획과 지시 배정
-              현황을 볼 수 있습니다.
-            </p>
+            </FormPanel>
           )}
-        </>
+        </div>
       )}
-    </>
+    </div>
   );
 }

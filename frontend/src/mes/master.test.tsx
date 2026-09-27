@@ -162,6 +162,7 @@ it("공간 등록은 대문자 코드로 보낸다", async () => {
     "POST /api/v1/mes/locations": { status: 201, body: { data: places[0] } },
   });
   show("/mes/sites");
+  fireEvent.click(await screen.findByRole("button", { name: "공간 등록" }));
   const form = await screen.findByRole("form", { name: "공간 등록" });
   fireEvent.change(within(form).getByLabelText("공간 코드"), {
     target: { value: "l-pkg" },

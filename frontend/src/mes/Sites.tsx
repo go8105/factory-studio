@@ -5,8 +5,10 @@ import {
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
+  useDiscardGuard,
   type Column,
 } from "../shared/components";
 import {
@@ -25,6 +27,23 @@ const KINDS = { building: "건물", zone: "구역", workcenter: "작업장" };
 type SiteDraft = { siteCode: string; name: string; timezone: string };
 type PlaceDraft = Omit<Place, "id">;
 
+type Panel =
+  { type: "site"; row: Site | null } | { type: "place"; row: Place | null };
+
+const EMPTY_SITE: SiteDraft = {
+  siteCode: "",
+  name: "",
+  timezone: "Asia/Seoul",
+};
+
+const EMPTY_PLACE: PlaceDraft = {
+  siteId: 0,
+  parentLocationId: null,
+  locationCode: "",
+  name: "",
+  kind: "workcenter",
+};
+
 export function Sites() {
   const { data, error, reload } = useLists<[Site[], Place[]]>([
     "/sites",
@@ -37,79 +56,99 @@ export function Sites() {
     setError,
     deleteButtons,
   } = useSend(reload);
-  const [editingSite, setEditingSite] = useState<Site | null>(null);
-  const [siteDraft, setSiteDraft] = useState<SiteDraft>();
-  const [editingPlace, setEditingPlace] = useState<Place | null>(null);
-  const [placeDraft, setPlaceDraft] = useState<PlaceDraft>();
+
+  const [panel, setPanel] = useState<Panel | null>(null);
+  const [siteDraft, setSiteDraft] = useState<SiteDraft>(EMPTY_SITE);
+  const [siteInitial, setSiteInitial] = useState<SiteDraft>(EMPTY_SITE);
+  const [placeDraft, setPlaceDraft] = useState<PlaceDraft>(EMPTY_PLACE);
+  const [placeInitial, setPlaceInitial] = useState<PlaceDraft>(EMPTY_PLACE);
+
+  const siteDirty =
+    panel?.type === "site" &&
+    (Object.keys(siteDraft) as (keyof SiteDraft)[]).some(
+      (k) => siteDraft[k] !== siteInitial[k],
+    );
+  const placeDirty =
+    panel?.type === "place" &&
+    (Object.keys(placeDraft) as (keyof PlaceDraft)[]).some(
+      (k) => placeDraft[k] !== placeInitial[k],
+    );
+  const guard = useDiscardGuard(siteDirty || placeDirty);
 
   if (moduleOff(error)) return <ModuleOff />;
   const [sites, places] = data ?? [undefined, []];
-  const sDraft = siteDraft ?? {
-    siteCode: "",
-    name: "",
-    timezone: "Asia/Seoul",
-  };
-  const pDraft: PlaceDraft = placeDraft ?? {
-    siteId: sites?.[0]?.id ?? 0,
-    parentLocationId: null,
-    locationCode: "",
-    name: "",
-    kind: "workcenter",
-  };
+
   const errors = fieldErrors(saveError);
 
-  function editSite(row: Site | null) {
-    setEditingSite(row);
-    setSiteDraft(
-      row
-        ? { siteCode: row.siteCode, name: row.name, timezone: row.timezone }
-        : undefined,
-    );
+  function openSitePanel(row: Site | null) {
+    const values: SiteDraft = row
+      ? { siteCode: row.siteCode, name: row.name, timezone: row.timezone }
+      : EMPTY_SITE;
+    setPanel({ type: "site", row });
+    setSiteDraft(values);
+    setSiteInitial(values);
     setError(undefined);
   }
-  function editPlace(row: Place | null) {
-    setEditingPlace(row);
-    setPlaceDraft(row ? { ...row } : undefined);
+
+  function openPlacePanel(row: Place | null) {
+    const values: PlaceDraft = row
+      ? { ...row }
+      : {
+          siteId: sites?.[0]?.id ?? 0,
+          parentLocationId: null,
+          locationCode: "",
+          name: "",
+          kind: "workcenter",
+        };
+    setPanel({ type: "place", row });
+    setPlaceDraft(values);
+    setPlaceInitial(values);
+    setError(undefined);
+  }
+
+  function closePanel() {
+    setPanel(null);
     setError(undefined);
   }
 
   async function submitSite(event: FormEvent) {
     event.preventDefault();
-    if (pending) return;
+    if (pending || panel?.type !== "site") return;
+    const editing = panel.row;
     const draft = {
-      siteCode: sDraft.siteCode.trim().toUpperCase(),
-      name: sDraft.name.trim(),
-      timezone: sDraft.timezone.trim(),
+      siteCode: siteDraft.siteCode.trim().toUpperCase(),
+      name: siteDraft.name.trim(),
+      timezone: siteDraft.timezone.trim(),
     };
-    const body = editingSite ? changed(draft, editingSite) : draft;
-    if (editingSite && !Object.keys(body).length) return;
+    const body = editing ? changed(draft, editing) : draft;
+    if (editing && !Object.keys(body).length) return;
     const ok = await send(
-      editingSite ? `/sites/${editingSite.id}` : "/sites",
-      editingSite ? "PATCH" : "POST",
+      editing ? `/sites/${editing.id}` : "/sites",
+      editing ? "PATCH" : "POST",
       body,
     );
-    if (ok) editSite(null);
+    if (ok) closePanel();
   }
 
   async function submitPlace(event: FormEvent) {
     event.preventDefault();
-    if (pending) return;
+    if (pending || panel?.type !== "place") return;
+    const editing = panel.row;
     const draft = {
-      siteId: pDraft.siteId,
-      parentLocationId: pDraft.parentLocationId,
-      locationCode: pDraft.locationCode.trim().toUpperCase(),
-      name: pDraft.name.trim(),
-      kind: pDraft.kind,
+      siteId: placeDraft.siteId,
+      parentLocationId: placeDraft.parentLocationId,
+      locationCode: placeDraft.locationCode.trim().toUpperCase(),
+      name: placeDraft.name.trim(),
+      kind: placeDraft.kind,
     };
-    // 수정 중에는 사업장이 잠겨 있어 바뀐 값에 들어가지 않는다.
-    const body = editingPlace ? changed(draft, editingPlace) : draft;
-    if (editingPlace && !Object.keys(body).length) return;
+    const body = editing ? changed(draft, editing) : draft;
+    if (editing && !Object.keys(body).length) return;
     const ok = await send(
-      editingPlace ? `/locations/${editingPlace.id}` : "/locations",
-      editingPlace ? "PATCH" : "POST",
+      editing ? `/locations/${editing.id}` : "/locations",
+      editing ? "PATCH" : "POST",
       body,
     );
-    if (ok) editPlace(null);
+    if (ok) closePanel();
   }
 
   const siteName = (id: number) => sites?.find((s) => s.id === id)?.name ?? id;
@@ -126,7 +165,8 @@ export function Sites() {
           <button
             type="button"
             className="link-button"
-            onClick={() => editSite(r)}
+            aria-pressed={panel?.type === "site" && panel.row?.id === r.id}
+            onClick={() => guard.guard(() => openSitePanel(r))}
           >
             수정
           </button>
@@ -137,6 +177,7 @@ export function Sites() {
     { key: "name", label: "사업장명" },
     { key: "timezone", label: "시간대" },
   ];
+
   const placeColumns: Column<Place>[] = [
     { key: "locationCode", label: "코드" },
     {
@@ -147,7 +188,8 @@ export function Sites() {
           <button
             type="button"
             className="link-button"
-            onClick={() => editPlace(r)}
+            aria-pressed={panel?.type === "place" && panel.row?.id === r.id}
+            onClick={() => guard.guard(() => openPlacePanel(r))}
           >
             수정
           </button>
@@ -166,7 +208,7 @@ export function Sites() {
   ];
 
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="M-10"
         title="사업장·공간"
@@ -174,18 +216,33 @@ export function Sites() {
         help="mes/m-10"
       />
       <MesOrder />
-      <p className="muted">
+      <p className="muted" role="note">
         MES 전용 기준정보입니다. FEMS의 사업장·공간과 코드가 같아도 별개
         데이터입니다.
       </p>
-      <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
+      {!panel && (
+        <ErrorNotice
+          error={Object.keys(errors).length ? undefined : saveError}
+        />
+      )}
       <ErrorNotice error={error} retry={reload} />
       {!sites ? (
         !error && <Loading />
       ) : (
-        <>
-          <div className="master-grid">
-            <section>
+        <div className="split-view fill">
+          <section className="fill">
+            <div className="section-block">
+              <div className="section-heading">
+                <h2>사업장</h2>
+                <button
+                  type="button"
+                  className="secondary"
+                  aria-pressed={panel?.type === "site" && !panel.row}
+                  onClick={() => guard.guard(() => openSitePanel(null))}
+                >
+                  사업장 등록
+                </button>
+              </div>
               <DataTable
                 rows={sites}
                 columns={siteColumns}
@@ -196,25 +253,82 @@ export function Sites() {
                 onPage={() => undefined}
                 empty={
                   <EmptyState
-                    reason="등록된 사업장이 없습니다. 우측 폼에서 첫 사업장을 등록하세요."
-                    to="#site-form"
+                    reason="등록된 사업장이 없습니다. 첫 사업장을 등록하세요."
                     action="사업장 등록"
+                    onAction={() => guard.guard(() => openSitePanel(null))}
                   />
                 }
               />
-            </section>
-            <form
-              id="site-form"
-              className="panel"
-              aria-label={editingSite ? "사업장 수정" : "사업장 등록"}
+            </div>
+            <div className="section-block">
+              <div className="section-heading">
+                <h2>공간</h2>
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={sites.length === 0}
+                  aria-pressed={panel?.type === "place" && !panel.row}
+                  onClick={() => guard.guard(() => openPlacePanel(null))}
+                >
+                  공간 등록
+                </button>
+              </div>
+              <DataTable
+                rows={places}
+                columns={placeColumns}
+                caption="공간 목록"
+                offset={0}
+                total={places.length}
+                limit={places.length || 1}
+                onPage={() => undefined}
+                empty={
+                  <EmptyState
+                    reason={
+                      sites.length === 0
+                        ? "사업장을 먼저 등록해야 공간을 등록할 수 있습니다."
+                        : "등록된 공간이 없습니다. 첫 공간을 등록하세요."
+                    }
+                    action={sites.length === 0 ? "사업장 등록" : "공간 등록"}
+                    onAction={() =>
+                      guard.guard(() =>
+                        sites.length === 0
+                          ? openSitePanel(null)
+                          : openPlacePanel(null),
+                      )
+                    }
+                  />
+                }
+              />
+            </div>
+          </section>
+          {panel?.type === "site" && (
+            <FormPanel
+              key={panel.row?.id ?? "new-site"}
+              title={panel.row ? `${panel.row.siteCode} 수정` : "사업장 등록"}
+              guard={guard}
+              onClose={closePanel}
               onSubmit={(e) => void submitSite(e)}
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
+                    {panel.row ? "저장" : "등록"}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closePanel)}
+                  >
+                    취소
+                  </button>
+                </>
+              }
             >
-              <h2>
-                {editingSite ? `${editingSite.siteCode} 수정` : "사업장 등록"}
-              </h2>
+              <ErrorNotice
+                error={Object.keys(errors).length ? undefined : saveError}
+              />
               <Field
                 label="사업장 코드"
-                value={sDraft.siteCode}
+                value={siteDraft.siteCode}
                 required
                 maxLength={30}
                 pattern="[A-Z][A-Z0-9_\-]{1,29}"
@@ -222,198 +336,157 @@ export function Sites() {
                 error={errors.siteCode}
                 onChange={(e) =>
                   setSiteDraft({
-                    ...sDraft,
+                    ...siteDraft,
                     siteCode: e.target.value.toUpperCase(),
                   })
                 }
               />
               <Field
                 label="사업장명"
-                value={sDraft.name}
+                value={siteDraft.name}
                 required
                 maxLength={100}
                 error={errors.name}
                 onChange={(e) =>
-                  setSiteDraft({ ...sDraft, name: e.target.value })
+                  setSiteDraft({ ...siteDraft, name: e.target.value })
                 }
               />
               <Field
                 label="시간대"
-                value={sDraft.timezone}
+                value={siteDraft.timezone}
                 required
                 maxLength={60}
                 placeholder="Asia/Seoul"
                 error={errors.timezone}
                 onChange={(e) =>
-                  setSiteDraft({ ...sDraft, timezone: e.target.value })
+                  setSiteDraft({ ...siteDraft, timezone: e.target.value })
                 }
               />
-              <div className="form-actions">
-                <button type="submit" disabled={pending}>
-                  {editingSite ? "저장" : "등록"}
-                </button>
-                {editingSite && (
+            </FormPanel>
+          )}
+          {panel?.type === "place" && (
+            <FormPanel
+              key={panel.row?.id ?? "new-place"}
+              title={panel.row ? `${panel.row.locationCode} 수정` : "공간 등록"}
+              guard={guard}
+              onClose={closePanel}
+              onSubmit={(e) => void submitPlace(e)}
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
+                    {panel.row ? "저장" : "등록"}
+                  </button>
                   <button
                     type="button"
-                    className="link-button"
-                    onClick={() => editSite(null)}
+                    className="secondary"
+                    onClick={() => guard.guard(closePanel)}
                   >
                     취소
                   </button>
-                )}
-              </div>
-            </form>
-          </div>
-
-          {sites.length === 0 ? (
-            <p className="muted">공간은 사업장을 먼저 등록한 뒤 추가합니다.</p>
-          ) : (
-            <div className="master-grid">
-              <section>
-                <DataTable
-                  rows={places}
-                  columns={placeColumns}
-                  caption="공간 목록"
-                  offset={0}
-                  total={places.length}
-                  limit={places.length || 1}
-                  onPage={() => undefined}
-                  empty={
-                    <EmptyState
-                      reason="등록된 공간이 없습니다. 설비는 공간에 놓입니다."
-                      to="#place-form"
-                      action="공간 등록"
-                    />
-                  }
-                />
-              </section>
-              <form
-                id="place-form"
-                className="panel"
-                aria-label={editingPlace ? "공간 수정" : "공간 등록"}
-                onSubmit={(e) => void submitPlace(e)}
-              >
-                <h2>
-                  {editingPlace
-                    ? `${editingPlace.locationCode} 수정`
-                    : "공간 등록"}
-                </h2>
-                <div className="field">
-                  <label htmlFor="place-site">사업장</label>
-                  <select
-                    id="place-site"
-                    value={pDraft.siteId}
-                    disabled={!!editingPlace}
-                    onChange={(e) =>
-                      setPlaceDraft({
-                        ...pDraft,
-                        siteId: Number(e.target.value),
-                        parentLocationId: null,
-                      })
-                    }
-                  >
-                    {sites.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.siteCode})
-                      </option>
-                    ))}
-                  </select>
-                  {errors.siteId && <small>{errors.siteId}</small>}
-                </div>
-                <Field
-                  label="공간 코드"
-                  value={pDraft.locationCode}
-                  required
-                  maxLength={30}
-                  pattern="[A-Z][A-Z0-9_\-]{1,29}"
-                  title="영문 대문자로 시작하는 2~30자 (대문자·숫자·_·-)"
-                  error={errors.locationCode}
+                </>
+              }
+            >
+              <ErrorNotice
+                error={Object.keys(errors).length ? undefined : saveError}
+              />
+              <div className="field">
+                <label htmlFor="place-site">사업장</label>
+                <select
+                  id="place-site"
+                  value={placeDraft.siteId || sites[0]?.id || 0}
+                  disabled={!!panel.row}
                   onChange={(e) =>
                     setPlaceDraft({
-                      ...pDraft,
-                      locationCode: e.target.value.toUpperCase(),
+                      ...placeDraft,
+                      siteId: Number(e.target.value),
                     })
                   }
-                />
-                <Field
-                  label="공간명"
-                  value={pDraft.name}
-                  required
-                  maxLength={100}
-                  error={errors.name}
+                >
+                  {sites.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.siteCode})
+                    </option>
+                  ))}
+                </select>
+                {errors.siteId && <small>{errors.siteId}</small>}
+              </div>
+              {panel.row && (
+                <p className="muted">
+                  공간의 소속 사업장은 수정할 수 없습니다.
+                </p>
+              )}
+              <Field
+                label="공간 코드"
+                value={placeDraft.locationCode}
+                required
+                maxLength={30}
+                pattern="[A-Z][A-Z0-9_\-]{1,29}"
+                title="영문 대문자로 시작하는 2~30자 (대문자·숫자·_·-)"
+                error={errors.locationCode}
+                onChange={(e) =>
+                  setPlaceDraft({
+                    ...placeDraft,
+                    locationCode: e.target.value.toUpperCase(),
+                  })
+                }
+              />
+              <Field
+                label="공간명"
+                value={placeDraft.name}
+                required
+                maxLength={100}
+                error={errors.name}
+                onChange={(e) =>
+                  setPlaceDraft({ ...placeDraft, name: e.target.value })
+                }
+              />
+              <div className="field">
+                <label htmlFor="place-kind">종류</label>
+                <select
+                  id="place-kind"
+                  value={placeDraft.kind}
                   onChange={(e) =>
-                    setPlaceDraft({ ...pDraft, name: e.target.value })
+                    setPlaceDraft({
+                      ...placeDraft,
+                      kind: e.target.value as Place["kind"],
+                    })
                   }
-                />
-                <div className="field">
-                  <label htmlFor="place-kind">종류</label>
-                  <select
-                    id="place-kind"
-                    value={pDraft.kind}
-                    onChange={(e) =>
-                      setPlaceDraft({
-                        ...pDraft,
-                        kind: e.target.value as Place["kind"],
-                      })
-                    }
-                  >
-                    {Object.entries(KINDS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
+                >
+                  {Object.entries(KINDS).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="place-parent">상위 공간 (선택)</label>
+                <select
+                  id="place-parent"
+                  value={placeDraft.parentLocationId ?? ""}
+                  onChange={(e) =>
+                    setPlaceDraft({
+                      ...placeDraft,
+                      parentLocationId: e.target.value
+                        ? Number(e.target.value)
+                        : null,
+                    })
+                  }
+                >
+                  <option value="">상위 공간 없음 (최상위)</option>
+                  {places
+                    .filter((p) => p.id !== panel.row?.id)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.locationCode})
                       </option>
                     ))}
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="place-parent">상위 공간</label>
-                  <select
-                    id="place-parent"
-                    value={pDraft.parentLocationId ?? ""}
-                    onChange={(e) =>
-                      setPlaceDraft({
-                        ...pDraft,
-                        parentLocationId: e.target.value
-                          ? Number(e.target.value)
-                          : null,
-                      })
-                    }
-                  >
-                    <option value="">없음</option>
-                    {places
-                      .filter(
-                        (p) =>
-                          p.siteId === pDraft.siteId &&
-                          p.id !== editingPlace?.id,
-                      )
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.locationCode} {p.name}
-                        </option>
-                      ))}
-                  </select>
-                  {errors.parentLocationId && (
-                    <small>{errors.parentLocationId}</small>
-                  )}
-                </div>
-                <div className="form-actions">
-                  <button type="submit" disabled={pending}>
-                    {editingPlace ? "저장" : "등록"}
-                  </button>
-                  {editingPlace && (
-                    <button
-                      type="button"
-                      className="link-button"
-                      onClick={() => editPlace(null)}
-                    >
-                      취소
-                    </button>
-                  )}
-                </div>
-              </form>
-            </div>
+                </select>
+              </div>
+            </FormPanel>
           )}
-        </>
+        </div>
       )}
-    </>
+    </div>
   );
 }

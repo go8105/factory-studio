@@ -7,8 +7,10 @@ import {
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
+  useDiscardGuard,
   type Column,
 } from "../shared/components";
 import { fieldErrors, ModuleOff, moduleOff, useLists, useSend } from "./common";
@@ -52,6 +54,9 @@ type Draft = {
   planEndDate: string;
 };
 
+type Panel =
+  { type: "order"; row: Order | null } | { type: "cancel"; row: Order };
+
 const STATUS: Record<OrderStatus, [string, "normal" | "warning" | "issue"]> = {
   draft: ["등록", "warning"],
   released: ["발행", "normal"],
@@ -66,13 +71,27 @@ export function Orders() {
     [Order[], Plan[], Version[], Version[], Item[]]
   >(["/work-orders", "/production-plans", "/routes", "/boms", "/items"]);
   const { send, pending, error: saveError, setError } = useSend(reload);
-  const [editing, setEditing] = useState<Order | null>(null);
+
+  const preset = Number(params.get("line")) || undefined;
+  const [panel, setPanel] = useState<Panel | null>(() =>
+    preset ? { type: "order", row: null } : null,
+  );
   const [draft, setDraft] = useState<Draft>();
-  const [cancelling, setCancelling] = useState<{
-    id: number;
-    reason: string;
-  }>();
+  const [initial, setInitial] = useState<Draft>();
+  const [cancelReason, setCancelReason] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+
+  const orderDirty =
+    panel?.type === "order" &&
+    Boolean(
+      initial && draft
+        ? (Object.keys(draft) as (keyof Draft)[]).some(
+            (k) => draft[k] !== initial[k],
+          )
+        : draft?.planQty.trim() || draft?.planStartDate || draft?.planEndDate,
+    );
+  const cancelDirty = panel?.type === "cancel" && Boolean(cancelReason.trim());
+  const guard = useDiscardGuard(orderDirty || cancelDirty);
 
   if (moduleOff(error)) return <ModuleOff />;
   const [orders, plans, routes, boms, items] = data ?? [
@@ -82,6 +101,7 @@ export function Orders() {
     [],
     [],
   ];
+  const editing = panel?.type === "order" ? panel.row : null;
   const lines = plans
     .filter((p) => p.status === "confirmed")
     .flatMap((p) => p.lines.map((l) => ({ ...l, planCode: p.planCode })));
@@ -106,7 +126,6 @@ export function Orders() {
     return b ? `${b.bomCode} v${b.versionNo}` : String(id);
   };
 
-  const preset = Number(params.get("line")) || undefined;
   const defaultLine =
     openLines.find((l) => l.id === preset) ?? openLines[0] ?? undefined;
   const blank = (lineId?: number): Draft => {
@@ -129,27 +148,38 @@ export function Orders() {
   const lineItem = lines.find((l) => l.id === d.productionPlanLineId)?.itemId;
   const errors = fieldErrors(saveError);
 
-  function edit(row: Order | null) {
-    setEditing(row);
-    setDraft(
-      row
-        ? {
-            productionPlanLineId: row.productionPlanLineId,
-            routeVersionId: row.routeVersionId,
-            bomVersionId: row.bomVersionId,
-            planQty: String(Number(row.planQty)),
-            planStartDate: row.planStartDate,
-            planEndDate: row.planEndDate,
-          }
-        : undefined,
-    );
-    setCancelling(undefined);
+  function openOrderPanel(row: Order | null) {
+    const values: Draft = row
+      ? {
+          productionPlanLineId: row.productionPlanLineId,
+          routeVersionId: row.routeVersionId,
+          bomVersionId: row.bomVersionId,
+          planQty: String(Number(row.planQty)),
+          planStartDate: row.planStartDate,
+          planEndDate: row.planEndDate,
+        }
+      : blank(defaultLine?.id);
+    setPanel({ type: "order", row });
+    setDraft(values);
+    setInitial(values);
+    setError(undefined);
+  }
+
+  function openCancelPanel(row: Order) {
+    setPanel({ type: "cancel", row });
+    setCancelReason("");
+    setError(undefined);
+  }
+
+  function closePanel() {
+    setPanel(null);
+    setCancelReason("");
     setError(undefined);
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (pending) return;
+    if (pending || panel?.type !== "order") return;
     const body = editing
       ? Object.fromEntries(
           Object.entries({
@@ -173,16 +203,16 @@ export function Orders() {
       editing ? "PATCH" : "POST",
       body,
     );
-    if (ok) edit(null);
+    if (ok) closePanel();
   }
 
   async function submitCancel(event: FormEvent) {
     event.preventDefault();
-    if (pending || !cancelling) return;
-    const ok = await send(`/work-orders/${cancelling.id}/cancel`, "POST", {
-      cancelReason: cancelling.reason,
+    if (pending || panel?.type !== "cancel") return;
+    const ok = await send(`/work-orders/${panel.row.id}/cancel`, "POST", {
+      cancelReason,
     });
-    if (ok) setCancelling(undefined);
+    if (ok) closePanel();
   }
 
   const shown = (orders ?? []).filter(
@@ -209,17 +239,16 @@ export function Orders() {
               <button
                 type="button"
                 className="link-button"
-                onClick={() => edit(r)}
+                aria-pressed={panel?.type === "order" && editing?.id === r.id}
+                onClick={() => guard.guard(() => openOrderPanel(r))}
               >
                 수정
               </button>
               <button
                 type="button"
                 className="link-button"
-                onClick={() => {
-                  edit(null);
-                  setCancelling({ id: r.id, reason: "" });
-                }}
+                aria-pressed={panel?.type === "cancel" && panel.row.id === r.id}
+                onClick={() => guard.guard(() => openCancelPanel(r))}
               >
                 취소
               </button>
@@ -273,29 +302,42 @@ export function Orders() {
   ];
 
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="M-03"
         title="작업지시"
         subtitle="확정 계획의 수량을 배정해 지시를 만들고 발행합니다"
         help="mes/m-03"
+        actions={
+          openLines.length > 0 ? (
+            <button
+              type="button"
+              aria-pressed={panel?.type === "order" && !editing}
+              onClick={() => guard.guard(() => openOrderPanel(null))}
+            >
+              작업지시 등록
+            </button>
+          ) : undefined
+        }
       />
-      <p className="muted">
+      <p className="muted" role="note">
         배정 합계는 계획 수량을 넘을 수 없습니다. 게시된 경로·BOM만 고를 수
         있고(BOM은 선택), 발행하면 LOT이 만들어지며 그 뒤에는 바꾸거나 취소할 수
         없습니다. 한 지시는 한 LOT으로 생산합니다.
       </p>
-      <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
+      {!panel && (
+        <ErrorNotice
+          error={Object.keys(errors).length ? undefined : saveError}
+        />
+      )}
       <ErrorNotice error={error} retry={reload} />
       {!orders ? (
         !error && <Loading />
       ) : (
-        <div className="master-grid">
-          <section>
-            <div className="toolbar">
-              <label htmlFor="order-status" className="filter-inline">
-                상태:
-              </label>
+        <div className="split-view fill">
+          <section className="fill">
+            <div className="filter-bar">
+              <label htmlFor="order-status">상태:</label>
               <select
                 id="order-status"
                 value={statusFilter}
@@ -326,54 +368,68 @@ export function Orders() {
               }
             />
           </section>
-          {cancelling ? (
-            <form
-              className="panel"
-              aria-label="작업지시 취소"
+          {panel?.type === "cancel" && (
+            <FormPanel
+              title={`${panel.row.orderNo} 취소`}
+              guard={guard}
+              onClose={closePanel}
               onSubmit={(e) => void submitCancel(e)}
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
+                    취소 확정
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closePanel)}
+                  >
+                    닫기
+                  </button>
+                </>
+              }
             >
-              <h2>
-                {orders.find((o) => o.id === cancelling.id)?.orderNo} 취소
-              </h2>
-              <p className="muted">
+              <p className="muted" role="note">
                 취소하면 배정 수량이 계획 잔여로 돌아갑니다. 사유는 필수입니다.
               </p>
+              <ErrorNotice
+                error={Object.keys(errors).length ? undefined : saveError}
+              />
               <Field
                 label="취소 사유"
-                value={cancelling.reason}
+                value={cancelReason}
                 required
                 maxLength={300}
                 error={errors.cancelReason}
-                onChange={(e) =>
-                  setCancelling({ ...cancelling, reason: e.target.value })
-                }
+                onChange={(e) => setCancelReason(e.target.value)}
               />
-              <div className="form-actions">
-                <button type="submit" disabled={pending}>
-                  취소 확정
-                </button>
-                <button
-                  type="button"
-                  className="link-button"
-                  onClick={() => setCancelling(undefined)}
-                >
-                  닫기
-                </button>
-              </div>
-            </form>
-          ) : openLines.length === 0 && !editing ? (
-            <EmptyState
-              reason="잔여 수량이 있는 확정 계획 라인이 없습니다. 생산계획을 먼저 확정하세요."
-              to="/mes/production-plans"
-              action="생산계획 화면으로"
-            />
-          ) : (
-            <form
-              className="panel"
-              aria-label={editing ? "작업지시 수정" : "작업지시 등록"}
+            </FormPanel>
+          )}
+          {panel?.type === "order" && (
+            <FormPanel
+              key={editing?.id ?? "new-order"}
+              title={editing ? `${editing.orderNo} 수정` : "작업지시 등록"}
+              guard={guard}
+              onClose={closePanel}
               onSubmit={(e) => void submit(e)}
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
+                    {editing ? "저장" : "등록"}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closePanel)}
+                  >
+                    취소
+                  </button>
+                </>
+              }
             >
-              <h2>{editing ? `${editing.orderNo} 수정` : "작업지시 등록"}</h2>
+              <ErrorNotice
+                error={Object.keys(errors).length ? undefined : saveError}
+              />
               <div className="field">
                 <label htmlFor="order-line">계획 라인</label>
                 <select
@@ -472,24 +528,10 @@ export function Orders() {
                   setDraft({ ...d, planEndDate: e.target.value })
                 }
               />
-              <div className="form-actions">
-                <button type="submit" disabled={pending}>
-                  {editing ? "저장" : "등록"}
-                </button>
-                {editing && (
-                  <button
-                    type="button"
-                    className="link-button"
-                    onClick={() => edit(null)}
-                  >
-                    취소
-                  </button>
-                )}
-              </div>
-            </form>
+            </FormPanel>
           )}
         </div>
       )}
-    </>
+    </div>
   );
 }

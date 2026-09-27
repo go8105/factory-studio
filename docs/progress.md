@@ -1,7 +1,7 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **UI-02 A4(FEMS 기준정보 S 패턴 전환 F-09, F-10, F-11, F-13, F-14) 완료 (antigravity/ui02-a4, 사용자 확인 대기).**
+- 단계: **UI-02 A5(MES 기준정보 및 계획 화면 S 패턴 전환 M-02,03,06,08,10~13) 완료 (antigravity/ui02-a5, 사용자 확인 대기).**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
@@ -1074,3 +1074,30 @@
   - `frontend/e2e/layout.spec.ts`에 F-09,10,11,13,14 `.page-fill` 및 에너지원 패널 열기/닫기 e2e 테스트 추가
 - DB migration / Excel / seed: 변경 없음.
 - 다음: 사용자 확인 대기. 확인 후 A5(MES 기준정보 M-02,03,06,08,10~13) 진행.
+
+## 2026-09-27 UI-02 A5 MES 기준정보 및 계획 화면 S 패턴 전환 (Antigravity)
+
+- 브랜치: `antigravity/ui02-a5` (기준: `antigravity/ui02-a4`)
+- 대상 화면 8개:
+  - M-02: `frontend/src/mes/Plans.tsx` (`FormPanel` 적용, `RevealAnchor` 제거)
+  - M-03: `frontend/src/mes/Orders.tsx` (`FormPanel` 적용, `?line=` 프리셋 시 패널 자동 열림 유지)
+  - M-06: `frontend/src/mes/Materials.tsx` (`FormPanel title="자재 투입 등록"`, 중첩 form 제거)
+  - M-08: `frontend/src/mes/Packing.tsx` (`FormPanel` 적용, 중첩 form 제거)
+  - M-10: `frontend/src/mes/Sites.tsx` (사업장/공간 2개 구역 및 `FormPanel` 전환)
+  - M-11: `frontend/src/mes/Equipments.tsx` (`FormPanel` S 패턴 전환)
+  - M-12: `frontend/src/mes/Items.tsx` (`FormPanel` S 패턴 전환, `RevealAnchor` 제거)
+  - M-13: `frontend/src/mes/Processes.tsx` (`FormPanel` S 패턴 전환)
+- 내용:
+  - React Rules of Hooks 준수: `useDiscardGuard`를 early return (`moduleOff`) 이전에 호출하여 조건부 훅 실행 오류 방지
+  - `FormPanel` 내부 중첩 `<form>` 제거로 DOM 유효성 및 submit 이벤트 전달 보장
+  - 단위 테스트(`planning.test.tsx`, `master.test.tsx`)에서 패널 오픈 버튼 클릭 후 폼을 조회하도록 수정
+  - `frontend/e2e/layout.spec.ts`에 8개 MES 화면 `.page-fill` 검사 및 설비 등록 패널 열기/닫기 E2E 테스트 추가
+- 검증:
+  - `npm --prefix frontend run typecheck` 통과 (오류 0)
+  - `npm --prefix frontend run lint` 통과 (오류 0)
+  - `npm --prefix frontend run format:check` 통과 (전체 일치)
+  - `npm --prefix frontend run build` 통과
+  - `npm --prefix frontend test -- --run` 통과 (43개 테스트 파일 402개 테스트 통과)
+  - `git diff --check` 통과 (공백/줄바꿈 이상 없음)
+- DB migration / Excel / seed: 변경 없음.
+- 다음: 사용자 확인 대기. 확인 후 A6(ERP 계획·출하·전표·기준정보 화면 E-03, 05, 06, 08, 10, 11, 13, 15~18) 진행.
