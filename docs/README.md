@@ -55,3 +55,8 @@ npm run db:validate                        # 검증기 경로 확인
 ```
 
 `tools/validate_db_design.py`는 설계 문서에서 엔티티 목록을 읽는다. 그 문서를 옮기면 스크립트 안의 경로도 함께 고쳐야 한다.
+
+## 합성 비전 검사 네이티브 코어
+
+- [C++ OpenCV 빌드·실행·JSON 계약·웹 비교](../native/inspection_core/README.md)
+- [3D 공장·합성 검사 공통 설계](modules/factory/README.md)

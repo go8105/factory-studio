@@ -53,3 +53,12 @@ it("검색은 대소문자를 무시하고 제목 일치를 먼저, 출처 주�
   expect(searchDocs(docs, "lot").map((r) => r.key)).toEqual(["b"]);
   expect(searchDocs(docs, "  ")).toEqual([]);
 });
+it("합성 검사 사용법은 사용자 참고 문서에 속하고 검사실로 연결된다", () => {
+  expect(sectionOf(docSections(help), "portal/vision-lab")?.key).toBe(
+    "reference",
+  );
+  expect(screenPath("portal/vision-lab")).toBe("/factory/vision-lab");
+  expect(
+    searchDocs(help, "C++").some((d) => d.key === "portal/vision-lab"),
+  ).toBe(true);
+});

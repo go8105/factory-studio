@@ -78,6 +78,7 @@ export const sectionOf = (sections: DocSection[], key: string) =>
   sections.find((s) => s.groups.some((g) => g.keys.includes(key)));
 // 업무 화면 문서만 실제 화면 경로를 갖는다. 포털 문서는 연결하지 않는다.
 export function screenPath(key: string) {
+  if (key === "portal/vision-lab") return "/factory/vision-lab";
   const [prefix, id] = key.split("/");
   const screen = solutions
     .find(([p]) => p === prefix)?.[2]
