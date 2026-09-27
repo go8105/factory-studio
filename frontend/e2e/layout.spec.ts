@@ -215,3 +215,59 @@ test("ERP 거래처 패널 열기 및 닫기", async ({ page }) => {
   await page.getByRole("button", { name: "패널 닫기" }).click();
   await expect(panel).toBeHidden();
 });
+
+// UI-03: 읽기 전용 상세·부모-자식 상세·넓은 행 편집 패널
+for (const [w, h, docked] of [
+  [1920, 1080, true],
+  [1600, 900, false],
+] as const) {
+  test(`${w} 넓은 상세 패널은 ${docked ? "목록 옆에 붙는다" : "겹쳐 열린다"}(M-04)`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto("/mes/lots");
+    await page.getByRole("button", { name: "이력" }).first().click();
+    const panel = page.getByRole("dialog", { name: /이력/ });
+    await expect(panel.getByRole("table", { name: /공정 이력/ })).toBeVisible();
+    if (docked) await expect(panel).not.toHaveAttribute("aria-modal", "true");
+    else await expect(panel).toHaveAttribute("aria-modal", "true");
+    expect(await docHeight(page)).toBeLessThanOrEqual(h);
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+  });
+}
+
+test("F-12 채널 상세 → 채널 폼 → 채널 목록으로 돌아온다", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/fems/meters");
+  await page
+    .getByRole("table", { name: "계측기 목록" })
+    .getByRole("row", { name: /^M-MAIN/ })
+    .getByRole("button", { name: /채널/ })
+    .click();
+  await expect(
+    page.getByRole("table", { name: "M-MAIN 채널 목록" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "채널 등록" }).click();
+  await expect(
+    page.getByRole("form", { name: "M-MAIN 채널 등록" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "채널 목록으로" }).click();
+  await expect(
+    page.getByRole("table", { name: "M-MAIN 채널 목록" }),
+  ).toBeVisible();
+});
+
+test("E-04 수주 등록은 넓은 패널이고 명세 편집기가 가로로 넘치지 않는다", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/erp/sales-orders");
+  await page.getByRole("button", { name: "수주 등록" }).click();
+  const panel = page.getByRole("dialog", { name: "수주 등록" });
+  expect((await panel.boundingBox())!.width).toBe(640);
+  await expect(
+    panel.getByRole("button", { name: "수주 등록" }),
+  ).toBeInViewport();
+  expect(await docHeight(page)).toBeLessThanOrEqual(900);
+});
