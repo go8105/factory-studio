@@ -982,3 +982,16 @@
 - 443 ufw를 Cloudflare 대역 22개로 제한(원점 직접 443 차단 확인). 이지스 aegis.hugh-d.com: Access(사용자 설정) → Nginx aegis 사이트(office.html + `/api/`→127.0.0.1:8000) → office.html 수정 배포(secretary-ai `91baa61`, push) → 사용자 로그인 확인 → ufw 8000 제거(서비스 재시작 없음).
 - UI-01(다른 세션 작업, 미병합)을 새 main 위로 cherry-pick·문서 충돌 병합, 프런트 393·3D 10·스모크 107 통과(로컬 Colima DB 재기동 후), CI 통과 → main `6d48f5f` → 서버 git pull·프런트 rsync.
 - 회원 로그인 401 원인: 서버 `core.app_user` 0건. `tools/create_member.py`·`create_member_account` 추가, `INVALID_CREDENTIALS` 분리, 테스트 `test_member_account.py` 3개. 계정 생성은 운영 서버 비밀번호가 걸려 사용자가 직접 실행.
+
+## 2026-09-27 UI-02 공통 UI 확정·기준 화면 3개·Antigravity 인계 (Claude Code)
+
+- 브랜치 `ui-02-common-patterns`(기준 main `6d48f5f` → `88d584f` 위로 rebase), 코드 커밋 `0875482`(WIP `2fe2975` 포함). 문서: `docs/ui/공통UI규약_UI-02.md`·`docs/ui/메뉴적용표_UI-02.md`·`docs/agent/Antigravity_작업지시_UI-02.md`.
+- Figma: `whoami` 결과 Starter 플랜·View 좌석. 프레임 URL이 없어 Figma 수치를 읽지 않았고 반영했다고 쓰지 않는다.
+- 공통 구현(`shared/styles.css`·`components.tsx`·`SolutionLayout.tsx`·`app/App.tsx`): `--app-h`·`.app-shell`, 업무 화면 바닥글 제거, `.page-fill`/`.fill` 목록 채움, `thead th` 고정, 페이지 이동 sticky, `PageTitle(actions)`, `DataTable(leading)`·`wrap` 열·긴 값 포커스 펼침, `Pagination`·`DateRange`, `FormPanel`·`useDiscardGuard`, `EmptyState(onAction)`, `.field-row`, KPI 한 줄/2×2(3+1 방지), 대시보드 2열·`has-lead` 3:2.
+- 화면: F-01 조회 월을 제목 줄로·주요 차트+구성 3:2·환산 합계, F-02 채움·보기 전환을 결과 줄로·늦은 응답 무시, F-05 목록 전체 폭·등록/수정/정정 한 패널.
+- 전후(같은 뷰포트): F-02 1440×900 문서 2,286 → 900px(1366×768 2,286 → 768), F-05 1440 1,321 → 900px, F-01 1600 하단 3+1 → 2×2(1920 4열 → 2×2), 업무 화면 전체에서 바닥글 스크롤 약 43px 제거. 모바일 390·360, 720×450(200% 확대) 자연 스크롤·저장 버튼 접근 확인.
+- 검증: frontend typecheck·lint·format:check·build exit 0, vitest 402 passed(+9), 상호작용 스크립트 51/51(패널 포커스·Esc·가둠·미저장 보호·등록→수정→확정→정정·검증 오류·머리글 고정·정렬·페이지 이동·CSV·그래프), 55경로 × 1440·390 전후 비교(가로 넘침 0·페이지 오류 0·제목 변화 0), `e2e/layout.spec.ts` 16개 추가, 스모크 121 passed / 1 failed(3D `걷기 입력은 3인칭 화면을 이동시킨다` 캔버스 스크린샷 30초 초과 — 단독 재실행 시 이 브랜치·main 각 2회 통과, 약 21~22초로 같음), `git diff --check`.
+- 미실행: backend pytest(백엔드 변경 없음), `db:validate`(DB 변경 없음), Safari·실기기, 운영 서버 반영.
+- 로컬 검증 중 게스트 공간 상한(20)에 걸려 로컬 백엔드만 `GUEST_LIMIT=100`으로 재시작했다(설정·데이터 변경 없음).
+- DB migration / Excel / seed: 변경 없음. 사용자 요청으로 main에 rebase 통합(OPS `88d584f` 위), push 없음.
+- 다음: 서버 배포(사용자 확인 후) → Antigravity A1부터(지시서) · Claude UI-03 예외 패턴.
