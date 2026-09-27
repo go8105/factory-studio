@@ -3,13 +3,15 @@ import { useState, type FormEvent } from "react";
 import {
   Badge,
   DataTable,
+  DetailPanel,
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
+  useDiscardGuard,
   type Column,
-  RevealAnchor,
 } from "../shared/components";
 import {
   customers,
@@ -196,10 +198,15 @@ export function Quotations() {
     ITEMS,
   ]);
   const { send, pending, error: saveError, setError } = useSend(reload);
-  const [selectedId, setSelectedId] = useState<number>();
+
+  const [panel, setPanel] = useState<
+    { kind: "create" } | { kind: "detail"; id: number } | null
+  >(null);
+
   const [lines, setLines] = useState<DraftLine[]>();
   const [reason, setReason] = useState("");
   const [showRevisions, setShowRevisions] = useState(false);
+
   const blank = {
     quoteNo: "",
     partnerId: 0,
@@ -220,7 +227,10 @@ export function Quotations() {
   const buyers = customers(partners);
   const name = labels(partners, allItems);
   const errors = fieldErrors(saveError);
+
+  const selectedId = panel && "id" in panel ? panel.id : undefined;
   const selected = quotes?.find((q) => q.id === selectedId);
+
   const original: DraftLine[] = (selected?.lines ?? []).map((l) => ({
     itemId: l.itemId,
     qty: String(Number(l.quoteQty)),
@@ -229,11 +239,31 @@ export function Quotations() {
     discountRate: String(Number(l.discountRate)),
   }));
   const draft = lines ?? original;
-  const dirty =
-    lines !== undefined && JSON.stringify(lines) !== JSON.stringify(original);
 
-  function select(id: number | undefined) {
-    setSelectedId(id);
+  const dirty =
+    (panel?.kind === "create" &&
+      JSON.stringify(create) !== JSON.stringify(blank)) ||
+    (panel?.kind === "detail" &&
+      lines !== undefined &&
+      JSON.stringify(lines) !== JSON.stringify(original));
+  const guard = useDiscardGuard(dirty);
+
+  function openCreate() {
+    setCreate(blank);
+    setPanel({ kind: "create" });
+    setError(undefined);
+  }
+
+  function openDetail(id: number) {
+    setPanel({ kind: "detail", id });
+    setLines(undefined);
+    setReason("");
+    setShowRevisions(false);
+    setError(undefined);
+  }
+
+  function closePanel() {
+    setPanel(null);
     setLines(undefined);
     setReason("");
     setShowRevisions(false);
@@ -252,7 +282,7 @@ export function Quotations() {
     });
     if (created) {
       setCreate(blank);
-      select(created.id);
+      openDetail(created.id);
     }
   }
 
@@ -284,7 +314,7 @@ export function Quotations() {
       `/quotations/${selected.id}/revise`,
       "POST",
     );
-    if (created) select(created.id);
+    if (created) openDetail(created.id);
   }
 
   async function submitConvert(event: FormEvent) {
@@ -307,7 +337,7 @@ export function Quotations() {
           type="button"
           className="link-button"
           aria-pressed={r.id === selectedId}
-          onClick={() => select(r.id)}
+          onClick={() => guard.guard(() => openDetail(r.id))}
         >
           열기
         </button>
@@ -346,101 +376,135 @@ export function Quotations() {
   const s = selected?.status;
   const canConvert =
     !!selected && !selected.salesOrderId && (s === "sent" || s === "accepted");
+  const formError = Object.keys(errors).length ? undefined : saveError;
+
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="E-02"
         title="견적"
         subtitle="견적을 작성·제출하고 개정 이력과 수주 전환을 관리합니다"
         help="erp/e-02"
+        actions={
+          <button
+            type="button"
+            aria-pressed={panel?.kind === "create"}
+            onClick={() => guard.guard(openCreate)}
+          >
+            견적 만들기
+          </button>
+        }
       />
-      <p className="muted">
+      <p className="muted" role="note">
         단가를 비우면 거래처별 단가(E-17)의 견적일 기준 단가를 가져와 견적에
         복사합니다. 확정한 견적은 고칠 수 없고 &quot;개정&quot;으로 새 차수를
         만듭니다. 이전 차수는 읽기 전용으로 남습니다.
       </p>
-      <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
+      {!panel && <ErrorNotice error={formError} />}
       <ErrorNotice error={error} retry={reload} />
       {!quotes ? (
         !error && <Loading />
       ) : (
-        <>
-          <div className="master-grid">
-            <section>
-              <DataTable
-                rows={quotes}
-                columns={columns}
-                caption="견적 목록 (최신 개정본)"
-                offset={0}
-                total={quotes.length}
-                limit={quotes.length || 1}
-                onPage={() => undefined}
-                empty={
-                  <EmptyState
-                    reason="등록된 견적이 없습니다. 우측 폼에서 첫 견적을 만드세요."
-                    to="#quotation-form"
-                    action="견적 만들기"
-                  />
-                }
-              />
-            </section>
-            <form
-              id="quotation-form"
-              className="panel"
-              aria-label="견적 만들기"
+        <div className="split-view fill">
+          <section className="fill">
+            <DataTable
+              rows={quotes}
+              columns={columns}
+              caption="견적 목록 (최신 개정본)"
+              offset={0}
+              total={quotes.length}
+              limit={quotes.length || 1}
+              onPage={() => undefined}
+              empty={
+                <EmptyState
+                  reason="등록된 견적이 없습니다. 첫 견적을 만드세요."
+                  action="견적 만들기"
+                  onAction={() => guard.guard(openCreate)}
+                />
+              }
+            />
+          </section>
+
+          {panel?.kind === "create" && (
+            <FormPanel
+              wide
+              title="견적 만들기"
+              guard={guard}
+              onClose={closePanel}
               onSubmit={(e) => void submitCreate(e)}
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
+                    만들기
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closePanel)}
+                  >
+                    취소
+                  </button>
+                </>
+              }
             >
-              <h2>새 견적</h2>
-              <Field
-                label="견적번호"
-                value={create.quoteNo}
-                required
-                maxLength={40}
-                placeholder="예: Q-0101"
-                error={errors.quoteNo}
-                onChange={(e) =>
-                  setCreate({
-                    ...create,
-                    quoteNo: e.target.value.toUpperCase(),
-                  })
-                }
-              />
-              <div className="field">
-                <label htmlFor="quote-partner">거래처</label>
-                <select
-                  id="quote-partner"
-                  value={create.partnerId || buyers[0]?.id || ""}
+              <ErrorNotice error={formError} />
+              <div className="field-row">
+                <Field
+                  label="견적번호"
+                  value={create.quoteNo}
+                  required
+                  maxLength={40}
+                  placeholder="예: Q-0101"
+                  error={errors.quoteNo}
                   onChange={(e) =>
-                    setCreate({ ...create, partnerId: Number(e.target.value) })
+                    setCreate({
+                      ...create,
+                      quoteNo: e.target.value.toUpperCase(),
+                    })
                   }
-                >
-                  {buyers.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.partnerCode} {p.partnerName}
-                    </option>
-                  ))}
-                </select>
-                {errors.partnerId && <small>{errors.partnerId}</small>}
+                />
+                <div className="field">
+                  <label htmlFor="quote-partner">거래처</label>
+                  <select
+                    id="quote-partner"
+                    value={create.partnerId || buyers[0]?.id || ""}
+                    onChange={(e) =>
+                      setCreate({
+                        ...create,
+                        partnerId: Number(e.target.value),
+                      })
+                    }
+                  >
+                    {buyers.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.partnerCode} {p.partnerName}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.partnerId && <small>{errors.partnerId}</small>}
+                </div>
               </div>
-              <Field
-                label="견적일"
-                type="date"
-                value={create.quotedOn}
-                required
-                error={errors.quotedOn}
-                onChange={(e) =>
-                  setCreate({ ...create, quotedOn: e.target.value })
-                }
-              />
-              <Field
-                label="유효기한 (선택)"
-                type="date"
-                value={create.validUntil}
-                error={errors.validUntil}
-                onChange={(e) =>
-                  setCreate({ ...create, validUntil: e.target.value })
-                }
-              />
+              <div className="field-row">
+                <Field
+                  label="견적일"
+                  type="date"
+                  value={create.quotedOn}
+                  required
+                  error={errors.quotedOn}
+                  onChange={(e) =>
+                    setCreate({ ...create, quotedOn: e.target.value })
+                  }
+                />
+                <Field
+                  label="유효기한 (선택)"
+                  type="date"
+                  value={create.validUntil}
+                  error={errors.validUntil}
+                  onChange={(e) =>
+                    setCreate({ ...create, validUntil: e.target.value })
+                  }
+                />
+              </div>
               <Field
                 label="비고 (선택)"
                 value={create.remark}
@@ -449,26 +513,25 @@ export function Quotations() {
                   setCreate({ ...create, remark: e.target.value })
                 }
               />
-              <div className="form-actions">
-                <button type="submit" disabled={pending}>
-                  만들기
-                </button>
-              </div>
-            </form>
-          </div>
+            </FormPanel>
+          )}
 
-          <RevealAnchor when={selected} />
-
-          {selected ? (
-            <section className="panel" aria-label="견적 상세">
-              <h2>
-                {selected.quoteNo} {selected.revisionNo}차{" "}
-                {badge(selected.status)}
-              </h2>
-              <p className="muted">
+          {panel?.kind === "detail" && selected && (
+            <DetailPanel
+              wide
+              key={`detail-${selected.id}`}
+              title={`${selected.quoteNo} ${selected.revisionNo}차`}
+              onClose={closePanel}
+            >
+              <ErrorNotice error={formError} />
+              <p>
+                <Badge tone={STATUS[selected.status][1]}>
+                  {STATUS[selected.status][0]}
+                </Badge>{" "}
                 {name.partner(selected.partnerId)} · 견적일 {selected.quotedOn}{" "}
                 · 공급가액 {won(selected.totalAmount)}
               </p>
+
               {s === "draft" ? (
                 <>
                   <LineEditor
@@ -535,6 +598,7 @@ export function Quotations() {
                   </button>
                 )}
               </div>
+
               {(s === "draft" || s === "confirmed" || s === "sent") && (
                 <div className="form-actions">
                   <Field
@@ -574,7 +638,7 @@ export function Quotations() {
                   <p className="muted">
                     할인율을 반영한 단가로 수주 명세를 만듭니다.
                   </p>
-                  <div className="master-grid">
+                  <div className="field-row">
                     <Field
                       label="수주번호"
                       value={convert.orderNo}
@@ -597,17 +661,17 @@ export function Quotations() {
                         setConvert({ ...convert, orderedOn: e.target.value })
                       }
                     />
-                    <Field
-                      label="납기일"
-                      type="date"
-                      value={convert.dueOn}
-                      required
-                      error={errors.dueOn}
-                      onChange={(e) =>
-                        setConvert({ ...convert, dueOn: e.target.value })
-                      }
-                    />
                   </div>
+                  <Field
+                    label="납기일"
+                    type="date"
+                    value={convert.dueOn}
+                    required
+                    error={errors.dueOn}
+                    onChange={(e) =>
+                      setConvert({ ...convert, dueOn: e.target.value })
+                    }
+                  />
                   <div className="form-actions">
                     <button type="submit" disabled={pending}>
                       수주로 전환
@@ -615,6 +679,7 @@ export function Quotations() {
                   </div>
                 </form>
               )}
+
               {selected.salesOrderId && (
                 <p className="muted">
                   수주로 전환된 견적입니다. E-04 수주에서 확인하세요.
@@ -631,6 +696,7 @@ export function Quotations() {
                   </li>
                 ))}
               </ol>
+
               {selected.revisionCount > 1 &&
                 (showRevisions ? (
                   <Revisions
@@ -647,15 +713,10 @@ export function Quotations() {
                     개정 이력 {selected.revisionCount}건 보기
                   </button>
                 ))}
-            </section>
-          ) : (
-            <p className="muted">
-              목록에서 &quot;열기&quot;를 누르면 명세·상태 이력·개정 이력을 볼
-              수 있습니다.
-            </p>
+            </DetailPanel>
           )}
-        </>
+        </div>
       )}
-    </>
+    </div>
   );
 }

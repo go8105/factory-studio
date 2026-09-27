@@ -306,3 +306,32 @@ test("M-15 BOM 자재 패널 열기 및 Esc 닫기", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
 });
+
+test("E-02 견적 등록은 넓은 패널이고 1440x900 문서 높이를 넘지 않는다", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/erp/quotations");
+  await page.getByRole("button", { name: "견적 만들기" }).click();
+  const panel = page.getByRole("dialog", { name: "견적 만들기" });
+  await expect(panel).toBeVisible();
+  expect((await panel.boundingBox())!.width).toBe(640);
+  expect(await docHeight(page)).toBeLessThanOrEqual(900);
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+});
+
+test("E-02 견적 상세 패널 열기 및 Esc 닫기", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/erp/quotations");
+  await page
+    .getByRole("table", { name: "견적 목록 (최신 개정본)" })
+    .getByRole("row", { name: /^Q-0001/ })
+    .getByRole("button", { name: "열기" })
+    .click();
+  const panel = page.getByRole("dialog", { name: /Q-0001/ });
+  await expect(panel).toBeVisible();
+  expect(await docHeight(page)).toBeLessThanOrEqual(900);
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+});
