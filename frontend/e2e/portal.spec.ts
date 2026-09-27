@@ -27,10 +27,29 @@ test("흐름 노드에서 QMS 설명 카드로 이동", async ({ page }) => {
 });
 test("도움말 허브에서 공통 도움말로 이동", async ({ page }) => {
   await page.getByRole("link", { name: "도움말", exact: true }).click();
-  await page.getByRole("link", { name: /공통 이용 안내 오류/ }).click();
+  await page.getByRole("link", { name: "공통 이용 안내", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "공통 이용 안내" }),
   ).toBeVisible();
+});
+test("참고 문서 ↔ 업무 화면 왕복: 이 화면 열기와 ? 도움말", async ({
+  page,
+}) => {
+  await page.goto("/help?q=소명");
+  await page
+    .getByRole("region", { name: "검색 결과" })
+    .getByRole("link", { name: /E-09/ })
+    .click();
+  await expect(page).toHaveURL("/help/erp/e-09");
+  await page.getByRole("link", { name: "이 화면 열기 →" }).click();
+  await expect(page).toHaveURL("/erp/receivables");
+  await page.getByRole("link", { name: "매출채권 현황 도움말" }).click();
+  await expect(page).toHaveURL("/help/erp/e-09");
+  await expect(
+    page
+      .getByRole("navigation", { name: "문서 목록" })
+      .getByRole("link", { name: /E-09/ }),
+  ).toHaveAttribute("aria-current", "page");
 });
 test("런처에서 내 공간으로 이동", async ({ page }) => {
   await page.getByRole("link", { name: "내 공간", exact: true }).click();
@@ -84,7 +103,7 @@ for (const [route, title] of [
   ["home", "제조 현장의 세 시스템"],
   ["flow", "전체 업무 흐름"],
   ["cards/qms", "설명 카드"],
-  ["help", "도움말"],
+  ["help", "참고 문서"],
   ["workspace", "내 공간"],
   ["records", "페이지를 찾을 수 없습니다"],
   ["erp/dashboard", "경영 개요"],

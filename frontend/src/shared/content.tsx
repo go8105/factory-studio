@@ -1,3 +1,4 @@
+import { Children } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 const helpFiles = import.meta.glob("../../../content/help/**/*.md", {
@@ -24,10 +25,21 @@ export const cards = Object.fromEntries(
 );
 export const contentTitle = (body: string) =>
   body.split("\n")[0].replace(/^#\s*/, "");
+// 문서 목차(P-05)가 가리킬 수 있게 ## 제목에 id를 붙인다.
+export const slug = (text: string) =>
+  text.replace(/[*`]/g, "").trim().replace(/\s+/g, "-");
 export function MarkdownContent({ body }: { body: string }) {
   return (
     <article className="markdown">
-      <Markdown remarkPlugins={[remarkGfm]} skipHtml>
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        skipHtml
+        components={{
+          h2: ({ children }) => (
+            <h2 id={slug(Children.toArray(children).join(""))}>{children}</h2>
+          ),
+        }}
+      >
         {body}
       </Markdown>
     </article>

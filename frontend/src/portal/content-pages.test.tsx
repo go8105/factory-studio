@@ -74,12 +74,48 @@ it("P-04 정의되지 않은 카드는 404로 처리한다", async () => {
   show("/cards/mes");
   expect(await screen.findByText("404 · NOT_FOUND")).toBeVisible();
 });
-it("P-05 목록은 솔루션별 도움말 링크를 제공한다", async () => {
+it("P-05 첫 화면은 구역 카드와 솔루션별 참고 문서 입구를 둔다", async () => {
   show("/help");
-  expect(await screen.findByRole("link", { name: /F-01/ })).toHaveAttribute(
-    "href",
-    "/help/fems/f-01",
+  const reference = await screen.findByRole("region", {
+    name: "사용자 참고 문서",
+  });
+  expect(
+    within(reference).getByRole("link", { name: /FEMS 에너지관리/ }),
+  ).toHaveAttribute("href", "/help/fems/f-01");
+});
+it("P-05 검색은 제목 일치를 본문 일치보다 위에 둔다", async () => {
+  show("/help?q=소명");
+  const results = await screen.findByRole("region", { name: "검색 결과" });
+  const first = within(results).getAllByRole("link")[0];
+  expect(first.textContent).toMatch(/소명/);
+});
+it("P-05 화면 문서는 트리·목차·이 화면 열기·이전/다음을 갖는다", async () => {
+  show("/help/erp/e-09");
+  expect(
+    await screen.findByRole("link", { name: "이 화면 열기 →" }),
+  ).toHaveAttribute("href", "/erp/receivables");
+  const tree = screen.getByRole("navigation", { name: "문서 목록" });
+  expect(within(tree).getByRole("link", { name: /E-09/ })).toHaveAttribute(
+    "aria-current",
+    "page",
   );
+  const toc = screen.getByRole("navigation", { name: "이 문서 목차" });
+  expect(
+    within(toc).getByRole("link", { name: "이럴 때 막힙니다" }),
+  ).toHaveAttribute("href", "#이럴-때-막힙니다");
+  expect(
+    screen.getByRole("heading", { name: "이럴 때 막힙니다" }),
+  ).toHaveAttribute("id", "이럴-때-막힙니다");
+  const pager = screen.getByRole("navigation", { name: "이전·다음 문서" });
+  expect(within(pager).getByRole("link", { name: /이전/ })).toHaveAttribute(
+    "href",
+    "/help/erp/e-08",
+  );
+});
+it("P-05 포털 문서에는 이 화면 열기가 없다", async () => {
+  show("/help/common");
+  await screen.findByRole("heading", { name: "공통 이용 안내" });
+  expect(screen.queryByRole("link", { name: "이 화면 열기 →" })).toBeNull();
 });
 it("P-05 객체 기본 속성 이름은 도움말 키로 해석하지 않는다", async () => {
   show("/help/constructor");

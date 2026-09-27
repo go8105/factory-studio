@@ -1,0 +1,55 @@
+// DOC-01 참고 문서 구조·검색 계약
+import { expect, it } from "vitest";
+import { help } from "../shared/content";
+import { docSections, screenPath, searchDocs, sectionOf } from "./docs";
+it("모든 문서는 어느 구역의 트리에 속한다(고아 문서 0)", () => {
+  const sections = docSections(help);
+  expect(Object.keys(help).filter((k) => !sectionOf(sections, k))).toEqual([]);
+});
+it("참고 문서 트리는 메뉴 group 순서를 따른다", () => {
+  const erp = docSections(help)
+    .find((s) => s.key === "reference")!
+    .groups.filter((g) => g.solution === "ERP 경영관리");
+  expect(erp.map((g) => g.title)).toEqual([
+    "개요",
+    "영업",
+    "출하·매출",
+    "채권·수금",
+    "매입·채무",
+    "회계",
+    "기준정보",
+  ]);
+});
+it("문서가 없는 구역은 보이지 않고, 새 폴더는 파일명 순서로 구역이 된다", () => {
+  const docs = {
+    "design/d-02": "# 둘",
+    "design/d-01": "# 하나",
+    "erp/e-09": "# 매출채권 현황",
+  };
+  const sections = docSections(docs);
+  expect(sections.map((s) => s.key)).toEqual(["design", "reference"]);
+  expect(sections[0].groups[0].keys).toEqual(["design/d-01", "design/d-02"]);
+});
+it("화면 경로는 업무 화면 문서에만 있다", () => {
+  expect(screenPath("mes/m-04")).toBe("/mes/lots");
+  expect(screenPath("portal/p-02")).toBeUndefined();
+  expect(screenPath("design/d-01")).toBeUndefined();
+});
+it("검색은 대소문자를 무시하고 제목 일치를 먼저, 출처 주석은 제외한다", () => {
+  const docs = {
+    a: "# 수금 안내\n본문",
+    b: "# 다른 문서\n- **LOT** 과 수금을 잇는다",
+    c: "# 세 번째\n<!-- sources: 수금 -->",
+  };
+  expect(searchDocs(docs, "수금")).toEqual([
+    { key: "a", title: "수금 안내", inTitle: true, snippet: "" },
+    {
+      key: "b",
+      title: "다른 문서",
+      inTitle: false,
+      snippet: "LOT 과 수금을 잇는다",
+    },
+  ]);
+  expect(searchDocs(docs, "lot").map((r) => r.key)).toEqual(["b"]);
+  expect(searchDocs(docs, "  ")).toEqual([]);
+});
