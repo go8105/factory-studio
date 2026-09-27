@@ -1,14 +1,14 @@
-// E-06 출하 — 출하지시를 한 번에 출하 확정, 같은 순간 매출 인식 (FS-019c)
 import { useState, type FormEvent } from "react";
 import {
   DataTable,
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
   type Column,
-  RevealAnchor,
+  useDiscardGuard,
 } from "../shared/components";
 import {
   fieldErrors,
@@ -55,10 +55,10 @@ export function Shipments() {
   >(["/shipments", "/shipment-orders", PARTNERS, ITEMS]);
   const { send, pending, error: saveError, setError } = useSend(reload);
   const [selectedId, setSelectedId] = useState<number>();
+  const [panelOpen, setPanelOpen] = useState(false);
   const [create, setCreate] = useState({ shipmentNo: "", shipmentOrderId: 0 });
   const [packing, setPacking] = useState<Record<number, string>>({});
 
-  if (moduleOff(error)) return <ModuleOff />;
   const [shipments, shipOrders, partners, items] = data ?? [
     undefined,
     [],
@@ -71,9 +71,34 @@ export function Shipments() {
   const open = shipOrders.filter((s) => s.status === "open");
   const target = open.find((s) => s.id === create.shipmentOrderId);
 
-  function select(id: number | undefined) {
-    setSelectedId(id);
+  const dirty =
+    panelOpen &&
+    (create.shipmentNo !== "" ||
+      create.shipmentOrderId !== 0 ||
+      Object.values(packing).some((v) => v !== ""));
+  const guard = useDiscardGuard(dirty);
+
+  if (moduleOff(error)) return <ModuleOff />;
+
+  function openCreate() {
     setError(undefined);
+    setCreate({ shipmentNo: "", shipmentOrderId: 0 });
+    setPacking({});
+    setPanelOpen(true);
+  }
+
+  function closeCreate() {
+    setPanelOpen(false);
+    setCreate({ shipmentNo: "", shipmentOrderId: 0 });
+    setPacking({});
+    setError(undefined);
+  }
+
+  function select(id: number | undefined) {
+    guard.guard(() => {
+      setSelectedId(id);
+      setError(undefined);
+    });
   }
 
   async function submit(event: FormEvent) {
@@ -90,6 +115,7 @@ export function Shipments() {
     if (created) {
       setCreate({ shipmentNo: "", shipmentOrderId: 0 });
       setPacking({});
+      setPanelOpen(false);
       select(created.id);
     }
   }
@@ -164,12 +190,23 @@ export function Shipments() {
   ];
 
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="E-06"
         title="출하"
         subtitle="출하지시를 출하 확정하고, 같은 순간 매출을 인식합니다"
         help="erp/e-06"
+        actions={
+          <button
+            type="button"
+            aria-pressed={panelOpen}
+            onClick={() =>
+              guard.guard(() => (panelOpen ? closeCreate() : openCreate()))
+            }
+          >
+            출하 확정
+          </button>
+        }
       />
       <p className="muted">
         MES와 독립이므로 패킹번호는 직접 입력합니다(선택). 실제 운영에서는
@@ -182,54 +219,75 @@ export function Shipments() {
       {!shipments ? (
         !error && <Loading />
       ) : (
-        <>
-          <DataTable
-            rows={shipments}
-            columns={columns}
-            caption="출하 목록"
-            offset={0}
-            total={shipments.length}
-            limit={shipments.length || 1}
-            onPage={() => undefined}
-            empty={
-              <EmptyState
-                reason="출하 이력이 없습니다. 아래 폼에서 미출하 지시를 출하하세요."
-                to="#shipment-form"
-                action="출하 확정"
-              />
-            }
-          />
-
-          <RevealAnchor when={selected} />
-
-          {selected && (
-            <section className="panel" aria-label="출하 명세">
-              <h2>{selected.shipmentNo} 명세</h2>
-              <p className="muted">
-                매출: 공급가액 {won(selected.supplyAmount ?? "0")} · 세액{" "}
-                {won(selected.taxAmount ?? "0")} · 합계{" "}
-                {won(selected.totalAmount ?? "0")}
-              </p>
+        <div className="split-view fill">
+          <section className="fill">
+            <div className="section-block">
               <DataTable
-                rows={selected.lines}
-                columns={lineColumns}
-                caption={`${selected.shipmentNo} 출하 명세`}
+                rows={shipments}
+                columns={columns}
+                caption="출하 목록"
                 offset={0}
-                total={selected.lines.length}
-                limit={selected.lines.length || 1}
+                total={shipments.length}
+                limit={shipments.length || 1}
                 onPage={() => undefined}
+                empty={
+                  <EmptyState
+                    reason="출하 이력이 없습니다. 패널을 열어 미출하 지시를 출하하세요."
+                    action="출하 확정"
+                    onAction={() => guard.guard(openCreate)}
+                  />
+                }
               />
-            </section>
-          )}
+            </div>
 
-          <form
-            id="shipment-form"
-            className="panel"
-            aria-label="출하 확정"
-            onSubmit={(e) => void submit(e)}
-          >
-            <h2>출하 확정</h2>
-            <div className="master-grid">
+            {selected && (
+              <section className="section-block" aria-label="출하 명세">
+                <div className="section-heading">
+                  <h2>{selected.shipmentNo} 명세</h2>
+                </div>
+                <p className="muted">
+                  매출: 공급가액 {won(selected.supplyAmount ?? "0")} · 세액{" "}
+                  {won(selected.taxAmount ?? "0")} · 합계{" "}
+                  {won(selected.totalAmount ?? "0")}
+                </p>
+                <DataTable
+                  rows={selected.lines}
+                  columns={lineColumns}
+                  caption={`${selected.shipmentNo} 출하 명세`}
+                  offset={0}
+                  total={selected.lines.length}
+                  limit={selected.lines.length || 1}
+                  onPage={() => undefined}
+                />
+              </section>
+            )}
+          </section>
+
+          {panelOpen && (
+            <FormPanel
+              title="출하 확정"
+              guard={guard}
+              onClose={() => guard.guard(closeCreate)}
+              onSubmit={(e) => void submit(e)}
+              actions={
+                <>
+                  <button
+                    type="submit"
+                    disabled={pending || !target}
+                    aria-busy={pending}
+                  >
+                    출하 확정
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closeCreate)}
+                  >
+                    취소
+                  </button>
+                </>
+              }
+            >
               <Field
                 label="출하번호"
                 value={create.shipmentNo}
@@ -266,27 +324,22 @@ export function Shipments() {
                   ))}
                 </select>
               </div>
-            </div>
-            {target && (
-              <DataTable
-                rows={target.lines}
-                columns={draftColumns}
-                caption={`${target.shipOrderNo} 출하 명세`}
-                offset={0}
-                total={target.lines.length}
-                limit={target.lines.length || 1}
-                onPage={() => undefined}
-              />
-            )}
-            {errors.lines && <p className="notice">{errors.lines}</p>}
-            <div className="form-actions">
-              <button type="submit" disabled={pending || !target}>
-                출하 확정
-              </button>
-            </div>
-          </form>
-        </>
+              {target && (
+                <DataTable
+                  rows={target.lines}
+                  columns={draftColumns}
+                  caption={`${target.shipOrderNo} 출하 명세`}
+                  offset={0}
+                  total={target.lines.length}
+                  limit={target.lines.length || 1}
+                  onPage={() => undefined}
+                />
+              )}
+              {errors.lines && <p className="notice">{errors.lines}</p>}
+            </FormPanel>
+          )}
+        </div>
       )}
-    </>
+    </div>
   );
 }

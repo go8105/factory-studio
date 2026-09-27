@@ -64,6 +64,9 @@ it("출하지시 기본 수량은 남은 수량이다", async () => {
     [`GET ${E}/sales-orders`]: list([order]),
     [`POST ${E}/shipment-orders`]: { status: 201, body: { data: shipOrder() } },
   });
+  fireEvent.click(
+    await screen.findByRole("button", { name: "출하지시 만들기" }),
+  );
   const form = await screen.findByRole("form", { name: "출하지시 만들기" });
   fireEvent.change(within(form).getByLabelText("출하지시번호"), {
     target: { value: "sh-o-9" },
@@ -118,6 +121,7 @@ it("출하 확정은 패킹번호만 보내고 빈 값은 null이다", async () 
     [`GET ${E}/shipment-orders`]: list([shipOrder()]),
     [`POST ${E}/shipments`]: { status: 201, body: { data: {} } },
   });
+  fireEvent.click(await screen.findByRole("button", { name: "출하 확정" }));
   const form = await screen.findByRole("form", { name: "출하 확정" });
   fireEvent.change(within(form).getByLabelText("출하번호"), {
     target: { value: "sh-9" },

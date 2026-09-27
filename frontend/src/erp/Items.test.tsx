@@ -7,6 +7,7 @@ it("MES와 독립임을 안내한다", async () => {
 });
 it("품목 과세 구분 select를 표시한다", async () => {
   mount("/erp/items");
+  fireEvent.click(await screen.findByRole("button", { name: "품목 등록" }));
   expect(await screen.findByLabelText("과세 구분")).toHaveValue("TAXABLE");
 });
 it("선택한 품목의 단위환산을 표시한다", async () => {
@@ -28,6 +29,7 @@ it("단위환산 등록은 기준 단위를 클라이언트가 보내지 않는�
   fireEvent.change(screen.getByLabelText("환산할 품목"), {
     target: { value: "2" },
   });
+  fireEvent.click(await screen.findByRole("button", { name: "단위환산 등록" }));
   fireEvent.change(await screen.findByLabelText("환산 전 단위"), {
     target: { value: "PACK" },
   });

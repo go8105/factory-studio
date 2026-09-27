@@ -1,4 +1,3 @@
-// E-05 출하지시 — 수주 명세에서 출하 수량 배정, 미출하 지시 취소 (FS-019c)
 import { useState, type FormEvent } from "react";
 import {
   Badge,
@@ -6,10 +5,11 @@ import {
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
   type Column,
-  RevealAnchor,
+  useDiscardGuard,
 } from "../shared/components";
 import {
   fieldErrors,
@@ -65,6 +65,7 @@ export function ShipmentOrders() {
   const { send, pending, error: saveError, setError } = useSend(reload);
   const [selectedId, setSelectedId] = useState<number>();
   const [reason, setReason] = useState("");
+  const [panelOpen, setPanelOpen] = useState(false);
   const [create, setCreate] = useState({
     shipOrderNo: "",
     salesOrderId: 0,
@@ -72,7 +73,6 @@ export function ShipmentOrders() {
   });
   const [qtys, setQtys] = useState<Record<number, string>>({});
 
-  if (moduleOff(error)) return <ModuleOff />;
   const [shipOrders, orders, partners, items] = data ?? [undefined, [], [], []];
   const name = labels(partners, items);
   const errors = fieldErrors(saveError);
@@ -84,10 +84,35 @@ export function ShipmentOrders() {
   const remaining = (l: Order["lines"][number]) =>
     Number(l.orderQty) - Number(l.instructedQty);
 
-  function select(id: number | undefined) {
-    setSelectedId(id);
-    setReason("");
+  const dirty =
+    panelOpen &&
+    (create.shipOrderNo !== "" ||
+      create.salesOrderId !== 0 ||
+      Object.values(qtys).some((v) => v !== ""));
+  const guard = useDiscardGuard(dirty);
+
+  if (moduleOff(error)) return <ModuleOff />;
+
+  function openCreate() {
     setError(undefined);
+    setCreate({ shipOrderNo: "", salesOrderId: 0, orderedOn: today() });
+    setQtys({});
+    setPanelOpen(true);
+  }
+
+  function closeCreate() {
+    setPanelOpen(false);
+    setCreate({ shipOrderNo: "", salesOrderId: 0, orderedOn: today() });
+    setQtys({});
+    setError(undefined);
+  }
+
+  function select(id: number | undefined) {
+    guard.guard(() => {
+      setSelectedId(id);
+      setReason("");
+      setError(undefined);
+    });
   }
 
   function chooseOrder(id: number) {
@@ -118,6 +143,7 @@ export function ShipmentOrders() {
     if (created) {
       setCreate({ shipOrderNo: "", salesOrderId: 0, orderedOn: today() });
       setQtys({});
+      setPanelOpen(false);
       select(created.id);
     }
   }
@@ -209,12 +235,23 @@ export function ShipmentOrders() {
   ];
 
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="E-05"
         title="출하지시"
         subtitle="수주 명세에서 출하할 수량을 배정합니다"
         help="erp/e-05"
+        actions={
+          <button
+            type="button"
+            aria-pressed={panelOpen}
+            onClick={() =>
+              guard.guard(() => (panelOpen ? closeCreate() : openCreate()))
+            }
+          >
+            출하지시 만들기
+          </button>
+        }
       />
       <p className="muted">
         한 수주를 여러 지시로 나눌 수 있지만, 지시 합계는 수주 수량을 넘을 수
@@ -226,73 +263,94 @@ export function ShipmentOrders() {
       {!shipOrders ? (
         !error && <Loading />
       ) : (
-        <>
-          <DataTable
-            rows={shipOrders}
-            columns={columns}
-            caption="출하지시 목록"
-            offset={0}
-            total={shipOrders.length}
-            limit={shipOrders.length || 1}
-            onPage={() => undefined}
-            empty={
-              <EmptyState
-                reason="등록된 출하지시가 없습니다. 아래 폼에서 수주를 골라 지시하세요."
-                to="#ship-order-form"
-                action="출하지시"
-              />
-            }
-          />
-
-          <RevealAnchor when={selected} />
-
-          {selected && (
-            <section className="panel" aria-label="출하지시 명세">
-              <h2>
-                {selected.shipOrderNo} 명세{" "}
-                <Badge tone={SHIP_STATUS[selected.status][1]}>
-                  {SHIP_STATUS[selected.status][0]}
-                </Badge>
-              </h2>
+        <div className="split-view fill">
+          <section className="fill">
+            <div className="section-block">
               <DataTable
-                rows={selected.lines}
-                columns={lineColumns}
-                caption={`${selected.shipOrderNo} 지시 명세`}
+                rows={shipOrders}
+                columns={columns}
+                caption="출하지시 목록"
                 offset={0}
-                total={selected.lines.length}
-                limit={selected.lines.length || 1}
+                total={shipOrders.length}
+                limit={shipOrders.length || 1}
                 onPage={() => undefined}
-              />
-              {selected.status === "open" && (
-                <div className="form-actions">
-                  <Field
-                    label="취소 사유"
-                    value={reason}
-                    maxLength={300}
-                    error={errors.reason}
-                    onChange={(e) => setReason(e.target.value)}
+                empty={
+                  <EmptyState
+                    reason="등록된 출하지시가 없습니다. 패널을 열어 수주를 골라 지시하세요."
+                    action="출하지시 만들기"
+                    onAction={() => guard.guard(openCreate)}
                   />
+                }
+              />
+            </div>
+
+            {selected && (
+              <section className="section-block" aria-label="출하지시 명세">
+                <div className="section-heading">
+                  <h2>
+                    {selected.shipOrderNo} 명세{" "}
+                    <Badge tone={SHIP_STATUS[selected.status][1]}>
+                      {SHIP_STATUS[selected.status][0]}
+                    </Badge>
+                  </h2>
+                </div>
+                <DataTable
+                  rows={selected.lines}
+                  columns={lineColumns}
+                  caption={`${selected.shipOrderNo} 지시 명세`}
+                  offset={0}
+                  total={selected.lines.length}
+                  limit={selected.lines.length || 1}
+                  onPage={() => undefined}
+                />
+                {selected.status === "open" && (
+                  <div className="form-actions">
+                    <Field
+                      label="취소 사유"
+                      value={reason}
+                      maxLength={300}
+                      error={errors.reason}
+                      onChange={(e) => setReason(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={pending || !reason.trim()}
+                      onClick={() => void cancel()}
+                    >
+                      지시 취소
+                    </button>
+                  </div>
+                )}
+              </section>
+            )}
+          </section>
+
+          {panelOpen && (
+            <FormPanel
+              title="출하지시 만들기"
+              guard={guard}
+              onClose={() => guard.guard(closeCreate)}
+              onSubmit={(e) => void submitCreate(e)}
+              actions={
+                <>
+                  <button
+                    type="submit"
+                    disabled={pending || !order}
+                    aria-busy={pending}
+                  >
+                    출하지시
+                  </button>
                   <button
                     type="button"
                     className="secondary"
-                    disabled={pending || !reason.trim()}
-                    onClick={() => void cancel()}
+                    onClick={() => guard.guard(closeCreate)}
                   >
-                    지시 취소
+                    취소
                   </button>
-                </div>
-              )}
-            </section>
-          )}
-
-          <form
-            id="ship-order-form"
-            className="panel"
-            aria-label="출하지시 만들기"
-            onSubmit={(e) => void submitCreate(e)}
-          >
-            <h2>새 출하지시</h2>
-            <div className="master-grid">
+                </>
+              }
+            >
               <Field
                 label="출하지시번호"
                 value={create.shipOrderNo}
@@ -332,27 +390,22 @@ export function ShipmentOrders() {
                   setCreate({ ...create, orderedOn: e.target.value })
                 }
               />
-            </div>
-            {order && (
-              <DataTable
-                rows={draftRows}
-                columns={draftColumns}
-                caption={`${order.orderNo} 수주 명세`}
-                offset={0}
-                total={draftRows.length}
-                limit={draftRows.length || 1}
-                onPage={() => undefined}
-              />
-            )}
-            {errors.lines && <p className="notice">{errors.lines}</p>}
-            <div className="form-actions">
-              <button type="submit" disabled={pending || !order}>
-                출하지시
-              </button>
-            </div>
-          </form>
-        </>
+              {order && (
+                <DataTable
+                  rows={draftRows}
+                  columns={draftColumns}
+                  caption={`${order.orderNo} 수주 명세`}
+                  offset={0}
+                  total={draftRows.length}
+                  limit={draftRows.length || 1}
+                  onPage={() => undefined}
+                />
+              )}
+              {errors.lines && <p className="notice">{errors.lines}</p>}
+            </FormPanel>
+          )}
+        </div>
       )}
-    </>
+    </div>
   );
 }

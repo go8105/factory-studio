@@ -1,7 +1,7 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **UI-02 A5(MES 기준정보 및 계획 화면 S 패턴 전환 M-02,03,06,08,10~13) 완료 (antigravity/ui02-a5, 사용자 확인 대기).**
+- 단계: **UI-02 A6(ERP 계획·출하·전표·기준정보 화면 S 패턴 전환 E-03, 05, 06, 08, 10, 11, 13, 15~18) 완료 — Antigravity UI-02 전 작업(A1~A6, 37개 화면) 완료 (antigravity/ui02-a6, 사용자 확인 대기).**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
@@ -1100,4 +1100,30 @@
   - `npm --prefix frontend test -- --run` 통과 (43개 테스트 파일 402개 테스트 통과)
   - `git diff --check` 통과 (공백/줄바꿈 이상 없음)
 - DB migration / Excel / seed: 변경 없음.
-- 다음: 사용자 확인 대기. 확인 후 A6(ERP 계획·출하·전표·기준정보 화면 E-03, 05, 06, 08, 10, 11, 13, 15~18) 진행.
+- 다음: A6(ERP 계획·출하·전표·기준정보 화면 E-03, 05, 06, 08, 10, 11, 13, 15~18) 진행.
+
+## 2026-09-27 UI-02 A6 ERP 계획·출하·전표·기준정보 화면 S 패턴 전환 (Antigravity)
+
+- 브랜치: `antigravity/ui02-a6` (기준: `antigravity/ui02-a5`)
+- 대상 화면 10개 (11개 메뉴):
+  - E-15~18: `frontend/src/erp/Master.tsx` (`Partners.tsx` E-15, `Items.tsx` E-16, `Prices.tsx` E-17, `Accounts.tsx` E-18 공용). `children` prop 지원, `FormPanel` 전환, `Accounts.tsx` split-view + 매핑 이유 aside 패널 결합.
+  - E-03: `frontend/src/erp/SalesPlans.tsx` (`master-grid` 및 `RevealAnchor` 제거, `page-fill` + `split-view` + `FormPanel("판매계획 만들기")`).
+  - E-05: `frontend/src/erp/ShipmentOrders.tsx` (`RevealAnchor` 제거, `page-fill` + `split-view` + `FormPanel("출하지시 만들기")`, 미출하 취소 동작 유지).
+  - E-06: `frontend/src/erp/Shipments.tsx` (`RevealAnchor` 제거, `page-fill` + `split-view` + `FormPanel("출하 확정")`, 수기 패킹번호 동작 유지).
+  - E-08: `frontend/src/erp/TaxInvoices.tsx` (등록·발급 두 폼을 `FormPanel` 모드 전환으로 S 패턴 통합, 0원 매출 발급 방지 및 409 안내 유지).
+  - E-10·E-13: `frontend/src/erp/Receipts.tsx` (수금·지급 공용 컴포넌트, `master-grid` 및 `RevealAnchor` 제거, `FormPanel` 등록 전환, 409 LIMIT_EXCEEDED 오류 안내 유지).
+  - E-11: `frontend/src/erp/PurchaseInvoices.tsx` (`master-grid` 및 `RevealAnchor` 제거, 등록·취소 두 패널을 `FormPanel` 모드 전환으로 통합).
+- 내용:
+  - React Rules of Hooks 준수: `useDiscardGuard`를 early return (`moduleOff`) 이전에 호출하여 조건부 훅 오류 원천 차단
+  - E2E 및 단위 테스트 최신화: 패널 오픈 버튼 클릭 후 폼을 조회하도록 테스트 보강
+  - `frontend/e2e/layout.spec.ts`에 전체 ERP 화면 `.page-fill` 검사 및 ERP 거래처 등록 패널 열기/닫기 E2E 테스트 추가
+  - **Antigravity UI-02 작업 묶음 A1~A6 (총 37개 화면) 전체 완료** (완료 40, 대기 0, Claude 선행 8, 유지 7 = 총 55개 화면).
+- 검증:
+  - `npm --prefix frontend run typecheck` 통과 (오류 0)
+  - `npm --prefix frontend run lint` 통과 (오류 0)
+  - `npm --prefix frontend run format:check` 통과 (전체 일치)
+  - `npm --prefix frontend run build` 통과
+  - `npm --prefix frontend test -- --run` 통과 (43개 테스트 파일 402개 테스트 전체 통과)
+  - `git diff --check` 통과 (공백/줄바꿈 이상 없음)
+- DB migration / Excel / seed: 변경 없음.
+- 다음: 사용자 확인 대기. 확인 후 Claude 선행 8개 화면(F-12, M-04, M-05, M-07, M-14, M-15, E-02, E-04) 진행 대기.

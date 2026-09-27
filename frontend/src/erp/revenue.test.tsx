@@ -127,6 +127,7 @@ it("0원·취소·계산서 있는 매출은 발급 대상에서 뺀다", async 
       sale({ id: 5, shipmentNo: "SH-I" }),
     ]),
   });
+  fireEvent.click(await screen.findByRole("button", { name: "계산서 만들기" }));
   const select = await screen.findByLabelText("매출");
   const options = [...select.querySelectorAll("option")].map(
     (o) => o.textContent,

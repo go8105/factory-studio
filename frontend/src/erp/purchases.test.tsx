@@ -159,6 +159,7 @@ it("지급 등록은 paymentNo·paidOn으로 보낸다", async () => {
     ]),
     [`POST ${E}/payments`]: { status: 201, body: { data: payment } },
   });
+  fireEvent.click(await screen.findByRole("button", { name: "지급 등록" }));
   const form = await screen.findByRole("form", { name: "지급 등록" });
   fireEvent.change(within(form).getByLabelText("지급번호"), {
     target: { value: "pm-1" },

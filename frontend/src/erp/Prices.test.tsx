@@ -3,12 +3,18 @@ import { expect, it } from "vitest";
 import { mount } from "./test-support";
 it("거래처와 품목을 선택할 수 있다", async () => {
   mount("/erp/partner-prices");
+  fireEvent.click(
+    await screen.findByRole("button", { name: "거래처별 단가 등록" }),
+  );
   expect(
     await screen.findByRole("option", { name: "C-001 · 예시 거래처" }),
   ).toBeVisible();
 });
 it("종료월 없이 등록할 수 있다", async () => {
   mount("/erp/partner-prices");
+  fireEvent.click(
+    await screen.findByRole("button", { name: "거래처별 단가 등록" }),
+  );
   expect(await screen.findByLabelText("종료월")).not.toBeRequired();
 });
 it("겹침 오류를 표시한다", async () => {

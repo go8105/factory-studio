@@ -88,6 +88,16 @@ for (const route of [
   "/mes/processes",
   "/erp/sales-records",
   "/erp/journal-preview",
+  "/erp/sales-plans",
+  "/erp/shipment-orders",
+  "/erp/shipments",
+  "/erp/tax-invoices",
+  "/erp/receipts",
+  "/erp/purchase-invoices",
+  "/erp/partners",
+  "/erp/items",
+  "/erp/partner-prices",
+  "/erp/accounts",
   "/fems/sites",
   "/fems/equipments",
   "/fems/energy-sources",
@@ -186,6 +196,16 @@ test("MES 설비 패널 열기 및 닫기", async ({ page }) => {
   const opener = page.getByRole("button", { name: "설비 등록" });
   await opener.click();
   const panel = page.getByRole("dialog", { name: "설비 등록" });
+  await expect(panel).toBeVisible();
+  await page.getByRole("button", { name: "패널 닫기" }).click();
+  await expect(panel).toBeHidden();
+});
+
+test("ERP 거래처 패널 열기 및 닫기", async ({ page }) => {
+  await page.goto("/erp/partners");
+  const opener = page.getByRole("button", { name: "거래처 등록" });
+  await opener.click();
+  const panel = page.getByRole("dialog", { name: "거래처 등록" });
   await expect(panel).toBeVisible();
   await page.getByRole("button", { name: "패널 닫기" }).click();
   await expect(panel).toBeHidden();

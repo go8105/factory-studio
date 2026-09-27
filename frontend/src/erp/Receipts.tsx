@@ -8,10 +8,11 @@ import {
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
   type Column,
-  RevealAnchor,
+  useDiscardGuard,
 } from "../shared/components";
 import {
   ERP,
@@ -68,10 +69,10 @@ export function Receipts({ side = RECEIVABLE }: { side?: Side }) {
   const [amounts, setAmounts] = useState<Record<number, string>>({});
   const [confirmUndo, setConfirmUndo] = useState<number>();
   const [journalId, setJournalId] = useState<number>();
+  const [panelOpen, setPanelOpen] = useState(false);
   const blank = { no: "", partnerId: 0, on: today(), amount: "" };
   const [create, setCreate] = useState(blank);
 
-  if (moduleOff(error)) return <ModuleOff />;
   const monies = data?.[0].map(toMoney(side));
   const items: OpenItem[] = data?.[1].map(toOpen(side)) ?? [];
   const partners = (data?.[2] ?? []).filter(
@@ -89,11 +90,32 @@ export function Receipts({ side = RECEIVABLE }: { side?: Side }) {
     0,
   );
 
-  function select(id: number | undefined) {
-    setSelectedId(id);
-    setAmounts({});
-    setConfirmUndo(undefined);
+  const createDirty = panelOpen && (create.no !== "" || create.amount !== "");
+  const applyDirty = Object.values(amounts).some((v) => v !== "");
+  const dirty = createDirty || applyDirty;
+  const guard = useDiscardGuard(dirty);
+
+  if (moduleOff(error)) return <ModuleOff />;
+
+  function openCreate() {
     setError(undefined);
+    setCreate(blank);
+    setPanelOpen(true);
+  }
+
+  function closeCreate() {
+    setPanelOpen(false);
+    setCreate(blank);
+    setError(undefined);
+  }
+
+  function select(id: number | undefined) {
+    guard.guard(() => {
+      setSelectedId(id);
+      setAmounts({});
+      setConfirmUndo(undefined);
+      setError(undefined);
+    });
   }
 
   async function submitCreate(event: FormEvent) {
@@ -107,6 +129,7 @@ export function Receipts({ side = RECEIVABLE }: { side?: Side }) {
     });
     if (created) {
       setCreate(blank);
+      setPanelOpen(false);
       select(created.id as number);
     }
   }
@@ -286,12 +309,23 @@ export function Receipts({ side = RECEIVABLE }: { side?: Side }) {
   ];
 
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id={receivable ? "E-10" : "E-13"}
         title={`${side.money} 등록·소명`}
         subtitle={`${side.money}을 확정하고 어느 ${side.source}${side.item}에 얼마를 붙일지 소명합니다`}
         help={receivable ? "erp/e-10" : "erp/e-13"}
+        actions={
+          <button
+            type="button"
+            aria-pressed={panelOpen}
+            onClick={() =>
+              guard.guard(() => (panelOpen ? closeCreate() : openCreate()))
+            }
+          >
+            {side.money} 등록
+          </button>
+        }
       />
       <p className="muted">
         확정되는 것은 {side.money}액이지 배분이 아닙니다. 확정 뒤에도 소명을
@@ -312,9 +346,9 @@ export function Receipts({ side = RECEIVABLE }: { side?: Side }) {
       {!monies ? (
         !error && <Loading />
       ) : (
-        <>
-          <div className="master-grid">
-            <section>
+        <div className="split-view fill">
+          <section className="fill">
+            <div className="section-block">
               <DataTable
                 rows={monies}
                 columns={columns}
@@ -325,20 +359,118 @@ export function Receipts({ side = RECEIVABLE }: { side?: Side }) {
                 onPage={() => undefined}
                 empty={
                   <EmptyState
-                    reason={`등록된 ${side.money}이 없습니다. 우측 폼에서 등록하세요.`}
-                    to="#money-form"
+                    reason={`등록된 ${side.money}이 없습니다. 패널을 열어 등록하세요.`}
                     action={`${side.money} 등록`}
+                    onAction={() => guard.guard(openCreate)}
                   />
                 }
               />
-            </section>
-            <form
-              id="money-form"
-              className="panel"
-              aria-label={`${side.money} 등록`}
+            </div>
+
+            {selected && (
+              <section className="section-block" aria-label="소명">
+                <div className="section-heading">
+                  <h2>{selected.no} 소명</h2>
+                </div>
+                <p>
+                  {side.money}액 {won(selected.amount)} = 소명{" "}
+                  {won(selected.appliedAmount)} + 미소명{" "}
+                  {won(selected.unappliedAmount)}
+                </p>
+                {selected.status === "draft" ? (
+                  <p className="muted">
+                    작성 중인 {side.money}은 먼저 확정해야 소명할 수 있습니다.
+                  </p>
+                ) : (
+                  <>
+                    <div className="form-actions">
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={!open.length}
+                        onClick={() => void fifo()}
+                      >
+                        FIFO로 채우기
+                      </button>
+                    </div>
+                    <DataTable
+                      rows={open}
+                      columns={targetColumns}
+                      caption={`소명 대상 ${side.item}`}
+                      offset={0}
+                      total={open.length}
+                      limit={open.length || 1}
+                      onPage={() => undefined}
+                      empty={
+                        <p className="muted">
+                          이 거래처에 잔액이 남은 {side.item}이 없습니다.
+                        </p>
+                      }
+                    />
+                    <p className="muted">
+                      이번 소명 {won(String(planned))} · 저장 후 미소명{" "}
+                      {won(String(Number(selected.unappliedAmount) - planned))}
+                    </p>
+                    {errors.lines && <p className="notice">{errors.lines}</p>}
+                    <div className="form-actions">
+                      <button
+                        type="button"
+                        disabled={pending || planned <= 0}
+                        onClick={() => void saveApplications()}
+                      >
+                        소명 저장
+                      </button>
+                    </div>
+                  </>
+                )}
+                <h3>소명 이력</h3>
+                <p className="muted">
+                  소명 취소는 기록을 지우고, 이 기록은 운영 기록(감사)에
+                  남습니다.
+                </p>
+                <DataTable
+                  rows={selected.applications}
+                  columns={appliedColumns}
+                  caption={`${selected.no} 소명 이력`}
+                  offset={0}
+                  total={selected.applications.length}
+                  limit={selected.applications.length || 1}
+                  onPage={() => undefined}
+                  empty={<p className="muted">소명이 없습니다.</p>}
+                />
+                {journalId &&
+                  selected.applications.some((a) => a.id === journalId) && (
+                    <JournalPanel
+                      kind={receivable ? "RECEIPT" : "PAYMENT"}
+                      id={journalId}
+                      onClose={() => setJournalId(undefined)}
+                    />
+                  )}
+              </section>
+            )}
+          </section>
+
+          {panelOpen && (
+            <FormPanel
+              title={`${side.money} 등록`}
+              guard={guard}
+              onClose={() => guard.guard(closeCreate)}
               onSubmit={(e) => void submitCreate(e)}
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
+                    등록
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closeCreate)}
+                  >
+                    취소
+                  </button>
+                </>
+              }
             >
-              <h2>새 {side.money}</h2>
               <Field
                 label={`${side.money}번호`}
                 value={create.no}
@@ -384,96 +516,10 @@ export function Receipts({ side = RECEIVABLE }: { side?: Side }) {
                   setCreate({ ...create, amount: e.target.value })
                 }
               />
-              <div className="form-actions">
-                <button type="submit" disabled={pending}>
-                  등록
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <RevealAnchor when={selected} />
-
-          {selected && (
-            <section className="panel" aria-label="소명">
-              <h2>{selected.no} 소명</h2>
-              <p>
-                {side.money}액 {won(selected.amount)} = 소명{" "}
-                {won(selected.appliedAmount)} + 미소명{" "}
-                {won(selected.unappliedAmount)}
-              </p>
-              {selected.status === "draft" ? (
-                <p className="muted">
-                  작성 중인 {side.money}은 먼저 확정해야 소명할 수 있습니다.
-                </p>
-              ) : (
-                <>
-                  <div className="form-actions">
-                    <button
-                      type="button"
-                      className="secondary"
-                      disabled={!open.length}
-                      onClick={() => void fifo()}
-                    >
-                      FIFO로 채우기
-                    </button>
-                  </div>
-                  <DataTable
-                    rows={open}
-                    columns={targetColumns}
-                    caption={`소명 대상 ${side.item}`}
-                    offset={0}
-                    total={open.length}
-                    limit={open.length || 1}
-                    onPage={() => undefined}
-                    empty={
-                      <p className="muted">
-                        이 거래처에 잔액이 남은 {side.item}이 없습니다.
-                      </p>
-                    }
-                  />
-                  <p className="muted">
-                    이번 소명 {won(String(planned))} · 저장 후 미소명{" "}
-                    {won(String(Number(selected.unappliedAmount) - planned))}
-                  </p>
-                  {errors.lines && <p className="notice">{errors.lines}</p>}
-                  <div className="form-actions">
-                    <button
-                      type="button"
-                      disabled={pending || planned <= 0}
-                      onClick={() => void saveApplications()}
-                    >
-                      소명 저장
-                    </button>
-                  </div>
-                </>
-              )}
-              <h3>소명 이력</h3>
-              <p className="muted">
-                소명 취소는 기록을 지우고, 이 기록은 운영 기록(감사)에 남습니다.
-              </p>
-              <DataTable
-                rows={selected.applications}
-                columns={appliedColumns}
-                caption={`${selected.no} 소명 이력`}
-                offset={0}
-                total={selected.applications.length}
-                limit={selected.applications.length || 1}
-                onPage={() => undefined}
-                empty={<p className="muted">소명이 없습니다.</p>}
-              />
-              {journalId &&
-                selected.applications.some((a) => a.id === journalId) && (
-                  <JournalPanel
-                    kind={receivable ? "RECEIPT" : "PAYMENT"}
-                    id={journalId}
-                    onClose={() => setJournalId(undefined)}
-                  />
-                )}
-            </section>
+            </FormPanel>
           )}
-        </>
+        </div>
       )}
-    </>
+    </div>
   );
 }

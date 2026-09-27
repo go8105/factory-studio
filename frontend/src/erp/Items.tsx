@@ -58,16 +58,17 @@ export function Items() {
     return () => controller.abort();
   }, [reload]);
   return (
-    <>
-      <Master
-        id="E-16"
-        title="품목"
-        path="/api/v1/erp/items"
-        fields={fields}
-        note="MES 품목과 독립 — 이 품목은 ERP 전용입니다. MES 품목과 코드가 같아도 별개 데이터입니다."
-      />
-      <section className="panel">
-        <h2>품목별 단위환산</h2>
+    <Master
+      id="E-16"
+      title="품목"
+      path="/api/v1/erp/items"
+      fields={fields}
+      note="MES 품목과 독립 — 이 품목은 ERP 전용입니다. MES 품목과 코드가 같아도 별개 데이터입니다."
+    >
+      <section className="section-block">
+        <div className="section-heading">
+          <h2>품목별 단위환산</h2>
+        </div>
         <p>
           환산 전 수량 × 계수 = 기준 단위 수량. 기준 단위는 선택한 품목에서
           결정합니다.
@@ -88,7 +89,7 @@ export function Items() {
             ))}
           </select>
         </label>
-        <button onClick={() => setReload((n) => n + 1)}>
+        <button type="button" onClick={() => setReload((n) => n + 1)}>
           품목 목록 새로고침
         </button>
       </section>
@@ -103,6 +104,6 @@ export function Items() {
           extraColumns={extra}
         />
       )}
-    </>
+    </Master>
   );
 }

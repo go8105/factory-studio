@@ -7,10 +7,12 @@ it("거래처 시드 목록을 표시한다", async () => {
 });
 it("거래처 구분 select를 표시한다", async () => {
   mount("/erp/partners");
+  fireEvent.click(await screen.findByRole("button", { name: "거래처 등록" }));
   expect(await screen.findByLabelText("거래처 구분")).toHaveValue("CUSTOMER");
 });
 it("폼 사용 여부는 inline-check다", async () => {
   mount("/erp/partners");
+  fireEvent.click(await screen.findByRole("button", { name: "거래처 등록" }));
   const box = await screen.findByRole("checkbox", { name: "사용 여부" });
   expect(box.parentElement).toHaveClass("inline-check");
 });

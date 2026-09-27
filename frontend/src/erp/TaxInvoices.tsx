@@ -1,4 +1,3 @@
-// E-08 세금계산서 — 매출 1건당 1건, 승인번호·발급일 수기 입력 (FS-019d)
 import { useState, type FormEvent } from "react";
 import {
   Badge,
@@ -6,9 +5,11 @@ import {
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
   type Column,
+  useDiscardGuard,
 } from "../shared/components";
 import {
   fieldErrors,
@@ -36,6 +37,9 @@ type Invoice = {
 };
 const today = () => new Date().toLocaleDateString("sv-SE");
 
+type PanelState =
+  { type: "create" } | { type: "issue"; invoice: Invoice } | null;
+
 export function TaxInvoices() {
   const { data, error, reload } = useLists<[Invoice[], Sale[], Partner[]]>([
     "/tax-invoices",
@@ -43,11 +47,10 @@ export function TaxInvoices() {
     PARTNERS,
   ]);
   const { send, pending, error: saveError, setError } = useSend(reload);
+  const [panel, setPanel] = useState<PanelState>(null);
   const [saleId, setSaleId] = useState(0);
-  const [issueId, setIssueId] = useState<number>();
   const [issue, setIssue] = useState({ approvalNo: "", issuedOn: today() });
 
-  if (moduleOff(error)) return <ModuleOff />;
   const [invoices, sales, partners] = data ?? [undefined, [], []];
   const name = labels(partners, []);
   const errors = fieldErrors(saveError);
@@ -55,7 +58,29 @@ export function TaxInvoices() {
   const eligible = sales.filter(
     (s) => !s.cancelledAt && !s.taxInvoiceId && Number(s.totalAmount) > 0,
   );
-  const target = invoices?.find((t) => t.id === issueId);
+
+  const dirty =
+    panel?.type === "create"
+      ? saleId !== 0
+      : panel?.type === "issue"
+        ? issue.approvalNo !== "" || issue.issuedOn !== today()
+        : false;
+  const guard = useDiscardGuard(dirty);
+
+  if (moduleOff(error)) return <ModuleOff />;
+
+  function closePanel() {
+    setPanel(null);
+    setSaleId(0);
+    setIssue({ approvalNo: "", issuedOn: today() });
+    setError(undefined);
+  }
+
+  function openIssue(invoice: Invoice) {
+    setPanel({ type: "issue", invoice });
+    setIssue({ approvalNo: "", issuedOn: today() });
+    setError(undefined);
+  }
 
   async function create(event: FormEvent) {
     event.preventDefault();
@@ -63,19 +88,25 @@ export function TaxInvoices() {
     const created = await send<Invoice>("/tax-invoices", "POST", {
       salesRecordId: saleId,
     });
-    if (created) setSaleId(0);
+    if (created) {
+      setSaleId(0);
+      setPanel(null);
+    }
   }
 
   async function submitIssue(event: FormEvent) {
     event.preventDefault();
-    if (!target || pending) return;
-    const saved = await send(`/tax-invoices/${target.id}/issue`, "POST", {
-      approvalNo: issue.approvalNo.trim(),
-      issuedOn: issue.issuedOn,
-    });
+    if (panel?.type !== "issue" || pending) return;
+    const saved = await send(
+      `/tax-invoices/${panel.invoice.id}/issue`,
+      "POST",
+      {
+        approvalNo: issue.approvalNo.trim(),
+        issuedOn: issue.issuedOn,
+      },
+    );
     if (saved) {
-      setIssueId(undefined);
-      setIssue({ approvalNo: "", issuedOn: today() });
+      closePanel();
     }
   }
 
@@ -89,11 +120,8 @@ export function TaxInvoices() {
           <button
             type="button"
             className="link-button"
-            aria-pressed={r.id === issueId}
-            onClick={() => {
-              setIssueId(r.id);
-              setError(undefined);
-            }}
+            aria-pressed={panel?.type === "issue" && panel.invoice.id === r.id}
+            onClick={() => guard.guard(() => openIssue(r))}
           >
             발급
           </button>
@@ -125,12 +153,27 @@ export function TaxInvoices() {
   ];
 
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="E-08"
         title="세금계산서"
         subtitle="매출 1건마다 세금계산서를 만들고 발급을 기록합니다"
         help="erp/e-08"
+        actions={
+          <button
+            type="button"
+            aria-pressed={panel?.type === "create"}
+            onClick={() =>
+              guard.guard(() =>
+                panel?.type === "create"
+                  ? closePanel()
+                  : setPanel({ type: "create" }),
+              )
+            }
+          >
+            계산서 만들기
+          </button>
+        }
       />
       <p className="muted">
         실제 운영에서는 전자세금계산서 연동이 필요하며 1차 범위에서
@@ -142,67 +185,56 @@ export function TaxInvoices() {
       {!invoices ? (
         !error && <Loading />
       ) : (
-        <>
-          <DataTable
-            rows={invoices}
-            columns={columns}
-            caption="세금계산서 목록"
-            offset={0}
-            total={invoices.length}
-            limit={invoices.length || 1}
-            onPage={() => undefined}
-            empty={
-              <EmptyState
-                reason="세금계산서가 없습니다. 아래에서 매출을 골라 만드세요."
-                to="#tax-invoice-form"
-                action="계산서 만들기"
+        <div className="split-view fill">
+          <section className="fill">
+            <div className="section-block">
+              <DataTable
+                rows={invoices}
+                columns={columns}
+                caption="세금계산서 목록"
+                offset={0}
+                total={invoices.length}
+                limit={invoices.length || 1}
+                onPage={() => undefined}
+                empty={
+                  <EmptyState
+                    reason="세금계산서가 없습니다. 패널을 열어 매출을 골라 만드세요."
+                    action="계산서 만들기"
+                    onAction={() =>
+                      guard.guard(() => setPanel({ type: "create" }))
+                    }
+                  />
+                }
               />
-            }
-          />
-          {target && (
-            <form
-              className="panel"
-              aria-label="세금계산서 발급"
-              onSubmit={(e) => void submitIssue(e)}
+            </div>
+          </section>
+
+          {panel?.type === "create" && (
+            <FormPanel
+              title="새 세금계산서"
+              guard={guard}
+              onClose={() => guard.guard(closePanel)}
+              onSubmit={(e) => void create(e)}
+              actions={
+                <>
+                  <button
+                    type="submit"
+                    disabled={pending || !saleId}
+                    aria-busy={pending}
+                  >
+                    발급대기로 만들기
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closePanel)}
+                  >
+                    취소
+                  </button>
+                </>
+              }
             >
-              <h2>{target.shipmentNo} 발급</h2>
-              <div className="master-grid">
-                <Field
-                  label="승인번호"
-                  value={issue.approvalNo}
-                  required
-                  maxLength={60}
-                  error={errors.approvalNo}
-                  onChange={(e) =>
-                    setIssue({ ...issue, approvalNo: e.target.value })
-                  }
-                />
-                <Field
-                  label="발급일"
-                  type="date"
-                  value={issue.issuedOn}
-                  required
-                  error={errors.issuedOn}
-                  onChange={(e) =>
-                    setIssue({ ...issue, issuedOn: e.target.value })
-                  }
-                />
-              </div>
-              <div className="form-actions">
-                <button type="submit" disabled={pending}>
-                  발급완료로 기록
-                </button>
-              </div>
-            </form>
-          )}
-          <form
-            id="tax-invoice-form"
-            className="panel"
-            aria-label="세금계산서 만들기"
-            onSubmit={(e) => void create(e)}
-          >
-            <h2>새 세금계산서</h2>
-            <div className="master-grid">
+              <ErrorNotice error={saveError} />
               <div className="field">
                 <label htmlFor="tax-invoice-sale">매출</label>
                 <select
@@ -219,18 +251,58 @@ export function TaxInvoices() {
                   ))}
                 </select>
               </div>
-            </div>
-            <p className="muted">
-              취소되지 않았고 계산서가 없는 매출만 고를 수 있습니다.
-            </p>
-            <div className="form-actions">
-              <button type="submit" disabled={pending || !saleId}>
-                발급대기로 만들기
-              </button>
-            </div>
-          </form>
-        </>
+              <p className="muted">
+                취소되지 않았고 계산서가 없는 매출만 고를 수 있습니다.
+              </p>
+            </FormPanel>
+          )}
+
+          {panel?.type === "issue" && (
+            <FormPanel
+              title={`${panel.invoice.shipmentNo} 발급`}
+              guard={guard}
+              onClose={() => guard.guard(closePanel)}
+              onSubmit={(e) => void submitIssue(e)}
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
+                    발급완료로 기록
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closePanel)}
+                  >
+                    취소
+                  </button>
+                </>
+              }
+            >
+              <ErrorNotice error={saveError} />
+              <Field
+                label="승인번호"
+                value={issue.approvalNo}
+                required
+                maxLength={60}
+                error={errors.approvalNo}
+                onChange={(e) =>
+                  setIssue({ ...issue, approvalNo: e.target.value })
+                }
+              />
+              <Field
+                label="발급일"
+                type="date"
+                value={issue.issuedOn}
+                required
+                error={errors.issuedOn}
+                onChange={(e) =>
+                  setIssue({ ...issue, issuedOn: e.target.value })
+                }
+              />
+            </FormPanel>
+          )}
+        </div>
       )}
-    </>
+    </div>
   );
 }

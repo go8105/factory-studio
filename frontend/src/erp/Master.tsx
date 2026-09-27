@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { useSession } from "../app/session";
 import { api, ApiError, MutationKeys } from "../shared/api";
 import {
@@ -6,8 +12,10 @@ import {
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
+  useDiscardGuard,
   type Column,
 } from "../shared/components";
 export type Row = {
@@ -46,6 +54,7 @@ export function Master({
   readOnly = false,
   embedded = false,
   note,
+  children,
 }: {
   id: string;
   title: string;
@@ -55,6 +64,7 @@ export function Master({
   readOnly?: boolean;
   embedded?: boolean;
   note?: string;
+  children?: ReactNode;
 }) {
   const { session, fail } = useSession();
   const keys = useRef(new MutationKeys());
@@ -70,6 +80,7 @@ export function Master({
   const [offset, setOffset] = useState(0);
   const [reload, setReload] = useState(0);
   const [editing, setEditing] = useState<Row | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [draft, setDraft] = useState(initial);
   const [lookups, setLookups] = useState<Record<string, Row[]>>({});
   const [error, setError] = useState<unknown>();
@@ -77,6 +88,17 @@ export function Master({
   const [pending, setPending] = useState(false);
   const [deleting, setDeleting] = useState<Row>();
   const [done, setDone] = useState("");
+
+  const dirty =
+    panelOpen &&
+    (editing
+      ? Object.keys(draft).some((k) => draft[k] !== editing[k])
+      : Object.entries(draft).some(([k, v]) => {
+          const init = initial()[k];
+          return v !== init && v !== "" && v !== null;
+        }));
+  const guard = useDiscardGuard(dirty);
+
   useEffect(() => {
     const controller = new AbortController();
     setError(undefined);
@@ -95,6 +117,7 @@ export function Master({
       });
     return () => controller.abort();
   }, [path, offset, reload]);
+
   useEffect(() => {
     const controller = new AbortController();
     Promise.all(
@@ -114,6 +137,15 @@ export function Master({
       });
     return () => controller.abort();
   }, [fields, reload]);
+
+  function openCreate() {
+    setEditing(null);
+    setDraft(initial());
+    setSaveError(undefined);
+    setDone("");
+    setPanelOpen(true);
+  }
+
   function edit(row: Row | null) {
     setEditing(row);
     setDraft(
@@ -123,7 +155,16 @@ export function Master({
     );
     setSaveError(undefined);
     setDone("");
+    setPanelOpen(true);
   }
+
+  function closePanel() {
+    setPanelOpen(false);
+    setEditing(null);
+    setDraft(initial());
+    setSaveError(undefined);
+  }
+
   async function send(method: string, target: string, body?: unknown) {
     if (pending) return false;
     setPending(true);
@@ -150,6 +191,7 @@ export function Master({
       setPending(false);
     }
   }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     const body = editing
@@ -168,10 +210,11 @@ export function Master({
         body,
       )
     ) {
-      edit(null);
+      closePanel();
       setDone("저장했습니다.");
     }
   }
+
   if (
     error instanceof ApiError &&
     error.error.details?.reason === "MODULE_DISABLED"
@@ -183,10 +226,12 @@ export function Master({
         action="내 공간으로"
       />
     );
+
   const problems =
     saveError instanceof ApiError
       ? ((saveError.error.details?.fields ?? {}) as Record<string, string>)
       : {};
+
   const columns: Column<Row>[] = [...fields, ...extraColumns].map((f) => ({
     key: f.key,
     label: f.label,
@@ -205,16 +250,24 @@ export function Master({
       );
     },
   }));
+
   if (!readOnly)
     columns.splice(1, 0, {
       key: "id",
       label: "관리",
       render: (r) => (
-        <div className="actions">
-          <button disabled={pending} onClick={() => edit(r)}>
+        <span className="row-actions">
+          <button
+            type="button"
+            className="link-button"
+            disabled={pending}
+            onClick={() => guard.guard(() => edit(r))}
+          >
             수정
           </button>
           <button
+            type="button"
+            className="link-button"
             disabled={pending}
             onClick={() => {
               setDeleting(r);
@@ -223,164 +276,233 @@ export function Master({
           >
             삭제
           </button>
-        </div>
+        </span>
       ),
     });
-  return (
-    <>
-      {embedded ? (
-        <h2>{title}</h2>
-      ) : (
-        <PageTitle
-          id={id}
-          title={title}
-          help={`/help/erp/${id.toLowerCase()}`}
-        />
-      )}
-      {note && <p className="notice">{note}</p>}
-      <ErrorNotice error={error} retry={() => setReload((n) => n + 1)} />
-      {!rows && !error ? (
-        <Loading />
-      ) : (
-        rows && (
-          <DataTable
-            rows={rows}
-            columns={columns}
-            caption={title}
-            offset={offset}
-            total={total}
-            limit={20}
-            onPage={setOffset}
-            empty="등록된 정보가 없습니다."
-          />
-        )
-      )}
-      <ErrorNotice error={saveError} />
-      {done && <p role="status">{done}</p>}
-      {deleting && (
-        <section className="panel" aria-label="삭제 확인">
-          <p>선택한 항목을 삭제할까요? 참조 중이면 삭제할 수 없습니다.</p>
-          <button
-            disabled={pending}
-            onClick={async () => {
-              if (await send("DELETE", `${path}/${deleting.id}`)) {
-                if (editing?.id === deleting.id) edit(null);
-                setDeleting(undefined);
-                setOffset(0);
-                setDone("삭제했습니다.");
-              }
-            }}
-          >
-            삭제 확인
+
+  const formPanel = panelOpen && !readOnly && (
+    <FormPanel
+      key={editing ? String(editing.id) : "new"}
+      title={`${title} ${editing ? "수정" : "등록"}`}
+      guard={guard}
+      onClose={closePanel}
+      onSubmit={(e) => void submit(e)}
+      actions={
+        <>
+          <button type="submit" disabled={pending} aria-busy={pending}>
+            {editing ? "저장" : "등록"}
           </button>
-          <button disabled={pending} onClick={() => setDeleting(undefined)}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => guard.guard(closePanel)}
+          >
             취소
           </button>
-        </section>
-      )}
-      {!readOnly && (
-        <form
-          className="panel"
-          onSubmit={submit}
-          aria-label={`${title} ${editing ? "수정" : "등록"}`}
-        >
-          <h2>{editing ? "수정" : "등록"}</h2>
-          <fieldset className="field" disabled={pending}>
-            {fields.map((f) => {
-              const error = problems[f.key] ?? problems[`body.${f.key}`];
-              const inputId = `${id}-${f.key}`;
-              if (f.options || f.lookup)
-                return (
-                  <div className="field" key={f.key}>
-                    <label htmlFor={inputId}>{f.label}</label>
-                    <select
-                      id={inputId}
-                      required
-                      aria-invalid={!!error}
-                      aria-describedby={error ? `${inputId}-error` : undefined}
-                      value={String(draft[f.key] ?? "")}
-                      onChange={(e) =>
-                        setDraft({
-                          ...draft,
-                          [f.key]: f.lookup
-                            ? e.target.value
-                              ? Number(e.target.value)
-                              : ""
-                            : e.target.value,
-                        })
-                      }
-                    >
-                      <option value="">선택하세요</option>
-                      {(
-                        f.options ??
-                        lookups[f.key]?.map((r) => [
-                          String(r.id),
-                          `${r[f.lookup!.code]} · ${r[f.lookup!.name]}`,
-                        ]) ??
-                        []
-                      ).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                    {error && <small id={`${inputId}-error`}>{error}</small>}
-                  </div>
-                );
-              if (f.type === "checkbox")
-                return (
-                  <div className="field" key={f.key}>
-                    <label className="inline-check" htmlFor={inputId}>
-                      <input
-                        id={inputId}
-                        type="checkbox"
-                        checked={Boolean(draft[f.key])}
-                        onChange={(e) =>
-                          setDraft({ ...draft, [f.key]: e.target.checked })
-                        }
-                      />
-                      {f.label}
-                    </label>
-                    {error && <small>{error}</small>}
-                  </div>
-                );
-              return (
-                <Field
-                  key={f.key}
-                  label={f.label}
-                  error={error}
-                  type={f.type ?? "text"}
-                  required={!f.nullable}
-                  maxLength={f.maxLength}
-                  min={f.type === "number" ? 0 : undefined}
+        </>
+      }
+    >
+      <ErrorNotice error={saveError} />
+      <fieldset className="field" disabled={pending}>
+        {fields.map((f) => {
+          const error = problems[f.key] ?? problems[`body.${f.key}`];
+          const inputId = `${id}-${f.key}`;
+          if (f.options || f.lookup)
+            return (
+              <div className="field" key={f.key}>
+                <label htmlFor={inputId}>{f.label}</label>
+                <select
+                  id={inputId}
+                  required
+                  aria-invalid={!!error}
+                  aria-describedby={error ? `${inputId}-error` : undefined}
                   value={String(draft[f.key] ?? "")}
                   onChange={(e) =>
                     setDraft({
                       ...draft,
-                      [f.key]:
-                        e.target.value === "" && f.nullable
-                          ? null
-                          : f.type === "number"
-                            ? Number(e.target.value)
-                            : e.target.value,
+                      [f.key]: f.lookup
+                        ? e.target.value
+                          ? Number(e.target.value)
+                          : ""
+                        : e.target.value,
                     })
                   }
+                >
+                  <option value="">선택하세요</option>
+                  {(
+                    f.options ??
+                    lookups[f.key]?.map((r) => [
+                      String(r.id),
+                      `${r[f.lookup!.code]} · ${r[f.lookup!.name]}`,
+                    ]) ??
+                    []
+                  ).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                {error && <small id={`${inputId}-error`}>{error}</small>}
+              </div>
+            );
+          if (f.type === "checkbox")
+            return (
+              <div className="field" key={f.key}>
+                <label className="inline-check" htmlFor={inputId}>
+                  <input
+                    id={inputId}
+                    type="checkbox"
+                    checked={Boolean(draft[f.key])}
+                    onChange={(e) =>
+                      setDraft({ ...draft, [f.key]: e.target.checked })
+                    }
+                  />
+                  {f.label}
+                </label>
+                {error && <small>{error}</small>}
+              </div>
+            );
+          return (
+            <Field
+              key={f.key}
+              label={f.label}
+              error={error}
+              type={f.type ?? "text"}
+              required={!f.nullable}
+              maxLength={f.maxLength}
+              min={f.type === "number" ? 0 : undefined}
+              value={String(draft[f.key] ?? "")}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  [f.key]:
+                    e.target.value === "" && f.nullable
+                      ? null
+                      : f.type === "number"
+                        ? Number(e.target.value)
+                        : e.target.value,
+                })
+              }
+            />
+          );
+        })}
+      </fieldset>
+    </FormPanel>
+  );
+
+  const deletingDialog = deleting && (
+    <section className="panel" aria-label="삭제 확인">
+      <p>선택한 항목을 삭제할까요? 참조 중이면 삭제할 수 없습니다.</p>
+      <button
+        disabled={pending}
+        onClick={async () => {
+          if (await send("DELETE", `${path}/${deleting.id}`)) {
+            if (editing?.id === deleting.id) edit(null);
+            setDeleting(undefined);
+            setOffset(0);
+            setDone("삭제했습니다.");
+          }
+        }}
+      >
+        삭제 확인
+      </button>
+      <button disabled={pending} onClick={() => setDeleting(undefined)}>
+        취소
+      </button>
+    </section>
+  );
+
+  if (embedded) {
+    return (
+      <div className="section-block">
+        <div className="section-heading">
+          <h2>{title}</h2>
+          {!readOnly && (
+            <button
+              type="button"
+              aria-pressed={panelOpen}
+              onClick={() => guard.guard(openCreate)}
+            >
+              {title} 등록
+            </button>
+          )}
+        </div>
+        <ErrorNotice error={error} retry={() => setReload((n) => n + 1)} />
+        {!panelOpen && <ErrorNotice error={saveError} />}
+        {done && <p role="status">{done}</p>}
+        {deletingDialog}
+        {!rows && !error ? (
+          <Loading />
+        ) : (
+          rows && (
+            <DataTable
+              rows={rows}
+              columns={columns}
+              caption={title}
+              offset={offset}
+              total={total}
+              limit={20}
+              onPage={setOffset}
+              empty="등록된 정보가 없습니다."
+            />
+          )
+        )}
+        {formPanel}
+      </div>
+    );
+  }
+
+  return (
+    <div className="page-fill">
+      <PageTitle
+        id={id}
+        title={title}
+        help={`/help/erp/${id.toLowerCase()}`}
+        actions={
+          !readOnly && (
+            <button
+              type="button"
+              aria-pressed={panelOpen}
+              onClick={() => guard.guard(openCreate)}
+            >
+              {title} 등록
+            </button>
+          )
+        }
+      />
+      {note && (
+        <p className="muted" role="note">
+          {note}
+        </p>
+      )}
+      <ErrorNotice error={error} retry={() => setReload((n) => n + 1)} />
+      {!panelOpen && <ErrorNotice error={saveError} />}
+      {done && <p role="status">{done}</p>}
+      {deletingDialog}
+      {!rows && !error ? (
+        <Loading />
+      ) : (
+        <div className="split-view fill">
+          <section className="fill">
+            <div className="section-block">
+              {rows && (
+                <DataTable
+                  rows={rows}
+                  columns={columns}
+                  caption={title}
+                  offset={offset}
+                  total={total}
+                  limit={20}
+                  onPage={setOffset}
+                  empty="등록된 정보가 없습니다."
                 />
-              );
-            })}
-            <div className="actions">
-              <button type="submit" disabled={pending}>
-                {pending ? "저장 중" : "저장"}
-              </button>
-              {editing && (
-                <button type="button" onClick={() => edit(null)}>
-                  새로 등록
-                </button>
               )}
             </div>
-          </fieldset>
-        </form>
+            {children}
+          </section>
+          {formPanel}
+        </div>
       )}
-    </>
+    </div>
   );
 }

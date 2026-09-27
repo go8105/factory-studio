@@ -1,4 +1,3 @@
-// E-11 매입 전표 — 원재료 매입 직접 등록, 확정 시 매입채무 생성, 취소(지급 소명 0행) (FS-019f)
 import { useState, type FormEvent } from "react";
 import {
   Badge,
@@ -6,10 +5,11 @@ import {
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
   type Column,
-  RevealAnchor,
+  useDiscardGuard,
 } from "../shared/components";
 import {
   fieldErrors,
@@ -77,6 +77,9 @@ const BLOCKED = {
 };
 const today = () => new Date().toLocaleDateString("sv-SE");
 
+type PanelState =
+  { type: "create" } | { type: "cancel"; invoice: Invoice } | null;
+
 export function PurchaseInvoices() {
   const { data, error, reload } = useLists<[Invoice[], Partner[], RawItem[]]>([
     "/purchase-invoices",
@@ -92,7 +95,7 @@ export function PurchaseInvoices() {
   } = useSend(reload);
   const [selectedId, setSelectedId] = useState<number>();
   const [lines, setLines] = useState<DraftLine[]>();
-  const [cancelId, setCancelId] = useState<number>();
+  const [panel, setPanel] = useState<PanelState>(null);
   const [reason, setReason] = useState("");
   const [journalId, setJournalId] = useState<number>();
   const blank = {
@@ -103,7 +106,6 @@ export function PurchaseInvoices() {
   };
   const [create, setCreate] = useState(blank);
 
-  if (moduleOff(error)) return <ModuleOff />;
   const [invoices, partners, allItems] = data ?? [undefined, [], []];
   const suppliers = partners.filter(
     (p) => p.partnerKind === "SUPPLIER" && p.isActive,
@@ -112,7 +114,6 @@ export function PurchaseInvoices() {
   const name = labels(partners, allItems);
   const errors = fieldErrors(saveError);
   const selected = invoices?.find((i) => i.id === selectedId);
-  const cancelTarget = invoices?.find((i) => i.id === cancelId);
   const original: DraftLine[] = (selected?.lines ?? []).map((l) => ({
     itemId: l.itemId,
     quantity: String(Number(l.quantity)),
@@ -120,14 +121,44 @@ export function PurchaseInvoices() {
     unitPrice: String(Number(l.unitPrice)),
   }));
   const draft = lines ?? original;
-  const dirty =
+
+  const createDirty =
+    panel?.type === "create" &&
+    (create.invoiceNo !== "" ||
+      create.partnerId !== 0 ||
+      create.dueDate !== "");
+  const cancelDirty = panel?.type === "cancel" && reason !== "";
+  const lineDirty =
     lines !== undefined && JSON.stringify(lines) !== JSON.stringify(original);
+  const dirty = createDirty || cancelDirty || lineDirty;
+  const guard = useDiscardGuard(dirty);
+
+  if (moduleOff(error)) return <ModuleOff />;
+
+  function closePanel() {
+    setPanel(null);
+    setReason("");
+    setCreate(blank);
+    setError(undefined);
+  }
+
+  function openCreate() {
+    closePanel();
+    setPanel({ type: "create" });
+  }
+
+  function openCancel(invoice: Invoice) {
+    closePanel();
+    setPanel({ type: "cancel", invoice });
+  }
 
   function select(id: number | undefined) {
-    setSelectedId(id);
-    setLines(undefined);
-    setCancelId(undefined);
-    setError(undefined);
+    guard.guard(() => {
+      setSelectedId(id);
+      setLines(undefined);
+      closePanel();
+      setError(undefined);
+    });
   }
 
   async function submitCreate(event: FormEvent) {
@@ -141,7 +172,10 @@ export function PurchaseInvoices() {
     });
     if (created) {
       setCreate(blank);
-      select(created.id);
+      setPanel(null);
+      setSelectedId(created.id);
+      setLines(undefined);
+      setError(undefined);
     }
   }
 
@@ -159,15 +193,14 @@ export function PurchaseInvoices() {
   }
 
   async function cancel() {
-    if (!cancelTarget || pending) return;
+    if (panel?.type !== "cancel" || pending) return;
     const saved = await send(
-      `/purchase-invoices/${cancelTarget.id}/cancel`,
+      `/purchase-invoices/${panel.invoice.id}/cancel`,
       "POST",
       { reason: reason.trim() },
     );
     if (saved) {
-      setCancelId(undefined);
-      setReason("");
+      closePanel();
     }
   }
 
@@ -219,9 +252,9 @@ export function PurchaseInvoices() {
                 ? BLOCKED[r.cancelBlockedReason]
                 : "매입을 취소합니다"
             }
+            aria-pressed={panel?.type === "cancel" && panel.invoice.id === r.id}
             onClick={() => {
-              setCancelId(r.id);
-              setError(undefined);
+              guard.guard(() => openCancel(r));
             }}
           >
             취소
@@ -360,12 +393,25 @@ export function PurchaseInvoices() {
   ];
 
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="E-11"
         title="매입 전표"
         subtitle="원재료 매입을 등록·확정하고, 확정하면 매입채무가 생깁니다"
         help="erp/e-11"
+        actions={
+          <button
+            type="button"
+            aria-pressed={panel?.type === "create"}
+            onClick={() =>
+              guard.guard(() =>
+                panel?.type === "create" ? closePanel() : openCreate(),
+              )
+            }
+          >
+            매입 전표 등록
+          </button>
+        }
       />
       <p className="muted">
         구매발주·입고검수는 WMS 영역이라 1차 범위에서 뺐고, 매입 전표를 직접
@@ -378,9 +424,9 @@ export function PurchaseInvoices() {
       {!invoices ? (
         !error && <Loading />
       ) : (
-        <>
-          <div className="master-grid">
-            <section>
+        <div className="split-view fill">
+          <section className="fill">
+            <div className="section-block">
               <DataTable
                 rows={invoices}
                 columns={columns}
@@ -391,20 +437,118 @@ export function PurchaseInvoices() {
                 onPage={() => undefined}
                 empty={
                   <EmptyState
-                    reason="등록된 매입 전표가 없습니다. 우측 폼에서 등록하세요."
-                    to="#purchase-form"
-                    action="매입 등록"
+                    reason="등록된 매입 전표가 없습니다. 패널을 열어 등록하세요."
+                    action="매입 전표 등록"
+                    onAction={() => guard.guard(openCreate)}
                   />
                 }
               />
-            </section>
-            <form
-              id="purchase-form"
-              className="panel"
-              aria-label="매입 전표 등록"
+            </div>
+
+            {journalId && (
+              <JournalPanel
+                kind="PURCHASE"
+                id={journalId}
+                onClose={() => setJournalId(undefined)}
+              />
+            )}
+
+            {selected && (
+              <section className="section-block" aria-label="매입 명세">
+                <div className="section-heading">
+                  <h2>
+                    {selected.invoiceNo} 명세{" "}
+                    <Badge tone={STATUS[selected.status][1]}>
+                      {STATUS[selected.status][0]}
+                    </Badge>
+                  </h2>
+                </div>
+                <p className="muted">
+                  공급가액 {won(selected.supplyAmount)} · 세액{" "}
+                  {won(selected.taxAmount)} · 합계 {won(selected.totalAmount)}
+                </p>
+                {selected.status === "draft" ? (
+                  <>
+                    <DataTable
+                      rows={draftRows}
+                      columns={draftColumns}
+                      caption={`${selected.invoiceNo} 명세 편집`}
+                      offset={0}
+                      total={draftRows.length}
+                      limit={draftRows.length || 1}
+                      onPage={() => undefined}
+                      empty={
+                        <p className="muted">
+                          명세가 없습니다. 명세가 없는 매입은 확정할 수
+                          없습니다.
+                        </p>
+                      }
+                    />
+                    {errors.lines && <p className="notice">{errors.lines}</p>}
+                    <div className="form-actions">
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={raws.length === 0}
+                        onClick={() =>
+                          setLines([
+                            ...draft,
+                            {
+                              itemId: raws[0].id,
+                              quantity: "",
+                              unit: raws[0].baseUnit,
+                              unitPrice: "",
+                            },
+                          ])
+                        }
+                      >
+                        라인 추가
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending || !lineDirty}
+                        onClick={() => void saveLines()}
+                      >
+                        명세 저장
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <DataTable
+                    rows={selected.lines}
+                    columns={lineColumns}
+                    caption={`${selected.invoiceNo} 매입 명세`}
+                    offset={0}
+                    total={selected.lines.length}
+                    limit={selected.lines.length || 1}
+                    onPage={() => undefined}
+                  />
+                )}
+              </section>
+            )}
+          </section>
+
+          {panel?.type === "create" && (
+            <FormPanel
+              title="새 매입 전표"
+              guard={guard}
+              onClose={() => guard.guard(closePanel)}
               onSubmit={(e) => void submitCreate(e)}
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
+                    등록
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closePanel)}
+                  >
+                    취소
+                  </button>
+                </>
+              }
             >
-              <h2>새 매입 전표</h2>
               <Field
                 label="전표번호"
                 value={create.invoiceNo}
@@ -455,124 +599,48 @@ export function PurchaseInvoices() {
                   setCreate({ ...create, dueDate: e.target.value })
                 }
               />
-              <div className="form-actions">
-                <button type="submit" disabled={pending}>
-                  등록
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {journalId && (
-            <JournalPanel
-              kind="PURCHASE"
-              id={journalId}
-              onClose={() => setJournalId(undefined)}
-            />
-          )}
-          {cancelTarget && (
-            <section className="panel" aria-label="매입 취소">
-              <h2>{cancelTarget.invoiceNo} 취소</h2>
-              <div className="form-actions">
-                <Field
-                  label="취소 사유"
-                  value={reason}
-                  maxLength={300}
-                  error={errors.reason}
-                  onChange={(e) => setReason(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => setCancelId(undefined)}
-                >
-                  닫기
-                </button>
-                <button
-                  type="button"
-                  disabled={pending || !reason.trim()}
-                  onClick={() => void cancel()}
-                >
-                  매입 취소 확정
-                </button>
-              </div>
-            </section>
+            </FormPanel>
           )}
 
-          <RevealAnchor when={selected} />
-
-          {selected && (
-            <section className="panel" aria-label="매입 명세">
-              <h2>
-                {selected.invoiceNo} 명세{" "}
-                <Badge tone={STATUS[selected.status][1]}>
-                  {STATUS[selected.status][0]}
-                </Badge>
-              </h2>
-              <p className="muted">
-                공급가액 {won(selected.supplyAmount)} · 세액{" "}
-                {won(selected.taxAmount)} · 합계 {won(selected.totalAmount)}
-              </p>
-              {selected.status === "draft" ? (
+          {panel?.type === "cancel" && (
+            <FormPanel
+              title={`${panel.invoice.invoiceNo} 취소`}
+              guard={guard}
+              onClose={() => guard.guard(closePanel)}
+              onSubmit={(e) => {
+                e.preventDefault();
+                void cancel();
+              }}
+              actions={
                 <>
-                  <DataTable
-                    rows={draftRows}
-                    columns={draftColumns}
-                    caption={`${selected.invoiceNo} 명세 편집`}
-                    offset={0}
-                    total={draftRows.length}
-                    limit={draftRows.length || 1}
-                    onPage={() => undefined}
-                    empty={
-                      <p className="muted">
-                        명세가 없습니다. 명세가 없는 매입은 확정할 수 없습니다.
-                      </p>
-                    }
-                  />
-                  {errors.lines && <p className="notice">{errors.lines}</p>}
-                  <div className="form-actions">
-                    <button
-                      type="button"
-                      className="secondary"
-                      disabled={raws.length === 0}
-                      onClick={() =>
-                        setLines([
-                          ...draft,
-                          {
-                            itemId: raws[0].id,
-                            quantity: "",
-                            unit: raws[0].baseUnit,
-                            unitPrice: "",
-                          },
-                        ])
-                      }
-                    >
-                      라인 추가
-                    </button>
-                    <button
-                      type="button"
-                      disabled={pending || !dirty}
-                      onClick={() => void saveLines()}
-                    >
-                      명세 저장
-                    </button>
-                  </div>
+                  <button
+                    type="submit"
+                    disabled={pending || !reason.trim()}
+                    aria-busy={pending}
+                  >
+                    매입 취소 확정
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closePanel)}
+                  >
+                    닫기
+                  </button>
                 </>
-              ) : (
-                <DataTable
-                  rows={selected.lines}
-                  columns={lineColumns}
-                  caption={`${selected.invoiceNo} 매입 명세`}
-                  offset={0}
-                  total={selected.lines.length}
-                  limit={selected.lines.length || 1}
-                  onPage={() => undefined}
-                />
-              )}
-            </section>
+              }
+            >
+              <Field
+                label="취소 사유"
+                value={reason}
+                maxLength={300}
+                error={errors.reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </FormPanel>
           )}
-        </>
+        </div>
       )}
-    </>
+    </div>
   );
 }
