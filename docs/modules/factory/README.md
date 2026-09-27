@@ -44,3 +44,12 @@
 - 연속 검사 누계는 PLC 확인까지 완료된 거래만 반영. 확인 실패한 검사 결과는 PLC 패널에 보존하되 배치 OK/NG에는 더하지 않는다. 장애는 제품 NG가 아니다.
 - 배치 종료·화면 이탈은 진행 거래 취소 및 타이머 해제, 오류 래치는 리셋 전 유지. 일시정지/탭 숨김은 진행 거래를 마무리하고 다음 투입 보류.
 - 상태·신호 스냅샷/요청 ID/이벤트 로그(최근 200건) JSON 포함. 새 배치 시작 시 지난 로그 교체, 리셋은 로그 유지. 기존 검사 v1과 직접 실행 모드는 유지.
+
+## C++ OpenCV 검사 코어 (FS-VISION-CORE01)
+
+사용자 후속 진행 승인. 독립 C++17 라이브러리/CLI에서 기존 합성 요청 v1 또는 검사실 다운로드 {request,result}를 읽고 결과 v1을 출력한다. source만 synthetic-opencv-cpp-v1로 명시한다.
+- 기존 결정론적 160×100 샘플 생성, `< threshold`, 4방향 연결, 연결 픽셀 수 `>= minArea`, ROI와 영역 밖 정답, 좌표/면적/순서를 웹과 동일하게 맞춘다. OpenCV compare + connectedComponentsWithStats(CCL_SAUF), contourArea 사용 안 함.
+- stdin/파일 1개 JSON 또는 --ndjson(요청당 한 줄). 성공 stdout 결과 JSON/exit0, 잘못된 입력 오류 JSON/exit2. 입력 문서/줄 최대 64KiB. 빌드/진단은 JSON stdout에 섞지 않는다.
+- CMake, OpenCV core/imgproc, nlohmann-json. 기본 설치 라이브러리 탐색, 선택형 고정 버전·해시 다운로드 빌드. 빌드 산출물은 work/에 둔다.
+- 원본 TS 엔진을 직접 실행하는 비교 스크립트로 경계값·ROI·샘플 조합과 정답/오검출/미검출/제외 픽셀 일치를 검증한다. C++ 단위/CLI 오류 검증 포함.
+- 웹/서버/PLC와 실행 연결, 실제 이미지 파일/카메라/실장비/C#·운영 배포는 이번 범위 밖이다.
