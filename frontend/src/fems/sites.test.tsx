@@ -124,6 +124,7 @@ it("사업장 등록은 대문자 코드와 기본 시간대로 보낸다", asyn
     "POST /api/v1/fems/sites": { status: 201, body: { data: sites[1] } },
   });
   show();
+  fireEvent.click(await screen.findByRole("button", { name: "사업장 등록" }));
   const form = await screen.findByRole("form", { name: "사업장 등록" });
   fireEvent.change(within(form).getByLabelText("사업장 코드"), {
     target: { value: "s03" },
@@ -216,6 +217,7 @@ it("공간 등록은 선택한 사업장으로 보낸다", async () => {
     "POST /api/v1/fems/locations": { status: 201, body: { data: places[2] } },
   });
   show();
+  fireEvent.click(await screen.findByRole("button", { name: "공간 등록" }));
   const form = await screen.findByRole("form", { name: "공간 등록" });
   fireEvent.change(within(form).getByLabelText("사업장"), {
     target: { value: "2" },

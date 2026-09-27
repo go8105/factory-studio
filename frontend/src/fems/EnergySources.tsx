@@ -8,8 +8,10 @@ import {
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
+  useDiscardGuard,
   type Column,
 } from "../shared/components";
 const BASE = "/api/v1/fems/energy-sources";
@@ -66,8 +68,10 @@ export function EnergySources() {
   const [activeOnly, setActiveOnly] = useState(false);
   const [reload, setReload] = useState(0);
   const [loadError, setLoadError] = useState<unknown>();
-  const [editing, setEditing] = useState<EnergySource | null>(null);
+  const [panel, setPanel] = useState<{ row: EnergySource | null } | null>(null);
+  const editing = panel?.row ?? null;
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [initial, setInitial] = useState<Draft>(EMPTY);
   const [saveError, setSaveError] = useState<unknown>();
   const [confirmDelete, setConfirmDelete] = useState<number>();
   const [pending, setPending] = useState(false);
@@ -90,11 +94,23 @@ export function EnergySources() {
       });
     return () => controller.abort();
   }, [offset, activeOnly, reload]);
-  function startEdit(row: EnergySource | null) {
-    setEditing(row);
-    setDraft(row ? { ...row } : EMPTY);
+  const dirty =
+    !!panel &&
+    (Object.keys(draft) as (keyof Draft)[]).some(
+      (k) => draft[k] !== initial[k],
+    );
+  const guard = useDiscardGuard(dirty);
+  function openPanel(row: EnergySource | null) {
+    const values = row ? { ...row } : EMPTY;
+    setPanel({ row });
+    setDraft(values);
+    setInitial(values);
     setSaveError(undefined);
     setDone("");
+  }
+  function closePanel() {
+    setPanel(null);
+    setSaveError(undefined);
   }
   async function send(
     operation: string,
@@ -148,7 +164,7 @@ export function EnergySources() {
       body,
     );
     if (ok) {
-      startEdit(null);
+      closePanel();
       setDone(editing ? "수정했습니다." : "등록했습니다.");
     }
   }
@@ -157,7 +173,7 @@ export function EnergySources() {
     const ok = await send(`delete:${row.id}`, `${BASE}/${row.id}`, "DELETE");
     setConfirmDelete(undefined);
     if (ok) {
-      if (editing?.id === row.id) startEdit(null);
+      if (editing?.id === row.id) closePanel();
       setDone(`${row.name} 에너지원을 삭제했습니다.`);
     }
   }
@@ -218,7 +234,11 @@ export function EnergySources() {
           </span>
         ) : (
           <span className="row-actions">
-            <button className="link-button" onClick={() => startEdit(r)}>
+            <button
+              className="link-button"
+              aria-pressed={editing?.id === r.id}
+              onClick={() => guard.guard(() => openPanel(r))}
+            >
               수정
             </button>
             <button
@@ -231,29 +251,42 @@ export function EnergySources() {
         ),
     },
   ];
+  const panelError = Object.keys(errors).length ? undefined : saveError;
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="F-11"
         title="에너지원"
         subtitle="전력·가스·용수를 같은 구조로 관리합니다"
         help="fems/f-11"
+        actions={
+          <button
+            type="button"
+            aria-pressed={!!panel && !editing}
+            onClick={() => guard.guard(() => openPanel(null))}
+          >
+            에너지원 등록
+          </button>
+        }
       />
       <MasterOrder />
-      <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
-      <div className="master-grid">
-        <section>
-          <label className="inline-check">
-            <input
-              type="checkbox"
-              checked={activeOnly}
-              onChange={(e) => {
-                setOffset(0);
-                setActiveOnly(e.target.checked);
-              }}
-            />
-            사용 중인 에너지원만
-          </label>
+      {!panel && <ErrorNotice error={panelError} />}
+      {done && <p role="status">{done}</p>}
+      <div className="split-view fill">
+        <section className="fill">
+          <div className="filter-bar">
+            <label className="inline-check">
+              <input
+                type="checkbox"
+                checked={activeOnly}
+                onChange={(e) => {
+                  setOffset(0);
+                  setActiveOnly(e.target.checked);
+                }}
+              />
+              사용 중인 에너지원만
+            </label>
+          </div>
           <ErrorNotice
             error={loadError}
             retry={() => setReload((n) => n + 1)}
@@ -272,111 +305,113 @@ export function EnergySources() {
               empty={
                 <EmptyState
                   reason="등록된 에너지원이 없습니다. 계측기·계수·요금제는 에너지원이 있어야 등록할 수 있습니다."
-                  to="#energy-source-form"
                   action="에너지원 등록"
+                  onAction={() => guard.guard(() => openPanel(null))}
                 />
               }
             />
           )}
         </section>
-        <form
-          id="energy-source-form"
-          className="panel"
-          onSubmit={(e) => void submit(e)}
-          aria-label={editing ? "에너지원 수정" : "에너지원 등록"}
-        >
-          <h2>{editing ? `${editing.name} 수정` : "에너지원 등록"}</h2>
-          <Field
-            label="에너지원 코드"
-            value={draft.sourceCode}
-            required
-            maxLength={20}
-            pattern="[A-Z][A-Z0-9_]{1,19}"
-            title="영문 대문자로 시작하는 2~20자 (대문자·숫자·_)"
-            error={errors.sourceCode}
-            onChange={(e) =>
-              setDraft({ ...draft, sourceCode: e.target.value.toUpperCase() })
+        {panel && (
+          <FormPanel
+            key={editing?.id ?? "new"}
+            title={editing ? `${editing.name} 수정` : "에너지원 등록"}
+            guard={guard}
+            onClose={closePanel}
+            onSubmit={(e) => void submit(e)}
+            actions={
+              <>
+                <button type="submit" disabled={pending} aria-busy={pending}>
+                  {editing ? "수정 저장" : "등록"}
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => guard.guard(closePanel)}
+                >
+                  취소
+                </button>
+              </>
             }
-          />
-          <Field
-            label="에너지원명"
-            value={draft.name}
-            required
-            maxLength={50}
-            error={errors.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          />
-          <div className="field">
-            <label htmlFor="source-kind">에너지 구분</label>
-            <select
-              id="source-kind"
-              value={draft.sourceKind}
+          >
+            <ErrorNotice error={panelError} />
+            <Field
+              label="에너지원 코드"
+              value={draft.sourceCode}
+              required
+              maxLength={20}
+              pattern="[A-Z][A-Z0-9_]{1,19}"
+              title="영문 대문자로 시작하는 2~20자 (대문자·숫자·_)"
+              error={errors.sourceCode}
               onChange={(e) =>
-                setDraft({ ...draft, sourceKind: e.target.value })
-              }
-            >
-              {Object.entries(KINDS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="measure-unit">계측 단위</label>
-            <select
-              id="measure-unit"
-              value={draft.measureUnit}
-              aria-describedby="measure-unit-note"
-              onChange={(e) =>
-                setDraft({ ...draft, measureUnit: e.target.value })
-              }
-            >
-              {UNITS.map((u) => (
-                <option key={u}>{u}</option>
-              ))}
-            </select>
-            <small id="measure-unit-note">
-              계측기·계수·요금제가 참조 중이면 단위를 바꿀 수 없습니다.
-            </small>
-          </div>
-          <label className="inline-check">
-            <input
-              type="checkbox"
-              checked={draft.isBillable}
-              onChange={(e) =>
-                setDraft({ ...draft, isBillable: e.target.checked })
+                setDraft({ ...draft, sourceCode: e.target.value.toUpperCase() })
               }
             />
-            요금 부과 대상
-          </label>
-          <label className="inline-check">
-            <input
-              type="checkbox"
-              checked={draft.isActive}
-              onChange={(e) =>
-                setDraft({ ...draft, isActive: e.target.checked })
-              }
+            <Field
+              label="에너지원명"
+              value={draft.name}
+              required
+              maxLength={50}
+              error={errors.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
             />
-            사용 (끄면 새 입력에서 제외, 기존 기록은 유지)
-          </label>
-          {done && <p role="status">{done}</p>}
-          <div className="row-actions">
-            <button type="submit" disabled={pending}>
-              {editing ? "수정 저장" : "등록"}
-            </button>
-            {editing && (
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => startEdit(null)}
+            <div className="field">
+              <label htmlFor="source-kind">에너지 구분</label>
+              <select
+                id="source-kind"
+                value={draft.sourceKind}
+                onChange={(e) =>
+                  setDraft({ ...draft, sourceKind: e.target.value })
+                }
               >
-                새로 등록
-              </button>
-            )}
-          </div>
-        </form>
+                {Object.entries(KINDS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="measure-unit">계측 단위</label>
+              <select
+                id="measure-unit"
+                value={draft.measureUnit}
+                aria-describedby="measure-unit-note"
+                onChange={(e) =>
+                  setDraft({ ...draft, measureUnit: e.target.value })
+                }
+              >
+                {UNITS.map((u) => (
+                  <option key={u}>{u}</option>
+                ))}
+              </select>
+              <small id="measure-unit-note">
+                계측기·계수·요금제가 참조 중이면 단위를 바꿀 수 없습니다.
+              </small>
+            </div>
+            <label className="inline-check">
+              <input
+                type="checkbox"
+                checked={draft.isBillable}
+                onChange={(e) =>
+                  setDraft({ ...draft, isBillable: e.target.checked })
+                }
+              />
+              요금 부과 대상
+            </label>
+            <label className="inline-check">
+              <input
+                type="checkbox"
+                checked={draft.isActive}
+                onChange={(e) =>
+                  setDraft({ ...draft, isActive: e.target.checked })
+                }
+              />
+              사용 (끄면 새 입력에서 제외, 기존 기록은 유지)
+            </label>
+          </FormPanel>
+        )}
       </div>
-    </>
+    </div>
   );
 }

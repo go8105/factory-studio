@@ -40,6 +40,7 @@ test("채널 선택 후 선 그래프 전환", async ({ page }) => {
 });
 test("에너지원 등록 후 목록에 표시", async ({ page }) => {
   await page.goto("/fems/energy-sources");
+  await page.getByRole("button", { name: "에너지원 등록" }).click();
   await page.getByLabel("에너지원 코드").fill("STEAM");
   await page.getByLabel("에너지원명").fill("스팀");
   await page.getByRole("button", { name: "등록", exact: true }).click();

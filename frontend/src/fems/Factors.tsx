@@ -7,8 +7,10 @@ import {
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
+  useDiscardGuard,
   type Column,
 } from "../shared/components";
 import { MasterOrder } from "./EnergySources";
@@ -76,8 +78,15 @@ export function Factors() {
   const [offset, setOffset] = useState(0);
   const [reload, setReload] = useState(0);
   const [loadError, setLoadError] = useState<unknown>();
-  const [editing, setEditing] = useState<Factor | null>(null);
+  const [panel, setPanel] = useState<{ row: Factor | null } | null>(null);
+  const editing = panel?.row ?? null;
   const [draft, setDraft] = useState<Draft>({
+    energySourceId: 0,
+    effectiveYear: "",
+    factorValue: "",
+    sourceNote: "",
+  });
+  const [initial, setInitial] = useState<Draft>({
     energySourceId: 0,
     effectiveYear: "",
     factorValue: "",
@@ -86,6 +95,7 @@ export function Factors() {
   const [saveError, setSaveError] = useState<unknown>();
   const [confirmDelete, setConfirmDelete] = useState<number>();
   const [pending, setPending] = useState(false);
+  const [done, setDone] = useState("");
 
   // 용수(UTILITY)는 TOE 합산·배출량 계산 대상이 아니라 계수를 등록하지 않는다.
   const usable = (sources ?? []).filter((s) => s.sourceKind !== "UTILITY");
@@ -96,10 +106,14 @@ export function Factors() {
       .then((r) => {
         setSources(r.data);
         const first = r.data.find((s) => s.sourceKind !== "UTILITY");
-        if (first)
+        if (first) {
           setDraft((prev) =>
             prev.energySourceId ? prev : { ...prev, energySourceId: first.id },
           );
+          setInitial((prev) =>
+            prev.energySourceId ? prev : { ...prev, energySourceId: first.id },
+          );
+        }
       })
       .catch((e) => {
         if (controller.signal.aborted) return;
@@ -128,23 +142,42 @@ export function Factors() {
     return () => controller.abort();
   }, [kind, offset, reload]);
 
-  function startEdit(row: Factor | null) {
-    setEditing(row);
-    setDraft(
-      row
-        ? {
-            energySourceId: row.energySourceId,
-            effectiveYear: row.effectiveYear,
-            factorValue: row.factorValue,
-            sourceNote: row.sourceNote,
-          }
-        : {
-            energySourceId: usable[0]?.id ?? 0,
-            effectiveYear: "",
-            factorValue: "",
-            sourceNote: "",
-          },
-    );
+  const dirty =
+    !!panel &&
+    (editing
+      ? (Object.keys(draft) as (keyof Draft)[]).some(
+          (k) => draft[k] !== initial[k],
+        )
+      : Boolean(
+          draft.effectiveYear.trim() ||
+          draft.factorValue.trim() ||
+          draft.sourceNote.trim(),
+        ));
+  const guard = useDiscardGuard(dirty);
+
+  function openPanel(row: Factor | null) {
+    const values: Draft = row
+      ? {
+          energySourceId: row.energySourceId,
+          effectiveYear: row.effectiveYear,
+          factorValue: row.factorValue,
+          sourceNote: row.sourceNote,
+        }
+      : {
+          energySourceId: usable[0]?.id ?? 0,
+          effectiveYear: "",
+          factorValue: "",
+          sourceNote: "",
+        };
+    setPanel({ row });
+    setDraft(values);
+    setInitial(values);
+    setSaveError(undefined);
+    setDone("");
+  }
+
+  function closePanel() {
+    setPanel(null);
     setSaveError(undefined);
   }
 
@@ -156,6 +189,7 @@ export function Factors() {
   ) {
     setPending(true);
     setSaveError(undefined);
+    setDone("");
     try {
       await api(path, {
         method,
@@ -191,8 +225,11 @@ export function Factors() {
             ([k, v]) => editing[k as keyof Factor] !== v,
           ),
         )
-      : { ...fields, energySourceId: draft.energySourceId, factorKind: kind };
-    if (editing && !Object.keys(body).length) return;
+      : { ...fields, energySourceId: currentSourceId, factorKind: kind };
+    if (editing && !Object.keys(body).length) {
+      setDone("변경한 항목이 없습니다.");
+      return;
+    }
     const operation = `${editing ? `update:${editing.id}` : "create"}:${JSON.stringify(body)}`;
     const ok = await send(
       operation,
@@ -200,27 +237,21 @@ export function Factors() {
       editing ? "PATCH" : "POST",
       body,
     );
-    if (ok) startEdit(null);
+    if (ok) {
+      closePanel();
+      setDone(editing ? "계수를 수정했습니다." : "계수를 등록했습니다.");
+    }
   }
 
   async function remove(row: Factor) {
     if (pending) return;
     const ok = await send(`delete:${row.id}`, `${BASE}/${row.id}`, "DELETE");
     setConfirmDelete(undefined);
-    if (ok && editing?.id === row.id) startEdit(null);
+    if (ok) {
+      if (editing?.id === row.id) closePanel();
+      setDone("계수를 삭제했습니다.");
+    }
   }
-
-  const title = (
-    <>
-      <PageTitle
-        id="F-13"
-        title="환산·배출계수"
-        subtitle="에너지원별·연도별 환산계수와 배출계수를 관리합니다"
-        help="fems/f-13"
-      />
-      <MasterOrder />
-    </>
-  );
 
   if (
     loadError instanceof ApiError &&
@@ -236,19 +267,26 @@ export function Factors() {
 
   if (sources && usable.length === 0)
     return (
-      <>
-        {title}
+      <div className="page-fill">
+        <PageTitle
+          id="F-13"
+          title="환산·배출계수"
+          subtitle="에너지원별·연도별 환산계수와 배출계수를 관리합니다"
+          help="fems/f-13"
+        />
+        <MasterOrder />
         <EmptyState
           reason="계수를 등록할 에너지원이 없습니다. 전력·연료·열 에너지원을 먼저 등록하세요."
           to="/fems/energy-sources"
           action="에너지원 화면으로"
         />
-      </>
+      </div>
     );
 
   const errors = fieldErrors(saveError);
   const sourceMap = new Map((sources ?? []).map((s) => [s.id, s]));
-  const selected = sourceMap.get(draft.energySourceId);
+  const currentSourceId = draft.energySourceId || usable[0]?.id || 0;
+  const selected = sourceMap.get(currentSourceId);
   const unitPreview = editing
     ? editing.factorUnit
     : selected
@@ -284,7 +322,8 @@ export function Factors() {
             <button
               type="button"
               className="link-button"
-              onClick={() => startEdit(r)}
+              aria-pressed={editing?.id === r.id}
+              onClick={() => guard.guard(() => openPanel(r))}
             >
               수정
             </button>
@@ -312,36 +351,74 @@ export function Factors() {
     { key: "sourceNote", label: "출처" },
   ];
 
-  return (
-    <>
-      {title}
-      <div className="tabs">
-        {(Object.keys(KINDS) as Kind[]).map((key) => (
-          <button
-            key={key}
-            type="button"
-            aria-pressed={kind === key}
-            onClick={() => {
+  const panelError = Object.keys(errors).length ? undefined : saveError;
+
+  const tabs = (
+    <div className="tabs" role="tablist">
+      {(Object.keys(KINDS) as Kind[]).map((key) => (
+        <button
+          key={key}
+          type="button"
+          aria-pressed={kind === key}
+          className={kind === key ? "active" : ""}
+          onClick={() =>
+            guard.guard(() => {
               setKind(key);
               setOffset(0);
               setConfirmDelete(undefined);
-              if (editing) startEdit(null);
-            }}
+              if (panel && !editing) {
+                const values: Draft = {
+                  energySourceId: draft.energySourceId || usable[0]?.id || 0,
+                  effectiveYear: "",
+                  factorValue: "",
+                  sourceNote: "",
+                };
+                setDraft(values);
+                setInitial(values);
+                setSaveError(undefined);
+              } else {
+                closePanel();
+              }
+            })
+          }
+        >
+          {KINDS[key].label}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="page-fill">
+      <PageTitle
+        id="F-13"
+        title="환산·배출계수"
+        subtitle="에너지원별·연도별 환산계수와 배출계수를 관리합니다"
+        help="fems/f-13"
+        actions={
+          <button
+            type="button"
+            aria-pressed={!!panel && !editing}
+            onClick={() => guard.guard(() => openPanel(null))}
           >
-            {KINDS[key].label}
+            계수 등록
           </button>
-        ))}
-      </div>
-      <p className="muted">{KINDS[kind].use}</p>
+        }
+      />
+      <MasterOrder />
+      <p className="muted" role="note">
+        {KINDS[kind].use}
+      </p>
       {confirmDelete !== undefined && (
         <p className="notice" role="status">
           계수를 지우면 그 연도의 계산은 추정하지 않고 &quot;계수 없음&quot;으로
           표시됩니다.
         </p>
       )}
-      <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
-      <div className="master-grid">
-        <section>
+      {!panel && <ErrorNotice error={panelError} />}
+      {done && <p role="status">{done}</p>}
+      <div className="split-view fill">
+        <section className="fill">
           <ErrorNotice
             error={loadError}
             retry={() => setReload((n) => n + 1)}
@@ -350,6 +427,7 @@ export function Factors() {
             !loadError && <Loading />
           ) : (
             <DataTable
+              leading={tabs}
               rows={rows}
               columns={columns}
               caption={`${KINDS[kind].label} 목록`}
@@ -360,95 +438,100 @@ export function Factors() {
               empty={
                 <EmptyState
                   reason={`등록된 ${KINDS[kind].label}가 없습니다. 계수가 없는 연도는 계산 불가로 표시됩니다.`}
-                  to="#factor-form"
                   action="계수 등록"
+                  onAction={() => guard.guard(() => openPanel(null))}
                 />
               }
             />
           )}
         </section>
 
-        <form
-          id="factor-form"
-          className="panel"
-          onSubmit={(e) => void submit(e)}
-          aria-label={editing ? "계수 수정" : "계수 등록"}
-        >
-          <h2>
-            {editing
-              ? `${editing.effectiveYear}년 계수 수정`
-              : `${KINDS[kind].label} 등록`}
-          </h2>
-          <div className="field">
-            <label htmlFor="factor-source">에너지원</label>
-            <select
-              id="factor-source"
-              value={draft.energySourceId}
-              disabled={!!editing}
-              onChange={(e) =>
-                setDraft({ ...draft, energySourceId: Number(e.target.value) })
-              }
-            >
-              {(editing ? (sources ?? []) : usable).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.sourceCode})
-                </option>
-              ))}
-            </select>
-            {errors.energySourceId && <small>{errors.energySourceId}</small>}
-          </div>
-          {editing && (
-            <p className="muted">
-              에너지원·계수 유형을 바꾸려면 새로 등록하세요.
-            </p>
-          )}
-          <Field
-            label="적용 연도"
-            value={draft.effectiveYear}
-            required
-            maxLength={4}
-            pattern="[0-9]{4}"
-            placeholder="YYYY"
-            error={errors.effectiveYear}
-            onChange={(e) =>
-              setDraft({ ...draft, effectiveYear: e.target.value })
+        {panel && (
+          <FormPanel
+            key={editing?.id ?? "new"}
+            title={
+              editing
+                ? `${editing.effectiveYear}년 계수 수정`
+                : `${KINDS[kind].label} 등록`
             }
-          />
-          <Field
-            label={`계수 (${unitPreview})`}
-            value={draft.factorValue}
-            required
-            inputMode="decimal"
-            title="0보다 큰 수, 소수 6자리까지"
-            error={errors.factorValue}
-            onChange={(e) =>
-              setDraft({ ...draft, factorValue: e.target.value })
+            guard={guard}
+            onClose={closePanel}
+            onSubmit={(e) => void submit(e)}
+            actions={
+              <>
+                <button type="submit" disabled={pending} aria-busy={pending}>
+                  {editing ? "저장" : "등록"}
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => guard.guard(closePanel)}
+                >
+                  취소
+                </button>
+              </>
             }
-          />
-          <Field
-            label="출처"
-            value={draft.sourceNote}
-            required
-            maxLength={200}
-            error={errors.sourceNote}
-            onChange={(e) => setDraft({ ...draft, sourceNote: e.target.value })}
-          />
-          <div className="form-actions">
-            <button type="submit" disabled={pending}>
-              {editing ? "저장" : "등록"}
-            </button>
-            {editing && (
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => startEdit(null)}
+          >
+            <ErrorNotice error={panelError} />
+            <div className="field">
+              <label htmlFor="factor-source">에너지원</label>
+              <select
+                id="factor-source"
+                value={currentSourceId}
+                disabled={!!editing}
+                onChange={(e) =>
+                  setDraft({ ...draft, energySourceId: Number(e.target.value) })
+                }
               >
-                취소
-              </button>
+                {(editing ? (sources ?? []) : usable).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.sourceCode})
+                  </option>
+                ))}
+              </select>
+              {errors.energySourceId && <small>{errors.energySourceId}</small>}
+            </div>
+            {editing && (
+              <p className="muted">
+                에너지원·계수 유형을 바꾸려면 새로 등록하세요.
+              </p>
             )}
-          </div>
-        </form>
+            <Field
+              label="적용 연도"
+              value={draft.effectiveYear}
+              required
+              maxLength={4}
+              pattern="[0-9]{4}"
+              placeholder="YYYY"
+              error={errors.effectiveYear}
+              onChange={(e) =>
+                setDraft({ ...draft, effectiveYear: e.target.value })
+              }
+            />
+            <Field
+              label={`계수 (${unitPreview})`}
+              value={draft.factorValue}
+              required
+              inputMode="decimal"
+              title="0보다 큰 수, 소수 6자리까지"
+              error={errors.factorValue}
+              onChange={(e) =>
+                setDraft({ ...draft, factorValue: e.target.value })
+              }
+            />
+            <Field
+              label="출처"
+              value={draft.sourceNote}
+              required
+              maxLength={200}
+              error={errors.sourceNote}
+              onChange={(e) =>
+                setDraft({ ...draft, sourceNote: e.target.value })
+              }
+            />
+          </FormPanel>
+        )}
       </div>
-    </>
+    </div>
   );
 }

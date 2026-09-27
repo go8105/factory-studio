@@ -1,6 +1,6 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-27 (UI-02 A3 보고서형 조회 완료, Antigravity). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-27 (UI-02 A4 FEMS 기준정보 S 패턴 전환 완료, Antigravity). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
@@ -22,8 +22,8 @@
 | FS-022 | **완료 — https://eip.hugh-d.com**. 이지스 서버 공존(Nginx 443 이름 기반, uvicorn 127.0.0.1:8021, PG18 Docker 55432, Cloudflare 프록시 + Origin CA). 절차·업데이트·걷어내기 `docs/deploy/배포절차_FS-022.md`. 서버 접속: 맥북 `ssh root@158.247.236.136`(키) |
 | UI-01 | 완료 `docs/ui/디자인시스템_UI-01.md` — main 통합·서버 배포(2026-09-26). 공통 토큰·`SolutionLayout`(접기·서랍)·넓은 업무 화면·3D 캔버스 확보. 393·10·107 통과 |
 | 운영 | 443은 Cloudflare IP만, 이지스는 https://aegis.hugh-d.com(Cloudflare Access)·:8000 외부 차단, 운영자 계정은 `tools/create_member.py`(서버에서 실행), DB는 SSH 터널(§12-5) |
-| UI-02 | **진행 중(A1~A3 완료)** `docs/ui/공통UI규약_UI-02.md` — A1 대시보드(M-01, E-01), A2 조회 목록(M-09, E-07, E-14, P-07), A3 보고서형 조회(F-03, F-04, F-06, F-07, F-08, E-09·12) 완료, vitest 402 통과, 다음 A4 FEMS 기준정보 대기 |
-| 다음 | Antigravity A3 사용자 리뷰/확인 → A4(FEMS 기준정보 F-09~11, F-13~14) 진행 |
+| UI-02 | **진행 중(A1~A4 완료)** `docs/ui/공통UI규약_UI-02.md` — A1 대시보드(M-01, E-01), A2 조회 목록(M-09, E-07, E-14, P-07), A3 보고서형 조회(F-03, F-04, F-06, F-07, F-08, E-09·12), A4 FEMS 기준정보(F-09, F-10, F-11, F-13, F-14) 완료, vitest 402 통과, 다음 A5 MES 기준정보 대기 |
+| 다음 | Antigravity A4 사용자 리뷰/확인 → A5(MES 기준정보 M-02,03,06,08,10~13) 진행 |
 
 ## 다음 할 일
 

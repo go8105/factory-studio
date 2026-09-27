@@ -7,8 +7,10 @@ import {
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
+  useDiscardGuard,
   type Column,
 } from "../shared/components";
 import { MasterOrder } from "./EnergySources";
@@ -67,13 +69,20 @@ export function Sites() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [reload, setReload] = useState(0);
   const [loadError, setLoadError] = useState<unknown>();
-  const [editingSite, setEditingSite] = useState<Site | null>(null);
+  type PanelState =
+    { type: "site"; row: Site | null } | { type: "place"; row: Place | null };
+
+  const [panel, setPanel] = useState<PanelState | null>(null);
+  const editingSite = panel?.type === "site" ? panel.row : null;
+  const editingPlace = panel?.type === "place" ? panel.row : null;
   const [siteDraft, setSiteDraft] = useState<SiteDraft>();
-  const [editingPlace, setEditingPlace] = useState<Place | null>(null);
+  const [initialSite, setInitialSite] = useState<SiteDraft>();
   const [placeDraft, setPlaceDraft] = useState<PlaceDraft>();
+  const [initialPlace, setInitialPlace] = useState<PlaceDraft>();
   const [saveError, setSaveError] = useState<unknown>();
   const [confirmDelete, setConfirmDelete] = useState<string>();
   const [pending, setPending] = useState(false);
+  const [done, setDone] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -108,29 +117,54 @@ export function Sites() {
     kind: "zone" as const,
   };
 
-  function editSite(row: Site | null) {
-    setEditingSite(row);
-    setSiteDraft(
-      row
-        ? { siteCode: row.siteCode, name: row.name, timezone: row.timezone }
-        : undefined,
-    );
+  const dirty =
+    panel?.type === "site" && initialSite
+      ? (Object.keys(sDraft) as (keyof SiteDraft)[]).some(
+          (k) => sDraft[k] !== initialSite[k],
+        )
+      : panel?.type === "place" && initialPlace
+        ? (Object.keys(pDraft) as (keyof PlaceDraft)[]).some(
+            (k) => pDraft[k] !== initialPlace[k],
+          )
+        : false;
+  const guard = useDiscardGuard(dirty);
+
+  function openSite(row: Site | null) {
+    const values: SiteDraft = row
+      ? { siteCode: row.siteCode, name: row.name, timezone: row.timezone }
+      : { siteCode: "", name: "", timezone: "Asia/Seoul" };
+    setPanel({ type: "site", row });
+    setSiteDraft(values);
+    setInitialSite(values);
     setSaveError(undefined);
+    setDone("");
   }
 
-  function editPlace(row: Place | null) {
-    setEditingPlace(row);
-    setPlaceDraft(
-      row
-        ? {
-            siteId: row.siteId,
-            parentLocationId: row.parentLocationId,
-            locationCode: row.locationCode,
-            name: row.name,
-            kind: row.kind,
-          }
-        : undefined,
-    );
+  function openPlace(row: Place | null) {
+    const values: PlaceDraft = row
+      ? {
+          siteId: row.siteId,
+          parentLocationId: row.parentLocationId,
+          locationCode: row.locationCode,
+          name: row.name,
+          kind: row.kind,
+        }
+      : {
+          siteId: sites?.[0]?.id ?? 0,
+          parentLocationId: null,
+          locationCode: "",
+          name: "",
+          kind: "zone",
+        };
+    setPanel({ type: "place", row });
+    setPlaceDraft(values);
+    setInitialPlace(values);
+    setSaveError(undefined);
+    setDone("");
+  }
+
+  function closePanel() {
+    setPanel(null);
     setSaveError(undefined);
   }
 
@@ -164,6 +198,22 @@ export function Sites() {
     }
   }
 
+  async function remove(key: string, path: string) {
+    if (pending) return;
+    const ok = await send(`delete:${key}`, path, "DELETE");
+    if (ok) {
+      if (panel?.type === "site" && key === `site:${panel.row?.id}`)
+        closePanel();
+      if (panel?.type === "place" && key === `place:${panel.row?.id}`)
+        closePanel();
+      setDone(
+        key.startsWith("site:")
+          ? "사업장을 삭제했습니다."
+          : "공간을 삭제했습니다.",
+      );
+    }
+  }
+
   async function submitSite(event: FormEvent) {
     event.preventDefault();
     if (pending) return;
@@ -173,14 +223,22 @@ export function Sites() {
       timezone: sDraft.timezone.trim(),
     };
     const body = editingSite ? changed(draft, editingSite) : draft;
-    if (editingSite && !Object.keys(body).length) return;
+    if (editingSite && !Object.keys(body).length) {
+      setDone("변경한 항목이 없습니다.");
+      return;
+    }
     const ok = await send(
       `site:${editingSite?.id ?? "new"}:${JSON.stringify(body)}`,
       editingSite ? `${SITES}/${editingSite.id}` : SITES,
       editingSite ? "PATCH" : "POST",
       body,
     );
-    if (ok) editSite(null);
+    if (ok) {
+      closePanel();
+      setDone(
+        editingSite ? "사업장을 수정했습니다." : "사업장을 등록했습니다.",
+      );
+    }
   }
 
   async function submitPlace(event: FormEvent) {
@@ -193,14 +251,20 @@ export function Sites() {
     };
     // 사업장은 등록 때만 정한다(수정 중에는 잠겨 있어 바뀐 값에 들어가지 않는다).
     const body = editingPlace ? changed(draft, editingPlace) : draft;
-    if (editingPlace && !Object.keys(body).length) return;
+    if (editingPlace && !Object.keys(body).length) {
+      setDone("변경한 항목이 없습니다.");
+      return;
+    }
     const ok = await send(
       `place:${editingPlace?.id ?? "new"}:${JSON.stringify(body)}`,
       editingPlace ? `${LOCATIONS}/${editingPlace.id}` : LOCATIONS,
       editingPlace ? "PATCH" : "POST",
       body,
     );
-    if (ok) editPlace(null);
+    if (ok) {
+      closePanel();
+      setDone(editingPlace ? "공간을 수정했습니다." : "공간을 등록했습니다.");
+    }
   }
 
   if (
@@ -229,7 +293,7 @@ export function Sites() {
           type="button"
           className="secondary"
           disabled={pending}
-          onClick={() => void send(`delete:${key}`, path, "DELETE")}
+          onClick={() => void remove(key, path)}
         >
           삭제 확정
         </button>
@@ -264,7 +328,8 @@ export function Sites() {
           <button
             type="button"
             className="link-button"
-            onClick={() => editSite(r)}
+            aria-pressed={panel?.type === "site" && panel.row?.id === r.id}
+            onClick={() => guard.guard(() => openSite(r))}
           >
             수정
           </button>
@@ -286,7 +351,8 @@ export function Sites() {
           <button
             type="button"
             className="link-button"
-            onClick={() => editPlace(r)}
+            aria-pressed={panel?.type === "place" && panel.row?.id === r.id}
+            onClick={() => guard.guard(() => openPlace(r))}
           >
             수정
           </button>
@@ -308,8 +374,10 @@ export function Sites() {
     (p) => p.siteId === pDraft.siteId && p.id !== editingPlace?.id,
   );
 
+  const panelError = Object.keys(errors).length ? undefined : saveError;
+
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="F-09"
         title="사업장·공간"
@@ -317,18 +385,37 @@ export function Sites() {
         help="fems/f-09"
       />
       <MasterOrder />
-      <p className="muted">
+      <p className="muted" role="note">
         FEMS 전용 기준정보입니다. MES의 사업장·공간과 코드가 같아도 별개
         데이터입니다.
       </p>
-      <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
+      {!panel && <ErrorNotice error={panelError} />}
+      {done && <p role="status">{done}</p>}
       <ErrorNotice error={loadError} retry={() => setReload((n) => n + 1)} />
       {!sites ? (
         !loadError && <Loading />
       ) : (
-        <>
-          <div className="master-grid">
+        <div className="split-view fill">
+          <div
+            className="fill"
+            style={{
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--s5)",
+            }}
+          >
             <section>
+              <div className="section-heading">
+                <h2>사업장</h2>
+                <button
+                  type="button"
+                  aria-pressed={panel?.type === "site" && !panel.row}
+                  onClick={() => guard.guard(() => openSite(null))}
+                >
+                  사업장 등록
+                </button>
+              </div>
               <DataTable
                 rows={sites}
                 columns={siteColumns}
@@ -339,84 +426,30 @@ export function Sites() {
                 onPage={() => undefined}
                 empty={
                   <EmptyState
-                    reason="등록된 사업장이 없습니다. 우측 폼에서 첫 사업장을 등록하세요."
-                    to="#site-form"
+                    reason="등록된 사업장이 없습니다. 첫 사업장을 등록하세요."
                     action="사업장 등록"
+                    onAction={() => guard.guard(() => openSite(null))}
                   />
                 }
               />
             </section>
-            <form
-              id="site-form"
-              className="panel"
-              aria-label={editingSite ? "사업장 수정" : "사업장 등록"}
-              onSubmit={(e) => void submitSite(e)}
-            >
-              <h2>
-                {editingSite ? `${editingSite.siteCode} 수정` : "사업장 등록"}
-              </h2>
-              <Field
-                label="사업장 코드"
-                value={sDraft.siteCode}
-                required
-                maxLength={30}
-                pattern="[A-Z][A-Z0-9_\-]{1,29}"
-                title="영문 대문자로 시작하는 2~30자 (대문자·숫자·_·-)"
-                error={errors.siteCode}
-                onChange={(e) =>
-                  setSiteDraft({
-                    ...sDraft,
-                    siteCode: e.target.value.toUpperCase(),
-                  })
-                }
-              />
-              <Field
-                label="사업장명"
-                value={sDraft.name}
-                required
-                maxLength={100}
-                error={errors.name}
-                onChange={(e) =>
-                  setSiteDraft({ ...sDraft, name: e.target.value })
-                }
-              />
-              <Field
-                label="시간대"
-                value={sDraft.timezone}
-                required
-                maxLength={60}
-                placeholder="Asia/Seoul"
-                error={errors.timezone}
-                onChange={(e) =>
-                  setSiteDraft({ ...sDraft, timezone: e.target.value })
-                }
-              />
-              <p className="muted">
-                계측·배분·생산량의 날짜 경계를 이 시간대로 정합니다. 기록이 있는
-                사업장은 시간대를 바꿀 수 없습니다.
+
+            {sites.length === 0 ? (
+              <p className="muted" role="note">
+                공간은 사업장을 먼저 등록한 뒤 추가합니다.
               </p>
-              <div className="form-actions">
-                <button type="submit" disabled={pending}>
-                  {editingSite ? "저장" : "등록"}
-                </button>
-                {editingSite && (
+            ) : (
+              <section>
+                <div className="section-heading">
+                  <h2>공간</h2>
                   <button
                     type="button"
-                    className="link-button"
-                    onClick={() => editSite(null)}
+                    aria-pressed={panel?.type === "place" && !panel.row}
+                    onClick={() => guard.guard(() => openPlace(null))}
                   >
-                    취소
+                    공간 등록
                   </button>
-                )}
-              </div>
-            </form>
-          </div>
-
-          {sites.length === 0 ? (
-            <p className="muted">공간은 사업장을 먼저 등록한 뒤 추가합니다.</p>
-          ) : (
-            <div className="master-grid">
-              <section>
+                </div>
                 <DataTable
                   rows={places}
                   columns={placeColumns}
@@ -428,138 +461,195 @@ export function Sites() {
                   empty={
                     <EmptyState
                       reason="등록된 공간이 없습니다. 설비와 계측기는 공간에 놓입니다."
-                      to="#place-form"
                       action="공간 등록"
+                      onAction={() => guard.guard(() => openPlace(null))}
                     />
                   }
                 />
               </section>
-              <form
-                id="place-form"
-                className="panel"
-                aria-label={editingPlace ? "공간 수정" : "공간 등록"}
-                onSubmit={(e) => void submitPlace(e)}
-              >
-                <h2>
-                  {editingPlace
-                    ? `${editingPlace.locationCode} 수정`
-                    : "공간 등록"}
-                </h2>
-                <div className="field">
-                  <label htmlFor="place-site">사업장</label>
-                  <select
-                    id="place-site"
-                    value={pDraft.siteId}
-                    disabled={!!editingPlace}
-                    onChange={(e) =>
-                      setPlaceDraft({
-                        ...pDraft,
-                        siteId: Number(e.target.value),
-                        parentLocationId: null,
-                      })
-                    }
-                  >
-                    {sites.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.siteCode})
-                      </option>
-                    ))}
-                  </select>
-                  {errors.siteId && <small>{errors.siteId}</small>}
-                </div>
-                {editingPlace && (
-                  <p className="muted">
-                    사업장을 바꾸려면 새 공간을 등록하세요.
-                  </p>
-                )}
-                <Field
-                  label="공간 코드"
-                  value={pDraft.locationCode}
-                  required
-                  maxLength={30}
-                  pattern="[A-Z][A-Z0-9_\-]{1,29}"
-                  title="영문 대문자로 시작하는 2~30자 (대문자·숫자·_·-)"
-                  error={errors.locationCode}
-                  onChange={(e) =>
-                    setPlaceDraft({
-                      ...pDraft,
-                      locationCode: e.target.value.toUpperCase(),
-                    })
-                  }
-                />
-                <Field
-                  label="공간명"
-                  value={pDraft.name}
-                  required
-                  maxLength={100}
-                  error={errors.name}
-                  onChange={(e) =>
-                    setPlaceDraft({ ...pDraft, name: e.target.value })
-                  }
-                />
-                <div className="field">
-                  <label htmlFor="place-kind">종류</label>
-                  <select
-                    id="place-kind"
-                    value={pDraft.kind}
-                    onChange={(e) =>
-                      setPlaceDraft({
-                        ...pDraft,
-                        kind: e.target.value as Place["kind"],
-                      })
-                    }
-                  >
-                    {Object.entries(KINDS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="place-parent">상위 공간</label>
-                  <select
-                    id="place-parent"
-                    value={pDraft.parentLocationId ?? ""}
-                    onChange={(e) =>
-                      setPlaceDraft({
-                        ...pDraft,
-                        parentLocationId: e.target.value
-                          ? Number(e.target.value)
-                          : null,
-                      })
-                    }
-                  >
-                    <option value="">없음</option>
-                    {parentChoices.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.locationCode} {p.name}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.parentLocationId && (
-                    <small>{errors.parentLocationId}</small>
-                  )}
-                </div>
-                <div className="form-actions">
-                  <button type="submit" disabled={pending}>
-                    {editingPlace ? "저장" : "등록"}
+            )}
+          </div>
+
+          {panel && (
+            <FormPanel
+              key={panel.type + ":" + (panel.row?.id ?? "new")}
+              title={
+                panel.type === "site"
+                  ? panel.row
+                    ? `${panel.row.siteCode} 수정`
+                    : "사업장 등록"
+                  : panel.row
+                    ? `${panel.row.locationCode} 수정`
+                    : "공간 등록"
+              }
+              guard={guard}
+              onClose={closePanel}
+              onSubmit={(e) =>
+                void (panel.type === "site" ? submitSite(e) : submitPlace(e))
+              }
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
+                    {panel.row ? "저장" : "등록"}
                   </button>
-                  {editingPlace && (
-                    <button
-                      type="button"
-                      className="link-button"
-                      onClick={() => editPlace(null)}
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closePanel)}
+                  >
+                    취소
+                  </button>
+                </>
+              }
+            >
+              <ErrorNotice error={panelError} />
+              {panel.type === "site" ? (
+                <>
+                  <Field
+                    label="사업장 코드"
+                    value={sDraft.siteCode}
+                    required
+                    maxLength={30}
+                    pattern="[A-Z][A-Z0-9_\-]{1,29}"
+                    title="영문 대문자로 시작하는 2~30자 (대문자·숫자·_·-)"
+                    error={errors.siteCode}
+                    onChange={(e) =>
+                      setSiteDraft({
+                        ...sDraft,
+                        siteCode: e.target.value.toUpperCase(),
+                      })
+                    }
+                  />
+                  <Field
+                    label="사업장명"
+                    value={sDraft.name}
+                    required
+                    maxLength={100}
+                    error={errors.name}
+                    onChange={(e) =>
+                      setSiteDraft({ ...sDraft, name: e.target.value })
+                    }
+                  />
+                  <Field
+                    label="시간대"
+                    value={sDraft.timezone}
+                    required
+                    maxLength={60}
+                    placeholder="Asia/Seoul"
+                    error={errors.timezone}
+                    onChange={(e) =>
+                      setSiteDraft({ ...sDraft, timezone: e.target.value })
+                    }
+                  />
+                  <p className="muted">
+                    계측·배분·생산량의 날짜 경계를 이 시간대로 정합니다. 기록이
+                    있는 사업장은 시간대를 바꿀 수 없습니다.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="field">
+                    <label htmlFor="place-site">사업장</label>
+                    <select
+                      id="place-site"
+                      value={pDraft.siteId}
+                      disabled={!!panel.row}
+                      onChange={(e) =>
+                        setPlaceDraft({
+                          ...pDraft,
+                          siteId: Number(e.target.value),
+                          parentLocationId: null,
+                        })
+                      }
                     >
-                      취소
-                    </button>
+                      {sites.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.siteCode})
+                        </option>
+                      ))}
+                    </select>
+                    {errors.siteId && <small>{errors.siteId}</small>}
+                  </div>
+                  {panel.row && (
+                    <p className="muted">
+                      사업장을 바꾸려면 새 공간을 등록하세요.
+                    </p>
                   )}
-                </div>
-              </form>
-            </div>
+                  <Field
+                    label="공간 코드"
+                    value={pDraft.locationCode}
+                    required
+                    maxLength={30}
+                    pattern="[A-Z][A-Z0-9_\-]{1,29}"
+                    title="영문 대문자로 시작하는 2~30자 (대문자·숫자·_·-)"
+                    error={errors.locationCode}
+                    onChange={(e) =>
+                      setPlaceDraft({
+                        ...pDraft,
+                        locationCode: e.target.value.toUpperCase(),
+                      })
+                    }
+                  />
+                  <Field
+                    label="공간명"
+                    value={pDraft.name}
+                    required
+                    maxLength={100}
+                    error={errors.name}
+                    onChange={(e) =>
+                      setPlaceDraft({ ...pDraft, name: e.target.value })
+                    }
+                  />
+                  <div className="field">
+                    <label htmlFor="place-kind">종류</label>
+                    <select
+                      id="place-kind"
+                      value={pDraft.kind}
+                      onChange={(e) =>
+                        setPlaceDraft({
+                          ...pDraft,
+                          kind: e.target.value as Place["kind"],
+                        })
+                      }
+                    >
+                      {Object.entries(KINDS).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="place-parent">상위 공간</label>
+                    <select
+                      id="place-parent"
+                      value={pDraft.parentLocationId ?? ""}
+                      onChange={(e) =>
+                        setPlaceDraft({
+                          ...pDraft,
+                          parentLocationId: e.target.value
+                            ? Number(e.target.value)
+                            : null,
+                        })
+                      }
+                    >
+                      <option value="">없음</option>
+                      {parentChoices.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.locationCode} {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.parentLocationId && (
+                      <small>{errors.parentLocationId}</small>
+                    )}
+                  </div>
+                </>
+              )}
+            </FormPanel>
           )}
-        </>
+        </div>
       )}
-    </>
+    </div>
   );
 }

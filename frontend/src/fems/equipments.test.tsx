@@ -85,6 +85,7 @@ const calls = (fetcher: ReturnType<typeof mockApi>, method: string) =>
   );
 
 async function fillNew() {
+  fireEvent.click(await screen.findByRole("button", { name: "설비 등록" }));
   fireEvent.change(await screen.findByLabelText("설비 코드"), {
     target: { value: "inj-02" },
   });

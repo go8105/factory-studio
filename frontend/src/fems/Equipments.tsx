@@ -8,8 +8,10 @@ import {
   EmptyState,
   ErrorNotice,
   Field,
+  FormPanel,
   Loading,
   PageTitle,
+  useDiscardGuard,
   type Column,
 } from "../shared/components";
 import { MasterOrder } from "./EnergySources";
@@ -63,8 +65,10 @@ export function Equipments() {
   const [activeOnly, setActiveOnly] = useState(false);
   const [reload, setReload] = useState(0);
   const [loadError, setLoadError] = useState<unknown>();
-  const [editing, setEditing] = useState<Equipment | null>(null);
+  const [panel, setPanel] = useState<{ row: Equipment | null } | null>(null);
+  const editing = panel?.row ?? null;
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [initial, setInitial] = useState<Draft>(EMPTY);
   const [saveError, setSaveError] = useState<unknown>();
   const [confirmDelete, setConfirmDelete] = useState<number>();
   const [pending, setPending] = useState(false);
@@ -75,13 +79,6 @@ export function Equipments() {
     api<Location[]>(LOCATIONS_BASE, { signal: controller.signal })
       .then((r) => {
         setLocations(r.data);
-        if (r.data.length > 0) {
-          setDraft((prev) =>
-            prev.locationId === 0
-              ? { ...prev, locationId: r.data[0].id }
-              : prev,
-          );
-        }
       })
       .catch((e) => {
         if (controller.signal.aborted) return;
@@ -110,17 +107,34 @@ export function Equipments() {
     return () => controller.abort();
   }, [offset, activeOnly, reload]);
 
-  function startEdit(row: Equipment | null) {
-    setEditing(row);
-    if (row) {
-      setDraft({ ...row });
-    } else {
-      const defaultLoc =
-        locations && locations.length > 0 ? locations[0].id : 0;
-      setDraft({ ...EMPTY, locationId: defaultLoc });
-    }
+  const dirty =
+    !!panel &&
+    (Object.keys(draft) as (keyof Draft)[]).some(
+      (k) => draft[k] !== initial[k],
+    );
+  const guard = useDiscardGuard(dirty);
+
+  function openPanel(row: Equipment | null) {
+    const defaultLoc = locations && locations.length > 0 ? locations[0].id : 0;
+    const values: Draft = row
+      ? {
+          equipmentCode: row.equipmentCode,
+          name: row.name,
+          equipmentType: row.equipmentType,
+          locationId: row.locationId,
+          isActive: row.isActive,
+        }
+      : { ...EMPTY, locationId: defaultLoc };
+    setPanel({ row });
+    setDraft(values);
+    setInitial(values);
     setSaveError(undefined);
     setDone("");
+  }
+
+  function closePanel() {
+    setPanel(null);
+    setSaveError(undefined);
   }
 
   async function send(
@@ -175,7 +189,7 @@ export function Equipments() {
       body,
     );
     if (ok) {
-      startEdit(null);
+      closePanel();
       setDone(editing ? "수정했습니다." : "등록했습니다.");
     }
   }
@@ -185,7 +199,7 @@ export function Equipments() {
     const ok = await send(`delete:${row.id}`, `${BASE}/${row.id}`, "DELETE");
     setConfirmDelete(undefined);
     if (ok) {
-      if (editing?.id === row.id) startEdit(null);
+      if (editing?.id === row.id) closePanel();
       setDone(`${row.name} 설비를 삭제했습니다.`);
     }
   }
@@ -264,7 +278,11 @@ export function Equipments() {
           </span>
         ) : (
           <span className="row-actions">
-            <button className="link-button" onClick={() => startEdit(r)}>
+            <button
+              className="link-button"
+              aria-pressed={editing?.id === r.id}
+              onClick={() => guard.guard(() => openPanel(r))}
+            >
               수정
             </button>
             <button
@@ -278,29 +296,43 @@ export function Equipments() {
     },
   ];
 
+  const panelError = Object.keys(errors).length ? undefined : saveError;
+
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="F-10"
         title="설비"
         subtitle="공간별 에너지 소비 설비를 관리합니다"
         help="fems/f-10"
+        actions={
+          <button
+            type="button"
+            aria-pressed={!!panel && !editing}
+            onClick={() => guard.guard(() => openPanel(null))}
+          >
+            설비 등록
+          </button>
+        }
       />
       <MasterOrder />
-      <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
-      <div className="master-grid">
-        <section>
-          <label className="inline-check">
-            <input
-              type="checkbox"
-              checked={activeOnly}
-              onChange={(e) => {
-                setOffset(0);
-                setActiveOnly(e.target.checked);
-              }}
-            />
-            사용 중인 설비만
-          </label>
+      {!panel && <ErrorNotice error={panelError} />}
+      {done && <p role="status">{done}</p>}
+      <div className="split-view fill">
+        <section className="fill">
+          <div className="filter-bar">
+            <label className="inline-check">
+              <input
+                type="checkbox"
+                checked={activeOnly}
+                onChange={(e) => {
+                  setOffset(0);
+                  setActiveOnly(e.target.checked);
+                }}
+              />
+              사용 중인 설비만
+            </label>
+          </div>
           <ErrorNotice
             error={loadError}
             retry={() => setReload((n) => n + 1)}
@@ -319,102 +351,100 @@ export function Equipments() {
               empty={
                 <EmptyState
                   reason="등록된 설비가 없습니다. 계측기는 설비가 있어야 등록할 수 있습니다."
-                  to="#equipment-form"
                   action="설비 등록"
+                  onAction={() => guard.guard(() => openPanel(null))}
                 />
               }
             />
           )}
         </section>
-        <form
-          id="equipment-form"
-          className="panel"
-          onSubmit={(e) => void submit(e)}
-          aria-label={editing ? "설비 수정" : "설비 등록"}
-        >
-          <h2>{editing ? `${editing.name} 수정` : "설비 등록"}</h2>
-          <Field
-            label="설비 코드"
-            value={draft.equipmentCode}
-            required
-            maxLength={30}
-            pattern="[A-Z][A-Z0-9_\-]{1,29}"
-            title="영문 대문자로 시작하는 2~30자 (대문자·숫자·_·-)"
-            error={errors.equipmentCode}
-            onChange={(e) =>
-              setDraft({
-                ...draft,
-                equipmentCode: e.target.value.toUpperCase(),
-              })
+        {panel && (
+          <FormPanel
+            key={editing?.id ?? "new"}
+            title={editing ? `${editing.name} 수정` : "설비 등록"}
+            guard={guard}
+            onClose={closePanel}
+            onSubmit={(e) => void submit(e)}
+            actions={
+              <>
+                <button type="submit" disabled={pending} aria-busy={pending}>
+                  {editing ? "수정 저장" : "등록"}
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => guard.guard(closePanel)}
+                >
+                  취소
+                </button>
+              </>
             }
-          />
-          <Field
-            label="설비명"
-            value={draft.name}
-            required
-            maxLength={100}
-            error={errors.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          />
-          <Field
-            label="설비 유형"
-            value={draft.equipmentType}
-            required
-            maxLength={40}
-            error={errors.equipmentType}
-            onChange={(e) =>
-              setDraft({ ...draft, equipmentType: e.target.value })
-            }
-          />
-          <div className="field">
-            <label htmlFor="location-id">설치 공간</label>
-            <select
-              id="location-id"
-              value={draft.locationId}
-              aria-invalid={Boolean(errors.locationId)}
+          >
+            <ErrorNotice error={panelError} />
+            <Field
+              label="설비 코드"
+              value={draft.equipmentCode}
+              required
+              maxLength={30}
+              pattern="[A-Z][A-Z0-9_\-]{1,29}"
+              title="영문 대문자로 시작하는 2~30자 (대문자·숫자·_·-)"
+              error={errors.equipmentCode}
               onChange={(e) =>
-                setDraft({ ...draft, locationId: Number(e.target.value) })
-              }
-            >
-              {(locations ?? []).map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name} ({loc.locationCode})
-                </option>
-              ))}
-            </select>
-            {errors.locationId && (
-              <span className="field-error" role="alert">
-                {errors.locationId}
-              </span>
-            )}
-          </div>
-          <label className="inline-check">
-            <input
-              type="checkbox"
-              checked={draft.isActive}
-              onChange={(e) =>
-                setDraft({ ...draft, isActive: e.target.checked })
+                setDraft({
+                  ...draft,
+                  equipmentCode: e.target.value.toUpperCase(),
+                })
               }
             />
-            사용 (끄면 새 입력에서 제외, 기존 기록은 유지)
-          </label>
-          {done && <p role="status">{done}</p>}
-          <div className="row-actions">
-            <button type="submit" disabled={pending}>
-              {editing ? "수정 저장" : "등록"}
-            </button>
-            {editing && (
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => startEdit(null)}
+            <Field
+              label="설비명"
+              value={draft.name}
+              required
+              maxLength={100}
+              error={errors.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            />
+            <Field
+              label="설비 유형"
+              value={draft.equipmentType}
+              required
+              maxLength={40}
+              error={errors.equipmentType}
+              onChange={(e) =>
+                setDraft({ ...draft, equipmentType: e.target.value })
+              }
+            />
+            <div className="field">
+              <label htmlFor="location-id">설치 공간</label>
+              <select
+                id="location-id"
+                value={draft.locationId}
+                aria-invalid={Boolean(errors.locationId)}
+                onChange={(e) =>
+                  setDraft({ ...draft, locationId: Number(e.target.value) })
+                }
               >
-                새로 등록
-              </button>
-            )}
-          </div>
-        </form>
+                {(locations ?? []).map((loc) => (
+                  <option key={loc.id} value={loc.id}>
+                    {loc.name} ({loc.locationCode})
+                  </option>
+                ))}
+              </select>
+              {errors.locationId && <small>{errors.locationId}</small>}
+            </div>
+            <label className="inline-check">
+              <input
+                type="checkbox"
+                checked={draft.isActive}
+                onChange={(e) =>
+                  setDraft({ ...draft, isActive: e.target.checked })
+                }
+              />
+              사용 (끄면 새 입력에서 제외, 기존 기록은 유지)
+            </label>
+          </FormPanel>
+        )}
       </div>
-    </>
+    </div>
   );
 }

@@ -68,6 +68,7 @@ const calls = (fetcher: ReturnType<typeof mockApi>, method: string) =>
       String(url).startsWith(SOURCES) && (init?.method ?? "GET") === method,
   );
 async function fillNew() {
+  fireEvent.click(await screen.findByRole("button", { name: "에너지원 등록" }));
   fireEvent.change(await screen.findByLabelText("에너지원 코드"), {
     target: { value: "steam" },
   });

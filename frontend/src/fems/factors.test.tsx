@@ -105,6 +105,7 @@ const posts = (fetcher: ReturnType<typeof mockApi>) =>
   );
 
 async function fill(year: string) {
+  fireEvent.click(await screen.findByRole("button", { name: "계수 등록" }));
   fireEvent.change(await screen.findByLabelText("적용 연도"), {
     target: { value: year },
   });
@@ -148,6 +149,7 @@ it("배출계수 탭으로 바꾸면 배출계수 목록을 보여준다", async
 it("용수는 에너지원 선택지에서 빠진다", async () => {
   mockApi();
   show();
+  fireEvent.click(await screen.findByRole("button", { name: "계수 등록" }));
   const select = await screen.findByLabelText("에너지원");
   await waitFor(() =>
     expect(select.querySelectorAll("option")).toHaveLength(2),
@@ -158,6 +160,7 @@ it("용수는 에너지원 선택지에서 빠진다", async () => {
 it("계수 입력란이 탭과 에너지원에 맞는 단위를 보여준다", async () => {
   mockApi();
   show();
+  fireEvent.click(await screen.findByRole("button", { name: "계수 등록" }));
   expect(await screen.findByLabelText("계수 (TOE/kWh)")).toBeVisible();
   fireEvent.change(screen.getByLabelText("에너지원"), {
     target: { value: "2" },

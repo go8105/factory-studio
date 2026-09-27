@@ -80,6 +80,11 @@ for (const route of [
   "/mes/receipts",
   "/erp/sales-records",
   "/erp/journal-preview",
+  "/fems/sites",
+  "/fems/equipments",
+  "/fems/energy-sources",
+  "/fems/energy-factors",
+  "/fems/tariffs",
 ]) {
   test(`${route} 조회 목록은 .page-fill 루트를 갖는다`, async ({ page }) => {
     await page.goto(route);
@@ -156,4 +161,14 @@ test("390px 생산량 패널은 전체 화면이고 저장 버튼이 보인다",
   await expect(
     page.getByRole("button", { name: "초안 등록" }),
   ).toBeInViewport();
+});
+
+test("FEMS 에너지원 패널 열기 및 닫기", async ({ page }) => {
+  await page.goto("/fems/energy-sources");
+  const opener = page.getByRole("button", { name: "에너지원 등록" });
+  await opener.click();
+  const panel = page.getByRole("dialog", { name: "에너지원 등록" });
+  await expect(panel).toBeVisible();
+  await page.getByRole("button", { name: "패널 닫기" }).click();
+  await expect(panel).toBeHidden();
 });
