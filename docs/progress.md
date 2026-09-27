@@ -8,6 +8,13 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-09-27 FS-023b QMS 조회 인터페이스·API·화면 (Claude Code)
+- 완료: `fs/mes/interface.py`·`fs/qms/interface.py`(R6 준수), `/api/v1/qms`(TX-Q1~Q3), Q-01~06 화면, MES 패킹·LOT `QMS 보류` 배지, 데이터 마이그레이션 `fs023b_qms_module`, 새 공간 qms 모듈 행, 시드 행 수 7,470.
+- 테스트: `test_qms.py` 21(AC-97~110), `qms.test.tsx` 10, e2e `qms.spec.ts`·layout·portal 360px.
+- 검증: pytest 669 통과, vitest 422, tsc·eslint 0, 스모크 181 통과 + 3D `factory.spec.ts:116` 1건(단독 2회 통과, 플래키).
+- 미실행: 운영 배포·push. 도움말 페이지 없음(FS-023c).
+- 다음: 사용자 확인 후 FS-023c.
+
 ## 2026-09-20 프로젝트 준비
 - 완료: 독립 프로젝트 디렉터리와 기본 디렉터리 구조 생성, 로컬 Git main 브랜치 초기화.
 - 완료: 기획·설계·상세 일정 Markdown 5개를 docs로 이전. 이후 이 위치를 기준본으로 사용.
