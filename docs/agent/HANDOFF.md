@@ -26,7 +26,7 @@
 | UI-02 검토 | Claude 검토·수정 후 main 통합(`86e729f` 이후 문서 커밋). 회귀 5건 수정·e2e 11건 갱신, 스모크 159 passed |
 | QMS | FS-023a DB·023b API·화면(운영 배포) + **FS-023c 시드 113행(`sv-20260927-1`, 템플릿 7,583)·복사 월/번호 재계산·도움말 Q-01~06·흐름 맵 업무 노드(로컬, 미배포)**. 시드 LOT: LT-0017 검사 대기, LT-0015 작성 중, LT-0016 보류 중(+재검사 초안), LT-0008 특채 해제. 교차 조회는 `fs/<솔루션>/interface.py`만(R6) |
 | UI-03 | **8화면 전체 완료·운영 배포** — Claude F-12·M-04·M-05·M-07·E-04(`a35e895` 배포), Antigravity B1(M-14·M-15) + B2(E-02 견적) — 브랜치 `antigravity/ui03-b2`, 스모크 171/171 통과. E-02: `FormPanel wide`(등록)·`DetailPanel wide`(상세·라인편집·확정·제출·수주 전환 통합). main 병합 완료 |
-| 다음 | **WMS 운영 배포 대기** — FS-024a~c 로컬 완료(시드 `sv-20260927-2` 7,691행, head `fs024b_wms_module`). 배포: 서버 pull·uv sync·**alembic upgrade head(fs024a_wms·fs024b_wms_module)**·API 재시작 → **`seed.cli template` 재실행** → 프런트 worktree 빌드·rsync. Codex C++ 비전 엔진은 `VISION_CORE_EXECUTABLE` 미설정이면 503(브라우저 검사는 동작) |
+| 다음 | **운영 배포 대기(사용자 실행)** — `133845f` push 완료, 프런트 `../fs-build` 빌드, C++ 엔진 `work/inspection-core-linux/bin/inspection_core`(맥 Docker amd64, 검증 완료). 순서: 서버 pull·sync·alembic(fs024a_wms·fs024b_wms_module)·C++ 복사·.env `VISION_CORE_EXECUTABLE`·API 재시작 → `seed.cli template` → 프런트 rsync. 절차 `docs/deploy/배포절차_FS-022.md` 8·8-1장 |
 
 ## 다음 할 일
 

@@ -8,6 +8,12 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-09-27 배포 준비: WMS·홈 아이콘 + C++ 비전 엔진 (Claude Code)
+- push `d910955..133845f`. 프런트 `origin/main 133845f` worktree 빌드(`../fs-build`, 번들 `index-D4uQORuS.js`).
+- C++ 엔진: 서버(1 vCPU·2GB, Ubuntu 24.04)는 apt nlohmann-json 3.11 < 요구 3.12, Node 없음(CMake `find_program(node REQUIRED)`), OpenCV 컴파일 부하 → 사용자 선택으로 **맥 Docker linux/amd64 Ubuntu 24.04에서 빌드**. `native/inspection_core/build-linux.sh` 추가(OpenCV 4.13·JSON 3.12 고정 버전 정적 포함, 결과 `work/inspection-core-linux/bin/inspection_core`).
+- 빌드: 첫 시도 QEMU 에뮬레이션에서 gcc 세그폴트(병렬 2) → 병렬 1로 재시도 성공(약 1시간). 검증: CTest `native_core` 통과, 웹 비교 **19,968건 불일치 0**(에뮬레이션이 느려 CTest 120초 제한 대신 직접 실행), `--timed` foreign → NG 80·36, 의존 라이브러리 libstdc++·libm·libgcc_s·libc만.
+- 배포 절차 8-1장 추가(빌드·복사·`VISION_CORE_EXECUTABLE`). 서버 반영은 사용자 실행 대기.
+
 ## 2026-09-27 FS-024c WMS 시드·도움말·흐름 맵·포털 정리 + 홈 아이콘 크기 (Claude Code)
 - 사용자 지시: `d910955` push, FS-024c 진행, 홈 솔루션 아이콘의 흰 상자를 참고 이미지 크기로 축소.
 - 시드 `_wms` 107행(`sv-20260927-2`, 템플릿 7,691·복사 7,689), 게스트 복사 `document_month`·`WD-` 번호 날짜 이동, 검증 V2·V12 확장. 상세 `docs/modules/wms/WMS_모듈설계_FS-024.md` §17.
