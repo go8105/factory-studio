@@ -1,12 +1,19 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). UI-03 포함 계획된 작업 ID 모두 완료 — 다음 작업은 사용자 결정.**
+- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS 설계 초안 작성 — 사용자 승인 대기.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-27 FS-024 WMS 설계 초안 (Claude Code)
+- 사용자 검토 요청 → 권장안 승인(완제품+원자재, 버튼 반영, 음수 허용·표시만, 예약 제외·가용 계산, 완제품 LOT·원자재 수량, 창고 2 + 위치 1단계).
+- 산출물(문서만): 결정서 `docs/plan/WMS도입_재고원장_결정_FS-024.md`(D13~D17, MES·ERP 인터페이스 추가 — ERP는 첫 `interface.py`), 모듈 설계 `docs/modules/wms/WMS_모듈설계_FS-024.md`(wms 6테이블, 원천 4종 `source_key` 멱등 반영, TX-W1~W3, API, 화면 W-01~07 요약, 시드 약 110행, AC-111~124, 13장 결정 4건). WMS README 상태 갱신.
+- 조사 근거: MES 투입 차감 없음·실행 중 투입 삭제 가능, MES 패킹 `shipped`는 시드만, ERP 출하 재고 확인·MES 조회 없음(`packing_no` 문자열), ERP 매입 입고 없음·확정 후 취소 있음(PI-0006).
+- 검증: `npm run db:validate` exit 0(메타데이터 미변경). schema.json·마이그레이션·코드 변경 없음.
+- 다음: 사용자 승인(결정서 6장 + 모듈 설계 13장) → 화면 설계 → 전체 설계 확인 → FS-024a.
 
 ## 2026-09-27 P-01 진입 화면 하단 목록에 QMS 추가 (Claude Code)
 - `Entry.tsx` 하단 목록에 "QMS / 품질관리"(4개). `portal.spec.ts` 360px 진입 테스트에 QMS 문구 확인·스크린샷 추가.
