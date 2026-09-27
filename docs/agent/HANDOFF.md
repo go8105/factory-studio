@@ -1,6 +1,6 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-27 (UI-02 A1 대시보드 조회 월 위치 완료, Antigravity). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-27 (UI-02 A2 조회 목록 완료, Antigravity). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
@@ -22,8 +22,8 @@
 | FS-022 | **완료 — https://eip.hugh-d.com**. 이지스 서버 공존(Nginx 443 이름 기반, uvicorn 127.0.0.1:8021, PG18 Docker 55432, Cloudflare 프록시 + Origin CA). 절차·업데이트·걷어내기 `docs/deploy/배포절차_FS-022.md`. 서버 접속: 맥북 `ssh root@158.247.236.136`(키) |
 | UI-01 | 완료 `docs/ui/디자인시스템_UI-01.md` — main 통합·서버 배포(2026-09-26). 공통 토큰·`SolutionLayout`(접기·서랍)·넓은 업무 화면·3D 캔버스 확보. 393·10·107 통과 |
 | 운영 | 443은 Cloudflare IP만, 이지스는 https://aegis.hugh-d.com(Cloudflare Access)·:8000 외부 차단, 운영자 계정은 `tools/create_member.py`(서버에서 실행), DB는 SSH 터널(§12-5) |
-| UI-02 | **진행 중(A1 완료)** `docs/ui/공통UI규약_UI-02.md` — A1 대시보드(M-01, E-01) 완료, vitest 402 통과, 다음 A2 조회 목록 대기 |
-| 다음 | Antigravity A1 사용자 리뷰/확인 → A2(조회 목록 M-09, E-07, E-14, P-07) 진행 |
+| UI-02 | **진행 중(A1, A2 완료)** `docs/ui/공통UI규약_UI-02.md` — A1 대시보드(M-01, E-01), A2 조회 목록(M-09, E-07, E-14, P-07) 완료, vitest 402 통과, 다음 A3 보고서형 조회 대기 |
+| 다음 | Antigravity A2 사용자 리뷰/확인 → A3(보고서형 조회 F-03, F-04, F-06, F-07, F-08, E-09·12) 진행 |
 
 ## 다음 할 일
 
@@ -123,7 +123,7 @@ git diff --check
 - backend/DB/공용 통합 스모크·Safari/실기기 성능은 미실행. main 병합·push 없음. 다음: 사용자 시각 피드백 및 통합 담당자 main 통합. 최종 커밋은 이 인계를 포함한 `3D 공장: 건물·재질·생산라인 공간 고도화`이며 `git log -1`로 확인.
 
 ## Antigravity — UI-02 A1 (2026-09-27)
-- 브랜치: `antigravity/ui02-a1` / 기준 커밋: `ed9f438cbbd1f2aacec67a3029304020e3d7865e` (main) / 마지막 커밋: `a2c2e76`
+- 브랜치: `antigravity/ui02-a1` / 기준 커밋: `ed9f438cbbd1f2aacec67a3029304020e3d7865e` (main) / 마지막 커밋: `ce731ab`
 - 옮긴 화면: M-01(`frontend/src/mes/Dashboard.tsx`), E-01(`frontend/src/erp/Dashboard.tsx`)
 - 내용:
   - 별도 `filter-bar`의 조회 월 입력을 `PageTitle`의 `actions`로 이동
@@ -131,4 +131,17 @@ git diff --check
   - `frontend/e2e/layout.spec.ts`에 M-01 및 E-01 조회 월 위치 검사 추가
 - 검증: typecheck·lint·format:check·build·test(43개 파일 402개 테스트 통과)·diff --check 모두 통과(exit 0)
 - 공통 컴포넌트 확장 요청: 없음
-- 남은 문제: 없음. 사용자 확인 후 A2 진행 대기
+- 남은 문제: 없음
+
+## Antigravity — UI-02 A2 (2026-09-27)
+- 브랜치: `antigravity/ui02-a2` / 기준 커밋: `ce731ab` (`antigravity/ui02-a1`) / 마지막 커밋: `d2ec0f3`
+- 옮긴 화면: M-09(`frontend/src/mes/Receipts.tsx`), E-07(`frontend/src/erp/SalesRecords.tsx`), E-14(`frontend/src/erp/Journal.tsx`), P-07(`frontend/src/portal/Records.tsx`)
+- 내용:
+  - 각 화면 루트에 `.page-fill` 적용
+  - P-07: 상단 탭을 `DataTable`의 `leading` prop으로 전달 (F-02 기준 화면 구조 준수)
+  - 안내문 `<p className="muted" role="note">` 규약 정비 및 `Loading delay={300}` 적용
+  - P-07의 ADMIN 권한 분기 및 API 계약 보존
+  - `frontend/e2e/layout.spec.ts`에 A2 화면들(`.page-fill`) 레이아웃 검사 추가
+- 검증: typecheck·lint·format:check·build·test(43개 파일 402개 테스트 통과)·diff --check 모두 통과(exit 0)
+- 공통 컴포넌트 확장 요청: 없음
+- 남은 문제: 없음. 사용자 확인 후 A3 진행 대기

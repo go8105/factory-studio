@@ -155,14 +155,14 @@ export function SalesRecords() {
   ];
 
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="E-07"
         title="매출"
         subtitle="출하 확정으로 인식된 매출을 보고, 조건이 맞으면 취소합니다"
         help="erp/e-07"
       />
-      <p className="muted">
+      <p className="muted" role="note">
         매출은 출하를 확정할 때 자동으로 생기고 금액은 바꿀 수 없습니다(KRW).
         매출채권도 함께 생기며 수기로 등록하지 않습니다. 취소는 수금 소명이 없고
         세금계산서가 발급완료가 아닐 때만 됩니다. 발급대기 계산서는 함께
@@ -171,7 +171,7 @@ export function SalesRecords() {
       <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
       <ErrorNotice error={error} retry={reload} />
       {!sales ? (
-        !error && <Loading />
+        !error && <Loading delay={300} />
       ) : (
         <>
           <DataTable
@@ -232,6 +232,6 @@ export function SalesRecords() {
           )}
         </>
       )}
-    </>
+    </div>
   );
 }

@@ -171,21 +171,21 @@ export function Journal() {
   }[kind];
 
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="E-14"
         title="분개 미리보기"
         subtitle="거래가 어떤 분개가 되는지 분개 규칙(E-18)으로 계산해 봅니다"
         help="erp/e-14"
       />
-      <p className="muted">
+      <p className="muted" role="note">
         수금·지급은 거래 건이 아니라 소명 1행이 분개 1세트입니다. 그래서
         과입금·과지급도 예외 없이 소명된 금액만 분개됩니다. 매출·수금·매입·지급
         화면의 &quot;분개&quot; 버튼도 같은 패널을 엽니다.
       </p>
       <ErrorNotice error={error} retry={reload} />
       {!data ? (
-        !error && <Loading />
+        !error && <Loading delay={300} />
       ) : (
         <>
           <div className="filter-bar">
@@ -227,6 +227,6 @@ export function Journal() {
           )}
         </>
       )}
-    </>
+    </div>
   );
 }

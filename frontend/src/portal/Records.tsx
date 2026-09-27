@@ -67,46 +67,53 @@ export function Records() {
   }, [kind, offset, retry]);
   if (error instanceof ApiError && [403, 404].includes(error.status))
     return <NotFound />;
+
+  const tabs = (
+    <div className="tabs" role="group" aria-label="기록 종류">
+      {[
+        ["audit-events", "감사 로그"],
+        ["job-runs", "작업 실행 내역"],
+      ].map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          aria-pressed={kind === key}
+          onClick={() => {
+            setKind(key);
+            setOffset(0);
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="P-07"
         title="운영 기록"
         subtitle="작업 실행 내역과 감사 로그 · 읽기 전용"
       />
-      <div className="tabs">
-        {[
-          ["audit-events", "감사 로그"],
-          ["job-runs", "작업 실행 내역"],
-        ].map(([key, label]) => (
-          <button
-            key={key}
-            aria-pressed={kind === key}
-            onClick={() => {
-              setKind(key);
-              setOffset(0);
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="panel">
-        <ErrorNotice error={error} retry={() => setRetry(retry + 1)} />
-        {data ? (
-          <DataTable
-            rows={data}
-            columns={kind === "audit-events" ? auditColumns : jobColumns}
-            caption={kind === "audit-events" ? "감사 로그" : "작업 실행 내역"}
-            offset={offset}
-            total={total}
-            limit={20}
-            onPage={setOffset}
-          />
-        ) : (
-          !error && <Loading />
-        )}
-      </div>
-    </>
+      <ErrorNotice error={error} retry={() => setRetry(retry + 1)} />
+      {!data ? (
+        <>
+          {tabs}
+          {!error && <Loading delay={300} />}
+        </>
+      ) : (
+        <DataTable
+          leading={tabs}
+          rows={data}
+          columns={kind === "audit-events" ? auditColumns : jobColumns}
+          caption={kind === "audit-events" ? "감사 로그" : "작업 실행 내역"}
+          offset={offset}
+          total={total}
+          limit={20}
+          onPage={setOffset}
+        />
+      )}
+    </div>
   );
 }

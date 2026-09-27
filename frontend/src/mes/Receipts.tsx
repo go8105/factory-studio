@@ -113,7 +113,7 @@ export function Receipts() {
   ];
 
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="M-09"
         title="완제품 입고"
@@ -128,7 +128,7 @@ export function Receipts() {
       <ErrorNotice error={Object.keys(errors).length ? undefined : saveError} />
       <ErrorNotice error={error} retry={reload} />
       {!units ? (
-        !error && <Loading />
+        !error && <Loading delay={300} />
       ) : (
         <>
           <section>
@@ -164,6 +164,6 @@ export function Receipts() {
           </section>
         </>
       )}
-    </>
+    </div>
   );
 }

@@ -76,6 +76,17 @@ for (const route of ["/mes/dashboard", "/erp/dashboard"]) {
   });
 }
 
+for (const route of [
+  "/mes/receipts",
+  "/erp/sales-records",
+  "/erp/journal-preview",
+]) {
+  test(`${route} 조회 목록은 .page-fill 루트를 갖는다`, async ({ page }) => {
+    await page.goto(route);
+    await expect(page.locator(".page-fill")).toBeVisible();
+  });
+}
+
 test("1440 생산량 패널은 겹쳐 열리고 Esc로 닫혀 버튼으로 돌아간다", async ({
   page,
 }) => {
