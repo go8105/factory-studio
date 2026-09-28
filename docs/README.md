@@ -66,3 +66,5 @@ npm run db:validate                        # 검증기 경로 확인
 - [1단계 제품·공정 컨셉 및 명칭](plan/정밀부품공장_컨셉_FS-FACTORY-CONCEPT01.md) — 2026-09-28 문서 완료, 로봇/CNC 구현은 다음 단계.
 
 - [2단계 로봇 연동 CNC 가공 셀 구현·검증](agent/로봇CNC가공셀_FS-FACTORY-CNC01.md) — 로컬 구현 완료, 다음 WMS 설계.
+
+- [FS-026 WMS 확장 결정서 초안](plan/WMS확장_입고검수예약_결정_FS-026.md) — 기존 FS-024 확장, D24~D32 승인 대기.
