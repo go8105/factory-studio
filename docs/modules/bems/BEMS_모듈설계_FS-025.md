@@ -213,3 +213,14 @@ BEMS 공용 계측 ───────────────┘
 2. **1시간 진행 한도**: 한 번에 1~6시간, 업무 기준일 다음 날까지. 권장: 그대로.
 3. **설정값을 명령으로만 바꾸는 것**(별도 설정값 테이블 없음 — 이력 = 명령). 권장: 그대로.
 4. **수동 명령 유지 범위**: 다음 스케줄 경계까지(그 뒤 스케줄 복귀). 권장: 그대로.
+
+## 14. 구현 기록 (FS-025a, 2026-09-28)
+
+| 항목 | 구현 |
+|---|---|
+| 메타데이터 | `tools/apply_fs025a.py`(멱등) → `schema.json` **v0.12.0 / FS-025a / 93테이블**(bems 10), 954컬럼, FK 209, 제약·정책 726(bems C647~C725, R187~R208). 상태 목록에 `bems.alarm.status`·`bems.hvac_unit.state` |
+| DB 제약으로 둔 규칙 | 명령별 필수 칸(공조기·모드·설정값 항목/값), 거부 ↔ 사유, 경보 상태 ↔ 시각, 센서 항목 ↔ 단위(℃·%·ppm), 스케줄 시간 범위. 정시 구간·스케줄 겹침·설정값 범위·계측기 용도 일치는 SERVICE |
+| 마이그레이션 | `20260928_fs025a_bems_schema.py`(revision `fs025a_bems`, down `fs024b_wms_module`, 고정 SQL, 모듈 CHECK `c22_check`에 `'bems'`) + **`20260928_fs025b_bems_module_rows.py`(`fs025b_bems_module`, 기존 공간에 bems 행)** — WMS에서 모듈 행을 API 단계로 미뤘다가 로컬에서 "꺼짐"으로 보였던 일 때문에 DB 단계에 함께 둔다. 새 공간·시드 템플릿도 bems 행(7개), 시드 7,691 → 7,692 |
+| 격리 | `audit_schema_isolation.py` FORBIDDEN에서 `bems` 제거(R4 해제), BUSINESS에 bems. `tools/test_fs014.py`의 R4 예시에서 bems 삭제 |
+| 검증 도구 | `validate_db_design.py` FS-025a 엔티티 목록·`validate_bems`(관측 구간 유일, 규칙·센서당 활성 경보 1건, 설정값 테이블 없음, 교차 FK 없음, 모듈 키), `tools/test_fs025a.py` 3. `verify_ddl_matches_schema.py`에 bems + **`%` 이스케이프**(CHECK `unit = '%'`를 `exec_driver_sql`이 psycopg 자리표시자로 읽던 문제) |
+| 산출물 | Excel 31시트·ERD `bems.mmd`, ERD 탐색기·Excel의 "후속 예약 설계" 표시 제거 |

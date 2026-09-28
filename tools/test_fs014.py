@@ -40,7 +40,6 @@ class FS014Tests(unittest.TestCase):
             ('R3', lambda d: d['relations'].append(dict(source='core.workspace', target='fems.equipment'))),
             ('R4', lambda d: d['tables'].append(dict(name='learning.attempt', columns=[]))),
             ('R4', lambda d: d['tables'].append(dict(name='process_map.node', columns=[]))),
-            ('R4', lambda d: d['tables'].append(dict(name='bems.energy_reading', columns=[]))),
             ('R5', lambda d: next(t for t in d['tables'] if t['name']=='mes.item')['columns'].pop(1)),
         ]
         for rule, mutation in mutations:

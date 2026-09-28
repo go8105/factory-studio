@@ -11,11 +11,13 @@ DESIGN = ROOT/'docs/db/스키마_재구성_FS-014.md'
 
 
 # 작업 ID별 기준 엔티티 목록. 뒤 작업은 앞 작업의 목록을 이어받는다.
-LATER_THAN_014B = {'FS-014b', 'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a'}
-LATER_THAN_008B = {'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a'}
-LATER_THAN_023A = {'FS-023a', 'FS-024a'}
+LATER_THAN_014B = {'FS-014b', 'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a', 'FS-025a'}
+LATER_THAN_008B = {'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a', 'FS-025a'}
+LATER_THAN_023A = {'FS-023a', 'FS-024a', 'FS-025a'}
+LATER_THAN_024A = {'FS-024a', 'FS-025a'}
 QMS_DESIGN = ROOT/'docs/modules/qms/QMS_모듈설계_FS-023.md'
 WMS_DESIGN = ROOT/'docs/modules/wms/WMS_모듈설계_FS-024.md'
+BEMS_DESIGN = ROOT/'docs/modules/bems/BEMS_모듈설계_FS-025.md'
 
 
 def design_names(task='FS-014'):
@@ -27,8 +29,10 @@ def design_names(task='FS-014'):
         names.discard('core.dashboard_layout')
     if task in LATER_THAN_023A:
         names |= set(re.findall(r'^\| `(qms\.[a-z_]+)` \|', QMS_DESIGN.read_text(encoding='utf-8'), re.M))
-    if task == 'FS-024a':
+    if task in LATER_THAN_024A:
         names |= set(re.findall(r'^\| `(wms\.[a-z_]+)` \|', WMS_DESIGN.read_text(encoding='utf-8'), re.M))
+    if task == 'FS-025a':
+        names |= set(re.findall(r'^\| `(bems\.[a-z_]+)` \|', BEMS_DESIGN.read_text(encoding='utf-8'), re.M))
     return names
 
 
@@ -96,14 +100,35 @@ def validate(d, expected=None, isolation=True):
         for name, column in obsolete.items():
             require(column not in columns.get(name, {}), f'{name}: obsolete column {column}')
             require(not any(c['table'] == name and re.search(r'\b'+column+r'\b', json.dumps(c, ensure_ascii=False)) for c in d['constraints']), f'{name}: stale rule referring to {column}')
-    if d.get('task') in LATER_THAN_014B or d.get('version') in {'0.8.0', '0.9.0', '0.9.1', '0.10.0', '0.11.0'}:
+    if d.get('task') in LATER_THAN_014B or d.get('version') in {'0.8.0', '0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0'}:
         errors.extend(validate_accounting(d))
-    if d.get('task') in LATER_THAN_008B or d.get('version') in {'0.9.0', '0.9.1', '0.10.0', '0.11.0'}:
+    if d.get('task') in LATER_THAN_008B or d.get('version') in {'0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0'}:
         errors.extend(validate_screen_gaps(d))
     if d.get('task') in LATER_THAN_023A:
         errors.extend(validate_qms(d))
-    if d.get('task') == 'FS-024a':
+    if d.get('task') in LATER_THAN_024A:
         errors.extend(validate_wms(d))
+    if d.get('task') == 'FS-025a':
+        errors.extend(validate_bems(d))
+    return errors
+
+
+def validate_bems(d):
+    """FS-025 설계 계약: 교차 스키마 FK 없음·관측 구간 유일(진행 멱등)·활성 경보 1건·명령 불변 이력·모듈 키."""
+    errors = []
+    cs, ts = d['constraints'], {t['name']: {c['name']: c for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('FS-025: ' + message)
+    def unique(table, columns):
+        return any(c['table'] == table and c['kind'] == 'UK' and c['columns'] == SCOPE + columns for c in cs)
+    require(unique('bems.energy_reading', ['meter_id', 'period_start']), 'one energy reading per meter hour')
+    require(unique('bems.environment_reading', ['sensor_id', 'period_start']), 'one environment reading per sensor hour')
+    require(any(c['table'] == 'bems.alarm' and c['kind'] == 'UK_PARTIAL' and c['columns'] == SCOPE + ['alarm_rule_id', 'sensor_id']
+                and c['expression'].endswith("WHERE status <> 'cleared'") for c in cs), 'one open alarm per rule and sensor')
+    require('bems.setpoint' not in ts, 'setpoints are control commands, not a separate table (FS-025 13장 3)')
+    require(not any(r['source'].startswith('bems.') and r['target'].split('.')[0] not in {'bems', 'core'} for r in d['relations']), 'no FK from bems to other business schemas')
+    require(any(c['table'] == 'core.workspace_module' and c['kind'] == 'CHECK' and "'bems'" in c['expression'] for c in cs), 'module key bems')
     return errors
 
 

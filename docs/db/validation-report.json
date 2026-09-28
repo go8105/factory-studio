@@ -1,9 +1,10 @@
 {
-  "task": "FS-024a",
+  "task": "FS-025a",
   "validation": "정적 메타데이터 검증 + FS-013 R1~R6",
   "database_applied": false,
-  "tables": 83,
+  "tables": 93,
   "tables_by_schema": {
+    "bems": 10,
     "core": 10,
     "erp": 27,
     "fems": 13,
@@ -11,10 +12,10 @@
     "qms": 6,
     "wms": 6
   },
-  "columns": 847,
-  "foreign_keys": 187,
-  "constraints_and_policies": 647,
-  "source_sha256": "0a8ed3798ad6e919a2caa7ab8f434e868ec6f28283b09238bda8f5e50e031ba9",
+  "columns": 954,
+  "foreign_keys": 209,
+  "constraints_and_policies": 726,
+  "source_sha256": "d5e5491504f2777f2d6595effc03e3d1d2fc1c1350a2ddf1727348e319034179",
   "errors": [],
   "not_tested": [
     "실제 DDL 적용",

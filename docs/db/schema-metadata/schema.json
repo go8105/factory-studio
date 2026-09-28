@@ -1,9 +1,9 @@
 {
-  "version": "0.11.0",
-  "task": "FS-024a",
-  "date": "2026-09-27",
+  "version": "0.12.0",
+  "task": "FS-025a",
+  "date": "2026-09-28",
   "status": "설계 초안 / DB 미적용",
-  "migration_revision": "fs024a_wms",
+  "migration_revision": "fs025a_bems",
   "tables": [
     {
       "name": "core.app_user",
@@ -7751,6 +7751,972 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "bems.zone",
+      "label": "구역",
+      "scope": "generation",
+      "phase": "B1",
+      "retention": "세대 정리",
+      "note": "FS-025 4.1. BEMS 소유 구역(FS-013 D1). FEMS 공간과 연결되지 않는다",
+      "sub_module": "bems_master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "구역 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "구역명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kind",
+          "label": "구역 종류",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "OFFICE / PRODUCTION / UTILITY"
+        },
+        {
+          "name": "floor_area_m2",
+          "label": "바닥 면적",
+          "type": "numeric(10,2)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.meter",
+      "label": "공용 계측기",
+      "scope": "generation",
+      "phase": "B1",
+      "retention": "세대 정리",
+      "note": "FS-025 4.1. 공용 전력 계측기. FEMS 계측기와 별개(D19)",
+      "sub_module": "bems_master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "zone_id",
+          "label": "구역",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "계측기 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "계측기명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "usage",
+          "label": "용도",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "LIGHTING / HVAC / OFFICE / OTHER. 등록 뒤 바꾸지 않는다"
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'kWh'",
+          "rule": "kWh 고정"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.sensor",
+      "label": "환경 센서",
+      "scope": "generation",
+      "phase": "B1",
+      "retention": "세대 정리",
+      "note": "FS-025 4.1. 구역·항목당 1개(1차)",
+      "sub_module": "bems_master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "zone_id",
+          "label": "구역",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "센서 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "metric",
+          "label": "측정 항목",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "TEMP / HUMIDITY / CO2"
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "항목과 일치: ℃ / % / ppm"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.hvac_unit",
+      "label": "공조기",
+      "scope": "generation",
+      "phase": "B1",
+      "retention": "세대 정리",
+      "note": "FS-025 4.1·D21. 모의 공조기. 상태는 제어 명령·스케줄 전환으로만 바뀐다",
+      "sub_module": "bems_master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "zone_id",
+          "label": "구역",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "공조기 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "공조기명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "meter_id",
+          "label": "공조 전력 계측기",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "용도 HVAC 계측기만"
+        },
+        {
+          "name": "rated_kw",
+          "label": "정격 전력",
+          "type": "numeric(8,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "state",
+          "label": "운전 상태",
+          "type": "varchar(4)",
+          "nullable": false,
+          "default": "'OFF'",
+          "rule": "OFF / COOL / HEAT / FAN"
+        },
+        {
+          "name": "control_source",
+          "label": "운전 출처",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'SCHEDULE'",
+          "rule": "SCHEDULE / MANUAL"
+        },
+        {
+          "name": "state_changed_at",
+          "label": "상태 변경 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.energy_reading",
+      "label": "공용 전력 관측",
+      "scope": "generation",
+      "phase": "B1",
+      "retention": "세대 정리",
+      "note": "FS-025 4.2. 1시간 구간 kWh. 불변",
+      "sub_module": "metering",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "meter_id",
+          "label": "공용 계측기",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "period_start",
+          "label": "구간 시작",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "정시. 구간 [시작, 시작+1h)"
+        },
+        {
+          "name": "value",
+          "label": "전력량",
+          "type": "numeric(12,3)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "quality",
+          "label": "품질",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'valid'",
+          "rule": "valid / invalid"
+        },
+        {
+          "name": "source",
+          "label": "출처",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "SEED / SIMULATION"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.environment_reading",
+      "label": "환경 관측",
+      "scope": "generation",
+      "phase": "B1",
+      "retention": "세대 정리",
+      "note": "FS-025 4.2. 1시간 구간 평균. 불변",
+      "sub_module": "metering",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "sensor_id",
+          "label": "환경 센서",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "period_start",
+          "label": "구간 시작",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "정시"
+        },
+        {
+          "name": "value",
+          "label": "관측값",
+          "type": "numeric(8,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "quality",
+          "label": "품질",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'valid'",
+          "rule": "valid / invalid"
+        },
+        {
+          "name": "source",
+          "label": "출처",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "SEED / SIMULATION"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.schedule_slot",
+      "label": "운전 스케줄",
+      "scope": "generation",
+      "phase": "B1",
+      "retention": "세대 정리",
+      "note": "FS-025 4.3. 공조기별 평일·주말 시간대. 겹침 거부",
+      "sub_module": "hvac",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "hvac_unit_id",
+          "label": "공조기",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "day_kind",
+          "label": "요일 구분",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "WEEKDAY / WEEKEND"
+        },
+        {
+          "name": "start_hour",
+          "label": "시작 시",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "0~23"
+        },
+        {
+          "name": "end_hour",
+          "label": "종료 시",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "1~24, 시작보다 크다"
+        },
+        {
+          "name": "mode",
+          "label": "운전 모드",
+          "type": "varchar(4)",
+          "nullable": false,
+          "default": null,
+          "rule": "COOL / HEAT / FAN"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.control_command",
+      "label": "제어 명령",
+      "scope": "generation",
+      "phase": "B1",
+      "retention": "세대 정리",
+      "note": "FS-025 4.3. 불변 이력. 설정값 변경도 명령(현재 설정값 = 마지막 적용 명령)",
+      "sub_module": "hvac",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "zone_id",
+          "label": "구역",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "hvac_unit_id",
+          "label": "공조기",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "설정값 변경은 구역 단위라 비울 수 있다"
+        },
+        {
+          "name": "command",
+          "label": "명령",
+          "type": "varchar(14)",
+          "nullable": false,
+          "default": null,
+          "rule": "POWER_ON / POWER_OFF / SET_MODE / SET_SETPOINT"
+        },
+        {
+          "name": "mode",
+          "label": "모드",
+          "type": "varchar(4)",
+          "nullable": true,
+          "default": null,
+          "rule": "SET_MODE이면 필수"
+        },
+        {
+          "name": "setpoint_kind",
+          "label": "설정값 항목",
+          "type": "varchar(10)",
+          "nullable": true,
+          "default": null,
+          "rule": "COOL_TEMP / HEAT_TEMP / CO2_MAX"
+        },
+        {
+          "name": "value",
+          "label": "설정값",
+          "type": "numeric(8,2)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "source",
+          "label": "출처",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "MANUAL / SCHEDULE / SEED"
+        },
+        {
+          "name": "requested_at",
+          "label": "요청 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "result",
+          "label": "결과",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "APPLIED / REJECTED"
+        },
+        {
+          "name": "reject_reason",
+          "label": "거부 사유",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "note",
+          "label": "메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.alarm_rule",
+      "label": "경보 규칙",
+      "scope": "generation",
+      "phase": "B1",
+      "retention": "세대 정리",
+      "note": "FS-025 4.4. 구역·항목·비교당 1개",
+      "sub_module": "alarm",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "zone_id",
+          "label": "구역",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "metric",
+          "label": "측정 항목",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "TEMP / HUMIDITY / CO2"
+        },
+        {
+          "name": "comparator",
+          "label": "비교",
+          "type": "varchar(4)",
+          "nullable": false,
+          "default": null,
+          "rule": "HIGH / LOW"
+        },
+        {
+          "name": "threshold",
+          "label": "한계값",
+          "type": "numeric(8,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "duration_hours",
+          "label": "지속 시간",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "1~24 연속 시간"
+        },
+        {
+          "name": "severity",
+          "label": "등급",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "WARNING / CRITICAL"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.alarm",
+      "label": "경보",
+      "scope": "generation",
+      "phase": "B1",
+      "retention": "세대 정리",
+      "note": "FS-025 4.4·D22. 발생 → 확인 → 해제. 해제 후 불변",
+      "sub_module": "alarm",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "alarm_rule_id",
+          "label": "경보 규칙",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "sensor_id",
+          "label": "환경 센서",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(14)",
+          "nullable": false,
+          "default": "'raised'",
+          "rule": "raised / acknowledged / cleared"
+        },
+        {
+          "name": "raised_at",
+          "label": "발생 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "peak_value",
+          "label": "최고(최저)값",
+          "type": "numeric(8,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "acknowledged_at",
+          "label": "확인 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "ack_note",
+          "label": "확인 메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cleared_at",
+          "label": "해제 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
     }
   ],
   "relations": [
@@ -10816,6 +11782,360 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "이동 위치"
+    },
+    {
+      "source": "bems.zone",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.meter",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.sensor",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.hvac_unit",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.energy_reading",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.environment_reading",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.schedule_slot",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.control_command",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.alarm_rule",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.alarm",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.meter",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id"
+      ],
+      "target": "bems.zone",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "계측기의 구역"
+    },
+    {
+      "source": "bems.sensor",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id"
+      ],
+      "target": "bems.zone",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "센서의 구역"
+    },
+    {
+      "source": "bems.hvac_unit",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id"
+      ],
+      "target": "bems.zone",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "공조기의 구역"
+    },
+    {
+      "source": "bems.hvac_unit",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "meter_id"
+      ],
+      "target": "bems.meter",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "공조 전력 계측기"
+    },
+    {
+      "source": "bems.energy_reading",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "meter_id"
+      ],
+      "target": "bems.meter",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "관측의 계측기"
+    },
+    {
+      "source": "bems.environment_reading",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "sensor_id"
+      ],
+      "target": "bems.sensor",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "관측의 센서"
+    },
+    {
+      "source": "bems.schedule_slot",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "hvac_unit_id"
+      ],
+      "target": "bems.hvac_unit",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "스케줄의 공조기"
+    },
+    {
+      "source": "bems.control_command",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id"
+      ],
+      "target": "bems.zone",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "명령의 구역"
+    },
+    {
+      "source": "bems.control_command",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "hvac_unit_id"
+      ],
+      "target": "bems.hvac_unit",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "명령의 공조기"
+    },
+    {
+      "source": "bems.alarm_rule",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id"
+      ],
+      "target": "bems.zone",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "규칙의 구역"
+    },
+    {
+      "source": "bems.alarm",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "alarm_rule_id"
+      ],
+      "target": "bems.alarm_rule",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "경보의 규칙"
+    },
+    {
+      "source": "bems.alarm",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "sensor_id"
+      ],
+      "target": "bems.sensor",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "경보의 센서"
     }
   ],
   "constraints": [
@@ -11013,7 +12333,7 @@
       "table": "core.workspace_module",
       "kind": "CHECK",
       "columns": [],
-      "expression": "module_key IN ('core','mes','erp','fems','qms','wms')",
+      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems')",
       "reason": "행 내부 데이터 정합성"
     },
     {
@@ -17195,6 +18515,791 @@
       ],
       "expression": "",
       "reason": "FK 조회"
+    },
+    {
+      "table": "bems.zone",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.zone",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.meter",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.meter",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.sensor",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.sensor",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.hvac_unit",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.hvac_unit",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.energy_reading",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.energy_reading",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.environment_reading",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.environment_reading",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.schedule_slot",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.schedule_slot",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.control_command",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.control_command",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.alarm_rule",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.alarm_rule",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.alarm",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.alarm",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.zone",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 구역 코드 유일"
+    },
+    {
+      "table": "bems.zone",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "bems.zone",
+      "kind": "CHECK",
+      "columns": [
+        "kind"
+      ],
+      "expression": "kind IN ('OFFICE', 'PRODUCTION', 'UTILITY')",
+      "reason": "구역 종류 값"
+    },
+    {
+      "table": "bems.zone",
+      "kind": "CHECK",
+      "columns": [
+        "floor_area_m2"
+      ],
+      "expression": "floor_area_m2 IS NULL OR floor_area_m2 > 0",
+      "reason": "면적 양수"
+    },
+    {
+      "table": "bems.zone",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "id"
+      ],
+      "expression": "계측기·센서·공조기가 있는 구역은 삭제를 거부하고 사용 안 함으로 바꾼다",
+      "reason": "기준정보 보존"
+    },
+    {
+      "table": "bems.meter",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 계측기 코드 유일"
+    },
+    {
+      "table": "bems.meter",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "bems.meter",
+      "kind": "CHECK",
+      "columns": [
+        "usage"
+      ],
+      "expression": "usage IN ('LIGHTING', 'HVAC', 'OFFICE', 'OTHER')",
+      "reason": "용도 값"
+    },
+    {
+      "table": "bems.meter",
+      "kind": "CHECK",
+      "columns": [
+        "unit"
+      ],
+      "expression": "unit = 'kWh'",
+      "reason": "공용 전력은 kWh"
+    },
+    {
+      "table": "bems.meter",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "usage"
+      ],
+      "expression": "용도는 등록 뒤 바꾸지 않는다. 관측이 있는 계측기는 삭제 대신 사용 안 함",
+      "reason": "분해 이력 보존"
+    },
+    {
+      "table": "bems.sensor",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 센서 코드 유일"
+    },
+    {
+      "table": "bems.sensor",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id",
+        "metric"
+      ],
+      "expression": "",
+      "reason": "구역·항목당 센서 1개(1차)"
+    },
+    {
+      "table": "bems.sensor",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "bems.sensor",
+      "kind": "CHECK",
+      "columns": [
+        "metric",
+        "unit"
+      ],
+      "expression": "(metric = 'TEMP' AND unit = '℃') OR (metric = 'HUMIDITY' AND unit = '%') OR (metric = 'CO2' AND unit = 'ppm')",
+      "reason": "항목·단위 일치"
+    },
+    {
+      "table": "bems.hvac_unit",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 공조기 코드 유일"
+    },
+    {
+      "table": "bems.hvac_unit",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "bems.hvac_unit",
+      "kind": "CHECK",
+      "columns": [
+        "rated_kw"
+      ],
+      "expression": "rated_kw > 0",
+      "reason": "정격 양수"
+    },
+    {
+      "table": "bems.hvac_unit",
+      "kind": "CHECK",
+      "columns": [
+        "state"
+      ],
+      "expression": "state IN ('OFF', 'COOL', 'HEAT', 'FAN')",
+      "reason": "운전 상태 값"
+    },
+    {
+      "table": "bems.hvac_unit",
+      "kind": "CHECK",
+      "columns": [
+        "control_source"
+      ],
+      "expression": "control_source IN ('SCHEDULE', 'MANUAL')",
+      "reason": "운전 출처 값"
+    },
+    {
+      "table": "bems.hvac_unit",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "meter_id"
+      ],
+      "expression": "공조 전력 계측기는 같은 구역의 용도 HVAC 계측기만",
+      "reason": "계측 연결"
+    },
+    {
+      "table": "bems.hvac_unit",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "state"
+      ],
+      "expression": "상태는 제어 명령(TX-B1)과 1시간 진행의 스케줄 경계 전환(TX-B2)으로만 바뀐다. 수동 명령은 다음 스케줄 경계까지 유지",
+      "reason": "모의 공조기 상태(D21)"
+    },
+    {
+      "table": "bems.energy_reading",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "meter_id",
+        "period_start"
+      ],
+      "expression": "",
+      "reason": "계측기·구간당 1건(진행 멱등)"
+    },
+    {
+      "table": "bems.energy_reading",
+      "kind": "CHECK",
+      "columns": [
+        "value"
+      ],
+      "expression": "value >= 0",
+      "reason": "전력량 음수 금지"
+    },
+    {
+      "table": "bems.energy_reading",
+      "kind": "CHECK",
+      "columns": [
+        "quality"
+      ],
+      "expression": "quality IN ('valid', 'invalid')",
+      "reason": "품질 값"
+    },
+    {
+      "table": "bems.energy_reading",
+      "kind": "CHECK",
+      "columns": [
+        "source"
+      ],
+      "expression": "source IN ('SEED', 'SIMULATION')",
+      "reason": "출처 값"
+    },
+    {
+      "table": "bems.energy_reading",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "period_start"
+      ],
+      "expression": "정시 구간만. 관측은 수정·삭제하지 않는다(세대 정리 제외)",
+      "reason": "관측 불변"
+    },
+    {
+      "table": "bems.environment_reading",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "sensor_id",
+        "period_start"
+      ],
+      "expression": "",
+      "reason": "센서·구간당 1건(진행 멱등)"
+    },
+    {
+      "table": "bems.environment_reading",
+      "kind": "CHECK",
+      "columns": [
+        "quality"
+      ],
+      "expression": "quality IN ('valid', 'invalid')",
+      "reason": "품질 값"
+    },
+    {
+      "table": "bems.environment_reading",
+      "kind": "CHECK",
+      "columns": [
+        "source"
+      ],
+      "expression": "source IN ('SEED', 'SIMULATION')",
+      "reason": "출처 값"
+    },
+    {
+      "table": "bems.environment_reading",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "period_start"
+      ],
+      "expression": "정시 구간만. 관측은 수정·삭제하지 않는다(세대 정리 제외)",
+      "reason": "관측 불변"
+    },
+    {
+      "table": "bems.schedule_slot",
+      "kind": "CHECK",
+      "columns": [
+        "day_kind"
+      ],
+      "expression": "day_kind IN ('WEEKDAY', 'WEEKEND')",
+      "reason": "요일 구분 값"
+    },
+    {
+      "table": "bems.schedule_slot",
+      "kind": "CHECK",
+      "columns": [
+        "start_hour",
+        "end_hour"
+      ],
+      "expression": "start_hour BETWEEN 0 AND 23 AND end_hour BETWEEN 1 AND 24 AND start_hour < end_hour",
+      "reason": "시간대 범위"
+    },
+    {
+      "table": "bems.schedule_slot",
+      "kind": "CHECK",
+      "columns": [
+        "mode"
+      ],
+      "expression": "mode IN ('COOL', 'HEAT', 'FAN')",
+      "reason": "운전 모드 값"
+    },
+    {
+      "table": "bems.schedule_slot",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "start_hour"
+      ],
+      "expression": "같은 공조기·요일 구분의 사용 중 시간대는 겹칠 수 없다",
+      "reason": "스케줄 겹침 거부"
+    },
+    {
+      "table": "bems.control_command",
+      "kind": "CHECK",
+      "columns": [
+        "command"
+      ],
+      "expression": "command IN ('POWER_ON', 'POWER_OFF', 'SET_MODE', 'SET_SETPOINT')",
+      "reason": "명령 값"
+    },
+    {
+      "table": "bems.control_command",
+      "kind": "CHECK",
+      "columns": [
+        "command",
+        "hvac_unit_id"
+      ],
+      "expression": "command = 'SET_SETPOINT' OR hvac_unit_id IS NOT NULL",
+      "reason": "설비 명령은 공조기 필수"
+    },
+    {
+      "table": "bems.control_command",
+      "kind": "CHECK",
+      "columns": [
+        "command",
+        "mode"
+      ],
+      "expression": "(command = 'SET_MODE' AND mode IN ('COOL', 'HEAT', 'FAN')) OR (command <> 'SET_MODE' AND mode IS NULL)",
+      "reason": "모드 명령만 모드"
+    },
+    {
+      "table": "bems.control_command",
+      "kind": "CHECK",
+      "columns": [
+        "command",
+        "setpoint_kind",
+        "value"
+      ],
+      "expression": "(command = 'SET_SETPOINT' AND setpoint_kind IN ('COOL_TEMP', 'HEAT_TEMP', 'CO2_MAX') AND value IS NOT NULL) OR (command <> 'SET_SETPOINT' AND setpoint_kind IS NULL AND value IS NULL)",
+      "reason": "설정값 명령만 항목·값"
+    },
+    {
+      "table": "bems.control_command",
+      "kind": "CHECK",
+      "columns": [
+        "source"
+      ],
+      "expression": "source IN ('MANUAL', 'SCHEDULE', 'SEED')",
+      "reason": "출처 값"
+    },
+    {
+      "table": "bems.control_command",
+      "kind": "CHECK",
+      "columns": [
+        "result",
+        "reject_reason"
+      ],
+      "expression": "(result = 'APPLIED' AND reject_reason IS NULL) OR (result = 'REJECTED' AND reject_reason IS NOT NULL)",
+      "reason": "거부는 사유 필수"
+    },
+    {
+      "table": "bems.control_command",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "command"
+      ],
+      "expression": "명령은 불변 이력이다. 현재 설정값 = 구역·항목의 마지막 APPLIED 설정값 명령. 범위(냉방 20~30, 난방 16~24, 냉방 ≥ 난방+2, CO₂ 600~2000) 밖이면 REJECTED로 기록",
+      "reason": "설정값·명령 이력"
+    },
+    {
+      "table": "bems.alarm_rule",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id",
+        "metric",
+        "comparator"
+      ],
+      "expression": "",
+      "reason": "구역·항목·비교당 규칙 1개"
+    },
+    {
+      "table": "bems.alarm_rule",
+      "kind": "CHECK",
+      "columns": [
+        "metric"
+      ],
+      "expression": "metric IN ('TEMP', 'HUMIDITY', 'CO2')",
+      "reason": "항목 값"
+    },
+    {
+      "table": "bems.alarm_rule",
+      "kind": "CHECK",
+      "columns": [
+        "comparator"
+      ],
+      "expression": "comparator IN ('HIGH', 'LOW')",
+      "reason": "비교 값"
+    },
+    {
+      "table": "bems.alarm_rule",
+      "kind": "CHECK",
+      "columns": [
+        "duration_hours"
+      ],
+      "expression": "duration_hours BETWEEN 1 AND 24",
+      "reason": "지속 시간 범위"
+    },
+    {
+      "table": "bems.alarm_rule",
+      "kind": "CHECK",
+      "columns": [
+        "severity"
+      ],
+      "expression": "severity IN ('WARNING', 'CRITICAL')",
+      "reason": "등급 값"
+    },
+    {
+      "table": "bems.alarm",
+      "kind": "CHECK",
+      "columns": [
+        "status"
+      ],
+      "expression": "status IN ('raised', 'acknowledged', 'cleared')",
+      "reason": "상태 값"
+    },
+    {
+      "table": "bems.alarm",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "acknowledged_at",
+        "cleared_at"
+      ],
+      "expression": "(status = 'raised' AND acknowledged_at IS NULL AND cleared_at IS NULL) OR (status = 'acknowledged' AND acknowledged_at IS NOT NULL AND cleared_at IS NULL) OR (status = 'cleared' AND cleared_at IS NOT NULL)",
+      "reason": "상태와 시각 일치"
+    },
+    {
+      "table": "bems.alarm",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "alarm_rule_id",
+        "sensor_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, alarm_rule_id, sensor_id) WHERE status <> 'cleared'",
+      "reason": "규칙·센서당 해제되지 않은 경보 1건"
+    },
+    {
+      "table": "bems.alarm",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "발생·해제는 관측값 평가(TX-B2)로만, 확인은 사람만(TX-B3). 해제된 경보는 수정·삭제하지 않는다",
+      "reason": "경보 수명(D22)"
+    },
+    {
+      "table": "bems.meter",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "bems.hvac_unit",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "bems.hvac_unit",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "meter_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "bems.schedule_slot",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "hvac_unit_id",
+        "day_kind"
+      ],
+      "expression": "",
+      "reason": "FK 조회·겹침 검사"
+    },
+    {
+      "table": "bems.control_command",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id",
+        "setpoint_kind",
+        "requested_at"
+      ],
+      "expression": "",
+      "reason": "현재 설정값 조회"
+    },
+    {
+      "table": "bems.control_command",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "hvac_unit_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "bems.alarm",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "alarm_rule_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "bems.alarm",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "sensor_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "bems.alarm",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "status"
+      ],
+      "expression": "",
+      "reason": "활성 경보 조회"
     }
   ],
   "states": [
@@ -17473,6 +19578,29 @@
       ],
       "default": "draft",
       "transition": "draft→posted(기초·조정·이동); 원천 반영·되돌림은 posted로 생성; 확정 후 불변"
+    },
+    {
+      "table": "bems.alarm",
+      "column": "status",
+      "values": [
+        "raised",
+        "acknowledged",
+        "cleared"
+      ],
+      "default": "raised",
+      "transition": "raised→acknowledged→cleared 또는 raised→cleared; 해제 후 불변"
+    },
+    {
+      "table": "bems.hvac_unit",
+      "column": "state",
+      "values": [
+        "OFF",
+        "COOL",
+        "HEAT",
+        "FAN"
+      ],
+      "default": "OFF",
+      "transition": "제어 명령·스케줄 경계 전환으로만 변경(D21)"
     }
   ],
   "sources": [
@@ -17525,10 +19653,11 @@
         "erp",
         "fems",
         "qms",
-        "wms"
+        "wms",
+        "bems"
       ],
       "default": null,
-      "note": "QMS(FS-023)·WMS(FS-024)는 구현 솔루션. BEMS·SCM 설명 카드와 도움말은 정적 파일"
+      "note": "QMS(FS-023)·WMS(FS-024)·BEMS(FS-025)는 구현 솔루션. SCM 설명 카드와 도움말은 정적 파일"
     },
     {
       "target": "공통 단위",
@@ -17714,6 +19843,73 @@
       ],
       "default": null,
       "note": "반품 입고 / 폐기 / 실물 차이 / 기타"
+    },
+    {
+      "target": "bems.zone",
+      "column": "kind",
+      "values": [
+        "OFFICE",
+        "PRODUCTION",
+        "UTILITY"
+      ],
+      "default": null,
+      "note": "구역 종류"
+    },
+    {
+      "target": "bems.meter",
+      "column": "usage",
+      "values": [
+        "LIGHTING",
+        "HVAC",
+        "OFFICE",
+        "OTHER"
+      ],
+      "default": null,
+      "note": "공용 전력 용도(분해 열)"
+    },
+    {
+      "target": "bems.sensor",
+      "column": "metric",
+      "values": [
+        "TEMP",
+        "HUMIDITY",
+        "CO2"
+      ],
+      "default": null,
+      "note": "℃ / % / ppm"
+    },
+    {
+      "target": "bems.control_command",
+      "column": "command",
+      "values": [
+        "POWER_ON",
+        "POWER_OFF",
+        "SET_MODE",
+        "SET_SETPOINT"
+      ],
+      "default": null,
+      "note": "설정값 변경도 명령(D21)"
+    },
+    {
+      "target": "bems.control_command",
+      "column": "setpoint_kind",
+      "values": [
+        "COOL_TEMP",
+        "HEAT_TEMP",
+        "CO2_MAX"
+      ],
+      "default": null,
+      "note": "냉방 온도 / 난방 온도 / CO₂ 상한"
+    },
+    {
+      "target": "bems.alarm_rule",
+      "column": "severity",
+      "values": [
+        "WARNING",
+        "CRITICAL"
+      ],
+      "default": null,
+      "note": "경보 등급"
     }
   ],
   "change_log": [
@@ -17877,6 +20073,13 @@
       "date": "2026-09-27",
       "change": "wms 스키마 6테이블(창고·보관 위치·품목·단위 환산·재고 전표·재고 이동), core.workspace_module module_key에 wms 추가. 스키마 간 FK 0건(원천은 D9 읽기 전용 조회)",
       "status": "마이그레이션 fs024a_wms 적용 대상"
+    },
+    {
+      "version": "0.12.0",
+      "task": "FS-025a",
+      "date": "2026-09-28",
+      "change": "bems 스키마 10테이블(구역·공용 계측기·환경 센서·공조기·공용 전력 관측·환경 관측·운전 스케줄·제어 명령·경보 규칙·경보), core.workspace_module module_key에 bems 추가, FS-013 R4의 bems 금지 해제(FS-025 D18). 스키마 간 FK 0건",
+      "status": "마이그레이션 fs025a_bems 적용 대상"
     }
   ]
 }

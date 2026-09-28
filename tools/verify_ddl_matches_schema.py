@@ -21,7 +21,12 @@ from uuid import uuid4
 from sqlalchemy import Connection, create_engine, inspect, text
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMAS = ("core", "mes", "erp", "fems", "qms", "wms")
+SCHEMAS = ("core", "mes", "erp", "fems", "qms", "wms", "bems")
+
+
+def _literal(sql: str) -> str:
+    """exec_driver_sql은 psycopg 자리표시자로 %를 읽는다. 식 안의 %(예: unit = '%')를 이스케이프한다."""
+    return sql.replace("%", "%%")
 
 
 def ident(value: str) -> str:
@@ -109,7 +114,9 @@ def compare(connection: Connection, metadata: dict[str, Any]) -> dict[str, Any]:
                     canonical = None
                 else:
                     connection.exec_driver_sql(
-                        f"ALTER TABLE {temp_q} ALTER COLUMN {ident(name)} SET DEFAULT {default}"
+                        _literal(
+                            f"ALTER TABLE {temp_q} ALTER COLUMN {ident(name)} SET DEFAULT {default}"
+                        )
                     )
                     canonical = connection.execute(
                         text(
@@ -146,7 +153,9 @@ def compare(connection: Connection, metadata: dict[str, Any]) -> dict[str, Any]:
                 continue
             check_name = f"verify_c{i}"
             connection.exec_driver_sql(
-                f"ALTER TABLE {temp_q} ADD CONSTRAINT {check_name} CHECK ({c['expression']})"
+                _literal(
+                    f"ALTER TABLE {temp_q} ADD CONSTRAINT {check_name} CHECK ({c['expression']})"
+                )
             )
             canonical = connection.execute(
                 text(
@@ -177,7 +186,9 @@ def compare(connection: Connection, metadata: dict[str, Any]) -> dict[str, Any]:
                 idx_name = f"verify_i{i}_{uuid4().hex[:8]}"
                 columns = ",".join(ident(v) for v in c["columns"])
                 connection.exec_driver_sql(
-                    f"CREATE INDEX {idx_name} ON {temp_q} ({columns}) WHERE {pred}"
+                    _literal(
+                        f"CREATE INDEX {idx_name} ON {temp_q} ({columns}) WHERE {pred}"
+                    )
                 )
                 pred = connection.execute(
                     text(

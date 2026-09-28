@@ -1,12 +1,22 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS·홈 아이콘·C++ 비전 엔진 운영 반영 완료(`adc3cab`, head `fs024b_wms_module`, 템플릿 7,691행). 다음: FS-025 BEMS 화면 설계 확인 대기.**
+- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS·홈 아이콘·C++ 비전 엔진 운영 반영 완료(`adc3cab`, head `fs024b_wms_module`, 템플릿 7,691행). FS-025a BEMS DB 완료(로컬, head `fs025b_bems_module`). 다음 FS-025b.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-28 FS-025a BEMS DB 반영 (Claude Code)
+- 사용자 승인: 화면 설계 → BEMS 전체 설계 확인. push `f0b1012..1b2a8a2`.
+- 메타데이터 `tools/apply_fs025a.py`(멱등) → `schema.json` v0.12.0 / 93테이블(bems 10: 구역·공용 계측기·환경 센서·공조기·공용 전력 관측·환경 관측·운전 스케줄·제어 명령·경보 규칙·경보), 954컬럼, FK 209, 제약·정책 726(bems C647~C725, R187~R208). 모듈 CHECK `'bems'`.
+- 마이그레이션 `fs025a_bems`(스키마) + `fs025b_bems_module`(기존 공간 bems 행 — WMS 교훈으로 DB 단계에 함께). 새 공간·시드 템플릿 모듈 행 7개(시드 7,692·복사 7,690).
+- R4 해제: `audit_schema_isolation.py` FORBIDDEN에서 bems 제거, FS-013 머리말 주석, `test_fs014.py` R4 예시 정리. 검증 도구 `validate_bems`, `tools/test_fs025a.py` 3, ERD `bems.mmd`·Excel 31시트, "후속 예약 설계" 표시 제거.
+- 결함 수정: `verify_ddl_matches_schema.py`가 CHECK의 `'%'`(습도 단위)를 psycopg 자리표시자로 읽어 실패 → `exec_driver_sql` 3곳 `%` 이스케이프.
+- 검증: db:validate 0, 격리 R1~R6 0, tools unittest 55 OK, 임시 DB upgrade → DDL 대조 0 → downgrade base → upgrade → 0(head `fs025b_bems_module`), pytest DB·**로컬 개발 DB `factory_studio`** head 반영 + 로컬 템플릿 재생성(7,692행), pytest **711 passed · 1 skipped**(18.2분), ruff 0.
+- 미실행: 공식 스모크(프런트·API 변경 없음), 운영 마이그레이션. push 없음.
+- 다음: FS-025b — `fs/fems/interface.py`, `/api/v1/bems`(TX-B1~B3·1시간 진행 모델), B-01~07.
 
 ## 2026-09-28 FS-025 BEMS 결정·모듈 설계 승인, 화면 설계 초안 (Claude Code)
 - 사용자 승인: 결정서 D18~D23·범위, 모듈 설계 13장 4건 모두 권장안 → 두 문서 "확정".
