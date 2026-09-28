@@ -591,3 +591,75 @@ test("C++ 실제 API 단건·배치·PLC와 사용자 참고 문서", async ({ p
     fullPage: true,
   });
 });
+
+test("CNC 소재 가공·정지·오류 복구는 한 개만 완료한다", async ({ page }) => {
+  test.setTimeout(90000);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.getByRole("button", { name: /01 CNC 가공/ }).click();
+  const panel = page.getByRole("region", { name: "CNC 설비 상세" });
+  await panel.getByRole("button", { name: "CNC 가까이 보기" }).click();
+  await panel.getByRole("button", { name: "CNC 1개 시작" }).click();
+  await expect(panel.getByTestId("cnc-phase")).toHaveText("CNC 가공", {
+    timeout: 30000,
+  });
+  await panel.getByRole("button", { name: "CNC 일시정지" }).click();
+  await expect(panel.getByTestId("cnc-mode")).toHaveText("일시정지");
+  await page.screenshot({ path: "../work/cnc-machining.png", fullPage: true });
+  await page.waitForTimeout(1200);
+  await expect(panel.getByTestId("cnc-phase")).toHaveText("CNC 가공");
+  await panel.getByRole("button", { name: "모의 CNC 오류" }).click();
+  await expect(panel.getByTestId("cnc-mode")).toHaveText("오류 정지");
+  await expect(panel.getByRole("button", { name: "CNC 재개" })).toBeDisabled();
+  await panel.getByRole("button", { name: "CNC 오류 해제" }).click();
+  await expect(panel.getByTestId("cnc-mode")).toHaveText("일시정지");
+  await panel.getByRole("button", { name: "CNC 재개" }).click();
+  await expect(panel.getByTestId("cnc-mode")).toHaveText("가공 완료", {
+    timeout: 30000,
+  });
+  await expect(panel.getByTestId("cnc-count")).toHaveText("1개");
+  await expect(panel.getByTestId("cnc-location")).toHaveText("검사 대기 위치");
+  await expect(
+    panel.getByText("포켓·구멍 가공품", { exact: true }),
+  ).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: "../work/cnc-complete.png", fullPage: true });
+  await panel.getByRole("button", { name: "CNC 1개 시작" }).click();
+  await panel.getByRole("button", { name: "CNC 종료·소재 보류" }).click();
+  await expect(panel.getByTestId("cnc-count")).toHaveText("1개");
+  await expect(panel.getByTestId("cnc-held")).toHaveText("1개");
+  expect(errors).toEqual([]);
+});
+
+test("CNC 모바일 패널·전체 시연 정지와 기존 검사실 진입", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: /01 CNC 가공/ }).click();
+  const panel = page.getByRole("region", { name: "CNC 설비 상세" });
+  await panel.getByRole("button", { name: "CNC 가까이 보기" }).click();
+  await panel.getByRole("button", { name: "CNC 1개 시작" }).click();
+  await page
+    .getByRole("button", { name: "시연 일시정지", exact: true })
+    .click();
+  await expect(panel.getByTestId("cnc-mode")).toHaveText("시연 대기");
+  const phase = await panel.getByTestId("cnc-phase").textContent();
+  await page.waitForTimeout(1500);
+  await expect(panel.getByTestId("cnc-phase")).toHaveText(phase!);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+  await panel.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "../work/cnc-mobile.png", fullPage: true });
+  await panel.getByRole("button", { name: "CNC 종료·소재 보류" }).click();
+  await page.getByRole("button", { name: /02 비전검사/ }).click();
+  await page.getByRole("link", { name: "합성 이미지 검사실 열기 →" }).click();
+  await expect(
+    page.getByRole("heading", { name: "합성 이미지 검사실", exact: true }),
+  ).toBeVisible();
+  await page.goto("/help/portal/cnc-cell");
+  await expect(
+    page.getByRole("heading", { name: "로봇 연동 CNC 가공 셀", exact: true }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+});

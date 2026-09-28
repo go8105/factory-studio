@@ -1,3 +1,5 @@
+import CncCell from "./CncCell";
+import type { CncState } from "./cnc";
 import type { Scenario } from "./scenarios";
 import FirstPerson from "./FirstPerson";
 import InspectionZone from "./InspectionZone";
@@ -186,6 +188,7 @@ function Printer({ label }: { label: boolean }) {
   );
 }
 function Station({
+  cnc,
   scenario,
   immersive,
   index,
@@ -194,6 +197,7 @@ function Station({
   fault,
   onSnapshot,
 }: {
+  cnc: CncState;
   animated: boolean;
   fault: boolean;
   onSnapshot: (value: VisionSnapshot) => void;
@@ -220,6 +224,8 @@ function Station({
             fault={fault}
             onSnapshot={onSnapshot}
           />
+        ) : index === 0 ? (
+          <CncCell state={cnc} />
         ) : (
           <ProductionCell index={index} animated={animated} />
         )}
@@ -301,6 +307,8 @@ function Worker({ animated }: { animated: boolean }) {
   );
 }
 export type SceneProps = {
+  cnc: CncState;
+  focusIndex: number;
   scenario: Scenario;
   immersive: boolean;
   inspect: number;
@@ -319,6 +327,8 @@ export type SceneProps = {
   onSelect: (i: number) => void;
 };
 export default function Scene({
+  cnc,
+  focusIndex,
   scenario,
   immersive,
   inspect,
@@ -356,10 +366,10 @@ export default function Scene({
             : [23, 22, 28]) as Vec),
       );
       if (exterior) camera.position.set(29, 23, 33);
-      else if (focused) camera.position.set(8, 5, 7);
+      else if (focused) camera.position.set(stations[focusIndex].x + 4, 4.5, 6);
       camera.position.multiplyScalar(Math.max(1, size.height / size.width));
       controls.current?.target.set(
-        exterior ? 0 : focused ? 4 : office ? -7 : 0,
+        exterior ? 0 : focused ? stations[focusIndex].x : office ? -7 : 0,
         exterior ? 3 : focused ? 1.7 : office ? 4 : 0.5,
         0,
       );
@@ -374,6 +384,7 @@ export default function Scene({
     size.width,
     size.height,
     focused,
+    focusIndex,
     exterior,
   ]);
   useFrame((_, dt) => {
@@ -436,7 +447,9 @@ export default function Scene({
         {view === "ground" && !walking && (
           <Label at={[-7.3, 2.7, 2]}>1F 현장사무실</Label>
         )}
-        <Label at={[4.5, 0.25, 5.6]}>생산 현장 · 조립 → 검사 → 포장</Label>
+        <Label at={[4.5, 0.25, 5.6]}>
+          생산 현장 · CNC 가공 → 비전검사 → 포장
+        </Label>
         {[1.75, 6.25].map((x) => (
           <Box
             key={x}
@@ -449,6 +462,7 @@ export default function Scene({
           <Station
             key={i}
             index={i}
+            cnc={cnc}
             scenario={scenario}
             immersive={immersive}
             onSelect={onSelect}
@@ -533,7 +547,13 @@ export default function Scene({
           maxDistance={85}
           maxPolarAngle={Math.PI / 2.2}
           target={[
-            exterior ? 0 : focused ? 4 : view === "office" ? -7 : 0,
+            exterior
+              ? 0
+              : focused
+                ? stations[focusIndex].x
+                : view === "office"
+                  ? -7
+                  : 0,
             exterior ? 3 : focused ? 1.7 : view === "office" ? 4 : 0.5,
             0,
           ]}

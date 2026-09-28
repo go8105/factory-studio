@@ -562,3 +562,18 @@
   cursor: pointer;
   padding: 8px 0;
 }
+
+@media (min-width: 1100px) {
+  .factory-page:not(.factory-immersive) .factory-workspace.has-cnc {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: var(--s3);
+    align-items: start;
+  }
+  .factory-page:not(.factory-immersive) .has-cnc .cnc-panel {
+    position: static;
+    width: auto;
+    max-height: 560px;
+    margin: 0;
+  }
+}
