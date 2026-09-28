@@ -1,12 +1,17 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS 전체(a~c) 로컬 완료 — 시드 7,691행, head `fs024b_wms_module`. 다음: 사용자 확인 후 push·운영 배포.**
+- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS·홈 아이콘·C++ 비전 엔진 운영 반영 완료(`adc3cab`, head `fs024b_wms_module`, 템플릿 7,691행). 다음 작업은 사용자 결정.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-28 운영 반영 (FS-024 WMS·홈 아이콘·C++ 비전 엔진)
+- 서버(사용자 실행): pull `be87546..adc3cab`, uv sync, `alembic upgrade head` → **`fs024b_wms_module`**(fs024a_wms·fs024b_wms_module 적용), C++ 엔진 `/srv/factory-studio/bin/inspection_core` 복사(서버 `x86_64`, 서버에서 직접 실행 NG 80·36·0.76ms), `.env`에 `VISION_CORE_EXECUTABLE`, API 재시작(`active`), 템플릿 재생성 → 워크스페이스 24·세대 24, **7,691행·76테이블**. 프런트 rsync.
+- 운영 확인(Claude Code, 새 게스트 25): 번들 `index-D4uQORuS.js` 일치, 홈 "제조 현장의 다섯 시스템"·5타일 한 줄(84px), WMS W-03 미반영 PL-0006(FG-T300 LT-0009·LT-0012 982 EA씩), `POST /api/v1/factory/vision/inspect` 200·NG 80·36·0.72ms, 검사실 "C++ 단건 검사" 화면 NG 2개·116 px²·0.619ms. 콘솔 오류는 로그인 전 세션 조회 401 1건(정상).
+- 미확인: 서버 `journalctl` 5xx(운영 SSH는 사용자만).
 
 ## 2026-09-27 배포 준비: WMS·홈 아이콘 + C++ 비전 엔진 (Claude Code)
 - push `d910955..133845f`. 프런트 `origin/main 133845f` worktree 빌드(`../fs-build`, 번들 `index-D4uQORuS.js`).

@@ -1,6 +1,6 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-27 (**FS-024 WMS a~c 로컬 완료** — DB·API·W-01~07·시드 107행·도움말·흐름 맵, 홈 아이콘 84px·다섯 시스템. 운영은 `be87546`·head `fs023b_qms_module` 그대로, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-28 (**운영 반영 완료** — FS-024 WMS a~c·홈 아이콘 84px·다섯 시스템·Codex C++ 비전 엔진, `adc3cab`·head `fs024b_wms_module`·템플릿 7,691행, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
@@ -26,7 +26,7 @@
 | UI-02 검토 | Claude 검토·수정 후 main 통합(`86e729f` 이후 문서 커밋). 회귀 5건 수정·e2e 11건 갱신, 스모크 159 passed |
 | QMS | FS-023a DB·023b API·화면(운영 배포) + **FS-023c 시드 113행(`sv-20260927-1`, 템플릿 7,583)·복사 월/번호 재계산·도움말 Q-01~06·흐름 맵 업무 노드(로컬, 미배포)**. 시드 LOT: LT-0017 검사 대기, LT-0015 작성 중, LT-0016 보류 중(+재검사 초안), LT-0008 특채 해제. 교차 조회는 `fs/<솔루션>/interface.py`만(R6) |
 | UI-03 | **8화면 전체 완료·운영 배포** — Claude F-12·M-04·M-05·M-07·E-04(`a35e895` 배포), Antigravity B1(M-14·M-15) + B2(E-02 견적) — 브랜치 `antigravity/ui03-b2`, 스모크 171/171 통과. E-02: `FormPanel wide`(등록)·`DetailPanel wide`(상세·라인편집·확정·제출·수주 전환 통합). main 병합 완료 |
-| 다음 | **운영 배포 대기(사용자 실행)** — `133845f` push 완료, 프런트 `../fs-build` 빌드, C++ 엔진 `work/inspection-core-linux/bin/inspection_core`(맥 Docker amd64, 검증 완료). 순서: 서버 pull·sync·alembic(fs024a_wms·fs024b_wms_module)·C++ 복사·.env `VISION_CORE_EXECUTABLE`·API 재시작 → `seed.cli template` → 프런트 rsync. 절차 `docs/deploy/배포절차_FS-022.md` 8·8-1장 |
+| 다음 | **정해진 작업 ID 없음 — 사용자 결정 대기.** 운영 = `adc3cab`(head `fs024b_wms_module`, 템플릿 7,691행, C++ 엔진 `/srv/factory-studio/bin/inspection_core`). 남은 후보: 현황 5장(FS-021 1차 범위 밖 9건, 앱 안 이동 미저장 보호, Safari·실기기), BEMS·SCM, C++ 엔진 코드가 바뀌면 `native/inspection_core/build-linux.sh`로 다시 빌드·복사 |
 
 ## 다음 할 일
 
