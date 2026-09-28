@@ -1,6 +1,6 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-28 (FS-025 BEMS 설계 확정 + **FS-025a DB 반영(로컬 head `fs025b_bems_module`, v0.12.0 / 93테이블) + FS-025b 1부 API**. 운영은 `adc3cab`·head `fs024b_wms_module`, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-28 (FS-025 BEMS 설계 확정 + **FS-025a DB 반영(로컬 head `fs025b_bems_module`, v0.12.0 / 93테이블) + FS-025b API·화면 B-01~07**. 운영은 `adc3cab`·head `fs024b_wms_module`, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Git·작업 위치
 
@@ -26,7 +26,7 @@
 | UI-02 검토 | Claude 검토·수정 후 main 통합(`86e729f` 이후 문서 커밋). 회귀 5건 수정·e2e 11건 갱신, 스모크 159 passed |
 | QMS | FS-023a DB·023b API·화면(운영 배포) + **FS-023c 시드 113행(`sv-20260927-1`, 템플릿 7,583)·복사 월/번호 재계산·도움말 Q-01~06·흐름 맵 업무 노드(로컬, 미배포)**. 시드 LOT: LT-0017 검사 대기, LT-0015 작성 중, LT-0016 보류 중(+재검사 초안), LT-0008 특채 해제. 교차 조회는 `fs/<솔루션>/interface.py`만(R6) |
 | UI-03 | **8화면 전체 완료·운영 배포** — Claude F-12·M-04·M-05·M-07·E-04(`a35e895` 배포), Antigravity B1(M-14·M-15) + B2(E-02 견적) — 브랜치 `antigravity/ui03-b2`, 스모크 171/171 통과. E-02: `FormPanel wide`(등록)·`DetailPanel wide`(상세·라인편집·확정·제출·수주 전환 통합). main 병합 완료 |
-| 다음 | **FS-025b 2부 BEMS 화면 B-01~07** — 1부 API 완료(`/api/v1/bems`, `fs/fems/interface.py`, `fs/bems/simulation.py`, 계약서 16장, `test_bems.py` 12). 수동 명령도 시뮬레이션 시계로 기록한다. 설계 확정(결정서·모듈·화면 설계 FS-025). FS-025a 완료: schema.json v0.12.0(93테이블), 로컬 head `fs025b_bems_module`(운영 미적용), 로컬 개발 DB·템플릿 반영. 025b: `fs/fems/interface.py` 신규, `/api/v1/bems`, `fs/bems/simulation.py`(모델 상수 한 곳), B-01~07. **로컬 개발 DB도 새 마이그레이션·시드 때 함께 올린다.** Codex는 `codex/vision-ai`(공장 컨셉·CNC) — 마이그레이션 head 겹치지 않게 조율 |
+| 다음 | **FS-025c BEMS 시드·도움말 b-01~07·흐름 맵** — FS-025b 완료: API(`/api/v1/bems`, `fs/fems/interface.py`, `fs/bems/simulation.py`, 계약서 16장) + 화면 `frontend/src/bems/` B-01~07·포털 6타일·"여섯 시스템"(화면 설계 6장). 도움말 링크는 아직 404. 수동 명령도 시뮬레이션 시계로 기록한다. 스모크는 `smoke.sh`처럼 Node 24 PATH + fs017 DB URL을 넘긴다. 설계 확정(결정서·모듈·화면 설계 FS-025). FS-025a 완료: schema.json v0.12.0(93테이블), 로컬 head `fs025b_bems_module`(운영 미적용), 로컬 개발 DB·템플릿 반영. 025b: `fs/fems/interface.py` 신규, `/api/v1/bems`, `fs/bems/simulation.py`(모델 상수 한 곳), B-01~07. **로컬 개발 DB도 새 마이그레이션·시드 때 함께 올린다.** Codex는 `codex/vision-ai`(공장 컨셉·CNC) — 마이그레이션 head 겹치지 않게 조율 |
 
 ## 다음 할 일
 

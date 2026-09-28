@@ -16,7 +16,7 @@ function show(enabled = true) {
                 csrfToken: "preview",
                 expiresAt: "2026-09-28T00:00:00+09:00",
               }
-            : ["mes", "erp", "fems", "qms", "wms"].map((moduleKey) => ({
+            : ["mes", "erp", "fems", "qms", "wms", "bems"].map((moduleKey) => ({
                 moduleKey,
                 enabled,
                 updatedAt: null,
@@ -30,18 +30,22 @@ function show(enabled = true) {
     </MemoryRouter>,
   );
 }
-it("홈은 다섯 솔루션과 미구현 BEMS·SCM 설명 카드 링크를 보인다", async () => {
+it("홈은 여섯 솔루션과 미구현 SCM 설명 카드 링크를 보인다", async () => {
   show();
   await screen.findByRole("link", { name: /QMS 품질관리/ });
   expect(screen.getByRole("link", { name: /WMS 창고관리/ })).toHaveAttribute(
     "href",
     "/wms",
   );
-  for (const [name, href] of [
-    [/BEMS 건물/, "/cards/bems"],
-    [/SCM 공급망/, "/cards/scm"],
-  ] as const)
-    expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
+  expect(screen.getByRole("link", { name: /BEMS 건물관리/ })).toHaveAttribute(
+    "href",
+    "/bems",
+  );
+  expect(screen.getByRole("link", { name: /SCM 공급망/ })).toHaveAttribute(
+    "href",
+    "/cards/scm",
+  );
+  expect(screen.queryByRole("link", { name: /BEMS 건물 →/ })).toBeNull();
   expect(screen.queryByRole("link", { name: /QMS 품질 →/ })).toBeNull();
   expect(screen.queryByRole("link", { name: /WMS 물류/ })).toBeNull();
 });

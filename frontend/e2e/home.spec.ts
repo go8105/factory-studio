@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
               csrfToken: "preview",
               expiresAt: "2026-09-28T00:00:00+09:00",
             }
-          : ["mes", "erp", "fems", "qms", "wms"].map((moduleKey) => ({
+          : ["mes", "erp", "fems", "qms", "wms", "bems"].map((moduleKey) => ({
               moduleKey,
               enabled: true,
               updatedAt: null,
@@ -59,6 +59,19 @@ test("흰색 헤더와 로고를 표시한다", async ({ page }) => {
   );
   await expect(page.locator(".brand-mark")).toBeVisible();
 });
+test("여섯 타일: 넓은 화면은 한 줄, 360px은 3·3", async ({ page }) => {
+  const rows = () =>
+    page
+      .locator(".launcher-item")
+      .evaluateAll(
+        (els) => new Set(els.map((e) => e.getBoundingClientRect().top)).size,
+      );
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.locator(".launcher-item")).toHaveCount(6);
+  expect(await rows()).toBe(1);
+  await page.setViewportSize({ width: 360, height: 900 });
+  expect(await rows()).toBe(2);
+});
 test("360px에서 안내를 열어도 가로 스크롤이 없다", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 900 });
   for (const key of ["FEMS", "QMS"]) {
@@ -91,7 +104,7 @@ test("모바일 터치로 안내를 열고 닫을 수 있다", async ({ browser 
               roles: [],
               csrfToken: "preview",
             }
-          : ["mes", "erp", "fems", "qms", "wms"].map((moduleKey) => ({
+          : ["mes", "erp", "fems", "qms", "wms", "bems"].map((moduleKey) => ({
               moduleKey,
               enabled: true,
             })),

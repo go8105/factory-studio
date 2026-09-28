@@ -101,7 +101,7 @@ test("게스트 운영 기록 직접 접근은 404", async ({ page }) => {
   await expect(page.getByText("404 · NOT_FOUND")).toBeVisible();
 });
 for (const [route, title] of [
-  ["home", "제조 현장의 다섯 시스템"],
+  ["home", "제조 현장의 여섯 시스템"],
   ["flow", "전체 업무 흐름"],
   ["cards/bems", "설명 카드"],
   ["help", "참고 문서"],
@@ -165,6 +165,13 @@ for (const [route, title] of [
   ["wms/moves", "재고 원장"],
   ["wms/warehouses", "창고·위치"],
   ["wms/items", "품목·단위"],
+  ["bems/dashboard", "건물 개요"],
+  ["bems/breakdown", "에너지 분해"],
+  ["bems/environment", "환경 모니터링"],
+  ["bems/hvac", "공조 운전"],
+  ["bems/schedules", "운전 스케줄"],
+  ["bems/alarms", "경보"],
+  ["bems/zones", "구역·계측"],
 ]) {
   test(`360px ${route} 가로 스크롤 없음`, async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });

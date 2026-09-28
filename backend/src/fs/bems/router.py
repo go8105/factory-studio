@@ -197,6 +197,11 @@ def post_command(
     )
 
 
+@router.get("/simulation/clock")
+def get_clock(context: Auth):
+    return _data(service.simulation_clock(context))
+
+
 @router.post("/simulation/advance")
 def post_advance(
     payload: Advance, context: Auth, csrf: CsrfToken = None, key: IdempotencyKey = None

@@ -1,12 +1,22 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS·홈 아이콘·C++ 비전 엔진 운영 반영 완료(`adc3cab`, head `fs024b_wms_module`, 템플릿 7,691행). FS-025a BEMS DB 완료(로컬, head `fs025b_bems_module`). FS-025b 1부 BEMS API 완료(로컬). 다음 FS-025b 2부 화면 B-01~07.**
+- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS·홈 아이콘·C++ 비전 엔진 운영 반영 완료(`adc3cab`, head `fs024b_wms_module`, 템플릿 7,691행). FS-025a BEMS DB 완료(로컬, head `fs025b_bems_module`). FS-025b BEMS API·화면 B-01~07 완료(로컬). 다음 FS-025c 시드·도움말·흐름 맵.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-28 FS-025b 2부 BEMS 화면 B-01~07 (Claude Code)
+- push `9965100..b9dfbc4`(1부 API).
+- `frontend/src/bems/` 7화면 + 공통(`useGet`·1시간 진행 `AdvanceControl`·`LineChart`·`ShareBars`·`nextBoundary`), 라우트 `/bems/*`(lazy). 상세: 화면 설계 6장.
+- 포털: 6번째 타일 BEMS 건물관리, 격자 940px 한 줄·360px 3·3, "여섯 시스템"(홈·진입·헤더·P-02 도움말), 하단 설명 카드는 SCM만, 다른 앱 링크·P-05 목록에 BEMS.
+- API 추가 `GET /simulation/clock`(계약서 16장).
+- 결함 수정: B-03이 구역 목록 전 `undefined === undefined`로 관측을 읽어 앱이 멈춤(e2e에서 발견) → vitest 회귀.
+- 검증: typecheck·lint·format·build 0, vitest 477 passed, test_bems 12, ruff 0, home-browser 9, e2e bems 2(화면으로 기준정보 등록 → 규칙 → 전원·모드·설정값 거부/적용 → 1시간 진행 경보 → 확인 → 그래프 / FEMS 끔), 전체 스모크 228 passed · 1 skipped · 3 failed → 재실행 4 passed(원인: 스모크 GUEST_LIMIT 200 초과로 끝 WMS 2건 429 — 400으로 올림, 3D 걷기 테스트는 30초 경계 지연).
+- 미실행: 운영 반영. 도움말 b-01~07 없음(링크 404) — FS-025c. push 없음.
+- 다음: FS-025c — BEMS 시드·도움말·흐름 맵·`cards/bems.md` 삭제·통합 검증.
 
 ## 2026-09-28 FS-025b 1부 BEMS API (Claude Code)
 - push `1b2a8a2..9965100`(FS-025a).

@@ -2240,3 +2240,71 @@ th[aria-sort="none"] button span {
 .reveal-anchor {
   scroll-margin-top: calc(var(--header-h) + var(--s3));
 }
+/* BEMS (FS-025): 1시간 진행 묶음, 구역 카드, 스케줄 24시간 막대. */
+.bems-advance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}
+.bems-advance-result {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.bems-advance-result:empty {
+  display: none;
+}
+.bems-zones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--s4);
+  margin-top: var(--s4);
+}
+.bems-schedule-preview {
+  margin: var(--s4) 0 0;
+}
+.bems-schedule-row {
+  display: grid;
+  grid-template-columns: 3em 1fr;
+  align-items: center;
+  gap: var(--s2);
+  margin-bottom: var(--s2);
+}
+.bems-schedule-track {
+  position: relative;
+  height: 24px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.bems-slot {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 24px;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--ink);
+  background: var(--accent-soft);
+  border-right: 1px solid var(--surface);
+}
+/* 모드는 글자와 무늬로 구분한다(색만으로 읽지 않게). */
+.bems-slot.heat {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--accent-soft) 0 6px,
+    var(--surface) 6px 9px
+  );
+}
+.bems-slot.fan {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--accent-soft) 0 3px,
+    var(--surface) 3px 6px
+  );
+}

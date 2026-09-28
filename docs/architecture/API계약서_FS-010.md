@@ -578,6 +578,7 @@ A-1만 스키마와 관련이 있고 나머지는 구현 방침이다. **A-1을 
 | `GET /hvac-overview` · `GET /hvac-units/{id}/detail` | 상태·제어 출처·설정값·최근 명령 20건·스케줄 | 404 |
 | `PUT /hvac-units/{id}/schedule {slots[]}` | 평일/주말 시간대(시작 ≤ 시 < 끝) 전체 교체. 겹치면 거부 | 400 `fields.slots.<i>` |
 | `GET /commands?zoneId=&hvacUnitId=` · `POST /commands` | TX-B1. `POWER_ON`·`POWER_OFF`·`SET_MODE`·`SET_SETPOINT`. 거부도 이력으로 남긴다(201, `result=REJECTED`, `rejectReason` `OUT_OF_RANGE`·`BAND_TOO_NARROW`·`UNIT_INACTIVE`·`ALREADY_ON`·`ALREADY_OFF`·`SAME_STATE`). 수동 운전은 다음 스케줄 경계까지 유지 | 400 `fields.zoneId`·`fields.mode`·`fields.value` |
+| `GET /simulation/clock` | `{next, limit, canAdvance}` — 다음 진행 구간 시작·한도(B-01·B-04 진행 버튼, FS-025b 2부) | — |
 | `POST /simulation/advance {hours:1~6}` | TX-B2. 스케줄 전환 → 환경·전력 관측 → 경보 판정. 결과 `{from, to, hours, readings, switches, raised, cleared}`. 한도 업무 기준일 다음 날 00:00 | 409 `SIMULATION_LIMIT` |
 | `GET /alarms?status=` · `POST /alarms/{id}/acknowledge {note}` | TX-B3. 발생 중인 경보만 확인 | 409 `NOT_RAISED` |
 | `GET/POST /alarm-rules` · `PATCH /alarm-rules/{id}` | 구역·지표·비교·임계·지속 시간·등급. 같은 구역·지표·비교는 1개 | 400 `fields.comparator` |

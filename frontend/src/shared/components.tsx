@@ -257,6 +257,12 @@ export function LineIcon({ kind }: { kind: string }) {
           <circle cx="28" cy="28" r="5" />
           <path d="m32 32 4 4" />
         </>
+      ) : kind === "bems" ? (
+        <>
+          <path d="M7 35V6h16v29M23 35V16h10v19" />
+          <path d="M11 12h3m3 0h2M11 18h3m3 0h2M11 24h3m3 0h2" />
+          <path d="M25 23c2-2 4 2 6 0m-6 5c2-2 4 2 6 0" />
+        </>
       ) : kind === "wms" ? (
         <>
           <path d="M5 35V15l15-9 15 9v20" />

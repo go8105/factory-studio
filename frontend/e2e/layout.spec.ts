@@ -113,6 +113,11 @@ for (const route of [
   "/wms/moves",
   "/wms/warehouses",
   "/wms/items",
+  "/bems/breakdown",
+  "/bems/hvac",
+  "/bems/schedules",
+  "/bems/alarms",
+  "/bems/zones",
 ]) {
   test(`1440×900 ${route} 목록 채움: 문서가 스크롤되지 않는다`, async ({
     page,

@@ -1,0 +1,560 @@
+// B-07 구역·계측 — 구역 목록 → 구역 상세(계측기·센서·공조기 세 표) → 각 폼 (UI-03 P 패턴, F-12 기준).
+// 폼을 닫으면 구역 상세로 돌아간다. 용도·항목은 등록 뒤 바꾸지 않고, 쓰지 않는 행은 사용 안 함으로 둔다.
+import { useState, type FormEvent, type ReactNode } from "react";
+import {
+  Badge,
+  DataTable,
+  DetailPanel,
+  EmptyState,
+  ErrorNotice,
+  Field,
+  FormPanel,
+  Loading,
+  PageTitle,
+  useDiscardGuard,
+  type Column,
+} from "../shared/components";
+import {
+  fieldErrors,
+  KIND_LABEL,
+  METRIC_LABEL,
+  ModuleOff,
+  moduleOff,
+  num,
+  STATE_LABEL,
+  USAGE_LABEL,
+  useLists,
+  useSend,
+  type HvacUnit,
+  type Meter,
+  type Metric,
+  type Sensor,
+  type Zone,
+} from "./common";
+
+type Kind = "zone" | "meter" | "sensor" | "hvac";
+const PATH: Record<Kind, string> = {
+  zone: "/zones",
+  meter: "/meters",
+  sensor: "/sensors",
+  hvac: "/hvac-units",
+};
+const TITLE: Record<Kind, string> = {
+  zone: "구역",
+  meter: "공용 계측기",
+  sensor: "환경 센서",
+  hvac: "공조기",
+};
+type Draft = {
+  code: string;
+  name: string;
+  kind: Zone["kind"];
+  floorAreaM2: string;
+  usage: Meter["usage"];
+  metric: Metric;
+  meterId: string;
+  ratedKw: string;
+  isActive: boolean;
+};
+const EMPTY: Draft = {
+  code: "",
+  name: "",
+  kind: "OFFICE",
+  floorAreaM2: "",
+  usage: "LIGHTING",
+  metric: "TEMP",
+  meterId: "",
+  ratedKw: "",
+  isActive: true,
+};
+type Row = { id: number; code: string; isActive: boolean };
+type FormRow = Row & {
+  name?: string;
+  kind?: Zone["kind"];
+  floorAreaM2?: string | null;
+  usage?: Meter["usage"];
+  metric?: Metric;
+  meterId?: number | null;
+  ratedKw?: string;
+};
+type Form = { kind: Kind; row: FormRow | null };
+
+const active = (v: boolean) =>
+  v ? "사용" : <Badge tone="warning">사용 안 함</Badge>;
+
+function Sub<T extends Row>({
+  caption,
+  rows,
+  head,
+  cells,
+  onEdit,
+}: {
+  caption: string;
+  rows: T[];
+  head: string[];
+  cells: (r: T) => ReactNode[];
+  onEdit: (r: T) => void;
+}) {
+  return (
+    <>
+      <h3>{caption}</h3>
+      {rows.length ? (
+        <div className="table-scroll">
+          <table>
+            <caption>{caption}</caption>
+            <thead>
+              <tr>
+                <th scope="col">코드</th>
+                {head.map((h) => (
+                  <th key={h} scope="col">
+                    {h}
+                  </th>
+                ))}
+                <th scope="col">사용</th>
+                <th scope="col">관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.code}</td>
+                  {cells(r).map((c, i) => (
+                    <td key={i}>{c}</td>
+                  ))}
+                  <td>{active(r.isActive)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => onEdit(r)}
+                    >
+                      수정
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="muted">{caption}가 없습니다.</p>
+      )}
+    </>
+  );
+}
+
+export function Zones() {
+  const { data, error, reload } = useLists<
+    [Zone[], Meter[], Sensor[], HvacUnit[]]
+  >(["/zones", "/meters", "/sensors", "/hvac-units"]);
+  const [zoneId, setZoneId] = useState<number | null>(null);
+  const [form, setForm] = useState<Form | null>(null);
+  const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [initial, setInitial] = useState<Draft>(EMPTY);
+  const { send, pending, error: saveError, setError } = useSend(reload);
+  const guard = useDiscardGuard(
+    !!form && JSON.stringify(draft) !== JSON.stringify(initial),
+  );
+  if (moduleOff(error)) return <ModuleOff />;
+  const [zones, meters, sensors, units] = data ?? [[], [], [], []];
+  const zone = zones.find((z) => z.id === zoneId);
+  const errors = fieldErrors(saveError);
+  const inZone = <T extends { zoneId: number }>(rows: T[]) =>
+    rows.filter((r) => r.zoneId === zoneId);
+  const hvacMeters = inZone(meters).filter((m) => m.usage === "HVAC");
+
+  function openForm(kind: Kind, row: Form["row"]) {
+    const values: Draft = row
+      ? {
+          ...EMPTY,
+          code: row.code,
+          name: row.name ?? "",
+          kind: row.kind ?? EMPTY.kind,
+          floorAreaM2: row.floorAreaM2 ?? "",
+          usage: row.usage ?? EMPTY.usage,
+          metric: row.metric ?? EMPTY.metric,
+          meterId: row.meterId ? String(row.meterId) : "",
+          ratedKw: row.ratedKw ?? "",
+          isActive: row.isActive,
+        }
+      : EMPTY;
+    guard.guard(() => {
+      setForm({ kind, row });
+      setDraft(values);
+      setInitial(values);
+      setError(undefined);
+    });
+  }
+  const closeForm = () => setForm(null);
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!form) return;
+    const { kind, row } = form;
+    const code = draft.code.trim().toUpperCase();
+    const body: Record<Kind, Record<string, unknown>> = row
+      ? {
+          zone: {
+            name: draft.name,
+            floorAreaM2: draft.floorAreaM2 || null,
+            isActive: draft.isActive,
+          },
+          meter: { name: draft.name, isActive: draft.isActive },
+          sensor: { isActive: draft.isActive },
+          hvac: {
+            name: draft.name,
+            meterId: draft.meterId ? Number(draft.meterId) : null,
+            ratedKw: draft.ratedKw,
+            isActive: draft.isActive,
+          },
+        }
+      : {
+          zone: {
+            code,
+            name: draft.name,
+            kind: draft.kind,
+            floorAreaM2: draft.floorAreaM2 || undefined,
+          },
+          meter: { zoneId, code, name: draft.name, usage: draft.usage },
+          sensor: { zoneId, code, metric: draft.metric },
+          hvac: {
+            zoneId,
+            code,
+            name: draft.name,
+            meterId: draft.meterId ? Number(draft.meterId) : undefined,
+            ratedKw: draft.ratedKw,
+          },
+        };
+    const saved = row
+      ? await send(`${PATH[kind]}/${row.id}`, "PATCH", body[kind])
+      : await send(PATH[kind], "POST", body[kind]);
+    if (saved) closeForm();
+  }
+
+  const columns: Column<Zone>[] = [
+    { key: "code", label: "코드" },
+    {
+      key: "id",
+      label: "관리",
+      render: (z) => (
+        <span className="row-actions">
+          <button
+            type="button"
+            className="link-button"
+            aria-pressed={zoneId === z.id && !form}
+            onClick={() =>
+              guard.guard(() => {
+                setZoneId(z.id);
+                setForm(null);
+              })
+            }
+          >
+            계측{" "}
+            {meters.filter((m) => m.zoneId === z.id).length +
+              sensors.filter((s) => s.zoneId === z.id).length}
+          </button>
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => openForm("zone", z)}
+          >
+            수정
+          </button>
+        </span>
+      ),
+    },
+    { key: "name", label: "이름" },
+    { key: "kind", label: "유형", render: (z) => KIND_LABEL[z.kind] },
+    {
+      key: "floorAreaM2",
+      label: "면적 ㎡",
+      render: (z) => num(z.floorAreaM2, 2),
+    },
+    { key: "isActive", label: "사용", render: (z) => active(z.isActive) },
+  ];
+  const editing = !!form?.row;
+  const k = form?.kind;
+
+  return (
+    <div className="page-fill">
+      <PageTitle
+        id="B-07"
+        title="구역·계측"
+        subtitle="건물 구역과 구역별 공용 계측기·환경 센서·공조기입니다. 이 계측은 FEMS와 따로 BEMS가 가집니다"
+        help="bems/b-07"
+        actions={
+          <button
+            type="button"
+            aria-pressed={form?.kind === "zone" && !form.row}
+            onClick={() => openForm("zone", null)}
+          >
+            구역 등록
+          </button>
+        }
+      />
+      {!form && !zone && <ErrorNotice error={saveError} />}
+      <ErrorNotice error={error} retry={reload} />
+      {!data ? (
+        !error && <Loading />
+      ) : (
+        <div className="split-view fill">
+          <section className="fill">
+            <DataTable
+              rows={zones}
+              columns={columns}
+              caption="구역 목록"
+              offset={0}
+              total={zones.length}
+              limit={zones.length || 1}
+              onPage={() => undefined}
+              empty={
+                <EmptyState
+                  reason="구역이 없습니다. 사무동·생산동 같은 구역을 먼저 등록하세요."
+                  action="구역 등록"
+                  onAction={() => openForm("zone", null)}
+                />
+              }
+            />
+          </section>
+          {zone && !form && (
+            <DetailPanel
+              wide
+              title={`${zone.name} 계측`}
+              onClose={() => setZoneId(null)}
+              actions={
+                <>
+                  <button type="button" onClick={() => openForm("meter", null)}>
+                    계측기 추가
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => openForm("sensor", null)}
+                  >
+                    센서 추가
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => openForm("hvac", null)}
+                  >
+                    공조기 추가
+                  </button>
+                </>
+              }
+            >
+              <ErrorNotice error={saveError} />
+              <Sub
+                caption="공용 계측기"
+                rows={inZone(meters)}
+                head={["이름", "용도", "단위"]}
+                cells={(m) => [m.name, USAGE_LABEL[m.usage], m.unit]}
+                onEdit={(m) => openForm("meter", m)}
+              />
+              <Sub
+                caption="환경 센서"
+                rows={inZone(sensors)}
+                head={["항목", "단위"]}
+                cells={(s) => [METRIC_LABEL[s.metric], s.unit]}
+                onEdit={(s) => openForm("sensor", s)}
+              />
+              <Sub
+                caption="공조기"
+                rows={inZone(units)}
+                head={["이름", "정격 kW", "공조 계측기", "상태"]}
+                cells={(u) => [
+                  u.name,
+                  num(u.ratedKw),
+                  meters.find((m) => m.id === u.meterId)?.code ?? "—",
+                  STATE_LABEL[u.state],
+                ]}
+                onEdit={(u) => openForm("hvac", u)}
+              />
+            </DetailPanel>
+          )}
+          {form && k && (
+            <FormPanel
+              key={`${k}:${form.row?.id ?? "new"}`}
+              title={`${TITLE[k]} ${editing ? `${form.row?.code} 수정` : k === "zone" ? "등록" : `추가 · ${zone?.name ?? ""}`}`}
+              guard={guard}
+              onClose={closeForm}
+              onSubmit={(e) => void submit(e)}
+              actions={
+                <>
+                  <button type="submit" disabled={pending} aria-busy={pending}>
+                    {editing ? "저장" : "등록"}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => guard.guard(closeForm)}
+                  >
+                    취소
+                  </button>
+                </>
+              }
+            >
+              <ErrorNotice
+                error={Object.keys(errors).length ? undefined : saveError}
+              />
+              <Field
+                label="코드"
+                value={draft.code}
+                required
+                disabled={editing}
+                maxLength={20}
+                pattern="[A-Z][A-Z0-9\-]{1,19}"
+                title="영문 대문자로 시작하는 2~20자 (대문자·숫자·-)"
+                error={errors.code}
+                onChange={(e) =>
+                  setDraft({ ...draft, code: e.target.value.toUpperCase() })
+                }
+              />
+              {k !== "sensor" && (
+                <Field
+                  label="이름"
+                  value={draft.name}
+                  required
+                  maxLength={100}
+                  error={errors.name}
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                />
+              )}
+              {k === "zone" && (
+                <>
+                  <div className="field">
+                    <label htmlFor="bems-zone-kind">유형</label>
+                    <select
+                      id="bems-zone-kind"
+                      value={draft.kind}
+                      disabled={editing}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          kind: e.target.value as Zone["kind"],
+                        })
+                      }
+                    >
+                      {(Object.keys(KIND_LABEL) as Zone["kind"][]).map((z) => (
+                        <option key={z} value={z}>
+                          {KIND_LABEL[z]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Field
+                    label="면적 ㎡(선택)"
+                    value={draft.floorAreaM2}
+                    inputMode="decimal"
+                    pattern="\d{1,8}(\.\d{1,2})?"
+                    error={errors.floorAreaM2}
+                    onChange={(e) =>
+                      setDraft({ ...draft, floorAreaM2: e.target.value })
+                    }
+                  />
+                </>
+              )}
+              {k === "meter" && (
+                <div className="field">
+                  <label htmlFor="bems-meter-usage">용도</label>
+                  <select
+                    id="bems-meter-usage"
+                    value={draft.usage}
+                    disabled={editing}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        usage: e.target.value as Meter["usage"],
+                      })
+                    }
+                  >
+                    {(Object.keys(USAGE_LABEL) as Meter["usage"][]).map((u) => (
+                      <option key={u} value={u}>
+                        {USAGE_LABEL[u]}
+                      </option>
+                    ))}
+                  </select>
+                  <small className="muted">
+                    단위 kWh · 용도는 등록 뒤 바꾸지 않습니다
+                  </small>
+                </div>
+              )}
+              {k === "sensor" && (
+                <div className="field">
+                  <label htmlFor="bems-sensor-metric">항목</label>
+                  <select
+                    id="bems-sensor-metric"
+                    value={draft.metric}
+                    disabled={editing}
+                    aria-invalid={!!errors.metric}
+                    onChange={(e) =>
+                      setDraft({ ...draft, metric: e.target.value as Metric })
+                    }
+                  >
+                    {(Object.keys(METRIC_LABEL) as Metric[]).map((m) => (
+                      <option key={m} value={m}>
+                        {METRIC_LABEL[m]}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.metric && <small>{errors.metric}</small>}
+                </div>
+              )}
+              {k === "hvac" && (
+                <>
+                  <div className="field">
+                    <label htmlFor="bems-hvac-meter">공조 전력 계측기</label>
+                    <select
+                      id="bems-hvac-meter"
+                      value={draft.meterId}
+                      aria-invalid={!!errors.meterId}
+                      onChange={(e) =>
+                        setDraft({ ...draft, meterId: e.target.value })
+                      }
+                    >
+                      <option value="">없음</option>
+                      {hvacMeters.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.code} {m.name}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.meterId ? (
+                      <small>{errors.meterId}</small>
+                    ) : (
+                      <small className="muted">
+                        같은 구역의 공조 용도 계측기만 고를 수 있습니다
+                      </small>
+                    )}
+                  </div>
+                  <Field
+                    label="정격 kW"
+                    value={draft.ratedKw}
+                    required
+                    inputMode="decimal"
+                    pattern="\d{1,6}(\.\d{1,2})?"
+                    error={errors.ratedKw}
+                    onChange={(e) =>
+                      setDraft({ ...draft, ratedKw: e.target.value })
+                    }
+                  />
+                </>
+              )}
+              {editing && (
+                <label className="inline-check">
+                  <input
+                    type="checkbox"
+                    checked={draft.isActive}
+                    onChange={(e) =>
+                      setDraft({ ...draft, isActive: e.target.checked })
+                    }
+                  />
+                  사용
+                </label>
+              )}
+            </FormPanel>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

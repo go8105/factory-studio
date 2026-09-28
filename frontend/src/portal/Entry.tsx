@@ -58,10 +58,11 @@ export function Entry() {
         <h1>
           제조 현장의
           <br />
-          다섯 시스템
+          여섯 시스템
         </h1>
         <p className="lead">
-          MES · ERP · FEMS · QMS · WMS를 각각 독립된 솔루션으로 만들었습니다.
+          MES · ERP · FEMS · QMS · WMS · BEMS를 각각 독립된 솔루션으로
+          만들었습니다.
           <br />
           가입 없이 바로 둘러보세요.
         </p>
@@ -123,6 +124,7 @@ export function Entry() {
         <span>FEMS / 에너지관리</span>
         <span>QMS / 품질관리</span>
         <span>WMS / 창고관리</span>
+        <span>BEMS / 건물관리</span>
       </footer>
     </main>
   );

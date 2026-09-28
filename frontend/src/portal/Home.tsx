@@ -1,4 +1,4 @@
-// P-02 앱 런처: 정보는 필요할 때 열고, 첫 화면은 다섯 솔루션에 집중한다.
+// P-02 앱 런처: 정보는 필요할 때 열고, 첫 화면은 여섯 솔루션에 집중한다.
 import "./Home.css";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -36,6 +36,12 @@ export const solutions = [
     description: "창고·위치 재고 원장, 입출고 반영과 조정까지",
     to: "/wms",
   },
+  {
+    key: "bems",
+    name: "건물관리",
+    description: "공용 에너지 분해, 공조 운전·설정값·경보까지",
+    to: "/bems",
+  },
 ] as const;
 // 사용자 제공 Figma 시제품의 SVG 모양을 홈에만 적용한다.
 function AppIcon({ kind }: { kind: (typeof solutions)[number]["key"] }) {
@@ -60,6 +66,23 @@ function AppIcon({ kind }: { kind: (typeof solutions)[number]["key"] }) {
         </>
       ) : kind === "fems" ? (
         <path d="m24 4-10 24h8l-4 16 16-24h-8z" fill="#a68951" />
+      ) : kind === "bems" ? (
+        <>
+          <path d="M8 42V10h20v32Z" fill="#4f6272" />
+          <path d="M28 42V20h12v22Z" fill="#a0a6af" />
+          <path
+            d="M13 16h4m3 0h4M13 23h4m3 0h4M13 30h4m3 0h4"
+            stroke="var(--surface)"
+            strokeWidth="2.5"
+          />
+          <path
+            d="M31 27c2-2 4 2 6 0m-6 6c2-2 4 2 6 0"
+            fill="none"
+            stroke="var(--surface)"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </>
       ) : kind === "wms" ? (
         <>
           <path d="M6 42V18L24 8l18 10v24h-6V24H12v18Z" fill="#6b6f5c" />
@@ -114,8 +137,8 @@ export function Home() {
       <div className="home-hero">
         <div>
           <span className="home-eyebrow">YOUR WORKSPACE</span>
-          <h1>제조 현장의 다섯 시스템</h1>
-          <p>하나의 공간에서 만나는 다섯 가지 독립 솔루션</p>
+          <h1>제조 현장의 여섯 시스템</h1>
+          <p>하나의 공간에서 만나는 여섯 가지 독립 솔루션</p>
         </div>
         <div className="home-context">
           <Link to="/workspace" className="home-space">
@@ -135,7 +158,7 @@ export function Home() {
       <Link to="/flow" className="home-flow">
         <div>
           <span className="home-eyebrow">THE BIG PICTURE</span>
-          <h2>다섯 시스템은 어떻게 이어지는가</h2>
+          <h2>여섯 시스템은 어떻게 이어지는가</h2>
           <p>판매계획에서 생산·출하·매출까지 전체 흐름 보기</p>
         </div>
         <span className="home-flow-action">
@@ -229,7 +252,7 @@ export function Home() {
           보세요.
         </p>
         <div>
-          {["BEMS 건물", "SCM 공급망"].map((s) => (
+          {["SCM 공급망"].map((s) => (
             <Link key={s} to={`/cards/${s.split(" ")[0].toLowerCase()}`}>
               {s} →
             </Link>

@@ -889,6 +889,11 @@ def clock(connection, scoped) -> dict[str, Any]:
     }
 
 
+def simulation_clock(context: AuthContext) -> dict[str, Any]:
+    with _read() as connection:
+        return clock(connection, read_scope(connection, context, MODULE))
+
+
 # ---------- 경보 (B-06, TX-B3) ----------
 
 ALARM_SQL = f"""

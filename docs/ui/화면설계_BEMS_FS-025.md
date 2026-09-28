@@ -166,3 +166,15 @@ BEMS 건물관리
 - 단위(vitest): B-02 불일치 배지·FEMS 꺼짐 안내, B-04 명령 거부 안내·수동 운전 안내, B-05 겹침 필드 오류, B-06 확인 흐름.
 - e2e: 설정값 23℃ → 1시간 진행 → B-03 온도 하강·공조 전력 증가 / CO₂ 경보 확인 → 팬 운전 → 진행 → 해제 / FEMS 끔 → B-02 안내.
 - `layout.spec`: B-02·B-06 1440×900 목록 채움, B-04·B-05 넓은 패널 640px 가로 넘침 없음. portal 360px 경로 목록에 `/bems/*`, 홈 6타일.
+
+## 6. 구현 기록 (FS-025b 2부 화면, 2026-09-28)
+
+| 항목 | 구현 |
+|---|---|
+| 모듈 | `frontend/src/bems/` — `common.tsx`(타입·문구·`useGet`·`AdvanceControl`·`LineChart`·`ShareBars`·`nextBoundary`), `BemsLayout`, B-01 `Dashboard`·B-02 `Breakdown`·B-03 `Environment`·B-04 `Hvac`·B-05 `Schedules`·B-06 `Alarms`·B-07 `Zones`, 라우트 `/bems/*`(lazy) |
+| 포털 | 런처 6번째 타일 BEMS 건물관리(홈 아이콘·`LineIcon`), 격자 최대 940px 한 줄·360px 3·3, 제목 "여섯 시스템"(홈·진입·헤더·P-02 도움말), 하단 "아직 만들지 않은 것"은 SCM만, 다섯 솔루션 레이아웃의 다른 앱 링크에 BEMS, P-05 참고 문서 목록에 BEMS 메뉴 |
+| API 추가 | `GET /simulation/clock`(진행 버튼의 시각·한도) |
+| 설계와 다른 점 | B-03 값 표의 "공조 상태" 열 없음 — 시간별 공조 상태 이력을 저장하지 않는다(명령 이력으로 추적). B-02 불일치 안내는 행 펼침 대신 표 위 안내 한 줄 + FEMS F-03 링크. 수동 명령 안내의 스케줄 복귀 시각은 화면이 스케줄로 계산(`nextBoundary`, 서버 `_scheduled_mode`와 같은 KST 규칙) |
+| 결함 수정 | B-03이 구역 목록을 받기 전 `undefined === undefined`로 관측을 읽어 앱 전체가 멈추던 문제(e2e에서 발견) → 데이터가 있을 때만 비교, vitest 회귀 테스트 |
+| 검증 | vitest `bems.test.tsx` 7(B-02 불일치·FEMS 꺼짐, B-04 거부·수동 복귀 안내, B-05 겹침 오류, B-06 확인, B-03 그래프, 경계 계산), e2e `bems.spec.ts` 2(화면으로 구역·계측·센서·공조기 등록 → CO₂ 규칙 → 전원·모드·설정값(31 거부·23 적용) → 1시간 진행 경보 발생 → 확인 → 그래프 / FEMS 끔 → B-02 안내), portal 360px 7경로, layout 1440 채움 5경로, 홈 6타일 배치 |
+| 남은 것(FS-025c) | BEMS 시드·도움말 b-01~07(현재 도움말 링크는 404)·흐름 맵 노드·`content/cards/bems.md` 삭제(카드 경로는 아직 열림) |

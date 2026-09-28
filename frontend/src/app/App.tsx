@@ -27,6 +27,7 @@ const MesRoutes = lazy(() => import("../mes"));
 const ErpRoutes = lazy(() => import("../erp"));
 const QmsRoutes = lazy(() => import("../qms"));
 const WmsRoutes = lazy(() => import("../wms"));
+const BemsRoutes = lazy(() => import("../bems"));
 const VisionLab = lazy(() => import("../factory/VisionLab"));
 const Factory = lazy(() => import("../factory/Factory"));
 function Layout() {
@@ -36,7 +37,7 @@ function Layout() {
   const [leaving, setLeaving] = useState(false);
   const { pathname } = useLocation();
   // 업무 화면(솔루션)은 사이드바·본문이 헤더 아래 높이를 모두 쓴다. 바닥글은 포털 화면에만 둔다.
-  const work = /^\/(fems|mes|erp|qms|wms)(\/|$)/.test(pathname);
+  const work = /^\/(fems|mes|erp|qms|wms|bems)(\/|$)/.test(pathname);
   async function logout() {
     setLeaving(true);
     try {
@@ -70,7 +71,7 @@ function Layout() {
             F
           </span>
           Factory Studio
-          <span className="brand-tagline">제조 현장의 다섯 시스템</span>
+          <span className="brand-tagline">제조 현장의 여섯 시스템</span>
         </Link>
         <nav aria-label="주 메뉴">
           {session && (
@@ -172,6 +173,7 @@ function PortalRoutes() {
             <Route path="/erp/*" element={<ErpRoutes />} />
             <Route path="/qms/*" element={<QmsRoutes />} />
             <Route path="/wms/*" element={<WmsRoutes />} />
+            <Route path="/bems/*" element={<BemsRoutes />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Route>

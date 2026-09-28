@@ -98,13 +98,13 @@
 .home-solutions {
   margin-top: 54px;
 }
-/* 앱 5개: 작은 아이콘 타일(84px)을 넓은 화면 한 줄, 좁은 화면 3·2로. 마지막 줄은 가운데로 모은다. */
+/* 앱 6개: 작은 아이콘 타일(84px)을 넓은 화면 한 줄(최대 940px), 좁은 화면 3·3으로. */
 .launcher-grid {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 28px;
-  max-width: 780px;
+  max-width: 940px;
   margin: 0 auto;
 }
 .launcher-item {
