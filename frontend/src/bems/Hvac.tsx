@@ -259,19 +259,17 @@ export function Hvac() {
                     >
                       {unit.state === "OFF" ? "전원 켜기" : "전원 끄기"}
                     </button>
-                    <label>
-                      모드
-                      <select
-                        value={mode}
-                        onChange={(e) => setMode(e.target.value as Mode)}
-                      >
-                        {(["COOL", "HEAT", "FAN"] as Mode[]).map((m) => (
-                          <option key={m} value={m}>
-                            {STATE_LABEL[m]}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    <select
+                      aria-label="모드"
+                      value={mode}
+                      onChange={(e) => setMode(e.target.value as Mode)}
+                    >
+                      {(["COOL", "HEAT", "FAN"] as Mode[]).map((m) => (
+                        <option key={m} value={m}>
+                          {STATE_LABEL[m]}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       type="button"
                       className="secondary"

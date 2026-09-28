@@ -88,6 +88,16 @@ EXPECTED_COUNTS = {
     "wms.item_unit_conversion": 1,
     "wms.stock_document": 40,
     "wms.stock_move": 55,
+    "bems.zone": 3,
+    "bems.meter": 3,
+    "bems.sensor": 6,
+    "bems.hvac_unit": 2,
+    "bems.schedule_slot": 4,
+    "bems.energy_reading": 2160,
+    "bems.environment_reading": 2016,
+    "bems.control_command": 16,
+    "bems.alarm_rule": 4,
+    "bems.alarm": 4,
 }
 
 
@@ -101,9 +111,9 @@ def validate_all(
         actual == EXPECTED_COUNTS,
         f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}",
     )
-    _require(sum(actual.values()) == 7692, f"V1 total={sum(actual.values())}")
-    # FS-025a: core.workspace_module에 bems 행 +1. BEMS 업무 시드는 FS-025c.
-    results["V1"] = "93개 중 시드 76테이블, 7,692행 일치"
+    _require(sum(actual.values()) == 11910, f"V1 total={sum(actual.values())}")
+    # FS-025c: BEMS 시드 +4,218행(공용 전력 30일·환경 14일).
+    results["V1"] = "93개 중 시드 86테이블, 11,910행 일치"
 
     plans = connection.execute(
         text(

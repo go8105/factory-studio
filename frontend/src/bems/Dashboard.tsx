@@ -178,11 +178,15 @@ export function Dashboard() {
                 aria-label={`${z.name} 현황`}
               >
                 <h2>{z.name}</h2>
-                <p>
-                  {num(z.environment.TEMP)}℃ · 습도{" "}
-                  {num(z.environment.HUMIDITY)}% · CO₂{" "}
-                  {num(z.environment.CO2, 0)} ppm
-                </p>
+                {Object.keys(z.environment).length ? (
+                  <p>
+                    {num(z.environment.TEMP)}℃ · 습도{" "}
+                    {num(z.environment.HUMIDITY)}% · CO₂{" "}
+                    {num(z.environment.CO2, 0)} ppm
+                  </p>
+                ) : (
+                  <p className="muted">환경 센서 없음</p>
+                )}
                 <p className="muted">
                   냉방 {num(z.setpoints.COOL_TEMP)}℃ · 난방{" "}
                   {num(z.setpoints.HEAT_TEMP)}℃ · CO₂ 상한{" "}

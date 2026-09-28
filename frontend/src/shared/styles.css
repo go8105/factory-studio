@@ -2308,3 +2308,34 @@ th[aria-sort="none"] button span {
     var(--surface) 3px 6px
   );
 }
+.bems-shares {
+  margin: 0 0 var(--s3);
+}
+.bems-shares figcaption,
+.bems-shares p {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  margin: 0;
+}
+.bems-shares-bar {
+  display: flex;
+  height: 12px;
+  margin: var(--s2) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+.bems-shares-bar .share-제조 {
+  background: var(--accent);
+}
+.bems-shares-bar .share-공용 {
+  background: var(--accent-soft);
+}
+.bems-shares-bar .share-잔여 {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--border-strong) 0 3px,
+    var(--surface) 3px 6px
+  );
+}

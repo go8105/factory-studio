@@ -115,10 +115,10 @@
     },
     {
       "id": "building_energy",
-      "label": "건물 에너지",
+      "label": "건물 에너지 분해",
       "module": "bems",
-      "kind": "card",
-      "helpKey": null
+      "kind": "solution",
+      "helpKey": "bems/b-02"
     }
   ],
   "edges": [
@@ -233,8 +233,8 @@
     {
       "from": "energy_master",
       "to": "building_energy",
-      "label": "제조 에너지와 공용 에너지의 경계",
-      "kind": "card"
+      "label": "제조·공용·잔여로 분해한다(FEMS 조회)",
+      "kind": "solution"
     }
   ]
 }

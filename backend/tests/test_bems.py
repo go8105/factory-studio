@@ -109,10 +109,53 @@ def _setup(client, created) -> dict:
     return ids
 
 
+BEMS_TABLES = (
+    "alarm",
+    "alarm_rule",
+    "control_command",
+    "schedule_slot",
+    "environment_reading",
+    "energy_reading",
+    "hvac_unit",
+    "sensor",
+    "meter",
+    "zone",
+)
+
+
 @pytest.fixture
 def bems(guest_space):
+    """시드(FS-025c)를 지운 빈 BEMS에서 기준정보를 새로 만든다."""
     client, created, engine = guest_space
+    with engine.begin() as connection:
+        for table in BEMS_TABLES:
+            connection.execute(
+                text(
+                    f"DELETE FROM bems.{table} WHERE workspace_id=:w AND generation_id=:g"
+                ),
+                {"w": created["workspaceId"], "g": created["generationId"]},
+            )
     return client, created, engine, _setup(client, created)
+
+
+def test_seeded_demo(guest_space):
+    """FS-025c 시드: 분해 30일 잔여 음수 없음, 사무동 CO₂ 확인 대기 1건, 진행은 T 00:00부터."""
+    client, _, _ = guest_space
+    rows = _ok(client.get(f"{B}/breakdown"))["rows"]
+    assert len(rows) == 30 and not any(r["mismatch"] for r in rows)
+    assert all(Decimal(r["common"]) > 0 and r["missingHours"] == 0 for r in rows)
+    board = _ok(client.get(f"{B}/dashboard"))
+    assert [(a["zoneCode"], a["metric"], a["status"]) for a in board["alarms"]] == [
+        ("Z-OFF", "CO2", "raised")
+    ]
+    assert board["clock"]["next"].startswith("2026-09-24T00:00")
+    unit = _ok(client.get(f"{B}/hvac-overview"))[0]
+    assert (unit["code"], unit["state"], unit["controlSource"]) == (
+        "AHU-OFF",
+        "OFF",
+        "SCHEDULE",
+    )
+    assert len(_ok(client.get(f"{B}/alarms", params={"status": "cleared"}))) == 3
 
 
 def _command(client, created, ids, zone, **body):
@@ -290,6 +333,8 @@ def test_advance_is_idempotent(bems):
         client.get(f"{B}/energy", params={"from": "2026-09-24", "to": "2026-09-24"})
     )
     assert len(readings) == 3  # 계측기 3개 × 1시간
+    clock = _ok(client.get(f"{B}/simulation/clock"))
+    assert clock["next"].startswith("2026-09-24T01:00") and clock["canAdvance"]
     nxt = _ok(_advance(client, created))
     assert nxt["from"].startswith("2026-09-24T01:00")
 
@@ -511,7 +556,7 @@ def test_fems_off_only_blocks_breakdown(bems):
 def test_other_workspace_cannot_see_bems(bems):
     """AC-137"""
     client, created, _, ids = bems
-    _command(
+    mine = _command(
         client,
         created,
         ids,
@@ -528,4 +573,7 @@ def test_other_workspace_cannot_see_bems(bems):
         == 201
     )
     assert other.get(f"{B}/hvac-units/{ids['AHU-OFF']}/detail").status_code == 404
-    assert other.get(f"{B}/commands").json()["data"] == []
+    # 다른 공간에는 자기 시드 명령만 보인다.
+    assert mine["id"] not in {
+        c["id"] for c in other.get(f"{B}/commands").json()["data"]
+    }

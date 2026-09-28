@@ -46,7 +46,9 @@ HUMIDITY_OUTDOOR = Decimal(55)
 HUMIDITY_PULL = Decimal("0.1")
 CO2_FLOOR = Decimal(420)
 CO2_OCCUPIED = Decimal(120)  # 사무동 재실 시간 +ppm/h
-CO2_IDLE = Decimal(10)
+CO2_IDLE = Decimal(
+    -30
+)  # 비재실: 자연 환기로 감소(FS-025c 보정 — +10이면 밤새 쌓여 경보가 다시 떴다)
 CO2_VENT = Decimal(150)  # 공조기 운전(환기) −ppm/h
 OCCUPIED_HOURS = range(9, 18)  # 사무동 재실(평일 09~18시)
 FAN_SHARE = Decimal("0.25")  # 송풍 전력 = 정격 × 0.25

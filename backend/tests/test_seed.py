@@ -95,7 +95,7 @@ def seed_env() -> Generator[SeedFixtureData]:
     _reset()
     with engine.begin() as connection:
         workspace_id, generation_id, counts = create_template(connection, seed_date)
-        assert sum(counts.values()) == 7692  # FS-025a: bems 모듈 행 +1
+        assert sum(counts.values()) == 11910  # FS-025c: BEMS 시드 +4,218
     first_snapshot = _snapshot(workspace_id, generation_id)
 
     _reset()
@@ -113,7 +113,7 @@ def seed_env() -> Generator[SeedFixtureData]:
             copied_workspace, copied_generation, counts, elapsed = copy_template(
                 connection, workspace_id, generation_id, target, f"fs015-test-{index}"
             )
-            assert sum(counts.values()) == 7690  # FS-025a: bems 모듈 행 +1
+            assert sum(counts.values()) == 11908  # FS-025c: BEMS 시드 +4,218
             copied.append((copied_workspace, copied_generation, target))
             if index >= 2:
                 timings.append(elapsed)
@@ -144,7 +144,7 @@ def test_seed_v1_row_counts(seed_env: SeedFixtureData) -> None:
         assert actual == EXPECTED_COUNTS, (
             f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}"
         )
-        assert sum(actual.values()) == 7692, f"V1 total={sum(actual.values())}"
+        assert sum(actual.values()) == 11910, f"V1 total={sum(actual.values())}"
 
 
 def test_seed_v2_calendar_months_and_weeks(seed_env: SeedFixtureData) -> None:

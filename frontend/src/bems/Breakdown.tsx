@@ -12,14 +12,7 @@ import {
   PageTitle,
   type Column,
 } from "../shared/components";
-import {
-  ModuleOff,
-  moduleOff,
-  num,
-  ShareBars,
-  useGet,
-  type BreakdownRow,
-} from "./common";
+import { ModuleOff, moduleOff, num, useGet, type BreakdownRow } from "./common";
 
 type Data = {
   granularity: "day" | "month";
@@ -39,6 +32,41 @@ const sum = (
   rows: BreakdownRow[],
   key: "site" | "manufacturing" | "common" | "residual",
 ) => String(rows.reduce((t, r) => t + Number(r[key]), 0));
+
+/** 기간 합계 비율 한 줄(색과 글자 함께). 잔여가 음수면 막대에서 빼고 글자로만 적는다. */
+function Shares({
+  caption,
+  site,
+  parts,
+}: {
+  caption: string;
+  site: string;
+  parts: [string, string][];
+}) {
+  const pct = (v: string) =>
+    Number(site) ? (Number(v) / Number(site)) * 100 : 0;
+  return (
+    <figure className="bems-shares" aria-label={caption}>
+      <figcaption>
+        {caption} · 사업장 {num(site, 0)} kWh
+      </figcaption>
+      <div className="bems-shares-bar" aria-hidden="true">
+        {parts.map(([label, v]) => (
+          <span
+            key={label}
+            className={`share-${label}`}
+            style={{ width: `${Math.max(0, pct(v))}%` }}
+          />
+        ))}
+      </div>
+      <p>
+        {parts
+          .map(([label, v]) => `${label} ${num(v, 0)} kWh (${num(pct(v))}%)`)
+          .join(" · ")}
+      </p>
+    </figure>
+  );
+}
 
 export function Breakdown() {
   const [draft, setDraft] = useState<Filter>({
@@ -157,19 +185,13 @@ export function Breakdown() {
           ) : (
             <>
               {rows.length > 0 && (
-                <ShareBars
+                <Shares
                   caption={`기간 합계 ${data.from} ~ ${data.to}`}
-                  rows={[
-                    {
-                      period: "합계",
-                      site: sum(rows, "site"),
-                      manufacturing: sum(rows, "manufacturing"),
-                      common: sum(rows, "common"),
-                      residual: sum(rows, "residual"),
-                      commonByUsage: {},
-                      mismatch: false,
-                      missingHours: 0,
-                    },
+                  site={sum(rows, "site")}
+                  parts={[
+                    ["제조", sum(rows, "manufacturing")],
+                    ["공용", sum(rows, "common")],
+                    ["잔여", sum(rows, "residual")],
                   ]}
                 />
               )}

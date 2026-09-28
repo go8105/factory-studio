@@ -273,6 +273,7 @@ def create_template(
     _fems(writer, context)
     _qms(writer, context)
     _wms(writer)
+    _bems(writer)
     normalize_created_at(connection, workspace_id, generation_id, seed_date)
     return workspace_id, generation_id, dict(writer.counts)
 
@@ -299,6 +300,8 @@ def normalize_created_at(
         "completed_at",
         "posted_at",
         "moved_at",
+        "requested_at",
+        "raised_at",
     )
     date_priority = (
         "quoted_on",
@@ -2668,3 +2671,376 @@ def _wms(writer: SeedWriter) -> None:
             {**m, "document_id": doc_id, "line_no": n} for n, m in enumerate(moves, 1)
         ]
     writer.add("wms.stock_move", move_rows)
+
+
+# ---------- BEMS (FS-025c) ----------
+# 과거 관측은 1시간 진행과 같은 모델(fs.bems.simulation)로 만든다. 공용 전력 30일, 환경 14일.
+# 합은 FEMS 수전에 숨긴 공용 부하(주간 25·야간 15 kWh/h)보다 작다 → 잔여 음수 없음.
+BEMS_SCHEDULE = [("WEEKDAY", 8, 19, "COOL"), ("WEEKEND", 10, 16, "FAN")]
+BEMS_RULES = [
+    ("Z-OFF", "CO2", "HIGH", "1000", 2, "WARNING"),
+    ("Z-OFF", "TEMP", "HIGH", "28", 2, "WARNING"),
+    ("Z-PRD", "TEMP", "HIGH", "30", 1, "CRITICAL"),
+    ("Z-PRD", "HUMIDITY", "HIGH", "70", 3, "WARNING"),
+]
+
+
+def _bems_weekday(seed_date: date, day: int) -> bool:
+    return (seed_date + timedelta(days=day)).weekday() < 5
+
+
+def _bems_mode(seed_date: date, day: int, hour: int) -> str:
+    kind = "WEEKDAY" if _bems_weekday(seed_date, day) else "WEEKEND"
+    return next(
+        (m for k, s, e, m in BEMS_SCHEDULE if k == kind and s <= hour < e), "OFF"
+    )
+
+
+def _bems(writer: SeedWriter) -> None:
+    from fs.bems import simulation as sim
+
+    seed_date = writer.seed_date
+    zones = writer.add(
+        "bems.zone",
+        [
+            {
+                "code": "Z-OFF",
+                "name": "사무동",
+                "kind": "OFFICE",
+                "floor_area_m2": Decimal("1200"),
+            },
+            {
+                "code": "Z-PRD",
+                "name": "생산동 공조 구역",
+                "kind": "PRODUCTION",
+                "floor_area_m2": Decimal("3000"),
+            },
+            {
+                "code": "Z-UTL",
+                "name": "유틸리티",
+                "kind": "UTILITY",
+                "floor_area_m2": Decimal("400"),
+            },
+        ],
+        "code",
+    )
+    meters = writer.add(
+        "bems.meter",
+        [
+            {
+                "zone_id": zones["Z-UTL"],
+                "code": "BM-LGT",
+                "name": "건물 조명(전 구역 합)",
+                "usage": "LIGHTING",
+            },
+            {
+                "zone_id": zones["Z-OFF"],
+                "code": "BM-HVAC",
+                "name": "사무동 공조 전력",
+                "usage": "HVAC",
+            },
+            {
+                "zone_id": zones["Z-OFF"],
+                "code": "BM-OFF",
+                "name": "사무동 콘센트",
+                "usage": "OFFICE",
+            },
+        ],
+        "code",
+    )
+    units = {"TEMP": "℃", "HUMIDITY": "%", "CO2": "ppm"}
+    sensors = writer.add(
+        "bems.sensor",
+        [
+            {
+                "zone_id": zones[z],
+                "code": f"S-{z[2:]}-{m[:3]}",
+                "metric": m,
+                "unit": units[m],
+            }
+            for z in ("Z-OFF", "Z-PRD")
+            for m in ("TEMP", "HUMIDITY", "CO2")
+        ],
+        ("zone_id", "metric"),
+    )
+    # 공조기: 사무동은 공조 계측기로 전력을 잰다. 생산동 공조기는 BEMS 계측이 없어 잔여로 남는다.
+    hvac = {
+        "AHU-OFF": ("Z-OFF", "사무동 공조기", "BM-HVAC", Decimal("12")),
+        "AHU-PRD": ("Z-PRD", "생산동 공조기", None, Decimal("18")),
+    }
+
+    # 수동 명령(시연 이력): 평일 10시 사무동 공조기 수동 정지 → 재실 CO₂가 올라 경보, 19시 스케줄 경계에서 복귀.
+    weekdays = [d for d in range(-14, 0) if _bems_weekday(seed_date, d)]
+    off_days = [weekdays[1], weekdays[5], weekdays[7], weekdays[-1]]
+    manual: list[Row] = []
+    for day in off_days:
+        manual.append(
+            {
+                "unit": "AHU-OFF",
+                "day": day,
+                "hour": 10,
+                "command": "POWER_OFF",
+                "note": "사무동 공조 점검(수동 정지)",
+            }
+        )
+    manual += [
+        {
+            "unit": "AHU-OFF",
+            "day": -20,
+            "hour": 9,
+            "command": "SET_SETPOINT",
+            "kind": "COOL_TEMP",
+            "value": Decimal("25"),
+            "note": "무더위 냉방 강화",
+        },
+        {
+            "unit": "AHU-OFF",
+            "day": weekdays[3],
+            "hour": 9,
+            "command": "SET_SETPOINT",
+            "kind": "COOL_TEMP",
+            "value": Decimal("26"),
+            "note": "기본값 복귀",
+        },
+        {
+            "unit": "AHU-PRD",
+            "day": weekdays[4],
+            "hour": 11,
+            "command": "SET_SETPOINT",
+            "kind": "COOL_TEMP",
+            "value": Decimal("31"),
+            "note": "범위 밖 입력 예시",
+        },
+        {
+            "unit": "AHU-PRD",
+            "day": weekdays[4],
+            "hour": 11,
+            "command": "SET_SETPOINT",
+            "kind": "COOL_TEMP",
+            "value": Decimal("25"),
+            "note": "생산동 냉방 강화",
+        },
+    ]
+    by_hour: dict[tuple[int, int], list[Row]] = defaultdict(list)
+    for m in manual:
+        by_hour[(m["day"], m["hour"])].append(m)
+
+    setpoints = {z: dict(sim.DEFAULT_SETPOINTS) for z in ("Z-OFF", "Z-PRD")}
+    state = {u: ("OFF", "SCHEDULE") for u in hvac}
+    changed_at: dict[str, datetime | None] = {u: None for u in hvac}
+    env = {
+        z: {k: Decimal(v) for k, v in sim.start_values(0).items()} for z in setpoints
+    }
+    energy_rows: list[Row] = []
+    env_rows: list[Row] = []
+    commands: list[Row] = []
+    series: dict[tuple[str, str], list[tuple[datetime, Decimal]]] = defaultdict(list)
+    for day in range(-30, 0):
+        weekday = _bems_weekday(seed_date, day)
+        for hour in range(24):
+            moment = at(seed_date, day, hour)
+            prev = (day, hour - 1) if hour else (day - 1, 23)
+            for u in hvac:
+                planned = _bems_mode(seed_date, day, hour)
+                boundary = planned != _bems_mode(seed_date, *prev)
+                current, source = state[u]
+                if (source == "SCHEDULE" or boundary) and (
+                    current != planned or source != "SCHEDULE"
+                ):
+                    if day >= -2:  # 스케줄 전환 이력은 최근 2일만 남긴다(시드 크기)
+                        commands.append(
+                            {
+                                "zone": hvac[u][0],
+                                "unit": u,
+                                "at": moment,
+                                "source": "SCHEDULE",
+                                "result": "APPLIED",
+                                "command": "POWER_OFF"
+                                if planned == "OFF"
+                                else ("POWER_ON" if current == "OFF" else "SET_MODE"),
+                                "mode": planned
+                                if current != "OFF" and planned != "OFF"
+                                else None,
+                            }
+                        )
+                    state[u] = (planned, "SCHEDULE")
+                    changed_at[u] = moment
+            for m in by_hour.get((day, hour), []):
+                zone = hvac[m["unit"]][0]
+                row = {
+                    "zone": zone,
+                    "unit": m["unit"],
+                    "at": moment,
+                    "source": "MANUAL",
+                    "command": m["command"],
+                    "note": m["note"],
+                    "result": "APPLIED",
+                }
+                if m["command"] == "SET_SETPOINT":
+                    reason = sim.setpoint_error(m["kind"], m["value"], setpoints[zone])
+                    row.update(
+                        kind=m["kind"],
+                        value=m["value"],
+                        result="REJECTED" if reason else "APPLIED",
+                        reason=reason,
+                    )
+                    if not reason:
+                        setpoints[zone][m["kind"]] = m["value"]
+                else:
+                    state[m["unit"]] = ("OFF", "MANUAL")
+                    changed_at[m["unit"]] = moment
+                commands.append(row)
+            hvac_kwh = Decimal(0)
+            for zone in setpoints:
+                unit = next(u for u in hvac if hvac[u][0] == zone)
+                mode = state[unit][0]
+                env[zone] = {
+                    "TEMP": sim.next_temperature(
+                        env[zone]["TEMP"], hour, mode, setpoints[zone]
+                    ),
+                    "HUMIDITY": sim.next_humidity(env[zone]["HUMIDITY"], mode),
+                    "CO2": sim.next_co2(
+                        env[zone]["CO2"], hour, weekday, zone == "Z-OFF", mode
+                    ),
+                }
+                if hvac[unit][2]:
+                    hvac_kwh += sim.hvac_power(
+                        mode, hvac[unit][3], env[zone]["TEMP"], setpoints[zone]
+                    )
+                if day >= -14:
+                    for metric, value in env[zone].items():
+                        env_rows.append(
+                            {
+                                "sensor_id": sensors[(zones[zone], metric)],
+                                "period_start": moment,
+                                "value": value,
+                                "source": "SEED",
+                            }
+                        )
+                        series[(zone, metric)].append((moment, value))
+            for code, usage in (
+                ("BM-LGT", "LIGHTING"),
+                ("BM-HVAC", "HVAC"),
+                ("BM-OFF", "OFFICE"),
+            ):
+                value = (
+                    hvac_kwh
+                    if usage == "HVAC"
+                    else sim.fixed_load(usage, hour, weekday)
+                )
+                energy_rows.append(
+                    {
+                        "meter_id": meters[code],
+                        "period_start": moment,
+                        "value": value,
+                        "source": "SEED",
+                    }
+                )
+
+    hvac_ids = writer.add(
+        "bems.hvac_unit",
+        [
+            {
+                "zone_id": zones[z],
+                "code": code,
+                "name": name,
+                "meter_id": meters[m] if m else None,
+                "rated_kw": rated,
+                "state": state[code][0],
+                "control_source": state[code][1],
+                "state_changed_at": changed_at[code],
+            }
+            for code, (z, name, m, rated) in hvac.items()
+        ],
+        "code",
+    )
+    writer.add(
+        "bems.schedule_slot",
+        [
+            {
+                "hvac_unit_id": hvac_ids[u],
+                "day_kind": k,
+                "start_hour": s,
+                "end_hour": e,
+                "mode": mode,
+            }
+            for u in hvac
+            for k, s, e, mode in BEMS_SCHEDULE
+        ],
+    )
+    writer.add("bems.energy_reading", energy_rows)
+    writer.add("bems.environment_reading", env_rows)
+    writer.add(
+        "bems.control_command",
+        [
+            {
+                "zone_id": zones[c["zone"]],
+                "hvac_unit_id": hvac_ids[c["unit"]],
+                "command": c["command"],
+                "mode": c.get("mode"),
+                "setpoint_kind": c.get("kind"),
+                "value": c.get("value"),
+                "source": c["source"],
+                "requested_at": c["at"],
+                "result": c["result"],
+                "reject_reason": c.get("reason"),
+                "note": c.get("note"),
+            }
+            for c in commands
+        ],
+    )
+    rules = writer.add(
+        "bems.alarm_rule",
+        [
+            {
+                "zone_id": zones[z],
+                "metric": m,
+                "comparator": cmp,
+                "threshold": Decimal(t),
+                "duration_hours": n,
+                "severity": sev,
+            }
+            for z, m, cmp, t, n, sev in BEMS_RULES
+        ],
+        ("zone_id", "metric", "comparator"),
+    )
+    # 경보: 1시간 진행과 같은 판정(최근 N시간 모두 넘으면 발생, 최신값이 돌아오면 해제)을 14일 관측에 적용.
+    alarms: list[Row] = []
+    for z, metric, cmp, t, n, _ in BEMS_RULES:
+        threshold, high = Decimal(t), cmp == "HIGH"
+        values = series[(z, metric)]
+        current: Row | None = None
+        for i, (moment, value) in enumerate(values):
+            window = [v for _, v in values[max(0, i - n + 1) : i + 1]]
+            hit = value > threshold if high else value < threshold
+            if current is None:
+                if len(window) == n and all(
+                    (v > threshold) if high else (v < threshold) for v in window
+                ):
+                    current = {
+                        "alarm_rule_id": rules[(zones[z], metric, cmp)],
+                        "sensor_id": sensors[(zones[z], metric)],
+                        "raised_at": moment,
+                        "peak_value": max(window) if high else min(window),
+                    }
+                    alarms.append(current)
+            elif not hit:
+                current.update(status="cleared", cleared_at=moment)
+                current = None
+            else:
+                current["peak_value"] = (
+                    max(current["peak_value"], value)
+                    if high
+                    else min(current["peak_value"], value)
+                )
+    for a in alarms:
+        a.setdefault("status", "raised")
+        a.setdefault("cleared_at", None)
+        a.update(acknowledged_at=None, ack_note=None)
+        # 지난 경보는 다음 날 09시에 확인한 것으로 둔다. 마지막 발생 중 경보는 확인 대기(시연용).
+        if a["status"] == "cleared":
+            a["acknowledged_at"] = min(
+                a["cleared_at"], a["raised_at"] + timedelta(hours=1)
+            )
+            a["ack_note"] = "확인 — 공조 재가동"
+    writer.add("bems.alarm", alarms)

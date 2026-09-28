@@ -44,15 +44,11 @@ it("화면 ID마다 도움말 파일이 있다", () => {
     count("fems/f-"),
     count("qms/q-"),
     count("wms/w-"),
-  ]).toEqual([7, 15, 18, 14, 6, 7]);
+    count("bems/b-"),
+  ]).toEqual([7, 15, 18, 14, 6, 7, 7]);
 });
-it.each(["bems"])("%s 카드는 세 항목을 모두 갖춘다", (key) => {
-  const headings = cards[key].match(/^## .+$/gm);
-  expect(headings).toEqual([
-    "## 무엇을 하는 시스템인가",
-    "## 왜 이번 범위에서 제외했는가",
-    "## 넣는다면 어디에 붙는가",
-  ]);
+it("BEMS는 구현했으므로 설명 카드가 없다(SCM만)", () => {
+  expect(Object.keys(cards)).toEqual([]);
 });
 it("P-03 업무 노드는 해당 솔루션 도움말로 연결된다", async () => {
   show("/flow");
@@ -68,13 +64,20 @@ it("P-03 실적 확정 뒤 품질검사·패킹 연결은 모두 실선이다", 
       within(list).getByRole("link", { name }).closest("li"),
     ).not.toHaveClass("dashed");
 });
-it("P-03 설명 카드로 가는 연결은 점선이다", async () => {
+it("P-03 FEMS → BEMS 건물 에너지 분해는 실선(BEMS 구현)이고 B-02 도움말로 간다", async () => {
   show("/flow");
   const list = await screen.findByRole("list", {
     name: "에너지 기준정보·조회 연결",
   });
-  const card = within(list).getByRole("link", { name: /건물 에너지/ });
-  expect(card.closest("li")).toHaveClass("dashed");
+  const bems = within(list).getByRole("link", { name: /건물 에너지 분해/ });
+  expect(bems.closest("li")).not.toHaveClass("dashed");
+  expect(
+    screen.getByRole("link", { name: /BEMS 건물 에너지 분해/ }),
+  ).toHaveAttribute("href", "/help/bems/b-02");
+});
+it("P-04 BEMS 카드는 없어지고 SCM만 남는다", async () => {
+  show("/cards/bems");
+  expect(await screen.findByText("404 · NOT_FOUND")).toBeVisible();
 });
 it("P-03 완제품 입고 → 재고 연결은 실선(WMS 구현)이다", async () => {
   show("/flow");
