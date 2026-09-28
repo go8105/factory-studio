@@ -60,3 +60,7 @@ npm run db:validate                        # 검증기 경로 확인
 
 - [C++ OpenCV 빌드·실행·JSON 계약·웹 비교](../native/inspection_core/README.md)
 - [3D 공장·합성 검사 공통 설계](modules/factory/README.md)
+
+## 정밀 부품 공장 확장
+
+- [1단계 제품·공정 컨셉 및 명칭](plan/정밀부품공장_컨셉_FS-FACTORY-CONCEPT01.md) — 2026-09-28 문서 완료, 로봇/CNC 구현은 다음 단계.
