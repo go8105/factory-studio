@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 
+from fs.bems.router import router as bems_router
 from fs.common.errors import install_error_handlers
 from fs.common.request_logging import RequestLogMiddleware
 from fs.core.router import router as core_router
@@ -26,6 +27,7 @@ def create_app() -> FastAPI:
     app.include_router(erp_router, prefix="/api/v1/erp")
     app.include_router(qms_router, prefix="/api/v1/qms")
     app.include_router(wms_router, prefix="/api/v1/wms")
+    app.include_router(bems_router, prefix="/api/v1/bems")
     return app
 
 

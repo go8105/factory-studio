@@ -224,3 +224,13 @@ BEMS 공용 계측 ───────────────┘
 | 격리 | `audit_schema_isolation.py` FORBIDDEN에서 `bems` 제거(R4 해제), BUSINESS에 bems. `tools/test_fs014.py`의 R4 예시에서 bems 삭제 |
 | 검증 도구 | `validate_db_design.py` FS-025a 엔티티 목록·`validate_bems`(관측 구간 유일, 규칙·센서당 활성 경보 1건, 설정값 테이블 없음, 교차 FK 없음, 모듈 키), `tools/test_fs025a.py` 3. `verify_ddl_matches_schema.py`에 bems + **`%` 이스케이프**(CHECK `unit = '%'`를 `exec_driver_sql`이 psycopg 자리표시자로 읽던 문제) |
 | 산출물 | Excel 31시트·ERD `bems.mmd`, ERD 탐색기·Excel의 "후속 예약 설계" 표시 제거 |
+
+## 15. 구현 기록 (FS-025b 1부 API, 2026-09-28)
+
+| 항목 | 구현 |
+|---|---|
+| 모듈 | `backend/src/fs/bems/` — `simulation.py`(모델 상수·계산, `__main__` 자체 점검), `service.py`, `schema.py`, `router.py`, `main.py`에 `/api/v1/bems` 등록. 계약: [API 계약서 16장](../../architecture/API계약서_FS-010.md) |
+| FEMS 조회 | `fs/fems/interface.py`(신규) — `enabled`·`site_electricity`(최상위 전력 계측기)·`manufacturing_electricity`(DIRECT_METER 배분). 분해는 이것만 읽는다(R6) |
+| 시뮬레이션 시계 | 다음 구간 = 마지막 관측 + 1시간(KST), 이력이 없으면 업무 기준일 00:00. 한도 T+1 00:00. **수동 명령도 이 시계로 기록**해 스케줄 명령·관측과 같은 시간축에 둔다(실제 시각으로 두면 명령 이력 순서가 뒤집혔다) |
+| 스케줄 경계 | 이번 구간과 앞 구간의 스케줄 모드가 다르면 경계. 수동 운전은 경계에서만 스케줄로 돌아가고 `source=SCHEDULE` 명령을 남긴다 |
+| 테스트 | `backend/tests/test_bems.py` 12 — 모듈 행, 기준정보 규칙, 설정값 거부(AC-128), 스케줄 겹침(AC-134), 진행 멱등(AC-130), 냉방 인과(AC-131), 수동→스케줄(AC-129), 경보 발생·해제·확인(AC-132·133), 한도(AC-135), 분해·불일치(AC-125·126), FEMS 꺼짐(AC-127), 격리(AC-137) |

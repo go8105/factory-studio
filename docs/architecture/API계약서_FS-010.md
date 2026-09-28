@@ -564,3 +564,22 @@ A-1만 스키마와 관련이 있고 나머지는 구현 방침이다. **A-1을 
 | `POST /documents/{id}/post` | TX-W2. 잔량 확인 없음(음수 허용 D15) — 응답 `negative[]`에 음수가 된 품목·위치·LOT | 409 `NO_LINES`·`TRANSFER_UNBALANCED`·`POSTED_IMMUTABLE` |
 
 **조회 인터페이스(코드, HTTP 아님):** `fs/mes/interface.py` 추가 — `finished_goods_receipts`·`completed_material_issues`·`items(item_type=None)`; `fs/erp/interface.py`(신규) — `confirmed_shipments`·`purchase_receipts`·`open_shipment_qty`·`enabled`. MES·ERP API는 바뀌지 않는다.
+
+## 16. BEMS API (`/api/v1/bems`, FS-025b)
+
+설계: [BEMS 모듈 설계서](../modules/bems/BEMS_모듈설계_FS-025.md) · 결정: [FS-025](../plan/BEMS도입_공용에너지_결정_FS-025.md). 공통 규약(3장)을 그대로 따른다. BEMS 사용 중단은 409 `MODULE_DISABLED`. 시각은 KST(`+09:00`) ISO 문자열, 값은 문자열(소수). 관측·명령 시각은 시뮬레이션 시계(마지막 관측 구간 + 1시간, 이력이 없으면 업무 기준일 00:00)를 따른다.
+
+| 메서드·경로 | 요약 | 주요 오류 `reason` |
+|---|---|---|
+| `GET /dashboard` | 어제·최근 7일 분해(FEMS 꺼짐이면 null), 구역별 최신 환경·설정값·공조 상태, 미해제 경보, 시뮬레이션 시계 | — |
+| `GET /breakdown?granularity=day\|month&from=&to=` | 행 `{period, site, manufacturing, common, commonByUsage, residual, mismatch, missingHours}`. 잔여 = FEMS 사업장 전력 − FEMS 설비 직접 배분 − BEMS 공용. 기본 T−30~T−1 | 409 `SOURCE_MODULE_DISABLED` |
+| `GET /environment?zoneId=&from=&to=` · `GET /energy?meterId=&from=&to=` | 1시간 관측(환경은 구역 설정값 포함) | — |
+| `GET/POST /zones·/meters·/sensors·/hvac-units` · `PATCH /…/{id}` | 기준정보. 센서 단위는 지표에서 정한다. 구역당 지표 1개. 공조 계측기는 같은 구역의 용도 HVAC만 | 400 `fields.code`·`fields.metric`·`fields.meterId` |
+| `GET /hvac-overview` · `GET /hvac-units/{id}/detail` | 상태·제어 출처·설정값·최근 명령 20건·스케줄 | 404 |
+| `PUT /hvac-units/{id}/schedule {slots[]}` | 평일/주말 시간대(시작 ≤ 시 < 끝) 전체 교체. 겹치면 거부 | 400 `fields.slots.<i>` |
+| `GET /commands?zoneId=&hvacUnitId=` · `POST /commands` | TX-B1. `POWER_ON`·`POWER_OFF`·`SET_MODE`·`SET_SETPOINT`. 거부도 이력으로 남긴다(201, `result=REJECTED`, `rejectReason` `OUT_OF_RANGE`·`BAND_TOO_NARROW`·`UNIT_INACTIVE`·`ALREADY_ON`·`ALREADY_OFF`·`SAME_STATE`). 수동 운전은 다음 스케줄 경계까지 유지 | 400 `fields.zoneId`·`fields.mode`·`fields.value` |
+| `POST /simulation/advance {hours:1~6}` | TX-B2. 스케줄 전환 → 환경·전력 관측 → 경보 판정. 결과 `{from, to, hours, readings, switches, raised, cleared}`. 한도 업무 기준일 다음 날 00:00 | 409 `SIMULATION_LIMIT` |
+| `GET /alarms?status=` · `POST /alarms/{id}/acknowledge {note}` | TX-B3. 발생 중인 경보만 확인 | 409 `NOT_RAISED` |
+| `GET/POST /alarm-rules` · `PATCH /alarm-rules/{id}` | 구역·지표·비교·임계·지속 시간·등급. 같은 구역·지표·비교는 1개 | 400 `fields.comparator` |
+
+**조회 인터페이스(코드, HTTP 아님):** `fs/fems/interface.py`(신규) — `enabled`·`site_electricity`·`manufacturing_electricity`(일별 kWh). FEMS API는 바뀌지 않는다.

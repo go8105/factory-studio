@@ -1,12 +1,21 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS·홈 아이콘·C++ 비전 엔진 운영 반영 완료(`adc3cab`, head `fs024b_wms_module`, 템플릿 7,691행). FS-025a BEMS DB 완료(로컬, head `fs025b_bems_module`). 다음 FS-025b.**
+- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS·홈 아이콘·C++ 비전 엔진 운영 반영 완료(`adc3cab`, head `fs024b_wms_module`, 템플릿 7,691행). FS-025a BEMS DB 완료(로컬, head `fs025b_bems_module`). FS-025b 1부 BEMS API 완료(로컬). 다음 FS-025b 2부 화면 B-01~07.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-28 FS-025b 1부 BEMS API (Claude Code)
+- push `1b2a8a2..9965100`(FS-025a).
+- FEMS 조회 인터페이스 `fs/fems/interface.py`(신규): `enabled`·`site_electricity`(최상위 전력 계측기 일별)·`manufacturing_electricity`(DIRECT_METER 배분 일별). BEMS는 이것만 읽는다(R6).
+- BEMS 모듈 `fs/bems/`: `simulation.py`(1시간 모델 상수·계산 한 곳, `__main__` 자체 점검), `service.py`(기준정보·관측·분해·공조 상세·명령 TX-B1·스케줄 교체·1시간 진행 TX-B2·경보 TX-B3·대시보드), `schema.py`, `router.py` → `/api/v1/bems`. 계약: API 계약서 16장, 모듈 설계 15장.
+- 결함 수정(개발 중): SQL 별칭 `day`(예약어) → `reading_day`; 시뮬레이션 시계를 KST로 반환; 수동 명령을 실제 시각으로 기록해 명령 이력 순서가 스케줄 명령과 뒤집히던 문제 → 수동 명령도 시뮬레이션 시계로 기록.
+- 검증: `test_bems.py` 12 passed(AC-125~135·137), 전체 pytest 723 passed · 1 skipped(13.7분), ruff check·format 0, 격리 감사 0, `simulation.py` 자체 점검 ok.
+- 미실행: 화면·e2e(2부), 스모크, 운영 반영. push 없음.
+- 다음: FS-025b 2부 — 화면 B-01~07, 포털 6번째 타일.
 
 ## 2026-09-28 FS-025a BEMS DB 반영 (Claude Code)
 - 사용자 승인: 화면 설계 → BEMS 전체 설계 확인. push `f0b1012..1b2a8a2`.
