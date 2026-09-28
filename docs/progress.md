@@ -8,6 +8,11 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-09-28 MAP-01 연계 시스템 분석 (Claude Code)
+- 입력: 사용자 제공 `manufacturing-systems.html`(16개 시스템). 결과: `docs/plan/연계시스템_분석_MAP-01.md`.
+- 누락 11개 분류·연결(받는 것/주는 것)·결정 충돌 점검·P-03 흐름도 2장(계층 아키텍처·시스템 카탈로그) 설계.
+- 코드·DB·정적 콘텐츠 변경 없음. 검증 명령 실행 대상 아님. 다음: 사용자 확인 후 MAP-02(다른 개발 종료 후).
+
 ## 2026-09-28 FS-025c BEMS 시드·도움말·흐름 맵·통합 검증 (Claude Code)
 - push `b9dfbc4..489d5f3`(FS-025b 2부).
 - 시드 `_bems`: 1시간 진행과 같은 모델로 30일 시간 단위 시뮬레이션 → 공용 전력 2,160·환경 2,016·명령 16·경보 4(해제 3 + T−1 확인 대기 1) 등 **4,218행**. 템플릿 7,692 → **11,910**, 복사 11,908, `sv-20260928-1`. 잔여 30일 모두 ≥ 0. 상세: 모듈 설계 16장.
@@ -17,7 +22,7 @@
 - 테스트: `test_bems` 13(시드 시연 1 추가, 기존 테스트는 시드를 지운 빈 BEMS에서), 격리 테스트는 다른 공간에 내 명령이 없음을 확인하도록 조정. test_seed·test_common 합계 갱신. vitest 479(흐름 맵·카드·도움말 수).
 - 복사 시간: 중앙값 0.509초·최대 0.619초(10회) — 1초 미만.
 - 로컬 개발 DB `factory_studio` 템플릿 재생성(11,910행). 로컬 게스트는 291개(전부 만료)라 상한 20에 걸려 새 게스트가 막힌다 — 확인용으로 `GUEST_LIMIT=1000`을 넘겨 띄웠다(설정 파일은 커밋하지 않음).
-- 검증: __VERIFY__
+- 검증: pytest 724 passed · 1 skipped(16.3분), vitest 479, typecheck·lint·format·build 0, ruff 0, db:validate 0, 격리 R1~R6 0, 전체 스모크 231 passed · 1 skipped(템플릿 11,910)
 - 미실행: 운영 반영(마이그레이션 `fs025a_bems`·`fs025b_bems_module` + 템플릿 재생성 필요). push 없음.
 - 다음: 운영 배포 준비(사용자 확인 후), Codex FS-026 결정서 검토.
 
