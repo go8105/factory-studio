@@ -1,12 +1,19 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS·홈 아이콘·C++ 비전 엔진 운영 반영 완료(`adc3cab`, head `fs024b_wms_module`, 템플릿 7,691행). 다음 작업은 사용자 결정.**
+- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS·홈 아이콘·C++ 비전 엔진 운영 반영 완료(`adc3cab`, head `fs024b_wms_module`, 템플릿 7,691행). 다음: FS-025 BEMS 설계 초안 승인 대기.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-28 로컬 개발 DB 갱신 + FS-025 BEMS 설계 초안 (Claude Code)
+- 사용자 보고 "로컬 main에서 WMS가 꺼져 있고 안 보인다" → 원인: 로컬 개발 DB `factory_studio`가 `fs023b_qms_module`·옛 템플릿(`sv-20260924-2`)에 머물러 wms 스키마·모듈 행이 없었다(테스트 DB만 올렸음). `alembic upgrade head`(→ `fs024b_wms_module`, 공간 295개에 wms 행) + 템플릿 재생성(7,691행). 기존 게스트 공간은 WMS 데이터가 비어 있어 새 게스트·세대 초기화 필요. 코드 변경 없음.
+- BEMS 검토 → 사용자 답: (나) 공용 분해 + 환경 관측, 공용 계측기 BEMS 소유, 1시간 간격, **공조 제어·설정값·경보·운전 스케줄 포함 필수**.
+- 산출물(문서만): 결정서 `docs/plan/BEMS도입_공용에너지_결정_FS-025.md`(D18~D23 — R4 해제, FEMS `interface.py` 신규, 잔여 음수 불일치 표시, 모의 공조기 + "1시간 진행" 결정적 시뮬레이션, 경보 발생·확인·해제), 모듈 설계 `docs/modules/bems/BEMS_모듈설계_FS-025.md`(bems 10테이블, 시뮬레이션 모델, TX-B1~B3, API, 화면 B-01~07 요약, 시드 약 5,300행, AC-125~138, 13장 결정 4건). BEMS README 정정(옛 "core 소유"·"테이블 예약" 표현).
+- 기본값으로 둔 것: 환경 관측 기간 14일(사용자는 간격만 지정 — 13장 1번에서 확인).
+- 다음: 사용자 승인 → 화면 설계 → 전체 설계 확인 → FS-025a.
 
 ## 2026-09-28 운영 반영 (FS-024 WMS·홈 아이콘·C++ 비전 엔진)
 - 서버(사용자 실행): pull `be87546..adc3cab`, uv sync, `alembic upgrade head` → **`fs024b_wms_module`**(fs024a_wms·fs024b_wms_module 적용), C++ 엔진 `/srv/factory-studio/bin/inspection_core` 복사(서버 `x86_64`, 서버에서 직접 실행 NG 80·36·0.76ms), `.env`에 `VISION_CORE_EXECUTABLE`, API 재시작(`active`), 템플릿 재생성 → 워크스페이스 24·세대 24, **7,691행·76테이블**. 프런트 rsync.
