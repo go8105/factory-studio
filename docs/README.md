@@ -67,4 +67,6 @@ npm run db:validate                        # 검증기 경로 확인
 
 - [2단계 로봇 연동 CNC 가공 셀 구현·검증](agent/로봇CNC가공셀_FS-FACTORY-CNC01.md) — 로컬 구현 완료, 다음 WMS 설계.
 
-- [FS-026 WMS 확장 결정서 초안](plan/WMS확장_입고검수예약_결정_FS-026.md) — 기존 FS-024 확장, D24~D32 승인 대기.
+- [FS-026 WMS 확장 결정서](plan/WMS확장_입고검수예약_결정_FS-026.md) — 기존 FS-024 확장, D24~D32 승인.
+
+- [WMS 모듈 revision 2](modules/wms/WMS_모듈설계_FS-026.md) · [화면 revision 2](ui/화면설계_WMS_FS-026.md) — 전체 설계 확인 대기, AC-139~164.
