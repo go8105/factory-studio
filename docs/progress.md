@@ -1482,3 +1482,13 @@
 - CNC 실적은 메모리 전용이며 비전/C++/MES/WMS와 미연계. 기존 MES 시드·DB·API 변경 없음. 절삭 물리·실제 안전 제어 아님.
 - 상세: [구현 및 인계](agent/로봇CNC가공셀_FS-FACTORY-CNC01.md). 기준 aac8d26, 브랜치 codex/vision-ai. push·main 병합·배포 없음. 운영 배포 사용자 담당.
 - 다음: **3단계 WMS 공통 설계 후 입고·재고·출고·LOT 연결**. 6단계 중 2단계 완료(공수 비율 아님). 자동 운전/JSON 복원/지도는 후속.
+
+## 2026-09-28 FS-026 단계 0 — 최신 main 정렬 완료
+
+- 사용자 지시에 따라 `codex/vision-ai`를 `origin/main` b9dfbc4(FS-025b API 포함)에 rebase했다. CNC 컨셉/구현은 01fc6f5·7b94b48로 재적용했다. 충돌 난 현황·HANDOFF·WMS README는 main 기준을 유지하고 이 항목으로 후속 이력을 보완했다.
+- `fad0c3a`는 rebase에서 제외했다. 이전 설계는 `backup/vision-ai-before-fs026-20260928`에 참고용으로만 보존하며 현 브랜치/향후 main 병합 대상에 포함하지 않는다. FS-WMS-DB01은 시작하지 않는다.
+- 현재 기준은 FS-024 WMS 6테이블·W-01~07·기존 원장과 FS-025까지의 main이다. 기존 CNC 알루미늄 블록 시연은 메모리 전용이며 WMS 품목 추가 승인이 아니다. 과거 문서의 신규 WMS 개발/미구현 안내는 현재 기준으로 사용하지 않는다.
+- 현황, FS-013, 문서 지도, FS-024 결정서·모듈 설계·화면 설계와 backend/src/fs/wms를 확인했다. 원장은 stock_move 합계, source_key로 원천 중복 방지, ERP 매입 취소는 반대 부호 전표, 가용은 현재고−ERP 미출하 지시다. 원자재는 LOT 없이 KG/EA 및 단위 환산을 유지한다.
+- 검증: frontend typecheck 통과, CNC/useCnc/WMS 관련 3파일 14테스트 통과, 격리 R1~R6 오류 0(93테이블·209FK), diff 공백 검사 통과. 전체 테스트·브라우저·실제 DB 마이그레이션은 실행하지 않았다. WMS/BEMS 제품 코드·DB 명세·시드는 origin/main 그대로다.
+- 다음은 **사용자 0단계 확인 후** FS-026 결정서 작성(D24부터). D13·D17 개정, D14 중복 입출고 방지와 취소 처리, D15 음수/예약 부족 경계, 격리 위치 유형, 트럭 도착 무재고 변경, 기존 품목 및 알루미늄 품목 여부를 질문·권장안으로 정리한다. 결정서·모듈 설계·개발 단계는 아직 시작하지 않았다.
+- 후속 전체 설계 승인 후에만 새 migration을 추가한다(현재 head fs025b_bems_module 다음). 업무 간 FK 금지·교차 조회 interface.py만 유지. push·배포 없음. `.env`·`work/` 스테이징 없음.
