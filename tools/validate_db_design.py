@@ -11,10 +11,10 @@ DESIGN = ROOT/'docs/db/스키마_재구성_FS-014.md'
 
 
 # 작업 ID별 기준 엔티티 목록. 뒤 작업은 앞 작업의 목록을 이어받는다.
-LATER_THAN_014B = {'FS-014b', 'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a', 'FS-025a'}
-LATER_THAN_008B = {'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a', 'FS-025a'}
-LATER_THAN_023A = {'FS-023a', 'FS-024a', 'FS-025a'}
-LATER_THAN_024A = {'FS-024a', 'FS-025a'}
+LATER_THAN_014B = {'FS-014b', 'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a', 'FS-025a', 'FS-026a'}
+LATER_THAN_008B = {'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a', 'FS-025a', 'FS-026a'}
+LATER_THAN_023A = {'FS-023a', 'FS-024a', 'FS-025a', 'FS-026a'}
+LATER_THAN_024A = {'FS-024a', 'FS-025a', 'FS-026a'}
 QMS_DESIGN = ROOT/'docs/modules/qms/QMS_모듈설계_FS-023.md'
 WMS_DESIGN = ROOT/'docs/modules/wms/WMS_모듈설계_FS-024.md'
 BEMS_DESIGN = ROOT/'docs/modules/bems/BEMS_모듈설계_FS-025.md'
@@ -31,8 +31,11 @@ def design_names(task='FS-014'):
         names |= set(re.findall(r'^\| `(qms\.[a-z_]+)` \|', QMS_DESIGN.read_text(encoding='utf-8'), re.M))
     if task in LATER_THAN_024A:
         names |= set(re.findall(r'^\| `(wms\.[a-z_]+)` \|', WMS_DESIGN.read_text(encoding='utf-8'), re.M))
-    if task == 'FS-025a':
+    if task in {'FS-025a', 'FS-026a'}:
         names |= set(re.findall(r'^\| `(bems\.[a-z_]+)` \|', BEMS_DESIGN.read_text(encoding='utf-8'), re.M))
+    if task == 'FS-026a':
+        doc = ROOT/'docs/modules/wms/WMS_모듈설계_FS-026.md'
+        names |= set(re.findall(r'^### 3\.[1-5] (wms\.[a-z_]+)', doc.read_text(encoding='utf-8'), re.M))
     return names
 
 
@@ -108,8 +111,11 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_qms(d))
     if d.get('task') in LATER_THAN_024A:
         errors.extend(validate_wms(d))
-    if d.get('task') == 'FS-025a':
+    if d.get('task') in {'FS-025a', 'FS-026a'}:
         errors.extend(validate_bems(d))
+    if d.get('task') == 'FS-026a':
+        from validate_fs026a import validate_extension
+        errors.extend(validate_extension(d))
     return errors
 
 

@@ -23,7 +23,7 @@ def mermaid(mod):
   lines.append('  }')
  for r in rs:
   nullable=any(next(c for c in ts[r['source']]['columns'] if c['name']==x)['nullable'] for x in r['columns'])
-  unique=any(k['table']==r['source'] and k['kind'] in ['PK','UK'] and set(k['columns'])<=set(r['columns']) for k in d['constraints'])
+  unique=any(k['table']==r['source'] and set(k['columns'])<=set(r['columns']) and (k['kind'] in ['PK','UK'] or (k['kind']=='UK_PARTIAL' and any(k['expression'].endswith('WHERE '+x+' IS NOT NULL') for x in r['columns']))) for k in d['constraints'])
   lines.append(f"  {ident(r['target'])} {'|o' if nullable else '||'}..{'o|' if unique else 'o{'} {ident(r['source'])} : \"{','.join(r['columns'])}\"")
  return '\n'.join(lines)+'\n'
 for obsolete in ['learning', 'process_map']:
@@ -48,5 +48,5 @@ function select(n){document.querySelectorAll('.edge').forEach(e=>{const active=n
 draw();</script></html>'''
 page=page.replace('__VERSION__',html.escape(d['version'])).replace('__DATA__',data).replace('__MODS__',json.dumps(mods,ensure_ascii=False))
 (out/'EIP_모듈별_ERD.html').write_text(page)
-(out/'README.md').write_text('# '+d['task']+' 독립 솔루션별 ERD\n\n`EIP_모듈별_ERD.html`은 외부 라이브러리 없이 여는 SVG 관계 탐색기다. EIP→모듈 구성과 FK 관계를 구분한다.\n\n전체 및 4스키마 Mermaid 원본은 `.mmd` 파일로 제공한다. 각 관계는 참조 대상 0..1/1 및 자식 0..1/다수를 NULL·UNIQUE에서 유도했다. 모든 SQL은 아직 미적용이다. 서비스 정책은 선으로 증명되지 않는다.\n\n기준 해시: '+hashlib.sha256(p.read_bytes()).hexdigest()+'\n')
+(out/'README.md').write_text('# '+d['task']+' 독립 솔루션별 ERD\n\n`EIP_모듈별_ERD.html`은 외부 라이브러리 없이 여는 SVG 관계 탐색기다. EIP→모듈 구성과 FK 관계를 구분한다.\n\n전체 및 7스키마 Mermaid 원본은 `.mmd` 파일로 제공한다. 각 관계는 참조 대상 0..1/1 및 자식 0..1/다수를 NULL·UNIQUE에서 유도했다. 환경별 DB 적용 상태는 해당 작업 인계 문서를 참조한다. 서비스 정책은 선으로 증명되지 않는다.\n\n기준 해시: '+hashlib.sha256(p.read_bytes()).hexdigest()+'\n')
 print(f'Generated: offline explorer, {len(mods)} Mermaid ERDs + all, README')

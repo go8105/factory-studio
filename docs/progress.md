@@ -1511,3 +1511,12 @@
 - 검증: 설계 상대 링크 존재, AC 번호 연속·중복 없음, 신규 테이블 5개, diff 공백 검사 통과. 문서만 변경하여 DB/기능/브라우저 테스트 미실행. migration·schema.json·DB설계서.xlsx·운영 ERD·제품 코드·시드 변경 없음.
 - 다음: **사용자 전체 설계 확인 후에만** FS-026a(DB/메타데이터/Excel/ERD/검증) 착수. 현재 head fs025b_bems_module 뒤 새 revision 제안, 착수 시 head 재확인. 적용 migration 수정 금지. FS-WMS-DB01 금지, fad0c3a는 참고만.
 - 브랜치 codex/vision-ai, 기준 3b51671. 최종 커밋은 git log -1로 확인. `.env`·work/ 스테이징 없음. push·배포 없음.
+
+## 2026-09-28 FS-026a — WMS 확장 DB 기반 완료
+
+- 사용자 전체 설계 승인 및 질문 권장안 진행 지정. 기존6+신규5 WMS 테이블, 위치 유형/검수 전표, metadata v0.13.0(전체98/1022컬럼/225FK), 새 revision fs026a_wms_receiving_reservation 구현. 이전 migration 수정 없음.
+- DB설계서31시트·ERD·검증기/보고 동시 갱신. NULL LOT 부분 유니크, 검수수량/상태 CHECK, 원천 유효선점·소진 유일성. 데이터가 있는 downgrade는 중단한다. SERVICE 정책/API/화면은 후속 미구현.
+- 검증: DDL대조0·R1~R6오류0, 이전head/빈base downgrade→upgrade 통과. 기존WMS15+신규DB7+DDL변조9+시드16 = 고유 선택47 tests 통과. DDL변조1건은 시드가 남은 DB에서 실패하여 빈 DB 재실행9건 통과. tools58, Ruff/diff 통과. 전체/브라우저 회귀 미실행.
+- 전용 로컬 테스트DB2개만 적용. 공유 개발/운영DB·시드 품목 변경 없음. origin/main489d5f3의 migration head가 fs025b_bems_module 그대로임을 확인했고 새 BEMS UI는 이번 브랜치에 rebase하지 않았다.
+- 다음 FS-026b API(입고/원천선점/검수/예약·가용/출하연결·동시성), 이후 화면·트럭·도움말·시드. 세부 선택은 승인 권장안. push·배포 없음, .env/work 스테이징 없음.
+- 상세: docs/agent/WMS확장_DB_FS-026a.md. 브랜치 codex/vision-ai, 기준01b6cce, 완료커밋 git log -1.

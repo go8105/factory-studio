@@ -1,9 +1,9 @@
 {
-  "version": "0.12.0",
-  "task": "FS-025a",
+  "version": "0.13.0",
+  "task": "FS-026a",
   "date": "2026-09-28",
-  "status": "설계 초안 / DB 미적용",
-  "migration_revision": "fs025a_bems",
+  "status": "구현 명세 / 환경별 적용 상태는 인계 참조",
+  "migration_revision": "fs026a_wms_receiving_reservation",
   "tables": [
     {
       "name": "core.app_user",
@@ -7345,6 +7345,14 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "location_type",
+          "label": "위치 유형",
+          "type": "varchar(16)",
+          "nullable": false,
+          "default": "'NORMAL'",
+          "rule": "NORMAL / QUARANTINE"
         }
       ]
     },
@@ -7553,7 +7561,7 @@
           "type": "varchar(20)",
           "nullable": false,
           "default": null,
-          "rule": "OPENING / MES_RECEIPT / MES_ISSUE / ERP_SHIPMENT / ERP_PURCHASE / ADJUSTMENT / TRANSFER / REVERSAL"
+          "rule": "OPENING / MES_RECEIPT / MES_ISSUE / ERP_SHIPMENT / ERP_PURCHASE / ADJUSTMENT / TRANSFER / REVERSAL / WMS_INSPECTION"
         },
         {
           "name": "status",
@@ -8714,6 +8722,597 @@
           "type": "timestamptz",
           "nullable": false,
           "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "wms.inbound_notice",
+      "label": "입고 예정·검수",
+      "scope": "generation",
+      "phase": "W2",
+      "retention": "세대 정리",
+      "note": "FS-026 revision 2; SERVICE 정책은 후속 API에서 구현",
+      "sub_module": "receiving",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "notice_no",
+          "label": "입고 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "business_key",
+          "label": "업무 중복 방지 번호",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "warehouse_id",
+          "label": "창고",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(16)",
+          "nullable": false,
+          "default": "'PLANNED'",
+          "rule": ""
+        },
+        {
+          "name": "expected_on",
+          "label": "예정일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "vehicle_no",
+          "label": "차량 번호",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "partner_ref",
+          "label": "공급처 참고",
+          "type": "varchar(100)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "변경 버전",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "arrived_at",
+          "label": "도착 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "inspected_at",
+          "label": "검수 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cancelled_at",
+          "label": "취소 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "stock_document_id",
+          "label": "검수 전표",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "사유",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "updated_at",
+          "label": "변경 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "wms.inbound_notice_line",
+      "label": "입고 예정·검수 명세",
+      "scope": "generation",
+      "phase": "W2",
+      "retention": "세대 정리",
+      "note": "FS-026 revision 2; SERVICE 정책은 후속 API에서 구현",
+      "sub_module": "receiving",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "notice_id",
+          "label": "입고 예정",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "line_no",
+          "label": "줄 번호",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "item_id",
+          "label": "품목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lot_no",
+          "label": "완제품 LOT",
+          "type": "varchar(50)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "expected_qty",
+          "label": "예정 수량",
+          "type": "numeric(18,3)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "accepted_qty",
+          "label": "합격 수량",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "quarantined_qty",
+          "label": "격리 수량",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "shortage_qty",
+          "label": "부족 수량",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "normal_location_id",
+          "label": "정상 위치",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "quarantine_location_id",
+          "label": "격리 위치",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "격리·부족 사유",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "wms.source_claim",
+      "label": "매입 원천 선점·대사",
+      "scope": "generation",
+      "phase": "W2",
+      "retention": "세대 정리",
+      "note": "FS-026 revision 2; SERVICE 정책은 후속 API에서 구현",
+      "sub_module": "receiving",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "source_key",
+          "label": "ERP 매입 원천 키",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "notice_id",
+          "label": "입고 예정",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(16)",
+          "nullable": false,
+          "default": "'CLAIMED'",
+          "rule": ""
+        },
+        {
+          "name": "source_snapshot",
+          "label": "원천 환산 스냅샷",
+          "type": "jsonb",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "source_digest",
+          "label": "스냅샷 해시",
+          "type": "varchar(64)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "closed_at",
+          "label": "완료·해제 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "release_reason",
+          "label": "해제 사유",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "wms.stock_reservation",
+      "label": "출고 예약",
+      "scope": "generation",
+      "phase": "W2",
+      "retention": "세대 정리",
+      "note": "FS-026 revision 2; SERVICE 정책은 후속 API에서 구현",
+      "sub_module": "reservation",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reservation_no",
+          "label": "예약 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "business_key",
+          "label": "업무 중복 방지 번호",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(16)",
+          "nullable": false,
+          "default": "'ACTIVE'",
+          "rule": ""
+        },
+        {
+          "name": "shipment_order_ref",
+          "label": "ERP 출하지시 참고",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "변경 버전",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "사유",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "closed_at",
+          "label": "해제·소진 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "shipment_source_key",
+          "label": "소진 출하 원천",
+          "type": "varchar(100)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "stock_document_id",
+          "label": "출하 차감 전표",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "wms.stock_reservation_line",
+      "label": "예약 배분",
+      "scope": "generation",
+      "phase": "W2",
+      "retention": "세대 정리",
+      "note": "FS-026 revision 2; SERVICE 정책은 후속 API에서 구현",
+      "sub_module": "reservation",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reservation_id",
+          "label": "예약",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "line_no",
+          "label": "줄 번호",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "item_id",
+          "label": "품목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "location_id",
+          "label": "정상 위치",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lot_no",
+          "label": "완제품 LOT",
+          "type": "varchar(50)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "quantity",
+          "label": "예약 수량",
+          "type": "numeric(18,3)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
           "rule": ""
         }
       ]
@@ -12136,6 +12735,268 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "경보의 센서"
+    },
+    {
+      "source": "wms.inbound_notice",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "세대 앵커"
+    },
+    {
+      "source": "wms.inbound_notice_line",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "세대 앵커"
+    },
+    {
+      "source": "wms.source_claim",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "세대 앵커"
+    },
+    {
+      "source": "wms.stock_reservation",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "세대 앵커"
+    },
+    {
+      "source": "wms.stock_reservation_line",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "세대 앵커"
+    },
+    {
+      "source": "wms.inbound_notice",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "warehouse_id"
+      ],
+      "target": "wms.warehouse",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 공간·세대 참조"
+    },
+    {
+      "source": "wms.inbound_notice",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "stock_document_id"
+      ],
+      "target": "wms.stock_document",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 공간·세대 참조"
+    },
+    {
+      "source": "wms.inbound_notice_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "notice_id"
+      ],
+      "target": "wms.inbound_notice",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 공간·세대 참조"
+    },
+    {
+      "source": "wms.inbound_notice_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "item_id"
+      ],
+      "target": "wms.item",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 공간·세대 참조"
+    },
+    {
+      "source": "wms.inbound_notice_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "normal_location_id"
+      ],
+      "target": "wms.storage_location",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 공간·세대 참조"
+    },
+    {
+      "source": "wms.inbound_notice_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "quarantine_location_id"
+      ],
+      "target": "wms.storage_location",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 공간·세대 참조"
+    },
+    {
+      "source": "wms.source_claim",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "notice_id"
+      ],
+      "target": "wms.inbound_notice",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 공간·세대 참조"
+    },
+    {
+      "source": "wms.stock_reservation",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "stock_document_id"
+      ],
+      "target": "wms.stock_document",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 공간·세대 참조"
+    },
+    {
+      "source": "wms.stock_reservation_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "reservation_id"
+      ],
+      "target": "wms.stock_reservation",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 공간·세대 참조"
+    },
+    {
+      "source": "wms.stock_reservation_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "item_id"
+      ],
+      "target": "wms.item",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 공간·세대 참조"
+    },
+    {
+      "source": "wms.stock_reservation_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "location_id"
+      ],
+      "target": "wms.storage_location",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 공간·세대 참조"
     }
   ],
   "constraints": [
@@ -18255,7 +19116,7 @@
       "columns": [
         "document_type"
       ],
-      "expression": "document_type IN ('OPENING', 'MES_RECEIPT', 'MES_ISSUE', 'ERP_SHIPMENT', 'ERP_PURCHASE', 'ADJUSTMENT', 'TRANSFER', 'REVERSAL')",
+      "expression": "document_type IN ('OPENING', 'MES_RECEIPT', 'MES_ISSUE', 'ERP_SHIPMENT', 'ERP_PURCHASE', 'WMS_INSPECTION', 'ADJUSTMENT', 'TRANSFER', 'REVERSAL')",
       "reason": "전표 유형 값"
     },
     {
@@ -18294,7 +19155,7 @@
         "document_type",
         "source_key"
       ],
-      "expression": "(document_type IN ('MES_RECEIPT', 'MES_ISSUE', 'ERP_SHIPMENT', 'ERP_PURCHASE', 'REVERSAL')) = (source_key IS NOT NULL)",
+      "expression": "(document_type IN ('MES_RECEIPT', 'MES_ISSUE', 'ERP_SHIPMENT', 'ERP_PURCHASE', 'WMS_INSPECTION', 'REVERSAL')) = (source_key IS NOT NULL)",
       "reason": "원천 반영·되돌림만 원천 키"
     },
     {
@@ -19300,6 +20161,831 @@
       ],
       "expression": "",
       "reason": "활성 경보 조회"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "범위 참조 대상"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "범위 참조 대상"
+    },
+    {
+      "table": "wms.source_claim",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "wms.source_claim",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "범위 참조 대상"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "범위 참조 대상"
+    },
+    {
+      "table": "wms.stock_reservation_line",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "wms.stock_reservation_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "범위 참조 대상"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "notice_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 유일"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "business_key"
+      ],
+      "expression": "",
+      "reason": "세대 내 유일"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "CHECK",
+      "columns": [
+        "notice_no",
+        "business_key"
+      ],
+      "expression": "length(btrim(notice_no)) > 0 AND length(btrim(business_key)) > 0",
+      "reason": "빈 업무 번호 금지"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "CHECK",
+      "columns": [
+        "version"
+      ],
+      "expression": "version > 0",
+      "reason": "낙관적 버전"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "reservation_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 유일"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "business_key"
+      ],
+      "expression": "",
+      "reason": "세대 내 유일"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "CHECK",
+      "columns": [
+        "reservation_no",
+        "business_key"
+      ],
+      "expression": "length(btrim(reservation_no)) > 0 AND length(btrim(business_key)) > 0",
+      "reason": "빈 업무 번호 금지"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "CHECK",
+      "columns": [
+        "version"
+      ],
+      "expression": "version > 0",
+      "reason": "낙관적 버전"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "CHECK",
+      "columns": [
+        "status"
+      ],
+      "expression": "status IN ('PLANNED', 'ARRIVED', 'INSPECTED', 'CANCELLED')",
+      "reason": "상태 값"
+    },
+    {
+      "table": "wms.source_claim",
+      "kind": "CHECK",
+      "columns": [
+        "status"
+      ],
+      "expression": "status IN ('CLAIMED', 'COMPLETED', 'RELEASED')",
+      "reason": "상태 값"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "CHECK",
+      "columns": [
+        "status"
+      ],
+      "expression": "status IN ('ACTIVE', 'RELEASED', 'CONSUMED')",
+      "reason": "상태 값"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "inspected_at"
+      ],
+      "expression": "(status = 'INSPECTED') = (inspected_at IS NOT NULL)",
+      "reason": "검수 시각"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "cancelled_at"
+      ],
+      "expression": "(status = 'CANCELLED') = (cancelled_at IS NOT NULL)",
+      "reason": "취소 시각"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "arrived_at"
+      ],
+      "expression": "(status NOT IN ('ARRIVED','INSPECTED') OR arrived_at IS NOT NULL) AND (status <> 'PLANNED' OR arrived_at IS NULL)",
+      "reason": "도착 시각"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "stock_document_id"
+      ],
+      "expression": "stock_document_id IS NULL OR status = 'INSPECTED'",
+      "reason": "검수 전표 시점"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "reason"
+      ],
+      "expression": "status <> 'CANCELLED' OR (reason IS NOT NULL AND length(btrim(reason)) > 0)",
+      "reason": "취소 사유"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "stock_document_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, stock_document_id) WHERE stock_document_id IS NOT NULL",
+      "reason": "검수 전표 중복 연결 금지"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "notice_id",
+        "line_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 유일"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "CHECK",
+      "columns": [
+        "line_no"
+      ],
+      "expression": "line_no > 0",
+      "reason": "줄 번호"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "CHECK",
+      "columns": [
+        "lot_no"
+      ],
+      "expression": "lot_no IS NULL OR length(btrim(lot_no)) > 0",
+      "reason": "빈 LOT 금지"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "notice_id",
+        "item_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, notice_id, item_id) WHERE lot_no IS NULL",
+      "reason": "원자재 NULL LOT 중복 방지"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "notice_id",
+        "item_id",
+        "lot_no"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, notice_id, item_id, lot_no) WHERE lot_no IS NOT NULL",
+      "reason": "완제품 LOT 중복 방지"
+    },
+    {
+      "table": "wms.stock_reservation_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "reservation_id",
+        "line_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 유일"
+    },
+    {
+      "table": "wms.stock_reservation_line",
+      "kind": "CHECK",
+      "columns": [
+        "line_no"
+      ],
+      "expression": "line_no > 0",
+      "reason": "줄 번호"
+    },
+    {
+      "table": "wms.stock_reservation_line",
+      "kind": "CHECK",
+      "columns": [
+        "lot_no"
+      ],
+      "expression": "lot_no IS NULL OR length(btrim(lot_no)) > 0",
+      "reason": "빈 LOT 금지"
+    },
+    {
+      "table": "wms.stock_reservation_line",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "reservation_id",
+        "item_id",
+        "location_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, reservation_id, item_id, location_id) WHERE lot_no IS NULL",
+      "reason": "원자재 NULL LOT 중복 방지"
+    },
+    {
+      "table": "wms.stock_reservation_line",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "reservation_id",
+        "item_id",
+        "location_id",
+        "lot_no"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, reservation_id, item_id, location_id, lot_no) WHERE lot_no IS NOT NULL",
+      "reason": "완제품 LOT 중복 방지"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "CHECK",
+      "columns": [
+        "expected_qty"
+      ],
+      "expression": "expected_qty > 0",
+      "reason": "양수 예정"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "CHECK",
+      "columns": [
+        "accepted_qty",
+        "quarantined_qty",
+        "shortage_qty",
+        "expected_qty"
+      ],
+      "expression": "(accepted_qty IS NULL AND quarantined_qty IS NULL AND shortage_qty IS NULL) OR (accepted_qty IS NOT NULL AND accepted_qty >= 0 AND quarantined_qty IS NOT NULL AND quarantined_qty >= 0 AND shortage_qty IS NOT NULL AND shortage_qty >= 0 AND accepted_qty + quarantined_qty + shortage_qty = expected_qty)",
+      "reason": "검수 수량 전체 입력 및 합계"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "CHECK",
+      "columns": [
+        "quarantined_qty",
+        "quarantine_location_id"
+      ],
+      "expression": "quarantined_qty IS NULL OR quarantined_qty = 0 OR quarantine_location_id IS NOT NULL",
+      "reason": "격리 위치 필수"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "CHECK",
+      "columns": [
+        "quarantined_qty",
+        "shortage_qty",
+        "reason"
+      ],
+      "expression": "NOT (coalesce(quarantined_qty,0) > 0 OR coalesce(shortage_qty,0) > 0) OR (reason IS NOT NULL AND length(btrim(reason)) > 0)",
+      "reason": "차이 사유"
+    },
+    {
+      "table": "wms.stock_reservation_line",
+      "kind": "CHECK",
+      "columns": [
+        "quantity"
+      ],
+      "expression": "quantity > 0",
+      "reason": "양수 예약"
+    },
+    {
+      "table": "wms.source_claim",
+      "kind": "CHECK",
+      "columns": [
+        "source_key"
+      ],
+      "expression": "source_key ~ '^ERP:PURCHASE:.+$'",
+      "reason": "매입 원천만"
+    },
+    {
+      "table": "wms.source_claim",
+      "kind": "CHECK",
+      "columns": [
+        "source_snapshot"
+      ],
+      "expression": "jsonb_typeof(source_snapshot) = 'object'",
+      "reason": "원천 객체"
+    },
+    {
+      "table": "wms.source_claim",
+      "kind": "CHECK",
+      "columns": [
+        "source_digest"
+      ],
+      "expression": "source_digest ~ '^[0-9a-f]{64}$'",
+      "reason": "SHA256 형식"
+    },
+    {
+      "table": "wms.source_claim",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "closed_at"
+      ],
+      "expression": "(status = 'CLAIMED') = (closed_at IS NULL)",
+      "reason": "선점 종료 시각"
+    },
+    {
+      "table": "wms.source_claim",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "release_reason"
+      ],
+      "expression": "status <> 'RELEASED' OR (release_reason IS NOT NULL AND length(btrim(release_reason)) > 0)",
+      "reason": "해제 사유"
+    },
+    {
+      "table": "wms.source_claim",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "source_key"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, source_key) WHERE status <> 'RELEASED'",
+      "reason": "유효 원천·예정 연결은 1개"
+    },
+    {
+      "table": "wms.source_claim",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "notice_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, notice_id) WHERE status <> 'RELEASED'",
+      "reason": "유효 원천·예정 연결은 1개"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "closed_at"
+      ],
+      "expression": "(status = 'ACTIVE') = (closed_at IS NULL)",
+      "reason": "예약 종료 시각"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "shipment_source_key",
+        "stock_document_id"
+      ],
+      "expression": "(status = 'CONSUMED' AND shipment_source_key IS NOT NULL AND stock_document_id IS NOT NULL) OR (status <> 'CONSUMED' AND shipment_source_key IS NULL AND stock_document_id IS NULL)",
+      "reason": "소진 전표와 원천 동시 기록"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "CHECK",
+      "columns": [
+        "shipment_source_key"
+      ],
+      "expression": "shipment_source_key IS NULL OR shipment_source_key ~ '^ERP:SHIPMENT:.+$'",
+      "reason": "출하 원천만"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "reason"
+      ],
+      "expression": "status <> 'RELEASED' OR (reason IS NOT NULL AND length(btrim(reason)) > 0)",
+      "reason": "예약 해제 사유"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "shipment_source_key"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, shipment_source_key) WHERE shipment_source_key IS NOT NULL",
+      "reason": "출하 소진 1회"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "stock_document_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, stock_document_id) WHERE stock_document_id IS NOT NULL",
+      "reason": "출하 소진 1회"
+    },
+    {
+      "table": "wms.storage_location",
+      "kind": "CHECK",
+      "columns": [
+        "location_type"
+      ],
+      "expression": "location_type IN ('NORMAL','QUARANTINE')",
+      "reason": "위치 유형"
+    },
+    {
+      "table": "wms.storage_location",
+      "kind": "CHECK",
+      "columns": [
+        "location_type",
+        "is_default"
+      ],
+      "expression": "NOT is_default OR location_type = 'NORMAL'",
+      "reason": "기본 위치 정상만"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status",
+        "stock_document_id"
+      ],
+      "expression": "검수 완료 수령합>0이면 WMS_INSPECTION 전표 1개, 전량 부족이면 전표 없이 완료. 트럭은 도착만. 확정 후 불변",
+      "reason": "검수 원장 원자성"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "notice_id",
+        "item_id",
+        "lot_no",
+        "normal_location_id",
+        "quarantine_location_id"
+      ],
+      "expression": "같은 창고·정상/격리 유형, FG LOT 필수/RAW NULL, 검수 전 수량 NULL. 확인 후 불변",
+      "reason": "검수 위치 및 품목"
+    },
+    {
+      "table": "wms.source_claim",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "source_key",
+        "notice_id"
+      ],
+      "expression": "공간 락에서 기존 원천 전표와 유효 선점을 함께 검사한다. 직접 반영과 검수 경유는 상호 배타. 완료 선점은 전량 부족도 영구 보존",
+      "reason": "원천 단일 경로"
+    },
+    {
+      "table": "wms.source_claim",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "source_snapshot",
+        "source_digest"
+      ],
+      "expression": "연결 시 환산 스냅샷 고정, 확정 직전 interface로 취소/변경 재검증. 검수 완료 후 ERP 취소는 경고만. 기입고 대사는 원장 변화 없음",
+      "reason": "매입 실물 분리"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status",
+        "stock_document_id"
+      ],
+      "expression": "원장 차감 없이 예약/해제. ERP 출하 전량·LOT 대사 성공 시 같은 TX에서 1회 차감과 소진. 소급 소진 금지",
+      "reason": "예약 소진 원자성"
+    },
+    {
+      "table": "wms.stock_reservation_line",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "quantity",
+        "location_id",
+        "item_id",
+        "lot_no"
+      ],
+      "expression": "정상 현재고-활성예약 이상의 신규 예약 거부(공간 락). 원천 반영 음수는 허용/부족 경고. 원자재 LOT NULL, FG LOT 필수",
+      "reason": "예약 가능 수량"
+    },
+    {
+      "table": "wms.storage_location",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "location_type"
+      ],
+      "expression": "원장/진행 예정/활성 예약 참조 시 유형 변경 금지. 격리 이동 사유 필수. 진행 참조 위치 비활성 금지",
+      "reason": "위치 유형 보존"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "warehouse_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "stock_document_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "notice_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "item_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "normal_location_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "wms.inbound_notice_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "quarantine_location_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "wms.source_claim",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "notice_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "stock_document_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "wms.stock_reservation_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "reservation_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "wms.stock_reservation_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "item_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "wms.stock_reservation_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "location_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "status",
+        "expected_on"
+      ],
+      "expression": "",
+      "reason": "업무 조회"
+    },
+    {
+      "table": "wms.source_claim",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "source_key"
+      ],
+      "expression": "",
+      "reason": "업무 조회"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "status"
+      ],
+      "expression": "",
+      "reason": "업무 조회"
+    },
+    {
+      "table": "wms.stock_reservation_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "item_id",
+        "location_id",
+        "lot_no"
+      ],
+      "expression": "",
+      "reason": "업무 조회"
     }
   ],
   "states": [
@@ -19601,6 +21287,40 @@
       ],
       "default": "OFF",
       "transition": "제어 명령·스케줄 경계 전환으로만 변경(D21)"
+    },
+    {
+      "table": "wms.inbound_notice",
+      "column": "status",
+      "values": [
+        "PLANNED",
+        "ARRIVED",
+        "INSPECTED",
+        "CANCELLED"
+      ],
+      "default": "PLANNED",
+      "transition": "예정→도착→검수 또는 미확정 취소"
+    },
+    {
+      "table": "wms.source_claim",
+      "column": "status",
+      "values": [
+        "CLAIMED",
+        "COMPLETED",
+        "RELEASED"
+      ],
+      "default": "CLAIMED",
+      "transition": "선점→완료/해제; 완료 불변"
+    },
+    {
+      "table": "wms.stock_reservation",
+      "column": "status",
+      "values": [
+        "ACTIVE",
+        "RELEASED",
+        "CONSUMED"
+      ],
+      "default": "ACTIVE",
+      "transition": "활성→해제/소진; 종료 불변"
     }
   ],
   "sources": [
@@ -19827,7 +21547,8 @@
         "ERP_PURCHASE",
         "ADJUSTMENT",
         "TRANSFER",
-        "REVERSAL"
+        "REVERSAL",
+        "WMS_INSPECTION"
       ],
       "default": null,
       "note": "MES_*·ERP_* = 읽기 전용 조회로 반영한 원천(D14)"
@@ -19910,6 +21631,16 @@
       ],
       "default": null,
       "note": "경보 등급"
+    },
+    {
+      "target": "wms.storage_location",
+      "column": "location_type",
+      "values": [
+        "NORMAL",
+        "QUARANTINE"
+      ],
+      "default": "NORMAL",
+      "note": "격리는 현재고 포함·예약 제외"
     }
   ],
   "change_log": [
@@ -20080,6 +21811,13 @@
       "date": "2026-09-28",
       "change": "bems 스키마 10테이블(구역·공용 계측기·환경 센서·공조기·공용 전력 관측·환경 관측·운전 스케줄·제어 명령·경보 규칙·경보), core.workspace_module module_key에 bems 추가, FS-013 R4의 bems 금지 해제(FS-025 D18). 스키마 간 FK 0건",
       "status": "마이그레이션 fs025a_bems 적용 대상"
+    },
+    {
+      "version": "0.13.0",
+      "task": "FS-026a",
+      "date": "2026-09-28",
+      "change": "기존 WMS 확장: 입고 예정·명세·원천 선점·예약·배분 5테이블, 위치 유형 및 검수 전표. 서비스 정책은 후속 API 대상",
+      "status": "새 revision; DB 검증 결과는 인계 참조"
     }
   ]
 }
