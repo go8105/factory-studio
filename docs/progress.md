@@ -1,12 +1,18 @@
 # 개발 진행 기록
 
 ## 현재 상태
-- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS·홈 아이콘·C++ 비전 엔진 운영 반영 완료(`adc3cab`, head `fs024b_wms_module`, 템플릿 7,691행). 다음: FS-025 BEMS 설계 초안 승인 대기.**
+- 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS·홈 아이콘·C++ 비전 엔진 운영 반영 완료(`adc3cab`, head `fs024b_wms_module`, 템플릿 7,691행). 다음: FS-025 BEMS 화면 설계 확인 대기.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
 - DB: **v0.9.1 / FS-008c / 71테이블·712컬럼·161 FK·제약/정책 526**, 정적 검증 오류 0·격리 위반 0. Excel·ERD 재생성 완료. FS-009 로컬 DB 적용·대사 완료, 서비스 미구현
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-28 FS-025 BEMS 결정·모듈 설계 승인, 화면 설계 초안 (Claude Code)
+- 사용자 승인: 결정서 D18~D23·범위, 모듈 설계 13장 4건 모두 권장안 → 두 문서 "확정".
+- 화면 설계 `docs/ui/화면설계_BEMS_FS-025.md`(문서만): B-01 대시보드(D)·B-02 에너지 분해(L, FEMS 교차 조회)·B-03 환경 모니터링(D, 설정값 점선·값 표)·B-04 공조 운전(V + FormPanel, 제어·1시간 진행)·B-05 운전 스케줄(W)·B-06 경보(L + DetailPanel, 규칙 S)·B-07 구역·계측(P). 메뉴 묶음 "건물 현황·운전·경보·기준정보"(화면 제목과 중복 방지). 포털 6타일 한 줄(940px)·"여섯 시스템"·설명 카드 SCM만·흐름 맵 `building_energy` 업무 노드. FEMS 화면 변경 없음.
+- 확인: Codex는 `codex/vision-ai`에서 문서 커밋 `aac8d26`(정밀 부품 공장 컨셉·CNC 범위, 옛 main `b6c82a0` 기준) 진행 중 — WMS README를 함께 고쳐 병합 때 충돌 예상.
+- 다음: 화면 설계 확인 = BEMS 전체 설계 확인 → FS-025a(메타데이터 v0.12.0·마이그레이션·Excel·ERD·R4 해제).
 
 ## 2026-09-28 로컬 개발 DB 갱신 + FS-025 BEMS 설계 초안 (Claude Code)
 - 사용자 보고 "로컬 main에서 WMS가 꺼져 있고 안 보인다" → 원인: 로컬 개발 DB `factory_studio`가 `fs023b_qms_module`·옛 템플릿(`sv-20260924-2`)에 머물러 wms 스키마·모듈 행이 없었다(테스트 DB만 올렸음). `alembic upgrade head`(→ `fs024b_wms_module`, 공간 295개에 wms 행) + 템플릿 재생성(7,691행). 기존 게스트 공간은 WMS 데이터가 비어 있어 새 게스트·세대 초기화 필요. 코드 변경 없음.

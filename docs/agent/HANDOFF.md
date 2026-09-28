@@ -26,7 +26,7 @@
 | UI-02 검토 | Claude 검토·수정 후 main 통합(`86e729f` 이후 문서 커밋). 회귀 5건 수정·e2e 11건 갱신, 스모크 159 passed |
 | QMS | FS-023a DB·023b API·화면(운영 배포) + **FS-023c 시드 113행(`sv-20260927-1`, 템플릿 7,583)·복사 월/번호 재계산·도움말 Q-01~06·흐름 맵 업무 노드(로컬, 미배포)**. 시드 LOT: LT-0017 검사 대기, LT-0015 작성 중, LT-0016 보류 중(+재검사 초안), LT-0008 특채 해제. 교차 조회는 `fs/<솔루션>/interface.py`만(R6) |
 | UI-03 | **8화면 전체 완료·운영 배포** — Claude F-12·M-04·M-05·M-07·E-04(`a35e895` 배포), Antigravity B1(M-14·M-15) + B2(E-02 견적) — 브랜치 `antigravity/ui03-b2`, 스모크 171/171 통과. E-02: `FormPanel wide`(등록)·`DetailPanel wide`(상세·라인편집·확정·제출·수주 전환 통합). main 병합 완료 |
-| 다음 | **FS-025 BEMS 설계 초안 승인 대기** — 결정서 `docs/plan/BEMS도입_공용에너지_결정_FS-025.md`(D18~D23)·모듈 설계 `docs/modules/bems/BEMS_모듈설계_FS-025.md`(13장 4문항). 승인 뒤 화면 설계 → 전체 설계 확인 → FS-025a. 코드·schema.json 변경 금지. **로컬 개발 DB `factory_studio`도 새 마이그레이션·시드 때 함께 올린다**(2026-09-28 WMS 꺼짐 원인) |
+| 다음 | **FS-025 BEMS 화면 설계 확인 대기** — 결정서·모듈 설계 확정(2026-09-28), 화면 설계 `docs/ui/화면설계_BEMS_FS-025.md` 초안. 확인되면 FS-025a(DB). 코드·schema.json 변경 금지. **로컬 개발 DB `factory_studio`도 새 마이그레이션·시드 때 함께 올린다.** Codex는 `codex/vision-ai`에서 공장 컨셉·CNC 작업 중 — DB 변경(마이그레이션 head) 겹치지 않게 병합 순서 조율 |
 
 ## 다음 할 일
 
