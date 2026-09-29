@@ -58,7 +58,7 @@ export function Entry() {
         <h1>
           제조 현장의
           <br />
-          여섯 시스템
+          올인원 시스템
         </h1>
         <p className="lead">
           MES · ERP · FEMS · QMS · WMS · BEMS를 각각 독립된 솔루션으로

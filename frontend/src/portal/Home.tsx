@@ -137,7 +137,7 @@ export function Home() {
       <div className="home-hero">
         <div>
           <span className="home-eyebrow">YOUR WORKSPACE</span>
-          <h1>제조 현장의 여섯 시스템</h1>
+          <h1>제조 현장의 올인원 시스템</h1>
           <p>하나의 공간에서 만나는 여섯 가지 독립 솔루션</p>
         </div>
         <div className="home-context">
