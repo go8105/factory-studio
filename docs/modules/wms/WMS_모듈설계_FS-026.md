@@ -74,7 +74,7 @@ CHECK: 세 검수 수량은 모두 NULL 또는 모두 NN이고 합=expected_qty.
 | notice_id | bigint | FK inbound_notice |
 | status | varchar(16), CLAIMED | CLAIMED/COMPLETED/RELEASED |
 | source_snapshot | jsonb | 연결 당시 invoiceNo, confirmedAt, 품목별 baseQty와 원천 qty/unit/factor 배열. 객체 CHECK |
-| source_digest | varchar(64) | 정렬한 의미 값의 SHA-256, 화면 순서/조회 시각 제외 |
+| source_digest | varchar(64) | invoiceNo·품목·기본단위 수량·원천 qty/unit/factor의 정렬된 의미 값 SHA-256. 모든 날짜·시각 제외 |
 | closed_at | timestamptz? | COMPLETED/RELEASED ↔ NN |
 | release_reason | varchar(300)? | RELEASED 시 필수 |
 
@@ -170,7 +170,9 @@ ERP PURCHASE 반영은 기존 전표와 유효 claim을 함께 조회한다.
 
 Idempotency-Key는 기존 24시간 영수증 규칙(동일 키 다른 본문/만료 422)을 유지한다. 영수증 만료 이후도 business_key·source_claim·원천 전표 유니크·최종 상태가 중복 생성을 막는다. 새 키 재요청의 도착은 이미 ARRIVED/INSPECTED면 기존 도착 결과, 검수는 저장 결과와 동일 본문이면 기존 결과(상이하면409), 소진은 같은 출하라면 기존 결과. 최종 상태 재요청 판정을 version 오류보다 먼저 하되 내용 일치를 확인한다. 네트워크 시간 초과는 실패 확정이 아니므로 GET으로 서버 상태를 재조회한다.
 
-신규 정책 오류는 기존 ApiError의 409 CONFLICT + details.reason: STALE_VERSION, INVALID_STATE, SOURCE_CLAIMED, SOURCE_ALREADY_POSTED, SOURCE_ROUTE_CONFLICT, SOURCE_CHANGED, SOURCE_CANCELLED, INSUFFICIENT_AVAILABLE, QUARANTINE_NOT_RESERVABLE, SHIPMENT_MISMATCH. SOURCE_MODULE_DISABLED는 기존 409 코드 유지. 필드/수량 오류 422, 공간 밖 ID는 404. DB 유니크 충돌은 원천 재조회 후 기존 결과 또는409로 변환한다. 500으로 노출하지 않는다.
+신규 정책 오류는 기존 ApiError의 409 PRECONDITION_NOT_MET + details.reason: STALE_VERSION, INVALID_STATE, SOURCE_CLAIMED, SOURCE_ALREADY_POSTED, SOURCE_ROUTE_CONFLICT, SOURCE_CHANGED, SOURCE_CANCELLED, INSUFFICIENT_AVAILABLE, QUARANTINE_NOT_RESERVABLE, SHIPMENT_MISMATCH. SOURCE_MODULE_DISABLED는 기존 409 코드 유지. 필드/수량 오류 400 VALIDATION_FAILED(details.fields.<경로>), 422는 IDEMPOTENCY_CONFLICT 전용, 공간 밖 ID는 404. DB 유니크 충돌은 원천 재조회 후 기존 결과 또는409로 변환한다. 500으로 노출하지 않는다.
+
+신규 입고 명령의 처리 시각은 DB `clock_timestamp()`를 한 번 읽어 도착/검수/완료/전표 게시/이동 시각에 함께 사용한다. 검수 전표 업무일·월과 IN/WD 번호 날짜는 그 서버 시각의 Asia/Seoul 날짜다. 사용자 입력 expectedOn은 예정일이며 처리 시각에 영향을 주지 않는다. `FS_TODAY`는 기존 시드/체험 기준일에만 사용하며 신규 명령에 섞지 않는다.
 
 ## 8. 인터페이스와 API 계약
 
@@ -181,7 +183,7 @@ ERP만 수정할 공개 조회 계약:
 - 새 `shipment_orders(scope)` → `[{shipmentOrderNo,status,lines:[{itemCode,qty,unit}]}]`, open/shipped/cancelled 상태 및 번호별 수요 대조용. 기존 ERP 출하지시 상태를 그대로 반환한다. 꺼짐 None, 범위 S 필터, 잠금/쓰기 없음.
 - MES interface 및 MES 제품 쓰기 계약은 변경하지 않는다. 예약 확인은 위 ERP 계약 또는 WMS 자신의 원장만 사용한다.
 
-모든 경로 아래 `/api/v1/wms`, 기존 응답 envelope/인증/CSRF/Idempotency-Key 사용. 신규 경로는 **설계이며 아직 존재하지 않는다.**
+모든 경로 아래 `/api/v1/wms`, 기존 응답 envelope/인증/CSRF/Idempotency-Key 사용. 입고 예정 경로는 FS-026b1 구현 대상이다. 예약 경로는 FS-026b2 사용자 확인 후 구현한다.
 
 | 메서드/경로 | 요청 → 결과 |
 |---|---|
@@ -206,7 +208,7 @@ ERP만 수정할 공개 조회 계약:
 - schema.json·DB설계서.xlsx·ERD·검증기 엔티티/정책/상태를 구현과 같은 작업에서 갱신한다. 이번 문서 단계에서는 실제 메타데이터와 산출물을 변경하지 않는다.
 - 기존 운영 전표/위치/LOT/시드는 유지. 위치는 NORMAL 기본값, 신규 테이블은 빈 상태. 과거 전표를 검수 건으로 소급 변경하지 않는다.
 - 새 템플릿에는 기존 5품목만 사용: R-Q01/F-Q01 격리 위치 각1개, 수동 PLANNED/ARRIVED/INSPECTED(95/3/2 KG 예시)/전량 부족/취소, 예약 ACTIVE/RELEASED/CONSUMED 예시. 기존 PI-0004/SH-0004 미반영 체험은 유지하고 이 원천을 사전 소진하지 않는다. 성공 소진 예시는 기존 다른 미반영 원천을 검증해 사용하거나 합성 ERP 원천을 해당 ERP 시드 소유 코드에서 추가한다. 알루미늄 품목 없음. 행 수는 생성 후 확정한다.
-- 세대 복사: 부모 stock_document/마스터→notice→notice_line/source_claim→reservation→reservation_line 순으로 ID 매핑. 삭제는 역순, stock_document는 뒤에 삭제. 시간/expected_on·IN/RSV 번호 날짜를 기존 방식으로 이동하며 business_key/source_key 참조의 번호 치환도 함께 한다. 검수 source_key 내부 IN 번호 일치 필수. JSON snapshot confirmedAt도 동일 날짜 오프셋 적용 후 digest 재계산. 수량/단위 환산 값은 보존한다.
+- 세대 복사: 부모 stock_document/마스터→notice→notice_line/source_claim→reservation→reservation_line 순으로 ID 매핑. 삭제는 역순, stock_document는 뒤에 삭제. 시간/expected_on·IN/RSV 번호 날짜를 기존 방식으로 이동하며 business_key는 불투명 업무 식별자로 보존하며 source_key/source_ref 내부 검수 번호를 함께 치환한다. 검수 source_key 내부 IN 번호 일치 필수. JSON snapshot confirmedAt은 표시용으로 동일 날짜 오프셋만 적용하며 digest는 그대로 복사한다(재계산 없음). 수량/단위 환산 값은 보존한다.
 - 세대 초기화 후 이전 ID로 조회/쓰기는 거부한다. 모듈 끄기는 데이터 삭제 아님. 새로운 module_key나 workspace_module 행은 필요 없다.
 
 ## 10. 인수 기준 — AC-139~164 (설계, 미실행)
@@ -217,7 +219,7 @@ ERP만 수정할 공개 조회 계약:
 | 140 | 100 KG 예정→도착2회/새로고침 | 도착시각1개, 원장0, 서버 상태 복원 |
 | 141 | 100→95합격/3격리/2부족 확정 | 정상+95/격리+3, 현재고98, 예약가능95 |
 | 142 | 100→전량부족 확정·ERP sync 재시도 | INSPECTED/COMPLETED, 전표NULL·move0, 추가입고0 |
-| 143 | 합계불일치·음수·정밀도초과·누락/중복줄 | 422, 상태/원장/claim 변화0 |
+| 143 | 합계불일치·음수·정밀도초과·누락/중복줄 | 400 VALIDATION_FAILED(details.fields.<경로>), 상태/원장/claim 변화0 |
 | 144 | 같은 ERP 원천 직접sync와 선점/검수 동시 | 별도 DB 연결의 실제 경합으로 단일 경로만 성공, 중복 증가0 |
 | 145 | 선점 원천 일괄sync | 검수대기 안내, 다른 정상 원천은 기존처럼 처리 |
 | 146 | 이미 직접 반영/유효 선점된 원천 연결 | 거부; 취소 후 해제된 선점만 재연결 가능 |

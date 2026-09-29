@@ -129,9 +129,11 @@ def _action(
         return result
 
 
-def _next_no(connection: Connection, scoped: AuthContext) -> str:
+def _next_no(
+    connection: Connection, scoped: AuthContext, on: date | None = None
+) -> str:
     """WD-YYYYMMDD-NNN. 공간 잠금 안에서만 부른다."""
-    stem = f"WD-{business_today():%Y%m%d}-"
+    stem = f"WD-{on or business_today():%Y%m%d}-"
     used = connection.execute(
         text(
             f"SELECT count(*) FROM wms.stock_document WHERE {_S} AND document_no LIKE :stem"
@@ -158,7 +160,7 @@ SELECT h.id, h.code, h.name, h.purpose, h.is_active, h.created_at,
 FROM wms.warehouse h WHERE h.{_S.replace(" AND ", " AND h.")}
 """
 LOCATION_SQL = """
-SELECT l.id, l.warehouse_id, h.code warehouse_code, l.code, l.name, l.is_default, l.is_active,
+SELECT l.id, l.warehouse_id, h.code warehouse_code, l.code, l.name, l.is_default, l.is_active, l.location_type,
        (SELECT count(*) FROM wms.stock_move m
          WHERE m.workspace_id=l.workspace_id AND m.generation_id=l.generation_id AND m.location_id=l.id) move_count
 FROM wms.storage_location l
@@ -256,6 +258,10 @@ def update_warehouse(
                     "isActive": "같은 용도의 사용 중인 창고가 있습니다. 원천 반영 창고가 겹칩니다."
                 }
             )
+        if values.get("is_active") is False:
+            from fs.wms.receiving import guard_master
+
+            guard_master(connection, scoped, "warehouse", row_id)
         sets = ", ".join(f"{k}=:{k}" for k in values)
         connection.execute(
             text(f"UPDATE wms.warehouse SET {sets} WHERE {_S} AND id=:id"),
@@ -308,13 +314,18 @@ def create_location(
             ),
             {**_s(scoped), "h": warehouse_id},
         ).first()
-        default = values["is_default"] or not has_default  # 창고의 첫 위치는 기본 위치
+        location_type = values.get("location_type", "NORMAL")
+        if location_type == "QUARANTINE" and values["is_default"]:
+            raise _fields({"isDefault": "격리 위치는 기본 위치가 될 수 없습니다."})
+        default = location_type == "NORMAL" and (
+            values["is_default"] or not has_default
+        )
         if default:
             _clear_default(connection, scoped, warehouse_id)
         row_id = connection.execute(
             text(
-                "INSERT INTO wms.storage_location(workspace_id,generation_id,warehouse_id,code,name,is_default) "
-                "VALUES (:w,:g,:h,:code,:name,:d) RETURNING id"
+                "INSERT INTO wms.storage_location(workspace_id,generation_id,warehouse_id,code,name,is_default,location_type) "
+                "VALUES (:w,:g,:h,:code,:name,:d,:lt) RETURNING id"
             ),
             {
                 **_s(scoped),
@@ -322,6 +333,7 @@ def create_location(
                 "code": values["code"],
                 "name": values["name"],
                 "d": default,
+                "lt": location_type,
             },
         ).scalar_one()
         return _location(connection, scoped, row_id), "storage_location", row_id
@@ -339,7 +351,24 @@ def update_location(
         found = _location(connection, scoped, row_id)
         if found is None:
             raise _not_found("위치")
+        location_type = values.get("location_type", found["locationType"])
+        if location_type != found["locationType"]:
+            from fs.wms.receiving import guard_master
+
+            guard_master(connection, scoped, "location", row_id, all_history=True)
+            if found["moveCount"]:
+                raise _referenced(
+                    "이동 이력이 있는 위치 유형은 바꿀 수 없습니다.",
+                    "재고 이동",
+                    found["moveCount"],
+                )
+        if values.get("is_active") is False:
+            from fs.wms.receiving import guard_master
+
+            guard_master(connection, scoped, "location", row_id)
         default = values.get("is_default", found["isDefault"])
+        if default and location_type == "QUARANTINE":
+            raise _fields({"isDefault": "격리 위치는 기본 위치가 될 수 없습니다."})
         active = values.get("is_active", found["isActive"])
         if found["isDefault"] and values.get("is_default") is False:
             raise _fields(
@@ -366,6 +395,9 @@ def delete_location(context: AuthContext, row_id: int, key: str) -> dict[str, An
         found = _location(connection, scoped, row_id)
         if found is None:
             raise _not_found("위치")
+        from fs.wms.receiving import guard_master
+
+        guard_master(connection, scoped, "location", row_id, all_history=True)
         if found["moveCount"]:
             raise _referenced(
                 "이동이 있는 위치는 지울 수 없습니다. 사용 안 함으로 바꾸세요.",
@@ -468,6 +500,10 @@ def update_item(
     def fn(connection, scoped):
         if _item(connection, scoped, row_id) is None:
             raise _not_found("품목")
+        if values.get("is_active") is False:
+            from fs.wms.receiving import guard_master
+
+            guard_master(connection, scoped, "item", row_id)
         sets = ", ".join(f"{k}=:{k}" for k in values)
         connection.execute(
             text(f"UPDATE wms.item SET {sets} WHERE {_S} AND id=:id"),
@@ -787,12 +823,17 @@ def _insert_document(
             "INSERT INTO wms.stock_document(workspace_id,generation_id,document_no,document_type,status,"
             "source_key,source_ref,reverses_document_id,reason_code,document_on,document_month,posted_at,note) "
             "VALUES (:w,:g,:no,:type,:status,:key,:ref,:rev,:reason,:on,:month,"
-            + ("clock_timestamp()" if header["status"] == "posted" else "NULL")
+            + (
+                "COALESCE(CAST(:posted_at AS timestamptz),clock_timestamp())"
+                if header["status"] == "posted"
+                else "NULL"
+            )
             + ",:note) RETURNING id"
         ),
         {
             **_s(scoped),
-            "no": _next_no(connection, scoped),
+            "no": _next_no(connection, scoped, on if header.get("posted_at") else None),
+            "posted_at": header.get("posted_at"),
             "type": header["document_type"],
             "status": header["status"],
             "key": header.get("source_key"),
@@ -834,6 +875,12 @@ def _insert_moves(
 
 
 def _sync_one(connection, scoped, kind: str, source: dict[str, Any]) -> dict[str, Any]:
+    if kind == "ERP_PURCHASE":
+        from fs.wms.receiving import route
+
+        claimed = route(connection, scoped, source)
+        if claimed:
+            return claimed
     existing = _document_by_source(connection, scoped, source["sourceKey"])
     cancelled = source.get("cancelledAt")
     if existing is None:
@@ -932,6 +979,13 @@ def list_sources(context: AuthContext, kind: str, state: str | None) -> dict[str
                 "documentId": None,
                 "documentNo": None,
             }
+            if kind == "ERP_PURCHASE":
+                from fs.wms.receiving import route
+
+                claimed = route(connection, scoped, source)
+                if claimed:
+                    rows.append({**row, **claimed})
+                    continue
             done = reversed_ or posted
             if done:
                 row.update(documentId=done["id"], documentNo=done["document_no"])
@@ -954,7 +1008,7 @@ def list_sources(context: AuthContext, kind: str, state: str | None) -> dict[str
                         reason={"code": blocked.reason, **blocked.details},
                     )
             rows.append(row)
-        pending = {"pending", "cancel_pending", "blocked"}
+        pending = {"pending", "cancel_pending", "blocked", "inspection_pending"}
         if state == "pending":
             rows = [r for r in rows if r["state"] in pending]
         elif state == "synced":
@@ -977,6 +1031,8 @@ def sync_sources(
             if source is None:
                 raise Blocked("SOURCE_NOT_FOUND")
             result = _sync_one(connection, scoped, kind, source)
+            if result.get("noticeId"):
+                return result, "inbound_notice", result["noticeId"]
             return result, "stock_document", result["documentId"]
 
         try:
@@ -998,7 +1054,15 @@ def sync_sources(
                 }
             )
     synced = sum(r["state"] in ("synced", "reversed") for r in results)
-    return {"results": results, "synced": synced, "blocked": len(results) - synced}
+    return {
+        "results": results,
+        "synced": synced,
+        "blocked": sum(r["state"] == "blocked" for r in results),
+        "deferred": sum(r["state"] == "inspection_pending" for r in results),
+        "inspected": sum(
+            r["state"] in {"inspected", "inspected_cancelled"} for r in results
+        ),
+    }
 
 
 # ---------- 재고 전표 (W-04, TX-W2) ----------
@@ -1508,8 +1572,18 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
                     _s(scoped),
                 ).scalars()
             )
+            if kind == "ERP_PURCHASE":
+                from fs.wms.receiving import route
+
+                claimed_routes = {
+                    s["sourceKey"]: route(connection, scoped, s) for s in sources
+                }
+            else:
+                claimed_routes = {}
             pending_by_kind[kind] = sum(
-                (s["sourceKey"] not in keys)
+                claimed_routes[s["sourceKey"]]["state"] == "inspection_pending"
+                if claimed_routes.get(s["sourceKey"])
+                else (s["sourceKey"] not in keys)
                 if not s.get("cancelledAt")
                 else (s["sourceKey"] in keys and s["sourceKey"] not in reversed_keys)
                 for s in sources

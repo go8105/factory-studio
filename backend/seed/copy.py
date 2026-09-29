@@ -353,6 +353,12 @@ def _insert_select_sql(
 
 
 def _column_expression(table_name: str, column: str, type_name: str) -> str:
+    if table_name == "wms.source_claim" and column == "source_snapshot":
+        # Only the display timestamp moves. Semantic digest stays byte-for-byte intact.
+        return "CASE WHEN src.source_snapshot->>'confirmedAt' IS NULL THEN src.source_snapshot ELSE jsonb_set(src.source_snapshot, '{confirmedAt}', to_jsonb((src.source_snapshot->>'confirmedAt')::timestamptz + (:target_date - :source_date) * interval '1 day')) END"
+    if table_name == "wms.stock_document" and column in {"source_key", "source_ref"}:
+        prefix = "'WMS:INSPECTION:' || " if column == "source_key" else ""
+        return f"CASE WHEN src.document_type='WMS_INSPECTION' THEN {prefix}left(src.source_ref, 3) || to_char(to_date(substr(src.source_ref, 4, 8), 'YYYYMMDD') + (:target_date - :source_date), 'YYYYMMDD') || substr(src.source_ref, 12) ELSE src.\"{column}\" END"
     if (
         table_name in {"erp.sales_plan", "mes.production_plan"}
         and column == "target_month"
@@ -385,6 +391,7 @@ def _column_expression(table_name: str, column: str, type_name: str) -> str:
         ("qms.inspection", "inspection_no"),
         ("qms.quality_hold", "hold_no"),
         ("wms.stock_document", "document_no"),
+        ("wms.inbound_notice", "notice_no"),
     }:
         # QI-/QH-/WD-YYYYMMDD-NNN: 번호 속 날짜도 같은 일수만큼 옮긴다.
         return (

@@ -1520,3 +1520,9 @@
 - 전용 로컬 테스트DB2개만 적용. 공유 개발/운영DB·시드 품목 변경 없음. origin/main489d5f3의 migration head가 fs025b_bems_module 그대로임을 확인했고 새 BEMS UI는 이번 브랜치에 rebase하지 않았다.
 - 다음 FS-026b API(입고/원천선점/검수/예약·가용/출하연결·동시성), 이후 화면·트럭·도움말·시드. 세부 선택은 승인 권장안. push·배포 없음, .env/work 스테이징 없음.
 - 상세: docs/agent/WMS확장_DB_FS-026a.md. 브랜치 codex/vision-ai, 기준01b6cce, 완료커밋 git log -1.
+
+
+## 2026-09-29 FS-026b1 WIP
+- main6508599 rebase 완료(main HANDOFF 유지), BEMS 포함 템플릿11,910 기준 유지.
+- 입고 예정/도착/검수/원천선점 API 작성, 기존 원천 sync 연결, 날짜 제외 digest와 게스트 복사 처리. 입력400/멱등422 설계 수정.
+- 실제 DB 신규 테스트 진행 중. 전체 회귀/ruff/격리 감사 미완료. b2는 b1 보고 확인 후.

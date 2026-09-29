@@ -2,14 +2,23 @@
 """WMS API (/api/v1/wms, FS-024 모듈 설계 8장). 변경 요청은 CSRF와 Idempotency-Key가 필요하다."""
 
 from datetime import date
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Header, Query
 from pydantic import BaseModel
 
 from fs.common.auth import AuthContext, require_csrf, resolve_auth
 from fs.common.errors import ApiError
-from fs.wms import service
+from fs.wms import receiving, service
+from fs.wms.receiving_schema import (
+    InspectionInput,
+    NoticeCreate,
+    NoticeStatus,
+    NoticeUpdate,
+    ReasonInput,
+    SourceLink,
+    VersionInput,
+)
 from fs.wms.schema import (
     ConversionCreate,
     DocumentCreate,
@@ -31,7 +40,7 @@ Auth = Annotated[AuthContext, Depends(resolve_auth)]
 IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
 CsrfToken = Annotated[str | None, Header(alias="X-CSRF-Token")]
 MONTH = r"^[0-9]{4}-(0[1-9]|1[0-2])$"
-DocumentType = ManualType | SourceKind | None
+DocumentType = ManualType | SourceKind | Literal["WMS_INSPECTION"] | None
 
 
 def _mutation(context: AuthContext, csrf: str | None, key: str | None) -> str:
@@ -358,3 +367,142 @@ def post_document(
     doc_id: int, context: Auth, csrf: CsrfToken = None, key: IdempotencyKey = None
 ):
     return _data(service.post_document(context, doc_id, _mutation(context, csrf, key)))
+
+
+# ---- 입고 예정·검수 (FS-026b1, TX-W4~W7) ----
+@router.get("/inbound-notices")
+def list_inbound_notices(
+    context: Auth,
+    status: NoticeStatus | None = None,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+):
+    return _data(receiving.list_notices(context, status, warehouse_id, page, page_size))
+
+
+@router.get("/inbound-notices/{row_id}")
+def get_inbound_notice(row_id: int, context: Auth):
+    return _data(receiving.get_notice(context, row_id))
+
+
+@router.post("/inbound-notices", status_code=201)
+def create_inbound_notice(
+    payload: NoticeCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        receiving.create_notice(
+            context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.patch("/inbound-notices/{row_id}")
+def update_inbound_notice(
+    row_id: int,
+    payload: NoticeUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        receiving.update_notice(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/inbound-notices/{row_id}/source-link")
+def inbound_link_source(
+    row_id: int,
+    payload: SourceLink,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        receiving.link_source(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/inbound-notices/{row_id}/source-unlink")
+def inbound_unlink_source(
+    row_id: int,
+    payload: ReasonInput,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        receiving.unlink_source(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/inbound-notices/{row_id}/arrive")
+def inbound_arrive(
+    row_id: int,
+    payload: VersionInput,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        receiving.arrive(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/inbound-notices/{row_id}/cancel")
+def inbound_cancel(
+    row_id: int,
+    payload: ReasonInput,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        receiving.cancel(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/inbound-notices/{row_id}/inspect")
+def inbound_inspect_notice(
+    row_id: int,
+    payload: InspectionInput,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        receiving.inspect_notice(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
