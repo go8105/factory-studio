@@ -1,6 +1,6 @@
 # WMS 모듈 설계 revision 3 — FS-026
 
-작성일: 2026-09-28. **전체 설계 승인 2026-09-28. FS-026a DB 완료, FS-026b1 입고 API 검증 진행 중. 예약 API·화면 미구현.** 결정서 D24~D32 및 Q1~Q6은 사용자의 “진행해줘”로 승인됐다.
+작성일: 2026-09-28. **전체 설계 승인 2026-09-28. FS-026a DB 완료, FS-026b1 입고 API 완료(전체 pytest755 통과). 예약 API·화면 미구현.** 결정서 D24~D32 및 Q1~Q6은 사용자의 “진행해줘”로 승인됐다.
 기준: [FS-024 revision 1](WMS_모듈설계_FS-024.md), [FS-026 결정](../../plan/WMS확장_입고검수예약_결정_FS-026.md). 기존 6테이블/원장을 재사용하며 이 문서는 차분이다. 상충하는 범위·가용·입고 취소 정책은 승인된 FS-026을 따른다. DB는 FS-026a, 입고 API는 FS-026b1로 확장한다. 예약 API/가용 조회 개편은 b2다.
 
 ## 1. 변경 범위와 불변식
@@ -185,7 +185,7 @@ ERP만 수정할 공개 조회 계약:
 - 새 `shipment_orders(scope)` → `[{shipmentOrderNo,status,lines:[{itemCode,qty,unit}]}]`, open/shipped/cancelled 상태 및 번호별 수요 대조용. 기존 ERP 출하지시 상태를 그대로 반환한다. 꺼짐 None, 범위 S 필터, 잠금/쓰기 없음.
 - MES interface 및 MES 제품 쓰기 계약은 변경하지 않는다. 예약 확인은 위 ERP 계약 또는 WMS 자신의 원장만 사용한다.
 
-모든 경로 아래 `/api/v1/wms`, 기존 응답 envelope/인증/CSRF/Idempotency-Key 사용. 입고 예정 경로는 FS-026b1 구현 대상이다. 예약 경로는 FS-026b2 사용자 확인 후 구현한다.
+모든 경로 아래 `/api/v1/wms`, 기존 응답 envelope/인증/CSRF/Idempotency-Key 사용. 입고 예정 경로는 FS-026b1에서 구현·검증했다. 예약 경로는 FS-026b2 사용자 확인 후 구현한다.
 
 | 메서드/경로 | 요청 → 결과 |
 |---|---|

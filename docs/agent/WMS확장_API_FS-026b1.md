@@ -1,6 +1,6 @@
 # FS-026b1 입고 예정·도착·검수·원천 선점
 
-2026-09-29. **구현 완료, 전체 회귀 검증 진행 중.** 브랜치 `codex/vision-ai`, 기준 `origin/main 6508599`.
+2026-09-29. **FS-026b1 완료 — 사용자 확인 대기.** 브랜치 `codex/vision-ai`, 기준 `origin/main 6508599`.
 
 ## 범위
 
@@ -41,7 +41,25 @@ main `6508599`로 rebase했다. HANDOFF 충돌은 main 내용을 유지하고 FS
 
 ## 검증
 
-전체 pytest 결과는 실행 완료 후 기록한다. 신규 입고 API23개 통과, 기존 WMS 프런트 호환 테스트10개(신규3개 포함) 통과, TypeScript 타입 검사·변경 프런트 ESLint 통과. ruff check/format(134파일), 격리 감사 R1~R6(98테이블/225FK) 오류0, 정적 DB 검증 오류0. 신규 `test_wms_receiving.py`는 수량 원자성, 실제 두 PostgreSQL 연결 경합, ERP 취소/변경, 환산, 날짜 제외 digest, 복사, 범위 격리, 마스터 보호, 오류 규약과 멱등을 다룬다. 기존 test_wms.py가 직접 매입 취소의 1회 되돌림을 회귀 검증한다.
+**백엔드 전체 pytest755개 통과(20분04초, 기존 사용중단 경고2개).** 도구 전체 pytest58개 및 subtests13개 통과. 신규 입고 API23개 통과, 기존 WMS 프런트 호환 테스트10개(신규3개 포함) 통과, TypeScript 타입 검사·변경 프런트 ESLint 통과. CI 범위 ruff check/format(134파일), 격리 감사 R1~R6(98테이블/225FK) 오류0, 정적 DB 검증 오류0. 신규 `test_wms_receiving.py`는 수량 원자성, 실제 두 PostgreSQL 연결 경합, ERP 취소/변경, 환산, 날짜 제외 digest, 복사, 범위 격리, 마스터 보호, 오류 규약과 멱등을 다룬다. 기존 test_wms.py가 직접 매입 취소의 1회 되돌림을 회귀 검증한다.
+
+### 인수 기준 연결
+
+| AC | 검증 근거 | 경계 |
+|---|---|---|
+| 140 | 도착 재요청·상세 재조회, 도착 원장0 | 3D 연출은 후속 |
+| 141 | 100 예정→95/3/2, 전표 이동2줄·총98 | 예약가능95 조회는 b2 |
+| 142 | 전량부족→COMPLETED·전표NULL, 후속 sync 증가0 | 검수 결과는 보존 |
+| 143 | 합계/음수/정밀도/누락/중복/외부줄/사유 오류400, 원장·version·claim 불변 | 입력 줄 순서도 검증 |
+| 144 | 별도 PostgreSQL PID 2개·barrier 경합: 직접sync vs 선점, sync vs 검수 | 중복 원장0 |
+| 145 | 선점 건 deferred1 + 다른 매입 synced1 | 동일 배치에서 정상 건 처리 |
+| 146 | 타 예정 선점 거부, 해제/취소 후 재연결, 직접반영 이력 연결 거부 | 공간 잠금 안에서 재검사 |
+| 147 | 수동 검수 뒤 원천 대사 COMPLETED, 원장 불변·후속 sync 증가0 | 실수령 아닌 예정 수량 대조 |
+| 148 | 원천 취소/수량/환산 변경 시 확정 보류, 원장 불변 | 시각 변경만 있으면 digest 동일 |
+| 149 | 검수 후 ERP 취소 경고·원장 보존; 기존 직접매입 되돌림은 test_wms 회귀 | 자동 검수 되돌림 없음 |
+| 150 | BOX→EA snapshot, 환산누락/자리수초과 거부, 소수0.125 KG·줄 순서 정규화 | 반올림 없음 |
+
+추가: ERP 끄기/수동 검수, 타 공간·초기화 이전 ID404, 복사 날짜·번호·digest, 마스터 보호, stale version409·같은 멱등 키 다른 본문422를 검증했다. AC-159~164 전체 완료를 의미하지 않는다.
 
 재현: migration head가 적용된 전용 `*_test` DB에 DATABASE_URL/TEST_DATABASE_URL을 안전하게 설정한 다음 저장소 루트에서 실행한다. 실제 운영 DB로 실행하지 않는다.
 
@@ -53,3 +71,8 @@ python3 tools/audit_schema_isolation.py
 ```
 
 미실행: 새 입고 화면/3D 브라우저 검증, 운영 migration·배포. push/배포하지 않았다. 다음은 **사용자 b1 확인 후 b2**다.
+
+보조 확인: 설정 자동 탐색 ruff는 import 정렬 I001 18건을 보고했지만 해당 파일은 main6508599와 모두 동일하다. 저장소 CI(.github/workflows/ci.yml)·HANDOFF에 지정된 명시 설정 명령은 check/format 모두 통과했다. 이 작업과 무관한 main 파일은 변경하지 않았다.
+
+
+최종 구현 커밋: `a832fa8`(앞선 WIP `16045ae` 포함). 최종 보고 커밋은 `git log -1`로 확인한다. 전용 테스트 DB `factory_studio_codex_fs026b1_final_test`에서 head 적용 후 전체 pytest를 실행했다. 공유 개발/운영 DB 변경은 없다.

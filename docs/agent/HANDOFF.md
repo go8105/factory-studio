@@ -361,10 +361,20 @@ git diff --check
 - 작업 위치 factory-studio-codex, 브랜치 codex/vision-ai. origin/main `6508599`로 rebase 완료. 이전 HEAD `521ad76`은 `backup/vision-ai-before-fs026b1-20260929` 보존. rebase 직후 HEAD `df6014e`. main의 BEMS 시드 템플릿 11,910 / 복사 11,908행 유지.
 - FS-026a 완료: migration head `fs026a_wms_receiving_reservation`, metadata v0.13.0 /98테이블·1022컬럼·225 FK. 기존 migration 변경 없음. 이전 상세 보고 docs/agent/WMS확장_DB_FS-026a.md.
 - 현재 b1: receiving.py/receiving_schema.py, 입고 예정/도착/검수/원천 선점 API와 기존 sync 연계, NORMAL/QUARANTINE 마스터 보호, snapshot 날짜만 복사·digest 불변 구현 중. 입력400/멱등422, 신규 처리 시각 DB clock_timestamp 통일.
-- 아직 검증 완료 아님. 신규 테스트 실패 수정 중이며 전체 pytest/ruff/격리 감사는 최종 실행 필요. 완료 후 보고를 갱신한다. 실행: 전용 *_test DB에 DATABASE_URL/TEST_DATABASE_URL 설정 후 `backend/.venv/bin/pytest backend/tests --tb=short -q`, `uv run --project backend ruff check backend`, `python3 tools/audit_schema_isolation.py`. 비밀값은 저장/출력하지 않는다.
+- 아직 검증 완료 아님. 신규 테스트 실패 수정 중이며 전체 pytest/ruff/격리 감사는 최종 실행 필요. 완료 후 보고를 갱신한다. 실행: 전용 *_test DB에 DATABASE_URL/TEST_DATABASE_URL 설정 후 `backend/.venv/bin/pytest backend/tests --tb=short -q`, `uv run --project backend ruff check --config backend/pyproject.toml backend tools/verify_ddl_matches_schema.py`, `python3 tools/audit_schema_isolation.py`. 비밀값은 저장/출력하지 않는다.
 - 사용자 지정 단계: b1(TX-W4~7/AC140~150) 보고 후 사용자 확인 대기. b2 예약·소진·가용(TX-W8~9/AC151~158)은 아직 시작 금지. 이후 화면/트럭/시드·도움말도 별도. push·배포 미승인.
 
 ### FS-026b1 검증 중간 갱신
 - 입고 API23개 통과(별도 PG 연결 경합, 전량 부족, 취소/원천변경, 환산/복사/격리, 멱등, 줄 순서 오류 경로, 초안 삭제 뒤 발번 포함). 전량 부족 sync 영수증은 전표가 없으므로 inbound_notice ID로 저장한다.
 - 기존 W-03 새 상태 및 검수 전표 이름의 최소 표시 호환 추가. WMS 프런트10개·typecheck·변경 ESLint 통과. 입고 전용 화면은 미구현.
 - 전체 백엔드 pytest 재실행 중. ruff check/format134파일 통과, R1~R6 감사 오류0, db:validate 오류0. 최종 전체 결과 전에는 완료로 인계하지 않는다.
+
+
+## 2026-09-29 FS-026b1 최종 완료 — 다음은 사용자 확인 후 b2
+
+- 위 중간 WIP 상태를 이 항목으로 대체한다. 브랜치 codex/vision-ai, 기준 main6508599, 마지막 구현 a832fa8(16045ae 포함), 마지막 보고커밋은 git log -1. main 본문은 보존했다.
+- 입고 예정·도착·검수·원천선점/해제/사후대사와 기존 ERP sync 단일 경로 완료. 400 필드오류/422 멱등, 날짜 제외 digest, 복사 confirmedAt 날짜만 이동·digest 불변, 신규 서버 시각 통일. 기존 W-03 새 상태/NULL 전표 호환 포함.
+- 최종 검증: **backend 전체755 passed, 2 warnings, 1204.94초**; 신규 입고23 포함. tools58+subtests13, WMS 프런트10, typecheck·변경 ESLint, CI ruff check/format134파일, R1~R6 감사0, db:validate0. 자동 탐색 ruff의 기존18 I001 파일은 main과 동일하며 CI 명령은 통과했다.
+- 전용 factory_studio_codex_fs026b1_final_test DB에서 실행. head fs026a_wms_receiving_reservation 유지. 공유 개발/운영DB·migration·schema/Excel/ERD·BEMS 시드11,910 기준 변경 없음. .env/work 스테이징 없음. push·배포 없음.
+- b2 예약·소진·가용 조회(TX-W8~W9/AC151~158)는 **사용자 b1 확인 전 시작하지 않는다**. AC141의 예약가능95 조회도 b2에 남는다. 이후 입고 화면/3D 트럭/시드·도움말·브라우저 검증. 신규 입고 화면은 아직 없으며 프로젝트 전체 완료가 아니다.
+- 상세 및 재현 명령: docs/agent/WMS확장_API_FS-026b1.md. 테스트에 필요한 전용 *_test DB 환경만 주입하면 표준 pytest 명령으로 재현되며 work 임시 도구에 의존하지 않는다.
