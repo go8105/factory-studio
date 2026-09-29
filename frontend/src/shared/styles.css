@@ -2031,6 +2031,125 @@ th[aria-sort="none"] button span {
   color: var(--muted);
   font-size: var(--fs-xs);
 }
+/* P-03 계층 아키텍처·시스템 카탈로그: 구현은 실선, 설명·후보는 점선, 제외는 흐리게 */
+.sys-layers {
+  display: grid;
+  gap: var(--s3);
+}
+.sys-layer {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: var(--s3);
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  padding: var(--s3) var(--s4);
+}
+.sys-layer h2 {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.sys-layer > div {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--s3);
+}
+.sys-node,
+.sys-card {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  border: 1px solid #a2adb4;
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: var(--s2) var(--s3);
+  color: var(--ink);
+}
+.sys-node {
+  min-width: 120px;
+  white-space: nowrap;
+  text-align: center;
+  justify-items: center;
+}
+.sys-node span,
+.sys-card span {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.sys-node.is-card,
+.sys-node.is-candidate,
+.sys-card.is-card,
+.sys-card.is-candidate {
+  border-style: dashed;
+}
+.sys-node.is-excluded,
+.sys-card.is-excluded {
+  opacity: 0.55;
+}
+.sys-node:hover,
+.sys-card:hover,
+.sys-card[aria-current="true"] {
+  border-color: var(--accent);
+}
+.sys-card[aria-current="true"] {
+  background: var(--accent-soft);
+}
+.sys-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--s3);
+  margin-bottom: var(--s4);
+}
+.sys-status {
+  justify-self: start;
+  border-radius: 99px;
+  padding: 1px 8px;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.sys-node .sys-status {
+  justify-self: center;
+}
+.sys-status.is-implemented {
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+.sys-status.is-candidate {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+.sys-status.is-absorbed {
+  background: var(--info-bg);
+  color: var(--info-fg);
+}
+.sys-detail dl {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: var(--s2);
+  margin: var(--s3) 0;
+}
+.sys-detail dt {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+.sys-detail ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.sys-rel a {
+  margin-right: var(--s2);
+}
+@media (max-width: 640px) {
+  .sys-layer {
+    grid-template-columns: 1fr;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,

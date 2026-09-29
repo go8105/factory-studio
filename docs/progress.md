@@ -8,10 +8,38 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-09-29 MAP-02 P-03 계층 아키텍처·시스템 카탈로그 (Claude Code)
+- `content/systems.json`(17개 시스템: 계층·분류·받는 것/주는 것·연관·화면 경로), P-03 `?view=arch|catalog` 보기 추가(`ContentPages.tsx`, `styles.css` sys-*), 도움말 p-03 문구, `systems.test.tsx` 4개.
+- 검증: vitest 55파일 486 통과, tsc·eslint·prettier 통과. 브라우저(로컬 게스트)로 두 보기·카탈로그 상세·화면 이동 확인. e2e·운영 배포는 미실행.
+- 제약: 로컬 게스트 상한 20이 차 있어 확인용 백엔드는 `GUEST_LIMIT=1000`으로 띄움(DB 변경 없음). 전역 `.excluded` 클래스와 충돌해 상태 클래스는 `is-*` 접두어 사용.
+- 공유 요약: https://claude.ai/artifact/MxMzUEXWU5KdK8GPEnGsBD. 다음: 사용자 확인 → 배포 여부, CMMS 결정서는 별도 ID.
+
 ## 2026-09-28 MAP-01 연계 시스템 분석 (Claude Code)
 - 입력: 사용자 제공 `manufacturing-systems.html`(16개 시스템). 결과: `docs/plan/연계시스템_분석_MAP-01.md`.
 - 누락 11개 분류·연결(받는 것/주는 것)·결정 충돌 점검·P-03 흐름도 2장(계층 아키텍처·시스템 카탈로그) 설계.
 - 코드·DB·정적 콘텐츠 변경 없음. 검증 명령 실행 대상 아님. 다음: 사용자 확인 후 MAP-02(다른 개발 종료 후).
+
+## 2026-09-29 DOC-04 설계 문서 8편 + 홈 제목 "올인원" (Claude Code)
+- push `6508599..1b4c5a3`(DOC-03).
+- 제목: 홈·헤더·진입 "제조 현장의 여섯 시스템" → **"제조 현장의 올인원 시스템"**(표준 표기 '올인원'). 부제 "여섯 가지 독립 솔루션"·흐름 카드 "여섯 시스템은 어떻게 이어지는가"는 유지.
+- `content/help/design/d-01~08.md`(결정 → 검토한 대안 → 선택 이유 → 한계 → 관련 문서). DOC-01 목록의 "세 솔루션"은 현재 범위에 맞춰 "여섯 솔루션"으로. 본문에 작업 ID·서버/배포 정보 없음(테스트로 확인).
+- **수치 출처 대조표**
+  | 문서 | 수치 | 출처 |
+  |---|---|---|
+  | d-01·d-03 | 스키마 7, 93테이블·954컬럼·FK 209, 업무 스키마 간 FK 0 | `schema.json` v0.12.0 집계(2026-09-29) |
+  | d-03 | 제약 615(PK 93·UK 208·조건부 유일 16·CHECK 239·INDEX 59), 서비스 정책 111 | 같은 집계(합 726) |
+  | d-02 | 템플릿 11,910행·86테이블, 복사 중앙값 0.509초·최대 0.619초(10회) | FS-025c 실측·`seed/validate.py` V1 |
+  | d-02 | 동시 20명 전원 성공·대기 최대 13.9초 | `통합검증_FS-021.md` §4 |
+  | d-02 | 게스트 만료 다음 날 00:00 KST | `common/clock.py` `guest_expires_at` |
+  | d-06 | 멱등 키 24시간·같은 키 다른 본문 422 | `API계약서_FS-010.md` §3 |
+  | d-06·d-07 | 동시성 AC-59·60·72, AC 46건 33·5·4·4, 결함 AC-63 | `통합검증_FS-021.md` §2·§3 |
+  | d-07 | pytest 724·1 skip, 스모크 231·1 skip, vitest 481 | progress FS-025c·DOC-03 기록 |
+  | d-04 | 계정 7개, 세금계산서 매출 1건당 최대 1장 | `e-18.md`, 현황 §2 |
+  | d-05 | 12,000 kWh + 800 Nm³ 예시 | `FEMS_공통설계_FS-005c.md` §1.1 |
+- 결함 예방: 설계 문서 작성 틀·본문 작업 ID 금지 테스트 추가.
+- 검증: typecheck·lint·format 0, vitest 482, portal e2e 90 passed.
+- 미실행: 배포. push 없음(DOC-04·제목 변경은 로컬 커밋).
+- 다음: 사용자 확인 후 push·배포, Codex FS-026b2 승인 여부.
 
 ## 2026-09-29 DOC-03 따라하기 3편 + 개념 15편 (Claude Code)
 - `content/help/guide/s-01~03.md`(유형 틀: 목표 → 준비 상태 → 단계 → 끝나면 보이는 것 → 막힐 때), `content/help/concept/c-01~15.md`(한 줄 정의 → 왜 필요한가 → 이 제품에서는 → 관련 화면). 목록 파일 없이 기존 `docSections`가 구역으로 읽는다(첫 화면 구역 3개: 따라하기·참고·개념, 설계는 DOC-04).

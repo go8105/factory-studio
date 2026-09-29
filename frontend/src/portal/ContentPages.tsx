@@ -8,6 +8,7 @@ import {
 import { PageTitle, NotFound } from "../shared/components";
 import { cards, help, MarkdownContent, contentTitle } from "../shared/content";
 import flow from "../../../content/flow-map.json";
+import systems from "../../../content/systems.json";
 import {
   docSections,
   headings,
@@ -17,7 +18,23 @@ import {
   sectionOf,
   slug,
 } from "./docs";
+const views = [
+  ["flow", "전체 업무 흐름"],
+  ["arch", "계층 아키텍처"],
+  ["catalog", "시스템 카탈로그"],
+] as const;
+const statusLabel: Record<string, string> = {
+  implemented: "구현",
+  absorbed: "포함",
+  candidate: "구현 후보",
+  card: "설명",
+  excluded: "제외",
+};
+type Sys = (typeof systems.systems)[number];
+const sysById = (id: string) => systems.systems.find((s) => s.id === id);
 export function FlowMap() {
+  const [params] = useSearchParams();
+  const view = params.get("view") ?? "flow";
   return (
     <>
       <PageTitle
@@ -25,6 +42,135 @@ export function FlowMap() {
         title="전체 업무 흐름"
         subtitle="판매계획에서 시작하는 MTS(재고생산) 흐름"
       />
+      <nav className="tabs" aria-label="흐름도 보기">
+        {views.map(([key, label]) => (
+          <Link
+            key={key}
+            to={key === "flow" ? "/flow" : `/flow?view=${key}`}
+            aria-current={key === view ? "page" : undefined}
+          >
+            {label}
+          </Link>
+        ))}
+      </nav>
+      {view === "arch" ? (
+        <Architecture />
+      ) : view === "catalog" ? (
+        <Catalog selected={params.get("sys")} />
+      ) : (
+        <BusinessFlow />
+      )}
+    </>
+  );
+}
+function SysStatus({ s }: { s: Sys }) {
+  return (
+    <span className={`sys-status is-${s.status}`}>{statusLabel[s.status]}</span>
+  );
+}
+// 레퍼런스 계층도(17개 시스템)에 우리 구현 범위를 겹쳐 보인다.
+function Architecture() {
+  return (
+    <>
+      <p className="flow-legend">
+        <span>━ 구현 솔루션 · 화면 이동</span>
+        <span>┄ 설명 · 구현 후보</span>
+        <span>포함 = 포털·MES 안에 있음</span>
+      </p>
+      <div className="sys-layers">
+        {systems.layers.map((layer) => (
+          <section key={layer} className="sys-layer" aria-label={layer}>
+            <h2>{layer}</h2>
+            <div>
+              {systems.systems
+                .filter((s) => s.layer === layer)
+                .map((s) => (
+                  <Link
+                    key={s.id}
+                    to={`/flow?view=catalog&sys=${s.id}`}
+                    className={`sys-node is-${s.status}`}
+                  >
+                    <strong>{s.abbr}</strong>
+                    <span>{s.name}</span>
+                    <SysStatus s={s} />
+                  </Link>
+                ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </>
+  );
+}
+function Catalog({ selected }: { selected: string | null }) {
+  const current = selected ? sysById(selected) : undefined;
+  return (
+    <>
+      <div className="sys-grid">
+        {systems.systems.map((s) => (
+          <Link
+            key={s.id}
+            to={`/flow?view=catalog&sys=${s.id}`}
+            className={`sys-card is-${s.status}`}
+            aria-current={s.id === current?.id ? "true" : undefined}
+          >
+            <SysStatus s={s} />
+            <strong>{s.abbr}</strong>
+            <span>{s.summary}</span>
+          </Link>
+        ))}
+      </div>
+      <div className="panel sys-detail" aria-live="polite">
+        {current ? (
+          <>
+            <h2>
+              {current.abbr} {current.name} <SysStatus s={current} />
+            </h2>
+            <p>{current.summary}</p>
+            {current.receives.length + current.gives.length > 0 && (
+              <dl>
+                <dt>받는 것</dt>
+                <dd>
+                  <ul>
+                    {current.receives.map((t) => (
+                      <li key={t}>← {t}</li>
+                    ))}
+                  </ul>
+                </dd>
+                <dt>주는 것</dt>
+                <dd>
+                  <ul>
+                    {current.gives.map((t) => (
+                      <li key={t}>→ {t}</li>
+                    ))}
+                  </ul>
+                </dd>
+              </dl>
+            )}
+            <p className="sys-rel">
+              연관 시스템:{" "}
+              {current.rel.map((id) => (
+                <Link key={id} to={`/flow?view=catalog&sys=${id}`}>
+                  {sysById(id)?.abbr}
+                </Link>
+              ))}
+            </p>
+            {current.to && (
+              <Link className="button" to={current.to}>
+                {current.status === "card" ? "설명 카드 보기" : "화면으로 이동"}
+              </Link>
+            )}
+          </>
+        ) : (
+          <p className="muted">시스템을 선택하면 연결 정보가 표시됩니다.</p>
+        )}
+      </div>
+    </>
+  );
+}
+function BusinessFlow() {
+  return (
+    <>
       <p className="flow-legend">
         <span>━ 구현 범위 · 업무 안내 연결</span>
         <span>┄ 설명 카드 범위</span>
