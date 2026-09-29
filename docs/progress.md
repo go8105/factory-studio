@@ -13,6 +13,11 @@
 - 누락 11개 분류·연결(받는 것/주는 것)·결정 충돌 점검·P-03 흐름도 2장(계층 아키텍처·시스템 카탈로그) 설계.
 - 코드·DB·정적 콘텐츠 변경 없음. 검증 명령 실행 대상 아님. 다음: 사용자 확인 후 MAP-02(다른 개발 종료 후).
 
+## 2026-09-29 배포 준비(FS-025 BEMS) + Codex FS-026 검토 (Claude Code)
+- push `489d5f3..6508599`. 프런트 빌드: worktree `../fs-build`(6508599) `npm ci && build` 완료 — rsync는 사용자 실행.
+- 운영 반영 절차: pull `adc3cab..6508599` → uv sync → `alembic upgrade head`(`fs025a_bems`·`fs025b_bems_module`) → API 재시작 → `seed.cli template`(11,910행·86테이블) → 프런트 rsync. C++ 엔진 변경 없음.
+- Codex FS-026(`codex/vision-ai` `521ad76`) 검토: 기존 WMS 6테이블 확장 + 5테이블(`inbound_notice`·`inbound_notice_line`·`source_claim`·`stock_reservation`·`stock_reservation_line`), 마이그레이션 `fs026a_wms_receiving_reservation`(down `fs025b_bems_module` = 현재 main head, 갈라짐 없음). main과 시험 병합: 충돌은 HANDOFF 1건, db:validate 0·격리 R1~R6 0·tools unittest 58 OK. 지적: 필드 오류 422(프로젝트 규약은 400 `VALIDATION_FAILED`, 422는 멱등 충돌), 스냅샷 digest에 날짜 포함 시 게스트 복사에서 재계산 필요(날짜 제외 권장), 시드 작업 전 main `6508599`로 rebase(시드 합계·validate 충돌 예방), 범위가 큼(AC 26개) — FS-026b를 입고 검수/예약 두 부분으로 나눠 보고.
+
 ## 2026-09-28 FS-025c BEMS 시드·도움말·흐름 맵·통합 검증 (Claude Code)
 - push `b9dfbc4..489d5f3`(FS-025b 2부).
 - 시드 `_bems`: 1시간 진행과 같은 모델로 30일 시간 단위 시뮬레이션 → 공용 전력 2,160·환경 2,016·명령 16·경보 4(해제 3 + T−1 확인 대기 1) 등 **4,218행**. 템플릿 7,692 → **11,910**, 복사 11,908, `sv-20260928-1`. 잔여 30일 모두 ≥ 0. 상세: 모듈 설계 16장.
