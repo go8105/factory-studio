@@ -86,7 +86,8 @@ def _guest():
     request = Request(
         f"{BASE}/api/v1/core/guest-sessions",
         method="POST",
-        headers={"Idempotency-Key": str(uuid4())},
+        data=b'{"nickname": "측정"}',
+        headers={"Idempotency-Key": str(uuid4()), "Content-Type": "application/json"},
     )
     with opener.open(request, timeout=60) as response:
         assert response.status == 201

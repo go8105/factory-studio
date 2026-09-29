@@ -319,7 +319,9 @@ def _other_guest(client, engine=None):
     """새 게스트 공간. engine을 주면 WMS 시드를 지운 빈 상태로 만든다."""
     other = TestClient(client.app, base_url="https://testserver")
     response = other.post(
-        "/api/v1/core/guest-sessions", headers={"Idempotency-Key": str(uuid4())}
+        "/api/v1/core/guest-sessions",
+        json={"nickname": "테스트 게스트"},
+        headers={"Idempotency-Key": str(uuid4())},
     )
     assert response.status_code == 201
     created = response.json()["data"]

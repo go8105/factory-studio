@@ -4,6 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 // 시드: FG-C100·C200·T300 게시 기준 v1 + FG-C100 v2 초안, LT-0017(FG-C200) 검사 대기, LT-0016 보류 중.
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByLabel("별칭").fill("E2E 평가자");
   await page.getByRole("button", { name: /가입 없이 둘러보기/ }).click();
   await expect(page).toHaveURL("/home");
 });

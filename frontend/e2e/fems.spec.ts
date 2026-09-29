@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 // FS-018a F-11 실제 API 스모크. 게스트 공간의 시드 에너지원 3종을 사용한다.
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByLabel("별칭").fill("E2E 평가자");
   await page.getByRole("button", { name: /가입 없이 둘러보기/ }).click();
   await expect(page).toHaveURL("/home");
 });

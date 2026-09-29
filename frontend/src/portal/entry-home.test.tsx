@@ -15,6 +15,11 @@ const modules = ["core", "mes", "erp", "fems"].map((moduleKey) => ({
   enabled: true,
   updatedAt: null,
 }));
+async function fillNickname(value = "테스트 평가자") {
+  fireEvent.change(await screen.findByLabelText("별칭"), {
+    target: { value },
+  });
+}
 function reply(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status });
 }
@@ -36,6 +41,7 @@ it("게스트 진입 응답에 roles가 없어도 런처를 렌더링한다", as
     return reply({ data: path.endsWith("/guest-sessions") ? guest : modules });
   });
   renderEntry();
+  await fillNickname();
   fireEvent.click(
     await screen.findByRole("button", { name: /가입 없이 둘러보기/ }),
   );
@@ -60,6 +66,7 @@ it("P-01 게스트 재시도는 같은 멱등 키를 사용한다", async () => 
       );
     });
   renderEntry();
+  await fillNickname();
   fireEvent.click(
     await screen.findByRole("button", { name: /가입 없이 둘러보기/ }),
   );
@@ -88,6 +95,7 @@ it("로그인 폼이 열려 있어도 실패한 게스트 요청을 그대로 �
   fireEvent.click(
     await screen.findByRole("button", { name: "계정이 있다면 로그인" }),
   );
+  await fillNickname();
   fireEvent.click(screen.getByRole("button", { name: /가입 없이 둘러보기/ }));
   fireEvent.click(await screen.findByRole("button", { name: "다시 시도" }));
   await waitFor(() =>
@@ -152,4 +160,60 @@ it("P-02 활성 앱은 승인된 기존 솔루션 도움말로 연결한다", as
   expect(
     await screen.findByRole("link", { name: /MES 생산관리/ }),
   ).toHaveAttribute("href", "/mes");
+});
+it("FS-027 게스트 진입은 앞뒤 공백을 지운 별칭을 보내고 별칭 안내를 보인다", async () => {
+  const fetcher = vi
+    .spyOn(globalThis, "fetch")
+    .mockImplementation(async (input) => {
+      const path = String(input);
+      if (path.endsWith("/sessions/current"))
+        return reply(
+          { error: { code: "SESSION_EXPIRED", message: "세션 없음" } },
+          401,
+        );
+      return reply({
+        data: path.endsWith("/guest-sessions") ? guest : modules,
+      });
+    });
+  renderEntry();
+  expect(
+    await screen.findByText(/접속 기록 확인용으로 90일 보관/),
+  ).toBeVisible();
+  await fillNickname("  평가자 A  ");
+  fireEvent.click(screen.getByRole("button", { name: /가입 없이 둘러보기/ }));
+  await waitFor(() =>
+    expect(
+      fetcher.mock.calls.some(([url]) =>
+        String(url).endsWith("/guest-sessions"),
+      ),
+    ).toBe(true),
+  );
+  const call = fetcher.mock.calls.find(([url]) =>
+    String(url).endsWith("/guest-sessions"),
+  )!;
+  expect(JSON.parse(String(call[1]?.body))).toEqual({ nickname: "평가자 A" });
+});
+it("FS-027 서버가 별칭을 거부하면 별칭 칸 아래에 이유를 보인다", async () => {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
+    String(input).endsWith("/sessions/current")
+      ? reply({ error: { code: "SESSION_EXPIRED", message: "세션 없음" } }, 401)
+      : reply(
+          {
+            error: {
+              code: "VALIDATION_FAILED",
+              message: "별칭을 2~20자로 입력하세요.",
+              details: { fields: { nickname: "별칭을 2~20자로 입력하세요." } },
+            },
+          },
+          400,
+        ),
+  );
+  renderEntry();
+  await fillNickname("가나");
+  fireEvent.click(screen.getByRole("button", { name: /가입 없이 둘러보기/ }));
+  expect(
+    await screen.findByText("별칭을 2~20자로 입력하세요.", {
+      selector: "small",
+    }),
+  ).toBeVisible();
 });

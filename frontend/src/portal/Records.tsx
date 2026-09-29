@@ -21,6 +21,9 @@ type RecordRow = {
   scopeKind?: string;
   startedAt?: string;
   finishedAt?: string;
+  nickname?: string | null;
+  workspaceNo?: number;
+  retired?: boolean;
 };
 const auditColumns: Column<RecordRow>[] = [
   { key: "id", label: "번호" },
@@ -28,6 +31,21 @@ const auditColumns: Column<RecordRow>[] = [
   { key: "entityKind", label: "대상" },
   { key: "actorKind", label: "주체" },
   { key: "createdAt", label: "기록 시각" },
+];
+// FS-027 게스트 접속: 별칭은 90일 뒤 정리 작업이 지운다.
+const visitColumns: Column<RecordRow>[] = [
+  { key: "createdAt", label: "접속 시각" },
+  {
+    key: "nickname",
+    label: "별칭",
+    render: (r) => r.nickname ?? <span className="muted">보관 기간 지남</span>,
+  },
+  { key: "workspaceNo", label: "공간 번호" },
+  {
+    key: "retired",
+    label: "공간",
+    render: (r) => (r.retired ? "정리됨" : "사용 중"),
+  },
 ];
 const jobColumns: Column<RecordRow>[] = [
   { key: "id", label: "번호" },
@@ -37,6 +55,11 @@ const jobColumns: Column<RecordRow>[] = [
   { key: "startedAt", label: "시작" },
   { key: "finishedAt", label: "종료" },
 ];
+const views: Record<string, [string, Column<RecordRow>[]]> = {
+  "audit-events": ["감사 로그", auditColumns],
+  "guest-visits": ["게스트 접속", visitColumns],
+  "job-runs": ["작업 실행 내역", jobColumns],
+};
 export function Records() {
   const { fail } = useSession();
   const [kind, setKind] = useState("audit-events");
@@ -70,10 +93,7 @@ export function Records() {
 
   const tabs = (
     <div className="tabs" role="group" aria-label="기록 종류">
-      {[
-        ["audit-events", "감사 로그"],
-        ["job-runs", "작업 실행 내역"],
-      ].map(([key, label]) => (
+      {Object.entries(views).map(([key, [label]]) => (
         <button
           key={key}
           type="button"
@@ -94,7 +114,7 @@ export function Records() {
       <PageTitle
         id="P-07"
         title="운영 기록"
-        subtitle="작업 실행 내역과 감사 로그 · 읽기 전용"
+        subtitle="작업 실행 내역·감사 로그·게스트 접속 · 읽기 전용"
       />
       <ErrorNotice error={error} retry={() => setRetry(retry + 1)} />
       {!data ? (
@@ -106,8 +126,8 @@ export function Records() {
         <DataTable
           leading={tabs}
           rows={data}
-          columns={kind === "audit-events" ? auditColumns : jobColumns}
-          caption={kind === "audit-events" ? "감사 로그" : "작업 실행 내역"}
+          columns={views[kind][1]}
+          caption={views[kind][0]}
           offset={offset}
           total={total}
           limit={20}

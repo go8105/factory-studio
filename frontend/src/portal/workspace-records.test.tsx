@@ -337,3 +337,47 @@ it("운영 기록은 조회만 수행한다", async () => {
       .every(([, options]) => options?.method === "GET"),
   ).toBe(true);
 });
+it("FS-027 게스트 접속 탭은 별칭·공간 상태를 보이고 지난 별칭은 보관 기간 지남으로 표시한다", async () => {
+  const fetcher = mock(
+    (path) =>
+      path.startsWith("/admin/guest-visits")
+        ? response([
+            {
+              id: 9,
+              createdAt: "2026-09-29T12:00:00+00:00",
+              nickname: "평가자 A",
+              workspaceNo: 31,
+              retired: false,
+            },
+            {
+              id: 3,
+              createdAt: "2026-06-01T12:00:00+00:00",
+              nickname: null,
+              workspaceNo: 7,
+              retired: true,
+            },
+          ])
+        : undefined,
+    ["ADMIN"],
+  );
+  show("/records");
+  // 로딩 중과 로딩 뒤 탭 버튼이 다른 요소라, 첫 목록이 뜬 뒤에 누른다.
+  await screen.findByRole("table", {}, { timeout: 5000 });
+  fireEvent.click(
+    await screen.findByRole(
+      "button",
+      { name: "게스트 접속" },
+      { timeout: 5000 },
+    ),
+  );
+  // 폴더 전체 실행(병렬 부하)에서는 lazy 화면 로드가 1초를 넘을 수 있다.
+  expect(
+    await screen.findByText("평가자 A", {}, { timeout: 5000 }),
+  ).toBeVisible();
+  expect(screen.getByText("보관 기간 지남")).toBeVisible();
+  expect(screen.getByText("정리됨")).toBeVisible();
+  expect(fetcher).toHaveBeenCalledWith(
+    "/api/v1/core/admin/guest-visits?offset=0&limit=20",
+    expect.anything(),
+  );
+}, 15_000);

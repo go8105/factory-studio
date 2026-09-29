@@ -1544,6 +1544,13 @@ th[aria-sort="none"] button span {
   max-width: 340px;
   padding-top: 16px;
 }
+/* FS-027: 별칭 입력 + 둘러보기 버튼. 버튼 폭(310px)에 맞춘다. */
+.guest-form {
+  max-width: 310px;
+}
+.guest-form .field {
+  margin-bottom: var(--s3);
+}
 
 /* ---- 포털: 홈 · 공간 · 흐름 · 도움말 ---- */
 .workspace-strip {

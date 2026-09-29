@@ -37,7 +37,9 @@ def _new_guest():
     """쿠키 없는 새 방문자의 게스트 생성 요청(세션이 있는 클라이언트는 다른 경로로 처리된다)."""
     with TestClient(create_app(), base_url="https://testserver") as fresh:
         return fresh.post(
-            "/api/v1/core/guest-sessions", headers={"Idempotency-Key": str(uuid4())}
+            "/api/v1/core/guest-sessions",
+            json={"nickname": "테스트 게스트"},
+            headers={"Idempotency-Key": str(uuid4())},
         )
 
 

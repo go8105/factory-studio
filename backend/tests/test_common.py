@@ -142,6 +142,7 @@ def _create_guest(
     guest = TestClient(app, base_url="https://testserver")
     created = guest.post(
         "/api/v1/core/guest-sessions",
+        json={"nickname": "테스트 게스트"},
         headers={"Idempotency-Key": idempotency_key},
     )
     assert created.status_code == 201
@@ -210,11 +211,13 @@ def test_idempotency_identical_result(common_env: CommonEnv) -> None:
     guest = TestClient(app, base_url="https://testserver")
     created = guest.post(
         "/api/v1/core/guest-sessions",
+        json={"nickname": "테스트 게스트"},
         headers={"Idempotency-Key": "guest-create-idem"},
     )
     assert created.status_code == 201
     replayed = guest.post(
         "/api/v1/core/guest-sessions",
+        json={"nickname": "테스트 게스트"},
         headers={"Idempotency-Key": "guest-create-idem"},
     )
     assert replayed.status_code == 201
@@ -524,3 +527,100 @@ def test_admin_access_and_guest_admin_404(common_env: CommonEnv) -> None:
 
     assert member.get("/api/v1/core/admin/audit-events").status_code == 200
     assert guest.get("/api/v1/core/admin/audit-events").status_code == 404
+
+
+# ---- FS-027 게스트 별칭과 접속 이력 (AC-165~169) ----
+def _guest_post(app: object, key: str, body: object) -> object:
+    return TestClient(app, base_url="https://testserver").post(
+        "/api/v1/core/guest-sessions", json=body, headers={"Idempotency-Key": key}
+    )
+
+
+def _guest_count(engine: Engine) -> int:
+    with engine.connect() as connection:
+        return connection.execute(
+            text("SELECT count(*) FROM core.workspace WHERE workspace_kind='GUEST'")
+        ).scalar_one()
+
+
+def test_guest_requires_nickname(common_env: CommonEnv) -> None:
+    """AC-165: 별칭 없음·공백만·1자·21자는 400이고 공간을 만들지 않는다."""
+    before = _guest_count(common_env.engine)
+    for i, body in enumerate(
+        [None, {}, {"nickname": "   "}, {"nickname": "가"}, {"nickname": "가" * 21}]
+    ):
+        response = _guest_post(common_env.app, f"nick-bad-{i}", body)
+        assert response.status_code == 400, body
+        error = response.json()["error"]
+        assert error["code"] == "VALIDATION_FAILED"
+        assert "nickname" in error["details"]["fields"]
+    assert _guest_count(common_env.engine) == before
+
+
+def test_guest_nickname_is_audited_and_idempotent(common_env: CommonEnv) -> None:
+    """AC-166·167: 공백을 지운 별칭이 접속 기록에 남고, 같은 키·다른 별칭은 422."""
+    app = common_env.app
+    guest = TestClient(app, base_url="https://testserver")
+    first = guest.post(
+        "/api/v1/core/guest-sessions",
+        json={"nickname": "  평가자 A  "},
+        headers={"Idempotency-Key": "nick-idem"},
+    )
+    assert first.status_code == 201
+    workspace_id = first.json()["data"]["workspaceId"]
+    again = guest.post(
+        "/api/v1/core/guest-sessions",
+        json={"nickname": "평가자 A"},
+        headers={"Idempotency-Key": "nick-idem"},
+    )
+    assert again.status_code == 201 and again.json() == first.json()
+    other = guest.post(
+        "/api/v1/core/guest-sessions",
+        json={"nickname": "평가자 B"},
+        headers={"Idempotency-Key": "nick-idem"},
+    )
+    assert other.status_code == 422
+    with common_env.engine.connect() as connection:
+        summaries = (
+            connection.execute(
+                text(
+                    "SELECT summary FROM core.audit_event WHERE action='guest_session.created' "
+                    "AND workspace_id=:w"
+                ),
+                {"w": workspace_id},
+            )
+            .scalars()
+            .all()
+        )
+    assert summaries == [{"nickname": "평가자 A"}]
+
+
+def test_admin_guest_visits_and_nickname_retention(common_env: CommonEnv) -> None:
+    """AC-168·169: 관리자만 접속 이력을 보고, 정리된 공간도 남으며, 90일 뒤 별칭만 지운다."""
+    app, engine = common_env.app, common_env.engine
+    guest, data, _, _ = _create_guest(app, "nick-visit")
+    workspace_id = data["workspaceId"]
+    assert guest.get("/api/v1/core/admin/guest-visits").status_code == 404
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE core.workspace SET expires_at=now() - interval '1 minute' WHERE id=:w"
+            ),
+            {"w": workspace_id},
+        )
+        cleanup_expired_guests(connection)
+    member, _, _ = _login_member(app, "nick-visit-admin")
+    visits = member.get("/api/v1/core/admin/guest-visits?limit=100").json()["data"]
+    row = next(v for v in visits if v["workspaceNo"] == workspace_id)
+    assert (row["nickname"], row["retired"]) == ("테스트 게스트", True)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE core.audit_event SET created_at=now() - interval '91 days' WHERE id=:id"
+            ),
+            {"id": row["id"]},
+        )
+        cleanup_expired_guests(connection)
+    visits = member.get("/api/v1/core/admin/guest-visits?limit=100").json()["data"]
+    row = next(v for v in visits if v["id"] == row["id"])
+    assert row["nickname"] is None and row["workspaceNo"] == workspace_id

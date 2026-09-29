@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 // MES 기준정보(FS-020a). 테스트마다 새 게스트 공간을 쓴다.
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByLabel("별칭").fill("E2E 평가자");
   await page.getByRole("button", { name: /가입 없이 둘러보기/ }).click();
   await expect(page).toHaveURL("/home");
 });

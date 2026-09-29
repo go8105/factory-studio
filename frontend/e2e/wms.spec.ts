@@ -4,6 +4,7 @@ import { expect, test } from "@playwright/test";
 // 시드: WH-RAW·WH-FG 창고, 원자재 2·완제품 3 품목, 반영된 입고 PL-0001~0005 · 미반영 PL-0006(FG-T300, LT-0009·LT-0012).
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByLabel("별칭").fill("E2E 평가자");
   await page.getByRole("button", { name: /가입 없이 둘러보기/ }).click();
   await expect(page).toHaveURL("/home");
 });

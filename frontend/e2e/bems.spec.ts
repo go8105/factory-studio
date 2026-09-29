@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 // FS-025 BEMS 실제 API 흐름. 시드(시험실·생산동·유틸리티)와 겹치지 않게 시험실 구역을 화면에서 만든다.
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByLabel("별칭").fill("E2E 평가자");
   await page.getByRole("button", { name: /가입 없이 둘러보기/ }).click();
   await expect(page).toHaveURL("/home");
 });

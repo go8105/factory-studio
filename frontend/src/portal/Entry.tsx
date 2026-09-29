@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useSession } from "../app/session";
 import { api, MutationKeys, type Session } from "../shared/api";
 import { ErrorNotice, Field, Loading } from "../shared/components";
+import { fieldErrors } from "../shared/hooks";
 export function Entry() {
   const { session, setSession } = useSession();
   const navigate = useNavigate();
@@ -12,21 +13,25 @@ export function Entry() {
   const [error, setError] = useState<unknown>();
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
+  const [nickname, setNickname] = useState("");
   const keys = useRef(new MutationKeys());
   const lastAttempt = useRef(false);
   if (session) return <Navigate to="/home" replace />;
+  const nicknameError = fieldErrors(error).nickname;
   async function enter(member: boolean) {
     lastAttempt.current = member;
     setBusy(true);
     setError(undefined);
-    const operation = member ? JSON.stringify({ loginId, password }) : "guest";
+    const operation = JSON.stringify(
+      member ? { loginId, password } : { nickname: nickname.trim() },
+    );
     try {
       const response = await api<Session>(
         member ? "/sessions" : "/guest-sessions",
         {
           method: "POST",
           key: keys.current.get(operation),
-          body: member ? { loginId, password } : undefined,
+          body: member ? { loginId, password } : { nickname: nickname.trim() },
         },
       );
       keys.current.complete(operation);
@@ -66,14 +71,37 @@ export function Entry() {
           <br />
           가입 없이 바로 둘러보세요.
         </p>
-        <button
-          className="primary entry-action"
-          disabled={busy}
-          onClick={() => void enter(false)}
+        <form
+          className="guest-form"
+          aria-label="가입 없이 둘러보기"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void enter(false);
+          }}
         >
-          가입 없이 둘러보기 <span aria-hidden="true">→</span>
-        </button>
+          <Field
+            label="별칭"
+            placeholder="실명 대신 별칭 (2~20자)"
+            value={nickname}
+            required
+            minLength={2}
+            maxLength={20}
+            disabled={busy}
+            error={lastAttempt.current ? undefined : nicknameError}
+            onChange={(e) => setNickname(e.target.value)}
+          />
+          <button
+            className="primary entry-action"
+            type="submit"
+            disabled={busy}
+          >
+            가입 없이 둘러보기 <span aria-hidden="true">→</span>
+          </button>
+        </form>
         <p className="muted">
+          별칭은 접속 기록 확인용으로 90일 보관합니다. 실명·연락처는 적지
+          마세요.
+          <br />
           예시 데이터가 채워진 임시 공간이 생성됩니다.
           <br />
           게스트 공간은 생성일 다음 날 00:00(한국 시간)에 만료됩니다.
@@ -82,7 +110,7 @@ export function Entry() {
           <Loading delay={1000} label="예시 데이터를 준비하고 있습니다" />
         )}
         <ErrorNotice
-          error={error}
+          error={nicknameError ? undefined : error}
           retry={!busy ? () => void enter(lastAttempt.current) : undefined}
         />
         <button

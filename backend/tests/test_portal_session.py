@@ -22,7 +22,9 @@ def portal_client(clean_database: Engine, monkeypatch: pytest.MonkeyPatch):
         create_template(connection, date(2026, 9, 24))
     with TestClient(create_app(), base_url="https://testserver") as client:
         created = client.post(
-            "/api/v1/core/guest-sessions", headers={"Idempotency-Key": "portal-guest"}
+            "/api/v1/core/guest-sessions",
+            json={"nickname": "테스트 게스트"},
+            headers={"Idempotency-Key": "portal-guest"},
         )
         assert created.status_code == 201
         yield client, created.json()["data"], engine
@@ -72,7 +74,9 @@ def test_expired_guest_can_create_new_space(portal_client):
         )
     client.get("/api/v1/core/sessions/current")
     response = client.post(
-        "/api/v1/core/guest-sessions", headers={"Idempotency-Key": "new-guest"}
+        "/api/v1/core/guest-sessions",
+        json={"nickname": "테스트 게스트"},
+        headers={"Idempotency-Key": "new-guest"},
     )
     assert response.status_code == 201
     assert response.json()["data"]["workspaceId"] != created["workspaceId"]

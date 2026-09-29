@@ -163,7 +163,9 @@ def guest_space(guest_template: GuestTemplate, monkeypatch: pytest.MonkeyPatch):
     try:
         with TestClient(create_app(), base_url="https://testserver") as client:
             response = client.post(
-                "/api/v1/core/guest-sessions", headers={"Idempotency-Key": str(uuid4())}
+                "/api/v1/core/guest-sessions",
+                json={"nickname": "테스트 게스트"},
+                headers={"Idempotency-Key": str(uuid4())},
             )
             assert response.status_code == 201, response.text
             yield client, response.json()["data"], engine

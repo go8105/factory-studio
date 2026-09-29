@@ -31,7 +31,9 @@ def _source_id(client, code: str) -> int:
 def _other_guest(engine: Engine):
     with TestClient(create_app(), base_url="https://testserver") as other:
         created = other.post(
-            "/api/v1/core/guest-sessions", headers={"Idempotency-Key": "other-guest"}
+            "/api/v1/core/guest-sessions",
+            json={"nickname": "테스트 게스트"},
+            headers={"Idempotency-Key": "other-guest"},
         ).json()["data"]
         return other, created
 

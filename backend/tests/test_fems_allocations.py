@@ -207,7 +207,11 @@ def test_reversed_range_is_rejected(fems):
 def test_other_space_equipment_returns_nothing(fems):
     client, _, _ = fems
     with TestClient(create_app(), base_url="https://testserver") as other:
-        other.post("/api/v1/core/guest-sessions", headers={"Idempotency-Key": "o"})
+        other.post(
+            "/api/v1/core/guest-sessions",
+            json={"nickname": "테스트 게스트"},
+            headers={"Idempotency-Key": "o"},
+        )
         foreign = _equipment(other, "INJ-01")
     body = client.get(BASE, params={"equipmentId": foreign}).json()
     assert (body["page"]["total"], body["summary"]) == (0, [])

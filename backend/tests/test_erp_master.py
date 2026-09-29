@@ -58,7 +58,11 @@ def test_offset_page(guest_space, resource):
 def test_other_workspace_detail_is_hidden(guest_space, resource):
     client, _, _ = guest_space
     with TestClient(create_app(), base_url="https://testserver") as other:
-        other.post("/api/v1/core/guest-sessions", headers={"Idempotency-Key": "other"})
+        other.post(
+            "/api/v1/core/guest-sessions",
+            json={"nickname": "테스트 게스트"},
+            headers={"Idempotency-Key": "other"},
+        )
         foreign = other.get(f"{BASE}/{resource}").json()["data"][0]["id"]
     assert client.get(f"{BASE}/{resource}/{foreign}").status_code == 404
 
@@ -230,7 +234,11 @@ def test_reset_hides_old_ids(guest_space):
 def test_foreign_updates_are_hidden(guest_space, resource):
     client, data, _ = guest_space
     with TestClient(create_app(), base_url="https://testserver") as other:
-        other.post("/api/v1/core/guest-sessions", headers={"Idempotency-Key": "other"})
+        other.post(
+            "/api/v1/core/guest-sessions",
+            json={"nickname": "테스트 게스트"},
+            headers={"Idempotency-Key": "other"},
+        )
         foreign = other.get(f"{BASE}/{resource}").json()["data"][0]["id"]
     r = client.patch(
         f"{BASE}/{resource}/{foreign}", json={"isActive": False}, headers=headers(data)

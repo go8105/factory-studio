@@ -142,7 +142,11 @@ def test_sort_rejects_unknown_field(fems):
 def test_other_space_channel_returns_nothing(fems):
     client, _ = fems
     with TestClient(create_app(), base_url="https://testserver") as other:
-        other.post("/api/v1/core/guest-sessions", headers={"Idempotency-Key": "other"})
+        other.post(
+            "/api/v1/core/guest-sessions",
+            json={"nickname": "테스트 게스트"},
+            headers={"Idempotency-Key": "other"},
+        )
         foreign = _channel(other, "CH-MAIN-KWH")
     assert client.get(BASE, params={"channelId": foreign}).json()["page"]["total"] == 0
 

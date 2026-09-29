@@ -13666,8 +13666,8 @@
       "table": "core.audit_event",
       "kind": "SERVICE/DB_POLICY",
       "columns": [],
-      "expression": "일반 런타임 UPDATE/DELETE 금지",
-      "reason": "권한 분리. 세대 업무만 정리 전용 DELETE 허용"
+      "expression": "일반 런타임 UPDATE/DELETE 금지. 예외: 정리 작업이 90일 지난 guest_session.created의 summary에서 nickname 키만 제거(FS-027 D36)",
+      "reason": "권한 분리. 세대 업무만 정리 전용 DELETE 허용. 게스트 별칭은 자유 입력이라 보관 기간을 둔다"
     },
     {
       "table": "mes.operation_execution",

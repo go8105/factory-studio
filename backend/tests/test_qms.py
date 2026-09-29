@@ -592,7 +592,9 @@ def test_other_workspace_cannot_see_inspection(qms, guest_space):
     other = TestClient(client.app, base_url="https://testserver")
     assert (
         other.post(
-            "/api/v1/core/guest-sessions", headers={"Idempotency-Key": str(uuid4())}
+            "/api/v1/core/guest-sessions",
+            json={"nickname": "테스트 게스트"},
+            headers={"Idempotency-Key": str(uuid4())},
         ).status_code
         == 201
     )

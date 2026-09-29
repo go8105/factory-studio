@@ -145,7 +145,7 @@ HTTP 상태와 도메인 코드를 함께 준다. 화면이 분기해야 하는 
 
 | 메서드 | 경로 | 화면 | 비고 |
 |---|---|---|---|
-| POST | `/guest-sessions` | P-01 | 게스트 공간 생성 + 세대 복사 |
+| POST | `/guest-sessions` | P-01 | 게스트 공간 생성 + 세대 복사. 본문 `{nickname}` 필수(공백 제거 후 2~20자, 없으면 400 `fields.nickname`) — FS-027 |
 | POST | `/sessions` | P-01 | 로그인 |
 | DELETE | `/sessions/current` | — | 로그아웃 |
 | GET | `/sessions/current` | 전역 | 사용자·공간·역할·만료 |
@@ -155,6 +155,7 @@ HTTP 상태와 도메인 코드를 함께 준다. 화면이 분기해야 하는 
 | POST | `/workspace/generations` | P-06 | 예시 데이터 초기화 |
 | GET | `/admin/job-runs` | P-07 | ADMIN만 |
 | GET | `/admin/audit-events` | P-07 | ADMIN만 |
+| GET | `/admin/guest-visits` | P-07 | ADMIN만. 게스트 접속(`guest_session.created`) — `{id, createdAt, nickname(90일 뒤 null), workspaceNo, retired}` — FS-027 |
 
 정적 콘텐츠(흐름 맵 P-03 · 설명 카드 P-04 · 도움말 P-05)는 **API가 아니다.** 빌드 산출물로 배포한다(FS-013 D6). 경로는 FS-011에서 정한다.
 

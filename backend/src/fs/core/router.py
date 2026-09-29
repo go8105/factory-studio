@@ -12,10 +12,11 @@ from fs.common.errors import ApiError
 from fs.common.idempotency import find_receipt, request_digest
 from fs.common.page import Page
 from fs.common.security import guest_csrf_token, member_csrf_token
-from fs.core.schema import LoginRequest, ModuleUpdate
+from fs.core.schema import GuestCreate, LoginRequest, ModuleUpdate
 from fs.core.service import (
     create_guest,
     current_session,
+    guest_nickname,
     list_admin_records,
     list_modules,
     login_member,
@@ -43,11 +44,13 @@ def _set_cookie(response: Response, token: str) -> None:
 @router.post("/guest-sessions", status_code=201)
 def guest_session(
     response: Response,
+    payload: GuestCreate | None = None,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     fs_session: Annotated[str | None, Cookie(alias="fs_session")] = None,
 ) -> dict[str, object]:
     if not idempotency_key or len(idempotency_key) > 100:
         raise ApiError(400, "VALIDATION_FAILED", "Idempotency-Key가 필요합니다.")
+    nickname = guest_nickname(payload.nickname if payload else None)
     if fs_session:
         with get_engine().begin() as connection:
             context = resolve_token(connection, fs_session)
@@ -60,7 +63,7 @@ def guest_session(
                 context,
                 "guest.session.create",
                 idempotency_key,
-                request_digest({}),
+                request_digest({"nickname": nickname}),
             )
             if cached is None:
                 raise ApiError(
@@ -72,7 +75,7 @@ def guest_session(
         return {"data": cached}
     target_date = business_today()
     with get_engine().begin() as connection:
-        data, token = create_guest(connection, target_date, idempotency_key)
+        data, token = create_guest(connection, target_date, idempotency_key, nickname)
     _set_cookie(response, token)
     return {"data": data}
 
@@ -205,6 +208,23 @@ def get_admin_job_runs(
     with get_engine().connect() as connection:
         data, total = list_admin_records(
             connection, context, "job-runs", page.offset, page.limit
+        )
+    return {
+        "data": data,
+        "page": {"offset": page.offset, "limit": page.limit, "total": total},
+    }
+
+
+@router.get("/admin/guest-visits")
+def get_admin_guest_visits(
+    context: Annotated[AuthContext, Depends(resolve_auth)],
+    offset: int = 0,
+    limit: int = 50,
+) -> dict[str, object]:
+    page = Page(offset, limit).checked()
+    with get_engine().connect() as connection:
+        data, total = list_admin_records(
+            connection, context, "guest-visits", page.offset, page.limit
         )
     return {
         "data": data,

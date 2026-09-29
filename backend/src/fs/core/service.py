@@ -35,8 +35,24 @@ def _workspace_lock(connection: Connection, workspace_id: int) -> None:
     )
 
 
+NICKNAME_DAYS = 90  # FS-027 D36: 별칭 보관 기간
+
+
+def guest_nickname(value: str | None) -> str:
+    """FS-027 D33: 앞뒤 공백을 지운 2~20자. 실명 대신 별칭을 받는다."""
+    nickname = (value or "").strip()
+    if not 2 <= len(nickname) <= 20:
+        raise ApiError(
+            400,
+            "VALIDATION_FAILED",
+            "별칭을 2~20자로 입력하세요.",
+            {"fields": {"nickname": "별칭을 2~20자로 입력하세요."}},
+        )
+    return nickname
+
+
 def create_guest(
-    connection: Connection, target_date: date, idempotency_key: str
+    connection: Connection, target_date: date, idempotency_key: str, nickname: str
 ) -> tuple[dict[str, Any], str]:
     settings = get_settings()
     connection.execute(
@@ -112,7 +128,7 @@ def create_guest(
         context,
         "guest.session.create",
         idempotency_key,
-        request_digest({}),
+        request_digest({"nickname": nickname}),
         "workspace",
         workspace_id,
         {key: value for key, value in data.items() if key != "csrfToken"},
@@ -127,6 +143,7 @@ def create_guest(
         "guest_session.created",
         "workspace",
         str(workspace_id),
+        {"nickname": nickname},
     )
     return data, token
 
@@ -434,6 +451,14 @@ def list_admin_records(
     elif resource == "audit-events":
         table = "core.audit_event"
         columns = "id,action,entity_kind,entity_key,actor_kind,created_at"
+    elif resource == "guest-visits":
+        # FS-027 D35: 게스트 접속 = 생성 감사 기록. 정리된 공간은 스냅샷 번호로 남는다.
+        table = "core.audit_event WHERE action='guest_session.created'"
+        columns = (
+            "id,created_at,summary->>'nickname' nickname,"
+            "coalesce(workspace_id,workspace_snapshot_id) workspace_no,"
+            "scope_kind='RETIRED' retired"
+        )
     else:
         raise ValueError("unknown admin resource")
     total = connection.execute(text(f"SELECT count(*) FROM {table}")).scalar_one()
@@ -617,6 +642,15 @@ def cleanup_expired_guests(connection: Connection) -> int:
     for workspace_id in candidates:
         _workspace_lock(connection, workspace_id)
         _delete_guest(connection, workspace_id)
+    # FS-027 D36: 감사 기록 불변 정책의 유일한 예외 — 보관 기간이 지난 접속 기록의 별칭만 지운다.
+    connection.execute(
+        text(
+            "UPDATE core.audit_event SET summary = summary - 'nickname' "
+            "WHERE action='guest_session.created' AND summary ? 'nickname' "
+            "AND created_at < now() - make_interval(days => :days)"
+        ),
+        {"days": NICKNAME_DAYS},
+    )
     return len(candidates)
 
 

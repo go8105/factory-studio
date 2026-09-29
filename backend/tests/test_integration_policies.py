@@ -142,7 +142,9 @@ def two_spaces(guest_space):
     client, created, engine = guest_space
     with TestClient(create_app(), base_url="https://testserver") as other:
         response = other.post(
-            "/api/v1/core/guest-sessions", headers={"Idempotency-Key": str(uuid4())}
+            "/api/v1/core/guest-sessions",
+            json={"nickname": "테스트 게스트"},
+            headers={"Idempotency-Key": str(uuid4())},
         )
         assert response.status_code == 201, response.text
         yield (

@@ -3,6 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 // 새 화면을 패턴으로 옮길 때 같은 검사를 그 경로에 추가한다(docs/ui/공통UI규약_UI-02.md).
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByLabel("별칭").fill("E2E 평가자");
   await page.getByRole("button", { name: /가입 없이 둘러보기/ }).click();
   await expect(page).toHaveURL("/home");
 });

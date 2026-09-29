@@ -82,3 +82,10 @@ core는 현재 구조로 충분하다. 추가 제안이 없는 이유를 남긴�
 - 설비 계층(상위 설비)과 작업장의 관계는 실제 화면 설계에서 확인한다.
 - 단위 환산은 첫 실습에서 EA만 쓴다. 다단위 환산은 사용 시점에 검증한다.
 - BEMS 활성화 시 `metering_master`의 소유 모듈 분리 규칙을 재확인한다.
+
+## 8. 후속 변경 — 게스트 별칭과 접속 이력 (FS-027, 2026-09-29)
+
+- 게스트 생성 `POST /guest-sessions`는 별칭(공백 제거 후 2~20자) 필수. 저장은 새 컬럼 없이 `core.audit_event`(`guest_session.created`)의 `summary.nickname`.
+- 관리자 조회 `GET /admin/guest-visits`(P-07 "게스트 접속"). 정리된 공간은 `workspace_snapshot_id`로 남는다.
+- 보관: 정리 작업(`cleanup_expired_guests`)이 90일 지난 기록의 `nickname` 키만 지운다 — `core.audit_event` 불변 정책의 유일한 예외.
+- 결정서: [FS-027](../../plan/게스트별칭_접속이력_FS-027.md)
