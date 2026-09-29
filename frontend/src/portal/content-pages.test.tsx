@@ -166,3 +166,16 @@ it("굵게 표시가 문장부호 뒤에서 닫힌 뒤 글자가 붙어 * 가 �
   );
   expect(broken.map(([key]) => key)).toEqual([]);
 });
+it("설계 문서 8편은 결정 → 대안 → 이유 → 한계 틀이고 본문에 작업 ID가 없다", () => {
+  const keys = Object.keys(help).filter((k) => k.startsWith("design/"));
+  expect(keys).toHaveLength(8);
+  for (const key of keys) {
+    expect(
+      help[key].match(/^## .+$/gm)?.map((h) => h.slice(3)),
+      key,
+    ).toEqual(["결정", "검토한 대안", "선택 이유", "한계", "관련 문서"]);
+    // 출처 주석(<!-- sources -->)에만 작업 ID를 남긴다(DOC-01 공개 기준).
+    const body = help[key].replace(/<!--[\s\S]*?-->/g, "");
+    expect(body, key).not.toMatch(/\b(FS|AC|UI|DOC|MAP)-\d/);
+  }
+});
