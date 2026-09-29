@@ -136,3 +136,33 @@ it("P-05 객체 기본 속성 이름은 도움말 키로 해석하지 않는다"
   show("/help/constructor");
   expect(await screen.findByText("404 · NOT_FOUND")).toBeVisible();
 });
+it("따라하기 3편·개념 15편은 유형별 작성 틀(DOC-01 6장)을 따른다", () => {
+  const of = (prefix: string) =>
+    Object.keys(help).filter((k) => k.startsWith(prefix));
+  const shape = (key: string) =>
+    help[key].match(/^## .+$/gm)?.map((h) => h.slice(3));
+  expect(of("guide/")).toHaveLength(3);
+  expect(of("concept/")).toHaveLength(15);
+  for (const key of of("guide/"))
+    expect(shape(key), key).toEqual([
+      "목표",
+      "준비 상태",
+      "단계",
+      "끝나면 보이는 것",
+      "막힐 때",
+    ]);
+  for (const key of of("concept/"))
+    expect(shape(key), key).toEqual([
+      "한 줄 정의",
+      "왜 필요한가",
+      "이 제품에서는",
+      "관련 화면",
+    ]);
+});
+it("굵게 표시가 문장부호 뒤에서 닫힌 뒤 글자가 붙어 * 가 그대로 보이는 문서가 없다", () => {
+  // CommonMark: `**…)**가`는 닫히지 않는다. `**…**(…)가`로 쓴다.
+  const broken = Object.entries(help).filter(([, body]) =>
+    /[)\]"%.,:;]\*\*[가-힣A-Za-z0-9]/.test(body),
+  );
+  expect(broken.map(([key]) => key)).toEqual([]);
+});
