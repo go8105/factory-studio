@@ -136,13 +136,13 @@ it("P-05 객체 기본 속성 이름은 도움말 키로 해석하지 않는다"
   show("/help/constructor");
   expect(await screen.findByText("404 · NOT_FOUND")).toBeVisible();
 });
-it("따라하기 3편·개념 15편은 유형별 작성 틀(DOC-01 6장)을 따른다", () => {
+it("따라하기 3편·개념 19편은 유형별 작성 틀(DOC-01 6장)을 따른다", () => {
   const of = (prefix: string) =>
     Object.keys(help).filter((k) => k.startsWith(prefix));
   const shape = (key: string) =>
     help[key].match(/^## .+$/gm)?.map((h) => h.slice(3));
   expect(of("guide/")).toHaveLength(3);
-  expect(of("concept/")).toHaveLength(15);
+  expect(of("concept/")).toHaveLength(19);
   for (const key of of("guide/"))
     expect(shape(key), key).toEqual([
       "목표",
