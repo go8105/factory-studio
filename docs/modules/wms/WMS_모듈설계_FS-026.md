@@ -1,7 +1,7 @@
-# WMS 모듈 설계 revision 2 — FS-026
+# WMS 모듈 설계 revision 3 — FS-026
 
-작성일: 2026-09-28. **전체 설계 승인 2026-09-28. FS-026a DB 구현, API·화면 미구현.** 결정서 D24~D32 및 Q1~Q6은 사용자의 “진행해줘”로 승인됐다.
-기준: [FS-024 revision 1](WMS_모듈설계_FS-024.md), [FS-026 결정](../../plan/WMS확장_입고검수예약_결정_FS-026.md). 기존 6테이블/원장을 재사용하며 이 문서는 차분이다. 상충하는 범위·가용·입고 취소 정책은 승인된 FS-026을 따른다. 실제 DB/API는 아직 FS-024다.
+작성일: 2026-09-28. **전체 설계 승인 2026-09-28. FS-026a DB 완료, FS-026b1 입고 API 검증 진행 중. 예약 API·화면 미구현.** 결정서 D24~D32 및 Q1~Q6은 사용자의 “진행해줘”로 승인됐다.
+기준: [FS-024 revision 1](WMS_모듈설계_FS-024.md), [FS-026 결정](../../plan/WMS확장_입고검수예약_결정_FS-026.md). 기존 6테이블/원장을 재사용하며 이 문서는 차분이다. 상충하는 범위·가용·입고 취소 정책은 승인된 FS-026을 따른다. DB는 FS-026a, 입고 API는 FS-026b1로 확장한다. 예약 API/가용 조회 개편은 b2다.
 
 ## 1. 변경 범위와 불변식
 
@@ -170,7 +170,9 @@ ERP PURCHASE 반영은 기존 전표와 유효 claim을 함께 조회한다.
 
 Idempotency-Key는 기존 24시간 영수증 규칙(동일 키 다른 본문/만료 422)을 유지한다. 영수증 만료 이후도 business_key·source_claim·원천 전표 유니크·최종 상태가 중복 생성을 막는다. 새 키 재요청의 도착은 이미 ARRIVED/INSPECTED면 기존 도착 결과, 검수는 저장 결과와 동일 본문이면 기존 결과(상이하면409), 소진은 같은 출하라면 기존 결과. 최종 상태 재요청 판정을 version 오류보다 먼저 하되 내용 일치를 확인한다. 네트워크 시간 초과는 실패 확정이 아니므로 GET으로 서버 상태를 재조회한다.
 
-신규 정책 오류는 기존 ApiError의 409 PRECONDITION_NOT_MET + details.reason: STALE_VERSION, INVALID_STATE, SOURCE_CLAIMED, SOURCE_ALREADY_POSTED, SOURCE_ROUTE_CONFLICT, SOURCE_CHANGED, SOURCE_CANCELLED, INSUFFICIENT_AVAILABLE, QUARANTINE_NOT_RESERVABLE, SHIPMENT_MISMATCH. SOURCE_MODULE_DISABLED는 기존 409 코드 유지. 필드/수량 오류 400 VALIDATION_FAILED(details.fields.<경로>), 422는 IDEMPOTENCY_CONFLICT 전용, 공간 밖 ID는 404. DB 유니크 충돌은 원천 재조회 후 기존 결과 또는409로 변환한다. 500으로 노출하지 않는다.
+2026-09-29 사용자 지시로 입력 오류·digest·시각 규약을 개정했다.
+
+신규 정책 오류는 기존 ApiError의 409 PRECONDITION_NOT_MET + details.reason: STALE_VERSION, INVALID_STATE, SOURCE_CLAIMED, SOURCE_ALREADY_POSTED, SOURCE_ROUTE_CONFLICT, SOURCE_CHANGED, SOURCE_CANCELLED, INSUFFICIENT_AVAILABLE, QUARANTINE_NOT_RESERVABLE, SHIPMENT_MISMATCH. SOURCE_MODULE_DISABLED는 기존 409 PRECONDITION_NOT_MET의 details.reason 유지. 필드/수량 오류 400 VALIDATION_FAILED(details.fields.<경로>), 422는 IDEMPOTENCY_CONFLICT 전용, 공간 밖 ID는 404. DB 유니크 충돌은 원천 재조회 후 기존 결과 또는409로 변환한다. 500으로 노출하지 않는다.
 
 신규 입고 명령의 처리 시각은 DB `clock_timestamp()`를 한 번 읽어 도착/검수/완료/전표 게시/이동 시각에 함께 사용한다. 검수 전표 업무일·월과 IN/WD 번호 날짜는 그 서버 시각의 Asia/Seoul 날짜다. 사용자 입력 expectedOn은 예정일이며 처리 시각에 영향을 주지 않는다. `FS_TODAY`는 기존 시드/체험 기준일에만 사용하며 신규 명령에 섞지 않는다.
 
@@ -211,7 +213,9 @@ ERP만 수정할 공개 조회 계약:
 - 세대 복사: 부모 stock_document/마스터→notice→notice_line/source_claim→reservation→reservation_line 순으로 ID 매핑. 삭제는 역순, stock_document는 뒤에 삭제. 시간/expected_on·IN/RSV 번호 날짜를 기존 방식으로 이동하며 business_key는 불투명 업무 식별자로 보존하며 source_key/source_ref 내부 검수 번호를 함께 치환한다. 검수 source_key 내부 IN 번호 일치 필수. JSON snapshot confirmedAt은 표시용으로 동일 날짜 오프셋만 적용하며 digest는 그대로 복사한다(재계산 없음). 수량/단위 환산 값은 보존한다.
 - 세대 초기화 후 이전 ID로 조회/쓰기는 거부한다. 모듈 끄기는 데이터 삭제 아님. 새로운 module_key나 workspace_module 행은 필요 없다.
 
-## 10. 인수 기준 — AC-139~164 (설계, 미실행)
+## 10. 인수 기준 — AC-139~164
+
+FS-026a는 DB, b1은 AC-140~150 입고 API를 검증한다. AC-141의 예약가능95 조회는 b2에 남는다. 전체 AC 완료로 간주하지 않으며 상세 실행 결과는 [b1 보고](../../agent/WMS확장_API_FS-026b1.md)에 기록한다.
 
 | AC | 입력/행동 | 기대 결과 |
 |---|---|---|

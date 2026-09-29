@@ -359,7 +359,7 @@ def test_real_connections_source_race(receiving_env, race, monkeypatch):
     monkeypatch.setattr(scope, "write_scope", lock)
 
     def call_action():
-        with TestClient(env[0].app) as client:
+        with TestClient(env[0].app, base_url=str(env[0].base_url)) as client:
             client.cookies.update(env[0].cookies)
             parallel = (client, *env[1:])
             return (
@@ -374,7 +374,7 @@ def test_real_connections_source_race(receiving_env, race, monkeypatch):
             )
 
     def call_sync():
-        with TestClient(env[0].app) as client:
+        with TestClient(env[0].app, base_url=str(env[0].base_url)) as client:
             client.cookies.update(env[0].cookies)
             return _call(
                 client,
@@ -404,3 +404,332 @@ def test_real_connections_source_race(receiving_env, race, monkeypatch):
             len(n["lines"]),
             sum(Decimal(x["expectedQty"]) for x in n["lines"]),
         )
+
+
+def test_master_reference_and_location_type_rules(receiving_env):
+    env = receiving_env
+    n = notice(env)
+    ids = env[3]
+    for path, body in [
+        (f"/warehouses/{ids['warehouse']}", {"isActive": False}),
+        (f"/items/{ids['RM-PBT']}", {"isActive": False}),
+        (f"/locations/{ids['quarantine']}", {"isActive": False}),
+        (f"/locations/{ids['quarantine']}", {"locationType": "NORMAL"}),
+    ]:
+        assert _call(env[0], env[1], "PATCH", path, body).status_code == 409
+    assert (
+        _call(env[0], env[1], "DELETE", f"/locations/{ids['quarantine']}").status_code
+        == 409
+    )
+    r = _call(
+        env[0], env[1], "PATCH", f"/locations/{ids['quarantine']}", {"isDefault": True}
+    )
+    assert r.status_code == 400
+    _ok(act(env, n, "cancel", reason="취소"))
+    _ok(
+        _call(
+            env[0],
+            env[1],
+            "PATCH",
+            f"/locations/{ids['quarantine']}",
+            {"isActive": False},
+        )
+    )
+    # Retained history still prevents deletion or type mutation.
+    assert (
+        _call(env[0], env[1], "DELETE", f"/locations/{ids['quarantine']}").status_code
+        == 409
+    )
+
+
+def test_version_idempotency_and_planned_edit(receiving_env):
+    env = receiving_env
+    n = notice(env)
+    body = {
+        "expectedVersion": n["version"],
+        "warehouseId": env[3]["warehouse"],
+        "expectedOn": "2026-10-01",
+        "lines": [
+            {
+                "itemId": env[3]["RM-PBT"],
+                "expectedQty": "101",
+                "normalLocationId": env[3]["R-A01"],
+            }
+        ],
+    }
+    revised = _ok(_call(env[0], env[1], "PATCH", f"/inbound-notices/{n['id']}", body))
+    assert revised["version"] == 2 and revised["lines"][0]["expectedQty"] == "101.000"
+    assert _reason(act(env, n, "arrive")) == "STALE_VERSION"
+    headers = {
+        "X-CSRF-Token": env[1]["csrfToken"],
+        "Idempotency-Key": "arrival-receipt",
+    }
+    url = f"{W}/inbound-notices/{n['id']}/arrive"
+    a = env[0].post(url, json={"expectedVersion": 2}, headers=headers)
+    b = env[0].post(url, json={"expectedVersion": 2}, headers=headers)
+    assert _ok(a) == _ok(b)
+    different = env[0].post(url, json={"expectedVersion": 3}, headers=headers)
+    assert (
+        different.status_code == 422
+        and different.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
+    )
+    assert (
+        _call(
+            env[0],
+            env[1],
+            "PATCH",
+            f"/inbound-notices/{n['id']}",
+            {**body, "expectedVersion": 3},
+        ).status_code
+        == 409
+    )
+
+
+def test_erp_disabled_manual_and_guest_isolation(receiving_env):
+    from test_wms import _other_guest
+
+    env = receiving_env
+    n, src = source_notice(env)
+    n = link(env, n, src)
+    n = _ok(act(env, n, "arrive"))
+    _ok(
+        _call(
+            env[0],
+            env[1],
+            "PATCH",
+            "/api/v1/core/workspace/modules/erp",
+            {"enabled": False},
+        )
+    )
+    r = act(
+        env, n, "inspect", **inspect_body(n, n["lines"][0]["expectedQty"], "0", "0")
+    )
+    assert r.status_code == 409 and _reason(r) == "SOURCE_MODULE_DISABLED"
+    manual = notice(env)
+    manual = _ok(act(env, manual, "arrive"))
+    _ok(act(env, manual, "inspect", **inspect_body(manual)))
+    other, auth = _other_guest(env[0])
+    try:
+        assert other.get(f"{W}/inbound-notices/{n['id']}").status_code == 404
+        assert (
+            _call(
+                other,
+                auth,
+                "POST",
+                f"/inbound-notices/{n['id']}/arrive",
+                {"expectedVersion": n["version"]},
+            ).status_code
+            == 404
+        )
+    finally:
+        other.close()
+    _ok(_call(env[0], env[1], "POST", "/api/v1/core/workspace/generations"), 201)
+    assert env[0].get(f"{W}/inbound-notices/{n['id']}").status_code == 404
+
+
+def test_conversion_missing_precision_and_changed_factor(receiving_env, monkeypatch):
+    from fs.wms import receiving
+
+    env = receiving_env
+    n, src = source_notice(env)
+    conversion = next(
+        x for x in _ok(env[0].get(W + "/items")) if x["itemCode"] == "RM-PIN"
+    )["conversions"][0]
+    _ok(
+        _call(
+            env[0],
+            env[1],
+            "DELETE",
+            f"/items/{env[3]['RM-PIN']}/conversions/{conversion['id']}",
+        )
+    )
+    assert act(env, n, "source-link", sourceKey=src["sourceKey"]).status_code == 400
+    _ok(
+        _call(
+            env[0],
+            env[1],
+            "POST",
+            f"/items/{env[3]['RM-PIN']}/conversions",
+            {"fromUnit": "BOX", "factor": "0.000001"},
+        ),
+        201,
+    )
+    assert act(env, n, "source-link", sourceKey=src["sourceKey"]).status_code == 400
+    original = receiving.base._items_by_code
+
+    def restored(c, scope):
+        items = original(c, scope)
+        items["RM-PIN"]["factors"]["BOX"] = Decimal(10000)
+        return items
+
+    monkeypatch.setattr(receiving.base, "_items_by_code", restored)
+    n = link(env, n, src)
+    pin = next(
+        x
+        for x in n["sourceClaim"]["sourceSnapshot"]["lines"]
+        if x["itemCode"] == "RM-PIN"
+    )
+    assert pin["sources"] == [{"unit": "BOX", "factor": "10000", "qty": "6"}]
+    n = _ok(act(env, n, "arrive"))
+    monkeypatch.setattr(receiving.base, "_items_by_code", original)
+    before = ledger(env)
+    assert (
+        act(
+            env, n, "inspect", **inspect_body(n, n["lines"][0]["expectedQty"], "0", "0")
+        ).status_code
+        == 400
+    )
+    assert ledger(env) == before
+
+    def changed(c, scope):
+        items = restored(c, scope)
+        items["RM-PIN"]["factors"]["BOX"] = Decimal(20000)
+        return items
+
+    monkeypatch.setattr(receiving.base, "_items_by_code", changed)
+    assert (
+        _reason(
+            act(
+                env,
+                n,
+                "inspect",
+                **inspect_body(n, n["lines"][0]["expectedQty"], "0", "0"),
+            )
+        )
+        == "SOURCE_CHANGED"
+    )
+    assert ledger(env) == before
+
+
+def test_guest_copy_preserves_digest_shifts_snapshot_and_keys(receiving_env):
+    from datetime import date, datetime, timedelta
+
+    from seed.copy import copy_template
+
+    env = receiving_env
+    n, src = source_notice(env)
+    n = link(env, n, src)
+    n = _ok(act(env, n, "arrive"))
+    n = _ok(
+        act(
+            env, n, "inspect", **inspect_body(n, n["lines"][0]["expectedQty"], "0", "0")
+        )
+    )
+    with env[2].begin() as c:
+        seed_date = c.execute(
+            text("SELECT seed_date FROM core.data_generation WHERE id=:g"),
+            {"g": env[1]["generationId"]},
+        ).scalar_one()
+        w, g, _, _ = copy_template(
+            c,
+            env[1]["workspaceId"],
+            env[1]["generationId"],
+            seed_date + timedelta(days=5),
+            "copy-" + uuid4().hex,
+        )
+        row = (
+            c.execute(
+                text(
+                    "SELECT n.notice_no,d.source_key,d.source_ref,sc.source_digest,sc.source_snapshot FROM wms.inbound_notice n JOIN wms.stock_document d ON d.workspace_id=n.workspace_id AND d.generation_id=n.generation_id AND d.id=n.stock_document_id JOIN wms.source_claim sc ON sc.workspace_id=n.workspace_id AND sc.generation_id=n.generation_id AND sc.notice_id=n.id WHERE n.workspace_id=:w AND n.generation_id=:g"
+                ),
+                {"w": w, "g": g},
+            )
+            .mappings()
+            .one()
+        )
+        assert row["source_digest"] == n["sourceClaim"]["sourceDigest"]
+        before = n["sourceClaim"]["sourceSnapshot"]
+        after = row["source_snapshot"]
+        assert (
+            after["lines"] == before["lines"]
+            and after["invoiceNo"] == before["invoiceNo"]
+        )
+        assert datetime.fromisoformat(after["confirmedAt"]) - datetime.fromisoformat(
+            before["confirmedAt"]
+        ) == timedelta(days=5)
+        assert (
+            row["source_key"] == "WMS:INSPECTION:" + row["notice_no"]
+            and row["source_ref"] == row["notice_no"]
+        )
+        assert date.fromisoformat(row["notice_no"][3:11]) - date.fromisoformat(
+            n["noticeNo"][3:11]
+        ) == timedelta(days=5)
+
+
+def test_fractional_kg_and_canonical_source_order(receiving_env, monkeypatch):
+    from fs.wms import receiving
+
+    env = receiving_env
+    original = receiving.erp.purchase_receipts
+
+    def fractional(c, scope):
+        rows = deepcopy(original(c, scope))
+        for row in rows:
+            if row["invoiceNo"] == "PI-0004":
+                row["lines"] = [
+                    {"itemCode": "RM-PBT", "qty": "0.025", "unit": "KG"},
+                    {"itemCode": "RM-PBT", "qty": "0.100", "unit": "KG"},
+                ]
+        return rows
+
+    monkeypatch.setattr(receiving.erp, "purchase_receipts", fractional)
+    n = notice(env, "0.125")
+    n = _ok(act(env, n, "source-link", sourceKey="ERP:PURCHASE:PI-0004"))
+    assert n["sourceClaim"]["sourceSnapshot"]["lines"][0]["baseQty"] == "0.125"
+
+    def reversed_lines(c, scope):
+        rows = fractional(c, scope)
+        for row in rows:
+            row["lines"].reverse()
+        return rows
+
+    monkeypatch.setattr(receiving.erp, "purchase_receipts", reversed_lines)
+    n = _ok(act(env, n, "arrive"))
+    _ok(act(env, n, "inspect", **inspect_body(n, "0.125", "0", "0")))
+    assert ledger(env) == (1, Decimal("0.125"))
+
+
+def test_reordered_lines_error_points_to_input_position(receiving_env):
+    env = receiving_env
+    n, src = source_notice(env)
+    n = link(env, n, src)
+    n = _ok(act(env, n, "arrive"))
+    body = inspect_body(n, n["lines"][0]["expectedQty"], "0", "0")
+    body["lines"].reverse()
+    body["lines"][0]["acceptedQty"] = "0"
+    r = act(env, n, "inspect", **body)
+    assert r.status_code == 400
+    assert "lines.0.shortageQty" in r.json()["error"]["details"]["fields"]
+    assert ledger(env) == (0, 0)
+
+
+def test_inspection_document_number_survives_deleted_draft_gap(
+    receiving_env, monkeypatch
+):
+    from datetime import date
+
+    from fs.wms import service
+
+    env = receiving_env
+    # Number manually created drafts on the same real server day as the inspection.
+    with env[2].connect() as c:
+        day = c.execute(
+            text("SELECT (clock_timestamp() AT TIME ZONE 'Asia/Seoul')::date")
+        ).scalar_one()
+    monkeypatch.setattr(service, "business_today", lambda: day)
+    body = {
+        "documentType": "OPENING",
+        "documentOn": day.isoformat(),
+        "lines": [
+            {"itemId": env[3]["RM-PBT"], "locationId": env[3]["R-A01"], "qty": "1"}
+        ],
+    }
+    a = _ok(_call(env[0], env[1], "POST", "/documents", body), 201)
+    b = _ok(_call(env[0], env[1], "POST", "/documents", body), 201)
+    _ok(_call(env[0], env[1], "DELETE", f"/documents/{a['id']}"))
+    n = notice(env)
+    n = _ok(act(env, n, "arrive"))
+    n = _ok(act(env, n, "inspect", **inspect_body(n)))
+    doc = _ok(env[0].get(f"{W}/documents/{n['stockDocumentId']}"))
+    assert int(doc["documentNo"][12:]) == int(b["documentNo"][12:]) + 1
+    assert date.fromisoformat(doc["documentOn"]) == day

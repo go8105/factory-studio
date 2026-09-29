@@ -339,3 +339,20 @@ it("W-06 위치 추가 폼을 닫으면 위치 상세로 돌아간다", async ()
     await screen.findByRole("dialog", { name: "WH-FG 위치" }),
   ).toBeVisible();
 });
+
+it.each([
+  ["inspection_pending", "검수 대기"],
+  ["inspected", "검수 완료"],
+  ["inspected_cancelled", "검수 후 원천 취소"],
+])("W-03은 %s 원천의 전표가 없어도 상태를 표시한다", async (state, label) => {
+  mount("/wms/sources", {
+    [`GET ${W}/sources`]: ok({
+      kind: "ERP_PURCHASE",
+      disabled: false,
+      rows: [{ ...receipt, state, documentId: null, documentNo: null }],
+    }),
+  });
+  const table = await screen.findByRole("table");
+  expect(within(table).getByText(label)).toBeVisible();
+  expect(within(table).queryByRole("button", { name: "반영" })).toBeNull();
+});

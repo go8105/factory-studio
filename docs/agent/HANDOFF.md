@@ -363,3 +363,8 @@ git diff --check
 - 현재 b1: receiving.py/receiving_schema.py, 입고 예정/도착/검수/원천 선점 API와 기존 sync 연계, NORMAL/QUARANTINE 마스터 보호, snapshot 날짜만 복사·digest 불변 구현 중. 입력400/멱등422, 신규 처리 시각 DB clock_timestamp 통일.
 - 아직 검증 완료 아님. 신규 테스트 실패 수정 중이며 전체 pytest/ruff/격리 감사는 최종 실행 필요. 완료 후 보고를 갱신한다. 실행: 전용 *_test DB에 DATABASE_URL/TEST_DATABASE_URL 설정 후 `backend/.venv/bin/pytest backend/tests --tb=short -q`, `uv run --project backend ruff check backend`, `python3 tools/audit_schema_isolation.py`. 비밀값은 저장/출력하지 않는다.
 - 사용자 지정 단계: b1(TX-W4~7/AC140~150) 보고 후 사용자 확인 대기. b2 예약·소진·가용(TX-W8~9/AC151~158)은 아직 시작 금지. 이후 화면/트럭/시드·도움말도 별도. push·배포 미승인.
+
+### FS-026b1 검증 중간 갱신
+- 입고 API23개 통과(별도 PG 연결 경합, 전량 부족, 취소/원천변경, 환산/복사/격리, 멱등, 줄 순서 오류 경로, 초안 삭제 뒤 발번 포함). 전량 부족 sync 영수증은 전표가 없으므로 inbound_notice ID로 저장한다.
+- 기존 W-03 새 상태 및 검수 전표 이름의 최소 표시 호환 추가. WMS 프런트10개·typecheck·변경 ESLint 통과. 입고 전용 화면은 미구현.
+- 전체 백엔드 pytest 재실행 중. ruff check/format134파일 통과, R1~R6 감사 오류0, db:validate 오류0. 최종 전체 결과 전에는 완료로 인계하지 않는다.

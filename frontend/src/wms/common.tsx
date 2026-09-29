@@ -60,7 +60,8 @@ export type StockTotal = {
 export type SourceKind =
   "MES_RECEIPT" | "MES_ISSUE" | "ERP_SHIPMENT" | "ERP_PURCHASE";
 export type ManualType = "OPENING" | "ADJUSTMENT" | "TRANSFER";
-export type DocumentType = SourceKind | ManualType | "REVERSAL";
+export type DocumentType =
+  SourceKind | ManualType | "REVERSAL" | "WMS_INSPECTION";
 export type Move = {
   id: number;
   documentId: number;
@@ -108,7 +109,10 @@ export type SourceState =
   | "synced"
   | "cancel_pending"
   | "reversed"
-  | "cancelled";
+  | "cancelled"
+  | "inspection_pending"
+  | "inspected"
+  | "inspected_cancelled";
 export type SourceLine = {
   itemCode: string;
   qty: string;
@@ -140,6 +144,7 @@ export const TYPE_LABEL: Record<DocumentType, string> = {
   ADJUSTMENT: "조정",
   TRANSFER: "창고 간 이동",
   REVERSAL: "되돌림",
+  WMS_INSPECTION: "입고 검수",
 };
 export const REASON_LABEL: Record<Reason, string> = {
   RETURN: "반품 입고",
@@ -157,6 +162,7 @@ export const BLOCK_LABEL: Record<string, string> = {
   NO_WAREHOUSE: "반영 창고 없음",
   SOURCE_CANCELLED: "원천 취소됨",
   SOURCE_NOT_FOUND: "원천 없음",
+  SOURCE_CLAIMED: "입고 검수에서 처리할 원천",
 };
 
 export const num = (v: string | number, digits = 3) =>

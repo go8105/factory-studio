@@ -136,7 +136,7 @@ def _next_no(
     stem = f"WD-{on or business_today():%Y%m%d}-"
     used = connection.execute(
         text(
-            f"SELECT count(*) FROM wms.stock_document WHERE {_S} AND document_no LIKE :stem"
+            f"SELECT COALESCE(max(CAST(substring(document_no FROM 13) AS bigint)),0) FROM wms.stock_document WHERE {_S} AND document_no LIKE :stem"
         ),
         {**_s(scoped), "stem": stem + "%"},
     ).scalar_one()

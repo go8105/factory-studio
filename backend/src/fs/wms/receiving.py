@@ -249,7 +249,7 @@ def _validate_lines(c, scoped, warehouse_id, lines):
                 path + ".itemId", "창고 용도와 일치하는 사용 중인 품목을 선택해 주세요."
             )
         lot = line.get("lot_no")
-        lot = lot.strip() if lot else None
+        lot = (lot.strip() or None) if lot else None
         if bool(lot) != (item["itemClass"] == "FG"):
             _fail(
                 path + ".lotNo", "완제품은 LOT 필수, 원자재는 LOT을 입력하지 않습니다."
@@ -566,12 +566,14 @@ def inspect_notice(context, id, values, key):
         row = _header(c, scoped, id, True)
         lines = _lines(c, scoped, id)
         supplied = {x["line_id"]: x for x in values["lines"]}
+        input_positions = {x["line_id"]: i for i, x in enumerate(values["lines"])}
         if len(supplied) != len(values["lines"]) or set(supplied) != {
             x["id"] for x in lines
         }:
             _fail("lines", "예정의 모든 줄을 중복 없이 입력해 주세요.")
         normalized = []
-        for i, line in enumerate(lines):
+        for line in lines:
+            i = input_positions[line["id"]]
             v = supplied[line["id"]]
             q = {
                 name: _quantity(v[name], f"lines.{i}." + base._camel(name))
