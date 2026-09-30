@@ -1,0 +1,41 @@
+.wms-operation-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 1rem;
+}
+.wms-operation-fields > label,
+.wms-operation-line > label {
+  display: grid;
+  gap: 0.35rem;
+}
+.wms-operation-line {
+  min-width: 0;
+  margin: 0.5rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border, #d8dcdf);
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 0.6rem;
+}
+.wms-operation-line select,
+.wms-operation-fields select {
+  width: 100%;
+  min-width: 0;
+}
+.wms-quantity-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+.wms-operation-fields p,
+.wms-operation-line p {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .wms-quantity-grid {
+    grid-template-columns: 1fr;
+  }
+}

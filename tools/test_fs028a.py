@@ -21,7 +21,7 @@ class ApplyTest(unittest.TestCase):
         self.assertEqual(again, self.current)
         self.assertEqual(sum(t['name'].startswith('spc.') for t in self.current['tables']), 5)
         self.assertEqual(audit(self.current), [])
-        self.assertEqual(validate(self.current, design_names('FS-028a')), [])
+        self.assertEqual(validate(self.current, design_names(self.current['task'])), [])
 
     def test_cross_schema_fk_is_rejected(self):
         broken = copy.deepcopy(self.current)

@@ -17,6 +17,9 @@ import {
 type DashboardData = {
   month: string;
   rawItems: number;
+  inboundPlanned: number;
+  inboundArrived: number;
+  shortageKeys: number;
   fgLots: number;
   negativeCount: number;
   pendingSources: number | null;
@@ -27,7 +30,11 @@ type DashboardData = {
     itemClass: Purpose;
     unit: string;
     onHand: string;
-    available: string | null;
+    normalOnHand: string;
+    available: string;
+    reservedQty: string;
+    quarantinedOnHand: string;
+    reservationShortage: string;
     negative: boolean;
   }[];
   flows: {
@@ -104,6 +111,19 @@ export function Dashboard() {
           </label>
         }
       />
+      {data && (
+        <div className="filter-bar">
+          <Link to="/wms/inbounds?status=PLANNED">
+            입고 대기 {data.inboundPlanned ?? 0}건
+          </Link>
+          <Link to="/wms/inbounds?status=ARRIVED">
+            검수 대기 {data.inboundArrived ?? 0}건
+          </Link>
+          <Link to="/wms/reservations?shortageOnly=true">
+            예약 부족 {data.shortageKeys ?? 0}개 위치·LOT
+          </Link>
+        </div>
+      )}
       <ErrorNotice error={error} retry={() => setReload((n) => n + 1)} />
       {!data ? (
         !error && <Loading delay={300} />
@@ -152,7 +172,7 @@ export function Dashboard() {
           </div>
           <div className="dashboard-grid has-lead">
             <section className="panel" aria-label="품목별 현재고">
-              <h2>품목별 현재고 · 가용</h2>
+              <h2>품목별 현재고 · 예약 가능</h2>
               {data.items.length ? (
                 <div className="table-scroll">
                   <table>
@@ -163,7 +183,16 @@ export function Dashboard() {
                           현재고
                         </th>
                         <th scope="col" className="num">
-                          가용
+                          정상
+                        </th>
+                        <th scope="col" className="num">
+                          격리
+                        </th>
+                        <th scope="col" className="num">
+                          활성 예약
+                        </th>
+                        <th scope="col" className="num">
+                          예약 가능
                         </th>
                         <th scope="col">단위</th>
                         <th scope="col">상태</th>
@@ -177,15 +206,21 @@ export function Dashboard() {
                           </td>
                           <td className="num">{num(i.onHand)}</td>
                           <td className="num">
-                            {i.itemClass === "RAW"
-                              ? "—"
-                              : i.available === null
-                                ? "계산 불가"
-                                : num(i.available)}
+                            {num(i.normalOnHand ?? i.onHand)}
                           </td>
+                          <td className="num">
+                            {num(i.quarantinedOnHand ?? "0")}
+                          </td>
+                          <td className="num">{num(i.reservedQty ?? "0")}</td>
+                          <td className="num">{num(i.available)}</td>
                           <td>{i.unit}</td>
                           <td>
                             {i.negative && <Badge tone="issue">음수</Badge>}
+                            {Number(i.reservationShortage) > 0 && (
+                              <Badge tone="issue">
+                                예약 부족 {num(i.reservationShortage)} {i.unit}
+                              </Badge>
+                            )}
                           </td>
                         </tr>
                       ))}

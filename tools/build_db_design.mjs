@@ -30,7 +30,7 @@ for(const [mod,prefix] of Object.entries(modules)){
 const out=path.join(root,'docs/db/DB설계서.xlsx'),pre=path.join(root,'work/db-design/previews-fs007b');await fs.mkdir(pre,{recursive:true});
 const artifact=process.argv.includes('--artifact');let wb,SpreadsheetFile;
 if(artifact){const require=createRequire(path.join(root,'work/db-design/package.json'));({SpreadsheetFile}=require('@oai/artifact-tool'));wb=require('@oai/artifact-tool').Workbook.create();for(const s of specs)wb.worksheets.add(s.name)}else{const {default:ExcelJS}=await import('exceljs');wb=new ExcelJS.Workbook();for(const s of specs)wb.addWorksheet(s.name)}
-const subtitle=`v${d.version} / ${d.date} / 설계 초안 · 실제 DB 미적용`;
+const subtitle=`v${d.version} / ${d.date} / ${d.task} 명세 · 환경별 적용 상태는 인계 문서 참조`;
 for(const [index,s] of specs.entries()){
  const sh=artifact?wb.worksheets.getItem(s.name):wb.getWorksheet(s.name),n=s.rows.length+5;
  const put=(r,c,value,formula=false)=>{if(artifact){const range=sh.getRangeByIndexes(r-1,c,1,1);if(formula)range.formulas=[[value]];else range.values=[[value]]}else{const cell=sh.getCell(r,c+1);cell.value=formula?{formula:value.slice(1)}:value}};

@@ -1,5 +1,5 @@
 // W-02 재고 현황 — 확정 원장 합계를 창고·위치·품목·LOT별로 보여 준다(UI-02 L 패턴, F-02 기준).
-// 완제품은 품목 합계 줄에 가용 = 현재고 − ERP 미출하 지시(D17)를 둔다. 음수는 막지 않고 표시한다(D15).
+// FS-026: 예약 가능 = 정상 현재고 − 활성 예약. ERP 미출하는 별도 참고값이다.
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useSession } from "../app/session";
@@ -31,6 +31,7 @@ type Filters = {
   lotNo: string;
   negativeOnly: boolean;
   unassignedOnly: boolean;
+  locationType: string;
 };
 
 export function Stock() {
@@ -42,6 +43,7 @@ export function Stock() {
     lotNo: params.get("lotNo") ?? "",
     negativeOnly: params.get("negativeOnly") === "1",
     unassignedOnly: false,
+    locationType: "",
   };
   const [draft, setDraft] = useState<Filters>(initial);
   const [applied, setApplied] = useState<Filters>(initial);
@@ -55,6 +57,7 @@ export function Stock() {
   useEffect(() => {
     const controller = new AbortController();
     const query = new URLSearchParams();
+    if (applied.locationType) query.set("locationType", applied.locationType);
     if (applied.warehouseId) query.set("warehouseId", applied.warehouseId);
     if (applied.itemCode) query.set("itemCode", applied.itemCode);
     if (applied.lotNo) query.set("lotNo", applied.lotNo.trim());
@@ -90,6 +93,18 @@ export function Stock() {
       render: (r) => (r.itemClass === "RAW" ? "—" : (r.lotNo ?? "(미지정)")),
     },
     { key: "onHand", label: "현재고", render: (r) => num(r.onHand) },
+    {
+      key: "quarantinedOnHand",
+      label: "격리",
+      render: (r) => num(r.quarantinedOnHand),
+    },
+    { key: "reservedQty", label: "예약", render: (r) => num(r.reservedQty) },
+    {
+      key: "available",
+      label: "예약 가능",
+      render: (r) =>
+        r.locationType === "QUARANTINE" ? "대상 제외" : num(r.available),
+    },
     { key: "unit", label: "단위" },
     {
       key: "negative",
@@ -156,6 +171,19 @@ export function Stock() {
           </select>
         </label>
         <label>
+          위치 유형
+          <select
+            value={draft.locationType}
+            onChange={(e) =>
+              setDraft({ ...draft, locationType: e.target.value })
+            }
+          >
+            <option value="">전체</option>
+            <option value="NORMAL">정상</option>
+            <option value="QUARANTINE">격리</option>
+          </select>
+        </label>
+        <label>
           LOT 번호
           <input
             value={draft.lotNo}
@@ -210,17 +238,20 @@ export function Stock() {
             }
           />
           {data.totals.length > 0 && (
-            <section className="panel" aria-label="완제품 품목 합계">
-              <h2>완제품 품목 합계 · 가용</h2>
+            <section className="panel" aria-label="품목 합계">
+              <h2>품목 합계 · 예약 가능</h2>
               <ul className="rank-list">
                 {data.totals.map((t) => (
                   <li key={t.itemCode}>
                     <span>{t.itemCode} 합계</span>
                     <span>
-                      현재고 {num(t.onHand)} ·{" "}
-                      {t.available === null
-                        ? "가용 계산 불가(ERP 꺼짐)"
-                        : `미출하 지시 ${num(t.openShipmentQty!)} · 가용 ${num(t.available)}`}
+                      정상 {num(t.normalOnHand)} · 격리{" "}
+                      {num(t.quarantinedOnHand)} · 예약 {num(t.reservedQty)} ·
+                      예약 가능 {num(t.available)} · 위치별 예약 부족{" "}
+                      {num(t.reservationShortage)}
+                      {t.openShipmentQty === null
+                        ? " · ERP 수요 참고 없음"
+                        : ` · ERP 미출하 지시(참고) ${num(t.openShipmentQty)}`}
                     </span>
                   </li>
                 ))}

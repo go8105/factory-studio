@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { START, canStand, inputVector, move, relativeStep } from "./world";
 it("방문자 시작 위치는 장애물 밖이다", () =>
   expect(canStand(START)).toBe(true));
-it("조립 설비 안으로 들어갈 수 없다", () =>
+it("CNC 설비 안으로 들어갈 수 없다", () =>
   expect(canStand({ x: -0.5, y: 0, z: 0 })).toBe(false));
 it("2층에서는 바닥 밖으로 나갈 수 없다", () =>
   expect(canStand({ x: 0, y: 4, z: 5 })).toBe(false));
@@ -48,4 +48,10 @@ it("1인칭 전진은 바라보는 방향을 따른다", () => {
   expect(relativeStep(0, -1, 0)).toEqual({ x: 0, z: -1 });
   expect(relativeStep(0, -1, Math.PI / 2).x).toBeCloseTo(-1);
   expect(relativeStep(1, 0, Math.PI / 2).z).toBeCloseTo(-1);
+});
+
+it("CNC 로봇·문 이동 영역은 차단하고 앞 통로는 유지한다", () => {
+  expect(canStand({ x: -1.8, y: 0, z: 0.9 })).toBe(false);
+  expect(canStand({ x: 1.2, y: 0, z: 0.5 })).toBe(false);
+  expect(canStand({ x: -0.5, y: 0, z: 2.3 })).toBe(true);
 });

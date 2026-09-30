@@ -35,12 +35,18 @@ class WarehouseUpdate(ApiModel):
 
 
 class LocationCreate(ApiModel):
+    location_type: Literal["NORMAL", "QUARANTINE"] = Field(
+        "NORMAL", alias="locationType"
+    )
     code: str = Field(pattern=CODE)
     name: str = Field(min_length=1, max_length=100)
     is_default: bool = Field(False, alias="isDefault")
 
 
 class LocationUpdate(ApiModel):
+    location_type: Literal["NORMAL", "QUARANTINE"] | None = Field(
+        None, alias="locationType"
+    )
     name: str | None = Field(None, min_length=1, max_length=100)
     is_default: bool | None = Field(None, alias="isDefault")
     is_active: bool | None = Field(None, alias="isActive")

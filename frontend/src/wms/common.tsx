@@ -23,6 +23,7 @@ export type Location = {
   isDefault: boolean;
   isActive: boolean;
   moveCount: number;
+  locationType: "NORMAL" | "QUARANTINE";
 };
 export type Conversion = { id: number; fromUnit: string; factor: string };
 export type Item = {
@@ -36,7 +37,14 @@ export type Item = {
   moveCount: number;
   conversions: Conversion[];
 };
-export type StockRow = {
+export type StockQuantities = {
+  normalOnHand: string;
+  quarantinedOnHand: string;
+  reservedQty: string;
+  available: string;
+  reservationShortage: string;
+};
+export type StockRow = StockQuantities & {
   itemId: number;
   itemCode: string;
   itemName: string;
@@ -44,6 +52,7 @@ export type StockRow = {
   unit: string;
   locationId: number;
   locationCode: string;
+  locationType: "NORMAL" | "QUARANTINE";
   warehouseId: number;
   warehouseCode: string;
   lotNo: string | null;
@@ -51,16 +60,16 @@ export type StockRow = {
   negative: boolean;
   lotUnassigned: boolean;
 };
-export type StockTotal = {
+export type StockTotal = StockQuantities & {
   itemCode: string;
   onHand: string;
   openShipmentQty: string | null;
-  available: string | null;
 };
 export type SourceKind =
   "MES_RECEIPT" | "MES_ISSUE" | "ERP_SHIPMENT" | "ERP_PURCHASE";
 export type ManualType = "OPENING" | "ADJUSTMENT" | "TRANSFER";
-export type DocumentType = SourceKind | ManualType | "REVERSAL";
+export type DocumentType =
+  SourceKind | ManualType | "REVERSAL" | "WMS_INSPECTION";
 export type Move = {
   id: number;
   documentId: number;
@@ -71,6 +80,7 @@ export type Move = {
   itemClass: Purpose;
   locationId: number;
   locationCode: string;
+  locationType?: "NORMAL" | "QUARANTINE";
   warehouseCode: string;
   lotNo: string | null;
   qtyDelta: string;
@@ -90,6 +100,7 @@ export type StockDocument = {
   status: "draft" | "posted";
   sourceKey: string | null;
   sourceRef: string | null;
+  noticeId?: number | null;
   reversesDocumentId: number | null;
   reversesDocumentNo: string | null;
   reasonCode: Reason | null;
@@ -108,7 +119,10 @@ export type SourceState =
   | "synced"
   | "cancel_pending"
   | "reversed"
-  | "cancelled";
+  | "cancelled"
+  | "inspection_pending"
+  | "inspected"
+  | "inspected_cancelled";
 export type SourceLine = {
   itemCode: string;
   qty: string;
@@ -119,6 +133,7 @@ export type SourceLine = {
 export type Source = {
   sourceKey: string;
   sourceRef: string;
+  noticeId?: number;
   occurredAt: string;
   cancelledAt?: string | null;
   lines: SourceLine[];
@@ -140,6 +155,7 @@ export const TYPE_LABEL: Record<DocumentType, string> = {
   ADJUSTMENT: "조정",
   TRANSFER: "창고 간 이동",
   REVERSAL: "되돌림",
+  WMS_INSPECTION: "입고 검수",
 };
 export const REASON_LABEL: Record<Reason, string> = {
   RETURN: "반품 입고",
@@ -157,6 +173,7 @@ export const BLOCK_LABEL: Record<string, string> = {
   NO_WAREHOUSE: "반영 창고 없음",
   SOURCE_CANCELLED: "원천 취소됨",
   SOURCE_NOT_FOUND: "원천 없음",
+  SOURCE_CLAIMED: "입고 검수에서 처리할 원천",
 };
 
 export const num = (v: string | number, digits = 3) =>
@@ -187,7 +204,12 @@ export function ModuleOff() {
 export function StockBadges({ row }: { row: StockRow }) {
   return (
     <>
-      {row.negative && <Badge tone="issue">음수</Badge>}{" "}
+      {row.negative && <Badge tone="issue">음수</Badge>}
+      {Number(row.reservationShortage) > 0 && (
+        <Badge tone="issue">
+          예약 부족 {num(row.reservationShortage)} {row.unit}
+        </Badge>
+      )}{" "}
       {row.lotUnassigned && <Badge tone="warning">LOT 미지정</Badge>}
     </>
   );

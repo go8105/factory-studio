@@ -83,11 +83,15 @@ EXPECTED_COUNTS = {
     "qms.inspection_value": 68,
     "qms.quality_hold": 2,
     "wms.warehouse": 2,
-    "wms.storage_location": 4,
+    "wms.storage_location": 6,
     "wms.item": 5,
     "wms.item_unit_conversion": 1,
-    "wms.stock_document": 40,
-    "wms.stock_move": 55,
+    "wms.stock_document": 41,
+    "wms.stock_move": 57,
+    "wms.inbound_notice": 5,
+    "wms.inbound_notice_line": 5,
+    "wms.stock_reservation": 3,
+    "wms.stock_reservation_line": 4,
     "bems.zone": 3,
     "bems.meter": 3,
     "bems.sensor": 6,
@@ -111,9 +115,9 @@ def validate_all(
         actual == EXPECTED_COUNTS,
         f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}",
     )
-    _require(sum(actual.values()) == 11911, f"V1 total={sum(actual.values())}")
-    # FS-025c: BEMS 시드 +4,218행(공용 전력 30일·환경 14일). FS-028a: spc 모듈 행 +1(SPC 업무 시드는 FS-028c).
-    results["V1"] = "98개 중 시드 86테이블, 11,911행 일치"
+    _require(sum(actual.values()) == 11933, f"V1 total={sum(actual.values())}")
+    # FS-025c: BEMS 시드 +4,218행. FS-028a: spc 모듈 행 +1. FS-026: WMS 예시 +22(SPC 업무 시드는 FS-028c).
+    results["V1"] = "103개 중 시드 테이블, 11,933행 일치"
 
     plans = connection.execute(
         text(

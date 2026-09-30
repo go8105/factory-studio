@@ -176,9 +176,9 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     )
     assert guest_token.startswith("g_")
     assert (
-        # FS-028a: spc 모듈 행 +1 → 11,909
+        # FS-026 WMS 예시 +22, FS-028a spc 모듈 행 +1 → 11,931
         _business_count(engine, guest_data["workspaceId"], guest_data["generationId"])
-        == 11909
+        == 11931
     )
 
     reset_headers = {
@@ -192,7 +192,7 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     reset_generation_id = reset_first.json()["data"]["generationId"]
     assert reset_generation_id != guest_data["generationId"]
     assert (
-        _business_count(engine, guest_data["workspaceId"], reset_generation_id) == 11909
+        _business_count(engine, guest_data["workspaceId"], reset_generation_id) == 11931
     )
     with engine.connect() as connection:
         assert (

@@ -4,6 +4,8 @@ export const wmsScreens: Screen[] = [
   { path: "dashboard", id: "W-01", label: "대시보드", group: "재고" },
   { path: "stock", id: "W-02", label: "재고 현황", group: "재고" },
   { path: "sources", id: "W-03", label: "원천 반영", group: "입출고" },
+  { path: "inbounds", id: "W-08", label: "입고 예정·검수", group: "입출고" },
+  { path: "reservations", id: "W-09", label: "출고 예약", group: "입출고" },
   { path: "documents", id: "W-04", label: "재고 전표", group: "입출고" },
   { path: "moves", id: "W-05", label: "재고 원장", group: "입출고" },
   { path: "warehouses", id: "W-06", label: "창고·위치", group: "기준정보" },

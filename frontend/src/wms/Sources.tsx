@@ -37,6 +37,8 @@ type SyncResult = {
   results: { sourceKey: string; state: string; reason?: { code: string } }[];
   synced: number;
   blocked: number;
+  deferred?: number;
+  inspected?: number;
 };
 const STATE: Record<SourceState, [string, "normal" | "warning" | "issue"]> = {
   pending: ["미반영", "warning"],
@@ -45,6 +47,9 @@ const STATE: Record<SourceState, [string, "normal" | "warning" | "issue"]> = {
   cancel_pending: ["취소 미반영", "warning"],
   reversed: ["취소 반영됨", "normal"],
   cancelled: ["반영 전 취소", "normal"],
+  inspection_pending: ["검수 대기", "warning"],
+  inspected: ["검수 완료", "normal"],
+  inspected_cancelled: ["검수 후 원천 취소", "issue"],
 };
 const ACTIONABLE = new Set<SourceState>(["pending", "cancel_pending"]);
 
@@ -90,6 +95,8 @@ export function Sources() {
       .map((r) => BLOCK_LABEL[r.reason!.code] ?? r.reason!.code);
     setSummary(
       `반영 ${result.synced}` +
+        (result.deferred ? ` · 검수 대기 ${result.deferred}` : "") +
+        (result.inspected ? ` · 검수 완료 ${result.inspected}` : "") +
         (result.blocked
           ? ` · 반영 불가 ${result.blocked}(${[...new Set(reasons)].join(", ")})`
           : ""),
@@ -104,7 +111,9 @@ export function Sources() {
       key: "sourceKey",
       label: "관리",
       render: (r) =>
-        ACTIONABLE.has(r.state) ? (
+        r.noticeId ? (
+          <Link to={`/wms/inbounds?open=${r.noticeId}`}>입고 검수 상세</Link>
+        ) : ACTIONABLE.has(r.state) ? (
           <button
             type="button"
             className="link-button"

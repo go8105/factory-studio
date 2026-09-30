@@ -241,6 +241,11 @@ it("W-02는 음수·LOT 미지정을 문구로 표시하고 ERP 꺼짐이면 가
           warehouseCode: "WH-FG",
           lotNo: null,
           onHand: "-3842.000",
+          normalOnHand: "-3842.000",
+          quarantinedOnHand: "0",
+          reservedQty: "40",
+          reservationShortage: "3882",
+          available: "-3882",
           negative: true,
           lotUnassigned: true,
         },
@@ -249,8 +254,12 @@ it("W-02는 음수·LOT 미지정을 문구로 표시하고 ERP 꺼짐이면 가
         {
           itemCode: "FG-C200",
           onHand: "-3842.000",
+          normalOnHand: "-3842.000",
+          quarantinedOnHand: "0",
+          reservedQty: "40",
+          reservationShortage: "3882",
+          available: "-3882",
           openShipmentQty: null,
-          available: null,
         },
       ],
     }),
@@ -259,7 +268,9 @@ it("W-02는 음수·LOT 미지정을 문구로 표시하고 ERP 꺼짐이면 가
   expect(within(table).getByText("음수")).toBeVisible();
   expect(within(table).getByText("LOT 미지정")).toBeVisible();
   expect(within(table).getByText("(미지정)")).toBeVisible();
-  expect(screen.getByText(/가용 계산 불가\(ERP 꺼짐\)/)).toBeVisible();
+  expect(screen.getByText(/ERP 수요 참고 없음/)).toBeVisible();
+  expect(screen.getByText(/예약 가능 -3,882/)).toBeVisible();
+  expect(within(table).getByText(/예약 부족 3,882/)).toBeVisible();
 });
 
 it("W-04 이동 전표는 보낼·받을 위치 쌍으로 보내고 줄 오류를 줄 아래에 보인다", async () => {
@@ -338,4 +349,21 @@ it("W-06 위치 추가 폼을 닫으면 위치 상세로 돌아간다", async ()
   expect(
     await screen.findByRole("dialog", { name: "WH-FG 위치" }),
   ).toBeVisible();
+});
+
+it.each([
+  ["inspection_pending", "검수 대기"],
+  ["inspected", "검수 완료"],
+  ["inspected_cancelled", "검수 후 원천 취소"],
+])("W-03은 %s 원천의 전표가 없어도 상태를 표시한다", async (state, label) => {
+  mount("/wms/sources", {
+    [`GET ${W}/sources`]: ok({
+      kind: "ERP_PURCHASE",
+      disabled: false,
+      rows: [{ ...receipt, state, documentId: null, documentNo: null }],
+    }),
+  });
+  const table = await screen.findByRole("table");
+  expect(within(table).getByText(label)).toBeVisible();
+  expect(within(table).queryByRole("button", { name: "반영" })).toBeNull();
 });

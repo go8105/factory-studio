@@ -1,5 +1,7 @@
 # 개발 진행 기록
 
+> 최신 후속 작업: 2026-09-29 **FS-026b1 입고 API 완료·사용자 확인 대기**. 전체 pytest755·도구58 통과, CI ruff·격리 감사 오류0. 다음은 확인 후 b2 예약·소진·가용 조회.
+
 ## 현재 상태
 - 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS·홈 아이콘·C++ 비전 엔진 운영 반영 완료(`adc3cab`, head `fs024b_wms_module`, 템플릿 7,691행). FS-025a BEMS DB 완료(로컬, head `fs025b_bems_module`). FS-025 BEMS 전체(API·화면·시드·도움말) 운영 반영 완료(`6508599`, 템플릿 11,910행). FS-026 WMS 확장은 Codex가 결정서부터.**
 - 기준본: 현재 상태는 `docs/plan/현재기획_진행현황.md` 하나로 판단한다. 작업이 끝나면 반드시 갱신한다
@@ -7,6 +9,12 @@
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-09-30 FS-026 main 병합 (Claude Code)
+- Codex `codex/vision-ai` `f65044b`(FS-026a DB·b1 입고·b2 예약/소진·W-08/W-09·3D 트럭·시드 +22·도움말)를 main(FS-028a 포함)에 병합.
+- 충돌 해결: `schema.json`은 main(SPC) 위에 `tools/apply_fs026a.py`를 다시 적용 → **v0.14.0 / 103테이블 · FK 236**(apply 도구의 버전을 0.14.0으로). `validate_db_design` 작업 집합에 FS-026a·FS-028a 모두, `LATER_THAN_028A` 추가. 마이그레이션 체인 `fs025b → fs028a_spc → fs028b_spc_module → fs026a`(Codex 파일의 down_revision만 변경). 시드 합계 템플릿 11,933·복사 11,931. Excel·ERD·검증 보고서 재생성. 현황 문서는 main(172줄) 기준에 FS-026 완료 반영.
+- 병합 영향 수정: `e2e/wms-extension.spec.ts` 진입에 FS-027 별칭 입력(Codex 분기가 FS-027 이전), `test_fs028a`는 현재 작업 ID 기준 inventory.
+- 검증: db:validate 0 · 격리 R1~R6 0 · tools 63 · **실제 DB: 테스트 DB fs028b→head, 새 DB base→head 모두 DDL 대조 0(103·FK 236·CHECK 294)** · ruff 0 · frontend typecheck·lint·format·vitest 505 · e2e wms+wms-extension+home+portal+layout 186 passed(wms-extension 7건은 별칭 수정 후 재실행 통과) · factory+bems+qms 27 passed·1 skipped · **pytest 781 passed · 1 skipped(23분)**.
 
 ## 2026-09-30 FS-028a SPC DB (Claude Code)
 - `tools/apply_fs028a.py`(멱등) → schema.json **v0.13.0 / FS-028a**: 98테이블(spc 5: characteristic·control_limit·subgroup·measurement·signal) · 1,030컬럼 · FK 220 · 제약·정책 776. 모듈 키 CHECK에 spc.
@@ -1572,3 +1580,118 @@
 - Chromium 관련6개 최종 단일 실행 통과(1.3분). 모의 인증·실제 API·실제 C++ 바이너리로 단건/20회/PLC20회 및 JSON·도움말 확인. 기존 모의 API 회귀 포함. 실제 화면 캡처 확인, 도움말390px 가로 넘침 없음.
 - 공용 DB/운영인증/운영배포·Windows/Linux·실장비 미검증. 기존 3D 청크/Clock 경고와 Python 테스트 클라이언트 사용중단 경고 유지.
 - 배포 인계: `docs/agent/C++웹연결_FS-VISION-CONNECT01.md`. 서버 OS에서 바이너리 빌드/검증 → 서비스 환경 VISION_CORE_EXECUTABLE 절대경로 설정 → 백엔드 반영·재시작 → 프런트 재빌드·반영 → 게스트C++/PLC/도움말 확인. tests/factory_native_preview.py는 모의 인증이므로 운영 사용 금지.
+
+## 2026-09-28 FS-FACTORY-CONCEPT01 — 정밀 부품 공장 컨셉 완료
+
+- 사용자 요청한 6단계 중 1단계 문서 완료. Factory Studio 유지, 정밀 부품 가공 공장 / 로봇 연동 CNC 가공 셀, CNC → 비전검사 → 포장으로 후속 기준 확정.
+- 상세: [컨셉과 개발 기준](plan/정밀부품공장_컨셉_FS-FACTORY-CONCEPT01.md). 제품은 설비용 알루미늄 마운팅 블록. 기존 MTS·독립 솔루션·업무 데이터 소유 경계 유지. 기존 MES 시드와 신규 3D 시연의 차이를 명시.
+- WMS README의 오래된 core 마스터 소유·MES 원장 이관 설명 수정. 신규 WMS·자동화·JSON 복원·지도는 미구현.
+- 검증: 현재 코드/설계 대조, 문서 링크와 diff 공백 확인. 문서만 변경해 기능/브라우저 테스트 미실행.
+- 다음: 2단계 FS-FACTORY-CNC01의 로봇·CNC 형상/상태/정지·복구 및 이름 적용. 6단계 중 1단계 문서 완료이며 구현 공수 진행률 아님. push·배포 없음, 운영 배포 사용자 담당.
+
+## 2026-09-28 FS-FACTORY-CNC01 — 로봇 연동 CNC 가공 셀 완료
+
+- 신규 로드맵 2단계 로컬 구현 완료. 첫 조립 설비를 로봇·그리퍼·CNC 인클로저·문·지그·주축으로 교체. 소재 투입 → 가공 → 배출, 사각 원소재/포켓·구멍 가공품, CNC 이름·현장 표지 적용.
+- 시작당 1개, 일시정지/재개, 오류 래치·명시적 해제/재개, 종료 소재 보류, 완료 중복 방지. 모의 인터락, 탭 숨김 정지·언마운트 타이머 정리. 모델/패널이 같은 상태를 사용한다.
+- 넓은 화면 CNC 패널 옆 칸 배치, 근접 카메라·충돌 영역 반영. 사용자 참고 문서 `/help/portal/cnc-cell`과 패널 링크 추가.
+- 최종 프런트 **456 tests / 52 files**, typecheck(빌드)/lint/format/build 통과. Chromium 전체 실행은 21 passed·1 skipped·1 failed: 편집 중 HMR로 초기화된 1인칭 1건은 수정 없이 재실행 통과(그래픽 손실 포함 최종 재실행 2 passed). **고유 브라우저 시나리오 22개 검증**, 실제 C++ API 1건은 이번 환경에서 제외. CNC 정상/정지/오류/보류·390px·검사실 진입·새 도움말 포함.
+- 1280px 완료 화면·390px 패널 캡처 직접 확인. 문서 링크/diff 공백 통과. 기존 3D 청크 크기·THREE.Clock 경고 유지. DB/백엔드/실장비/운영 배포/Safari 검증 미실행.
+- CNC 실적은 메모리 전용이며 비전/C++/MES/WMS와 미연계. 기존 MES 시드·DB·API 변경 없음. 절삭 물리·실제 안전 제어 아님.
+- 상세: [구현 및 인계](agent/로봇CNC가공셀_FS-FACTORY-CNC01.md). 기준 aac8d26, 브랜치 codex/vision-ai. push·main 병합·배포 없음. 운영 배포 사용자 담당.
+- 다음: **3단계 WMS 공통 설계 후 입고·재고·출고·LOT 연결**. 6단계 중 2단계 완료(공수 비율 아님). 자동 운전/JSON 복원/지도는 후속.
+
+## 2026-09-28 FS-026 단계 0 — 최신 main 정렬 완료
+
+- 사용자 지시에 따라 `codex/vision-ai`를 `origin/main` b9dfbc4(FS-025b API 포함)에 rebase했다. CNC 컨셉/구현은 01fc6f5·7b94b48로 재적용했다. 충돌 난 현황·HANDOFF·WMS README는 main 기준을 유지하고 이 항목으로 후속 이력을 보완했다.
+- `fad0c3a`는 rebase에서 제외했다. 이전 설계는 `backup/vision-ai-before-fs026-20260928`에 참고용으로만 보존하며 현 브랜치/향후 main 병합 대상에 포함하지 않는다. FS-WMS-DB01은 시작하지 않는다.
+- 현재 기준은 FS-024 WMS 6테이블·W-01~07·기존 원장과 FS-025까지의 main이다. 기존 CNC 알루미늄 블록 시연은 메모리 전용이며 WMS 품목 추가 승인이 아니다. 과거 문서의 신규 WMS 개발/미구현 안내는 현재 기준으로 사용하지 않는다.
+- 현황, FS-013, 문서 지도, FS-024 결정서·모듈 설계·화면 설계와 backend/src/fs/wms를 확인했다. 원장은 stock_move 합계, source_key로 원천 중복 방지, ERP 매입 취소는 반대 부호 전표, 가용은 현재고−ERP 미출하 지시다. 원자재는 LOT 없이 KG/EA 및 단위 환산을 유지한다.
+- 검증: frontend typecheck 통과, CNC/useCnc/WMS 관련 3파일 14테스트 통과, 격리 R1~R6 오류 0(93테이블·209FK), diff 공백 검사 통과. 전체 테스트·브라우저·실제 DB 마이그레이션은 실행하지 않았다. WMS/BEMS 제품 코드·DB 명세·시드는 origin/main 그대로다.
+- 다음은 **사용자 0단계 확인 후** FS-026 결정서 작성(D24부터). D13·D17 개정, D14 중복 입출고 방지와 취소 처리, D15 음수/예약 부족 경계, 격리 위치 유형, 트럭 도착 무재고 변경, 기존 품목 및 알루미늄 품목 여부를 질문·권장안으로 정리한다. 결정서·모듈 설계·개발 단계는 아직 시작하지 않았다.
+- 후속 전체 설계 승인 후에만 새 migration을 추가한다(현재 head fs025b_bems_module 다음). 업무 간 FK 금지·교차 조회 interface.py만 유지. push·배포 없음. `.env`·`work/` 스테이징 없음.
+
+## 2026-09-28 FS-026 단계 1 — 결정서 초안 작성 완료·승인 대기
+
+- 사용자 단계 0 확인 후 결정서 `docs/plan/WMS확장_입고검수예약_결정_FS-026.md` 작성. D24~D32와 Q1~Q6 권장안이며 세부 정책은 아직 미승인이다. 입고 예정·도착·검수·격리·예약 추가와 D13·D17 개정 방향만 사용자 확정이다.
+- D14 보완: ERP 매입 직접 반영/검수 경유의 원천 선점·상호 배타, 수동 기입고 사후 대사(원장 0), 전량 부족, 회계 취소와 실물 정정 분리. D17 대체안: WMS 예약만 가용에서 차감하고 ERP 미출하는 참고 지표. D15의 원천 반영 음수 허용과 신규 예약 부족 거부를 구분했다.
+- 격리는 기존 storage_location 유형으로 제안. 트럭은 도착 상태만 변경. 예약은 명시적 ERP 출하 전량 연결 시 원장 차감과 함께 소진하며 별도 출고 차감은 추가하지 않는 안이다. 기존 5품목/단위·LOT 정책 유지, 알루미늄 품목 시드는 제외 권장.
+- 검증: FS-024 결정/설계 및 WMS·ERP interface 코드 정적 대조, D24~D32 연속/중복 없음·질문 6개·상대 링크 존재·git diff --check 통과. 문서만 변경하여 기능/브라우저/DB 테스트는 재실행하지 않았다.
+- 다음: Q1~Q6 사용자 확인 후 단계 2(모듈 설계 새 revision·화면·AC-139부터). 전체 설계 승인 전 제품 개발/마이그레이션 금지. FS-WMS-DB01 시작 금지. 기존 확정 FS-024 정책은 아직 덮어쓰지 않았다.
+- 위치 factory-studio-codex / codex/vision-ai, 기준 4aa1fc7. origin/main 기준 b9dfbc4, 완료 커밋은 git log -1로 확인. `.env`·work/ 스테이징 없음. push·배포 없음.
+
+## 2026-09-28 FS-026 단계 2 — 모듈·화면 설계 revision 2 작성, 전체 확인 대기
+
+- 사용자 “진행해줘”로 결정서 Q1~Q6 권장안/D24~D32 승인 기록. 모듈 `docs/modules/wms/WMS_모듈설계_FS-026.md`, 화면 `docs/ui/화면설계_WMS_FS-026.md` 작성. 기존 FS-024 문서는 이력으로 보존하고 후속 링크를 추가했다.
+- 기존 6테이블 재사용 + inbound_notice/inbound_notice_line/source_claim/stock_reservation/stock_reservation_line 5개 추가(계획 총11). location_type 및 WMS_INSPECTION 전표 유형 차분, source_claim과 기존 전표의 공간 락 내 검사로 이중 입고 방지. 전량 부족은 전표 없이 처리 완료를 보존한다.
+- TX-W4~W9, version/멱등/영구 중복키, ERP interface 읽기 계약, 신규 API, 기존 stock/dashboard 가용 의미 개정, 게스트 복사/번호·snapshot digest 재계산을 정의했다. 실제 ERP 출하지시 상태는 open/shipped/cancelled다.
+- 기존 W-01~07 확장 + W-08 입고 예정·검수/W-09 출고 예약 + 3D 트럭 도착 패널. AC-139~164 26개 작성(미실행); 기존 AC-123 대체, AC-114/118 적용 경계 명시.
+- 검증: 설계 상대 링크 존재, AC 번호 연속·중복 없음, 신규 테이블 5개, diff 공백 검사 통과. 문서만 변경하여 DB/기능/브라우저 테스트 미실행. migration·schema.json·DB설계서.xlsx·운영 ERD·제품 코드·시드 변경 없음.
+- 다음: **사용자 전체 설계 확인 후에만** FS-026a(DB/메타데이터/Excel/ERD/검증) 착수. 현재 head fs025b_bems_module 뒤 새 revision 제안, 착수 시 head 재확인. 적용 migration 수정 금지. FS-WMS-DB01 금지, fad0c3a는 참고만.
+- 브랜치 codex/vision-ai, 기준 3b51671. 최종 커밋은 git log -1로 확인. `.env`·work/ 스테이징 없음. push·배포 없음.
+
+## 2026-09-28 FS-026a — WMS 확장 DB 기반 완료
+
+- 사용자 전체 설계 승인 및 질문 권장안 진행 지정. 기존6+신규5 WMS 테이블, 위치 유형/검수 전표, metadata v0.13.0(전체98/1022컬럼/225FK), 새 revision fs026a_wms_receiving_reservation 구현. 이전 migration 수정 없음.
+- DB설계서31시트·ERD·검증기/보고 동시 갱신. NULL LOT 부분 유니크, 검수수량/상태 CHECK, 원천 유효선점·소진 유일성. 데이터가 있는 downgrade는 중단한다. SERVICE 정책/API/화면은 후속 미구현.
+- 검증: DDL대조0·R1~R6오류0, 이전head/빈base downgrade→upgrade 통과. 기존WMS15+신규DB7+DDL변조9+시드16 = 고유 선택47 tests 통과. DDL변조1건은 시드가 남은 DB에서 실패하여 빈 DB 재실행9건 통과. tools58, Ruff/diff 통과. 전체/브라우저 회귀 미실행.
+- 전용 로컬 테스트DB2개만 적용. 공유 개발/운영DB·시드 품목 변경 없음. origin/main489d5f3의 migration head가 fs025b_bems_module 그대로임을 확인했고 새 BEMS UI는 이번 브랜치에 rebase하지 않았다.
+- 다음 FS-026b API(입고/원천선점/검수/예약·가용/출하연결·동시성), 이후 화면·트럭·도움말·시드. 세부 선택은 승인 권장안. push·배포 없음, .env/work 스테이징 없음.
+- 상세: docs/agent/WMS확장_DB_FS-026a.md. 브랜치 codex/vision-ai, 기준01b6cce, 완료커밋 git log -1.
+
+
+## 2026-09-29 FS-026b1 WIP
+- main6508599 rebase 완료(main HANDOFF 유지), BEMS 포함 템플릿11,910 기준 유지.
+- 입고 예정/도착/검수/원천선점 API 작성, 기존 원천 sync 연결, 날짜 제외 digest와 게스트 복사 처리. 입력400/멱등422 설계 수정.
+- 실제 DB 신규 테스트 진행 중. 전체 회귀/ruff/격리 감사 미완료. b2는 b1 보고 확인 후.
+
+### FS-026b1 중간 검증
+- 신규 API23개 통과, 기존 W-03 새 상태 호환과 검수 전표 이름 보강(프런트10개/typecheck/변경 ESLint 통과).
+- 전체 pytest 재실행 중. ruff134파일·격리감사·정적 DB 검증 오류0. 예약가능 조회 및 b2는 미착수.
+
+
+## 2026-09-29 FS-026b1 완료
+- main6508599 rebase 후 TX-W4~W7 입고 예정/도착/검수/원천선점 및 기존 sync 라우팅 완료. b2는 미착수.
+- 입력400/멱등422, 의미 값만의 source_digest, 게스트 복사 confirmedAt 날짜 이동·digest 보존, 신규 DB 시각 통일. 기존 W-03 표시 호환 보강.
+- **backend 전체755 passed(1204.94초, 경고2)**, 신규 입고23 포함. 도구58+subtests13, WMS 프런트10, typecheck·변경 ESLint 통과. CI ruff134파일·R1~R6·db:validate 오류0.
+- 스키마/기존 migration/main 시드합계11,910 미변경. 새 입고 화면·브라우저·운영 검증 미실행. AC141 예약가능 조회는 b2.
+- 구현 a832fa8(16045ae 포함). 상세 docs/agent/WMS확장_API_FS-026b1.md. 사용자 확인 후 b2만 진행, push·배포는 별도 확인.
+
+
+## 2026-09-30 FS-026b2 WIP — 예약·소진·가용
+
+- 사용자가 다음 진행 방향 1번(b2)을 승인했다. 브랜치 codex/vision-ai, 기준 3f5039c/main6508599. TX-W8~W9, AC151~158 구현. 예약 생성/해제, ERP 확정 출하 전량 소진, 원장·예약 경합 직렬화, 격리 제외/위치별 부족 보존, ERP off 가용 계산.
+- ERP 조회는 interface.py만 사용. 신규 처리 시각 clock_timestamp, FS_TODAY 미사용. 게스트 예약 번호 날짜 이동/FK 재매핑. 기존 W-01/02 가용 표시 호환만 반영; W-08/09 미구현.
+- 현재 관련 API60개(신규22 포함), WMS 프런트10개/typecheck/변경 ESLint 통과. CI ruff138파일, R1~R6 감사0, db:validate0. 전체 pytest 전용 factory_studio_codex_fs026b2_final_test에서 실행 중. 최종 결과 전 완료 아님.
+- migration/schema/Excel/ERD 변경 없음. 템플릿11,910 유지. .env/work 스테이징 금지, push·배포 없음. b2 최종 보고 후 사용자 확인을 기다린다.
+- 재현: 전용 *_test DB의 DATABASE_URL/TEST_DATABASE_URL을 환경으로 제공한 뒤 backend/.venv/bin/pytest backend/tests -q --tb=short. Ruff는 backend/pyproject.toml 명시(CI 명령). 상세 docs/agent/WMS확장_API_FS-026b2.md.
+
+
+## 2026-09-30 FS-026b2 완료 — 다음은 사용자 확인 후 화면
+
+- 위 b2 WIP 상태를 이 항목으로 대체한다. 사용자 후속 1번 승인에 따라 TX-W8~W9/AC151~158 완료. 브랜치 codex/vision-ai, 기준 main6508599/3f5039c, 구현 0d639b7. 최종 보고 커밋은 git log -1.
+- 예약 생성·해제·ERP 확정 출하 전량 소진, 동일 원천 단일 전표, sync 경합, 정상 현재고−활성 예약, 격리 제외, 위치별 부족 보존, ERP off 가용 계산. AC141 예약가능95 조회도 검증 완료.
+- 입력400/멱등422, clock_timestamp 처리 시각 통일, FS_TODAY 미사용. ERP interface 조회만 사용, 게스트 예약 날짜/FK 복사. 기존 W-01/02 화면·도움말 새 계산식 호환. 신규 W-08/09 화면은 아직 없음.
+- 최종 검증: **backend 전체777 passed, 2 warnings, 1414.37초**(신규22 포함). 관련 WMS60, 프런트 전체490/56파일, 도구58+subtests13, typecheck/build/변경 ESLint 통과. CI ruff check/format138파일, R1~R6 감사98테이블/225FK 오류0, db:validate 오류0. 기존 사용중단 경고2와 프런트 청크 경고 유지.
+- 전용 factory_studio_codex_fs026b2_final_test에서 실행. migration head fs026a_wms_receiving_reservation 유지; schema/Excel/ERD·시드 기준11,910/복사11,908 및 seed/validate.py·test_seed/test_common 변경 없음. 공유 개발/운영DB 변경·push·배포 없음, .env/work 스테이징 없음.
+- 다음: **사용자 b2 확인 후** W-08 입고 예정/도착/검수와 W-09 예약 화면 및 브라우저 흐름 검증. 이후 3D 트럭 도착·체험 시드·종합 사용자 도움말·통합 점검. 신규 화면/브라우저/운영 검증은 이번에 하지 않았다.
+- 상세 API/AC 근거 및 비밀값 없는 표준 재현 명령: docs/agent/WMS확장_API_FS-026b2.md. 전용 *_test DB 환경을 주입하고 pytest backend/tests 실행, Ruff는 backend/pyproject.toml 명시. main HANDOFF 본문은 보존했다.
+
+
+## 2026-09-30 FS-026 후속 UI·트럭·시드·도움말 통합 WIP
+
+- 사용자 b2 후속 전체 승인: 화면 → 3D 트럭 → 시드/도움말 → 통합 검증까지 중간 확인 대기 없이 진행. push·배포는 제외. 기준 9c66cf1, codex/vision-ai.
+- W-08/09, 읽기 전용 출하 대조 미리보기·날짜/예약부족 필터, 기존 W-01~07 연결, 3D 도착 API, 정상/격리 위치, 포털 사용자 흐름 문서 구현 중.
+- 새 템플릿 sv-20260930-1: WMS22행 추가, 총11,932/복사11,930. BEMS4,218행 그대로. 기존5품목, R-Q01/F-Q01, 예정/도착/95·3·2 검수/전량부족/취소, 활성/해제/소진 예약. 소진 시드는 기존 역사 출고 전표를 새 템플릿의 소진 예약 이력으로 연결하며 추가 차감하지 않는다. PI-0004/SH-0004 미반영 유지. 운영 기존 템플릿은 수정하지 않는다.
+- 관련 backend76개 통과(새 preview/filter 테스트 추가 검증 중). 실 API 브라우저 트럭도착→원장0→검수95/3/2 및 새로고침 통과. 다른 브라우저 시나리오/전체 회귀는 진행 중이며 완료 아님.
+- 로컬 전용 fs026_ui_test / fs026_browser_test 사용. 브라우저용 API localhost8000은 현재 실행 중(합성 시크릿, 로컬 쿠키). 테스트 종료 후 중지 예정. .env/work 스테이징 금지.
+- 다음: 브라우저 실패 수정·모바일/3D 캡처 확인, 전체 pytest/프런트·ruff·격리 감사·도움말 링크·문서 갱신. 최종 커밋/인계 후 종료.
+
+## 2026-09-30 FS-026 후속 통합 완료 — 입고·예약 화면 / 트럭 / 시드·도움말
+
+- 앞선 후속 WIP 상태를 대체한다. 사용자의 후속 전체 승인 범위 완료. `codex/vision-ai`, main6508599 기준 유지, 구현 `cd41b04`, 연속 조작 보완 `0ad25ee`. 마지막 문서 커밋은 `git log -1`.
+- W-08 입고 예정·도착·검수·원천 연결, W-09 예약·출하 대조·소진, 기존 W-01~07 정상/격리/예약/가용 표시·동선 확장. 저장 응답의 최신 version을 즉시 반영하여 빠른 다음 조작의 이전 버전 사용을 방지한다.
+- 3D 트럭은 서버 도착 상태만 변경한다. 검수 때만 재고 증가, 예약 때 원장 불변, 소진 시 기존 출하 원천과 중복 차감 방지. 통신 실패/재시도/응답 유실 복구/미저장 보호 포함. CNC 수량·GPS/실차·실장비 연결 제외.
+- 시드 sv-20260930-1: 템플릿11,932 / 게스트11,930, 기존 품목·BEMS4,218 유지. WMS22행 추가. 새 migration 없음(head fs026a_wms_receiving_reservation), metadata98테이블/1022컬럼/225FK 유지. 기존 템플릿·운영 DB 수정 없음.
+- 최종 검증: 전체 backend **779 passed**(23분39초, 기존 경고2), frontend **491 passed /57파일**(maxWorkers=2), 실제 API Chromium **10 passed**(1.2분). 전체 typecheck/lint/format/build 통과, Ruff139파일 통과, R1~R6 격리 감사0·db:validate0, tools58+subtests13 통과. 기본 병렬 프런트 실행의 기존 ERP 테스트 일시 실패·재검증 및 경고는 통합 보고에 기록.
+- 도움말 W-08/09, 기존 W-01~07, 사용자 참고 `/help/portal/wms-flow` 반영. 360px와 트럭 외관 캡처 확인. 보고·재현·AC 증거: `docs/agent/WMS확장_화면트럭통합_FS-026.md`.
+- 검증용 API/Vite 종료. `.env`·work 스테이징 없음. **push·운영 배포 없음. 이번 승인 범위 남은 개발 없음.** 다음은 사용자의 통합/운영 반영: 백엔드·프런트를 함께 적용하고 새 템플릿 생성·검증 후 새 게스트에서 체험한다. 기존 기록을 소급 변경하지 않는다.

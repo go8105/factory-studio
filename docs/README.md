@@ -60,3 +60,20 @@ npm run db:validate                        # 검증기 경로 확인
 
 - [C++ OpenCV 빌드·실행·JSON 계약·웹 비교](../native/inspection_core/README.md)
 - [3D 공장·합성 검사 공통 설계](modules/factory/README.md)
+
+## 정밀 부품 공장 확장
+
+- [1단계 제품·공정 컨셉 및 명칭](plan/정밀부품공장_컨셉_FS-FACTORY-CONCEPT01.md) — 2026-09-28 문서 완료, 로봇/CNC 구현은 다음 단계.
+
+- [2단계 로봇 연동 CNC 가공 셀 구현·검증](agent/로봇CNC가공셀_FS-FACTORY-CNC01.md) — 로컬 구현 완료, 다음 WMS 설계.
+
+- [FS-026 WMS 확장 결정서](plan/WMS확장_입고검수예약_결정_FS-026.md) — 기존 FS-024 확장, D24~D32 승인.
+
+- [WMS 모듈 revision 3](modules/wms/WMS_모듈설계_FS-026.md) · [화면 revision 2](ui/화면설계_WMS_FS-026.md) — 전체 설계 승인, AC-139~164(업무 기능 검증은 후속).
+
+- [FS-026a WMS DB 구현·검증](agent/WMS확장_DB_FS-026a.md) — API·화면은 후속.
+
+- [FS-026b1 WMS 입고 API 구현·검증](agent/WMS확장_API_FS-026b1.md) — 입고 예정·도착·검수·원천 선점, 입고 API 완료.
+- [FS-026b2 WMS 예약 API 구현·검증](agent/WMS확장_API_FS-026b2.md) — 예약·소진·가용 완료, 전체 pytest777 통과.
+
+- FS-026 WMS 후속: [입고·예약 화면, 3D 트럭, 시드·도움말 통합](agent/WMS확장_화면트럭통합_FS-026.md).

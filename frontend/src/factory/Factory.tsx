@@ -1,3 +1,6 @@
+import TruckPanel from "./TruckPanel";
+import CncPanel from "./CncPanel";
+import { useCnc } from "./useCnc";
 import VisionExplanation from "./VisionExplanation";
 import { scenarios, scenarioEvidence, type Scenario } from "./scenarios";
 import { visionAt } from "./vision";
@@ -13,7 +16,7 @@ import {
 } from "react";
 import { Canvas } from "@react-three/fiber";
 import { PCFShadowMap } from "three";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   START,
   OFFICE_START,
@@ -64,6 +67,9 @@ const keyMap: Record<string, Direction> = {
   ArrowRight: "right",
 };
 export default function Factory() {
+  const [truckParams] = useSearchParams();
+  const [truckOpen, setTruckOpen] = useState(!!truckParams.get("inbound"));
+  const [truckProgress, setTruckProgress] = useState<number | null>(null);
   const [immersive, setImmersive] = useState(false);
   const [target, setTarget] = useState<number | null>(null);
   const [inspect, setInspect] = useState(0);
@@ -101,8 +107,15 @@ export default function Factory() {
   const [reset, setReset] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [ready, setReady] = useState(false);
-  const markReady = useCallback(() => setReady(true), []);
+  const [sceneFailed, setSceneFailed] = useState(false);
+  const markReady = useCallback(() => {
+    setReady(true);
+    setSceneFailed(false);
+  }, []);
   const [contextLost, setContextLost] = useState(false);
+  const cncEnabled =
+    ready && !sceneFailed && !contextLost && !exterior && animated;
+  const [cnc, dispatchCnc] = useCnc(cncEnabled);
   const position = useRef<Point>({ ...START });
   const keys = useRef(new Set<Direction>());
   const stage = useRef<HTMLDivElement>(null);
@@ -175,8 +188,8 @@ export default function Factory() {
     >
       <div className="factory-heading">
         <div>
-          <h1>공장, 한눈에 그리고 한 걸음씩</h1>
-          <p>사무실에서 생산 현장까지, 제조가 이루어지는 공간을 둘러보세요.</p>
+          <h1>정밀 부품 가공 공장</h1>
+          <p>로봇·CNC 가공부터 비전검사와 포장까지, 제조 공간을 둘러보세요.</p>
         </div>
         <span className="factory-demo">
           3D 합성 시연 · 실시간 설비 정보 아님
@@ -283,8 +296,20 @@ export default function Factory() {
             ? "노란 조끼가 나입니다. 화면을 선택한 뒤 WASD·방향키 또는 이동 버튼으로 걸어보세요. 계단으로 2층 이동 · Esc 조감도"
             : "마우스로 드래그하여 회전 · 휠로 확대 / 축소 · 터치로 회전 · 설비를 선택하면 공정 설명"}
       </p>
+      {!immersive && (
+        <button
+          className="secondary"
+          onClick={() => {
+            setTruckOpen((v) => !v);
+            setSelected(null);
+            setExterior(true);
+          }}
+        >
+          트럭 입고 패널 {truckOpen ? "닫기" : "열기"}
+        </button>
+      )}
       <div
-        className={`factory-view factory-workspace${immersive && selected !== null ? " has-inspector" : ""}`}
+        className={`factory-view factory-workspace${truckOpen && !immersive && exterior ? " has-truck" : ""}${selected === 0 ? " has-cnc" : ""}${immersive && selected !== null ? " has-inspector" : ""}`}
       >
         <div
           ref={stage}
@@ -309,7 +334,12 @@ export default function Factory() {
               stage.current?.focus();
           }}
         >
-          <SceneBoundary onFailure={() => setReady(true)}>
+          <SceneBoundary
+            onFailure={() => {
+              setReady(true);
+              setSceneFailed(true);
+            }}
+          >
             {contextLost ? (
               <div role="alert" className="factory-fallback">
                 <p>그래픽 연결이 끊겼습니다.</p>
@@ -352,6 +382,9 @@ export default function Factory() {
               >
                 <Suspense fallback={null}>
                   <Scene
+                    truckProgress={truckProgress}
+                    cnc={cnc}
+                    focusIndex={selected === 0 ? 0 : 1}
                     immersive={immersive}
                     inspect={inspect}
                     onTarget={setTarget}
@@ -440,7 +473,34 @@ export default function Factory() {
             </div>
           )}
         </div>
-        {immersive && selected !== null && selected !== 1 && (
+        {truckOpen && !immersive && exterior && (
+          <TruckPanel
+            enabled={
+              ready && !sceneFailed && !contextLost && exterior && animated
+            }
+            onProgress={setTruckProgress}
+          />
+        )}
+        {selected === 0 && (
+          <CncPanel
+            state={cnc}
+            dispatch={dispatchCnc}
+            enabled={cncEnabled}
+            onClose={() => {
+              setSelected(null);
+              stage.current?.focus();
+            }}
+            onFocus={() => {
+              if (immersive) position.current = { x: -0.5, y: 0, z: 4.6 };
+              setExterior(false);
+              setWalking(false);
+              setView("ground");
+              setFocused(true);
+              setReset((n) => n + 1);
+            }}
+          />
+        )}
+        {immersive && selected === 2 && (
           <section className="vision-panel" aria-label="공정 설명">
             <button
               onClick={() => {

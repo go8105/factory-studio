@@ -8,6 +8,8 @@ import { Sources } from "./Sources";
 import { Documents } from "./Documents";
 import { Moves } from "./Moves";
 import { Warehouses } from "./Warehouses";
+import { Inbounds } from "./Inbounds";
+import { Reservations } from "./Reservations";
 import { Items } from "./Items";
 
 export default function WmsRoutes() {
@@ -21,6 +23,8 @@ export default function WmsRoutes() {
         <Route path="documents" element={<Documents />} />
         <Route path="moves" element={<Moves />} />
         <Route path="warehouses" element={<Warehouses />} />
+        <Route path="inbounds" element={<Inbounds />} />
+        <Route path="reservations" element={<Reservations />} />
         <Route path="items" element={<Items />} />
         <Route path="*" element={<NotFound />} />
       </Route>
