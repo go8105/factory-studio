@@ -8,6 +8,14 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-09-30 ROADMAP-01 17개 시스템 로드맵 (Claude Code)
+- 산출물: `docs/plan/로드맵_17개시스템_ROADMAP-01.md`(상태·순서·의존·조회 함수·홈 17타일 분야별 묶음 설계·열린 질문 6), `docs/plan/새솔루션_킷.md`(BEMS 사이클 기준 체크리스트, 솔루션 목록이 박힌 약 20곳).
+- 현황 문서 994줄 → 172줄. 축소 전 전문은 `docs/plan/진행현황_이력.md`로 옮김(내용 삭제 없음).
+- README 맨 위 "현재 기준"(운영·동결·제공 조회 함수): MES·ERP·FEMS·QMS·BEMS. **WMS는 Codex FS-026 뒤**(충돌 방지).
+- 카탈로그 `content/systems.json`: 그룹웨어→GW, 설명·후보·포함·제외 → `planned` + `order` 1~11. P-03 배지 "운영"/"예정 N", 도움말 p-03 문구.
+- 검증: vitest 56파일 493 통과(systems 5), tsc·eslint·prettier 통과, 문서 상대 링크 0건 깨짐, 브라우저(로컬)로 계층 아키텍처·카탈로그 확인. 백엔드·DB 변경 없음(pytest 미실행).
+- 다음: 사용자 확인(순서·열린 질문) → 로드맵 1번 SPC 결정서.
+
 ## 2026-09-29 MAP-02 P-03 계층 아키텍처·시스템 카탈로그 (Claude Code)
 - `content/systems.json`(17개 시스템: 계층·분류·받는 것/주는 것·연관·화면 경로), P-03 `?view=arch|catalog` 보기 추가(`ContentPages.tsx`, `styles.css` sys-*), 도움말 p-03 문구, `systems.test.tsx` 4개.
 - 검증: vitest 55파일 486 통과, tsc·eslint·prettier 통과. 브라우저(로컬 게스트)로 두 보기·카탈로그 상세·화면 이동 확인. e2e·운영 배포는 미실행.

@@ -24,11 +24,8 @@ const views = [
   ["catalog", "시스템 카탈로그"],
 ] as const;
 const statusLabel: Record<string, string> = {
-  implemented: "구현",
-  absorbed: "포함",
-  candidate: "구현 후보",
-  card: "설명",
-  excluded: "제외",
+  implemented: "운영",
+  planned: "예정",
 };
 type Sys = (typeof systems.systems)[number];
 const sysById = (id: string) => systems.systems.find((s) => s.id === id);
@@ -65,7 +62,10 @@ export function FlowMap() {
 }
 function SysStatus({ s }: { s: Sys }) {
   return (
-    <span className={`sys-status is-${s.status}`}>{statusLabel[s.status]}</span>
+    <span className={`sys-status is-${s.status}`}>
+      {statusLabel[s.status]}
+      {"order" in s ? ` ${s.order}` : ""}
+    </span>
   );
 }
 // 레퍼런스 계층도(17개 시스템)에 우리 구현 범위를 겹쳐 보인다.
@@ -73,9 +73,8 @@ function Architecture() {
   return (
     <>
       <p className="flow-legend">
-        <span>━ 구현 솔루션 · 화면 이동</span>
-        <span>┄ 설명 · 구현 후보</span>
-        <span>포함 = 포털·MES 안에 있음</span>
+        <span>━ 운영 중 · 화면 이동</span>
+        <span>┄ 예정 · 로드맵 순서</span>
       </p>
       <div className="sys-layers">
         {systems.layers.map((layer) => (
@@ -157,7 +156,9 @@ function Catalog({ selected }: { selected: string | null }) {
             </p>
             {current.to && (
               <Link className="button" to={current.to}>
-                {current.status === "card" ? "설명 카드 보기" : "화면으로 이동"}
+                {current.to.startsWith("/cards/")
+                  ? "설명 카드 보기"
+                  : "화면으로 이동"}
               </Link>
             )}
           </>

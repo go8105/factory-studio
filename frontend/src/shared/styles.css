@@ -2085,15 +2085,9 @@ th[aria-sort="none"] button span {
   font-size: var(--fs-xs);
   color: var(--muted);
 }
-.sys-node.is-card,
-.sys-node.is-candidate,
-.sys-card.is-card,
-.sys-card.is-candidate {
+.sys-node.is-planned,
+.sys-card.is-planned {
   border-style: dashed;
-}
-.sys-node.is-excluded,
-.sys-card.is-excluded {
-  opacity: 0.55;
 }
 .sys-node:hover,
 .sys-card:hover,
@@ -2125,14 +2119,6 @@ th[aria-sort="none"] button span {
 .sys-status.is-implemented {
   background: var(--ok-bg);
   color: var(--ok-fg);
-}
-.sys-status.is-candidate {
-  background: var(--warn-bg);
-  color: var(--warn-fg);
-}
-.sys-status.is-absorbed {
-  background: var(--info-bg);
-  color: var(--info-fg);
 }
 .sys-detail dl {
   display: grid;

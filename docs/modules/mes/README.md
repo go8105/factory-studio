@@ -1,6 +1,26 @@
 # MES — 생산 관리
 
-- 상태: **구현 대상**
+## 현재 기준 (2026-09-30, ROADMAP-01)
+
+- 상태: **운영 · 동결** — 15화면(M-01~15). 기능 추가는 [로드맵](../../plan/로드맵_17개시스템_ROADMAP-01.md)의 "살 붙이기" 단계에서만 한다. 다른 솔루션이 요청하는 **조회 함수 추가는 동결 중에도 허용**한다.
+- 설계: [MES 모듈 설계서](MES_모듈설계_FS-005f.md)
+- 읽는 조회: QMS `held_lot_nos`·`latest_results`(보류 배지)
+
+### 제공 조회 함수 (`backend/src/fs/mes/interface.py`)
+
+| 함수 | 돌려주는 것 | 쓰는 곳 |
+|---|---|---|
+| `enabled()` | 사용 여부 | — |
+| `inspectable_lots()` | 검사할 수 있는 완료 LOT 목록 | QMS |
+| `lot_snapshot(lot_no)` | LOT 1건 스냅샷 | QMS |
+| `items(item_type="finished")` | 사용 중 품목(기본 완제품, None이면 전 품목) | QMS·WMS |
+| `finished_goods_receipts()` | 확정 완제품 입고(팔레트) | WMS |
+| `completed_material_issues()` | 완료 공정의 자재 투입 | WMS |
+
+모든 함수의 앞 두 인자는 `(connection, scoped)`이고, 이 솔루션이 꺼져 있으면 `None`을 돌려준다.
+
+> 아래는 작성 당시 메모다. 위 "현재 기준"과 다르면 위가 우선한다.
+
 - 업무 범위: 공정·공정설비, 표준경로, 생산계획, 작업지시·LOT, 공정 실행·실적, 패킹·완제품 입고
 - 이 폴더의 문서: MES참조설계_검토_FS-003.md, 첫업무카드_역할_범위_FS-003.md
 

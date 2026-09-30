@@ -45,11 +45,21 @@ it("계층·연관 시스템 참조가 모두 존재한다", () => {
     ).toEqual([]);
   }
 });
+it("운영이 아닌 11개는 모두 예정이고 로드맵 순서 1~11을 하나씩 갖는다", () => {
+  const planned = systems.systems.filter((s) => s.status === "planned");
+  expect(planned).toHaveLength(11);
+  expect(
+    planned
+      .map((s) => ("order" in s ? (s.order ?? 0) : 0))
+      .sort((a, b) => a - b),
+  ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  expect(systems.systems.find((s) => s.id === "gw")?.abbr).toBe("GW");
+});
 it("계층 아키텍처에서 시스템을 누르면 카탈로그 상세로 간다", async () => {
   show("/flow?view=arch");
   expect(await screen.findByRole("region", { name: "생산실행" })).toBeTruthy();
   fireEvent.click(screen.getByRole("link", { name: /^CMMS/ }));
-  expect(await screen.findByText(/FEMS·BEMS 경보/)).toBeTruthy();
+  expect(await screen.findByText(/← BEMS 경보/)).toBeTruthy();
 });
 it("카탈로그의 구현 솔루션은 화면으로 이동 링크가 있다", async () => {
   show("/flow?view=catalog&sys=qms");
