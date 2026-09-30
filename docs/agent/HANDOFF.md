@@ -1,6 +1,22 @@
 # Factory Studio 작업 인계
 
-갱신: 2026-09-28 (FS-025 BEMS 설계 확정 + **FS-025a DB 반영(로컬 head `fs025b_bems_module`, v0.12.0 / 93테이블) + FS-025b API·화면 B-01~07 + FS-025c 시드·도움말**. 운영은 `adc3cab`·head `fs024b_wms_module`, Claude Code). **다음 세션은 이 문서부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+갱신: 2026-09-30 (Claude Code). **다음 세션은 이 문서의 "지금 상태"부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
+
+## 지금 상태 (2026-09-30)
+
+- **운영** https://eip.hugh-d.com — main `06c4ab5`(백엔드는 `efac0f7`부터 FS-027 반영), head `fs025b_bems_module`, 템플릿 11,910행(`sv-20260928-1`). 여섯 솔루션(MES·ERP·FEMS·QMS·WMS·BEMS) + 포털 + 3D 공장 모두 운영.
+- **최근 완료**: FS-025 BEMS(API·화면·시드) · DOC-03/04 참고 문서 4구역(설계 8·따라하기 3·개념 19) · MAP-02 P-03 보기 3종 · 홈 제목 "제조 현장의 올인원 시스템" · FS-027 게스트 별칭 필수·P-07 "게스트 접속"(별칭 90일) · UI-04 앱 안 링크 이동 미저장 보호 · 새 로고·파비콘.
+- **마지막 전체 검증**: pytest 727 passed · 1 skipped, vitest 492, 전체 스모크 231 passed(+재실행 167), db:validate·격리 R1~R6 0.
+- **진행 중(Codex, `codex/vision-ai`)**: FS-026 WMS 확장 — 026a DB(v0.13.0, 5테이블)·026b1 입고 API 완료, **026b2 예약·소진·가용 진행 중**. 남은 것: 화면 W-08·W-09, 3D 트럭, 시드. main 병합 전 rebase 필요(Excel 바이너리는 병합 후 `npm run db:build`로 다시 만든다). **게스트 생성 테스트는 `json={"nickname": …}` 필수**(FS-027)라는 점을 Codex에 전달해야 한다.
+- **배포 방법**: Claude가 `ssh root@158.247.236.136`·`rsync`로 직접 할 수 있다(사용자 허락, 2026-09-29~30). 순서: 프런트 빌드(별도 worktree) → rsync·chown → 서버 `git pull` → 백엔드가 바뀌었으면 `uv sync`·`systemctl restart factory-studio-api` → 시드가 바뀌었으면 `seed.cli template`. 반영 후 외부 curl 확인은 권한 분류기가 막을 때가 있다.
+- **주의**: 다른 Claude 세션("EIP 포토폴리오 개발_vN")이 같은 폴더·main을 쓴다 → `git add`는 파일 지정. 스모크는 8000·5173을 쓰며 다른 세션 개발 서버가 막을 수 있다. 스모크 도중 frontend 파일을 고치지 않는다. 로컬 개발 DB는 만료 게스트가 쌓여 `.claude/launch.json`이 `GUEST_LIMIT=1000`으로 띄운다.
+
+### 다음 후보 (사용자 결정)
+1. Codex FS-026b2 결과 검토 → W-08·W-09 화면·트럭·시드 → main 병합·배포.
+2. 브라우저 뒤로·앞으로 가기 미저장 보호(UI-04 한계) — 데이터 라우터 전환이 필요해 비용이 큼.
+3. Safari·실기기 확인, 운영 부하 시험(미실행).
+4. FS-021 범위 밖 9건(구세대 정리·`statement_timeout` 등) — Codex 영역.
+
 
 ## Git·작업 위치
 
