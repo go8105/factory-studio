@@ -30,6 +30,7 @@ type DashboardData = {
     itemClass: Purpose;
     unit: string;
     onHand: string;
+    normalOnHand: string;
     available: string;
     reservedQty: string;
     quarantinedOnHand: string;
@@ -182,6 +183,15 @@ export function Dashboard() {
                           현재고
                         </th>
                         <th scope="col" className="num">
+                          정상
+                        </th>
+                        <th scope="col" className="num">
+                          격리
+                        </th>
+                        <th scope="col" className="num">
+                          활성 예약
+                        </th>
+                        <th scope="col" className="num">
                           예약 가능
                         </th>
                         <th scope="col">단위</th>
@@ -195,12 +205,21 @@ export function Dashboard() {
                             {i.itemCode} {i.itemName}
                           </td>
                           <td className="num">{num(i.onHand)}</td>
+                          <td className="num">
+                            {num(i.normalOnHand ?? i.onHand)}
+                          </td>
+                          <td className="num">
+                            {num(i.quarantinedOnHand ?? "0")}
+                          </td>
+                          <td className="num">{num(i.reservedQty ?? "0")}</td>
                           <td className="num">{num(i.available)}</td>
                           <td>{i.unit}</td>
                           <td>
                             {i.negative && <Badge tone="issue">음수</Badge>}
                             {Number(i.reservationShortage) > 0 && (
-                              <Badge tone="issue">예약 부족</Badge>
+                              <Badge tone="issue">
+                                예약 부족 {num(i.reservationShortage)} {i.unit}
+                              </Badge>
                             )}
                           </td>
                         </tr>

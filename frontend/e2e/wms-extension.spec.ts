@@ -76,17 +76,16 @@ test("예정 등록·편집·전량 부족, 응답 유실 뒤 서버 복구", as
   await page
     .getByRole("button", { name: "입고 예정 등록", exact: true })
     .click();
-  let p = page.getByRole("dialog", { name: "입고 예정 등록" });
+  const p = page.getByRole("dialog");
   await p.getByLabel("업무 중복 방지 번호").fill("BROWSER-INBOUND");
   await p
-    .getByLabel("품목", { exact: true })
+    .getByRole("combobox", { name: "품목", exact: true })
     .selectOption({ label: "RM-PBT · KG" });
   await p.getByLabel("예정 수량").fill("100");
   await p
-    .getByLabel("정상 위치", { exact: true })
+    .getByRole("combobox", { name: "정상 위치", exact: true })
     .selectOption({ label: "R-A01 원자재 기본 보관" });
   await p.getByRole("button", { name: "예정 등록", exact: true }).click();
-  p = page.getByRole("dialog");
   await p.getByRole("button", { name: "예정 편집" }).click();
   await page.getByLabel("차량", { exact: true }).fill("합성차량");
   await page.getByRole("button", { name: "예정 저장" }).click();
@@ -209,7 +208,7 @@ test("ERP 꺼짐·수동 취소·모바일 도움말", async ({ page }) => {
       })
     ).ok(),
   ).toBeTruthy();
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 360, height: 844 });
   const n = (await data(page, W + "/inbound-notices")).rows.find(
     (n: { status: string }) => n.status === "ARRIVED",
   );
@@ -242,4 +241,96 @@ test("ERP 꺼짐·수동 취소·모바일 도움말", async ({ page }) => {
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBeTruthy();
+});
+
+test("트럭 도착 통신 실패는 성공 표시 없이 재조회·재시도", async ({ page }) => {
+  const n = (await data(page, W + "/inbound-notices")).rows.find(
+    (x: { status: string }) => x.status === "PLANNED",
+  );
+  await page.goto(`/factory?inbound=${n.id}`);
+  await page.route("**/inbound-notices/*/arrive", (r) => r.abort("failed"), {
+    times: 1,
+  });
+  const start = page.getByRole("button", { name: "트럭 도착 시연" });
+  await expect(start).toBeEnabled({ timeout: 20000 });
+  await start.click();
+  await expect(
+    page.getByRole("combobox", { name: "입고 예정", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText("도착 저장 확인 필요", { exact: true }),
+  ).toBeVisible({ timeout: 10000 });
+  await expect(
+    page.getByRole("link", { name: "도착 기록·검수 열기" }),
+  ).toHaveCount(0);
+  expect((await data(page, W + `/inbound-notices/${n.id}`)).status).toBe(
+    "PLANNED",
+  );
+  await page.getByRole("button", { name: "같은 도착 요청 다시 확인" }).click();
+  await expect(
+    page.getByRole("link", { name: "도착 기록·검수 열기" }),
+  ).toBeVisible();
+});
+
+test("미저장 편집 보호와 검수 매입 연결·중복 반영 방지", async ({ page }) => {
+  const houses = await data(page, W + "/warehouses");
+  const wh = houses.find((x: { purpose: string }) => x.purpose === "RAW");
+  const items = await data(page, W + "/items");
+  const locs = await data(page, W + `/warehouses/${wh.id}/locations`);
+  const src = (
+    await data(page, W + "/sources?kind=ERP_PURCHASE&state=all")
+  ).rows.find((s: { sourceRef: string }) => s.sourceRef === "PI-0004");
+  const n = await command(page, "/inbound-notices", {
+    businessKey: "BROWSER-LINK",
+    warehouseId: wh.id,
+    expectedOn: "2026-09-30",
+    lines: src.lines.map(
+      (l: { itemCode: string; qty: string; unit: string }) => {
+        const i = items.find(
+          (i: { itemCode: string }) => i.itemCode === l.itemCode,
+        );
+        const factor =
+          l.unit === i.baseUnit
+            ? 1
+            : Number(
+                i.conversions.find(
+                  (c: { fromUnit: string }) => c.fromUnit === l.unit,
+                ).factor,
+              );
+        return {
+          itemId: i.id,
+          expectedQty: String(Number(l.qty) * factor),
+          normalLocationId: locs.find(
+            (l: { isDefault: boolean }) => l.isDefault,
+          ).id,
+        };
+      },
+    ),
+  });
+  await page.goto(`/wms/inbounds?open=${n.id}`);
+  const p = page.getByRole("dialog");
+  await p.getByRole("button", { name: "예정 편집" }).click();
+  await p.getByLabel("차량", { exact: true }).fill("미저장");
+  await p.press("Escape");
+  await expect(p).toContainText("저장하지 않은 변경");
+  await p.getByRole("button", { name: "계속 편집" }).click();
+  await expect(p.getByRole("button", { name: "변경 버리기" })).toHaveCount(0);
+  await p.getByLabel("차량", { exact: true }).press("Escape");
+  await p.getByRole("button", { name: "변경 버리기" }).click();
+  await expect(p.getByRole("button", { name: "도착 처리" })).toBeVisible();
+  await p
+    .getByRole("combobox", { name: "확정 매입", exact: true })
+    .selectOption(src.sourceKey);
+  await p.getByRole("button", { name: "매입 연결", exact: true }).click();
+  await p.getByRole("button", { name: "도착 처리" }).click();
+  await p.getByRole("button", { name: "검수 결과 확인" }).click();
+  await p.getByRole("button", { name: "검수 확정", exact: true }).click();
+  await expect(p.getByRole("link", { name: "검수 전표 보기" })).toBeVisible();
+  const after = await data(page, W + "/stock");
+  const synced = await command(page, "/sources/sync", {
+    kind: "ERP_PURCHASE",
+    sourceKeys: [src.sourceKey],
+  });
+  expect(synced.inspected).toBe(1);
+  expect(await data(page, W + "/stock")).toEqual(after);
 });

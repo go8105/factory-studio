@@ -75,3 +75,5 @@ npm run db:validate                        # 검증기 경로 확인
 
 - [FS-026b1 WMS 입고 API 구현·검증](agent/WMS확장_API_FS-026b1.md) — 입고 예정·도착·검수·원천 선점, 입고 API 완료.
 - [FS-026b2 WMS 예약 API 구현·검증](agent/WMS확장_API_FS-026b2.md) — 예약·소진·가용 완료, 전체 pytest777 통과.
+
+- FS-026 WMS 후속: [입고·예약 화면, 3D 트럭, 시드·도움말 통합](agent/WMS확장_화면트럭통합_FS-026.md).

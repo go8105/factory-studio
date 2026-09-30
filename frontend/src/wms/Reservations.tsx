@@ -150,6 +150,10 @@ export function Reservations() {
           items={items.data}
           close={() => set("open", "")}
           refresh={refresh}
+          changed={(row) => {
+            detail.accept(row);
+            refresh();
+          }}
         />
       )}
     </div>
@@ -335,11 +339,13 @@ function ReservationDetail({
   items,
   close,
   refresh,
+  changed,
 }: {
   row: Reservation;
   items: Item[];
   close: () => void;
   refresh: () => void;
+  changed: (row: Reservation) => void;
 }) {
   const [reason, setReason] = useState("");
   const [source, setSource] = useState("");
@@ -370,7 +376,7 @@ function ReservationDetail({
     if (r) {
       setReason("");
       setSource("");
-      refresh();
+      changed(r);
     } else {
       sources.reload();
       preview.reload();

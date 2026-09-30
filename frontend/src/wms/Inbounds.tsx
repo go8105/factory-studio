@@ -179,6 +179,10 @@ export function Inbounds() {
           items={items.data}
           close={close}
           refresh={refresh}
+          changed={(row) => {
+            detail.accept(row);
+            refresh();
+          }}
         />
       )}
     </div>
@@ -434,12 +438,14 @@ function NoticeDetail({
   items,
   close,
   refresh,
+  changed,
 }: {
   row: Inbound;
   houses: Warehouse[];
   items: Item[];
   close: () => void;
   refresh: () => void;
+  changed: (row: Inbound) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [reason, setReason] = useState("");
@@ -470,7 +476,7 @@ function NoticeDetail({
     );
     if (result) {
       setDirty(false);
-      refresh();
+      changed(result);
     }
   }
   if (editing)
@@ -480,9 +486,9 @@ function NoticeDetail({
         houses={houses}
         items={items}
         onClose={() => setEditing(false)}
-        onSaved={() => {
+        onSaved={(saved) => {
           setEditing(false);
-          refresh();
+          changed(saved);
         }}
       />
     );

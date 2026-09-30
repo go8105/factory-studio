@@ -81,7 +81,7 @@ export default function TruckPanel({
           onLock={setLocked}
         />
       )}
-      <Link to="/wms/inbounds">WMS 입고 예정·검수 열기</Link> ·{" "}
+      <Link to="/wms/inbounds">WMS 입고 예정·검수 열기</Link>
       <Link to="/help/portal/wms-flow">업무 흐름 도움말</Link>
       {list.data?.total === 0 && (
         <p>입고 예정이 없습니다. WMS에서 먼저 등록하세요.</p>

@@ -301,6 +301,7 @@ export default function Factory() {
           className="secondary"
           onClick={() => {
             setTruckOpen((v) => !v);
+            setSelected(null);
             setExterior(true);
           }}
         >
@@ -308,7 +309,7 @@ export default function Factory() {
         </button>
       )}
       <div
-        className={`factory-view factory-workspace${truckOpen && !immersive ? " has-truck" : ""}${selected === 0 ? " has-cnc" : ""}${immersive && selected !== null ? " has-inspector" : ""}`}
+        className={`factory-view factory-workspace${truckOpen && !immersive && exterior ? " has-truck" : ""}${selected === 0 ? " has-cnc" : ""}${immersive && selected !== null ? " has-inspector" : ""}`}
       >
         <div
           ref={stage}
@@ -472,7 +473,7 @@ export default function Factory() {
             </div>
           )}
         </div>
-        {truckOpen && !immersive && (
+        {truckOpen && !immersive && exterior && (
           <TruckPanel
             enabled={
               ready && !sceneFailed && !contextLost && exterior && animated
