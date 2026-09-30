@@ -579,16 +579,17 @@ def test_source_module_off_keeps_manual_documents(wms):
     assert client.get(f"{W}/stock").status_code == 409
 
 
-def test_available_is_on_hand_minus_open_shipment_orders(wms):
-    """AC-123: 가용 = 현재고 − ERP 미출하 지시. ERP 꺼짐이면 null."""
+def test_available_is_normal_stock_minus_reservations_even_without_erp(wms):
+    """FS-026 AC-151 replaces AC-123: demand is separate, ERP-off preserves availability."""
     client, created, _ = wms
     for pallet in ("PL-0001", "PL-0003", "PL-0005", "PL-0002", "PL-0004", "PL-0006"):
         _sync(client, created, "MES_RECEIPT", f"MES:RECEIPT:{pallet}")
     totals = {t["itemCode"]: t for t in _ok(client.get(f"{W}/stock"))["totals"]}
     for t in totals.values():
-        assert Decimal(t["available"]) == Decimal(t["onHand"]) - Decimal(
-            t["openShipmentQty"]
+        assert Decimal(t["available"]) == Decimal(t["normalOnHand"]) - Decimal(
+            t["reservedQty"]
         )
+        assert t["openShipmentQty"] is not None
     _ok(
         _call(
             client,
@@ -598,7 +599,13 @@ def test_available_is_on_hand_minus_open_shipment_orders(wms):
             {"enabled": False},
         )
     )
-    assert all(t["available"] is None for t in _ok(client.get(f"{W}/stock"))["totals"])
+    totals_off = _ok(client.get(f"{W}/stock"))["totals"]
+    assert all(t["openShipmentQty"] is None for t in totals_off)
+    assert all(
+        Decimal(t["available"])
+        == Decimal(t["normalOnHand"]) - Decimal(t["reservedQty"])
+        for t in totals_off
+    )
 
 
 def test_other_workspace_cannot_see_documents(wms):

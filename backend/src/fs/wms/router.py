@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from fs.common.auth import AuthContext, require_csrf, resolve_auth
 from fs.common.errors import ApiError
-from fs.wms import receiving, service
+from fs.wms import receiving, reservations, service
 from fs.wms.receiving_schema import (
     InspectionInput,
     NoticeCreate,
@@ -18,6 +18,11 @@ from fs.wms.receiving_schema import (
     ReasonInput,
     SourceLink,
     VersionInput,
+)
+from fs.wms.reservation_schema import (
+    ConsumeShipment,
+    ReservationCreate,
+    ReservationStatus,
 )
 from fs.wms.schema import (
     ConversionCreate,
@@ -239,6 +244,7 @@ def get_stock(
     item_code: Annotated[str | None, Query(alias="itemCode", max_length=40)] = None,
     warehouse_id: Annotated[int | None, Query(alias="warehouseId")] = None,
     lot_no: Annotated[str | None, Query(alias="lotNo", max_length=50)] = None,
+    location_id: Annotated[int | None, Query(alias="locationId", gt=0)] = None,
     negative_only: Annotated[bool, Query(alias="negativeOnly")] = False,
     unassigned_only: Annotated[bool, Query(alias="unassignedOnly")] = False,
 ):
@@ -249,6 +255,7 @@ def get_stock(
                 "itemCode": item_code,
                 "warehouseId": warehouse_id,
                 "lotNo": lot_no,
+                "locationId": location_id,
                 "negativeOnly": negative_only,
                 "unassignedOnly": unassigned_only,
             },
@@ -506,3 +513,77 @@ def inbound_inspect_notice(
             _mutation(context, csrf, key),
         )
     )
+
+
+# ---- FS-026b2 reservations (TX-W8~W9) ----
+@router.get("/reservations")
+def list_reservations(
+    context: Auth,
+    status: ReservationStatus | None = None,
+    item_code: Annotated[str | None, Query(alias="itemCode", max_length=40)] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+):
+    return _data(
+        reservations.list_reservations(context, status, item_code, page, page_size)
+    )
+
+
+@router.get("/reservations/{row_id}")
+def get_reservation(row_id: int, context: Auth):
+    return _data(reservations.get_reservation(context, row_id))
+
+
+@router.post("/reservations", status_code=201)
+def create_reservation(
+    payload: ReservationCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        reservations.create_reservation(
+            context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.post("/reservations/{row_id}/release")
+def release_reservation(
+    row_id: int,
+    payload: ReasonInput,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        reservations.release(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/reservations/{row_id}/consume-shipment")
+def consume_reservation(
+    row_id: int,
+    payload: ConsumeShipment,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        reservations.consume(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.get("/reservation-sources")
+def reservation_sources(context: Auth):
+    return _data(reservations.sources(context))

@@ -353,6 +353,8 @@ def _insert_select_sql(
 
 
 def _column_expression(table_name: str, column: str, type_name: str) -> str:
+    if table_name == "wms.stock_reservation" and column == "reservation_no":
+        return "left(src.reservation_no,4) || to_char(to_date(substr(src.reservation_no,5,8), 'YYYYMMDD') + (:target_date - :source_date), 'YYYYMMDD') || substr(src.reservation_no,13)"
     if table_name == "wms.source_claim" and column == "source_snapshot":
         # Only the display timestamp moves. Semantic digest stays byte-for-byte intact.
         return "CASE WHEN src.source_snapshot->>'confirmedAt' IS NULL THEN src.source_snapshot ELSE jsonb_set(src.source_snapshot, '{confirmedAt}', to_jsonb((src.source_snapshot->>'confirmedAt')::timestamptz + (:target_date - :source_date) * interval '1 day')) END"

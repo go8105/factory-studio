@@ -241,6 +241,11 @@ it("W-02는 음수·LOT 미지정을 문구로 표시하고 ERP 꺼짐이면 가
           warehouseCode: "WH-FG",
           lotNo: null,
           onHand: "-3842.000",
+          normalOnHand: "-3842.000",
+          quarantinedOnHand: "0",
+          reservedQty: "40",
+          reservationShortage: "3882",
+          available: "-3882",
           negative: true,
           lotUnassigned: true,
         },
@@ -249,8 +254,12 @@ it("W-02는 음수·LOT 미지정을 문구로 표시하고 ERP 꺼짐이면 가
         {
           itemCode: "FG-C200",
           onHand: "-3842.000",
+          normalOnHand: "-3842.000",
+          quarantinedOnHand: "0",
+          reservedQty: "40",
+          reservationShortage: "3882",
+          available: "-3882",
           openShipmentQty: null,
-          available: null,
         },
       ],
     }),
@@ -259,7 +268,9 @@ it("W-02는 음수·LOT 미지정을 문구로 표시하고 ERP 꺼짐이면 가
   expect(within(table).getByText("음수")).toBeVisible();
   expect(within(table).getByText("LOT 미지정")).toBeVisible();
   expect(within(table).getByText("(미지정)")).toBeVisible();
-  expect(screen.getByText(/가용 계산 불가\(ERP 꺼짐\)/)).toBeVisible();
+  expect(screen.getByText(/ERP 수요 참고 없음/)).toBeVisible();
+  expect(screen.getByText(/예약 가능 -3,882/)).toBeVisible();
+  expect(within(table).getByText("예약 부족")).toBeVisible();
 });
 
 it("W-04 이동 전표는 보낼·받을 위치 쌍으로 보내고 줄 오류를 줄 아래에 보인다", async () => {

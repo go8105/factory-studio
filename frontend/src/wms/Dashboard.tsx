@@ -27,7 +27,10 @@ type DashboardData = {
     itemClass: Purpose;
     unit: string;
     onHand: string;
-    available: string | null;
+    available: string;
+    reservedQty: string;
+    quarantinedOnHand: string;
+    reservationShortage: string;
     negative: boolean;
   }[];
   flows: {
@@ -152,7 +155,7 @@ export function Dashboard() {
           </div>
           <div className="dashboard-grid has-lead">
             <section className="panel" aria-label="품목별 현재고">
-              <h2>품목별 현재고 · 가용</h2>
+              <h2>품목별 현재고 · 예약 가능</h2>
               {data.items.length ? (
                 <div className="table-scroll">
                   <table>
@@ -163,7 +166,7 @@ export function Dashboard() {
                           현재고
                         </th>
                         <th scope="col" className="num">
-                          가용
+                          예약 가능
                         </th>
                         <th scope="col">단위</th>
                         <th scope="col">상태</th>
@@ -176,16 +179,13 @@ export function Dashboard() {
                             {i.itemCode} {i.itemName}
                           </td>
                           <td className="num">{num(i.onHand)}</td>
-                          <td className="num">
-                            {i.itemClass === "RAW"
-                              ? "—"
-                              : i.available === null
-                                ? "계산 불가"
-                                : num(i.available)}
-                          </td>
+                          <td className="num">{num(i.available)}</td>
                           <td>{i.unit}</td>
                           <td>
                             {i.negative && <Badge tone="issue">음수</Badge>}
+                            {Number(i.reservationShortage) > 0 && (
+                              <Badge tone="issue">예약 부족</Badge>
+                            )}
                           </td>
                         </tr>
                       ))}

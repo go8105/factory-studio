@@ -1403,65 +1403,12 @@ def _negatives(connection, scoped, doc_id: int) -> list[dict[str, Any]]:
 
 
 def stock(context: AuthContext, filters: dict[str, Any]) -> dict[str, Any]:
-    clauses, params = [], {}
-    if filters.get("itemCode"):
-        clauses.append("i.item_code=:item")
-        params["item"] = filters["itemCode"]
-    if filters.get("warehouseId"):
-        clauses.append("h.id=:wh")
-        params["wh"] = filters["warehouseId"]
-    if filters.get("lotNo"):
-        clauses.append("m.lot_no=:lot")
-        params["lot"] = filters["lotNo"]
-    having = " HAVING sum(m.qty_delta) <> 0"
-    if filters.get("negativeOnly"):
-        having = " HAVING sum(m.qty_delta) < 0"
-    if filters.get("unassignedOnly"):
-        clauses.append("i.lot_tracked AND m.lot_no IS NULL")
-    where = "".join(f" AND {c}" for c in clauses)
+    from fs.wms import inventory
+
     with _read() as connection:
         scoped = read_scope(connection, context, MODULE)
-        rows = [
-            {
-                **_row(r),
-                "negative": r["on_hand"] < 0,
-                "lotUnassigned": r["item_class"] == "FG" and r["lot_no"] is None,
-            }
-            for r in connection.execute(
-                text(
-                    STOCK_SQL
-                    + where
-                    + STOCK_GROUP
-                    + having
-                    + " ORDER BY h.code, l.code, i.item_code, m.lot_no NULLS FIRST"
-                ),
-                {**_s(scoped), **params},
-            ).mappings()
-        ]
-        return {"rows": rows, "totals": _totals(connection, scoped, rows)}
-
-
-def _totals(connection, scoped, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """완제품 품목 합계와 가용(D17). ERP가 꺼져 있으면 available=null."""
-    open_qty = erp.open_shipment_qty(connection, scoped)
-    by_item: dict[str, Decimal] = {}
-    for r in rows:
-        if r["itemClass"] == "FG":
-            by_item[r["itemCode"]] = by_item.get(r["itemCode"], Decimal(0)) + Decimal(
-                r["onHand"]
-            )
-    result = []
-    for code, on_hand in sorted(by_item.items()):
-        pending = None if open_qty is None else Decimal(open_qty.get(code, "0"))
-        result.append(
-            {
-                "itemCode": code,
-                "onHand": str(on_hand),
-                "openShipmentQty": None if pending is None else str(pending),
-                "available": None if pending is None else str(on_hand - pending),
-            }
-        )
-    return result
+        rows = inventory.rows(connection, scoped, filters)
+        return {"rows": rows, "totals": inventory.totals(connection, scoped, rows)}
 
 
 def moves(context: AuthContext, filters: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1518,38 +1465,12 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
             ).scalar()
             or f"{business_today():%Y-%m}"
         )
-        rows = [
-            dict(r)
-            for r in connection.execute(
-                text(STOCK_SQL + STOCK_GROUP + " HAVING sum(m.qty_delta) <> 0"),
-                _s(scoped),
-            ).mappings()
-        ]
-        items: dict[str, dict[str, Any]] = {}
-        for r in rows:
-            entry = items.setdefault(
-                r["item_code"],
-                {
-                    "itemCode": r["item_code"],
-                    "itemName": r["item_name"],
-                    "itemClass": r["item_class"],
-                    "unit": r["unit"],
-                    "onHand": Decimal(0),
-                },
-            )
-            entry["onHand"] += r["on_hand"]
-        open_qty = erp.open_shipment_qty(connection, scoped)
-        for entry in items.values():
-            pending = (
-                None
-                if open_qty is None or entry["itemClass"] != "FG"
-                else Decimal(open_qty.get(entry["itemCode"], "0"))
-            )
-            entry["available"] = (
-                None if pending is None else str(entry["onHand"] - pending)
-            )
-            entry["negative"] = entry["onHand"] < 0
-            entry["onHand"] = str(entry["onHand"])
+        from fs.wms import inventory
+
+        rows = inventory.rows(connection, scoped)
+        items = {
+            row["itemCode"]: row for row in inventory.totals(connection, scoped, rows)
+        }
         pending_by_kind: dict[str, int | None] = {}
         for kind in SOURCE_KINDS:
             sources = _sources(connection, scoped, kind)
@@ -1611,9 +1532,9 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
             "fgLots": sum(
                 1
                 for r in rows
-                if r["item_class"] == "FG" and r["lot_no"] and r["on_hand"] > 0
+                if r["itemClass"] == "FG" and r["lotNo"] and Decimal(r["onHand"]) > 0
             ),
-            "negativeCount": sum(1 for r in rows if r["on_hand"] < 0),
+            "negativeCount": sum(1 for r in rows if r["negative"]),
             "pendingSources": sum(known) if known else None,
             "pendingByKind": pending_by_kind,
             "items": sorted(items.values(), key=lambda e: e["itemCode"]),

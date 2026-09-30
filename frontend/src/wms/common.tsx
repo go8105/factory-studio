@@ -36,7 +36,14 @@ export type Item = {
   moveCount: number;
   conversions: Conversion[];
 };
-export type StockRow = {
+export type StockQuantities = {
+  normalOnHand: string;
+  quarantinedOnHand: string;
+  reservedQty: string;
+  available: string;
+  reservationShortage: string;
+};
+export type StockRow = StockQuantities & {
   itemId: number;
   itemCode: string;
   itemName: string;
@@ -51,11 +58,10 @@ export type StockRow = {
   negative: boolean;
   lotUnassigned: boolean;
 };
-export type StockTotal = {
+export type StockTotal = StockQuantities & {
   itemCode: string;
   onHand: string;
   openShipmentQty: string | null;
-  available: string | null;
 };
 export type SourceKind =
   "MES_RECEIPT" | "MES_ISSUE" | "ERP_SHIPMENT" | "ERP_PURCHASE";
@@ -193,7 +199,10 @@ export function ModuleOff() {
 export function StockBadges({ row }: { row: StockRow }) {
   return (
     <>
-      {row.negative && <Badge tone="issue">음수</Badge>}{" "}
+      {row.negative && <Badge tone="issue">음수</Badge>}
+      {Number(row.reservationShortage) > 0 && (
+        <Badge tone="issue">예약 부족</Badge>
+      )}{" "}
       {row.lotUnassigned && <Badge tone="warning">LOT 미지정</Badge>}
     </>
   );

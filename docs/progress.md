@@ -1538,3 +1538,12 @@
 - **backend 전체755 passed(1204.94초, 경고2)**, 신규 입고23 포함. 도구58+subtests13, WMS 프런트10, typecheck·변경 ESLint 통과. CI ruff134파일·R1~R6·db:validate 오류0.
 - 스키마/기존 migration/main 시드합계11,910 미변경. 새 입고 화면·브라우저·운영 검증 미실행. AC141 예약가능 조회는 b2.
 - 구현 a832fa8(16045ae 포함). 상세 docs/agent/WMS확장_API_FS-026b1.md. 사용자 확인 후 b2만 진행, push·배포는 별도 확인.
+
+
+## 2026-09-30 FS-026b2 WIP — 예약·소진·가용
+
+- 사용자가 다음 진행 방향 1번(b2)을 승인했다. 브랜치 codex/vision-ai, 기준 3f5039c/main6508599. TX-W8~W9, AC151~158 구현. 예약 생성/해제, ERP 확정 출하 전량 소진, 원장·예약 경합 직렬화, 격리 제외/위치별 부족 보존, ERP off 가용 계산.
+- ERP 조회는 interface.py만 사용. 신규 처리 시각 clock_timestamp, FS_TODAY 미사용. 게스트 예약 번호 날짜 이동/FK 재매핑. 기존 W-01/02 가용 표시 호환만 반영; W-08/09 미구현.
+- 현재 관련 API60개(신규22 포함), WMS 프런트10개/typecheck/변경 ESLint 통과. CI ruff138파일, R1~R6 감사0, db:validate0. 전체 pytest 전용 factory_studio_codex_fs026b2_final_test에서 실행 중. 최종 결과 전 완료 아님.
+- migration/schema/Excel/ERD 변경 없음. 템플릿11,910 유지. .env/work 스테이징 금지, push·배포 없음. b2 최종 보고 후 사용자 확인을 기다린다.
+- 재현: 전용 *_test DB의 DATABASE_URL/TEST_DATABASE_URL을 환경으로 제공한 뒤 backend/.venv/bin/pytest backend/tests -q --tb=short. Ruff는 backend/pyproject.toml 명시(CI 명령). 상세 docs/agent/WMS확장_API_FS-026b2.md.

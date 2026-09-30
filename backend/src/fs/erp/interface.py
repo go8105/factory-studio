@@ -14,8 +14,9 @@ from sqlalchemy import Connection, text
 from fs.common.auth import AuthContext
 
 _SHIPMENT_LINES = """
-SELECT sh.shipment_no, sh.shipped_at, i.item_code, l.shipped_qty qty, l.shipped_uom unit, l.packing_no
+SELECT sh.shipment_no, sh.shipped_at, so.ship_order_no, row_number() OVER (PARTITION BY sh.id ORDER BY l.id) line_no, i.item_code, l.shipped_qty qty, l.shipped_uom unit, l.packing_no
 FROM erp.shipment sh
+JOIN erp.shipment_order so ON so.workspace_id=sh.workspace_id AND so.generation_id=sh.generation_id AND so.id=sh.shipment_order_id
 JOIN erp.shipment_line l ON l.workspace_id=sh.workspace_id AND l.generation_id=sh.generation_id
  AND l.shipment_id=sh.id
 JOIN erp.item i ON i.workspace_id=l.workspace_id AND i.generation_id=l.generation_id AND i.id=l.item_id
@@ -79,6 +80,7 @@ def confirmed_shipments(
             r["shipment_no"],
             {
                 "shipmentNo": r["shipment_no"],
+                "shipmentOrderNo": r["ship_order_no"],
                 "shippedAt": _iso(r["shipped_at"]),
                 "lines": [],
             },
@@ -89,6 +91,7 @@ def confirmed_shipments(
                 "qty": str(r["qty"]),
                 "unit": r["unit"],
                 "packingNo": r["packing_no"],
+                "lineNo": r["line_no"],
             }
         )
     return list(grouped.values())
@@ -127,3 +130,39 @@ def open_shipment_qty(
         r["item_code"]: str(r["qty"])
         for r in connection.execute(text(_OPEN_SHIPMENT_QTY), _s(scoped)).mappings()
     }
+
+
+def shipment_orders(
+    connection: Connection, scoped: AuthContext
+) -> list[dict[str, Any]] | None:
+    """Scoped ERP demand references, including open/shipped/cancelled states (FS-026)."""
+    if not enabled(connection, scoped):
+        return None
+    sql = """
+    SELECT so.ship_order_no,so.status,i.item_code,ol.order_qty,sl.unit,sl.line_no
+    FROM erp.shipment_order so
+    JOIN erp.shipment_order_line ol ON ol.workspace_id=so.workspace_id AND ol.generation_id=so.generation_id AND ol.shipment_order_id=so.id
+    JOIN erp.sales_order_line sl ON sl.workspace_id=ol.workspace_id AND sl.generation_id=ol.generation_id AND sl.id=ol.sales_order_line_id
+    JOIN erp.item i ON i.workspace_id=sl.workspace_id AND i.generation_id=sl.generation_id AND i.id=sl.item_id
+    WHERE so.workspace_id=:w AND so.generation_id=:g
+    ORDER BY so.ship_order_no,sl.line_no
+    """
+    grouped = {}
+    for row in connection.execute(text(sql), _s(scoped)).mappings():
+        entry = grouped.setdefault(
+            row["ship_order_no"],
+            {
+                "shipmentOrderNo": row["ship_order_no"],
+                "status": row["status"],
+                "lines": [],
+            },
+        )
+        entry["lines"].append(
+            {
+                "itemCode": row["item_code"],
+                "qty": str(row["order_qty"]),
+                "unit": row["unit"],
+                "lineNo": row["line_no"],
+            }
+        )
+    return list(grouped.values())

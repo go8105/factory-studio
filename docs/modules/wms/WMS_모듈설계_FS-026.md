@@ -1,6 +1,6 @@
 # WMS 모듈 설계 revision 3 — FS-026
 
-작성일: 2026-09-28. **전체 설계 승인 2026-09-28. FS-026a DB 완료, FS-026b1 입고 API 완료(전체 pytest755 통과). 예약 API·화면 미구현.** 결정서 D24~D32 및 Q1~Q6은 사용자의 “진행해줘”로 승인됐다.
+작성일: 2026-09-28. **전체 설계 승인 2026-09-28. FS-026a DB 완료, FS-026b1 입고 API 완료(전체 pytest755 통과). FS-026b2 예약 API 구현·전체 회귀 검증 중. 신규 화면 미구현.** 결정서 D24~D32 및 Q1~Q6은 사용자의 “진행해줘”로 승인됐다.
 기준: [FS-024 revision 1](WMS_모듈설계_FS-024.md), [FS-026 결정](../../plan/WMS확장_입고검수예약_결정_FS-026.md). 기존 6테이블/원장을 재사용하며 이 문서는 차분이다. 상충하는 범위·가용·입고 취소 정책은 승인된 FS-026을 따른다. DB는 FS-026a, 입고 API는 FS-026b1로 확장한다. 예약 API/가용 조회 개편은 b2다.
 
 ## 1. 변경 범위와 불변식
@@ -174,7 +174,7 @@ Idempotency-Key는 기존 24시간 영수증 규칙(동일 키 다른 본문/만
 
 신규 정책 오류는 기존 ApiError의 409 PRECONDITION_NOT_MET + details.reason: STALE_VERSION, INVALID_STATE, SOURCE_CLAIMED, SOURCE_ALREADY_POSTED, SOURCE_ROUTE_CONFLICT, SOURCE_CHANGED, SOURCE_CANCELLED, INSUFFICIENT_AVAILABLE, QUARANTINE_NOT_RESERVABLE, SHIPMENT_MISMATCH. SOURCE_MODULE_DISABLED는 기존 409 PRECONDITION_NOT_MET의 details.reason 유지. 필드/수량 오류 400 VALIDATION_FAILED(details.fields.<경로>), 422는 IDEMPOTENCY_CONFLICT 전용, 공간 밖 ID는 404. DB 유니크 충돌은 원천 재조회 후 기존 결과 또는409로 변환한다. 500으로 노출하지 않는다.
 
-신규 입고 명령의 처리 시각은 DB `clock_timestamp()`를 한 번 읽어 도착/검수/완료/전표 게시/이동 시각에 함께 사용한다. 검수 전표 업무일·월과 IN/WD 번호 날짜는 그 서버 시각의 Asia/Seoul 날짜다. 사용자 입력 expectedOn은 예정일이며 처리 시각에 영향을 주지 않는다. `FS_TODAY`는 기존 시드/체험 기준일에만 사용하며 신규 명령에 섞지 않는다.
+신규 입고 명령의 처리 시각은 DB `clock_timestamp()`를 한 번 읽어 도착/검수/완료/전표 게시/이동 시각에 함께 사용한다. 검수 전표 업무일·월과 IN/WD 번호 날짜는 그 서버 시각의 Asia/Seoul 날짜다. 사용자 입력 expectedOn은 예정일이며 처리 시각에 영향을 주지 않는다. `FS_TODAY`는 기존 시드/체험 기준일에만 사용하며 신규 명령에 섞지 않는다. 예약 생성/해제/소진도 같은 규약을 따른다. 소진 closedAt·전표 postedAt·이동 movedAt은 한 번 읽은 서버 시각으로 같으며, 전표 날짜/번호도 그 서울 날짜를 쓴다. ERP shippedAt은 원천 목록의 참고 시각이다. 기존 직접 sync의 원천 발생일 정책은 유지한다.
 
 ## 8. 인터페이스와 API 계약
 
@@ -185,7 +185,7 @@ ERP만 수정할 공개 조회 계약:
 - 새 `shipment_orders(scope)` → `[{shipmentOrderNo,status,lines:[{itemCode,qty,unit}]}]`, open/shipped/cancelled 상태 및 번호별 수요 대조용. 기존 ERP 출하지시 상태를 그대로 반환한다. 꺼짐 None, 범위 S 필터, 잠금/쓰기 없음.
 - MES interface 및 MES 제품 쓰기 계약은 변경하지 않는다. 예약 확인은 위 ERP 계약 또는 WMS 자신의 원장만 사용한다.
 
-모든 경로 아래 `/api/v1/wms`, 기존 응답 envelope/인증/CSRF/Idempotency-Key 사용. 입고 예정 경로는 FS-026b1에서 구현·검증했다. 예약 경로는 FS-026b2 사용자 확인 후 구현한다.
+모든 경로 아래 `/api/v1/wms`, 기존 응답 envelope/인증/CSRF/Idempotency-Key 사용. 입고 예정 경로는 FS-026b1에서 구현·검증했다. 예약 경로는 2026-09-30 사용자 후속 승인으로 FS-026b2에서 구현했다(전체 회귀 검증 중).
 
 | 메서드/경로 | 요청 → 결과 |
 |---|---|

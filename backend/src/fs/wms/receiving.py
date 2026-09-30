@@ -678,7 +678,10 @@ def inspect_notice(context, id, values, key):
 
 
 def guard_master(c, scoped, kind, id, all_history=False):
-    """Protect receiving references before master changes/deletes (not b2)."""
+    """Protect receiving and reservation references before master mutations."""
+    from fs.wms.reservations import guard_master as guard_reservations
+
+    guard_reservations(c, scoped, kind, id, all_history)
     condition = {
         "warehouse": "n.warehouse_id=:id",
         "item": "l.item_id=:id",
