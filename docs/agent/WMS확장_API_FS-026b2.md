@@ -1,6 +1,6 @@
 # FS-026b2 예약·출하 소진·가용 수량
 
-2026-09-30. **구현 완료·전체 회귀 검증 중.** 브랜치 `codex/vision-ai`, 기준 `3f5039c` / `origin/main 6508599`.
+2026-09-30. **FS-026b2 완료 — 사용자 확인 대기.** 브랜치 `codex/vision-ai`, 기준 `3f5039c` / `origin/main 6508599`.
 
 ## 범위와 흐름
 
@@ -34,11 +34,11 @@
 | GET /stock | locationId 필터 추가; NORMAL/QUARANTINE/예약/가용/부족 |
 | GET /dashboard | 현재 잔량·가용은 조회 월과 무관; 월별 흐름은 기존 유지 |
 
-기존 W-01/02 화면에 정상/격리/예약/가용 및 부족 표시를 호환시켰다. ERP off 상태에서도 가용 숫자를 표시한다. 신규 입고 W-08/예약 W-09 조작 화면은 후속 단계다.
+기존 W-01/02 화면에 정상/격리/예약/가용 및 부족 표시를 호환시켰다. ERP off 상태에서도 가용 숫자를 표시한다. 기존 W-01/02 도움말도 새 계산식, ERP off, 0현재고 예약 행, 위치별 부족 설명으로 맞췄다. 신규 입고 W-08/예약 W-09 조작 화면과 종합 사용자 흐름 문서는 후속 단계다.
 
 ## 검증
 
-현재 관련 WMS API **60 passed**(기존·b1 포함, b2 신규22), WMS 프런트10개·typecheck·변경 ESLint 통과. CI ruff check/format138파일, R1~R6 감사98테이블/225FK 오류0, db:validate 오류0. **전체 백엔드 pytest는 진행 중이며 아직 통과로 간주하지 않는다.**
+관련 WMS API **60 passed**(기존·b1 포함, b2 신규22), 프런트 전체490개(56파일, WMS10 포함)·typecheck·변경 ESLint 통과. 도구 pytest58개 및 subtests13개 통과. CI ruff check/format138파일, R1~R6 감사98테이블/225FK 오류0, db:validate 오류0. **전체 백엔드 pytest777개 통과(1414.37초, 23분34초, 기존 사용중단 경고2개).** 프런트 production build 통과(기존 대용량 청크 경고). 전용 `factory_studio_codex_fs026b2_final_test` DB에서 실행했다. 구현 커밋 `0d639b7`, 최종 문서 커밋은 `git log -1`로 확인한다.
 
 | AC | 검증 근거 |
 |---|---|
