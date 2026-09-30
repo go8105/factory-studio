@@ -8,6 +8,12 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-09-30 FS-028 SPC 결정서 초안 (Claude Code)
+- 로드맵 ROADMAP-01 확정(사용자: 제안대로) — §6 여섯 문항 "확정"으로 표기, SPC 상태 "설계 중".
+- `docs/plan/SPC도입_관리도_결정_FS-028.md`: D37 범위(X̄-R·한계 게시·이상 판정·조치·Cp/Cpk, 접두어 S) · D38 측정값 SPC 소유 · D39 부분군 n=5·6시간(LOT당 1개면 점 8개라 불성립) · D40 처음 20 부분군 한계, 재산정은 새 버전 · D41 규칙 1~3 · D42 발생→조치 완료, 부분군 무효 처리 · D43 Cp/Cpk 조회 시 계산 · D44 QMS "SPC 이상" 배지만.
+- 시드 규모 추정: 사출 실행 약 62시간·조립 약 38시간(generate.py SCHEDULE 기준) → 부분군 약 390·측정값 약 1,950, 템플릿 +약 2,300행.
+- 코드·DB 변경 없음. 다음: 승인 요청 4건 → 모듈 설계·화면 설계.
+
 ## 2026-09-30 ROADMAP-01 17개 시스템 로드맵 (Claude Code)
 - 산출물: `docs/plan/로드맵_17개시스템_ROADMAP-01.md`(상태·순서·의존·조회 함수·홈 17타일 분야별 묶음 설계·열린 질문 6), `docs/plan/새솔루션_킷.md`(BEMS 사이클 기준 체크리스트, 솔루션 목록이 박힌 약 20곳).
 - 현황 문서 994줄 → 172줄. 축소 전 전문은 `docs/plan/진행현황_이력.md`로 옮김(내용 삭제 없음).
