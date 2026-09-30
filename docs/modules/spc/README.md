@@ -2,16 +2,16 @@
 
 ## 현재 기준 (2026-09-30, FS-028)
 
-- 상태: **구현 중** — 전체 설계 확인(2026-09-30) · **FS-028a DB 완료**(schema v0.13.0, 마이그레이션 `fs028a_spc`·`fs028b_spc_module`). 다음 FS-028b(API·화면). 로드맵 1번.
+- 상태: **구현 중** — FS-028a DB · **FS-028b API·화면 S-01~07 완료(로컬)**. 다음 FS-028c(시드·도움말·흐름 맵·통합 검증). 로드맵 1번.
 - 설계: [SPC 모듈 설계서](SPC_모듈설계_FS-028.md) · [결정서 FS-028](../../plan/SPC도입_관리도_결정_FS-028.md) · [화면 설계](../../ui/화면설계_SPC_FS-028.md)
-- 읽는 조회: MES `operation_runs`(추가 예정)·`items`
+- 읽는 조회: MES `operation_runs`·`items`
 
-### 제공 조회 함수 (`backend/src/fs/spc/interface.py`, 예정)
+### 제공 조회 함수 (`backend/src/fs/spc/interface.py`)
 
 | 함수 | 돌려주는 것 | 쓰는 곳 |
 |---|---|---|
 | `enabled()` | 사용 여부 | — |
-| `open_signal_lot_nos(lot_nos)` | 미조치 이상이 있는 LOT 번호 집합 | QMS(Q-03·Q-04 배지) |
+| `open_signal_lot_nos(lot_nos)` | 미조치 이상이 있는 LOT 번호 집합 | QMS(Q-03 검사 대기·Q-04 검사 배지) |
 
 모든 함수의 앞 두 인자는 `(connection, scoped)`이고, 이 솔루션이 꺼져 있으면 `None`을 돌려준다.
 

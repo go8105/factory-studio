@@ -209,3 +209,11 @@ QMS는 Q-03·Q-04 목록 응답에 `spcSignal: true/false/null`을 붙인다(nul
 - 검증기: `validate_spc` 추가, 작업 ID 집합에 FS-028a(이전 `validate_bems`가 FS-025a 전용이어서 꺼질 뻔했다 → `LATER_THAN_025A`). 격리 검사 BUSINESS에 spc. Excel 35시트·ERD `spc.mmd` 재생성.
 - 시드: 모듈 행 +1(템플릿 11,911 · 게스트 복사 11,909). SPC 업무 시드는 FS-028c.
 - **Codex 조율 필요**: FS-026a(`codex/vision-ai`)도 v0.13.0이다. main 병합 전 rebase 때 FS-026a를 **v0.14.0**으로, 그 마이그레이션 `down_revision`을 **`fs028b_spc_module`**로, 모듈 키 목록에 `'spc'`를 유지하도록 옮긴다.
+
+## 15. 구현 기록 (FS-028b API·화면, 2026-10-01)
+
+- 백엔드 `backend/src/fs/spc/`: `stats.py`(Decimal 계산·n=5 상수표·규칙 1~3·Cp/Cpk·히스토그램), `service.py`(TX-S1~S4), `router.py`(`/api/v1/spc`, 8장 + `GET /lookups/items`), `interface.py`(`enabled`·`open_signal_lot_nos`), `schema.py`. MES `interface.operation_runs` 추가. QMS `mes_lots`·`list_inspections` 행에 `spcSignal`. API 계약서 17장.
+- 설계와 다른 점: ① 한계 적용 시작 = 게시 때 마지막 유효 부분군 측정 시각(14장). ② 조회 기간의 종료일이 없으면 끝을 연다 — 측정 시각은 실제 시각이라 업무 기준일(`FS_TODAY`)보다 늦을 수 있다(스모크에서 발견). ③ 특성 등록용 `GET /lookups/items` 추가.
+- 프런트 `frontend/src/spc/`: S-01~07, 관리도(X̄·R, 버전 구간별 한계선, 기준 구간은 옅은 선, ◆ 이상 점은 키보드로 이상 상세 이동), 공정능력(히스토그램·LSL/USL), 측정 입력(MES 실행 → 5값, 입력 중 X̄·R·규격 밖 표시), 이상·조치, 부분군 무효, 특성·한계 게시(미리 계산). QMS Q-03·Q-04 배지. 홈 분야별 묶음(`content/systems.json`의 `fields`·`field`, 운영 솔루션만 타일, 빈 묶음 숨김, 솔루션 수 문구 자동, "앞으로 만들 것" 링크).
+- 검증: pytest test_spc 17(+ test_qms 22) · 전체 pytest(아래 progress) · vitest 512 · e2e 202(spc 2 포함) · typecheck·lint·format · ruff · 격리 R6 0. 브라우저(로컬 게스트)로 관리도·이상 상세·측정 입력 흐름 확인.
+- 남은 것(FS-028c): 시드(부분군 약 450·측정값 약 2,250 — 실행 시간이 설계 추정보다 길다: 사출 71h·조립 47h), 도움말 s-01~07·개념 2편, 흐름 맵 노드, QMS 배지 e2e(시드 LOT LT-0017), 전체 스모크.

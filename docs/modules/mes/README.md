@@ -16,6 +16,7 @@
 | `items(item_type="finished")` | 사용 중 품목(기본 완제품, None이면 전 품목) | QMS·WMS |
 | `finished_goods_receipts()` | 확정 완제품 입고(팔레트) | WMS |
 | `completed_material_issues()` | 완료 공정의 자재 투입 | WMS |
+| `operation_runs(date_from, date_to)` | 기간과 겹치는 시작된 공정 실행(LOT·품목·공정·설비·시작·종료, 진행 중은 종료 없음) | SPC(FS-028b) |
 
 모든 함수의 앞 두 인자는 `(connection, scoped)`이고, 이 솔루션이 꺼져 있으면 `None`을 돌려준다.
 

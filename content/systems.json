@@ -19,7 +19,8 @@
       "summary": "수주에서 출하, 매출과 수금까지",
       "receives": ["MES 완제품 입고 수량(코드 스냅샷)", "WMS 출고 결과"],
       "gives": ["판매계획 → MES 생산계획", "출하지시 → WMS 출고"],
-      "rel": ["mes", "wms", "scm", "crm", "tms", "elb"]
+      "rel": ["mes", "wms", "scm", "crm", "tms", "elb"],
+      "field": "경영·협업"
     },
     {
       "id": "eip",
@@ -32,7 +33,8 @@
       "receives": ["모든 솔루션 요약 조회"],
       "gives": ["전사 대시보드·공지"],
       "rel": ["erp", "mes", "fems"],
-      "order": 9
+      "order": 9,
+      "field": "경영·협업"
     },
     {
       "id": "gw",
@@ -45,7 +47,8 @@
       "receives": ["ERP 전표(결재 대상)"],
       "gives": ["결재 결과 → ERP·EIP"],
       "rel": ["erp"],
-      "order": 10
+      "order": 10,
+      "field": "경영·협업"
     },
     {
       "id": "plm",
@@ -58,7 +61,8 @@
       "receives": [],
       "gives": ["품목·BOM 개정 → MES 기준정보·BOM"],
       "rel": ["mes", "erp"],
-      "order": 5
+      "order": 5,
+      "field": "영업·제품"
     },
     {
       "id": "crm",
@@ -71,7 +75,8 @@
       "receives": ["ERP 출하·매출 이력", "QMS 판정 결과"],
       "gives": ["영업 기회 → ERP 견적·수주", "고객 클레임 → QMS"],
       "rel": ["erp", "qms"],
-      "order": 6
+      "order": 6,
+      "field": "영업·제품"
     },
     {
       "id": "scm",
@@ -84,7 +89,8 @@
       "receives": ["ERP 수주", "WMS 입고", "QMS 판정"],
       "gives": ["수요 예측 → ERP 판매계획"],
       "rel": ["erp", "wms", "tms", "elb"],
-      "order": 7
+      "order": 7,
+      "field": "공급망·물류"
     },
     {
       "id": "elb",
@@ -97,7 +103,8 @@
       "receives": ["CMMS 부품 요청", "WMS 재고 부족"],
       "gives": ["입고 → WMS", "매입 → ERP 매입채무"],
       "rel": ["cmms", "wms", "erp"],
-      "order": 8
+      "order": 8,
+      "field": "공급망·물류"
     },
     {
       "id": "wms",
@@ -109,7 +116,8 @@
       "summary": "창고·위치 재고 원장, 입출고 반영과 조정까지",
       "receives": ["MES 완제품 입고", "ERP 출하지시"],
       "gives": ["재고 원장 조회 → MES·ERP"],
-      "rel": ["mes", "erp", "tms", "scm"]
+      "rel": ["mes", "erp", "tms", "scm"],
+      "field": "공급망·물류"
     },
     {
       "id": "tms",
@@ -122,7 +130,8 @@
       "receives": ["ERP 출하지시", "WMS 출고"],
       "gives": ["배송 완료 → ERP 출하"],
       "rel": ["erp", "wms", "scm"],
-      "order": 4
+      "order": 4,
+      "field": "공급망·물류"
     },
     {
       "id": "rws",
@@ -135,7 +144,8 @@
       "receives": ["MES·CMMS 현장 이슈"],
       "gives": ["작업 안내·완료 기록"],
       "rel": ["mes", "cmms"],
-      "order": 11
+      "order": 11,
+      "field": "경영·협업"
     },
     {
       "id": "mes",
@@ -147,20 +157,21 @@
       "summary": "계획에서 실적, 패킹과 입고까지",
       "receives": ["ERP 판매계획"],
       "gives": ["실적 → QMS 검사·FEMS 생산량", "완제품 입고 → WMS"],
-      "rel": ["erp", "qms", "wms", "fems", "pop", "spc", "cmms", "plm"]
+      "rel": ["erp", "qms", "wms", "fems", "pop", "spc", "cmms", "plm"],
+      "field": "생산·품질"
     },
     {
       "id": "spc",
       "abbr": "SPC",
-      "name": "통계적 공정관리",
+      "name": "공정관리",
       "layer": "생산실행",
-      "status": "planned",
-      "to": null,
-      "summary": "공정 측정값 관리도·Cpk. 관리 한계 이탈을 QMS로 넘긴다",
-      "receives": ["MES 공정 측정값"],
-      "gives": ["관리 한계 이탈 → QMS 판정·보류"],
+      "status": "implemented",
+      "to": "/spc",
+      "summary": "측정 부분군에서 관리도, 이상 조치와 공정능력까지",
+      "receives": ["MES 공정 실행(LOT·공정·설비, 읽기 전용 조회)"],
+      "gives": ["미조치 이상 LOT → QMS \"SPC 이상\" 배지"],
       "rel": ["mes", "qms"],
-      "order": 1
+      "field": "생산·품질"
     },
     {
       "id": "qms",
@@ -172,7 +183,8 @@
       "summary": "검사 기준에서 판정, 보류와 처분까지",
       "receives": ["MES LOT·실적(읽기 전용 조회)"],
       "gives": ["판정·보류 배지 → MES"],
-      "rel": ["mes", "spc", "crm"]
+      "rel": ["mes", "spc", "crm"],
+      "field": "생산·품질"
     },
     {
       "id": "cmms",
@@ -185,7 +197,8 @@
       "receives": ["MES 설비·가동", "BEMS 경보", "WMS 부품 재고(WMS 확장 뒤)"],
       "gives": ["보전 중 설비 정지 → MES", "부품 요청 → ELB/MRO"],
       "rel": ["mes", "fems", "bems", "wms", "elb"],
-      "order": 2
+      "order": 2,
+      "field": "생산·품질"
     },
     {
       "id": "fems",
@@ -197,7 +210,8 @@
       "summary": "계측에서 원단위, 목표와 요금까지",
       "receives": ["MES 생산량(원단위 분모)"],
       "gives": ["계측·배분 조회 → BEMS"],
-      "rel": ["mes", "bems", "cmms"]
+      "rel": ["mes", "bems", "cmms"],
+      "field": "에너지"
     },
     {
       "id": "bems",
@@ -209,7 +223,8 @@
       "summary": "공용 에너지 분해, 공조 운전·설정값·경보까지",
       "receives": ["FEMS 계측(읽기 전용 조회)"],
       "gives": ["공조 경보 → CMMS(예정)"],
-      "rel": ["fems", "cmms"]
+      "rel": ["fems", "cmms"],
+      "field": "에너지"
     },
     {
       "id": "pop",
@@ -222,7 +237,9 @@
       "receives": ["MES 작업지시"],
       "gives": ["확정 실적·불량·투입 → MES가 가져오기"],
       "rel": ["mes"],
-      "order": 3
+      "order": 3,
+      "field": "생산·품질"
     }
-  ]
+  ],
+  "fields": ["생산·품질", "공급망·물류", "에너지", "영업·제품", "경영·협업"]
 }

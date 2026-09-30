@@ -585,3 +585,22 @@ A-1만 스키마와 관련이 있고 나머지는 구현 방침이다. **A-1을 
 | `GET/POST /alarm-rules` · `PATCH /alarm-rules/{id}` | 구역·지표·비교·임계·지속 시간·등급. 같은 구역·지표·비교는 1개 | 400 `fields.comparator` |
 
 **조회 인터페이스(코드, HTTP 아님):** `fs/fems/interface.py`(신규) — `enabled`·`site_electricity`·`manufacturing_electricity`(일별 kWh). FEMS API는 바뀌지 않는다.
+
+## 17. SPC API (`/api/v1/spc`, FS-028b)
+
+설계: [SPC 모듈 설계서](../modules/spc/SPC_모듈설계_FS-028.md) · 결정: [FS-028](../plan/SPC도입_관리도_결정_FS-028.md). 공통 규약(3장)을 그대로 따른다. SPC 사용 중단은 409 `MODULE_DISABLED`. 시각은 시간대가 있는 ISO 문자열, 값은 문자열(소수). 조회 기간 `from`·`to`는 날짜(KST)이고, `to`가 없으면 끝을 열어 둔다(측정 시각은 실제 시각이라 업무 기준일보다 늦을 수 있다).
+
+| 메서드·경로 | 요약 | 주요 오류 `reason` |
+|---|---|---|
+| `GET /dashboard` | KPI(특성 수·미조치 이상·공정능력 판정별 수·최근 7일 부분군) + 특성 카드(최근 20점 X̄·최신 한계·Cpk). 미조치 많은 순 → Cpk 낮은 순 | — |
+| `GET /lookups/items` | 특성 등록용 MES 완제품(`fs.mes.interface.items`) | 409 `SOURCE_MODULE_DISABLED` |
+| `GET/POST /characteristics` · `GET/PATCH /characteristics/{id}` | 관리 특성. 품목은 MES 완제품만. 규격 하나 이상, 하한 < 상한, 목표값은 규격 안. 부분군이 있으면 규격·단위 변경 거부(이름·자릿수·사용은 가능) | 400 `fields.itemCode`·`fields.usl` · 409 `DUPLICATE`·`CHARACTERISTIC_IN_USE` |
+| `GET /characteristics/{id}/chart?from=&to=` | 부분군 점(X̄·R·상태·LOT·설비·판정 버전·이상 표시) + 한계 버전 목록 | — |
+| `GET /characteristics/{id}/capability?from=&to=` | μ·σ̂(R̄/d2)·Cp·Cpk·판정(`CAPABLE`/`MARGINAL`/`INCAPABLE`)·히스토그램 10칸·미조치 이상 수. 유효 부분군 20개 미만이면 `insufficient: true`만 | — |
+| `GET /characteristics/{id}/limits` · `GET …/limits/preview?basisFrom=&basisTo=` · `POST …/limits {basisFrom, basisTo, reason}` | TX-S2. 기준 구간 유효 부분군 20개 이상으로 X̄·R 한계(n=5 상수) 게시. **적용 시작 = 게시 때 마지막 유효 부분군 측정 시각**(벽시계와 무관). 게시 시각은 `publishedAt` | 400 `fields.basisFrom` · 409 `NO_NEW_SUBGROUP` |
+| `GET /runs?characteristicId=` | MES 공정 실행(해당 품목·공정, 최근 30일, `fs.mes.interface.operation_runs`) + 실행별 기록된 부분군 수 | 409 `SOURCE_MODULE_DISABLED` |
+| `POST /subgroups {characteristicId, lotNo, measuredAt, values[5], note?}` | TX-S1. 측정 시각은 공정 실행 기간 안이고 그 특성의 마지막 유효 부분군보다 늦어야 한다. 기록과 함께 규칙 1~3 판정 → 결과에 `signals[]` | 400 `fields.measuredAt`·`fields.lotNo`·`fields.values.<n>` · 409 `SOURCE_MODULE_DISABLED`·`CHARACTERISTIC_INACTIVE` |
+| `GET /subgroups?characteristicId=&lotNo=&status=` · `POST /subgroups/{id}/void {reason}` | TX-S4. 무효 처리하면 그 부분군의 이상 기록도 무효(`voidedSignals`). 뒤 부분군 판정은 다시 계산하지 않는다 | 409 `NOT_VALID` |
+| `GET /signals?status=&characteristicId=` · `POST /signals/{id}/resolve {causeCategory, action}` | TX-S3. 미조치만 조치 완료. 원인 `MACHINE`·`MATERIAL`·`MAN`·`METHOD`·`MEASUREMENT`·`ENVIRONMENT` | 409 `NOT_OPEN` |
+
+**조회 인터페이스(코드, HTTP 아님):** `fs/spc/interface.py`(신규) — `enabled`·`open_signal_lot_nos(lot_nos)`(미조치 이상 LOT). `fs/mes/interface.py`에 `operation_runs(date_from, date_to)` 추가. QMS `GET /lookups/mes-lots`·`GET /inspections` 행에 `spcSignal`(true/false, SPC 꺼짐이면 null)이 붙는다 — QMS 판정·보류는 바뀌지 않는다(D44).

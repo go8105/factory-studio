@@ -21,6 +21,7 @@ import {
   time,
   useSend,
   type MesLot,
+  SpcBadge,
 } from "./common";
 
 const STATUS = {
@@ -77,7 +78,15 @@ export function Pending() {
   }
 
   const columns: Column<MesLot>[] = [
-    { key: "lotNo", label: "LOT" },
+    {
+      key: "lotNo",
+      label: "LOT",
+      render: (r) => (
+        <>
+          {r.lotNo} <SpcBadge signal={r.spcSignal} />
+        </>
+      ),
+    },
     {
       key: "status",
       label: "관리",

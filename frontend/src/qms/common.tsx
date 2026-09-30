@@ -88,6 +88,8 @@ export type Inspection = {
   note: string | null;
   values?: InspectionValue[];
   activeHold?: Hold | null;
+  /** SPC 미조치 이상(FS-028 D44). null = SPC 꺼짐. 판정에는 영향이 없다. */
+  spcSignal?: boolean | null;
 };
 export type MesLot = {
   lotNo: string;
@@ -100,7 +102,19 @@ export type MesLot = {
   draftInspectionId: number | null;
   latestResult: Judgement | null;
   hasSpec: boolean;
+  spcSignal: boolean | null;
 };
+
+/** LOT 옆 "SPC 이상" 배지(FS-028 D44). 표시만 하고 판정·보류를 막지 않는다. */
+export function SpcBadge({ signal }: { signal?: boolean | null }) {
+  return signal ? (
+    <Badge tone="warning">
+      <span title="공정 중 관리도 이상이 조치되지 않았습니다. 판정에는 영향을 주지 않습니다.">
+        SPC 이상
+      </span>
+    </Badge>
+  ) : null;
+}
 
 export const num = (v: string | number, digits = 3) =>
   Number(v).toLocaleString("ko-KR", { maximumFractionDigits: digits });

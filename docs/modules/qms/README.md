@@ -4,7 +4,7 @@
 
 - 상태: **운영 · 동결** — 6화면(Q-01~06). 기능 추가는 [로드맵](../../plan/로드맵_17개시스템_ROADMAP-01.md)의 "살 붙이기" 단계에서만 한다. 다른 솔루션이 요청하는 **조회 함수 추가는 동결 중에도 허용**한다.
 - 설계: [QMS 모듈 설계서](QMS_모듈설계_FS-023.md) · [결정서 FS-023](../../plan/QMS도입_교차조회_결정_FS-023.md)
-- 읽는 조회: MES `inspectable_lots`·`lot_snapshot`·`items`
+- 읽는 조회: MES `inspectable_lots`·`lot_snapshot`·`items` · SPC `open_signal_lot_nos`(Q-03·Q-04 "SPC 이상" 배지, 판정·보류와 무관 — FS-028 D44)
 
 ### 제공 조회 함수 (`backend/src/fs/qms/interface.py`)
 

@@ -119,6 +119,10 @@ for (const route of [
   "/bems/schedules",
   "/bems/alarms",
   "/bems/zones",
+  "/spc/measure",
+  "/spc/signals",
+  "/spc/subgroups",
+  "/spc/characteristics",
 ]) {
   test(`1440×900 ${route} 목록 채움: 문서가 스크롤되지 않는다`, async ({
     page,

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { App } from "../app/App";
@@ -16,11 +16,13 @@ function show(enabled = true) {
                 csrfToken: "preview",
                 expiresAt: "2026-09-28T00:00:00+09:00",
               }
-            : ["mes", "erp", "fems", "qms", "wms", "bems"].map((moduleKey) => ({
-                moduleKey,
-                enabled,
-                updatedAt: null,
-              })),
+            : ["mes", "erp", "fems", "qms", "wms", "bems", "spc"].map(
+                (moduleKey) => ({
+                  moduleKey,
+                  enabled,
+                  updatedAt: null,
+                }),
+              ),
         }),
       ),
   );
@@ -30,24 +32,33 @@ function show(enabled = true) {
     </MemoryRouter>,
   );
 }
-it("홈은 여섯 솔루션과 미구현 SCM 설명 카드 링크를 보인다", async () => {
+it("홈은 운영 중인 일곱 솔루션을 분야별 묶음으로 보이고 빈 묶음은 숨긴다", async () => {
   show();
   await screen.findByRole("link", { name: /QMS 품질관리/ });
-  expect(screen.getByRole("link", { name: /WMS 창고관리/ })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: /SPC 공정관리/ })).toHaveAttribute(
     "href",
-    "/wms",
+    "/spc",
   );
-  expect(screen.getByRole("link", { name: /BEMS 건물관리/ })).toHaveAttribute(
-    "href",
-    "/bems",
-  );
-  expect(screen.getByRole("link", { name: /SCM 공급망/ })).toHaveAttribute(
-    "href",
-    "/cards/scm",
-  );
-  expect(screen.queryByRole("link", { name: /BEMS 건물 →/ })).toBeNull();
-  expect(screen.queryByRole("link", { name: /QMS 품질 →/ })).toBeNull();
-  expect(screen.queryByRole("link", { name: /WMS 물류/ })).toBeNull();
+  const production = screen.getByRole("region", { name: "생산·품질" });
+  expect(
+    within(production)
+      .getAllByRole("link")
+      .map((l) => l.getAttribute("href")),
+  ).toEqual(["/mes", "/qms", "/spc"]);
+  expect(
+    within(screen.getByRole("region", { name: "에너지" }))
+      .getAllByRole("link")
+      .map((l) => l.getAttribute("href")),
+  ).toEqual(["/fems", "/bems"]);
+  // 영업·제품은 아직 운영 중인 솔루션이 없어 제목도 없다(ROADMAP-01 §4).
+  expect(screen.queryByRole("region", { name: "영업·제품" })).toBeNull();
+  expect(
+    screen.getByText("하나의 공간에서 만나는 일곱 가지 독립 솔루션"),
+  ).toBeVisible();
+  expect(
+    screen.getByRole("link", { name: /계층 아키텍처에서 보기/ }),
+  ).toHaveAttribute("href", "/flow?view=arch");
+  expect(screen.queryByText("아직 만들지 않은 것")).toBeNull();
 });
 it("상세 안내는 첫 화면에서 숨긴다", async () => {
   show();

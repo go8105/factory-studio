@@ -20,6 +20,7 @@ const others = [
   { to: "/fems", label: "FEMS 에너지관리" },
   { to: "/qms", label: "QMS 품질관리" },
   { to: "/wms", label: "WMS 창고관리" },
+  { to: "/spc", label: "SPC 공정관리" },
   { to: "/home", label: "포털 홈" },
 ];
 export function BemsLayout() {

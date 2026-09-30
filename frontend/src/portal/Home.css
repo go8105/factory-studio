@@ -146,13 +146,13 @@
   transform: translateY(-4px);
   border-color: var(--border-strong);
 }
-.launcher-app h2 {
+.launcher-app h3 {
   margin: 14px 0 0;
   font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.3px;
 }
-.launcher-app h2 span {
+.launcher-app h3 span {
   display: block;
   margin-top: 4px;
   color: var(--muted);
@@ -297,10 +297,10 @@
     width: 34px;
     height: 34px;
   }
-  .launcher-app h2 {
+  .launcher-app h3 {
     font-size: 15px;
   }
-  .launcher-app h2 span {
+  .launcher-app h3 span {
     font-size: 11px;
   }
   .launcher-item:nth-child(3n + 1) .launcher-detail {
@@ -315,4 +315,27 @@
   .launcher-detail {
     width: min(236px, calc(100vw - 64px));
   }
+}
+/* 분야별 묶음(ROADMAP-01 §4): 넓은 화면 2열, 좁으면 1열. 묶음 안 타일은 기존 크기. */
+.home-groups {
+  display: grid;
+  gap: 36px 40px;
+}
+@media (min-width: 960px) {
+  .home-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.home-group-title {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 1px;
+}
+.home-group .launcher-grid {
+  justify-content: flex-start;
+  gap: 24px 20px; /* 묶음 한 열(약 440px)에 타일 3개(132×3 + 20×2) */
+  max-width: none;
+  margin: 0;
 }

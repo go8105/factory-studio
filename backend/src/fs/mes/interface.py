@@ -1,13 +1,15 @@
 """MES 읽기 전용 조회 인터페이스 (FS-023 D9 · X1~X6).
 
-다른 솔루션(QMS·WMS)은 MES를 이 모듈로만 읽는다. 반환은 값(dict/list)이며 행을 잠그지 않는다.
+다른 솔루션(QMS·WMS·SPC)은 MES를 이 모듈로만 읽는다. 반환은 값(dict/list)이며 행을 잠그지 않는다.
 MES를 꺼 두었으면 None을 돌려주고, 호출 쪽은 직접 입력으로 줄여 동작한다(D12).
 호출자의 범위(scoped: 활성 세대가 확정된 AuthContext)로만 조회한다 — 다른 공간·세대는 보이지 않는다.
 """
 
 from __future__ import annotations
 
+from datetime import date, datetime, time, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import Connection, text
 
@@ -202,3 +204,57 @@ def completed_material_issues(
             "endedAt": r["ended_at"].isoformat(),
         },
     )
+
+
+# 시작된 공정 실행 1건 = SPC 부분군의 틀(FS-028 D39). 진행 중이면 ended_at이 NULL이다.
+_RUNS = """
+SELECT t.lot_no, i.item_code, pr.process_code, eq.equipment_code, e.started_at, e.ended_at
+FROM mes.operation_execution e
+JOIN mes.lot t ON t.workspace_id=e.workspace_id AND t.generation_id=e.generation_id AND t.id=e.lot_id
+JOIN mes.work_order o ON o.workspace_id=t.workspace_id AND o.generation_id=t.generation_id
+ AND o.id=t.work_order_id
+JOIN mes.item i ON i.workspace_id=o.workspace_id AND i.generation_id=o.generation_id AND i.id=o.item_id
+JOIN mes.route_step s ON s.workspace_id=e.workspace_id AND s.generation_id=e.generation_id
+ AND s.id=e.route_step_id
+JOIN mes.process pr ON pr.workspace_id=s.workspace_id AND pr.generation_id=s.generation_id
+ AND pr.id=s.process_id
+JOIN mes.equipment eq ON eq.workspace_id=e.workspace_id AND eq.generation_id=e.generation_id
+ AND eq.id=e.equipment_id
+WHERE e.workspace_id=:w AND e.generation_id=:g AND e.started_at IS NOT NULL
+  AND e.started_at < :end AND (e.ended_at IS NULL OR e.ended_at >= :start)
+ORDER BY e.started_at, t.lot_no, pr.process_code
+"""
+
+
+def operation_runs(
+    connection: Connection, scoped: AuthContext, date_from: date, date_to: date
+) -> list[dict[str, Any]] | None:
+    """기간과 겹치는 시작된 공정 실행 `[{lotNo, itemCode, processCode, equipmentCode, startedAt, endedAt}]`.
+
+    진행 중이면 endedAt=None. 기간은 [date_from 00:00, date_to+1 00:00) 한국 시간. MES 꺼짐이면 None.
+    """
+    if not _enabled(connection, scoped):
+        return None
+    seoul = ZoneInfo("Asia/Seoul")
+    start = datetime.combine(date_from, time(), seoul)
+    end = datetime.combine(date_to + timedelta(days=1), time(), seoul)
+    rows = connection.execute(
+        text(_RUNS),
+        {
+            "w": scoped.workspace_id,
+            "g": scoped.generation_id,
+            "start": start,
+            "end": end,
+        },
+    ).mappings()
+    return [
+        {
+            "lotNo": r["lot_no"],
+            "itemCode": r["item_code"],
+            "processCode": r["process_code"],
+            "equipmentCode": r["equipment_code"],
+            "startedAt": r["started_at"].isoformat(),
+            "endedAt": None if r["ended_at"] is None else r["ended_at"].isoformat(),
+        }
+        for r in rows
+    ]

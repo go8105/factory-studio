@@ -26,6 +26,7 @@ from fs.common.errors import ApiError
 from fs.common.idempotency import find_receipt, request_digest, save_receipt
 from fs.common.scope import read_scope, write_scope
 from fs.mes import interface as mes
+from fs.spc import interface as spc
 
 MODULE = "qms"
 _S = "workspace_id=:w AND generation_id=:g"
@@ -645,6 +646,10 @@ def mes_lots(context: AuthContext, pending: bool) -> list[dict[str, Any]]:
             raise _source_off()
         states = _lot_states(connection, scoped, [lot["lotNo"] for lot in lots])
         published = _published_items(connection, scoped)
+        # SPC 미조치 이상은 배지로만 보인다(FS-028 D44). SPC를 끄면 null.
+        signals = spc.open_signal_lot_nos(
+            connection, scoped, [lot["lotNo"] for lot in lots]
+        )
     result = []
     for lot in lots:
         state = states.get(
@@ -658,7 +663,13 @@ def mes_lots(context: AuthContext, pending: bool) -> list[dict[str, Any]]:
         if pending and status == "inspected":
             continue
         result.append(
-            {**lot, **state, "status": status, "hasSpec": lot["itemCode"] in published}
+            {
+                **lot,
+                **state,
+                "status": status,
+                "hasSpec": lot["itemCode"] in published,
+                "spcSignal": None if signals is None else lot["lotNo"] in signals,
+            }
         )
     return result
 
@@ -829,10 +840,18 @@ def list_inspections(
             if value:
                 sql += f" AND i.{column}=:{column}"
                 params[column] = value
-        rows = connection.execute(
-            text(sql + " ORDER BY i.inspected_on DESC, i.id DESC"), params
-        ).mappings()
-        return [_row(r) for r in rows]
+        rows = [
+            _row(r)
+            for r in connection.execute(
+                text(sql + " ORDER BY i.inspected_on DESC, i.id DESC"), params
+            ).mappings()
+        ]
+        signals = spc.open_signal_lot_nos(
+            connection, scoped, sorted({r["lotNo"] for r in rows})
+        )
+        for r in rows:
+            r["spcSignal"] = None if signals is None else r["lotNo"] in signals
+        return rows
 
 
 def get_inspection(context: AuthContext, inspection_id: int) -> dict[str, Any]:

@@ -10,6 +10,12 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-10-01 FS-028b SPC API·화면 (Claude Code)
+- 백엔드 `fs/spc/`(stats·service·router·interface·schema), MES `interface.operation_runs`, QMS `spcSignal` 배지, API 계약서 17장. 프런트 `frontend/src/spc/` S-01~07, QMS Q-03·Q-04 배지, 홈 분야별 묶음(`content/systems.json` fields·field, 운영만 타일·빈 묶음 숨김·솔루션 수 문구 자동·"앞으로 만들 것" 링크), 다른 솔루션 전환 링크·진입 목록·참고 문서에 SPC.
+- 설계와 다른 점: 한계 적용 시작 = 게시 때 마지막 유효 부분군 측정 시각(시계 차이·날짜 이동에 안전), 조회 종료일이 없으면 끝을 연다(스모크의 FS_TODAY와 실제 시각 차이로 발견), `GET /lookups/items` 추가.
+- 검증: **pytest 798 passed · 1 skipped(28분)** · test_spc 17 · vitest 512 · e2e 202(spc 2·home·portal·layout·wms·wms-extension·qms) · typecheck·lint·format · ruff 0 · 격리 0. 브라우저(로컬 게스트)로 관리도·이상 상세·측정 입력 확인.
+- 남은 것: FS-028c(시드·도움말·흐름 맵·통합 검증) → 운영 반영.
+
 ## 2026-09-30 FS-026 main 병합 · 운영 배포 (Claude Code)
 - **운영 반영**: push `5b37741..815ba94` → 서버 pull·uv sync·alembic `fs025b_bems_module → fs026a_wms_receiving_reservation`·API 재시작·템플릿 11,933(workspace 37) → 프런트 같은 커밋 빌드·rsync. 확인: 게스트 201, WMS·BEMS·QMS API 200, https 200, 5xx 0.
 - Codex `codex/vision-ai` `f65044b`(FS-026a DB·b1 입고·b2 예약/소진·W-08/W-09·3D 트럭·시드 +22·도움말)를 main(FS-028a 포함)에 병합.

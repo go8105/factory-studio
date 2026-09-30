@@ -173,6 +173,13 @@ for (const [route, title] of [
   ["bems/schedules", "운전 스케줄"],
   ["bems/alarms", "경보"],
   ["bems/zones", "구역·계측"],
+  ["spc/dashboard", "SPC 대시보드"],
+  ["spc/chart", "관리도"],
+  ["spc/capability", "공정능력"],
+  ["spc/measure", "측정 입력"],
+  ["spc/signals", "이상·조치"],
+  ["spc/subgroups", "부분군 기록"],
+  ["spc/characteristics", "관리 특성·한계"],
 ]) {
   test(`360px ${route} 가로 스크롤 없음`, async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });

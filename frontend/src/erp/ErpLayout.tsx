@@ -72,6 +72,7 @@ const others = [
   { to: "/qms", label: "QMS 품질관리" },
   { to: "/wms", label: "WMS 창고관리" },
   { to: "/bems", label: "BEMS 건물관리" },
+  { to: "/spc", label: "SPC 공정관리" },
   { to: "/home", label: "포털 홈" },
 ];
 export function ErpLayout() {

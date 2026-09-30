@@ -29,6 +29,7 @@ import {
   type DefectType,
   type Inspection,
   type InspectionValue,
+  SpcBadge,
 } from "./common";
 
 type Entry = { measured: string; passed: boolean | null; defect: string };
@@ -244,7 +245,15 @@ export function Inspections() {
         </button>
       ),
     },
-    { key: "lotNo", label: "LOT" },
+    {
+      key: "lotNo",
+      label: "LOT",
+      render: (r) => (
+        <>
+          {r.lotNo} <SpcBadge signal={r.spcSignal} />
+        </>
+      ),
+    },
     {
       key: "itemCode",
       label: "품목",
