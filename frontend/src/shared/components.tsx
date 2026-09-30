@@ -508,15 +508,49 @@ export function DataTable<T extends { id: number }>({
   );
 }
 
+// 확인 뒤 다시 누른 링크는 한 번 통과시킨다(아래 가로채기가 자기 자신을 막지 않게).
+let passThrough: HTMLAnchorElement | null = null;
 /** 저장하지 않은 변경 보호. guard(action)은 변경이 없으면 바로 실행하고, 있으면 확인을 기다린다.
- *  변경이 있는 동안 새로고침·탭 닫기도 브라우저가 확인한다. */
+ *  변경이 있는 동안 새로고침·탭 닫기는 브라우저가 확인하고, 앱 안 링크(사이드바·헤더 메뉴 등)는
+ *  같은 패널의 "변경 버리기 / 계속 편집" 확인으로 보낸다. `BrowserRouter`라 `useBlocker`를 쓸 수 없어
+ *  문서 캡처 단계에서 링크 클릭을 가로챈다(UI-04). 브라우저 뒤로 가기는 막지 않는다. */
 export function useDiscardGuard(dirty: boolean) {
   const [pending, setPending] = useState<() => void>();
   useEffect(() => {
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    const intercept = (e: MouseEvent) => {
+      const link = (e.target as Element | null)?.closest?.("a[href]");
+      if (!(link instanceof HTMLAnchorElement)) return;
+      if (link === passThrough) {
+        passThrough = null;
+        return;
+      }
+      if (
+        e.button !== 0 ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.shiftKey ||
+        e.altKey ||
+        link.target === "_blank" ||
+        link.origin !== window.location.origin ||
+        link.href === window.location.href
+      )
+        return;
+      // 캡처 단계에서 멈추면 React Router의 Link 처리까지 가지 않는다.
+      e.preventDefault();
+      e.stopPropagation();
+      setPending(() => () => {
+        passThrough = link;
+        link.click();
+      });
+    };
     window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
+    document.addEventListener("click", intercept, true);
+    return () => {
+      window.removeEventListener("beforeunload", warn);
+      document.removeEventListener("click", intercept, true);
+    };
   }, [dirty]);
   return {
     pending: !!pending,

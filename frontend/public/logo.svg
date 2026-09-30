@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Factory Studio">
+  <rect width="48" height="48" rx="10" fill="#1f2d3d"/>
+  <g fill="#fff">
+    <rect x="9.2" y="9.6" width="3.4" height="28.8" rx="1.7"/>
+    <rect x="35.4" y="9.6" width="3.4" height="28.8" rx="1.7"/>
+    <rect x="22" y="13.2" width="4" height="4.4" rx="0.9" transform="rotate(0 24 24)"/><rect x="22" y="13.2" width="4" height="4.4" rx="0.9" transform="rotate(45 24 24)"/><rect x="22" y="13.2" width="4" height="4.4" rx="0.9" transform="rotate(90 24 24)"/><rect x="22" y="13.2" width="4" height="4.4" rx="0.9" transform="rotate(135 24 24)"/><rect x="22" y="13.2" width="4" height="4.4" rx="0.9" transform="rotate(180 24 24)"/><rect x="22" y="13.2" width="4" height="4.4" rx="0.9" transform="rotate(225 24 24)"/><rect x="22" y="13.2" width="4" height="4.4" rx="0.9" transform="rotate(270 24 24)"/><rect x="22" y="13.2" width="4" height="4.4" rx="0.9" transform="rotate(315 24 24)"/>
+    <circle cx="24" cy="24" r="7.4"/>
+  </g>
+  <circle cx="24" cy="24" r="3.7" fill="none" stroke="#1f2d3d" stroke-width="1.1"/>
+  <rect x="12.4" y="22.3" width="23.2" height="3.4" fill="#fff"/>
+</svg>

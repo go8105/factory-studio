@@ -347,3 +347,21 @@ test("E-02 견적 상세 패널 열기 및 Esc 닫기", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
 });
+
+test("입력 중에 사이드바 메뉴를 누르면 변경 버리기를 먼저 묻는다(UI-04)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto("/fems/production");
+  await page.getByRole("button", { name: "생산량 등록" }).click();
+  await page.getByLabel("생산량", { exact: true }).fill("50");
+  await page.getByRole("link", { name: /F-06.*원단위 분석/ }).click();
+  await expect(page).toHaveURL(/\/fems\/production/);
+  const panel = page.getByRole("dialog");
+  await expect(panel.getByRole("alert")).toContainText("저장하지 않은 변경");
+  await panel.getByRole("button", { name: "계속 편집" }).click();
+  await expect(page.getByLabel("생산량", { exact: true })).toHaveValue("50");
+  await page.getByRole("link", { name: /F-06.*원단위 분석/ }).click();
+  await panel.getByRole("button", { name: "변경 버리기" }).click();
+  await expect(page).toHaveURL(/\/fems\/intensity/);
+});

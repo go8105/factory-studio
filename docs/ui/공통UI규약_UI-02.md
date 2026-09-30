@@ -88,7 +88,7 @@ return (
 ```tsx
 const [panel, setPanel] = useState<{ row: Row | null } | null>(null);
 const dirty = !!panel && changed(draft, initial);
-const guard = useDiscardGuard(dirty);          // 미저장 변경 보호(+새로고침 경고)
+const guard = useDiscardGuard(dirty);          // 미저장 변경 보호(+새로고침 경고, 앱 안 링크 이동도 확인 — UI-04)
 
 <div className="page-fill">
   <PageTitle … actions={<button onClick={() => guard.guard(() => open(null))}>등록</button>} />
@@ -233,3 +233,11 @@ const guard = useDiscardGuard(dirty);          // 미저장 변경 보호(+새�
 - `.master-grid`(항상 오른쪽 360px 폼)는 **레거시**다. 새 화면에 쓰지 않는다. 기존 화면은 적용표 순서대로 `split-view` + `FormPanel`로 옮긴다.
 - 화면별로 스타일을 새로 만들거나 기준 화면 코드를 복사해 따로 관리하지 않는다. 부족한 기능은 공통 컴포넌트 확장으로 요청한다(Claude 담당).
 - 예외 패턴 3종은 UI-03에서 확정했다(8장). 남은 M-14·M-15·E-02는 지시서 UI-03 B1·B2.
+
+## UI-04 앱 안 이동의 미저장 보호 (2026-09-30)
+
+- `useDiscardGuard(dirty)`가 변경이 있는 동안 **문서 캡처 단계에서 앱 안 링크 클릭**(사이드바·헤더·본문 링크)을 가로채 같은 패널의 "변경 버리기 / 계속 편집" 확인으로 보낸다. 버리면 같은 링크를 한 번 다시 눌러 이동한다(React Router `Link` 처리를 그대로 탄다).
+- 가로채지 않는 것: ⌘/Ctrl/Shift/Alt 클릭·가운데 버튼(새 탭), `target=_blank`, 다른 사이트, 현재 주소와 같은 링크.
+- 이유: `BrowserRouter`라 `useBlocker`를 쓸 수 없다. 데이터 라우터로 바꾸면 모든 테스트의 `MemoryRouter` 구성이 바뀌어 비용이 크다. 이 방식은 공통 훅 한 곳만 바꿔 40개 화면에 적용된다.
+- 한계: 브라우저 뒤로·앞으로 가기(popstate)는 막지 않는다.
+- 검증: `src/shared/discard-guard.test.tsx` 3, e2e `layout.spec.ts` F-05 생산량 입력 중 사이드바 F-06 클릭.

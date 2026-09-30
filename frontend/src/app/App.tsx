@@ -67,9 +67,7 @@ function Layout() {
         aria-busy={busy}
       >
         <Link className="brand" to={session ? "/home" : "/"}>
-          <span className="brand-mark" aria-hidden="true">
-            F
-          </span>
+          <img className="brand-mark" src="/logo.svg" alt="" />
           Factory Studio
           <span className="brand-tagline">제조 현장의 올인원 시스템</span>
         </Link>
