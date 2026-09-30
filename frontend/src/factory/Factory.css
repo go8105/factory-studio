@@ -577,3 +577,42 @@
     margin: 0;
   }
 }
+
+.factory-truck-panel {
+  margin: 1rem 0;
+  min-width: 0;
+}
+.factory-truck-panel select {
+  max-width: 100%;
+}
+.factory-truck-panel p {
+  overflow-wrap: anywhere;
+}
+
+.factory-truck-panel {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem;
+}
+.factory-truck-panel h2,
+.factory-truck-panel p {
+  margin: 0;
+}
+.factory-truck-panel a {
+  color: var(--accent, #1f2d3d);
+  text-decoration: underline;
+}
+.factory-truck-panel select {
+  width: 100%;
+}
+@media (min-width: 1100px) {
+  .factory-workspace.has-truck {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 1rem;
+    align-items: start;
+  }
+  .factory-workspace.has-truck .factory-truck-panel {
+    margin: 0;
+  }
+}

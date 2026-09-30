@@ -2671,6 +2671,9 @@ def _wms(writer: SeedWriter) -> None:
             {**m, "document_id": doc_id, "line_no": n} for n, m in enumerate(moves, 1)
         ]
     writer.add("wms.stock_move", move_rows)
+    from seed.wms_extension import append_examples
+
+    append_examples(writer, houses, locations, wms_items)
 
 
 # ---------- BEMS (FS-025c) ----------

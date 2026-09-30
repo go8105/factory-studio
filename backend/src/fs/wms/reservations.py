@@ -145,7 +145,9 @@ def get_reservation(context, id):
         return _detail(c, read_scope(c, context, base.MODULE), id)
 
 
-def list_reservations(context, status=None, item_code=None, page=1, page_size=50):
+def list_reservations(
+    context, status=None, item_code=None, page=1, page_size=50, shortage_only=False
+):
     with base._read() as c:
         scoped = read_scope(c, context, base.MODULE)
         where = "r.workspace_id=:w AND r.generation_id=:g"
@@ -156,6 +158,21 @@ def list_reservations(context, status=None, item_code=None, page=1, page_size=50
         if item_code:
             where += " AND EXISTS (SELECT 1 FROM wms.stock_reservation_line l JOIN wms.item i ON i.workspace_id=l.workspace_id AND i.generation_id=l.generation_id AND i.id=l.item_id WHERE l.workspace_id=r.workspace_id AND l.generation_id=r.generation_id AND l.reservation_id=r.id AND i.item_code=:item)"
             params["item"] = item_code
+        balances = _balances(c, scoped)
+        shortage_ids = set()
+        for line in q(
+            c,
+            scoped,
+            "SELECT l.* FROM wms.stock_reservation_line l JOIN wms.stock_reservation r ON r.workspace_id=l.workspace_id AND r.generation_id=l.generation_id AND r.id=l.reservation_id WHERE l.workspace_id=:w AND l.generation_id=:g AND r.status='ACTIVE'",
+        ).mappings():
+            if (
+                Decimal(balances.get(_key(line), {}).get("reservationShortage", "0"))
+                > 0
+            ):
+                shortage_ids.add(line["reservation_id"])
+        if shortage_only:
+            where += " AND r.id=ANY(:shortage_ids)"
+            params["shortage_ids"] = sorted(shortage_ids)
         total = q(
             c,
             scoped,
@@ -175,6 +192,8 @@ def list_reservations(context, status=None, item_code=None, page=1, page_size=50
                 offset=(page - 1) * page_size,
             ).mappings()
         ]
+        for row in values:
+            row["shortage"] = "1" if row["id"] in shortage_ids else "0"
         return {"rows": values, "total": total, "page": page, "pageSize": page_size}
 
 
@@ -502,3 +521,44 @@ def guard_master(c, scoped, kind, id, all_history=False):
             "예약",
             count,
         )
+
+
+def shipment_preview(context, id, source_key):
+    """Read-only exact same match policy as consume; the mutation rechecks under lock."""
+    with base._read() as c:
+        scoped = read_scope(c, context, base.MODULE)
+        row = _header(c, scoped, id)
+        rec._state(row, {"ACTIVE"})
+        if base._document_by_source(c, scoped, source_key):
+            raise base._conflict(
+                "이미 반영된 출하입니다. 예약은 유지됩니다.", "SOURCE_ALREADY_POSTED"
+            )
+        sources = erp.confirmed_shipments(c, scoped)
+        if sources is None:
+            raise base._source_off("erp")
+        source = next(
+            (s for s in sources if "ERP:SHIPMENT:" + s["shipmentNo"] == source_key),
+            None,
+        )
+        if source is None:
+            raise base._not_found("확정 출하")
+        lines = _lines(c, scoped, id)
+        items = _match_shipment(c, scoped, row, lines, source)
+        balances = _balances(c, scoped)
+        warnings = []
+        for line in lines:
+            after = (
+                Decimal(balances.get(_key(line), {}).get("onHand", "0"))
+                - line["quantity"]
+            )
+            if after < 0:
+                item = items[line["item_id"]]
+                warnings.append(
+                    {
+                        "itemCode": item["item_code"],
+                        "lotNo": line["lot_no"],
+                        "after": str(after),
+                        "unit": item["base_unit"],
+                    }
+                )
+        return {"matches": True, "negativeWarnings": warnings}

@@ -1,6 +1,6 @@
 # WMS 모듈 설계 revision 3 — FS-026
 
-작성일: 2026-09-28. **전체 설계 승인 2026-09-28. FS-026a DB 완료, FS-026b1 입고 API 완료(전체 pytest755 통과). FS-026b2 예약 API 완료(전체 pytest777 통과). 신규 화면 미구현.** 결정서 D24~D32 및 Q1~Q6은 사용자의 “진행해줘”로 승인됐다.
+작성일: 2026-09-28. **전체 설계 승인 2026-09-28. FS-026a DB 완료, FS-026b1 입고 API 완료(전체 pytest755 통과). FS-026b2 예약 API 완료(전체 pytest777 통과). 신규 화면·트럭·시드 통합 구현/검증 중(2026-09-30 후속 전체 승인).** 결정서 D24~D32 및 Q1~Q6은 사용자의 “진행해줘”로 승인됐다.
 기준: [FS-024 revision 1](WMS_모듈설계_FS-024.md), [FS-026 결정](../../plan/WMS확장_입고검수예약_결정_FS-026.md). 기존 6테이블/원장을 재사용하며 이 문서는 차분이다. 상충하는 범위·가용·입고 취소 정책은 승인된 FS-026을 따른다. DB는 FS-026a, 입고 API는 FS-026b1로 확장한다. 예약 API/가용 조회 개편은 b2다.
 
 ## 1. 변경 범위와 불변식
@@ -209,7 +209,7 @@ ERP만 수정할 공개 조회 계약:
 - migration 제안 revision `fs026a_wms_receiving_reservation`, 현재 down_revision `fs025b_bems_module`. 구현 직전 head를 재확인하고 다른 head가 생겼으면 조율한다. FS-024/025 migration 수정 금지.
 - schema.json·DB설계서.xlsx·ERD·검증기 엔티티/정책/상태를 구현과 같은 작업에서 갱신한다. 이번 문서 단계에서는 실제 메타데이터와 산출물을 변경하지 않는다.
 - 기존 운영 전표/위치/LOT/시드는 유지. 위치는 NORMAL 기본값, 신규 테이블은 빈 상태. 과거 전표를 검수 건으로 소급 변경하지 않는다.
-- 새 템플릿에는 기존 5품목만 사용: R-Q01/F-Q01 격리 위치 각1개, 수동 PLANNED/ARRIVED/INSPECTED(95/3/2 KG 예시)/전량 부족/취소, 예약 ACTIVE/RELEASED/CONSUMED 예시. 기존 PI-0004/SH-0004 미반영 체험은 유지하고 이 원천을 사전 소진하지 않는다. 성공 소진 예시는 기존 다른 미반영 원천을 검증해 사용하거나 합성 ERP 원천을 해당 ERP 시드 소유 코드에서 추가한다. 알루미늄 품목 없음. 행 수는 생성 후 확정한다.
+- 새 템플릿에는 기존 5품목만 사용: R-Q01/F-Q01 격리 위치 각1개, 수동 PLANNED/ARRIVED/INSPECTED(95/3/2 KG 예시)/전량 부족/취소, 예약 ACTIVE/RELEASED/CONSUMED 예시. 기존 PI-0004/SH-0004 미반영 체험은 유지하고 이 원천을 사전 소진하지 않는다. 소진 예시는 새 템플릿 생성 시 기존 역사 ERP 출고 전표와 소진 예약을 연결해 추가 차감 없이 표현한다. 운영 전표를 변경하거나 미반영 SH-0004를 소진하지 않는다. 알루미늄 품목 없음. 행 수는 생성 후 확정한다.
 - 세대 복사: 부모 stock_document/마스터→notice→notice_line/source_claim→reservation→reservation_line 순으로 ID 매핑. 삭제는 역순, stock_document는 뒤에 삭제. 시간/expected_on·IN/RSV 번호 날짜를 기존 방식으로 이동하며 business_key는 불투명 업무 식별자로 보존하며 source_key/source_ref 내부 검수 번호를 함께 치환한다. 검수 source_key 내부 IN 번호 일치 필수. JSON snapshot confirmedAt은 표시용으로 동일 날짜 오프셋만 적용하며 digest는 그대로 복사한다(재계산 없음). 수량/단위 환산 값은 보존한다.
 - 세대 초기화 후 이전 ID로 조회/쓰기는 거부한다. 모듈 끄기는 데이터 삭제 아님. 새로운 module_key나 workspace_module 행은 필요 없다.
 
@@ -258,3 +258,7 @@ AC-111~124도 회귀 확인한다. 114는 무연결 출하에 적용, 118은 직
 - coalesce LOT 유니크 표현은 같은 의미의 부분 유니크 인덱스 두 개(NULL / NOT NULL)로 구현해 기존 메타데이터·DDL 검증기와 호환한다. 0/NULL 검수 혼합 차단과 차이 사유는 DB CHECK로도 강제한다. 위치/품목·원천 간 검증은 SERVICE 정책이며 후속 API 구현 대상이다.
 - 기존 전표 CHECK c620/c624의 허용 유형만 확장하고 기존 C/R 번호를 보존했다. 새 자료가 있는 downgrade는 오류로 중단하여 이력을 삭제하지 않는다.
 - 이번 단계는 전용 로컬 테스트 DB에서 검증한다. 공유 개발 DB·운영 DB는 변경하지 않았다. 신규 업무 시드는 API/화면 후속 작업에서 추가한다.
+
+## 13. 후속 화면 연계(2026-09-30 구현 중)
+
+입고 목록 expectedFrom/expectedTo, 예약 목록 shortageOnly, 재고 locationType 필터를 추가한다. GET /reservations/{id}/shipment-preview?sourceKey=...는 소진과 같은 대조 정책을 읽기 전용으로 실행하고 예상 음수를 반환한다. 쓰기 소진은 잠금 안에서 다시 검증한다. 기존 stock_document 상세에는 noticeId, 원장에는 locationType, dashboard에는 입고/검수 대기 건수와 부족 위치·LOT 건수를 제공한다. 새 테이블·마이그레이션은 필요하지 않다.

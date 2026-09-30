@@ -38,6 +38,7 @@ type Draft = {
   purpose: Purpose;
   isActive: boolean;
   isDefault: boolean;
+  locationType: "NORMAL" | "QUARANTINE";
 };
 const EMPTY: Draft = {
   code: "",
@@ -45,6 +46,7 @@ const EMPTY: Draft = {
   purpose: "RAW",
   isActive: true,
   isDefault: false,
+  locationType: "NORMAL",
 };
 
 export function Warehouses() {
@@ -109,6 +111,7 @@ export function Warehouses() {
         ? await send(`/locations/${panel.row.id}`, "PATCH", {
             name: draft.name,
             isActive: draft.isActive,
+            locationType: draft.locationType,
             ...(draft.isDefault && !panel.row.isDefault
               ? { isDefault: true }
               : {}),
@@ -117,6 +120,7 @@ export function Warehouses() {
             code: draft.code.trim().toUpperCase(),
             name: draft.name,
             isDefault: draft.isDefault,
+            locationType: draft.locationType,
           });
       if (saved) setPanel({ kind: "locations", warehouse: panel.warehouse });
     }
@@ -256,6 +260,7 @@ export function Warehouses() {
                       <tr>
                         <th scope="col">코드</th>
                         <th scope="col">이름</th>
+                        <th scope="col">유형</th>
                         <th scope="col">기본</th>
                         <th scope="col">사용</th>
                         <th scope="col">관리</th>
@@ -266,6 +271,9 @@ export function Warehouses() {
                         <tr key={l.id}>
                           <td>{l.code}</td>
                           <td>{l.name}</td>
+                          <td>
+                            {l.locationType === "QUARANTINE" ? "격리" : "정상"}
+                          </td>
                           <td>{l.isDefault ? <Badge>기본</Badge> : "—"}</td>
                           <td>{l.isActive ? "사용" : "사용 안 함"}</td>
                           <td>
@@ -286,6 +294,7 @@ export function Warehouses() {
                                       name: l.name,
                                       isActive: l.isActive,
                                       isDefault: l.isDefault,
+                                      locationType: l.locationType ?? "NORMAL",
                                     },
                                   )
                                 }
@@ -399,11 +408,35 @@ export function Warehouses() {
                 </div>
               )}
               {panel.kind === "location" && (
+                <label>
+                  위치 유형
+                  <select
+                    value={draft.locationType}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        locationType: e.target.value as "NORMAL" | "QUARANTINE",
+                        isDefault:
+                          e.target.value === "QUARANTINE"
+                            ? false
+                            : draft.isDefault,
+                      })
+                    }
+                  >
+                    <option value="NORMAL">정상</option>
+                    <option value="QUARANTINE">격리</option>
+                  </select>
+                </label>
+              )}
+              {panel.kind === "location" && (
                 <label className="inline-check">
                   <input
                     type="checkbox"
                     checked={draft.isDefault}
-                    disabled={!!panel.row?.isDefault}
+                    disabled={
+                      !!panel.row?.isDefault ||
+                      draft.locationType === "QUARANTINE"
+                    }
                     onChange={(e) =>
                       setDraft({ ...draft, isDefault: e.target.checked })
                     }

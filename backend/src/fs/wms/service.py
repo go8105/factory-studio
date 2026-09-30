@@ -1080,7 +1080,7 @@ WHERE d.workspace_id=:w AND d.generation_id=:g
 """
 MOVE_SQL = """
 SELECT m.id, m.document_id, m.line_no, m.item_id, i.item_code, i.name item_name, i.item_class, m.location_id,
-       l.code location_code, h.code warehouse_code, m.lot_no, m.qty_delta, i.base_unit unit,
+       l.code location_code, l.location_type, h.code warehouse_code, m.lot_no, m.qty_delta, i.base_unit unit,
        m.source_qty, m.source_unit, m.moved_at
 FROM wms.stock_move m
 JOIN wms.item i ON i.workspace_id=m.workspace_id AND i.generation_id=m.generation_id AND i.id=m.item_id
@@ -1109,6 +1109,10 @@ def _document(
     if row is None:
         return None
     doc = _row(row)
+    doc["noticeId"] = connection.execute(
+        text(f"SELECT id FROM wms.inbound_notice WHERE {_S} AND stock_document_id=:d"),
+        {**_s(scoped), "d": doc_id},
+    ).scalar_one_or_none()
     doc["moves"] = [
         _row(r)
         for r in connection.execute(
@@ -1525,6 +1529,14 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
                 {**_s(scoped), "month": month},
             ).mappings()
         ]
+        inbound_counts = dict(
+            connection.execute(
+                text(
+                    f"SELECT status,count(*) FROM wms.inbound_notice WHERE {_S} GROUP BY status"
+                ),
+                _s(scoped),
+            ).all()
+        )
         known = [v for v in pending_by_kind.values() if v is not None]
         return {
             "month": month,
@@ -1537,6 +1549,11 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
             "negativeCount": sum(1 for r in rows if r["negative"]),
             "pendingSources": sum(known) if known else None,
             "pendingByKind": pending_by_kind,
+            "inboundPlanned": inbound_counts.get("PLANNED", 0),
+            "inboundArrived": inbound_counts.get("ARRIVED", 0),
+            "shortageKeys": sum(
+                1 for r in rows if Decimal(r["reservationShortage"]) > 0
+            ),
             "items": sorted(items.values(), key=lambda e: e["itemCode"]),
             "flows": flows,
         }

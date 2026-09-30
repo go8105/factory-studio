@@ -184,7 +184,15 @@ def get_notice(context, id):
         return _detail(c, read_scope(c, context, base.MODULE), id)
 
 
-def list_notices(context, status=None, warehouse_id=None, page=1, page_size=50):
+def list_notices(
+    context,
+    status=None,
+    warehouse_id=None,
+    page=1,
+    page_size=50,
+    expected_from=None,
+    expected_to=None,
+):
     with base._read() as c:
         scoped = read_scope(c, context, base.MODULE)
         where = S
@@ -195,6 +203,15 @@ def list_notices(context, status=None, warehouse_id=None, page=1, page_size=50):
         if warehouse_id:
             where += " AND warehouse_id=:warehouse"
             params["warehouse"] = warehouse_id
+        if expected_from and expected_to and expected_from > expected_to:
+            _fail("expectedTo", "예정일 끝은 시작 이후여야 합니다.")
+        for key, value, op in [
+            ("expected_from", expected_from, ">="),
+            ("expected_to", expected_to, "<="),
+        ]:
+            if value:
+                where += f" AND expected_on {op} :{key}"
+                params[key] = value
         total = _query(
             c,
             scoped,

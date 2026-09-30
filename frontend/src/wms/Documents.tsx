@@ -2,7 +2,7 @@
 // 기초·조정·이동은 초안 → 확정. 원천 반영·되돌림 전표는 읽기만 한다. 확정 전표는 바꾸지 않는다(정정은 조정).
 // 이동은 한 줄 = 보낼 위치·받을 위치 한 쌍이며 서버가 −/+ 두 줄로 저장한다(합 0).
 import { useEffect, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../shared/api";
 import {
   Badge,
@@ -410,6 +410,11 @@ export function Documents() {
               <p className="muted">
                 업무일 {detail.documentOn}
                 {detail.sourceRef && ` · 원천 ${detail.sourceRef}`}
+                {detail.noticeId && (
+                  <Link to={`/wms/inbounds?open=${detail.noticeId}`}>
+                    입고 검수 상세
+                  </Link>
+                )}
                 {detail.reversesDocumentNo &&
                   ` · 되돌린 전표 ${detail.reversesDocumentNo}`}
                 {detail.reasonCode &&

@@ -1,3 +1,4 @@
+import Truck from "./Truck";
 import CncCell from "./CncCell";
 import type { CncState } from "./cnc";
 import type { Scenario } from "./scenarios";
@@ -307,6 +308,7 @@ function Worker({ animated }: { animated: boolean }) {
   );
 }
 export type SceneProps = {
+  truckProgress?: number | null;
   cnc: CncState;
   focusIndex: number;
   scenario: Scenario;
@@ -327,6 +329,7 @@ export type SceneProps = {
   onSelect: (i: number) => void;
 };
 export default function Scene({
+  truckProgress = null,
   cnc,
   focusIndex,
   scenario,
@@ -423,6 +426,7 @@ export default function Scene({
       <hemisphereLight args={["#e8f0f4", "#a2aaa2", 0.7]} />
       <Box at={[0, -0.25, 0]} size={[23, 0.5, 15]} color={colors.floor} />
       <FactoryFloor />
+      {exterior && truckProgress !== null && <Truck progress={truckProgress} />}
       <Building
         exterior={exterior}
         walking={walking || immersive}

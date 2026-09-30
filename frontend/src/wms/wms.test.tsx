@@ -270,7 +270,7 @@ it("W-02는 음수·LOT 미지정을 문구로 표시하고 ERP 꺼짐이면 가
   expect(within(table).getByText("(미지정)")).toBeVisible();
   expect(screen.getByText(/ERP 수요 참고 없음/)).toBeVisible();
   expect(screen.getByText(/예약 가능 -3,882/)).toBeVisible();
-  expect(within(table).getByText("예약 부족")).toBeVisible();
+  expect(within(table).getByText(/예약 부족 3,882/)).toBeVisible();
 });
 
 it("W-04 이동 전표는 보낼·받을 위치 쌍으로 보내고 줄 오류를 줄 아래에 보인다", async () => {

@@ -31,6 +31,7 @@ type Filters = {
   lotNo: string;
   negativeOnly: boolean;
   unassignedOnly: boolean;
+  locationType: string;
 };
 
 export function Stock() {
@@ -42,6 +43,7 @@ export function Stock() {
     lotNo: params.get("lotNo") ?? "",
     negativeOnly: params.get("negativeOnly") === "1",
     unassignedOnly: false,
+    locationType: "",
   };
   const [draft, setDraft] = useState<Filters>(initial);
   const [applied, setApplied] = useState<Filters>(initial);
@@ -55,6 +57,7 @@ export function Stock() {
   useEffect(() => {
     const controller = new AbortController();
     const query = new URLSearchParams();
+    if (applied.locationType) query.set("locationType", applied.locationType);
     if (applied.warehouseId) query.set("warehouseId", applied.warehouseId);
     if (applied.itemCode) query.set("itemCode", applied.itemCode);
     if (applied.lotNo) query.set("lotNo", applied.lotNo.trim());
@@ -96,7 +99,12 @@ export function Stock() {
       render: (r) => num(r.quarantinedOnHand),
     },
     { key: "reservedQty", label: "예약", render: (r) => num(r.reservedQty) },
-    { key: "available", label: "예약 가능", render: (r) => num(r.available) },
+    {
+      key: "available",
+      label: "예약 가능",
+      render: (r) =>
+        r.locationType === "QUARANTINE" ? "대상 제외" : num(r.available),
+    },
     { key: "unit", label: "단위" },
     {
       key: "negative",
@@ -160,6 +168,19 @@ export function Stock() {
                 {i.itemCode} {i.name}
               </option>
             ))}
+          </select>
+        </label>
+        <label>
+          위치 유형
+          <select
+            value={draft.locationType}
+            onChange={(e) =>
+              setDraft({ ...draft, locationType: e.target.value })
+            }
+          >
+            <option value="">전체</option>
+            <option value="NORMAL">정상</option>
+            <option value="QUARANTINE">격리</option>
           </select>
         </label>
         <label>

@@ -42,6 +42,7 @@ def rows(c, scoped, filters=None):
         ("itemCode", "i.item_code"),
         ("warehouseId", "h.id"),
         ("locationId", "l.id"),
+        ("locationType", "l.location_type"),
         ("lotNo", "b.lot_no"),
     ]:
         if filters.get(key) is not None:

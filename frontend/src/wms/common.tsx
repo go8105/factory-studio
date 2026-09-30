@@ -23,6 +23,7 @@ export type Location = {
   isDefault: boolean;
   isActive: boolean;
   moveCount: number;
+  locationType: "NORMAL" | "QUARANTINE";
 };
 export type Conversion = { id: number; fromUnit: string; factor: string };
 export type Item = {
@@ -51,6 +52,7 @@ export type StockRow = StockQuantities & {
   unit: string;
   locationId: number;
   locationCode: string;
+  locationType: "NORMAL" | "QUARANTINE";
   warehouseId: number;
   warehouseCode: string;
   lotNo: string | null;
@@ -78,6 +80,7 @@ export type Move = {
   itemClass: Purpose;
   locationId: number;
   locationCode: string;
+  locationType?: "NORMAL" | "QUARANTINE";
   warehouseCode: string;
   lotNo: string | null;
   qtyDelta: string;
@@ -97,6 +100,7 @@ export type StockDocument = {
   status: "draft" | "posted";
   sourceKey: string | null;
   sourceRef: string | null;
+  noticeId?: number | null;
   reversesDocumentId: number | null;
   reversesDocumentNo: string | null;
   reasonCode: Reason | null;
@@ -129,6 +133,7 @@ export type SourceLine = {
 export type Source = {
   sourceKey: string;
   sourceRef: string;
+  noticeId?: number;
   occurredAt: string;
   cancelledAt?: string | null;
   lines: SourceLine[];
@@ -201,7 +206,9 @@ export function StockBadges({ row }: { row: StockRow }) {
     <>
       {row.negative && <Badge tone="issue">음수</Badge>}
       {Number(row.reservationShortage) > 0 && (
-        <Badge tone="issue">예약 부족</Badge>
+        <Badge tone="issue">
+          예약 부족 {num(row.reservationShortage)} {row.unit}
+        </Badge>
       )}{" "}
       {row.lotUnassigned && <Badge tone="warning">LOT 미지정</Badge>}
     </>

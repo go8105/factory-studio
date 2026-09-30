@@ -100,6 +100,11 @@ def _setup(client, created, conversion=True) -> dict:
 
 
 WMS_TABLES = (
+    "stock_reservation_line",
+    "stock_reservation",
+    "source_claim",
+    "inbound_notice_line",
+    "inbound_notice",
     "stock_move",
     "stock_document",
     "item_unit_conversion",
@@ -638,7 +643,7 @@ def test_seed_demo_flow(guest_space):
     )
     assert _stock(client, negativeOnly="true") == []
     docs = _ok(client.get(f"{W}/documents"))
-    assert len(docs) == 40 and all(
+    assert len(docs) == 41 and all(
         d["documentNo"][3:11] == d["documentOn"].replace("-", "")
         and d["documentMonth"] == d["documentOn"][:7]
         for d in docs

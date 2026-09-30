@@ -553,3 +553,60 @@ def test_copy_reservation_states_dates_and_consumed_document(receiving_env):
             {"w": w, "g": g, "id": consumed["stock_document_id"]},
         ).scalar_one()
         assert key == src["sourceKey"] == consumed["shipment_source_key"]
+
+
+def test_shipment_preview_is_readonly_and_matches_consume(receiving_env):
+    env = receiving_env
+    r, src = shipment_reservation(env)
+    params = {"sourceKey": src["sourceKey"]}
+    preview = _ok(
+        env[0].get(f"{W}/reservations/{r['id']}/shipment-preview", params=params)
+    )
+    assert preview == {"matches": True, "negativeWarnings": []}
+    assert _ok(env[0].get(f"{W}/reservations/{r['id']}"))["status"] == "ACTIVE"
+    _ok(action(env, r, "consume-shipment", **params))
+    assert (
+        env[0]
+        .get(f"{W}/reservations/{r['id']}/shipment-preview", params=params)
+        .status_code
+        == 409
+    )
+
+
+def test_notice_date_and_reservation_shortage_filters(receiving_env):
+    env = receiving_env
+    n = raw_stock(env)
+    assert (
+        _ok(
+            env[0].get(
+                W + "/inbound-notices",
+                params={"expectedFrom": n["expectedOn"], "expectedTo": n["expectedOn"]},
+            )
+        )["total"]
+        == 1
+    )
+    assert (
+        _ok(env[0].get(W + "/inbound-notices", params={"expectedFrom": "2099-01-01"}))[
+            "total"
+        ]
+        == 0
+    )
+    assert (
+        env[0]
+        .get(
+            W + "/inbound-notices",
+            params={"expectedFrom": "2099-01-01", "expectedTo": "2000-01-01"},
+        )
+        .status_code
+        == 400
+    )
+    r = _ok(reserve(env), 201)
+    assert (
+        _ok(env[0].get(W + "/reservations", params={"shortageOnly": True}))["total"]
+        == 0
+    )
+    post(env, "-70")
+    page = _ok(env[0].get(W + "/reservations", params={"shortageOnly": True}))
+    assert page["total"] == 1 and page["rows"][0]["id"] == r["id"]
+    held = stock(env, locationType="QUARANTINE")["rows"]
+    assert len(held) == 1 and held[0]["quarantinedOnHand"] == "3.000"

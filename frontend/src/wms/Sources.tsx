@@ -111,7 +111,9 @@ export function Sources() {
       key: "sourceKey",
       label: "관리",
       render: (r) =>
-        ACTIONABLE.has(r.state) ? (
+        r.noticeId ? (
+          <Link to={`/wms/inbounds?open=${r.noticeId}`}>입고 검수 상세</Link>
+        ) : ACTIONABLE.has(r.state) ? (
           <button
             type="button"
             className="link-button"

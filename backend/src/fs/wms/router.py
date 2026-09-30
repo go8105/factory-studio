@@ -245,6 +245,9 @@ def get_stock(
     warehouse_id: Annotated[int | None, Query(alias="warehouseId")] = None,
     lot_no: Annotated[str | None, Query(alias="lotNo", max_length=50)] = None,
     location_id: Annotated[int | None, Query(alias="locationId", gt=0)] = None,
+    location_type: Annotated[
+        Literal["NORMAL", "QUARANTINE"] | None, Query(alias="locationType")
+    ] = None,
     negative_only: Annotated[bool, Query(alias="negativeOnly")] = False,
     unassigned_only: Annotated[bool, Query(alias="unassignedOnly")] = False,
 ):
@@ -256,6 +259,7 @@ def get_stock(
                 "warehouseId": warehouse_id,
                 "lotNo": lot_no,
                 "locationId": location_id,
+                "locationType": location_type,
                 "negativeOnly": negative_only,
                 "unassignedOnly": unassigned_only,
             },
@@ -384,8 +388,14 @@ def list_inbound_notices(
     warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+    expected_from: Annotated[date | None, Query(alias="expectedFrom")] = None,
+    expected_to: Annotated[date | None, Query(alias="expectedTo")] = None,
 ):
-    return _data(receiving.list_notices(context, status, warehouse_id, page, page_size))
+    return _data(
+        receiving.list_notices(
+            context, status, warehouse_id, page, page_size, expected_from, expected_to
+        )
+    )
 
 
 @router.get("/inbound-notices/{row_id}")
@@ -523,9 +533,12 @@ def list_reservations(
     item_code: Annotated[str | None, Query(alias="itemCode", max_length=40)] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+    shortage_only: Annotated[bool, Query(alias="shortageOnly")] = False,
 ):
     return _data(
-        reservations.list_reservations(context, status, item_code, page, page_size)
+        reservations.list_reservations(
+            context, status, item_code, page, page_size, shortage_only
+        )
     )
 
 
@@ -587,3 +600,14 @@ def consume_reservation(
 @router.get("/reservation-sources")
 def reservation_sources(context: Auth):
     return _data(reservations.sources(context))
+
+
+@router.get("/reservations/{row_id}/shipment-preview")
+def reservation_preview(
+    row_id: int,
+    context: Auth,
+    source_key: Annotated[
+        str, Query(alias="sourceKey", pattern=r"^ERP:SHIPMENT:.+$", max_length=100)
+    ],
+):
+    return _data(reservations.shipment_preview(context, row_id, source_key))

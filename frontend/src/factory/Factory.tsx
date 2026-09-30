@@ -1,3 +1,4 @@
+import TruckPanel from "./TruckPanel";
 import CncPanel from "./CncPanel";
 import { useCnc } from "./useCnc";
 import VisionExplanation from "./VisionExplanation";
@@ -15,7 +16,7 @@ import {
 } from "react";
 import { Canvas } from "@react-three/fiber";
 import { PCFShadowMap } from "three";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   START,
   OFFICE_START,
@@ -66,6 +67,9 @@ const keyMap: Record<string, Direction> = {
   ArrowRight: "right",
 };
 export default function Factory() {
+  const [truckParams] = useSearchParams();
+  const [truckOpen, setTruckOpen] = useState(!!truckParams.get("inbound"));
+  const [truckProgress, setTruckProgress] = useState<number | null>(null);
   const [immersive, setImmersive] = useState(false);
   const [target, setTarget] = useState<number | null>(null);
   const [inspect, setInspect] = useState(0);
@@ -292,8 +296,19 @@ export default function Factory() {
             ? "노란 조끼가 나입니다. 화면을 선택한 뒤 WASD·방향키 또는 이동 버튼으로 걸어보세요. 계단으로 2층 이동 · Esc 조감도"
             : "마우스로 드래그하여 회전 · 휠로 확대 / 축소 · 터치로 회전 · 설비를 선택하면 공정 설명"}
       </p>
+      {!immersive && (
+        <button
+          className="secondary"
+          onClick={() => {
+            setTruckOpen((v) => !v);
+            setExterior(true);
+          }}
+        >
+          트럭 입고 패널 {truckOpen ? "닫기" : "열기"}
+        </button>
+      )}
       <div
-        className={`factory-view factory-workspace${selected === 0 ? " has-cnc" : ""}${immersive && selected !== null ? " has-inspector" : ""}`}
+        className={`factory-view factory-workspace${truckOpen && !immersive ? " has-truck" : ""}${selected === 0 ? " has-cnc" : ""}${immersive && selected !== null ? " has-inspector" : ""}`}
       >
         <div
           ref={stage}
@@ -366,6 +381,7 @@ export default function Factory() {
               >
                 <Suspense fallback={null}>
                   <Scene
+                    truckProgress={truckProgress}
                     cnc={cnc}
                     focusIndex={selected === 0 ? 0 : 1}
                     immersive={immersive}
@@ -456,6 +472,14 @@ export default function Factory() {
             </div>
           )}
         </div>
+        {truckOpen && !immersive && (
+          <TruckPanel
+            enabled={
+              ready && !sceneFailed && !contextLost && exterior && animated
+            }
+            onProgress={setTruckProgress}
+          />
+        )}
         {selected === 0 && (
           <CncPanel
             state={cnc}

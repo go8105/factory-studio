@@ -17,6 +17,9 @@ import {
 type DashboardData = {
   month: string;
   rawItems: number;
+  inboundPlanned: number;
+  inboundArrived: number;
+  shortageKeys: number;
   fgLots: number;
   negativeCount: number;
   pendingSources: number | null;
@@ -107,6 +110,19 @@ export function Dashboard() {
           </label>
         }
       />
+      {data && (
+        <div className="filter-bar">
+          <Link to="/wms/inbounds?status=PLANNED">
+            입고 대기 {data.inboundPlanned ?? 0}건
+          </Link>
+          <Link to="/wms/inbounds?status=ARRIVED">
+            검수 대기 {data.inboundArrived ?? 0}건
+          </Link>
+          <Link to="/wms/reservations?shortageOnly=true">
+            예약 부족 {data.shortageKeys ?? 0}개 위치·LOT
+          </Link>
+        </div>
+      )}
       <ErrorNotice error={error} retry={() => setReload((n) => n + 1)} />
       {!data ? (
         !error && <Loading delay={300} />
