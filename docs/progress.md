@@ -8,6 +8,12 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-09-30 FS-028 SPC 모듈·화면 설계 초안 (Claude Code)
+- 결정서 D37~D44 사용자 승인(제안대로) → 상태 "확정". QMS 화면 번호 정정(검사 대기 Q-03·검사 Q-04).
+- `docs/modules/spc/SPC_모듈설계_FS-028.md`: spc 5테이블(characteristic·control_limit·subgroup·measurement·signal), 규칙(순서 강제·버전별 연속 판정·무효 처리), 계산(decimal, n=5 상수표), TX-S1~S4, MES `operation_runs` 추가·SPC `open_signal_lot_nos` 신규, API, 시드 약 2,350행(LT-0017 FG-C200 INJ-02 미조치 2건), AC-170~184, 결정 5건.
+- `docs/ui/화면설계_SPC_FS-028.md`: S-01~07, QMS Q-03·Q-04 배지, 홈 분야별 묶음(운영만 타일·빈 묶음 숨김·"앞으로 만들 것" 링크), 흐름 맵 18·21, 검증 계획. `docs/modules/spc/README.md`.
+- 코드·DB 변경 없음. 다음: 전체 설계 확인 → FS-028a(DB, FS-026a 병합 여부에 따라 버전).
+
 ## 2026-09-30 FS-028 SPC 결정서 초안 (Claude Code)
 - 로드맵 ROADMAP-01 확정(사용자: 제안대로) — §6 여섯 문항 "확정"으로 표기, SPC 상태 "설계 중".
 - `docs/plan/SPC도입_관리도_결정_FS-028.md`: D37 범위(X̄-R·한계 게시·이상 판정·조치·Cp/Cpk, 접두어 S) · D38 측정값 SPC 소유 · D39 부분군 n=5·6시간(LOT당 1개면 점 8개라 불성립) · D40 처음 20 부분군 한계, 재산정은 새 버전 · D41 규칙 1~3 · D42 발생→조치 완료, 부분군 무효 처리 · D43 Cp/Cpk 조회 시 계산 · D44 QMS "SPC 이상" 배지만.
