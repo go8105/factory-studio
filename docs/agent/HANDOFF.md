@@ -4,7 +4,7 @@
 
 ## 지금 상태 (2026-09-30)
 
-- **운영** https://eip.hugh-d.com — main `06c4ab5`(백엔드는 `efac0f7`부터 FS-027 반영), head `fs025b_bems_module`, 템플릿 11,910행(`sv-20260928-1`). 여섯 솔루션(MES·ERP·FEMS·QMS·WMS·BEMS) + 포털 + 3D 공장 모두 운영.
+- **운영** https://eip.hugh-d.com — **main `815ba94`(2026-09-30 배포, 백엔드·프런트 같은 커밋)**, head `fs026a_wms_receiving_reservation`(fs028a·fs028b SPC DB 포함, SPC 화면은 아직 없음), 템플릿 11,933행(workspace 37). 여섯 솔루션 + WMS 확장(W-08·W-09·3D 트럭) + 포털 + 3D 공장. 배포 확인: 게스트 201(3.1초), wms dashboard·inbound-notices 5·reservations 3·stock·bems·qms 200, https 200, API 5xx 0.
 - **최근 완료**: FS-025 BEMS(API·화면·시드) · DOC-03/04 참고 문서 4구역(설계 8·따라하기 3·개념 19) · MAP-02 P-03 보기 3종 · 홈 제목 "제조 현장의 올인원 시스템" · FS-027 게스트 별칭 필수·P-07 "게스트 접속"(별칭 90일) · UI-04 앱 안 링크 이동 미저장 보호 · 새 로고·파비콘.
 - **마지막 전체 검증**: pytest 727 passed · 1 skipped, vitest 492, 전체 스모크 231 passed(+재실행 167), db:validate·격리 R1~R6 0.
 - **FS-026 WMS 확장 main 병합(2026-09-30, Claude)**: Codex `codex/vision-ai` `f65044b`(입고 예정·도착·검수 W-08, 예약·소진 W-09, 3D 트럭 도착, 시드 +22, 도움말)을 main에 병합. 순서 FS-028a(SPC) → FS-026a: schema **v0.14.0 / 103테이블**, 마이그레이션 `fs026a_wms_receiving_reservation`의 down_revision을 `fs028b_spc_module`로 옮김(제약 이름은 분기 때 번호 그대로 — DDL 대조는 구조 비교). 템플릿 11,933(WMS +22, spc 모듈 행 +1), 복사 11,931. `wms-extension.spec.ts`에 FS-027 별칭 입력 추가.

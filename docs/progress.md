@@ -10,7 +10,8 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
-## 2026-09-30 FS-026 main 병합 (Claude Code)
+## 2026-09-30 FS-026 main 병합 · 운영 배포 (Claude Code)
+- **운영 반영**: push `5b37741..815ba94` → 서버 pull·uv sync·alembic `fs025b_bems_module → fs026a_wms_receiving_reservation`·API 재시작·템플릿 11,933(workspace 37) → 프런트 같은 커밋 빌드·rsync. 확인: 게스트 201, WMS·BEMS·QMS API 200, https 200, 5xx 0.
 - Codex `codex/vision-ai` `f65044b`(FS-026a DB·b1 입고·b2 예약/소진·W-08/W-09·3D 트럭·시드 +22·도움말)를 main(FS-028a 포함)에 병합.
 - 충돌 해결: `schema.json`은 main(SPC) 위에 `tools/apply_fs026a.py`를 다시 적용 → **v0.14.0 / 103테이블 · FK 236**(apply 도구의 버전을 0.14.0으로). `validate_db_design` 작업 집합에 FS-026a·FS-028a 모두, `LATER_THAN_028A` 추가. 마이그레이션 체인 `fs025b → fs028a_spc → fs028b_spc_module → fs026a`(Codex 파일의 down_revision만 변경). 시드 합계 템플릿 11,933·복사 11,931. Excel·ERD·검증 보고서 재생성. 현황 문서는 main(172줄) 기준에 FS-026 완료 반영.
 - 병합 영향 수정: `e2e/wms-extension.spec.ts` 진입에 FS-027 별칭 입력(Codex 분기가 FS-027 이전), `test_fs028a`는 현재 작업 ID 기준 inventory.
