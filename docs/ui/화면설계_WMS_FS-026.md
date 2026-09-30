@@ -1,6 +1,6 @@
 # WMS 화면 설계 revision 2 — FS-026
 
-작성일: 2026-09-28. **전체 설계 승인 2026-09-28 / 제품 화면 구현, 최종 통합 검증 중(2026-09-30).**
+작성일: 2026-09-28. **전체 설계 승인 2026-09-28 / 제품 화면 구현·최종 통합 검증 완료(2026-09-30).**
 전제: [승인 결정](../plan/WMS확장_입고검수예약_결정_FS-026.md), [모듈 revision 3](../modules/wms/WMS_모듈설계_FS-026.md), [기존 W-01~07](화면설계_WMS_FS-024.md).
 UI-02/03의 D·L·P·W 패턴과 PageTitle/DataTable/FormPanel/DetailPanel/Badge/EmptyState/useDiscardGuard를 재사용한다. 별도 UI 체계를 만들지 않는다.
 

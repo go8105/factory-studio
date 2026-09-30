@@ -1,6 +1,6 @@
 # FS-026 후속 통합 — 입고·예약 화면, 3D 트럭, 체험 시드와 도움말
 
-2026-09-30. **구현 후 최종 통합 검증 중.** 브랜치 `codex/vision-ai`, b2 기준 `9c66cf1`, 후속 구현 `cd41b04`. 사용자는 b2 후 “바로 3D 트럭 연결, 시드·도움말·통합 검증까지”를 승인했다. 중간 확인 대기 없이 후속 전체를 진행하며 push와 운영 배포는 제외한다.
+2026-09-30. **구현 및 최종 통합 검증 완료.** 브랜치 `codex/vision-ai`, b2 기준 `9c66cf1`, 후속 구현 `cd41b04`, 연속 조작 보완 `0ad25ee`. 사용자는 b2 후 “바로 3D 트럭 연결, 시드·도움말·통합 검증까지”를 승인했다. 중간 확인 대기 없이 후속 전체를 진행하며 push와 운영 배포는 제외한다.
 
 ## 사용 흐름
 
@@ -20,8 +20,8 @@
 
 ## 검증 기록
 
-- b2까지 전체 backend777 통과. 후속 관련 backend76 통과, 이후 preview/filter 포함 예약24 통과. 후속 전체 backend는 별도 깨끗한 DB에서 실행 중이며 아직 성공으로 표시하지 않는다.
-- 프런트 전체491/57파일 통과. 타입 검사/빌드, 전체 ESLint·Prettier 통과. CI ruff check/format139파일, R1~R6 격리 감사98테이블/225FK 오류0, db:validate0. tools58 및 subtests13 통과.
+- b2까지 전체 backend777 통과. 후속 관련 backend76 통과, 이후 preview/filter 포함 예약24 통과. 후속 최종 전체 backend는 별도 깨끗한 DB에서 **779 passed, 2 warnings / 23분39초**. 경고는 기존 Starlette/httpx·AnyIO API 폐기 예정 안내다.
+- 프런트 최종 전체491/57파일 통과(maxWorkers=2, 36.67초). 타입 검사/빌드, 전체 ESLint·Prettier 통과. CI ruff check/format139파일, R1~R6 격리 감사98테이블/225FK 오류0, db:validate0. tools58 및 subtests13 통과.
 - 실제 API 브라우저: 트럭 도착 시 원장0/새로고침/95·3·2 검수, 예약 부족 입력 보존·해제, 전량 출하 소진+sync 중복방지, ERP off·모바일 도움말, 기존 WMS3개 회귀 포함 **10개 모두 통과(1.2분)**. 매입 연결 직후 도착·검수 연속 조작도 통과했다.
 - 브라우저 검증에서 매입 연결 직후 도착 처리 시 상세 재조회 전 이전 버전을 사용할 수 있는 문제를 발견했다. W-08/09는 저장 응답을 즉시 상세 상태로 반영하고 목록/상세를 재조회하도록 수정했다. 미저장 보호 테스트는 확인창 종료 후 차량 입력란에 포커스를 두고 Escape를 입력한다.
 - 전체 프런트 기본 병렬 실행에서 기존 ERP 단가 테스트 1개가 일시 실패했다. 제품 코드 변경 없이 maxWorkers=2로 재실행하고, 최종 UI 수정 후에도 전체491개를 다시 통과했다. 최초 등록 테스트의 기본 창고/선택자 문제를 보정했다. 반복 생성으로 전용 DB의 게스트20개 한도에 도달해 로컬 검증 서버만 GUEST_LIMIT=200으로 재시작했다. 제품 기본20 및 운영 설정 변경 없음.
@@ -51,4 +51,6 @@
 5. 전체 검증: `backend/.venv/bin/pytest backend/tests -q --tb=short`, `backend/.venv/bin/pytest tools -q`, CI ruff에 `--config backend/pyproject.toml` 명시, `python3 tools/audit_schema_isolation.py`, `npm run db:validate`, frontend typecheck/test/build.
 6. 사용자가 배포할 때 백엔드·프런트를 함께 반영한다. 이번 후속에는 새 migration이 없지만 FS-026a head가 선행되어야 한다. 새 체험 예시는 새 템플릿 생성 후 새 게스트/초기화에서 사용하며 기존 기록에 소급 추가하지 않는다.
 
-운영 배포와 push는 실행하지 않았다. 최종 체크아웃·커밋·테스트 결과는 아래 최종 갱신 및 HANDOFF를 따른다.
+운영 배포와 push는 실행하지 않았다. 구현 커밋은 cd41b04와 0ad25ee이며 최종 문서 커밋은 git log -1로 확인한다. 검증용 API/Vite 서버를 종료했다. 이번 승인 범위에 남은 개발 작업은 없다. 사용자 운영 반영은 별도다.
+
+빌드는 통과했으며 기존 번들 500kB 초과 경고가 남는다. Chromium 3D에서 THREE.Clock 폐기 예정 경고가 있으나 시연은 통과했다. Safari·실차·실장비·운영 부하는 검증하지 않았다.
