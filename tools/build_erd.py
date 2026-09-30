@@ -5,7 +5,7 @@
 import json,html,hashlib
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];p=ROOT/'docs/db/schema-metadata/schema.json';d=json.loads(p.read_text());out=ROOT/'docs/architecture/erd';out.mkdir(parents=True,exist_ok=True)
-mods={'core':'CORE 인증·공간·운영','mes':'MES 생산','erp':'ERP 판매·출하·회계','fems':'FEMS 에너지','qms':'QMS 품질','wms':'WMS 창고','bems':'BEMS 건물'}
+mods={'core':'CORE 인증·공간·운영','mes':'MES 생산','erp':'ERP 판매·출하·회계','fems':'FEMS 에너지','qms':'QMS 품질','wms':'WMS 창고','bems':'BEMS 건물','spc':'SPC 공정관리'}
 ts={t['name']:t for t in d['tables']}
 def ident(n):return n.replace('.','_')
 def mermaid(mod):

@@ -11,13 +11,15 @@ DESIGN = ROOT/'docs/db/스키마_재구성_FS-014.md'
 
 
 # 작업 ID별 기준 엔티티 목록. 뒤 작업은 앞 작업의 목록을 이어받는다.
-LATER_THAN_014B = {'FS-014b', 'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a', 'FS-025a'}
-LATER_THAN_008B = {'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a', 'FS-025a'}
-LATER_THAN_023A = {'FS-023a', 'FS-024a', 'FS-025a'}
-LATER_THAN_024A = {'FS-024a', 'FS-025a'}
+LATER_THAN_014B = {'FS-014b', 'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a', 'FS-025a', 'FS-028a'}
+LATER_THAN_008B = {'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a', 'FS-025a', 'FS-028a'}
+LATER_THAN_023A = {'FS-023a', 'FS-024a', 'FS-025a', 'FS-028a'}
+LATER_THAN_024A = {'FS-024a', 'FS-025a', 'FS-028a'}
+LATER_THAN_025A = {'FS-025a', 'FS-028a'}
 QMS_DESIGN = ROOT/'docs/modules/qms/QMS_모듈설계_FS-023.md'
 WMS_DESIGN = ROOT/'docs/modules/wms/WMS_모듈설계_FS-024.md'
 BEMS_DESIGN = ROOT/'docs/modules/bems/BEMS_모듈설계_FS-025.md'
+SPC_DESIGN = ROOT/'docs/modules/spc/SPC_모듈설계_FS-028.md'
 
 
 def design_names(task='FS-014'):
@@ -31,8 +33,10 @@ def design_names(task='FS-014'):
         names |= set(re.findall(r'^\| `(qms\.[a-z_]+)` \|', QMS_DESIGN.read_text(encoding='utf-8'), re.M))
     if task in LATER_THAN_024A:
         names |= set(re.findall(r'^\| `(wms\.[a-z_]+)` \|', WMS_DESIGN.read_text(encoding='utf-8'), re.M))
-    if task == 'FS-025a':
+    if task in LATER_THAN_025A:
         names |= set(re.findall(r'^\| `(bems\.[a-z_]+)` \|', BEMS_DESIGN.read_text(encoding='utf-8'), re.M))
+    if task == 'FS-028a':
+        names |= set(re.findall(r'^\| `(spc\.[a-z_]+)` \|', SPC_DESIGN.read_text(encoding='utf-8'), re.M))
     return names
 
 
@@ -100,16 +104,38 @@ def validate(d, expected=None, isolation=True):
         for name, column in obsolete.items():
             require(column not in columns.get(name, {}), f'{name}: obsolete column {column}')
             require(not any(c['table'] == name and re.search(r'\b'+column+r'\b', json.dumps(c, ensure_ascii=False)) for c in d['constraints']), f'{name}: stale rule referring to {column}')
-    if d.get('task') in LATER_THAN_014B or d.get('version') in {'0.8.0', '0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0'}:
+    if d.get('task') in LATER_THAN_014B or d.get('version') in {'0.8.0', '0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0', '0.13.0'}:
         errors.extend(validate_accounting(d))
-    if d.get('task') in LATER_THAN_008B or d.get('version') in {'0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0'}:
+    if d.get('task') in LATER_THAN_008B or d.get('version') in {'0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0', '0.13.0'}:
         errors.extend(validate_screen_gaps(d))
     if d.get('task') in LATER_THAN_023A:
         errors.extend(validate_qms(d))
     if d.get('task') in LATER_THAN_024A:
         errors.extend(validate_wms(d))
-    if d.get('task') == 'FS-025a':
+    if d.get('task') in LATER_THAN_025A:
         errors.extend(validate_bems(d))
+    if d.get('task') == 'FS-028a':
+        errors.extend(validate_spc(d))
+    return errors
+
+
+def validate_spc(d):
+    """FS-028 설계 계약: 교차 스키마 FK 없음·측정값은 SPC 소유(MES 측정 테이블 없음)·부분군 크기 5·기록 멱등·이상 1건·모듈 키."""
+    errors = []
+    cs, ts = d['constraints'], {t['name']: {c['name']: c for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('FS-028: ' + message)
+    def unique(table, columns):
+        return any(c['table'] == table and c['kind'] == 'UK' and c['columns'] == SCOPE + columns for c in cs)
+    require(unique('spc.subgroup', ['characteristic_id', 'lot_no', 'measured_at']), 'one subgroup per characteristic, lot and time')
+    require(unique('spc.measurement', ['subgroup_id', 'seq']), 'one value per subgroup position')
+    require(unique('spc.signal', ['subgroup_id', 'chart', 'rule']), 'one signal per subgroup, chart and rule')
+    require(unique('spc.control_limit', ['characteristic_id', 'version']), 'one limit per characteristic version')
+    require(any(c['table'] == 'spc.characteristic' and c['kind'] == 'CHECK' and c['expression'] == 'subgroup_size = 5' for c in cs), 'subgroup size fixed to 5 (13장 1)')
+    require(not any(n.startswith('mes.') and 'measure' in n for n in ts), 'measurements are owned by SPC, not MES (D38)')
+    require(not any(r['source'].startswith('spc.') and r['target'].split('.')[0] not in {'spc', 'core'} for r in d['relations']), 'no FK from spc to other business schemas')
+    require(any(c['table'] == 'core.workspace_module' and c['kind'] == 'CHECK' and "'spc'" in c['expression'] for c in cs), 'module key spc')
     return errors
 
 

@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BUSINESS = {'mes', 'erp', 'fems', 'qms', 'wms', 'bems'}
+BUSINESS = {'mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc'}
 ANCHORS = {'core.workspace', 'core.data_generation'}
 # bems는 FS-025 D18로 R4에서 해제됐다(구현 솔루션).
 FORBIDDEN = {'learning', 'process_map'}

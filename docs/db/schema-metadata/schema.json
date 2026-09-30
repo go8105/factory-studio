@@ -1,9 +1,9 @@
 {
-  "version": "0.12.0",
-  "task": "FS-025a",
-  "date": "2026-09-28",
+  "version": "0.13.0",
+  "task": "FS-028a",
+  "date": "2026-09-30",
   "status": "설계 초안 / DB 미적용",
-  "migration_revision": "fs025a_bems",
+  "migration_revision": "fs028a_spc",
   "tables": [
     {
       "name": "core.app_user",
@@ -8717,6 +8717,669 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "spc.characteristic",
+      "label": "관리 특성",
+      "scope": "generation",
+      "phase": "S1",
+      "retention": "세대 정리",
+      "note": "FS-028 4.1·D38. 품목·공정·특성·규격. 품목·공정은 MES 코드 스냅샷(FK 없음)",
+      "sub_module": "spc_master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "특성 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "item_code",
+          "label": "품목 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": "MES 품목 코드 스냅샷"
+        },
+        {
+          "name": "item_name",
+          "label": "품목명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": "스냅샷"
+        },
+        {
+          "name": "process_code",
+          "label": "공정 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": "MES 공정 코드 스냅샷"
+        },
+        {
+          "name": "name",
+          "label": "특성명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lsl",
+          "label": "규격 하한",
+          "type": "numeric(12,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "usl",
+          "label": "규격 상한",
+          "type": "numeric(12,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "target",
+          "label": "목표값",
+          "type": "numeric(12,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "subgroup_size",
+          "label": "부분군 크기",
+          "type": "smallint",
+          "nullable": false,
+          "default": "5",
+          "rule": "5 고정(D39)"
+        },
+        {
+          "name": "decimals",
+          "label": "표시 소수 자릿수",
+          "type": "smallint",
+          "nullable": false,
+          "default": "3",
+          "rule": "0~4"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "spc.control_limit",
+      "label": "관리 한계",
+      "scope": "generation",
+      "phase": "S1",
+      "retention": "세대 정리",
+      "note": "FS-028 4.1·D40. X̄-R 관리 한계 버전. 게시 후 불변, 재산정은 새 버전",
+      "sub_module": "spc_master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "characteristic_id",
+          "label": "관리 특성",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "버전",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "effective_at",
+          "label": "적용 시작",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "게시 때 이 특성의 마지막 유효 부분군 측정 시각. 이보다 늦게 측정한 부분군부터 이 버전으로 판정한다(벽시계와 무관)"
+        },
+        {
+          "name": "basis_from",
+          "label": "기준 구간 시작",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "basis_to",
+          "label": "기준 구간 종료",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "basis_count",
+          "label": "기준 부분군 수",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "유효 부분군 20개 이상"
+        },
+        {
+          "name": "xbar_cl",
+          "label": "X̄ 중심선",
+          "type": "numeric(14,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "xbar_ucl",
+          "label": "X̄ 관리 상한",
+          "type": "numeric(14,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "xbar_lcl",
+          "label": "X̄ 관리 하한",
+          "type": "numeric(14,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "r_cl",
+          "label": "R 중심선",
+          "type": "numeric(14,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "r_ucl",
+          "label": "R 관리 상한",
+          "type": "numeric(14,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "r_lcl",
+          "label": "R 관리 하한",
+          "type": "numeric(14,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "게시 사유",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "spc.subgroup",
+      "label": "부분군",
+      "scope": "generation",
+      "phase": "S1",
+      "retention": "세대 정리",
+      "note": "FS-028 4.2·D39. 공정 실행 1건 안의 한 시각 측정 n=5. LOT·공정·설비는 MES 스냅샷",
+      "sub_module": "measure",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "characteristic_id",
+          "label": "관리 특성",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lot_no",
+          "label": "LOT 번호",
+          "type": "varchar(50)",
+          "nullable": false,
+          "default": null,
+          "rule": "MES 스냅샷"
+        },
+        {
+          "name": "item_code",
+          "label": "품목 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": "스냅샷"
+        },
+        {
+          "name": "process_code",
+          "label": "공정 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": "스냅샷"
+        },
+        {
+          "name": "equipment_code",
+          "label": "설비 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": "스냅샷"
+        },
+        {
+          "name": "run_started_at",
+          "label": "공정 실행 시작",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "스냅샷"
+        },
+        {
+          "name": "run_ended_at",
+          "label": "공정 실행 종료",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "스냅샷. 진행 중이면 비움"
+        },
+        {
+          "name": "measured_at",
+          "label": "측정 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "xbar",
+          "label": "평균 X̄",
+          "type": "numeric(14,6)",
+          "nullable": false,
+          "default": null,
+          "rule": "측정값 5개 평균(기록 때 계산)"
+        },
+        {
+          "name": "r",
+          "label": "범위 R",
+          "type": "numeric(14,6)",
+          "nullable": false,
+          "default": null,
+          "rule": "최대 − 최소"
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'valid'",
+          "rule": "valid / void"
+        },
+        {
+          "name": "void_reason",
+          "label": "무효 사유",
+          "type": "varchar(200)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "voided_at",
+          "label": "무효 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "source",
+          "label": "출처",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "SEED / MANUAL"
+        },
+        {
+          "name": "note",
+          "label": "메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "spc.measurement",
+      "label": "측정값",
+      "scope": "generation",
+      "phase": "S1",
+      "retention": "세대 정리",
+      "note": "FS-028 4.2. 부분군당 5개. 불변",
+      "sub_module": "measure",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "subgroup_id",
+          "label": "부분군",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "seq",
+          "label": "순서",
+          "type": "smallint",
+          "nullable": false,
+          "default": null,
+          "rule": "1~5"
+        },
+        {
+          "name": "value",
+          "label": "측정값",
+          "type": "numeric(12,4)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "spc.signal",
+      "label": "이상 기록",
+      "scope": "generation",
+      "phase": "S1",
+      "retention": "세대 정리",
+      "note": "FS-028 4.3·D41·D42. 규칙 판정 결과. 발생 → 조치 완료, 부분군 무효 시 무효",
+      "sub_module": "signal",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "subgroup_id",
+          "label": "부분군",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "characteristic_id",
+          "label": "관리 특성",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "부분군의 특성과 같다"
+        },
+        {
+          "name": "control_limit_id",
+          "label": "판정 한계",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "측정 시각에 유효한 버전"
+        },
+        {
+          "name": "lot_no",
+          "label": "LOT 번호",
+          "type": "varchar(50)",
+          "nullable": false,
+          "default": null,
+          "rule": "부분군 스냅샷. QMS 배지 조회용"
+        },
+        {
+          "name": "chart",
+          "label": "관리도",
+          "type": "varchar(4)",
+          "nullable": false,
+          "default": null,
+          "rule": "XBAR / R"
+        },
+        {
+          "name": "rule",
+          "label": "판정 규칙",
+          "type": "smallint",
+          "nullable": false,
+          "default": null,
+          "rule": "1 한계 밖 · 2 한쪽 연속 9점 · 3 연속 6점 증가·감소"
+        },
+        {
+          "name": "value",
+          "label": "판정 값",
+          "type": "numeric(14,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "detected_at",
+          "label": "발생 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "부분군 측정 시각"
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'open'",
+          "rule": "open / resolved / void"
+        },
+        {
+          "name": "cause_category",
+          "label": "원인 분류",
+          "type": "varchar(12)",
+          "nullable": true,
+          "default": null,
+          "rule": "MACHINE / MATERIAL / MAN / METHOD / MEASUREMENT / ENVIRONMENT"
+        },
+        {
+          "name": "action",
+          "label": "조치 내용",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "resolved_at",
+          "label": "조치 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "voided_at",
+          "label": "무효 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
     }
   ],
   "relations": [
@@ -12136,6 +12799,183 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "경보의 센서"
+    },
+    {
+      "source": "spc.characteristic",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.control_limit",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.subgroup",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.measurement",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.signal",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.control_limit",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id"
+      ],
+      "target": "spc.characteristic",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "한계의 특성"
+    },
+    {
+      "source": "spc.subgroup",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id"
+      ],
+      "target": "spc.characteristic",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "부분군의 특성"
+    },
+    {
+      "source": "spc.measurement",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "subgroup_id"
+      ],
+      "target": "spc.subgroup",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "측정값의 부분군"
+    },
+    {
+      "source": "spc.signal",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "subgroup_id"
+      ],
+      "target": "spc.subgroup",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "이상의 부분군"
+    },
+    {
+      "source": "spc.signal",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id"
+      ],
+      "target": "spc.characteristic",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "이상의 특성"
+    },
+    {
+      "source": "spc.signal",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "control_limit_id"
+      ],
+      "target": "spc.control_limit",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "이상을 판정한 한계"
     }
   ],
   "constraints": [
@@ -12333,7 +13173,7 @@
       "table": "core.workspace_module",
       "kind": "CHECK",
       "columns": [],
-      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems')",
+      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc')",
       "reason": "행 내부 데이터 정합성"
     },
     {
@@ -19300,6 +20140,516 @@
       ],
       "expression": "",
       "reason": "활성 경보 조회"
+    },
+    {
+      "table": "spc.characteristic",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.characteristic",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.control_limit",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.control_limit",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.subgroup",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.subgroup",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.measurement",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.measurement",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.characteristic",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 특성 코드 유일"
+    },
+    {
+      "table": "spc.characteristic",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "item_code",
+        "process_code",
+        "name"
+      ],
+      "expression": "",
+      "reason": "품목·공정·특성명 조합 유일"
+    },
+    {
+      "table": "spc.characteristic",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "spc.characteristic",
+      "kind": "CHECK",
+      "columns": [
+        "lsl",
+        "usl"
+      ],
+      "expression": "(lsl IS NOT NULL OR usl IS NOT NULL) AND (lsl IS NULL OR usl IS NULL OR lsl < usl)",
+      "reason": "규격 하나 이상, 하한 < 상한"
+    },
+    {
+      "table": "spc.characteristic",
+      "kind": "CHECK",
+      "columns": [
+        "target",
+        "lsl",
+        "usl"
+      ],
+      "expression": "target IS NULL OR ((lsl IS NULL OR target >= lsl) AND (usl IS NULL OR target <= usl))",
+      "reason": "목표값은 규격 안"
+    },
+    {
+      "table": "spc.characteristic",
+      "kind": "CHECK",
+      "columns": [
+        "subgroup_size"
+      ],
+      "expression": "subgroup_size = 5",
+      "reason": "부분군 크기 5 고정(13장 1)"
+    },
+    {
+      "table": "spc.characteristic",
+      "kind": "CHECK",
+      "columns": [
+        "decimals"
+      ],
+      "expression": "decimals BETWEEN 0 AND 4",
+      "reason": "표시 자릿수 범위"
+    },
+    {
+      "table": "spc.characteristic",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "lsl"
+      ],
+      "expression": "부분군이 있는 특성의 규격·품목·공정은 바꾸지 않는다(409 CHARACTERISTIC_IN_USE). 사용 안 함은 가능",
+      "reason": "판정 근거 보존"
+    },
+    {
+      "table": "spc.control_limit",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id",
+        "version"
+      ],
+      "expression": "",
+      "reason": "특성별 버전 유일"
+    },
+    {
+      "table": "spc.control_limit",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id",
+        "effective_at"
+      ],
+      "expression": "",
+      "reason": "특성별 적용 시작 유일"
+    },
+    {
+      "table": "spc.control_limit",
+      "kind": "CHECK",
+      "columns": [
+        "version"
+      ],
+      "expression": "version >= 1",
+      "reason": "버전은 1부터"
+    },
+    {
+      "table": "spc.control_limit",
+      "kind": "CHECK",
+      "columns": [
+        "basis_count"
+      ],
+      "expression": "basis_count >= 20",
+      "reason": "기준 부분군 20개 이상(D40)"
+    },
+    {
+      "table": "spc.control_limit",
+      "kind": "CHECK",
+      "columns": [
+        "basis_from",
+        "basis_to"
+      ],
+      "expression": "basis_from <= basis_to",
+      "reason": "기준 구간 순서"
+    },
+    {
+      "table": "spc.control_limit",
+      "kind": "CHECK",
+      "columns": [
+        "xbar_lcl",
+        "xbar_cl",
+        "xbar_ucl"
+      ],
+      "expression": "xbar_lcl < xbar_cl AND xbar_cl < xbar_ucl",
+      "reason": "X̄ 한계 순서"
+    },
+    {
+      "table": "spc.control_limit",
+      "kind": "CHECK",
+      "columns": [
+        "r_lcl",
+        "r_cl",
+        "r_ucl"
+      ],
+      "expression": "r_lcl >= 0 AND r_lcl < r_cl AND r_cl < r_ucl",
+      "reason": "R 한계 순서"
+    },
+    {
+      "table": "spc.control_limit",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "version"
+      ],
+      "expression": "게시(TX-S2)만 만든다. 기준 구간의 유효 부분군으로 X̿·R̄을 계산(n=5: A2 0.577, D3 0, D4 2.114)하고, 적용 시작 = 게시 때 마지막 유효 부분군의 측정 시각(직전 버전 뒤 새 부분군이 없으면 거부). 게시 시각은 created_at. 게시 후 수정·삭제하지 않는다(세대 정리 제외)",
+      "reason": "한계 불변·재산정은 새 버전"
+    },
+    {
+      "table": "spc.subgroup",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id",
+        "lot_no",
+        "measured_at"
+      ],
+      "expression": "",
+      "reason": "같은 실행·시각 중복 방지(기록 멱등)"
+    },
+    {
+      "table": "spc.subgroup",
+      "kind": "CHECK",
+      "columns": [
+        "r"
+      ],
+      "expression": "r >= 0",
+      "reason": "범위 음수 금지"
+    },
+    {
+      "table": "spc.subgroup",
+      "kind": "CHECK",
+      "columns": [
+        "status"
+      ],
+      "expression": "status IN ('valid', 'void')",
+      "reason": "상태 값"
+    },
+    {
+      "table": "spc.subgroup",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "void_reason",
+        "voided_at"
+      ],
+      "expression": "(status = 'valid' AND void_reason IS NULL AND voided_at IS NULL) OR (status = 'void' AND void_reason IS NOT NULL AND voided_at IS NOT NULL)",
+      "reason": "무효는 사유·시각 필수"
+    },
+    {
+      "table": "spc.subgroup",
+      "kind": "CHECK",
+      "columns": [
+        "source"
+      ],
+      "expression": "source IN ('SEED', 'MANUAL')",
+      "reason": "출처 값"
+    },
+    {
+      "table": "spc.subgroup",
+      "kind": "CHECK",
+      "columns": [
+        "run_started_at",
+        "run_ended_at",
+        "measured_at"
+      ],
+      "expression": "measured_at >= run_started_at AND (run_ended_at IS NULL OR (run_started_at <= run_ended_at AND measured_at <= run_ended_at))",
+      "reason": "측정 시각은 공정 실행 기간 안"
+    },
+    {
+      "table": "spc.subgroup",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "measured_at"
+      ],
+      "expression": "측정 시각은 그 특성의 마지막 유효 부분군보다 늦어야 한다(13장 2). 품목·공정은 특성과 같아야 한다. X̄·R은 측정값에서 계산한 값이다. 값은 불변, 상태만 valid→void(TX-S4)",
+      "reason": "순서 강제·값 불변"
+    },
+    {
+      "table": "spc.measurement",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "subgroup_id",
+        "seq"
+      ],
+      "expression": "",
+      "reason": "부분군 내 순서 유일"
+    },
+    {
+      "table": "spc.measurement",
+      "kind": "CHECK",
+      "columns": [
+        "seq"
+      ],
+      "expression": "seq BETWEEN 1 AND 5",
+      "reason": "순서 범위"
+    },
+    {
+      "table": "spc.measurement",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "subgroup_id"
+      ],
+      "expression": "부분군과 같은 트랜잭션에서 5개를 만든다(TX-S1). 수정·삭제하지 않는다(세대 정리 제외)",
+      "reason": "측정값 불변"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "subgroup_id",
+        "chart",
+        "rule"
+      ],
+      "expression": "",
+      "reason": "부분군·관리도·규칙당 1건"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "CHECK",
+      "columns": [
+        "chart"
+      ],
+      "expression": "chart IN ('XBAR', 'R')",
+      "reason": "관리도 값"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "CHECK",
+      "columns": [
+        "rule"
+      ],
+      "expression": "rule BETWEEN 1 AND 3",
+      "reason": "규칙 값"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "CHECK",
+      "columns": [
+        "chart",
+        "rule"
+      ],
+      "expression": "rule = 1 OR chart = 'XBAR'",
+      "reason": "규칙 2·3은 X̄만"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "CHECK",
+      "columns": [
+        "status"
+      ],
+      "expression": "status IN ('open', 'resolved', 'void')",
+      "reason": "상태 값"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "CHECK",
+      "columns": [
+        "cause_category"
+      ],
+      "expression": "cause_category IS NULL OR cause_category IN ('MACHINE', 'MATERIAL', 'MAN', 'METHOD', 'MEASUREMENT', 'ENVIRONMENT')",
+      "reason": "원인 분류 값"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "CHECK",
+      "columns": [
+        "action"
+      ],
+      "expression": "action IS NULL OR char_length(btrim(action)) >= 2",
+      "reason": "조치 내용 2자 이상"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "cause_category",
+        "action",
+        "resolved_at",
+        "voided_at"
+      ],
+      "expression": "(status = 'open' AND cause_category IS NULL AND action IS NULL AND resolved_at IS NULL AND voided_at IS NULL) OR (status = 'resolved' AND cause_category IS NOT NULL AND action IS NOT NULL AND resolved_at IS NOT NULL AND voided_at IS NULL) OR (status = 'void' AND voided_at IS NOT NULL)",
+      "reason": "상태와 조치·시각 일치"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "발생은 부분군 기록(TX-S1)의 규칙 판정으로만, 조치 완료는 사람만(TX-S3), 무효는 부분군 무효(TX-S4)로만. 조치 완료·무효 후 불변",
+      "reason": "이상 수명(D42)"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "control_limit_id"
+      ],
+      "expression": "측정 시각에 유효한 한계 버전(적용 시작 < 측정 시각인 최신). 연속 규칙은 같은 버전 안의 유효 부분군만 센다(13장 3)",
+      "reason": "판정 버전"
+    },
+    {
+      "table": "spc.subgroup",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id",
+        "measured_at"
+      ],
+      "expression": "",
+      "reason": "관리도·순서 검사"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "control_limit_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "spc.signal",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "status",
+        "lot_no"
+      ],
+      "expression": "",
+      "reason": "QMS 배지 조회(미조치 LOT)"
     }
   ],
   "states": [
@@ -19601,6 +20951,27 @@
       ],
       "default": "OFF",
       "transition": "제어 명령·스케줄 경계 전환으로만 변경(D21)"
+    },
+    {
+      "table": "spc.subgroup",
+      "column": "status",
+      "values": [
+        "valid",
+        "void"
+      ],
+      "default": "valid",
+      "transition": "valid→void(사유 필수); 무효 후 불변"
+    },
+    {
+      "table": "spc.signal",
+      "column": "status",
+      "values": [
+        "open",
+        "resolved",
+        "void"
+      ],
+      "default": "open",
+      "transition": "open→resolved(원인·조치 필수), open→void, resolved→void(부분군 무효); 그 밖에는 불변"
     }
   ],
   "sources": [
@@ -19654,10 +21025,11 @@
         "fems",
         "qms",
         "wms",
-        "bems"
+        "bems",
+        "spc"
       ],
       "default": null,
-      "note": "QMS(FS-023)·WMS(FS-024)·BEMS(FS-025)는 구현 솔루션. SCM 설명 카드와 도움말은 정적 파일"
+      "note": "QMS(FS-023)·WMS(FS-024)·BEMS(FS-025)·SPC(FS-028)는 구현 솔루션. SCM 설명 카드와 도움말은 정적 파일"
     },
     {
       "target": "공통 단위",
@@ -19910,6 +21282,40 @@
       ],
       "default": null,
       "note": "경보 등급"
+    },
+    {
+      "target": "spc.subgroup",
+      "column": "source",
+      "values": [
+        "SEED",
+        "MANUAL"
+      ],
+      "default": null,
+      "note": "시드 / 화면 입력"
+    },
+    {
+      "target": "spc.signal",
+      "column": "chart",
+      "values": [
+        "XBAR",
+        "R"
+      ],
+      "default": null,
+      "note": "X̄ 관리도 / R 관리도"
+    },
+    {
+      "target": "spc.signal",
+      "column": "cause_category",
+      "values": [
+        "MACHINE",
+        "MATERIAL",
+        "MAN",
+        "METHOD",
+        "MEASUREMENT",
+        "ENVIRONMENT"
+      ],
+      "default": null,
+      "note": "설비·자재·작업자·방법·측정·환경(4M1E+측정)"
     }
   ],
   "change_log": [
@@ -20080,6 +21486,13 @@
       "date": "2026-09-28",
       "change": "bems 스키마 10테이블(구역·공용 계측기·환경 센서·공조기·공용 전력 관측·환경 관측·운전 스케줄·제어 명령·경보 규칙·경보), core.workspace_module module_key에 bems 추가, FS-013 R4의 bems 금지 해제(FS-025 D18). 스키마 간 FK 0건",
       "status": "마이그레이션 fs025a_bems 적용 대상"
+    },
+    {
+      "version": "0.13.0",
+      "task": "FS-028a",
+      "date": "2026-09-30",
+      "change": "spc 스키마 5테이블(관리 특성·관리 한계·부분군·측정값·이상 기록), core.workspace_module module_key에 spc 추가. 스키마 간 FK 0건",
+      "status": "마이그레이션 fs028a_spc 적용 대상"
     }
   ]
 }

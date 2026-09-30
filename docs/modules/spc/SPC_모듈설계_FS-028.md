@@ -1,7 +1,7 @@
 # FS-028 SPC 모듈 설계서
 
 작성일: 2026-09-30 (Claude Code)
-상태: **초안 — 13장 결정 5건과 함께 전체 설계 확인 요청.** 전체 설계 확인 전에는 `schema.json`·마이그레이션·코드를 바꾸지 않는다.
+상태: **확정 — 사용자 승인 2026-09-30**(전체 설계 확인 완료, 13장 5건 모두 권장안). FS-028a DB 반영 완료(14장).
 전제: [FS-028 결정서](../../plan/SPC도입_관리도_결정_FS-028.md)(D37~D44, 2026-09-30 승인), [FS-023 D9 교차 조회](../../plan/QMS도입_교차조회_결정_FS-023.md), [FS-013](../../plan/독립솔루션_전환결정_FS-013.md), [새 솔루션 킷](../../plan/새솔루션_킷.md)
 화면: [SPC 화면 설계](../../ui/화면설계_SPC_FS-028.md)
 
@@ -47,8 +47,8 @@ MES 공정 실행(LOT·공정·설비·기간) ──조회──▶ 측정 입�
 | 부분군 기록 | MES 공정 실행 1건(LOT×공정)을 고르고 측정 시각과 값 5개를 넣는다. 측정 시각은 그 실행의 시작~종료(진행 중이면 현재) 안이어야 하고, 실행의 품목·공정이 특성과 같아야 한다. X̄와 R은 기록할 때 계산해 함께 저장한다(불변) |
 | 순서 | **측정 시각은 그 특성의 마지막 유효 부분군보다 늦어야 한다**(13장 2). 과거 시각 끼워 넣기를 막아 이상 판정을 다시 계산할 일이 없게 한다 |
 | 간격 | 6시간은 시드 생성 규칙이다. 화면 입력은 간격을 강제하지 않는다(같은 실행·같은 시각 중복만 거부) |
-| 관리 한계 | 기준 구간의 유효 부분군 **20개 이상**으로 산정: X̿ = 평균 X̄, R̄ = 평균 R, X̄ 관리도 CL = X̿·UCL/LCL = X̿ ± A2·R̄, R 관리도 CL = R̄·UCL = D4·R̄·LCL = D3·R̄ (n=5: A2 0.577, D3 0, D4 2.114). 게시하면 불변. 새 버전의 적용 시작 = 게시 시각 |
-| 판정 버전 | 부분군은 **측정 시각에 유효한 버전**(적용 시작 ≤ 측정 시각인 최신 버전)으로 판정한다. 게시 전 부분군은 판정하지 않는다("한계 미게시") |
+| 관리 한계 | 기준 구간의 유효 부분군 **20개 이상**으로 산정: X̿ = 평균 X̄, R̄ = 평균 R, X̄ 관리도 CL = X̿·UCL/LCL = X̿ ± A2·R̄, R 관리도 CL = R̄·UCL = D4·R̄·LCL = D3·R̄ (n=5: A2 0.577, D3 0, D4 2.114). 게시하면 불변. 새 버전의 **적용 시작 = 게시 때 그 특성의 마지막 유효 부분군 측정 시각**(14장 — 벽시계와 무관). 직전 버전 뒤 새 부분군이 없으면 거부(409 `NO_NEW_SUBGROUP`). 게시 시각은 `created_at` |
+| 판정 버전 | 부분군은 **측정 시각에 유효한 버전**(적용 시작 < 측정 시각인 최신 버전)으로 판정한다. 게시 전 부분군은 판정하지 않는다("한계 미게시") |
 | 이상 규칙(D41) | 규칙 1: X̄ 또는 R이 한계 밖. 규칙 2: X̄가 CL 한쪽에 연속 9점. 규칙 3: X̄가 연속 6점 증가 또는 감소(같은 값은 끊김). **연속 판정은 같은 한계 버전 안의 유효 부분군만** 센다(13장 3). 한 부분군에서 여러 규칙이 동시에 참이면 규칙마다 1건 |
 | 이상 조치(D42) | `open` → `resolved`. 조치 완료에는 원인 분류(`MACHINE` 설비 · `MATERIAL` 자재 · `MAN` 작업자 · `METHOD` 방법 · `MEASUREMENT` 측정 · `ENVIRONMENT` 환경)와 조치 내용(2~500자) 필수. 조치 완료 후 불변 |
 | 부분군 무효(D42) | `valid` → `void`(사유 필수). 그 부분군에서 나온 이상 기록은 `void`가 된다(조치 완료된 것도). **뒤 부분군의 연속 판정 결과는 다시 계산하지 않는다**(불변 — 화면에 안내). 무효 부분군은 관리도에 흐린 점으로 보이고 계산에서 빠진다 |
@@ -72,7 +72,7 @@ MES 공정 실행(LOT·공정·설비·기간) ──조회──▶ 측정 입�
 | 테이블 | 컬럼(요약) | 규칙 |
 |---|---|---|
 | characteristic | code, item_code, item_name(스냅샷), process_code, name, unit, lsl numeric(12,4) null, usl numeric(12,4) null, target numeric(12,4) null, subgroup_size smallint(=5 CHECK), decimals smallint(0~4), is_active | UK(S, code), UK(S, item_code, process_code, name). CHECK lsl·usl 중 하나 이상, 둘 다면 lsl < usl. 규격·품목·공정은 부분군이 생긴 뒤 바꾸지 않는다(SERVICE, 409) |
-| control_limit | characteristic_id FK, version int ≥ 1, effective_from timestamptz, basis_from·basis_to timestamptz, basis_count int ≥ 20, xbar_cl·xbar_ucl·xbar_lcl numeric(14,6), r_cl·r_ucl·r_lcl numeric(14,6), reason varchar(200) | UK(S, characteristic_id, version), UK(S, characteristic_id, effective_from). CHECK lcl < cl < ucl(두 관리도), basis_from ≤ basis_to. 불변 |
+| control_limit | characteristic_id FK, version int ≥ 1, effective_at timestamptz, basis_from·basis_to timestamptz, basis_count int ≥ 20, xbar_cl·xbar_ucl·xbar_lcl numeric(14,6), r_cl·r_ucl·r_lcl numeric(14,6), reason varchar(200) | UK(S, characteristic_id, version), UK(S, characteristic_id, effective_at). CHECK lcl < cl < ucl(두 관리도), basis_from ≤ basis_to. 불변 |
 
 ### 4.2 측정
 
@@ -198,3 +198,14 @@ QMS는 Q-03·Q-04 목록 응답에 `spcSignal: true/false/null`을 붙인다(nul
 3. **연속 규칙은 한계 버전마다 새로 센다.** 권장: 그대로 — 조치 뒤 재게시한 한계에 옛 추세가 이어지지 않게.
 4. **무효 처리 때 뒤 부분군의 판정을 다시 계산하지 않는다.** 권장: 그대로 — 화면에 "무효 처리 전 판정 결과는 그대로 남는다" 안내.
 5. **공정능력 최소 20 부분군.** 권장: 그대로(한계 게시 기준과 같음).
+
+## 14. 구현 기록 (FS-028a DB, 2026-09-30)
+
+- `tools/apply_fs028a.py`(멱등) → `schema.json` **v0.13.0 / FS-028a**: 98테이블(spc 5) · 1,030컬럼 · FK 220 · 제약·정책 776. 모듈 키 CHECK(C22)에 `'spc'`.
+- 설계서와 다른 점 2건.
+  1. 한계 적용 시작 컬럼은 **`effective_at`**(설계 초안 `effective_from`). `effective_from`은 검증기가 달력 문자열 키로 보는 이름이라 timestamptz를 쓸 수 없다. 4.1 표를 고쳤다.
+  2. **적용 시작 값은 게시 시각이 아니라 게시 때 마지막 유효 부분군의 측정 시각**이다(FS-028b 구현 중 발견). 게시 시각(DB 시계)과 측정 시각(화면 입력)은 서로 다른 시계라 몇 초만 어긋나도 게시 직후 기록이 새 한계 밖으로 빠졌고, 게스트 공간은 업무 날짜를 옮기므로 벽시계와 업무 시각이 다르다. 측정 순서를 이미 강제하므로 "게시 뒤 기록 = 적용 시작 뒤 측정"이 시계와 무관하게 성립한다. DB 구조는 같고 SERVICE 정책 문장만 바뀌었다(마이그레이션 SHA 주석 갱신).
+- 마이그레이션 `fs028a_spc`(down `fs025b_bems_module`, C·R 번호 고정 텍스트) + `fs028b_spc_module`(기존 공간 모듈 행).
+- 검증기: `validate_spc` 추가, 작업 ID 집합에 FS-028a(이전 `validate_bems`가 FS-025a 전용이어서 꺼질 뻔했다 → `LATER_THAN_025A`). 격리 검사 BUSINESS에 spc. Excel 35시트·ERD `spc.mmd` 재생성.
+- 시드: 모듈 행 +1(템플릿 11,911 · 게스트 복사 11,909). SPC 업무 시드는 FS-028c.
+- **Codex 조율 필요**: FS-026a(`codex/vision-ai`)도 v0.13.0이다. main 병합 전 rebase 때 FS-026a를 **v0.14.0**으로, 그 마이그레이션 `down_revision`을 **`fs028b_spc_module`**로, 모듈 키 목록에 `'spc'`를 유지하도록 옮긴다.

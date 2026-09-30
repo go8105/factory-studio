@@ -15,7 +15,8 @@
 - 카탈로그 17개를 **모두 구현**한다(제외였던 그룹웨어·RWS 포함). 그룹웨어는 **"GW"**로 표기. 깊이는 **모두 BEMS 수준**(결정서 → 모듈·화면 설계 승인 → a DB / b API·화면 6~7 / c 시드·도움말). 다 만든 뒤에는 기능을 계속 덧붙인다.
 - 방식: 큰 틀(로드맵)을 고정하고, 끝난 솔루션은 동결, 남은 것을 **하나씩** 설계·개발한다. 매 세션은 로드맵 + 대상 솔루션 + 이웃 조회 계약만 읽는다.
 - 순서(ROADMAP-01 확정): 1 SPC → 2 CMMS → 3 POP → 4 TMS(FS-026 뒤) → 5 PLM → 6 CRM → 7 SCM → 8 ELB/MRO → 9 EIP → 10 GW → 11 RWS.
-- **ROADMAP-01 확정(2026-09-30, 제안대로)** — `docs/plan/로드맵_17개시스템_ROADMAP-01.md`·`docs/plan/새솔루션_킷.md`. **지금: FS-028 SPC** — 결정서 승인, 모듈 설계 `docs/modules/spc/SPC_모듈설계_FS-028.md`·화면 설계 `docs/ui/화면설계_SPC_FS-028.md` 초안, **전체 설계 확인 대기**(모듈 13장 5문항). 확인 뒤 FS-028a(DB). D 다음 D45, AC 다음 AC-185. schema 버전은 FS-026a(v0.13.0) 병합 여부로 정한다.
+- **ROADMAP-01 확정(2026-09-30, 제안대로)** — `docs/plan/로드맵_17개시스템_ROADMAP-01.md`·`docs/plan/새솔루션_킷.md`. **지금: FS-028 SPC** — 설계 확정, **FS-028a DB 완료**(v0.13.0, 로컬 head `fs028b_spc_module`, pytest 727). **FS-028b 진행 중**(API `/api/v1/spc`·`fs/spc/interface.py`·MES `operation_runs`·QMS 배지·S-01~07·홈 분야별 묶음). D 다음 D45, AC 다음 AC-185.
+- **Codex에 전달**: FS-026a도 schema v0.13.0 → main 병합 전 rebase 때 **v0.14.0**, 마이그레이션 `down_revision`=**`fs028b_spc_module`**, 모듈 키 목록에 `spc` 유지. 게스트 생성 테스트는 `json={"nickname": …}` 필수(FS-027).
 
 ### 다음 후보 (사용자 결정)
 1. Codex FS-026b2 결과 검토 → W-08·W-09 화면·트럭·시드 → main 병합·배포.

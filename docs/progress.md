@@ -8,6 +8,14 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-09-30 FS-028a SPC DB (Claude Code)
+- `tools/apply_fs028a.py`(멱등) → schema.json **v0.13.0 / FS-028a**: 98테이블(spc 5: characteristic·control_limit·subgroup·measurement·signal) · 1,030컬럼 · FK 220 · 제약·정책 776. 모듈 키 CHECK에 spc.
+- 마이그레이션 `fs028a_spc`(down `fs025b_bems_module`)·`fs028b_spc_module`(모듈 행). 스키마 목록이 박힌 곳 모두 spc 추가(격리 검사·DDL 대조·Excel·ERD·seed copy/generate/validate·core service·test_common/test_seed). 시드 합계 +1(모듈 행: 템플릿 11,911 · 복사 11,909).
+- 검증기: `validate_spc` 추가, 작업 ID 집합에 FS-028a(`validate_bems`가 FS-025a 전용이라 꺼질 뻔 — `LATER_THAN_025A`). `effective_from`은 달력 키 검사 대상이라 `effective_at`으로.
+- 검증: db:validate 0 · 격리 R1~R6 0 · tools unittest 60 · **실제 DB(PG 18.6) upgrade 후 DDL 대조 0**(98·UK 220·CHECK 262·INDEX 63·FK 220) · downgrade fs025b→base→head 왕복 · **pytest 727 passed · 1 skipped(22분)** · ruff 0 · git diff --check 0. 로컬 개발 DB head `fs028b_spc_module`·템플릿 재생성.
+- 구현 중 정책 1건 조정(FS-028b에서 발견): 한계 적용 시작 = 게시 때 마지막 유효 부분군 측정 시각(벽시계와 무관). DB 구조 같음, SERVICE 문장만.
+- Codex 조율: FS-026a도 v0.13.0 → 병합 때 v0.14.0·`down_revision=fs028b_spc_module`.
+
 ## 2026-09-30 FS-028 SPC 모듈·화면 설계 초안 (Claude Code)
 - 결정서 D37~D44 사용자 승인(제안대로) → 상태 "확정". QMS 화면 번호 정정(검사 대기 Q-03·검사 Q-04).
 - `docs/modules/spc/SPC_모듈설계_FS-028.md`: spc 5테이블(characteristic·control_limit·subgroup·measurement·signal), 규칙(순서 강제·버전별 연속 판정·무효 처리), 계산(decimal, n=5 상수표), TX-S1~S4, MES `operation_runs` 추가·SPC `open_signal_lot_nos` 신규, API, 시드 약 2,350행(LT-0017 FG-C200 INJ-02 미조치 2건), AC-170~184, 결정 5건.
