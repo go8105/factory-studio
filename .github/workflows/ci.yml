@@ -28,6 +28,9 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             frontend/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --project backend --python 3.14 --locked
       - run: echo "$GITHUB_WORKSPACE/backend/.venv/bin" >> "$GITHUB_PATH"
