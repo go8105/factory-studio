@@ -1696,3 +1696,12 @@
 - 최종 검증: 전체 backend **779 passed**(23분39초, 기존 경고2), frontend **491 passed /57파일**(maxWorkers=2), 실제 API Chromium **10 passed**(1.2분). 전체 typecheck/lint/format/build 통과, Ruff139파일 통과, R1~R6 격리 감사0·db:validate0, tools58+subtests13 통과. 기본 병렬 프런트 실행의 기존 ERP 테스트 일시 실패·재검증 및 경고는 통합 보고에 기록.
 - 도움말 W-08/09, 기존 W-01~07, 사용자 참고 `/help/portal/wms-flow` 반영. 360px와 트럭 외관 캡처 확인. 보고·재현·AC 증거: `docs/agent/WMS확장_화면트럭통합_FS-026.md`.
 - 검증용 API/Vite 종료. `.env`·work 스테이징 없음. **push·운영 배포 없음. 이번 승인 범위 남은 개발 없음.** 다음은 사용자의 통합/운영 반영: 백엔드·프런트를 함께 적용하고 새 템플릿 생성·검증 후 새 게스트에서 체험한다. 기존 기록을 소급 변경하지 않는다.
+
+## 2026-10-01 CI-VERIFY-20261001 — GitHub Actions verify 실패 수정
+
+- 이슈: `verify` 잡(job id `110357058889`)이 `uv sync --project backend --python 3.14 --locked` 단계에서 `No interpreter found for Python 3.14`로 실패.
+- 원인: 워크플로우가 Node/uv만 준비하고 Python 인터프리터를 설치하지 않아, uv가 3.14 실행 파일을 찾지 못함.
+- 조치: `.github/workflows/ci.yml`에 `actions/setup-python@v5` (`python-version: "3.14"`)를 `setup-uv` 앞에 추가.
+- 검증: 변경 파일 `git diff --check` 확인, 워크플로우 단계 순서 점검(체크아웃 → Node → Python 3.14 → uv → `uv sync`) 완료. 로컬에서 GitHub Actions 자체 재실행은 불가하여 원격 CI 재실행으로 최종 확인 필요.
+- 제약/주의: 기능 코드·DB 스키마·시드 변경 없음. 이번 수정은 CI 런타임 준비 단계만 대상으로 함.
+- 다음 작업: Actions에서 `verify` 재실행 후 통과 여부 확인. 실패 시 해당 단계 로그 기준으로 후속 최소 수정.
