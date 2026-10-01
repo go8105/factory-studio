@@ -10,6 +10,11 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-10-01 FS-030a 병합 · FS-029 CMMS 결정서 초안 (Claude Code)
+- FS-030a GW DB(Codex `cd8b619`) main 병합 `af9b7bb` push — v0.16.0·112테이블·head `fs030b_gw_module`·시드 14,686. 로컬 개발 DB head·템플릿 반영.
+- `docs/plan/CMMS도입_설비보전_결정_FS-029.md`: D45 범위(설비 대장·PM·고장 작업지시·작업 기록·예비품·지표) · D46 설비 대장 CMMS 소유(MES·BEMS 가져오기 스냅샷) · D47 작업지시 상태·불변 · D48 신호(BEMS 경보·SPC 이상·수동) → 사람이 전환, 중복 전환 방지 · D49 PM 주기 도래는 수동 생성 · D50 예비품 목록·사용 기록만(재고 원장 없음) · D51 MTBF·MTTR·PM 준수율 조회 시 계산 · D52 MES "보전 중" 배지.
+- 다음: 승인 요청 4건 → 모듈·화면 설계.
+
 ## 2026-10-01 FS-028c SPC 시드·도움말·흐름 맵·통합 검증 · 운영 반영 (Claude Code)
 - **운영 반영(사용자: SPC만 배포)**: main에서 FS-040 WIP만 뺀 `release/2026-10-01-spc`(`bc7e4ac`)를 만들어 검증(도구 63·프런트 512·빌드·백엔드 seed/spc/qms/common 70) → 서버 checkout·uv sync·API 재시작·템플릿 14,685 → 같은 커밋 프런트 rsync. 확인: 게스트 201, SPC 대시보드·이상·QMS 배지(LT-0017)·https 200, 5xx 0, 브라우저로 홈 생산·품질 묶음 SPC 타일·S-01 확인.
 - 시드 `_spc`(`sv-20261001-1`): 특성 6·부분군 456·측정값 2,280·한계 7·이상 3 → 템플릿 14,685·게스트 복사 14,683(중앙값 0.813초·최대 1.29초, 10회). 평소 점은 중심선 위·아래 교대, 장면만 이상: LT-0017 FG-C200 사출 6점 상승 → 규칙 3·1(미조치 2, QMS 배지), LT-0010 FG-C100 조립 지그 마모 규칙 1(조치 완료) → v2 재게시. 공정능력 충분 4·주의 1·부족 1. `created_at` 우선순위에 measured_at·effective_at·detected_at.
