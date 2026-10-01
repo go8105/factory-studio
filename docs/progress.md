@@ -10,6 +10,10 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-10-01 운영 배포 — main `1a1ddcd` (Claude Code)
+- 서버를 배포 브랜치에서 main으로 복귀(사용자가 SSH 실행): `git checkout main && git pull --ff-only` → `uv sync` → `alembic upgrade head`(fs040_app_review·fs030a/b GW·fs029a/b CMMS 처음 적용, head `fs029b_cmms_module`) → `seed.cli template`(14,687) → API 재시작 active. 프런트는 `1a1ddcd` worktree 빌드 → rsync(`index-C-F5DkHC.js`).
+- 운영 확인: 게스트 201·모듈 10개·평가 요약 200(빈 목록)·SPC 대시보드·홈 평점 줄 "평가 모으는 중". 운영에 평가를 쓰는 시험은 하지 않았다. FS-040 e2e 미실행.
+
 ## 2026-10-01 FS-029 CMMS 설계 확정 · FS-029a DB (Claude Code)
 - 결정서 D45~D52, 모듈 설계 13장 5건(유예 0일만 권장과 다름), 화면 설계 C-01~07을 하나씩 확정 → 전체 설계 확인.
 - FS-029a: schema.json v0.17.0·118테이블(cmms 6)·FK 270, 마이그레이션 `fs029a_cmms`(down `fs030b_gw_module`)·`fs029b_cmms_module`, `validate_cmms`, 스키마 목록 갱신, 시드 합계 14,687/14,685.
