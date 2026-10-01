@@ -1,9 +1,9 @@
 {
-  "version": "0.14.0",
-  "task": "FS-026a",
-  "date": "2026-09-30",
+  "version": "0.15.0",
+  "task": "FS-040",
+  "date": "2026-10-01",
   "status": "구현 명세 / 환경별 적용 상태는 인계 참조",
-  "migration_revision": "fs026a_wms_receiving_reservation",
+  "migration_revision": "fs040_app_review",
   "tables": [
     {
       "name": "core.app_user",
@@ -9979,6 +9979,90 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "core.app_review",
+      "label": "런처 평가",
+      "scope": "global",
+      "phase": "S1",
+      "retention": "초기화 보존",
+      "guest_cleanup": "전역 운영 피드백 유지(공간 FK 없음)",
+      "sub_module": "ops",
+      "note": "FS-040 D70~D73. 솔루션별 별점·한줄평. 회원 계정당·게스트 공간당·게스트 별칭당 1회. 수정·삭제 없음",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "module_key",
+          "label": "솔루션 키",
+          "type": "varchar(24)",
+          "nullable": false,
+          "default": null,
+          "rule": "mes / erp / fems / qms / wms / bems / spc"
+        },
+        {
+          "name": "actor_kind",
+          "label": "주체 유형",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "MEMBER / GUEST"
+        },
+        {
+          "name": "user_id",
+          "label": "회원",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "회원만"
+        },
+        {
+          "name": "guest_actor_key",
+          "label": "게스트 주체 키",
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "rule": "게스트 공간 UUID 값 스냅샷. FK 없음(공간 정리 뒤에도 남는다)"
+        },
+        {
+          "name": "nickname",
+          "label": "표시 이름",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": "회원 표시 이름 또는 게스트 별칭(2~20자) 스냅샷"
+        },
+        {
+          "name": "rating",
+          "label": "별점",
+          "type": "smallint",
+          "nullable": false,
+          "default": null,
+          "rule": "1~5"
+        },
+        {
+          "name": "comment",
+          "label": "한줄평",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": "2~100자"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
     }
   ],
   "relations": [
@@ -13837,6 +13921,19 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "같은 공간·세대 참조"
+    },
+    {
+      "source": "core.app_review",
+      "columns": [
+        "user_id"
+      ],
+      "target": "core.app_user",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "평가한 회원"
     }
   ],
   "constraints": [
@@ -22336,6 +22433,129 @@
       ],
       "expression": "",
       "reason": "업무 조회"
+    },
+    {
+      "table": "core.app_review",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "core.app_review",
+      "kind": "CHECK",
+      "columns": [
+        "module_key"
+      ],
+      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc')",
+      "reason": "평가 대상 솔루션"
+    },
+    {
+      "table": "core.app_review",
+      "kind": "CHECK",
+      "columns": [
+        "actor_kind"
+      ],
+      "expression": "actor_kind IN ('MEMBER', 'GUEST')",
+      "reason": "주체 유형"
+    },
+    {
+      "table": "core.app_review",
+      "kind": "CHECK",
+      "columns": [
+        "actor_kind",
+        "user_id",
+        "guest_actor_key"
+      ],
+      "expression": "(actor_kind = 'MEMBER' AND user_id IS NOT NULL AND guest_actor_key IS NULL) OR (actor_kind = 'GUEST' AND user_id IS NULL AND guest_actor_key IS NOT NULL)",
+      "reason": "주체와 식별값 일치"
+    },
+    {
+      "table": "core.app_review",
+      "kind": "CHECK",
+      "columns": [
+        "rating"
+      ],
+      "expression": "rating BETWEEN 1 AND 5",
+      "reason": "별점 범위"
+    },
+    {
+      "table": "core.app_review",
+      "kind": "CHECK",
+      "columns": [
+        "comment"
+      ],
+      "expression": "char_length(btrim(comment)) >= 2",
+      "reason": "한줄평 2자 이상"
+    },
+    {
+      "table": "core.app_review",
+      "kind": "CHECK",
+      "columns": [
+        "nickname"
+      ],
+      "expression": "char_length(btrim(nickname)) >= 1",
+      "reason": "표시 이름 필수"
+    },
+    {
+      "table": "core.app_review",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "module_key",
+        "user_id"
+      ],
+      "expression": "UNIQUE (module_key, user_id) WHERE user_id IS NOT NULL",
+      "reason": "회원 계정당 솔루션별 1회(D71)"
+    },
+    {
+      "table": "core.app_review",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "module_key",
+        "guest_actor_key"
+      ],
+      "expression": "UNIQUE (module_key, guest_actor_key) WHERE guest_actor_key IS NOT NULL",
+      "reason": "게스트 공간당 솔루션별 1회(D71)"
+    },
+    {
+      "table": "core.app_review",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "module_key",
+        "nickname"
+      ],
+      "expression": "UNIQUE (module_key, nickname) WHERE actor_kind = 'GUEST'",
+      "reason": "게스트 같은 별칭 솔루션별 1회(D71)"
+    },
+    {
+      "table": "core.app_review",
+      "kind": "INDEX",
+      "columns": [
+        "module_key",
+        "created_at"
+      ],
+      "expression": "",
+      "reason": "최근 한줄평·집계"
+    },
+    {
+      "table": "core.app_review",
+      "kind": "INDEX",
+      "columns": [
+        "user_id"
+      ],
+      "expression": "",
+      "reason": "FK 참조 탐색"
+    },
+    {
+      "table": "core.app_review",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "nickname"
+      ],
+      "expression": "주체·표시 이름은 서버 인증 문맥에서 정한다(회원 = display_name 앞 20자, 게스트 = 입력 별칭 공백 제거 2~20자). 수정·삭제하지 않는다. 별칭은 FS-027 D36 90일 삭제 대상이 아니다(공개 표시·중복 거부용)",
+      "reason": "FS-040 D72·D73"
     }
   ],
   "states": [
@@ -23047,6 +23267,31 @@
       ],
       "default": "NORMAL",
       "note": "격리는 현재고 포함·예약 제외"
+    },
+    {
+      "target": "core.app_review",
+      "column": "module_key",
+      "values": [
+        "mes",
+        "erp",
+        "fems",
+        "qms",
+        "wms",
+        "bems",
+        "spc"
+      ],
+      "default": null,
+      "note": "운영 중인 솔루션(포털 core 제외)"
+    },
+    {
+      "target": "core.app_review",
+      "column": "actor_kind",
+      "values": [
+        "MEMBER",
+        "GUEST"
+      ],
+      "default": null,
+      "note": "회원 / 게스트"
     }
   ],
   "change_log": [
@@ -23231,6 +23476,13 @@
       "date": "2026-09-30",
       "change": "기존 WMS 확장: 입고 예정·명세·원천 선점·예약·배분 5테이블, 위치 유형 및 검수 전표(Codex 2026-09-28 설계, main 병합 때 FS-028a v0.13.0 뒤로 v0.14.0). 서비스 정책은 후속 API 대상",
       "status": "새 revision; DB 검증 결과는 인계 참조"
+    },
+    {
+      "version": "0.15.0",
+      "task": "FS-040",
+      "date": "2026-10-01",
+      "change": "core.app_review(런처 평가: 별점·한줄평) 1테이블. 공간 FK 없음, 회원 FK만. 스키마 간 FK 0건",
+      "status": "마이그레이션 fs040_app_review 적용 대상"
     }
   ]
 }

@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { useSession } from "../app/session";
 import { api, type Module } from "../shared/api";
 import { Badge, ErrorNotice, Loading } from "../shared/components";
+import { RatingLine, ReviewPanel, useReviewSummary } from "./Reviews";
 import systems from "../../../content/systems.json";
 export const solutions = [
   {
@@ -172,6 +173,8 @@ export function Home() {
   const [error, setError] = useState<unknown>();
   const [detail, setDetail] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [reviewing, setReviewing] = useState<string | null>(null);
+  const [reviews, reloadReviews] = useReviewSummary(session?.generationId);
   useEffect(() => {
     let active = true;
     setError(undefined);
@@ -280,6 +283,11 @@ export function Home() {
                               {s.key.toUpperCase()} <span>{s.name}</span>
                             </h3>
                           </Link>
+                          <RatingLine
+                            label={s.key.toUpperCase()}
+                            summary={reviews.find((r) => r.moduleKey === s.key)}
+                            onOpen={() => setReviewing(s.key)}
+                          />
                           <button
                             type="button"
                             className="launcher-info"
@@ -314,6 +322,16 @@ export function Home() {
           )
         )}
       </section>
+      {reviewing && (
+        <ReviewPanel
+          key={reviewing}
+          moduleKey={reviewing}
+          label={reviewing.toUpperCase()}
+          summary={reviews.find((r) => r.moduleKey === reviewing)}
+          onClose={() => setReviewing(null)}
+          onSaved={reloadReviews}
+        />
+      )}
       <section className="excluded home-roadmap">
         <span className="eyebrow">ROADMAP</span>
         <h2>앞으로 만들 것</h2>

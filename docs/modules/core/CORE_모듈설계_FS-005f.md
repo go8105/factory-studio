@@ -89,3 +89,8 @@ core는 현재 구조로 충분하다. 추가 제안이 없는 이유를 남긴�
 - 관리자 조회 `GET /admin/guest-visits`(P-07 "게스트 접속"). 정리된 공간은 `workspace_snapshot_id`로 남는다.
 - 보관: 정리 작업(`cleanup_expired_guests`)이 90일 지난 기록의 `nickname` 키만 지운다 — `core.audit_event` 불변 정책의 유일한 예외.
 - 결정서: [FS-027](../../plan/게스트별칭_접속이력_FS-027.md)
+
+## 9. 후속 변경 — 런처 평가 (FS-040, 2026-10-01)
+
+- `ops`에 **`core.app_review`**(별점·한줄평) 1테이블. 범위 global — 공간·세대 FK가 없어 게스트 정리·세대 초기화와 무관하게 남는다. 회원만 `core.app_user` FK.
+- 1회 규칙: 회원 계정당 · 게스트 공간당 · 게스트 별칭당(솔루션별). 근거·API는 [FS-040](../../plan/런처평가_한줄평_FS-040.md).

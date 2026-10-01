@@ -339,3 +339,126 @@
   max-width: none;
   margin: 0;
 }
+/* FS-040 평가: 타일 아래 한 줄. 별은 차분한 골드 하나, 숫자로 전한다. */
+.launcher-rating {
+  display: block;
+  margin: 6px auto 0;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+.launcher-rating:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.launcher-rating span,
+.review-score span,
+.review-rating,
+.review-stars label.on {
+  color: #a68951;
+}
+/* 홈에는 목록 옆 자리가 없으므로 넓은 화면에서도 오른쪽에서 겹쳐 연다. */
+.home-launcher .form-panel {
+  position: fixed;
+  top: var(--header-h);
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  width: min(var(--panel-w), 100%);
+  max-height: none;
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+}
+.home-launcher .form-panel-backdrop {
+  display: block;
+  position: fixed;
+  inset: var(--header-h) 0 0;
+  z-index: 44;
+  background: rgb(26 28 30 / 16%);
+}
+@media (max-width: 800px) {
+  .home-launcher .form-panel {
+    top: 0;
+  }
+  .home-launcher .form-panel-backdrop {
+    inset: 0;
+  }
+}
+.review-score {
+  margin: 0 0 var(--s4);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+}
+.review-score small {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+}
+.review-stars {
+  margin: 0 0 var(--s4);
+  padding: 0;
+  border: 0;
+}
+.review-stars legend {
+  margin-bottom: var(--s2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.review-stars label {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  color: var(--border-strong);
+  font-size: 26px;
+  cursor: pointer;
+}
+.review-stars input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.review-stars label:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  border-radius: var(--radius-sm);
+}
+.review-stars small {
+  display: block;
+  color: var(--danger-fg);
+}
+.review-done {
+  padding: var(--s3);
+  border-radius: var(--radius);
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+.review-recent-title {
+  margin: var(--s5) 0 var(--s2);
+  font-size: var(--fs-sm);
+}
+.review-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.review-list li {
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--border);
+}
+.review-list p {
+  margin: 4px 0;
+  font-size: var(--fs-sm);
+}
+.review-list small {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.review-rating .off {
+  color: var(--border-strong);
+}

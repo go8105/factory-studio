@@ -604,3 +604,13 @@ A-1만 스키마와 관련이 있고 나머지는 구현 방침이다. **A-1을 
 | `GET /signals?status=&characteristicId=` · `POST /signals/{id}/resolve {causeCategory, action}` | TX-S3. 미조치만 조치 완료. 원인 `MACHINE`·`MATERIAL`·`MAN`·`METHOD`·`MEASUREMENT`·`ENVIRONMENT` | 409 `NOT_OPEN` |
 
 **조회 인터페이스(코드, HTTP 아님):** `fs/spc/interface.py`(신규) — `enabled`·`open_signal_lot_nos(lot_nos)`(미조치 이상 LOT). `fs/mes/interface.py`에 `operation_runs(date_from, date_to)` 추가. QMS `GET /lookups/mes-lots`·`GET /inspections` 행에 `spcSignal`(true/false, SPC 꺼짐이면 null)이 붙는다 — QMS 판정·보류는 바뀌지 않는다(D44).
+
+## 18. 런처 평가 API (`/api/v1/core/reviews`, FS-040)
+
+결정: [FS-040](../plan/런처평가_한줄평_FS-040.md). 회원·게스트 세션 모두 가능. 공간을 넘는 집계는 이 API만 한다(평가 행에는 업무 데이터가 없다).
+
+| 메서드·경로 | 요약 | 주요 오류 |
+|---|---|---|
+| `GET /reviews/summary` | `[{moduleKey, average(소수 1자리), count, reviewed}]`. 평가 0건인 솔루션은 빠진다 | — |
+| `GET /reviews?moduleKey=` | 최근 5건 `[{nickname, rating, comment, createdAt}]` | 400 `fields.moduleKey` |
+| `POST /reviews {moduleKey, rating 1~5, comment 2~100자, nickname?}` | CSRF·Idempotency-Key. 회원은 표시 이름(앞 20자)을 쓰고 `nickname`은 무시, 게스트는 별칭 2~20자 필수. 201 | 400 `fields.comment`·`fields.nickname`·`fields.moduleKey` · 409 `ALREADY_REVIEWED`(같은 계정·같은 게스트 공간) · 409 `NICKNAME_TAKEN`(같은 솔루션에 같은 게스트 별칭) |

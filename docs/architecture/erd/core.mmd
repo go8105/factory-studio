@@ -1,4 +1,15 @@
 erDiagram
+  core_app_review {
+    bigint id PK "내부 식별자"
+    varchar module_key "솔루션 키"
+    varchar actor_kind "주체 유형"
+    bigint user_id FK "회원 NULL"
+    uuid guest_actor_key "게스트 주체 키 NULL"
+    varchar nickname "표시 이름"
+    smallint rating "별점"
+    varchar comment "한줄평"
+    timestamptz created_at "등록 시각"
+  }
   core_app_user {
     bigint id PK "내부 식별자"
     varchar login_id "로그인 ID"
@@ -129,3 +140,4 @@ erDiagram
   core_job_run |o..o{ core_audit_event : "workspace_id,job_run_id"
   core_data_generation ||..o{ core_request_receipt : "workspace_id,generation_id"
   core_app_user |o..o{ core_request_receipt : "actor_user_id"
+  core_app_user |o..o{ core_app_review : "user_id"
