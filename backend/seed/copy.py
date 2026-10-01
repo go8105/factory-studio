@@ -13,7 +13,7 @@ from sqlalchemy.engine import Connection
 from seed.common import SEED_VERSION, at
 
 
-SCHEMAS = ("mes", "erp", "fems", "qms", "wms", "bems", "spc")
+SCHEMAS = ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw")
 MONTH_COLUMNS = {
     ("erp.partner_item_price", "effective_from"),
     ("erp.partner_item_price", "effective_to"),
@@ -353,6 +353,28 @@ def _insert_select_sql(
 
 
 def _column_expression(table_name: str, column: str, type_name: str) -> str:
+    if table_name == "gw.approval_document" and column == "source_snapshot":
+        # Only display dates move; the code/amount snapshot and digest stay unchanged.
+        fields = []
+        for key, cast in (
+            ("invoiceDate", "date"),
+            ("dueDate", "date"),
+            ("confirmedAt", "timestamptz"),
+            ("cancelledAt", "timestamptz"),
+        ):
+            shift = "(:target_date - :source_date)"
+            if cast == "timestamptz":
+                shift += " * interval '1 day'"
+            fields.append(
+                f"'{key}', (src.source_snapshot #>> '{{display,{key}}}')::{cast} + {shift}"
+            )
+        return (
+            "CASE WHEN src.source_snapshot IS NULL OR src.source_snapshot->'display' IS NULL "
+            "THEN src.source_snapshot ELSE jsonb_set(src.source_snapshot, '{display}', "
+            "(src.source_snapshot->'display') || jsonb_build_object("
+            + ",".join(fields)
+            + ")) END"
+        )
     if table_name == "wms.stock_reservation" and column == "reservation_no":
         return "left(src.reservation_no,4) || to_char(to_date(substr(src.reservation_no,5,8), 'YYYYMMDD') + (:target_date - :source_date), 'YYYYMMDD') || substr(src.reservation_no,13)"
     if table_name == "wms.source_claim" and column == "source_snapshot":

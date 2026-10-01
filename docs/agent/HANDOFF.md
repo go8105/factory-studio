@@ -19,6 +19,7 @@
 - **Codex에 전달**: FS-026은 main에 병합됐다. 다음 작업은 새 main에서 새 브랜치로 시작한다(`codex/vision-ai`는 병합 끝). 게스트 생성 테스트는 `json={"nickname": …}`, e2e는 별칭 입력 필수(FS-027).
 - **FS-028 SPC a·b·c 완료(2026-10-01, 로컬 main)** — c: 시드 `_spc`(부분군 456·측정값 2,280·이상 3: LT-0017 미조치 2·LT-0010 지그 조치 1, 공정능력 충분4·주의1·부족1), `seed/validate.py` V13, 템플릿 14,685·복사 14,683(중앙값 0.813초), 도움말 s-01~07·개념 c-20·21, 흐름 맵 `process_control`(18·21), e2e QMS 배지. **남은 것: 운영 반영**(main에 다른 세션의 `cb3fba4 WIP FS-040` 런처 평가가 함께 있다 — 같이 배포할지 사용자 확인) → README "운영 · 동결" → 로드맵 2번 CMMS 결정서(D45·AC-185부터).
 - **GW(로드맵 10번)는 Codex가 병행(FS-030, 2026-10-01 사용자 지시)** — 지시서 `docs/agent/Codex_작업지시_GW_FS-030.md`(브랜치 `codex/fs-030-gw`, 번호 범위 D60~69·AC-220~239·화면 G, 스키마 버전은 병합 때 Claude가 정한다). Claude 쪽 CMMS는 D45·AC-185부터.
+- **FS-030a GW DB main 병합(2026-10-01, Claude)**: Codex `codex/fs-030-gw` `cd8b619`. 충돌 4곳(시드 합계·진행 기록)만 해결 — 템플릿 14,686·복사 14,684(SPC +2,752 + gw 모듈 행 +1). 임시 버전 `0.15.0-gw` → **v0.16.0**(FS-040이 0.15.0). 검증: db:validate 0·격리 0·tools 69·실제 DB base↔head·DDL 대조 0(112·FK 258)·pytest 관련 72(seed·common·spc·gw_schema·schema_verifier·reviews)·ruff. Codex 다음은 FS-030b(API·화면) — 새 main에서 rebase.
 
 - **FS-040 런처 평가 완료(2026-10-01, 로컬 main, push·배포 안 함)** — `core.app_review`·`/api/v1/core/reviews`·P-02 평점 줄+패널. schema **v0.15.0 / 104테이블**, head **`fs040_app_review`**(down `fs026a`). **FS-028c·GW(FS-030) 병합 때 주의**: 다음 schema 버전은 v0.16.0, 새 마이그레이션 down_revision은 `fs040_app_review`, 새 제약 번호는 C868·R237부터. `validate_db_design`의 작업 집합에 새 작업 ID를 FS-040과 함께 넣는다. 운영 반영 시 `alembic upgrade head`만(시드 변경 없음). 남은 것: p-02 도움말에 평가 안내, e2e.
 - 재현: `python3 tools/apply_fs040.py` → `npm run db:validate` → (전용 DB) `alembic upgrade head` → `tools/verify_ddl_matches_schema.py` → `pytest backend/tests/test_reviews.py`.
@@ -452,3 +453,35 @@ git diff --check
 - 최종 검증: 전체 backend **779 passed**(23분39초, 기존 경고2), frontend **491 passed /57파일**(maxWorkers=2), 실제 API Chromium **10 passed**(1.2분). 전체 typecheck/lint/format/build 통과, Ruff139파일 통과, R1~R6 격리 감사0·db:validate0, tools58+subtests13 통과. 기본 병렬 프런트 실행의 기존 ERP 테스트 일시 실패·재검증 및 경고는 통합 보고에 기록.
 - 도움말 W-08/09, 기존 W-01~07, 사용자 참고 `/help/portal/wms-flow` 반영. 360px와 트럭 외관 캡처 확인. 보고·재현·AC 증거: `docs/agent/WMS확장_화면트럭통합_FS-026.md`.
 - 검증용 API/Vite 종료. `.env`·work 스테이징 없음. **push·운영 배포 없음. 이번 승인 범위 남은 개발 없음.** 다음은 사용자의 통합/운영 반영: 백엔드·프런트를 함께 적용하고 새 템플릿 생성·검증 후 새 게스트에서 체험한다. 기존 기록을 소급 변경하지 않는다.
+
+## 2026-10-01 FS-030 GW 결정서 — 승인 대기
+
+- 사용자 GW 별도 담당 지시에 따라 fetch 후 최신 origin/main7a2d70f(67540be 후속)에서 `codex/fs-030-gw` 생성. 작업 폴더 factory-studio-codex만 사용, vision-ai에서 이어 개발하지 않음.
+- `docs/plan/GW도입_전자결재_결정_FS-030.md` 작성. D60~D69, AC220~239 범위 유지. 합성 담당자/실제 인증 주체 구분, 순차 결재·회수·재상신 불변 이력, 원문 변경·off·최신 회차 배지, 글 포함/댓글·첨부 제외 해석을 승인안으로 보완.
+- 권장: ERP 매입 전표 한 종류+일반 기안, E-11 읽기 전용 배지 포함. ERP 교차 쓰기/확정 통제 없음. 결정은 아직 승인되지 않음.
+- 킷의 공용 개발 DB 적용 지시는 이번 전용 DB 지시로 제외. 적용 migration 불변과 병합 head 변경 충돌은 DB 착수 전 재확인 및 새 연결 방식 조율로 기록. 현재 head fs026a_wms_receiving_reservation, metadata v0.14.0/103테이블 유지.
+- 검증: 문서 상대 링크5개·D번호10개·AC20개·현황173/200줄 정적 검사 통과(exit0), git diff --check 통과(exit0). 제품 코드/스키마 변경이 없어 pytest·프런트·브라우저·migration·시드·격리 감사는 미실행. DB 접속/공용 서버 실행 없음.
+- 다음: **사용자 결정서 승인 후** GW 모듈/README·G-01~07 화면 설계. 전체 설계 승인 전 schema.json·migration·제품 코드 작성 금지. 이후 a/b/c 각각 보고 후 대기. push·배포·main 병합 없음. 최종 문서 커밋은 git log -1로 확인.
+
+## 2026-10-01 FS-030 GW 전체 설계 작성 — 승인 대기
+
+- 사용자 “진행해줘”를 결정서 권장안 4항목 승인으로 기록(D60~69). 브랜치 codex/fs-030-gw, main7a2d70f/선행 결정커밋 b873543.
+- 새 문서: docs/modules/gw/GW_모듈설계_FS-030.md, 같은 폴더 README.md(현재 기준/조회 계약), docs/ui/화면설계_GW_FS-030.md. 결정서·로드맵·현황 갱신.
+- gw8테이블, G01~07+E11 읽기 배지, TX-G1~6/API/권한/잠금/오류/불변 이력·재상신·원문 digest/복사·시드69행(+모듈행1 별도) 설계. AC220~239 연결. source digest는 ERP 소유 정규화 함수로 일원화; 제공 interface 사이 재귀 호출 금지.
+- 검사: 문서4개 상대 링크17개·테이블8·화면7·AC20·시드합69·현황173/200줄 정적 검사 통과(exit0), git diff --check 통과(exit0). 최초 임시 검사 정규식이 interface 함수까지 테이블로 세어 실패했으며 식별자 패턴 보정 후 통과. 제품 검증 결과가 아님.
+- 미실행: pytest·vitest·브라우저·DB migration·시드 생성·격리 감사. 문서만 작성했고 제품 코드/schema.json/Excel/ERD/migration 변경 및 DB 접속 없음.
+- 다음: **사용자 모듈·화면 전체 설계 확인 후 FS-030a DB**. a 착수 전 최신 main/head/공통 파일·SPC/CMMS 시드 합계 재확인. 적용 migration 수정 금지, Codex 전용 DB/포트만 사용. a/b/c 각각 보고 후 대기. push·배포·main 병합 없음. 최종 문서 커밋은 git log -1.
+
+## 2026-10-01 FS-030a DB WIP
+
+- 사용자 “구현 진행해줘”로 모듈·화면 전체 설계 승인. origin/main6350697(FS-040 포함) 위 rebase 완료, codex/fs-030-gw. GW 8테이블·스키마 목록·복사·모듈 기본행 및 Excel/ERD 구현. head fs030b_gw_module, down fs040_app_review.
+- 전용 factory_studio_codex_fs030_test: DB 제약·시드·공통 회귀45 passed, 도구69 passed, 실제 DDL 대조/설계 검증/격리 감사 오류0. 전체 backend/UI/browser 미실행. downgrade 왕복·기존 공간 backfill 검증과 최종 문서 정리 남음.
+- FS-030b API/화면은 아직 시작하지 않음. a 최종 보고 후 사용자 확인 대기. push·배포·main 병합 없음. .env/work 스테이징 금지. 상세 표준 재현 명령은 최종 a 보고에 남긴다.
+
+## 2026-10-01 FS-030a DB 완료 — 다음은 사용자 확인 후 b
+
+- 앞선 GW WIP/승인대기 상태를 대체한다. 전체 설계 “구현 진행해줘” 승인. main6350697에 rebase한 codex/fs-030-gw, 구현15f9398·최종커밋 git log -1.
+- 신규8테이블·복사/초기화·모듈행/평가모듈CHECK, schema/Excel/ERD 일치. 임시0.15.0-gw,112테이블·1,225컬럼·258FK, headfs030b_gw_module(fs040 뒤). 템플릿11,934/복사11,932. 적용 기존migration 변경 없음.
+- 전용DB pytest45/도구69 통과, Ruff154파일·격리/DDL/정적 오류0, 빈DB 왕복·기존공간GW true/ERP false·유데이터 downgrade 거부/전체롤백 통과. Excel39시트/GW4미리보기 확인. 전체backend/UI/browser 미실행.
+- 상세 변경파일·검증/미실행·재현은 docs/agent/GW_DB_FS-030a.md. SERVICE 정책/권한/결재 로직은 아직 b 미구현이며 DB 제약과 구분한다.
+- b 사용자 확인 후 API·G01~07·ERP조회계약/E11배지·런처/평가 gw 허용·전환/문서/e2e. c69업무행/도움말/흐름맵/전체검증. push·배포·main 병합 없음. Codex전용DB만 적용, 공유DB/8000/5173 서버 사용 없음. .env/work 스테이징 없음.

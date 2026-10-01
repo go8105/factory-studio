@@ -21,7 +21,7 @@ from uuid import uuid4
 from sqlalchemy import Connection, create_engine, inspect, text
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMAS = ("core", "mes", "erp", "fems", "qms", "wms", "bems", "spc")
+SCHEMAS = ("core", "mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw")
 
 
 def _literal(sql: str) -> str:

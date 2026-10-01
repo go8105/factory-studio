@@ -19,7 +19,7 @@ class ApplyTest(unittest.TestCase):
         again = copy.deepcopy(self.current)
         self.assertFalse(apply_fs024a.apply(again))
         self.assertEqual(again, self.current)
-        self.assertEqual(sum(t['name'].startswith('wms.') for t in self.current['tables']), 11 if self.current.get('task') in {'FS-026a', 'FS-040'} else 6)
+        self.assertEqual(sum(t['name'].startswith('wms.') for t in self.current['tables']), 11 if self.current.get('task') in {'FS-026a', 'FS-040', 'FS-030a'} else 6)
         self.assertEqual(audit(self.current), [])
         self.assertEqual(validate_wms(self.current), [])
 
