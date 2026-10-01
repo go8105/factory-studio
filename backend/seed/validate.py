@@ -14,7 +14,7 @@ from seed.common import equipment_ratio_sql, month_mondays, month_text
 EXPECTED_COUNTS = {
     "core.workspace": 1,
     "core.data_generation": 1,
-    "core.workspace_module": 8,
+    "core.workspace_module": 9,
     "mes.site": 1,
     "mes.location": 3,
     "mes.equipment": 8,
@@ -115,9 +115,9 @@ def validate_all(
         actual == EXPECTED_COUNTS,
         f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}",
     )
-    _require(sum(actual.values()) == 11933, f"V1 total={sum(actual.values())}")
+    _require(sum(actual.values()) == 11934, f"V1 total={sum(actual.values())}")
     # FS-025c: BEMS 시드 +4,218행. FS-028a: spc 모듈 행 +1. FS-026: WMS 예시 +22(SPC 업무 시드는 FS-028c).
-    results["V1"] = "103개 중 시드 테이블, 11,933행 일치"
+    results["V1"] = "112개 중 시드 테이블, 11,934행 일치"
 
     plans = connection.execute(
         text(
@@ -311,7 +311,7 @@ def validate_all(
 
     future = 0
     inspector = inspect(connection)
-    for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc"):
+    for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw"):
         for table in inspector.get_table_names(schema=schema):
             for column in inspector.get_columns(table, schema=schema):
                 if (
@@ -331,7 +331,7 @@ def validate_all(
         """
         SELECT count(*) FROM pg_constraint c JOIN pg_class s ON s.oid=c.conrelid JOIN pg_namespace sn ON sn.oid=s.relnamespace
         JOIN pg_class t ON t.oid=c.confrelid JOIN pg_namespace tn ON tn.oid=t.relnamespace
-        WHERE c.contype='f' AND sn.nspname IN ('mes','erp','fems','qms','wms','bems','spc') AND tn.nspname IN ('mes','erp','fems','qms','wms','bems','spc') AND sn.nspname<>tn.nspname
+        WHERE c.contype='f' AND sn.nspname IN ('mes','erp','fems','qms','wms','bems','spc','gw') AND tn.nspname IN ('mes','erp','fems','qms','wms','bems','spc','gw') AND sn.nspname<>tn.nspname
     """,
         params,
     )
@@ -381,7 +381,7 @@ def _counts(
         {"w": workspace_id},
     )
     inspector = inspect(connection)
-    for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc"):
+    for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw"):
         for table in inspector.get_table_names(schema=schema):
             count = _scalar(
                 connection,
@@ -403,7 +403,7 @@ def _created_at_order_errors(
     params = {"w": workspace_id, "g": generation_id}
     inspector = inspect(connection)
     errors = 0
-    for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc"):
+    for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw"):
         for table in inspector.get_table_names(schema=schema):
             columns = {
                 column["name"] for column in inspector.get_columns(table, schema=schema)
@@ -430,6 +430,7 @@ def _created_at_order_errors(
                     "wms",
                     "bems",
                     "spc",
+                    "gw",
                 }:
                     continue
                 parent_columns = {

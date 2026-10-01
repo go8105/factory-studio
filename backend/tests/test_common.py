@@ -19,7 +19,7 @@ from sqlalchemy import Engine, inspect, text
 def _business_count(engine: Engine, workspace_id: int, generation_id: int) -> int:
     total = 0
     with engine.connect() as connection:
-        for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc"):
+        for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw"):
             for table in inspect(connection).get_table_names(schema=schema):
                 total += connection.execute(
                     text(
@@ -107,7 +107,7 @@ def common_env(db_engine: Engine) -> Generator[CommonEnv]:
     with db_engine.begin() as connection:
         tables = [
             f'"{schema}"."{table}"'
-            for schema in ("core", "mes", "erp", "fems", "qms", "wms", "bems", "spc")
+            for schema in ("core", "mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw")
             for table in inspect(connection).get_table_names(schema=schema)
         ]
         connection.execute(
@@ -128,7 +128,7 @@ def common_env(db_engine: Engine) -> Generator[CommonEnv]:
     with db_engine.begin() as connection:
         tables = [
             f'"{schema}"."{table}"'
-            for schema in ("core", "mes", "erp", "fems", "qms", "wms", "bems", "spc")
+            for schema in ("core", "mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw")
             for table in inspect(connection).get_table_names(schema=schema)
         ]
         connection.execute(
@@ -176,9 +176,9 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     )
     assert guest_token.startswith("g_")
     assert (
-        # FS-026 WMS 예시 +22, FS-028a spc 모듈 행 +1 → 11,931
+        # FS-026 WMS 예시 +22, FS-028a spc +1, FS-030a gw 모듈 행 +1 → 11,932
         _business_count(engine, guest_data["workspaceId"], guest_data["generationId"])
-        == 11931
+        == 11932
     )
 
     reset_headers = {
@@ -192,7 +192,7 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     reset_generation_id = reset_first.json()["data"]["generationId"]
     assert reset_generation_id != guest_data["generationId"]
     assert (
-        _business_count(engine, guest_data["workspaceId"], reset_generation_id) == 11931
+        _business_count(engine, guest_data["workspaceId"], reset_generation_id) == 11932
     )
     with engine.connect() as connection:
         assert (

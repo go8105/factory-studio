@@ -13,12 +13,12 @@ DESIGN = ROOT/'docs/db/스키마_재구성_FS-014.md'
 # 작업 ID별 기준 엔티티 목록. 뒤 작업은 앞 작업의 목록을 이어받는다.
 # 병합 순서(2026-09-30): FS-028a(SPC) 다음 FS-026a(WMS 확장). 마지막 작업 ID가 FS-026a여도 SPC를 포함한다.
 # FS-040(런처 평가, core.app_review)은 FS-026a 뒤다.
-LATER_THAN_014B = {'FS-014b', 'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a', 'FS-025a', 'FS-028a', 'FS-026a', 'FS-040'}
-LATER_THAN_008B = {'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a', 'FS-025a', 'FS-028a', 'FS-026a', 'FS-040'}
-LATER_THAN_023A = {'FS-023a', 'FS-024a', 'FS-025a', 'FS-028a', 'FS-026a', 'FS-040'}
-LATER_THAN_024A = {'FS-024a', 'FS-025a', 'FS-028a', 'FS-026a', 'FS-040'}
-LATER_THAN_025A = {'FS-025a', 'FS-028a', 'FS-026a', 'FS-040'}
-LATER_THAN_028A = {'FS-028a', 'FS-026a', 'FS-040'}
+LATER_THAN_014B = {'FS-014b', 'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a', 'FS-025a', 'FS-028a', 'FS-026a', 'FS-040', 'FS-030a'}
+LATER_THAN_008B = {'FS-008b', 'FS-008c', 'FS-023a', 'FS-024a', 'FS-025a', 'FS-028a', 'FS-026a', 'FS-040', 'FS-030a'}
+LATER_THAN_023A = {'FS-023a', 'FS-024a', 'FS-025a', 'FS-028a', 'FS-026a', 'FS-040', 'FS-030a'}
+LATER_THAN_024A = {'FS-024a', 'FS-025a', 'FS-028a', 'FS-026a', 'FS-040', 'FS-030a'}
+LATER_THAN_025A = {'FS-025a', 'FS-028a', 'FS-026a', 'FS-040', 'FS-030a'}
+LATER_THAN_028A = {'FS-028a', 'FS-026a', 'FS-040', 'FS-030a'}
 QMS_DESIGN = ROOT/'docs/modules/qms/QMS_모듈설계_FS-023.md'
 WMS_DESIGN = ROOT/'docs/modules/wms/WMS_모듈설계_FS-024.md'
 BEMS_DESIGN = ROOT/'docs/modules/bems/BEMS_모듈설계_FS-025.md'
@@ -41,11 +41,14 @@ def design_names(task='FS-014'):
         names |= set(re.findall(r'^\| `(bems\.[a-z_]+)` \|', BEMS_DESIGN.read_text(encoding='utf-8'), re.M))
     if task in LATER_THAN_028A:
         names |= set(re.findall(r'^\| `(spc\.[a-z_]+)` \|', SPC_DESIGN.read_text(encoding='utf-8'), re.M))
-    if task == 'FS-040':
+    if task in {'FS-040', 'FS-030a'}:
         names |= set(re.findall(r'^\| `(core\.[a-z_]+)` \|', REVIEW_DESIGN.read_text(encoding='utf-8'), re.M))
-    if task in {'FS-026a', 'FS-040'}:
+    if task in {'FS-026a', 'FS-040', 'FS-030a'}:
         doc = ROOT/'docs/modules/wms/WMS_모듈설계_FS-026.md'
         names |= set(re.findall(r'^### 3\.[1-5] (wms\.[a-z_]+)', doc.read_text(encoding='utf-8'), re.M))
+    if task == 'FS-030a':
+        doc = ROOT/'docs/modules/gw/GW_모듈설계_FS-030.md'
+        names |= set(re.findall(r'^\| `(gw\.[a-z_]+)` \|', doc.read_text(encoding='utf-8'), re.M))
     return names
 
 
@@ -125,9 +128,12 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_bems(d))
     if d.get('task') in LATER_THAN_028A:
         errors.extend(validate_spc(d))
-    if d.get('task') in {'FS-026a', 'FS-040'}:
+    if d.get('task') in {'FS-026a', 'FS-040', 'FS-030a'}:
         from validate_fs026a import validate_extension
         errors.extend(validate_extension(d))
+    if d.get('task') == 'FS-030a':
+        from validate_fs030a import validate_gw
+        errors.extend(validate_gw(d))
     return errors
 
 

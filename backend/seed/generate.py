@@ -168,7 +168,7 @@ class SeedWriter:
         self.generation_id = generation_id
         self.seed_date = seed_date
         self.metadata = MetaData()
-        for schema in ("core", "mes", "erp", "fems", "qms", "wms", "bems", "spc"):
+        for schema in ("core", "mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw"):
             self.metadata.reflect(connection, schema=schema)
         self.counts: dict[str, int] = defaultdict(int)
 
@@ -264,7 +264,7 @@ def create_template(
                 "enabled": True,
                 "updated_at": at(seed_date, 0),
             }
-            for module in ("core", "mes", "erp", "fems", "qms", "wms", "bems", "spc")
+            for module in ("core", "mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw")
         ],
     )
     _masters(writer)
@@ -313,7 +313,7 @@ def normalize_created_at(
     )
     inspector = inspect(connection)
     tables: list[tuple[str, str, set[str]]] = []
-    for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc"):
+    for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw"):
         for table in inspector.get_table_names(schema=schema):
             columns = {
                 column["name"] for column in inspector.get_columns(table, schema=schema)
@@ -353,6 +353,7 @@ def normalize_created_at(
                     "wms",
                     "bems",
                     "spc",
+                    "gw",
                 }:
                     continue
                 join = " AND ".join(

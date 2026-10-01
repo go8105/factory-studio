@@ -6,7 +6,7 @@ import {createRequire} from 'node:module';
 import {execFileSync} from 'node:child_process';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const d=JSON.parse(await fs.readFile(path.join(root,'docs/db/schema-metadata/schema.json'),'utf8'));
-const modules={core:'CORE',mes:'MES',erp:'ERP',fems:'FEMS',qms:'QMS',wms:'WMS',bems:'BEMS',spc:'SPC'};
+const modules={core:'CORE',mes:'MES',erp:'ERP',fems:'FEMS',qms:'QMS',wms:'WMS',bems:'BEMS',spc:'SPC',gw:'GW'};
 const specs=[];
 function spec(name,title,heads,rows,widths){const s={name,title,heads,rows:rows.map(row=>row.map(value=>value===''?null:value)),widths,links:[]};specs.push(s);return s}
 const toc=spec('00_목차','Factory Studio 모듈별 DB 명세',['모듈','테이블','컬럼','테이블 목록','컬럼 명세','참조 관계','규칙·보존'],[],[23,12,12,23,23,23,23]);

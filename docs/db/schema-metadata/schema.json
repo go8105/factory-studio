@@ -1,9 +1,9 @@
 {
-  "version": "0.15.0",
-  "task": "FS-040",
+  "version": "0.15.0-gw",
+  "task": "FS-030a",
   "date": "2026-10-01",
   "status": "구현 명세 / 환경별 적용 상태는 인계 참조",
-  "migration_revision": "fs040_app_review",
+  "migration_revision": "fs030b_gw_module",
   "tables": [
     {
       "name": "core.app_user",
@@ -10063,6 +10063,1038 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "gw.person",
+      "label": "체험 담당자",
+      "scope": "generation",
+      "phase": "G1",
+      "retention": "세대 정리",
+      "note": "FS-030 D61: 합성 역할, 실제 계정 아님",
+      "sub_module": "gw_master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "code",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "name",
+          "type": "varchar(80)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "job_role",
+          "label": "job_role",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "is_active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "gw.approval_route",
+      "label": "결재선",
+      "scope": "generation",
+      "phase": "G1",
+      "retention": "세대 정리",
+      "note": "초안 선택 때 문서 단계로 복사",
+      "sub_module": "gw_master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "code",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "name",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "is_active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "gw.route_step",
+      "label": "결재선 단계",
+      "scope": "generation",
+      "phase": "G1",
+      "retention": "세대 정리",
+      "note": "순차 1~3명",
+      "sub_module": "gw_master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "route_id",
+          "label": "route_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "seq",
+          "label": "seq",
+          "type": "smallint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_id",
+          "label": "person_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "gw.approval_document",
+      "label": "결재 문서",
+      "scope": "generation",
+      "phase": "G1",
+      "retention": "세대 정리",
+      "note": "상신 후 본문·스냅샷 불변, 정정은 새 문서",
+      "sub_module": "approval",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "serial",
+          "label": "serial",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "document_no",
+          "label": "document_no",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "previous_document_id",
+          "label": "previous_document_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "round_no",
+          "label": "round_no",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "kind",
+          "label": "kind",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "title",
+          "label": "title",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "body",
+          "label": "body",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "drafter_id",
+          "label": "drafter_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "drafter_code",
+          "label": "drafter_code",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "drafter_name",
+          "label": "drafter_name",
+          "type": "varchar(80)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "drafter_job_role",
+          "label": "drafter_job_role",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "route_id",
+          "label": "route_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "route_code",
+          "label": "route_code",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "route_name",
+          "label": "route_name",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "status",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": "'DRAFT'",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "submission_order",
+          "label": "submission_order",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "current_step",
+          "label": "current_step",
+          "type": "smallint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "submitted_at",
+          "label": "submitted_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "closed_at",
+          "label": "closed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "source_kind",
+          "label": "source_kind",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "source_no",
+          "label": "source_no",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "source_snapshot",
+          "label": "source_snapshot",
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "source_digest",
+          "label": "source_digest",
+          "type": "varchar(64)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "source_status",
+          "label": "source_status",
+          "type": "varchar(20)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "amount",
+          "label": "amount",
+          "type": "numeric(18,2)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "currency",
+          "label": "currency",
+          "type": "varchar(3)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "gw.approval_step",
+      "label": "문서 결재 단계",
+      "scope": "generation",
+      "phase": "G1",
+      "retention": "세대 정리",
+      "note": "상신 뒤 담당자 스냅샷 불변·상태 단방향",
+      "sub_module": "approval",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "document_id",
+          "label": "document_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "seq",
+          "label": "seq",
+          "type": "smallint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_id",
+          "label": "person_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_code",
+          "label": "person_code",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_name",
+          "label": "person_name",
+          "type": "varchar(80)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_job_role",
+          "label": "person_job_role",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "status",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": "'WAITING'",
+          "rule": ""
+        },
+        {
+          "name": "decision_reason",
+          "label": "decision_reason",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "decided_at",
+          "label": "decided_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "gw.approval_event",
+      "label": "결재 사건",
+      "scope": "generation",
+      "phase": "G1",
+      "retention": "세대 정리",
+      "note": "추가 전용, 실제 주체와 합성 역할 구분",
+      "sub_module": "approval",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "document_id",
+          "label": "document_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "event_seq",
+          "label": "event_seq",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "event_type",
+          "label": "event_type",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "acting_person_id",
+          "label": "acting_person_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_code",
+          "label": "person_code",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_name",
+          "label": "person_name",
+          "type": "varchar(80)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_job_role",
+          "label": "person_job_role",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "actor_kind",
+          "label": "actor_kind",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "actor_key",
+          "label": "actor_key",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "reason",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "document_version",
+          "label": "document_version",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "step_seq",
+          "label": "step_seq",
+          "type": "smallint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "gw.board_post",
+      "label": "게시글",
+      "scope": "generation",
+      "phase": "G1",
+      "retention": "세대 정리",
+      "note": "게시 후 불변·정정/철회 이력 보존",
+      "sub_module": "board",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "serial",
+          "label": "serial",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "post_no",
+          "label": "post_no",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "previous_post_id",
+          "label": "previous_post_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "board_kind",
+          "label": "board_kind",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "author_id",
+          "label": "author_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "author_code",
+          "label": "author_code",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "author_name",
+          "label": "author_name",
+          "type": "varchar(80)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "author_job_role",
+          "label": "author_job_role",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "title",
+          "label": "title",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "body",
+          "label": "body",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "status",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": "'DRAFT'",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "published_at",
+          "label": "published_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "withdrawn_at",
+          "label": "withdrawn_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "withdraw_reason",
+          "label": "withdraw_reason",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "gw.board_event",
+      "label": "게시 사건",
+      "scope": "generation",
+      "phase": "G1",
+      "retention": "세대 정리",
+      "note": "추가 전용",
+      "sub_module": "board",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "post_id",
+          "label": "post_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "event_seq",
+          "label": "event_seq",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "event_type",
+          "label": "event_type",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "acting_person_id",
+          "label": "acting_person_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_code",
+          "label": "person_code",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_name",
+          "label": "person_name",
+          "type": "varchar(80)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_job_role",
+          "label": "person_job_role",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "actor_kind",
+          "label": "actor_kind",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "actor_key",
+          "label": "actor_key",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "reason",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "post_version",
+          "label": "post_version",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ]
     }
   ],
   "relations": [
@@ -13934,6 +14966,347 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "평가한 회원"
+    },
+    {
+      "source": "gw.person",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "공간·세대 앵커"
+    },
+    {
+      "source": "gw.approval_route",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "공간·세대 앵커"
+    },
+    {
+      "source": "gw.route_step",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "공간·세대 앵커"
+    },
+    {
+      "source": "gw.approval_document",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "공간·세대 앵커"
+    },
+    {
+      "source": "gw.approval_step",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "공간·세대 앵커"
+    },
+    {
+      "source": "gw.approval_event",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "공간·세대 앵커"
+    },
+    {
+      "source": "gw.board_post",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "공간·세대 앵커"
+    },
+    {
+      "source": "gw.board_event",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "공간·세대 앵커"
+    },
+    {
+      "source": "gw.route_step",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "route_id"
+      ],
+      "target": "gw.approval_route",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW 내부 복합 참조"
+    },
+    {
+      "source": "gw.route_step",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "person_id"
+      ],
+      "target": "gw.person",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW 내부 복합 참조"
+    },
+    {
+      "source": "gw.approval_document",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "drafter_id"
+      ],
+      "target": "gw.person",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW 내부 복합 참조"
+    },
+    {
+      "source": "gw.approval_document",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "route_id"
+      ],
+      "target": "gw.approval_route",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW 내부 복합 참조"
+    },
+    {
+      "source": "gw.approval_document",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "previous_document_id"
+      ],
+      "target": "gw.approval_document",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW 내부 복합 참조"
+    },
+    {
+      "source": "gw.approval_step",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id"
+      ],
+      "target": "gw.approval_document",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW 내부 복합 참조"
+    },
+    {
+      "source": "gw.approval_step",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "person_id"
+      ],
+      "target": "gw.person",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW 내부 복합 참조"
+    },
+    {
+      "source": "gw.approval_event",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id"
+      ],
+      "target": "gw.approval_document",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW 내부 복합 참조"
+    },
+    {
+      "source": "gw.approval_event",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "acting_person_id"
+      ],
+      "target": "gw.person",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW 내부 복합 참조"
+    },
+    {
+      "source": "gw.board_post",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "author_id"
+      ],
+      "target": "gw.person",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW 내부 복합 참조"
+    },
+    {
+      "source": "gw.board_post",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "previous_post_id"
+      ],
+      "target": "gw.board_post",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW 내부 복합 참조"
+    },
+    {
+      "source": "gw.board_event",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "post_id"
+      ],
+      "target": "gw.board_post",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW 내부 복합 참조"
+    },
+    {
+      "source": "gw.board_event",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "acting_person_id"
+      ],
+      "target": "gw.person",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW 내부 복합 참조"
     }
   ],
   "constraints": [
@@ -14131,7 +15504,7 @@
       "table": "core.workspace_module",
       "kind": "CHECK",
       "columns": [],
-      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc')",
+      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw')",
       "reason": "행 내부 데이터 정합성"
     },
     {
@@ -22449,7 +23822,7 @@
       "columns": [
         "module_key"
       ],
-      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc')",
+      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw')",
       "reason": "평가 대상 솔루션"
     },
     {
@@ -22556,6 +23929,1118 @@
       ],
       "expression": "주체·표시 이름은 서버 인증 문맥에서 정한다(회원 = display_name 앞 20자, 게스트 = 입력 별칭 공백 제거 2~20자). 수정·삭제하지 않는다. 별칭은 FS-027 D36 90일 삭제 대상이 아니다(공개 표시·중복 거부용)",
       "reason": "FS-040 D72·D73"
+    },
+    {
+      "table": "gw.person",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "gw.person",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "범위 복합 참조"
+    },
+    {
+      "table": "gw.person",
+      "kind": "CHECK",
+      "columns": [
+        "version"
+      ],
+      "expression": "version > 0",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.person",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "char_length(btrim(code)) BETWEEN 1 AND 30",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.person",
+      "kind": "CHECK",
+      "columns": [
+        "name"
+      ],
+      "expression": "char_length(btrim(name)) BETWEEN 1 AND 100",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.person",
+      "kind": "CHECK",
+      "columns": [
+        "job_role"
+      ],
+      "expression": "job_role IN ('STAFF','MANAGER','EXECUTIVE','BOARD_ADMIN')",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.person",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.person",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9-]{1,29}$'",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_route",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "gw.approval_route",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "범위 복합 참조"
+    },
+    {
+      "table": "gw.approval_route",
+      "kind": "CHECK",
+      "columns": [
+        "version"
+      ],
+      "expression": "version > 0",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_route",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "char_length(btrim(code)) BETWEEN 1 AND 30",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_route",
+      "kind": "CHECK",
+      "columns": [
+        "name"
+      ],
+      "expression": "char_length(btrim(name)) BETWEEN 1 AND 100",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_route",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.approval_route",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9-]{1,29}$'",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.route_step",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "gw.route_step",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "범위 복합 참조"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "범위 복합 참조"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "version"
+      ],
+      "expression": "version > 0",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "title"
+      ],
+      "expression": "char_length(btrim(title)) BETWEEN 1 AND 200",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "body"
+      ],
+      "expression": "char_length(btrim(body)) BETWEEN 1 AND 10000",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "document_no"
+      ],
+      "expression": "char_length(btrim(document_no)) BETWEEN 1 AND 40",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "drafter_job_role"
+      ],
+      "expression": "drafter_job_role IN ('STAFF','MANAGER','EXECUTIVE','BOARD_ADMIN')",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "serial"
+      ],
+      "expression": "serial > 0",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "serial"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.approval_step",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "gw.approval_step",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "범위 복합 참조"
+    },
+    {
+      "table": "gw.approval_step",
+      "kind": "CHECK",
+      "columns": [
+        "person_job_role"
+      ],
+      "expression": "person_job_role IN ('STAFF','MANAGER','EXECUTIVE','BOARD_ADMIN')",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_event",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "gw.approval_event",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "범위 복합 참조"
+    },
+    {
+      "table": "gw.approval_event",
+      "kind": "CHECK",
+      "columns": [
+        "actor_key"
+      ],
+      "expression": "char_length(btrim(actor_key)) BETWEEN 1 AND 100",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_event",
+      "kind": "CHECK",
+      "columns": [
+        "person_job_role"
+      ],
+      "expression": "person_job_role IN ('STAFF','MANAGER','EXECUTIVE','BOARD_ADMIN')",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "범위 복합 참조"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "CHECK",
+      "columns": [
+        "version"
+      ],
+      "expression": "version > 0",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "CHECK",
+      "columns": [
+        "title"
+      ],
+      "expression": "char_length(btrim(title)) BETWEEN 1 AND 200",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "CHECK",
+      "columns": [
+        "body"
+      ],
+      "expression": "char_length(btrim(body)) BETWEEN 1 AND 10000",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "CHECK",
+      "columns": [
+        "post_no"
+      ],
+      "expression": "char_length(btrim(post_no)) BETWEEN 1 AND 40",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "CHECK",
+      "columns": [
+        "author_job_role"
+      ],
+      "expression": "author_job_role IN ('STAFF','MANAGER','EXECUTIVE','BOARD_ADMIN')",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "CHECK",
+      "columns": [
+        "serial"
+      ],
+      "expression": "serial > 0",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "serial"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.board_event",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "gw.board_event",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "범위 복합 참조"
+    },
+    {
+      "table": "gw.board_event",
+      "kind": "CHECK",
+      "columns": [
+        "actor_key"
+      ],
+      "expression": "char_length(btrim(actor_key)) BETWEEN 1 AND 100",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_event",
+      "kind": "CHECK",
+      "columns": [
+        "person_job_role"
+      ],
+      "expression": "person_job_role IN ('STAFF','MANAGER','EXECUTIVE','BOARD_ADMIN')",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.route_step",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "route_id",
+        "seq"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.route_step",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "route_id",
+        "person_id"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.route_step",
+      "kind": "CHECK",
+      "columns": [
+        "seq"
+      ],
+      "expression": "seq BETWEEN 1 AND 3",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_step",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id",
+        "seq"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.approval_step",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id",
+        "person_id"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.approval_step",
+      "kind": "CHECK",
+      "columns": [
+        "seq"
+      ],
+      "expression": "seq BETWEEN 1 AND 3",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_no"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "previous_document_id"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "submission_order"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "round_no"
+      ],
+      "expression": "round_no > 0",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "previous_document_id",
+        "id"
+      ],
+      "expression": "previous_document_id IS NULL OR previous_document_id <> id",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "kind"
+      ],
+      "expression": "kind IN ('GENERAL','ERP_PURCHASE')",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "current_step"
+      ],
+      "expression": "current_step IS NULL OR current_step BETWEEN 1 AND 3",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "submission_order"
+      ],
+      "expression": "submission_order IS NULL OR submission_order > 0",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "submitted_at",
+        "closed_at",
+        "submission_order",
+        "current_step"
+      ],
+      "expression": "(status='DRAFT' AND submitted_at IS NULL AND closed_at IS NULL AND submission_order IS NULL AND current_step IS NULL) OR (status='IN_REVIEW' AND submitted_at IS NOT NULL AND closed_at IS NULL AND submission_order IS NOT NULL AND current_step IS NOT NULL) OR (status IN ('APPROVED','REJECTED','WITHDRAWN') AND submitted_at IS NOT NULL AND closed_at IS NOT NULL AND submission_order IS NOT NULL AND current_step IS NULL)",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "source_kind",
+        "source_no",
+        "source_snapshot",
+        "source_digest",
+        "source_status"
+      ],
+      "expression": "(kind='GENERAL' AND source_kind IS NULL AND source_no IS NULL AND source_snapshot IS NULL AND source_digest IS NULL AND source_status IS NULL) OR (kind='ERP_PURCHASE' AND source_kind IS NOT NULL AND source_kind='PURCHASE_INVOICE' AND source_no IS NOT NULL AND char_length(btrim(source_no))>0 AND source_snapshot IS NOT NULL AND source_digest IS NOT NULL AND source_status IS NOT NULL)",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "source_snapshot"
+      ],
+      "expression": "source_snapshot IS NULL OR jsonb_typeof(source_snapshot)='object'",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "source_digest"
+      ],
+      "expression": "source_digest IS NULL OR source_digest ~ '^[0-9a-f]{64}$'",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "source_status"
+      ],
+      "expression": "source_status IS NULL OR source_status IN ('draft','confirmed','cancelled')",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "CHECK",
+      "columns": [
+        "amount",
+        "currency"
+      ],
+      "expression": "(amount IS NULL AND currency IS NULL) OR (amount IS NOT NULL AND amount >= 0 AND currency IS NOT NULL AND currency ~ '^[A-Z]{3}$')",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "source_kind",
+        "source_no"
+      ],
+      "expression": "UNIQUE (workspace_id,generation_id,source_kind,source_no) WHERE status='IN_REVIEW' AND kind='ERP_PURCHASE'",
+      "reason": "동일 원천의 진행 결재 1건"
+    },
+    {
+      "table": "gw.approval_step",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "decided_at",
+        "decision_reason"
+      ],
+      "expression": "(status IN ('WAITING','SKIPPED') AND decided_at IS NULL AND decision_reason IS NULL) OR (status='APPROVED' AND decided_at IS NOT NULL) OR (status='REJECTED' AND decided_at IS NOT NULL AND decision_reason IS NOT NULL AND char_length(btrim(decision_reason))>=2)",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_event",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id",
+        "event_seq"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.approval_event",
+      "kind": "CHECK",
+      "columns": [
+        "event_seq",
+        "document_version"
+      ],
+      "expression": "event_seq > 0 AND document_version > 0",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_event",
+      "kind": "CHECK",
+      "columns": [
+        "actor_kind"
+      ],
+      "expression": "actor_kind IN ('GUEST','MEMBER','SEED')",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_event",
+      "kind": "CHECK",
+      "columns": [
+        "event_type"
+      ],
+      "expression": "event_type IN ('CREATED','DRAFT_SAVED','SOURCE_REFRESHED','ROUTE_SELECTED','SUBMITTED','APPROVED','REJECTED','WITHDRAWN','RESUBMISSION_CREATED')",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_event",
+      "kind": "CHECK",
+      "columns": [
+        "event_type",
+        "reason"
+      ],
+      "expression": "event_type NOT IN ('REJECTED','WITHDRAWN') OR (reason IS NOT NULL AND char_length(btrim(reason))>=2)",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.approval_event",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "document_id"
+      ],
+      "expression": "사건는 추가 전용. 실제 AuthContext 주체만 기록. SEED 주체는 복사 유지, 토큰/별칭 저장 금지. 세대 정리 외 수정·삭제 없음",
+      "reason": "D64·D68 감사"
+    },
+    {
+      "table": "gw.board_event",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "post_id",
+        "event_seq"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.board_event",
+      "kind": "CHECK",
+      "columns": [
+        "event_seq",
+        "post_version"
+      ],
+      "expression": "event_seq > 0 AND post_version > 0",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_event",
+      "kind": "CHECK",
+      "columns": [
+        "actor_kind"
+      ],
+      "expression": "actor_kind IN ('GUEST','MEMBER','SEED')",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_event",
+      "kind": "CHECK",
+      "columns": [
+        "event_type"
+      ],
+      "expression": "event_type IN ('CREATED','DRAFT_SAVED','PUBLISHED','WITHDRAWN','CORRECTION_CREATED')",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_event",
+      "kind": "CHECK",
+      "columns": [
+        "event_type",
+        "reason"
+      ],
+      "expression": "event_type NOT IN ('REJECTED','WITHDRAWN') OR (reason IS NOT NULL AND char_length(btrim(reason))>=2)",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_event",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "post_id"
+      ],
+      "expression": "사건는 추가 전용. 실제 AuthContext 주체만 기록. SEED 주체는 복사 유지, 토큰/별칭 저장 금지. 세대 정리 외 수정·삭제 없음",
+      "reason": "D64·D68 감사"
+    },
+    {
+      "table": "gw.approval_event",
+      "kind": "CHECK",
+      "columns": [
+        "step_seq",
+        "event_type"
+      ],
+      "expression": "(event_type IN ('APPROVED','REJECTED') AND step_seq IS NOT NULL AND step_seq BETWEEN 1 AND 3) OR (event_type NOT IN ('APPROVED','REJECTED') AND step_seq IS NULL)",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "post_no"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "previous_post_id"
+      ],
+      "expression": "",
+      "reason": "동일 공간·세대 내 유일"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "CHECK",
+      "columns": [
+        "previous_post_id",
+        "id"
+      ],
+      "expression": "previous_post_id IS NULL OR previous_post_id <> id",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "CHECK",
+      "columns": [
+        "board_kind"
+      ],
+      "expression": "board_kind IN ('NOTICE','FREE')",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "published_at",
+        "withdrawn_at",
+        "withdraw_reason"
+      ],
+      "expression": "(status='DRAFT' AND published_at IS NULL AND withdrawn_at IS NULL AND withdraw_reason IS NULL) OR (status='PUBLISHED' AND published_at IS NOT NULL AND withdrawn_at IS NULL AND withdraw_reason IS NULL) OR (status='WITHDRAWN' AND published_at IS NOT NULL AND withdrawn_at IS NOT NULL AND withdraw_reason IS NOT NULL AND char_length(btrim(withdraw_reason))>=2)",
+      "reason": "FS-030 DB 정합성"
+    },
+    {
+      "table": "gw.person",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "is_active"
+      ],
+      "expression": "진행 문서·초안 참조와 마지막 BOARD_ADMIN 비활성화 거부. 삭제 없음",
+      "reason": "FS-030 서비스 구현 대상(b)"
+    },
+    {
+      "table": "gw.approval_route",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "version"
+      ],
+      "expression": "공간 잠금·expectedVersion, 1~3명 연속 순서, 템플릿 변경은 문서에 영향 없음",
+      "reason": "FS-030 서비스 구현 대상(b)"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "TX-G1~4: 상신 후 원문·결재선 불변, 순차 승인/반려, 최초 승인 전 회수만. 재상신은 종결 원문 연결·새 행",
+      "reason": "FS-030 서비스 구현 대상(b)"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "source_digest"
+      ],
+      "expression": "ERP interface 스냅샷 재검사. 날짜/시각 digest 제외. 게스트 복사 의미 digest 보존",
+      "reason": "FS-030 서비스 구현 대상(b)"
+    },
+    {
+      "table": "gw.approval_step",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "자기/중복 결재 금지. 단계 수·순서·문서 상태 일치. 상신 후 담당자 스냅샷 불변",
+      "reason": "FS-030 서비스 구현 대상(b)"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "게시 후 원문 불변. 정정은 새 글·철회 사유 이력. 작성 역할·공지 BOARD_ADMIN 검사",
+      "reason": "FS-030 서비스 구현 대상(b)"
+    },
+    {
+      "table": "gw.route_step",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "route_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회/참조 삭제 검사"
+    },
+    {
+      "table": "gw.route_step",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "person_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회/참조 삭제 검사"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "drafter_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회/참조 삭제 검사"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "route_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회/참조 삭제 검사"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "previous_document_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회/참조 삭제 검사"
+    },
+    {
+      "table": "gw.approval_step",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회/참조 삭제 검사"
+    },
+    {
+      "table": "gw.approval_step",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "person_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회/참조 삭제 검사"
+    },
+    {
+      "table": "gw.approval_event",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회/참조 삭제 검사"
+    },
+    {
+      "table": "gw.approval_event",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "acting_person_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회/참조 삭제 검사"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "author_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회/참조 삭제 검사"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "previous_post_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회/참조 삭제 검사"
+    },
+    {
+      "table": "gw.board_event",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "post_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회/참조 삭제 검사"
+    },
+    {
+      "table": "gw.board_event",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "acting_person_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회/참조 삭제 검사"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "status",
+        "submission_order"
+      ],
+      "expression": "",
+      "reason": "목록·배지 조회"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "drafter_id",
+        "status",
+        "serial"
+      ],
+      "expression": "",
+      "reason": "목록·배지 조회"
+    },
+    {
+      "table": "gw.approval_document",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "source_kind",
+        "source_no",
+        "submission_order"
+      ],
+      "expression": "",
+      "reason": "목록·배지 조회"
+    },
+    {
+      "table": "gw.approval_step",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "person_id",
+        "status",
+        "document_id"
+      ],
+      "expression": "",
+      "reason": "목록·배지 조회"
+    },
+    {
+      "table": "gw.board_post",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_kind",
+        "status",
+        "serial"
+      ],
+      "expression": "",
+      "reason": "목록·배지 조회"
     }
   ],
   "states": [
@@ -22912,6 +25397,42 @@
       ],
       "default": "ACTIVE",
       "transition": "활성→해제/소진; 종료 불변"
+    },
+    {
+      "table": "gw.approval_document",
+      "column": "status",
+      "values": [
+        "DRAFT",
+        "IN_REVIEW",
+        "APPROVED",
+        "REJECTED",
+        "WITHDRAWN"
+      ],
+      "default": "DRAFT",
+      "transition": "초안→진행→승인/반려/회수. 종결 후 불변"
+    },
+    {
+      "table": "gw.approval_step",
+      "column": "status",
+      "values": [
+        "WAITING",
+        "APPROVED",
+        "REJECTED",
+        "SKIPPED"
+      ],
+      "default": "WAITING",
+      "transition": "대기→승인/반려/건너뜀. 이후 불변"
+    },
+    {
+      "table": "gw.board_post",
+      "column": "status",
+      "values": [
+        "DRAFT",
+        "PUBLISHED",
+        "WITHDRAWN"
+      ],
+      "default": "DRAFT",
+      "transition": "초안→게시→철회. 본문은 게시 후 불변"
     }
   ],
   "sources": [
@@ -22966,7 +25487,8 @@
         "qms",
         "wms",
         "bems",
-        "spc"
+        "spc",
+        "gw"
       ],
       "default": null,
       "note": "QMS(FS-023)·WMS(FS-024)·BEMS(FS-025)·SPC(FS-028)는 구현 솔루션. SCM 설명 카드와 도움말은 정적 파일"
@@ -23278,7 +25800,8 @@
         "qms",
         "wms",
         "bems",
-        "spc"
+        "spc",
+        "gw"
       ],
       "default": null,
       "note": "운영 중인 솔루션(포털 core 제외)"
@@ -23483,6 +26006,13 @@
       "date": "2026-10-01",
       "change": "core.app_review(런처 평가: 별점·한줄평) 1테이블. 공간 FK 없음, 회원 FK만. 스키마 간 FK 0건",
       "status": "마이그레이션 fs040_app_review 적용 대상"
+    },
+    {
+      "version": "0.15.0-gw",
+      "task": "FS-030a",
+      "date": "2026-10-01",
+      "change": "GW 8테이블·모듈 키 및 기존 공간 행. FS-040 뒤 신규 revision, 교차 업무 FK0",
+      "status": "FS-030a DB 검증 대상"
     }
   ]
 }
