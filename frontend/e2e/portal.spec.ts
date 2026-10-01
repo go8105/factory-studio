@@ -21,7 +21,7 @@ test("런처에서 전체 흐름으로 이동", async ({ page }) => {
 });
 test("흐름 노드에서 QMS 검사 대기 도움말로 이동", async ({ page }) => {
   await page.goto("/flow");
-  await page.getByRole("link", { name: /08 \/ QMS/ }).click();
+  await page.getByRole("link", { name: /09 \/ QMS/ }).click(); // FS-028c: 08은 SPC 관리도 노드
   await expect(page).toHaveURL("/help/qms/q-03");
   await expect(
     page.getByRole("heading", { name: "검사 대기", exact: true }).first(),

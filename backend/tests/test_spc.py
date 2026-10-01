@@ -55,10 +55,47 @@ def _module(client, created, key: str, enabled: bool) -> None:
     )
 
 
+SPC_TABLES = ("signal", "measurement", "control_limit", "subgroup", "characteristic")
+
+
+def _clear_seed(engine, created) -> None:
+    with engine.begin() as connection:
+        for table in SPC_TABLES:
+            connection.execute(
+                text(
+                    f"DELETE FROM spc.{table} WHERE workspace_id=:w AND generation_id=:g"
+                ),
+                {"w": created["workspaceId"], "g": created["generationId"]},
+            )
+
+
+def test_seeded_demo(guest_space):
+    """FS-028c 시드: 특성 6 · 미조치 2(LT-0017) · 공정능력 충분 4·주의 1·부족 1 · QMS 검사 대기 배지."""
+    client, _, _ = guest_space
+    board = _ok(client.get(f"{P}/dashboard"))
+    assert board["characteristicCount"] == 6 and board["openSignals"] == 2
+    assert board["capability"] == {"CAPABLE": 4, "MARGINAL": 1, "INCAPABLE": 1}
+    assert board["cards"][0]["code"] == "CH-C200-INJ-H"
+    signals = _ok(client.get(f"{P}/signals", params={"status": "open"}))
+    assert {(s["lotNo"], s["rule"]) for s in signals} == {
+        ("LT-0017", 1),
+        ("LT-0017", 3),
+    }
+    resolved = _ok(client.get(f"{P}/signals", params={"status": "resolved"}))
+    assert [(s["characteristicCode"], s["causeCategory"]) for s in resolved] == [
+        ("CH-C100-ASM-P", "MACHINE")
+    ]
+    pending = _ok(
+        client.get("/api/v1/qms/lookups/mes-lots", params={"pending": "true"})
+    )
+    assert {r["lotNo"] for r in pending if r["spcSignal"]} == {"LT-0017"}
+
+
 @pytest.fixture
 def spc(guest_space):
-    """FG-C200 조립 핀 피치(2.49~2.59 mm) 특성 1개."""
+    """시드(FS-028c)를 지운 빈 SPC에 FG-C200 조립 핀 피치(2.49~2.59 mm) 특성 1개."""
     client, created, engine = guest_space
+    _clear_seed(engine, created)
     ch = _ok(
         _call(
             client,

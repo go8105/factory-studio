@@ -51,6 +51,13 @@
       "helpKey": "mes/m-07"
     },
     {
+      "id": "process_control",
+      "label": "관리도·이상 조치",
+      "module": "spc",
+      "kind": "solution",
+      "helpKey": "spc/s-02"
+    },
+    {
       "id": "quality_inspection",
       "label": "품질검사",
       "module": "qms",
@@ -234,6 +241,18 @@
       "from": "energy_master",
       "to": "building_energy",
       "label": "제조·공용·잔여로 분해한다(FEMS 조회)",
+      "kind": "solution"
+    },
+    {
+      "from": "operation_run",
+      "to": "process_control",
+      "label": "공정 중 측정값을 부분군으로 모은다(MES 조회)",
+      "kind": "solution"
+    },
+    {
+      "from": "process_control",
+      "to": "quality_inspection",
+      "label": "미조치 이상은 QMS에 배지로 보인다(판정은 그대로)",
       "kind": "solution"
     }
   ]

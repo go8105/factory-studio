@@ -274,6 +274,7 @@ def create_template(
     _qms(writer, context)
     _wms(writer)
     _bems(writer)
+    _spc(writer)
     normalize_created_at(connection, workspace_id, generation_id, seed_date)
     return workspace_id, generation_id, dict(writer.counts)
 
@@ -302,6 +303,9 @@ def normalize_created_at(
         "moved_at",
         "requested_at",
         "raised_at",
+        "measured_at",  # spc.subgroup
+        "effective_at",  # spc.control_limit — 게시 시각(publishedAt)
+        "detected_at",  # spc.signal
     )
     date_priority = (
         "quoted_on",
@@ -3055,3 +3059,292 @@ def _bems(writer: SeedWriter) -> None:
             )
             a["ack_note"] = "확인 — 공조 재가동"
     writer.add("bems.alarm", alarms)
+
+
+# ---------- SPC (FS-028c) ----------
+# 특성: 코드, 품목, 공정, 특성명, 단위, LSL, USL, 목표, 자릿수, σ̂(목표 공정능력에서 정함).
+# 공정능력: 충분 4 · 주의 1(FG-C200 사출, 추세) · 부족 1(FG-T300 조립 토크, 분산 큼) — validate V13이 확인한다.
+SPC_CHARACTERISTICS: list[tuple[str, str, str, str, str, str, str, str, int, str]] = [
+    (
+        "CH-C100-INJ-H",
+        "FG-C100",
+        "INJ",
+        "하우징 높이",
+        "mm",
+        "8.90",
+        "9.10",
+        "9.00",
+        3,
+        "0.019",
+    ),
+    (
+        "CH-C100-ASM-P",
+        "FG-C100",
+        "ASM",
+        "핀 피치",
+        "mm",
+        "2.49",
+        "2.59",
+        "2.54",
+        3,
+        "0.010",
+    ),
+    (
+        "CH-C200-INJ-H",
+        "FG-C200",
+        "INJ",
+        "하우징 높이",
+        "mm",
+        "11.90",
+        "12.10",
+        "12.00",
+        3,
+        "0.026",
+    ),
+    (
+        "CH-C200-ASM-P",
+        "FG-C200",
+        "ASM",
+        "핀 피치",
+        "mm",
+        "2.49",
+        "2.59",
+        "2.54",
+        3,
+        "0.009",
+    ),
+    (
+        "CH-T300-INJ-G",
+        "FG-T300",
+        "INJ",
+        "단자 간격",
+        "mm",
+        "4.95",
+        "5.05",
+        "5.00",
+        3,
+        "0.010",
+    ),
+    (
+        "CH-T300-ASM-T",
+        "FG-T300",
+        "ASM",
+        "조임 토크",
+        "N·m",
+        "0.40",
+        "0.60",
+        "0.50",
+        3,
+        "0.040",
+    ),
+]
+SPC_INTERVAL_HOURS = 6  # D39: 공정 실행 안에서 6시간마다 n=5
+SPC_TREND_LOT = "LT-0017"  # FG-C200 사출(INJ-02): 연속 상승(규칙 3) 뒤 한계 초과(규칙 1), 미조치 — QMS 검사 대기 LOT
+SPC_JIG_RUN = (
+    3  # FG-C100 조립: 4번째 공정 실행에서 지그 마모로 규칙 1 → 조치 완료 → v2 재게시
+)
+_SPC_SHAPE = (
+    Decimal("-0.5"),
+    Decimal("-0.15"),
+    Decimal("0.05"),
+    Decimal("0.1"),
+    Decimal("0.5"),
+)
+_SPC_Q = Decimal("0.0001")
+
+
+def _spc_runs(writer: SeedWriter) -> list[dict[str, Any]]:
+    """MES 시드의 시작된 공정 실행(시드는 제품 코드가 아니므로 MES 테이블을 직접 읽는다)."""
+    rows = writer.connection.execute(
+        text(
+            "SELECT t.lot_no, i.item_code, pr.process_code, eq.equipment_code, e.started_at, e.ended_at "
+            "FROM mes.operation_execution e "
+            "JOIN mes.lot t ON t.workspace_id=e.workspace_id AND t.generation_id=e.generation_id AND t.id=e.lot_id "
+            "JOIN mes.work_order o ON o.workspace_id=t.workspace_id AND o.generation_id=t.generation_id AND o.id=t.work_order_id "
+            "JOIN mes.item i ON i.workspace_id=o.workspace_id AND i.generation_id=o.generation_id AND i.id=o.item_id "
+            "JOIN mes.route_step s ON s.workspace_id=e.workspace_id AND s.generation_id=e.generation_id AND s.id=e.route_step_id "
+            "JOIN mes.process pr ON pr.workspace_id=s.workspace_id AND pr.generation_id=s.generation_id AND pr.id=s.process_id "
+            "JOIN mes.equipment eq ON eq.workspace_id=e.workspace_id AND eq.generation_id=e.generation_id AND eq.id=e.equipment_id "
+            "WHERE e.workspace_id=:w AND e.generation_id=:g AND e.started_at IS NOT NULL "
+            "ORDER BY e.started_at, t.lot_no"
+        ),
+        {"w": writer.workspace_id, "g": writer.generation_id},
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
+def _spc_values(mean: Decimal, spread: Decimal, rng: Any) -> list[Decimal]:
+    """평균 mean·범위 spread인 측정값 5개(순서는 섞는다)."""
+    shape = list(_SPC_SHAPE)
+    rng.shuffle(shape)
+    return [(mean + spread * s).quantize(_SPC_Q) for s in shape]
+
+
+def _spc(writer: SeedWriter) -> None:
+    import math
+    import random
+
+    from fs.spc import stats
+
+    seed_date = writer.seed_date
+    limit_at_most = at(seed_date, 0)
+    runs = _spc_runs(writer)
+    items = {
+        r["item_code"]: r["name"]
+        for r in writer.connection.execute(
+            text(
+                "SELECT item_code, name FROM mes.item WHERE workspace_id=:w AND generation_id=:g"
+            ),
+            {"w": writer.workspace_id, "g": writer.generation_id},
+        ).mappings()
+    }
+    chars = writer.add(
+        "spc.characteristic",
+        [
+            {
+                "code": code,
+                "item_code": item,
+                "item_name": items[item],
+                "process_code": process,
+                "name": name,
+                "unit": unit,
+                "lsl": Decimal(lsl),
+                "usl": Decimal(usl),
+                "target": Decimal(target),
+                "decimals": decimals,
+            }
+            for code, item, process, name, unit, lsl, usl, target, decimals, _ in SPC_CHARACTERISTICS
+        ],
+        "code",
+    )
+    d2 = stats.CONSTANTS[5]["d2"]
+    for index, (
+        code,
+        item,
+        process,
+        _n,
+        _u,
+        _l,
+        _h,
+        target,
+        _d,
+        sigma_text,
+    ) in enumerate(SPC_CHARACTERISTICS):
+        rng = random.Random(28_000 + index)
+        sigma = Decimal(sigma_text)
+        sigma_x = sigma / Decimal(math.sqrt(5))
+        r_bar = sigma * d2
+        center = Decimal(target)
+        mine = [
+            r for r in runs if r["item_code"] == item and r["process_code"] == process
+        ]
+        plan: list[dict[str, Any]] = []
+        for run_no, run in enumerate(mine):
+            end = run["ended_at"] or limit_at_most
+            slot = run["started_at"] + timedelta(hours=1)
+            while slot <= end:
+                plan.append({"run": run, "run_no": run_no, "at": slot})
+                slot += timedelta(hours=SPC_INTERVAL_HOURS)
+        # 평소: 중심선 위·아래를 번갈아(규칙 2·3이 우연히 생기지 않게), 거리는 0.35~1.3 σx.
+        for k, p in enumerate(plan):
+            side = 1 if k % 2 else -1
+            p["mean"] = center + side * sigma_x * Decimal(
+                str(round(rng.uniform(0.35, 1.3), 3))
+            )
+            p["spread"] = r_bar * Decimal(str(round(rng.uniform(0.75, 1.25), 3)))
+        if code == "CH-C200-INJ-H":
+            trend = [
+                k for k, p in enumerate(plan) if p["run"]["lot_no"] == SPC_TREND_LOT
+            ][-6:]
+            assert len(trend) == 6, "LT-0017 사출 부분군 6개 이상"
+            plan[trend[0] - 1]["mean"] = center + sigma_x * Decimal("0.8")
+            for step, k in zip(
+                trend, ("-0.9", "-0.3", "0.4", "1.3", "2.4", "3.8"), strict=True
+            ):
+                plan[step]["mean"] = center + sigma_x * Decimal(k)
+            if trend[-1] + 1 < len(plan):
+                plan[trend[-1] + 1]["mean"] = center - sigma_x * Decimal("0.8")
+        jig = None
+        if code == "CH-C100-ASM-P":
+            in_run = [k for k, p in enumerate(plan) if p["run_no"] == SPC_JIG_RUN]
+            jig = in_run[3]
+            plan[jig]["mean"] = center + sigma_x * Decimal("3.8")
+        subgroup_rows = []
+        values_by_at: dict[datetime, list[Decimal]] = {}
+        for p in plan:
+            values = _spc_values(p["mean"], p["spread"], rng)
+            xbar, r = stats.subgroup(values)
+            p.update(values=values, xbar=xbar, r=r)
+            values_by_at[p["at"]] = values
+            subgroup_rows.append(
+                {
+                    "characteristic_id": chars[code],
+                    "lot_no": p["run"]["lot_no"],
+                    "item_code": item,
+                    "process_code": process,
+                    "equipment_code": p["run"]["equipment_code"],
+                    "run_started_at": p["run"]["started_at"],
+                    "run_ended_at": p["run"]["ended_at"],
+                    "measured_at": p["at"],
+                    "xbar": xbar,
+                    "r": r,
+                    "source": "SEED",
+                }
+            )
+        ids = writer.add("spc.subgroup", subgroup_rows, "measured_at")
+        writer.add(
+            "spc.measurement",
+            [
+                {"subgroup_id": ids[at_], "seq": seq, "value": v}
+                for at_, values in values_by_at.items()
+                for seq, v in enumerate(values, 1)
+            ],
+        )
+        # 한계: v1 = 처음 20 부분군, FG-C100 조립은 지그 교체 뒤 20 부분군으로 v2. 적용 시작 = 기준 마지막 부분군 측정 시각.
+        bases = [(plan[:20], "초기 한계(처음 20 부분군)")]
+        if jig is not None:
+            bases.append((plan[jig + 1 : jig + 21], "지그 교체 후 재산정"))
+        limits = []
+        for version, (basis, reason) in enumerate(bases, 1):
+            computed = stats.limits([p["xbar"] for p in basis], [p["r"] for p in basis])
+            limits.append(
+                {
+                    "characteristic_id": chars[code],
+                    "version": version,
+                    "effective_at": basis[-1]["at"],
+                    "basis_from": basis[0]["at"],
+                    "basis_to": basis[-1]["at"],
+                    "basis_count": len(basis),
+                    "reason": reason,
+                    **computed,
+                }
+            )
+        limit_ids = writer.add("spc.control_limit", limits, "version")
+        # 판정(제품 TX-S1과 같은 규칙): 측정 시각에 유효한 버전, 연속 규칙은 같은 버전 안에서만.
+        signals = []
+        for k, p in enumerate(plan):
+            applicable = [lim for lim in limits if lim["effective_at"] < p["at"]]
+            if not applicable:
+                continue
+            lim = applicable[-1]
+            previous = [q["xbar"] for q in plan[:k] if q["at"] > lim["effective_at"]]
+            for chart, rule, value in stats.signals(previous, p["xbar"], p["r"], lim):
+                row = {
+                    "subgroup_id": ids[p["at"]],
+                    "characteristic_id": chars[code],
+                    "control_limit_id": limit_ids[lim["version"]],
+                    "lot_no": p["run"]["lot_no"],
+                    "chart": chart,
+                    "rule": rule,
+                    "value": value,
+                    "detected_at": p["at"],
+                }
+                if k == jig:
+                    row.update(
+                        status="resolved",
+                        cause_category="MACHINE",
+                        action="조립 지그 마모 확인 — 지그 교체 후 첫 부분군 정상 확인",
+                        resolved_at=p["at"] + timedelta(hours=3),
+                    )
+                signals.append(row)
+        writer.add("spc.signal", signals)

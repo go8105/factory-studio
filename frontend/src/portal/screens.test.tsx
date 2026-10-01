@@ -79,7 +79,7 @@ it("P-03의 품질검사 노드는 QMS 도움말로 연결된다", async () => {
   show("/flow");
   expect(
     // 흐름 화면은 노드가 많아 역할 조회가 느리다. 병렬 실행에서 기본 1초를 넘긴다.
-    await screen.findByRole("link", { name: /08 \/ QMS/ }, { timeout: 5000 }),
+    await screen.findByRole("link", { name: /09 \/ QMS/ }, { timeout: 5000 }),
   ).toHaveAttribute("href", "/help/qms/q-03");
 });
 it("P-04에서 구현한 QMS는 설명 카드가 아니다", async () => {

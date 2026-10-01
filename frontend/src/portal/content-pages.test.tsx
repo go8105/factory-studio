@@ -45,7 +45,8 @@ it("화면 ID마다 도움말 파일이 있다", () => {
     count("qms/q-"),
     count("wms/w-"),
     count("bems/b-"),
-  ]).toEqual([7, 15, 18, 14, 6, 9, 7]);
+    count("spc/s-"),
+  ]).toEqual([7, 15, 18, 14, 6, 9, 7, 7]);
 });
 it("BEMS는 구현했으므로 설명 카드가 없다(SCM만)", () => {
   expect(Object.keys(cards)).toEqual([]);
@@ -136,13 +137,13 @@ it("P-05 객체 기본 속성 이름은 도움말 키로 해석하지 않는다"
   show("/help/constructor");
   expect(await screen.findByText("404 · NOT_FOUND")).toBeVisible();
 });
-it("따라하기 3편·개념 19편은 유형별 작성 틀(DOC-01 6장)을 따른다", () => {
+it("따라하기 3편·개념 21편은 유형별 작성 틀(DOC-01 6장)을 따른다", () => {
   const of = (prefix: string) =>
     Object.keys(help).filter((k) => k.startsWith(prefix));
   const shape = (key: string) =>
     help[key].match(/^## .+$/gm)?.map((h) => h.slice(3));
   expect(of("guide/")).toHaveLength(3);
-  expect(of("concept/")).toHaveLength(19);
+  expect(of("concept/")).toHaveLength(21);
   for (const key of of("guide/"))
     expect(shape(key), key).toEqual([
       "목표",

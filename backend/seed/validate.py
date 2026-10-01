@@ -102,6 +102,11 @@ EXPECTED_COUNTS = {
     "bems.control_command": 16,
     "bems.alarm_rule": 4,
     "bems.alarm": 4,
+    "spc.characteristic": 6,
+    "spc.subgroup": 456,
+    "spc.measurement": 2280,
+    "spc.control_limit": 7,
+    "spc.signal": 3,
 }
 
 
@@ -115,9 +120,9 @@ def validate_all(
         actual == EXPECTED_COUNTS,
         f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}",
     )
-    _require(sum(actual.values()) == 11933, f"V1 total={sum(actual.values())}")
-    # FS-025c: BEMS 시드 +4,218행. FS-028a: spc 모듈 행 +1. FS-026: WMS 예시 +22(SPC 업무 시드는 FS-028c).
-    results["V1"] = "103개 중 시드 테이블, 11,933행 일치"
+    _require(sum(actual.values()) == 14685, f"V1 total={sum(actual.values())}")
+    # FS-025c: BEMS +4,218. FS-028a: spc 모듈 행 +1. FS-026: WMS 예시 +22. FS-028c: SPC +2,752(부분군 456·측정값 2,280).
+    results["V1"] = "103개 중 시드 테이블, 14,685행 일치"
 
     plans = connection.execute(
         text(
@@ -368,7 +373,119 @@ def validate_all(
     policy_errors += _created_at_order_errors(connection, workspace_id, generation_id)
     _require(policy_errors == 0, f"V12 policy errors={policy_errors}")
     results["V12"] = "DB 밖 시드 정책 및 created_at 확정·취소·부모-자식 순서 일치"
+    results["V13"] = _spc_check(connection, workspace_id, generation_id)
     return results
+
+
+# FS-028c 시드 이야기: 이상 기록은 이 3건뿐이어야 한다(우연한 규칙 2·3이 없게).
+SPC_EXPECTED_SIGNALS = Counter(
+    {
+        ("CH-C100-ASM-P", "XBAR", 1, "resolved"): 1,
+        ("CH-C200-INJ-H", "XBAR", 1, "open"): 1,
+        ("CH-C200-INJ-H", "XBAR", 3, "open"): 1,
+    }
+)
+SPC_EXPECTED_JUDGEMENTS = {
+    "CH-C100-INJ-H": "CAPABLE",
+    "CH-C100-ASM-P": "CAPABLE",
+    "CH-C200-INJ-H": "MARGINAL",
+    "CH-C200-ASM-P": "CAPABLE",
+    "CH-T300-INJ-G": "CAPABLE",
+    "CH-T300-ASM-T": "INCAPABLE",
+}
+
+
+def _spc_check(connection: Connection, workspace_id: int, generation_id: int) -> str:
+    """SPC 판정을 DB 값으로 다시 계산해 저장된 이상 기록·X̄·R과 같은지, 시드 이야기·공정능력이 맞는지 본다."""
+    from fs.spc import stats
+
+    params = {"w": workspace_id, "g": generation_id}
+    errors = 0
+    recomputed: Counter = Counter()
+    stored = Counter(
+        tuple(r)
+        for r in connection.execute(
+            text(
+                "SELECT c.code, x.chart, x.rule, x.status FROM spc.signal x JOIN spc.characteristic c "
+                "ON c.workspace_id=x.workspace_id AND c.generation_id=x.generation_id AND c.id=x.characteristic_id "
+                "WHERE x.workspace_id=:w AND x.generation_id=:g"
+            ),
+            params,
+        )
+    )
+    open_lots = set(
+        connection.execute(
+            text(
+                "SELECT lot_no FROM spc.signal WHERE workspace_id=:w AND generation_id=:g AND status='open'"
+            ),
+            params,
+        ).scalars()
+    )
+    for cid, code, lsl, usl in connection.execute(
+        text(
+            "SELECT id, code, lsl, usl FROM spc.characteristic WHERE workspace_id=:w AND generation_id=:g"
+        ),
+        params,
+    ).all():
+        cp = {**params, "c": cid}
+        subgroups = connection.execute(
+            text(
+                "SELECT id, measured_at, xbar, r, ARRAY(SELECT m.value FROM spc.measurement m WHERE m.workspace_id=s.workspace_id "
+                "AND m.generation_id=s.generation_id AND m.subgroup_id=s.id ORDER BY m.seq) vals "
+                "FROM spc.subgroup s WHERE s.workspace_id=:w AND s.generation_id=:g AND s.characteristic_id=:c "
+                "AND s.status='valid' ORDER BY s.measured_at"
+            ),
+            cp,
+        ).all()
+        limits = [
+            dict(r)
+            for r in connection.execute(
+                text(
+                    "SELECT effective_at, xbar_cl, xbar_ucl, xbar_lcl, r_cl, r_ucl, r_lcl FROM spc.control_limit "
+                    "WHERE workspace_id=:w AND generation_id=:g AND characteristic_id=:c ORDER BY version"
+                ),
+                cp,
+            ).mappings()
+        ]
+        statuses = {
+            (r.subgroup_id, r.chart, r.rule): r.status
+            for r in connection.execute(
+                text(
+                    "SELECT subgroup_id, chart, rule, status FROM spc.signal "
+                    "WHERE workspace_id=:w AND generation_id=:g AND characteristic_id=:c"
+                ),
+                cp,
+            )
+        }
+        for k, sg in enumerate(subgroups):
+            if stats.subgroup(list(sg.vals)) != (sg.xbar, sg.r):
+                errors += 1
+            applicable = [lim for lim in limits if lim["effective_at"] < sg.measured_at]
+            if not applicable:
+                continue
+            lim = applicable[-1]
+            previous = [
+                p.xbar for p in subgroups[:k] if p.measured_at > lim["effective_at"]
+            ]
+            for chart, rule, _ in stats.signals(previous, sg.xbar, sg.r, lim):
+                recomputed[
+                    (code, chart, rule, statuses.get((sg.id, chart, rule), "missing"))
+                ] += 1
+        cap = stats.capability(
+            [s.xbar for s in subgroups], [s.r for s in subgroups], lsl, usl
+        )
+        if len(subgroups) < stats.MIN_BASIS or cap[
+            "judgement"
+        ] != SPC_EXPECTED_JUDGEMENTS.get(code):
+            errors += 1
+    _require(errors == 0, f"V13 spc errors={errors}")
+    _require(
+        recomputed == stored,
+        f"V13 spc signals recomputed={dict(recomputed)} stored={dict(stored)}",
+    )
+    _require(stored == SPC_EXPECTED_SIGNALS, f"V13 spc story={dict(stored)}")
+    _require(open_lots == {"LT-0017"}, f"V13 spc open lots={open_lots}")
+    return "SPC 판정 재계산 = 저장된 이상 3건(LT-0017 미조치 2·지그 조치 1), 공정능력 충분 4·주의 1·부족 1"
 
 
 def _counts(

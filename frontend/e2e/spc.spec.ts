@@ -81,7 +81,11 @@ test("측정 입력(규격 밖) → 규칙 1 이상 → 이상·조치 → 관�
   await form.getByRole("button", { name: "기록" }).click();
   await expect(page.getByRole("status")).toContainText("규칙 1 · 한계 밖");
   await page.getByRole("link", { name: /이상·조치 →/ }).click();
-  await page.getByRole("button", { name: "상세 · 조치" }).click();
+  // 시드의 미조치 2건(LT-0017)과 섞이지 않게 방금 만든 특성의 행을 고른다.
+  await page
+    .getByRole("row", { name: /E2E 핀 피치/ })
+    .getByRole("button", { name: "상세 · 조치" })
+    .click();
   const detail = page.getByRole("dialog", { name: /X̄ 이상/ });
   await expect(detail).toContainText("관리 상한 또는 하한을 벗어났습니다");
   await detail.getByLabel("원인 분류").selectOption("MACHINE");
@@ -109,4 +113,40 @@ test("MES를 끄면 측정 입력만 안내하고 관리도는 그대로", async
   ).toBeVisible();
   await page.goto(`/spc/chart?c=${id}`);
   await expect(page.getByRole("figure", { name: "X̄ 관리도" })).toBeVisible();
+});
+
+test("시드: QMS 검사 대기 LT-0017 'SPC 이상' 배지 → SPC 조치 2건 → 배지 사라짐", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await page.goto("/home");
+  await expect(
+    page.getByRole("region", { name: "생산·품질" }).getByRole("link", {
+      name: /SPC 공정관리/,
+    }),
+  ).toHaveAttribute("href", "/spc");
+  await page.goto("/qms/pending");
+  const row = page.getByRole("row", { name: /LT-0017/ });
+  await expect(row.getByText("SPC 이상")).toBeVisible();
+  await page.goto("/spc/dashboard");
+  await expect(page.getByRole("region", { name: "미조치 이상" })).toContainText(
+    "2건",
+  );
+  await page.goto("/spc/signals");
+  for (let i = 0; i < 2; i++) {
+    await page.getByRole("button", { name: "상세 · 조치" }).first().click();
+    const detail = page.getByRole("dialog", { name: /LT-0017/ });
+    await detail.getByLabel("원인 분류").selectOption("MACHINE");
+    await detail
+      .getByLabel("조치 내용")
+      .fill("금형 온도 조정 — INJ-02 냉각수 확인");
+    await detail.getByRole("button", { name: "조치 완료" }).click();
+    await expect(detail).toContainText("조치 금형 온도 조정");
+    await detail.getByRole("button", { name: "패널 닫기" }).click();
+  }
+  await page.goto("/qms/pending");
+  await expect(page.getByRole("row", { name: /LT-0017/ })).toBeVisible();
+  await expect(
+    page.getByRole("row", { name: /LT-0017/ }).getByText("SPC 이상"),
+  ).toHaveCount(0);
 });

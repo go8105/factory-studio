@@ -10,6 +10,13 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-10-01 FS-028c SPC 시드·도움말·흐름 맵·통합 검증 (Claude Code)
+- 시드 `_spc`(`sv-20261001-1`): 특성 6·부분군 456·측정값 2,280·한계 7·이상 3 → 템플릿 14,685·게스트 복사 14,683(중앙값 0.813초·최대 1.29초, 10회). 평소 점은 중심선 위·아래 교대, 장면만 이상: LT-0017 FG-C200 사출 6점 상승 → 규칙 3·1(미조치 2, QMS 배지), LT-0010 FG-C100 조립 지그 마모 규칙 1(조치 완료) → v2 재게시. 공정능력 충분 4·주의 1·부족 1. `created_at` 우선순위에 measured_at·effective_at·detected_at.
+- `seed/validate.py` V13: DB 값으로 X̄·R·판정 재계산 = 저장된 이상, 이야기·공정능력 판정 일치. 테스트 기대 행 수·V 항목 수(13) 갱신, `test_spc`는 시드 데모 테스트 + 시드를 지우는 fixture.
+- 도움말 `spc/s-01~07`(체험 순서), 개념 `c-20`·`c-21`, 포털 p-02·p-03. 흐름 맵 `process_control` 노드·연결 2(18·21, 스키마 개수 갱신). e2e: 시드 LT-0017 QMS 배지 → 조치 2건 → 배지 사라짐, 포털 노드 번호(QMS 08→09), SPC 시나리오 행 지정.
+- 검증: pytest 798 passed·1 skipped + test_schema_verifier 9(테스트 DB를 새 head로 올린 뒤 — 다른 세션 FS-040 schema 포함) · test_spc 18 · test_seed 16 · vitest 512 · 전체 스모크 253 + 수정 후 spc·portal 100 passed · ruff 0.
+- 함께 처리: CI #101·#102 실패(FS-026a downgrade 거부) 수정 `6350697` push. 다른 세션 `cb3fba4 WIP FS-040`이 그 push에 함께 올라감.
+
 ## 2026-10-01 FS-028b SPC API·화면 (Claude Code)
 - 백엔드 `fs/spc/`(stats·service·router·interface·schema), MES `interface.operation_runs`, QMS `spcSignal` 배지, API 계약서 17장. 프런트 `frontend/src/spc/` S-01~07, QMS Q-03·Q-04 배지, 홈 분야별 묶음(`content/systems.json` fields·field, 운영만 타일·빈 묶음 숨김·솔루션 수 문구 자동·"앞으로 만들 것" 링크), 다른 솔루션 전환 링크·진입 목록·참고 문서에 SPC.
 - 설계와 다른 점: 한계 적용 시작 = 게시 때 마지막 유효 부분군 측정 시각(시계 차이·날짜 이동에 안전), 조회 종료일이 없으면 끝을 연다(스모크의 FS_TODAY와 실제 시각 차이로 발견), `GET /lookups/items` 추가.
