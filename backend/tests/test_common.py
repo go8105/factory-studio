@@ -107,7 +107,17 @@ def common_env(db_engine: Engine) -> Generator[CommonEnv]:
     with db_engine.begin() as connection:
         tables = [
             f'"{schema}"."{table}"'
-            for schema in ("core", "mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw")
+            for schema in (
+                "core",
+                "mes",
+                "erp",
+                "fems",
+                "qms",
+                "wms",
+                "bems",
+                "spc",
+                "gw",
+            )
             for table in inspect(connection).get_table_names(schema=schema)
         ]
         connection.execute(
@@ -128,7 +138,17 @@ def common_env(db_engine: Engine) -> Generator[CommonEnv]:
     with db_engine.begin() as connection:
         tables = [
             f'"{schema}"."{table}"'
-            for schema in ("core", "mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw")
+            for schema in (
+                "core",
+                "mes",
+                "erp",
+                "fems",
+                "qms",
+                "wms",
+                "bems",
+                "spc",
+                "gw",
+            )
             for table in inspect(connection).get_table_names(schema=schema)
         ]
         connection.execute(

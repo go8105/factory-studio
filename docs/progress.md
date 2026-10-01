@@ -1,6 +1,6 @@
 # 개발 진행 기록
 
-> 최신 후속 작업: 2026-09-29 **FS-026b1 입고 API 완료·사용자 확인 대기**. 전체 pytest755·도구58 통과, CI ruff·격리 감사 오류0. 다음은 확인 후 b2 예약·소진·가용 조회.
+> 최신 Codex 작업: 2026-10-01 **FS-030a GW DB 완료·b 확인 대기**. pytest45·도구69, Ruff·격리·DDL·마이그레이션 왕복 통과. 상세 `docs/agent/GW_DB_FS-030a.md`.
 
 ## 현재 상태
 - 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS·홈 아이콘·C++ 비전 엔진 운영 반영 완료(`adc3cab`, head `fs024b_wms_module`, 템플릿 7,691행). FS-025a BEMS DB 완료(로컬, head `fs025b_bems_module`). FS-025 BEMS 전체(API·화면·시드·도움말) 운영 반영 완료(`6508599`, 템플릿 11,910행). FS-026 WMS 확장은 Codex가 결정서부터.**
@@ -9,6 +9,11 @@
 - 시드: **7,469행, `sv-20260924-1`**. FS-015 생성·복사 구현, FS-015b created_at 시간축·V12 재검증 완료
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
+
+## 2026-10-01 FS-030a GW DB (Codex)
+- 전체 설계 승인 후 main6350697 위 rebase. 신규 gw8테이블, head fs030b_gw_module(fs040 뒤), 기존 공간 gw 행/새 공간/초기화/게스트 복사. 메타데이터·Excel39시트·ERD: v0.15.0-gw,112테이블·1,225컬럼·258FK. 템플릿11,934/복사11,932.
+- 검증: 전용DB pytest45, tools69, CI Ruff154파일, 격리/정적/실제DDL 오류0, 빈DB 왕복·기존 공간/ERPoff 유지·유데이터 downgrade 거부/롤백 통과. 전체pytest/프런트/브라우저 미실행.
+- b 서비스·API·화면/배지·평가등록, c69행/도움말/통합은 남음. push/배포 없음. [보고](agent/GW_DB_FS-030a.md). b 착수는 사용자 확인 후.
 
 ## 2026-10-01 FS-028b SPC API·화면 (Claude Code)
 - 백엔드 `fs/spc/`(stats·service·router·interface·schema), MES `interface.operation_runs`, QMS `spcSignal` 배지, API 계약서 17장. 프런트 `frontend/src/spc/` S-01~07, QMS Q-03·Q-04 배지, 홈 분야별 묶음(`content/systems.json` fields·field, 운영만 타일·빈 묶음 숨김·솔루션 수 문구 자동·"앞으로 만들 것" 링크), 다른 솔루션 전환 링크·진입 목록·참고 문서에 SPC.

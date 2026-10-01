@@ -1,7 +1,7 @@
 # FS-030 GW 모듈 설계 revision 1
 
-작성: 2026-10-01 · **전체 설계 승인 대기, 구현 미착수**.
-근거: [승인 결정 D60~69](../../plan/GW도입_전자결재_결정_FS-030.md), [화면 설계](../../ui/화면설계_GW_FS-030.md), [현재 기준](README.md), [API 공통 규약](../../architecture/API계약서_FS-010.md). 결정서 권장안 4항목은 사용자 “진행해줘”로 승인됐다. 아래 상세는 별도 전체 설계 확인 대상이다.
+작성: 2026-10-01 · **사용자 “구현 진행해줘”로 전체 설계 승인. FS-030a DB 완료, b API·화면 미구현**.
+근거: [승인 결정 D60~69](../../plan/GW도입_전자결재_결정_FS-030.md), [화면 설계](../../ui/화면설계_GW_FS-030.md), [현재 기준](README.md), [API 공통 규약](../../architecture/API계약서_FS-010.md). 결정서 권장안 4항목은 사용자 “진행해줘”로 승인됐다. 아래 상세는 2026-10-01 사용자 “구현 진행해줘”로 승인됐다.
 
 ## 1. 범위와 동작 원칙
 
@@ -27,7 +27,7 @@
 
 역할 선택은 탭의 메모리/sessionStorage에 S와 함께 저장하고 세대 변경 때 버린다. 쓰기마다 서버가 재검사한다. 비활성화는 진행 결재의 기안자/미처리 단계 담당자 또는 게시판/문서 초안 작성자면409. 그 외 비활성화 가능, 삭제 API 없음. 이름/직무 변경은 과거 스냅샷을 바꾸지 않는다. 공지 초안 작성자의 BOARD_ADMIN 직무 해제는 초안이 있는 동안 거부한다. BOARD_ADMIN 마지막 활성 담당자 비활성화/직무 해제는 거부하여 공지 관리가 막히지 않게 한다.
 
-## 3. DB 명세 — 구현은 FS-030a 이후
+## 3. DB 명세 — FS-030a 구현 완료
 
 모든 테이블 공통: `id bigint IDENTITY PK`, workspace_id/generation_id bigint NOT NULL, `created_at timestamptz NOT NULL DEFAULT clock_timestamp()`, UK(S,id), core workspace/data_generation 범위 앵커. 모든 업무 FK는 S를 포함하며 ON DELETE RESTRICT, FK 열 인덱스. 이름 표기의 `?`만 NULL 허용. UK/INDEX는 아래 열 앞에 S를 붙인다. 상태/직무 enum은 varchar+CHECK다. API의 길이·정밀도 제한은 DB와 같다.
 
@@ -183,6 +183,10 @@ a: 멱등적용도구/test_fs030a·validate_gw·기존검증ID집합·db:validat
 ## 10. 실행 순서·승인할 상세
 
 1. **본 모듈·화면 전체 설계 확인** 후에만 FS-030a. 승인 대상은8테이블, 단계1~3/문서상태·source비교계약, 서버단역할검사/감사, 게시정정/철회,69행시드 계획이다.
-2. a 착수 시 origin/main 최신head·SPC/CMMS합계·공통파일을재확인. 임시버전 v0.15.0-gw, revision fs030a_gw→fs030b_gw_module. 적용된migration을수정하지않고충돌시통합담당자에게새연결방식인계. 신규8테이블은현재103기준111이나최종합계는당시main에따른다.
+2. a 착수 시 origin/main 최신head·SPC/CMMS합계·공통파일을재확인. 임시버전 v0.15.0-gw, revision fs030a_gw→fs030b_gw_module. 적용된migration을수정하지않고충돌시통합담당자에게새연결방식인계. 착수 기준 main6350697(FS-040) 104테이블에8개를추가해112테이블. down_revision=fs040_app_review. core.app_review 모듈CHECK도gw허용으로확장하며평가API/런처등록은b에서반영한다.
 3. a 보고·승인→b 보고·승인→c 보고·승인. 각단계 현황≤200줄·progress·HANDOFF/README갱신. 업무/DB코드가없는이번설계단계는정적문서검증만한다.
 4. 담당자계정관리·조직도·ERP확정통제·위임/병렬결재·파일/댓글·전사대시보드·배포는제외. GW담당자가추가솔루션을착수하지않는다.
+
+### FS-030a 적용 결과
+
+메타데이터 v0.15.0-gw: 112테이블·1,225컬럼·258FK·제약/정책978. 신규 GW8테이블의 DB제약·게스트 복사·모듈 행을 구현했다. 상신 불변/추가 전용 사건/권한/결재 순서 등 SERVICE 정책은 b에서 구현하므로 DB 완료와 구분한다. a 시드 합계는 GW 모듈행1개만 증가(템플릿11,934/게스트11,932), 업무69행은c예정. [실행 검증 보고](../../agent/GW_DB_FS-030a.md).

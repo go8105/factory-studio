@@ -264,7 +264,17 @@ def create_template(
                 "enabled": True,
                 "updated_at": at(seed_date, 0),
             }
-            for module in ("core", "mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw")
+            for module in (
+                "core",
+                "mes",
+                "erp",
+                "fems",
+                "qms",
+                "wms",
+                "bems",
+                "spc",
+                "gw",
+            )
         ],
     )
     _masters(writer)

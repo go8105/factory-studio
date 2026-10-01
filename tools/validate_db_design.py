@@ -116,9 +116,9 @@ def validate(d, expected=None, isolation=True):
         for name, column in obsolete.items():
             require(column not in columns.get(name, {}), f'{name}: obsolete column {column}')
             require(not any(c['table'] == name and re.search(r'\b'+column+r'\b', json.dumps(c, ensure_ascii=False)) for c in d['constraints']), f'{name}: stale rule referring to {column}')
-    if d.get('task') in LATER_THAN_014B or d.get('version') in {'0.8.0', '0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0'}:
+    if d.get('task') in LATER_THAN_014B or d.get('version') in {'0.8.0', '0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.15.0-gw'}:
         errors.extend(validate_accounting(d))
-    if d.get('task') in LATER_THAN_008B or d.get('version') in {'0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0'}:
+    if d.get('task') in LATER_THAN_008B or d.get('version') in {'0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.15.0-gw'}:
         errors.extend(validate_screen_gaps(d))
     if d.get('task') in LATER_THAN_023A:
         errors.extend(validate_qms(d))
