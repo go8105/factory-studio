@@ -42,6 +42,8 @@ jobs:
       - run: uv run --project backend alembic -c backend/alembic.ini upgrade head
       - run: python tools/verify_ddl_matches_schema.py
       - run: uv run --project backend pytest backend/tests -q
+      # FS-026a downgrade는 입고·예약·격리 데이터가 있으면 거부한다(운영 데이터 보호). pytest가 남긴 테스트 데이터를 먼저 비운다.
+      - run: python tools/clear_test_data.py
       - run: uv run --project backend alembic -c backend/alembic.ini downgrade base
       - run: uv run --project backend alembic -c backend/alembic.ini upgrade head
       - run: python tools/verify_ddl_matches_schema.py
