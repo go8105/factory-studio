@@ -17,6 +17,14 @@
 - 검증: pytest 798 passed·1 skipped + test_schema_verifier 9(테스트 DB를 새 head로 올린 뒤 — 다른 세션 FS-040 schema 포함) · test_spc 18 · test_seed 16 · vitest 512 · 전체 스모크 253 + 수정 후 spc·portal 100 passed · ruff 0.
 - 함께 처리: CI #101·#102 실패(FS-026a downgrade 거부) 수정 `6350697` push. 다른 세션 `cb3fba4 WIP FS-040`이 그 push에 함께 올라감.
 
+## 2026-10-01 FS-040 런처 평가(별점·한줄평) (Claude Code)
+- 사용자 지시: 실제 방문자 평가 · 게스트 포함 · 솔루션별 1회 · 게스트는 별칭+후기, 다시 들어와 다른 별칭이면 허용 · 범위 한줄평+별점 · SPC와 병행. 결정서 `docs/plan/런처평가_한줄평_FS-040.md`(D70~D74, AC-240~246).
+- DB: `tools/apply_fs040.py` → schema.json **v0.15.0 / FS-040 / 104테이블 · FK 237**. `core.app_review`(ops, global, 공간 FK 없음 → 게스트 정리 뒤에도 남음). 조건부 유니크 3개(회원 계정·게스트 공간·게스트 별칭, 솔루션별). 마이그레이션 `fs040_app_review`(down `fs026a_wms_receiving_reservation`). `validate_db_design` 작업 집합에 FS-040, `test_fs024a` 기대값.
+- API: `fs/core/review.py` — `GET /api/v1/core/reviews/summary`·`GET /reviews?moduleKey=`·`POST /reviews`(CSRF·멱등, 409 `ALREADY_REVIEWED`·`NICKNAME_TAKEN`). API 계약서 18장, CORE 설계 9장.
+- 화면: P-02 타일 아래 `★ 4.8 · 후기 12` / `평가 모으는 중` → 오른쪽 패널(FormPanel): 평균·최근 한줄평 5건·별 5개 선택·별칭(게스트)·한줄평. `frontend/src/portal/Reviews.tsx`.
+- 검증: db:validate 0 · 격리 0 · tools unittest 63 · 새 DB base→head·downgrade -1→head 후 DDL 대조 0 · **pytest 808 passed · 1 skipped(26분, 전용 DB `factory_studio_fs040_test`)** · test_reviews 9 · ruff 0 · typecheck·lint · vitest 510/513(실패 3: `systems.test` 2건은 다른 세션의 미커밋 `content/flow-map.json` 변경 영향, `sales.test` 1건은 단독 재실행 통과 — FS-040 무관). 로컬 개발 DB head `fs040_app_review`, 브라우저(게스트)로 평가 저장 → 패널·타일 갱신, 375px 가로 스크롤 없음 확인. 검증용 평가 행은 삭제.
+- 미실행: e2e(Playwright), 운영 반영. 도움말 p-02는 다른 세션이 수정 중이라 평가 안내를 넣지 않았다.
+
 ## 2026-10-01 FS-028b SPC API·화면 (Claude Code)
 - 백엔드 `fs/spc/`(stats·service·router·interface·schema), MES `interface.operation_runs`, QMS `spcSignal` 배지, API 계약서 17장. 프런트 `frontend/src/spc/` S-01~07, QMS Q-03·Q-04 배지, 홈 분야별 묶음(`content/systems.json` fields·field, 운영만 타일·빈 묶음 숨김·솔루션 수 문구 자동·"앞으로 만들 것" 링크), 다른 솔루션 전환 링크·진입 목록·참고 문서에 SPC.
 - 설계와 다른 점: 한계 적용 시작 = 게시 때 마지막 유효 부분군 측정 시각(시계 차이·날짜 이동에 안전), 조회 종료일이 없으면 끝을 연다(스모크의 FS_TODAY와 실제 시각 차이로 발견), `GET /lookups/items` 추가.
