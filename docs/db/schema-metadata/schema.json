@@ -1,9 +1,9 @@
 {
-  "version": "0.16.0",
-  "task": "FS-030a",
+  "version": "0.17.0",
+  "task": "FS-029a",
   "date": "2026-10-01",
   "status": "구현 명세 / 환경별 적용 상태는 인계 참조",
-  "migration_revision": "fs030b_gw_module",
+  "migration_revision": "fs029b_cmms_module",
   "tables": [
     {
       "name": "core.app_user",
@@ -11095,6 +11095,648 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "cmms.asset",
+      "label": "설비 대장",
+      "scope": "generation",
+      "phase": "C1",
+      "retention": "세대 정리",
+      "note": "FS-029 4.1·D46. CMMS 소유. MES 설비·BEMS 공조기는 원천 코드 스냅샷(FK 없음)",
+      "sub_module": "asset",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "설비 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "설비명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "asset_type",
+          "label": "설비 종류",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "INJECTION / ASSEMBLY / INSPECTION / HVAC / UTILITY / OTHER"
+        },
+        {
+          "name": "location",
+          "label": "위치",
+          "type": "varchar(100)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "source",
+          "label": "출처",
+          "type": "varchar(6)",
+          "nullable": false,
+          "default": null,
+          "rule": "MES / BEMS / CMMS(직접 등록)"
+        },
+        {
+          "name": "source_code",
+          "label": "원천 코드",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "MES 설비 코드 / BEMS 공조기 코드 스냅샷. CMMS 출처면 비움"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "cmms.pm_plan",
+      "label": "예방보전 계획",
+      "scope": "generation",
+      "phase": "C1",
+      "retention": "세대 정리",
+      "note": "FS-029 4.1·D49. 다음 예정일 = (마지막 수행일 ?? 시작일) + 주기, 저장하지 않는다",
+      "sub_module": "plan",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "asset_id",
+          "label": "설비",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "계획 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "title",
+          "label": "제목",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "checklist",
+          "label": "점검 항목",
+          "type": "varchar(500)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "interval_days",
+          "label": "주기(일)",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "1~365"
+        },
+        {
+          "name": "start_on",
+          "label": "시작일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "last_done_on",
+          "label": "마지막 수행일",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "rule": "PM 작업지시 완료로만 바뀐다"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "cmms.work_order",
+      "label": "보전 작업지시",
+      "scope": "generation",
+      "phase": "C1",
+      "retention": "세대 정리",
+      "note": "FS-029 4.2·D47·D48. 접수 → 진행 → 완료/취소, 완료·취소 후 불변. 신호 출처는 원천 id 스냅샷",
+      "sub_module": "work",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "wo_no",
+          "label": "작업지시 번호",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": "서버 발번 WO-YYYYMMDD-NNN(업무 기준일)"
+        },
+        {
+          "name": "asset_id",
+          "label": "설비",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kind",
+          "label": "종류",
+          "type": "varchar(2)",
+          "nullable": false,
+          "default": null,
+          "rule": "BM 고장(사후) / PM 예방"
+        },
+        {
+          "name": "source",
+          "label": "출처",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "MANUAL / BEMS_ALARM / SPC_SIGNAL / PM_PLAN"
+        },
+        {
+          "name": "source_ref",
+          "label": "원천 id",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": null,
+          "rule": "BEMS 경보 id · SPC 이상 id"
+        },
+        {
+          "name": "source_summary",
+          "label": "원천 요약",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": "전환 때 스냅샷"
+        },
+        {
+          "name": "pm_plan_id",
+          "label": "예방보전 계획",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "due_on",
+          "label": "PM 예정일",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "title",
+          "label": "제목",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "description",
+          "label": "설명",
+          "type": "varchar(1000)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'REQUESTED'",
+          "rule": "REQUESTED / IN_PROGRESS / COMPLETED / CANCELLED"
+        },
+        {
+          "name": "requested_at",
+          "label": "접수 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "failure_at",
+          "label": "정지 시작",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "BM 필수(고장 시각)"
+        },
+        {
+          "name": "started_at",
+          "label": "작업 시작",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "completed_at",
+          "label": "완료 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "restored_at",
+          "label": "복구 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "BM 완료 시 필수, 정지 시작 이후"
+        },
+        {
+          "name": "cause_category",
+          "label": "원인 분류",
+          "type": "varchar(12)",
+          "nullable": true,
+          "default": null,
+          "rule": "WEAR / LUBRICATION / ELECTRICAL / SETTING / EXTERNAL / OTHER"
+        },
+        {
+          "name": "action",
+          "label": "조치 내용",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cancelled_at",
+          "label": "취소 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cancel_reason",
+          "label": "취소 사유",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "cmms.work_log",
+      "label": "작업 기록",
+      "scope": "generation",
+      "phase": "C1",
+      "retention": "세대 정리",
+      "note": "FS-029 4.2. 진행 중에만 추가, 수정·삭제 없음",
+      "sub_module": "work",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "work_order_id",
+          "label": "작업지시",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "logged_at",
+          "label": "기록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "minutes",
+          "label": "작업 시간(분)",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "1~1440"
+        },
+        {
+          "name": "note",
+          "label": "내용",
+          "type": "varchar(300)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "cmms.spare_part",
+      "label": "예비품",
+      "scope": "generation",
+      "phase": "C1",
+      "retention": "세대 정리",
+      "note": "FS-029 4.3·D50. 재고 원장 없음(WMS 영역)",
+      "sub_module": "parts",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "예비품 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "예비품명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "safety_stock",
+          "label": "안전 재고(참고)",
+          "type": "numeric(12,3)",
+          "nullable": false,
+          "default": "0",
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "cmms.part_usage",
+      "label": "부품 사용",
+      "scope": "generation",
+      "phase": "C1",
+      "retention": "세대 정리",
+      "note": "FS-029 4.3. 진행 중에만 추가, 수정·삭제 없음",
+      "sub_module": "parts",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "work_order_id",
+          "label": "작업지시",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "spare_part_id",
+          "label": "예비품",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "qty",
+          "label": "수량",
+          "type": "numeric(12,3)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "used_at",
+          "label": "사용 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
     }
   ],
   "relations": [
@@ -15307,6 +15949,198 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "GW 내부 복합 참조"
+    },
+    {
+      "source": "cmms.asset",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "cmms.pm_plan",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "cmms.work_order",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "cmms.work_log",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "cmms.spare_part",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "cmms.part_usage",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "cmms.pm_plan",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "asset_id"
+      ],
+      "target": "cmms.asset",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "계획의 설비"
+    },
+    {
+      "source": "cmms.work_order",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "asset_id"
+      ],
+      "target": "cmms.asset",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "작업지시의 설비"
+    },
+    {
+      "source": "cmms.work_order",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pm_plan_id"
+      ],
+      "target": "cmms.pm_plan",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "PM 작업지시의 계획"
+    },
+    {
+      "source": "cmms.work_log",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "work_order_id"
+      ],
+      "target": "cmms.work_order",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "작업 기록의 작업지시"
+    },
+    {
+      "source": "cmms.part_usage",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "work_order_id"
+      ],
+      "target": "cmms.work_order",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "부품 사용의 작업지시"
+    },
+    {
+      "source": "cmms.part_usage",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "spare_part_id"
+      ],
+      "target": "cmms.spare_part",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "사용한 예비품"
     }
   ],
   "constraints": [
@@ -15504,7 +16338,7 @@
       "table": "core.workspace_module",
       "kind": "CHECK",
       "columns": [],
-      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw')",
+      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms')",
       "reason": "행 내부 데이터 정합성"
     },
     {
@@ -23822,7 +24656,7 @@
       "columns": [
         "module_key"
       ],
-      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw')",
+      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms')",
       "reason": "평가 대상 솔루션"
     },
     {
@@ -25041,6 +25875,575 @@
       ],
       "expression": "",
       "reason": "목록·배지 조회"
+    },
+    {
+      "table": "cmms.asset",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "cmms.asset",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "cmms.pm_plan",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "cmms.pm_plan",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "cmms.work_log",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "cmms.work_log",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "cmms.spare_part",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "cmms.spare_part",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "cmms.part_usage",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "cmms.part_usage",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "cmms.asset",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 설비 코드 유일"
+    },
+    {
+      "table": "cmms.asset",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "cmms.asset",
+      "kind": "CHECK",
+      "columns": [
+        "asset_type"
+      ],
+      "expression": "asset_type IN ('INJECTION', 'ASSEMBLY', 'INSPECTION', 'HVAC', 'UTILITY', 'OTHER')",
+      "reason": "설비 종류 값"
+    },
+    {
+      "table": "cmms.asset",
+      "kind": "CHECK",
+      "columns": [
+        "source"
+      ],
+      "expression": "source IN ('MES', 'BEMS', 'CMMS')",
+      "reason": "출처 값"
+    },
+    {
+      "table": "cmms.asset",
+      "kind": "CHECK",
+      "columns": [
+        "source",
+        "source_code"
+      ],
+      "expression": "(source = 'CMMS') = (source_code IS NULL)",
+      "reason": "가져온 설비만 원천 코드"
+    },
+    {
+      "table": "cmms.asset",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "source",
+        "source_code"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, source, source_code) WHERE source <> 'CMMS'",
+      "reason": "같은 원천 설비는 1건(가져오기 멱등, D46)"
+    },
+    {
+      "table": "cmms.asset",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "source_code"
+      ],
+      "expression": "가져오기는 원천 코드가 이미 있으면 건너뛴다. 원천이 바뀌어도 대장은 그대로(스냅샷). 작업지시가 있는 설비는 삭제 대신 사용 안 함",
+      "reason": "설비 대장 스냅샷"
+    },
+    {
+      "table": "cmms.pm_plan",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 계획 코드 유일"
+    },
+    {
+      "table": "cmms.pm_plan",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "cmms.pm_plan",
+      "kind": "CHECK",
+      "columns": [
+        "interval_days"
+      ],
+      "expression": "interval_days BETWEEN 1 AND 365",
+      "reason": "주기 범위"
+    },
+    {
+      "table": "cmms.pm_plan",
+      "kind": "CHECK",
+      "columns": [
+        "start_on",
+        "last_done_on"
+      ],
+      "expression": "last_done_on IS NULL OR last_done_on >= start_on",
+      "reason": "마지막 수행일은 시작일 이후"
+    },
+    {
+      "table": "cmms.pm_plan",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "last_done_on"
+      ],
+      "expression": "마지막 수행일은 PM 작업지시 완료(TX-C4)로만 바뀐다 = 완료 시각의 날짜(KST). 다음 예정일 = (마지막 수행일 ?? 시작일) + 주기",
+      "reason": "PM 주기(D49, 13장 5)"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "wo_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 작업지시 번호 유일"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "CHECK",
+      "columns": [
+        "kind"
+      ],
+      "expression": "kind IN ('BM', 'PM')",
+      "reason": "종류 값"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "CHECK",
+      "columns": [
+        "source"
+      ],
+      "expression": "source IN ('MANUAL', 'BEMS_ALARM', 'SPC_SIGNAL', 'PM_PLAN')",
+      "reason": "출처 값"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "source"
+      ],
+      "expression": "(kind = 'PM') = (source = 'PM_PLAN')",
+      "reason": "PM은 계획 출처만"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "pm_plan_id",
+        "due_on"
+      ],
+      "expression": "(kind = 'PM' AND pm_plan_id IS NOT NULL AND due_on IS NOT NULL) OR (kind = 'BM' AND pm_plan_id IS NULL AND due_on IS NULL)",
+      "reason": "PM만 계획·예정일"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "CHECK",
+      "columns": [
+        "source",
+        "source_ref"
+      ],
+      "expression": "(source IN ('BEMS_ALARM', 'SPC_SIGNAL')) = (source_ref IS NOT NULL)",
+      "reason": "신호 출처만 원천 id"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "failure_at"
+      ],
+      "expression": "(kind = 'BM') = (failure_at IS NOT NULL)",
+      "reason": "BM만 정지 시작"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "CHECK",
+      "columns": [
+        "status"
+      ],
+      "expression": "status IN ('REQUESTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')",
+      "reason": "상태 값"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "CHECK",
+      "columns": [
+        "cause_category"
+      ],
+      "expression": "cause_category IS NULL OR cause_category IN ('WEAR', 'LUBRICATION', 'ELECTRICAL', 'SETTING', 'EXTERNAL', 'OTHER')",
+      "reason": "원인 분류 값"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "started_at",
+        "completed_at",
+        "cancelled_at",
+        "cause_category",
+        "action",
+        "cancel_reason"
+      ],
+      "expression": "(status = 'REQUESTED' AND started_at IS NULL AND completed_at IS NULL AND cancelled_at IS NULL) OR (status = 'IN_PROGRESS' AND started_at IS NOT NULL AND completed_at IS NULL AND cancelled_at IS NULL) OR (status = 'COMPLETED' AND started_at IS NOT NULL AND completed_at IS NOT NULL AND cause_category IS NOT NULL AND action IS NOT NULL AND cancelled_at IS NULL) OR (status = 'CANCELLED' AND completed_at IS NULL AND cancelled_at IS NOT NULL AND cancel_reason IS NOT NULL)",
+      "reason": "상태와 시각·필수 칸 일치"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "CHECK",
+      "columns": [
+        "restored_at",
+        "failure_at"
+      ],
+      "expression": "restored_at IS NULL OR restored_at >= failure_at",
+      "reason": "복구는 정지 시작 이후"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "status",
+        "restored_at"
+      ],
+      "expression": "NOT (kind = 'BM' AND status = 'COMPLETED' AND restored_at IS NULL) AND (restored_at IS NULL OR kind = 'BM')",
+      "reason": "BM 완료는 복구 시각 필수, PM은 복구 없음"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "CHECK",
+      "columns": [
+        "requested_at",
+        "started_at",
+        "completed_at"
+      ],
+      "expression": "(started_at IS NULL OR started_at >= requested_at) AND (completed_at IS NULL OR completed_at >= started_at)",
+      "reason": "시각 순서"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "CHECK",
+      "columns": [
+        "action",
+        "cancel_reason"
+      ],
+      "expression": "(action IS NULL OR char_length(btrim(action)) >= 2) AND (cancel_reason IS NULL OR char_length(btrim(cancel_reason)) >= 2)",
+      "reason": "조치·사유 2자 이상"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "source",
+        "source_ref"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, source, source_ref) WHERE source IN ('BEMS_ALARM', 'SPC_SIGNAL') AND status <> 'CANCELLED'",
+      "reason": "신호 1건당 취소되지 않은 작업지시 1건(D48)"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pm_plan_id",
+        "due_on"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, pm_plan_id, due_on) WHERE kind = 'PM' AND status <> 'CANCELLED'",
+      "reason": "계획·예정일당 PM 작업지시 1건"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "REQUESTED → IN_PROGRESS(TX-C2) → COMPLETED(TX-C4) · REQUESTED/IN_PROGRESS → CANCELLED(TX-C5). 완료·취소 후 수정·삭제하지 않는다(세대 정리 제외)",
+      "reason": "작업지시 수명(D47)"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "source_ref"
+      ],
+      "expression": "전환은 원천 조회(fs.bems.interface·fs.spc.interface)로 신호가 있고 아직 전환되지 않았을 때만. 원천 상태는 바꾸지 않는다. PM 생성은 업무 기준일 ≥ 다음 예정일일 때만",
+      "reason": "신호 전환·PM 생성(D48·D49)"
+    },
+    {
+      "table": "cmms.work_log",
+      "kind": "CHECK",
+      "columns": [
+        "minutes"
+      ],
+      "expression": "minutes BETWEEN 1 AND 1440",
+      "reason": "작업 시간 범위"
+    },
+    {
+      "table": "cmms.work_log",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "work_order_id"
+      ],
+      "expression": "작업지시가 IN_PROGRESS일 때만 추가(TX-C3). 수정·삭제 없음",
+      "reason": "작업 기록 추가만(13장 3)"
+    },
+    {
+      "table": "cmms.spare_part",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 예비품 코드 유일"
+    },
+    {
+      "table": "cmms.spare_part",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "cmms.spare_part",
+      "kind": "CHECK",
+      "columns": [
+        "safety_stock"
+      ],
+      "expression": "safety_stock >= 0",
+      "reason": "안전 재고 음수 금지"
+    },
+    {
+      "table": "cmms.part_usage",
+      "kind": "CHECK",
+      "columns": [
+        "qty"
+      ],
+      "expression": "qty > 0",
+      "reason": "수량 양수"
+    },
+    {
+      "table": "cmms.part_usage",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "work_order_id"
+      ],
+      "expression": "작업지시가 IN_PROGRESS일 때만 추가(TX-C3). 수정·삭제 없음. 재고를 움직이지 않는다(D50)",
+      "reason": "부품 사용 추가만"
+    },
+    {
+      "table": "cmms.pm_plan",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "asset_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "asset_id",
+        "status"
+      ],
+      "expression": "",
+      "reason": "설비별 진행 작업지시(MES 배지)"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pm_plan_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "status",
+        "requested_at"
+      ],
+      "expression": "",
+      "reason": "목록"
+    },
+    {
+      "table": "cmms.work_log",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "work_order_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "cmms.part_usage",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "work_order_id"
+      ],
+      "expression": "",
+      "reason": "FK 조회"
+    },
+    {
+      "table": "cmms.part_usage",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "spare_part_id",
+        "used_at"
+      ],
+      "expression": "",
+      "reason": "예비품 사용 집계"
     }
   ],
   "states": [
@@ -25433,6 +26836,18 @@
       ],
       "default": "DRAFT",
       "transition": "초안→게시→철회. 본문은 게시 후 불변"
+    },
+    {
+      "table": "cmms.work_order",
+      "column": "status",
+      "values": [
+        "REQUESTED",
+        "IN_PROGRESS",
+        "COMPLETED",
+        "CANCELLED"
+      ],
+      "default": "REQUESTED",
+      "transition": "REQUESTED→IN_PROGRESS→COMPLETED, REQUESTED/IN_PROGRESS→CANCELLED; 완료·취소 후 불변"
     }
   ],
   "sources": [
@@ -25488,7 +26903,8 @@
         "wms",
         "bems",
         "spc",
-        "gw"
+        "gw",
+        "cmms"
       ],
       "default": null,
       "note": "QMS(FS-023)·WMS(FS-024)·BEMS(FS-025)·SPC(FS-028)는 구현 솔루션. SCM 설명 카드와 도움말은 정적 파일"
@@ -25801,7 +27217,8 @@
         "wms",
         "bems",
         "spc",
-        "gw"
+        "gw",
+        "cmms"
       ],
       "default": null,
       "note": "운영 중인 솔루션(포털 core 제외)"
@@ -25815,6 +27232,57 @@
       ],
       "default": null,
       "note": "회원 / 게스트"
+    },
+    {
+      "target": "cmms.asset",
+      "column": "asset_type",
+      "values": [
+        "INJECTION",
+        "ASSEMBLY",
+        "INSPECTION",
+        "HVAC",
+        "UTILITY",
+        "OTHER"
+      ],
+      "default": null,
+      "note": "사출·조립·검사·공조·유틸리티·기타"
+    },
+    {
+      "target": "cmms.asset",
+      "column": "source",
+      "values": [
+        "MES",
+        "BEMS",
+        "CMMS"
+      ],
+      "default": null,
+      "note": "가져오기 원천 / 직접 등록"
+    },
+    {
+      "target": "cmms.work_order",
+      "column": "source",
+      "values": [
+        "MANUAL",
+        "BEMS_ALARM",
+        "SPC_SIGNAL",
+        "PM_PLAN"
+      ],
+      "default": null,
+      "note": "수동 / BEMS 경보 / SPC 이상 / PM 계획"
+    },
+    {
+      "target": "cmms.work_order",
+      "column": "cause_category",
+      "values": [
+        "WEAR",
+        "LUBRICATION",
+        "ELECTRICAL",
+        "SETTING",
+        "EXTERNAL",
+        "OTHER"
+      ],
+      "default": null,
+      "note": "마모·윤활·전기·설정·외부·기타"
     }
   ],
   "change_log": [
@@ -26013,6 +27481,13 @@
       "date": "2026-10-01",
       "change": "GW 8테이블·모듈 키 및 기존 공간 행. FS-040 뒤 신규 revision, 교차 업무 FK0",
       "status": "FS-030a DB 검증 대상"
+    },
+    {
+      "version": "0.17.0",
+      "task": "FS-029a",
+      "date": "2026-10-01",
+      "change": "cmms 스키마 6테이블(설비 대장·예방보전 계획·작업지시·작업 기록·예비품·부품 사용), 모듈 키 cmms(workspace_module·app_review). 스키마 간 FK 0건",
+      "status": "마이그레이션 fs029a_cmms·fs029b_cmms_module 적용 대상"
     }
   ]
 }

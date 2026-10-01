@@ -10,6 +10,12 @@
 - 프로젝트: `/Users/hwang-kyoungho/projects/factory-studio` (worktree: `/Users/hwang-kyoungho/projects/factory-studio-ag`)
 - 제품 구현: FS-009 뼈대·최초 마이그레이션, FS-015/015b 시드, FS-016 공통 인증·세션·멱등 완료. 백엔드 테스트 총 36개 (common 11, schema_verifier 9, seed 16). 업무 API·화면은 미구현
 
+## 2026-10-01 FS-029 CMMS 설계 확정 · FS-029a DB (Claude Code)
+- 결정서 D45~D52, 모듈 설계 13장 5건(유예 0일만 권장과 다름), 화면 설계 C-01~07을 하나씩 확정 → 전체 설계 확인.
+- FS-029a: schema.json v0.17.0·118테이블(cmms 6)·FK 270, 마이그레이션 `fs029a_cmms`(down `fs030b_gw_module`)·`fs029b_cmms_module`, `validate_cmms`, 스키마 목록 갱신, 시드 합계 14,687/14,685.
+- 검증: db:validate 0 · 격리 0 · tools 73 · 실제 DB head 적용 후 DDL 대조 0(118·UK 264·CHECK 376·FK 270) · downgrade -2 → head · 빈 DB base↔head · pytest 관련 68(cmms_schema 5·schema_verifier·seed·common·gw_schema·spc) · ruff 0. 로컬 개발 DB head·템플릿 반영. GW 병합 후 전체 pytest 814 passed.
+- 다음: FS-029b(API·화면·MES 배지·BEMS/SPC 조회 함수).
+
 ## 2026-10-01 FS-030a 병합 · FS-029 CMMS 결정서 초안 (Claude Code)
 - FS-030a GW DB(Codex `cd8b619`) main 병합 `af9b7bb` push — v0.16.0·112테이블·head `fs030b_gw_module`·시드 14,686. 로컬 개발 DB head·템플릿 반영.
 - `docs/plan/CMMS도입_설비보전_결정_FS-029.md`: D45 범위(설비 대장·PM·고장 작업지시·작업 기록·예비품·지표) · D46 설비 대장 CMMS 소유(MES·BEMS 가져오기 스냅샷) · D47 작업지시 상태·불변 · D48 신호(BEMS 경보·SPC 이상·수동) → 사람이 전환, 중복 전환 방지 · D49 PM 주기 도래는 수동 생성 · D50 예비품 목록·사용 기록만(재고 원장 없음) · D51 MTBF·MTTR·PM 준수율 조회 시 계산 · D52 MES "보전 중" 배지.

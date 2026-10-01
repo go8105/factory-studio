@@ -2,7 +2,7 @@
 
 ## 현재 기준 (2026-10-01, FS-029)
 
-- 상태: **설계 중** — 결정서 확정(2026-10-01), 모듈·화면 설계 초안 · 전체 설계 확인 대기. 로드맵 2번.
+- 상태: **구현 중** — 전체 설계 확인(2026-10-01) · **FS-029a DB 완료**(schema v0.17.0, 마이그레이션 `fs029a_cmms`·`fs029b_cmms_module`). 다음 FS-029b(API·화면). 로드맵 2번.
 - 설계: [CMMS 모듈 설계서](CMMS_모듈설계_FS-029.md) · [결정서 FS-029](../../plan/CMMS도입_설비보전_결정_FS-029.md) · [화면 설계](../../ui/화면설계_CMMS_FS-029.md)
 - 읽는 조회: MES `equipment`(추가 예정) · BEMS `hvac_units`·`active_alarms`(신규 예정) · SPC `equipment_signals`(추가 예정)
 

@@ -19,7 +19,7 @@ from sqlalchemy import Engine, inspect, text
 def _business_count(engine: Engine, workspace_id: int, generation_id: int) -> int:
     total = 0
     with engine.connect() as connection:
-        for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw"):
+        for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw", "cmms"):
             for table in inspect(connection).get_table_names(schema=schema):
                 total += connection.execute(
                     text(
@@ -117,6 +117,7 @@ def common_env(db_engine: Engine) -> Generator[CommonEnv]:
                 "bems",
                 "spc",
                 "gw",
+                "cmms",
             )
             for table in inspect(connection).get_table_names(schema=schema)
         ]
@@ -148,6 +149,7 @@ def common_env(db_engine: Engine) -> Generator[CommonEnv]:
                 "bems",
                 "spc",
                 "gw",
+                "cmms",
             )
             for table in inspect(connection).get_table_names(schema=schema)
         ]
@@ -196,9 +198,9 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     )
     assert guest_token.startswith("g_")
     assert (
-        # FS-028c SPC 시드 +2,752, FS-030a gw 모듈 행 +1 → 14,684
+        # FS-028c SPC 시드 +2,752, gw·cmms 모듈 행 +2 → 14,685
         _business_count(engine, guest_data["workspaceId"], guest_data["generationId"])
-        == 14684
+        == 14685
     )
 
     reset_headers = {
@@ -212,7 +214,7 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     reset_generation_id = reset_first.json()["data"]["generationId"]
     assert reset_generation_id != guest_data["generationId"]
     assert (
-        _business_count(engine, guest_data["workspaceId"], reset_generation_id) == 14684
+        _business_count(engine, guest_data["workspaceId"], reset_generation_id) == 14685
     )
     with engine.connect() as connection:
         assert (
