@@ -18,6 +18,7 @@
 - **ROADMAP-01 확정(2026-09-30, 제안대로)** — `docs/plan/로드맵_17개시스템_ROADMAP-01.md`·`docs/plan/새솔루션_킷.md`. **지금: FS-028 SPC** — 설계 확정, **FS-028a DB 완료**(v0.13.0, 로컬 head `fs028b_spc_module`, pytest 727). **FS-028b 진행 중**(API `/api/v1/spc`·`fs/spc/interface.py`·MES `operation_runs`·QMS 배지·S-01~07·홈 분야별 묶음). D 다음 D45, AC 다음 AC-185.
 - **Codex에 전달**: FS-026은 main에 병합됐다. 다음 작업은 새 main에서 새 브랜치로 시작한다(`codex/vision-ai`는 병합 끝). 게스트 생성 테스트는 `json={"nickname": …}`, e2e는 별칭 입력 필수(FS-027).
 - **FS-028b 완료(2026-10-01, 로컬 main, push·배포 안 함)** — `/api/v1/spc`·`fs/spc/interface.py`·MES `operation_runs`·QMS `spcSignal` 배지·S-01~07·홈 분야별 묶음. **다음 FS-028c**: 시드(`_spc`, 부분군 약 450 — 사출 실행 71h·조립 47h라 설계 추정보다 크다, 템플릿 약 +2,700)·`seed/validate.py`에 이상 기록 정확 일치 검사·도움말 s-01~07·개념 2편·흐름 맵 `process_control` 노드(18·21)·QMS 배지 e2e(LT-0017)·전체 스모크. 그 뒤 운영 반영.
+- **GW(로드맵 10번)는 Codex가 병행(FS-030, 2026-10-01 사용자 지시)** — 지시서 `docs/agent/Codex_작업지시_GW_FS-030.md`(브랜치 `codex/fs-030-gw`, 번호 범위 D60~69·AC-220~239·화면 G, 스키마 버전은 병합 때 Claude가 정한다). Claude 쪽 CMMS는 D45·AC-185부터.
 
 ### 다음 후보 (사용자 결정)
 1. Codex FS-026b2 결과 검토 → W-08·W-09 화면·트럭·시드 → main 병합·배포.
