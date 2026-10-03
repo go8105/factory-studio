@@ -45,14 +45,14 @@ it("계층·연관 시스템 참조가 모두 존재한다", () => {
     ).toEqual([]);
   }
 });
-it("운영이 아닌 10개는 모두 예정이고 로드맵 순서 2~11을 하나씩 갖는다(1번 SPC 운영)", () => {
+it("운영이 아닌 9개는 모두 예정이고 운영 SPC·GW는 제외한다", () => {
   const planned = systems.systems.filter((s) => s.status === "planned");
-  expect(planned).toHaveLength(10);
+  expect(planned).toHaveLength(9);
   expect(
     planned
       .map((s) => ("order" in s ? (s.order ?? 0) : 0))
       .sort((a, b) => a - b),
-  ).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  ).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 11]);
   expect(systems.fields).toHaveLength(5);
   expect(systems.systems.every((s) => systems.fields.includes(s.field))).toBe(
     true,

@@ -51,6 +51,12 @@ export const solutions = [
     description: "측정 부분군에서 관리도, 이상 조치와 공정능력까지",
     to: "/spc",
   },
+  {
+    key: "gw",
+    name: "그룹웨어",
+    description: "기안·순차 결재에서 게시·정정 기록까지",
+    to: "/gw",
+  },
 ] as const;
 /** 솔루션 수를 목록 길이에서 만든다 — 솔루션이 늘어도 문구를 고치지 않는다. */
 const COUNTS = [
@@ -122,6 +128,11 @@ function AppIcon({ kind }: { kind: (typeof solutions)[number]["key"] }) {
             strokeWidth="2"
             strokeLinecap="round"
           />
+        </>
+      ) : kind === "gw" ? (
+        <>
+          <path d="M9 5h22v30H9zM14 12h12M14 18h8" />
+          <path d="m14 26 4 4 8-8" />
         </>
       ) : kind === "spc" ? (
         <>

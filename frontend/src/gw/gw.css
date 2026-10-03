@@ -1,0 +1,52 @@
+.gw-role {
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px solid var(--line, #ddd);
+  border-radius: 8px;
+}
+.gw-role select {
+  max-width: 100%;
+}
+.gw-filters,
+.gw-actions,
+.gw-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin: 12px 0;
+}
+.gw-step > label {
+  flex: 1;
+  min-width: 150px;
+}
+.gw-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.gw-comparison {
+  border-left: 3px solid #1f2d3d;
+  padding: 12px;
+  background: #f7f7f6;
+  margin: 16px 0;
+}
+.gw-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+.gw-kpis strong {
+  display: block;
+  font-size: 28px;
+}
+@media (max-width: 600px) {
+  .gw-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .gw-filters > * {
+    width: 100%;
+    min-width: 0;
+  }
+}

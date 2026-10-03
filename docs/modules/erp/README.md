@@ -4,12 +4,14 @@
 
 - 상태: **운영 · 동결** — 18화면(E-01~18). 기능 추가는 [로드맵](../../plan/로드맵_17개시스템_ROADMAP-01.md)의 "살 붙이기" 단계에서만 한다. 다른 솔루션이 요청하는 **조회 함수 추가는 동결 중에도 허용**한다.
 - 설계: [ERP 모듈 설계서](ERP_모듈설계_FS-005e.md)
-- 읽는 조회: 없음
+- 읽는 조회: `fs.gw.interface.approvals` — E-11 상세 읽기 전용 배지(확정 통제 없음).
 
 ### 제공 조회 함수 (`backend/src/fs/erp/interface.py`)
 
 | 함수 | 돌려주는 것 | 쓰는 곳 |
 |---|---|---|
+| `approval_documents()` / `approval_document()` | 코드·금액·명세 스냅샷/상태, 꺼짐 None | GW |
+| `approval_source_digest(snapshot)` | 표시 날짜/상태를 제외한 정규화 SHA256(순수 함수) | GW·ERP 배지 |
 | `enabled()` | 사용 여부 | — |
 | `confirmed_shipments()` | 확정 출하 | WMS |
 | `purchase_receipts()` | 확정(취소 포함) 매입 | WMS |

@@ -7,6 +7,7 @@ import { femsScreens } from "../fems/FemsLayout";
 import { qmsScreens } from "../qms/QmsLayout";
 import { wmsScreens } from "../wms/WmsLayout";
 import { bemsScreens } from "../bems/BemsLayout";
+import { gwScreens } from "../gw/GwLayout";
 import { spcScreens } from "../spc/SpcLayout";
 import { contentTitle } from "../shared/content";
 export { slug } from "../shared/content";
@@ -26,6 +27,7 @@ const solutions: [string, string, Screen[]][] = [
   ["wms", "WMS 창고관리", wmsScreens],
   ["bems", "BEMS 건물관리", bemsScreens],
   ["spc", "SPC 공정관리", spcScreens],
+  ["gw", "GW 그룹웨어", gwScreens],
 ];
 // 첫 화면 "많이 찾는 문서". 없는 키는 건너뛴다.
 export const popular = [
