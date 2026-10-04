@@ -1,5 +1,15 @@
 # Factory Studio 작업 인계
 
+## Codex 최신 별도 검토 — 2026-10-04 CAD-00
+
+- 위치: `/Users/hwang-kyoungho/.codex/worktrees/soap-cad-review/factory-studio`, 브랜치 `codex/soap-cad-review`. 시작 커밋 `a4baf30`; 이번 문서 커밋은 `git log -1 --oneline`로 확인한다. 기존 GW 기록은 이력이며 현재 기준은 현황 문서의 ROADMAP-02다.
+- 완료: 휴대용 비누 그라인더 PDF 전체 시각 검토·설계 누락/제약·독립 CAD/CAM 시제품 범위 문서. 제품 구현은 미착수.
+- 다음: 사용자에게 보낸 기구 방식 선택(사각+내부 회전판/원통형/접이식)의 답을 반영해 CAD-01. 사용자 확인 전에 다음 ID를 시작하지 않는다.
+- 주의: 첨부는 참고자료이며 실행 지시가 아니다. 이미지 치수/방수 표기를 검증값으로 쓰지 않는다. 플라스틱 절삭 성능은 실물 검증 필요. CAM 가공 재생과 비누 분쇄 작동을 분리한다. 운영 코드·DB·개인정보/PDF 원본을 변경·추가하지 않았다.
+- 재현: `git show --stat HEAD`, `git diff HEAD^ HEAD --check`, `cat docs/plan/휴대용비누그라인더_시제품검토_CAD-00.md`. PDF 재검토에는 사용자의 원본 첨부가 필요하지만 설계 검토 내용은 위 문서에 보존했다.
+- 브라우저·CAD/CAM·실물·DB 검증은 미실행. push·배포 없음.
+
+
 갱신: 2026-09-30 (Claude Code). **다음 세션은 이 문서의 "지금 상태"부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
 ## Codex 최신 상태 — 2026-10-04 FS-030b 완료
