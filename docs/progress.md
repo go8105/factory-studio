@@ -2,6 +2,10 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-04 FS-030b GW 병합·운영 배포 — main `a4baf30` (Claude Code)
+- Codex `codex/fs-030-gw` `1f96532`(GW API·G-01~07·ERP 매입 결재 배지) main 병합. 충돌은 현황 첫 줄만. 마이그레이션·시드 변경 없음. 재검증: typecheck·ruff·vitest gw/portal 91, CI success. Codex 보고: vitest 518, 백엔드 839 통과(성능 1건 단독 재실행 통과).
+- 운영(사용자 실행): 서버 `git pull`·`uv sync`·API 재시작 → 프런트 rsync(`index-DkXknnzE.js`). 확인: 진입 화면 GW 표시, 게스트 201, GW dashboard 200, `/gw` 200. 첫 rsync 안내에 `git log` 페이저가 걸려 업로드가 빠졌던 것을 `--no-pager`로 다시 실행.
+
 ## 2026-10-04 FS-030b GW API·화면 완료
 
 - main8531c05 기반 codex/fs-030-gw. G01~07·순차 결재/반려/재상신·게시 정정·ERP 코드 스냅샷/E11 읽기 배지·역할/멱등/격리 구현. DB·시드 변경 없음.
