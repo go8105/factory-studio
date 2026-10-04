@@ -845,3 +845,8 @@ def get_journal_preview(
 @router.get("/dashboard")
 def get_dashboard(context: Auth, month: str | None = None):
     return {"data": dashboard.dashboard(context, month)}
+
+
+@router.get("/purchase-invoices/{invoice_id}/gw-approval")
+def get_purchase_approval(invoice_id: int, context: Auth):
+    return {"data": purchases.approval_badge(context, invoice_id)}

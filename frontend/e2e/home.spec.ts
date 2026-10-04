@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
               csrfToken: "preview",
               expiresAt: "2026-09-28T00:00:00+09:00",
             }
-          : ["mes", "erp", "fems", "qms", "wms", "bems", "spc"].map(
+          : ["mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw"].map(
               (moduleKey) => ({
                 moduleKey,
                 enabled: true,
@@ -78,7 +78,7 @@ test("일곱 타일 분야별 묶음: 넓은 화면은 2열·묶음 안 한 줄,
         (els) => new Set(els.map((e) => e.getBoundingClientRect().top)).size,
       );
   await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(page.locator(".launcher-item")).toHaveCount(7);
+  await expect(page.locator(".launcher-item")).toHaveCount(8);
   await expect(page.locator(".home-group")).toHaveCount(4);
   expect(await lefts()).toBe(2);
   expect(await rowsIn("생산·품질")).toBe(1);
@@ -120,7 +120,7 @@ test("모바일 터치로 안내를 열고 닫을 수 있다", async ({ browser 
               roles: [],
               csrfToken: "preview",
             }
-          : ["mes", "erp", "fems", "qms", "wms", "bems", "spc"].map(
+          : ["mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw"].map(
               (moduleKey) => ({
                 moduleKey,
                 enabled: true,

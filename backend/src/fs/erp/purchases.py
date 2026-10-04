@@ -324,3 +324,30 @@ def cancel_invoice(context, invoice_id: int, reason: str, key: str):
 
     body = {"id": invoice_id, "reason": reason}
     return _action(context, "erp.purchase_invoice.cancel", key, body, run)
+
+
+def approval_badge(context, invoice_id):
+    """FS-030 read-only summary: never gates or changes ERP confirmation."""
+    from fs.erp import interface as provider
+    from fs.gw import interface as gw
+
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        invoice = _invoice(connection, scoped, invoice_id)
+        found = gw.approvals(
+            connection, scoped, [("PURCHASE_INVOICE", invoice["invoiceNo"])]
+        )
+        if found is None:
+            return {"enabled": False, "approval": None}
+        approval = found[invoice["invoiceNo"]]
+        if approval:
+            current = provider.approval_document(
+                connection, scoped, "PURCHASE_INVOICE", invoice["invoiceNo"]
+            )
+            approval = {
+                **approval,
+                "contentChanged": approval["sourceDigest"] != current["digest"],
+                "statusChanged": approval["sourceStatus"] != current["status"],
+                "currentStatus": current["status"],
+            }
+        return {"enabled": True, "approval": approval}

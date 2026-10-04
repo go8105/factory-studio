@@ -166,3 +166,152 @@ def shipment_orders(
             }
         )
     return list(grouped.values())
+
+
+# FS-030: code-only approval snapshots. Never call GW from this provider.
+def approval_source_digest(snapshot: dict) -> str:
+    """Canonical v1 semantic values; display dates and status are excluded."""
+    import hashlib
+    import json
+
+    values = {k: v for k, v in snapshot.items() if k not in {"display", "status"}}
+    return hashlib.sha256(
+        json.dumps(
+            values, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def approval_documents(connection, scoped, kind, *, search="", offset=0, limit=50):
+    if not enabled(connection, scoped):
+        return None
+    from fs.common.errors import ApiError
+
+    if (
+        kind != "PURCHASE_INVOICE"
+        or not 0 <= offset
+        or not 1 <= limit <= 100
+        or len(search) > 100
+    ):
+        raise ApiError(
+            400,
+            "VALIDATION_FAILED",
+            "조회 조건을 확인해 주세요.",
+            {"fields": {"kind": "매입 전표 조회 조건이 잘못되었습니다."}},
+        )
+    sql = """FROM erp.purchase_invoice p JOIN erp.partner v
+      ON (v.workspace_id,v.generation_id,v.id)=(p.workspace_id,p.generation_id,p.partner_id)
+      WHERE p.workspace_id=:w AND p.generation_id=:g AND p.status IN ('draft','confirmed')
+      AND (strpos(lower(p.invoice_no),lower(:search))>0 OR strpos(lower(v.partner_name),lower(:search))>0)"""
+    params = {**_s(scoped), "search": search, "offset": offset, "limit": limit}
+    rows = connection.execute(
+        text(
+            "SELECT p.invoice_no,p.status,p.currency,p.supply_amount,p.tax_amount,p.total_amount,v.partner_name "
+            + sql
+            + " ORDER BY p.invoice_no OFFSET :offset LIMIT :limit"
+        ),
+        params,
+    ).mappings()
+    return {
+        "rows": [
+            {
+                "documentNo": r["invoice_no"],
+                "status": r["status"],
+                "currency": r["currency"],
+                "partnerName": r["partner_name"],
+                **{
+                    k: format(r[v], ".2f")
+                    for k, v in [
+                        ("supplyAmount", "supply_amount"),
+                        ("taxAmount", "tax_amount"),
+                        ("totalAmount", "total_amount"),
+                    ]
+                },
+            }
+            for r in rows
+        ],
+        "total": connection.execute(
+            text("SELECT count(*) " + sql), params
+        ).scalar_one(),
+        "offset": offset,
+        "limit": limit,
+    }
+
+
+def approval_document(connection, scoped, kind, document_no):
+    if not enabled(connection, scoped):
+        return None
+    if kind != "PURCHASE_INVOICE":
+        return {"found": False}
+    head = (
+        connection.execute(
+            text("""SELECT p.*,v.partner_code,v.partner_name FROM erp.purchase_invoice p
+      JOIN erp.partner v ON (v.workspace_id,v.generation_id,v.id)=(p.workspace_id,p.generation_id,p.partner_id)
+      WHERE p.workspace_id=:w AND p.generation_id=:g AND p.invoice_no=:no"""),
+            {**_s(scoped), "no": document_no},
+        )
+        .mappings()
+        .first()
+    )
+    if head is None:
+        return {"found": False}
+    lines = (
+        connection.execute(
+            text("""SELECT l.*,i.item_code FROM erp.purchase_invoice_line l
+      JOIN erp.item i ON (i.workspace_id,i.generation_id,i.id)=(l.workspace_id,l.generation_id,l.item_id)
+      WHERE l.workspace_id=:w AND l.generation_id=:g AND l.purchase_invoice_id=:id ORDER BY l.line_no"""),
+            {**_s(scoped), "id": head["id"]},
+        )
+        .mappings()
+        .all()
+    )
+    from fs.common.errors import ApiError
+
+    if len(lines) > 200:
+        raise ApiError(
+            409,
+            "PRECONDITION_NOT_MET",
+            "원문 명세는 200행까지 연결할 수 있습니다.",
+            {"reason": "SOURCE_TOO_LARGE"},
+        )
+    amounts = [
+        ("supplyAmount", "supply_amount"),
+        ("taxAmount", "tax_amount"),
+        ("totalAmount", "total_amount"),
+    ]
+    snapshot = {
+        "schemaVersion": 1,
+        "kind": kind,
+        "documentNo": head["invoice_no"].strip(),
+        "partnerCode": head["partner_code"].strip(),
+        "partnerName": head["partner_name"].strip(),
+        "currency": head["currency"].strip(),
+        **{k: format(head[v], ".2f") for k, v in amounts},
+        "lines": [
+            {
+                "lineNo": r["line_no"],
+                "itemCode": r["item_code"].strip(),
+                "quantity": format(r["quantity"], ".3f"),
+                "unit": r["unit"].strip(),
+                "unitPrice": format(r["unit_price"], ".4f"),
+                "currency": r["currency"].strip(),
+                **{k: format(r[v], ".2f") for k, v in amounts},
+            }
+            for r in lines
+        ],
+        "display": {
+            k: _iso(head[v])
+            for k, v in [
+                ("invoiceDate", "invoice_date"),
+                ("dueDate", "due_date"),
+                ("confirmedAt", "confirmed_at"),
+                ("cancelledAt", "cancelled_at"),
+            ]
+        },
+    }
+    return {
+        "found": True,
+        "snapshot": snapshot,
+        "digest": approval_source_digest(snapshot),
+        "status": head["status"],
+    }

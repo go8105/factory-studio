@@ -16,7 +16,7 @@ function show(enabled = true) {
                 csrfToken: "preview",
                 expiresAt: "2026-09-28T00:00:00+09:00",
               }
-            : ["mes", "erp", "fems", "qms", "wms", "bems", "spc"].map(
+            : ["mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw"].map(
                 (moduleKey) => ({
                   moduleKey,
                   enabled,
@@ -32,7 +32,7 @@ function show(enabled = true) {
     </MemoryRouter>,
   );
 }
-it("홈은 운영 중인 일곱 솔루션을 분야별 묶음으로 보이고 빈 묶음은 숨긴다", async () => {
+it("홈은 운영 중인 여덟 솔루션을 분야별 묶음으로 보이고 빈 묶음은 숨긴다", async () => {
   show();
   await screen.findByRole("link", { name: /QMS 품질관리/ });
   expect(screen.getByRole("link", { name: /SPC 공정관리/ })).toHaveAttribute(
@@ -53,7 +53,7 @@ it("홈은 운영 중인 일곱 솔루션을 분야별 묶음으로 보이고 �
   // 영업·제품은 아직 운영 중인 솔루션이 없어 제목도 없다(ROADMAP-01 §4).
   expect(screen.queryByRole("region", { name: "영업·제품" })).toBeNull();
   expect(
-    screen.getByText("하나의 공간에서 만나는 일곱 가지 독립 솔루션"),
+    screen.getByText("하나의 공간에서 만나는 여덟 가지 독립 솔루션"),
   ).toBeVisible();
   expect(
     screen.getByRole("link", { name: /계층 아키텍처에서 보기/ }),

@@ -1,6 +1,13 @@
 # 개발 진행 기록
 
-> 최신 Codex 작업: 2026-10-01 **FS-030a GW DB 완료·b 확인 대기**. pytest45·도구69, Ruff·격리·DDL·마이그레이션 왕복 통과. 상세 `docs/agent/GW_DB_FS-030a.md`.
+> 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
+
+## 2026-10-04 FS-030b GW API·화면 완료
+
+- main8531c05 기반 codex/fs-030-gw. G01~07·순차 결재/반려/재상신·게시 정정·ERP 코드 스냅샷/E11 읽기 배지·역할/멱등/격리 구현. DB·시드 변경 없음.
+- GW API20, frontend518, 관련 최종11, tools73 통과. Chromium 배치 포함17 통과 후 업무5 재검사 통과(고유18개). Ruff163·typecheck/lint/format/build·DB설계/격리/DDL 통과(exit0).
+- 전체 pytest839 passed/1 failed(exit1): 복사 성능3.426초>2초. 해당 검사 단독 재실행1 passed(exit0), 기준 변경 없음. 전체 재통과로 표시하지 않음.
+- 미실행: Safari/실기기·전체 솔루션 브라우저·운영 부하·c시드/도움말. 다음은 사용자 확인 후 FS-030c(69행·도움말·흐름맵·통합). push·배포·main 병합 없음.
 
 ## 현재 상태
 - 단계: **FS-023c + P-02 홈 UI·제목 운영 반영 완료(`be87546`). P-01 진입 목록 QMS 추가는 로컬 커밋(미배포). FS-024 WMS·홈 아이콘·C++ 비전 엔진 운영 반영 완료(`adc3cab`, head `fs024b_wms_module`, 템플릿 7,691행). FS-025a BEMS DB 완료(로컬, head `fs025b_bems_module`). FS-025 BEMS 전체(API·화면·시드·도움말) 운영 반영 완료(`6508599`, 템플릿 11,910행). FS-026 WMS 확장은 Codex가 결정서부터.**

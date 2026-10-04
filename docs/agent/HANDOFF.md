@@ -2,6 +2,15 @@
 
 갱신: 2026-09-30 (Claude Code). **다음 세션은 이 문서의 "지금 상태"부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
+## Codex 최신 상태 — 2026-10-04 FS-030b 완료
+
+- 아래 main 운영/Claude 기록은 보존한다. GW의 이전 a/WIP 상태는 이 항목으로 대체한다.
+- 위치 `/Users/hwang-kyoungho/projects/factory-studio-codex`, branch `codex/fs-030-gw`. main8531c05 fast-forward 후 구현 WIP2a80375, 최종 커밋은 `git log -1`. push·배포·main 병합 없음.
+- G01~07/API·ERP 조회계약/E11 배지·런처/전환 구현 완료. DB v0.17.0/headfs029b_cmms_module·시드14,687 유지. 교차쓰기 없음.
+- 검증: GW20·Vitest518(+마지막 관련11)·tools73·브라우저17 후 업무5 재검사(고유18)·Ruff163·빌드/타입/lint/format·설계/격리/DDL 오류0. 전체pytest839통과/성능1실패(3.426초>2초), 해당 검사 단독1통과. 기준 변경 없음. 실행 상세·미실행·재현: [FS-030b 보고](GW_API화면_FS-030b.md).
+- 다음은 **사용자 b 확인 후 c**: GW69행·게스트복사 검증·g01~07 도움말·참고문서·흐름맵·통합. 최신main의 CMMS/시드/head 확인부터. c는 아직 시작하지 않았다.
+- 전용DB factory_studio_codex_fs030b_test/full_test/browser_test, 포트8030/5230만 사용. `.env`/`work/` 스테이징 금지. Safari·운영·전체 솔루션 브라우저 미검증.
+
 ## 지금 상태 (2026-09-30)
 
 - **운영** https://eip.hugh-d.com — **서버는 main `1a1ddcd`(2026-10-01 배포, 배포 브랜치 `release/2026-10-01-spc`에서 main으로 복귀)**. head `fs029b_cmms_module`(fs040·fs030a/b·fs029a/b 처음 적용), 템플릿 14,687(workspace 45). 사용자에게 보이는 변화: FS-040 런처 평가(홈 타일 아래 "평가 모으는 중"). GW·CMMS는 테이블·모듈 행만. 확인: 게스트 201(3.6초)·모듈 10개(cmms·gw 포함)·`/core/reviews/summary` 200·spc dashboard(특성 6·미조치 2)·`/`·`/spc/dashboard` 200. **Claude의 운영 SSH는 자동 모드 권한 검사가 막는다 → 서버 명령·rsync는 사용자가 실행.** 운영에 평가를 남기는 시험은 하지 않았다.
@@ -486,3 +495,10 @@ git diff --check
 - 전용DB pytest45/도구69 통과, Ruff154파일·격리/DDL/정적 오류0, 빈DB 왕복·기존공간GW true/ERP false·유데이터 downgrade 거부/전체롤백 통과. Excel39시트/GW4미리보기 확인. 전체backend/UI/browser 미실행.
 - 상세 변경파일·검증/미실행·재현은 docs/agent/GW_DB_FS-030a.md. SERVICE 정책/권한/결재 로직은 아직 b 미구현이며 DB 제약과 구분한다.
 - b 사용자 확인 후 API·G01~07·ERP조회계약/E11배지·런처/평가 gw 허용·전환/문서/e2e. c69업무행/도움말/흐름맵/전체검증. push·배포·main 병합 없음. Codex전용DB만 적용, 공유DB/8000/5173 서버 사용 없음. .env/work 스테이징 없음.
+
+## 2026-10-03 FS-030b API·화면 WIP
+
+- 사용자 “이어서 진행해줘”로 b 승인. main8531c05까지 fast-forward(GW a 병합·SPC 시드·CMMS DB/운영 기록 유지), branch codex/fs-030-gw. 스키마 v0.17.0/headfs029b_cmms_module 그대로.
+- GW 서비스/읽기 interface/ERP 조회계약, G01~07·ERP 배지·런처 연결 구현 중. 순차 결재·반려/재상신·회수·게시정정·역할 검사·멱등·스냅샷 불변. ERP 코드 조회만, 교차쓰기 없음.
+- 첫 관련 API11개 통과 후 경합/ERP 배지/원문변경 등을 확장 검사 중. typecheck 통과. 전체pytest·frontend·실제브라우저는 아직 완료 아님. 전용 factory_studio_codex_fs030b_test만 사용.
+- 다음: 추가 회귀·브라우저 검증/오류 보정·문서/최종보고. c업무69행/도움말은 사용자 b 확인 뒤. push·배포 없음. .env/work 스테이징 금지.

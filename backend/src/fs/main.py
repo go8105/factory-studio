@@ -10,6 +10,7 @@ from fs.core.router import router as core_router
 from fs.erp.router import router as erp_router
 from fs.factory.router import router as factory_router
 from fs.fems.router import router as fems_router
+from fs.gw.router import router as gw_router
 from fs.mes.router import router as mes_router
 from fs.qms.router import router as qms_router
 from fs.spc.router import router as spc_router
@@ -32,6 +33,7 @@ def create_app() -> FastAPI:
     app.include_router(wms_router, prefix="/api/v1/wms")
     app.include_router(bems_router, prefix="/api/v1/bems")
     app.include_router(spc_router, prefix="/api/v1/spc")
+    app.include_router(gw_router, prefix="/api/v1/gw")
     return app
 
 

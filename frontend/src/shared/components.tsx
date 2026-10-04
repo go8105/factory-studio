@@ -257,6 +257,11 @@ export function LineIcon({ kind }: { kind: string }) {
           <circle cx="28" cy="28" r="5" />
           <path d="m32 32 4 4" />
         </>
+      ) : kind === "gw" ? (
+        <>
+          <path d="M9 5h22v30H9zM14 12h12M14 18h8" />
+          <path d="m14 26 4 4 8-8" />
+        </>
       ) : kind === "spc" ? (
         <>
           <path d="M5 34h30M7 6v28" />
@@ -354,7 +359,7 @@ export function csvText<T>(rows: T[], columns: Column<T>[]) {
     ].join("\r\n")
   );
 }
-export function DataTable<T extends { id: number }>({
+export function DataTable<T extends { id: number | string }>({
   rows,
   columns,
   caption,

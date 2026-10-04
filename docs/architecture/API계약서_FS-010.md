@@ -614,3 +614,25 @@ A-1만 스키마와 관련이 있고 나머지는 구현 방침이다. **A-1을 
 | `GET /reviews/summary` | `[{moduleKey, average(소수 1자리), count, reviewed}]`. 평가 0건인 솔루션은 빠진다 | — |
 | `GET /reviews?moduleKey=` | 최근 5건 `[{nickname, rating, comment, createdAt}]` | 400 `fields.moduleKey` |
 | `POST /reviews {moduleKey, rating 1~5, comment 2~100자, nickname?}` | CSRF·Idempotency-Key. 회원은 표시 이름(앞 20자)을 쓰고 `nickname`은 무시, 게스트는 별칭 2~20자 필수. 201 | 400 `fields.comment`·`fields.nickname`·`fields.moduleKey` · 409 `ALREADY_REVIEWED`(같은 계정·같은 게스트 공간) · 409 `NICKNAME_TAKEN`(같은 솔루션에 같은 게스트 별칭) |
+
+
+## 19. GW API (`/api/v1/gw`, FS-030b)
+
+[GW 모듈 설계](../modules/gw/GW_모듈설계_FS-030.md) §6~7을 구현한다. 공간·세대는 인증에서 결정하며 변경은 CSRF·Idempotency-Key 필수. 기존 행 변경은 expectedVersion, 문서·게시글은 actingPersonId가 필요하다. ID/큰 순번은 문자열, 금액은 Decimal 문자열이다. 합성 역할은 실제 인증 권한이 아니다.
+
+| 메서드·경로 | 의미 |
+|---|---|
+| `GET /dashboard?personId=` | 내 초안/진행/종결·현재 단계 대기·최근 기록, 금액 통화 합산 없음 |
+| `GET/POST /people`, `GET/PATCH /people/{id}` | 합성 담당자, 마지막 게시판 운영·사용 중 역할 비활성 방지 |
+| `GET/POST /routes`, `GET/PATCH /routes/{id}` | 활성 담당자 1~3명, 연속·중복 금지. 기존 문서에 템플릿 변경 자동 반영 없음 |
+| `GET /sources`, `GET /sources/PURCHASE_INVOICE/{no}` | ERP 코드/의미 값 스냅샷. 꺼짐 `{enabled:false}`, 없음 상세404 |
+| `GET/POST /documents`, `GET/PATCH /documents/{id}` | 목록 box=drafts/pending/archive/all, status/kind/search/offset/limit/sort. 상세 personId에 따른 availableActions |
+| `POST /documents/{id}/select-route`, `/refresh-source`, `/submit` | 초안 결재선/원문 명시 갱신, 상신 직전 원문 digest·상태 재확인 |
+| `POST /documents/{id}/approve`, `/reject`, `/withdraw`, `/resubmit` | 순차 결재, 사유 필수 반려/회수, 첫 승인 후 회수 거부, 재상신은 새 초안 |
+| `GET/POST /posts`, `GET/PATCH /posts/{id}` | boardKind/status/mine/personId/search/page, 초안만 편집 |
+| `POST /posts/{id}/publish`, `/withdraw`, `/correct` | 게시 불변, 철회사유, 새 정정 초안·원문 보존 |
+| `GET /api/v1/erp/purchase-invoices/{id}/gw-approval` | E-11 상세 읽기 배지, 진행 우선/최신 상신, 원문 변경·GW off 구분. ERP 확정·취소와 무관 |
+
+목록 `{data:{rows,total,offset,limit}}`, limit 기본50/최대100. 모든 성공 `{data}`, 생성201/기존 대상 작업200(재상신·정정의 새 초안 반환도200). 400 VALIDATION_FAILED(details.fields), 역할·버전·상태409 PRECONDITION_NOT_MET, 422는 IDEMPOTENCY_CONFLICT 전용. 동일 성공 요청 재시도는 저장된 결과를 반환하고 이벤트를 추가하지 않는다. 업무 시각은 DB clock_timestamp; FS_TODAY를 상태 비교에 쓰지 않는다.
+
+추가 조회 계약: `fs.erp.interface.approval_documents/approval_document/approval_source_digest`, `fs.gw.interface.enabled/approvals`. ERP→GW provider는 GW 값만 읽으며 ERP를 재호출하지 않는다. 원문 digest는 display 날짜/상태를 제외한 의미 값만 포함한다. GW가 ERP를 수정하는 경로는 없다.
