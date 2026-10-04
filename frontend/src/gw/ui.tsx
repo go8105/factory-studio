@@ -3,6 +3,7 @@ import {
   Badge,
   DataTable,
   EmptyState,
+  ErrorNotice,
   type DiscardGuard,
 } from "../shared/components";
 import { labels, time, useRole, type Event, type Snapshot } from "./common";
@@ -16,12 +17,14 @@ export function RoleBar({
   const role = useRole();
   return (
     <div className="gw-role">
+      <ErrorNotice error={role.error} />
+      {role.busy && <p role="status">요청을 처리하고 있습니다.</p>}
       <label>
         담당자 역할 체험{" "}
         <select
           aria-label="담당자 역할 체험"
           value={role.person}
-          disabled={pending}
+          disabled={pending || role.busy}
           onChange={(e) => {
             const id = e.target.value;
             const change = () => role.setPerson(id);
@@ -43,7 +46,7 @@ export function RoleBar({
         내 공간의 합성 담당자로 업무를 체험합니다. 실제 직원 로그인 변경이
         아닙니다.
       </p>
-      {!role.people.length && (
+      {!role.error && !role.people.length && (
         <Link to="/gw/people">체험 담당자 먼저 등록</Link>
       )}
     </div>
@@ -129,6 +132,15 @@ export function SnapshotView({ value }: { value: Snapshot }) {
   );
 }
 export function NoRole() {
+  const role = useRole();
+  if (role.error)
+    return (
+      <EmptyState
+        reason="담당자 조회를 완료하지 못했습니다. GW 사용 설정을 확인하거나 다시 시도하세요."
+        to="/workspace"
+        action="내 공간 설정"
+      />
+    );
   return (
     <EmptyState
       reason="체험 담당자를 선택하세요. 담당자가 없다면 먼저 등록할 수 있습니다."

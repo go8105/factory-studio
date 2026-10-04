@@ -29,7 +29,7 @@ export function Documents({ box }: { box: "drafts" | "pending" | "archive" }) {
   return <DocumentsSpace key={role.person} box={box} />;
 }
 function DocumentsSpace({ box }: { box: "drafts" | "pending" | "archive" }) {
-  const { person } = useRole();
+  const { person, busy } = useRole();
   const [q, setQ] = useSearchParams();
   const [create, setCreate] = useState(false);
   const search = q.get("search") ?? "";
@@ -60,146 +60,157 @@ function DocumentsSpace({ box }: { box: "drafts" | "pending" | "archive" }) {
   const title =
     box === "drafts" ? "기안함" : box === "pending" ? "결재함" : "결재 기록";
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id={id}
         title={title}
         help={"gw/" + id.toLowerCase()}
         actions={
           box === "drafts" && (
-            <button disabled={!person} onClick={() => setCreate(true)}>
+            <button disabled={!person || busy} onClick={() => setCreate(true)}>
               새 기안
             </button>
           )
         }
       />
-      {!create && !open && <RoleBar />}
-      {!person && box !== "archive" ? (
-        <NoRole />
-      ) : (
-        <>
-          <div className="gw-filters">
-            <Field
-              label="문서 검색"
-              value={search}
-              onChange={(e) => change("search", e.target.value)}
-            />
-            {box === "archive" && (
-              <label>
-                범위
-                <select
-                  value={chosen}
-                  onChange={(e) => change("box", e.target.value)}
-                >
-                  <option value="archive">종결 기록</option>
-                  <option value="all">전체 기록</option>
-                </select>
-              </label>
-            )}
-            <label>
-              상태
-              <select
-                value={q.get("status") ?? ""}
-                onChange={(e) => change("status", e.target.value)}
-              >
-                <option value="">전체 상태</option>
-                {[
-                  "DRAFT",
-                  "IN_REVIEW",
-                  "APPROVED",
-                  "REJECTED",
-                  "WITHDRAWN",
-                ].map((s) => (
-                  <option key={s} value={s}>
-                    {labels[s]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              종류
-              <select
-                value={q.get("kind") ?? ""}
-                onChange={(e) => change("kind", e.target.value)}
-              >
-                <option value="">전체 종류</option>
-                <option value="GENERAL">일반 기안</option>
-                <option value="ERP_PURCHASE">ERP 매입</option>
-              </select>
-            </label>
-          </div>
-          <ErrorNotice error={list.error} />
-          {list.data ? (
-            <DataTable
-              rows={list.data.rows}
-              columns={[
-                { key: "documentNo", label: "문서번호" },
-                {
-                  key: "title",
-                  label: "제목",
-                  render: (d) => (
-                    <button
-                      className="link-button"
-                      onClick={() => change("open", d.id)}
-                    >
-                      {d.title}
-                    </button>
-                  ),
-                },
-                { key: "kind", label: "종류", render: (d) => labels[d.kind] },
-                {
-                  key: "status",
-                  label: "상태",
-                  render: (d) => <Status value={d.status} />,
-                },
-                { key: "drafterName", label: "기안자" },
-                { key: "currentStep", label: "현재 단계" },
-                {
-                  key: "submittedAt",
-                  label: "상신 시각",
-                  render: (d) => time(d.submittedAt),
-                },
-              ]}
-              caption={title}
-              offset={offset}
-              limit={20}
-              total={list.data.total}
-              onPage={(n) => change("offset", String(n))}
-              empty={
-                <EmptyState
-                  reason="표시할 문서가 없습니다. 담당자와 결재선을 등록한 뒤 기안을 만들어 보세요."
-                  to="/gw/routes"
-                  action="결재선 관리"
-                />
-              }
-            />
+      <div className="split-view fill">
+        <section className="fill" inert={!!busy}>
+          {!create && !open && <RoleBar />}
+          {!person && box !== "archive" ? (
+            <NoRole />
           ) : (
-            !list.error && <Loading />
+            <>
+              <div className="gw-filters">
+                <Field
+                  label="문서 검색"
+                  value={search}
+                  onChange={(e) => change("search", e.target.value)}
+                />
+                {box === "archive" && (
+                  <label>
+                    범위
+                    <select
+                      aria-label="범위"
+                      value={chosen}
+                      onChange={(e) => change("box", e.target.value)}
+                    >
+                      <option value="archive">종결 기록</option>
+                      <option value="all">전체 기록</option>
+                    </select>
+                  </label>
+                )}
+                <label>
+                  상태
+                  <select
+                    aria-label="상태"
+                    value={q.get("status") ?? ""}
+                    onChange={(e) => change("status", e.target.value)}
+                  >
+                    <option value="">전체 상태</option>
+                    {[
+                      "DRAFT",
+                      "IN_REVIEW",
+                      "APPROVED",
+                      "REJECTED",
+                      "WITHDRAWN",
+                    ].map((s) => (
+                      <option key={s} value={s}>
+                        {labels[s]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  종류
+                  <select
+                    aria-label="종류"
+                    value={q.get("kind") ?? ""}
+                    onChange={(e) => change("kind", e.target.value)}
+                  >
+                    <option value="">전체 종류</option>
+                    <option value="GENERAL">일반 기안</option>
+                    <option value="ERP_PURCHASE">ERP 매입</option>
+                  </select>
+                </label>
+              </div>
+              <ErrorNotice error={list.error} />
+              {list.data ? (
+                <DataTable
+                  rows={list.data.rows}
+                  columns={[
+                    { key: "documentNo", label: "문서번호" },
+                    {
+                      key: "title",
+                      label: "제목",
+                      render: (d) => (
+                        <button
+                          className="link-button"
+                          onClick={() => change("open", d.id)}
+                        >
+                          {d.title}
+                        </button>
+                      ),
+                    },
+                    {
+                      key: "kind",
+                      label: "종류",
+                      render: (d) => labels[d.kind],
+                    },
+                    {
+                      key: "status",
+                      label: "상태",
+                      render: (d) => <Status value={d.status} />,
+                    },
+                    { key: "drafterName", label: "기안자" },
+                    { key: "currentStep", label: "현재 단계" },
+                    {
+                      key: "submittedAt",
+                      label: "상신 시각",
+                      render: (d) => time(d.submittedAt),
+                    },
+                  ]}
+                  caption={title}
+                  offset={offset}
+                  limit={20}
+                  total={list.data.total}
+                  onPage={(n) => change("offset", String(n))}
+                  empty={
+                    <EmptyState
+                      reason="표시할 문서가 없습니다. 담당자와 결재선을 등록한 뒤 기안을 만들어 보세요."
+                      to="/gw/routes"
+                      action="결재선 관리"
+                    />
+                  }
+                />
+              ) : (
+                !list.error && <Loading />
+              )}
+            </>
           )}
-        </>
-      )}
-      {create && (
-        <DocumentEditor
-          close={() => setCreate(false)}
-          done={(d) => {
-            setCreate(false);
-            change("open", d.id);
-            list.reload();
-          }}
-        />
-      )}
-      {open && !create && (
-        <DocumentDetail
-          key={open + person}
-          id={open}
-          close={() => change("open", "")}
-          changed={(d) => {
-            change("open", d.id);
-            list.reload();
-          }}
-        />
-      )}
-    </>
+        </section>
+        {create && (
+          <DocumentEditor
+            close={() => setCreate(false)}
+            done={(d) => {
+              setCreate(false);
+              change("open", d.id);
+              list.reload();
+            }}
+          />
+        )}
+        {open && !create && (
+          <DocumentDetail
+            key={open + person}
+            id={open}
+            close={() => change("open", "")}
+            changed={(d) => {
+              change("open", d.id);
+              list.reload();
+            }}
+          />
+        )}
+      </div>
+    </div>
   );
 }
 function DocumentEditor({
@@ -288,10 +299,15 @@ function DocumentEditor({
       <RoleBar guard={guard} pending={request.pending} />
       <fieldset disabled={request.pending}>
         <ErrorNotice error={request.error} />
+        <ErrorNotice error={routes.error} />
         {!value && (
           <label>
             문서 종류
-            <select value={kind} onChange={(e) => setKind(e.target.value)}>
+            <select
+              aria-label="문서 종류"
+              value={kind}
+              onChange={(e) => setKind(e.target.value)}
+            >
               <option value="GENERAL">일반 기안</option>
               <option value="ERP_PURCHASE">ERP 매입</option>
             </select>
@@ -349,6 +365,7 @@ function DocumentEditor({
                 />
               )
             )}
+            <ErrorNotice error={preview.error} />
             {preview.data && <SnapshotView value={preview.data.snapshot} />}
             <p>
               확정 매입의 결재는 사후 검토이며 ERP 처리 상태를 바꾸지 않습니다.
@@ -395,6 +412,7 @@ function DocumentEditor({
               결재선
               <select
                 required
+                aria-label="결재선"
                 value={routeId}
                 onChange={(e) => setRoute(e.target.value)}
               >
@@ -629,6 +647,7 @@ function DocumentDetail({
                     새 결재선
                     <select
                       required
+                      aria-label="새 결재선"
                       value={route}
                       onChange={(e) => setRoute(e.target.value)}
                     >

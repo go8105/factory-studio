@@ -17,6 +17,7 @@ function Space() {
   const [selected, setSelected] = useState(
     () => sessionStorage.getItem(key) ?? "",
   );
+  const [busy, setBusy] = useState(false);
   const people = useGet<Page<Person>>("/people?limit=100");
   const valid = people.data?.rows.some((p) => p.id === selected && p.isActive)
     ? selected
@@ -31,6 +32,9 @@ function Space() {
         },
         people: people.data?.rows ?? [],
         reload: people.reload,
+        error: people.error,
+        busy,
+        setBusy,
       }}
     >
       <SolutionLayout

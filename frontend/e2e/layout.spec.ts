@@ -123,6 +123,12 @@ for (const route of [
   "/spc/signals",
   "/spc/subgroups",
   "/spc/characteristics",
+  "/gw/drafts",
+  "/gw/pending",
+  "/gw/documents",
+  "/gw/board",
+  "/gw/routes",
+  "/gw/people",
 ]) {
   test(`1440×900 ${route} 목록 채움: 문서가 스크롤되지 않는다`, async ({
     page,

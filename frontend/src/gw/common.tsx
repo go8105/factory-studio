@@ -153,6 +153,9 @@ export const RoleContext = createContext<{
   setPerson: (p: string) => void;
   people: Person[];
   reload: () => void;
+  error?: unknown;
+  busy?: boolean;
+  setBusy?: (busy: boolean) => void;
 }>({ person: "", setPerson: () => {}, people: [], reload: () => {} });
 export const useRole = () => useContext(RoleContext);
 export function useGet<T>(path: string | null) {
@@ -189,11 +192,23 @@ export function useGet<T>(path: string | null) {
   };
 }
 export function useSend() {
+  const role = useRole();
   const { session, fail } = useSession();
   const keys = useRef(new MutationKeys());
   const busy = useRef(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>();
+  useEffect(() => {
+    if (!pending) return;
+    const block = (event: MouseEvent) => {
+      if ((event.target as Element | null)?.closest?.("a[href]")) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    document.addEventListener("click", block, true);
+    return () => document.removeEventListener("click", block, true);
+  }, [pending]);
   async function send<T>(
     path: string,
     method: string,
@@ -202,6 +217,7 @@ export function useSend() {
     if (busy.current) return;
     busy.current = true;
     setPending(true);
+    role.setBusy?.(true);
     setError(undefined);
     const op = `${session?.workspaceId}/${session?.generationId}/${method}/${path}/${JSON.stringify(body)}`;
     try {
@@ -222,6 +238,7 @@ export function useSend() {
     } finally {
       busy.current = false;
       setPending(false);
+      role.setBusy?.(false);
     }
   }
   return { send, pending, error, setError };

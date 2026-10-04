@@ -180,6 +180,13 @@ for (const [route, title] of [
   ["spc/signals", "이상·조치"],
   ["spc/subgroups", "부분군 기록"],
   ["spc/characteristics", "관리 특성·한계"],
+  ["gw/dashboard", "업무 현황"],
+  ["gw/drafts", "기안함"],
+  ["gw/pending", "결재함"],
+  ["gw/documents", "결재 기록"],
+  ["gw/board", "공지·자유 게시판"],
+  ["gw/routes", "결재선 템플릿"],
+  ["gw/people", "체험 담당자"],
 ]) {
   test(`360px ${route} 가로 스크롤 없음`, async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });

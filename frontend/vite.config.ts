@@ -12,9 +12,11 @@ export default defineConfig({
       ],
     },
     host: "localhost",
-    port: 5173,
+    port: Number(process.env.FS_SMOKE_WEB_PORT ?? 5173),
     strictPort: true,
-    proxy: { "/api": "http://127.0.0.1:8000" },
+    proxy: {
+      "/api": `http://127.0.0.1:${process.env.FS_SMOKE_API_PORT ?? 8000}`,
+    },
   },
   test: {
     environment: "jsdom",

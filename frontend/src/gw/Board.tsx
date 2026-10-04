@@ -25,7 +25,7 @@ export function Board() {
   return <BoardSpace key={person} />;
 }
 function BoardSpace() {
-  const { person } = useRole();
+  const { person, busy } = useRole();
   const [q, setQ] = useSearchParams();
   const [create, setCreate] = useState(false);
   const open = q.get("open");
@@ -46,124 +46,130 @@ function BoardSpace() {
     setQ(n);
   };
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id="G-05"
         title="공지·자유 게시판"
         help="gw/g-05"
         actions={
-          <button disabled={!person} onClick={() => setCreate(true)}>
+          <button disabled={!person || busy} onClick={() => setCreate(true)}>
             새 글
           </button>
         }
       />
-      {!open && !create && <RoleBar />}
-      <div className="gw-filters">
-        <Field
-          label="글 검색"
-          value={q.get("search") ?? ""}
-          onChange={(e) => change("search", e.target.value)}
-        />
-        <label>
-          게시판
-          <select
-            value={q.get("boardKind") ?? ""}
-            onChange={(e) => change("boardKind", e.target.value)}
-          >
-            <option value="">전체 게시판</option>
-            <option value="NOTICE">공지</option>
-            <option value="FREE">자유</option>
-          </select>
-        </label>
-        <label>
-          상태
-          <select
-            value={q.get("status") ?? "PUBLISHED"}
-            onChange={(e) => change("status", e.target.value)}
-          >
-            {["PUBLISHED", "DRAFT", "WITHDRAWN", "all"].map((s) => (
-              <option key={s} value={s}>
-                {labels[s] ?? "전체"}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            disabled={!person}
-            checked={q.get("mine") === "true"}
-            onChange={(e) => change("mine", e.target.checked ? "true" : "")}
+      <div className="split-view fill">
+        <section className="fill" inert={!!busy}>
+          {!open && !create && <RoleBar />}
+          <div className="gw-filters">
+            <Field
+              label="글 검색"
+              value={q.get("search") ?? ""}
+              onChange={(e) => change("search", e.target.value)}
+            />
+            <label>
+              게시판
+              <select
+                aria-label="게시판"
+                value={q.get("boardKind") ?? ""}
+                onChange={(e) => change("boardKind", e.target.value)}
+              >
+                <option value="">전체 게시판</option>
+                <option value="NOTICE">공지</option>
+                <option value="FREE">자유</option>
+              </select>
+            </label>
+            <label>
+              상태
+              <select
+                aria-label="상태"
+                value={q.get("status") ?? "PUBLISHED"}
+                onChange={(e) => change("status", e.target.value)}
+              >
+                {["PUBLISHED", "DRAFT", "WITHDRAWN", "all"].map((s) => (
+                  <option key={s} value={s}>
+                    {labels[s] ?? "전체"}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                disabled={!person}
+                checked={q.get("mine") === "true"}
+                onChange={(e) => change("mine", e.target.checked ? "true" : "")}
+              />
+              내 글만
+            </label>
+          </div>
+          <ErrorNotice error={list.error} />
+          {list.data ? (
+            <DataTable
+              rows={list.data.rows}
+              columns={[
+                { key: "postNo", label: "번호" },
+                {
+                  key: "title",
+                  label: "제목",
+                  render: (p) => (
+                    <button
+                      className="link-button"
+                      onClick={() => change("open", p.id)}
+                    >
+                      {p.title}
+                    </button>
+                  ),
+                },
+                {
+                  key: "boardKind",
+                  label: "게시판",
+                  render: (p) => labels[p.boardKind],
+                },
+                { key: "authorName", label: "작성 담당자" },
+                {
+                  key: "status",
+                  label: "상태",
+                  render: (p) => <Status value={p.status} />,
+                },
+                {
+                  key: "publishedAt",
+                  label: "게시 시각",
+                  render: (p) => time(p.publishedAt),
+                },
+              ]}
+              caption="게시글"
+              offset={offset}
+              limit={20}
+              total={list.data.total}
+              onPage={(n) => change("offset", String(n))}
+            />
+          ) : (
+            !list.error && <Loading />
+          )}
+        </section>
+        {create && (
+          <PostEditor
+            close={() => setCreate(false)}
+            done={(p) => {
+              setCreate(false);
+              change("open", p.id);
+              list.reload();
+            }}
           />
-          내 글만
-        </label>
+        )}
+        {open && !create && (
+          <PostDetail
+            key={open}
+            id={open}
+            close={() => change("open", "")}
+            done={(p) => {
+              change("open", p.id);
+              list.reload();
+            }}
+          />
+        )}
       </div>
-      <ErrorNotice error={list.error} />
-      {list.data ? (
-        <DataTable
-          rows={list.data.rows}
-          columns={[
-            { key: "postNo", label: "번호" },
-            {
-              key: "title",
-              label: "제목",
-              render: (p) => (
-                <button
-                  className="link-button"
-                  onClick={() => change("open", p.id)}
-                >
-                  {p.title}
-                </button>
-              ),
-            },
-            {
-              key: "boardKind",
-              label: "게시판",
-              render: (p) => labels[p.boardKind],
-            },
-            { key: "authorName", label: "작성 담당자" },
-            {
-              key: "status",
-              label: "상태",
-              render: (p) => <Status value={p.status} />,
-            },
-            {
-              key: "publishedAt",
-              label: "게시 시각",
-              render: (p) => time(p.publishedAt),
-            },
-          ]}
-          caption="게시글"
-          offset={offset}
-          limit={20}
-          total={list.data.total}
-          onPage={(n) => change("offset", String(n))}
-        />
-      ) : (
-        !list.error && <Loading />
-      )}
-      {create && (
-        <PostEditor
-          close={() => setCreate(false)}
-          done={(p) => {
-            setCreate(false);
-            change("open", p.id);
-            list.reload();
-          }}
-        />
-      )}
-      {open && !create && (
-        <PostDetail
-          key={open}
-          id={open}
-          close={() => change("open", "")}
-          done={(p) => {
-            change("open", p.id);
-            list.reload();
-          }}
-        />
-      )}
-    </>
+    </div>
   );
 }
 function PostEditor({
@@ -212,7 +218,11 @@ function PostEditor({
         {!value && (
           <label>
             게시판
-            <select value={kind} onChange={(e) => setKind(e.target.value)}>
+            <select
+              aria-label="게시판"
+              value={kind}
+              onChange={(e) => setKind(e.target.value)}
+            >
               <option value="FREE">자유</option>
               <option value="NOTICE">공지 (게시판 운영 담당자)</option>
             </select>

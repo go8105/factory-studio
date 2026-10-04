@@ -32,7 +32,14 @@ def main() -> None:
     if not node_major.startswith("v24."):
         raise SystemExit("Node 24 PATH is required")
     # 기존 개발 서버를 잘못 테스트하거나 종료하지 않는다.
-    for port in (8000, 5173):
+    api_port = int(os.environ.get("FS_SMOKE_API_PORT", "8000"))
+    web_port = int(os.environ.get("FS_SMOKE_WEB_PORT", "5173"))
+    if not all(1024 <= p <= 65535 for p in (api_port, web_port)) or api_port == web_port:
+        raise SystemExit("Use distinct unprivileged smoke ports")
+    db_name = os.environ.get("FS_SMOKE_DB", "factory_studio_fs017_test")
+    if db_name != "factory_studio_fs017_test" and not (db_name.startswith("factory_studio_codex_") and db_name.endswith("_test") and db_name.replace("_", "").isalnum()):
+        raise SystemExit("Use a dedicated factory_studio_codex_*_test DB")
+    for port in (api_port, web_port):
         with socket.socket() as probe:
             # 직전 실행의 TIME_WAIT 소켓은 무시하고, 실제로 LISTEN 중인 서버만 막는다.
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -40,12 +47,14 @@ def main() -> None:
                 probe.bind(("127.0.0.1", port))
             except OSError as error:
                 raise SystemExit(f"Stop the existing server on port {port}") from error
-    url = make_url(os.environ["DATABASE_URL"]).set(database="factory_studio_fs017_test")
-    assert url.database == "factory_studio_fs017_test"
+    url = make_url(os.environ["DATABASE_URL"]).set(database=db_name)
+    assert url.database == db_name
     env = {
         **os.environ,
         "DATABASE_URL": url.render_as_string(hide_password=False),
         "SESSION_SECRET": secrets.token_urlsafe(48),
+        "FS_SMOKE_API_PORT": str(api_port),
+        "FS_SMOKE_WEB_PORT": str(web_port),
         # 테스트마다 새 게스트를 만든다. 제품 기본 상한(20)과 무관하게 스모크 전체를 수용한다.
         "GUEST_LIMIT": "400",  # 스모크는 테스트마다 새 게스트 공간(약 230개)
         # 템플릿과 게스트 복사 기준일을 고정한다. e2e의 날짜(09-07 결측, 8월 요금제 등)가 매일 유효하다.
@@ -57,7 +66,7 @@ def main() -> None:
             text("SELECT 1 FROM pg_database WHERE datname=:name"),
             {"name": url.database},
         ).scalar():
-            connection.execute(text("CREATE DATABASE factory_studio_fs017_test"))
+            connection.execute(text("CREATE DATABASE " + db_name))
     admin.dispose()
     subprocess.run(
         [
@@ -102,7 +111,7 @@ def main() -> None:
                 "--host",
                 "127.0.0.1",
                 "--port",
-                "8000",
+                str(api_port),
             ],
             env=env,
             stdout=log,
@@ -117,7 +126,7 @@ def main() -> None:
                     )
                 try:
                     urlopen(
-                        "http://127.0.0.1:8000/api/v1/core/sessions/current", timeout=1
+                        f"http://127.0.0.1:{api_port}/api/v1/core/sessions/current", timeout=1
                     ).close()
                 except HTTPError as error:
                     if error.code == 401:

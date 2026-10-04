@@ -2,6 +2,15 @@
 
 갱신: 2026-09-30 (Claude Code). **다음 세션은 이 문서의 "지금 상태"부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
+## Codex 최신 상태 — 2026-10-04 FS-030b 완료
+
+- 아래 main 운영/Claude 기록은 보존한다. GW의 이전 a/WIP 상태는 이 항목으로 대체한다.
+- 위치 `/Users/hwang-kyoungho/projects/factory-studio-codex`, branch `codex/fs-030-gw`. main8531c05 fast-forward 후 구현 WIP2a80375, 최종 커밋은 `git log -1`. push·배포·main 병합 없음.
+- G01~07/API·ERP 조회계약/E11 배지·런처/전환 구현 완료. DB v0.17.0/headfs029b_cmms_module·시드14,687 유지. 교차쓰기 없음.
+- 검증: GW20·Vitest518(+마지막 관련11)·tools73·브라우저17 후 업무5 재검사(고유18)·Ruff163·빌드/타입/lint/format·설계/격리/DDL 오류0. 전체pytest839통과/성능1실패(3.426초>2초), 해당 검사 단독1통과. 기준 변경 없음. 실행 상세·미실행·재현: [FS-030b 보고](GW_API화면_FS-030b.md).
+- 다음은 **사용자 b 확인 후 c**: GW69행·게스트복사 검증·g01~07 도움말·참고문서·흐름맵·통합. 최신main의 CMMS/시드/head 확인부터. c는 아직 시작하지 않았다.
+- 전용DB factory_studio_codex_fs030b_test/full_test/browser_test, 포트8030/5230만 사용. `.env`/`work/` 스테이징 금지. Safari·운영·전체 솔루션 브라우저 미검증.
+
 ## 지금 상태 (2026-09-30)
 
 - **운영** https://eip.hugh-d.com — **서버는 main `1a1ddcd`(2026-10-01 배포, 배포 브랜치 `release/2026-10-01-spc`에서 main으로 복귀)**. head `fs029b_cmms_module`(fs040·fs030a/b·fs029a/b 처음 적용), 템플릿 14,687(workspace 45). 사용자에게 보이는 변화: FS-040 런처 평가(홈 타일 아래 "평가 모으는 중"). GW·CMMS는 테이블·모듈 행만. 확인: 게스트 201(3.6초)·모듈 10개(cmms·gw 포함)·`/core/reviews/summary` 200·spc dashboard(특성 6·미조치 2)·`/`·`/spc/dashboard` 200. **Claude의 운영 SSH는 자동 모드 권한 검사가 막는다 → 서버 명령·rsync는 사용자가 실행.** 운영에 평가를 남기는 시험은 하지 않았다.

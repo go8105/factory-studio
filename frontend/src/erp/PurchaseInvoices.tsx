@@ -468,7 +468,10 @@ export function PurchaseInvoices() {
                   공급가액 {won(selected.supplyAmount)} · 세액{" "}
                   {won(selected.taxAmount)} · 합계 {won(selected.totalAmount)}
                 </p>
-                <GwApproval key={selected.id} invoiceId={selected.id} />
+                <GwApproval
+                  key={JSON.stringify(selected)}
+                  invoiceId={selected.id}
+                />
                 {selected.status === "draft" ? (
                   <>
                     <DataTable

@@ -32,71 +32,82 @@ export function Masters({ kind }: { kind: "people" | "routes" }) {
   const person = kind === "people";
   const title = person ? "체험 담당자" : "결재선 템플릿";
   return (
-    <>
+    <div className="page-fill">
       <PageTitle
         id={person ? "G-07" : "G-06"}
         title={title}
         help={`gw/${person ? "g-07" : "g-06"}`}
-        actions={<button onClick={() => setEdit(null)}>등록</button>}
+        actions={
+          <button disabled={role.busy} onClick={() => setEdit(null)}>
+            등록
+          </button>
+        }
       />
-      <RoleBar />
-      <p className="muted">
-        {person
-          ? "실제 계정이 아닌 합성 담당자입니다. 마지막 게시판 운영 담당자와 사용 중인 역할은 비활성화할 수 없습니다."
-          : "템플릿 변경은 이미 기안된 문서에 자동 반영되지 않습니다. 초안에서 결재선을 다시 선택하세요."}
-      </p>
-      <Field
-        label="검색"
-        value={search}
-        onChange={(e) => setQuery({ search: e.target.value })}
-      />
-      <ErrorNotice error={result.error} />
-      {!result.data && !result.error ? (
-        <Loading />
-      ) : (
-        result.data && (
-          <DataTable
-            rows={result.data.rows}
-            columns={[
-              { key: "code", label: "코드" },
-              { key: "name", label: "이름" },
-              {
-                key: "isActive",
-                label: "사용",
-                render: (r) => (r.isActive ? "활성" : "비활성"),
-              },
-              {
-                key: "id",
-                label: "관리",
-                render: (r) => (
-                  <button className="link-button" onClick={() => setEdit(r)}>
-                    편집
-                  </button>
-                ),
-              },
-            ]}
-            caption={title}
-            offset={offset}
-            limit={20}
-            total={result.data.total}
-            onPage={(n) => setQuery({ search, offset: String(n) })}
+      <div className="split-view fill">
+        <section className="fill" inert={!!role.busy}>
+          <RoleBar />
+          <p className="muted">
+            {person
+              ? "실제 계정이 아닌 합성 담당자입니다. 마지막 게시판 운영 담당자와 사용 중인 역할은 비활성화할 수 없습니다."
+              : "템플릿 변경은 이미 기안된 문서에 자동 반영되지 않습니다. 초안에서 결재선을 다시 선택하세요."}
+          </p>
+          <Field
+            label="검색"
+            value={search}
+            onChange={(e) => setQuery({ search: e.target.value })}
           />
-        )
-      )}
-      {edit !== undefined && (
-        <MasterEditor
-          key={edit?.id ?? "new"}
-          kind={kind}
-          value={edit}
-          close={() => setEdit(undefined)}
-          done={() => {
-            setEdit(undefined);
-            result.reload();
-            role.reload();
-          }}
-        />
-      )}
-    </>
+          <ErrorNotice error={result.error} />
+          {!result.data && !result.error ? (
+            <Loading />
+          ) : (
+            result.data && (
+              <DataTable
+                rows={result.data.rows}
+                columns={[
+                  { key: "code", label: "코드" },
+                  { key: "name", label: "이름" },
+                  {
+                    key: "isActive",
+                    label: "사용",
+                    render: (r) => (r.isActive ? "활성" : "비활성"),
+                  },
+                  {
+                    key: "id",
+                    label: "관리",
+                    render: (r) => (
+                      <button
+                        className="link-button"
+                        onClick={() => setEdit(r)}
+                      >
+                        편집
+                      </button>
+                    ),
+                  },
+                ]}
+                caption={title}
+                offset={offset}
+                limit={20}
+                total={result.data.total}
+                onPage={(n) => setQuery({ search, offset: String(n) })}
+              />
+            )
+          )}
+        </section>
+        {edit !== undefined && (
+          <MasterEditor
+            key={edit?.id ?? "new"}
+            kind={kind}
+            value={edit}
+            close={() => setEdit(undefined)}
+            done={() => {
+              setEdit(undefined);
+              result.reload();
+              role.reload();
+            }}
+          />
+        )}
+      </div>
+    </div>
   );
 }
 function MasterEditor({
@@ -172,7 +183,11 @@ function MasterEditor({
         {kind === "people" ? (
           <label>
             직무
-            <select value={job} onChange={(e) => setJob(e.target.value)}>
+            <select
+              aria-label="직무"
+              value={job}
+              onChange={(e) => setJob(e.target.value)}
+            >
               {["STAFF", "MANAGER", "EXECUTIVE", "BOARD_ADMIN"].map((j) => (
                 <option key={j} value={j}>
                   {labels[j]}
