@@ -186,6 +186,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_tms_dsn23(d))
     if 'plm.eco' in {t['name'] for t in d['tables']}:
         errors.extend(validate_plm_dsn24(d))
+    if 'crm.opportunity' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_crm_dsn25(d))
     return errors
 
 
@@ -416,6 +418,23 @@ def validate_plm_dsn24(d):
     require(not any(w in col for cols in (v for n, v in ts.items() if n.startswith('plm.')) for col in cols for w in ('file_path', 'file_url', 'blob', 'content_bytes')), 'no file storage (Q2)')
     require(not any(n.startswith('plm.') and ('mbom' in n or 'process' in n or 'routing' in n) for n in ts), 'M-BOM and routing belong to MES (Q4)')
     require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'plm'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key plm')
+    return errors
+
+
+def validate_crm_dsn25(d):
+    """DSN-25 CRM 계약: 견적·수주는 ERP·클레임은 QMS(테이블 금지)·다른 스키마 FK 없음·ERP 처리 상태 비저장(Q2)·수주는 ERP 수주 번호 필수·모듈 키."""
+    errors = []
+    cs, rs = d['constraints'], d['relations']
+    ts = {t['name']: {c['name'] for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-25: ' + message)
+    require(not any(n.startswith('crm.') and any(w in n for w in ('quotation', 'sales_order', 'claim', 'invoice')) for n in ts), 'quotations/orders belong to ERP, claims to QMS')
+    require(all(r['target'].split('.')[0] in ('crm', 'core') for r in rs if r['source'].startswith('crm.')), 'CRM FKs stay inside crm/core anchors')
+    require(not any(w in col for col in ts.get('crm.quote_request', ()) for w in ('imported', 'erp_quotation', 'erp_status')), 'ERP import state is read, not stored (Q2)')
+    require(any(c['table'] == 'crm.opportunity' and "stage <> 'WON' OR (probability = 100 AND erp_order_no IS NOT NULL)" in c['expression'] for c in cs), 'won needs ERP order (Q2)')
+    require(any(c['table'] == 'crm.inquiry' and c['expression'] == "status <> 'TRANSFERRED' OR kind = 'QUALITY'" for c in cs), 'only quality inquiries go to QMS (Q4)')
+    require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'crm'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key crm')
     return errors
 
 

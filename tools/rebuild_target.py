@@ -17,6 +17,7 @@ import apply_dsn21
 import apply_dsn22
 import apply_dsn23
 import apply_dsn24
+import apply_dsn25
 
 STEPS = [
     apply_dsn11,
@@ -30,6 +31,7 @@ STEPS = [
     apply_dsn22,
     apply_dsn23,
     apply_dsn24,
+    apply_dsn25,
 ]
 
 

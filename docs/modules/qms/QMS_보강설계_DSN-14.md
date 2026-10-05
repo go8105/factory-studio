@@ -201,6 +201,8 @@
 
 > PLM DSN-24 반영(2026-10-05): QMS 품목은 "PLM에서 가져오기" 가능. PLM `eco_releases`를 읽어 4M 변경 신고 후보로(PLM = 설계 변경, QMS = 현장 변경·초품 검사).
 
+> CRM DSN-25 반영(2026-10-05): QMS는 CRM `quality_inquiries`(품질 문의)를 가져와 클레임으로 접수한다(클레임은 QMS 소유). `claims(customer_code)`를 CRM이 읽는다.
+
 ## 7. 결정 질문 (하나씩)
 
 | # | 질문 | 제안 |

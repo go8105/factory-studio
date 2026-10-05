@@ -2,6 +2,12 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-25 CRM 신규 설계 완료 (Claude Code)
+- 결정: Q1 CRM 고객사 소유, ERP가 "CRM에서 가져오기"로 거래처 생성 후 코드 연결 · Q2 견적 요청 → ERP 견적 초안, ERP 수주를 읽어 수주 확인 제안 → 사람이 처리 · Q3 6단계 고정 + 확률 조정, 매출 예측 · Q4 고객 문의(품질 문의만 QMS 클레임 전환) · Q5 캠페인·출처 분석 · 범위 21/23.
+- 문서 `docs/modules/crm/CRM_설계_DSN-25.md` + README: 기준표 23, 기능 규칙 7묶음, DB crm 13, 화면 10(CR-01~10, 파이프라인 칸반 V), 교차 조회(`accounts`·`quote_requests`·`quality_inquiries`·`pipeline_summary` 제공, ERP `crm_imports`·`sales_orders_for_crm`·`partner_summary` 요청 — ERP·QMS 문서에 메모). 견적 요청의 ERP 처리 상태는 저장하지 않고 ERP 조회로 표시(교차 쓰기 금지).
+- 목표 DB: `tools/apply_dsn25.py` → target-0.13.0/DSN-25 280테이블·컬럼 3,269·FK 699, 모듈 키 crm. 검증기 `validate_crm_dsn25`.
+- 검증(통과를 커밋 조건으로): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(280·UK 570·CHECK 741·INDEX 184·UNIQUE_INDEX 78·FK 699)**·ERD·Excel·tools 73 + DSN 33·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-24 PLM 신규 설계 완료 (Claude Code)
 - 결정: Q1 각 솔루션 "PLM에서 가져오기"(MES 품목·BOM, ERP·WMS·QMS 품목, 자동 동기화 없음) · Q2 도면·문서 메타데이터만 · Q3 ECR → ECO → 승인 → 배포, 배포는 QMS 4M 후보, GW는 배지 · Q4 PLM은 E-BOM까지(제조 BOM은 MES) · Q5 개발 프로젝트·단계 게이트 · Q6 설계 원가 롤업 · 범위 20/24.
 - 문서 `docs/modules/plm/PLM_설계_DSN-24.md` + README: 기준표 24, 기능 규칙 7묶음(배포는 ECO로만·현재 배포 1개·배포 불변), DB plm 16, 화면 11(접두어 PD — 패턴 D와 구분), 교차 조회(`released_parts`·`released_bom`·`eco_releases`·`monthly_summary` 제공, ERP `standard_costs`·MES `open_work_orders_by_item`·각 솔루션 `plm_imports` 요청 — MES·ERP·WMS·QMS 문서에 메모).

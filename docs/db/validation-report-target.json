@@ -1,12 +1,13 @@
 {
-  "task": "DSN-24",
+  "task": "DSN-25",
   "validation": "정적 메타데이터 검증 + FS-013 R1~R6",
   "database_applied": false,
-  "tables": 267,
+  "tables": 280,
   "tables_by_schema": {
     "bems": 21,
     "cmms": 12,
     "core": 12,
+    "crm": 13,
     "erp": 63,
     "fems": 25,
     "gw": 8,
@@ -18,10 +19,10 @@
     "tms": 10,
     "wms": 23
   },
-  "columns": 3113,
-  "foreign_keys": 665,
-  "constraints_and_policies": 1986,
-  "source_sha256": "759ee7da7916004af4f0debab16e80ef62beb55015a7bb89e9170de3777626ac",
+  "columns": 3269,
+  "foreign_keys": 699,
+  "constraints_and_policies": 2061,
+  "source_sha256": "1f681873e613b465d53cbe8bde9a1bfb311bca4e64b63f503ac10f9010a9a0eb",
   "errors": [],
   "not_tested": [
     "실제 DDL 적용",
