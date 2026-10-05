@@ -2,6 +2,12 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-14 QMS 보강 설계 완료 (Claude Code)
+- 결정: Q1 수입 검사(대상 = 검사 필요 + 공급처 수준 ≠ 면제, 검사 전 보류, 판정을 WMS가 읽어 이동) · Q2 AQL 표 자동(KS Q ISO 2859-1, 표는 코드 상수) + 직접 입력 · Q3 NCR + CAPA(8D 제외) · Q4 고객 클레임 QMS 소유 · Q5 공급처 월 등급 + 전환 제안, 사람 확정 · Q6 계측기·교정 포함(MSA 제외) · Q7 4M 변경 포함, 범위 28/33.
+- 문서 `docs/modules/qms/QMS_보강설계_DSN-14.md`: 기준표 33, 기능 규칙 10묶음, DB 6→15(새 9·기존 4 변경 — 검사 종류 출하·수입·반품·초품, "품목당 게시 기준 1개" → "품목·종류당"), 화면 6→13, 교차 조회(`incoming_results`·`return_results`·`claims`·`supplier_grades` 제공, WMS `inbound_lots_to_inspect`·MES `defects`·`process_inspections`·`lot_trace` 요청).
+- 목표 DB: `tools/apply_dsn14.py` → target-0.5.0/DSN-14 199테이블·컬럼 2,322·FK 506. rebuild_target STEPS 추가. 검증기: FS-023 게시 기준 규칙이 종류별 조건부 유니크도 허용, `validate_qms_dsn14`(검사 종류·AQL Ac/Re·AQL 표 비저장·수입 판정 WMS 연계·CAPA→NCR·클레임 QMS·공정 검사 금지·교정 기한 파생).
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(199·UK 418·CHECK 579·INDEX 145·UNIQUE_INDEX 52·FK 506)**·ERD·Excel·tools 73 + DSN 17(재생성 = 커밋본)·실제 schema.json 0. 클레임 CHECK의 AND/OR 우선순위 오류를 적용 전에 찾아 괄호로 고침. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-13 WMS 보강 설계 완료 (Claude Code)
 - 결정: Q1 창고 스캔 POP · Q2 다창고·용도 8·위치 계층·유형 6(용도당 기본 1) · Q3 LOT 품목별(원자재도 WMS 부여) · Q4 피킹 지시/확정·생산 불출(MES 투입은 라인 재고 차감) · Q5 FEFO→FIFO·만료 보류 · Q6 재고 월 마감(ERP 원가 기준) · Q7 범위 39/42(수입 검사 연계 → DSN-14).
 - 문서 `docs/modules/wms/WMS_보강설계_DSN-13.md`: 기준표 42, 기능 규칙 13묶음, DB 11→23(새 12·기존 6 변경 — "LOT = 완제품" CHECK 삭제, 원천 키에 PO·판매 반품), 화면 9→20, 교차 조회(`receipts`·`stock_moves`·`stock_on_hand`·`lots`·`line_stock`·`pop_context` 제공 계약 확정).

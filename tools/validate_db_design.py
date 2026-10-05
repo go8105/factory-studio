@@ -170,6 +170,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_mes_dsn12(d))
     if 'wms.pop_import' in {t['name'] for t in d['tables']}:
         errors.extend(validate_wms_dsn13(d))
+    if 'qms.ncr' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_qms_dsn14(d))
     return errors
 
 
@@ -246,6 +248,25 @@ def validate_wms_dsn13(d):
     require(has('wms.stock_period', 'UK', ['period_month']) and any(c['table'] == 'wms.stock_period' and c['reason'] == '재고 월 마감(Q6)' for c in cs), 'monthly stock close (Q6)')
     require(has('wms.pop_import', 'UK', ['pop_entry_ref']), 'POP import idempotent (Q1)')
     require(not any(n.startswith('wms.') and 'scan' in n for n in ts), 'scan logs belong to POP (Q1)')
+    return errors
+
+
+def validate_qms_dsn14(d):
+    """DSN-14 QMS 보강 계약: 수입·출하 기준 분리·AQL Ac/Re·수입 판정은 WMS가 읽음(Q1)·NCR→CAPA·클레임 QMS 소유(Q4)·공정 검사는 MES(MES Q5)."""
+    errors = []
+    cs = d['constraints']
+    ts = {t['name']: {c['name'] for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-14: ' + message)
+    require('inspection_kind' in ts.get('qms.inspection_spec', ()) and 'inspection_kind' in ts.get('qms.inspection', ()), 'inspection kinds (incoming/outgoing)')
+    require(any(c['table'] == 'qms.inspection' and c['kind'] == 'CHECK' and 'reject_number = accept_number + 1' in c['expression'] for c in cs), 'AQL Ac/Re shape (Q2)')
+    require(not any(n.startswith('qms.') and ('aql' in n or 'sampling_table' in n) for n in ts), 'AQL table is code, not DB')
+    require(any(c['table'] == 'qms.inspection' and c['reason'] == '수입 검사 → WMS(Q1)' for c in cs), 'incoming result read by WMS (Q1)')
+    require(any(r['source'] == 'qms.capa' and r['target'] == 'qms.ncr' for r in d['relations']), 'CAPA belongs to NCR (Q3)')
+    require('qms.claim' in ts, 'claims owned by QMS (Q4)')
+    require(not any(n.startswith('qms.') and 'process_inspection' in n for n in ts), 'process inspection belongs to MES (MES Q5)')
+    require(not any(w in col for col in ts.get('qms.gauge', ()) for w in ('next_due', 'last_calibrated')), 'calibration due is derived from history')
     return errors
 
 
@@ -338,7 +359,8 @@ def validate_qms(d):
     def partial(table, column, predicate):
         return any(c['table'] == table and c['kind'] == 'UK_PARTIAL' and c['columns'] == SCOPE + [column]
                    and c['expression'].endswith('WHERE ' + predicate) for c in cs)
-    require(partial('qms.inspection_spec', 'item_code', "status = 'published'"), 'one published spec per item')
+    # DSN-14(목표 설계): 수입·출하 기준을 따로 — 품목·검사 종류당 게시 1개.
+    require(partial('qms.inspection_spec', 'item_code', "status = 'published'") or any(c['table'] == 'qms.inspection_spec' and c['kind'] == 'UK_PARTIAL' and c['columns'] == SCOPE + ['item_code', 'inspection_kind'] and c['expression'].endswith("WHERE status = 'published'") for c in cs), 'one published spec per item')
     require(partial('qms.inspection', 'lot_no', "status = 'draft'"), 'one draft inspection per LOT')
     require(partial('qms.quality_hold', 'lot_no', "status = 'held'"), 'one active hold per LOT')
     for table in ('qms.inspection', 'qms.quality_hold'):
