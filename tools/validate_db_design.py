@@ -184,6 +184,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_pop_dsn22(d))
     if 'tms.dispatch' in {t['name'] for t in d['tables']}:
         errors.extend(validate_tms_dsn23(d))
+    if 'plm.eco' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_plm_dsn24(d))
     return errors
 
 
@@ -395,6 +397,25 @@ def validate_tms_dsn23(d):
     require(any(c['table'] == 'tms.vehicle' and "(ownership = 'HIRED') = (carrier_id IS NOT NULL)" in c['expression'] for c in cs), 'hired vehicle needs carrier (Q2)')
     require(partial('tms.settlement', ['carrier_id', 'settle_month'], "status = 'confirmed'"), 'one confirmed settlement per carrier month (Q5)')
     require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'tms'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key tms')
+    return errors
+
+
+def validate_plm_dsn24(d):
+    """DSN-24 PLM 계약: 배포는 ECO로만·현재 배포 리비전 1개·리비전은 ECO 1건에만·다른 업무 스키마 FK 없음·파일 저장 없음(Q2)·M-BOM은 MES(Q4)·모듈 키."""
+    errors = []
+    cs, rs = d['constraints'], d['relations']
+    ts = {t['name']: {c['name'] for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-24: ' + message)
+    for t, parent in [('plm.part_revision', 'part_id'), ('plm.document_revision', 'document_id')]:
+        require(any(c['table'] == t and 'eco_id IS NOT NULL' in c['expression'] for c in cs), f'{t}: release only through ECO')
+        require(any(c['table'] == t and c['kind'] == 'UK_PARTIAL' and c['columns'] == SCOPE + [parent] and "status = 'RELEASED'" in c['expression'] for c in cs), f'{t}: one current released revision')
+    require(any(c['table'] == 'plm.eco_item' and c['kind'] == 'UK_PARTIAL' and 'part_revision_id' in c['columns'] for c in cs), 'a revision belongs to one ECO')
+    require(all(r['target'].split('.')[0] in ('plm', 'core') for r in rs if r['source'].startswith('plm.')), 'PLM FKs stay inside plm/core anchors')
+    require(not any(w in col for cols in (v for n, v in ts.items() if n.startswith('plm.')) for col in cols for w in ('file_path', 'file_url', 'blob', 'content_bytes')), 'no file storage (Q2)')
+    require(not any(n.startswith('plm.') and ('mbom' in n or 'process' in n or 'routing' in n) for n in ts), 'M-BOM and routing belong to MES (Q4)')
+    require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'plm'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key plm')
     return errors
 
 

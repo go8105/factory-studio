@@ -2,6 +2,12 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-24 PLM 신규 설계 완료 (Claude Code)
+- 결정: Q1 각 솔루션 "PLM에서 가져오기"(MES 품목·BOM, ERP·WMS·QMS 품목, 자동 동기화 없음) · Q2 도면·문서 메타데이터만 · Q3 ECR → ECO → 승인 → 배포, 배포는 QMS 4M 후보, GW는 배지 · Q4 PLM은 E-BOM까지(제조 BOM은 MES) · Q5 개발 프로젝트·단계 게이트 · Q6 설계 원가 롤업 · 범위 20/24.
+- 문서 `docs/modules/plm/PLM_설계_DSN-24.md` + README: 기준표 24, 기능 규칙 7묶음(배포는 ECO로만·현재 배포 1개·배포 불변), DB plm 16, 화면 11(접두어 PD — 패턴 D와 구분), 교차 조회(`released_parts`·`released_bom`·`eco_releases`·`monthly_summary` 제공, ERP `standard_costs`·MES `open_work_orders_by_item`·각 솔루션 `plm_imports` 요청 — MES·ERP·WMS·QMS 문서에 메모).
+- 목표 DB: `tools/apply_dsn24.py` → target-0.12.0/DSN-24 267테이블·컬럼 3,113·FK 665, 모듈 키 plm. 검증기 `validate_plm_dsn24`.
+- 검증(통과를 커밋 조건으로): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(267·UK 548·CHECK 717·INDEX 176·UNIQUE_INDEX 74·FK 665)**·ERD·Excel·tools 73 + DSN 31·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-23 TMS 신규 설계 완료 (Claude Code)
 - 결정: Q1 경계(배차 대상 = ERP 확정 출하지시 중 WMS 피킹 완료, ERP는 TMS 상차 완료를 읽어 출하 확정 대기 — TMS는 ERP·WMS를 바꾸지 않음) · Q2·Q3 자차+용차, 수동 배차 + 적재율 경고 · Q4 기사 모바일(패턴 K) · Q5 운임·용차 정산 → ERP 직접 매입 · **Q6 조달 운송도 TMS로**(WMS 입고 예정의 차량·도착은 TMS를 읽음) · Q7 자차 운행 비용, 범위 20/24.
 - 문서 `docs/modules/tms/TMS_설계_DSN-23.md` + README: 기준표 24, 기능 규칙 6묶음, DB tms 10(운송사·차량·기사·권역·배송지·운임표·배차·방문·운행 비용·정산), 화면 14(R-01~14, 기사 K 2), 교차 조회(`loaded_shipments`·`deliveries`·`inbound_arrivals`·`carrier_settlements`·`monthly_summary` 제공, WMS `picked_shipments`·`inbound_notices` 요청 — ERP·WMS 문서에 메모).

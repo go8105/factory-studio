@@ -218,6 +218,8 @@
 
 > TMS DSN-23 반영(2026-10-05): 조달 운송은 TMS 소관 — 입고 예정의 차량·도착은 TMS `inbound_arrivals`를 읽어 채운다(수동 유지). WMS는 `picked_shipments`·`inbound_notices(open=True)`를 제공한다.
 
+> PLM DSN-24 반영(2026-10-05): WMS 품목은 "PLM에서 가져오기" 가능. `plm_imports`를 제공한다.
+
 ## 7. 결정 질문 (하나씩)
 
 | # | 질문 | 제안 |

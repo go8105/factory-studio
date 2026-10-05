@@ -199,6 +199,8 @@
 
 > 넘길 것: **WMS** `inbound_lots_to_inspect` 제공·`incoming_results` 반영(DSN-13 F18 확정) · **MES** `defects`·`process_inspections`·`lot_trace` 제공 · **CRM(신규)** 클레임은 읽기만.
 
+> PLM DSN-24 반영(2026-10-05): QMS 품목은 "PLM에서 가져오기" 가능. PLM `eco_releases`를 읽어 4M 변경 신고 후보로(PLM = 설계 변경, QMS = 현장 변경·초품 검사).
+
 ## 7. 결정 질문 (하나씩)
 
 | # | 질문 | 제안 |

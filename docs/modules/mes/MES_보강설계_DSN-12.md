@@ -296,6 +296,8 @@
 
 > POP DSN-22 반영(2026-10-05): 가져오기 종류에 DOWNTIME·INSPECT·CANCEL 추가, MES는 `pop_results(entry_nos)`도 제공한다(POP 반영 결과 표시).
 
+> PLM DSN-24 반영(2026-10-05): MES는 PLM 배포 리비전을 "PLM에서 가져오기"로 받는다(품목 상세·BOM 버전·대체 자재 → 제조 BOM에 공정 투입 지정). `open_work_orders_by_item`·`plm_imports`를 제공한다.
+
 ## 7. 결정 질문 (하나씩)
 
 | # | 질문 | 제안 |

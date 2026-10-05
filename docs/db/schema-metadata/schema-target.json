@@ -1,6 +1,6 @@
 {
-  "version": "target-0.11.0",
-  "task": "DSN-23",
+  "version": "target-0.12.0",
+  "task": "DSN-24",
   "base_task": "FS-029a",
   "target": true,
   "date": "2026-10-05",
@@ -26434,6 +26434,1478 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "plm.part_class",
+      "label": "부품 분류",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F05. 대·중·소 분류(자기 참조)",
+      "sub_module": "part",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "분류 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "분류명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "parent_id",
+          "label": "상위 분류",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.part",
+      "label": "설계 품목",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F01. 부품 번호는 MES·ERP·WMS·QMS 품목 코드의 원천(가져오기 때 같은 코드)",
+      "sub_module": "part",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "part_no",
+          "label": "부품 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "품목명",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "class_id",
+          "label": "분류",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.part_revision",
+      "label": "품목 리비전",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F02·F03. 작업 중 → 검토 → 배포(ECO로만) → 폐기. 배포 후 불변, 품목당 현재 배포 1개",
+      "sub_module": "part",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "part_id",
+          "label": "설계 품목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "rev",
+          "label": "리비전",
+          "type": "varchar(4)",
+          "nullable": false,
+          "default": null,
+          "rule": "A, B, … Z, AA …"
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'WORKING'",
+          "rule": "WORKING / REVIEW / RELEASED / OBSOLETE"
+        },
+        {
+          "name": "material",
+          "label": "재질",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "unit_weight_kg",
+          "label": "단위 중량(kg)",
+          "type": "numeric(12,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "dimensions",
+          "label": "치수",
+          "type": "varchar(100)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "color",
+          "label": "색상",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "surface",
+          "label": "표면 처리",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "spec_note",
+          "label": "사양 메모",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "eco_id",
+          "label": "배포 ECO",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "released_at",
+          "label": "배포 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "obsoleted_at",
+          "label": "폐기 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.document",
+      "label": "도면·문서",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F04(Q2). 메타데이터만 — 파일 첨부 없음",
+      "sub_module": "document",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "doc_no",
+          "label": "문서 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "title",
+          "label": "제목",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "doc_kind",
+          "label": "종류",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "DRAWING 도면 / SPEC 사양서 / STANDARD 표준 / OTHER"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.document_revision",
+      "label": "문서 리비전",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F04. 품목 리비전과 같은 상태·불변 규칙",
+      "sub_module": "document",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "document_id",
+          "label": "도면·문서",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "rev",
+          "label": "리비전",
+          "type": "varchar(4)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'WORKING'",
+          "rule": "WORKING / REVIEW / RELEASED / OBSOLETE"
+        },
+        {
+          "name": "description",
+          "label": "변경 내용",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "eco_id",
+          "label": "배포 ECO",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "released_at",
+          "label": "배포 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.part_document",
+      "label": "품목 문서 연결",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F04. 품목 리비전 ↔ 문서 리비전(여러 대 여러)",
+      "sub_module": "document",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "part_revision_id",
+          "label": "품목 리비전",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "document_revision_id",
+          "label": "문서 리비전",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.bom_line",
+      "label": "E-BOM 구성",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F11. 상위 품목 리비전의 하위 품목·수량. 하위는 품목(전개 시 현재 배포 리비전). 상위 배포 후 불변",
+      "sub_module": "bom",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "parent_revision_id",
+          "label": "상위 품목 리비전",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "line_no",
+          "label": "행 번호",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "child_part_id",
+          "label": "하위 품목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "qty",
+          "label": "수량",
+          "type": "numeric(18,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "note",
+          "label": "메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.substitute",
+      "label": "대체 부품",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F14. 설계 승인 대체품. MES 대체 자재(DSN-12 F16)의 원천",
+      "sub_module": "bom",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "bom_line_id",
+          "label": "E-BOM 구성",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "substitute_part_id",
+          "label": "대체 품목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "priority",
+          "label": "우선순위",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "note",
+          "label": "메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.ecr",
+      "label": "설계 변경 요청",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F21. 사유·대상·제안 → 수락(ECO로)·반려",
+      "sub_module": "change",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "ecr_no",
+          "label": "요청 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "title",
+          "label": "제목",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "사유",
+          "type": "varchar(1000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "requested_by",
+          "label": "요청자",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "requested_on",
+          "label": "요청일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'OPEN'",
+          "rule": "OPEN / ACCEPTED / REJECTED"
+        },
+        {
+          "name": "decided_at",
+          "label": "결정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "decision_note",
+          "label": "결정 의견",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.eco",
+      "label": "설계 변경 지시",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F22~F26(Q3). 대상 리비전 묶음 → 검토 → 승인 → 배포(대상 일괄 RELEASED, 이전 OBSOLETE). QMS가 배포를 읽어 4M 후보",
+      "sub_module": "change",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "eco_no",
+          "label": "지시 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "ecr_id",
+          "label": "변경 요청",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "title",
+          "label": "제목",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "description",
+          "label": "변경 내용",
+          "type": "varchar(1000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "effective_on",
+          "label": "적용일",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "rule": "NULL이면 배포 즉시"
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'DRAFT'",
+          "rule": "DRAFT / REVIEW / APPROVED / RELEASED / CANCELLED"
+        },
+        {
+          "name": "reviewer_name",
+          "label": "검토자",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "approved_at",
+          "label": "승인 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "released_at",
+          "label": "배포 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "impact_note",
+          "label": "영향 분석",
+          "type": "varchar(1000)",
+          "nullable": true,
+          "default": null,
+          "rule": "역전개 상위 품목·진행 작업지시 수 스냅샷"
+        },
+        {
+          "name": "cancel_reason",
+          "label": "취소 사유",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.eco_item",
+      "label": "변경 대상",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F22. ECO가 배포할 품목·문서 리비전(작업 중·검토 상태)",
+      "sub_module": "change",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "eco_id",
+          "label": "설계 변경 지시",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "part_revision_id",
+          "label": "품목 리비전",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "document_revision_id",
+          "label": "문서 리비전",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "change_note",
+          "label": "변경 메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.project",
+      "label": "개발 프로젝트",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F31(Q5). 신제품 개발 대상 품목·담당·일정",
+      "sub_module": "project",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "project_no",
+          "label": "프로젝트 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "프로젝트명",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "target_part_id",
+          "label": "대상 품목",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "owner_name",
+          "label": "담당",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "start_on",
+          "label": "시작일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "target_on",
+          "label": "양산 목표일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'ACTIVE'",
+          "rule": "ACTIVE / ON_HOLD / DONE / CANCELLED"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.gate",
+      "label": "단계 게이트",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F32(Q5). 기획 → 설계 → 시작 → 양산 승인. 앞 게이트 통과 후 다음",
+      "sub_module": "project",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "project_id",
+          "label": "개발 프로젝트",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "gate_kind",
+          "label": "게이트",
+          "type": "varchar(6)",
+          "nullable": false,
+          "default": null,
+          "rule": "PLAN / DESIGN / PROTO / MASS"
+        },
+        {
+          "name": "seq",
+          "label": "순서",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "planned_on",
+          "label": "계획일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(6)",
+          "nullable": false,
+          "default": "'OPEN'",
+          "rule": "OPEN / PASSED / FAILED"
+        },
+        {
+          "name": "decided_at",
+          "label": "판정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "note",
+          "label": "판정 의견",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.gate_deliverable",
+      "label": "게이트 산출물",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F32. 게이트 통과 = 필수 산출물 모두 완료",
+      "sub_module": "project",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "gate_id",
+          "label": "단계 게이트",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "seq",
+          "label": "순서",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "산출물",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_required",
+          "label": "필수",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "done_at",
+          "label": "완료 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "document_revision_id",
+          "label": "근거 문서",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.cost_rollup",
+      "label": "설계 원가",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F43(Q6). 품목 리비전 E-BOM 전개 × ERP 표준 단가 스냅샷. 확정 1건 + 새 버전",
+      "sub_module": "cost",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "part_revision_id",
+          "label": "품목 리비전",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "버전",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / confirmed / superseded"
+        },
+        {
+          "name": "material_cost",
+          "label": "재료비 합",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "currency",
+          "label": "통화",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": "'KRW'",
+          "rule": ""
+        },
+        {
+          "name": "missing_price_count",
+          "label": "단가 없는 부품 수",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "rule": ""
+        },
+        {
+          "name": "calculated_at",
+          "label": "계산 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "confirmed_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "plm.cost_rollup_line",
+      "label": "설계 원가 명세",
+      "scope": "generation",
+      "phase": "DSN-24",
+      "retention": "세대 정리",
+      "note": "DSN-24 F43. 전개 말단 부품별 누적 수량 × 단가",
+      "sub_module": "cost",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cost_rollup_id",
+          "label": "설계 원가",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "part_id",
+          "label": "부품",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "level",
+          "label": "전개 단계",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "extended_qty",
+          "label": "누적 수량",
+          "type": "numeric(18,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "unit_cost",
+          "label": "단가",
+          "type": "numeric(18,4)",
+          "nullable": true,
+          "default": null,
+          "rule": "ERP 표준 단가 스냅샷, 없으면 NULL"
+        },
+        {
+          "name": "cost",
+          "label": "금액",
+          "type": "numeric(18,2)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
     }
   ],
   "relations": [
@@ -36624,6 +38096,637 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "운송사"
+    },
+    {
+      "source": "plm.part_class",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.part",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.part_revision",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.document",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.document_revision",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.part_document",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.bom_line",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.substitute",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.ecr",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.eco",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.eco_item",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.project",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.gate",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.gate_deliverable",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.cost_rollup",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.cost_rollup_line",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "plm.part_class",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "parent_id"
+      ],
+      "target": "plm.part_class",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "상위 분류"
+    },
+    {
+      "source": "plm.part",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "class_id"
+      ],
+      "target": "plm.part_class",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "분류"
+    },
+    {
+      "source": "plm.part_revision",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "part_id"
+      ],
+      "target": "plm.part",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "설계 품목"
+    },
+    {
+      "source": "plm.part_revision",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "eco_id"
+      ],
+      "target": "plm.eco",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "배포 ECO"
+    },
+    {
+      "source": "plm.document_revision",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id"
+      ],
+      "target": "plm.document",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "도면·문서"
+    },
+    {
+      "source": "plm.document_revision",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "eco_id"
+      ],
+      "target": "plm.eco",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "배포 ECO"
+    },
+    {
+      "source": "plm.part_document",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "part_revision_id"
+      ],
+      "target": "plm.part_revision",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "품목 리비전"
+    },
+    {
+      "source": "plm.part_document",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_revision_id"
+      ],
+      "target": "plm.document_revision",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "문서 리비전"
+    },
+    {
+      "source": "plm.bom_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "parent_revision_id"
+      ],
+      "target": "plm.part_revision",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "상위 품목 리비전"
+    },
+    {
+      "source": "plm.bom_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "child_part_id"
+      ],
+      "target": "plm.part",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "하위 품목"
+    },
+    {
+      "source": "plm.substitute",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "bom_line_id"
+      ],
+      "target": "plm.bom_line",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "E-BOM 구성"
+    },
+    {
+      "source": "plm.substitute",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "substitute_part_id"
+      ],
+      "target": "plm.part",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "대체 품목"
+    },
+    {
+      "source": "plm.eco",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "ecr_id"
+      ],
+      "target": "plm.ecr",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "변경 요청"
+    },
+    {
+      "source": "plm.eco_item",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "eco_id"
+      ],
+      "target": "plm.eco",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "설계 변경 지시"
+    },
+    {
+      "source": "plm.eco_item",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "part_revision_id"
+      ],
+      "target": "plm.part_revision",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "품목 리비전"
+    },
+    {
+      "source": "plm.eco_item",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_revision_id"
+      ],
+      "target": "plm.document_revision",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "문서 리비전"
+    },
+    {
+      "source": "plm.project",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "target_part_id"
+      ],
+      "target": "plm.part",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "대상 품목"
+    },
+    {
+      "source": "plm.gate",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "project_id"
+      ],
+      "target": "plm.project",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "개발 프로젝트"
+    },
+    {
+      "source": "plm.gate_deliverable",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "gate_id"
+      ],
+      "target": "plm.gate",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "단계 게이트"
+    },
+    {
+      "source": "plm.gate_deliverable",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_revision_id"
+      ],
+      "target": "plm.document_revision",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "근거 문서"
+    },
+    {
+      "source": "plm.cost_rollup",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "part_revision_id"
+      ],
+      "target": "plm.part_revision",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "품목 리비전"
+    },
+    {
+      "source": "plm.cost_rollup_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cost_rollup_id"
+      ],
+      "target": "plm.cost_rollup",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "설계 원가"
+    },
+    {
+      "source": "plm.cost_rollup_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "part_id"
+      ],
+      "target": "plm.part",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "부품"
     }
   ],
   "constraints": [
@@ -36821,7 +38924,7 @@
       "table": "core.workspace_module",
       "kind": "CHECK",
       "columns": [],
-      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms', 'pop', 'tms')",
+      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms', 'pop', 'tms', 'plm')",
       "reason": "행 내부 데이터 정합성"
     },
     {
@@ -45062,7 +47165,7 @@
       "columns": [
         "module_key"
       ],
-      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms', 'pop', 'tms')",
+      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms', 'pop', 'tms', 'plm')",
       "reason": "평가 대상 솔루션"
     },
     {
@@ -55890,6 +57993,908 @@
       ],
       "expression": "",
       "reason": "FK·목록 조회"
+    },
+    {
+      "table": "plm.part_class",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.part_class",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.part",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.part",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.part_revision",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.part_revision",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.document",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.document",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.document_revision",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.document_revision",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.part_document",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.part_document",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.bom_line",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.bom_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.substitute",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.substitute",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.ecr",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.ecr",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.eco",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.eco",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.eco_item",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.eco_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.project",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.project",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.gate",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.gate",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.gate_deliverable",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.gate_deliverable",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.cost_rollup",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.cost_rollup",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.cost_rollup_line",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "plm.cost_rollup_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "plm.part_class",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "plm.part_class",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "번호 형식"
+    },
+    {
+      "table": "plm.part",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "part_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "plm.part",
+      "kind": "CHECK",
+      "columns": [
+        "part_no"
+      ],
+      "expression": "part_no ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "번호 형식"
+    },
+    {
+      "table": "plm.document",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "doc_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "plm.document",
+      "kind": "CHECK",
+      "columns": [
+        "doc_no"
+      ],
+      "expression": "doc_no ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "번호 형식"
+    },
+    {
+      "table": "plm.ecr",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "ecr_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "plm.ecr",
+      "kind": "CHECK",
+      "columns": [
+        "ecr_no"
+      ],
+      "expression": "ecr_no ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "번호 형식"
+    },
+    {
+      "table": "plm.eco",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "eco_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "plm.eco",
+      "kind": "CHECK",
+      "columns": [
+        "eco_no"
+      ],
+      "expression": "eco_no ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "번호 형식"
+    },
+    {
+      "table": "plm.project",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "project_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "plm.project",
+      "kind": "CHECK",
+      "columns": [
+        "project_no"
+      ],
+      "expression": "project_no ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "번호 형식"
+    },
+    {
+      "table": "plm.part_revision",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "part_id",
+        "rev"
+      ],
+      "expression": "",
+      "reason": "리비전 유일"
+    },
+    {
+      "table": "plm.part_revision",
+      "kind": "CHECK",
+      "columns": [
+        "rev"
+      ],
+      "expression": "rev ~ '^[A-Z]{1,2}$'",
+      "reason": "리비전 형식"
+    },
+    {
+      "table": "plm.part_revision",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "eco_id",
+        "released_at"
+      ],
+      "expression": "status IN ('WORKING', 'REVIEW', 'RELEASED', 'OBSOLETE') AND ((status IN ('RELEASED', 'OBSOLETE')) = (released_at IS NOT NULL AND eco_id IS NOT NULL))",
+      "reason": "배포는 ECO로만"
+    },
+    {
+      "table": "plm.part_revision",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "part_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, part_id) WHERE status = 'RELEASED'",
+      "reason": "현재 배포 리비전 1개"
+    },
+    {
+      "table": "plm.document_revision",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id",
+        "rev"
+      ],
+      "expression": "",
+      "reason": "리비전 유일"
+    },
+    {
+      "table": "plm.document_revision",
+      "kind": "CHECK",
+      "columns": [
+        "rev"
+      ],
+      "expression": "rev ~ '^[A-Z]{1,2}$'",
+      "reason": "리비전 형식"
+    },
+    {
+      "table": "plm.document_revision",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "eco_id",
+        "released_at"
+      ],
+      "expression": "status IN ('WORKING', 'REVIEW', 'RELEASED', 'OBSOLETE') AND ((status IN ('RELEASED', 'OBSOLETE')) = (released_at IS NOT NULL AND eco_id IS NOT NULL))",
+      "reason": "배포는 ECO로만"
+    },
+    {
+      "table": "plm.document_revision",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, document_id) WHERE status = 'RELEASED'",
+      "reason": "현재 배포 리비전 1개"
+    },
+    {
+      "table": "plm.part_class",
+      "kind": "CHECK",
+      "columns": [
+        "parent_id"
+      ],
+      "expression": "parent_id IS NULL OR parent_id <> id",
+      "reason": "자기 참조 금지"
+    },
+    {
+      "table": "plm.part_revision",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "obsoleted_at"
+      ],
+      "expression": "(status = 'OBSOLETE') = (obsoleted_at IS NOT NULL)",
+      "reason": "폐기 시각"
+    },
+    {
+      "table": "plm.part_revision",
+      "kind": "CHECK",
+      "columns": [
+        "unit_weight_kg"
+      ],
+      "expression": "unit_weight_kg IS NULL OR unit_weight_kg >= 0",
+      "reason": "중량 음수 금지"
+    },
+    {
+      "table": "plm.part_revision",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "WORKING·REVIEW만 수정. ECO 배포 시 대상 리비전 RELEASED + 같은 품목의 이전 RELEASED → OBSOLETE(한 트랜잭션). 배포 리비전·그 E-BOM·문서 연결은 불변, 변경은 새 리비전",
+      "reason": "리비전 불변(F02)"
+    },
+    {
+      "table": "plm.document",
+      "kind": "CHECK",
+      "columns": [
+        "doc_kind"
+      ],
+      "expression": "doc_kind IN ('DRAWING', 'SPEC', 'STANDARD', 'OTHER')",
+      "reason": "문서 종류"
+    },
+    {
+      "table": "plm.part_document",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "part_revision_id",
+        "document_revision_id"
+      ],
+      "expression": "",
+      "reason": "연결 1건"
+    },
+    {
+      "table": "plm.bom_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "parent_revision_id",
+        "line_no"
+      ],
+      "expression": "",
+      "reason": "행 번호 유일"
+    },
+    {
+      "table": "plm.bom_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "parent_revision_id",
+        "child_part_id"
+      ],
+      "expression": "",
+      "reason": "같은 하위 품목 1행"
+    },
+    {
+      "table": "plm.bom_line",
+      "kind": "CHECK",
+      "columns": [
+        "line_no",
+        "qty"
+      ],
+      "expression": "line_no >= 1 AND qty > 0",
+      "reason": "행 번호·수량"
+    },
+    {
+      "table": "plm.bom_line",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "child_part_id"
+      ],
+      "expression": "하위 품목이 상위 품목(전개 경로 포함)과 같으면 거부(순환 금지). 전개·역전개·리비전 비교는 조회 계산",
+      "reason": "순환 금지·전개"
+    },
+    {
+      "table": "plm.substitute",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "bom_line_id",
+        "substitute_part_id"
+      ],
+      "expression": "",
+      "reason": "구성·대체 1회"
+    },
+    {
+      "table": "plm.substitute",
+      "kind": "CHECK",
+      "columns": [
+        "priority"
+      ],
+      "expression": "priority >= 1",
+      "reason": "우선순위"
+    },
+    {
+      "table": "plm.ecr",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "decided_at"
+      ],
+      "expression": "status IN ('OPEN', 'ACCEPTED', 'REJECTED') AND ((status = 'OPEN') = (decided_at IS NULL))",
+      "reason": "상태·결정 시각"
+    },
+    {
+      "table": "plm.eco",
+      "kind": "CHECK",
+      "columns": [
+        "status"
+      ],
+      "expression": "status IN ('DRAFT', 'REVIEW', 'APPROVED', 'RELEASED', 'CANCELLED')",
+      "reason": "상태 값"
+    },
+    {
+      "table": "plm.eco",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "approved_at",
+        "released_at",
+        "reviewer_name",
+        "cancel_reason"
+      ],
+      "expression": "((status IN ('APPROVED', 'RELEASED')) = (approved_at IS NOT NULL AND reviewer_name IS NOT NULL)) AND ((status = 'RELEASED') = (released_at IS NOT NULL)) AND (status <> 'CANCELLED' OR length(btrim(cancel_reason)) > 0) AND (released_at IS NULL OR released_at >= approved_at)",
+      "reason": "상태별 승인·배포"
+    },
+    {
+      "table": "plm.eco",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "배포 = 대상 리비전 모두 RELEASED(이전 OBSOLETE). 배포 후 불변. QMS는 fs.plm.interface.eco_releases(since)로 읽어 4M 변경 신고 후보(PLM = 설계 변경, QMS = 현장 변경·초품, Q3). GW 결재 상태는 fs.gw.interface 배지만",
+      "reason": "ECO 배포·연계(Q3)"
+    },
+    {
+      "table": "plm.eco_item",
+      "kind": "CHECK",
+      "columns": [
+        "part_revision_id",
+        "document_revision_id"
+      ],
+      "expression": "(part_revision_id IS NULL) <> (document_revision_id IS NULL)",
+      "reason": "대상 하나"
+    },
+    {
+      "table": "plm.eco_item",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "part_revision_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, part_revision_id) WHERE part_revision_id IS NOT NULL",
+      "reason": "품목 리비전은 ECO 1건에만"
+    },
+    {
+      "table": "plm.eco_item",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_revision_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, document_revision_id) WHERE document_revision_id IS NOT NULL",
+      "reason": "문서 리비전은 ECO 1건에만"
+    },
+    {
+      "table": "plm.project",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "start_on",
+        "target_on"
+      ],
+      "expression": "status IN ('ACTIVE', 'ON_HOLD', 'DONE', 'CANCELLED') AND target_on >= start_on",
+      "reason": "상태·일정"
+    },
+    {
+      "table": "plm.gate",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "project_id",
+        "gate_kind"
+      ],
+      "expression": "",
+      "reason": "프로젝트·게이트 1건"
+    },
+    {
+      "table": "plm.gate",
+      "kind": "CHECK",
+      "columns": [
+        "gate_kind",
+        "seq",
+        "status",
+        "decided_at"
+      ],
+      "expression": "gate_kind IN ('PLAN', 'DESIGN', 'PROTO', 'MASS') AND seq BETWEEN 1 AND 4 AND status IN ('OPEN', 'PASSED', 'FAILED') AND ((status = 'OPEN') = (decided_at IS NULL))",
+      "reason": "게이트·순서·판정"
+    },
+    {
+      "table": "plm.gate",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "통과 = 필수 산출물 모두 완료 + 앞 게이트 PASSED. FAILED면 같은 게이트를 다시 OPEN(재판정)할 수 있다",
+      "reason": "게이트 판정(Q5)"
+    },
+    {
+      "table": "plm.gate_deliverable",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "gate_id",
+        "seq"
+      ],
+      "expression": "",
+      "reason": "게이트·순서 유일"
+    },
+    {
+      "table": "plm.cost_rollup",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "part_revision_id",
+        "version"
+      ],
+      "expression": "",
+      "reason": "리비전·버전 유일"
+    },
+    {
+      "table": "plm.cost_rollup",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "version",
+        "confirmed_at",
+        "material_cost",
+        "missing_price_count",
+        "currency"
+      ],
+      "expression": "status IN ('draft', 'confirmed', 'superseded') AND version >= 1 AND ((status = 'draft') = (confirmed_at IS NULL)) AND material_cost >= 0 AND missing_price_count >= 0 AND currency = 'KRW'",
+      "reason": "상태·값"
+    },
+    {
+      "table": "plm.cost_rollup",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "part_revision_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, part_revision_id) WHERE status = 'confirmed'",
+      "reason": "리비전당 확정 원가 1건"
+    },
+    {
+      "table": "plm.cost_rollup",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "material_cost"
+      ],
+      "expression": "E-BOM을 말단까지 전개(하위는 현재 배포 리비전), 누적 수량 × ERP 표준 단가(fs.erp.interface 조회). 단가 없는 부품은 개수만 세고 합에서 제외. 확정 후 불변",
+      "reason": "설계 원가 롤업(Q6)"
+    },
+    {
+      "table": "plm.cost_rollup_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cost_rollup_id",
+        "part_id"
+      ],
+      "expression": "",
+      "reason": "원가·부품 1행"
+    },
+    {
+      "table": "plm.cost_rollup_line",
+      "kind": "CHECK",
+      "columns": [
+        "level",
+        "extended_qty",
+        "unit_cost",
+        "cost"
+      ],
+      "expression": "level >= 1 AND extended_qty > 0 AND (unit_cost IS NULL OR unit_cost >= 0) AND ((unit_cost IS NULL) = (cost IS NULL))",
+      "reason": "전개 값"
+    },
+    {
+      "table": "plm.part_revision",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "part_id"
+      ],
+      "expression": "",
+      "reason": "FK·역전개 조회"
+    },
+    {
+      "table": "plm.bom_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "child_part_id"
+      ],
+      "expression": "",
+      "reason": "FK·역전개 조회"
+    },
+    {
+      "table": "plm.eco_item",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "eco_id"
+      ],
+      "expression": "",
+      "reason": "FK·역전개 조회"
+    },
+    {
+      "table": "plm.gate",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "project_id"
+      ],
+      "expression": "",
+      "reason": "FK·역전개 조회"
+    },
+    {
+      "table": "plm.cost_rollup_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cost_rollup_id"
+      ],
+      "expression": "",
+      "reason": "FK·역전개 조회"
     }
   ],
   "states": [
@@ -56815,6 +59820,88 @@
       ],
       "default": "draft",
       "transition": "draft→confirmed→cancelled(재작성)"
+    },
+    {
+      "table": "plm.part_revision",
+      "column": "status",
+      "values": [
+        "WORKING",
+        "REVIEW",
+        "RELEASED",
+        "OBSOLETE"
+      ],
+      "default": "WORKING",
+      "transition": "WORKING→REVIEW→RELEASED(ECO 배포)→OBSOLETE(새 리비전 배포)"
+    },
+    {
+      "table": "plm.document_revision",
+      "column": "status",
+      "values": [
+        "WORKING",
+        "REVIEW",
+        "RELEASED",
+        "OBSOLETE"
+      ],
+      "default": "WORKING",
+      "transition": "WORKING→REVIEW→RELEASED(ECO 배포)→OBSOLETE"
+    },
+    {
+      "table": "plm.ecr",
+      "column": "status",
+      "values": [
+        "OPEN",
+        "ACCEPTED",
+        "REJECTED"
+      ],
+      "default": "OPEN",
+      "transition": "OPEN→ACCEPTED(ECO 생성)/REJECTED"
+    },
+    {
+      "table": "plm.eco",
+      "column": "status",
+      "values": [
+        "DRAFT",
+        "REVIEW",
+        "APPROVED",
+        "RELEASED",
+        "CANCELLED"
+      ],
+      "default": "DRAFT",
+      "transition": "DRAFT→REVIEW→APPROVED→RELEASED; 배포 전 CANCELLED"
+    },
+    {
+      "table": "plm.project",
+      "column": "status",
+      "values": [
+        "ACTIVE",
+        "ON_HOLD",
+        "DONE",
+        "CANCELLED"
+      ],
+      "default": "ACTIVE",
+      "transition": "ACTIVE↔ON_HOLD, →DONE(양산 승인)/CANCELLED"
+    },
+    {
+      "table": "plm.gate",
+      "column": "status",
+      "values": [
+        "OPEN",
+        "PASSED",
+        "FAILED"
+      ],
+      "default": "OPEN",
+      "transition": "OPEN→PASSED/FAILED; FAILED→OPEN(재판정)"
+    },
+    {
+      "table": "plm.cost_rollup",
+      "column": "status",
+      "values": [
+        "draft",
+        "confirmed",
+        "superseded"
+      ],
+      "default": "draft",
+      "transition": "draft→confirmed→superseded"
     }
   ],
   "sources": [
@@ -56873,7 +59960,8 @@
         "gw",
         "cmms",
         "pop",
-        "tms"
+        "tms",
+        "plm"
       ],
       "default": null,
       "note": "QMS(FS-023)·WMS(FS-024)·BEMS(FS-025)·SPC(FS-028)는 구현 솔루션. SCM 설명 카드와 도움말은 정적 파일"
@@ -57228,7 +60316,8 @@
         "gw",
         "cmms",
         "pop",
-        "tms"
+        "tms",
+        "plm"
       ],
       "default": null,
       "note": "운영 중인 솔루션(포털 core 제외)"
@@ -57761,6 +60850,13 @@
       "task": "DSN-23",
       "date": "2026-10-05",
       "change": "TMS 신규: tms 10테이블(운송사·차량·기사·권역·배송지·운임표·배차·방문·운행 비용·운송사 정산), 모듈 키 tms. 업무 스키마 간 FK 0(ERP 출하지시·발주, WMS 입고 예정은 번호 스냅샷)",
+      "status": "설계 전용"
+    },
+    {
+      "version": "target-0.12.0",
+      "task": "DSN-24",
+      "date": "2026-10-05",
+      "change": "PLM 신규: plm 16테이블(분류·설계 품목·리비전·도면/문서·문서 리비전·연결·E-BOM·대체 부품·ECR·ECO·변경 대상·개발 프로젝트·게이트·산출물·설계 원가·명세), 모듈 키 plm. 업무 스키마 간 FK 0",
       "status": "설계 전용"
     }
   ]
