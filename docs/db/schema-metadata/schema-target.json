@@ -1,6 +1,6 @@
 {
-  "version": "target-0.7.0",
-  "task": "DSN-16",
+  "version": "target-0.8.0",
+  "task": "DSN-17",
   "base_task": "FS-029a",
   "target": true,
   "date": "2026-10-05",
@@ -9658,6 +9658,22 @@
           "rule": ""
         },
         {
+          "name": "chart_type",
+          "label": "관리도 종류",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": "'XBAR_R'",
+          "rule": "XBAR_R / I_MR / P / NP / C / U(Q1·Q2)"
+        },
+        {
+          "name": "defect_source",
+          "label": "불량 수 출처",
+          "type": "varchar(6)",
+          "nullable": true,
+          "default": null,
+          "rule": "계수형: MES(확정 실적 조회) / MANUAL"
+        },
+        {
           "name": "created_at",
           "label": "등록 시각",
           "type": "timestamptz",
@@ -9752,7 +9768,7 @@
           "name": "xbar_cl",
           "label": "X̄ 중심선",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9760,7 +9776,7 @@
           "name": "xbar_ucl",
           "label": "X̄ 관리 상한",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9768,7 +9784,7 @@
           "name": "xbar_lcl",
           "label": "X̄ 관리 하한",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9776,7 +9792,7 @@
           "name": "r_cl",
           "label": "R 중심선",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9784,7 +9800,7 @@
           "name": "r_ucl",
           "label": "R 관리 상한",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9792,7 +9808,7 @@
           "name": "r_lcl",
           "label": "R 관리 하한",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9803,6 +9819,14 @@
           "nullable": false,
           "default": null,
           "rule": ""
+        },
+        {
+          "name": "attr_center",
+          "label": "계수형 중심값",
+          "type": "numeric(18,6)",
+          "nullable": true,
+          "default": null,
+          "rule": "p̄·np̄·c̄·ū. 한계는 부분군 크기마다 계산"
         },
         {
           "name": "created_at",
@@ -9915,7 +9939,7 @@
           "name": "xbar",
           "label": "평균 X̄",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": "측정값 5개 평균(기록 때 계산)"
         },
@@ -9923,7 +9947,7 @@
           "name": "r",
           "label": "범위 R",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": "최대 − 최소"
         },
@@ -9966,6 +9990,30 @@
           "nullable": true,
           "default": null,
           "rule": ""
+        },
+        {
+          "name": "inspected_qty",
+          "label": "검사 수(n)",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": null,
+          "rule": "계수형 부분군"
+        },
+        {
+          "name": "defect_count",
+          "label": "불량·결점 수",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": null,
+          "rule": "계수형 부분군"
+        },
+        {
+          "name": "gauge_code",
+          "label": "계측기 번호",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "F07 QMS 계측기 코드 스냅샷"
         },
         {
           "name": "created_at",
@@ -23334,6 +23382,533 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "spc.characteristic_rule",
+      "label": "특성별 판정 규칙",
+      "scope": "generation",
+      "phase": "DSN-17",
+      "retention": "세대 정리",
+      "note": "DSN-17 F22·F23(Q3). 특성이 쓰는 Nelson 규칙(1~8). 행이 없으면 기본 1~3(FS-028 D41)",
+      "sub_module": "rule",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "characteristic_id",
+          "label": "관리 특성",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "rule_no",
+          "label": "규칙 번호",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "1 한계 밖 · 2 한쪽 9점 · 3 6점 증감 · 4 14점 교대 · 5 3점 중 2점 2σ 밖 · 6 5점 중 4점 1σ 밖 · 7 15점 1σ 안 · 8 8점 1σ 밖 양쪽"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "spc.spec_violation",
+      "label": "규격 이탈",
+      "scope": "generation",
+      "phase": "DSN-17",
+      "retention": "세대 정리",
+      "note": "DSN-17 F24·F33(Q4). 개별 측정값이 LSL·USL 밖. 관리 이탈(이상 기록)과 별개. QMS가 읽어 부적합 보고(발생처 공정) 후보로",
+      "sub_module": "signal",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "subgroup_id",
+          "label": "부분군",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "characteristic_id",
+          "label": "관리 특성",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "seq",
+          "label": "측정 순번",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lot_no",
+          "label": "LOT 번호",
+          "type": "varchar(50)",
+          "nullable": false,
+          "default": null,
+          "rule": "부분군 스냅샷"
+        },
+        {
+          "name": "value",
+          "label": "측정값",
+          "type": "numeric(18,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "side",
+          "label": "이탈 방향",
+          "type": "varchar(4)",
+          "nullable": false,
+          "default": null,
+          "rule": "LOW / HIGH"
+        },
+        {
+          "name": "limit_value",
+          "label": "규격 한계",
+          "type": "numeric(18,6)",
+          "nullable": false,
+          "default": null,
+          "rule": "그때 LSL 또는 USL 스냅샷"
+        },
+        {
+          "name": "detected_at",
+          "label": "탐지 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "voided_at",
+          "label": "무효 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "부분군 무효화와 함께"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "spc.ocap_item",
+      "label": "이상 대응 점검 항목",
+      "scope": "generation",
+      "phase": "DSN-17",
+      "retention": "세대 정리",
+      "note": "DSN-17 F32(Q5). 특성(NULL = 공통)·규칙(NULL = 모든 규칙)별 표준 점검 순서",
+      "sub_module": "ocap",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "characteristic_id",
+          "label": "관리 특성",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "rule_no",
+          "label": "규칙 번호",
+          "type": "integer",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "seq",
+          "label": "순서",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "check_text",
+          "label": "점검 내용",
+          "type": "varchar(300)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cause_category",
+          "label": "해당 원인",
+          "type": "varchar(12)",
+          "nullable": true,
+          "default": null,
+          "rule": "MACHINE / MATERIAL / MAN / METHOD / MEASUREMENT / ENVIRONMENT"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "spc.ocap_check",
+      "label": "이상 대응 점검 결과",
+      "scope": "generation",
+      "phase": "DSN-17",
+      "retention": "세대 정리",
+      "note": "DSN-17 F32. 이상 1건 × 점검 항목. 조치 완료 전에 해당 항목 모두 기록",
+      "sub_module": "ocap",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "signal_id",
+          "label": "이상 기록",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "ocap_item_id",
+          "label": "점검 항목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "result",
+          "label": "결과",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": null,
+          "rule": "OK / NG / NA"
+        },
+        {
+          "name": "note",
+          "label": "메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "checked_at",
+          "label": "점검 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "spc.capability_report",
+      "label": "공정능력 보고서",
+      "scope": "generation",
+      "phase": "DSN-17",
+      "retention": "세대 정리",
+      "note": "DSN-17 F41~F46(Q6). 특성·기간의 능력 지표 확정 스냅샷. 재작성은 새 버전",
+      "sub_module": "report",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "characteristic_id",
+          "label": "관리 특성",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "report_start_on",
+          "label": "기간 시작",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "report_end_on",
+          "label": "기간 끝",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "버전",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / confirmed / superseded"
+        },
+        {
+          "name": "subgroup_count",
+          "label": "부분군 수",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "mean",
+          "label": "평균",
+          "type": "numeric(18,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "sigma_within",
+          "label": "군내 σ(R̄/d2)",
+          "type": "numeric(18,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "sigma_overall",
+          "label": "전체 σ",
+          "type": "numeric(18,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cp",
+          "label": "Cp",
+          "type": "numeric(8,3)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cpk",
+          "label": "Cpk",
+          "type": "numeric(8,3)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "pp",
+          "label": "Pp",
+          "type": "numeric(8,3)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "ppk",
+          "label": "Ppk",
+          "type": "numeric(8,3)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "skewness",
+          "label": "왜도",
+          "type": "numeric(8,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kurtosis",
+          "label": "첨도",
+          "type": "numeric(8,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "comment",
+          "label": "의견",
+          "type": "varchar(1000)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "confirmed_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
     }
   ],
   "relations": [
@@ -32458,6 +33033,200 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "피크 감축안"
+    },
+    {
+      "source": "spc.characteristic_rule",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.spec_violation",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.ocap_item",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.ocap_check",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.capability_report",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.characteristic_rule",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id"
+      ],
+      "target": "spc.characteristic",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "관리 특성"
+    },
+    {
+      "source": "spc.spec_violation",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "subgroup_id"
+      ],
+      "target": "spc.subgroup",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "부분군"
+    },
+    {
+      "source": "spc.spec_violation",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id"
+      ],
+      "target": "spc.characteristic",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "관리 특성"
+    },
+    {
+      "source": "spc.ocap_item",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id"
+      ],
+      "target": "spc.characteristic",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "관리 특성"
+    },
+    {
+      "source": "spc.ocap_check",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "signal_id"
+      ],
+      "target": "spc.signal",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "이상 기록"
+    },
+    {
+      "source": "spc.ocap_check",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "ocap_item_id"
+      ],
+      "target": "spc.ocap_item",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "점검 항목"
+    },
+    {
+      "source": "spc.capability_report",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id"
+      ],
+      "target": "spc.characteristic",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "관리 특성"
     }
   ],
   "constraints": [
@@ -39686,7 +40455,7 @@
         "lsl",
         "usl"
       ],
-      "expression": "(lsl IS NOT NULL OR usl IS NOT NULL) AND (lsl IS NULL OR usl IS NULL OR lsl < usl)",
+      "expression": "(chart_type IN ('P', 'NP', 'C', 'U') OR lsl IS NOT NULL OR usl IS NOT NULL) AND (lsl IS NULL OR usl IS NULL OR lsl < usl)",
       "reason": "규격 하나 이상, 하한 < 상한"
     },
     {
@@ -39706,7 +40475,7 @@
       "columns": [
         "subgroup_size"
       ],
-      "expression": "subgroup_size = 5",
+      "expression": "subgroup_size BETWEEN 1 AND 10",
       "reason": "부분군 크기 5 고정(13장 1)"
     },
     {
@@ -39858,7 +40627,7 @@
       "columns": [
         "source"
       ],
-      "expression": "source IN ('SEED', 'MANUAL')",
+      "expression": "source IN ('SEED', 'MANUAL', 'MES', 'FILE')",
       "reason": "출처 값"
     },
     {
@@ -39899,7 +40668,7 @@
       "columns": [
         "seq"
       ],
-      "expression": "seq BETWEEN 1 AND 5",
+      "expression": "seq BETWEEN 1 AND 10",
       "reason": "순서 범위"
     },
     {
@@ -39930,7 +40699,7 @@
       "columns": [
         "chart"
       ],
-      "expression": "chart IN ('XBAR', 'R')",
+      "expression": "chart IN ('XBAR', 'R', 'I', 'MR', 'P', 'NP', 'C', 'U')",
       "reason": "관리도 값"
     },
     {
@@ -39939,7 +40708,7 @@
       "columns": [
         "rule"
       ],
-      "expression": "rule BETWEEN 1 AND 3",
+      "expression": "rule BETWEEN 1 AND 8",
       "reason": "규칙 값"
     },
     {
@@ -39949,7 +40718,7 @@
         "chart",
         "rule"
       ],
-      "expression": "rule = 1 OR chart = 'XBAR'",
+      "expression": "rule = 1 OR chart IN ('XBAR', 'I', 'P', 'NP', 'C', 'U')",
       "reason": "규칙 2·3은 X̄만"
     },
     {
@@ -49853,6 +50622,371 @@
       ],
       "expression": "(source = 'PEAK') = (demand_plan_id IS NOT NULL)",
       "reason": "피크 명령은 감축안 필수"
+    },
+    {
+      "table": "spc.characteristic_rule",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.characteristic_rule",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.spec_violation",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.spec_violation",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.ocap_item",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.ocap_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.ocap_check",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.ocap_check",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.characteristic_rule",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id",
+        "rule_no"
+      ],
+      "expression": "",
+      "reason": "특성·규칙 1회"
+    },
+    {
+      "table": "spc.characteristic_rule",
+      "kind": "CHECK",
+      "columns": [
+        "rule_no"
+      ],
+      "expression": "rule_no BETWEEN 1 AND 8",
+      "reason": "Nelson 규칙 1~8"
+    },
+    {
+      "table": "spc.characteristic_rule",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "rule_no"
+      ],
+      "expression": "규칙 2~8은 위치 관리도(X̄·I·p·np·c·u)에만. 계수형은 규칙 1~4만 쓴다. 행이 없으면 1~3",
+      "reason": "판정 규칙 선택(Q3)"
+    },
+    {
+      "table": "spc.spec_violation",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "subgroup_id",
+        "seq"
+      ],
+      "expression": "",
+      "reason": "측정값당 이탈 1건"
+    },
+    {
+      "table": "spc.spec_violation",
+      "kind": "CHECK",
+      "columns": [
+        "side",
+        "value",
+        "limit_value"
+      ],
+      "expression": "(side = 'LOW' AND value < limit_value) OR (side = 'HIGH' AND value > limit_value)",
+      "reason": "방향·값"
+    },
+    {
+      "table": "spc.spec_violation",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "detected_at"
+      ],
+      "expression": "부분군 기록 때 측정값별로 규격과 비교해 생성(관리 이탈 판정과 같은 트랜잭션). QMS가 fs.spc.interface.spec_violations(since)로 읽어 부적합 보고 후보(Q4). SPC는 QMS 결과를 저장하지 않는다",
+      "reason": "규격 이탈 → QMS(Q4)"
+    },
+    {
+      "table": "spc.ocap_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id",
+        "rule_no",
+        "seq"
+      ],
+      "expression": "",
+      "reason": "특성·규칙·순서 유일"
+    },
+    {
+      "table": "spc.ocap_item",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "seq"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, seq) WHERE characteristic_id IS NULL AND rule_no IS NULL",
+      "reason": "공통 항목 순서 유일"
+    },
+    {
+      "table": "spc.ocap_item",
+      "kind": "CHECK",
+      "columns": [
+        "rule_no",
+        "seq",
+        "check_text",
+        "cause_category"
+      ],
+      "expression": "(rule_no IS NULL OR rule_no BETWEEN 1 AND 8) AND seq >= 1 AND length(btrim(check_text)) >= 2 AND (cause_category IS NULL OR cause_category IN ('MACHINE', 'MATERIAL', 'MAN', 'METHOD', 'MEASUREMENT', 'ENVIRONMENT'))",
+      "reason": "규칙·순서·내용·원인"
+    },
+    {
+      "table": "spc.ocap_check",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "signal_id",
+        "ocap_item_id"
+      ],
+      "expression": "",
+      "reason": "이상·항목당 결과 1건"
+    },
+    {
+      "table": "spc.ocap_check",
+      "kind": "CHECK",
+      "columns": [
+        "result",
+        "note"
+      ],
+      "expression": "result IN ('OK', 'NG', 'NA') AND (result <> 'NG' OR length(btrim(note)) >= 2)",
+      "reason": "결과·NG 메모"
+    },
+    {
+      "table": "spc.ocap_check",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "signal_id"
+      ],
+      "expression": "조치 완료 전에 그 이상에 해당하는 사용 항목(특성·규칙 일치 + 공통)을 모두 기록. NG 항목의 원인 분류를 조치 원인 기본값으로 제안. 조치 완료 후 불변",
+      "reason": "OCAP 기록(Q5)"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id",
+        "report_start_on",
+        "report_end_on",
+        "version"
+      ],
+      "expression": "",
+      "reason": "특성·기간·버전 유일"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id",
+        "report_start_on",
+        "report_end_on"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, characteristic_id, report_start_on, report_end_on) WHERE status = 'confirmed'",
+      "reason": "특성·기간당 확정 1건"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "version",
+        "confirmed_at"
+      ],
+      "expression": "status IN ('draft', 'confirmed', 'superseded') AND version >= 1 AND ((status = 'draft') = (confirmed_at IS NULL))",
+      "reason": "상태·버전"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "CHECK",
+      "columns": [
+        "report_start_on",
+        "report_end_on",
+        "subgroup_count",
+        "sigma_within",
+        "sigma_overall"
+      ],
+      "expression": "report_end_on >= report_start_on AND subgroup_count >= 20 AND sigma_within >= 0 AND sigma_overall >= 0",
+      "reason": "기간·부분군 수·σ"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "cp",
+        "pp"
+      ],
+      "expression": "Cp·Cpk는 군내 σ(R̄/d2 또는 MR̄/1.128), Pp·Ppk는 전체 σ(표본 표준편차). 한쪽 규격이면 해당 쪽만. 유효 부분군만. 확정 후 불변",
+      "reason": "능력 지표 계산(Q6)"
+    },
+    {
+      "table": "spc.spec_violation",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id",
+        "detected_at"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "spc.ocap_check",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "signal_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "spc.characteristic",
+      "kind": "CHECK",
+      "columns": [
+        "chart_type",
+        "subgroup_size",
+        "defect_source"
+      ],
+      "expression": "chart_type IN ('XBAR_R', 'I_MR', 'P', 'NP', 'C', 'U') AND ((chart_type = 'I_MR') = (subgroup_size = 1)) AND ((chart_type IN ('P', 'NP', 'C', 'U')) = (defect_source IS NOT NULL)) AND (defect_source IS NULL OR defect_source IN ('MES', 'MANUAL'))",
+      "reason": "관리도 종류·부분군 크기·불량 출처(Q1·Q2)"
+    },
+    {
+      "table": "spc.subgroup",
+      "kind": "CHECK",
+      "columns": [
+        "xbar",
+        "r",
+        "inspected_qty",
+        "defect_count"
+      ],
+      "expression": "(xbar IS NOT NULL AND inspected_qty IS NULL AND defect_count IS NULL) OR (xbar IS NULL AND r IS NULL AND inspected_qty > 0 AND defect_count >= 0)",
+      "reason": "계량형(X̄·R) 또는 계수형(검사 수·불량 수) 하나"
+    },
+    {
+      "table": "spc.subgroup",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "defect_count"
+      ],
+      "expression": "계수형 부분군 = MES 확정 실적(fs.mes.interface 조회: 투입 = 검사 수, 불량 수)을 LOT·일별로 읽어 생성(원천 1건당 1건) 또는 수동. p·np는 불량 수 ≤ 검사 수",
+      "reason": "계수형 부분군(Q2)"
+    },
+    {
+      "table": "spc.control_limit",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "attr_center"
+      ],
+      "expression": "계량형은 xbar_*·r_*(I-MR이면 I·MR), 계수형은 attr_center만 저장하고 한계는 부분군 검사 수마다 계산. 계수(A2·D3·D4·d2·E2, n=1~10)는 코드 상수",
+      "reason": "관리도별 한계(Q1·Q2)"
     }
   ],
   "states": [
@@ -50717,6 +51851,17 @@
       ],
       "default": "draft",
       "transition": "draft→confirmed→superseded"
+    },
+    {
+      "table": "spc.capability_report",
+      "column": "status",
+      "values": [
+        "draft",
+        "confirmed",
+        "superseded"
+      ],
+      "default": "draft",
+      "transition": "draft→confirmed→superseded"
     }
   ],
   "sources": [
@@ -51324,6 +52469,20 @@
       ],
       "default": null,
       "note": "경부하 / 중간부하 / 최대부하"
+    },
+    {
+      "target": "spc.characteristic",
+      "column": "chart_type",
+      "values": [
+        "XBAR_R",
+        "I_MR",
+        "P",
+        "NP",
+        "C",
+        "U"
+      ],
+      "default": "XBAR_R",
+      "note": "X̄-R / I-MR / p / np / c / u"
     }
   ],
   "change_log": [
@@ -51577,6 +52736,13 @@
       "task": "DSN-16",
       "date": "2026-10-05",
       "change": "BEMS 보강: core.holiday(공통 휴일) + bems 11(건물·조명 회로·피크 감축안 2·쾌적 기준·설비 경보 2·에너지 목표·공용 비용 배분 2·월간 보고서), 기존 6테이블 변경(구역 건물·층·부서, 공조기 감축 우선순위, 스케줄 조명·휴일, 제어 명령 조명·피크, 센서 지표 6종)",
+      "status": "설계 전용"
+    },
+    {
+      "version": "target-0.8.0",
+      "task": "DSN-17",
+      "date": "2026-10-05",
+      "change": "SPC 보강: 새 테이블 5(특성별 판정 규칙·규격 이탈·OCAP 항목/결과·공정능력 보고서), 기존 5테이블 변경(특성 관리도 종류·n=1~10, 한계 계수형 중심값·X̄/R 칸 NULL 허용, 부분군 계수형·계측기·출처, 측정 순번 1~10, 이상 관리도 8종·규칙 1~8)",
       "status": "설계 전용"
     }
   ]

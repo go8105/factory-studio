@@ -12,8 +12,17 @@ import apply_dsn13
 import apply_dsn14
 import apply_dsn15
 import apply_dsn16
+import apply_dsn17
 
-STEPS = [apply_dsn11, apply_dsn12, apply_dsn13, apply_dsn14, apply_dsn15, apply_dsn16]
+STEPS = [
+    apply_dsn11,
+    apply_dsn12,
+    apply_dsn13,
+    apply_dsn14,
+    apply_dsn15,
+    apply_dsn16,
+    apply_dsn17,
+]
 
 
 def build():

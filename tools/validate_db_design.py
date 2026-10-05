@@ -176,6 +176,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_fems_dsn15(d))
     if 'bems.demand_plan' in {t['name'] for t in d['tables']}:
         errors.extend(validate_bems_dsn16(d))
+    if 'spc.spec_violation' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_spc_dsn17(d))
     return errors
 
 
@@ -313,6 +315,23 @@ def validate_bems_dsn16(d):
     return errors
 
 
+def validate_spc_dsn17(d):
+    """DSN-17 SPC 보강 계약: 관리도 종류·n 범위(Q1·Q2)·계량/계수 부분군 하나·규칙 1~8(Q3)·규격 이탈은 측정값당 1건(Q4)·계수 표·능력 지표 비저장(보고서 스냅샷만)."""
+    errors = []
+    cs = d['constraints']
+    ts = {t['name']: {c['name'] for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-17: ' + message)
+    require('chart_type' in ts.get('spc.characteristic', ()), 'chart type per characteristic (Q1·Q2)')
+    require(any(c['table'] == 'spc.subgroup' and 'inspected_qty > 0' in c['expression'] and 'xbar IS NOT NULL' in c['expression'] for c in cs), 'subgroup is variable or attribute, not both')
+    require(any(c['table'] == 'spc.signal' and c['expression'] == 'rule BETWEEN 1 AND 8' for c in cs), 'Nelson rules 1-8 (Q3)')
+    require(any(c['table'] == 'spc.spec_violation' and c['kind'] == 'UK' and c['columns'] == SCOPE + ['subgroup_id', 'seq'] for c in cs), 'one spec violation per measurement (Q4)')
+    require(not any(n.startswith('spc.') and ('constant' in n or 'coefficient' in n) for n in ts), 'chart constants are code, not DB')
+    require(not any(w in col for col in ts.get('spc.characteristic', ()) for w in ('cpk', 'ppk')), 'capability is computed or snapshotted in reports only')
+    return errors
+
+
 def validate_cmms(d):
     """FS-029 설계 계약: 교차 스키마 FK 없음·설비 원천 1건·신호 1건당 작업지시 1건·PM 계획·예정일 1건·재고 원장 없음·모듈 키."""
     errors = []
@@ -344,7 +363,8 @@ def validate_spc(d):
     require(unique('spc.measurement', ['subgroup_id', 'seq']), 'one value per subgroup position')
     require(unique('spc.signal', ['subgroup_id', 'chart', 'rule']), 'one signal per subgroup, chart and rule')
     require(unique('spc.control_limit', ['characteristic_id', 'version']), 'one limit per characteristic version')
-    require(any(c['table'] == 'spc.characteristic' and c['kind'] == 'CHECK' and c['expression'] == 'subgroup_size = 5' for c in cs), 'subgroup size fixed to 5 (13장 1)')
+    # DSN-17 Q1(목표 설계): n=1(I-MR)·2~10(X̄-R).
+    require(any(c['table'] == 'spc.characteristic' and c['kind'] == 'CHECK' and c['expression'] in ('subgroup_size = 5', 'subgroup_size BETWEEN 1 AND 10') for c in cs), 'subgroup size fixed to 5 (13장 1)')
     require(not any(n.startswith('mes.') and 'measure' in n for n in ts), 'measurements are owned by SPC, not MES (D38)')
     require(not any(r['source'].startswith('spc.') and r['target'].split('.')[0] not in {'spc', 'core'} for r in d['relations']), 'no FK from spc to other business schemas')
     require(any(c['table'] == 'core.workspace_module' and c['kind'] == 'CHECK' and "'spc'" in c['expression'] for c in cs), 'module key spc')
