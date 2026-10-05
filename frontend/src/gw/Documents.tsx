@@ -325,7 +325,10 @@ function DocumentEditor({
             />
             <ErrorNotice error={sources.error} />
             {sources.data && !sources.data.enabled ? (
-              <p role="status">ERP가 꺼져 있거나 아직 열지 않아 원문을 조회할 수 없습니다. ERP를 한 번 열면 조회됩니다.</p>
+              <p role="status">
+                ERP가 꺼져 있거나 아직 열지 않아 원문을 조회할 수 없습니다.
+                ERP를 한 번 열면 조회됩니다.
+              </p>
             ) : (
               sources.data && (
                 <DataTable

@@ -13,6 +13,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from fs.main import create_app
+from seed.copy import SCHEMAS, copy_module_seed
 from sqlalchemy import text
 
 # (메서드, 경로, 테이블, 본문). {id}는 대상 공간의 해당 테이블 첫 행.
@@ -147,6 +148,11 @@ def two_spaces(guest_space):
             headers={"Idempotency-Key": str(uuid4())},
         )
         assert response.status_code == 201, response.text
+        with engine.begin() as connection:  # W0-1: B도 모든 솔루션을 연 상태
+            for module in SCHEMAS:
+                copy_module_seed(
+                    connection, response.json()["data"]["workspaceId"], module
+                )
         yield (
             client,
             created,

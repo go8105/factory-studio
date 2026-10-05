@@ -28,7 +28,7 @@ class TargetTest(unittest.TestCase):
         self.expected = design_names(gate_task(self.target)) | target_names()
 
     def test_target_passes_with_every_existing_check(self):
-        self.assertEqual(gate_task(self.target), "FS-029a")
+        self.assertEqual(gate_task(self.target), json.loads((ROOT / "docs/db/schema-metadata/schema.json").read_text(encoding="utf-8"))["task"])
         self.assertEqual(
             validate(self.target, self.expected) + validate_target(self.target), []
         )

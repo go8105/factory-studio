@@ -42,7 +42,9 @@ def _login(client, login_id: str, password: str, key: str):
 def test_created_member_logs_in_with_copied_data_and_admin_role(member_env):
     client, result, _ = member_env
     assert (result["loginId"], result["admin"]) == ("ops", True)
-    assert result["copiedRows"] > 7000  # 템플릿 업무 데이터가 회원 공간에 복사됨
+    assert (
+        result["copiedRows"] == 0
+    )  # W0-1 지연 복사: 업무 데이터는 솔루션을 처음 열 때 복사
     response = _login(client, "ops", PASSWORD, "member-ok")
     assert response.status_code == 201, response.text
     data = response.json()["data"]

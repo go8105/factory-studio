@@ -61,6 +61,7 @@ erDiagram
     timestamptz purged_at "데이터 정리 시각 NULL"
     timestamptz created_at "등록 시각"
     varchar status "상태"
+    bigint template_generation_id "원천 템플릿 세대 NULL"
   }
   core_holiday {
     bigint id PK "내부 식별자"
@@ -175,6 +176,7 @@ erDiagram
     boolean enabled "사용 여부"
     timestamptz updated_at "갱신 시각 NULL"
     timestamptz created_at "등록 시각"
+    bigint seeded_generation_id "시드 복사 세대 NULL"
   }
   core_app_user ||..o{ core_auth_session : "user_id"
   core_app_user ||..o{ core_user_role : "user_id"

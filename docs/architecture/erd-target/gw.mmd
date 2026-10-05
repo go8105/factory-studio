@@ -9,6 +9,7 @@ erDiagram
     timestamptz purged_at "데이터 정리 시각 NULL"
     timestamptz created_at "등록 시각"
     varchar status "상태"
+    bigint template_generation_id "원천 템플릿 세대 NULL"
   }
   gw_approval_document {
     bigint id PK "내부 식별자"
