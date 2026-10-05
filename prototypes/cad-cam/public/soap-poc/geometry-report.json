@@ -1,0 +1,85 @@
+{
+  "unit": "mm",
+  "seatZ": 10,
+  "lateralClearancePerSide": 0.4,
+  "parts": [
+    {
+      "name": "tray",
+      "volumeMm3": 25749.503999999997,
+      "bounds": {
+        "min": [
+          -42,
+          -32,
+          0
+        ],
+        "max": [
+          42,
+          32,
+          14
+        ]
+      },
+      "triangles": 44,
+      "status": "NoError"
+    },
+    {
+      "name": "plate-A",
+      "volumeMm3": 13347.987693152034,
+      "bounds": {
+        "min": [
+          -39.2,
+          -29.2,
+          0
+        ],
+        "max": [
+          39.2,
+          29.2,
+          3.600000001490116
+        ]
+      },
+      "triangles": 1132,
+      "status": "NoError",
+      "toothHeight": 0.6,
+      "assemblyOverlapMm3": -5.3734794391857577e-14
+    },
+    {
+      "name": "plate-B",
+      "volumeMm3": 13431.680000567663,
+      "bounds": {
+        "min": [
+          -39.2,
+          -29.2,
+          0
+        ],
+        "max": [
+          39.2,
+          29.2,
+          4
+        ]
+      },
+      "triangles": 1132,
+      "status": "NoError",
+      "toothHeight": 1,
+      "assemblyOverlapMm3": -5.3734794391857577e-14
+    },
+    {
+      "name": "plate-C",
+      "volumeMm3": 13515.542069236397,
+      "bounds": {
+        "min": [
+          -39.2,
+          -29.2,
+          0
+        ],
+        "max": [
+          39.2,
+          29.2,
+          4.399999998509884
+        ]
+      },
+      "triangles": 1132,
+      "status": "NoError",
+      "toothHeight": 1.4,
+      "assemblyOverlapMm3": -5.3734794391857577e-14
+    }
+  ]
+}

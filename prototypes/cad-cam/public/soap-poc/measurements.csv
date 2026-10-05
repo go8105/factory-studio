@@ -1,0 +1,10 @@
+variant,tooth_height_mm,soap_type,repeat,filament,printer,layer_mm,stroke_mm,strokes,time_s,powder_g,force_notes,clogging,wear_debris,notes
+A,0.6,,1,,,0.2,30,20,,,,,,
+A,0.6,,2,,,0.2,30,20,,,,,,
+A,0.6,,3,,,0.2,30,20,,,,,,
+B,1.0,,1,,,0.2,30,20,,,,,,
+B,1.0,,2,,,0.2,30,20,,,,,,
+B,1.0,,3,,,0.2,30,20,,,,,,
+C,1.4,,1,,,0.2,30,20,,,,,,
+C,1.4,,2,,,0.2,30,20,,,,,,
+C,1.4,,3,,,0.2,30,20,,,,,,

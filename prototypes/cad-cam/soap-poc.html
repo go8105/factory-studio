@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>비누 그라인더 · POC-01</title>
+  </head>
+  <body>
+    <header>
+      <a href="/">← CAD·CAM 편집기</a><span>FACTORY STUDIO / POC-01</span
+      ><b>비누 그라인더 실험실</b>
+    </header>
+    <main>
+      <aside>
+        <p class="eyebrow">01 / 원리 검증</p>
+        <h1>플라스틱으로 <br />비누를 갈 수 있을까?</h1>
+        <p>
+          완성품을 만들기 전, 돌기 높이만 바꾸어 절삭·막힘·마모를 비교합니다.
+        </p>
+        <label for="variant">교체형 마찰판</label
+        ><select id="variant">
+          <option value="A">A · 낮은 돌기 0.6 mm</option>
+          <option value="B" selected>B · 기준 돌기 1.0 mm</option>
+          <option value="C">C · 높은 돌기 1.4 mm</option></select
+        ><label for="explode"
+          >조립 / 분해 <output id="distance">0 mm</output></label
+        ><input id="explode" type="range" min="0" max="45" value="0" /><label
+          ><input id="soap" type="checkbox" /> 시험 비누 조각 표시 (20 × 18 ×
+          8)</label
+        >
+        <p class="note">
+          드래그: 회전 · 휠: 확대<br />형상 검토 화면입니다. 비누 절삭·분말 발생
+          물리 시뮬레이션은 아닙니다.
+        </p>
+        <a
+          class="primary"
+          id="plateDownload"
+          href="/soap-poc/plate-B.stl"
+          download
+          >선택한 마찰판 STL</a
+        ><a class="secondary" href="/soap-poc/tray.stl" download
+          >공통 트레이 STL</a
+        ><a class="secondary" href="/soap-poc/soap-poc-01.zip" download
+          >출력·실험 자료 전체 ZIP</a
+        >
+        <p id="status" role="status">3D 형상을 불러오는 중…</p>
+      </aside>
+      <section class="view">
+        <div id="viewport"></div>
+        <div class="caption">
+          <b id="partTitle">B / 돌기 1.0 mm</b
+          ><span>트레이 84 × 64 × 14 mm · 단위 mm</span>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <article>
+        <small>DESIGN</small>
+        <h2>3D CAD로 설계</h2>
+        <p>
+          공통 트레이 + 교체형 판 3종.<br />치수 가정은 지원서의 확정 도면이
+          아닙니다.
+        </p>
+      </article>
+      <article>
+        <small>MAKE</small>
+        <h2>슬라이서 → FDM 출력</h2>
+        <p>
+          0.4 mm 노즐 / 0.2 mm 층 기준 검토.<br />PETG 시험 후보 · 평평한 면을
+          바닥으로.
+        </p>
+      </article>
+      <article>
+        <small>LEARN</small>
+        <h2>실물로 가루·마모 측정</h2>
+        <p>
+          같은 비누·힘·이동 거리로 A/B/C 비교.<br />회전 본체와 최종 재질은 결과
+          확인 후 결정.
+        </p>
+      </article>
+    </footer>
+    <script type="module" src="/src/soap-poc.js"></script>
+  </body>
+</html>

@@ -52,3 +52,11 @@ npm run format:check
 ## 검증 상태
 
 작업 최종 검증 기록은 `../../docs/agent/CAD_CAM_편집기_CAD-01.md`를 참조한다. 실물 가공·정밀 CAD 파일 호환·Safari/실기기 검증과 운영 배포는 별도다.
+
+## POC-01 비누 마찰판
+
+`http://127.0.0.1:5241/soap-poc.html`: 판 3종 교체·분해·STL/ZIP 다운로드.
+`npm run poc:build`로 Manifold 기반 생성기를 실행한다. 실제 수정 지점은
+`tools/build-soap-poc.mjs`, 출력물·시험 안내는 `public/soap-poc/`이다.
+웹 페이지는 조립 검토용이며 자유 설계 편집·비누 절삭 물리 시뮬레이션을 제공하지 않는다.
+ZIP 재생성: 프로젝트 루트에서 `python3 tools/package-soap-poc.py`.

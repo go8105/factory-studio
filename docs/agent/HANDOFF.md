@@ -1,5 +1,14 @@
 # Factory Studio 작업 인계
 
+## Codex 최신 상태 — 2026-10-05 POC-01 완료
+
+- worktree `/Users/hwang-kyoungho/.codex/worktrees/soap-cad-review/factory-studio`, branch `codex/soap-cad-review`. 시작 ff5988d, 최종 커밋 `git log -1`.
+- 일반 FDM 디지털 시험편: 판3종+트레이 STL, Manifold 생성기, soap-poc.html 검토 화면, ZIP/출력 안내/측정표. [보고](비누그라인더_POC-01.md).
+- test13/build/format 통과, 실제 브라우저 조립/교체/ZIP 검증. 실물과 슬라이서 미실행. 웹에서 치수 변경은 아직 안 되며 생성 소스로 수정.
+- 재현 `cd prototypes/cad-cam && npm ci && npm run poc:build && npm test && npm run build`; `npm run dev` localhost5241/soap-poc.html. 현재5241 서버 재사용. ZIP `python3 tools/package-soap-poc.py`.
+- 다음: 사용자 검토 후 출력 프로파일 적용/실물 A/B/C 시험. 회전 본체·양산·포털 통합 미착수, ROADMAP-02 유지. PDF 원본/개인정보·.env/work 미포함. push 없음.
+
+
 ## Codex 최신 상태 — 2026-10-05 CAD-01 웹 CAD·CAM 시제품
 
 - 위치 `/Users/hwang-kyoungho/.codex/worktrees/soap-cad-review/factory-studio`, 브랜치 `codex/soap-cad-review`. 시작 `a4baf30`, 검토 `ebfb787`, 구현 WIP `33c3f22`. 최종 문서/검증 커밋은 `git log -1 --oneline`로 확인한다.
