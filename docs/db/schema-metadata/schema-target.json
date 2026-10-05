@@ -44359,7 +44359,7 @@
       "table": "core.workspace_module",
       "kind": "CHECK",
       "columns": [],
-      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms', 'pop', 'tms', 'plm', 'crm', 'scm', 'elb', 'eip')",
+      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms', 'pop', 'tms', 'plm', 'crm', 'scm', 'elb')",
       "reason": "행 내부 데이터 정합성"
     },
     {
@@ -52600,7 +52600,7 @@
       "columns": [
         "module_key"
       ],
-      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms', 'pop', 'tms', 'plm', 'crm', 'scm', 'elb', 'eip')",
+      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms', 'pop', 'tms', 'plm', 'crm', 'scm', 'elb')",
       "reason": "평가 대상 솔루션"
     },
     {
@@ -68040,8 +68040,7 @@
         "plm",
         "crm",
         "scm",
-        "elb",
-        "eip"
+        "elb"
       ],
       "default": null,
       "note": "QMS(FS-023)·WMS(FS-024)·BEMS(FS-025)·SPC(FS-028)는 구현 솔루션. SCM 설명 카드와 도움말은 정적 파일"
@@ -68400,8 +68399,7 @@
         "plm",
         "crm",
         "scm",
-        "elb",
-        "eip"
+        "elb"
       ],
       "default": null,
       "note": "운영 중인 솔루션(포털 core 제외)"
@@ -68994,7 +68992,7 @@
       "version": "target-0.16.0",
       "task": "DSN-28",
       "date": "2026-10-05",
-      "change": "EIP 신규: eip 8테이블(KPI·월 목표·사람 연결·위젯 배치·즐겨찾기·경영 보고서·지표·의견), 모듈 키 eip. 사람 연결(HR 사원 코드) 칸: gw.person·crm.sales_rep·elb.request·elb.approval·qms.capa + elb.approver(승인자 지정). 업무 스키마 간 FK 0",
+      "change": "EIP 신규: eip 8테이블(KPI·월 목표·사람 연결·위젯 배치·즐겨찾기·경영 보고서·지표·의견). 모듈 키 없음(Q8 포털 첫 화면 = EIP). 사람 연결(HR 사원 코드) 칸: gw.person·crm.sales_rep·elb.request·elb.approval·qms.capa + elb.approver(승인자 지정). 업무 스키마 간 FK 0",
       "status": "설계 전용"
     }
   ]
