@@ -72,7 +72,7 @@
 
 ## 8. 역할 분담
 
-> **2026-10-05 사용자 결정(ROADMAP-02 D82): Codex 업무 중단.** 아래 Codex 몫은 모두 Claude Code가 맡는다. antigravity 사용 여부는 [DSN-99](docs/plan/개발계획_DSN-99.md) Q5.
+> **2026-10-05 사용자 결정(ROADMAP-02 D82): Codex 업무 중단.** 아래 Codex 몫은 모두 Claude Code가 맡는다. antigravity는 병행한다([DSN-99](docs/plan/개발계획_DSN-99.md) Q5).
 
 
 - **Codex:** 마이그레이션·시드 생성기·인증/세션/멱등·SERVICE 정책·트랜잭션이 있는 화면·동시성 검증·각 유형의 첫 구현.
