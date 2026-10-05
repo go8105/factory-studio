@@ -1,5 +1,15 @@
 # Factory Studio 작업 인계
 
+## Codex 최신 상태 — 2026-10-05 CAD-02 포털 통합 완료
+
+- branch `codex/soap-cad-review`, worktree `/Users/hwang-kyoungho/.codex/worktrees/soap-cad-review/factory-studio`. POC 커밋1a364f7, 최종 통합 커밋 `git log -1`; main의 DSN-29 기준표까지 병합 보존.
+- 사용자 요청으로 앱 런처 바로 오른쪽 CAD·CAM, `/cad-cam` 로그인 경계, 편집기/POC 내장. [설계/실행](../modules/cad-cam/README.md) · [검증](CAD_CAM_포털통합_CAD-02.md).
+- frontend521+최종 관련3, prototype13, build/lint/format 통과. 실제 브라우저 모의 게스트→CAM100%→POC STL→설계 복귀 확인. 실제 인증·운영·실물은 미검증.
+- Node24 `cd frontend && npm ci && npm run build` 또는 `npm run dev`. prebuild/predev가 CAD 원본을 public/cad-cam-app에 생성하므로 별도5241 서버 불필요. CAD 소스 수정시 `npm run cad:build` 필요.
+- 검토 중인5242 서버는8042 모의 API 연결이며 실제 업무 환경이 아니다. fixture 실행법은 공통 설계. 별도5241 POC 서버도 남아 있다.
+- 다음: 사용자 검토 후 배포 또는 FDM 실험. 로컬 main 반영, 원격 push·배포 없음. ROADMAP-02 다른 솔루션 개발 재개 아님. 생성 public 자산·.env/work/원본 PDF는 커밋 제외.
+
+
 ## Codex 최신 상태 — 2026-10-05 POC-01 완료
 
 - worktree `/Users/hwang-kyoungho/.codex/worktrees/soap-cad-review/factory-studio`, branch `codex/soap-cad-review`. 시작 ff5988d, 최종 커밋 `git log -1`.

@@ -2,6 +2,16 @@ import "./soap-poc.css";
 import * as T from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
+const base = import.meta.env.BASE_URL;
+const scope = new URLSearchParams(location.search).get("scope");
+if (scope)
+  document.querySelector("header a").href =
+    `./index.html?scope=${encodeURIComponent(scope)}`;
+if (new URLSearchParams(location.search).get("embedded") === "1") {
+  const link = document.querySelector("header a");
+  link.href = "/cad-cam";
+  link.target = "_parent";
+}
 const el = document.querySelector("#viewport"),
   status = document.querySelector("#status");
 const scene = new T.Scene();
@@ -39,7 +49,7 @@ sample.visible = false;
 try {
   const parts = await Promise.all(
     ["tray", "plate-A", "plate-B", "plate-C"].map((n) =>
-      loader.loadAsync("/soap-poc/" + n + ".stl"),
+      loader.loadAsync(base + "soap-poc/" + n + ".stl"),
     ),
   );
   mesh(parts[0], 0xabb6ba);
@@ -60,7 +70,7 @@ try {
     document.querySelector("#partTitle").textContent =
       key + " / 돌기 " + h.toFixed(1) + " mm";
     document.querySelector("#plateDownload").href =
-      "/soap-poc/plate-" + key + ".stl";
+      base + "soap-poc/plate-" + key + ".stl";
   }
   ["variant", "explode", "soap"].forEach((id) =>
     document.getElementById(id).addEventListener("input", update),

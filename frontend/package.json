@@ -15,7 +15,10 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:factory-browser": "playwright test --config playwright.factory.config.ts",
-    "test:home-browser": "playwright test --config playwright.home.config.ts"
+    "test:home-browser": "playwright test --config playwright.home.config.ts",
+    "cad:build": "node scripts/build-cad-cam.mjs",
+    "predev": "npm run cad:build",
+    "prebuild": "npm run cad:build"
   },
   "dependencies": {
     "@react-three/drei": "10.7.8",
@@ -25,7 +28,8 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.4",
     "remark-gfm": "^4.0.1",
-    "three": "0.186.1"
+    "three": "0.186.1",
+    "polygon-clipping": "0.15.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

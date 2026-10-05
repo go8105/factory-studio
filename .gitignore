@@ -24,3 +24,6 @@ docs/references/
 # 스키마 점검 덤프. schema.json에서 언제든 재생성하는 파생 산출물이다.
 # 판정 결과는 docs/db/시드_2차스키마확인_FS-005g.md에 남는다.
 fs005g_check*.txt
+
+# Rebuilt by frontend predev/prebuild from prototypes/cad-cam.
+frontend/public/cad-cam-app/

@@ -32,6 +32,7 @@ const SpcRoutes = lazy(() => import("../spc"));
 const GwRoutes = lazy(() => import("../gw"));
 const VisionLab = lazy(() => import("../factory/VisionLab"));
 const Factory = lazy(() => import("../factory/Factory"));
+const CadCam = lazy(() => import("../cad-cam/CadCam"));
 function Layout() {
   const { session, setSession, busy, navigationBlocked, fail } = useSession();
   const navigate = useNavigate();
@@ -39,7 +40,9 @@ function Layout() {
   const [leaving, setLeaving] = useState(false);
   const { pathname } = useLocation();
   // 업무 화면(솔루션)은 사이드바·본문이 헤더 아래 높이를 모두 쓴다. 바닥글은 포털 화면에만 둔다.
-  const work = /^\/(fems|mes|erp|qms|wms|bems|spc|gw)(\/|$)/.test(pathname);
+  const work = /^\/(fems|mes|erp|qms|wms|bems|spc|gw|cad-cam)(\/|$)/.test(
+    pathname,
+  );
   async function logout() {
     setLeaving(true);
     try {
@@ -77,6 +80,7 @@ function Layout() {
           {session && (
             <>
               <NavLink to="/home">앱 런처</NavLink>
+              <NavLink to="/cad-cam">CAD·CAM</NavLink>
               <NavLink to="/factory">3D 공장</NavLink>
               <NavLink to="/flow">전체 흐름</NavLink>
               <NavLink to="/workspace">내 공간</NavLink>
@@ -162,6 +166,7 @@ function PortalRoutes() {
           <Route path="/help/*" element={<Help />} />
           <Route element={<Private />}>
             <Route path="/home" element={<Home />} />
+            <Route path="/cad-cam" element={<CadCam />} />
             <Route path="/factory" element={<Factory />} />
             <Route path="/factory/vision-lab" element={<VisionLab />} />
             <Route path="/flow" element={<FlowMap />} />

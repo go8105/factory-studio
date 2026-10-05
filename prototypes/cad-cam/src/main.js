@@ -65,8 +65,12 @@ let past = [],
   queued = null,
   speed = 10,
   showPaths = true;
+const scope = new URLSearchParams(location.search).get("scope");
+const storageKey = scope
+  ? `form-studio-design-v1:${scope}`
+  : "form-studio-design-v1";
 try {
-  const saved = localStorage.getItem("form-studio-design-v1");
+  const saved = localStorage.getItem(storageKey);
   if (saved) model = parseModel(saved);
 } catch {}
 if (model.stock) {
@@ -74,7 +78,7 @@ if (model.stock) {
   view = "solid";
 }
 $("#app").innerHTML = `
-<header class="app-header"><a class="brand" href="#" aria-label="Form Studio 홈"><span class="brand-mark">${icon("cube")}</span><span>FORM<span class="brand-light"> STUDIO</span><small>DESIGN / MANUFACTURE</small></span></a><div class="document"><input id="document-name" aria-label="설계 이름" maxlength="80"/><span class="save-status" id="save-status">이 브라우저에 저장</span></div><nav class="file-actions"><button data-action="new" title="새 설계 · 이전 작업은 실행 취소로 복구">${icon("plus")}새 설계</button><button data-action="open">${icon("folder")}열기</button><button data-action="save">${icon("save")}저장</button><button data-action="stl" title="삼각형 메시 STL · mm">${icon("download")}STL</button></nav><a class="prototype" href="/soap-poc.html">비누 POC ↗</a></header>
+<header class="app-header"><a class="brand" href="#" aria-label="Form Studio 홈"><span class="brand-mark">${icon("cube")}</span><span>FORM<span class="brand-light"> STUDIO</span><small>DESIGN / MANUFACTURE</small></span></a><div class="document"><input id="document-name" aria-label="설계 이름" maxlength="80"/><span class="save-status" id="save-status">이 브라우저에 저장</span></div><nav class="file-actions"><button data-action="new" title="새 설계 · 이전 작업은 실행 취소로 복구">${icon("plus")}새 설계</button><button data-action="open">${icon("folder")}열기</button><button data-action="save">${icon("save")}저장</button><button data-action="stl" title="삼각형 메시 STL · mm">${icon("download")}STL</button></nav><a class="prototype" href="./soap-poc.html${scope ? `?scope=${encodeURIComponent(scope)}` : ""}">비누 POC ↗</a></header>
 <div class="workspace-nav"><div class="tabs"><button data-action="design" class="active">01 <strong>설계</strong></button><button data-action="cam">02 <strong>가공 시뮬레이션</strong></button></div><span class="scope">2.5D · 단일 부품 · mm</span><button data-action="help" class="icon-button" aria-label="사용 방법">${icon("help")}</button></div>
 <div class="toolstrip"><div class="tools" id="tools"></div><div class="history-actions"><button data-action="undo" class="icon-button" aria-label="실행 취소" title="실행 취소 Ctrl/⌘ Z">${icon("undo")}</button><button data-action="redo" class="icon-button" aria-label="다시 실행">${icon("redo")}</button><span class="divider"></span><button data-action="fit" class="icon-button" aria-label="화면 맞춤">${icon("fit")}</button></div></div>
 <main class="workbench"><aside class="left-panel"><div class="panel-heading">설계 탐색기 <span id="feature-count">0</span></div><div id="tree"></div><div class="left-bottom"><div class="mini-label">YOUR NEXT STEP</div><p id="next-step"></p><button class="text-button" data-action="sample">연습 부품 불러오기 ↗</button><div class="quiet-note">직접 그린 형상으로 설계합니다.<br>변경 사항은 로컬에 자동 저장됩니다.</div></div></aside>
@@ -137,6 +141,11 @@ function toast(text, error = false) {
 function stop() {
   playing = false;
 }
+if (new URLSearchParams(location.search).get("embedded") === "1") {
+  const link = document.querySelector(".prototype");
+  link.href = "/cad-cam?view=soap";
+  link.target = "_parent";
+}
 function invalidate() {
   stop();
   path = null;
@@ -148,7 +157,7 @@ function invalidate() {
 }
 function persist() {
   try {
-    localStorage.setItem("form-studio-design-v1", JSON.stringify(model));
+    localStorage.setItem(storageKey, JSON.stringify(model));
     $("#save-status").textContent = "이 브라우저에 저장됨";
   } catch {
     $("#save-status").textContent = "자동 저장 불가 · 파일로 저장하세요";

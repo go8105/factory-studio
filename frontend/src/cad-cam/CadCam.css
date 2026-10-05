@@ -1,0 +1,57 @@
+.cad-cam-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 80px);
+  background: #f7f7f6;
+}
+.cad-cam-heading {
+  padding: 16px 24px;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #dce0e2;
+}
+.cad-cam-heading h1 {
+  font-size: 20px;
+  margin: 0;
+}
+.cad-cam-heading p {
+  font-size: 12px;
+  margin: 4px 0 0;
+  color: #626b73;
+}
+.cad-cam-heading nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cad-cam-heading a {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1f2d3d;
+  text-decoration: none;
+}
+.cad-cam-heading a.active {
+  background: #1f2d3d;
+  color: #fff;
+}
+.cad-cam-page iframe {
+  width: 100%;
+  height: calc(100dvh - 172px);
+  min-height: 640px;
+  border: 0;
+  background: #f7f7f6;
+}
+@media (max-width: 800px) {
+  .cad-cam-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 16px;
+    gap: 12px;
+  }
+  .cad-cam-page iframe {
+    height: 820px;
+  }
+}
