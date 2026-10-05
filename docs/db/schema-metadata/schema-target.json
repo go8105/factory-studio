@@ -1,6 +1,6 @@
 {
-  "version": "target-0.16.0",
-  "task": "DSN-28",
+  "version": "target-0.17.0",
+  "task": "DSN-29",
   "base_task": "FS-029a",
   "target": true,
   "date": "2026-10-05",
@@ -32048,6 +32048,1274 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "rws.expert",
+      "label": "전문가",
+      "scope": "generation",
+      "phase": "DSN-29",
+      "retention": "세대 정리",
+      "note": "DSN-29 F11. 내부 = HR 사원 코드, 외부 = 업체 코드 스냅샷(FK 없음). 단계 1~3은 상향 순서",
+      "sub_module": "expert",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "expert_kind",
+          "label": "구분",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "INTERNAL / EXTERNAL"
+        },
+        {
+          "name": "hr_employee_code",
+          "label": "HR 사원 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "vendor_code",
+          "label": "업체 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "ERP 거래처 코드 스냅샷"
+        },
+        {
+          "name": "name",
+          "label": "이름",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "tier",
+          "label": "단계",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": "1 일선 / 2 숙련 / 3 최상위"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "rws.expert_field",
+      "label": "전문가 분야",
+      "scope": "generation",
+      "phase": "DSN-29",
+      "retention": "세대 정리",
+      "note": "DSN-29 F11·F12. 배정 추천 기준(분야·숙련도)",
+      "sub_module": "expert",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "expert_id",
+          "label": "전문가",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "field_code",
+          "label": "분야",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "EQUIPMENT / ELECTRIC / PROCESS / QUALITY / IT / SAFETY"
+        },
+        {
+          "name": "skill",
+          "label": "숙련도",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "1~3"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "rws.sla_policy",
+      "label": "목표 시간",
+      "scope": "generation",
+      "phase": "DSN-29",
+      "retention": "세대 정리",
+      "note": "DSN-29 F13(Q7). 긴급도별 응답·해결 목표(분). 요청 접수 시 기한을 요청에 스냅샷",
+      "sub_module": "expert",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "urgency",
+          "label": "긴급도",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "URGENT / HIGH / NORMAL"
+        },
+        {
+          "name": "respond_minutes",
+          "label": "응답 목표(분)",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "resolve_minutes",
+          "label": "해결 목표(분)",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "rws.request",
+      "label": "지원 요청",
+      "scope": "generation",
+      "phase": "DSN-29",
+      "retention": "세대 정리",
+      "note": "DSN-29 F01~F03(Q2·Q4). 대상은 코드 스냅샷. 출처 CMMS 작업지시·QMS 부적합은 조회로 채움(교차 쓰기 없음)",
+      "sub_module": "request",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "request_no",
+          "label": "요청 번호",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "source_kind",
+          "label": "출처",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "DIRECT / CMMS_WO / QMS_NCR"
+        },
+        {
+          "name": "source_ref",
+          "label": "출처 번호",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "작업지시·NCR 번호 스냅샷"
+        },
+        {
+          "name": "site_kind",
+          "label": "현장 구분",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "INTERNAL 사내 / CUSTOMER 고객 현장(Q4)"
+        },
+        {
+          "name": "customer_code",
+          "label": "고객사 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "CRM 고객사 스냅샷"
+        },
+        {
+          "name": "customer_name",
+          "label": "고객사명",
+          "type": "varchar(100)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "asset_code",
+          "label": "설비 코드",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "item_code",
+          "label": "품목 코드",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lot_no",
+          "label": "LOT 번호",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "work_order_no",
+          "label": "작업지시 번호",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "MES 작업지시 스냅샷"
+        },
+        {
+          "name": "field_code",
+          "label": "분야",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "EQUIPMENT / ELECTRIC / PROCESS / QUALITY / IT / SAFETY"
+        },
+        {
+          "name": "urgency",
+          "label": "긴급도",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "URGENT / HIGH / NORMAL"
+        },
+        {
+          "name": "symptom_code",
+          "label": "증상 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "CMMS 고장 코드 스냅샷 또는 직접"
+        },
+        {
+          "name": "title",
+          "label": "제목",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "description",
+          "label": "증상 설명",
+          "type": "varchar(2000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "requester_hr_code",
+          "label": "요청자 HR 사원 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "requester_name",
+          "label": "요청자",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'OPEN'",
+          "rule": "OPEN / ASSIGNED / IN_PROGRESS / RESOLVED / FIELD_VISIT / CANCELLED"
+        },
+        {
+          "name": "escalation_level",
+          "label": "상향 단계",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "requested_at",
+          "label": "요청 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        },
+        {
+          "name": "respond_due_at",
+          "label": "응답 기한",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "resolve_due_at",
+          "label": "해결 기한",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "first_response_at",
+          "label": "첫 응답 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "closed_at",
+          "label": "종료 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "rws.assignment",
+      "label": "배정",
+      "scope": "generation",
+      "phase": "DSN-29",
+      "retention": "세대 정리",
+      "note": "DSN-29 F12·F14. 주 담당 1명 + 상향 전문가. 재배정은 해제 후 새 행(추가만)",
+      "sub_module": "request",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "request_id",
+          "label": "지원 요청",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "expert_id",
+          "label": "전문가",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "role",
+          "label": "역할",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "PRIMARY 주 담당 / ESCALATED 상향"
+        },
+        {
+          "name": "assigned_at",
+          "label": "배정 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        },
+        {
+          "name": "released_at",
+          "label": "해제 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "사유",
+          "type": "varchar(200)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "rws.message",
+      "label": "안내 대화",
+      "scope": "generation",
+      "phase": "DSN-29",
+      "retention": "세대 정리",
+      "note": "DSN-29 F21. 텍스트 메시지(추가만, 수정·삭제 없음)",
+      "sub_module": "session",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "request_id",
+          "label": "지원 요청",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "author_kind",
+          "label": "작성자 구분",
+          "type": "varchar(6)",
+          "nullable": false,
+          "default": null,
+          "rule": "EXPERT / FIELD"
+        },
+        {
+          "name": "author_name",
+          "label": "작성자",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "body",
+          "label": "내용",
+          "type": "varchar(2000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "rws.guide",
+      "label": "작업 가이드",
+      "scope": "generation",
+      "phase": "DSN-29",
+      "retention": "세대 정리",
+      "note": "DSN-29 F31·F32(Q5). 코드별 버전, 게시 후 불변, 코드당 게시 1건",
+      "sub_module": "guide",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "가이드 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "version_no",
+          "label": "버전",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "title",
+          "label": "제목",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "field_code",
+          "label": "분야",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "EQUIPMENT / ELECTRIC / PROCESS / QUALITY / IT / SAFETY"
+        },
+        {
+          "name": "asset_code",
+          "label": "대상 설비 코드",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "item_code",
+          "label": "대상 품목 코드",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / published / retired"
+        },
+        {
+          "name": "approved_by",
+          "label": "승인자",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "published_at",
+          "label": "게시 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "rws.guide_step",
+      "label": "가이드 단계",
+      "scope": "generation",
+      "phase": "DSN-29",
+      "retention": "세대 정리",
+      "note": "DSN-29 F31. 단계별 지시·주의·확인 방식",
+      "sub_module": "guide",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "guide_id",
+          "label": "작업 가이드",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "step_no",
+          "label": "단계",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "instruction",
+          "label": "지시",
+          "type": "varchar(1000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "caution",
+          "label": "주의",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "check_kind",
+          "label": "확인 방식",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "CONFIRM 확인 / OKNG 판정 / VALUE 측정값"
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(20)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lower_limit",
+          "label": "하한",
+          "type": "numeric(20,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "upper_limit",
+          "label": "상한",
+          "type": "numeric(20,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "rws.request_step",
+      "label": "안내 단계",
+      "scope": "generation",
+      "phase": "DSN-29",
+      "retention": "세대 정리",
+      "note": "DSN-29 F22·F23. 가이드를 적용하면 단계를 복사(스냅샷), 전문가가 측정 요청을 추가하면 가이드 없이 1행. 현장이 결과 입력",
+      "sub_module": "session",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "request_id",
+          "label": "지원 요청",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "guide_id",
+          "label": "적용 가이드",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "NULL이면 전문가 개별 요청(F23)"
+        },
+        {
+          "name": "step_no",
+          "label": "순서",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "instruction",
+          "label": "지시",
+          "type": "varchar(1000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "check_kind",
+          "label": "확인 방식",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "CONFIRM 확인 / OKNG 판정 / VALUE 측정값"
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(20)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lower_limit",
+          "label": "하한",
+          "type": "numeric(20,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "upper_limit",
+          "label": "상한",
+          "type": "numeric(20,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "result",
+          "label": "결과",
+          "type": "varchar(6)",
+          "nullable": true,
+          "default": null,
+          "rule": "DONE / OK / NG"
+        },
+        {
+          "name": "measured_value",
+          "label": "측정값",
+          "type": "numeric(20,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "entered_by",
+          "label": "입력자",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "entered_at",
+          "label": "입력 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "rws.resolution",
+      "label": "완료 기록",
+      "scope": "generation",
+      "phase": "DSN-29",
+      "retention": "세대 정리",
+      "note": "DSN-29 F41·F42(Q3). 요청당 1건, 확정 후 불변. FIELD_VISIT이면 CMMS가 가져가 작업지시",
+      "sub_module": "close",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "request_id",
+          "label": "지원 요청",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "outcome",
+          "label": "결과",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "REMOTE_FIXED 원격 해결 / FIELD_VISIT 현장 출동 필요"
+        },
+        {
+          "name": "cause",
+          "label": "원인",
+          "type": "varchar(1000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "action",
+          "label": "조치",
+          "type": "varchar(1000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "symptom_code",
+          "label": "증상 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "field_confirmed",
+          "label": "현장 확인",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "rule": ""
+        },
+        {
+          "name": "closed_by",
+          "label": "종료자",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "rws.feedback",
+      "label": "만족도",
+      "scope": "generation",
+      "phase": "DSN-29",
+      "retention": "세대 정리",
+      "note": "DSN-29 F43(Q7). 종료 후 요청자 평가 1건",
+      "sub_module": "close",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "request_id",
+          "label": "지원 요청",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "score",
+          "label": "점수",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "1~5"
+        },
+        {
+          "name": "comment",
+          "label": "의견",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "rws.knowledge",
+      "label": "지식 문서",
+      "scope": "generation",
+      "phase": "DSN-29",
+      "retention": "세대 정리",
+      "note": "DSN-29 F33(Q6). 완료 요청에서 작성, 설비·증상으로 유사 사례 추천. 게시 후 불변",
+      "sub_module": "guide",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "request_id",
+          "label": "원 요청",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "title",
+          "label": "제목",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "field_code",
+          "label": "분야",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "EQUIPMENT / ELECTRIC / PROCESS / QUALITY / IT / SAFETY"
+        },
+        {
+          "name": "asset_code",
+          "label": "설비 코드",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "symptom_code",
+          "label": "증상 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "summary",
+          "label": "원인·조치 요약",
+          "type": "varchar(2000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "guide_id",
+          "label": "관련 가이드",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / published / retired"
+        },
+        {
+          "name": "published_at",
+          "label": "게시 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
     }
   ],
   "relations": [
@@ -44162,6 +45430,373 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "보고서 지표"
+    },
+    {
+      "source": "rws.expert",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "rws.expert_field",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "rws.sla_policy",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "rws.request",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "rws.assignment",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "rws.message",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "rws.guide",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "rws.guide_step",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "rws.request_step",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "rws.resolution",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "rws.feedback",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "rws.knowledge",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "rws.expert_field",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "expert_id"
+      ],
+      "target": "rws.expert",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "전문가"
+    },
+    {
+      "source": "rws.assignment",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "target": "rws.request",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "요청"
+    },
+    {
+      "source": "rws.assignment",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "expert_id"
+      ],
+      "target": "rws.expert",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "전문가"
+    },
+    {
+      "source": "rws.message",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "target": "rws.request",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "요청"
+    },
+    {
+      "source": "rws.guide_step",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "guide_id"
+      ],
+      "target": "rws.guide",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "가이드"
+    },
+    {
+      "source": "rws.request_step",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "target": "rws.request",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "요청"
+    },
+    {
+      "source": "rws.request_step",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "guide_id"
+      ],
+      "target": "rws.guide",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "적용 가이드"
+    },
+    {
+      "source": "rws.resolution",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "target": "rws.request",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "요청"
+    },
+    {
+      "source": "rws.feedback",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "target": "rws.request",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "요청"
+    },
+    {
+      "source": "rws.knowledge",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "target": "rws.request",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "원 요청"
+    },
+    {
+      "source": "rws.knowledge",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "guide_id"
+      ],
+      "target": "rws.guide",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "관련 가이드"
     }
   ],
   "constraints": [
@@ -44359,7 +45994,7 @@
       "table": "core.workspace_module",
       "kind": "CHECK",
       "columns": [],
-      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms', 'pop', 'tms', 'plm', 'crm', 'scm', 'elb')",
+      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms', 'pop', 'tms', 'plm', 'crm', 'scm', 'elb', 'rws')",
       "reason": "행 내부 데이터 정합성"
     },
     {
@@ -52600,7 +54235,7 @@
       "columns": [
         "module_key"
       ],
-      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms', 'pop', 'tms', 'plm', 'crm', 'scm', 'elb')",
+      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms', 'pop', 'tms', 'plm', 'crm', 'scm', 'elb', 'rws')",
       "reason": "평가 대상 솔루션"
     },
     {
@@ -54083,7 +55718,7 @@
       "columns": [
         "source"
       ],
-      "expression": "source IN ('MANUAL', 'BEMS_ALARM', 'SPC_SIGNAL', 'PM_PLAN')",
+      "expression": "source IN ('MANUAL', 'BEMS_ALARM', 'SPC_SIGNAL', 'PM_PLAN', 'RWS_REQUEST')",
       "reason": "출처 값"
     },
     {
@@ -54114,7 +55749,7 @@
         "source",
         "source_ref"
       ],
-      "expression": "(source IN ('BEMS_ALARM', 'SPC_SIGNAL')) = (source_ref IS NOT NULL)",
+      "expression": "(source IN ('BEMS_ALARM', 'SPC_SIGNAL', 'RWS_REQUEST')) = (source_ref IS NOT NULL)",
       "reason": "신호 출처만 원천 id"
     },
     {
@@ -54211,7 +55846,7 @@
         "source",
         "source_ref"
       ],
-      "expression": "UNIQUE (workspace_id, generation_id, source, source_ref) WHERE source IN ('BEMS_ALARM', 'SPC_SIGNAL') AND status <> 'CANCELLED'",
+      "expression": "UNIQUE (workspace_id, generation_id, source, source_ref) WHERE source IN ('BEMS_ALARM', 'SPC_SIGNAL', 'RWS_REQUEST') AND status <> 'CANCELLED'",
       "reason": "신호 1건당 취소되지 않은 작업지시 1건(D48)"
     },
     {
@@ -66854,6 +68489,806 @@
       ],
       "expression": "UNIQUE (workspace_id, generation_id, approver_role) WHERE is_active AND department_code IS NULL",
       "reason": "활성 관리부서 승인자 1명"
+    },
+    {
+      "table": "rws.expert",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "rws.expert",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "rws.expert_field",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "rws.expert_field",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "rws.sla_policy",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "rws.sla_policy",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "rws.request",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "rws.request",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "rws.assignment",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "rws.assignment",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "rws.message",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "rws.message",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "rws.guide",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "rws.guide",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "rws.guide_step",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "rws.guide_step",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "rws.request_step",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "rws.request_step",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "rws.resolution",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "rws.resolution",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "rws.feedback",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "rws.feedback",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "rws.knowledge",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "rws.knowledge",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "rws.expert_field",
+      "kind": "CHECK",
+      "columns": [
+        "field_code"
+      ],
+      "expression": "field_code IN ('EQUIPMENT', 'ELECTRIC', 'PROCESS', 'QUALITY', 'IT', 'SAFETY')",
+      "reason": "분야"
+    },
+    {
+      "table": "rws.request",
+      "kind": "CHECK",
+      "columns": [
+        "field_code"
+      ],
+      "expression": "field_code IN ('EQUIPMENT', 'ELECTRIC', 'PROCESS', 'QUALITY', 'IT', 'SAFETY')",
+      "reason": "분야"
+    },
+    {
+      "table": "rws.guide",
+      "kind": "CHECK",
+      "columns": [
+        "field_code"
+      ],
+      "expression": "field_code IN ('EQUIPMENT', 'ELECTRIC', 'PROCESS', 'QUALITY', 'IT', 'SAFETY')",
+      "reason": "분야"
+    },
+    {
+      "table": "rws.knowledge",
+      "kind": "CHECK",
+      "columns": [
+        "field_code"
+      ],
+      "expression": "field_code IN ('EQUIPMENT', 'ELECTRIC', 'PROCESS', 'QUALITY', 'IT', 'SAFETY')",
+      "reason": "분야"
+    },
+    {
+      "table": "rws.guide_step",
+      "kind": "CHECK",
+      "columns": [
+        "check_kind",
+        "lower_limit",
+        "upper_limit"
+      ],
+      "expression": "check_kind IN ('CONFIRM', 'OKNG', 'VALUE') AND (check_kind = 'VALUE' OR (lower_limit IS NULL AND upper_limit IS NULL)) AND (lower_limit IS NULL OR upper_limit IS NULL OR lower_limit <= upper_limit)",
+      "reason": "확인 방식·한계"
+    },
+    {
+      "table": "rws.request_step",
+      "kind": "CHECK",
+      "columns": [
+        "check_kind",
+        "lower_limit",
+        "upper_limit"
+      ],
+      "expression": "check_kind IN ('CONFIRM', 'OKNG', 'VALUE') AND (check_kind = 'VALUE' OR (lower_limit IS NULL AND upper_limit IS NULL)) AND (lower_limit IS NULL OR upper_limit IS NULL OR lower_limit <= upper_limit)",
+      "reason": "확인 방식·한계"
+    },
+    {
+      "table": "rws.guide",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "published_at"
+      ],
+      "expression": "status IN ('draft', 'published', 'retired') AND ((status = 'draft') = (published_at IS NULL))",
+      "reason": "상태·게시 시각"
+    },
+    {
+      "table": "rws.knowledge",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "published_at"
+      ],
+      "expression": "status IN ('draft', 'published', 'retired') AND ((status = 'draft') = (published_at IS NULL))",
+      "reason": "상태·게시 시각"
+    },
+    {
+      "table": "rws.expert",
+      "kind": "CHECK",
+      "columns": [
+        "expert_kind",
+        "hr_employee_code",
+        "vendor_code",
+        "tier"
+      ],
+      "expression": "expert_kind IN ('INTERNAL', 'EXTERNAL') AND ((expert_kind = 'INTERNAL') = (hr_employee_code IS NOT NULL)) AND ((expert_kind = 'EXTERNAL') = (vendor_code IS NOT NULL)) AND tier BETWEEN 1 AND 3",
+      "reason": "내부는 HR 사원 코드, 외부는 업체 코드"
+    },
+    {
+      "table": "rws.expert",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "hr_employee_code"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, hr_employee_code) WHERE hr_employee_code IS NOT NULL",
+      "reason": "사원당 전문가 1건"
+    },
+    {
+      "table": "rws.expert_field",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "expert_id",
+        "field_code"
+      ],
+      "expression": "",
+      "reason": "전문가·분야 1행"
+    },
+    {
+      "table": "rws.expert_field",
+      "kind": "CHECK",
+      "columns": [
+        "skill"
+      ],
+      "expression": "skill BETWEEN 1 AND 3",
+      "reason": "숙련도"
+    },
+    {
+      "table": "rws.sla_policy",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "urgency"
+      ],
+      "expression": "",
+      "reason": "긴급도당 목표 1건"
+    },
+    {
+      "table": "rws.sla_policy",
+      "kind": "CHECK",
+      "columns": [
+        "urgency",
+        "respond_minutes",
+        "resolve_minutes"
+      ],
+      "expression": "urgency IN ('URGENT', 'HIGH', 'NORMAL') AND respond_minutes > 0 AND resolve_minutes >= respond_minutes",
+      "reason": "긴급도·목표"
+    },
+    {
+      "table": "rws.request",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_no"
+      ],
+      "expression": "",
+      "reason": "요청 번호 유일"
+    },
+    {
+      "table": "rws.request",
+      "kind": "CHECK",
+      "columns": [
+        "request_no",
+        "source_kind",
+        "source_ref"
+      ],
+      "expression": "request_no ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$' AND source_kind IN ('DIRECT', 'CMMS_WO', 'QMS_NCR') AND ((source_kind = 'DIRECT') = (source_ref IS NULL))",
+      "reason": "번호·출처(Q2 — POP 호출 없음)"
+    },
+    {
+      "table": "rws.request",
+      "kind": "CHECK",
+      "columns": [
+        "site_kind",
+        "customer_code"
+      ],
+      "expression": "site_kind IN ('INTERNAL', 'CUSTOMER') AND ((site_kind = 'CUSTOMER') = (customer_code IS NOT NULL))",
+      "reason": "고객 현장은 고객사 필수(Q4)"
+    },
+    {
+      "table": "rws.request",
+      "kind": "CHECK",
+      "columns": [
+        "urgency",
+        "status",
+        "escalation_level",
+        "closed_at",
+        "respond_due_at",
+        "resolve_due_at"
+      ],
+      "expression": "urgency IN ('URGENT', 'HIGH', 'NORMAL') AND status IN ('OPEN', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'FIELD_VISIT', 'CANCELLED') AND escalation_level BETWEEN 1 AND 3 AND ((status IN ('RESOLVED', 'FIELD_VISIT', 'CANCELLED')) = (closed_at IS NOT NULL)) AND resolve_due_at >= respond_due_at",
+      "reason": "상태·종료 시각·기한"
+    },
+    {
+      "table": "rws.request",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "source_kind",
+        "source_ref"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, source_kind, source_ref) WHERE source_kind <> 'DIRECT' AND status <> 'CANCELLED'",
+      "reason": "출처당 진행 요청 1건"
+    },
+    {
+      "table": "rws.request",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "respond_due_at",
+        "resolve_due_at"
+      ],
+      "expression": "접수 시 rws.sla_policy(긴급도)로 기한을 계산해 스냅샷. 기한 초과는 조회 표시(저장 안 함). 해결 기한 초과·전문가 요청 시 상향 단계 +1 → 상위 단계 전문가 ESCALATED 배정",
+      "reason": "목표 시간·상향(Q7)"
+    },
+    {
+      "table": "rws.request",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "source_ref"
+      ],
+      "expression": "CMMS_WO는 fs.cmms.interface.work_order(no), QMS_NCR는 fs.qms.interface.ncr(no)를 읽어 대상·증상을 채운다. 출처 솔루션에는 쓰지 않는다. POP 호출은 출처가 아니다(POP Q4)",
+      "reason": "요청 가져오기(Q2)"
+    },
+    {
+      "table": "rws.assignment",
+      "kind": "CHECK",
+      "columns": [
+        "role"
+      ],
+      "expression": "role IN ('PRIMARY', 'ESCALATED') AND (released_at IS NULL OR released_at >= assigned_at)",
+      "reason": "역할·해제"
+    },
+    {
+      "table": "rws.assignment",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, request_id) WHERE role = 'PRIMARY' AND released_at IS NULL",
+      "reason": "요청당 주 담당 1명"
+    },
+    {
+      "table": "rws.assignment",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id",
+        "expert_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, request_id, expert_id) WHERE released_at IS NULL",
+      "reason": "같은 전문가 중복 배정 금지"
+    },
+    {
+      "table": "rws.assignment",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "expert_id"
+      ],
+      "expression": "추천 = 분야 일치 → 숙련도 높은 순 → 진행 건수 적은 순, 사람이 확정. 재배정은 기존 행 해제 + 새 행",
+      "reason": "배정 추천(F12)"
+    },
+    {
+      "table": "rws.message",
+      "kind": "CHECK",
+      "columns": [
+        "author_kind",
+        "body"
+      ],
+      "expression": "author_kind IN ('EXPERT', 'FIELD') AND length(btrim(body)) > 0",
+      "reason": "작성자·내용"
+    },
+    {
+      "table": "rws.message",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "id"
+      ],
+      "expression": "추가만. 첫 EXPERT 메시지 시각 = 요청 first_response_at",
+      "reason": "대화 불변"
+    },
+    {
+      "table": "rws.guide",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code",
+        "version_no"
+      ],
+      "expression": "",
+      "reason": "코드·버전 유일"
+    },
+    {
+      "table": "rws.guide",
+      "kind": "CHECK",
+      "columns": [
+        "code",
+        "version_no"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$' AND version_no >= 1",
+      "reason": "코드·버전"
+    },
+    {
+      "table": "rws.guide",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, code) WHERE status = 'published'",
+      "reason": "코드당 게시 1건"
+    },
+    {
+      "table": "rws.guide",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "게시 후 가이드·단계 불변, 고치면 새 버전 draft → 게시 시 이전 버전 retired. 게시는 승인자 필수",
+      "reason": "가이드 버전(Q5)"
+    },
+    {
+      "table": "rws.guide_step",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "guide_id",
+        "step_no"
+      ],
+      "expression": "",
+      "reason": "가이드·단계 유일"
+    },
+    {
+      "table": "rws.guide_step",
+      "kind": "CHECK",
+      "columns": [
+        "step_no"
+      ],
+      "expression": "step_no >= 1",
+      "reason": "단계"
+    },
+    {
+      "table": "rws.request_step",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id",
+        "step_no"
+      ],
+      "expression": "",
+      "reason": "요청·순서 유일"
+    },
+    {
+      "table": "rws.request_step",
+      "kind": "CHECK",
+      "columns": [
+        "step_no",
+        "check_kind",
+        "result",
+        "measured_value",
+        "entered_at"
+      ],
+      "expression": "step_no >= 1 AND (result IS NULL OR result IN ('DONE', 'OK', 'NG')) AND ((result IS NULL) = (entered_at IS NULL)) AND (check_kind = 'VALUE' OR measured_value IS NULL)",
+      "reason": "결과·측정값"
+    },
+    {
+      "table": "rws.request_step",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "guide_id"
+      ],
+      "expression": "가이드 적용 = 게시 버전의 단계를 복사(이후 가이드가 바뀌어도 그대로). VALUE는 측정값 필수, 한계 밖이면 결과 NG. 요청 종료 후 입력 불가",
+      "reason": "안내 단계(F22·F23)"
+    },
+    {
+      "table": "rws.resolution",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "expression": "",
+      "reason": "요청당 완료 기록 1건"
+    },
+    {
+      "table": "rws.resolution",
+      "kind": "CHECK",
+      "columns": [
+        "outcome"
+      ],
+      "expression": "outcome IN ('REMOTE_FIXED', 'FIELD_VISIT')",
+      "reason": "결과"
+    },
+    {
+      "table": "rws.resolution",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "outcome"
+      ],
+      "expression": "작성 = 요청 종료(REMOTE_FIXED → RESOLVED, FIELD_VISIT → FIELD_VISIT), 이후 불변. FIELD_VISIT은 fs.rws.interface.field_visit_requests()로 CMMS가 읽어 작업지시(source = RWS_REQUEST)를 만든다 — RWS는 CMMS에 쓰지 않는다",
+      "reason": "완료·현장 출동(Q3)"
+    },
+    {
+      "table": "rws.feedback",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "expression": "",
+      "reason": "요청당 평가 1건"
+    },
+    {
+      "table": "rws.feedback",
+      "kind": "CHECK",
+      "columns": [
+        "score"
+      ],
+      "expression": "score BETWEEN 1 AND 5",
+      "reason": "점수"
+    },
+    {
+      "table": "rws.knowledge",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "asset_code",
+        "symptom_code"
+      ],
+      "expression": "새 요청 접수 시 같은 설비 코드 또는 증상 코드의 게시 지식·완료 기록을 최근 순으로 추천(조회)",
+      "reason": "유사 사례(Q6)"
+    },
+    {
+      "table": "rws.expert_field",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "expert_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "rws.assignment",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "rws.assignment",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "expert_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "rws.message",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "rws.guide_step",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "guide_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "rws.request_step",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "guide_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "rws.feedback",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "rws.knowledge",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "rws.knowledge",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "guide_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "rws.knowledge",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "asset_code",
+        "symptom_code"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "rws.request",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "status",
+        "resolve_due_at"
+      ],
+      "expression": "",
+      "reason": "조회"
     }
   ],
   "states": [
@@ -67978,6 +70413,42 @@
       ],
       "default": "draft",
       "transition": "draft→confirmed→superseded"
+    },
+    {
+      "table": "rws.request",
+      "column": "status",
+      "values": [
+        "OPEN",
+        "ASSIGNED",
+        "IN_PROGRESS",
+        "RESOLVED",
+        "FIELD_VISIT",
+        "CANCELLED"
+      ],
+      "default": "OPEN",
+      "transition": "OPEN→ASSIGNED→IN_PROGRESS→RESOLVED|FIELD_VISIT; OPEN|ASSIGNED|IN_PROGRESS→CANCELLED"
+    },
+    {
+      "table": "rws.guide",
+      "column": "status",
+      "values": [
+        "draft",
+        "published",
+        "retired"
+      ],
+      "default": "draft",
+      "transition": "draft→published→retired"
+    },
+    {
+      "table": "rws.knowledge",
+      "column": "status",
+      "values": [
+        "draft",
+        "published",
+        "retired"
+      ],
+      "default": "draft",
+      "transition": "draft→published→retired"
     }
   ],
   "sources": [
@@ -68040,7 +70511,8 @@
         "plm",
         "crm",
         "scm",
-        "elb"
+        "elb",
+        "rws"
       ],
       "default": null,
       "note": "QMS(FS-023)·WMS(FS-024)·BEMS(FS-025)·SPC(FS-028)는 구현 솔루션. SCM 설명 카드와 도움말은 정적 파일"
@@ -68399,7 +70871,8 @@
         "plm",
         "crm",
         "scm",
-        "elb"
+        "elb",
+        "rws"
       ],
       "default": null,
       "note": "운영 중인 솔루션(포털 core 제외)"
@@ -68451,7 +70924,8 @@
         "MANUAL",
         "BEMS_ALARM",
         "SPC_SIGNAL",
-        "PM_PLAN"
+        "PM_PLAN",
+        "RWS_REQUEST"
       ],
       "default": null,
       "note": "수동 / BEMS 경보 / SPC 이상 / PM 계획"
@@ -68993,6 +71467,13 @@
       "task": "DSN-28",
       "date": "2026-10-05",
       "change": "EIP 신규: eip 8테이블(KPI·월 목표·사람 연결·위젯 배치·즐겨찾기·경영 보고서·지표·의견). 모듈 키 없음(Q8 포털 첫 화면 = EIP). 사람 연결(HR 사원 코드) 칸: gw.person·crm.sales_rep·elb.request·elb.approval·qms.capa + elb.approver(승인자 지정). 업무 스키마 간 FK 0",
+      "status": "설계 전용"
+    },
+    {
+      "version": "target-0.17.0",
+      "task": "DSN-29",
+      "date": "2026-10-05",
+      "change": "RWS 신규: rws 12테이블(전문가·분야·목표 시간·지원 요청·배정·안내 대화·작업 가이드·가이드 단계·안내 단계·완료 기록·만족도·지식 문서), 모듈 키 rws. cmms.work_order 출처에 RWS_REQUEST(현장 출동 가져오기). 업무 스키마 간 FK 0",
       "status": "설계 전용"
     }
   ]

@@ -194,6 +194,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_elb_dsn27(d))
     if 'eip.kpi' in {t['name'] for t in d['tables']}:
         errors.extend(validate_eip_dsn28(d))
+    if 'rws.request' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_rws_dsn29(d))
     return errors
 
 
@@ -359,7 +361,7 @@ def validate_cmms_dsn21(d):
     require(any(c['table'] == 'cmms.asset' and c['expression'] == "(source = 'MES_MOLD') = (asset_type = 'MOLD')" for c in cs), 'molds come from MES (Q1)')
     require(any(c['table'] == 'cmms.pm_plan' and "(trigger_kind = 'CALENDAR') = (interval_days IS NOT NULL)" in c['expression'] for c in cs), 'PM interval matches trigger (Q2)')
     require(any(c['table'] == 'cmms.checklist_result' and c['reason'] == '점검표 완료 조건(Q3)' for c in cs), 'checklist must be complete before PM completion (Q3)')
-    require(any(c['table'] == 'cmms.work_order' and c['expression'] == "source IN ('MANUAL', 'BEMS_ALARM', 'SPC_SIGNAL', 'PM_PLAN')" for c in cs), 'signal sources unchanged — FEMS/BEMS equipment alarms excluded (Q4)')
+    require(any(c['table'] == 'cmms.work_order' and c['expression'].startswith("source IN ('MANUAL', 'BEMS_ALARM', 'SPC_SIGNAL', 'PM_PLAN'") and 'FEMS' not in c['expression'] for c in cs), 'signal sources unchanged (DSN-29 adds RWS_REQUEST only) — FEMS/BEMS equipment alarms excluded (Q4)')
     require(not any(w in col for t in ('cmms.work_order', 'cmms.asset') for col in ts.get(t, ()) for w in ('total_cost', 'labor_cost', 'parts_cost')), 'maintenance cost is derived (Q5)')
     require(not any(w in col for col in ts.get('cmms.spare_part', ()) for w in ('on_hand', 'stock_qty', 'quantity')), 'spare part stock is read from WMS (Q6)')
     return errors
@@ -496,6 +498,27 @@ def validate_eip_dsn28(d):
     require(any(c['table'] == 'eip.management_report' and c['kind'] == 'UK_PARTIAL' and "status = 'confirmed'" in c['expression'] for c in cs), 'one confirmed management report per month (Q4)')
     require(all(r['target'].split('.')[0] in ('eip', 'core') for r in rs if r['source'].startswith('eip.')), 'EIP FKs stay inside eip/core anchors')
     require(not any(c['table'] in ('core.workspace_module', 'core.app_review') and "'eip'" in c.get('expression', '') for c in cs), 'EIP is the portal home, not a toggleable module (DSN-28 Q8): no module key eip')
+    return errors
+
+
+def validate_rws_dsn29(d):
+    """DSN-29 RWS 계약: 영상·사진·POP 호출 없음(Q1·Q2)·현장 출동은 CMMS가 가져감(Q3 — RWS→CMMS FK·쓰기 없음)·고객 현장은 고객사 필수(Q4)·게시 가이드 1건(Q5)·주 담당 1명·완료 1건·모듈 키."""
+    errors = []
+    cs, rs = d['constraints'], d['relations']
+    ts = {t['name']: {c['name'] for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-29: ' + message)
+    require(not any(n.startswith('rws.') and any(w in n for w in ('video', 'media', 'attachment', 'photo', 'call')) for n in ts), 'no video/photo/POP-call tables (Q1·Q2)')
+    require(any(c['table'] == 'rws.request' and "source_kind IN ('DIRECT', 'CMMS_WO', 'QMS_NCR')" in c['expression'] for c in cs), 'request sources are direct/CMMS/QMS only (Q2)')
+    require(any(c['table'] == 'cmms.work_order' and 'RWS_REQUEST' in c['expression'] and c['kind'] == 'UK_PARTIAL' for c in cs), 'CMMS imports one work order per RWS field visit (Q3)')
+    require(any(c['table'] == 'rws.request' and "(site_kind = 'CUSTOMER') = (customer_code IS NOT NULL)" in c['expression'] for c in cs), 'customer site requires customer code (Q4)')
+    require(any(c['table'] == 'rws.guide' and c['kind'] == 'UK_PARTIAL' and "status = 'published'" in c['expression'] for c in cs), 'one published guide per code (Q5)')
+    require(any(c['table'] == 'rws.assignment' and c['kind'] == 'UK_PARTIAL' and "role = 'PRIMARY'" in c['expression'] for c in cs), 'one active primary expert per request')
+    require(any(c['table'] == 'rws.resolution' and c['kind'] == 'UK' and c['columns'][-1] == 'request_id' for c in cs), 'one resolution per request')
+    require('hr_employee_code' in ts.get('rws.expert', ()), 'internal experts link by HR employee code')
+    require(all(r['target'].split('.')[0] in ('rws', 'core') for r in rs if r['source'].startswith('rws.')), 'RWS FKs stay inside rws/core anchors')
+    require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'rws'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key rws')
     return errors
 
 

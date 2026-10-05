@@ -171,6 +171,8 @@ FS-029 화면 설계 C-01~07(미구현)을 보강하고 C-08부터 추가. 특�
 
 > Q4 결과: FEMS `open_alarms`(DSN-15 F34)와 BEMS 설비 경보(DSN-16 F33)는 CMMS 신호로 쓰지 않는다 — 두 문서에 반영함. FEMS `open_alarms`는 BEMS 피크 감축에는 그대로 쓴다.
 
+> RWS DSN-29 반영(2026-10-05): 작업지시 출처에 `RWS_REQUEST` 추가(목표 DB 반영) — RWS "현장 출동 필요" 완료 요청을 `fs.rws.interface.field_visit_requests()`로 읽어 "RWS에서 가져오기"로 작업지시를 만든다(요청당 진행 1건). CMMS는 `work_order(no)`·`failure_codes()`를 제공한다.
+
 ## 7. 결정 질문 (하나씩)
 
 | # | 질문 | 제안 |

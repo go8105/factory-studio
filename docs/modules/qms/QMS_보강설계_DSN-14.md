@@ -205,6 +205,8 @@
 
 > EIP DSN-28 반영(2026-10-05): `qms.capa.owner_hr_code` 추가(CAPA 기한 할 일). QMS는 `pending_tasks`·`lookup`을 제공한다.
 
+> RWS DSN-29 반영(2026-10-05): QMS는 `ncr(no)`를 제공한다(RWS 원격 지원 요청 가져오기).
+
 ## 7. 결정 질문 (하나씩)
 
 | # | 질문 | 제안 |

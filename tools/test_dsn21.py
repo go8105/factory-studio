@@ -30,12 +30,10 @@ class CmmsTargetTest(unittest.TestCase):
         for x in d["constraints"]:
             if (
                 x["table"] == "cmms.work_order"
-                and x["expression"]
-                == "source IN ('MANUAL', 'BEMS_ALARM', 'SPC_SIGNAL', 'PM_PLAN')"
+                and x["kind"] == "CHECK"
+                and x["expression"].startswith("source IN ('MANUAL'")
             ):
-                x["expression"] = (
-                    "source IN ('MANUAL', 'BEMS_ALARM', 'SPC_SIGNAL', 'PM_PLAN', 'FEMS_ALARM')"
-                )
+                x["expression"] = x["expression"].rstrip(")") + ", 'FEMS_ALARM')"
         next(t for t in d["tables"] if t["name"] == "cmms.spare_part")[
             "columns"
         ].append({"name": "stock_qty"})

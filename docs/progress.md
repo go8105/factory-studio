@@ -36,6 +36,12 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-29 RWS 신규 설계 완료 (Claude Code)
+- 결정: Q1·Q2 **텍스트·단계 체크리스트 원격 안내로 한정**(영상·AR·사진 없음), 요청 출처는 직접 등록·CMMS 작업지시·QMS 부적합(POP 호출은 POP 안에서만) · Q3 **원격 해결 실패 → "현장 출동 필요", CMMS가 가져가 작업지시** · Q4 고객 현장 원격 A/S · Q5~Q7 작업 가이드·버전, 지식화·유사 사례, 목표 시간·상향, 만족도 · 범위 17/19.
+- 문서 `docs/modules/rws/RWS_설계_DSN-29.md` + README: 기준표 19, 기능 규칙 6묶음, DB rws 12, 화면 10(RW-01~10, 현장 응답 K), 교차 조회(`field_visit_requests`·`monthly_summary`·`pending_tasks`·`lookup` 제공, CMMS `work_order`·`failure_codes`·QMS `ncr`·CRM `accounts` 요청 — CMMS·QMS 문서에 메모).
+- 목표 DB: `tools/apply_dsn29.py` → target-0.17.0/DSN-29 **321테이블**·컬럼 3,715·FK 769, 모듈 키 rws, `cmms.work_order.source`에 RWS_REQUEST(요청당 진행 작업지시 1건). 검증기 `validate_rws_dsn29`. DSN-21 검증기·테스트의 CMMS 출처 확인은 완전 일치 대신 "FEMS 없음"으로 바꿨다.
+- 검증(통과를 커밋 조건으로): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(321·UK 647·CHECK 809·INDEX 207·UNIQUE_INDEX 91·FK 769)**·ERD·Excel·tools 73 + DSN 41·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-28 보정: 포털 첫 화면 = EIP (Claude Code)
 - 결정 Q8(D80): 초기 기획 "포털 자체가 EIP"를 복원한다. 로그인하면 EIP 대시보드(EI-01, 앱 런처 포함)가 첫 화면이다. EIP 타일과 모듈 키는 두지 않는다(끌 수 없음). 데이터는 그대로 `eip` 스키마에 둔다(core 업무 데이터 금지, FS-013).
 - 변경: `apply_dsn28`에서 모듈 키 'eip' 추가를 제거했다. `validate_eip_dsn28`은 모듈 키 'eip'가 **없어야** 통과한다. `test_dsn28`에 회귀 검사를 추가했다. EIP 문서 §0·4-2·5장·7-1, README, ROADMAP-01 §6-3, ROADMAP-02 D80을 고쳤다. 테이블 수는 변동 없다(309).
