@@ -1,6 +1,6 @@
 {
-  "version": "target-0.18.0",
-  "task": "DSN-30",
+  "version": "target-0.19.0",
+  "task": "DSN-90",
   "base_task": "FS-029a",
   "target": true,
   "date": "2026-10-05",
@@ -1434,6 +1434,22 @@
           "rule": ""
         },
         {
+          "name": "plm_part_no",
+          "label": "PLM 부품 번호",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-90 PLM에서 가져오기 — 배포 리비전 스냅샷"
+        },
+        {
+          "name": "plm_revision",
+          "label": "PLM 리비전",
+          "type": "varchar(10)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-90 plm_part_no와 함께"
+        },
+        {
           "name": "created_at",
           "label": "등록 시각",
           "type": "timestamptz",
@@ -1564,6 +1580,22 @@
           "nullable": false,
           "default": "true",
           "rule": "false면 서비스·무형(WMS 조회 대상 아님)"
+        },
+        {
+          "name": "plm_part_no",
+          "label": "PLM 부품 번호",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-90 PLM에서 가져오기 — 배포 리비전 스냅샷"
+        },
+        {
+          "name": "plm_revision",
+          "label": "PLM 리비전",
+          "type": "varchar(10)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-90 plm_part_no와 함께"
         }
       ],
       "note": "",
@@ -3250,6 +3282,14 @@
           "nullable": true,
           "default": null,
           "rule": ""
+        },
+        {
+          "name": "crm_account_code",
+          "label": "CRM 고객사 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-90 CRM에서 가져오기(DSN-25 Q1)"
         }
       ],
       "guest_cleanup": "업무 자식 우선 삭제",
@@ -3318,6 +3358,14 @@
           "nullable": true,
           "default": null,
           "rule": ""
+        },
+        {
+          "name": "scm_forecast_ref",
+          "label": "SCM 확정 예측",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-90 SCM에서 가져오기(DSN-26 Q3), 추적용"
         },
         {
           "name": "created_at",
@@ -5179,6 +5227,14 @@
           "rule": ""
         },
         {
+          "name": "crm_quote_request_no",
+          "label": "CRM 견적 요청 번호",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-90 CRM 견적 요청 → 견적 초안(DSN-25 Q2)"
+        },
+        {
           "name": "created_at",
           "label": "등록 시각",
           "type": "timestamptz",
@@ -5541,6 +5597,14 @@
           "nullable": true,
           "default": null,
           "rule": ""
+        },
+        {
+          "name": "plm_bom_ref",
+          "label": "PLM E-BOM",
+          "type": "varchar(50)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-90 '부품 번호:리비전' — 제조 BOM의 출처(DSN-24 Q4)"
         },
         {
           "name": "created_at",
@@ -8182,6 +8246,22 @@
           "nullable": true,
           "default": null,
           "rule": ""
+        },
+        {
+          "name": "plm_part_no",
+          "label": "PLM 부품 번호",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-90 PLM에서 가져오기 — 배포 리비전 스냅샷"
+        },
+        {
+          "name": "plm_revision",
+          "label": "PLM 리비전",
+          "type": "varchar(10)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-90 plm_part_no와 함께"
         },
         {
           "name": "created_at",
@@ -20829,6 +20909,14 @@
           "rule": ""
         },
         {
+          "name": "crm_inquiry_no",
+          "label": "CRM 품질 문의 번호",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-90 CRM 품질 문의 → 클레임(DSN-25 Q4)"
+        },
+        {
           "name": "created_at",
           "label": "등록 시각",
           "type": "timestamptz",
@@ -21140,6 +21228,14 @@
           "nullable": true,
           "default": null,
           "rule": ""
+        },
+        {
+          "name": "plm_eco_no",
+          "label": "PLM ECO 번호",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-90 PLM 배포 ECO → 4M 후보(DSN-24 Q3)"
         },
         {
           "name": "created_at",
@@ -54309,7 +54405,7 @@
       "columns": [
         "document_type"
       ],
-      "expression": "document_type IN ('OPENING', 'MES_RECEIPT', 'MES_ISSUE', 'ERP_SHIPMENT', 'ERP_PURCHASE', 'WMS_INSPECTION', 'ADJUSTMENT', 'TRANSFER', 'REVERSAL', 'MES_ADJUST', 'MES_SUBCONTRACT', 'ERP_SALES_RETURN', 'ERP_PURCHASE_RETURN', 'PRODUCTION_ISSUE', 'PUTAWAY', 'PICK', 'CYCLE_COUNT')",
+      "expression": "document_type IN ('OPENING', 'MES_RECEIPT', 'MES_ISSUE', 'ERP_SHIPMENT', 'ERP_PURCHASE', 'WMS_INSPECTION', 'ADJUSTMENT', 'TRANSFER', 'REVERSAL', 'MES_ADJUST', 'MES_SUBCONTRACT', 'ERP_SALES_RETURN', 'ERP_PURCHASE_RETURN', 'CMMS_ISSUE', 'PRODUCTION_ISSUE', 'PUTAWAY', 'PICK', 'CYCLE_COUNT')",
       "reason": "전표 유형 값"
     },
     {
@@ -54348,7 +54444,7 @@
         "document_type",
         "source_key"
       ],
-      "expression": "(document_type IN ('MES_RECEIPT', 'MES_ISSUE', 'ERP_SHIPMENT', 'ERP_PURCHASE', 'WMS_INSPECTION', 'REVERSAL', 'MES_ADJUST', 'MES_SUBCONTRACT', 'ERP_SALES_RETURN', 'ERP_PURCHASE_RETURN')) = (source_key IS NOT NULL)",
+      "expression": "(document_type IN ('MES_RECEIPT', 'MES_ISSUE', 'ERP_SHIPMENT', 'ERP_PURCHASE', 'WMS_INSPECTION', 'REVERSAL', 'MES_ADJUST', 'MES_SUBCONTRACT', 'ERP_SALES_RETURN', 'ERP_PURCHASE_RETURN', 'CMMS_ISSUE')) = (source_key IS NOT NULL)",
       "reason": "원천 반영·되돌림만 원천 키"
     },
     {
@@ -60956,7 +61052,7 @@
       "columns": [
         "invoice_kind"
       ],
-      "expression": "invoice_kind IN ('PO_RECEIPT', 'DIRECT', 'SUBCONTRACT')",
+      "expression": "invoice_kind IN ('PO_RECEIPT', 'DIRECT', 'SUBCONTRACT', 'FREIGHT', 'INDIRECT')",
       "reason": "매입 종류 값"
     },
     {
@@ -72799,6 +72895,93 @@
       ],
       "expression": "",
       "reason": "조회"
+    },
+    {
+      "table": "erp.partner",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "crm_account_code"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, crm_account_code) WHERE crm_account_code IS NOT NULL",
+      "reason": "CRM 고객사당 거래처 1건"
+    },
+    {
+      "table": "erp.quotation",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "crm_quote_request_no"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, crm_quote_request_no) WHERE crm_quote_request_no IS NOT NULL AND revision_no = 1",
+      "reason": "CRM 견적 요청당 견적 1건(개정은 같은 견적)"
+    },
+    {
+      "table": "qms.claim",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "crm_inquiry_no"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, crm_inquiry_no) WHERE crm_inquiry_no IS NOT NULL",
+      "reason": "CRM 문의당 클레임 1건"
+    },
+    {
+      "table": "qms.change_notice",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "plm_eco_no",
+        "item_code"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, plm_eco_no, item_code) WHERE plm_eco_no IS NOT NULL AND status <> 'REJECTED'",
+      "reason": "ECO·품목당 진행 4M 1건"
+    },
+    {
+      "table": "qms.ncr",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "origin",
+        "source_ref"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, origin, source_ref) WHERE source_ref IS NOT NULL",
+      "reason": "원천(SPC 이탈 등)당 NCR 1건"
+    },
+    {
+      "table": "erp.item",
+      "kind": "CHECK",
+      "columns": [
+        "plm_part_no",
+        "plm_revision"
+      ],
+      "expression": "(plm_part_no IS NULL) = (plm_revision IS NULL)",
+      "reason": "PLM 번호·리비전 함께"
+    },
+    {
+      "table": "mes.item",
+      "kind": "CHECK",
+      "columns": [
+        "plm_part_no",
+        "plm_revision"
+      ],
+      "expression": "(plm_part_no IS NULL) = (plm_revision IS NULL)",
+      "reason": "PLM 번호·리비전 함께"
+    },
+    {
+      "table": "wms.item",
+      "kind": "CHECK",
+      "columns": [
+        "plm_part_no",
+        "plm_revision"
+      ],
+      "expression": "(plm_part_no IS NULL) = (plm_revision IS NULL)",
+      "reason": "PLM 번호·리비전 함께"
     }
   ],
   "states": [
@@ -74284,7 +74467,8 @@
         "PRODUCTION_ISSUE",
         "PUTAWAY",
         "PICK",
-        "CYCLE_COUNT"
+        "CYCLE_COUNT",
+        "CMMS_ISSUE"
       ],
       "default": null,
       "note": "MES_*·ERP_* = 읽기 전용 조회로 반영한 원천(D14)"
@@ -75048,6 +75232,13 @@
       "task": "DSN-30",
       "date": "2026-10-05",
       "change": "HR 신규: hr 19테이블(부서·직위/직책·근무 형태·사원·발령·자격/교육·일 근태·월 근태 마감·연차 발생·휴가 신청·급여 항목·급여 기준·고정 수당·상여 규칙·급여 실행·급여명세서·명세 항목·평가 기간·인사 평가), 모듈 키 hr. 민감 정보 칸 없음. 업무 스키마 간 FK 0",
+      "status": "설계 전용"
+    },
+    {
+      "version": "target-0.19.0",
+      "task": "DSN-90",
+      "date": "2026-10-05",
+      "change": "통합 검증 보정: 가져오기 원천 번호 칸(ERP 거래처·견적·판매계획, ERP·MES·WMS 품목 PLM 리비전, MES BOM, QMS 클레임·4M) + 멱등 UK, QMS NCR 원천당 1건, ERP 매입 종류 FREIGHT(TMS 운송비)·INDIRECT(ELB 비재고), WMS 문서 CMMS_ISSUE(정비 부품 출고). 교차 FK 0",
       "status": "설계 전용"
     }
   ]

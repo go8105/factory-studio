@@ -263,6 +263,8 @@ erDiagram
     numeric standard_cost "표준 원가 NULL"
     numeric standard_price "표준 판매가 NULL"
     boolean track_stock "재고 관리"
+    varchar plm_part_no "PLM 부품 번호 NULL"
+    varchar plm_revision "PLM 리비전 NULL"
   }
   erp_item_unit_conversion {
     bigint id PK "내부 식별자"
@@ -342,6 +344,7 @@ erDiagram
     integer credit_days "여신 기간(일) NULL"
     bigint sale_price_group_id FK "판매 단가 그룹 NULL"
     bigint purchase_price_group_id FK "구매 단가 그룹 NULL"
+    varchar crm_account_code "CRM 고객사 코드 NULL"
   }
   erp_partner_item_price {
     bigint id PK "내부 식별자"
@@ -623,6 +626,7 @@ erDiagram
     date valid_until "유효기한 NULL"
     varchar status "상태"
     text remark "비고 NULL"
+    varchar crm_quote_request_no "CRM 견적 요청 번호 NULL"
     timestamptz created_at "등록 시각"
   }
   erp_quotation_line {
@@ -735,6 +739,7 @@ erDiagram
     varchar target_month "대상 연월"
     varchar status "상태"
     timestamptz confirmed_at "확정 시각 NULL"
+    varchar scm_forecast_ref "SCM 확정 예측 NULL"
     timestamptz created_at "등록 시각"
   }
   erp_sales_plan_line {

@@ -1262,6 +1262,8 @@ erDiagram
     numeric standard_cost "표준 원가 NULL"
     numeric standard_price "표준 판매가 NULL"
     boolean track_stock "재고 관리"
+    varchar plm_part_no "PLM 부품 번호 NULL"
+    varchar plm_revision "PLM 리비전 NULL"
   }
   erp_item_unit_conversion {
     bigint id PK "내부 식별자"
@@ -1341,6 +1343,7 @@ erDiagram
     integer credit_days "여신 기간(일) NULL"
     bigint sale_price_group_id FK "판매 단가 그룹 NULL"
     bigint purchase_price_group_id FK "구매 단가 그룹 NULL"
+    varchar crm_account_code "CRM 고객사 코드 NULL"
   }
   erp_partner_item_price {
     bigint id PK "내부 식별자"
@@ -1622,6 +1625,7 @@ erDiagram
     date valid_until "유효기한 NULL"
     varchar status "상태"
     text remark "비고 NULL"
+    varchar crm_quote_request_no "CRM 견적 요청 번호 NULL"
     timestamptz created_at "등록 시각"
   }
   erp_quotation_line {
@@ -1734,6 +1738,7 @@ erDiagram
     varchar target_month "대상 연월"
     varchar status "상태"
     timestamptz confirmed_at "확정 시각 NULL"
+    varchar scm_forecast_ref "SCM 확정 예측 NULL"
     timestamptz created_at "등록 시각"
   }
   erp_sales_plan_line {
@@ -2627,6 +2632,7 @@ erDiagram
     integer version_no "버전 번호"
     varchar status "상태"
     timestamptz published_at "게시 시각 NULL"
+    varchar plm_bom_ref "PLM E-BOM NULL"
     timestamptz created_at "등록 시각"
   }
   mes_defect_code {
@@ -2722,6 +2728,8 @@ erDiagram
     boolean barcode_enabled "바코드 사용"
     numeric box_qty "박스 입수 NULL"
     integer boxes_per_pallet "팔레트당 박스 수 NULL"
+    varchar plm_part_no "PLM 부품 번호 NULL"
+    varchar plm_revision "PLM 리비전 NULL"
     timestamptz created_at "등록 시각"
   }
   mes_item_unit_conversion {
@@ -3499,6 +3507,7 @@ erDiagram
     timestamptz decided_at "승인·반려 시각 NULL"
     varchar decision_note "승인 의견 NULL"
     bigint first_article_inspection_id FK "초품 검사 NULL"
+    varchar plm_eco_no "PLM ECO 번호 NULL"
     timestamptz created_at "등록 시각"
   }
   qms_claim {
@@ -3518,6 +3527,7 @@ erDiagram
     varchar response "회신 내용 NULL"
     date responded_on "회신일 NULL"
     timestamptz closed_at "종결 시각 NULL"
+    varchar crm_inquiry_no "CRM 품질 문의 번호 NULL"
     timestamptz created_at "등록 시각"
   }
   qms_defect_type {
@@ -4376,6 +4386,8 @@ erDiagram
     numeric safety_stock "안전 재고 NULL"
     numeric max_stock "최대 재고 NULL"
     varchar abc_class "ABC 등급 NULL"
+    varchar plm_part_no "PLM 부품 번호 NULL"
+    varchar plm_revision "PLM 리비전 NULL"
     timestamptz created_at "등록 시각"
   }
   wms_item_unit_conversion {

@@ -42,6 +42,7 @@ erDiagram
     integer version_no "버전 번호"
     varchar status "상태"
     timestamptz published_at "게시 시각 NULL"
+    varchar plm_bom_ref "PLM E-BOM NULL"
     timestamptz created_at "등록 시각"
   }
   mes_defect_code {
@@ -137,6 +138,8 @@ erDiagram
     boolean barcode_enabled "바코드 사용"
     numeric box_qty "박스 입수 NULL"
     integer boxes_per_pallet "팔레트당 박스 수 NULL"
+    varchar plm_part_no "PLM 부품 번호 NULL"
+    varchar plm_revision "PLM 리비전 NULL"
     timestamptz created_at "등록 시각"
   }
   mes_item_unit_conversion {

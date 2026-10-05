@@ -36,6 +36,13 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-90 통합 검증 (Claude Code)
+- 보고서 `docs/plan/통합검증_DSN-90.md`: **교차 조회 계약 전체 표(제공 109함수, 현재 코드 19 + 신규 90, 공통 4종 enabled·monthly_summary·pending_tasks·lookup)** — 이 표가 계약 기준본. 문서 간 불일치 9종 34건 정리(구매 요청 원천 오기, 부서 원천 HR, 공통 함수 누락, WMS `pending_tasks` → `pop_tasks` 개명, TMS `open_shipment_orders` → ERP `shipment_orders`, 제공 누락 12·받는 쪽 누락 6, POP 동시성은 pop_import UK로 확인).
+- 업무 흐름 S1~S8(수주~매출·구매~매입·설비~보전·품질·간접 구매·사람/급여·에너지·설계 변경) 62단계를 받는 표·칸·멱등 키까지 추적. 시드 시나리오(한 회사·공통 코드 사전·M-3~M-1 확정 + M 진행·흐름별 완료 1 + 중간 1·솔루션당 ~3,000행).
+- 목표 DB 보정 `tools/apply_dsn90.py` → target-0.19.0: 가져오기 원천 번호 칸(ERP 거래처 `crm_account_code`·견적 `crm_quote_request_no`·판매계획 `scm_forecast_ref`, ERP·MES·WMS 품목 `plm_part_no/revision`, MES BOM `plm_bom_ref`, QMS 클레임 `crm_inquiry_no`·4M `plm_eco_no`) + 멱등 UK, QMS NCR 원천당 1건, ERP 매입 `FREIGHT`·`INDIRECT`, WMS 문서 `CMMS_ISSUE`. 검증기 `validate_integration_dsn90`(흐름 칸 38·멱등 키 17·원천 종류 10), `test_dsn90`.
+- GW 대조: Codex `codex/fs-030-gw` `08c91d9`(GW 실제 회사 도입 P0/A 설계)는 목표 DB·기준표 형식이 아니고, GW 조직·소속(A)과 인사·근태·휴가(D)가 HR DSN-30과 겹친다 → 결정 4건 대기(보고서 7장). 브랜치는 main `1f96532`에서 갈라져 기준 문서 충돌 예상, 미병합.
+- 검증(통과를 커밋 조건으로): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(340·컬럼 3,923·UK 683·CHECK 834·INDEX 218·UNIQUE_INDEX 99·FK 812)**·ERD·Excel·tools 73 + DSN 45·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-30 HR 신규 설계 완료 (Claude Code)
 - 결정: Q1 **HR이 사원·부서 코드 원천**(각 솔루션 "HR에서 가져오기", 자동 동기화 없음) · Q2 근태 자동 생성 + 예외 수정 · Q3 HR 자체 부서장 휴가 승인 · Q4 월급제·합성 고정 비율 공제·확정 불변·ERP에는 부서·항목별 합계 · Q5 정기 상여·퇴직금 추계 · Q6 자격·교육 + **인사 평가 포함**(제안과 다름) · Q7 본인 조회 · 범위 24/26(민감 정보·신고 제외, D79).
 - 문서 `docs/modules/hr/HR_설계_DSN-30.md` + README: 기준표 26, 기능 규칙 7묶음, DB hr 19, 화면 14(HR-01~14), 교차 조회(`employees`·`departments`·`payroll_runs`·`monthly_summary`·`pending_tasks`·`lookup` 제공, core `holidays`·EIP `my_employee_code` 요청 — ERP·EIP 문서에 메모).

@@ -198,6 +198,7 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_rws_dsn29(d))
     if 'hr.employee' in {t['name'] for t in d['tables']}:
         errors.extend(validate_hr_dsn30(d))
+        errors.extend(validate_integration_dsn90(d))
     return errors
 
 
@@ -542,6 +543,51 @@ def validate_hr_dsn30(d):
     require(any(c['table'] == 'hr.payslip' and 'net_pay = gross_pay - deduction_total' in c['expression'] for c in cs), 'net pay equals gross minus deductions')
     require(all(r['target'].split('.')[0] in ('hr', 'core') for r in rs if r['source'].startswith('hr.')), 'HR FKs stay inside hr/core anchors')
     require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'hr'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key hr')
+    return errors
+
+
+# DSN-90 통합 흐름이 기대는 받는 쪽 칸 — (흐름, 표, 칸). docs/plan/통합검증_DSN-90.md 4장
+DSN90_FLOW_COLUMNS = [
+    ('S1', 'crm.account', 'erp_partner_code'), ('S1', 'erp.partner', 'crm_account_code'), ('S1', 'erp.quotation', 'crm_quote_request_no'),
+    ('S1', 'erp.sales_plan', 'scm_forecast_ref'), ('S1', 'mes.production_plan', 'sales_plan_code'), ('S1', 'mes.pop_import', 'pop_entry_ref'),
+    ('S1', 'wms.pop_import', 'pop_entry_ref'), ('S1', 'tms.dispatch_stop', 'shipment_order_no'),
+    ('S2', 'erp.purchase_request', 'source_ref'), ('S2', 'tms.dispatch_stop', 'po_no'), ('S2', 'tms.dispatch_stop', 'inbound_notice_no'),
+    ('S2', 'wms.lot_hold', 'source_ref'), ('S2', 'erp.purchase_invoice', 'source_ref'),
+    ('S3', 'cmms.asset', 'source_code'), ('S3', 'cmms.work_order', 'source_ref'), ('S3', 'rws.request', 'source_ref'),
+    ('S4', 'qms.ncr', 'source_ref'), ('S4', 'qms.claim', 'crm_inquiry_no'), ('S4', 'qms.change_notice', 'plm_eco_no'),
+    ('S5', 'elb.request', 'card_txn_ref'),
+    ('S6', 'erp.journal_entry', 'source_ref'), ('S6', 'eip.person_link', 'hr_employee_code'),
+    ('S7', 'fems.production_record', 'source_key'), ('S7', 'bems.demand_plan', 'fems_alarm_ref'),
+    ('S8', 'erp.item', 'plm_part_no'), ('S8', 'mes.item', 'plm_part_no'), ('S8', 'wms.item', 'plm_part_no'), ('S8', 'mes.bom_version', 'plm_bom_ref'),
+] + [('S6', t, c) for t, c in (('mes.worker', 'hr_employee_code'), ('pop.operator', 'hr_employee_code'), ('cmms.technician', 'hr_employee_code'),
+     ('gw.person', 'hr_employee_code'), ('crm.sales_rep', 'hr_employee_code'), ('erp.employee', 'hr_employee_code'), ('rws.expert', 'hr_employee_code'),
+     ('elb.approver', 'hr_employee_code'), ('elb.request', 'requester_hr_code'), ('qms.capa', 'owner_hr_code'))]
+# 같은 원천을 두 번 가져오지 않게 하는 유일 키(멱등)
+DSN90_IDEMPOTENT = [('mes.pop_import', 'pop_entry_ref'), ('wms.pop_import', 'pop_entry_ref'), ('erp.partner', 'crm_account_code'),
+    ('erp.quotation', 'crm_quote_request_no'), ('qms.claim', 'crm_inquiry_no'), ('qms.change_notice', 'plm_eco_no'), ('qms.ncr', 'source_ref'),
+    ('erp.purchase_request', 'source_ref'), ('erp.purchase_invoice', 'source_ref'), ('cmms.work_order', 'source_ref'), ('cmms.asset', 'source_code'),
+    ('rws.request', 'source_ref'), ('erp.journal_entry', 'source_ref'), ('wms.stock_document', 'source_key'), ('bems.demand_plan', 'fems_alarm_ref'),
+    ('elb.request', 'card_txn_ref'), ('fems.production_record', 'source_key')]
+# 원천 종류 값 — (표, CHECK에 있어야 할 값)
+DSN90_CODES = [('erp.purchase_request', "'MES'"), ('erp.purchase_request', "'CMMS'"), ('erp.purchase_request', "'ELB'"),
+    ('erp.purchase_invoice', "'FREIGHT'"), ('erp.purchase_invoice', "'INDIRECT'"), ('wms.stock_document', "'CMMS_ISSUE'"),
+    ('erp.journal_entry', "'PAYROLL'"), ('erp.journal_entry', "'CARD'"), ('cmms.work_order', "'RWS_REQUEST'"), ('qms.inspection', "'WMS'")]
+
+
+def validate_integration_dsn90(d):
+    """DSN-90 통합 계약: 흐름 S1~S8의 받는 쪽 칸 존재·가져오기 멱등 UK·원천 종류 값. 교차 FK 0은 audit_schema_isolation이 본다."""
+    errors = []
+    cs = d['constraints']
+    ts = {t['name']: {c['name'] for c in t['columns']} for t in d['tables']}
+    for flow, t, col in DSN90_FLOW_COLUMNS:
+        if col not in ts.get(t, ()):
+            errors.append(f'DSN-90 {flow}: {t}.{col} missing (cross-solution flow needs the source code snapshot)')
+    for t, col in DSN90_IDEMPOTENT:
+        if not any(c['table'] == t and c['kind'] in ('UK', 'UK_PARTIAL') and col in c['columns'] for c in cs):
+            errors.append(f'DSN-90: {t}.{col} needs a unique key so the same source is imported once')
+    for t, value in DSN90_CODES:
+        if not any(c['table'] == t and c['kind'] == 'CHECK' and value in c['expression'] for c in cs):
+            errors.append(f'DSN-90: {t} source kind {value} missing')
     return errors
 
 
