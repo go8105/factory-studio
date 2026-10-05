@@ -182,6 +182,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_cmms_dsn21(d))
     if 'pop.entry' in {t['name'] for t in d['tables']}:
         errors.extend(validate_pop_dsn22(d))
+    if 'tms.dispatch' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_tms_dsn23(d))
     return errors
 
 
@@ -375,6 +377,24 @@ def validate_pop_dsn22(d):
     require(any(c['table'] == 'pop.entry' and c['reason'] == '확정·지연 가져오기(Q1)' for c in cs), 'lazy pull by MES/WMS (Q1)')
     require('pop.operator' in ts, 'POP owns its operators (Q2)')
     require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'pop'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key pop')
+    return errors
+
+
+def validate_tms_dsn23(d):
+    """DSN-23 TMS 계약: ERP·WMS 경계(FK 없음·번호 스냅샷, Q1·Q6)·출하지시당 살아 있는 배송 1건·용차는 운송사·운송사 월 확정 정산 1건(Q5)·모듈 키."""
+    errors = []
+    cs, rs = d['constraints'], d['relations']
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-23: ' + message)
+    def partial(t, cols, word):
+        return any(c['table'] == t and c['kind'] == 'UK_PARTIAL' and c['columns'] == SCOPE + cols and word in c['expression'] for c in cs)
+    require(all(r['target'].split('.')[0] in ('tms', 'core') for r in rs if r['source'].startswith('tms.')), 'TMS FKs stay inside tms/core anchors')
+    require(any(c['table'] == 'tms.dispatch' and c['reason'] == 'ERP·WMS 경계(Q1·Q6)' for c in cs), 'TMS does not change ERP/WMS (Q1·Q6)')
+    require(partial('tms.dispatch_stop', ['shipment_order_no'], "NOT IN ('FAILED', 'CANCELLED')"), 'one live delivery per shipment order')
+    require(any(c['table'] == 'tms.vehicle' and "(ownership = 'HIRED') = (carrier_id IS NOT NULL)" in c['expression'] for c in cs), 'hired vehicle needs carrier (Q2)')
+    require(partial('tms.settlement', ['carrier_id', 'settle_month'], "status = 'confirmed'"), 'one confirmed settlement per carrier month (Q5)')
+    require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'tms'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key tms')
     return errors
 
 

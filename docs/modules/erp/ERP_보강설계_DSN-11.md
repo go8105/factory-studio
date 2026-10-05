@@ -319,6 +319,8 @@
 
 > 이 표의 신규 함수 이름은 설계 초안이다. 제공 솔루션의 DSN(WMS 13·MES 12·HR)에서 계약을 확정한다.
 
+> TMS DSN-23 반영(2026-10-05): ERP는 TMS `loaded_shipments`(출하 확정 대기)·`deliveries`(납품 확인·반품 후보)·`carrier_settlements`(운송비 직접 매입)를 읽는다.
+
 ## 7. 결정 질문 (하나씩 확정)
 
 | # | 질문 | 제안 |

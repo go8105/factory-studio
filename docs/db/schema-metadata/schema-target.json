@@ -1,6 +1,6 @@
 {
-  "version": "target-0.10.0",
-  "task": "DSN-22",
+  "version": "target-0.11.0",
+  "task": "DSN-23",
   "base_task": "FS-029a",
   "target": true,
   "date": "2026-10-05",
@@ -25396,6 +25396,1044 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "tms.carrier",
+      "label": "운송사",
+      "scope": "generation",
+      "phase": "DSN-23",
+      "retention": "세대 정리",
+      "note": "DSN-23 F02(Q2). 용차 업체. ERP 거래처 코드 스냅샷(정산 → ERP 매입)",
+      "sub_module": "master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "운송사 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "운송사명",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "erp_partner_code",
+          "label": "ERP 거래처 코드",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "phone",
+          "label": "연락처",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "tms.vehicle",
+      "label": "차량",
+      "scope": "generation",
+      "phase": "DSN-23",
+      "retention": "세대 정리",
+      "note": "DSN-23 F01(Q2). 자차·용차(운송사 필수). 적재 한도는 적재율 경고 기준",
+      "sub_module": "master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "vehicle_no",
+          "label": "차량 번호",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": "합성 번호"
+        },
+        {
+          "name": "ownership",
+          "label": "구분",
+          "type": "varchar(5)",
+          "nullable": false,
+          "default": null,
+          "rule": "OWN 자차 / HIRED 용차"
+        },
+        {
+          "name": "carrier_id",
+          "label": "운송사",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "tonnage",
+          "label": "톤수",
+          "type": "numeric(5,1)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "max_weight_kg",
+          "label": "적재 중량(kg)",
+          "type": "numeric(10,1)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "max_volume_m3",
+          "label": "적재 용적(㎥)",
+          "type": "numeric(8,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "tms.driver",
+      "label": "기사",
+      "scope": "generation",
+      "phase": "DSN-23",
+      "retention": "세대 정리",
+      "note": "DSN-23 F03. 이름·연락처(합성)만. 기사 화면 식별 = 기사 코드",
+      "sub_module": "master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "기사 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "이름",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "phone",
+          "label": "연락처",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "carrier_id",
+          "label": "소속 운송사",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "NULL이면 자사 기사"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "tms.zone",
+      "label": "배송 권역",
+      "scope": "generation",
+      "phase": "DSN-23",
+      "retention": "세대 정리",
+      "note": "DSN-23 F05. 운임표의 단위",
+      "sub_module": "master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "권역 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "권역명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "tms.delivery_point",
+      "label": "배송지",
+      "scope": "generation",
+      "phase": "DSN-23",
+      "retention": "세대 정리",
+      "note": "DSN-23 F04. 납품처(ERP 거래처 코드·주소 스냅샷) + 하차 조건. 조달 운송의 상차지(공급처)도 같은 표",
+      "sub_module": "master",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "배송지 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "partner_code",
+          "label": "ERP 거래처 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "배송지명",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "address",
+          "label": "주소",
+          "type": "varchar(300)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "zone_id",
+          "label": "권역",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "unload_note",
+          "label": "하차 조건",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "tms.freight_rate",
+      "label": "운임표",
+      "scope": "generation",
+      "phase": "DSN-23",
+      "retention": "세대 정리",
+      "note": "DSN-23 F05·F31(Q5). 권역 × 톤수 기본 운임 + 경유지·대기 추가 요금. 적용일 이력",
+      "sub_module": "freight",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "zone_id",
+          "label": "권역",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "tonnage",
+          "label": "톤수",
+          "type": "numeric(5,1)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "base_rate",
+          "label": "기본 운임",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "extra_stop_rate",
+          "label": "경유지 1곳 추가",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "waiting_rate_per_hour",
+          "label": "대기 시간당",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "currency",
+          "label": "통화",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": "'KRW'",
+          "rule": ""
+        },
+        {
+          "name": "valid_from",
+          "label": "적용일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "tms.dispatch",
+      "label": "배차",
+      "scope": "generation",
+      "phase": "DSN-23",
+      "retention": "세대 정리",
+      "note": "DSN-23 F12~F14·F21·F22(Q1·Q3·Q6). 차량 1대의 하루 운행 1건. 출하(OUTBOUND)·조달(INBOUND). 적재 합계·운임은 확정 시 스냅샷",
+      "sub_module": "dispatch",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "dispatch_no",
+          "label": "배차 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "dispatch_on",
+          "label": "운행일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "direction",
+          "label": "방향",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "OUTBOUND 출하 / INBOUND 조달"
+        },
+        {
+          "name": "vehicle_id",
+          "label": "차량",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "driver_id",
+          "label": "기사",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'PLANNED'",
+          "rule": "PLANNED / LOADED / DEPARTED / COMPLETED / CANCELLED"
+        },
+        {
+          "name": "loaded_at",
+          "label": "상차 완료",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "departed_at",
+          "label": "출발",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "completed_at",
+          "label": "운행 완료",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "total_weight_kg",
+          "label": "적재 중량 합(kg)",
+          "type": "numeric(12,1)",
+          "nullable": true,
+          "default": null,
+          "rule": "상차 완료 시 스냅샷"
+        },
+        {
+          "name": "total_volume_m3",
+          "label": "적재 용적 합(㎥)",
+          "type": "numeric(10,2)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "settlement_id",
+          "label": "운송사 정산",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "용차만"
+        },
+        {
+          "name": "cancel_reason",
+          "label": "취소 사유",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "tms.dispatch_stop",
+      "label": "배송지 방문",
+      "scope": "generation",
+      "phase": "DSN-23",
+      "retention": "세대 정리",
+      "note": "DSN-23 F11·F21·F23·F24. 배차의 순서별 방문. 출하는 ERP 출하지시 번호, 조달은 ERP 발주·WMS 입고 예정 번호 스냅샷",
+      "sub_module": "dispatch",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "dispatch_id",
+          "label": "배차",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "seq",
+          "label": "방문 순서",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kind",
+          "label": "종류",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "DELIVERY 납품 / PICKUP 조달 상차"
+        },
+        {
+          "name": "delivery_point_id",
+          "label": "배송지",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "shipment_order_no",
+          "label": "ERP 출하지시 번호",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "po_no",
+          "label": "ERP 발주 번호",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "inbound_notice_no",
+          "label": "WMS 입고 예정 번호",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "weight_kg",
+          "label": "중량(kg)",
+          "type": "numeric(12,1)",
+          "nullable": false,
+          "default": null,
+          "rule": "품목 단위 중량(MES 조회) × 수량 스냅샷"
+        },
+        {
+          "name": "volume_m3",
+          "label": "용적(㎥)",
+          "type": "numeric(10,2)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'PENDING'",
+          "rule": "PENDING / LOADED / ARRIVED / DELIVERED / PARTIAL / FAILED / CANCELLED"
+        },
+        {
+          "name": "loaded_at",
+          "label": "상차 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "arrived_at",
+          "label": "도착 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "finished_at",
+          "label": "인수·실패 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "receiver_name",
+          "label": "인수자",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "fail_reason",
+          "label": "실패 사유",
+          "type": "varchar(10)",
+          "nullable": true,
+          "default": null,
+          "rule": "ABSENT 부재 / REFUSED 거부 / DAMAGED 파손 / OTHER"
+        },
+        {
+          "name": "note",
+          "label": "메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "tms.dispatch_charge",
+      "label": "운행 비용",
+      "scope": "generation",
+      "phase": "DSN-23",
+      "retention": "세대 정리",
+      "note": "DSN-23 F31·F33(Q5·Q7). 운임(기본·경유·대기)과 자차 운행비(유류·통행료). 운행 완료 시 운임 행 생성",
+      "sub_module": "freight",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "dispatch_id",
+          "label": "배차",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kind",
+          "label": "종류",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "BASE / EXTRA_STOP / WAITING / TOLL / FUEL / OTHER"
+        },
+        {
+          "name": "amount",
+          "label": "금액",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "currency",
+          "label": "통화",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": "'KRW'",
+          "rule": ""
+        },
+        {
+          "name": "note",
+          "label": "메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "tms.settlement",
+      "label": "운송사 정산",
+      "scope": "generation",
+      "phase": "DSN-23",
+      "retention": "세대 정리",
+      "note": "DSN-23 F32(Q5). 용차 운송사 월 정산서. 확정 1건(취소 후 재작성). ERP가 읽어 직접 매입",
+      "sub_module": "freight",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "settlement_no",
+          "label": "정산 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "carrier_id",
+          "label": "운송사",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "settle_month",
+          "label": "정산 월",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY-MM'"
+        },
+        {
+          "name": "total_amount",
+          "label": "정산 금액",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "currency",
+          "label": "통화",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": "'KRW'",
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / confirmed / cancelled"
+        },
+        {
+          "name": "confirmed_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cancel_reason",
+          "label": "취소 사유",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
     }
   ],
   "relations": [
@@ -35249,6 +36287,343 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "호출자"
+    },
+    {
+      "source": "tms.carrier",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "tms.vehicle",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "tms.driver",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "tms.zone",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "tms.delivery_point",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "tms.freight_rate",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "tms.dispatch",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "tms.dispatch_stop",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "tms.dispatch_charge",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "tms.settlement",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "tms.vehicle",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "carrier_id"
+      ],
+      "target": "tms.carrier",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "운송사"
+    },
+    {
+      "source": "tms.driver",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "carrier_id"
+      ],
+      "target": "tms.carrier",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "소속 운송사"
+    },
+    {
+      "source": "tms.delivery_point",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id"
+      ],
+      "target": "tms.zone",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "권역"
+    },
+    {
+      "source": "tms.freight_rate",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id"
+      ],
+      "target": "tms.zone",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "권역"
+    },
+    {
+      "source": "tms.dispatch",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "vehicle_id"
+      ],
+      "target": "tms.vehicle",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "차량"
+    },
+    {
+      "source": "tms.dispatch",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "driver_id"
+      ],
+      "target": "tms.driver",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "기사"
+    },
+    {
+      "source": "tms.dispatch",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "settlement_id"
+      ],
+      "target": "tms.settlement",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "운송사 정산"
+    },
+    {
+      "source": "tms.dispatch_stop",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "dispatch_id"
+      ],
+      "target": "tms.dispatch",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "배차"
+    },
+    {
+      "source": "tms.dispatch_stop",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "delivery_point_id"
+      ],
+      "target": "tms.delivery_point",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "배송지"
+    },
+    {
+      "source": "tms.dispatch_charge",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "dispatch_id"
+      ],
+      "target": "tms.dispatch",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "배차"
+    },
+    {
+      "source": "tms.settlement",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "carrier_id"
+      ],
+      "target": "tms.carrier",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "운송사"
     }
   ],
   "constraints": [
@@ -35446,7 +36821,7 @@
       "table": "core.workspace_module",
       "kind": "CHECK",
       "columns": [],
-      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms', 'pop')",
+      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms', 'pop', 'tms')",
       "reason": "행 내부 데이터 정합성"
     },
     {
@@ -43687,7 +45062,7 @@
       "columns": [
         "module_key"
       ],
-      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms', 'pop')",
+      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms', 'pop', 'tms')",
       "reason": "평가 대상 솔루션"
     },
     {
@@ -53875,6 +55250,646 @@
       ],
       "expression": "",
       "reason": "가져오기·목록 조회"
+    },
+    {
+      "table": "tms.carrier",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "tms.carrier",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "tms.vehicle",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "tms.vehicle",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "tms.driver",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "tms.driver",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "tms.zone",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "tms.zone",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "tms.delivery_point",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "tms.delivery_point",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "tms.freight_rate",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "tms.freight_rate",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "tms.dispatch",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "tms.dispatch",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "tms.dispatch_stop",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "tms.dispatch_stop",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "tms.dispatch_charge",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "tms.dispatch_charge",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "tms.settlement",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "tms.settlement",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "tms.carrier",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "tms.carrier",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "tms.driver",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "tms.driver",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "tms.zone",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "tms.zone",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "tms.delivery_point",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "tms.delivery_point",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "tms.dispatch",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "dispatch_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "tms.dispatch",
+      "kind": "CHECK",
+      "columns": [
+        "dispatch_no"
+      ],
+      "expression": "length(btrim(dispatch_no)) > 0",
+      "reason": "번호 필수"
+    },
+    {
+      "table": "tms.settlement",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "settlement_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "tms.settlement",
+      "kind": "CHECK",
+      "columns": [
+        "settlement_no"
+      ],
+      "expression": "length(btrim(settlement_no)) > 0",
+      "reason": "번호 필수"
+    },
+    {
+      "table": "tms.freight_rate",
+      "kind": "CHECK",
+      "columns": [
+        "currency"
+      ],
+      "expression": "currency = 'KRW'",
+      "reason": "KRW 고정"
+    },
+    {
+      "table": "tms.dispatch_charge",
+      "kind": "CHECK",
+      "columns": [
+        "currency"
+      ],
+      "expression": "currency = 'KRW'",
+      "reason": "KRW 고정"
+    },
+    {
+      "table": "tms.settlement",
+      "kind": "CHECK",
+      "columns": [
+        "currency"
+      ],
+      "expression": "currency = 'KRW'",
+      "reason": "KRW 고정"
+    },
+    {
+      "table": "tms.vehicle",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "vehicle_no"
+      ],
+      "expression": "",
+      "reason": "차량 번호 유일"
+    },
+    {
+      "table": "tms.vehicle",
+      "kind": "CHECK",
+      "columns": [
+        "ownership",
+        "carrier_id"
+      ],
+      "expression": "ownership IN ('OWN', 'HIRED') AND ((ownership = 'HIRED') = (carrier_id IS NOT NULL))",
+      "reason": "용차는 운송사 필수"
+    },
+    {
+      "table": "tms.vehicle",
+      "kind": "CHECK",
+      "columns": [
+        "tonnage",
+        "max_weight_kg",
+        "max_volume_m3"
+      ],
+      "expression": "tonnage > 0 AND max_weight_kg > 0 AND max_volume_m3 > 0",
+      "reason": "적재 한도 양수"
+    },
+    {
+      "table": "tms.freight_rate",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id",
+        "tonnage",
+        "valid_from"
+      ],
+      "expression": "",
+      "reason": "권역·톤수·적용일 1건"
+    },
+    {
+      "table": "tms.freight_rate",
+      "kind": "CHECK",
+      "columns": [
+        "tonnage",
+        "base_rate",
+        "extra_stop_rate",
+        "waiting_rate_per_hour"
+      ],
+      "expression": "tonnage > 0 AND base_rate >= 0 AND extra_stop_rate >= 0 AND waiting_rate_per_hour >= 0",
+      "reason": "운임 값"
+    },
+    {
+      "table": "tms.dispatch",
+      "kind": "CHECK",
+      "columns": [
+        "direction",
+        "status"
+      ],
+      "expression": "direction IN ('OUTBOUND', 'INBOUND') AND status IN ('PLANNED', 'LOADED', 'DEPARTED', 'COMPLETED', 'CANCELLED')",
+      "reason": "방향·상태"
+    },
+    {
+      "table": "tms.dispatch",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "loaded_at",
+        "departed_at",
+        "completed_at",
+        "cancel_reason"
+      ],
+      "expression": "(status = 'PLANNED' AND loaded_at IS NULL AND departed_at IS NULL) OR (status = 'LOADED' AND loaded_at IS NOT NULL AND departed_at IS NULL) OR (status = 'DEPARTED' AND departed_at >= loaded_at AND completed_at IS NULL) OR (status = 'COMPLETED' AND completed_at >= departed_at) OR (status = 'CANCELLED' AND departed_at IS NULL AND length(btrim(cancel_reason)) > 0)",
+      "reason": "상태별 시각(출발 후 취소 불가)"
+    },
+    {
+      "table": "tms.dispatch",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "total_weight_kg"
+      ],
+      "expression": "적재 합계 = 방문 중량·용적 합. 차량 한도 초과면 경고(차단 아님, Q3). 상차 완료 = 모든 방문 LOADED. 출하 방문은 fs.wms.interface 피킹 완료 출하지시만 담을 수 있다(Q1)",
+      "reason": "배차·적재 규칙(Q1·Q3)"
+    },
+    {
+      "table": "tms.dispatch",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "TMS는 ERP·WMS를 바꾸지 않는다. ERP가 fs.tms.interface.loaded_shipments()를 읽어 출하 확정 대기로 보여 주고 사람이 ERP에서 확정, deliveries()로 납품 확인. WMS는 inbound_arrivals()로 입고 예정 차량·도착을 채운다(Q6)",
+      "reason": "ERP·WMS 경계(Q1·Q6)"
+    },
+    {
+      "table": "tms.dispatch_stop",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "dispatch_id",
+        "seq"
+      ],
+      "expression": "",
+      "reason": "배차·순서 유일"
+    },
+    {
+      "table": "tms.dispatch_stop",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "shipment_order_no",
+        "po_no",
+        "inbound_notice_no"
+      ],
+      "expression": "(kind = 'DELIVERY' AND shipment_order_no IS NOT NULL AND po_no IS NULL AND inbound_notice_no IS NULL) OR (kind = 'PICKUP' AND shipment_order_no IS NULL AND (po_no IS NOT NULL OR inbound_notice_no IS NOT NULL))",
+      "reason": "종류별 원천 번호"
+    },
+    {
+      "table": "tms.dispatch_stop",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "weight_kg",
+        "volume_m3"
+      ],
+      "expression": "status IN ('PENDING', 'LOADED', 'ARRIVED', 'DELIVERED', 'PARTIAL', 'FAILED', 'CANCELLED') AND weight_kg >= 0 AND (volume_m3 IS NULL OR volume_m3 >= 0)",
+      "reason": "상태·중량"
+    },
+    {
+      "table": "tms.dispatch_stop",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "receiver_name",
+        "fail_reason",
+        "finished_at"
+      ],
+      "expression": "((status IN ('DELIVERED', 'PARTIAL')) = (receiver_name IS NOT NULL AND length(btrim(receiver_name)) > 0)) AND ((status = 'FAILED') = (fail_reason IS NOT NULL)) AND ((status IN ('DELIVERED', 'PARTIAL', 'FAILED')) = (finished_at IS NOT NULL)) AND (fail_reason IS NULL OR fail_reason IN ('ABSENT', 'REFUSED', 'DAMAGED', 'OTHER'))",
+      "reason": "인수·실패 기록"
+    },
+    {
+      "table": "tms.dispatch_stop",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "shipment_order_no"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, shipment_order_no) WHERE shipment_order_no IS NOT NULL AND status NOT IN ('FAILED', 'CANCELLED')",
+      "reason": "출하지시당 살아 있는 배송 1건(실패 후 재배차 가능)"
+    },
+    {
+      "table": "tms.dispatch_stop",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "기사 화면(현장 단말 패턴 K, Q4)에서 도착·인수(인수자 이름)·부분 인수(메모)·실패(사유) 입력. 실패·부분 인수는 ERP 판매 반품 후보로 deliveries()에 표시",
+      "reason": "배송 완료 입력(Q4)"
+    },
+    {
+      "table": "tms.dispatch_charge",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "amount"
+      ],
+      "expression": "kind IN ('BASE', 'EXTRA_STOP', 'WAITING', 'TOLL', 'FUEL', 'OTHER') AND amount >= 0",
+      "reason": "종류·금액"
+    },
+    {
+      "table": "tms.dispatch_charge",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "kind"
+      ],
+      "expression": "운행 완료 시 운임표(권역 = 마지막 배송지 권역, 톤수 = 차량, 적용일 최신)로 BASE + 경유지 수 × EXTRA_STOP 행 생성. 자차는 TOLL·FUEL 등 운행비를 기록(Q7). 정산 확정 후 불변",
+      "reason": "운임 계산(Q5·Q7)"
+    },
+    {
+      "table": "tms.settlement",
+      "kind": "CHECK",
+      "columns": [
+        "settle_month"
+      ],
+      "expression": "settle_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+      "reason": "'YYYY-MM' 형식"
+    },
+    {
+      "table": "tms.settlement",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "confirmed_at",
+        "cancel_reason",
+        "total_amount"
+      ],
+      "expression": "total_amount >= 0 AND ((status = 'draft' AND confirmed_at IS NULL) OR (status = 'confirmed' AND confirmed_at IS NOT NULL) OR (status = 'cancelled' AND length(btrim(cancel_reason)) > 0))",
+      "reason": "상태별 값"
+    },
+    {
+      "table": "tms.settlement",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "carrier_id",
+        "settle_month"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, carrier_id, settle_month) WHERE status = 'confirmed'",
+      "reason": "운송사·월당 확정 정산 1건"
+    },
+    {
+      "table": "tms.settlement",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "total_amount"
+      ],
+      "expression": "정산 금액 = 그 달 완료된 그 운송사 차량 배차의 운행 비용 합. 확정분을 fs.tms.interface.carrier_settlements()로 ERP가 읽어 직접 매입(외주 운송비). 확정 후 불변, 정정은 취소 후 재작성",
+      "reason": "용차 정산(Q5)"
+    },
+    {
+      "table": "tms.vehicle",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "carrier_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "tms.delivery_point",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "tms.dispatch",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "dispatch_on",
+        "status"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "tms.dispatch_stop",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "dispatch_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "tms.dispatch_charge",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "dispatch_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "tms.settlement",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "carrier_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
     }
   ],
   "states": [
@@ -54761,6 +56776,45 @@
       ],
       "default": "OPEN",
       "transition": "OPEN→ACK→DONE; OPEN→DONE"
+    },
+    {
+      "table": "tms.dispatch",
+      "column": "status",
+      "values": [
+        "PLANNED",
+        "LOADED",
+        "DEPARTED",
+        "COMPLETED",
+        "CANCELLED"
+      ],
+      "default": "PLANNED",
+      "transition": "PLANNED→LOADED→DEPARTED→COMPLETED; 출발 전 CANCELLED"
+    },
+    {
+      "table": "tms.dispatch_stop",
+      "column": "status",
+      "values": [
+        "PENDING",
+        "LOADED",
+        "ARRIVED",
+        "DELIVERED",
+        "PARTIAL",
+        "FAILED",
+        "CANCELLED"
+      ],
+      "default": "PENDING",
+      "transition": "PENDING→LOADED→ARRIVED→DELIVERED/PARTIAL/FAILED; 배차 취소 시 CANCELLED"
+    },
+    {
+      "table": "tms.settlement",
+      "column": "status",
+      "values": [
+        "draft",
+        "confirmed",
+        "cancelled"
+      ],
+      "default": "draft",
+      "transition": "draft→confirmed→cancelled(재작성)"
     }
   ],
   "sources": [
@@ -54818,7 +56872,8 @@
         "spc",
         "gw",
         "cmms",
-        "pop"
+        "pop",
+        "tms"
       ],
       "default": null,
       "note": "QMS(FS-023)·WMS(FS-024)·BEMS(FS-025)·SPC(FS-028)는 구현 솔루션. SCM 설명 카드와 도움말은 정적 파일"
@@ -55172,7 +57227,8 @@
         "spc",
         "gw",
         "cmms",
-        "pop"
+        "pop",
+        "tms"
       ],
       "default": null,
       "note": "운영 중인 솔루션(포털 core 제외)"
@@ -55414,6 +57470,16 @@
       ],
       "default": null,
       "note": "생산 입력 → MES, 창고 입력 → WMS"
+    },
+    {
+      "target": "tms.dispatch",
+      "column": "direction",
+      "values": [
+        "OUTBOUND",
+        "INBOUND"
+      ],
+      "default": null,
+      "note": "출하 / 조달"
     }
   ],
   "change_log": [
@@ -55688,6 +57754,13 @@
       "task": "DSN-22",
       "date": "2026-10-05",
       "change": "POP 신규: pop 7테이블(단말·현장 작업자·세션·스캔 원장·확정 입력·명세·호출), 모듈 키 pop(workspace_module·app_review), MES·WMS pop_import 종류 확장(공정 검사·비가동·취소). 업무 스키마 간 FK 0",
+      "status": "설계 전용"
+    },
+    {
+      "version": "target-0.11.0",
+      "task": "DSN-23",
+      "date": "2026-10-05",
+      "change": "TMS 신규: tms 10테이블(운송사·차량·기사·권역·배송지·운임표·배차·방문·운행 비용·운송사 정산), 모듈 키 tms. 업무 스키마 간 FK 0(ERP 출하지시·발주, WMS 입고 예정은 번호 스냅샷)",
       "status": "설계 전용"
     }
   ]

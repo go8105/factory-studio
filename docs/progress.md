@@ -2,6 +2,12 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-23 TMS 신규 설계 완료 (Claude Code)
+- 결정: Q1 경계(배차 대상 = ERP 확정 출하지시 중 WMS 피킹 완료, ERP는 TMS 상차 완료를 읽어 출하 확정 대기 — TMS는 ERP·WMS를 바꾸지 않음) · Q2·Q3 자차+용차, 수동 배차 + 적재율 경고 · Q4 기사 모바일(패턴 K) · Q5 운임·용차 정산 → ERP 직접 매입 · **Q6 조달 운송도 TMS로**(WMS 입고 예정의 차량·도착은 TMS를 읽음) · Q7 자차 운행 비용, 범위 20/24.
+- 문서 `docs/modules/tms/TMS_설계_DSN-23.md` + README: 기준표 24, 기능 규칙 6묶음, DB tms 10(운송사·차량·기사·권역·배송지·운임표·배차·방문·운행 비용·정산), 화면 14(R-01~14, 기사 K 2), 교차 조회(`loaded_shipments`·`deliveries`·`inbound_arrivals`·`carrier_settlements`·`monthly_summary` 제공, WMS `picked_shipments`·`inbound_notices` 요청 — ERP·WMS 문서에 메모).
+- 목표 DB: `tools/apply_dsn23.py` → target-0.11.0/DSN-23 251테이블·컬럼 2,951·FK 626, 모듈 키 tms. 검증기 `validate_tms_dsn23`.
+- 검증(테스트 통과를 커밋 조건으로 묶음): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(251·UK 516·CHECK 693·INDEX 171·UNIQUE_INDEX 69·FK 626)**·ERD·Excel·tools 73 + DSN 29(재생성 = 커밋본)·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-22 POP 신규 설계 완료 (Claude Code)
 - 결정: Q1 **지연 가져오기**(MES·WMS가 자기 API가 불릴 때 미반영 POP 확정 입력을 가져가 재검증·반영, POP는 `pop_results` 조회로 결과 표시 — 교차 쓰기·배경 작업 없음) · Q2 POP 자체 단말 사용자 · Q3 공정 검사 입력 · Q4 호출(안돈, POP 안에서만) · Q5 작업 일보·라인 현황판 · Q6 범위 26/29.
 - 문서 `docs/modules/pop/POP_설계_DSN-22.md` + README: 기준표 29, 기능 규칙 8묶음(스캔 → 확인 → 확정 공통 흐름, CANCEL 입력 규칙), DB pop 7(단말·작업자·세션·스캔 원장·확정 입력·명세·호출), 화면 22(새 패턴 K 현장 단말 18 + 현황판 + 관리 3), 교차 조회(`confirmed_entries` 제공, MES·WMS `pop_results`·WMS `pending_tasks` 요청 — MES·WMS 문서에 메모).
