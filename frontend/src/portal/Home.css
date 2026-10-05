@@ -321,11 +321,6 @@
   display: grid;
   gap: 36px 40px;
 }
-@media (min-width: 960px) {
-  .home-groups {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 .home-group-title {
   margin: 0 0 16px;
   color: var(--muted);
@@ -334,10 +329,7 @@
   letter-spacing: 1px;
 }
 .home-group .launcher-grid {
-  justify-content: flex-start;
-  gap: 24px 20px; /* 묶음 한 열(약 440px)에 타일 3개(132×3 + 20×2) */
-  max-width: none;
-  margin: 0;
+  gap: 28px 24px;
 }
 /* FS-040 평가: 타일 아래 한 줄. 별은 차분한 골드 하나, 숫자로 전한다. */
 .launcher-rating {

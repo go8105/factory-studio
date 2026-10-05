@@ -32,26 +32,21 @@ function show(enabled = true) {
     </MemoryRouter>,
   );
 }
-it("홈은 운영 중인 여덟 솔루션을 분야별 묶음으로 보이고 빈 묶음은 숨긴다", async () => {
+it("홈은 운영 중인 여덟 솔루션을 분야 라벨 없이 차례대로 보인다", async () => {
   show();
   await screen.findByRole("link", { name: /QMS 품질관리/ });
   expect(screen.getByRole("link", { name: /SPC 공정관리/ })).toHaveAttribute(
     "href",
     "/spc",
   );
-  const production = screen.getByRole("region", { name: "생산·품질" });
+  // 분야 라벨 없이 한 줄로 차례대로 나열한다.
+  const all = screen.getByRole("region", { name: "솔루션" });
   expect(
-    within(production)
+    within(all)
       .getAllByRole("link")
-      .map((l) => l.getAttribute("href")),
+      .map((l) => l.getAttribute("href"))
+      .slice(0, 3),
   ).toEqual(["/mes", "/qms", "/spc"]);
-  expect(
-    within(screen.getByRole("region", { name: "에너지" }))
-      .getAllByRole("link")
-      .map((l) => l.getAttribute("href")),
-  ).toEqual(["/fems", "/bems"]);
-  // 영업·제품은 아직 운영 중인 솔루션이 없어 제목도 없다(ROADMAP-01 §4).
-  expect(screen.queryByRole("region", { name: "영업·제품" })).toBeNull();
   expect(
     screen.getByText("하나의 공간에서 만나는 여덟 가지 독립 솔루션"),
   ).toBeVisible();

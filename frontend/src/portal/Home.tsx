@@ -233,7 +233,12 @@ export function Home() {
         ) : (
           modules && (
             <div className="home-groups">
-              {solutionGroups.map((group) => (
+              {[
+                {
+                  field: "솔루션",
+                  items: solutionGroups.flatMap((g) => g.items),
+                },
+              ].map((group) => (
                 <section
                   key={group.field}
                   className="home-group"
