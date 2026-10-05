@@ -164,6 +164,41 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_gw(d))
     if task == 'FS-029a':
         errors.extend(validate_cmms(d))
+    if 'erp.journal_entry' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_erp_dsn11(d))
+    return errors
+
+
+def validate_erp_dsn11(d):
+    """DSN-11 ERP 보강 계약: 재고 원장 없음(Q1)·자동 전표 원천 1건(Q3)·역분개 1건·확정 1건(원가·부가세·예산)·잔액 비저장·달력 키."""
+    errors = []
+    cs, rs = d['constraints'], d['relations']
+    ts = {t['name']: {c['name'] for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-11: ' + message)
+    def partial(t, cols, words):
+        return any(c['table'] == t and c['kind'] == 'UK_PARTIAL' and c['columns'] == SCOPE + cols and all(w in c['expression'] for w in words) for c in cs)
+    def policy(t, reason):
+        return any(c['table'] == t and c['kind'] == 'SERVICE/DB_POLICY' and c['reason'] == reason for c in cs)
+    require(not any(n.startswith('erp.') and any(w in n for w in ('stock', 'inventory_ledger', 'warehouse')) for n in ts), 'ERP must not own stock ledgers (Q1, FS-024 D13)')
+    require(not any(n.startswith('erp.') and n.split('.')[1] in ('payroll', 'payslip', 'attendance', 'hr_employee') for n in ts), 'payroll/attendance belong to HR (D79)')
+    require(partial('erp.journal_entry', ['source_kind', 'source_id'], ["status <> 'reversed'"]), 'one live auto journal per source (Q3)')
+    require(partial('erp.journal_entry', ['reversal_of_id'], ['reversal_of_id IS NOT NULL']), 'one reversal per entry')
+    require(policy('erp.journal_entry', '전표 확정·불변(F45)') and policy('erp.journal_entry', '자동 전표 즉시 + 일괄(Q3)'), 'journal confirm/immutability and posting policies')
+    require(any(c['table'] == 'erp.journal_line' and c['kind'] == 'CHECK' and 'amount > 0' in c['expression'] for c in cs), 'journal lines are positive amounts with side')
+    for t, col in [('erp.cost_run', 'cost_month'), ('erp.vat_return', 'vat_period'), ('erp.budget', 'budget_year')]:
+        require(partial(t, [col], ["status = 'confirmed'"]), f'{t}: one confirmed version per period')
+    for t in ('erp.receivable_adjust', 'erp.payable_adjust'):
+        require(any(c['table'] == t and c['kind'] == 'UK' and c['columns'] == SCOPE + ['apply_key'] for c in cs), t + ': idempotency key')
+    for t in ('erp.receivable', 'erp.payable', 'erp.purchase_order', 'erp.receivable_adjust', 'erp.payable_adjust'):
+        require(not any(w in col for col in ts.get(t, ()) for w in ('balance', 'remaining', 'received_qty', 'open_qty')), t + ': balances/progress are derived, not stored')
+    require(policy('erp.purchase_order', '발주 진행 파생'), 'PO receipt progress derived from WMS')
+    require(policy('erp.purchase_invoice', '매입 경로 둘 다 허용(Q4)'), 'purchase paths PO_RECEIPT + DIRECT (Q4)')
+    require(policy('erp.cost_run', '원가 확정·재계산(Q5)'), 'cost run policy (Q5)')
+    require(any(s['table'] == 'erp.tax_invoice' and 'transmitted' in s['values'] for s in d['states']), 'tax invoice simulated transmission states (Q6)')
+    require(not any(c['table'] == 'erp.account' and c['kind'] == 'CHECK' and "account_code = 'AR'" in c['expression'] for c in cs), 'fixed 7-account CHECK removed')
+    require(all(r['target'].split('.')[0] in ('erp', 'core') for r in rs if r['source'].startswith('erp.')), 'ERP FKs stay inside erp/core anchors')
     return errors
 
 
@@ -308,12 +343,14 @@ def validate_accounting(d):
     tax='erp.tax_invoice'
     require(unique(tax,['sales_record_id']),'tax invoice must be unique per sale')
     require('purchase_invoice_id' not in cols[tax],'tax invoice must be sales-only')
-    require(any(s['table']==tax and s['values']==['pending','issued'] for s in d['states']),'tax invoice must have exactly two states')
+    # DSN-11(목표 설계)은 B층 고정 규칙(계정 7·분개 10·세금계산서 2상태)을 실제 전표로 대체한다 — validate_erp_dsn11이 새 계약을 검사.
+    dsn11 = 'erp.journal_entry' in tables
+    require(dsn11 or any(s['table']==tax and s['values']==['pending','issued'] for s in d['states']),'tax invoice must have exactly two states')
     require(policy(tax,'세금계산서 선후 및 취소 계약'),'missing tax sequencing/cancellation policy')
     require(policy('erp.sales_record','매출 취소 계약'),'missing sale cancellation contract')
     require(policy('erp.purchase_invoice','채무 파생 생성 및 매입 취소'),'missing purchase cancellation contract')
     require(any(c['target']=='erp.account' and set(c['values'])=={'AR','PRODUCT_SALES','VAT_PAYABLE','BANK','RAW_MATERIAL','VAT_RECEIVABLE','AP'} for c in d['code_lists']),'account catalog must contain only seven supported codes')
-    require(any(c['target']=='erp.posting_rule' and set(c['values'])=={'SALE','RECEIPT','PURCHASE','PAYMENT'} for c in d['code_lists']),'posting types must be exactly four')
+    require(dsn11 or any(c['target']=='erp.posting_rule' and set(c['values'])=={'SALE','RECEIPT','PURCHASE','PAYMENT'} for c in d['code_lists']),'posting types must be exactly four')
     require(not {'condition','expression','result','journal_id'} & set(cols['erp.posting_rule']),'posting rules must not become an engine or stored journal')
     expected_rules = {('SALE','1','DEBIT','AR','TOTAL'),('SALE','2','CREDIT','PRODUCT_SALES','SUPPLY'),('SALE','3','CREDIT','VAT_PAYABLE','TAX'),
                       ('RECEIPT','1','DEBIT','BANK','APPLY'),('RECEIPT','2','CREDIT','AR','APPLY'),
@@ -322,7 +359,7 @@ def validate_accounting(d):
     expressions = [c['expression'] for c in constraints if c['table']=='erp.posting_rule' and c['kind']=='CHECK']
     pattern = r"transaction_kind = '([A-Z]+)' AND line_no = ([0-9]+) AND entry_side = '([A-Z]+)' AND account_code = '([A-Z_]+)' AND amount_basis = '([A-Z]+)'"
     matches = [match for expression in expressions for match in re.findall(pattern,expression)]
-    require(len(matches)==10 and set(matches)==expected_rules,'posting CHECK must encode ten exact fixed combinations')
+    require(dsn11 or (len(matches)==10 and set(matches)==expected_rules),'posting CHECK must encode ten exact fixed combinations')
     require(policy('erp.posting_rule','B층 고정 규칙·비저장 미리보기'),'missing non-persistent preview policy')
     for c in constraints:
         if c['table'] in required and c['kind']=='CHECK':
