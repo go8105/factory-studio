@@ -298,6 +298,8 @@
 
 > PLM DSN-24 반영(2026-10-05): MES는 PLM 배포 리비전을 "PLM에서 가져오기"로 받는다(품목 상세·BOM 버전·대체 자재 → 제조 BOM에 공정 투입 지정). `open_work_orders_by_item`·`plm_imports`를 제공한다.
 
+> SCM DSN-26 반영(2026-10-05): MES는 `capacity(month)`·`production_plan(month)`를 제공하고, 확정 S&OP(`sop_plan`)를 생산계획 참고로 읽는다.
+
 ## 7. 결정 질문 (하나씩)
 
 | # | 질문 | 제안 |

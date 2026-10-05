@@ -325,6 +325,8 @@
 
 > CRM DSN-25 반영(2026-10-05): ERP는 "CRM에서 가져오기"로 거래처(CRM 고객사)와 견적 초안(CRM 견적 요청)을 만든다. `crm_imports`·`sales_orders_for_crm`·`partner_summary`를 제공한다.
 
+> SCM DSN-26 반영(2026-10-05): ERP 판매계획은 "SCM에서 가져오기"로 확정 예측을 초안으로 만들 수 있다. `shipments_monthly(from, to)`를 제공한다.
+
 ## 7. 결정 질문 (하나씩 확정)
 
 | # | 질문 | 제안 |

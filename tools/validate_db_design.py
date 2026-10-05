@@ -188,6 +188,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_plm_dsn24(d))
     if 'crm.opportunity' in {t['name'] for t in d['tables']}:
         errors.extend(validate_crm_dsn25(d))
+    if 'scm.forecast_run' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_scm_dsn26(d))
     return errors
 
 
@@ -435,6 +437,25 @@ def validate_crm_dsn25(d):
     require(any(c['table'] == 'crm.opportunity' and "stage <> 'WON' OR (probability = 100 AND erp_order_no IS NOT NULL)" in c['expression'] for c in cs), 'won needs ERP order (Q2)')
     require(any(c['table'] == 'crm.inquiry' and c['expression'] == "status <> 'TRANSFERRED' OR kind = 'QUALITY'" for c in cs), 'only quality inquiries go to QMS (Q4)')
     require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'crm'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key crm')
+    return errors
+
+
+def validate_scm_dsn26(d):
+    """DSN-26 SCM 계약: 계획·분석만 — 판매계획·생산계획·발주·재고 원장 테이블 금지(Q1)·확정 1건(예측·S&OP)·재고 정책 품목당 제안 1건·FK 없음·모듈 키."""
+    errors = []
+    cs, rs = d['constraints'], d['relations']
+    ts = {t['name'] for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-26: ' + message)
+    def partial(t, cols, word):
+        return any(c['table'] == t and c['kind'] == 'UK_PARTIAL' and c['columns'] == SCOPE + cols and word in c['expression'] for c in cs)
+    require(not any(n.startswith('scm.') and any(w in n for w in ('purchase', 'sales_plan', 'production_plan', 'work_order', 'stock_move', 'reservation')) for n in ts), 'SCM plans and analyses only — execution stays in ERP/MES/WMS (Q1)')
+    require(partial('scm.forecast_run', ['base_month'], "status = 'confirmed'") and partial('scm.sop_plan', ['sop_month'], "status = 'confirmed'"), 'one confirmed forecast and S&OP per month')
+    require(partial('scm.inventory_policy', ['item_code'], "status = 'proposed'"), 'one proposed policy per item (Q5)')
+    require(any(c['table'] == 'scm.forecast_line' and 'adjust_reason' in c['expression'] for c in cs), 'adjustments need a reason')
+    require(all(r['target'].split('.')[0] in ('scm', 'core') for r in rs if r['source'].startswith('scm.')), 'SCM FKs stay inside scm/core anchors')
+    require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'scm'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key scm')
     return errors
 
 

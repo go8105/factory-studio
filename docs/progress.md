@@ -2,6 +2,12 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-26 SCM 신규 설계 완료 (Claude Code)
+- 결정: Q1 **SCM은 계획·분석만**(실행은 ERP·MES·WMS가 "SCM에서 가져오기") · Q2 이동평균·지수평활·계절 지수 비교 추천 + 사람 조정 · Q3 확정 예측 → ERP 판매계획 초안, CRM은 참고 · Q4 S&OP·개략 능력 · Q5 재고 정책 산정 → WMS 제안 · Q6 공급처 성과(납기·리드타임 + QMS 등급) · 범위 18/22.
+- 문서 `docs/modules/scm/SCM_설계_DSN-26.md` + README: 기준표 22, 기능 규칙 7묶음, DB scm 9, 화면 10(SC-01~10), 교차 조회(`demand_forecast`·`sop_plan`·`inventory_policies`·`supplier_scores`·`monthly_summary` 제공, ERP `shipments_monthly`·MES `capacity`·`production_plan` 요청 — ERP·MES·WMS 문서에 메모).
+- 목표 DB: `tools/apply_dsn26.py` → target-0.14.0/DSN-26 289테이블·컬럼 3,370·FK 711, 모듈 키 scm. 검증기 `validate_scm_dsn26`(실행 테이블 금지·확정 1건·제안 1건·조정 사유).
+- 검증(통과를 커밋 조건으로): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(289·UK 588·CHECK 759·INDEX 187·UNIQUE_INDEX 81·FK 711)**·ERD·Excel·tools 73 + DSN 35·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-25 CRM 신규 설계 완료 (Claude Code)
 - 결정: Q1 CRM 고객사 소유, ERP가 "CRM에서 가져오기"로 거래처 생성 후 코드 연결 · Q2 견적 요청 → ERP 견적 초안, ERP 수주를 읽어 수주 확인 제안 → 사람이 처리 · Q3 6단계 고정 + 확률 조정, 매출 예측 · Q4 고객 문의(품질 문의만 QMS 클레임 전환) · Q5 캠페인·출처 분석 · 범위 21/23.
 - 문서 `docs/modules/crm/CRM_설계_DSN-25.md` + README: 기준표 23, 기능 규칙 7묶음, DB crm 13, 화면 10(CR-01~10, 파이프라인 칸반 V), 교차 조회(`accounts`·`quote_requests`·`quality_inquiries`·`pipeline_summary` 제공, ERP `crm_imports`·`sales_orders_for_crm`·`partner_summary` 요청 — ERP·QMS 문서에 메모). 견적 요청의 ERP 처리 상태는 저장하지 않고 ERP 조회로 표시(교차 쓰기 금지).
