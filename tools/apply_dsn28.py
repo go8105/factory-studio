@@ -1,6 +1,6 @@
 """DSN-28: EIP(신규) 설계를 목표 DB(schema-target.json)에 반영한다(멱등, apply_dsn27 다음).
 
-근거: docs/modules/eip/EIP_설계_DSN-28.md 4장(eip 8테이블 + 모듈 키 'eip' + 사람 연결 칸), 결정 Q1~Q7.
+근거: docs/modules/eip/EIP_설계_DSN-28.md 4장(eip 8테이블 + 사람 연결 칸), 결정 Q1~Q8. 모듈 키 'eip'는 두지 않는다(Q8: 포털 첫 화면 = EIP, 끌 수 없음).
 Q3·Q3-1: "내 할 일"은 HR 사원 코드 기준 — HR 코드가 없던 사람 마스터(GW 담당자·CRM 담당자·ELB 신청자/승인자·QMS CAPA 담당)에 칸 추가.
 Q5: 위젯 배치는 eip 스키마(core에는 대시보드 배치를 두지 않는다 — FS-008b).
 """
@@ -15,7 +15,6 @@ ROOT = Path(__file__).resolve().parents[1]
 TARGET = ROOT / "docs/db/schema-metadata/schema-target.json"
 CODE = "~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'"
 P = "eip."
-MODULE_TABLES = {"core.workspace_module", "core.app_review"}
 VER = ("draft", "confirmed", "superseded")
 HR = "~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'"
 
@@ -424,29 +423,13 @@ def apply(d):
     if KP in names:
         return False
     missing = set(EXT_COLUMNS) - names
-    modules = [
-        x
-        for x in d["constraints"]
-        if x["table"] in MODULE_TABLES
-        and x["kind"] == "CHECK"
-        and "module_key IN" in x["expression"]
-    ]
-    if missing or len(modules) != 2:
-        raise SystemExit(f"대상이 없다: {missing}, 모듈 키 CHECK {len(modules)}개")
+    if missing:
+        raise SystemExit(f"대상이 없다: {missing}")
     tables = {t["name"]: t for t in d["tables"]}
     for name, columns in EXT_COLUMNS.items():
         cols = tables[name]["columns"]
         at = len(cols) - 1 if cols[-1]["name"] == "created_at" else len(cols)
         cols[at:at] = columns
-    for x in modules:
-        x["expression"] = x["expression"].rstrip(")") + ", 'eip')"
-    for code in d["code_lists"]:
-        if (
-            code["target"] in MODULE_TABLES
-            and code["column"] == "module_key"
-            and "eip" not in code["values"]
-        ):
-            code["values"] = [*code["values"], "eip"]
     d["tables"].extend(TABLES + EXT_TABLES)
     d["constraints"].extend(CONSTRAINTS + EXT_CONSTRAINTS)
     d["relations"].extend(RELATIONS)
@@ -457,7 +440,7 @@ def apply(d):
             version="target-0.16.0",
             task="DSN-28",
             date="2026-10-05",
-            change="EIP 신규: eip 8테이블(KPI·월 목표·사람 연결·위젯 배치·즐겨찾기·경영 보고서·지표·의견), 모듈 키 eip. 사람 연결(HR 사원 코드) 칸: gw.person·crm.sales_rep·elb.request·elb.approval·qms.capa + elb.approver(승인자 지정). 업무 스키마 간 FK 0",
+            change="EIP 신규: eip 8테이블(KPI·월 목표·사람 연결·위젯 배치·즐겨찾기·경영 보고서·지표·의견). 모듈 키 없음(Q8 포털 첫 화면 = EIP). 사람 연결(HR 사원 코드) 칸: gw.person·crm.sales_rep·elb.request·elb.approval·qms.capa + elb.approver(승인자 지정). 업무 스키마 간 FK 0",
             status="설계 전용",
         )
     )

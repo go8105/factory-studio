@@ -1,4 +1,4 @@
-"""DSN-28: EIP 목표 설계 계약 — EIP 공지 테이블·KPI 실적 저장·core 대시보드 배치가 생기거나, 사람 연결 HR 코드·확정 보고서 1건이 빠지면 실패한다."""
+"""DSN-28: EIP 목표 설계 계약 — EIP 공지 테이블·KPI 실적 저장·core 대시보드 배치가 생기거나, 사람 연결 HR 코드·확정 보고서 1건이 빠지거나, EIP가 끌 수 있는 모듈 키가 되면 실패한다."""
 
 import copy
 import json
@@ -38,6 +38,14 @@ class EipTargetTest(unittest.TestCase):
             for c in d["constraints"]
             if not (c["table"] == "eip.management_report" and c["kind"] == "UK_PARTIAL")
         ]
+        wm = next(
+            c
+            for c in d["constraints"]
+            if c["table"] == "core.workspace_module"
+            and c["kind"] == "CHECK"
+            and "module_key IN" in c["expression"]
+        )
+        wm["expression"] = wm["expression"].rstrip(")") + ", 'eip')"
         errors = validate_eip_dsn28(d)
         for word in (
             "notices belong to GW",

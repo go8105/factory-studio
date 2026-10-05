@@ -495,7 +495,7 @@ def validate_eip_dsn28(d):
     require('core.dashboard_layout' not in ts and 'eip.widget_layout' in ts, 'widget layout lives in eip, not core (Q5, FS-008b)')
     require(any(c['table'] == 'eip.management_report' and c['kind'] == 'UK_PARTIAL' and "status = 'confirmed'" in c['expression'] for c in cs), 'one confirmed management report per month (Q4)')
     require(all(r['target'].split('.')[0] in ('eip', 'core') for r in rs if r['source'].startswith('eip.')), 'EIP FKs stay inside eip/core anchors')
-    require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'eip'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key eip')
+    require(not any(c['table'] in ('core.workspace_module', 'core.app_review') and "'eip'" in c.get('expression', '') for c in cs), 'EIP is the portal home, not a toggleable module (DSN-28 Q8): no module key eip')
     return errors
 
 

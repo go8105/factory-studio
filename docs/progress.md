@@ -28,6 +28,10 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-28 보정: 포털 첫 화면 = EIP (Claude Code)
+- 결정 Q8(D80): 초기 기획 "포털 자체가 EIP"를 복원한다. 로그인하면 EIP 대시보드(EI-01, 앱 런처 포함)가 첫 화면이다. EIP 타일과 모듈 키는 두지 않는다(끌 수 없음). 데이터는 그대로 `eip` 스키마에 둔다(core 업무 데이터 금지, FS-013).
+- 변경: `apply_dsn28`에서 모듈 키 'eip' 추가를 제거했다. `validate_eip_dsn28`은 모듈 키 'eip'가 **없어야** 통과한다. `test_dsn28`에 회귀 검사를 추가했다. EIP 문서 §0·4-2·5장·7-1, README, ROADMAP-01 §6-3, ROADMAP-02 D80을 고쳤다. 테이블 수는 변동 없다(309).
+
 ## 2026-10-05 DSN-28 EIP 신규 설계 완료 (Claude Code)
 - 결정: Q1 **공지는 GW 공지 표시**(EIP 자체 공지 없음) · Q2 KPI 정의·목표는 EIP, 실적은 각 솔루션 월 요약 조회 · Q3 **할 일은 사람별**, Q3-1 **HR 사원 코드로 사람 연결** · Q4 월간 경영 보고서·의견 · Q5 **위젯 배치 개인화(eip에 저장)** · Q6 통합 번호 검색 · 범위 13/15.
 - 문서 `docs/modules/eip/EIP_설계_DSN-28.md` + README: 기준표 15, 기능 규칙 6묶음, DB eip 8, 화면 8(EI-01~08), 교차 조회(모든 솔루션 `monthly_summary`·`pending_tasks(hr_employee_code)`·`lookup(code)`, GW `published_notices`, HR `employees`). GW 작업지시서·CRM·ELB·QMS 문서에 메모.
