@@ -1,0 +1,25 @@
+{
+  "name": "factory-studio-cad-cam-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5241 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5241 --strictPort",
+    "test": "node --test tests/*.test.js",
+    "format": "prettier --write src tests index.html package.json README.md",
+    "format:check": "prettier --check src tests index.html package.json README.md"
+  },
+  "dependencies": {
+    "polygon-clipping": "0.15.7",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "prettier": "3.9.9",
+    "vite": "8.3.2"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}
