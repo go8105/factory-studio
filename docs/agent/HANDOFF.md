@@ -1,5 +1,6 @@
 # Factory Studio 작업 인계
 
+최종 반영 확인(2026-10-05): CAD-02 `649e372` 로컬 main fast-forward 완료. main에서 Node24 frontend npm ci/build 성공, Git 미커밋 변경 없음 확인. 최종 화면 기록 크기 보정. 원격 push·배포 없음.
 ## Codex 최신 상태 — 2026-10-05 CAD-02 포털 통합 완료
 
 - branch `codex/soap-cad-review`, worktree `/Users/hwang-kyoungho/.codex/worktrees/soap-cad-review/factory-studio`. POC 커밋1a364f7, 최종 통합 커밋 `git log -1`; main의 DSN-29 기준표까지 병합 보존.

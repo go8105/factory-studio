@@ -1,5 +1,6 @@
 # 개발 진행 기록
 
+최종 반영 확인(2026-10-05): CAD-02 `649e372` 로컬 main fast-forward 완료. main에서 Node24 frontend npm ci/build 성공, Git 미커밋 변경 없음 확인. 최종 화면 기록 크기 보정. 원격 push·배포 없음.
 ## 2026-10-05 CAD-02 로그인 포털 CAD·CAM 메뉴 통합
 
 - 사용자 지시로 앱 런처 바로 오른쪽 메뉴·Private 경로·편집기/POC 전환·빌드 자산 자동 포함. 브라우저 저장 공간/세대 분리, 하위 경로 다운로드/worker 대응. [보고](agent/CAD_CAM_포털통합_CAD-02.md).
