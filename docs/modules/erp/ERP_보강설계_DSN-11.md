@@ -329,6 +329,8 @@
 
 > ELB DSN-27 반영(2026-10-05): ERP는 ELB `approved_requests`를 구매 요청(출처 ELB)으로, `receipts`(비재고 수령)를 매입 근거로, `emergency_requests`를 카드 내역 비용 근거로 읽는다. `budget_status`·`elb_request_status`·`card_transactions`·`purchase_prices`를 제공한다.
 
+> HR DSN-30 반영(2026-10-05): `fs.hr.interface.payroll_runs(month)` = 확정 급여 실행의 부서 코드·항목별 합계(개인 금액 없음). 확정 실행 1건당 PAYROLL 전표 1건. ERP 부서 코드는 HR `departments()`에서 가져와 맞춘다(ERP 부서 마스터는 유지).
+
 ## 7. 결정 질문 (하나씩 확정)
 
 | # | 질문 | 제안 |

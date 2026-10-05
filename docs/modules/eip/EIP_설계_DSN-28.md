@@ -144,6 +144,8 @@
 
 > 넘길 것(DSN-90): **모든 솔루션**에 `pending_tasks`·`lookup` 추가 · **GW(Codex)** `person.hr_employee_code`·`published_notices` · **HR(신규)** 사람 원천 `employees()` · ELB 승인자 지정(`elb.approver`)으로 승인 대기 할 일. 로드맵 §6-3 "EIP 공지"는 Q1로 "GW 공지 표시"로 바뀜.
 
+> HR DSN-30 반영(2026-10-05): EIP는 `my_employee_code(actor)`를 제공한다(HR 본인 조회 — 사람 연결의 사원 코드). HR은 `pending_tasks`(휴가 승인·평가 대기)를 제공한다.
+
 ## 7. 결정 질문 (하나씩)
 
 | # | 질문 | 제안 |

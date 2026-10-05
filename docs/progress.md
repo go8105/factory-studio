@@ -36,6 +36,13 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-30 HR 신규 설계 완료 (Claude Code)
+- 결정: Q1 **HR이 사원·부서 코드 원천**(각 솔루션 "HR에서 가져오기", 자동 동기화 없음) · Q2 근태 자동 생성 + 예외 수정 · Q3 HR 자체 부서장 휴가 승인 · Q4 월급제·합성 고정 비율 공제·확정 불변·ERP에는 부서·항목별 합계 · Q5 정기 상여·퇴직금 추계 · Q6 자격·교육 + **인사 평가 포함**(제안과 다름) · Q7 본인 조회 · 범위 24/26(민감 정보·신고 제외, D79).
+- 문서 `docs/modules/hr/HR_설계_DSN-30.md` + README: 기준표 26, 기능 규칙 7묶음, DB hr 19, 화면 14(HR-01~14), 교차 조회(`employees`·`departments`·`payroll_runs`·`monthly_summary`·`pending_tasks`·`lookup` 제공, core `holidays`·EIP `my_employee_code` 요청 — ERP·EIP 문서에 메모).
+- 목표 DB: `tools/apply_dsn30.py` → target-0.18.0/DSN-30 **340테이블**·컬럼 3,911·FK 812, 모듈 키 hr. 검증기 `validate_hr_dsn30`(민감 정보 칸·신고 테이블 금지, 사원 코드 유일, 근태 1일 1건, 월 확정 1건, 실지급 = 지급 − 공제).
+- 검증(통과를 커밋 조건으로): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(340·UK 683·CHECK 831·INDEX 218·UNIQUE_INDEX 94·FK 812)**·ERD·Excel·tools 73 + DSN 43·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+- **Claude 담당 신규 설계 끝(DSN-21~30).** 남은 것: GW(Codex) → DSN-90 통합 검증 → DSN-99 최종 확인 → 일괄 개발.
+
 ## 2026-10-05 DSN-29 RWS 신규 설계 완료 (Claude Code)
 - 결정: Q1·Q2 **텍스트·단계 체크리스트 원격 안내로 한정**(영상·AR·사진 없음), 요청 출처는 직접 등록·CMMS 작업지시·QMS 부적합(POP 호출은 POP 안에서만) · Q3 **원격 해결 실패 → "현장 출동 필요", CMMS가 가져가 작업지시** · Q4 고객 현장 원격 A/S · Q5~Q7 작업 가이드·버전, 지식화·유사 사례, 목표 시간·상향, 만족도 · 범위 17/19.
 - 문서 `docs/modules/rws/RWS_설계_DSN-29.md` + README: 기준표 19, 기능 규칙 6묶음, DB rws 12, 화면 10(RW-01~10, 현장 응답 K), 교차 조회(`field_visit_requests`·`monthly_summary`·`pending_tasks`·`lookup` 제공, CMMS `work_order`·`failure_codes`·QMS `ncr`·CRM `accounts` 요청 — CMMS·QMS 문서에 메모).

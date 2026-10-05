@@ -196,6 +196,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_eip_dsn28(d))
     if 'rws.request' in {t['name'] for t in d['tables']}:
         errors.extend(validate_rws_dsn29(d))
+    if 'hr.employee' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_hr_dsn30(d))
     return errors
 
 
@@ -519,6 +521,27 @@ def validate_rws_dsn29(d):
     require('hr_employee_code' in ts.get('rws.expert', ()), 'internal experts link by HR employee code')
     require(all(r['target'].split('.')[0] in ('rws', 'core') for r in rs if r['source'].startswith('rws.')), 'RWS FKs stay inside rws/core anchors')
     require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'rws'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key rws')
+    return errors
+
+
+def validate_hr_dsn30(d):
+    """DSN-30 HR 계약: 민감 정보 칸 없음(D79)·신고 테이블 없음·사원 코드 유일(사람 원천 Q1)·확정 근태 마감·급여 월 1건(Q4)·근태 1일 1건(Q2)·HR FK는 hr/core만·모듈 키."""
+    errors = []
+    cs, rs = d['constraints'], d['relations']
+    ts = {t['name']: {c['name'] for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-30: ' + message)
+    sensitive = ('resident', 'rrn', 'ssn', 'bank', 'account_no', 'address', 'family', 'phone')
+    require(not any(n.startswith('hr.') and any(w in col for col in cols for w in sensitive) for n, cols in ts.items()), 'no sensitive personal data columns (D79)')
+    require(not any(n.startswith('hr.') and any(w in n for w in ('insurance_report', 'tax_report', 'year_end')) for n in ts), 'no insurance/tax filing tables (D79)')
+    require(any(c['table'] == 'hr.employee' and c['kind'] == 'UK' and c['columns'][-1] == 'employee_code' for c in cs), 'employee code is unique — HR is the people source (Q1)')
+    require(any(c['table'] == 'hr.attendance' and c['kind'] == 'UK' and c['columns'][-2:] == ['employee_id', 'work_date'] for c in cs), 'one attendance row per employee-day (Q2)')
+    for t, label in (('hr.attendance_close', 'attendance close'), ('hr.payroll_run', 'payroll run')):
+        require(any(c['table'] == t and c['kind'] == 'UK_PARTIAL' and "status = 'confirmed'" in c['expression'] for c in cs), f'one confirmed {label} per month (Q4)')
+    require(any(c['table'] == 'hr.payslip' and 'net_pay = gross_pay - deduction_total' in c['expression'] for c in cs), 'net pay equals gross minus deductions')
+    require(all(r['target'].split('.')[0] in ('hr', 'core') for r in rs if r['source'].startswith('hr.')), 'HR FKs stay inside hr/core anchors')
+    require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'hr'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key hr')
     return errors
 
 
