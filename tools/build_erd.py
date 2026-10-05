@@ -4,8 +4,11 @@
 """Generate offline SVG relationship explorer + Mermaid ERDs from schema metadata."""
 import json,html,hashlib
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1];p=ROOT/'docs/db/schema-metadata/schema.json';d=json.loads(p.read_text());out=ROOT/'docs/architecture/erd';out.mkdir(parents=True,exist_ok=True)
+import sys
+T='--target' in sys.argv  # DSN-00: 목표 설계 → erd-target/
+ROOT=Path(__file__).resolve().parents[1];p=ROOT/('docs/db/schema-metadata/schema-target.json' if T else 'docs/db/schema-metadata/schema.json');d=json.loads(p.read_text());out=ROOT/('docs/architecture/erd-target' if T else 'docs/architecture/erd');out.mkdir(parents=True,exist_ok=True)
 mods={'core':'CORE 인증·공간·운영','mes':'MES 생산','erp':'ERP 판매·출하·회계','fems':'FEMS 에너지','qms':'QMS 품질','wms':'WMS 창고','bems':'BEMS 건물','spc':'SPC 공정관리','gw':'GW 전자결재·게시판','cmms':'CMMS 설비보전'}
+for t in d['tables']: mods.setdefault(t['name'].split('.')[0],t['name'].split('.')[0].upper())
 ts={t['name']:t for t in d['tables']}
 def ident(n):return n.replace('.','_')
 def mermaid(mod):

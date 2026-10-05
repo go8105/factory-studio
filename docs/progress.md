@@ -2,6 +2,13 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-00 기능 기준표 양식·목표 DB 파일 (Claude Code)
+- 양식 `docs/plan/기능기준표_DSN-00.md`: 수준 필수/표준/고급(기본 범위 필수+표준), 기준표 칸(ID `<약어>-F<nn>`·지금 ✓△✗·범위 ○△✕), 솔루션 문서 7장 구조(`docs/modules/<m>/<M>_보강설계_DSN-1x.md`·`_설계_DSN-2x.md`), DB 표·화면 목록 형식, 완료 조건.
+- 목표 DB `docs/db/schema-metadata/schema-target.json`(target-0.1.0, task DSN-00, base_task FS-029a, migration_revision null) = schema.json 복사.
+- 도구: `validate_db_design.py`(base_task로 기존 검사 전부 유지, `*_DSN-*.md` 새 테이블 표 인식, target 계약 — 실제 DB 기록 금지·base_task 일치, 보고서 `validation-report-target.json`) · `audit_schema_isolation.py`(새 스키마 자동 업무 스키마) · `verify_ddl_matches_schema.py`(스키마 목록을 메타데이터에서) · **신규 `schema_ddl.py`**(메타데이터 → DDL → 빈 `factory_studio_target` 적용 → 카탈로그 대조) · `build_erd.py --target`(erd-target/) · `build_db_design.mjs --target`(DB설계서_목표.xlsx) · 두 생성기 모두 새 스키마 자동 포함.
+- 검증: 목표 파일 validate 0·격리 0·DDL 적용 대조 0(118·UK 264·CHECK 376·INDEX 105·UNIQUE_INDEX 32·FK 270)·ERD 11개·Excel 43시트. **생성기 자체 검증: 지금 schema.json으로 빈 DB 생성 → 대조 오류 0.** 기존 산출물(validation-report·ERD) 변화 없음. tools 73 + test_dsn00 5 통과, ruff 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+- 다음: DSN-11 ERP 기준표(갭 분석) → 범위 확인.
+
 ## 2026-10-04 FS-030b GW 병합·운영 배포 — main `a4baf30` (Claude Code)
 - Codex `codex/fs-030-gw` `1f96532`(GW API·G-01~07·ERP 매입 결재 배지) main 병합. 충돌은 현황 첫 줄만. 마이그레이션·시드 변경 없음. 재검증: typecheck·ruff·vitest gw/portal 91, CI success. Codex 보고: vitest 518, 백엔드 839 통과(성능 1건 단독 재실행 통과).
 - 운영(사용자 실행): 서버 `git pull`·`uv sync`·API 재시작 → 프런트 rsync(`index-DkXknnzE.js`). 확인: 진입 화면 GW 표시, 게스트 201, GW dashboard 200, `/gw` 200. 첫 rsync 안내에 `git log` 페이저가 걸려 업로드가 빠졌던 것을 `--no-pager`로 다시 실행.

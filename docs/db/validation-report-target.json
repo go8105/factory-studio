@@ -1,0 +1,31 @@
+{
+  "task": "DSN-00",
+  "validation": "정적 메타데이터 검증 + FS-013 R1~R6",
+  "database_applied": false,
+  "tables": 118,
+  "tables_by_schema": {
+    "bems": 10,
+    "cmms": 6,
+    "core": 11,
+    "erp": 27,
+    "fems": 13,
+    "gw": 8,
+    "mes": 21,
+    "qms": 6,
+    "spc": 5,
+    "wms": 11
+  },
+  "columns": 1297,
+  "foreign_keys": 270,
+  "constraints_and_policies": 1034,
+  "source_sha256": "6a002600889b6bc673c3303e3b5a2c2f7945d2dfc699e40b21a50602f120a0d3",
+  "errors": [],
+  "not_tested": [
+    "실제 DDL 적용",
+    "PostgreSQL CHECK 구문·트리거 동작",
+    "동시성·성능·권한·마이그레이션",
+    "Excel 네이티브 앱 동작",
+    "SERVICE 정책 실행·소명 동시성·금액 계산",
+    "법정 세무·회계 기준 적합성"
+  ]
+}

@@ -27,6 +27,30 @@ CMMS_DESIGN = ROOT/'docs/modules/cmms/CMMS_모듈설계_FS-029.md'
 REVIEW_DESIGN = ROOT/'docs/plan/런처평가_한줄평_FS-040.md'
 
 
+def gate_task(d):
+    """목표 설계(DSN)는 base_task(지금 schema.json의 작업 ID)로 기존 검사를 모두 켠다."""
+    return d.get('base_task') or d.get('task')
+
+
+def target_names():
+    """목표 설계에서 새로 생긴 테이블은 `docs/modules/*/*_DSN-*.md` 표의 첫 칸에 적는다."""
+    names = set()
+    for doc in sorted(ROOT.glob('docs/modules/*/*_DSN-*.md')):
+        names |= set(re.findall(r'^\| `([a-z]+\.[a-z_]+)` \|', doc.read_text(encoding='utf-8'), re.M))
+    return names
+
+
+def validate_target(d):
+    """schema-target.json 계약: 실제 DB 기록(migration_revision)이 없고, 기준 작업이 지금 schema.json과 같다."""
+    errors = []
+    current = json.loads((ROOT/'docs/db/schema-metadata/schema.json').read_text(encoding='utf-8'))
+    if d.get('migration_revision') is not None:
+        errors.append('target: migration_revision must be null (설계 전용)')
+    if d.get('base_task') != current.get('task'):
+        errors.append(f"target: base_task {d.get('base_task')} != schema.json task {current.get('task')} — 실제 DB가 바뀌면 목표 파일 기준도 옮긴다")
+    return errors
+
+
 def design_names(task='FS-014'):
     names = set(re.findall(r'^\| `((?:core|mes|erp|fems)\.[a-z_]+)` \|', DESIGN.read_text(encoding='utf-8'), re.M))
     if task in LATER_THAN_014B:
@@ -57,6 +81,7 @@ def design_names(task='FS-014'):
 
 def validate(d, expected=None, isolation=True):
     errors = []
+    task = gate_task(d)
     def require(ok, message):
         if not ok:
             errors.append(message)
@@ -119,25 +144,25 @@ def validate(d, expected=None, isolation=True):
         for name, column in obsolete.items():
             require(column not in columns.get(name, {}), f'{name}: obsolete column {column}')
             require(not any(c['table'] == name and re.search(r'\b'+column+r'\b', json.dumps(c, ensure_ascii=False)) for c in d['constraints']), f'{name}: stale rule referring to {column}')
-    if d.get('task') in LATER_THAN_014B or d.get('version') in {'0.8.0', '0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.15.0-gw', '0.16.0', '0.17.0'}:
+    if task in LATER_THAN_014B or d.get('version') in {'0.8.0', '0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.15.0-gw', '0.16.0', '0.17.0'}:
         errors.extend(validate_accounting(d))
-    if d.get('task') in LATER_THAN_008B or d.get('version') in {'0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.15.0-gw', '0.16.0', '0.17.0'}:
+    if task in LATER_THAN_008B or d.get('version') in {'0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.15.0-gw', '0.16.0', '0.17.0'}:
         errors.extend(validate_screen_gaps(d))
-    if d.get('task') in LATER_THAN_023A:
+    if task in LATER_THAN_023A:
         errors.extend(validate_qms(d))
-    if d.get('task') in LATER_THAN_024A:
+    if task in LATER_THAN_024A:
         errors.extend(validate_wms(d))
-    if d.get('task') in LATER_THAN_025A:
+    if task in LATER_THAN_025A:
         errors.extend(validate_bems(d))
-    if d.get('task') in LATER_THAN_028A:
+    if task in LATER_THAN_028A:
         errors.extend(validate_spc(d))
-    if d.get('task') in {'FS-026a', 'FS-040', 'FS-030a', 'FS-029a'}:
+    if task in {'FS-026a', 'FS-040', 'FS-030a', 'FS-029a'}:
         from validate_fs026a import validate_extension
         errors.extend(validate_extension(d))
-    if d.get('task') in {'FS-030a', 'FS-029a'}:
+    if task in {'FS-030a', 'FS-029a'}:
         from validate_fs030a import validate_gw
         errors.extend(validate_gw(d))
-    if d.get('task') == 'FS-029a':
+    if task == 'FS-029a':
         errors.extend(validate_cmms(d))
     return errors
 
@@ -339,11 +364,14 @@ def validate_screen_gaps(d):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--schema', type=Path, default=ROOT/'docs/db/schema-metadata/schema.json')
-    parser.add_argument('--report', type=Path, default=ROOT/'docs/db/validation-report.json')
+    parser.add_argument('--report', type=Path)
     args = parser.parse_args()
     raw = args.schema.read_bytes()
     d = json.loads(raw)
-    errors = validate(d, design_names(d.get('task')))
+    target = bool(d.get('target'))
+    report_path = args.report or ROOT/('docs/db/validation-report-target.json' if target else 'docs/db/validation-report.json')
+    expected = design_names(gate_task(d)) | (target_names() if target else set())
+    errors = validate(d, expected) + (validate_target(d) if target else [])
     by_schema = {}
     for t in d['tables']:
         schema = t['name'].split('.')[0]
@@ -353,7 +381,7 @@ def main():
                   columns=sum(len(t['columns']) for t in d['tables']), foreign_keys=len(d['relations']),
                   constraints_and_policies=len(d['constraints']), source_sha256=hashlib.sha256(raw).hexdigest(), errors=errors,
                   not_tested=['실제 DDL 적용', 'PostgreSQL CHECK 구문·트리거 동작', '동시성·성능·권한·마이그레이션', 'Excel 네이티브 앱 동작', 'SERVICE 정책 실행·소명 동시성·금액 계산', '법정 세무·회계 기준 적합성'])
-    args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return bool(errors)
 

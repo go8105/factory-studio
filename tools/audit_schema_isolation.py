@@ -17,23 +17,25 @@ SCOPE = ['workspace_id', 'generation_id']
 
 def audit(data):
     errors = []
+    # 목표 설계(schema-target.json)의 새 스키마도 업무 스키마로 본다. core만 예외.
+    business = BUSINESS | ({t['name'].split('.')[0] for t in data['tables']} - {'core'} - FORBIDDEN)
     for table in data['tables']:
         name = table['name']
         schema = name.split('.')[0]
         if schema in FORBIDDEN:
             errors.append(f'R4: forbidden table {name}')
-        if schema in BUSINESS:
+        if schema in business:
             columns = {c['name']: c for c in table['columns']}
             if not all(c in columns and not columns[c]['nullable'] for c in SCOPE):
                 errors.append(f'R5: missing/non-required scope key in {name}')
     for relation in data['relations']:
         source, target = relation['source'], relation['target']
         sm, tm = source.split('.')[0], target.split('.')[0]
-        if sm in BUSINESS and tm in BUSINESS and sm != tm:
+        if sm in business and tm in business and sm != tm:
             errors.append(f'R1: {source} -> {target}')
-        if sm in BUSINESS and tm == 'core' and target not in ANCHORS:
+        if sm in business and tm == 'core' and target not in ANCHORS:
             errors.append(f'R2: {source} -> {target}')
-        if sm == 'core' and tm in BUSINESS:
+        if sm == 'core' and tm in business:
             errors.append(f'R3: {source} -> {target}')
     return errors
 
