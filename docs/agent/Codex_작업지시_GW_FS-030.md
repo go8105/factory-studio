@@ -82,6 +82,8 @@
 
 ### 9. 2026-10-05 DSN-90 통합 검증 뒤 GW 확장(GW-EXT)에 대한 결정·요청
 
+> **같은 날 D82: Codex 업무 중단 → 아래 2~4는 Claude가 DSN-31로 수행한다.**
+
 결정(ROADMAP-02 **D81**, [DSN-90 7-1](../plan/통합검증_DSN-90.md)) — `codex/fs-030-gw` `08c91d9`는 main에 병합했다.
 
 1. **사람·조직 원천은 HR**(`docs/modules/hr/HR_설계_DSN-30.md`). GW-EXT A의 `organization_unit`·`person_assignment`는 HR `departments()`·`employees()`를 "HR에서 가져오기"한 스냅샷(부서 코드·사원 코드 = HR 코드, 문서 권한 판정용)으로 고친다. GW-EXT D단계의 인사 기초·근태·휴가는 빼고(HR 소유), GW D는 일정·채팅만. 계정 ↔ 직원 연결(`person_identity_binding`)·`role_grant`·문서 권한은 GW 그대로.

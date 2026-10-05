@@ -72,6 +72,9 @@
 
 ## 8. 역할 분담
 
+> **2026-10-05 사용자 결정(ROADMAP-02 D82): Codex 업무 중단.** 아래 Codex 몫은 모두 Claude Code가 맡는다. antigravity 사용 여부는 [DSN-99](docs/plan/개발계획_DSN-99.md) Q5.
+
+
 - **Codex:** 마이그레이션·시드 생성기·인증/세션/멱등·SERVICE 정책·트랜잭션이 있는 화면·동시성 검증·각 유형의 첫 구현.
 - **antigravity:** 확립된 패턴의 반복 화면(조회·단순 CRUD)·설정·도움말/흐름맵 정적 파일·테스트 보강.
 - antigravity 작업은 별도 브랜치에서 수행하고 Codex 또는 사용자 리뷰 후 main에 병합한다.
