@@ -63,7 +63,7 @@
 
 ### 4-2. 목표 파일 고치는 방법
 
-- 목표 파일 전체 재생성: `python3 tools/apply_dsn00.py --rebuild && python3 tools/apply_dsn11.py` (이후 DSN 스크립트를 번호 순서대로). 각 `test_dsn<nn>.py`가 "재생성 결과 = 커밋된 목표 파일"을 검사한다.
+- 목표 파일 전체 재생성: `python3 tools/rebuild_target.py`(schema.json 복사 → `STEPS`의 DSN 스크립트 순서). 새 DSN 스크립트는 `STEPS` 끝에 붙인다. `test_dsn11.py`가 "재생성 결과 = 커밋된 목표 파일"을 검사한다.
 - 솔루션마다 `tools/apply_dsn<nn>.py`를 만든다. **목표 파일만** 고치고, 두 번 실행해도 결과가 같아야 한다(기존 `apply_fs*.py`와 같은 방식). 제약 번호(C·R)는 목표 파일 안에서 이어 붙인다.
 - 목표 파일의 `base_task`는 지금 `schema.json`의 작업 ID(`FS-029a`)다. 설계 기간에 실제 DB가 바뀌면(예: Codex 작업 병합) 목표 파일에도 같은 변경을 넣고 `base_task`를 옮긴다 — 검증기가 다르면 실패시킨다.
 - 불변 규칙은 그대로 적용된다: 범위 키 S, 업무 스키마 간 FK 금지, 달력 키 문자열 + CHECK, RESTRICT, 확정 데이터 불변.

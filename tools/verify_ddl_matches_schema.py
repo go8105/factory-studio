@@ -41,6 +41,7 @@ def normalize_type(value: str) -> str:
         value.lower()
         .replace("character varying", "varchar")
         .replace("timestamp with time zone", "timestamptz")
+        .replace("time without time zone", "time")
         .replace(" ", "")
     )
 

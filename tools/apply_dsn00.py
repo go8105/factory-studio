@@ -1,6 +1,6 @@
 """DSN-00: 목표 DB(schema-target.json)의 출발점 = 지금 schema.json 복사 + 목표 머리 정보.
 
-목표 파일 전체 재생성: python3 tools/apply_dsn00.py --rebuild && python3 tools/apply_dsn11.py (이후 DSN 스크립트를 순서대로)
+목표 파일 전체 재생성은 tools/rebuild_target.py(이 기준 복사 + DSN 스크립트 순서)를 쓴다.
 목표 파일이 이미 있으면 --rebuild 없이는 덮어쓰지 않는다(쌓인 설계를 지우지 않게).
 """
 

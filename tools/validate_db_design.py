@@ -166,6 +166,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_cmms(d))
     if 'erp.journal_entry' in {t['name'] for t in d['tables']}:
         errors.extend(validate_erp_dsn11(d))
+    if 'mes.pop_import' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_mes_dsn12(d))
     return errors
 
 
@@ -199,6 +201,28 @@ def validate_erp_dsn11(d):
     require(any(s['table'] == 'erp.tax_invoice' and 'transmitted' in s['values'] for s in d['states']), 'tax invoice simulated transmission states (Q6)')
     require(not any(c['table'] == 'erp.account' and c['kind'] == 'CHECK' and "account_code = 'AR'" in c['expression'] for c in cs), 'fixed 7-account CHECK removed')
     require(all(r['target'].split('.')[0] in ('erp', 'core') for r in rs if r['source'].startswith('erp.')), 'ERP FKs stay inside erp/core anchors')
+    return errors
+
+
+def validate_mes_dsn12(d):
+    """DSN-12 MES 보강 계약: 스캔 원장은 POP(Q1)·재고는 WMS(Q2)·자재 LOT 스냅샷(Q4)·유효 라벨 1건·금형 타수 파생·POP 가져오기 멱등."""
+    errors = []
+    cs = d['constraints']
+    ts = {t['name']: {c['name'] for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-12: ' + message)
+    def partial(t, cols, word):
+        return any(c['table'] == t and c['kind'] == 'UK_PARTIAL' and c['columns'] == SCOPE + cols and word in c['expression'] for c in cs)
+    require(not any(n.startswith('mes.') and ('scan' in n or 'stock' in n) for n in ts), 'scan logs belong to POP (Q1), stock to WMS (Q2)')
+    require(any(c['table'] == 'mes.pop_import' and c['kind'] == 'UK' and c['columns'] == SCOPE + ['pop_entry_ref'] for c in cs), 'POP import is idempotent per entry')
+    require(any(c['table'] == 'mes.pop_import' and c['kind'] == 'SERVICE/DB_POLICY' and c['reason'] == 'POP 가져오기 재검증(Q1)' for c in cs), 'POP entries re-validated by MES rules')
+    require('material_lot_no' in ts.get('mes.material_issue', ()), 'material issue takes WMS LOT number snapshot (Q4)')
+    require(partial('mes.label_print', ['label_kind', 'barcode_value'], "status = 'VALID'"), 'one valid label per target')
+    require(not any(w in col for col in ts.get('mes.mold', ()) for w in ('shot_count', 'current_shots', 'accumulated')), 'mold shots are derived from usage')
+    require(partial('mes.downtime', ['equipment_id'], 'ended_at IS NULL'), 'one open downtime per equipment')
+    require(any(c['table'] == 'mes.material_adjustment' and c['reason'] == '비계획 입출고 경계(Q2)' for c in cs), 'unplanned moves recorded by MES, applied by WMS')
+    require(all(r['target'].split('.')[0] in ('mes', 'core') for r in d['relations'] if r['source'].startswith('mes.')), 'MES FKs stay inside mes/core anchors')
     return errors
 
 
@@ -392,7 +416,8 @@ def validate_screen_gaps(d):
     for name in ['FS-008b 채권 만기 스냅샷','FS-008b 채무 만기 스냅샷','FS-008b 매입 만기 우선순위','FS-008b 설비 동시 점유 방지','TX-10 양품 초과 패킹 거부','고정 세율 출처','다중 에너지원 배분 단위']:
         require(name in policies,'missing SERVICE policy '+name)
     require(ts.get('mes.work_order',{}).get('bom_version_id',{}).get('nullable') is True,'optional BOM')
-    require(any(c['table']=='mes.lot' and c['kind']=='UK' and c['columns']==SCOPE+['work_order_id'] for c in cs),'one LOT per work order')
+    # DSN-12(목표 설계): LOT 분할(F37)로 "원 LOT 1개"를 조건부 유니크로 바꾼다.
+    require(any(c['table']=='mes.lot' and c['columns']==SCOPE+['work_order_id'] and (c['kind']=='UK' or (c['kind']=='UK_PARTIAL' and 'origin_lot_id IS NULL' in c['expression'])) for c in cs),'one LOT per work order')
     require('core.workspace_module' in ts,'keep app toggle')
     require(not any(c in ts.get('erp.quotation',{}) for c in ['is_latest','is_current']),'derived quotation revision')
     return errors

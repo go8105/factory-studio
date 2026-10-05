@@ -5,8 +5,8 @@ import json
 import unittest
 from pathlib import Path
 
-import apply_dsn00
 import apply_dsn11
+import rebuild_target
 from validate_db_design import validate_erp_dsn11
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,16 +21,10 @@ class ErpTargetTest(unittest.TestCase):
         )
 
     def test_rebuild_from_schema_json_is_identical(self):
-        d = apply_dsn00.base(
-            json.loads(
-                (ROOT / "docs/db/schema-metadata/schema.json").read_text(
-                    encoding="utf-8"
-                )
-            )
-        )
-        self.assertTrue(apply_dsn11.apply(d))
-        self.assertFalse(apply_dsn11.apply(d))
+        d = rebuild_target.build()
         self.assertEqual(d, self.target)
+        for step in rebuild_target.STEPS:
+            self.assertFalse(step.apply(d))
 
     def test_contract_holds(self):
         self.assertEqual(validate_erp_dsn11(self.target), [])

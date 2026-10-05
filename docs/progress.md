@@ -2,6 +2,13 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-01 확정 · DSN-12 MES 보강 설계 완료 (Claude Code)
+- DSN-01 S1~S4 제안대로 확정(기반 작업은 일괄 개발 첫 단계, 지연 복사, 공통 엔진 프런트·백엔드, 모듈러 모놀리스).
+- MES 결정: Q1 **바코드 스캔 화면은 POP에만**(MES는 라벨·검증 규칙·POP 가져오기 재검증) · Q2 비계획 입출고 MES 기록→WMS 반영 · Q3 Code128+QR·브라우저 인쇄 · Q4 자재 투입이 WMS 자재 LOT 스냅샷 · Q5 공정 검사 MES · Q6 비가동·금형 타수 MES, 금형 보전 CMMS · Q7 범위 제안대로(60/64).
+- 문서 `docs/modules/mes/MES_보강설계_DSN-12.md`: 기준표 64(사용자 요청 ★13: 품목 상세·관리 속성·포장 기준·라벨 양식/출력/재발행·지시서·LOT 카드·공정 입고·스캔 시작/완료·스캔 패킹·비계획 출고/입고), 기능 규칙 13묶음, DB 21→45(새 24·기존 9 변경·ERP 구매 요청 출처 MES), 화면 15→33(특수 1: LOT 추적 트리), 교차 조회(POP `confirmed_entries`·WMS 재고/LOT 읽기, `pop_context`·`production_results`·`subcontract_results`·`material_adjustments`·`material_shortages`·`molds` 제공).
+- 목표 DB: `tools/apply_dsn12.py`(apply_dsn11 다음, 멱등) → target-0.3.0/DSN-12 178테이블·컬럼 2,049·FK 451. `tools/rebuild_target.py`(schema.json → DSN-00 → STEPS) 신설. 검증기: "작업지시당 LOT 1개"를 원 LOT 조건부 유니크도 허용, `validate_mes_dsn12`(스캔·재고 테이블 금지·POP 가져오기 멱등·재검증·자재 LOT 스냅샷·유효 라벨 1건·금형 타수 파생·진행 비가동 1건). `verify_ddl_matches_schema.py`에 `time` 타입 정규화.
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(178·UK 377·CHECK 528·INDEX 133·UNIQUE_INDEX 49·FK 451)**·실제 schema.json 빈 DB 대조 0·ERD·Excel 43시트·tools 73 + DSN 12(재생성 = 커밋본). 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-11 ERP 보강 설계 완료 (Claude Code)
 - 결정(하나씩): Q1 소유 나누기 확정 · Q2 **HR 18번째 솔루션 신설(D79)** · Q3 자동 전표 즉시+일괄 · Q4 발주 기반+직접 매입 둘 다 · Q5 월 이동평균+생산량 배부 · Q6 세금계산서 전송 흉내 · Q7 범위 제안대로(58 = 포함 56 + 기록만 2, 제외 9, 타 솔루션 5).
 - 문서 `docs/modules/erp/ERP_보강설계_DSN-11.md` 3~6장: 기능 규칙 20묶음, DB(새 36 + 기존 10 변경, 표는 apply 스크립트에서 생성), 화면 18 → 41(E-19~E-43, E-14 폐지·E-08 흡수, 특수 화면 0), 교차 조회(WMS·MES·HR·GW·CMMS/ELB 읽기, ERP 제공 3개 추가 — 함수 이름은 제공 측 DSN에서 확정).
