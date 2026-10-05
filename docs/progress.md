@@ -28,6 +28,118 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-28 EIP 신규 설계 완료 (Claude Code)
+- 결정: Q1 **공지는 GW 공지 표시**(EIP 자체 공지 없음) · Q2 KPI 정의·목표는 EIP, 실적은 각 솔루션 월 요약 조회 · Q3 **할 일은 사람별**, Q3-1 **HR 사원 코드로 사람 연결** · Q4 월간 경영 보고서·의견 · Q5 **위젯 배치 개인화(eip에 저장)** · Q6 통합 번호 검색 · 범위 13/15.
+- 문서 `docs/modules/eip/EIP_설계_DSN-28.md` + README: 기준표 15, 기능 규칙 6묶음, DB eip 8, 화면 8(EI-01~08), 교차 조회(모든 솔루션 `monthly_summary`·`pending_tasks(hr_employee_code)`·`lookup(code)`, GW `published_notices`, HR `employees`). GW 작업지시서·CRM·ELB·QMS 문서에 메모.
+- 사람 연결 칸: `gw.person.hr_employee_code`·`crm.sales_rep.hr_employee_code`·`elb.request.requester_hr_code`·`elb.approval.approver_hr_code`·`qms.capa.owner_hr_code`, ELB 승인자 지정 `elb.approver` 신설.
+- 목표 DB: `tools/apply_dsn28.py` → target-0.16.0/DSN-28 **309테이블**·컬럼 3,573·FK 746, 모듈 키 eip. 검증기 `validate_eip_dsn28`. test_dsn27의 elb 테이블 수는 하한으로 바꿨다(DSN-28이 elb.approver 추가).
+- 검증(통과를 커밋 조건으로): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(309·UK 627·CHECK 788·INDEX 196·UNIQUE_INDEX 86·FK 746)**·ERD·Excel·tools 73 + DSN 39·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
+## 2026-10-05 DSN-27 ELB/MRO 신규 설계 완료 (Claude Code)
+- 결정: Q1 **ELB는 카탈로그·신청·승인·수령 확인까지**(발주·매입·전표는 ERP — 구매 요청 출처 ELB, 재고 품목 입고는 WMS) · Q2 ELB 안 금액 기준 승인 단계(GW와 별개) · Q3 부서 예산 확인(경고) · Q4 비재고 수령 확인 → ERP 매입 근거 · Q5 계약 단가·표준 세트·단가 비교 · Q6 긴급 구매(법인카드 사후 등록 → ERP 카드 내역) · 범위 18/19.
+- 문서 `docs/modules/elb/ELB_설계_DSN-27.md` + README: 기준표 19, 기능 규칙 7묶음, DB elb 11, 화면 11(MR-01~11), 교차 조회(`approved_requests`·`receipts`·`emergency_requests`·`monthly_summary` 제공, ERP `budget_status`·`elb_request_status`·`card_transactions`·`purchase_prices`·WMS `inbound_status` 요청 — ERP·WMS 문서에 메모). ROADMAP-01의 ELB `purchase_receipts()`는 Q1로 대체.
+- 목표 DB: `tools/apply_dsn27.py` → target-0.15.0/DSN-27 **300테이블**·컬럼 3,481·FK 732, 모듈 키 elb. 검증기 `validate_elb_dsn27`.
+- 검증(통과를 커밋 조건으로): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(300·UK 609·CHECK 776·INDEX 193·UNIQUE_INDEX 83·FK 732)**·ERD·Excel·tools 73 + DSN 37·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
+## 2026-10-05 DSN-26 SCM 신규 설계 완료 (Claude Code)
+- 결정: Q1 **SCM은 계획·분석만**(실행은 ERP·MES·WMS가 "SCM에서 가져오기") · Q2 이동평균·지수평활·계절 지수 비교 추천 + 사람 조정 · Q3 확정 예측 → ERP 판매계획 초안, CRM은 참고 · Q4 S&OP·개략 능력 · Q5 재고 정책 산정 → WMS 제안 · Q6 공급처 성과(납기·리드타임 + QMS 등급) · 범위 18/22.
+- 문서 `docs/modules/scm/SCM_설계_DSN-26.md` + README: 기준표 22, 기능 규칙 7묶음, DB scm 9, 화면 10(SC-01~10), 교차 조회(`demand_forecast`·`sop_plan`·`inventory_policies`·`supplier_scores`·`monthly_summary` 제공, ERP `shipments_monthly`·MES `capacity`·`production_plan` 요청 — ERP·MES·WMS 문서에 메모).
+- 목표 DB: `tools/apply_dsn26.py` → target-0.14.0/DSN-26 289테이블·컬럼 3,370·FK 711, 모듈 키 scm. 검증기 `validate_scm_dsn26`(실행 테이블 금지·확정 1건·제안 1건·조정 사유).
+- 검증(통과를 커밋 조건으로): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(289·UK 588·CHECK 759·INDEX 187·UNIQUE_INDEX 81·FK 711)**·ERD·Excel·tools 73 + DSN 35·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
+## 2026-10-05 DSN-25 CRM 신규 설계 완료 (Claude Code)
+- 결정: Q1 CRM 고객사 소유, ERP가 "CRM에서 가져오기"로 거래처 생성 후 코드 연결 · Q2 견적 요청 → ERP 견적 초안, ERP 수주를 읽어 수주 확인 제안 → 사람이 처리 · Q3 6단계 고정 + 확률 조정, 매출 예측 · Q4 고객 문의(품질 문의만 QMS 클레임 전환) · Q5 캠페인·출처 분석 · 범위 21/23.
+- 문서 `docs/modules/crm/CRM_설계_DSN-25.md` + README: 기준표 23, 기능 규칙 7묶음, DB crm 13, 화면 10(CR-01~10, 파이프라인 칸반 V), 교차 조회(`accounts`·`quote_requests`·`quality_inquiries`·`pipeline_summary` 제공, ERP `crm_imports`·`sales_orders_for_crm`·`partner_summary` 요청 — ERP·QMS 문서에 메모). 견적 요청의 ERP 처리 상태는 저장하지 않고 ERP 조회로 표시(교차 쓰기 금지).
+- 목표 DB: `tools/apply_dsn25.py` → target-0.13.0/DSN-25 280테이블·컬럼 3,269·FK 699, 모듈 키 crm. 검증기 `validate_crm_dsn25`.
+- 검증(통과를 커밋 조건으로): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(280·UK 570·CHECK 741·INDEX 184·UNIQUE_INDEX 78·FK 699)**·ERD·Excel·tools 73 + DSN 33·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
+## 2026-10-05 DSN-24 PLM 신규 설계 완료 (Claude Code)
+- 결정: Q1 각 솔루션 "PLM에서 가져오기"(MES 품목·BOM, ERP·WMS·QMS 품목, 자동 동기화 없음) · Q2 도면·문서 메타데이터만 · Q3 ECR → ECO → 승인 → 배포, 배포는 QMS 4M 후보, GW는 배지 · Q4 PLM은 E-BOM까지(제조 BOM은 MES) · Q5 개발 프로젝트·단계 게이트 · Q6 설계 원가 롤업 · 범위 20/24.
+- 문서 `docs/modules/plm/PLM_설계_DSN-24.md` + README: 기준표 24, 기능 규칙 7묶음(배포는 ECO로만·현재 배포 1개·배포 불변), DB plm 16, 화면 11(접두어 PD — 패턴 D와 구분), 교차 조회(`released_parts`·`released_bom`·`eco_releases`·`monthly_summary` 제공, ERP `standard_costs`·MES `open_work_orders_by_item`·각 솔루션 `plm_imports` 요청 — MES·ERP·WMS·QMS 문서에 메모).
+- 목표 DB: `tools/apply_dsn24.py` → target-0.12.0/DSN-24 267테이블·컬럼 3,113·FK 665, 모듈 키 plm. 검증기 `validate_plm_dsn24`.
+- 검증(통과를 커밋 조건으로): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(267·UK 548·CHECK 717·INDEX 176·UNIQUE_INDEX 74·FK 665)**·ERD·Excel·tools 73 + DSN 31·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
+## 2026-10-05 DSN-23 TMS 신규 설계 완료 (Claude Code)
+- 결정: Q1 경계(배차 대상 = ERP 확정 출하지시 중 WMS 피킹 완료, ERP는 TMS 상차 완료를 읽어 출하 확정 대기 — TMS는 ERP·WMS를 바꾸지 않음) · Q2·Q3 자차+용차, 수동 배차 + 적재율 경고 · Q4 기사 모바일(패턴 K) · Q5 운임·용차 정산 → ERP 직접 매입 · **Q6 조달 운송도 TMS로**(WMS 입고 예정의 차량·도착은 TMS를 읽음) · Q7 자차 운행 비용, 범위 20/24.
+- 문서 `docs/modules/tms/TMS_설계_DSN-23.md` + README: 기준표 24, 기능 규칙 6묶음, DB tms 10(운송사·차량·기사·권역·배송지·운임표·배차·방문·운행 비용·정산), 화면 14(R-01~14, 기사 K 2), 교차 조회(`loaded_shipments`·`deliveries`·`inbound_arrivals`·`carrier_settlements`·`monthly_summary` 제공, WMS `picked_shipments`·`inbound_notices` 요청 — ERP·WMS 문서에 메모).
+- 목표 DB: `tools/apply_dsn23.py` → target-0.11.0/DSN-23 251테이블·컬럼 2,951·FK 626, 모듈 키 tms. 검증기 `validate_tms_dsn23`.
+- 검증(테스트 통과를 커밋 조건으로 묶음): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(251·UK 516·CHECK 693·INDEX 171·UNIQUE_INDEX 69·FK 626)**·ERD·Excel·tools 73 + DSN 29(재생성 = 커밋본)·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
+## 2026-10-05 DSN-22 POP 신규 설계 완료 (Claude Code)
+- 결정: Q1 **지연 가져오기**(MES·WMS가 자기 API가 불릴 때 미반영 POP 확정 입력을 가져가 재검증·반영, POP는 `pop_results` 조회로 결과 표시 — 교차 쓰기·배경 작업 없음) · Q2 POP 자체 단말 사용자 · Q3 공정 검사 입력 · Q4 호출(안돈, POP 안에서만) · Q5 작업 일보·라인 현황판 · Q6 범위 26/29.
+- 문서 `docs/modules/pop/POP_설계_DSN-22.md` + README: 기준표 29, 기능 규칙 8묶음(스캔 → 확인 → 확정 공통 흐름, CANCEL 입력 규칙), DB pop 7(단말·작업자·세션·스캔 원장·확정 입력·명세·호출), 화면 22(새 패턴 K 현장 단말 18 + 현황판 + 관리 3), 교차 조회(`confirmed_entries` 제공, MES·WMS `pop_results`·WMS `pending_tasks` 요청 — MES·WMS 문서에 메모).
+- 확정 입력에 반영 솔루션(MES/WMS) 칸 — 두 솔루션 모두 RECEIVE·ISSUE를 다른 뜻으로 써서 구분. MES pop_import 종류 + DOWNTIME·INSPECT·CANCEL, WMS + CANCEL, 모듈 키 pop.
+- 목표 DB: `tools/apply_dsn22.py` → target-0.10.0/DSN-22 241테이블·컬럼 2,835·FK 605. 검증기 `validate_pop_dsn22`(POP FK pop/core만·입력 번호 유일·MES/WMS 가져오기 종류 = POP 종류·취소 1건·지연 가져오기 정책·모듈 키).
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(241·UK 497·CHECK 673·INDEX 165·UNIQUE_INDEX 67·FK 605)**·ERD·Excel·tools 73 + DSN 27·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
+## 2026-10-05 DSN-21 CMMS 재점검·보강 설계 완료 (Claude Code)
+- 결정: Q1 금형 보전(MES 금형 가져오기, 진행 작업지시를 MES가 읽어 금형 상태·배지) · Q2 사용량 기준 PM(운전 시간·타수) · Q3 점검표 구조화 + 시설 일상 점검 · **Q4 신호 전환 확장 제외**(FEMS 에너지 경보·BEMS 설비 경보는 CMMS 신호 아님) · Q5 정비원·외주 수리·보전 비용(FS-029 제외 항목 해제) · Q6 예비품 재고 WMS 조회·부족분 ERP 구매 요청·사용 → WMS 출고 · Q7 설비 상세·계층, 범위 22/26.
+- 문서 `docs/modules/cmms/CMMS_보강설계_DSN-21.md`: 기준표 26, 기능 규칙 8묶음, DB 6→12(새 6·기존 6 변경 — PM interval_days NULL 허용 + 기준별 CHECK), 화면 7(설계) → 10, 교차 조회(`part_requests`·`part_usages`·`monthly_summary` 제공, 금형 코드도 `equipment_in_maintenance`).
+- Q4 반영: FEMS DSN-15 F34 → 제외(범위 30→29, 경보 note를 apply_dsn15에서 고치고 목표 재생성), BEMS DSN-16 `active_alarms`는 환경 경보만.
+- 목표 DB: `tools/apply_dsn21.py` → target-0.9.0/DSN-21 234테이블·컬럼 2,746·FK 589. 검증기 `validate_cmms_dsn21`. rebuild_target STEPS에 추가(포맷터가 목록을 여러 줄로 바꿔 문자열 치환이 빠진 것을 재생성 결과로 발견해 고침).
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(234·UK 485·CHECK 657·INDEX 160·UNIQUE_INDEX 64·FK 589)**·ERD·Excel·tools 73 + DSN 25(재생성 = 커밋본)·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
+## 2026-10-05 DSN-17 SPC 보강 설계 완료 — 기존 7개 보강 설계 마무리 (Claude Code)
+- 결정: Q1 n=1(I-MR)·2~10(X̄-R), X̄-S 제외, 계수는 코드 상수 · Q2 계수형 p·np·c·u(MES 실적에서 부분군 + 수동) · Q3 Nelson 1~8 + 특성별 선택 · Q4 규격 이탈 → QMS 부적합 후보 · Q5 OCAP · Q6 Pp/Ppk·정규성·월별 추이·층별·보고서 · Q7 범위 24/27.
+- 문서 `docs/modules/spc/SPC_보강설계_DSN-17.md`: 기준표 27, 기능 규칙 7묶음, DB 5→10(새 5·기존 5 변경 — 관리도 종류는 기존 테이블에 칸 추가, "n=5 고정" → 1~10, X̄·R NULL 허용 + "계량/계수 하나" CHECK), 화면 7→11, 교차 조회(`spec_violations`·`capability_summary` 제공, QMS `gauges` 요청).
+- 목표 DB: `tools/apply_dsn17.py` → target-0.8.0/DSN-17 228테이블·컬럼 2,667·FK 572. 검증기: FS-028 "n=5 고정"이 1~10도 허용, `validate_spc_dsn17`.
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(228·UK 473·CHECK 645·INDEX 157·UNIQUE_INDEX 64·FK 572)**·ERD·Excel·tools 73 + DSN 23·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+- **기존 7개 합계**: 테이블 93 → 202(+core.holiday), 화면 105 → 166. 다음은 신규 솔루션(CMMS 재점검·POP·TMS·PLM·CRM·SCM·ELB/MRO·EIP·RWS·HR), 이후 DSN-90 통합 검증(각 문서 6장 "넘길 것" 모음).
+
+## 2026-10-05 DSN-16 BEMS 보강 설계 완료 (Claude Code)
+- 결정: Q1 **휴일 달력은 core 공통**(core.holiday, 업무 스키마는 날짜로 읽음·FK 없음 — FEMS TOU·MES 근무조·HR 근태도 사용) · Q2 피크 감축은 제안 → 승인 후 제어 · Q3 조명 제어 · Q4 환경 지표 6종 + 쾌적 시간 비율 · **Q5 불편 신고 제외** · Q6 원단위·목표·공용 비용 부서 배분·월간 보고서 · Q7 범위 21/27.
+- 문서 `docs/modules/bems/BEMS_보강설계_DSN-16.md`: 기준표 27, 기능 규칙 7묶음, DB bems 10→21 + core.holiday(기존 6 변경 — 스케줄 hvac_unit_id NULL 허용 + "대상 하나" CHECK), 화면 7→13 + 포털 P-08 휴일 달력, 교차 조회(`hvac_units`·`active_alarms`(설비 경보 포함)·`monthly_summary` 신규 제공, FEMS `open_alarms`·`tariff_rates`·core `holidays` 요청).
+- 목표 DB: `tools/apply_dsn16.py` → target-0.7.0/DSN-16 223테이블·컬럼 2,602·FK 560. 검증기 `validate_bems_dsn16`(공통 휴일 1벌·core.holiday FK 금지·피크 승인 정책·FEMS 경보당 감축안 1건·스케줄 대상 하나·확정 1건·불편 신고 테이블 금지).
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(223·UK 463·CHECK 637·INDEX 154·UNIQUE_INDEX 62·FK 560)**·ERD·Excel·tools 73 + DSN 21·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
+## 2026-10-05 DSN-15 FEMS 보강 설계 완료 (Claude Code)
+- 결정: Q1 TOU 요금(계약전력 + 계절 × 요일 × 시간대, 합성 요율) · Q2 피크는 1시간 계측 최대값 근사(시드 예산) · Q3 MES 생산량 가져오기 + 수동 · Q4 에너지 비용 배분 제공, ERP는 참고 · Q5 절감 활동 + 월간 검토 보고서 · Q6 온실가스 명세서(Scope 1·2) · Q7 범위 30/33.
+- 문서 `docs/modules/fems/FEMS_보강설계_DSN-15.md`: 기준표 33, 기능 규칙 10묶음, DB 13→25(새 12·기존 6 변경), 화면 14→23, 교차 조회(`energy_costs`·`open_alarms`·`monthly_summary` 제공, MES `production_results`·ERP `departments` 요청).
+- 목표 DB: `tools/apply_dsn15.py` → target-0.6.0/DSN-15 211테이블·컬럼 2,468·FK 532. rebuild_target STEPS 추가. 검증기 `validate_fems_dsn15`(TOU 계약전력·확정 1건 3종·진행 경보 1건·PRIMARY/EMISSION 분리 정책·1시간 계측 유지).
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(211·UK 440·CHECK 609·INDEX 150·UNIQUE_INDEX 57·FK 532)**·ERD·Excel·tools 73 + DSN 19·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
+## 2026-10-05 DSN-14 QMS 보강 설계 완료 (Claude Code)
+- 결정: Q1 수입 검사(대상 = 검사 필요 + 공급처 수준 ≠ 면제, 검사 전 보류, 판정을 WMS가 읽어 이동) · Q2 AQL 표 자동(KS Q ISO 2859-1, 표는 코드 상수) + 직접 입력 · Q3 NCR + CAPA(8D 제외) · Q4 고객 클레임 QMS 소유 · Q5 공급처 월 등급 + 전환 제안, 사람 확정 · Q6 계측기·교정 포함(MSA 제외) · Q7 4M 변경 포함, 범위 28/33.
+- 문서 `docs/modules/qms/QMS_보강설계_DSN-14.md`: 기준표 33, 기능 규칙 10묶음, DB 6→15(새 9·기존 4 변경 — 검사 종류 출하·수입·반품·초품, "품목당 게시 기준 1개" → "품목·종류당"), 화면 6→13, 교차 조회(`incoming_results`·`return_results`·`claims`·`supplier_grades` 제공, WMS `inbound_lots_to_inspect`·MES `defects`·`process_inspections`·`lot_trace` 요청).
+- 목표 DB: `tools/apply_dsn14.py` → target-0.5.0/DSN-14 199테이블·컬럼 2,322·FK 506. rebuild_target STEPS 추가. 검증기: FS-023 게시 기준 규칙이 종류별 조건부 유니크도 허용, `validate_qms_dsn14`(검사 종류·AQL Ac/Re·AQL 표 비저장·수입 판정 WMS 연계·CAPA→NCR·클레임 QMS·공정 검사 금지·교정 기한 파생).
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(199·UK 418·CHECK 579·INDEX 145·UNIQUE_INDEX 52·FK 506)**·ERD·Excel·tools 73 + DSN 17(재생성 = 커밋본)·실제 schema.json 0. 클레임 CHECK의 AND/OR 우선순위 오류를 적용 전에 찾아 괄호로 고침. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
+## 2026-10-05 DSN-13 WMS 보강 설계 완료 (Claude Code)
+- 결정: Q1 창고 스캔 POP · Q2 다창고·용도 8·위치 계층·유형 6(용도당 기본 1) · Q3 LOT 품목별(원자재도 WMS 부여) · Q4 피킹 지시/확정·생산 불출(MES 투입은 라인 재고 차감) · Q5 FEFO→FIFO·만료 보류 · Q6 재고 월 마감(ERP 원가 기준) · Q7 범위 39/42(수입 검사 연계 → DSN-14).
+- 문서 `docs/modules/wms/WMS_보강설계_DSN-13.md`: 기준표 42, 기능 규칙 13묶음, DB 11→23(새 12·기존 6 변경 — "LOT = 완제품" CHECK 삭제, 원천 키에 PO·판매 반품), 화면 9→20, 교차 조회(`receipts`·`stock_moves`·`stock_on_hand`·`lots`·`line_stock`·`pop_context` 제공 계약 확정).
+- 목표 DB: `tools/apply_dsn13.py`(바꿀 기존 제약을 먼저 모두 확인하고 없으면 아무것도 바꾸지 않고 실패) → target-0.4.0/DSN-13 190테이블·컬럼 2,191·FK 487. rebuild_target STEPS에 추가. 검증기: FS-024 "용도당 활성 창고 1개"가 "기본 창고 1개" 조건도 허용, `validate_wms_dsn13`(LOT 품목별·LOT 수량 비저장·활성 보류 1건·예약당 피킹 1건·월 마감·POP 멱등·스캔 테이블 금지).
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(190·UK 400·CHECK 552·INDEX 139·UNIQUE_INDEX 51·FK 487)**·ERD·Excel·tools 73 + DSN 15(재생성 = 커밋본)·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
+## 2026-10-05 DSN-01 확정 · DSN-12 MES 보강 설계 완료 (Claude Code)
+- DSN-01 S1~S4 제안대로 확정(기반 작업은 일괄 개발 첫 단계, 지연 복사, 공통 엔진 프런트·백엔드, 모듈러 모놀리스).
+- MES 결정: Q1 **바코드 스캔 화면은 POP에만**(MES는 라벨·검증 규칙·POP 가져오기 재검증) · Q2 비계획 입출고 MES 기록→WMS 반영 · Q3 Code128+QR·브라우저 인쇄 · Q4 자재 투입이 WMS 자재 LOT 스냅샷 · Q5 공정 검사 MES · Q6 비가동·금형 타수 MES, 금형 보전 CMMS · Q7 범위 제안대로(60/64).
+- 문서 `docs/modules/mes/MES_보강설계_DSN-12.md`: 기준표 64(사용자 요청 ★13: 품목 상세·관리 속성·포장 기준·라벨 양식/출력/재발행·지시서·LOT 카드·공정 입고·스캔 시작/완료·스캔 패킹·비계획 출고/입고), 기능 규칙 13묶음, DB 21→45(새 24·기존 9 변경·ERP 구매 요청 출처 MES), 화면 15→33(특수 1: LOT 추적 트리), 교차 조회(POP `confirmed_entries`·WMS 재고/LOT 읽기, `pop_context`·`production_results`·`subcontract_results`·`material_adjustments`·`material_shortages`·`molds` 제공).
+- 목표 DB: `tools/apply_dsn12.py`(apply_dsn11 다음, 멱등) → target-0.3.0/DSN-12 178테이블·컬럼 2,049·FK 451. `tools/rebuild_target.py`(schema.json → DSN-00 → STEPS) 신설. 검증기: "작업지시당 LOT 1개"를 원 LOT 조건부 유니크도 허용, `validate_mes_dsn12`(스캔·재고 테이블 금지·POP 가져오기 멱등·재검증·자재 LOT 스냅샷·유효 라벨 1건·금형 타수 파생·진행 비가동 1건). `verify_ddl_matches_schema.py`에 `time` 타입 정규화.
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(178·UK 377·CHECK 528·INDEX 133·UNIQUE_INDEX 49·FK 451)**·실제 schema.json 빈 DB 대조 0·ERD·Excel 43시트·tools 73 + DSN 12(재생성 = 커밋본). 제품 코드·마이그레이션·실제 DB 변경 없음.
+
+## 2026-10-05 DSN-11 ERP 보강 설계 완료 (Claude Code)
+- 결정(하나씩): Q1 소유 나누기 확정 · Q2 **HR 18번째 솔루션 신설(D79)** · Q3 자동 전표 즉시+일괄 · Q4 발주 기반+직접 매입 둘 다 · Q5 월 이동평균+생산량 배부 · Q6 세금계산서 전송 흉내 · Q7 범위 제안대로(58 = 포함 56 + 기록만 2, 제외 9, 타 솔루션 5).
+- 문서 `docs/modules/erp/ERP_보강설계_DSN-11.md` 3~6장: 기능 규칙 20묶음, DB(새 36 + 기존 10 변경, 표는 apply 스크립트에서 생성), 화면 18 → 41(E-19~E-43, E-14 폐지·E-08 흡수, 특수 화면 0), 교차 조회(WMS·MES·HR·GW·CMMS/ELB 읽기, ERP 제공 3개 추가 — 함수 이름은 제공 측 DSN에서 확정).
+- 목표 DB: `tools/apply_dsn00.py`(--rebuild로 기준 복사 재생성) + `tools/apply_dsn11.py`(멱등, schema-target.json만) → target-0.2.0 / DSN-11, 154테이블(erp 63)·컬럼 1,773·FK 385. 고정 계정 7·분개 10조합·세금계산서 2상태 CHECK 교체. 검증기: FS-014b 고정 규칙 3개를 목표(전표 있음)에서 해제하고 `validate_erp_dsn11`(재고 원장 금지·HR 소관 테이블 금지·원천 1건 자동 전표·역분개 1건·확정 1건 원가/부가세/예산·잔액 비저장·Q4~Q6 정책) 추가.
+- 검증: 목표 validate 0 · 격리 0 · **빈 DB 적용 대조 0(154·UK 334·CHECK 483·INDEX 119·UNIQUE_INDEX 41·FK 385)** · ERD·Excel(43시트) · tools 73 + test_dsn00 5 + test_dsn11 4(재생성 = 커밋본, 회귀 거부) · 실제 schema.json 검증 0 유지. 제품 코드·마이그레이션·실제 DB 변경 없음. 미실행: 서비스 정책 동작(개발 때).
+
+## 2026-10-05 DSN-11 ERP 기준표 · DSN-01 규모 대응 분석 (Claude Code)
+- 입력: 사용자 제공 이카운트 데모 분석(메뉴 트리·화면 18개, 화면 필드 기반 추정 ERD). 원문은 저장소에 넣지 않음.
+- `docs/modules/erp/ERP_보강설계_DSN-11.md` 1단계: 0장 소유 나누기(재고=WMS·생산=MES·품질=QMS·결재=GW·권한=core, ERP는 읽기), 기준표 10영역 72기능(✓11·△10·✗49·타 솔루션 2, 범위 제안 ○·△ 57·✕ 9·인사 4는 Q2), 갭 요약(구매 발주·회계 전표/장부/결산·자금이 비어 있음, 테이블 27 → 약 55~65 추정), 결정 Q1~Q7, 부록 A 공통 후보(권한그룹·엑셀·출력물·단축키). 수치는 표에서 기계적으로 다시 셈. 3~6장(DB·화면)은 범위 확정 뒤.
+- `docs/plan/규모대응_구조_DSN-01.md`: 실측 CI 34.5분 중 pytest 30.7분(839개, 2.2초/개) — `guest_space`가 테스트마다 전체 시드 14,687행 복사. 전체 구성 시 CI 6~15시간 추정. 제안 A 솔루션별 시드 복사·게스트 공유·xdist·변경 범위 실행, B 게스트 지연 복사, C 패턴+정의(공통 엔진), D 모듈러 모놀리스 유지, E 한 줄 배포 스크립트. 결정 S1~S4.
+- 코드·DB 변경 없음. 목표 DB 검증 0 유지(새 테이블 아직 없음).
+
+## 2026-10-05 DSN-00 기능 기준표 양식·목표 DB 파일 (Claude Code)
+- 양식 `docs/plan/기능기준표_DSN-00.md`: 수준 필수/표준/고급(기본 범위 필수+표준), 기준표 칸(ID `<약어>-F<nn>`·지금 ✓△✗·범위 ○△✕), 솔루션 문서 7장 구조(`docs/modules/<m>/<M>_보강설계_DSN-1x.md`·`_설계_DSN-2x.md`), DB 표·화면 목록 형식, 완료 조건.
+- 목표 DB `docs/db/schema-metadata/schema-target.json`(target-0.1.0, task DSN-00, base_task FS-029a, migration_revision null) = schema.json 복사.
+- 도구: `validate_db_design.py`(base_task로 기존 검사 전부 유지, `*_DSN-*.md` 새 테이블 표 인식, target 계약 — 실제 DB 기록 금지·base_task 일치, 보고서 `validation-report-target.json`) · `audit_schema_isolation.py`(새 스키마 자동 업무 스키마) · `verify_ddl_matches_schema.py`(스키마 목록을 메타데이터에서) · **신규 `schema_ddl.py`**(메타데이터 → DDL → 빈 `factory_studio_target` 적용 → 카탈로그 대조) · `build_erd.py --target`(erd-target/) · `build_db_design.mjs --target`(DB설계서_목표.xlsx) · 두 생성기 모두 새 스키마 자동 포함.
+- 검증: 목표 파일 validate 0·격리 0·DDL 적용 대조 0(118·UK 264·CHECK 376·INDEX 105·UNIQUE_INDEX 32·FK 270)·ERD 11개·Excel 43시트. **생성기 자체 검증: 지금 schema.json으로 빈 DB 생성 → 대조 오류 0.** 기존 산출물(validation-report·ERD) 변화 없음. tools 73 + test_dsn00 5 통과, ruff 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+- 다음: DSN-11 ERP 기준표(갭 분석) → 범위 확인.
+
+## 2026-10-04 FS-030b GW 병합·운영 배포 — main `a4baf30` (Claude Code)
+- Codex `codex/fs-030-gw` `1f96532`(GW API·G-01~07·ERP 매입 결재 배지) main 병합. 충돌은 현황 첫 줄만. 마이그레이션·시드 변경 없음. 재검증: typecheck·ruff·vitest gw/portal 91, CI success. Codex 보고: vitest 518, 백엔드 839 통과(성능 1건 단독 재실행 통과).
+- 운영(사용자 실행): 서버 `git pull`·`uv sync`·API 재시작 → 프런트 rsync(`index-DkXknnzE.js`). 확인: 진입 화면 GW 표시, 게스트 201, GW dashboard 200, `/gw` 200. 첫 rsync 안내에 `git log` 페이저가 걸려 업로드가 빠졌던 것을 `--no-pager`로 다시 실행.
+
 ## 2026-10-04 FS-030b GW API·화면 완료
 
 - main8531c05 기반 codex/fs-030-gw. G01~07·순차 결재/반려/재상신·게시 정정·ERP 코드 스냅샷/E11 읽기 배지·역할/멱등/격리 구현. DB·시드 변경 없음.

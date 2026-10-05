@@ -5,8 +5,10 @@ import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
 import {execFileSync} from 'node:child_process';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const d=JSON.parse(await fs.readFile(path.join(root,'docs/db/schema-metadata/schema.json'),'utf8'));
+const target=process.argv.includes('--target'); // DSN-00: 목표 설계 → DB설계서_목표.xlsx
+const d=JSON.parse(await fs.readFile(path.join(root,target?'docs/db/schema-metadata/schema-target.json':'docs/db/schema-metadata/schema.json'),'utf8'));
 const modules={core:'CORE',mes:'MES',erp:'ERP',fems:'FEMS',qms:'QMS',wms:'WMS',bems:'BEMS',spc:'SPC',gw:'GW',cmms:'CMMS'};
+for(const t of d.tables){const m=t.name.split('.')[0];modules[m]??=m.toUpperCase()}
 const specs=[];
 function spec(name,title,heads,rows,widths){const s={name,title,heads,rows:rows.map(row=>row.map(value=>value===''?null:value)),widths,links:[]};specs.push(s);return s}
 const toc=spec('00_목차','Factory Studio 모듈별 DB 명세',['모듈','테이블','컬럼','테이블 목록','컬럼 명세','참조 관계','규칙·보존'],[],[23,12,12,23,23,23,23]);
@@ -27,7 +29,7 @@ for(const [mod,prefix] of Object.entries(modules)){
  for(const t of tables)rules.push([t.name,'RETENTION','회원 / 게스트',t.retention,t.guest_cleanup]);
  spec(prefix+'_규칙',prefix+' 제약·정책·상태·보존',['테이블','종류','컬럼','정의','이유/관리 정책'],rules,[36,23,34,90,65]);
 }
-const out=path.join(root,'docs/db/DB설계서.xlsx'),pre=path.join(root,'work/db-design/previews-fs007b');await fs.mkdir(pre,{recursive:true});
+const out=path.join(root,target?'docs/db/DB설계서_목표.xlsx':'docs/db/DB설계서.xlsx'),pre=path.join(root,'work/db-design/previews-fs007b');await fs.mkdir(pre,{recursive:true});
 const artifact=process.argv.includes('--artifact');let wb,SpreadsheetFile;
 if(artifact){const require=createRequire(path.join(root,'work/db-design/package.json'));({SpreadsheetFile}=require('@oai/artifact-tool'));wb=require('@oai/artifact-tool').Workbook.create();for(const s of specs)wb.worksheets.add(s.name)}else{const {default:ExcelJS}=await import('exceljs');wb=new ExcelJS.Workbook();for(const s of specs)wb.addWorksheet(s.name)}
 const subtitle=`v${d.version} / ${d.date} / ${d.task} 명세 · 환경별 적용 상태는 인계 문서 참조`;

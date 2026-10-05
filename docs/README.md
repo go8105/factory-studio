@@ -1,7 +1,7 @@
 # 문서 지도
 
 이 폴더의 구조와 각 폴더가 담는 것.
-**무엇부터 읽을지 모르겠다면 [현재 기획과 진행 현황](plan/현재기획_진행현황.md) 하나만 읽으면 된다.** 새 솔루션 작업은 [17개 시스템 로드맵](plan/로드맵_17개시스템_ROADMAP-01.md)과 [새 솔루션 킷](plan/새솔루션_킷.md)을 이어서 읽는다.
+**무엇부터 읽을지 모르겠다면 [현재 기획과 진행 현황](plan/현재기획_진행현황.md) 하나만 읽으면 된다.** **2026-10-04부터는 전체 설계 우선**([ROADMAP-02](plan/전체설계우선_전환_ROADMAP-02.md))이다 — 솔루션 설계는 [기능 기준표 양식 DSN-00](plan/기능기준표_DSN-00.md)을 따른다. 17개 목록·교차 조회 규칙은 [ROADMAP-01](plan/로드맵_17개시스템_ROADMAP-01.md).
 
 ## 폴더 구성
 
@@ -10,9 +10,10 @@
 | `plan/` | 기획 — 현황, 개발 기준, 일정, 설계 승인 기준 |
 | `agent/` | 작업 규칙 — 환경 점검, 참조 프로젝트 검토 |
 | `architecture/` | **모듈 횡단** 설계 — 공통 ERD, 상태·권한·트랜잭션, 전체 업무 흐름, 시드 |
-| `architecture/erd/` | 모듈별 관계도 (HTML 탐색기 + Mermaid 원본) |
+| `architecture/erd/` | 모듈별 관계도 (HTML 탐색기 + Mermaid 원본) — 실제 DB(`schema.json`) 기준 |
+| `architecture/erd-target/` | 목표 설계(`schema-target.json`) 관계도 — DSN 설계 기간 |
 | `modules/` | **모듈별** 설계 — core / mes / erp / fems / learning / qms / wms / bems |
-| `db/` | 메타데이터 기준본, Excel 설계서, 검증 보고서 |
+| `db/` | 메타데이터 기준본(`schema.json` = 실제 DB, `schema-target.json` = 목표 설계), Excel 설계서(`DB설계서.xlsx`·`DB설계서_목표.xlsx`), 검증 보고서(`*-target.json` = 목표) |
 | `ui/` | 화면 설계 |
 | `operations/` | 배포·백업·초기화·장애 대응 (구현 단계에서 작성) |
 | `references/` | 사용자 제공 참고 자료. **공개 저장소 업로드 대상 아님** |

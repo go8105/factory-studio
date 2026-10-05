@@ -21,7 +21,6 @@ from uuid import uuid4
 from sqlalchemy import Connection, create_engine, inspect, text
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMAS = ("core", "mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw", "cmms")
 
 
 def _literal(sql: str) -> str:
@@ -42,6 +41,7 @@ def normalize_type(value: str) -> str:
         value.lower()
         .replace("character varying", "varchar")
         .replace("timestamp with time zone", "timestamptz")
+        .replace("time without time zone", "time")
         .replace(" ", "")
     )
 
@@ -61,10 +61,11 @@ def compare(connection: Connection, metadata: dict[str, Any]) -> dict[str, Any]:
     if connection.dialect.server_version_info[0] != 18:
         raise RuntimeError("PostgreSQL 18 is required")
     expected_tables = {t["name"]: t for t in metadata["tables"]}
+    schemas = sorted({name.split(".")[0] for name in expected_tables})
     existing_schemas = set(inspector.get_schema_names())
     actual_tables = {
         f"{schema}.{name}"
-        for schema in SCHEMAS
+        for schema in schemas
         if schema in existing_schemas
         for name in inspector.get_table_names(schema=schema)
     }
@@ -72,7 +73,7 @@ def compare(connection: Connection, metadata: dict[str, Any]) -> dict[str, Any]:
         errors.append(
             f"tables: missing={sorted(set(expected_tables) - actual_tables)}, extra={sorted(actual_tables - set(expected_tables))}"
         )
-    for schema in SCHEMAS:
+    for schema in schemas:
         if schema not in existing_schemas:
             errors.append(f"missing schema: {schema}")
     constraints = metadata["constraints"]

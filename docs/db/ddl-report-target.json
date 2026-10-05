@@ -1,0 +1,28 @@
+{
+  "schema_version": "target-0.16.0",
+  "server_version": "18.6 (Debian 18.6-1.pgdg13+2)",
+  "expected": {
+    "PK": 309,
+    "UK": 627,
+    "CHECK": 788,
+    "UNIQUE_INDEX": 86,
+    "INDEX": 196,
+    "tables": 309,
+    "columns": 3573,
+    "FK": 746
+  },
+  "actual": {
+    "tables": 309,
+    "columns": 3573,
+    "PK": 309,
+    "UK": 627,
+    "CHECK": 788,
+    "INDEX": 196,
+    "UNIQUE_INDEX": 86,
+    "FK": 746
+  },
+  "service_policies_not_db_constraints": 222,
+  "errors": [],
+  "schema": "docs/db/schema-metadata/schema-target.json",
+  "schema_sha256": "14ddca434f3c3f3174402449e21301af40ea83453dbc99a43896ac0f671e92a4"
+}
