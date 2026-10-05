@@ -18,6 +18,7 @@ erDiagram
     timestamptz disabled_at "이용 중지 시각 NULL"
     timestamptz created_at "등록 시각"
     varchar status "상태"
+    uuid subject_key "계정 주체 키"
   }
   core_audit_event {
     bigint id PK "내부 식별자"
@@ -42,6 +43,12 @@ erDiagram
     varchar csrf_token_hash "CSRF 토큰 해시"
     timestamptz expires_at "만료 시각"
     timestamptz revoked_at "취소 시각 NULL"
+    bigint active_workspace_id FK "활성 공간 NULL"
+    bigint context_version "문맥 버전"
+    varchar assurance_level "인증 강도"
+    varchar assurance_provider "추가 인증 공급자 NULL"
+    timestamptz assurance_verified_at "추가 인증 시각 NULL"
+    timestamptz assurance_expires_at "추가 인증 만료 NULL"
     timestamptz created_at "등록 시각"
   }
   core_data_generation {
@@ -109,6 +116,14 @@ erDiagram
     varchar description "역할 설명"
     timestamptz created_at "등록 시각"
   }
+  core_team_creation_receipt {
+    bigint id PK "내부 식별자"
+    bigint user_id FK "계정"
+    varchar request_key "요청 키"
+    varchar request_hash "요청 해시"
+    bigint team_workspace_id FK "만든 TEAM 공간"
+    timestamptz created_at "생성 시각"
+  }
   core_user_role {
     bigint id PK "내부 식별자"
     bigint user_id FK "사용자"
@@ -126,6 +141,32 @@ erDiagram
     varchar guest_session_key "게스트 세션 키 NULL"
     timestamptz expires_at "게스트 만료 시각 NULL"
     uuid guest_actor_key "게스트 주체 UUID NULL"
+    varchar name "공간 이름 NULL"
+    bigint access_version "접근 버전"
+  }
+  core_workspace_invitation {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "공간"
+    bigint target_user_id FK "초대 대상"
+    bigint invited_by_user_id FK "초대한 계정"
+    bigint accepted_by_user_id FK "수락 계정 NULL"
+    varchar token_hash "토큰 해시"
+    varchar state "상태"
+    integer version "버전"
+    timestamptz created_at "생성 시각"
+    timestamptz expires_at "만료 시각"
+    timestamptz closed_at "종결 시각 NULL"
+  }
+  core_workspace_membership {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "공간"
+    bigint user_id FK "계정"
+    varchar platform_role "공간 역할"
+    varchar status "상태"
+    integer version "버전"
+    timestamptz joined_at "가입 시각"
+    timestamptz changed_at "변경 시각"
+    timestamptz ended_at "탈퇴 시각 NULL"
   }
   core_workspace_module {
     bigint id PK "내부 식별자"
@@ -151,3 +192,12 @@ erDiagram
   core_app_user |o..o{ core_request_receipt : "actor_user_id"
   core_app_user |o..o{ core_app_review : "user_id"
   core_data_generation ||..o{ core_holiday : "workspace_id,generation_id"
+  core_workspace ||..o{ core_workspace_membership : "workspace_id"
+  core_app_user ||..o{ core_workspace_membership : "user_id"
+  core_workspace ||..o{ core_workspace_invitation : "workspace_id"
+  core_app_user ||..o{ core_workspace_invitation : "target_user_id"
+  core_app_user ||..o{ core_workspace_invitation : "invited_by_user_id"
+  core_app_user |o..o{ core_workspace_invitation : "accepted_by_user_id"
+  core_app_user ||..o{ core_team_creation_receipt : "user_id"
+  core_workspace ||..o{ core_team_creation_receipt : "team_workspace_id"
+  core_workspace |o..o{ core_auth_session : "active_workspace_id"

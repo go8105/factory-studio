@@ -199,6 +199,8 @@ def validate(d, expected=None, isolation=True):
     if 'hr.employee' in {t['name'] for t in d['tables']}:
         errors.extend(validate_hr_dsn30(d))
         errors.extend(validate_integration_dsn90(d))
+    if 'gw.authority_rule' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_gw_dsn31(d))
     return errors
 
 
@@ -558,6 +560,7 @@ DSN90_FLOW_COLUMNS = [
     ('S5', 'elb.request', 'card_txn_ref'),
     ('S6', 'erp.journal_entry', 'source_ref'), ('S6', 'eip.person_link', 'hr_employee_code'),
     ('S7', 'fems.production_record', 'source_key'), ('S7', 'bems.demand_plan', 'fems_alarm_ref'),
+    ('S9', 'gw.approval_document', 'source_digest'), ('S9', 'erp.approval_evidence', 'approval_digest'), ('S9', 'gw.organization_unit', 'code'),
     ('S8', 'erp.item', 'plm_part_no'), ('S8', 'mes.item', 'plm_part_no'), ('S8', 'wms.item', 'plm_part_no'), ('S8', 'mes.bom_version', 'plm_bom_ref'),
 ] + [('S6', t, c) for t, c in (('mes.worker', 'hr_employee_code'), ('pop.operator', 'hr_employee_code'), ('cmms.technician', 'hr_employee_code'),
      ('gw.person', 'hr_employee_code'), ('crm.sales_rep', 'hr_employee_code'), ('erp.employee', 'hr_employee_code'), ('rws.expert', 'hr_employee_code'),
@@ -567,9 +570,11 @@ DSN90_IDEMPOTENT = [('mes.pop_import', 'pop_entry_ref'), ('wms.pop_import', 'pop
     ('erp.quotation', 'crm_quote_request_no'), ('qms.claim', 'crm_inquiry_no'), ('qms.change_notice', 'plm_eco_no'), ('qms.ncr', 'source_ref'),
     ('erp.purchase_request', 'source_ref'), ('erp.purchase_invoice', 'source_ref'), ('cmms.work_order', 'source_ref'), ('cmms.asset', 'source_code'),
     ('rws.request', 'source_ref'), ('erp.journal_entry', 'source_ref'), ('wms.stock_document', 'source_key'), ('bems.demand_plan', 'fems_alarm_ref'),
-    ('elb.request', 'card_txn_ref'), ('fems.production_record', 'source_key')]
+    ('elb.request', 'card_txn_ref'), ('fems.production_record', 'source_key'),
+    ('gw.approval_document', 'source_no'), ('erp.approval_evidence', 'gw_document_no'), ('gw.notification', 'event_key'), ('gw.chat_message', 'client_key')]
 # 원천 종류 값 — (표, CHECK에 있어야 할 값)
 DSN90_CODES = [('erp.purchase_request', "'MES'"), ('erp.purchase_request', "'CMMS'"), ('erp.purchase_request', "'ELB'"),
+    ('gw.approval_document', "'ERP_PO'"), ('gw.approval_document', "'PLM_ECO'"),
     ('erp.purchase_invoice', "'FREIGHT'"), ('erp.purchase_invoice', "'INDIRECT'"), ('wms.stock_document', "'CMMS_ISSUE'"),
     ('erp.journal_entry', "'PAYROLL'"), ('erp.journal_entry', "'CARD'"), ('cmms.work_order', "'RWS_REQUEST'"), ('qms.inspection', "'WMS'")]
 
@@ -588,6 +593,29 @@ def validate_integration_dsn90(d):
     for t, value in DSN90_CODES:
         if not any(c['table'] == t and c['kind'] == 'CHECK' and value in c['expression'] for c in cs):
             errors.append(f'DSN-90: {t} source kind {value} missing')
+    return errors
+
+
+def validate_gw_dsn31(d):
+    """DSN-31 GW 계약: 사람·조직 원천 HR(D81 — GW 인사·근태·소속 이력 표 금지, 조직은 HR 스냅샷)·첨부/외부 메일/서명 표 없음·결재 대상 확장·병렬(단계 순번 유일 키 없음)·알림/메시지 중복 0·TEAM 공간 core·ERP 확정 통제·GW→core 사용자 FK 없음."""
+    errors = []
+    cs, rs = d['constraints'], d['relations']
+    ts = {t['name']: {c['name'] for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-31: ' + message)
+    def uk(t, cols, kind='UK'):
+        return any(c['table'] == t and c['kind'] == kind and c['columns'][-len(cols):] == cols for c in cs)
+    gw = [n for n in ts if n.startswith('gw.')]
+    require(not any(w in n for n in gw for w in ('attendance', 'leave', 'payroll', 'person_assignment', 'employee')), 'people, org history, attendance and leave belong to HR (D81)')
+    require('gw.organization_unit' in ts and 'organization_unit_id' in ts.get('gw.person', ()), 'GW org is an HR department snapshot (D81)')
+    require(not any(w in n for n in gw for w in ('attachment', 'mail', 'signature', 'export_job')), 'no attachment, mail or e-signature tables (excluded / real-adoption track)')
+    require(any(c['table'] == 'gw.approval_document' and c['kind'] == 'CHECK' and "'PLM_ECO'" in c['expression'] and "'ERP_PO'" in c['expression'] for c in cs), 'approval kinds include ERP PO/expense and PLM ECO (Q2)')
+    require(not uk('gw.approval_step', ['document_id', 'seq']) and uk('gw.approval_step', ['document_id', 'person_id']), 'parallel approval: several people per stage, one row per person (Q3)')
+    require(uk('gw.notification', ['recipient_id', 'event_key']) and uk('gw.chat_message', ['channel_id', 'seq']), 'notification and message idempotency (Q5)')
+    require(any(c['table'] == 'core.workspace' and c['kind'] == 'CHECK' and "'TEAM'" in c['expression'] for c in cs) and uk('core.workspace_membership', ['workspace_id', 'user_id']), 'TEAM space and membership live in core (Q1)')
+    require(not any(r['source'].startswith('gw.') and r['target'] == 'core.app_user' for r in rs), 'GW keeps account subjects as strings, no FK to core.app_user')
+    require(any(c['table'] == 'erp.approval_policy' and c['kind'] == 'CHECK' and "'REQUIRED'" in c['expression'] for c in cs) and 'gw_document_no' in ts.get('erp.approval_evidence', ()), 'ERP owns the confirm control and evidence (Q6)')
     return errors
 
 

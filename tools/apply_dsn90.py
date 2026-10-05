@@ -163,10 +163,10 @@ def apply(d):
         ):
             code["values"] = [*code["values"], "CMMS_ISSUE"]
     d["constraints"].extend(CONSTRAINTS)
-    d.update(version="target-0.19.0", task="DSN-90", date="2026-10-05")
+    d.update(version="target-0.20.0", task="DSN-90", date="2026-10-05")
     d["change_log"].append(
         dict(
-            version="target-0.19.0",
+            version="target-0.20.0",
             task="DSN-90",
             date="2026-10-05",
             change="통합 검증 보정: 가져오기 원천 번호 칸(ERP 거래처·견적·판매계획, ERP·MES·WMS 품목 PLM 리비전, MES BOM, QMS 클레임·4M) + 멱등 UK, QMS NCR 원천당 1건, ERP 매입 종류 FREIGHT(TMS 운송비)·INDIRECT(ELB 비재고), WMS 문서 CMMS_ISSUE(정비 부품 출고). 교차 FK 0",

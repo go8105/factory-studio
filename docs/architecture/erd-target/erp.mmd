@@ -24,6 +24,31 @@ erDiagram
     boolean is_active "사용 여부"
     timestamptz created_at "등록 시각"
   }
+  erp_approval_evidence {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    varchar document_kind "ERP 문서 종류"
+    varchar document_no "ERP 문서 번호"
+    integer policy_version "정책 버전"
+    varchar gw_document_no "GW 문서 번호"
+    integer gw_round_no "GW 회차"
+    integer gw_final_event_seq "GW 최종 사건 순번"
+    varchar approval_digest "승인 digest"
+    timestamptz verified_at "검사 시각"
+    timestamptz created_at "등록 시각"
+  }
+  erp_approval_policy {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    varchar document_kind "ERP 문서 종류"
+    varchar mode "정책"
+    integer policy_version "정책 버전"
+    varchar effective_from "적용 시작 월"
+    varchar reason "변경 사유"
+    timestamptz created_at "등록 시각"
+  }
   erp_bank_account {
     bigint id PK "내부 식별자"
     bigint workspace_id FK "개인 체험 공간"
@@ -1066,3 +1091,5 @@ erDiagram
   erp_account |o..o{ erp_purchase_invoice_line : "workspace_id,generation_id,expense_account_id"
   erp_bank_account |o..o{ erp_receipt : "workspace_id,generation_id,bank_account_id"
   erp_bank_account |o..o{ erp_payment : "workspace_id,generation_id,bank_account_id"
+  core_data_generation ||..o{ erp_approval_policy : "workspace_id,generation_id"
+  core_data_generation ||..o{ erp_approval_evidence : "workspace_id,generation_id"

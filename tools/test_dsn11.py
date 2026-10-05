@@ -28,7 +28,7 @@ class ErpTargetTest(unittest.TestCase):
 
     def test_contract_holds(self):
         self.assertEqual(validate_erp_dsn11(self.target), [])
-        self.assertEqual(
+        self.assertGreaterEqual(  # DSN-31 adds erp.approval_policy/evidence
             sum(t["name"].startswith("erp.") for t in self.target["tables"]), 63
         )
 

@@ -1,6 +1,6 @@
 # DSN-90 통합 검증 보고서
 
-작성: 2026-10-05 (Claude Code) · 상태: **검증 완료 — GW는 7-1 결정대로 Codex가 목표 DB 반영 후 재검증**
+작성: 2026-10-05 (Claude Code) · 상태: **검증 완료 — GW 재검증 완료(7-2, DSN-31)**
 방침: [ROADMAP-02](전체설계우선_전환_ROADMAP-02.md) 단계 3 — 교차 조회 계약 전체 표, 업무 흐름 시나리오, 시드 시나리오, 목표 DB 빈 DB 적용.
 입력: 각 솔루션 설계 문서 6장(교차 조회)·"넘길 것" 18개 문서, 목표 DB `schema-target.json`(DSN-30까지 340테이블), 현재 코드 `backend/src/fs/*/interface.py`, Codex GW 설계(`codex/fs-030-gw` `08c91d9`).
 
@@ -23,7 +23,7 @@
 1. 18개 설계 문서 6장의 "읽는 것·제공하는 것·넘길 것"을 모두 모아 제공자 기준으로 다시 묶었다.
 2. 소비자가 요청한 함수가 제공자 표에 있는지, 이름·인자·뜻이 같은지 대조했다.
 3. 업무 흐름 8개를 단계마다 "누가 무엇을 읽고 → 어느 표·칸에 남기나 → 두 번 가져오지 않는 키"로 추적하고, 목표 DB에서 칸·유일 키·원천 종류 값을 확인했다.
-4. 확인 항목을 검증기 `validate_integration_dsn90`(흐름 칸 38 · 멱등 키 17 · 원천 종류 값 10)에 넣어 이후 설계 변경 때 다시 깨지지 않게 했다.
+4. 확인 항목을 검증기 `validate_integration_dsn90`(흐름 칸 38 · 멱등 키 17 · 원천 종류 값 10 — DSN-31 뒤 41·21·12, 7-2)에 넣어 이후 설계 변경 때 다시 깨지지 않게 했다.
 
 ## 2. 교차 조회 계약 전체 표
 
@@ -47,7 +47,7 @@
 | **HR** | `employees(status?)` | 사원 코드·이름·부서·직위·재직 | 사람 마스터를 가진 솔루션 모두 "HR에서 가져오기", EIP 사람 연결 |
 | | ★`departments()` | 부서 코드·이름·상위·부서장 | **부서 코드의 원천**(HR Q1): ERP 부서·ELB 승인자·FEMS·BEMS |
 | | `payroll_runs(month)` | 확정 급여의 부서·항목별 합계 | ERP F94 급여 전표 |
-| **ERP** | 있음 `confirmed_shipments`·`purchase_receipts`·`open_shipment_qty`·`shipment_orders`·`approval_source_digest`·`approval_documents`·`approval_document` | 그대로 | WMS·GW·★TMS(배차 대상은 `shipment_orders` — TMS 문서의 `open_shipment_orders`를 이 이름으로) |
+| **ERP** | 있음 `confirmed_shipments`·`purchase_receipts`·`open_shipment_qty`·`shipment_orders`·`approval_source_digest`·`approval_documents`·`approval_document`(DSN-31: 종류 PURCHASE_ORDER·EXPENSE_CLAIM 추가) | 그대로 | WMS·GW·★TMS(배차 대상은 `shipment_orders` — TMS 문서의 `open_shipment_orders`를 이 이름으로) |
 | | ★`partners(kind?)` | 거래처 코드·이름·구분 | MES·QMS·CMMS·SCM·TMS·ELB |
 | | `purchase_orders(open)` | 발주 명세(`open=True` 입고 예정, `False` 이력) | WMS·TMS·SCM |
 | | ★`returns(kind)` | 확정 판매·구매 반품 | QMS 반품 검사·WMS 반품 입고 |
@@ -79,7 +79,9 @@
 | **SCM** | `demand_forecast(month)` · `sop_plan(month)` · `inventory_policies()` · `supplier_scores(month)` | 확정 예측 / S&OP / 재고 정책 / 공급처 점수 | ERP 판매계획 / MES / WMS / ERP·QMS 참고 |
 | **ELB** | `approved_requests(since)` · `receipts(since)` · `emergency_requests(since)` | 승인 신청 / 비재고 수령 / 긴급 구매 | **ERP 구매 요청(출처 ELB)** / **ERP 매입(INDIRECT)** / ERP 카드 비용 |
 | **RWS** | `field_visit_requests()` | 현장 출동 필요 완료 요청 | CMMS 작업지시(RWS_REQUEST) |
-| **GW** | 있음 `approvals(doc_ref)` · `published_notices(limit)` | 결재 상태 / 게시 공지(권한 필터) | ERP·PLM 배지 / EIP 공지(Q1) |
+| **GW** | 있음 `approvals(doc_ref)`(DSN-31: 발주·지출결의·ECO 확장) · `published_notices(limit)` | 결재 상태 / 게시 공지(권한 필터) | ERP·PLM 배지·**ERP 확정 통제** / EIP 공지(Q1) |
+| **PLM**(DSN-31) | ★`eco_for_approval(eco_no)` | ECO 결재 원문 스냅샷 | GW 기안(PLM_ECO) |
+| **core**(DSN-31, 실제 도입) | `membership(subject_key)`·`members()`·`security_events()` | TEAM 멤버십·권한 확인 | GW(TEAM) |
 | **EIP** | `my_employee_code(actor)` | 로그인 사용자 ↔ 사원 코드 | HR 본인 조회 |
 
 ## 3. 찾은 불일치와 처리
@@ -264,6 +266,18 @@ Codex는 `codex/fs-030-gw`(`08c91d9`, main `1f96532`에서 갈라짐)에 **GW �
 | G2 | **Codex가 목표 DB에 반영** — GW 기준표(DSN-00 양식) + `tools/apply_dsn31.py`(core TEAM 공간 3 + GW 7, apply_dsn30 다음·apply_dsn90 앞) → GW 부분만 DSN-90 재검증 |
 | G3 | (G1·G2로 정리) GW 실제 도입 트랙의 개발 순서는 DSN-99에서 정한다 |
 | G4 | **지금 병합** — `codex/fs-030-gw` `08c91d9`를 main에 병합(설계 문서만, 충돌은 main 기준으로 정리). 배포 없음 |
+
+### 7-2. GW 재검증 (DSN-31 반영 뒤, 2026-10-05)
+
+[DSN-31](../modules/gw/GW_보강설계_DSN-31.md)로 GW가 같은 양식(기준표 28·범위 24, 목표 DB GW 24·core 3·ERP 2 → **361테이블**)이 되어 G2를 닫았다.
+
+| 확인 | 결과 |
+|---|---|
+| 사람·조직(D81) | GW 조직 단위 = HR 부서 스냅샷, `gw.person.organization_unit_id`. GW에 소속 이력·근태·휴가 표 없음(`validate_gw_dsn31`) |
+| 계약 | GW 제공 `approvals`(유형 확장)·`published_notices`·공통 4종 / 읽음 ERP `approval_document`(종류 확장)·**PLM `eco_for_approval`(신규 — 2장에 추가)**·HR `employees`·`departments` / core(실제 도입) `membership`·`members` |
+| 흐름 **S9 결재 → 확정 통제** | ① 기안: ERP·PLM 원문 조회 → `gw.approval_document.source_no`·`source_digest`(원천당 진행 1건 UK) ② 병렬·합의·전결·위임 결재 ③ 알림: `gw.notification`(받는 사람, 사건 키) UK ④ ERP·PLM 배지: GW `approvals` ⑤ ERP 확정(정책 REQUIRED): GW `approvals` 읽고 digest 일치 → `erp.approval_evidence`(문서·GW 회차) UK, 불일치·GW 꺼짐은 거부 |
+| 검증기 | `validate_integration_dsn90` 흐름 칸 41 · 멱등 키 21 · 원천 종류 12(GW 추가분 포함), `validate_gw_dsn31` |
+| 빈 DB 적용 | 361테이블 · FK 866 · 대조 오류 0 · 격리 위반 0 |
 
 ## 8. DSN-99로 넘길 것
 

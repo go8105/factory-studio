@@ -11,7 +11,9 @@ def validate_gw(d):
         if not ok:
             errors.append('FS-030: '+message)
     tables = {t['name']:t for t in d['tables']}
-    require({n for n in tables if n.startswith('gw.')} == NAMES, 'eight GW tables')
+    dsn31 = 'gw.authority_rule' in tables  # DSN-31 보강(목표 DB): 표 추가, 병렬 결재로 단계 순번 유일 키 제거
+    gw = {n for n in tables if n.startswith('gw.')}
+    require(gw == NAMES or (dsn31 and NAMES <= gw), 'eight GW tables')
     cs = d['constraints']
     def unique(t, cols):
         return any(c['table']==t and c['kind']=='UK' and c['columns']==S+cols for c in cs)
@@ -21,6 +23,8 @@ def validate_gw(d):
         require(cols.get('created_at',{}).get('default')=='clock_timestamp()',t+' database clock')
         require(not any(n in cols for n in ('user_id','erp_id','invoice_id')),t+' no account/source FK identifiers')
     for t, cols in [('gw.approval_step',['document_id','seq']),('gw.approval_step',['document_id','person_id']),('gw.route_step',['route_id','seq']),('gw.route_step',['route_id','person_id']),('gw.approval_document',['previous_document_id']),('gw.approval_document',['submission_order']),('gw.approval_event',['document_id','event_seq']),('gw.board_post',['previous_post_id']),('gw.board_event',['post_id','event_seq'])]:
+        if dsn31 and cols[-1] == 'seq':
+            continue
         require(unique(t,cols), t+' unique '+','.join(cols))
     require(any(c['table']=='gw.approval_document' and c['kind']=='UK_PARTIAL' and c['columns']==S+['source_kind','source_no'] and "status='IN_REVIEW'" in c['expression'] for c in cs),'one active source approval')
     for t in ('core.workspace_module','core.app_review'):

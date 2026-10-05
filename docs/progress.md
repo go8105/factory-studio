@@ -51,6 +51,13 @@
 - 결정 초안/기존 결정서 안내/GW README/현황/HANDOFF만 변경. 상대 링크5·제안10·범위29항목·현황178/200줄·diff 정적 검사 통과(exit0). 최초 검사에서 Git 한글 경로 인용을 경로 변경으로 오인해 실패했고 NUL 구분 경로로 보정 후 통과. 제품 테스트/DB/브라우저/외부 연동 미실행.
 - 다음: 사용자 범위 확인 후 P0 요구사항과 A 모듈/화면 상세 설계. c 미착수 상태 유지, 개발 순서는 초안 제안. push·배포·실데이터 반입 없음.
 
+## 2026-10-05 DSN-31 GW 보강 설계 · DSN-90 GW 재검증 (Claude Code)
+- 결정: Q1 **실제 도입 A(TEAM 공간·멤버십·초대·직원 계정 연결·업무 권한·문서 열람·재배정)를 지금 목표 DB에 넣음**(제안과 다름, 개발은 별도 트랙) · Q2 결재 대상 ERP 발주·지출결의·PLM ECO · Q3 병렬·합의·전결·위임 · Q4·Q5 댓글·일정·알림함·**채팅 포함**(제안과 다름) · Q6 ERP 확정 통제 · 범위 24/28(반복 자동 결재·첨부·외부 메일·전자서명 제외).
+- 문서 `docs/modules/gw/GW_보강설계_DSN-31.md`: 기준표 28, 규칙 8묶음, DB(GW 8 → 24: 체험 10·조직 1·실제 도입 5, core 3, ERP 2), 화면 체험 14(G-01~13 + ERP 1)·실제 도입 9(별도), 교차 조회(PLM `eco_for_approval` 신규). D81대로 GW-EXT `person_assignment`는 두지 않음 — 조직 단위 = HR 부서 스냅샷.
+- 목표 DB `tools/apply_dsn31.py`(apply_dsn30 다음·apply_dsn90 앞) → **361테이블**·컬럼 4,162·FK 866. GW 단계 순번 유일 키 2개 제거(병렬), core.workspace TEAM·auth_session 활성 공간·app_user subject_key. `apply_dsn90` 버전은 target-0.20.0으로. 검증기 `validate_gw_dsn31`, `validate_fs030a`는 DSN-31 목표에서 표 추가·순번 키 제거를 허용, DSN-90 흐름 S9(결재 → 확정 통제) 추가(흐름 칸 41·멱등 21·원천 종류 12). test_dsn11 ERP 표 수는 하한으로.
+- DSN-90 7-2 GW 재검증, DSN-99 갱신(남은 설계 0, 차이 새 표 243·바뀌는 표 54·교체 제약 55, 열 삭제·형 변경 0).
+- 검증(통과를 커밋 조건으로): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(361·UK 722·CHECK 859·INDEX 231·UNIQUE_INDEX 100·FK 866)**·ERD·Excel·tools 73 + DSN 47·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-99 개발 계획 초안 · D82 Codex 중단 (Claude Code)
 - 사용자: "Codex는 이제 업무 안 함, Claude가 한다" → ROADMAP-02 **D82**, AGENTS.md §8 머리 안내, Codex 작업지시 9장의 GW 목표 DB 반영은 Claude **DSN-31**로.
 - `docs/plan/개발계획_DSN-99.md` 초안: 설계 완료 점검(승인 기준 6묶음 — GW 기준표·목표 DB만 남음), 규모(현재 118 → 목표 340테이블, 새 표 222·바뀌는 표 46·교체 제약 44, **열 삭제·형 변경 0**), 마이그레이션 (a) 단계별 새 revision 제안, 단계 사이클(a DB → b API·화면 → c 시드·도움말 → 검증 → 배포·동결), 단계 W0~W6, 위험, 결정 Q1~Q5.
