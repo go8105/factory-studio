@@ -54,7 +54,7 @@
 
 ## 지금 상태 (2026-09-30)
 
-- **운영** https://eip.hugh-d.com — **서버는 main `a4baf30`(2026-10-04 배포: FS-030b GW API·화면, DB 변경 없음)**. head `fs029b_cmms_module`, 템플릿 14,687. 확인: 진입 화면에 GW / 그룹웨어, 게스트 201, `/api/v1/gw/dashboard` 200(`needsPerson`), `/gw` 200. GW는 체험 시드·도움말이 없어 처음엔 담당자 등록부터(c는 일괄 개발 때). **Claude의 운영 SSH는 자동 모드 권한 검사가 막는다 → 서버 명령·rsync는 사용자가 실행. 안내 명령에 `git log`를 넣을 때는 `git --no-pager`(페이지 보기에서 멈춤).**
+- **운영** https://eip.hugh-d.com — **서버는 main `c352dfc`(2026-10-05 배포: CAD·CAM 포털 통합 + 홈 정리(전체 흐름 배너·분야 라벨 제거, 아이콘 일렬), 프런트만, DB 변경 없음)**. head `fs029b_cmms_module`, 템플릿 14,687. 확인: 진입 화면에 GW / 그룹웨어, 게스트 201, `/api/v1/gw/dashboard` 200(`needsPerson`), `/gw` 200. GW는 체험 시드·도움말이 없어 처음엔 담당자 등록부터(c는 일괄 개발 때). **운영 SSH는 사용자가 허락하면 가능(2026-10-05 확인). 서버 저장소 소유자는 `factory` → `runuser -u factory -- git -C /srv/factory-studio/app pull --ff-only`, dist는 rsync 후 chown factory. 안내 명령에 `git log`를 넣을 때는 `git --no-pager`(페이지 보기에서 멈춤).**
 - **최근 완료**: FS-025 BEMS(API·화면·시드) · DOC-03/04 참고 문서 4구역(설계 8·따라하기 3·개념 19) · MAP-02 P-03 보기 3종 · 홈 제목 "제조 현장의 올인원 시스템" · FS-027 게스트 별칭 필수·P-07 "게스트 접속"(별칭 90일) · UI-04 앱 안 링크 이동 미저장 보호 · 새 로고·파비콘.
 - **마지막 전체 검증**: pytest 727 passed · 1 skipped, vitest 492, 전체 스모크 231 passed(+재실행 167), db:validate·격리 R1~R6 0.
 - **FS-026 WMS 확장 main 병합(2026-09-30, Claude)**: Codex `codex/vision-ai` `f65044b`(입고 예정·도착·검수 W-08, 예약·소진 W-09, 3D 트럭 도착, 시드 +22, 도움말)을 main에 병합. 순서 FS-028a(SPC) → FS-026a: schema **v0.14.0 / 103테이블**, 마이그레이션 `fs026a_wms_receiving_reservation`의 down_revision을 `fs028b_spc_module`로 옮김(제약 이름은 분기 때 번호 그대로 — DDL 대조는 구조 비교). 템플릿 11,933(WMS +22, spc 모듈 행 +1), 복사 11,931. `wms-extension.spec.ts`에 FS-027 별칭 입력 추가.
