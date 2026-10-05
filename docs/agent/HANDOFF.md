@@ -1,5 +1,16 @@
 # Factory Studio 작업 인계
 
+## Codex 최신 상태 — 2026-10-05 CAD-01 웹 CAD·CAM 시제품
+
+- 위치 `/Users/hwang-kyoungho/.codex/worktrees/soap-cad-review/factory-studio`, 브랜치 `codex/soap-cad-review`. 시작 `a4baf30`, 검토 `ebfb787`, 구현 WIP `33c3f22`. 최종 문서/검증 커밋은 `git log -1 --oneline`로 확인한다.
+- 사용자 의도: 직접 설계·가공하는 웹 프로그램. 아래 CAD-00의 제품 기구 선택 질문/답변 대기는 철회됐다. CAD-01 독립 검토 시제품을 제공한다.
+- 구현 완료: `prototypes/cad-cam/` 스케치·돌출·파내기·치수/이력·JSON/STL·2.5D 공구 경로·worker 소재 제거. 상세 [검증 보고](CAD_CAM_편집기_CAD-01.md), 실행은 해당 폴더 README.
+- 검증: 수학/형상/worker9 통과, 실제 브라우저 드래그·입력→3D→CAM·재생/되감기·과대 공구·JSON 왕복·STL 파일 확인. 화면1440/390 가로 넘침0. Safari/실기기/장비/정밀 CAD 호환/DB 명령 미실행.
+- 재현: `cd prototypes/cad-cam && npm ci && npm run dev` → `http://127.0.0.1:5241/`; `npm test`, `npm run build`, `npm run format:check`. 살아 있는 5241 서버를 중복 기동하지 않는다. 로컬 저장은 브라우저별이며 JSON 파일로 보관 가능하다.
+- 다음: 사용자가 편집기를 체험한 뒤 후속 범위를 정한다. 정밀 커널/STEP/조립/포털 통합을 자동 착수하지 않는다. ROADMAP-02 전체 설계 우선 유지, 운영 코드·DB 변경 없음. push·배포 없음.
+- 주의: 기본 외형이 준비된 소재의 상면 포켓만 시뮬레이션한다. 격자 근사이며 실제 가공 보증이 아니다. 원본 PDF/개인·사업 정보 미포함. `node_modules/`, `dist/`, `.env`, `work/`는 커밋 대상이 아니다.
+- 최종 test9/build/format 통과. JS 청크 627.94KB 경고만 남음. 화면 증거는 `assets/cad-01-design.png`, `assets/cad-01-cam.png`. 5241 로컬 개발 서버를 시연용으로 유지한다.
+
 ## Codex 최신 별도 검토 — 2026-10-04 CAD-00
 
 - 위치: `/Users/hwang-kyoungho/.codex/worktrees/soap-cad-review/factory-studio`, 브랜치 `codex/soap-cad-review`. 시작 커밋 `a4baf30`; 이번 문서 커밋은 `git log -1 --oneline`로 확인한다. 기존 GW 기록은 이력이며 현재 기준은 현황 문서의 ROADMAP-02다.

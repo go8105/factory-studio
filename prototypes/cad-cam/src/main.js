@@ -187,7 +187,7 @@ function active() {
       : model.features.find((f) => f.id === selected))
   );
 }
-function field(label, key, value, min, max, step = 1) {
+function field(label, key, value, min, max) {
   return `<label class="field"><span>${label}</span><div><input type="number" name="${key}" aria-label="${label}" value="${round(value)}" min="${min}" max="${max}" step="any" required/><span>${key === "stepOver" ? "%" : key === "feed" ? "mm/min" : "mm"}</span></div></label>`;
 }
 function shapeSvg(s, cls = "", id = "") {
@@ -224,6 +224,7 @@ function fitSketch() {
   $("#sketch").setAttribute("viewBox", `${x - w / 2} ${-y - h / 2} ${w} ${h}`);
 }
 function renderProperties() {
+  $(".right-panel").scrollTop = 0;
   $("#properties-heading").textContent =
     mode === "cam"
       ? "가공 설정"
@@ -582,6 +583,27 @@ document.addEventListener("change", (e) => {
   }
 });
 document.addEventListener("input", (e) => {
+  if (draft && e.target.closest("#shape-form")) {
+    const preview = clone(draft);
+    for (const [key, value] of new FormData($("#shape-form"))) {
+      preview[key] = key === "name" ? value : Number(value);
+    }
+    if (preview.type === "circle") preview.h = preview.w;
+    if (
+      [preview.x, preview.y, preview.w, preview.h, preview.radius].every(
+        Number.isFinite,
+      ) &&
+      preview.w >= 1 &&
+      preview.w <= 200 &&
+      preview.h >= 1 &&
+      preview.h <= 200 &&
+      preview.radius >= 0 &&
+      preview.radius <= Math.min(preview.w, preview.h) / 2
+    ) {
+      draft = preview;
+      renderSketch();
+    }
+  }
   if (e.target.closest("#tool-form") && path) {
     invalidate();
     viewer.showModel(model);
