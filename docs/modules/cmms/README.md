@@ -3,6 +3,7 @@
 ## 현재 기준 (2026-10-01, FS-029)
 
 - 상태: **구현 중** — 전체 설계 확인(2026-10-01) · **FS-029a DB 완료**(schema v0.17.0, 마이그레이션 `fs029a_cmms`·`fs029b_cmms_module`). 다음 FS-029b(API·화면). 로드맵 2번.
+- **보강 설계: [DSN-21](CMMS_보강설계_DSN-21.md)**(ROADMAP-02 재점검 — 26기능 중 22 범위, 6 → 12테이블, 화면 10. 금형·사용량 PM·점검표·정비원/외주/비용·예비품 재고(WMS)·구매(ERP). 신호 출처 확장 제외. 설계 완료·확인 대기)
 - 설계: [CMMS 모듈 설계서](CMMS_모듈설계_FS-029.md) · [결정서 FS-029](../../plan/CMMS도입_설비보전_결정_FS-029.md) · [화면 설계](../../ui/화면설계_CMMS_FS-029.md)
 - 읽는 조회: MES `equipment`(추가 예정) · BEMS `hvac_units`·`active_alarms`(신규 예정) · SPC `equipment_signals`(추가 예정)
 

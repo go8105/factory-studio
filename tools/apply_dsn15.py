@@ -132,7 +132,7 @@ TABLES = [
         AL,
         "에너지 경보",
         "alarm",
-        "DSN-15 F31·F34. 규칙당 진행 경보 1건. CMMS가 진행 경보를 전환 대기 신호로 읽는다",
+        "DSN-15 F31. 규칙당 진행 경보 1건. PEAK 경보는 BEMS 피크 감축이 읽는다(CMMS 신호 아님, DSN-21 Q4)",
         [
             col("alarm_rule_id", "경보 규칙", "bigint"),
             col("raised_at", "발생 시각", "timestamptz"),

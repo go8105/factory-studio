@@ -2,6 +2,13 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-21 CMMS 재점검·보강 설계 완료 (Claude Code)
+- 결정: Q1 금형 보전(MES 금형 가져오기, 진행 작업지시를 MES가 읽어 금형 상태·배지) · Q2 사용량 기준 PM(운전 시간·타수) · Q3 점검표 구조화 + 시설 일상 점검 · **Q4 신호 전환 확장 제외**(FEMS 에너지 경보·BEMS 설비 경보는 CMMS 신호 아님) · Q5 정비원·외주 수리·보전 비용(FS-029 제외 항목 해제) · Q6 예비품 재고 WMS 조회·부족분 ERP 구매 요청·사용 → WMS 출고 · Q7 설비 상세·계층, 범위 22/26.
+- 문서 `docs/modules/cmms/CMMS_보강설계_DSN-21.md`: 기준표 26, 기능 규칙 8묶음, DB 6→12(새 6·기존 6 변경 — PM interval_days NULL 허용 + 기준별 CHECK), 화면 7(설계) → 10, 교차 조회(`part_requests`·`part_usages`·`monthly_summary` 제공, 금형 코드도 `equipment_in_maintenance`).
+- Q4 반영: FEMS DSN-15 F34 → 제외(범위 30→29, 경보 note를 apply_dsn15에서 고치고 목표 재생성), BEMS DSN-16 `active_alarms`는 환경 경보만.
+- 목표 DB: `tools/apply_dsn21.py` → target-0.9.0/DSN-21 234테이블·컬럼 2,746·FK 589. 검증기 `validate_cmms_dsn21`. rebuild_target STEPS에 추가(포맷터가 목록을 여러 줄로 바꿔 문자열 치환이 빠진 것을 재생성 결과로 발견해 고침).
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(234·UK 485·CHECK 657·INDEX 160·UNIQUE_INDEX 64·FK 589)**·ERD·Excel·tools 73 + DSN 25(재생성 = 커밋본)·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-17 SPC 보강 설계 완료 — 기존 7개 보강 설계 마무리 (Claude Code)
 - 결정: Q1 n=1(I-MR)·2~10(X̄-R), X̄-S 제외, 계수는 코드 상수 · Q2 계수형 p·np·c·u(MES 실적에서 부분군 + 수동) · Q3 Nelson 1~8 + 특성별 선택 · Q4 규격 이탈 → QMS 부적합 후보 · Q5 OCAP · Q6 Pp/Ppk·정규성·월별 추이·층별·보고서 · Q7 범위 24/27.
 - 문서 `docs/modules/spc/SPC_보강설계_DSN-17.md`: 기준표 27, 기능 규칙 7묶음, DB 5→10(새 5·기존 5 변경 — 관리도 종류는 기존 테이블에 칸 추가, "n=5 고정" → 1~10, X̄·R NULL 허용 + "계량/계수 하나" CHECK), 화면 7→11, 교차 조회(`spec_violations`·`capability_summary` 제공, QMS `gauges` 요청).

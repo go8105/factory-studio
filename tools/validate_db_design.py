@@ -178,6 +178,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_bems_dsn16(d))
     if 'spc.spec_violation' in {t['name'] for t in d['tables']}:
         errors.extend(validate_spc_dsn17(d))
+    if 'cmms.technician' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_cmms_dsn21(d))
     return errors
 
 
@@ -329,6 +331,23 @@ def validate_spc_dsn17(d):
     require(any(c['table'] == 'spc.spec_violation' and c['kind'] == 'UK' and c['columns'] == SCOPE + ['subgroup_id', 'seq'] for c in cs), 'one spec violation per measurement (Q4)')
     require(not any(n.startswith('spc.') and ('constant' in n or 'coefficient' in n) for n in ts), 'chart constants are code, not DB')
     require(not any(w in col for col in ts.get('spc.characteristic', ()) for w in ('cpk', 'ppk')), 'capability is computed or snapshotted in reports only')
+    return errors
+
+
+def validate_cmms_dsn21(d):
+    """DSN-21 CMMS 보강 계약: 금형 출처(Q1)·기준별 PM 주기(Q2)·점검표 완료 조건(Q3)·신호 출처 확장 없음(Q4)·비용 비저장(Q5)·재고는 WMS(Q6)."""
+    errors = []
+    cs = d['constraints']
+    ts = {t['name']: {c['name'] for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-21: ' + message)
+    require(any(c['table'] == 'cmms.asset' and c['expression'] == "(source = 'MES_MOLD') = (asset_type = 'MOLD')" for c in cs), 'molds come from MES (Q1)')
+    require(any(c['table'] == 'cmms.pm_plan' and "(trigger_kind = 'CALENDAR') = (interval_days IS NOT NULL)" in c['expression'] for c in cs), 'PM interval matches trigger (Q2)')
+    require(any(c['table'] == 'cmms.checklist_result' and c['reason'] == '점검표 완료 조건(Q3)' for c in cs), 'checklist must be complete before PM completion (Q3)')
+    require(any(c['table'] == 'cmms.work_order' and c['expression'] == "source IN ('MANUAL', 'BEMS_ALARM', 'SPC_SIGNAL', 'PM_PLAN')" for c in cs), 'signal sources unchanged — FEMS/BEMS equipment alarms excluded (Q4)')
+    require(not any(w in col for t in ('cmms.work_order', 'cmms.asset') for col in ts.get(t, ()) for w in ('total_cost', 'labor_cost', 'parts_cost')), 'maintenance cost is derived (Q5)')
+    require(not any(w in col for col in ts.get('cmms.spare_part', ()) for w in ('on_hand', 'stock_qty', 'quantity')), 'spare part stock is read from WMS (Q6)')
     return errors
 
 
