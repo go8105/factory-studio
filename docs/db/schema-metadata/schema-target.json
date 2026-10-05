@@ -1,6 +1,6 @@
 {
-  "version": "target-0.6.0",
-  "task": "DSN-15",
+  "version": "target-0.7.0",
+  "task": "DSN-16",
   "base_task": "FS-029a",
   "target": true,
   "date": "2026-10-05",
@@ -8580,6 +8580,30 @@
           "rule": ""
         },
         {
+          "name": "building_id",
+          "label": "건물",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "floor_label",
+          "label": "층",
+          "type": "varchar(10)",
+          "nullable": true,
+          "default": null,
+          "rule": "B1·1F·2F …"
+        },
+        {
+          "name": "department_code",
+          "label": "사용 부서",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "ERP 부서 코드 스냅샷(F43 면적 배분)"
+        },
+        {
           "name": "created_at",
           "label": "등록 시각",
           "type": "timestamptz",
@@ -8869,6 +8893,14 @@
           "rule": ""
         },
         {
+          "name": "curtail_priority",
+          "label": "감축 우선순위",
+          "type": "integer",
+          "nullable": false,
+          "default": "5",
+          "rule": "1(먼저 감축)~9(마지막)"
+        },
+        {
           "name": "created_at",
           "label": "등록 시각",
           "type": "timestamptz",
@@ -9081,9 +9113,9 @@
           "name": "hvac_unit_id",
           "label": "공조기",
           "type": "bigint",
-          "nullable": false,
+          "nullable": true,
           "default": null,
-          "rule": ""
+          "rule": "DSN-16: 공조기 또는 조명 회로 중 하나"
         },
         {
           "name": "day_kind",
@@ -9123,6 +9155,14 @@
           "type": "boolean",
           "nullable": false,
           "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "lighting_circuit_id",
+          "label": "조명 회로",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
           "rule": ""
         },
         {
@@ -9252,6 +9292,22 @@
           "name": "note",
           "label": "메모",
           "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lighting_circuit_id",
+          "label": "조명 회로",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "demand_plan_id",
+          "label": "피크 감축안",
+          "type": "bigint",
           "nullable": true,
           "default": null,
           "rule": ""
@@ -22130,6 +22186,1154 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "core.holiday",
+      "label": "휴일",
+      "scope": "generation",
+      "phase": "DSN-16",
+      "retention": "세대 정리",
+      "note": "DSN-16 Q1. 회사 공통 휴일 달력(core 운영). BEMS 스케줄·FEMS TOU·MES 근무조·HR 근태가 날짜로 읽는다(FK 없음)",
+      "sub_module": "calendar",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "holiday_on",
+          "label": "휴일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "이름",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kind",
+          "label": "구분",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "PUBLIC 공휴일 / COMPANY 회사 휴무"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.building",
+      "label": "건물",
+      "scope": "generation",
+      "phase": "DSN-16",
+      "retention": "세대 정리",
+      "note": "DSN-16 F04. 건물 > 층(구역의 층 표기) > 구역",
+      "sub_module": "space",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "건물 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "건물명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "floors",
+          "label": "층수",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "gross_area_m2",
+          "label": "연면적(㎡)",
+          "type": "numeric(12,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.lighting_circuit",
+      "label": "조명 회로",
+      "scope": "generation",
+      "phase": "DSN-16",
+      "retention": "세대 정리",
+      "note": "DSN-16 F06·F23(Q3). 구역별 조명 제어 단위. 상태는 마지막 적용 명령",
+      "sub_module": "control",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "zone_id",
+          "label": "구역",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "회로 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "회로명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "meter_id",
+          "label": "조명 계측기",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "rated_kw",
+          "label": "정격 전력(kW)",
+          "type": "numeric(10,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "state",
+          "label": "상태",
+          "type": "varchar(4)",
+          "nullable": false,
+          "default": "'OFF'",
+          "rule": "ON / OFF"
+        },
+        {
+          "name": "control_source",
+          "label": "제어 출처",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'SCHEDULE'",
+          "rule": "SCHEDULE / MANUAL / PEAK"
+        },
+        {
+          "name": "state_changed_at",
+          "label": "상태 변경 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.demand_plan",
+      "label": "피크 감축안",
+      "scope": "generation",
+      "phase": "DSN-16",
+      "retention": "세대 정리",
+      "note": "DSN-16 F24(Q2). FEMS 피크 경보 1건당 감축안 1건. 제안 → 승인 → 실행(제어 명령) → 경보 해제 후 복귀",
+      "sub_module": "demand",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "plan_no",
+          "label": "감축안 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "fems_alarm_ref",
+          "label": "FEMS 경보",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": "fs.fems.interface.open_alarms() 경보 id 스냅샷"
+        },
+        {
+          "name": "proposed_at",
+          "label": "제안 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "target_reduction_kw",
+          "label": "목표 감축(kW)",
+          "type": "numeric(10,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'PROPOSED'",
+          "rule": "PROPOSED / APPROVED / EXECUTED / RESTORED / REJECTED"
+        },
+        {
+          "name": "decided_at",
+          "label": "승인·반려 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "executed_at",
+          "label": "실행 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "restored_at",
+          "label": "복귀 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "decision_note",
+          "label": "의견",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.demand_plan_step",
+      "label": "감축 단계",
+      "scope": "generation",
+      "phase": "DSN-16",
+      "retention": "세대 정리",
+      "note": "DSN-16 F24. 공조기 감축 우선순위대로 동작·예상 감축. 실행 시 제어 명령 연결",
+      "sub_module": "demand",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "demand_plan_id",
+          "label": "피크 감축안",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "seq",
+          "label": "순서",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "hvac_unit_id",
+          "label": "공조기",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lighting_circuit_id",
+          "label": "조명 회로",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "action",
+          "label": "동작",
+          "type": "varchar(16)",
+          "nullable": false,
+          "default": null,
+          "rule": "SET_FAN 송풍 전환 / RAISE_SETPOINT 설정 온도 상향 / POWER_OFF 끄기"
+        },
+        {
+          "name": "delta_value",
+          "label": "상향 폭(℃)",
+          "type": "numeric(5,1)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "expected_kw",
+          "label": "예상 감축(kW)",
+          "type": "numeric(10,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "command_id",
+          "label": "실행 명령",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "restore_command_id",
+          "label": "복귀 명령",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.comfort_standard",
+      "label": "쾌적 기준",
+      "scope": "generation",
+      "phase": "DSN-16",
+      "retention": "세대 정리",
+      "note": "DSN-16 F14(Q4). 구역 용도 × 지표의 쾌적 범위. 쾌적 시간 비율 = 범위 안 관측 시간 ÷ 관측 시간(조회 계산)",
+      "sub_module": "comfort",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "zone_kind",
+          "label": "구역 용도",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "OFFICE / PRODUCTION / UTILITY"
+        },
+        {
+          "name": "metric",
+          "label": "지표",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "low",
+          "label": "하한",
+          "type": "numeric(10,2)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "high",
+          "label": "상한",
+          "type": "numeric(10,2)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "occupied_only",
+          "label": "근무 시간만",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.equipment_alarm_rule",
+      "label": "설비 경보 규칙",
+      "scope": "generation",
+      "phase": "DSN-16",
+      "retention": "세대 정리",
+      "note": "DSN-16 F32. 공조기·조명 회로 이상(명령 거부 연속·장시간 연속 운전)",
+      "sub_module": "alarm",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "규칙 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "condition",
+          "label": "조건",
+          "type": "varchar(16)",
+          "nullable": false,
+          "default": null,
+          "rule": "COMMAND_REJECTED 명령 거부 / LONG_RUN 연속 운전"
+        },
+        {
+          "name": "hvac_unit_id",
+          "label": "공조기",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "NULL이면 모든 공조기"
+        },
+        {
+          "name": "threshold",
+          "label": "기준",
+          "type": "numeric(10,2)",
+          "nullable": false,
+          "default": null,
+          "rule": "거부 횟수 또는 연속 운전 시간"
+        },
+        {
+          "name": "severity",
+          "label": "등급",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "WARNING / CRITICAL"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.equipment_alarm",
+      "label": "설비 경보",
+      "scope": "generation",
+      "phase": "DSN-16",
+      "retention": "세대 정리",
+      "note": "DSN-16 F32·F33. 규칙·설비당 진행 1건. CMMS가 환경 경보와 함께 전환 대기 신호로 읽는다",
+      "sub_module": "alarm",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "rule_id",
+          "label": "설비 경보 규칙",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "hvac_unit_id",
+          "label": "공조기",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'raised'",
+          "rule": "raised / acknowledged / cleared(환경 경보와 같음)"
+        },
+        {
+          "name": "raised_at",
+          "label": "발생 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "acknowledged_at",
+          "label": "확인 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cleared_at",
+          "label": "해제 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.energy_target",
+      "label": "건물 에너지 목표",
+      "scope": "generation",
+      "phase": "DSN-16",
+      "retention": "세대 정리",
+      "note": "DSN-16 F42(Q6). 월·구역(NULL이면 건물 전체) kWh 목표",
+      "sub_module": "energy",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "target_month",
+          "label": "목표 월",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY-MM'"
+        },
+        {
+          "name": "zone_id",
+          "label": "구역",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "target_kwh",
+          "label": "목표(kWh)",
+          "type": "numeric(14,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.cost_run",
+      "label": "공용 비용 배분 실행",
+      "scope": "generation",
+      "phase": "DSN-16",
+      "retention": "세대 정리",
+      "note": "DSN-16 F43(Q6). 월 공용 전력 비용(FEMS TOU 요율 조회) → 부서 면적 비율. 확정 1건 + 새 버전",
+      "sub_module": "energy",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cost_month",
+          "label": "배분 월",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY-MM'"
+        },
+        {
+          "name": "version",
+          "label": "버전",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / confirmed / superseded"
+        },
+        {
+          "name": "total_kwh",
+          "label": "공용 사용량(kWh)",
+          "type": "numeric(14,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "total_cost",
+          "label": "공용 비용",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "currency",
+          "label": "통화",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": "'KRW'",
+          "rule": ""
+        },
+        {
+          "name": "confirmed_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.cost_allocation_line",
+      "label": "공용 비용 배분",
+      "scope": "generation",
+      "phase": "DSN-16",
+      "retention": "세대 정리",
+      "note": "DSN-16 F43. 부서별 면적·비율·비용",
+      "sub_module": "energy",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cost_run_id",
+          "label": "배분 실행",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "department_code",
+          "label": "부서 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": "ERP 부서 코드 스냅샷(구역의 부서)"
+        },
+        {
+          "name": "area_m2",
+          "label": "면적(㎡)",
+          "type": "numeric(12,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "share",
+          "label": "비율",
+          "type": "numeric(7,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cost",
+          "label": "배분 비용",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "currency",
+          "label": "통화",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": "'KRW'",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "bems.energy_review",
+      "label": "월간 건물 에너지 보고서",
+      "scope": "generation",
+      "phase": "DSN-16",
+      "retention": "세대 정리",
+      "note": "DSN-16 F41·F44(Q6). 공용 kWh·면적당 원단위(EUI)·목표 달성·비용·쾌적 시간 비율·이슈. 확정 스냅샷",
+      "sub_module": "energy",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "review_month",
+          "label": "보고 월",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY-MM'"
+        },
+        {
+          "name": "version",
+          "label": "버전",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / confirmed / superseded"
+        },
+        {
+          "name": "total_kwh",
+          "label": "공용 사용량(kWh)",
+          "type": "numeric(14,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "eui_kwh_m2",
+          "label": "원단위(kWh/㎡)",
+          "type": "numeric(10,4)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "target_achievement",
+          "label": "목표 달성률",
+          "type": "numeric(7,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "total_cost",
+          "label": "비용",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "currency",
+          "label": "통화",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": "'KRW'",
+          "rule": ""
+        },
+        {
+          "name": "comfort_ratio",
+          "label": "쾌적 시간 비율",
+          "type": "numeric(5,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "issues",
+          "label": "주요 이슈·조치",
+          "type": "varchar(2000)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "confirmed_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
     }
   ],
   "relations": [
@@ -30802,6 +32006,458 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "에너지원"
+    },
+    {
+      "source": "core.holiday",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.building",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.lighting_circuit",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.demand_plan",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.demand_plan_step",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.comfort_standard",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.equipment_alarm_rule",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.equipment_alarm",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.energy_target",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.cost_run",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.cost_allocation_line",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.energy_review",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "bems.lighting_circuit",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id"
+      ],
+      "target": "bems.zone",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "구역"
+    },
+    {
+      "source": "bems.lighting_circuit",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "meter_id"
+      ],
+      "target": "bems.meter",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "조명 계측기"
+    },
+    {
+      "source": "bems.demand_plan_step",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "demand_plan_id"
+      ],
+      "target": "bems.demand_plan",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "감축안"
+    },
+    {
+      "source": "bems.demand_plan_step",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "hvac_unit_id"
+      ],
+      "target": "bems.hvac_unit",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "공조기"
+    },
+    {
+      "source": "bems.demand_plan_step",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "lighting_circuit_id"
+      ],
+      "target": "bems.lighting_circuit",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "조명 회로"
+    },
+    {
+      "source": "bems.demand_plan_step",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "command_id"
+      ],
+      "target": "bems.control_command",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "실행 명령"
+    },
+    {
+      "source": "bems.demand_plan_step",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "restore_command_id"
+      ],
+      "target": "bems.control_command",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "복귀 명령"
+    },
+    {
+      "source": "bems.equipment_alarm_rule",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "hvac_unit_id"
+      ],
+      "target": "bems.hvac_unit",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "공조기"
+    },
+    {
+      "source": "bems.equipment_alarm",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "rule_id"
+      ],
+      "target": "bems.equipment_alarm_rule",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "규칙"
+    },
+    {
+      "source": "bems.equipment_alarm",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "hvac_unit_id"
+      ],
+      "target": "bems.hvac_unit",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "공조기"
+    },
+    {
+      "source": "bems.energy_target",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id"
+      ],
+      "target": "bems.zone",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "구역"
+    },
+    {
+      "source": "bems.cost_allocation_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cost_run_id"
+      ],
+      "target": "bems.cost_run",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "배분 실행"
+    },
+    {
+      "source": "bems.zone",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "building_id"
+      ],
+      "target": "bems.building",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "건물"
+    },
+    {
+      "source": "bems.schedule_slot",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "lighting_circuit_id"
+      ],
+      "target": "bems.lighting_circuit",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "조명 회로"
+    },
+    {
+      "source": "bems.control_command",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "lighting_circuit_id"
+      ],
+      "target": "bems.lighting_circuit",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "조명 회로"
+    },
+    {
+      "source": "bems.control_command",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "demand_plan_id"
+      ],
+      "target": "bems.demand_plan",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "피크 감축안"
     }
   ],
   "constraints": [
@@ -37438,7 +39094,7 @@
         "metric",
         "unit"
       ],
-      "expression": "(metric = 'TEMP' AND unit = '℃') OR (metric = 'HUMIDITY' AND unit = '%') OR (metric = 'CO2' AND unit = 'ppm')",
+      "expression": "(metric = 'TEMP' AND unit = '℃') OR (metric = 'HUMIDITY' AND unit = '%') OR (metric = 'CO2' AND unit = 'ppm') OR (metric = 'PM25' AND unit = '㎍/㎥') OR (metric = 'LUX' AND unit = 'lx') OR (metric = 'OCCUPANCY' AND unit = '명')",
       "reason": "항목·단위 일치"
     },
     {
@@ -37599,7 +39255,7 @@
       "columns": [
         "day_kind"
       ],
-      "expression": "day_kind IN ('WEEKDAY', 'WEEKEND')",
+      "expression": "day_kind IN ('WEEKDAY', 'WEEKEND', 'HOLIDAY')",
       "reason": "요일 구분 값"
     },
     {
@@ -37618,7 +39274,7 @@
       "columns": [
         "mode"
       ],
-      "expression": "mode IN ('COOL', 'HEAT', 'FAN')",
+      "expression": "mode IN ('COOL', 'HEAT', 'FAN', 'ON')",
       "reason": "운전 모드 값"
     },
     {
@@ -37646,7 +39302,7 @@
         "command",
         "hvac_unit_id"
       ],
-      "expression": "command = 'SET_SETPOINT' OR hvac_unit_id IS NOT NULL",
+      "expression": "command = 'SET_SETPOINT' OR hvac_unit_id IS NOT NULL OR lighting_circuit_id IS NOT NULL",
       "reason": "설비 명령은 공조기 필수"
     },
     {
@@ -37676,7 +39332,7 @@
       "columns": [
         "source"
       ],
-      "expression": "source IN ('MANUAL', 'SCHEDULE', 'SEED')",
+      "expression": "source IN ('MANUAL', 'SCHEDULE', 'SEED', 'PEAK')",
       "reason": "출처 값"
     },
     {
@@ -47416,6 +49072,787 @@
       ],
       "expression": "MES 출처는 fs.mes.interface.production_results(month)를 읽어 새 version_no로 확정(원 행 불변). MES 꺼짐이면 수동만",
       "reason": "MES 생산량 가져오기(Q3)"
+    },
+    {
+      "table": "core.holiday",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "core.holiday",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.building",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.building",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.lighting_circuit",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.lighting_circuit",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.demand_plan",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.demand_plan",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.demand_plan_step",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.demand_plan_step",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.comfort_standard",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.comfort_standard",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.equipment_alarm_rule",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.equipment_alarm_rule",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.equipment_alarm",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.equipment_alarm",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.energy_target",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.energy_target",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.cost_run",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.cost_run",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.cost_allocation_line",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.cost_allocation_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.energy_review",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "bems.energy_review",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "bems.building",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "bems.building",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "bems.lighting_circuit",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "bems.lighting_circuit",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "bems.equipment_alarm_rule",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "bems.equipment_alarm_rule",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "bems.cost_run",
+      "kind": "CHECK",
+      "columns": [
+        "currency"
+      ],
+      "expression": "currency = 'KRW'",
+      "reason": "KRW 고정"
+    },
+    {
+      "table": "bems.cost_allocation_line",
+      "kind": "CHECK",
+      "columns": [
+        "currency"
+      ],
+      "expression": "currency = 'KRW'",
+      "reason": "KRW 고정"
+    },
+    {
+      "table": "bems.energy_review",
+      "kind": "CHECK",
+      "columns": [
+        "currency"
+      ],
+      "expression": "currency = 'KRW'",
+      "reason": "KRW 고정"
+    },
+    {
+      "table": "bems.cost_run",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cost_month",
+        "version"
+      ],
+      "expression": "",
+      "reason": "기간·버전 유일"
+    },
+    {
+      "table": "bems.cost_run",
+      "kind": "CHECK",
+      "columns": [
+        "cost_month"
+      ],
+      "expression": "cost_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+      "reason": "'YYYY-MM' 형식"
+    },
+    {
+      "table": "bems.cost_run",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "version",
+        "confirmed_at"
+      ],
+      "expression": "status IN ('draft', 'confirmed', 'superseded') AND version >= 1 AND ((status = 'draft') = (confirmed_at IS NULL))",
+      "reason": "상태·버전"
+    },
+    {
+      "table": "bems.cost_run",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cost_month"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, cost_month) WHERE status = 'confirmed'",
+      "reason": "기간당 확정 1건"
+    },
+    {
+      "table": "bems.energy_review",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "review_month",
+        "version"
+      ],
+      "expression": "",
+      "reason": "기간·버전 유일"
+    },
+    {
+      "table": "bems.energy_review",
+      "kind": "CHECK",
+      "columns": [
+        "review_month"
+      ],
+      "expression": "review_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+      "reason": "'YYYY-MM' 형식"
+    },
+    {
+      "table": "bems.energy_review",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "version",
+        "confirmed_at"
+      ],
+      "expression": "status IN ('draft', 'confirmed', 'superseded') AND version >= 1 AND ((status = 'draft') = (confirmed_at IS NULL))",
+      "reason": "상태·버전"
+    },
+    {
+      "table": "bems.energy_review",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "review_month"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, review_month) WHERE status = 'confirmed'",
+      "reason": "기간당 확정 1건"
+    },
+    {
+      "table": "core.holiday",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "holiday_on"
+      ],
+      "expression": "",
+      "reason": "날짜당 1건"
+    },
+    {
+      "table": "core.holiday",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "name"
+      ],
+      "expression": "kind IN ('PUBLIC', 'COMPANY') AND length(btrim(name)) > 0",
+      "reason": "구분·이름"
+    },
+    {
+      "table": "core.holiday",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "holiday_on"
+      ],
+      "expression": "업무 솔루션은 core 조회 함수(holidays(from, to))로 날짜만 읽는다. 업무 → core FK는 범위 앵커만 허용(FS-013 §6)이라 FK 없음. 요일 구분: 휴일 > 토·일(WEEKEND) > 평일",
+      "reason": "공통 휴일 달력(Q1)"
+    },
+    {
+      "table": "bems.building",
+      "kind": "CHECK",
+      "columns": [
+        "floors",
+        "gross_area_m2"
+      ],
+      "expression": "floors >= 1 AND gross_area_m2 > 0",
+      "reason": "층수·면적"
+    },
+    {
+      "table": "bems.lighting_circuit",
+      "kind": "CHECK",
+      "columns": [
+        "state",
+        "control_source",
+        "rated_kw"
+      ],
+      "expression": "state IN ('ON', 'OFF') AND control_source IN ('SCHEDULE', 'MANUAL', 'PEAK') AND rated_kw > 0",
+      "reason": "상태·출처·전력"
+    },
+    {
+      "table": "bems.demand_plan",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "plan_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "bems.demand_plan",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "fems_alarm_ref"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, fems_alarm_ref) WHERE status <> 'REJECTED'",
+      "reason": "FEMS 경보 1건당 감축안 1건"
+    },
+    {
+      "table": "bems.demand_plan",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "target_reduction_kw"
+      ],
+      "expression": "status IN ('PROPOSED', 'APPROVED', 'EXECUTED', 'RESTORED', 'REJECTED') AND target_reduction_kw > 0",
+      "reason": "상태·목표"
+    },
+    {
+      "table": "bems.demand_plan",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "decided_at",
+        "executed_at",
+        "restored_at"
+      ],
+      "expression": "((status = 'PROPOSED') = (decided_at IS NULL)) AND ((status IN ('EXECUTED', 'RESTORED')) = (executed_at IS NOT NULL)) AND ((status = 'RESTORED') = (restored_at IS NOT NULL))",
+      "reason": "상태별 시각"
+    },
+    {
+      "table": "bems.demand_plan",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "자동 제어 없음(Q2). 승인 후 실행 = 단계마다 제어 명령(source PEAK). FEMS 경보가 해제되면 복귀 명령 제안 → 승인 시 RESTORED",
+      "reason": "피크 감축 승인(Q2)"
+    },
+    {
+      "table": "bems.demand_plan_step",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "demand_plan_id",
+        "seq"
+      ],
+      "expression": "",
+      "reason": "감축안 내 순서 유일"
+    },
+    {
+      "table": "bems.demand_plan_step",
+      "kind": "CHECK",
+      "columns": [
+        "hvac_unit_id",
+        "lighting_circuit_id"
+      ],
+      "expression": "(hvac_unit_id IS NULL) <> (lighting_circuit_id IS NULL)",
+      "reason": "대상 하나"
+    },
+    {
+      "table": "bems.demand_plan_step",
+      "kind": "CHECK",
+      "columns": [
+        "action",
+        "delta_value",
+        "expected_kw"
+      ],
+      "expression": "action IN ('SET_FAN', 'RAISE_SETPOINT', 'POWER_OFF') AND ((action = 'RAISE_SETPOINT') = (delta_value IS NOT NULL)) AND (delta_value IS NULL OR delta_value BETWEEN 0.5 AND 5) AND expected_kw >= 0",
+      "reason": "동작·폭·예상"
+    },
+    {
+      "table": "bems.comfort_standard",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_kind",
+        "metric"
+      ],
+      "expression": "",
+      "reason": "용도·지표당 기준 1건"
+    },
+    {
+      "table": "bems.comfort_standard",
+      "kind": "CHECK",
+      "columns": [
+        "zone_kind",
+        "metric",
+        "low",
+        "high"
+      ],
+      "expression": "zone_kind IN ('OFFICE', 'PRODUCTION', 'UTILITY') AND metric IN ('TEMP', 'HUMIDITY', 'CO2', 'PM25', 'LUX', 'OCCUPANCY') AND (low IS NOT NULL OR high IS NOT NULL) AND (low IS NULL OR high IS NULL OR low < high)",
+      "reason": "용도·지표·범위"
+    },
+    {
+      "table": "bems.equipment_alarm_rule",
+      "kind": "CHECK",
+      "columns": [
+        "condition",
+        "threshold",
+        "severity"
+      ],
+      "expression": "condition IN ('COMMAND_REJECTED', 'LONG_RUN') AND threshold > 0 AND severity IN ('WARNING', 'CRITICAL')",
+      "reason": "조건·기준·등급"
+    },
+    {
+      "table": "bems.equipment_alarm",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "acknowledged_at",
+        "cleared_at",
+        "raised_at"
+      ],
+      "expression": "status IN ('raised', 'acknowledged', 'cleared') AND ((status = 'raised') = (acknowledged_at IS NULL AND cleared_at IS NULL)) AND ((status = 'cleared') = (cleared_at IS NOT NULL)) AND (cleared_at IS NULL OR cleared_at >= raised_at)",
+      "reason": "상태별 시각"
+    },
+    {
+      "table": "bems.equipment_alarm",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "rule_id",
+        "hvac_unit_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, rule_id, hvac_unit_id) WHERE status <> 'cleared'",
+      "reason": "규칙·설비당 진행 경보 1건"
+    },
+    {
+      "table": "bems.energy_target",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "target_month",
+        "zone_id"
+      ],
+      "expression": "",
+      "reason": "월·구역 목표 1건"
+    },
+    {
+      "table": "bems.energy_target",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "target_month"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, target_month) WHERE zone_id IS NULL",
+      "reason": "월 건물 전체 목표 1건"
+    },
+    {
+      "table": "bems.energy_target",
+      "kind": "CHECK",
+      "columns": [
+        "target_month",
+        "target_kwh"
+      ],
+      "expression": "target_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$' AND target_kwh > 0",
+      "reason": "월·목표"
+    },
+    {
+      "table": "bems.cost_run",
+      "kind": "CHECK",
+      "columns": [
+        "total_kwh",
+        "total_cost"
+      ],
+      "expression": "total_kwh >= 0 AND total_cost >= 0",
+      "reason": "합계 음수 금지"
+    },
+    {
+      "table": "bems.cost_run",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "total_cost"
+      ],
+      "expression": "공용 비용 = 공용 사용량 시간별 × FEMS TOU 요율(fs.fems.interface 조회, FEMS 꺼지면 계산 거부). 부서 비율 = 부서 구역 면적 ÷ 부서 지정 구역 면적 합",
+      "reason": "공용 비용 배분(Q6)"
+    },
+    {
+      "table": "bems.cost_allocation_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cost_run_id",
+        "department_code"
+      ],
+      "expression": "",
+      "reason": "실행·부서 1행"
+    },
+    {
+      "table": "bems.cost_allocation_line",
+      "kind": "CHECK",
+      "columns": [
+        "area_m2",
+        "share",
+        "cost"
+      ],
+      "expression": "area_m2 > 0 AND share > 0 AND share <= 1 AND cost >= 0",
+      "reason": "면적·비율·비용"
+    },
+    {
+      "table": "bems.energy_review",
+      "kind": "CHECK",
+      "columns": [
+        "total_kwh",
+        "eui_kwh_m2",
+        "total_cost",
+        "comfort_ratio"
+      ],
+      "expression": "total_kwh >= 0 AND eui_kwh_m2 >= 0 AND total_cost >= 0 AND (comfort_ratio IS NULL OR comfort_ratio BETWEEN 0 AND 1)",
+      "reason": "값 범위"
+    },
+    {
+      "table": "bems.lighting_circuit",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "zone_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "bems.demand_plan_step",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "demand_plan_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "bems.equipment_alarm",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "hvac_unit_id",
+        "raised_at"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "bems.cost_allocation_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cost_run_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "bems.hvac_unit",
+      "kind": "CHECK",
+      "columns": [
+        "curtail_priority"
+      ],
+      "expression": "curtail_priority BETWEEN 1 AND 9",
+      "reason": "감축 우선순위 범위"
+    },
+    {
+      "table": "bems.schedule_slot",
+      "kind": "CHECK",
+      "columns": [
+        "hvac_unit_id",
+        "lighting_circuit_id",
+        "mode"
+      ],
+      "expression": "(hvac_unit_id IS NULL) <> (lighting_circuit_id IS NULL) AND ((lighting_circuit_id IS NOT NULL) = (mode = 'ON'))",
+      "reason": "대상 하나, 조명은 ON"
+    },
+    {
+      "table": "bems.control_command",
+      "kind": "CHECK",
+      "columns": [
+        "hvac_unit_id",
+        "lighting_circuit_id"
+      ],
+      "expression": "NOT (hvac_unit_id IS NOT NULL AND lighting_circuit_id IS NOT NULL)",
+      "reason": "대상 하나"
+    },
+    {
+      "table": "bems.control_command",
+      "kind": "CHECK",
+      "columns": [
+        "source",
+        "demand_plan_id"
+      ],
+      "expression": "(source = 'PEAK') = (demand_plan_id IS NOT NULL)",
+      "reason": "피크 명령은 감축안 필수"
     }
   ],
   "states": [
@@ -48234,6 +50671,52 @@
       ],
       "default": "draft",
       "transition": "draft→confirmed→superseded"
+    },
+    {
+      "table": "bems.demand_plan",
+      "column": "status",
+      "values": [
+        "PROPOSED",
+        "APPROVED",
+        "EXECUTED",
+        "RESTORED",
+        "REJECTED"
+      ],
+      "default": "PROPOSED",
+      "transition": "PROPOSED→APPROVED→EXECUTED→RESTORED; PROPOSED→REJECTED"
+    },
+    {
+      "table": "bems.equipment_alarm",
+      "column": "status",
+      "values": [
+        "raised",
+        "acknowledged",
+        "cleared"
+      ],
+      "default": "raised",
+      "transition": "raised→acknowledged→cleared; raised→cleared"
+    },
+    {
+      "table": "bems.cost_run",
+      "column": "status",
+      "values": [
+        "draft",
+        "confirmed",
+        "superseded"
+      ],
+      "default": "draft",
+      "transition": "draft→confirmed→superseded"
+    },
+    {
+      "table": "bems.energy_review",
+      "column": "status",
+      "values": [
+        "draft",
+        "confirmed",
+        "superseded"
+      ],
+      "default": "draft",
+      "transition": "draft→confirmed→superseded"
     }
   ],
   "sources": [
@@ -48542,10 +51025,13 @@
       "values": [
         "TEMP",
         "HUMIDITY",
-        "CO2"
+        "CO2",
+        "PM25",
+        "LUX",
+        "OCCUPANCY"
       ],
       "default": null,
-      "note": "℃ / % / ppm"
+      "note": "℃ / % / ppm / ㎍/㎥ / lx / 명"
     },
     {
       "target": "bems.control_command",
@@ -49084,6 +51570,13 @@
       "task": "DSN-15",
       "date": "2026-10-05",
       "change": "FEMS 보강: 새 테이블 12(시간대별 요율·계측 파일·계측 보정·경보 규칙/경보·절감 활동·월간 검토·온실가스 명세서 2·비용 배분 2·고지서 대조), 기존 6테이블 변경(요금제 TOU·계약전력, 계측 입력 방법, 설비 부서, 생산량 출처, 에너지원 GENERATION, 계측기 generation)",
+      "status": "설계 전용"
+    },
+    {
+      "version": "target-0.7.0",
+      "task": "DSN-16",
+      "date": "2026-10-05",
+      "change": "BEMS 보강: core.holiday(공통 휴일) + bems 11(건물·조명 회로·피크 감축안 2·쾌적 기준·설비 경보 2·에너지 목표·공용 비용 배분 2·월간 보고서), 기존 6테이블 변경(구역 건물·층·부서, 공조기 감축 우선순위, 스케줄 조명·휴일, 제어 명령 조명·피크, 센서 지표 6종)",
       "status": "설계 전용"
     }
   ]

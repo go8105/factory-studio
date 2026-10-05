@@ -2,6 +2,12 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-16 BEMS 보강 설계 완료 (Claude Code)
+- 결정: Q1 **휴일 달력은 core 공통**(core.holiday, 업무 스키마는 날짜로 읽음·FK 없음 — FEMS TOU·MES 근무조·HR 근태도 사용) · Q2 피크 감축은 제안 → 승인 후 제어 · Q3 조명 제어 · Q4 환경 지표 6종 + 쾌적 시간 비율 · **Q5 불편 신고 제외** · Q6 원단위·목표·공용 비용 부서 배분·월간 보고서 · Q7 범위 21/27.
+- 문서 `docs/modules/bems/BEMS_보강설계_DSN-16.md`: 기준표 27, 기능 규칙 7묶음, DB bems 10→21 + core.holiday(기존 6 변경 — 스케줄 hvac_unit_id NULL 허용 + "대상 하나" CHECK), 화면 7→13 + 포털 P-08 휴일 달력, 교차 조회(`hvac_units`·`active_alarms`(설비 경보 포함)·`monthly_summary` 신규 제공, FEMS `open_alarms`·`tariff_rates`·core `holidays` 요청).
+- 목표 DB: `tools/apply_dsn16.py` → target-0.7.0/DSN-16 223테이블·컬럼 2,602·FK 560. 검증기 `validate_bems_dsn16`(공통 휴일 1벌·core.holiday FK 금지·피크 승인 정책·FEMS 경보당 감축안 1건·스케줄 대상 하나·확정 1건·불편 신고 테이블 금지).
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(223·UK 463·CHECK 637·INDEX 154·UNIQUE_INDEX 62·FK 560)**·ERD·Excel·tools 73 + DSN 21·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-15 FEMS 보강 설계 완료 (Claude Code)
 - 결정: Q1 TOU 요금(계약전력 + 계절 × 요일 × 시간대, 합성 요율) · Q2 피크는 1시간 계측 최대값 근사(시드 예산) · Q3 MES 생산량 가져오기 + 수동 · Q4 에너지 비용 배분 제공, ERP는 참고 · Q5 절감 활동 + 월간 검토 보고서 · Q6 온실가스 명세서(Scope 1·2) · Q7 범위 30/33.
 - 문서 `docs/modules/fems/FEMS_보강설계_DSN-15.md`: 기준표 33, 기능 규칙 10묶음, DB 13→25(새 12·기존 6 변경), 화면 14→23, 교차 조회(`energy_costs`·`open_alarms`·`monthly_summary` 제공, MES `production_results`·ERP `departments` 요청).

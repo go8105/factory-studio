@@ -174,6 +174,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_qms_dsn14(d))
     if 'fems.alarm' in {t['name'] for t in d['tables']}:
         errors.extend(validate_fems_dsn15(d))
+    if 'bems.demand_plan' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_bems_dsn16(d))
     return errors
 
 
@@ -289,6 +291,25 @@ def validate_fems_dsn15(d):
     require(any(c['table'] == 'fems.energy_review' and c['reason'] == '환산·배출 계수 분리' for c in cs), 'PRIMARY and EMISSION factors stay separate')
     require(not any(n.startswith('fems.') and ('15m' in n or 'quarter_hour' in n or 'demand_15' in n) for n in ts), '1-hour metering kept (Q2)')
     require(not any(w in col for col in ts.get('fems.saving_project', ()) for w in ('period_from', 'period_to')), 'saving comparison uses dates, not calendar keys')
+    return errors
+
+
+def validate_bems_dsn16(d):
+    """DSN-16 BEMS 보강 계약: 휴일은 core 공통·업무 FK 없음(Q1)·피크 감축은 승인 후 제어(Q2)·스케줄 대상 하나·확정 1건(배분·보고서)."""
+    errors = []
+    cs, rs = d['constraints'], d['relations']
+    ts = {t['name'] for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-16: ' + message)
+    require('core.holiday' in ts and not any(n != 'core.holiday' and n.endswith('.holiday') for n in ts), 'one shared holiday calendar in core (Q1)')
+    require(not any(r['target'] == 'core.holiday' for r in rs), 'business schemas read holidays by date, no FK (FS-013 §6)')
+    require(any(c['table'] == 'bems.demand_plan' and c['reason'] == '피크 감축 승인(Q2)' for c in cs), 'peak curtailment needs approval (Q2)')
+    require(any(c['table'] == 'bems.demand_plan' and c['kind'] == 'UK_PARTIAL' and 'fems_alarm_ref' in c['columns'] for c in cs), 'one plan per FEMS alarm')
+    require(any(c['table'] == 'bems.schedule_slot' and '(hvac_unit_id IS NULL) <> (lighting_circuit_id IS NULL)' in c['expression'] for c in cs), 'schedule targets exactly one device')
+    for t, col in [('bems.cost_run', 'cost_month'), ('bems.energy_review', 'review_month')]:
+        require(any(c['table'] == t and c['kind'] == 'UK_PARTIAL' and c['columns'] == SCOPE + [col] and "status = 'confirmed'" in c['expression'] for c in cs), f'{t}: one confirmed version per month')
+    require(not any(n.startswith('bems.') and ('complaint' in n or 'request' in n) for n in ts), 'occupant complaints excluded (Q5)')
     return errors
 
 
