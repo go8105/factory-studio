@@ -8,8 +8,9 @@ import json
 import apply_dsn00
 import apply_dsn11
 import apply_dsn12
+import apply_dsn13
 
-STEPS = [apply_dsn11, apply_dsn12]
+STEPS = [apply_dsn11, apply_dsn12, apply_dsn13]
 
 
 def build():

@@ -2,6 +2,12 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-13 WMS 보강 설계 완료 (Claude Code)
+- 결정: Q1 창고 스캔 POP · Q2 다창고·용도 8·위치 계층·유형 6(용도당 기본 1) · Q3 LOT 품목별(원자재도 WMS 부여) · Q4 피킹 지시/확정·생산 불출(MES 투입은 라인 재고 차감) · Q5 FEFO→FIFO·만료 보류 · Q6 재고 월 마감(ERP 원가 기준) · Q7 범위 39/42(수입 검사 연계 → DSN-14).
+- 문서 `docs/modules/wms/WMS_보강설계_DSN-13.md`: 기준표 42, 기능 규칙 13묶음, DB 11→23(새 12·기존 6 변경 — "LOT = 완제품" CHECK 삭제, 원천 키에 PO·판매 반품), 화면 9→20, 교차 조회(`receipts`·`stock_moves`·`stock_on_hand`·`lots`·`line_stock`·`pop_context` 제공 계약 확정).
+- 목표 DB: `tools/apply_dsn13.py`(바꿀 기존 제약을 먼저 모두 확인하고 없으면 아무것도 바꾸지 않고 실패) → target-0.4.0/DSN-13 190테이블·컬럼 2,191·FK 487. rebuild_target STEPS에 추가. 검증기: FS-024 "용도당 활성 창고 1개"가 "기본 창고 1개" 조건도 허용, `validate_wms_dsn13`(LOT 품목별·LOT 수량 비저장·활성 보류 1건·예약당 피킹 1건·월 마감·POP 멱등·스캔 테이블 금지).
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(190·UK 400·CHECK 552·INDEX 139·UNIQUE_INDEX 51·FK 487)**·ERD·Excel·tools 73 + DSN 15(재생성 = 커밋본)·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-01 확정 · DSN-12 MES 보강 설계 완료 (Claude Code)
 - DSN-01 S1~S4 제안대로 확정(기반 작업은 일괄 개발 첫 단계, 지연 복사, 공통 엔진 프런트·백엔드, 모듈러 모놀리스).
 - MES 결정: Q1 **바코드 스캔 화면은 POP에만**(MES는 라벨·검증 규칙·POP 가져오기 재검증) · Q2 비계획 입출고 MES 기록→WMS 반영 · Q3 Code128+QR·브라우저 인쇄 · Q4 자재 투입이 WMS 자재 LOT 스냅샷 · Q5 공정 검사 MES · Q6 비가동·금형 타수 MES, 금형 보전 CMMS · Q7 범위 제안대로(60/64).

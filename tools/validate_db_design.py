@@ -168,6 +168,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_erp_dsn11(d))
     if 'mes.pop_import' in {t['name'] for t in d['tables']}:
         errors.extend(validate_mes_dsn12(d))
+    if 'wms.pop_import' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_wms_dsn13(d))
     return errors
 
 
@@ -223,6 +225,27 @@ def validate_mes_dsn12(d):
     require(partial('mes.downtime', ['equipment_id'], 'ended_at IS NULL'), 'one open downtime per equipment')
     require(any(c['table'] == 'mes.material_adjustment' and c['reason'] == '비계획 입출고 경계(Q2)' for c in cs), 'unplanned moves recorded by MES, applied by WMS')
     require(all(r['target'].split('.')[0] in ('mes', 'core') for r in d['relations'] if r['source'].startswith('mes.')), 'MES FKs stay inside mes/core anchors')
+    return errors
+
+
+def validate_wms_dsn13(d):
+    """DSN-13 WMS 보강 계약: 잔량 비저장·LOT 품목별(Q3)·LOT 활성 보류 1건·예약당 피킹 1건·월 마감(Q6)·POP 가져오기 멱등(Q1)."""
+    errors = []
+    cs = d['constraints']
+    ts = {t['name']: {c['name'] for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-13: ' + message)
+    def has(t, kind, cols, word=''):
+        return any(c['table'] == t and c['kind'] == kind and c['columns'] == SCOPE + cols and word in c['expression'] for c in cs)
+    require(not any(c['table'] == 'wms.item' and "lot_tracked = (item_class = 'FG')" in c['expression'] for c in cs), 'LOT tracking is per item (Q3)')
+    require(has('wms.lot', 'UK', ['item_id', 'lot_no']), 'LOT master unique per item')
+    require(not any(w in col for col in ts.get('wms.lot', ()) for w in ('qty', 'quantity', 'balance')), 'LOT quantity comes from the ledger')
+    require(has('wms.lot_hold', 'UK_PARTIAL', ['lot_id'], 'released_at IS NULL'), 'one active hold per LOT')
+    require(has('wms.pick_order', 'UK', ['reservation_id']), 'one pick per reservation')
+    require(has('wms.stock_period', 'UK', ['period_month']) and any(c['table'] == 'wms.stock_period' and c['reason'] == '재고 월 마감(Q6)' for c in cs), 'monthly stock close (Q6)')
+    require(has('wms.pop_import', 'UK', ['pop_entry_ref']), 'POP import idempotent (Q1)')
+    require(not any(n.startswith('wms.') and 'scan' in n for n in ts), 'scan logs belong to POP (Q1)')
     return errors
 
 
@@ -295,7 +318,8 @@ def validate_wms(d):
                    and c['expression'].endswith('WHERE ' + predicate) for c in cs)
     require(partial('wms.stock_document', 'source_key', "document_type <> 'REVERSAL'"), 'one posting per source (D14)')
     require(partial('wms.stock_document', 'reverses_document_id', 'reverses_document_id IS NOT NULL'), 'one reversal per document')
-    require(partial('wms.warehouse', 'purpose', 'is_active'), 'one active warehouse per purpose')
+    # DSN-13 Q2(목표 설계): 다창고 — 용도당 '기본' 창고 1개로 좁힌다.
+    require(partial('wms.warehouse', 'purpose', 'is_active') or partial('wms.warehouse', 'purpose', 'is_default AND is_active'), 'one active warehouse per purpose')
     require(partial('wms.storage_location', 'warehouse_id', 'is_default'), 'one default location per warehouse')
     require('lot_no' in ts.get('wms.stock_move', {}) and not any(k.endswith('lot_id') for k in ts.get('wms.stock_move', {})), 'LOT is a snapshot code, not an id')
     require(not any(n.startswith('wms.') and ('balance' in n or 'stock_level' in n) for n in ts), 'no stored balance table (ledger is the source)')
