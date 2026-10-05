@@ -52,12 +52,12 @@ class TargetTest(unittest.TestCase):
         fake = copy.deepcopy(
             next(t for t in d["tables"] if t["name"] == "core.app_user")
         )
-        fake.update(name="pop.entry", scope="generation")
+        fake.update(name="zz_fixture.undocumented", scope="generation")
         d["tables"].append(fake)
         self.assertTrue(
             any("Design inventory mismatch" in e for e in validate(d, self.expected))
         )
-        self.assertIn("R5: missing/non-required scope key in pop.entry", audit(d))
+        self.assertIn("R5: missing/non-required scope key in zz_fixture.undocumented", audit(d))
 
     def test_ddl_covers_every_object(self):
         sql = ddl(self.target)
