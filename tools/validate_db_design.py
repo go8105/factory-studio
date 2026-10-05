@@ -172,6 +172,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_wms_dsn13(d))
     if 'qms.ncr' in {t['name'] for t in d['tables']}:
         errors.extend(validate_qms_dsn14(d))
+    if 'fems.alarm' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_fems_dsn15(d))
     return errors
 
 
@@ -267,6 +269,26 @@ def validate_qms_dsn14(d):
     require('qms.claim' in ts, 'claims owned by QMS (Q4)')
     require(not any(n.startswith('qms.') and 'process_inspection' in n for n in ts), 'process inspection belongs to MES (MES Q5)')
     require(not any(w in col for col in ts.get('qms.gauge', ()) for w in ('next_due', 'last_calibrated')), 'calibration due is derived from history')
+    return errors
+
+
+def validate_fems_dsn15(d):
+    """DSN-15 FEMS 보강 계약: TOU 계약전력·확정 1건(검토·명세서·비용 배분)·진행 경보 1건·환산/배출 계수 분리·1시간 계측 유지(Q2)."""
+    errors = []
+    cs = d['constraints']
+    ts = {t['name']: {c['name'] for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-15: ' + message)
+    def partial(t, cols, word):
+        return any(c['table'] == t and c['kind'] == 'UK_PARTIAL' and c['columns'] == SCOPE + cols and word in c['expression'] for c in cs)
+    require(any(c['table'] == 'fems.tariff' and 'contract_kw > 0' in c['expression'] for c in cs), 'TOU tariff needs contract power (Q1)')
+    for t, col in [('fems.energy_review', 'review_month'), ('fems.ghg_inventory', 'inventory_year'), ('fems.cost_run', 'cost_month')]:
+        require(partial(t, [col], "status = 'confirmed'"), f'{t}: one confirmed version per period')
+    require(partial('fems.alarm', ['alarm_rule_id'], "status <> 'CLEARED'"), 'one open alarm per rule')
+    require(any(c['table'] == 'fems.energy_review' and c['reason'] == '환산·배출 계수 분리' for c in cs), 'PRIMARY and EMISSION factors stay separate')
+    require(not any(n.startswith('fems.') and ('15m' in n or 'quarter_hour' in n or 'demand_15' in n) for n in ts), '1-hour metering kept (Q2)')
+    require(not any(w in col for col in ts.get('fems.saving_project', ()) for w in ('period_from', 'period_to')), 'saving comparison uses dates, not calendar keys')
     return errors
 
 

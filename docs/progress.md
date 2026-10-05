@@ -2,6 +2,12 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-15 FEMS 보강 설계 완료 (Claude Code)
+- 결정: Q1 TOU 요금(계약전력 + 계절 × 요일 × 시간대, 합성 요율) · Q2 피크는 1시간 계측 최대값 근사(시드 예산) · Q3 MES 생산량 가져오기 + 수동 · Q4 에너지 비용 배분 제공, ERP는 참고 · Q5 절감 활동 + 월간 검토 보고서 · Q6 온실가스 명세서(Scope 1·2) · Q7 범위 30/33.
+- 문서 `docs/modules/fems/FEMS_보강설계_DSN-15.md`: 기준표 33, 기능 규칙 10묶음, DB 13→25(새 12·기존 6 변경), 화면 14→23, 교차 조회(`energy_costs`·`open_alarms`·`monthly_summary` 제공, MES `production_results`·ERP `departments` 요청).
+- 목표 DB: `tools/apply_dsn15.py` → target-0.6.0/DSN-15 211테이블·컬럼 2,468·FK 532. rebuild_target STEPS 추가. 검증기 `validate_fems_dsn15`(TOU 계약전력·확정 1건 3종·진행 경보 1건·PRIMARY/EMISSION 분리 정책·1시간 계측 유지).
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(211·UK 440·CHECK 609·INDEX 150·UNIQUE_INDEX 57·FK 532)**·ERD·Excel·tools 73 + DSN 19·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-14 QMS 보강 설계 완료 (Claude Code)
 - 결정: Q1 수입 검사(대상 = 검사 필요 + 공급처 수준 ≠ 면제, 검사 전 보류, 판정을 WMS가 읽어 이동) · Q2 AQL 표 자동(KS Q ISO 2859-1, 표는 코드 상수) + 직접 입력 · Q3 NCR + CAPA(8D 제외) · Q4 고객 클레임 QMS 소유 · Q5 공급처 월 등급 + 전환 제안, 사람 확정 · Q6 계측기·교정 포함(MSA 제외) · Q7 4M 변경 포함, 범위 28/33.
 - 문서 `docs/modules/qms/QMS_보강설계_DSN-14.md`: 기준표 33, 기능 규칙 10묶음, DB 6→15(새 9·기존 4 변경 — 검사 종류 출하·수입·반품·초품, "품목당 게시 기준 1개" → "품목·종류당"), 화면 6→13, 교차 조회(`incoming_results`·`return_results`·`claims`·`supplier_grades` 제공, WMS `inbound_lots_to_inspect`·MES `defects`·`process_inspections`·`lot_trace` 요청).
