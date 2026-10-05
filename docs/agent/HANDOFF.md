@@ -43,6 +43,23 @@
 
 갱신: 2026-09-30 (Claude Code). **다음 세션은 이 문서의 "지금 상태"부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
+## Codex 최신 상세 설계 — 2026-10-05 GW-EXT-P0/A
+
+- 사용자가 “상세 설계 진행해줘”로 GW확장 범위/순서 승인. [상세 설계 묶음](../plan/GW확장_상세설계검증_GW-EXT-A.md) 작성, 전체설계 확인 대기. 기존 b완료/c미착수 그대로.
+- 기준 branch codex/fs-030-gw, 시작40caa5e. 원격fetch/rebase 없음; 마지막문서커밋은 git log -1. 다른작업자/main 운영 기록 보존.
+- P0 운영/복구 요건, CORE(신규3), GW(신규7) 논리명세/API/락/ACL, 화면9, 인수24. 개인/게스트와 TEAM실제계정 분리. ERP/다른업무 TEAM차단, no cross-write/FK 유지.
+- 핵심: 계정/세션/공간 잠금→권한재검사→receipt, 재시도본문누출방지; contextVersion으로다중탭오발송차단; token원문receipt저장금지; 실제계정바인딩은대상동의·재바인딩금지. 관리자도본문열람권한없음.
+- 미정: 회사규모/배포/SSO·MFA·RPO/RTO/보존. 인증/계정복구·최종GW관리자복구 부속설계는환경확정후. 해당검증전 COMPANY출시불가. B~F 상세설계 미작성.
+- 문서 정적검사만 수행, 제품/DB/브라우저/성능/복구검증 없음. schema/Excel/migration 변경 없음. 다음은사용자설계확인→기존c완료→최신main/공식번호조율→A구현단계. push·배포·실데이터반입 없음.
+
+## Codex 최신 설계 — 2026-10-05 GW-EXT-01
+
+- 사용자 기존 GW 제외 범위 확장 요청 및 **실제 회사 도입 목표** 확정. [결정 초안](../plan/GW확장_협업플랫폼_결정초안_GW-EXT-01.md) 작성; 기능 범위/구현은 아직 미승인. 이전 b완료/c미착수 상태 유지.
+- 기준 codex/fs-030-gw / 1f96532. 이번 원격 fetch/rebase 없음, 문서만 변경. 마지막 문서 커밋은 git log -1. 기존 main/다른 작업자 기록 보존.
+- P0 실제 운영 요건(규모/인증/보존/RPO/RTO/운영자 미정)→A 공유 공간/권한 우선. 전체 c→P0→A→B→C→D→E→F 순서 제안. 실회사 데이터는 별도 운영 환경에서 준비 완료 후만; 공개 체험 반입 금지.
+- ERP 직접 교차쓰기 대신 ERP소유 확정 통제, EIP 집계 소유 유지. 공식 번호 충돌 방지 위해 GX01~10 로컬 제안. 전체 모듈/화면 설계 승인 전 schema/코드 변경 금지.
+- 검증은 문서 정적검사만. 제품 pytest/Vitest/브라우저/DB/공급자 검증 없음. 사용자 범위 확인 후 상세 설계, 구현 전 최신main/CMMS/번호 조율. push·배포 없음.
+
 ## Codex 최신 상태 — 2026-10-04 FS-030b 완료
 
 - 아래 main 운영/Claude 기록은 보존한다. GW의 이전 a/WIP 상태는 이 항목으로 대체한다.
@@ -70,7 +87,7 @@
 - **FS-028 SPC a·b·c 완료(2026-10-01, 로컬 main)** — c: 시드 `_spc`(부분군 456·측정값 2,280·이상 3: LT-0017 미조치 2·LT-0010 지그 조치 1, 공정능력 충분4·주의1·부족1), `seed/validate.py` V13, 템플릿 14,685·복사 14,683(중앙값 0.813초), 도움말 s-01~07·개념 c-20·21, 흐름 맵 `process_control`(18·21), e2e QMS 배지. **남은 것: 운영 반영**(main에 다른 세션의 `cb3fba4 WIP FS-040` 런처 평가가 함께 있다 — 같이 배포할지 사용자 확인) → README "운영 · 동결" → 로드맵 2번 CMMS 결정서(D45·AC-185부터).
 - **GW(로드맵 10번)는 Codex가 병행(FS-030, 2026-10-01 사용자 지시)** — 지시서 `docs/agent/Codex_작업지시_GW_FS-030.md`(브랜치 `codex/fs-030-gw`, 번호 범위 D60~69·AC-220~239·화면 G, 스키마 버전은 병합 때 Claude가 정한다). Claude 쪽 CMMS는 D45·AC-185부터.
 - **FS-030a GW DB main 병합(2026-10-01, Claude)**: Codex `codex/fs-030-gw` `cd8b619`. 충돌 4곳(시드 합계·진행 기록)만 해결 — 템플릿 14,686·복사 14,684(SPC +2,752 + gw 모듈 행 +1). 임시 버전 `0.15.0-gw` → **v0.16.0**(FS-040이 0.15.0). 검증: db:validate 0·격리 0·tools 69·실제 DB base↔head·DDL 대조 0(112·FK 258)·pytest 관련 72(seed·common·spc·gw_schema·schema_verifier·reviews)·ruff. Codex 다음은 FS-030b(API·화면) — 새 main에서 rebase.
-- **지금(Claude): ROADMAP-02 전체 설계 우선** — 개발 중지. 18개(HR 신설 D79) 설계 → DSN-90 → DSN-99 → 일괄 개발. DSN-00·01 완료. **기존 7개 보강 설계 완료(확인 대기): DSN-11 ERP · 12 MES · 13 WMS · 14 QMS · 15 FEMS · 16 BEMS · 17 SPC** — 목표 DB 228테이블. 바코드 스캔(생산·창고)은 POP, 휴일 달력은 core.holiday. 목표 DB 재생성 `python3 tools/rebuild_target.py`(새 DSN 스크립트는 STEPS에). **DSN-21 CMMS 재점검 완료(6→12, 신호 출처 확장 제외) · DSN-22 POP 신규 완료(7테이블, 지연 가져오기) · DSN-23 TMS 신규 완료(10테이블, 조달 운송 포함) · DSN-24 PLM 신규 완료(16테이블, 각 솔루션 가져오기) · DSN-25 CRM 신규 완료(13테이블) · DSN-26 SCM 신규 완료(9테이블, 계획·분석만) · DSN-27 ELB/MRO 신규 완료(11테이블, 발주는 ERP) · DSN-28 EIP 신규 완료(8테이블, 사람 연결은 HR 사원 코드, **포털 첫 화면 = EIP·모듈 키 없음 D80**) · DSN-29 RWS 신규 완료(12테이블, 현장 출동은 CMMS가 가져감) · DSN-30 HR 신규 완료(19테이블, 사람·부서 코드 원천)**. **Claude 신규 설계 끝 · DSN-90 통합 검증 완료**(`docs/plan/통합검증_DSN-90.md` 2장 = 교차 조회 계약 기준본, 목표 DB target-0.19.0). **다음: GW(Codex `codex/fs-030-gw` 08c91d9 미병합, HR과 사람·조직 겹침) 결정 → DSN-99**, GW는 Codex. 각 문서 6장 "넘길 것"이 입력.
+- **지금(Claude): ROADMAP-02 전체 설계 우선** — 개발 중지. 18개(HR 신설 D79) 설계 → DSN-90 → DSN-99 → 일괄 개발. DSN-00·01 완료. **기존 7개 보강 설계 완료(확인 대기): DSN-11 ERP · 12 MES · 13 WMS · 14 QMS · 15 FEMS · 16 BEMS · 17 SPC** — 목표 DB 228테이블. 바코드 스캔(생산·창고)은 POP, 휴일 달력은 core.holiday. 목표 DB 재생성 `python3 tools/rebuild_target.py`(새 DSN 스크립트는 STEPS에). **DSN-21 CMMS 재점검 완료(6→12, 신호 출처 확장 제외) · DSN-22 POP 신규 완료(7테이블, 지연 가져오기) · DSN-23 TMS 신규 완료(10테이블, 조달 운송 포함) · DSN-24 PLM 신규 완료(16테이블, 각 솔루션 가져오기) · DSN-25 CRM 신규 완료(13테이블) · DSN-26 SCM 신규 완료(9테이블, 계획·분석만) · DSN-27 ELB/MRO 신규 완료(11테이블, 발주는 ERP) · DSN-28 EIP 신규 완료(8테이블, 사람 연결은 HR 사원 코드, **포털 첫 화면 = EIP·모듈 키 없음 D80**) · DSN-29 RWS 신규 완료(12테이블, 현장 출동은 CMMS가 가져감) · DSN-30 HR 신규 완료(19테이블, 사람·부서 코드 원천)**. **Claude 신규 설계 끝 · DSN-90 통합 검증 완료**(`docs/plan/통합검증_DSN-90.md` 2장 = 교차 조회 계약 기준본, 목표 DB target-0.19.0). **GW-EXT 병합 완료, D81(사람·조직 원천 = HR). 다음: Codex가 GW 기준표·`apply_dsn31` 반영(작업지시 9장) → Claude GW 재검증 → DSN-99**, GW는 Codex. 각 문서 6장 "넘길 것"이 입력.
 
 - **FS-040 런처 평가 완료(2026-10-01, 로컬 main, push·배포 안 함)** — `core.app_review`·`/api/v1/core/reviews`·P-02 평점 줄+패널. schema **v0.15.0 / 104테이블**, head **`fs040_app_review`**(down `fs026a`). **FS-028c·GW(FS-030) 병합 때 주의**: 다음 schema 버전은 v0.16.0, 새 마이그레이션 down_revision은 `fs040_app_review`, 새 제약 번호는 C868·R237부터. `validate_db_design`의 작업 집합에 새 작업 ID를 FS-040과 함께 넣는다. 운영 반영 시 `alembic upgrade head`만(시드 변경 없음). 남은 것: p-02 도움말에 평가 안내, e2e.
 - 재현: `python3 tools/apply_fs040.py` → `npm run db:validate` → (전용 DB) `alembic upgrade head` → `tools/verify_ddl_matches_schema.py` → `pytest backend/tests/test_reviews.py`.

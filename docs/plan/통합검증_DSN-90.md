@@ -1,6 +1,6 @@
 # DSN-90 통합 검증 보고서
 
-작성: 2026-10-05 (Claude Code) · 상태: **검증 완료 — GW(Codex) 대조 결정 대기(7장)**
+작성: 2026-10-05 (Claude Code) · 상태: **검증 완료 — GW는 7-1 결정대로 Codex가 목표 DB 반영 후 재검증**
 방침: [ROADMAP-02](전체설계우선_전환_ROADMAP-02.md) 단계 3 — 교차 조회 계약 전체 표, 업무 흐름 시나리오, 시드 시나리오, 목표 DB 빈 DB 적용.
 입력: 각 솔루션 설계 문서 6장(교차 조회)·"넘길 것" 18개 문서, 목표 DB `schema-target.json`(DSN-30까지 340테이블), 현재 코드 `backend/src/fs/*/interface.py`, Codex GW 설계(`codex/fs-030-gw` `08c91d9`).
 
@@ -255,6 +255,15 @@ Codex는 `codex/fs-030-gw`(`08c91d9`, main `1f96532`에서 갈라짐)에 **GW �
 | G2 | 형식 | GW 설계는 기준표·목표 DB(`schema-target.json`) 반영이 없어 이번 계약·흐름 검사 대상 밖. 목표 DB의 GW는 현재 8테이블 + `hr_employee_code`뿐 |
 | G3 | 범위 성격 | GW만 실제 회사 도입(별도 운영 환경·실데이터·TEAM 공간), 나머지 17개는 합성 데이터 포트폴리오. core에 TEAM 공간·멤버십·초대가 들어오면 모든 솔루션의 공통 스코프 검사가 바뀐다(GW-EXT는 "TEAM에서는 GW만 허용"으로 막음) |
 | G4 | 브랜치 | `codex/fs-030-gw`가 main보다 많이 뒤처졌고, 같은 기준 문서(현재기획·progress·HANDOFF·FS-013·core README)를 고쳐 병합 충돌이 난다 |
+
+### 7-1. 결정 기록 (2026-10-05 사용자 확정, ROADMAP-02 D81)
+
+| # | 결정 |
+|---|---|
+| G1 | **HR 원천 유지** — GW 조직·소속은 HR 부서·사원을 가져온 스냅샷(문서 권한 판정용). GW-EXT D단계의 인사 기초·근태·휴가는 빼고 HR이 맡는다. GW는 일정·채팅만. 계정 ↔ 직원 연결·문서 권한은 GW |
+| G2 | **Codex가 목표 DB에 반영** — GW 기준표(DSN-00 양식) + `tools/apply_dsn31.py`(core TEAM 공간 3 + GW 7, apply_dsn30 다음·apply_dsn90 앞) → GW 부분만 DSN-90 재검증 |
+| G3 | (G1·G2로 정리) GW 실제 도입 트랙의 개발 순서는 DSN-99에서 정한다 |
+| G4 | **지금 병합** — `codex/fs-030-gw` `08c91d9`를 main에 병합(설계 문서만, 충돌은 main 기준으로 정리). 배포 없음 |
 
 ## 8. DSN-99로 넘길 것
 

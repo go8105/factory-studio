@@ -80,3 +80,12 @@
 - `gw.person`에 `hr_employee_code`(HR 사원 코드 스냅샷, NULL 허용) — 목표 DB(`schema-target.json`)에 반영됨. EIP "내 할 일"이 결재 대기를 사람별로 묻는다.
 - 조회 함수 추가 계약: `published_notices(limit)`(EIP 공지 표시 — EIP 자체 공지 없음), `pending_tasks(hr_employee_code)`, `lookup(code)`. 개발은 일괄 개발 때.
 
+### 9. 2026-10-05 DSN-90 통합 검증 뒤 GW 확장(GW-EXT)에 대한 결정·요청
+
+결정(ROADMAP-02 **D81**, [DSN-90 7-1](../plan/통합검증_DSN-90.md)) — `codex/fs-030-gw` `08c91d9`는 main에 병합했다.
+
+1. **사람·조직 원천은 HR**(`docs/modules/hr/HR_설계_DSN-30.md`). GW-EXT A의 `organization_unit`·`person_assignment`는 HR `departments()`·`employees()`를 "HR에서 가져오기"한 스냅샷(부서 코드·사원 코드 = HR 코드, 문서 권한 판정용)으로 고친다. GW-EXT D단계의 인사 기초·근태·휴가는 빼고(HR 소유), GW D는 일정·채팅만. 계정 ↔ 직원 연결(`person_identity_binding`)·`role_grant`·문서 권한은 GW 그대로.
+2. **GW 설계를 같은 양식으로**: [DSN-00](../plan/기능기준표_DSN-00.md) 기준표(GW 전체 기능, 범위 ○/✕) + `tools/apply_dsn31.py`로 목표 DB(`docs/db/schema-metadata/schema-target.json`)에 core TEAM 공간 3 + GW 7 테이블·기존 표 변경을 반영한다. `tools/rebuild_target.py` STEPS에서 `apply_dsn30` 다음·`apply_dsn90` 앞. 검증기 `validate_gw_dsn31` + `test_dsn31`. 검증 5종(`validate_db_design --schema …target`·`audit_schema_isolation`·`schema_ddl --apply`·`build_erd --target`·`build_db_design --target`)과 `test_dsn*`·`test_fs0*` 통과를 커밋 조건으로.
+3. **교차 조회 계약**은 [DSN-90 2장](../plan/통합검증_DSN-90.md)이 기준본이다. GW 제공: 기존 `approvals(doc_ref)`, `published_notices(limit)`(권한 필터), 공통 4종 `enabled`·`monthly_summary`·`pending_tasks(hr_employee_code)`·`lookup(code)`. GW 읽기: HR `employees`·`departments`.
+4. 끝나면 Claude가 GW 부분만 DSN-90 재검증 → DSN-99.
+
