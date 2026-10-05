@@ -180,3 +180,23 @@ footer p {
     gap: 20px;
   }
 }
+#remove {
+  width: 100%;
+  background: transparent;
+  color: #1f2d3d;
+  font: inherit;
+  cursor: pointer;
+}
+.view {
+  position: sticky;
+  top: 0;
+  height: calc(100dvh - 72px);
+}
+@media (max-width: 760px) {
+  .view {
+    position: relative;
+    top: auto;
+    height: 400px;
+    flex: none;
+  }
+}

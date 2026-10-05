@@ -10,7 +10,8 @@
     "test": "node --test tests/*.test.js",
     "format": "prettier --write src tests tools *.html vite.config.js package.json README.md",
     "format:check": "prettier --check src tests tools *.html vite.config.js package.json README.md",
-    "poc:build": "node tools/build-soap-poc.mjs"
+    "poc:build": "node tools/build-soap-poc.mjs",
+    "poc:flex": "node tools/build-soap-flex.mjs"
   },
   "dependencies": {
     "polygon-clipping": "0.15.7",

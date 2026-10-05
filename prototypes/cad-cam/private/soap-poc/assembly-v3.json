@@ -1,0 +1,423 @@
+{
+  "version": "POC-03",
+  "unit": "mm",
+  "description": "Soft squeeze-and-twist sleeve and cap; rigid lower cartridge and friction inserts; removable drawer. Kinematic illustration, NOT elastic FEA.",
+  "parts": [
+    {
+      "name": "boot-v3",
+      "volumeMm3": 15218.184486721986,
+      "bounds": {
+        "min": [
+          -44,
+          -54,
+          0
+        ],
+        "max": [
+          44,
+          54,
+          17.2
+        ]
+      },
+      "assembly": {
+        "position": [
+          0,
+          0,
+          -1.2
+        ],
+        "material": "flexible"
+      }
+    },
+    {
+      "name": "base-v3",
+      "volumeMm3": 51004.872814750954,
+      "bounds": {
+        "min": [
+          -43,
+          -53,
+          0
+        ],
+        "max": [
+          43,
+          53,
+          18
+        ]
+      },
+      "assembly": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "material": "rigid"
+      }
+    },
+    {
+      "name": "carrier-v3",
+      "volumeMm3": 7097.453945774934,
+      "bounds": {
+        "min": [
+          -43,
+          -53,
+          0
+        ],
+        "max": [
+          43,
+          60,
+          10
+        ]
+      },
+      "assembly": {
+        "position": [
+          0,
+          0,
+          33
+        ],
+        "material": "rigid"
+      }
+    },
+    {
+      "name": "lid-v3",
+      "volumeMm3": 30904.895858394753,
+      "bounds": {
+        "min": [
+          -43,
+          -60,
+          0
+        ],
+        "max": [
+          43,
+          53,
+          8
+        ]
+      },
+      "assembly": {
+        "rotation": [
+          180,
+          0,
+          0
+        ],
+        "position": [
+          0,
+          0,
+          43
+        ],
+        "material": "rigid"
+      }
+    },
+    {
+      "name": "plate-v3",
+      "volumeMm3": 10624.373029177814,
+      "bounds": {
+        "min": [
+          -34,
+          -34,
+          0
+        ],
+        "max": [
+          34,
+          34,
+          4
+        ]
+      },
+      "assembly": {
+        "position": [
+          0,
+          0,
+          15
+        ],
+        "material": "rigid"
+      }
+    },
+    {
+      "name": "drawer-v3",
+      "volumeMm3": 21807.399109582937,
+      "bounds": {
+        "min": [
+          -39,
+          -55.4,
+          -2.220446049250313e-16
+        ],
+        "max": [
+          39,
+          46.399999998509884,
+          11.399999999999999
+        ]
+      },
+      "assembly": {
+        "position": [
+          0,
+          0,
+          1.8
+        ],
+        "material": "rigid"
+      }
+    },
+    {
+      "name": "hinge-pin-v3",
+      "volumeMm3": 423.81227741132705,
+      "bounds": {
+        "min": [
+          -1.5,
+          -1.5,
+          0
+        ],
+        "max": [
+          1.5,
+          1.5,
+          60
+        ]
+      },
+      "assembly": {
+        "rotation": [
+          0,
+          90,
+          0
+        ],
+        "position": [
+          -30,
+          56,
+          39
+        ],
+        "material": "rigid"
+      }
+    },
+    {
+      "name": "sleeve-v3",
+      "volumeMm3": 7656.235696333228,
+      "bounds": {
+        "min": [
+          -44.20364844895255,
+          -54.48356669289501,
+          0
+        ],
+        "max": [
+          44.20364844895255,
+          54.48356669289501,
+          17.5
+        ]
+      },
+      "assembly": {
+        "position": [
+          0,
+          0,
+          15.5
+        ],
+        "material": "flexible"
+      }
+    },
+    {
+      "name": "cover-v3",
+      "volumeMm3": 22148.543114814664,
+      "bounds": {
+        "min": [
+          -44,
+          -54,
+          0
+        ],
+        "max": [
+          44,
+          54,
+          5.399999999999999
+        ]
+      },
+      "assembly": {
+        "rotation": [
+          180,
+          0,
+          0
+        ],
+        "position": [
+          0,
+          0,
+          44.4
+        ],
+        "material": "flexible"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "drawer travel 0",
+      "overlapMm3": 0
+    },
+    {
+      "name": "drawer travel 30",
+      "overlapMm3": 0
+    },
+    {
+      "name": "drawer travel 60",
+      "overlapMm3": 0
+    },
+    {
+      "name": "drawer travel 90",
+      "overlapMm3": 0
+    },
+    {
+      "name": "drawer travel 115",
+      "overlapMm3": 0
+    },
+    {
+      "name": "keyed lower plate",
+      "overlapMm3": 7.117128270734373e-15
+    },
+    {
+      "name": "rigid lid/base 0/-12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/plate 0/-12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "carrier/base 0/-12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/base 0/0",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/plate 0/0",
+      "overlapMm3": 0
+    },
+    {
+      "name": "carrier/base 0/0",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/base 0/12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/plate 0/12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "carrier/base 0/12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/base 5/-12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/plate 5/-12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "carrier/base 5/-12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/base 5/0",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/plate 5/0",
+      "overlapMm3": 0
+    },
+    {
+      "name": "carrier/base 5/0",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/base 5/12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/plate 5/12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "carrier/base 5/12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/base 10/-12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/plate 10/-12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "carrier/base 10/-12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/base 10/0",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/plate 10/0",
+      "overlapMm3": 0
+    },
+    {
+      "name": "carrier/base 10/0",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/base 10/12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rigid lid/plate 10/12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "carrier/base 10/12",
+      "overlapMm3": 0
+    },
+    {
+      "name": "lid open 0",
+      "overlapMm3": 2.5028590311393373e-14
+    },
+    {
+      "name": "lid open 30",
+      "overlapMm3": 0
+    },
+    {
+      "name": "lid open 60",
+      "overlapMm3": 0
+    },
+    {
+      "name": "lid open 90",
+      "overlapMm3": 0
+    },
+    {
+      "name": "lid open 110",
+      "overlapMm3": 0
+    },
+    {
+      "name": "soft boot / rigid drawer 0",
+      "overlapMm3": 0
+    },
+    {
+      "name": "soft boot / rigid drawer 30",
+      "overlapMm3": 0
+    },
+    {
+      "name": "soft boot / rigid drawer 60",
+      "overlapMm3": 0
+    },
+    {
+      "name": "soft boot / rigid drawer 115",
+      "overlapMm3": 0
+    }
+  ],
+  "assumptions": {
+    "soap": [
+      50,
+      40,
+      18
+    ],
+    "compressionTravel": 10,
+    "twistDegrees": 12,
+    "sleeveWall": 1.2,
+    "nozzle": 0.4,
+    "layer": 0.2,
+    "softMaterial": "TPU screening candidate; grade/hardness unselected",
+    "rigidMaterial": "PETG fit-test candidate; wear unverified",
+    "assemblyRetention": "Sleeve clamping/bonding and closure retention require prototype validation"
+  }
+}

@@ -1,0 +1,234 @@
+{
+  "version": "POC-02",
+  "unit": "mm",
+  "description": "Hinged lid, internal friction rotor, fully removable drawer. Digital fit only.",
+  "parts": [
+    {
+      "name": "body-v2",
+      "volumeMm3": 74667.57284351962,
+      "bounds": {
+        "min": [
+          -43,
+          -53,
+          0
+        ],
+        "max": [
+          43,
+          60,
+          43
+        ]
+      },
+      "assembly": {
+        "position": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "lid-v2",
+      "volumeMm3": 30904.895858394753,
+      "bounds": {
+        "min": [
+          -43,
+          -60,
+          0
+        ],
+        "max": [
+          43,
+          53,
+          8
+        ]
+      },
+      "assembly": {
+        "rotation": [
+          180,
+          0,
+          0
+        ],
+        "position": [
+          0,
+          0,
+          43
+        ]
+      }
+    },
+    {
+      "name": "rotor-v2",
+      "volumeMm3": 10678.809361698646,
+      "bounds": {
+        "min": [
+          -34,
+          -34,
+          0
+        ],
+        "max": [
+          34,
+          34,
+          4
+        ]
+      },
+      "assembly": {
+        "position": [
+          0,
+          0,
+          15
+        ]
+      }
+    },
+    {
+      "name": "drawer-v2",
+      "volumeMm3": 21807.399109582937,
+      "bounds": {
+        "min": [
+          -39,
+          -55.4,
+          -2.220446049250313e-16
+        ],
+        "max": [
+          39,
+          46.399999998509884,
+          11.399999999999999
+        ]
+      },
+      "assembly": {
+        "position": [
+          0,
+          0,
+          1.8
+        ]
+      }
+    },
+    {
+      "name": "hinge-pin-v2",
+      "volumeMm3": 423.81227741132705,
+      "bounds": {
+        "min": [
+          -1.5,
+          -1.5,
+          0
+        ],
+        "max": [
+          1.5,
+          1.5,
+          60
+        ]
+      },
+      "assembly": {
+        "rotation": [
+          0,
+          90,
+          0
+        ],
+        "position": [
+          -30,
+          56,
+          39
+        ]
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "drawer travel 0",
+      "overlapMm3": 0
+    },
+    {
+      "name": "drawer travel 10",
+      "overlapMm3": 0
+    },
+    {
+      "name": "drawer travel 30",
+      "overlapMm3": 0
+    },
+    {
+      "name": "drawer travel 60",
+      "overlapMm3": 0
+    },
+    {
+      "name": "drawer travel 90",
+      "overlapMm3": 0
+    },
+    {
+      "name": "drawer travel 115",
+      "overlapMm3": 0
+    },
+    {
+      "name": "rotor angle 0",
+      "overlapMm3": 9.244341403480405e-15
+    },
+    {
+      "name": "rotor angle 30",
+      "overlapMm3": 4.6629367034256575e-15
+    },
+    {
+      "name": "rotor angle 60",
+      "overlapMm3": 2.518818487118324e-15
+    },
+    {
+      "name": "rotor angle 90",
+      "overlapMm3": 2.589942149633373e-15
+    },
+    {
+      "name": "rotor angle 120",
+      "overlapMm3": 4.40340580838694e-15
+    },
+    {
+      "name": "rotor angle 180",
+      "overlapMm3": 6.892490050924849e-15
+    },
+    {
+      "name": "rotor angle 270",
+      "overlapMm3": 3.5778671692021646e-16
+    },
+    {
+      "name": "lid angle 0",
+      "overlapMm3": 2.5028590311393373e-14
+    },
+    {
+      "name": "lid angle 15",
+      "overlapMm3": 0
+    },
+    {
+      "name": "lid angle 30",
+      "overlapMm3": 0
+    },
+    {
+      "name": "lid angle 60",
+      "overlapMm3": 0
+    },
+    {
+      "name": "lid angle 90",
+      "overlapMm3": 0
+    },
+    {
+      "name": "lid angle 110",
+      "overlapMm3": 0
+    },
+    {
+      "name": "lid / rotor closed",
+      "overlapMm3": 0
+    },
+    {
+      "name": "drawer / rotor",
+      "overlapMm3": 0
+    }
+  ],
+  "assumptions": {
+    "soap": [
+      50,
+      40,
+      18
+    ],
+    "nozzle": 0.4,
+    "layer": 0.2,
+    "drawerSideClearance": 0.6,
+    "rotorRadialClearance": 0.4,
+    "hingeAxis": [
+      0,
+      56,
+      39
+    ]
+  }
+}

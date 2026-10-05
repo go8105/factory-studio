@@ -2,7 +2,12 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { it, expect, vi } from "vitest";
 import { App } from "../app/App";
-function show(auth = true, workspaceId = 10) {
+function show(
+  auth = true,
+  workspaceId = 10,
+  roles = ["GUEST"],
+  path = "/cad-cam",
+) {
   vi.spyOn(globalThis, "fetch").mockImplementation(
     async () =>
       new Response(
@@ -10,10 +15,10 @@ function show(auth = true, workspaceId = 10) {
           auth
             ? {
                 data: {
-                  actorKind: "GUEST",
+                  actorKind: roles.includes("GUEST") ? "GUEST" : "MEMBER",
                   workspaceId,
                   generationId: 20,
-                  roles: ["GUEST"],
+                  roles,
                   csrfToken: "synthetic",
                   expiresAt: null,
                 },
@@ -26,7 +31,7 @@ function show(auth = true, workspaceId = 10) {
       ),
   );
   render(
-    <MemoryRouter initialEntries={["/cad-cam"]}>
+    <MemoryRouter initialEntries={[path]}>
       <App />
     </MemoryRouter>,
   );
@@ -46,11 +51,9 @@ it("places CAD menu immediately after launcher and scopes the embedded editor", 
     "CAD·CAM",
     "3D 공장",
   ]);
-  fireEvent.click(screen.getByRole("link", { name: "비누 그라인더 POC" }));
-  expect(await screen.findByTitle("비누 그라인더 POC")).toHaveAttribute(
-    "src",
-    "/cad-cam-app/soap-poc.html?embedded=1&scope=10%3A20",
-  );
+  expect(
+    screen.queryByRole("link", { name: "비누 그라인더 POC" }),
+  ).not.toBeInTheDocument();
 });
 it("uses another browser save namespace for another workspace", async () => {
   show(true, 11);
@@ -64,3 +67,24 @@ it("does not mount the editor without a session", async () => {
   await screen.findByText("세션이 만료되었습니다");
   expect(screen.queryByTitle("CAD·CAM 편집기")).not.toBeInTheDocument();
 });
+
+it("admin alone can open protected POC route", async () => {
+  show(true, 10, ["ADMIN"]);
+  await screen.findByTitle("CAD·CAM 편집기");
+  fireEvent.click(screen.getByRole("link", { name: "비누 그라인더 POC" }));
+  expect(await screen.findByTitle("비누 그라인더 POC")).toHaveAttribute(
+    "src",
+    "/api/v1/cad/admin/soap-poc/soap-poc.html?embedded=1&scope=10%3A20&poc=1",
+  );
+});
+it.each([["GUEST"], ["MEMBER"]])(
+  "direct POC query is ignored without ADMIN: %s",
+  async (role) => {
+    show(true, 10, [role], "/cad-cam?view=soap");
+    await screen.findByTitle("CAD·CAM 편집기");
+    expect(screen.queryByTitle("비누 그라인더 POC")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "비누 그라인더 POC" }),
+    ).not.toBeInTheDocument();
+  },
+);

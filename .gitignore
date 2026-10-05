@@ -27,3 +27,6 @@ fs005g_check*.txt
 
 # Rebuilt by frontend predev/prebuild from prototypes/cad-cam.
 frontend/public/cad-cam-app/
+
+# Admin-only compiled POC, served by authenticated API.
+backend/private-assets/

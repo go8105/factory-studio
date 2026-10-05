@@ -3,6 +3,7 @@
 from fastapi import Depends, FastAPI
 
 from fs.bems.router import router as bems_router
+from fs.cad_cam.router import router as cad_cam_router
 from fs.common.errors import install_error_handlers
 from fs.common.request_logging import RequestLogMiddleware
 from fs.common.scope import seed_ready
@@ -25,6 +26,7 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestLogMiddleware)
     install_error_handlers(app)
     app.include_router(factory_router, prefix="/api/v1/factory")
+    app.include_router(cad_cam_router, prefix="/api/v1/cad")
     app.include_router(core_router, prefix="/api/v1/core")
     app.include_router(review_router, prefix="/api/v1/core")
     app.include_router(

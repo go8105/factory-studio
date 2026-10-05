@@ -3,79 +3,103 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>비누 그라인더 · POC-01</title>
+    <title>비누 그라인더 · 관리자 설계실</title>
   </head>
   <body>
     <header>
-      <a href="./index.html">← CAD·CAM 편집기</a
-      ><span>FACTORY STUDIO / POC-01</span><b>비누 그라인더 실험실</b>
+      <a href="/cad-cam" target="_parent">← CAD·CAM 편집기</a
+      ><span>SOAP GRINDER / POC-03</span><b>관리자 전용 · 설계 검토</b>
     </header>
     <main>
       <aside>
-        <p class="eyebrow">01 / 원리 검증</p>
-        <h1>플라스틱으로 <br />비누를 갈 수 있을까?</h1>
+        <p class="eyebrow">유연한 외피 / 누름·비틀림 방식</p>
+        <h1>눌러서 밀착하고,<br />가볍게 비트세요.</h1>
         <p>
-          완성품을 만들기 전, 돌기 높이만 바꾸어 절삭·막힘·마모를 비교합니다.
+          유연한 외피를 누르면 상부 마찰부가 내려옵니다. 위 케이스를 조금 비틀어
+          아래 마찰판과 상대 운동을 만듭니다.
         </p>
-        <label for="variant">교체형 마찰판</label
-        ><select id="variant">
-          <option value="A">A · 낮은 돌기 0.6 mm</option>
-          <option value="B" selected>B · 기준 돌기 1.0 mm</option>
-          <option value="C">C · 높은 돌기 1.4 mm</option></select
-        ><label for="explode"
-          >조립 / 분해 <output id="distance">0 mm</output></label
-        ><input id="explode" type="range" min="0" max="45" value="0" /><label
-          ><input id="soap" type="checkbox" /> 시험 비누 조각 표시 (20 × 18 ×
-          8)</label
+        <label for="lid">뚜껑 열기 <output id="lidValue">100°</output></label
+        ><input id="lid" type="range" min="0" max="110" value="100" /><label
+          for="press"
+          >케이스 누르기 <output id="pressValue">0 mm</output></label
+        ><input id="press" type="range" min="0" max="10" value="0" /><label
+          for="rotor"
+          >케이스 비틀기 <output id="rotorValue">0°</output></label
+        ><input id="rotor" type="range" min="-12" max="12" value="0" /><label
+          for="drawer"
+          >가루통 빼기 <output id="drawerValue">0 mm</output></label
+        ><input id="drawer" type="range" min="0" max="115" value="0" /><button
+          id="remove"
+          class="secondary"
+          disabled
+        >
+          가루통 완전 분리</button
+        ><label
+          ><input id="soap" type="checkbox" /> 비누 크기 가정 표시 (두께 18 → 8
+          mm)</label
+        ><label
+          ><input id="transparent" type="checkbox" /> 유연한 외피를 반투명으로
+          보기</label
         >
         <p class="note">
-          드래그: 회전 · 휠: 확대<br />형상 검토 화면입니다. 비누 절삭·분말 발생
-          물리 시뮬레이션은 아닙니다.
+          드래그 회전 · 휠 확대<br />누름·비틀림은 동작 설명용 변형입니다. 실제
+          탄성·힘·마모·방수 성능을 계산한 화면은 아닙니다.
         </p>
-        <a
+        <label for="part">출력 부품</label
+        ><select id="part">
+          <option value="sleeve-v3">01 · TPU 후보 / 주름형 유연 외피</option>
+          <option value="cover-v3">02 · TPU 후보 / 부드러운 상부 커버</option>
+          <option value="base-v3">03 · 단단한 하부 가이드</option>
+          <option value="carrier-v3">04 · 상부 지지 테두리</option>
+          <option value="lid-v3">05 · 상부 마찰부 / 뚜껑 안판</option>
+          <option value="plate-v3">06 · 하부 마찰판 / 배출 슬롯</option>
+          <option value="drawer-v3">07 · 완전 분리형 가루통</option>
+          <option value="hinge-pin-v3">08 · 힌지 핀</option>
+          <option value="boot-v3">
+            09 · TPU 후보 / 하단 부드러운 스킨
+          </option></select
+        ><a
           class="primary"
-          id="plateDownload"
-          href="./soap-poc/plate-B.stl"
+          id="partDownload"
+          href="./soap-poc/sleeve-v3.stl"
           download
-          >선택한 마찰판 STL</a
-        ><a class="secondary" href="./soap-poc/tray.stl" download
-          >공통 트레이 STL</a
-        ><a class="secondary" href="./soap-poc/soap-poc-01.zip" download
-          >출력·실험 자료 전체 ZIP</a
+          >선택한 부품 STL</a
+        ><a class="secondary" href="./soap-poc/soap-poc-03.zip" download
+          >설계·출력 자료 ZIP</a
         >
-        <p id="status" role="status">3D 형상을 불러오는 중…</p>
+        <p id="status" role="status">보호된 설계 파일을 불러오는 중…</p>
       </aside>
       <section class="view">
         <div id="viewport"></div>
         <div class="caption">
-          <b id="partTitle">B / 돌기 1.0 mm</b
-          ><span>트레이 84 × 64 × 14 mm · 단위 mm</span>
+          <b id="assemblyState">탄성 외피 검토 모델</b
+          ><span>기준 폭86 × 길이106 mm · 주름/힌지 별도</span>
         </div>
       </section>
     </main>
     <footer>
       <article>
-        <small>DESIGN</small>
-        <h2>3D CAD로 설계</h2>
+        <small>01 / SQUEEZE & TWIST</small>
+        <h2>유연한 외피, 단단한 마찰부</h2>
         <p>
-          공통 트레이 + 교체형 판 3종.<br />치수 가정은 지원서의 확정 도면이
-          아닙니다.
+          상부 케이스와 마찰부가 함께 움직이고<br />하부 마찰판은 가루통
+          가이드에 고정합니다.
         </p>
       </article>
       <article>
-        <small>MAKE</small>
-        <h2>슬라이서 → FDM 출력</h2>
+        <small>02 / COLLECT & RELEASE</small>
+        <h2>가루통은 변형과 독립</h2>
         <p>
-          0.4 mm 노즐 / 0.2 mm 층 기준 검토.<br />PETG 시험 후보 · 평평한 면을
-          바닥으로.
+          하단은 단단한 서랍 가이드를 유지합니다.<br />가루통은 115 mm 이동 시
+          완전히 분리됩니다.
         </p>
       </article>
       <article>
-        <small>LEARN</small>
-        <h2>실물로 가루·마모 측정</h2>
+        <small>03 / PRINT & TEST</small>
+        <h2>경도·벽 두께·결합 검증 필요</h2>
         <p>
-          같은 비누·힘·이동 거리로 A/B/C 비교.<br />회전 본체와 최종 재질은 결과
-          확인 후 결정.
+          높이45.6 → 35.6 mm는 검토 가정입니다.<br />TPU 출력 후보 · 최종
+          재료·누름 힘은 미확정.
         </p>
       </article>
     </footer>

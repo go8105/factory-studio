@@ -4,7 +4,7 @@ const { Manifold: M, CrossSection: C } = await Module().then((m) => {
   m.setup();
   return m;
 });
-const dir = new URL("../public/soap-poc/", import.meta.url);
+const dir = new URL("../private/soap-poc/", import.meta.url);
 fs.mkdirSync(dir, { recursive: true });
 const box = (x, y, z, b = 0) =>
   M.cube([x, y, z], true).translate([0, 0, b + z / 2]);

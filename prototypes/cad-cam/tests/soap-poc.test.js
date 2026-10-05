@@ -1,10 +1,29 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-for (const name of ["tray", "plate-A", "plate-B", "plate-C"])
+for (const name of [
+  "tray",
+  "plate-A",
+  "plate-B",
+  "plate-C",
+  "body-v2",
+  "lid-v2",
+  "rotor-v2",
+  "drawer-v2",
+  "hinge-pin-v2",
+  "base-v3",
+  "carrier-v3",
+  "lid-v3",
+  "plate-v3",
+  "drawer-v3",
+  "hinge-pin-v3",
+  "sleeve-v3",
+  "cover-v3",
+  "boot-v3",
+])
   test(`${name}: exported STL is closed, oriented and has positive volume`, () => {
     const b = fs.readFileSync(
-      new URL(`../public/soap-poc/${name}.stl`, import.meta.url),
+      new URL(`../private/soap-poc/${name}.stl`, import.meta.url),
     );
     const n = b.readUInt32LE(80);
     assert.equal(b.length, 84 + n * 50);

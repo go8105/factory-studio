@@ -1,11 +1,13 @@
 import { build } from "vite";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { cp, mkdir } from "node:fs/promises";
 const require = createRequire(new URL("../package.json", import.meta.url));
-await build({
+const path = (p) => fileURLToPath(new URL(p, import.meta.url));
+const shared = {
   configFile: false,
-  root: fileURLToPath(new URL("../../prototypes/cad-cam", import.meta.url)),
-  base: "/cad-cam-app/",
+  root: path("../../prototypes/cad-cam"),
+  publicDir: false,
   resolve: {
     alias: [
       {
@@ -16,9 +18,7 @@ await build({
       },
       {
         find: "three/addons",
-        replacement: fileURLToPath(
-          new URL("../node_modules/three/examples/jsm", import.meta.url),
-        ),
+        replacement: path("../node_modules/three/examples/jsm"),
       },
       {
         find: "polygon-clipping",
@@ -26,18 +26,30 @@ await build({
       },
     ],
   },
+};
+await build({
+  ...shared,
+  base: "/cad-cam-app/",
   build: {
-    outDir: fileURLToPath(new URL("../public/cad-cam-app", import.meta.url)),
+    outDir: path("../public/cad-cam-app"),
     emptyOutDir: true,
-    rollupOptions: {
-      input: {
-        main: fileURLToPath(
-          new URL("../../prototypes/cad-cam/index.html", import.meta.url),
-        ),
-        soap: fileURLToPath(
-          new URL("../../prototypes/cad-cam/soap-poc.html", import.meta.url),
-        ),
-      },
-    },
+    rollupOptions: { input: path("../../prototypes/cad-cam/index.html") },
   },
 });
+const privateRoot = path("../../backend/private-assets/soap-poc");
+await build({
+  ...shared,
+  base: "/api/v1/cad/admin/soap-poc/",
+  build: {
+    outDir: privateRoot,
+    emptyOutDir: true,
+    rollupOptions: { input: path("../../prototypes/cad-cam/soap-poc.html") },
+  },
+});
+await mkdir(privateRoot + "/soap-poc", { recursive: true });
+await cp(
+  path("../../prototypes/cad-cam/private/soap-poc"),
+  privateRoot + "/soap-poc",
+  { recursive: true },
+);
+await import("./verify-cad-assets.mjs");
