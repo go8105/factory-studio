@@ -89,6 +89,7 @@ def create_guest(
         template["generation_id"],
         target_date,
         token_hash(token),
+        schemas=(),  # W0-1: 솔루션 시드는 처음 열 때(seed_ready)
     )
     # 복사는 데이터 기준일(target_date)로 만료를 정한다. 만료는 실제 시간이어야 하므로 다시 쓴다.
     # FS_TODAY가 없으면 두 날짜가 같아 값이 바뀌지 않는다.
@@ -318,6 +319,7 @@ def create_member_account(
         template["generation_id"],
         workspace_id,
         target_date,
+        schemas=(),  # W0-1 지연 복사
     )
     return {
         "userId": user_id,
@@ -581,6 +583,7 @@ def reset_generation(
         template["generation_id"],
         context.workspace_id,
         target_date,
+        schemas=(),  # W0-1 지연 복사
     )
     response = {
         "generationId": generation_id,

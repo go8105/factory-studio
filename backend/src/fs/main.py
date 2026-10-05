@@ -1,10 +1,11 @@
 """Factory Studio API 조립점."""
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from fs.bems.router import router as bems_router
 from fs.common.errors import install_error_handlers
 from fs.common.request_logging import RequestLogMiddleware
+from fs.common.scope import seed_ready
 from fs.core.review import router as review_router
 from fs.core.router import router as core_router
 from fs.erp.router import router as erp_router
@@ -26,14 +27,30 @@ def create_app() -> FastAPI:
     app.include_router(factory_router, prefix="/api/v1/factory")
     app.include_router(core_router, prefix="/api/v1/core")
     app.include_router(review_router, prefix="/api/v1/core")
-    app.include_router(fems_router, prefix="/api/v1/fems")
-    app.include_router(mes_router, prefix="/api/v1/mes")
-    app.include_router(erp_router, prefix="/api/v1/erp")
-    app.include_router(qms_router, prefix="/api/v1/qms")
-    app.include_router(wms_router, prefix="/api/v1/wms")
-    app.include_router(bems_router, prefix="/api/v1/bems")
-    app.include_router(spc_router, prefix="/api/v1/spc")
-    app.include_router(gw_router, prefix="/api/v1/gw")
+    app.include_router(
+        fems_router, prefix="/api/v1/fems", dependencies=[Depends(seed_ready("fems"))]
+    )
+    app.include_router(
+        mes_router, prefix="/api/v1/mes", dependencies=[Depends(seed_ready("mes"))]
+    )
+    app.include_router(
+        erp_router, prefix="/api/v1/erp", dependencies=[Depends(seed_ready("erp"))]
+    )
+    app.include_router(
+        qms_router, prefix="/api/v1/qms", dependencies=[Depends(seed_ready("qms"))]
+    )
+    app.include_router(
+        wms_router, prefix="/api/v1/wms", dependencies=[Depends(seed_ready("wms"))]
+    )
+    app.include_router(
+        bems_router, prefix="/api/v1/bems", dependencies=[Depends(seed_ready("bems"))]
+    )
+    app.include_router(
+        spc_router, prefix="/api/v1/spc", dependencies=[Depends(seed_ready("spc"))]
+    )
+    app.include_router(
+        gw_router, prefix="/api/v1/gw", dependencies=[Depends(seed_ready("gw"))]
+    )
     return app
 
 

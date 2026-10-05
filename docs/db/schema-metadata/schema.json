@@ -1,7 +1,7 @@
 {
-  "version": "0.17.0",
-  "task": "FS-029a",
-  "date": "2026-10-01",
+  "version": "0.18.0",
+  "task": "W0-1",
+  "date": "2026-10-05",
   "status": "구현 명세 / 환경별 적용 상태는 인계 참조",
   "migration_revision": "fs029b_cmms_module",
   "tables": [
@@ -398,6 +398,14 @@
           "nullable": false,
           "default": "'preparing'",
           "rule": "preparing / ready / active / retired / purged / failed"
+        },
+        {
+          "name": "template_generation_id",
+          "label": "원천 템플릿 세대",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "W0-1 지연 복사의 원천. FK 없음(템플릿 정리와 무관)"
         }
       ],
       "note": "업무 행 정리 후에도 메타데이터 보존",
@@ -450,6 +458,14 @@
           "nullable": true,
           "default": null,
           "rule": ""
+        },
+        {
+          "name": "seeded_generation_id",
+          "label": "시드 복사 세대",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "W0-1 이 솔루션 시드를 복사한 세대. 활성 세대와 같을 때만 준비됨, 아니면 처음 열 때 복사"
         },
         {
           "name": "created_at",
@@ -26444,6 +26460,15 @@
       ],
       "expression": "",
       "reason": "예비품 사용 집계"
+    },
+    {
+      "table": "core.workspace_module",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "seeded_generation_id"
+      ],
+      "expression": "솔루션 라우터 의존성 seed_ready가 요청 트랜잭션 전에 공간 잠금 → 다시 확인 → 그 솔루션 시드 복사 → 표시. 교차 조회는 준비 안 된 솔루션을 꺼짐과 같게 None(DSN-01 S2). 세대 초기화·회원 생성·게스트 생성은 core만 복사",
+      "reason": "W0-1 지연 복사"
     }
   ],
   "states": [
@@ -27488,6 +27513,13 @@
       "date": "2026-10-01",
       "change": "cmms 스키마 6테이블(설비 대장·예방보전 계획·작업지시·작업 기록·예비품·부품 사용), 모듈 키 cmms(workspace_module·app_review). 스키마 간 FK 0건",
       "status": "마이그레이션 fs029a_cmms·fs029b_cmms_module 적용 대상"
+    },
+    {
+      "version": "0.18.0",
+      "task": "W0-1",
+      "date": "2026-10-05",
+      "change": "지연 복사: core.data_generation.template_generation_id, core.workspace_module.seeded_generation_id(기존 공간은 활성 세대로 채움). 테이블 수 변화 없음",
+      "status": "마이그레이션 w01_lazy_seed 적용 대상"
     }
   ]
 }

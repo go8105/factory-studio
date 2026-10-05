@@ -13,6 +13,7 @@ from decimal import Decimal
 from sqlalchemy import Connection, text
 
 from fs.common.auth import AuthContext
+from fs.common.scope import module_available
 from fs.fems import repository as repo
 
 
@@ -22,14 +23,7 @@ def _s(scoped: AuthContext) -> dict[str, int]:
 
 def enabled(connection: Connection, scoped: AuthContext) -> bool:
     """FEMS 사용 여부. None 반환이 '꺼짐'인지 '대상 없음'인지 구분할 때 쓴다."""
-    return bool(
-        connection.execute(
-            text(
-                "SELECT enabled FROM core.workspace_module WHERE workspace_id=:w AND module_key='fems'"
-            ),
-            {"w": scoped.workspace_id},
-        ).scalar()
-    )
+    return module_available(connection, scoped.workspace_id, "fems")
 
 
 def site_electricity(

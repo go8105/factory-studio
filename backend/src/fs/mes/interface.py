@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import Connection, text
 
 from fs.common.auth import AuthContext
+from fs.common.scope import module_available
 
 # 최종 양품 = 정상 완료 LOT의 마지막 공정 양품(M-08 패킹과 같은 기준). 전량 불량 종결 LOT은 빠진다.
 _INSPECTABLE = """
@@ -38,14 +39,7 @@ WHERE t.workspace_id=:w AND t.generation_id=:g AND t.status='completed'
 
 
 def _enabled(connection: Connection, scoped: AuthContext) -> bool:
-    return bool(
-        connection.execute(
-            text(
-                "SELECT enabled FROM core.workspace_module WHERE workspace_id=:w AND module_key='mes'"
-            ),
-            {"w": scoped.workspace_id},
-        ).scalar()
-    )
+    return module_available(connection, scoped.workspace_id, "mes")
 
 
 def _lot(row: Any) -> dict[str, Any]:

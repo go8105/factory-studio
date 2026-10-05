@@ -49,7 +49,7 @@ def conflict(reason, **details):
         "LAST_BOARD_ADMIN": "마지막 활성 게시판 운영 담당자는 유지해야 합니다.",
         "IMMUTABLE_DOCUMENT": "현재 상태에서는 이 작업을 할 수 없습니다.",
         "SOURCE_CHANGED": "ERP 원문이 바뀌었습니다. 원문을 갱신하고 다시 검토하세요.",
-        "SOURCE_MODULE_DISABLED": "ERP가 꺼져 있어 원문을 조회할 수 없습니다.",
+        "SOURCE_MODULE_DISABLED": "ERP가 꺼져 있거나 아직 열지 않아 원문을 조회할 수 없습니다. ERP를 한 번 열면 조회됩니다.",
         "SOURCE_MISSING": "ERP 원문이 없습니다.",
         "SOURCE_CANCELLED": "취소된 원문은 상신할 수 없습니다.",
         "ACTIVE_APPROVAL_EXISTS": "동일 원천의 결재가 진행 중입니다.",

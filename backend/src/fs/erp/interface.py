@@ -12,6 +12,7 @@ from typing import Any
 from sqlalchemy import Connection, text
 
 from fs.common.auth import AuthContext
+from fs.common.scope import module_available
 
 _SHIPMENT_LINES = """
 SELECT sh.shipment_no, sh.shipped_at, so.ship_order_no, row_number() OVER (PARTITION BY sh.id ORDER BY l.id) line_no, i.item_code, l.shipped_qty qty, l.shipped_uom unit, l.packing_no
@@ -54,14 +55,7 @@ def _s(scoped: AuthContext) -> dict[str, int]:
 
 def enabled(connection: Connection, scoped: AuthContext) -> bool:
     """ERP 사용 여부. None 반환이 '꺼짐'인지 '대상 없음'인지 구분할 때 쓴다."""
-    return bool(
-        connection.execute(
-            text(
-                "SELECT enabled FROM core.workspace_module WHERE workspace_id=:w AND module_key='erp'"
-            ),
-            {"w": scoped.workspace_id},
-        ).scalar()
-    )
+    return module_available(connection, scoped.workspace_id, "erp")
 
 
 def _iso(value: Any) -> str | None:

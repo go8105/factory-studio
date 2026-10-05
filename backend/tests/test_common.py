@@ -15,6 +15,38 @@ from fs.main import create_app
 from seed.generate import create_template
 from sqlalchemy import Engine, inspect, text
 
+SOLUTION_PAGES = {
+    "mes": "/api/v1/mes/work-orders",
+    "erp": "/api/v1/erp/partners",
+    "fems": "/api/v1/fems/energy-sources",
+    "qms": "/api/v1/qms/dashboard",
+    "wms": "/api/v1/wms/dashboard",
+    "bems": "/api/v1/bems/dashboard",
+    "spc": "/api/v1/spc/dashboard",
+    "gw": "/api/v1/gw/dashboard",
+}
+
+
+def _open_all_solutions(client: TestClient) -> None:
+    for path in SOLUTION_PAGES.values():
+        assert client.get(path).status_code == 200, path
+    # CMMS는 아직 API가 없다(W3). 시드도 없으므로 행 수에 영향 없다.
+
+
+def _schema_count(
+    engine: Engine, schema: str, workspace_id: int, generation_id: int
+) -> int:
+    with engine.connect() as connection:
+        return sum(
+            connection.execute(
+                text(
+                    f'SELECT count(*) FROM "{schema}"."{table}" WHERE workspace_id=:w AND generation_id=:g'
+                ),
+                {"w": workspace_id, "g": generation_id},
+            ).scalar_one()
+            for table in inspect(connection).get_table_names(schema=schema)
+        )
+
 
 def _business_count(engine: Engine, workspace_id: int, generation_id: int) -> int:
     total = 0
@@ -197,11 +229,17 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
         app, "guest-create-entry-count"
     )
     assert guest_token.startswith("g_")
-    assert (
-        # FS-028c SPC 시드 +2,752, gw·cmms 모듈 행 +2 → 14,685
-        _business_count(engine, guest_data["workspaceId"], guest_data["generationId"])
-        == 14685
-    )
+    workspace_id, generation_id = guest_data["workspaceId"], guest_data["generationId"]
+    # W0-1 지연 복사: 만들 때는 모듈 행 10개만, 솔루션은 처음 열 때 그 시드만 복사한다.
+    assert _business_count(engine, workspace_id, generation_id) == 10
+    assert guest.get("/api/v1/qms/dashboard").status_code == 200
+    assert _schema_count(engine, "qms", workspace_id, generation_id) > 0
+    assert _schema_count(engine, "mes", workspace_id, generation_id) == 0
+    _open_all_solutions(guest)
+    # FS-028c SPC 시드 +2,752, gw·cmms 모듈 행 +2 → 14,685 (모두 열면 예전 전체 복사와 같다)
+    assert _business_count(engine, workspace_id, generation_id) == 14685
+    _open_all_solutions(guest)  # 두 번 열어도 다시 복사하지 않는다
+    assert _business_count(engine, workspace_id, generation_id) == 14685
 
     reset_headers = {
         "Idempotency-Key": "guest-reset-entry-count",
@@ -213,9 +251,9 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     assert reset_first.status_code == 201
     reset_generation_id = reset_first.json()["data"]["generationId"]
     assert reset_generation_id != guest_data["generationId"]
-    assert (
-        _business_count(engine, guest_data["workspaceId"], reset_generation_id) == 14685
-    )
+    assert _business_count(engine, workspace_id, reset_generation_id) == 10
+    _open_all_solutions(guest)
+    assert _business_count(engine, workspace_id, reset_generation_id) == 14685
     with engine.connect() as connection:
         assert (
             connection.execute(

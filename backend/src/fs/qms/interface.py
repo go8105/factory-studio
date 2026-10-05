@@ -9,17 +9,11 @@ from __future__ import annotations
 from sqlalchemy import Connection, text
 
 from fs.common.auth import AuthContext
+from fs.common.scope import module_available
 
 
 def _enabled(connection: Connection, scoped: AuthContext) -> bool:
-    return bool(
-        connection.execute(
-            text(
-                "SELECT enabled FROM core.workspace_module WHERE workspace_id=:w AND module_key='qms'"
-            ),
-            {"w": scoped.workspace_id},
-        ).scalar()
-    )
+    return module_available(connection, scoped.workspace_id, "qms")
 
 
 def held_lot_nos(connection: Connection, scoped: AuthContext) -> set[str] | None:

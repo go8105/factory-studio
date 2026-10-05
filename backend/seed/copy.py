@@ -31,8 +31,13 @@ def copy_template(
     source_generation_id: int,
     target_date: date,
     guest_session_key: str,
+    schemas: tuple[str, ...] = SCHEMAS,
 ) -> tuple[int, int, dict[str, int], float]:
-    """템플릿을 guest 세대로 복사한다. 업무 행은 모두 INSERT ... SELECT로 이동한다."""
+    """템플릿을 guest 세대로 복사한다. 업무 행은 INSERT ... SELECT로 이동한다.
+
+    W0-1 지연 복사: 서비스는 schemas=()로 core만 만들고, 솔루션 시드는 처음 열 때
+    copy_module_seed가 복사한다(DSN-01 S2). 기본값(전체)은 도구·기존 호출용.
+    """
     metadata = MetaData()
     for schema in ("core", *SCHEMAS):
         metadata.reflect(connection, schema=schema)
@@ -71,6 +76,7 @@ def copy_template(
             purged_at=None,
             created_at=at(target_date, -91, 9),
             status="active",
+            template_generation_id=source_generation_id,
         )
         .returning(generation.c.id)
     ).scalar_one()
@@ -89,6 +95,7 @@ def copy_template(
         source_date,
         target_date,
         copy_modules=True,
+        schemas=schemas,
     )
     return target_workspace_id, target_generation_id, counts, perf_counter() - started
 
@@ -99,8 +106,9 @@ def copy_template_generation(
     source_generation_id: int,
     target_workspace_id: int,
     target_date: date,
+    schemas: tuple[str, ...] = SCHEMAS,
 ) -> tuple[int, dict[str, int], float]:
-    """기존 공간에 새 세대를 복사한다. 공간 설정은 유지한다."""
+    """기존 공간에 새 세대를 복사한다. 공간 설정은 유지한다. schemas=()이면 지연 복사(W0-1)."""
     metadata = MetaData()
     for schema in ("core", *SCHEMAS):
         metadata.reflect(connection, schema=schema)
@@ -128,6 +136,7 @@ def copy_template_generation(
             purged_at=None,
             created_at=at(target_date, 0),
             status="preparing",
+            template_generation_id=source_generation_id,
         )
         .returning(generation.c.id)
     ).scalar_one()
@@ -141,7 +150,9 @@ def copy_template_generation(
         source_date,
         target_date,
         copy_modules=False,
+        schemas=schemas,
     )
+    _mark_seeded(connection, target_workspace_id, target_generation_id, schemas)
     now = datetime.now(UTC)
     connection.execute(
         update(generation)
@@ -172,6 +183,7 @@ def _copy_business_rows(
     target_date: date,
     *,
     copy_modules: bool,
+    schemas: tuple[str, ...] = SCHEMAS,
 ) -> dict[str, int]:
     params = {
         "source_workspace": source_workspace_id,
@@ -194,7 +206,9 @@ def _copy_business_rows(
             ),
             params,
         ).rowcount
-    seeded = _seeded_tables(connection, source_workspace_id, source_generation_id)
+    seeded = _seeded_tables(
+        connection, source_workspace_id, source_generation_id, schemas
+    )
     inspector = inspect(connection)
     foreign_keys = _foreign_keys(inspector, seeded)
     parents = {
@@ -235,14 +249,101 @@ def _copy_business_rows(
             params,
         )
         counts[table_name] = result.rowcount
+    if copy_modules:
+        _mark_seeded(connection, target_workspace_id, target_generation_id, schemas)
+    return counts
+
+
+def _mark_seeded(
+    connection: Connection,
+    workspace_id: int,
+    generation_id: int,
+    schemas: tuple[str, ...],
+) -> None:
+    """복사한 솔루션 시드를 표시한다. 세대가 바뀌면 표시는 자동으로 무효(지연 복사 다시)."""
+    if schemas:
+        connection.execute(
+            text(
+                "UPDATE core.workspace_module SET seeded_generation_id=:g "
+                "WHERE workspace_id=:w AND module_key=ANY(:keys)"
+            ),
+            {"w": workspace_id, "g": generation_id, "keys": list(schemas)},
+        )
+
+
+def copy_module_seed(
+    connection: Connection, workspace_id: int, module_key: str
+) -> dict[str, int] | None:
+    """활성 세대에 한 솔루션의 템플릿 시드를 복사한다(W0-1, DSN-01 S2 지연 복사).
+
+    호출자는 공간 잠금(WORKSPACE_LOCK_NAMESPACE)을 잡은 쓰기 트랜잭션에서 부른다.
+    이미 복사됐으면 None. 세대의 원천 템플릿이 정리됐으면 같은 seed_version의 최신 템플릿을 쓴다.
+    """
+    row = (
+        connection.execute(
+            text(
+                """
+            SELECT w.active_generation_id generation_id, g.seed_date, g.seed_version,
+                   g.template_generation_id, m.seeded_generation_id
+            FROM core.workspace w
+            JOIN core.data_generation g ON g.workspace_id=w.id AND g.id=w.active_generation_id
+            JOIN core.workspace_module m ON m.workspace_id=w.id AND m.module_key=:module
+            WHERE w.id=:w
+            """
+            ),
+            {"w": workspace_id, "module": module_key},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None or row["seeded_generation_id"] == row["generation_id"]:
+        return None
+    if module_key not in SCHEMAS:  # 시드가 없는 모듈(core 등)
+        _mark_seeded(connection, workspace_id, row["generation_id"], (module_key,))
+        return {}
+    source = (
+        connection.execute(
+            text(
+                """
+            SELECT g.workspace_id, g.id, g.seed_date FROM core.data_generation g
+            JOIN core.workspace w ON w.id=g.workspace_id AND w.workspace_kind='TEMPLATE'
+            WHERE g.purged_at IS NULL AND (g.id=:template OR g.seed_version=:version)
+            ORDER BY (g.id=:template) DESC, g.created_at DESC, g.id DESC LIMIT 1
+            """
+            ),
+            {"template": row["template_generation_id"], "version": row["seed_version"]},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    counts: dict[str, int] = {}
+    if source is not None:
+        metadata = MetaData()
+        metadata.reflect(connection, schema=module_key)
+        counts = _copy_business_rows(
+            connection,
+            metadata,
+            source["workspace_id"],
+            source["id"],
+            workspace_id,
+            row["generation_id"],
+            source["seed_date"],
+            row["seed_date"],
+            copy_modules=False,
+            schemas=(module_key,),
+        )
+    _mark_seeded(connection, workspace_id, row["generation_id"], (module_key,))
     return counts
 
 
 def _seeded_tables(
-    connection: Connection, workspace_id: int, generation_id: int
+    connection: Connection,
+    workspace_id: int,
+    generation_id: int,
+    schemas: tuple[str, ...] = SCHEMAS,
 ) -> set[str]:
     tables: set[str] = set()
-    for schema in SCHEMAS:
+    for schema in schemas:
         names = inspect(connection).get_table_names(schema=schema)
         for table in names:
             count = connection.execute(

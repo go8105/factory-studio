@@ -3,17 +3,11 @@
 from sqlalchemy import text
 
 from fs.common.errors import ApiError
+from fs.common.scope import module_available
 
 
 def enabled(connection, scoped):
-    return bool(
-        connection.execute(
-            text(
-                "SELECT enabled FROM core.workspace_module WHERE workspace_id=:w AND module_key='gw'"
-            ),
-            {"w": scoped.workspace_id},
-        ).scalar()
-    )
+    return module_available(connection, scoped.workspace_id, "gw")
 
 
 def approvals(connection, scoped, document_refs):
