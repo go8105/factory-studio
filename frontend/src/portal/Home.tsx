@@ -226,16 +226,6 @@ export function Home() {
           </Link>
         </div>
       </div>
-      <Link to="/flow" className="home-flow">
-        <div>
-          <span className="home-eyebrow">THE BIG PICTURE</span>
-          <h2>{solutionCount} 시스템은 어떻게 이어지는가</h2>
-          <p>판매계획에서 생산·출하·매출까지 전체 흐름 보기</p>
-        </div>
-        <span className="home-flow-action">
-          전체 흐름 보기 <span aria-hidden="true">→</span>
-        </span>
-      </Link>
       <section aria-label="솔루션 둘러보기" className="home-solutions">
         <ErrorNotice error={error} retry={() => setReload((n) => n + 1)} />
         {!modules && !error ? (
@@ -249,7 +239,6 @@ export function Home() {
                   className="home-group"
                   aria-label={group.field}
                 >
-                  <h2 className="home-group-title">{group.field}</h2>
                   <div className="launcher-grid">
                     {group.items.map((s) => {
                       const enabled = modules.some(
