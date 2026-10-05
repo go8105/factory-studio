@@ -1,28 +1,28 @@
 {
-  "schema_version": "target-0.14.0",
+  "schema_version": "target-0.15.0",
   "server_version": "18.6 (Debian 18.6-1.pgdg13+2)",
   "expected": {
-    "PK": 289,
-    "UK": 588,
-    "CHECK": 759,
-    "UNIQUE_INDEX": 81,
-    "INDEX": 187,
-    "tables": 289,
-    "columns": 3370,
-    "FK": 711
+    "PK": 300,
+    "UK": 609,
+    "CHECK": 776,
+    "UNIQUE_INDEX": 83,
+    "INDEX": 193,
+    "tables": 300,
+    "columns": 3481,
+    "FK": 732
   },
   "actual": {
-    "tables": 289,
-    "columns": 3370,
-    "PK": 289,
-    "UK": 588,
-    "CHECK": 759,
-    "INDEX": 187,
-    "UNIQUE_INDEX": 81,
-    "FK": 711
+    "tables": 300,
+    "columns": 3481,
+    "PK": 300,
+    "UK": 609,
+    "CHECK": 776,
+    "INDEX": 193,
+    "UNIQUE_INDEX": 83,
+    "FK": 732
   },
-  "service_policies_not_db_constraints": 215,
+  "service_policies_not_db_constraints": 219,
   "errors": [],
   "schema": "docs/db/schema-metadata/schema-target.json",
-  "schema_sha256": "7c89fe3e5b54cd0407ce7e93833dd2792935d97803652295a3fff63eda73b85e"
+  "schema_sha256": "caa488a2dc946303635f3868ea6287ad3573982a2fdf2f09d05bf329b64a397c"
 }

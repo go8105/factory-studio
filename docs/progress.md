@@ -2,6 +2,12 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-27 ELB/MRO 신규 설계 완료 (Claude Code)
+- 결정: Q1 **ELB는 카탈로그·신청·승인·수령 확인까지**(발주·매입·전표는 ERP — 구매 요청 출처 ELB, 재고 품목 입고는 WMS) · Q2 ELB 안 금액 기준 승인 단계(GW와 별개) · Q3 부서 예산 확인(경고) · Q4 비재고 수령 확인 → ERP 매입 근거 · Q5 계약 단가·표준 세트·단가 비교 · Q6 긴급 구매(법인카드 사후 등록 → ERP 카드 내역) · 범위 18/19.
+- 문서 `docs/modules/elb/ELB_설계_DSN-27.md` + README: 기준표 19, 기능 규칙 7묶음, DB elb 11, 화면 11(MR-01~11), 교차 조회(`approved_requests`·`receipts`·`emergency_requests`·`monthly_summary` 제공, ERP `budget_status`·`elb_request_status`·`card_transactions`·`purchase_prices`·WMS `inbound_status` 요청 — ERP·WMS 문서에 메모). ROADMAP-01의 ELB `purchase_receipts()`는 Q1로 대체.
+- 목표 DB: `tools/apply_dsn27.py` → target-0.15.0/DSN-27 **300테이블**·컬럼 3,481·FK 732, 모듈 키 elb. 검증기 `validate_elb_dsn27`.
+- 검증(통과를 커밋 조건으로): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(300·UK 609·CHECK 776·INDEX 193·UNIQUE_INDEX 83·FK 732)**·ERD·Excel·tools 73 + DSN 37·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-26 SCM 신규 설계 완료 (Claude Code)
 - 결정: Q1 **SCM은 계획·분석만**(실행은 ERP·MES·WMS가 "SCM에서 가져오기") · Q2 이동평균·지수평활·계절 지수 비교 추천 + 사람 조정 · Q3 확정 예측 → ERP 판매계획 초안, CRM은 참고 · Q4 S&OP·개략 능력 · Q5 재고 정책 산정 → WMS 제안 · Q6 공급처 성과(납기·리드타임 + QMS 등급) · 범위 18/22.
 - 문서 `docs/modules/scm/SCM_설계_DSN-26.md` + README: 기준표 22, 기능 규칙 7묶음, DB scm 9, 화면 10(SC-01~10), 교차 조회(`demand_forecast`·`sop_plan`·`inventory_policies`·`supplier_scores`·`monthly_summary` 제공, ERP `shipments_monthly`·MES `capacity`·`production_plan` 요청 — ERP·MES·WMS 문서에 메모).

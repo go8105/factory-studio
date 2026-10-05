@@ -222,6 +222,8 @@
 
 > SCM DSN-26 반영(2026-10-05): WMS는 SCM `inventory_policies()`를 가져와 품목 안전재고에 반영한다(제안 → 사람이 반영).
 
+> ELB DSN-27 반영(2026-10-05): ELB 재고 품목의 입고 상태를 위해 `inbound_status(item_codes, refs)`를 제공한다.
+
 ## 7. 결정 질문 (하나씩)
 
 | # | 질문 | 제안 |

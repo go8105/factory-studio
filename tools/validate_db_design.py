@@ -190,6 +190,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_crm_dsn25(d))
     if 'scm.forecast_run' in {t['name'] for t in d['tables']}:
         errors.extend(validate_scm_dsn26(d))
+    if 'elb.request' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_elb_dsn27(d))
     return errors
 
 
@@ -456,6 +458,24 @@ def validate_scm_dsn26(d):
     require(any(c['table'] == 'scm.forecast_line' and 'adjust_reason' in c['expression'] for c in cs), 'adjustments need a reason')
     require(all(r['target'].split('.')[0] in ('scm', 'core') for r in rs if r['source'].startswith('scm.')), 'SCM FKs stay inside scm/core anchors')
     require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'scm'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key scm')
+    return errors
+
+
+def validate_elb_dsn27(d):
+    """DSN-27 ELB 계약: 자체 발주·매입·재고 테이블 금지(Q1)·긴급 구매는 카드 내역 1건(Q6)·재고 품목은 WMS 코드·단계당 승인 1건·FK 없음·모듈 키."""
+    errors = []
+    cs, rs = d['constraints'], d['relations']
+    ts = {t['name'] for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-27: ' + message)
+    require(not any(n.startswith('elb.') and any(w in n for w in ('purchase_order', 'invoice', 'stock', 'payable')) for n in ts), 'no POs, invoices or stock in ELB — ERP/WMS own them (Q1)')
+    require(any(c['table'] == 'elb.request' and c['expression'] == "(kind = 'EMERGENCY') = (card_txn_ref IS NOT NULL)" for c in cs), 'emergency purchase needs card transaction (Q6)')
+    require(any(c['table'] == 'elb.request' and c['kind'] == 'UK_PARTIAL' and 'card_txn_ref' in c['columns'] for c in cs), 'one request per card transaction')
+    require(any(c['table'] == 'elb.catalog_item' and '(is_stock = (wms_item_code IS NOT NULL))' in c['expression'] for c in cs), 'stock items link WMS item code')
+    require(any(c['table'] == 'elb.approval' and c['kind'] == 'UK' and c['columns'] == SCOPE + ['request_id', 'step'] for c in cs), 'one decision per request step (Q2)')
+    require(all(r['target'].split('.')[0] in ('elb', 'core') for r in rs if r['source'].startswith('elb.')), 'ELB FKs stay inside elb/core anchors')
+    require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'elb'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key elb')
     return errors
 
 

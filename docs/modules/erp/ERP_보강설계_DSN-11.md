@@ -327,6 +327,8 @@
 
 > SCM DSN-26 반영(2026-10-05): ERP 판매계획은 "SCM에서 가져오기"로 확정 예측을 초안으로 만들 수 있다. `shipments_monthly(from, to)`를 제공한다.
 
+> ELB DSN-27 반영(2026-10-05): ERP는 ELB `approved_requests`를 구매 요청(출처 ELB)으로, `receipts`(비재고 수령)를 매입 근거로, `emergency_requests`를 카드 내역 비용 근거로 읽는다. `budget_status`·`elb_request_status`·`card_transactions`·`purchase_prices`를 제공한다.
+
 ## 7. 결정 질문 (하나씩 확정)
 
 | # | 질문 | 제안 |

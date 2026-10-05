@@ -1,6 +1,6 @@
 {
-  "version": "target-0.14.0",
-  "task": "DSN-26",
+  "version": "target-0.15.0",
+  "task": "DSN-27",
   "base_task": "FS-029a",
   "target": true,
   "date": "2026-10-05",
@@ -30204,6 +30204,1015 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "elb.category",
+      "label": "분류",
+      "scope": "generation",
+      "phase": "DSN-27",
+      "retention": "세대 정리",
+      "note": "DSN-27 F02. 사무·소모품·공구·안전·청소·IT 등",
+      "sub_module": "catalog",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "분류 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "분류명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "elb.catalog_item",
+      "label": "카탈로그 품목",
+      "scope": "generation",
+      "phase": "DSN-27",
+      "retention": "세대 정리",
+      "note": "DSN-27 F01. 재고 품목은 WMS 품목 코드 연결(입고는 WMS), 비재고는 비용 계정 코드(ERP 스냅샷)",
+      "sub_module": "catalog",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "품목 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "품목명",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "spec",
+          "label": "규격",
+          "type": "varchar(200)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "category_id",
+          "label": "분류",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_stock",
+          "label": "재고 품목",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "rule": ""
+        },
+        {
+          "name": "wms_item_code",
+          "label": "WMS 품목 코드",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "expense_account_code",
+          "label": "비용 계정 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "ERP 계정 코드 스냅샷(비재고)"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "elb.contract_price",
+      "label": "계약 단가",
+      "scope": "generation",
+      "phase": "DSN-27",
+      "retention": "세대 정리",
+      "note": "DSN-27 F03(Q5). 공급처·단가·최소 수량·유효기간(ERP 거래처 코드 스냅샷)",
+      "sub_module": "catalog",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "catalog_item_id",
+          "label": "카탈로그 품목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "partner_code",
+          "label": "공급처 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "unit_price",
+          "label": "계약 단가",
+          "type": "numeric(18,4)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "currency",
+          "label": "통화",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": "'KRW'",
+          "rule": ""
+        },
+        {
+          "name": "min_qty",
+          "label": "최소 수량",
+          "type": "numeric(18,3)",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "valid_from",
+          "label": "시작일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "valid_until",
+          "label": "종료일",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "elb.standard_set",
+      "label": "표준 세트",
+      "scope": "generation",
+      "phase": "DSN-27",
+      "retention": "세대 정리",
+      "note": "DSN-27 F04(Q5). 부서 정기 소모품 묶음 — 한 번에 장바구니로",
+      "sub_module": "catalog",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "세트 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "세트명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "department_code",
+          "label": "부서 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "ERP 부서 코드 스냅샷, NULL이면 공용"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "elb.standard_set_item",
+      "label": "표준 세트 품목",
+      "scope": "generation",
+      "phase": "DSN-27",
+      "retention": "세대 정리",
+      "note": "DSN-27 F04",
+      "sub_module": "catalog",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "standard_set_id",
+          "label": "표준 세트",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "catalog_item_id",
+          "label": "카탈로그 품목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "qty",
+          "label": "수량",
+          "type": "numeric(18,3)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "elb.approval_rule",
+      "label": "승인 규칙",
+      "scope": "generation",
+      "phase": "DSN-27",
+      "retention": "세대 정리",
+      "note": "DSN-27 F12(Q2). 단계·기준 금액·승인 역할. 신청 금액 ≥ 기준이면 그 단계 필요",
+      "sub_module": "approval",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "step",
+          "label": "단계",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "min_amount",
+          "label": "기준 금액",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": "1단계는 0"
+        },
+        {
+          "name": "approver_role",
+          "label": "승인 역할",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "DEPT_HEAD 부서장 / ADMIN_DEPT 관리부서"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "elb.request",
+      "label": "신청서",
+      "scope": "generation",
+      "phase": "DSN-27",
+      "retention": "세대 정리",
+      "note": "DSN-27 F11~F15·F23(Q2·Q3·Q6). 일반(승인 → ERP 구매 요청) / 긴급(카드 사후 등록 → ERP 카드 내역 연결)",
+      "sub_module": "request",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "request_no",
+          "label": "신청 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kind",
+          "label": "구분",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'NORMAL'",
+          "rule": "NORMAL / EMERGENCY"
+        },
+        {
+          "name": "department_code",
+          "label": "부서 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": "ERP 부서 코드 스냅샷"
+        },
+        {
+          "name": "requester_name",
+          "label": "신청자",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "사유",
+          "type": "varchar(500)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "needed_on",
+          "label": "희망일",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "total_amount",
+          "label": "합계",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "currency",
+          "label": "통화",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": "'KRW'",
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'DRAFT'",
+          "rule": "DRAFT / SUBMITTED / APPROVED / REJECTED / WITHDRAWN"
+        },
+        {
+          "name": "submitted_at",
+          "label": "제출 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "decided_at",
+          "label": "최종 결정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reject_reason",
+          "label": "반려 사유",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "card_txn_ref",
+          "label": "ERP 카드 내역",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "긴급 구매만, ERP 카드 사용 내역 id 스냅샷"
+        },
+        {
+          "name": "budget_note",
+          "label": "예산 확인 결과",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": "제출 시 ERP 예산 대비 스냅샷(경고만)"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "elb.request_line",
+      "label": "신청 품목",
+      "scope": "generation",
+      "phase": "DSN-27",
+      "retention": "세대 정리",
+      "note": "DSN-27 F11·F22. 단가는 계약 단가 스냅샷, 공급처별로 ERP 구매 요청을 묶는다",
+      "sub_module": "request",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "request_id",
+          "label": "신청서",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "line_no",
+          "label": "행 번호",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "catalog_item_id",
+          "label": "카탈로그 품목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "qty",
+          "label": "수량",
+          "type": "numeric(18,3)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "unit_price",
+          "label": "단가",
+          "type": "numeric(18,4)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "amount",
+          "label": "금액",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "partner_code",
+          "label": "공급처 코드",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "elb.approval",
+      "label": "승인",
+      "scope": "generation",
+      "phase": "DSN-27",
+      "retention": "세대 정리",
+      "note": "DSN-27 F12·F13. 신청서·단계당 1건(승인/반려). 반려되면 재신청은 새 신청서",
+      "sub_module": "approval",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "request_id",
+          "label": "신청서",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "step",
+          "label": "단계",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "approver_name",
+          "label": "승인자",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "decision",
+          "label": "결정",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "APPROVED / REJECTED"
+        },
+        {
+          "name": "decided_at",
+          "label": "결정 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "comment",
+          "label": "의견",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "elb.receipt",
+      "label": "수령",
+      "scope": "generation",
+      "phase": "DSN-27",
+      "retention": "세대 정리",
+      "note": "DSN-27 F31·F33(Q4). 비재고 품목 부서 수령 확인. ERP가 읽어 매입 근거(재고 품목은 WMS 입고)",
+      "sub_module": "receipt",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "receipt_no",
+          "label": "수령 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "request_id",
+          "label": "신청서",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "received_on",
+          "label": "수령일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "received_by",
+          "label": "수령자",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "note",
+          "label": "메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "elb.receipt_line",
+      "label": "수령 품목",
+      "scope": "generation",
+      "phase": "DSN-27",
+      "retention": "세대 정리",
+      "note": "DSN-27 F31·F33. 수량·이상(파손·오배송) → 반품 요청(처리는 ERP 구매 반품)",
+      "sub_module": "receipt",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "receipt_id",
+          "label": "수령",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "request_line_id",
+          "label": "신청 품목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "qty",
+          "label": "수령 수량",
+          "type": "numeric(18,3)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "issue",
+          "label": "이상",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": "'OK'",
+          "rule": "OK / DAMAGED / WRONG / SHORT"
+        },
+        {
+          "name": "return_requested",
+          "label": "반품 요청",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
     }
   ],
   "relations": [
@@ -41763,6 +42772,341 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "S&OP 계획"
+    },
+    {
+      "source": "elb.category",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "elb.catalog_item",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "elb.contract_price",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "elb.standard_set",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "elb.standard_set_item",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "elb.approval_rule",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "elb.request",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "elb.request_line",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "elb.approval",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "elb.receipt",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "elb.receipt_line",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "elb.catalog_item",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "category_id"
+      ],
+      "target": "elb.category",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "분류"
+    },
+    {
+      "source": "elb.contract_price",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "catalog_item_id"
+      ],
+      "target": "elb.catalog_item",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "카탈로그 품목"
+    },
+    {
+      "source": "elb.standard_set_item",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "standard_set_id"
+      ],
+      "target": "elb.standard_set",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "표준 세트"
+    },
+    {
+      "source": "elb.standard_set_item",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "catalog_item_id"
+      ],
+      "target": "elb.catalog_item",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "카탈로그 품목"
+    },
+    {
+      "source": "elb.request_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "target": "elb.request",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "신청서"
+    },
+    {
+      "source": "elb.request_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "catalog_item_id"
+      ],
+      "target": "elb.catalog_item",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "카탈로그 품목"
+    },
+    {
+      "source": "elb.approval",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "target": "elb.request",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "신청서"
+    },
+    {
+      "source": "elb.receipt",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "target": "elb.request",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "신청서"
+    },
+    {
+      "source": "elb.receipt_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "receipt_id"
+      ],
+      "target": "elb.receipt",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "수령"
+    },
+    {
+      "source": "elb.receipt_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_line_id"
+      ],
+      "target": "elb.request_line",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "신청 품목"
     }
   ],
   "constraints": [
@@ -41960,7 +43304,7 @@
       "table": "core.workspace_module",
       "kind": "CHECK",
       "columns": [],
-      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms', 'pop', 'tms', 'plm', 'crm', 'scm')",
+      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms', 'pop', 'tms', 'plm', 'crm', 'scm', 'elb')",
       "reason": "행 내부 데이터 정합성"
     },
     {
@@ -50201,7 +51545,7 @@
       "columns": [
         "module_key"
       ],
-      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms', 'pop', 'tms', 'plm', 'crm', 'scm')",
+      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms', 'pop', 'tms', 'plm', 'crm', 'scm', 'elb')",
       "reason": "평가 대상 솔루션"
     },
     {
@@ -63319,6 +64663,640 @@
       ],
       "expression": "",
       "reason": "FK·목록 조회"
+    },
+    {
+      "table": "elb.category",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "elb.category",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "elb.catalog_item",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "elb.catalog_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "elb.contract_price",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "elb.contract_price",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "elb.standard_set",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "elb.standard_set",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "elb.standard_set_item",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "elb.standard_set_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "elb.approval_rule",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "elb.approval_rule",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "elb.request",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "elb.request",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "elb.request_line",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "elb.request_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "elb.approval",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "elb.approval",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "elb.receipt",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "elb.receipt",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "elb.receipt_line",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "elb.receipt_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "elb.category",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "elb.category",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "elb.catalog_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "elb.catalog_item",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "elb.standard_set",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "elb.standard_set",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "elb.request",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "elb.request",
+      "kind": "CHECK",
+      "columns": [
+        "request_no"
+      ],
+      "expression": "length(btrim(request_no)) > 0",
+      "reason": "번호 필수"
+    },
+    {
+      "table": "elb.receipt",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "receipt_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "elb.receipt",
+      "kind": "CHECK",
+      "columns": [
+        "receipt_no"
+      ],
+      "expression": "length(btrim(receipt_no)) > 0",
+      "reason": "번호 필수"
+    },
+    {
+      "table": "elb.contract_price",
+      "kind": "CHECK",
+      "columns": [
+        "currency"
+      ],
+      "expression": "currency = 'KRW'",
+      "reason": "KRW 고정"
+    },
+    {
+      "table": "elb.request",
+      "kind": "CHECK",
+      "columns": [
+        "currency"
+      ],
+      "expression": "currency = 'KRW'",
+      "reason": "KRW 고정"
+    },
+    {
+      "table": "elb.catalog_item",
+      "kind": "CHECK",
+      "columns": [
+        "is_stock",
+        "wms_item_code",
+        "expense_account_code"
+      ],
+      "expression": "(is_stock = (wms_item_code IS NOT NULL)) AND (is_stock OR expense_account_code IS NOT NULL)",
+      "reason": "재고 품목은 WMS 코드, 비재고는 비용 계정"
+    },
+    {
+      "table": "elb.contract_price",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "catalog_item_id",
+        "partner_code",
+        "valid_from"
+      ],
+      "expression": "",
+      "reason": "품목·공급처·시작일 1건"
+    },
+    {
+      "table": "elb.contract_price",
+      "kind": "CHECK",
+      "columns": [
+        "unit_price",
+        "min_qty",
+        "valid_from",
+        "valid_until"
+      ],
+      "expression": "unit_price >= 0 AND min_qty > 0 AND (valid_until IS NULL OR valid_until >= valid_from)",
+      "reason": "단가·최소 수량·기간"
+    },
+    {
+      "table": "elb.standard_set_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "standard_set_id",
+        "catalog_item_id"
+      ],
+      "expression": "",
+      "reason": "세트·품목 1행"
+    },
+    {
+      "table": "elb.standard_set_item",
+      "kind": "CHECK",
+      "columns": [
+        "qty"
+      ],
+      "expression": "qty > 0",
+      "reason": "수량 양수"
+    },
+    {
+      "table": "elb.approval_rule",
+      "kind": "CHECK",
+      "columns": [
+        "step",
+        "min_amount",
+        "approver_role"
+      ],
+      "expression": "step BETWEEN 1 AND 3 AND min_amount >= 0 AND approver_role IN ('DEPT_HEAD', 'ADMIN_DEPT')",
+      "reason": "단계·금액·역할"
+    },
+    {
+      "table": "elb.approval_rule",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "step"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, step) WHERE is_active",
+      "reason": "단계당 사용 규칙 1개"
+    },
+    {
+      "table": "elb.request",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "status",
+        "total_amount"
+      ],
+      "expression": "kind IN ('NORMAL', 'EMERGENCY') AND status IN ('DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'WITHDRAWN') AND total_amount >= 0",
+      "reason": "구분·상태·합계"
+    },
+    {
+      "table": "elb.request",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "submitted_at",
+        "decided_at",
+        "reject_reason"
+      ],
+      "expression": "((status = 'DRAFT') = (submitted_at IS NULL)) AND ((status IN ('APPROVED', 'REJECTED')) = (decided_at IS NOT NULL)) AND ((status = 'REJECTED') = (reject_reason IS NOT NULL))",
+      "reason": "상태별 시각·사유"
+    },
+    {
+      "table": "elb.request",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "card_txn_ref"
+      ],
+      "expression": "(kind = 'EMERGENCY') = (card_txn_ref IS NOT NULL)",
+      "reason": "긴급 구매는 카드 내역 필수"
+    },
+    {
+      "table": "elb.request",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "card_txn_ref"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, card_txn_ref) WHERE card_txn_ref IS NOT NULL AND status <> 'WITHDRAWN'",
+      "reason": "카드 내역 1건에 신청 1건"
+    },
+    {
+      "table": "elb.request",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "제출 시 필요한 단계 = 사용 규칙 중 기준 금액 ≤ 합계. 모든 단계 승인 → APPROVED, 한 단계라도 반려 → REJECTED(재신청은 새 신청서). 제출 후 명세 불변, 승인 전 회수(WITHDRAWN) 가능",
+      "reason": "승인 단계(Q2)"
+    },
+    {
+      "table": "elb.request",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "budget_note"
+      ],
+      "expression": "제출·승인 화면에 ERP 부서·비용 계정 월 예산 대비 실적 + 이번 합계를 표시(erp.interface.budget_status), 초과면 경고만(차단 아님, Q3). 제출 시 결과 스냅샷",
+      "reason": "예산 확인(Q3)"
+    },
+    {
+      "table": "elb.request",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "kind"
+      ],
+      "expression": "NORMAL 승인분은 ERP가 fs.elb.interface.approved_requests(since)로 가져가 공급처별 구매 요청(출처 ELB) — ELB 자체 발주 없음(Q1). EMERGENCY는 구매 요청을 만들지 않고 ERP 카드 내역(card_transaction)과 연결해 비용 근거로(Q6)",
+      "reason": "구매 연계(Q1·Q6)"
+    },
+    {
+      "table": "elb.request_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id",
+        "line_no"
+      ],
+      "expression": "",
+      "reason": "행 번호 유일"
+    },
+    {
+      "table": "elb.request_line",
+      "kind": "CHECK",
+      "columns": [
+        "line_no",
+        "qty",
+        "unit_price",
+        "amount"
+      ],
+      "expression": "line_no >= 1 AND qty > 0 AND unit_price >= 0 AND amount >= 0",
+      "reason": "행 값"
+    },
+    {
+      "table": "elb.approval",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id",
+        "step"
+      ],
+      "expression": "",
+      "reason": "신청·단계 결정 1건"
+    },
+    {
+      "table": "elb.approval",
+      "kind": "CHECK",
+      "columns": [
+        "step",
+        "decision",
+        "comment"
+      ],
+      "expression": "step BETWEEN 1 AND 3 AND decision IN ('APPROVED', 'REJECTED') AND (decision = 'APPROVED' OR length(btrim(comment)) >= 2)",
+      "reason": "단계·결정·반려 의견"
+    },
+    {
+      "table": "elb.receipt_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "receipt_id",
+        "request_line_id"
+      ],
+      "expression": "",
+      "reason": "수령·신청 품목 1행"
+    },
+    {
+      "table": "elb.receipt_line",
+      "kind": "CHECK",
+      "columns": [
+        "qty",
+        "issue",
+        "return_requested"
+      ],
+      "expression": "qty >= 0 AND issue IN ('OK', 'DAMAGED', 'WRONG', 'SHORT') AND (NOT return_requested OR issue <> 'OK')",
+      "reason": "수량·이상·반품 요청"
+    },
+    {
+      "table": "elb.receipt",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "request_id"
+      ],
+      "expression": "비재고 품목만, 승인 신청에 대해. 누적 수령 ≤ 신청 수량(부분 수령 여러 번). ERP가 fs.elb.interface.receipts(since)로 읽어 매입 근거, 반품 요청은 ERP 구매 반품으로(Q4). 재고 품목은 WMS 입고 상태만 표시",
+      "reason": "수령 확인(Q4)"
+    },
+    {
+      "table": "elb.catalog_item",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "category_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "elb.contract_price",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "catalog_item_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "elb.request",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "department_code",
+        "status"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "elb.request_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "elb.approval",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "elb.receipt_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "receipt_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
     }
   ],
   "states": [
@@ -64419,6 +66397,19 @@
       ],
       "default": "proposed",
       "transition": "proposed→superseded(새 산정)"
+    },
+    {
+      "table": "elb.request",
+      "column": "status",
+      "values": [
+        "DRAFT",
+        "SUBMITTED",
+        "APPROVED",
+        "REJECTED",
+        "WITHDRAWN"
+      ],
+      "default": "DRAFT",
+      "transition": "DRAFT→SUBMITTED→APPROVED/REJECTED; 승인 전 SUBMITTED→WITHDRAWN"
     }
   ],
   "sources": [
@@ -64480,7 +66471,8 @@
         "tms",
         "plm",
         "crm",
-        "scm"
+        "scm",
+        "elb"
       ],
       "default": null,
       "note": "QMS(FS-023)·WMS(FS-024)·BEMS(FS-025)·SPC(FS-028)는 구현 솔루션. SCM 설명 카드와 도움말은 정적 파일"
@@ -64838,7 +66830,8 @@
         "tms",
         "plm",
         "crm",
-        "scm"
+        "scm",
+        "elb"
       ],
       "default": null,
       "note": "운영 중인 솔루션(포털 core 제외)"
@@ -65418,6 +67411,13 @@
       "task": "DSN-26",
       "date": "2026-10-05",
       "change": "SCM 신규: scm 9테이블(계획 품목·공급처 품목·수요 이력·수요 예측·예측 명세·S&OP 계획·명세·재고 정책·공급처 성과), 모듈 키 scm. 업무 스키마 간 FK 0",
+      "status": "설계 전용"
+    },
+    {
+      "version": "target-0.15.0",
+      "task": "DSN-27",
+      "date": "2026-10-05",
+      "change": "ELB/MRO 신규: elb 11테이블(분류·카탈로그 품목·계약 단가·표준 세트·세트 품목·승인 규칙·신청서·신청 품목·승인·수령·수령 품목), 모듈 키 elb. 업무 스키마 간 FK 0",
       "status": "설계 전용"
     }
   ]
