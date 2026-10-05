@@ -2,6 +2,13 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-22 POP 신규 설계 완료 (Claude Code)
+- 결정: Q1 **지연 가져오기**(MES·WMS가 자기 API가 불릴 때 미반영 POP 확정 입력을 가져가 재검증·반영, POP는 `pop_results` 조회로 결과 표시 — 교차 쓰기·배경 작업 없음) · Q2 POP 자체 단말 사용자 · Q3 공정 검사 입력 · Q4 호출(안돈, POP 안에서만) · Q5 작업 일보·라인 현황판 · Q6 범위 26/29.
+- 문서 `docs/modules/pop/POP_설계_DSN-22.md` + README: 기준표 29, 기능 규칙 8묶음(스캔 → 확인 → 확정 공통 흐름, CANCEL 입력 규칙), DB pop 7(단말·작업자·세션·스캔 원장·확정 입력·명세·호출), 화면 22(새 패턴 K 현장 단말 18 + 현황판 + 관리 3), 교차 조회(`confirmed_entries` 제공, MES·WMS `pop_results`·WMS `pending_tasks` 요청 — MES·WMS 문서에 메모).
+- 확정 입력에 반영 솔루션(MES/WMS) 칸 — 두 솔루션 모두 RECEIVE·ISSUE를 다른 뜻으로 써서 구분. MES pop_import 종류 + DOWNTIME·INSPECT·CANCEL, WMS + CANCEL, 모듈 키 pop.
+- 목표 DB: `tools/apply_dsn22.py` → target-0.10.0/DSN-22 241테이블·컬럼 2,835·FK 605. 검증기 `validate_pop_dsn22`(POP FK pop/core만·입력 번호 유일·MES/WMS 가져오기 종류 = POP 종류·취소 1건·지연 가져오기 정책·모듈 키).
+- 검증: 목표 validate 0·격리 0·**빈 DB 적용 대조 0(241·UK 497·CHECK 673·INDEX 165·UNIQUE_INDEX 67·FK 605)**·ERD·Excel·tools 73 + DSN 27·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-21 CMMS 재점검·보강 설계 완료 (Claude Code)
 - 결정: Q1 금형 보전(MES 금형 가져오기, 진행 작업지시를 MES가 읽어 금형 상태·배지) · Q2 사용량 기준 PM(운전 시간·타수) · Q3 점검표 구조화 + 시설 일상 점검 · **Q4 신호 전환 확장 제외**(FEMS 에너지 경보·BEMS 설비 경보는 CMMS 신호 아님) · Q5 정비원·외주 수리·보전 비용(FS-029 제외 항목 해제) · Q6 예비품 재고 WMS 조회·부족분 ERP 구매 요청·사용 → WMS 출고 · Q7 설비 상세·계층, 범위 22/26.
 - 문서 `docs/modules/cmms/CMMS_보강설계_DSN-21.md`: 기준표 26, 기능 규칙 8묶음, DB 6→12(새 6·기존 6 변경 — PM interval_days NULL 허용 + 기준별 CHECK), 화면 7(설계) → 10, 교차 조회(`part_requests`·`part_usages`·`monthly_summary` 제공, 금형 코드도 `equipment_in_maintenance`).

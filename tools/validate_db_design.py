@@ -180,6 +180,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_spc_dsn17(d))
     if 'cmms.technician' in {t['name'] for t in d['tables']}:
         errors.extend(validate_cmms_dsn21(d))
+    if 'pop.entry' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_pop_dsn22(d))
     return errors
 
 
@@ -348,6 +350,31 @@ def validate_cmms_dsn21(d):
     require(any(c['table'] == 'cmms.work_order' and c['expression'] == "source IN ('MANUAL', 'BEMS_ALARM', 'SPC_SIGNAL', 'PM_PLAN')" for c in cs), 'signal sources unchanged — FEMS/BEMS equipment alarms excluded (Q4)')
     require(not any(w in col for t in ('cmms.work_order', 'cmms.asset') for col in ts.get(t, ()) for w in ('total_cost', 'labor_cost', 'parts_cost')), 'maintenance cost is derived (Q5)')
     require(not any(w in col for col in ts.get('cmms.spare_part', ()) for w in ('on_hand', 'stock_qty', 'quantity')), 'spare part stock is read from WMS (Q6)')
+    return errors
+
+
+def validate_pop_dsn22(d):
+    """DSN-22 POP 계약: 다른 업무 스키마에 FK·쓰기 없음·확정 입력 번호 유일(가져오기 멱등 키)·반영 솔루션별 종류·MES/WMS 가져오기 종류 일치·취소 1건·모듈 키(Q1·Q2)."""
+    errors = []
+    cs, rs = d['constraints'], d['relations']
+    ts = {t['name'] for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-22: ' + message)
+    def expr(t, word):
+        return next((c['expression'] for c in cs if c['table'] == t and c['kind'] == 'CHECK' and word in c['expression']), '')
+    require(all(r['target'].split('.')[0] in ('pop', 'core') for r in rs if r['source'].startswith('pop.')), 'POP FKs stay inside pop/core anchors')
+    require(any(c['table'] == 'pop.entry' and c['kind'] == 'UK' and c['columns'] == SCOPE + ['entry_no'] for c in cs), 'entry_no unique (pop_entry_ref idempotency key)')
+    pop_kinds = expr('pop.entry', "target_solution = 'MES'")
+    for target in ('mes', 'wms'):
+        imp = expr(f'{target}.pop_import', 'entry_kind IN')
+        kinds = set(re.findall(r"'([A-Z]+)'", imp.split(' AND result')[0]))
+        side = pop_kinds.split("target_solution = 'WMS'")[0 if target == 'mes' else 1]
+        require(kinds and kinds == set(re.findall(r"'([A-Z]+)'", side)) - {'MES', 'WMS'}, f'{target}.pop_import kinds match POP {target.upper()} entry kinds')
+    require(any(c['table'] == 'pop.entry' and c['kind'] == 'UK_PARTIAL' and 'cancels_entry_id' in c['columns'] for c in cs), 'one cancel per entry')
+    require(any(c['table'] == 'pop.entry' and c['reason'] == '확정·지연 가져오기(Q1)' for c in cs), 'lazy pull by MES/WMS (Q1)')
+    require('pop.operator' in ts, 'POP owns its operators (Q2)')
+    require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'pop'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key pop')
     return errors
 
 

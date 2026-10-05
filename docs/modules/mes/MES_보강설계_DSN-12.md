@@ -294,6 +294,8 @@
 
 > 다른 솔루션 설계에 넘길 것: **POP(신규)** 스캔 원장·`confirmed_entries` 계약 · **WMS(DSN-13)** `material_adjustments`·`subcontract_results` 반영과 `stock_on_hand`·`lots`·`line_stock` · **CMMS(DSN-21)** 금형을 설비 대장 출처로(asset_type MOLD).
 
+> POP DSN-22 반영(2026-10-05): 가져오기 종류에 DOWNTIME·INSPECT·CANCEL 추가, MES는 `pop_results(entry_nos)`도 제공한다(POP 반영 결과 표시).
+
 ## 7. 결정 질문 (하나씩)
 
 | # | 질문 | 제안 |

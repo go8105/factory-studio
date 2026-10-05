@@ -214,6 +214,8 @@
 
 > 넘길 것: **POP(신규)** 창고 스캔 원장·`confirmed_entries` 창고 종류 · **QMS(DSN-14)** 수입 검사 판정 → 격리 해제/불량(F18) · **TMS(신규)** 출고장 피킹 완료 → 배차.
 
+> POP DSN-22 반영(2026-10-05): 가져오기 종류에 CANCEL 추가, WMS는 `pop_results(entry_nos)`·`pending_tasks(location)`도 제공한다.
+
 ## 7. 결정 질문 (하나씩)
 
 | # | 질문 | 제안 |
