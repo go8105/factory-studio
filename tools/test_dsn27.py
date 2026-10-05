@@ -20,7 +20,7 @@ class ElbTargetTest(unittest.TestCase):
 
     def test_contract_holds(self):
         self.assertEqual(validate_elb_dsn27(self.target), [])
-        self.assertEqual(
+        self.assertGreaterEqual(  # DSN-28 adds elb.approver
             sum(t["name"].startswith("elb.") for t in self.target["tables"]), 11
         )
 

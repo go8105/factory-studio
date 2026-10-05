@@ -20,6 +20,7 @@ erDiagram
     varchar decision "결정"
     timestamptz decided_at "결정 시각"
     varchar comment "의견 NULL"
+    varchar approver_hr_code "승인자 HR 사원 코드 NULL"
     timestamptz created_at "등록 시각"
   }
   elb_approval_rule {
@@ -29,6 +30,17 @@ erDiagram
     integer step "단계"
     numeric min_amount "기준 금액"
     varchar approver_role "승인 역할"
+    boolean is_active "사용 여부"
+    timestamptz created_at "등록 시각"
+  }
+  elb_approver {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    varchar approver_role "승인 역할"
+    varchar department_code "부서 코드 NULL"
+    varchar hr_employee_code "HR 사원 코드"
+    varchar name "이름"
     boolean is_active "사용 여부"
     timestamptz created_at "등록 시각"
   }
@@ -109,6 +121,7 @@ erDiagram
     varchar reject_reason "반려 사유 NULL"
     varchar card_txn_ref "ERP 카드 내역 NULL"
     varchar budget_note "예산 확인 결과 NULL"
+    varchar requester_hr_code "신청자 HR 사원 코드 NULL"
     timestamptz created_at "등록 시각"
   }
   elb_request_line {
@@ -164,3 +177,4 @@ erDiagram
   elb_request ||..o{ elb_receipt : "workspace_id,generation_id,request_id"
   elb_receipt ||..o{ elb_receipt_line : "workspace_id,generation_id,receipt_id"
   elb_request_line ||..o{ elb_receipt_line : "workspace_id,generation_id,request_line_id"
+  core_data_generation ||..o{ elb_approver : "workspace_id,generation_id"

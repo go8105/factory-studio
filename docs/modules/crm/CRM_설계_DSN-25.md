@@ -166,6 +166,8 @@
 
 > 넘길 것: **ERP** "CRM에서 가져오기"(거래처·견적 초안), `crm_imports`·`sales_orders_for_crm`·`partner_summary` 제공 · **QMS** `quality_inquiries` 가져오기 → 클레임 · **SCM(신규)** 파이프라인 예측을 수요 참고로.
 
+> EIP DSN-28 반영(2026-10-05): `crm.sales_rep.hr_employee_code` 추가(사람별 할 일). CRM은 `pending_tasks(hr_employee_code)`·`lookup(code)`를 제공한다.
+
 ## 7. 결정 질문 (하나씩)
 
 | # | 질문 | 제안 |

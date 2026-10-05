@@ -203,6 +203,8 @@
 
 > CRM DSN-25 반영(2026-10-05): QMS는 CRM `quality_inquiries`(품질 문의)를 가져와 클레임으로 접수한다(클레임은 QMS 소유). `claims(customer_code)`를 CRM이 읽는다.
 
+> EIP DSN-28 반영(2026-10-05): `qms.capa.owner_hr_code` 추가(CAPA 기한 할 일). QMS는 `pending_tasks`·`lookup`을 제공한다.
+
 ## 7. 결정 질문 (하나씩)
 
 | # | 질문 | 제안 |

@@ -192,6 +192,8 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_scm_dsn26(d))
     if 'elb.request' in {t['name'] for t in d['tables']}:
         errors.extend(validate_elb_dsn27(d))
+    if 'eip.kpi' in {t['name'] for t in d['tables']}:
+        errors.extend(validate_eip_dsn28(d))
     return errors
 
 
@@ -476,6 +478,24 @@ def validate_elb_dsn27(d):
     require(any(c['table'] == 'elb.approval' and c['kind'] == 'UK' and c['columns'] == SCOPE + ['request_id', 'step'] for c in cs), 'one decision per request step (Q2)')
     require(all(r['target'].split('.')[0] in ('elb', 'core') for r in rs if r['source'].startswith('elb.')), 'ELB FKs stay inside elb/core anchors')
     require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'elb'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key elb')
+    return errors
+
+
+def validate_eip_dsn28(d):
+    """DSN-28 EIP 계약: 공지는 GW(Q1 — eip 공지 테이블 금지)·KPI 실적 비저장(Q2)·사람 연결은 HR 사원 코드(Q3-1)·위젯 배치는 eip에만(core 금지, FS-008b)·확정 보고서 1건·FK 없음·모듈 키."""
+    errors = []
+    cs, rs = d['constraints'], d['relations']
+    ts = {t['name']: {c['name'] for c in t['columns']} for t in d['tables']}
+    def require(ok, message):
+        if not ok:
+            errors.append('DSN-28: ' + message)
+    require(not any(n.startswith('eip.') and any(w in n for w in ('notice', 'board', 'banner')) for n in ts), 'notices belong to GW (Q1)')
+    require(not any(w in col for col in ts.get('eip.kpi', ()) for w in ('actual', 'value')), 'KPI actuals are read, not stored (Q2)')
+    require(all('hr_employee_code' in ts.get(t, ()) for t in ('gw.person', 'crm.sales_rep', 'eip.person_link', 'elb.approver')), 'people link through HR employee code (Q3-1)')
+    require('core.dashboard_layout' not in ts and 'eip.widget_layout' in ts, 'widget layout lives in eip, not core (Q5, FS-008b)')
+    require(any(c['table'] == 'eip.management_report' and c['kind'] == 'UK_PARTIAL' and "status = 'confirmed'" in c['expression'] for c in cs), 'one confirmed management report per month (Q4)')
+    require(all(r['target'].split('.')[0] in ('eip', 'core') for r in rs if r['source'].startswith('eip.')), 'EIP FKs stay inside eip/core anchors')
+    require(all(any(c['table'] == t and c['kind'] == 'CHECK' and "'eip'" in c['expression'] for c in cs) for t in ('core.workspace_module', 'core.app_review')), 'module key eip')
     return errors
 
 

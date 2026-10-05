@@ -2,6 +2,13 @@
 
 > 최신 Codex 작업: 2026-10-04 **FS-030b GW API·화면 완료(로컬), c 확인 대기**. 상세 [검증 보고](agent/GW_API화면_FS-030b.md).
 
+## 2026-10-05 DSN-28 EIP 신규 설계 완료 (Claude Code)
+- 결정: Q1 **공지는 GW 공지 표시**(EIP 자체 공지 없음) · Q2 KPI 정의·목표는 EIP, 실적은 각 솔루션 월 요약 조회 · Q3 **할 일은 사람별**, Q3-1 **HR 사원 코드로 사람 연결** · Q4 월간 경영 보고서·의견 · Q5 **위젯 배치 개인화(eip에 저장)** · Q6 통합 번호 검색 · 범위 13/15.
+- 문서 `docs/modules/eip/EIP_설계_DSN-28.md` + README: 기준표 15, 기능 규칙 6묶음, DB eip 8, 화면 8(EI-01~08), 교차 조회(모든 솔루션 `monthly_summary`·`pending_tasks(hr_employee_code)`·`lookup(code)`, GW `published_notices`, HR `employees`). GW 작업지시서·CRM·ELB·QMS 문서에 메모.
+- 사람 연결 칸: `gw.person.hr_employee_code`·`crm.sales_rep.hr_employee_code`·`elb.request.requester_hr_code`·`elb.approval.approver_hr_code`·`qms.capa.owner_hr_code`, ELB 승인자 지정 `elb.approver` 신설.
+- 목표 DB: `tools/apply_dsn28.py` → target-0.16.0/DSN-28 **309테이블**·컬럼 3,573·FK 746, 모듈 키 eip. 검증기 `validate_eip_dsn28`. test_dsn27의 elb 테이블 수는 하한으로 바꿨다(DSN-28이 elb.approver 추가).
+- 검증(통과를 커밋 조건으로): 목표 validate 0·격리 0·**빈 DB 적용 대조 0(309·UK 627·CHECK 788·INDEX 196·UNIQUE_INDEX 86·FK 746)**·ERD·Excel·tools 73 + DSN 39·실제 schema.json 0. 제품 코드·마이그레이션·실제 DB 변경 없음.
+
 ## 2026-10-05 DSN-27 ELB/MRO 신규 설계 완료 (Claude Code)
 - 결정: Q1 **ELB는 카탈로그·신청·승인·수령 확인까지**(발주·매입·전표는 ERP — 구매 요청 출처 ELB, 재고 품목 입고는 WMS) · Q2 ELB 안 금액 기준 승인 단계(GW와 별개) · Q3 부서 예산 확인(경고) · Q4 비재고 수령 확인 → ERP 매입 근거 · Q5 계약 단가·표준 세트·단가 비교 · Q6 긴급 구매(법인카드 사후 등록 → ERP 카드 내역) · 범위 18/19.
 - 문서 `docs/modules/elb/ELB_설계_DSN-27.md` + README: 기준표 19, 기능 규칙 7묶음, DB elb 11, 화면 11(MR-01~11), 교차 조회(`approved_requests`·`receipts`·`emergency_requests`·`monthly_summary` 제공, ERP `budget_status`·`elb_request_status`·`card_transactions`·`purchase_prices`·WMS `inbound_status` 요청 — ERP·WMS 문서에 메모). ROADMAP-01의 ELB `purchase_receipts()`는 Q1로 대체.

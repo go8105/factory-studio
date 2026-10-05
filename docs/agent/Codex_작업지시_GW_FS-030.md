@@ -74,3 +74,9 @@
 
 - **FS-030b(API·화면)만 끝까지 마치고 보고한다.** Claude가 main에 병합한다.
 - 그 뒤 GW는 FS-030c(시드·도움말)로 가지 않는다. 전체 설계 우선 단계로 전환한다 — [ROADMAP-02](../plan/전체설계우선_전환_ROADMAP-02.md). GW 기능 기준표·목표 DB(`schema-target.json`)·화면 목록은 DSN-00 양식이 나온 뒤 따로 지시한다.
+
+### 8. 2026-10-05 EIP 설계(DSN-28)에서 GW에 넘긴 것
+
+- `gw.person`에 `hr_employee_code`(HR 사원 코드 스냅샷, NULL 허용) — 목표 DB(`schema-target.json`)에 반영됨. EIP "내 할 일"이 결재 대기를 사람별로 묻는다.
+- 조회 함수 추가 계약: `published_notices(limit)`(EIP 공지 표시 — EIP 자체 공지 없음), `pending_tasks(hr_employee_code)`, `lookup(code)`. 개발은 일괄 개발 때.
+

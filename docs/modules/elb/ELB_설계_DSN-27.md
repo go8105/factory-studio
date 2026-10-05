@@ -155,6 +155,8 @@
 
 > 넘길 것: **ERP** ELB 승인 신청 가져오기(구매 요청 출처 ELB — 이미 설계됨), 비재고 수령을 매입 근거로, 카드 내역 연결, `budget_status`·`elb_request_status`·`card_transactions`·`purchase_prices` 제공 · **WMS** `inbound_status` 제공. ROADMAP-01의 "ELB `purchase_receipts()` → WMS·ERP"는 Q1로 대체(발주·입고는 ERP·WMS).
 
+> EIP DSN-28 반영(2026-10-05): 승인자 지정 `elb.approver`(부서장·관리부서 ↔ HR 사원 코드) 신설, 신청서·승인에 HR 사원 코드 칸. ELB는 `pending_tasks`·`lookup`을 제공한다.
+
 ## 7. 결정 질문 (하나씩)
 
 | # | 질문 | 제안 |
