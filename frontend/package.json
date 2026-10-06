@@ -23,13 +23,14 @@
   "dependencies": {
     "@react-three/drei": "10.7.8",
     "@react-three/fiber": "9.8.1",
+    "manifold-3d": "3.5.4",
+    "polygon-clipping": "0.15.7",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.4",
     "remark-gfm": "^4.0.1",
-    "three": "0.186.1",
-    "polygon-clipping": "0.15.7"
+    "three": "0.186.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

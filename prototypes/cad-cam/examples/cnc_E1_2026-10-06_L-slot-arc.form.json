@@ -1,0 +1,116 @@
+{
+  "version": 2,
+  "name": "자유 스케치 CNC 연습 부품",
+  "stock": {
+    "id": "stock",
+    "type": "rect",
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 70,
+    "radius": 0,
+    "height": 12
+  },
+  "features": [
+    {
+      "id": "L-pocket",
+      "name": "L자 포켓",
+      "type": "profile",
+      "x": 0,
+      "y": 0,
+      "w": 40,
+      "h": 40,
+      "radius": 0,
+      "depth": 4,
+      "closed": true,
+      "nodes": [
+        {
+          "id": "L-pocket-n0",
+          "point": [
+            -30,
+            -20
+          ]
+        },
+        {
+          "id": "L-pocket-n1",
+          "point": [
+            10,
+            -20
+          ]
+        },
+        {
+          "id": "L-pocket-n2",
+          "point": [
+            10,
+            -5
+          ]
+        },
+        {
+          "id": "L-pocket-n3",
+          "point": [
+            -10,
+            -5
+          ]
+        },
+        {
+          "id": "L-pocket-n4",
+          "point": [
+            -10,
+            20
+          ]
+        },
+        {
+          "id": "L-pocket-n5",
+          "point": [
+            -30,
+            20
+          ]
+        }
+      ]
+    },
+    {
+      "id": "slot",
+      "name": "회전 슬롯",
+      "type": "slot",
+      "x": 23,
+      "y": 0,
+      "w": 30,
+      "h": 10,
+      "angle": 65,
+      "radius": 0,
+      "depth": 4
+    },
+    {
+      "id": "arc-pocket",
+      "name": "3점 원호 홈",
+      "type": "profile",
+      "x": 0,
+      "y": 0,
+      "w": 20,
+      "h": 8.990084248872442,
+      "radius": 0,
+      "depth": 4,
+      "closed": true,
+      "nodes": [
+        {
+          "id": "arc-pocket-n0",
+          "point": [
+            -5,
+            23
+          ],
+          "arcVia": [
+            5,
+            32
+          ]
+        },
+        {
+          "id": "arc-pocket-n1",
+          "point": [
+            15,
+            23
+          ]
+        }
+      ]
+    }
+  ]
+}

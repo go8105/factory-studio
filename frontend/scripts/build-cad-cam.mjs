@@ -11,6 +11,14 @@ const shared = {
   resolve: {
     alias: [
       {
+        find: "manifold-3d/manifold.wasm",
+        replacement: require.resolve("manifold-3d/manifold.wasm"),
+      },
+      {
+        find: /^manifold-3d$/,
+        replacement: require.resolve("manifold-3d/manifold.js"),
+      },
+      {
         find: /^three$/,
         replacement: require
           .resolve("three")

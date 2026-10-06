@@ -1,7 +1,8 @@
 import clipping from "polygon-clipping";
+import { profileRing, polygonDistance, validateProfile } from "./profile.js";
 
 export const emptyModel = () => ({
-  version: 1,
+  version: 2,
   name: "새 부품",
   stock: null,
   features: [],
@@ -16,7 +17,7 @@ export const defaultTool = () => ({
 export const clone = (value) => structuredClone(value);
 export const round = (value) => Math.round(value * 100) / 100;
 export const sampleModel = () => ({
-  version: 1,
+  version: 2,
   name: "포켓 연습 부품",
   stock: {
     id: "stock",
@@ -56,6 +57,8 @@ export const sampleModel = () => ({
 
 // Signed distance to convex profiles. Negative means inside; units are millimetres.
 export function distance(shape, x, y) {
+  if (shape.type === "profile" || shape.type === "slot")
+    return polygonDistance(ring(shape), x, y);
   const dx = Math.abs(x - shape.x),
     dy = Math.abs(y - shape.y);
   if (shape.type === "circle") return Math.hypot(dx, dy) - shape.w / 2;
@@ -69,6 +72,10 @@ export function distance(shape, x, y) {
   );
 }
 export function ring(shape, inset = 0, segments = 24) {
+  if (shape.type === "profile" || shape.type === "slot") {
+    if (inset) throw Error("자유 윤곽의 가공은 윤곽 커널을 사용하세요.");
+    return profileRing(shape);
+  }
   const w = shape.w - inset * 2,
     h = shape.h - inset * 2;
   if (w <= 0 || h <= 0) return [];
@@ -108,6 +115,15 @@ export function ring(shape, inset = 0, segments = 24) {
   return out;
 }
 export function bounds(shape) {
+  if (["profile", "slot"].includes(shape.type)) {
+    const pts = ring(shape);
+    return {
+      minX: Math.min(...pts.map((p) => p[0])),
+      maxX: Math.max(...pts.map((p) => p[0])),
+      minY: Math.min(...pts.map((p) => p[1])),
+      maxY: Math.max(...pts.map((p) => p[1])),
+    };
+  }
   return {
     minX: shape.x - shape.w / 2,
     maxX: shape.x + shape.w / 2,
@@ -120,8 +136,13 @@ function number(v, min, max, label) {
     throw Error(`${label}: ${min}~${max} 범위의 숫자를 입력하세요.`);
 }
 function validateShape(s) {
-  if (!s || !["rect", "circle"].includes(s.type))
-    throw Error("지원하는 스케치는 사각형과 원입니다.");
+  if (!s || !["rect", "circle", "profile", "slot"].includes(s.type))
+    throw Error("지원하지 않는 스케치입니다.");
+  if (s.type === "profile") validateProfile(s);
+  if (s.type === "slot") {
+    number(s.angle, -180, 180, "회전 각도");
+    if (s.w < s.h) throw Error("슬롯 길이는 폭 이상이어야 합니다.");
+  }
   number(s.x, -200, 200, "중심 X");
   number(s.y, -200, 200, "중심 Y");
   number(s.w, 1, 200, "폭 / 지름");
@@ -133,7 +154,7 @@ function validateShape(s) {
 export function validateModel(m) {
   if (
     !m ||
-    m.version !== 1 ||
+    ![1, 2].includes(m.version) ||
     typeof m.name !== "string" ||
     m.name.length > 80 ||
     !Array.isArray(m.features) ||
@@ -159,7 +180,22 @@ export function validateModel(m) {
     ids.add(f.id);
     if (typeof f.name !== "string" || f.name.length > 80)
       throw Error("작업 이름은 80자 이내로 입력하세요.");
-    if (ring(f).some(([x, y]) => distance(m.stock, x, y) > -0.09))
+    const edge = ring(f);
+    const crosses = edge.some((a, i) => {
+      const b = edge[(i + 1) % edge.length],
+        n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.05);
+      for (let j = 0; j <= n; j++)
+        if (
+          distance(
+            m.stock,
+            a[0] + ((b[0] - a[0]) * j) / Math.max(1, n),
+            a[1] + ((b[1] - a[1]) * j) / Math.max(1, n),
+          ) > -0.099
+        )
+          return true;
+      return false;
+    });
+    if (crosses || clipping.difference([edge], [ring(m.stock)]).length)
       throw Error(
         "홈을 외곽 안에 배치하세요. 바깥쪽 벽을 최소 0.1mm 남겨야 합니다.",
       );
@@ -168,7 +204,9 @@ export function validateModel(m) {
 }
 export function parseModel(text) {
   if (text.length > 100000) throw Error("설계 파일은 100KB 이하여야 합니다.");
-  return validateModel(JSON.parse(text));
+  const m = validateModel(JSON.parse(text));
+  m.version = 2;
+  return m;
 }
 export function validateTool(t) {
   number(t.diameter, 0.5, 40, "공구 지름");
@@ -306,10 +344,10 @@ export function generatePaths(m, t) {
 export function createStockGrid(m) {
   const b = bounds(m.stock),
     cell = Math.max(0.4, m.stock.w / 150, m.stock.h / 150);
-  const nx = Math.ceil(m.stock.w / cell),
-    ny = Math.ceil(m.stock.h / cell);
-  const dx = m.stock.w / nx,
-    dy = m.stock.h / ny;
+  const nx = Math.ceil((b.maxX - b.minX) / cell),
+    ny = Math.ceil((b.maxY - b.minY) / cell);
+  const dx = (b.maxX - b.minX) / nx,
+    dy = (b.maxY - b.minY) / ny;
   const heights = new Float32Array(nx * ny),
     initial = new Float32Array(nx * ny);
   for (let y = 0; y < ny; y++)

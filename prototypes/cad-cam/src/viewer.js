@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { STLExporter } from "three/addons/exporters/STLExporter.js";
-import { layers, polygonDifference } from "./model.js";
+import { layers, polygonDifference, bounds } from "./model.js";
 
 function geometry(positions) {
   const g = new THREE.BufferGeometry();
@@ -180,8 +180,9 @@ export class Viewer {
     });
   }
   fit(stock) {
-    const x = stock?.x ?? 0,
-      y = stock?.y ?? 0,
+    const b = stock ? bounds(stock) : null;
+    const x = b ? (b.minX + b.maxX) / 2 : 0,
+      y = b ? (b.minY + b.maxY) / 2 : 0,
       z = (stock?.height ?? 10) / 3,
       size =
         Math.max(stock?.w ?? 100, stock?.h ?? 80, stock?.height ?? 0) * 1.8;
@@ -195,8 +196,9 @@ export class Viewer {
     );
   }
   top(stock) {
-    const x = stock?.x ?? 0,
-      y = stock?.y ?? 0;
+    const b = stock ? bounds(stock) : null;
+    const x = b ? (b.minX + b.maxX) / 2 : 0,
+      y = b ? (b.minY + b.maxY) / 2 : 0;
     this.controls.target.set(x, y, 0);
     this.camera.position.set(
       x,

@@ -1,4 +1,5 @@
 import "./style.css";
+import freeExample from "../examples/cnc_E1_2026-10-06_L-slot-arc.form.json";
 import {
   emptyModel,
   defaultTool,
@@ -9,13 +10,17 @@ import {
   validateTool,
   parseModel,
   ring,
+  bounds,
   distance,
-  generatePaths,
 } from "./model.js";
 import { Viewer } from "./viewer.js";
+import { syncProfile, profileRing } from "./profile.js";
 
 const icons = {
   cube: "M12 3 3 8v9l9 5 9-5V8L12 3Zm0 0v10m-9-5 9 5 9-5m-9 5v9",
+  profile: "M3 20V4h7v8h11v8H3Z",
+  arc: "M3 17C3 1 21 1 21 17",
+  slot: "M8 5h8a7 7 0 0 1 0 14H8A7 7 0 0 1 8 5Z",
   rect: "M4 5h16v14H4z",
   circle: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0",
   select: "m5 3 14 10-7 1-3 7-4-18Z",
@@ -65,6 +70,10 @@ let past = [],
   queued = null,
   speed = 10,
   showPaths = true;
+let gridStep = 1,
+  endpointSnap = true,
+  arcClicks = [],
+  camPending = false;
 const scope = new URLSearchParams(location.search).get("scope");
 const storageKey = scope
   ? `form-studio-design-v1:${scope}`
@@ -81,13 +90,13 @@ $("#app").innerHTML = `
 <header class="app-header"><a class="brand" href="#" aria-label="Form Studio 홈"><span class="brand-mark">${icon("cube")}</span><span>FORM<span class="brand-light"> STUDIO</span><small>DESIGN / MANUFACTURE</small></span></a><div class="document"><input id="document-name" aria-label="설계 이름" maxlength="80"/><span class="save-status" id="save-status">이 브라우저에 저장</span></div><nav class="file-actions"><button data-action="new" title="새 설계 · 이전 작업은 실행 취소로 복구">${icon("plus")}새 설계</button><button data-action="open">${icon("folder")}열기</button><button data-action="save">${icon("save")}저장</button><button data-action="stl" title="삼각형 메시 STL · mm">${icon("download")}STL</button></nav>${new URLSearchParams(location.search).get("poc") === "1" ? `<a class="prototype" href="/cad-cam?view=soap" target="_parent">비누 POC ↗</a>` : `<span class="prototype">검토 시제품</span>`}</header>
 <div class="workspace-nav"><div class="tabs"><button data-action="design" class="active">01 <strong>설계</strong></button><button data-action="cam">02 <strong>가공 시뮬레이션</strong></button></div><span class="scope">2.5D · 단일 부품 · mm</span><button data-action="help" class="icon-button" aria-label="사용 방법">${icon("help")}</button></div>
 <div class="toolstrip"><div class="tools" id="tools"></div><div class="history-actions"><button data-action="undo" class="icon-button" aria-label="실행 취소" title="실행 취소 Ctrl/⌘ Z">${icon("undo")}</button><button data-action="redo" class="icon-button" aria-label="다시 실행">${icon("redo")}</button><span class="divider"></span><button data-action="fit" class="icon-button" aria-label="화면 맞춤">${icon("fit")}</button></div></div>
-<main class="workbench"><aside class="left-panel"><div class="panel-heading">설계 탐색기 <span id="feature-count">0</span></div><div id="tree"></div><div class="left-bottom"><div class="mini-label">YOUR NEXT STEP</div><p id="next-step"></p><button class="text-button" data-action="sample">연습 부품 불러오기 ↗</button><div class="quiet-note">직접 그린 형상으로 설계합니다.<br>변경 사항은 로컬에 자동 저장됩니다.</div></div></aside>
-<section class="viewport"><div class="view-top"><div class="view-switch"><button data-action="sketch">평면 스케치</button><button data-action="solid">3D 모델</button></div><span id="view-label">XY 스케치 평면</span></div><div id="three-view"></div><svg id="sketch" aria-label="스케치 작업면" role="application"><defs><pattern id="minor-grid" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M 5 0 L 0 0 0 5" fill="none" stroke="#e0e4e2" stroke-width=".15"/></pattern><pattern id="major-grid" width="25" height="25" patternUnits="userSpaceOnUse"><rect width="25" height="25" fill="url(#minor-grid)"/><path d="M25 0H0V25" fill="none" stroke="#cdd3d2" stroke-width=".23"/></pattern></defs><rect id="grid-bg" x="-500" y="-500" width="1000" height="1000" fill="url(#major-grid)"/><path d="M-500 0H500M0-500V500" stroke="#9fadaa" stroke-width=".22"/><g id="sketch-shapes"></g><g id="draft-shape"></g></svg><div class="empty-guide" id="empty-guide"><span class="eyebrow">FROM YOUR FIRST LINE</span><h1>생각을, 형상으로.</h1><p>사각형이나 원을 그리고 두께를 더하세요.<br>첫 스케치가 부품의 시작이 됩니다.</p><button class="primary" data-action="rect">${icon("rect")}사각형으로 시작</button><button class="text-button" data-action="sample">먼저 연습 부품 살펴보기 →</button></div><div class="view-bottom"><span id="view-hint"></span><div class="axis-label"><span class="axis-x">X</span><span class="axis-y">Y</span><span>Z</span></div></div><div id="cam-legend" hidden><span class="dot cut"></span>절삭 이동 <span class="dot rapid"></span>안전 높이 이동</div></section>
+<main class="workbench"><aside class="left-panel"><div class="panel-heading">설계 탐색기 <span id="feature-count">0</span></div><div id="tree"></div><div class="left-bottom"><div class="mini-label">YOUR NEXT STEP</div><p id="next-step"></p><button class="text-button" data-action="sample">연습 부품 불러오기 ↗</button><button class="text-button" data-action="free-sample">자유 스케치 예제 ↗</button><div class="quiet-note">직접 그린 형상으로 설계합니다.<br>변경 사항은 로컬에 자동 저장됩니다.</div></div></aside>
+<section class="viewport"><div class="view-top"><div class="view-switch"><button data-action="sketch">평면 스케치</button><button data-action="solid">3D 모델</button></div><span id="view-label">XY 스케치 평면</span></div><div id="three-view"></div><svg id="sketch" aria-label="스케치 작업면" role="application"><defs><pattern id="minor-grid" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M 5 0 L 0 0 0 5" fill="none" stroke="#e0e4e2" stroke-width=".15"/></pattern><pattern id="major-grid" width="25" height="25" patternUnits="userSpaceOnUse"><rect width="25" height="25" fill="url(#minor-grid)"/><path d="M25 0H0V25" fill="none" stroke="#cdd3d2" stroke-width=".23"/></pattern></defs><rect id="grid-bg" x="-500" y="-500" width="1000" height="1000" fill="url(#major-grid)"/><path d="M-500 0H500M0-500V500" stroke="#9fadaa" stroke-width=".22"/><g id="sketch-shapes"></g><g id="draft-shape"></g></svg><div class="empty-guide" id="empty-guide"><span class="eyebrow">FROM YOUR FIRST LINE</span><h1>생각을, 형상으로.</h1><p>선을 이어 윤곽을 그리고 두께를 더하세요.<br>첫 스케치가 부품의 시작이 됩니다.</p><button class="primary" data-action="rect">${icon("rect")}사각형으로 시작</button><button class="text-button" data-action="sample">먼저 연습 부품 살펴보기 →</button></div><div class="view-bottom"><span id="view-hint"></span><div class="axis-label"><span class="axis-x">X</span><span class="axis-y">Y</span><span>Z</span></div></div><div id="cam-legend" hidden><span class="dot cut"></span>절삭 이동 <span class="dot rapid"></span>안전 높이 이동</div></section>
 <aside class="right-panel"><div class="panel-heading" id="properties-heading">속성</div><div id="properties"></div></aside></main>
 <section class="bottom-panel"><div id="timeline"></div><div id="simulation-controls" hidden></div></section>
 <footer class="statusbar"><span><span class="status-dot"></span><span id="status-text">준비됨</span></span><span id="model-summary">빈 설계 · 원점 XY / Z↑</span><span>로컬 작업 공간</span></footer>
 <div id="toast" role="status" aria-live="polite"></div><input type="file" id="file-input" accept=".json,application/json" hidden/>
-<dialog id="help-dialog"><div class="dialog-head"><h2>직접 설계하는 첫 부품</h2><button data-action="close-help" aria-label="닫기">×</button></div><ol><li><b>스케치</b> — 사각형은 대각선으로, 원은 중심에서 바깥으로 드래그합니다. 1mm 격자에 맞춰집니다.</li><li><b>돌출</b> — 오른쪽에서 치수와 높이를 정하고 ‘돌출 만들기’를 누릅니다.</li><li><b>파내기</b> — 새 사각형·원을 추가하고 깊이를 정합니다. 기존 작업을 선택해 치수 변경·복제·삭제도 가능합니다.</li><li><b>가공</b> — 공구 지름·깊이 간격을 정하고 경로를 생성합니다. 재생하거나 진행 막대를 움직여 소재 제거를 확인합니다.</li><li><b>보관</b> — JSON으로 편집 가능한 설계를 저장하고, STL로 3D 메시를 내보냅니다.</li></ol><p>첫 버전은 평면 스케치의 돌출·상면 포켓을 지원합니다. 자유 곡면·조립·스케치 구속·STEP·기계용 NC 출력은 포함하지 않습니다. 소재 제거는 격자 근사이며 실제 절삭력·공구 홀더·고정구 충돌은 계산하지 않습니다.</p><button class="primary" data-action="close-help">설계 시작하기</button></dialog>`;
+<dialog id="help-dialog"><div class="dialog-head"><h2>직접 설계하는 첫 부품</h2><button data-action="close-help" aria-label="닫기">×</button></div><ol><li><b>스케치</b> — 사각형은 대각선으로, 원은 중심에서 바깥으로 드래그합니다. 1mm 격자에 맞춰집니다.</li><li><b>돌출</b> — 오른쪽에서 치수와 높이를 정하고 ‘돌출 만들기’를 누릅니다.</li><li><b>파내기</b> — 새 사각형·원을 추가하고 깊이를 정합니다. 기존 작업을 선택해 치수 변경·복제·삭제도 가능합니다.</li><li><b>가공</b> — 공구 지름·깊이 간격을 정하고 경로를 생성합니다. 재생하거나 진행 막대를 움직여 소재 제거를 확인합니다.</li><li><b>보관</b> — JSON으로 편집 가능한 설계를 저장하고, STL로 3D 메시를 내보냅니다.</li></ol><p>선 연결은 점을 클릭하고 첫 점 또는 ‘윤곽 닫기’로 마칩니다. 3점 원호는 시작·통과·끝을 클릭하면 끝에서 시작까지 직선으로 닫힙니다. 슬롯은 길이·폭·각도로 편집합니다. 좌표 치수 편집과 격자·끝점 스냅을 지원합니다. 평면 스케치의 돌출·상면 포켓을 지원합니다. 자유 곡면·조립·스케치 구속·STEP·기계용 NC 출력은 포함하지 않습니다. 소재 제거는 격자 근사이며 실제 절삭력·공구 홀더·고정구 충돌은 계산하지 않습니다.</p><button class="primary" data-action="close-help">설계 시작하기</button></dialog>`;
 const viewer = new Viewer($("#three-view"), (p) => {
   if (mode !== "design") return;
   const f = [...model.features]
@@ -95,6 +104,30 @@ const viewer = new Viewer($("#three-view"), (p) => {
     .find((f) => distance(f, p.x, p.y) <= 0);
   select(f?.id ?? "stock");
 });
+const camWorker = new Worker(new URL("./cam.worker.js", import.meta.url), {
+  type: "module",
+});
+camWorker.onmessage = ({ data }) => {
+  if (data.revision !== revision) return;
+  camPending = false;
+  if (data.error) {
+    $("#status-text").textContent = "경로 생성 실패";
+    renderProperties();
+    toast(data.error, true);
+    return;
+  }
+  path = data.path;
+  fraction = 0;
+  $("#status-text").textContent = "경로 준비됨";
+  render();
+  toast("가공 경로를 생성했습니다. 재생으로 소재 제거를 확인하세요.");
+};
+camWorker.onerror = () => {
+  camPending = false;
+  invalidate();
+  render();
+  toast("가공 계산기를 불러오지 못했습니다. 화면을 새로고침하세요.", true);
+};
 const worker = new Worker(new URL("./simulation.worker.js", import.meta.url), {
   type: "module",
 });
@@ -147,6 +180,7 @@ if (new URLSearchParams(location.search).get("poc") === "1") {
   link.target = "_parent";
 }
 function invalidate() {
+  camPending = false;
   stop();
   path = null;
   fraction = 0;
@@ -197,13 +231,17 @@ function active() {
   );
 }
 function field(label, key, value, min, max) {
-  return `<label class="field"><span>${label}</span><div><input type="number" name="${key}" aria-label="${label}" value="${round(value)}" min="${min}" max="${max}" step="any" required/><span>${key === "stepOver" ? "%" : key === "feed" ? "mm/min" : "mm"}</span></div></label>`;
+  return `<label class="field"><span>${label}</span><div><input type="number" name="${key}" aria-label="${label}" value="${round(value)}" min="${min}" max="${max}" step="any" required/><span>${key === "angle" ? "°" : key === "stepOver" ? "%" : key === "feed" ? "mm/min" : "mm"}</span></div></label>`;
 }
 function shapeSvg(s, cls = "", id = "") {
-  const pts = ring(s, 0, 16)
-    .map(([x, y]) => `${x},${-y}`)
-    .join(" ");
-  return `<polygon points="${pts}" class="${cls}" ${id ? `data-select="${esc(id)}"` : ""}/>`;
+  let boundary;
+  try {
+    boundary = ring(s, 0, 16);
+  } catch {
+    boundary = (s.nodes ?? []).map((n) => [n.point[0] + s.x, n.point[1] + s.y]);
+  }
+  const pts = boundary.map(([x, y]) => `${x},${-y}`).join(" ");
+  return `<${s.type === "profile" && !s.closed ? "polyline" : "polygon"} points="${pts}" class="${cls}" ${id ? `data-select="${esc(id)}"` : ""}/>`;
 }
 function renderSketch() {
   $("#sketch-shapes").innerHTML =
@@ -221,15 +259,24 @@ function renderSketch() {
       .join("");
   $("#draft-shape").innerHTML = draft
     ? shapeSvg(draft, "draft") +
-      `<text x="${draft.x}" y="${-draft.y - draft.h / 2 - 3}" class="dimension">${draft.type === "circle" ? "Ø " : ""}${round(draft.w)}${draft.type === "rect" ? ` × ${round(draft.h)}` : ""} mm</text>`
+      (draft.type === "profile"
+        ? draft.nodes
+            .map(
+              (n) =>
+                `<circle cx="${n.point[0] + draft.x}" cy="${-n.point[1] - draft.y}" r=".8" fill="#1F2D3D"/>`,
+            )
+            .join("")
+        : "") +
+      `<text x="${draft.x}" y="${-draft.y - draft.h / 2 - 3}" class="dimension">${draft.type === "circle" ? "Ø " : ""}${round(draft.w)}${draft.type !== "circle" ? ` × ${round(draft.h)}` : ""} mm</text>`
     : "";
 }
 function fitSketch() {
   const s = model.stock;
   let w = Math.max(150, (s?.w ?? 90) * 1.65),
     h = Math.max(120, (s?.h ?? 70) * 1.65);
-  const x = s?.x ?? 0,
-    y = s?.y ?? 0;
+  const box = s ? bounds(s) : null;
+  const x = box ? (box.minX + box.maxX) / 2 : 0,
+    y = box ? (box.minY + box.maxY) / 2 : 0;
   $("#sketch").setAttribute("viewBox", `${x - w / 2} ${-y - h / 2} ${w} ${h}`);
 }
 function renderProperties() {
@@ -244,18 +291,38 @@ function renderProperties() {
           : "설계 안내";
   if (mode === "cam") {
     $("#properties").innerHTML =
-      `<div class="section-kicker">FLAT END MILL</div><h3>평 엔드밀</h3><p class="muted">기본 돌출 형상을 소재로 사용합니다.<br>윗면에서 홈을 깊이별로 가공합니다.</p><form id="tool-form">${field("공구 지름", "diameter", tool.diameter, 0.5, 40, 0.5)}${field("깊이 간격", "stepDown", tool.stepDown, 0.1, 20, 0.1)}${field("가로 간격", "stepOver", tool.stepOver, 10, 80, 5)}${field("이송 속도", "feed", tool.feed, 10, 5000, 50)}${field("안전 높이", "safeHeight", tool.safeHeight, 1, 30)}<button class="primary full" type="submit">${icon("cut")}가공 경로 생성</button></form><label class="check"><input type="checkbox" id="show-paths" ${showPaths ? "checked" : ""}/>공구 경로 표시</label><div class="cam-stats"><div><span>제거 부피 (근사)</span><b id="removed-volume">—</b></div><div><span>남은 절삭량 (근사)</span><b id="residual-volume">—</b></div><small id="sim-resolution">격자 기반 소재 제거</small></div><div id="cam-warnings">${path ? path.warnings.map((w) => `<p class="warning">${esc(w)}</p>`).join("") : ""}</div><p class="quiet-note">상면 2.5D 포켓 · 바깥 윤곽은 이미 가공된 소재로 가정합니다. 시간은 이송 길이 기반 추정입니다. 실제 장비용 NC는 생성하지 않습니다.</p>`;
+      `<div class="section-kicker">FLAT END MILL</div><h3>평 엔드밀</h3><p class="muted">기본 돌출 형상을 소재로 사용합니다.<br>윗면에서 홈을 깊이별로 가공합니다.</p><form id="tool-form">${field("공구 지름", "diameter", tool.diameter, 0.5, 40, 0.5)}${field("깊이 간격", "stepDown", tool.stepDown, 0.1, 20, 0.1)}${field("가로 간격", "stepOver", tool.stepOver, 10, 80, 5)}${field("이송 속도", "feed", tool.feed, 10, 5000, 50)}${field("안전 높이", "safeHeight", tool.safeHeight, 1, 30)}<button class="primary full" type="submit" ${camPending ? "disabled" : ""}>${icon("cut")}${camPending ? "계산 중…" : "가공 경로 생성"}</button></form><label class="check"><input type="checkbox" id="show-paths" ${showPaths ? "checked" : ""}/>공구 경로 표시</label><div class="cam-stats"><div><span>제거 부피 (근사)</span><b id="removed-volume">—</b></div><div><span>남은 절삭량 (근사)</span><b id="residual-volume">—</b></div><small id="sim-resolution">격자 기반 소재 제거</small></div><div id="cam-warnings">${path ? path.warnings.map((w) => `<p class="warning">${esc(w)}</p>`).join("") : ""}</div><p class="quiet-note">상면 2.5D 포켓 · 바깥 윤곽은 이미 가공된 소재로 가정합니다. 시간은 이송 길이 기반 추정입니다. 실제 장비용 NC는 생성하지 않습니다.</p>`;
     return;
   }
   const a = active();
   if (!a) {
     $("#properties").innerHTML =
-      `<div class="section-kicker">SKETCH → SOLID</div><h3>선부터 시작하세요.</h3><p class="muted">상단에서 사각형 또는 원을 선택한 뒤 작업면에서 드래그하세요.</p><div class="instruction-card"><span>01</span><p>윤곽을 그립니다.</p></div><div class="instruction-card"><span>02</span><p>치수와 두께를 정합니다.</p></div><div class="instruction-card"><span>03</span><p>홈을 파고 가공해 봅니다.</p></div>`;
+      `<div class="section-kicker">SKETCH → SOLID</div><h3>선부터 시작하세요.</h3><p class="muted">상단에서 선 연결·원호·슬롯 또는 기본 도형을 선택하세요.</p><div class="instruction-card"><span>01</span><p>윤곽을 그립니다.</p></div><div class="instruction-card"><span>02</span><p>치수와 두께를 정합니다.</p></div><div class="instruction-card"><span>03</span><p>홈을 파고 가공해 봅니다.</p></div>`;
     return;
   }
   const isBase = !model.stock || (!draft && selected === "stock");
+  const outlineFields =
+    a.type === "profile"
+      ? `<p class="muted">${a.closed ? "닫힌 윤곽" : "작업면을 클릭해 꼭짓점을 추가하세요. 원호는 시작·통과·끝 순서로 클릭합니다."} · ${a.nodes.length}점<br>외곽 ${round(a.w)} × ${round(a.h)} mm</p>${draft ? '<div class="property-actions"><button type="button" data-action="close-profile">윤곽 닫기</button><button type="button" data-action="pop-node">마지막 점 취소</button></div>' : ""}${a.nodes.map((n, i) => `<div class="node-fields"><small>점 ${i + 1} · ${n.arcVia ? "원호 시작" : "직선 시작"}</small><div class="field-row">${field("점 " + (i + 1) + " X", "nx-" + i, n.point[0], -200, 200)}${field("점 " + (i + 1) + " Y", "ny-" + i, n.point[1], -200, 200)}</div>${n.arcVia ? `<div class="field-row">${field("원호 통과 X", "vx-" + i, n.arcVia[0], -200, 200)}${field("원호 통과 Y", "vy-" + i, n.arcVia[1], -200, 200)}</div>` : ""}</div>`).join("")}`
+      : field(
+          a.type === "circle"
+            ? "지름"
+            : a.type === "slot"
+              ? "슬롯 전체 길이"
+              : "폭",
+          "w",
+          a.w,
+          1,
+          200,
+        ) +
+        (["rect", "slot"].includes(a.type)
+          ? field(a.type === "slot" ? "슬롯 폭" : "길이", "h", a.h, 1, 200) +
+            (a.type === "slot"
+              ? field("회전 각도", "angle", a.angle, -180, 180)
+              : field("모서리 반경", "radius", a.radius, 0, 100))
+          : "");
   $("#properties").innerHTML =
-    `<div class="section-kicker">${isBase ? "BASE EXTRUSION" : "POCKET CUT"}</div><h3>${isBase ? "기본 돌출" : draft ? "새 파내기" : esc(a.name)}</h3><form id="shape-form">${!isBase ? `<label class="field text-field"><span>작업 이름</span><input name="name" aria-label="작업 이름" maxlength="80" value="${esc(a.name ?? `홈 ${model.features.length + 1}`)}"/></label>` : ""}<div class="field-row">${field("중심 X", "x", a.x, -200, 200, 0.5)}${field("중심 Y", "y", a.y, -200, 200, 0.5)}</div>${field(a.type === "circle" ? "지름" : "폭", "w", a.w, 1, 200, 0.5)}${a.type === "rect" ? field("길이", "h", a.h, 1, 200, 0.5) + field("모서리 반경", "radius", a.radius, 0, 100, 0.5) : ""}${isBase ? field("돌출 높이", "height", a.height ?? 12, 1, 80, 0.5) : field("파내기 깊이", "depth", a.depth ?? Math.min(4, model.stock.height), 0.1, model.stock.height, 0.1)}<button type="submit" class="primary full">${icon(isBase ? "extrude" : "cut")}${draft ? (isBase ? "돌출 만들기" : "파내기 적용") : "치수 변경 적용"}</button></form>${draft ? '<button class="text-button full" data-action="cancel">스케치 취소</button>' : `<div class="property-actions">${!isBase ? `<button data-action="duplicate">${icon("plus")}복제</button>` : ""}<button data-action="delete">${icon("trash")}삭제</button></div>`}<p class="quiet-note">${isBase ? "치수를 바꾸면 3D 형상이 다시 계산됩니다. 모든 홈이 외곽 안에 들어가야 합니다." : "깊이는 부품 윗면 기준입니다. 돌출 높이와 같은 깊이를 입력하면 관통 구멍이 됩니다."}</p>`;
+    `<div class="section-kicker">${isBase ? "BASE EXTRUSION" : "POCKET CUT"}</div><h3>${isBase ? "기본 돌출" : draft ? "새 파내기" : esc(a.name)}</h3><form id="shape-form">${!isBase ? `<label class="field text-field"><span>작업 이름</span><input name="name" aria-label="작업 이름" maxlength="80" value="${esc(a.name ?? `홈 ${model.features.length + 1}`)}"/></label>` : ""}<div class="field-row">${field("중심 X", "x", a.x, -200, 200, 0.5)}${field("중심 Y", "y", a.y, -200, 200, 0.5)}</div>${outlineFields}${isBase ? field("돌출 높이", "height", a.height ?? 12, 1, 80, 0.5) : field("파내기 깊이", "depth", a.depth ?? Math.min(4, model.stock.height), 0.1, model.stock.height, 0.1)}<button type="submit" class="primary full">${icon(isBase ? "extrude" : "cut")}${draft ? (isBase ? "돌출 만들기" : "파내기 적용") : "치수 변경 적용"}</button></form>${draft ? '<button class="text-button full" data-action="cancel">스케치 취소</button>' : `<div class="property-actions">${!isBase ? `<button data-action="duplicate">${icon("plus")}복제</button>` : ""}<button data-action="delete">${icon("trash")}삭제</button></div>`}<p class="quiet-note">${isBase ? "치수를 바꾸면 3D 형상이 다시 계산됩니다. 모든 홈이 외곽 안에 들어가야 합니다." : "깊이는 부품 윗면 기준입니다. 돌출 높이와 같은 깊이를 입력하면 관통 구멍이 됩니다."}</p>`;
 }
 function render() {
   $("#document-name").value = model.name;
@@ -264,7 +331,7 @@ function render() {
     .forEach((b) => b.classList.toggle("active", b.dataset.action === mode));
   $("#tools").innerHTML =
     mode === "design"
-      ? `<button data-action="select" class="${drawTool === "select" ? "active" : ""}">${icon("select")}선택</button><span class="divider"></span><button data-action="rect" class="${drawTool === "rect" ? "active" : ""}">${icon("rect")}사각형</button><button data-action="circle" class="${drawTool === "circle" ? "active" : ""}">${icon("circle")}원</button><span class="tool-description">${model.stock ? "그린 스케치를 파내기로 적용합니다" : "첫 스케치를 돌출해 부품을 만듭니다"}</span>`
+      ? `<button data-action="select" class="${drawTool === "select" ? "active" : ""}">${icon("select")}선택</button><span class="divider"></span><button data-action="rect" class="${drawTool === "rect" ? "active" : ""}">${icon("rect")}사각형</button><button data-action="circle" class="${drawTool === "circle" ? "active" : ""}">${icon("circle")}원</button><button data-action="profile">${icon("profile")}선 연결</button><button data-action="arc">${icon("arc")}3점 원호</button><button data-action="slot">${icon("slot")}슬롯</button><label class="snap-control">격자<select id="grid-step" aria-label="격자 스냅">${[0, 0.1, 0.5, 1, 5].map((v) => `<option value="${v}" ${v === gridStep ? "selected" : ""}>${v ? `${v}mm` : "끔"}</option>`).join("")}</select></label><label class="snap-control"><input id="endpoint-snap" type="checkbox" ${endpointSnap ? "checked" : ""}/>끝점</label><span class="tool-description">${model.stock ? "그린 스케치를 파내기로 적용합니다" : "첫 스케치를 돌출해 부품을 만듭니다"}</span>`
       : `<span class="cam-tool-label">${icon("cut")}상면 포켓 밀링</span><span class="tool-description">공구 설정 → 경로 생성 → 소재 제거 확인</span>`;
   document.querySelector('[data-action="undo"]').disabled = !past.length;
   document.querySelector('[data-action="redo"]').disabled = !future.length;
@@ -298,15 +365,17 @@ function render() {
     mode === "cam"
       ? "소재 제거 시뮬레이션"
       : view === "sketch"
-        ? "XY 스케치 평면 · 1mm 스냅"
+        ? `XY 스케치 평면 · 격자 ${gridStep ? gridStep + "mm" : "끔"} / 끝점 ${endpointSnap ? "켜짐" : "꺼짐"}`
         : "모델 보기 · Z↑";
   $("#view-hint").textContent =
     view === "sketch"
-      ? drawTool === "circle"
-        ? "중심에서 바깥으로 드래그 · 반지름 지정"
-        : drawTool === "rect"
-          ? "대각선으로 드래그 · 사각형 그리기"
-          : "형상 클릭으로 선택 · 오른쪽에서 치수 편집"
+      ? ["profile", "arc"].includes(drawTool)
+        ? "작업면 클릭으로 점 추가 · 윤곽 닫기 후 적용"
+        : drawTool === "circle"
+          ? "중심에서 바깥으로 드래그 · 반지름 지정"
+          : drawTool === "rect"
+            ? "대각선으로 드래그 · 사각형 그리기"
+            : "형상 클릭으로 선택 · 오른쪽에서 치수 편집"
       : "드래그 회전 · 휠 확대 · 우클릭 이동";
   $("#cam-legend").hidden = mode !== "cam";
   $("#timeline").hidden = mode === "cam";
@@ -345,13 +414,16 @@ function requestSimulation(value) {
   });
 }
 function startShape(type) {
+  arcClicks = [];
   mode = "design";
   view = "sketch";
   drawTool = type;
   selected = null;
   draft = {
     id: uid(),
-    type,
+    type: type === "arc" ? "profile" : type,
+    angle: 0,
+    ...(["profile", "arc"].includes(type) ? { nodes: [], closed: false } : {}),
     x: model.stock?.x ?? 0,
     y: model.stock?.y ?? 0,
     w: type === "circle" ? 20 : 40,
@@ -369,7 +441,9 @@ function download(data, name, type) {
   const a = document.createElement("a");
   a.href = url;
   a.download = name;
+  document.body.append(a);
   a.click();
+  a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function setMode(next) {
@@ -381,6 +455,31 @@ function setMode(next) {
   render();
 }
 const actions = {
+  profile: () => startShape("profile"),
+  arc: () => startShape("arc"),
+  slot: () => startShape("slot"),
+  "close-profile": () => {
+    if (draft?.type !== "profile") return;
+    draft.closed = true;
+    try {
+      syncProfile(draft);
+    } catch (err) {
+      toast(err.message, true);
+      draft.closed = false;
+      return;
+    }
+    render();
+  },
+  "pop-node": () => {
+    if (draft?.type !== "profile") return;
+    draft.closed = false;
+    if (drawTool === "arc") {
+      arcClicks = [];
+      draft.nodes = [];
+    } else draft.nodes = draft.nodes.slice(0, -1);
+    syncProfile(draft);
+    render();
+  },
   rect: () => startShape("rect"),
   circle: () => startShape("circle"),
   select: () => {
@@ -434,6 +533,16 @@ const actions = {
     fitSketch();
     viewer.fit(null);
     toast("새 설계입니다. 실행 취소로 이전 설계를 복구할 수 있습니다.");
+  },
+  "free-sample": () => {
+    mode = "design";
+    view = "solid";
+    commit(clone(freeExample));
+    fitSketch();
+    viewer.fit(model.stock);
+    toast(
+      "L자·회전 슬롯·3점 원호 예제입니다. 각 작업을 선택해 치수를 편집하세요.",
+    );
   },
   sample: () => {
     mode = "design";
@@ -501,19 +610,36 @@ document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-action]");
   if (b && !b.disabled) actions[b.dataset.action]?.();
 });
+function readShapeValues(shape, values) {
+  const s = clone(shape);
+  for (const [key, v] of Object.entries(values)) {
+    const match = key.match(/^(nx|ny|vx|vy)-(\d+)$/);
+    if (match) {
+      const n = s.nodes[Number(match[2])],
+        index = match[1].endsWith("x") ? 0 : 1;
+      n[match[1].startsWith("v") ? "arcVia" : "point"][index] = Number(v);
+    } else s[key] = key === "name" ? v.trim() || "홈" : Number(v);
+  }
+  if (s.type === "profile") syncProfile(s);
+  if (s.type === "circle") {
+    s.h = s.w;
+    s.radius = 0;
+  }
+  return s;
+}
 document.addEventListener("submit", (e) => {
   e.preventDefault();
   const values = Object.fromEntries(new FormData(e.target));
   if (e.target.id === "shape-form") {
-    const next = clone(model),
-      s = clone(active());
-    if (!s) return;
-    for (const [key, v] of Object.entries(values))
-      s[key] = key === "name" ? v.trim() || "홈" : Number(v);
-    if (s.type === "circle") {
-      s.h = s.w;
-      s.radius = 0;
+    const next = clone(model);
+    let s;
+    try {
+      s = active() ? readShapeValues(active(), values) : null;
+    } catch (err) {
+      toast(err.message, true);
+      return;
     }
+    if (!s) return;
     const base = !model.stock || (!draft && selected === "stock");
     if (base) {
       s.id = "stock";
@@ -541,13 +667,12 @@ document.addEventListener("submit", (e) => {
         Object.entries(values).map(([k, v]) => [k, Number(v)]),
       );
       validateTool(next);
-      const generated = generatePaths(model, next);
       invalidate();
       tool = next;
-      path = generated;
-      fraction = 0;
+      camPending = true;
+      camWorker.postMessage({ model, tool, revision });
       render();
-      toast("가공 경로를 생성했습니다. 재생을 눌러 소재 제거를 확인하세요.");
+      $("#status-text").textContent = "가공 윤곽 계산 중…";
     } catch (err) {
       toast(err.message, true);
     }
@@ -578,6 +703,14 @@ $("#file-input").addEventListener("change", async (e) => {
   e.target.value = "";
 });
 document.addEventListener("change", (e) => {
+  if (e.target.id === "grid-step") {
+    gridStep = Number(e.target.value);
+    render();
+  }
+  if (e.target.id === "endpoint-snap") {
+    endpointSnap = e.target.checked;
+    render();
+  }
   if (e.target.id === "sim-speed") speed = Number(e.target.value);
   if (e.target.id === "show-paths") {
     showPaths = e.target.checked;
@@ -585,6 +718,11 @@ document.addEventListener("change", (e) => {
   }
   if (e.target.closest("#tool-form") && e.target.tagName === "INPUT" && path) {
     invalidate();
+    const submit = $("#tool-form button[type=submit]");
+    if (submit) {
+      submit.disabled = false;
+      submit.innerHTML = icon("cut") + "가공 경로 생성";
+    }
     viewer.showModel(model);
     renderSimControls();
     $("#cam-warnings").innerHTML =
@@ -593,28 +731,28 @@ document.addEventListener("change", (e) => {
 });
 document.addEventListener("input", (e) => {
   if (draft && e.target.closest("#shape-form")) {
-    const preview = clone(draft);
-    for (const [key, value] of new FormData($("#shape-form"))) {
-      preview[key] = key === "name" ? value : Number(value);
-    }
-    if (preview.type === "circle") preview.h = preview.w;
-    if (
-      [preview.x, preview.y, preview.w, preview.h, preview.radius].every(
-        Number.isFinite,
-      ) &&
-      preview.w >= 1 &&
-      preview.w <= 200 &&
-      preview.h >= 1 &&
-      preview.h <= 200 &&
-      preview.radius >= 0 &&
-      preview.radius <= Math.min(preview.w, preview.h) / 2
-    ) {
-      draft = preview;
-      renderSketch();
-    }
+    try {
+      const preview = readShapeValues(
+        draft,
+        Object.fromEntries(new FormData($("#shape-form"))),
+      );
+      if (
+        [preview.x, preview.y, preview.w, preview.h, preview.radius].every(
+          Number.isFinite,
+        )
+      ) {
+        draft = preview;
+        renderSketch();
+      }
+    } catch {}
   }
-  if (e.target.closest("#tool-form") && path) {
+  if (e.target.closest("#tool-form") && (path || camPending)) {
     invalidate();
+    const submit = $("#tool-form button[type=submit]");
+    if (submit) {
+      submit.disabled = false;
+      submit.innerHTML = icon("cut") + "가공 경로 생성";
+    }
     viewer.showModel(model);
     renderSimControls();
     $("#removed-volume").textContent = "—";
@@ -649,10 +787,86 @@ function sketchPoint(e) {
   const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(
     $("#sketch").getScreenCTM().inverse(),
   );
-  return { x: Math.round(pt.x), y: -Math.round(pt.y) };
+  let point = { x: pt.x, y: -pt.y };
+  if (endpointSnap) {
+    const vertices = [
+      ...(model.stock ? [model.stock] : []),
+      ...model.features,
+    ].flatMap((s) =>
+      s.type === "profile"
+        ? s.nodes.map((n) => [n.point[0] + s.x, n.point[1] + s.y])
+        : s.type === "rect"
+          ? ring(s)
+          : [],
+    );
+    if (draft?.type === "profile")
+      vertices.push(
+        ...draft.nodes.map((n) => [n.point[0] + draft.x, n.point[1] + draft.y]),
+      );
+    const matrix = $("#sketch").getScreenCTM(),
+      threshold = 8 / Math.hypot(matrix.a, matrix.b);
+    let best = threshold;
+    for (const [x, y] of vertices) {
+      const d = Math.hypot(x - point.x, y - point.y);
+      if (d < best) {
+        best = d;
+        point = { x, y };
+      }
+    }
+    if (best < threshold) return point;
+  }
+  return {
+    x: gridStep
+      ? round(Math.round(point.x / gridStep) * gridStep)
+      : round(point.x),
+    y: gridStep
+      ? round(Math.round(point.y / gridStep) * gridStep)
+      : round(point.y),
+  };
 }
 $("#sketch").addEventListener("pointerdown", (e) => {
   if (e.button !== 0 || drawTool === "select" || !draft) return;
+  if (draft.type === "profile") {
+    if (draft.closed) return;
+    const p = sketchPoint(e),
+      point = [round(p.x - draft.x), round(p.y - draft.y)];
+    if (drawTool === "arc") {
+      arcClicks.push(point);
+      if (arcClicks.length < 3) {
+        draft.nodes = arcClicks.map((p) => ({ id: uid(), point: p }));
+      } else {
+        draft.nodes = [
+          { id: uid(), point: arcClicks[0], arcVia: arcClicks[1] },
+          { id: uid(), point: arcClicks[2] },
+        ];
+        try {
+          syncProfile(draft);
+          draft.closed = true;
+        } catch (err) {
+          toast(err.message, true);
+          arcClicks = [];
+          draft.nodes = [];
+        }
+      }
+    } else {
+      const first = draft.nodes[0]?.point;
+      if (
+        first &&
+        draft.nodes.length >= 3 &&
+        Math.hypot(first[0] - point[0], first[1] - point[1]) < 0.001
+      )
+        draft.closed = true;
+      else if (draft.nodes.length < 64)
+        draft.nodes = [...draft.nodes, { id: uid(), point }];
+      else toast("꼭짓점은 최대 64개입니다.", true);
+    }
+    try {
+      syncProfile(draft);
+    } catch {}
+    render();
+    e.preventDefault();
+    return;
+  }
   dragStart = sketchPoint(e);
   $("#sketch").setPointerCapture(e.pointerId);
   e.preventDefault();
@@ -660,12 +874,14 @@ $("#sketch").addEventListener("pointerdown", (e) => {
 $("#sketch").addEventListener("pointermove", (e) => {
   if (!dragStart || !draft) return;
   const p = sketchPoint(e);
-  if (drawTool === "rect") {
+  if (["rect", "slot"].includes(drawTool)) {
     draft.x = round((p.x + dragStart.x) / 2);
     draft.y = round((p.y + dragStart.y) / 2);
     draft.w = Math.max(1, Math.min(200, Math.abs(p.x - dragStart.x)));
     draft.h = Math.max(1, Math.min(200, Math.abs(p.y - dragStart.y)));
     draft.radius = 0;
+    if (drawTool === "slot" && draft.h > draft.w)
+      [draft.w, draft.h] = [draft.h, draft.w];
   } else {
     draft.x = dragStart.x;
     draft.y = dragStart.y;

@@ -1287,3 +1287,33 @@ dialog p {
     padding: 7px;
   }
 }
+
+.snap-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.snap-control select {
+  max-width: 65px;
+  border: 1px solid #ddd;
+  background: #f7f7f6;
+}
+.node-fields {
+  border-top: 1px solid #e0e4e2;
+  padding-top: 8px;
+}
+.node-fields small {
+  color: #64716f;
+}
+.tools {
+  flex-wrap: wrap;
+}
+.toolstrip {
+  height: auto;
+  min-height: 52px;
+}
+.draft {
+  fill: rgba(31, 45, 61, 0.06);
+}
