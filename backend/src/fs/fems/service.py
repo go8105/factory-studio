@@ -12,8 +12,10 @@ from zoneinfo import ZoneInfo, available_timezones
 
 from sqlalchemy import Connection
 
+from fs.common import master
 from fs.common.auth import AuthContext
 from fs.common.db import get_engine
+from fs.common.engine import read
 from fs.common.errors import ApiError
 from fs.common.idempotency import find_receipt, request_digest, save_receipt
 from fs.common.scope import read_scope, write_scope
@@ -22,57 +24,86 @@ from fs.fems import repository as repo
 MODULE = "fems"
 
 
-def _not_found() -> ApiError:
-    return ApiError(404, "NOT_FOUND", "에너지원을 찾을 수 없습니다.")
+SOURCE = master.Master(
+    module=MODULE,
+    table="fems.energy_source",
+    columns=(
+        "source_code",
+        "name",
+        "source_kind",
+        "measure_unit",
+        "is_billable",
+        "is_active",
+    ),
+    sort={"sourceCode": "source_code", "name": "name", "createdAt": "created_at"},
+    default_sort="source_code ASC",
+    unique=("source_code",),
+    filters={"active": "is_active"},
+    # energy_source를 참조하는 테이블 (schema.json FK r99·r101·r103·r107·r110)
+    references=(
+        master.Reference("fems.meter_channel", "energy_source_id", "계측 채널"),
+        master.Reference("fems.energy_factor", "energy_source_id", "환산·배출계수"),
+        master.Reference("fems.tariff", "energy_source_id", "요금제"),
+        master.Reference("fems.energy_target", "energy_source_id", "에너지 목표"),
+        master.Reference("fems.energy_baseline", "energy_source_id", "기준선"),
+    ),
+    not_found="에너지원을 찾을 수 없습니다.",
+    duplicate_field="sourceCode",
+    duplicate_message="이미 사용 중인 코드입니다.",
+    referenced_message=(
+        "다른 기준정보가 참조 중이라 삭제할 수 없습니다. "
+        "사용 안 함으로 바꾸면 새 입력에서 제외됩니다."
+    ),
+)
 
 
-def _duplicate_code() -> ApiError:
-    return ApiError(
-        400,
-        "VALIDATION_FAILED",
-        "입력값을 확인해 주세요.",
-        {"fields": {"sourceCode": "이미 사용 중인 코드입니다."}},
-    )
+def _source(
+    connection: Connection, scoped: AuthContext, source_id: int
+) -> dict[str, Any] | None:
+    """다른 기준정보가 에너지원을 고를 때 쓴다."""
+    row = master.fetch(connection, SOURCE, scoped, source_id)
+    return master.present(row) if row else None
 
 
-def _order(sort: str | None) -> str:
-    if sort is None:
-        return "source_code ASC"
-    field, _, direction = sort.partition(":")
-    column = repo.SOURCE_SORT.get(field)
-    if column is None or direction not in ("asc", "desc"):
+def _unit_in_use(
+    connection: Connection,
+    scoped: AuthContext,
+    merged: dict[str, Any],
+    current: dict[str, Any] | None,
+    row_id: int | None,
+) -> None:
+    # 계측값·계수·요금 단가는 계측 단위를 전제로 저장돼 있다. 단위를 바꾸면 하위 계산이 조용히 틀린다.
+    if current is None or merged["measure_unit"] == current["measure_unit"]:
+        return
+    references = master.references(connection, SOURCE, scoped, row_id)
+    if references:
         raise ApiError(
-            400,
-            "VALIDATION_FAILED",
-            "정렬 조건이 올바르지 않습니다.",
-            {"fields": {"sort": f"허용: {', '.join(repo.SOURCE_SORT)} (asc|desc)"}},
+            409,
+            "PRECONDITION_NOT_MET",
+            "참조 중인 에너지원은 계측 단위를 바꿀 수 없습니다. 새 에너지원을 등록하세요.",
+            {"reason": "UNIT_IN_USE", "references": references},
         )
-    return f"{column} {direction.upper()}"
 
 
-def _read():
-    engine = get_engine().execution_options(
-        isolation_level="REPEATABLE READ", postgresql_readonly=True
-    )
-    return engine.begin()
+# 공통 엔진: 조회 트랜잭션(REPEATABLE READ · 읽기 전용)
+_read = read
 
 
 def list_sources(
     context: AuthContext, active: bool | None, sort: str | None, offset: int, limit: int
 ) -> tuple[list[dict[str, Any]], int]:
-    order = _order(sort)
-    with _read() as connection:
-        scoped = read_scope(connection, context, MODULE)
-        return repo.list_sources(connection, scoped, active, order, offset, limit)
+    return master.listing(
+        SOURCE,
+        context,
+        filters={"active": active},
+        sort=sort,
+        offset=offset,
+        limit=limit,
+    )
 
 
 def get_source(context: AuthContext, source_id: int) -> dict[str, Any]:
-    with _read() as connection:
-        scoped = read_scope(connection, context, MODULE)
-        found = repo.get_source(connection, scoped, source_id)
-    if found is None:
-        raise _not_found()
-    return found
+    return master.detail(SOURCE, context, source_id)
 
 
 def _replay(
@@ -85,102 +116,17 @@ def _replay(
 def create_source(
     context: AuthContext, values: dict[str, Any], key: str
 ) -> dict[str, Any]:
-    with get_engine().begin() as connection:
-        scoped = write_scope(connection, context, MODULE)
-        operation = "fems.energy_source.create"
-        digest, cached = _replay(connection, scoped, operation, key, values)
-        if cached is not None:
-            return cached
-        if repo.code_taken(connection, scoped, values["source_code"], None):
-            raise _duplicate_code()
-        created = repo.insert_source(connection, scoped, values)
-        save_receipt(
-            connection,
-            scoped,
-            operation,
-            key,
-            digest,
-            "energy_source",
-            created["id"],
-            created,
-            201,
-        )
-        return created
+    return master.create(SOURCE, context, values, key)
 
 
 def update_source(
     context: AuthContext, source_id: int, values: dict[str, Any], key: str
 ) -> dict[str, Any]:
-    if not values:
-        raise ApiError(400, "VALIDATION_FAILED", "변경할 항목이 없습니다.")
-    with get_engine().begin() as connection:
-        scoped = write_scope(connection, context, MODULE)
-        operation = "fems.energy_source.update"
-        digest, cached = _replay(
-            connection, scoped, operation, key, {"id": source_id, **values}
-        )
-        if cached is not None:
-            return cached
-        current = repo.get_source(connection, scoped, source_id)
-        if current is None:
-            raise _not_found()
-        if "source_code" in values and repo.code_taken(
-            connection, scoped, values["source_code"], source_id
-        ):
-            raise _duplicate_code()
-        # 계측값·계수·요금 단가는 계측 단위를 전제로 저장돼 있다. 단위를 바꾸면 하위 계산이 조용히 틀린다.
-        if values.get("measure_unit", current["measureUnit"]) != current["measureUnit"]:
-            references = repo.source_references(connection, scoped, source_id)
-            if references:
-                raise ApiError(
-                    409,
-                    "PRECONDITION_NOT_MET",
-                    "참조 중인 에너지원은 계측 단위를 바꿀 수 없습니다. 새 에너지원을 등록하세요.",
-                    {"reason": "UNIT_IN_USE", "references": references},
-                )
-        updated = repo.update_source(connection, scoped, source_id, values)
-        save_receipt(
-            connection,
-            scoped,
-            operation,
-            key,
-            digest,
-            "energy_source",
-            source_id,
-            updated,
-        )
-        return updated
+    return master.update(SOURCE, context, source_id, values, key, check=_unit_in_use)
 
 
 def delete_source(context: AuthContext, source_id: int, key: str) -> None:
-    with get_engine().begin() as connection:
-        scoped = write_scope(connection, context, MODULE)
-        operation = "fems.energy_source.delete"
-        digest, cached = _replay(connection, scoped, operation, key, {"id": source_id})
-        if cached is not None:
-            return
-        if repo.get_source(connection, scoped, source_id) is None:
-            raise _not_found()
-        references = repo.source_references(connection, scoped, source_id)
-        if references:
-            raise ApiError(
-                409,
-                "REFERENCED_BY_OTHERS",
-                "다른 기준정보가 참조 중이라 삭제할 수 없습니다. 사용 안 함으로 바꾸면 새 입력에서 제외됩니다.",
-                {"references": references},
-            )
-        repo.delete_source(connection, scoped, source_id)
-        save_receipt(
-            connection,
-            scoped,
-            operation,
-            key,
-            digest,
-            "energy_source",
-            source_id,
-            {},
-            204,
-        )
+    master.delete(SOURCE, context, source_id, key)
 
 
 def _equipment_not_found() -> ApiError:
@@ -636,7 +582,7 @@ def create_factor(
         digest, cached = _replay(connection, scoped, operation, key, values)
         if cached is not None:
             return cached
-        source = repo.get_source(connection, scoped, values["energy_source_id"])
+        source = _source(connection, scoped, values["energy_source_id"])
         if source is None:
             raise _invalid_energy_source()
         # 용수(UTILITY)는 TOE 합산·배출량 계산에서 빠진다. 계수를 두면 쓰이지 않는 값이 남는다.
@@ -1115,7 +1061,7 @@ def _check_channel(
     final: dict[str, Any],
     channel_id: int | None,
 ) -> None:
-    source = repo.get_source(connection, scoped, final["energy_source_id"])
+    source = _source(connection, scoped, final["energy_source_id"])
     if source is None:
         raise _invalid_energy_source()
     # 기간 합계·환산·요금은 누적 채널 값을 에너지원 계측 단위로 본다. 순시(kW 등)만 단위가 달라도 된다.

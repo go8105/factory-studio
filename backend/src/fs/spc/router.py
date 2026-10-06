@@ -7,7 +7,8 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Header, Query
 from pydantic import BaseModel
 
-from fs.common.auth import AuthContext, require_csrf, resolve_auth
+from fs.common.auth import AuthContext, resolve_auth
+from fs.common.engine import mutation_key
 from fs.common.errors import ApiError
 from fs.spc import service
 from fs.spc.schema import (
@@ -27,11 +28,8 @@ From = Annotated[date | None, Query(alias="from")]
 To = Annotated[date | None, Query(alias="to")]
 
 
-def _mutation(context: AuthContext, csrf: str | None, key: str | None) -> str:
-    require_csrf(context, csrf)
-    if not key or len(key) > 100:
-        raise ApiError(400, "VALIDATION_FAILED", "Idempotency-Key가 필요합니다.")
-    return key
+# 공통 엔진: CSRF·멱등 키 확인
+_mutation = mutation_key
 
 
 def _values(

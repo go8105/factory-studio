@@ -73,8 +73,10 @@ def recent(connection: Connection, module_key: str) -> list[dict[str, Any]]:
     rows = connection.execute(
         text(
             """
+            -- 최근 = 등록 순서(id). created_at은 트랜잭션 시작 시각이라
+            -- 장비 시계가 미세하게 뒤로 가면 순서가 뒤집힌다(W0-4에서 드러남).
             SELECT nickname, rating, comment, created_at FROM core.app_review
-            WHERE module_key=:m ORDER BY created_at DESC, id DESC LIMIT 5
+            WHERE module_key=:m ORDER BY id DESC LIMIT 5
             """
         ),
         {"m": _module(module_key)},

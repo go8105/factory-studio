@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
+from functools import partial
 from typing import Any
 from zoneinfo import available_timezones
 
@@ -13,6 +14,7 @@ from sqlalchemy import Connection
 
 from fs.common.auth import AuthContext
 from fs.common.db import get_engine
+from fs.common.engine import action, read
 from fs.common.errors import ApiError
 from fs.common.idempotency import find_receipt, request_digest, save_receipt
 from fs.common.scope import read_scope, write_scope
@@ -26,11 +28,8 @@ Check = Callable[
 ]
 
 
-def _read():
-    engine = get_engine().execution_options(
-        isolation_level="REPEATABLE READ", postgresql_readonly=True
-    )
-    return engine.begin()
+# 공통 엔진: 조회 트랜잭션(REPEATABLE READ · 읽기 전용)
+_read = read
 
 
 def _field(field: str, message: str) -> ApiError:
@@ -365,33 +364,8 @@ def _locked(message: str, reason: str) -> ApiError:
     return ApiError(409, "PRECONDITION_NOT_MET", message, {"reason": reason})
 
 
-def _action(
-    context: AuthContext,
-    operation: str,
-    key: str,
-    body: Any,
-    fn: Callable[[Connection, AuthContext], tuple[dict[str, Any], str, int]],
-    status: int = 200,
-) -> dict[str, Any]:
-    with get_engine().begin() as connection:
-        scoped = write_scope(connection, context, MODULE)
-        digest = request_digest(body)
-        cached = find_receipt(connection, scoped, operation, key, digest)
-        if cached is not None:
-            return cached
-        result, entity, entity_id = fn(connection, scoped)
-        save_receipt(
-            connection,
-            scoped,
-            operation,
-            key,
-            digest,
-            entity,
-            entity_id,
-            result,
-            status,
-        )
-        return result
+# 공통 엔진(fs.common.engine.action): 공간 잠금 → 멱등 영수증 → 처리 → 영수증 저장
+_action = partial(action, MODULE)
 
 
 def _with_children(
