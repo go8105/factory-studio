@@ -1,7 +1,7 @@
 {
-  "version": "0.18.0",
-  "task": "W0-1",
-  "date": "2026-10-05",
+  "version": "0.19.0",
+  "task": "W1a",
+  "date": "2026-10-06",
   "status": "구현 명세 / 환경별 적용 상태는 인계 참조",
   "migration_revision": "fs029b_cmms_module",
   "tables": [
@@ -11753,6 +11753,1850 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "core.holiday",
+      "label": "휴일",
+      "scope": "generation",
+      "phase": "DSN-16",
+      "retention": "세대 정리",
+      "note": "DSN-16 Q1. 회사 공통 휴일 달력(core 운영). BEMS 스케줄·FEMS TOU·MES 근무조·HR 근태가 날짜로 읽는다(FK 없음)",
+      "sub_module": "calendar",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "holiday_on",
+          "label": "휴일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "이름",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kind",
+          "label": "구분",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "PUBLIC 공휴일 / COMPANY 회사 휴무"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.department",
+      "label": "부서",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F01(Q1). 부서 코드 원천. 상위 부서로 계층. ERP·ELB 등은 코드를 가져가 맞춘다(FK 없음)",
+      "sub_module": "org",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "부서 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "부서명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "parent_id",
+          "label": "상위 부서",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "display_order",
+          "label": "표시 순서",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.title",
+      "label": "직위·직책",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F01. GRADE 직위(사원·대리·과장…) / DUTY 직책(팀장·부서장). 부서장 직책이 휴가 승인자(Q3)",
+      "sub_module": "org",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "title_kind",
+          "label": "구분",
+          "type": "varchar(6)",
+          "nullable": false,
+          "default": null,
+          "rule": "GRADE / DUTY"
+        },
+        {
+          "name": "code",
+          "label": "코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "이름",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "rank_order",
+          "label": "서열",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_head",
+          "label": "부서장 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "rule": "DUTY만. 휴가 승인 권한"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.work_pattern",
+      "label": "근무 형태",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F11. 일근·교대. 정상 근태 자동 생성의 기준(Q2). MES 근무조와 별개(FS-013 D1)",
+      "sub_module": "attendance",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "이름",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "pattern_kind",
+          "label": "유형",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "DAY / TWO_SHIFT / THREE_SHIFT"
+        },
+        {
+          "name": "start_time",
+          "label": "시작 시각",
+          "type": "time",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "scheduled_minutes",
+          "label": "소정 근로(분)",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "break_minutes",
+          "label": "휴게(분)",
+          "type": "integer",
+          "nullable": false,
+          "default": "60",
+          "rule": ""
+        },
+        {
+          "name": "works_weekend",
+          "label": "주말 근무",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.employee",
+      "label": "사원",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F02·F04(Q1). 사원 코드 원천. 현재 부서·직위·직책은 확정 발령으로만 바뀐다. 민감 정보 칸 없음(D79)",
+      "sub_module": "org",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "employee_code",
+          "label": "사원 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "이름",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "hire_date",
+          "label": "입사일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "재직 상태",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": "'ACTIVE'",
+          "rule": "ACTIVE 재직 / LEAVE 휴직 / RETIRED 퇴직"
+        },
+        {
+          "name": "department_id",
+          "label": "현재 부서",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "grade_id",
+          "label": "현재 직위",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "duty_id",
+          "label": "현재 직책",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "work_pattern_id",
+          "label": "근무 형태",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "retire_date",
+          "label": "퇴직일",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "retire_reason",
+          "label": "퇴직 사유",
+          "type": "varchar(200)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.appointment",
+      "label": "발령",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F03·F04. 입사·이동·승진·직책·휴직·복직·퇴직. 확정 시 사원 현재값 갱신, 이후 불변",
+      "sub_module": "org",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "appointment_no",
+          "label": "발령 번호",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "employee_id",
+          "label": "사원",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kind",
+          "label": "발령 종류",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "HIRE / TRANSFER / PROMOTION / DUTY / LEAVE / RETURN / RETIRE"
+        },
+        {
+          "name": "effective_date",
+          "label": "발령일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "department_id",
+          "label": "부서",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "grade_id",
+          "label": "직위",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "duty_id",
+          "label": "직책",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "사유",
+          "type": "varchar(200)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / confirmed"
+        },
+        {
+          "name": "confirmed_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.qualification",
+      "label": "자격·교육",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F06(Q6). 설비 운전 자격·안전 교육 등. 만료 30일 전 경고(조회)",
+      "sub_module": "org",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "employee_id",
+          "label": "사원",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "qual_kind",
+          "label": "구분",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "CERT 자격 / TRAINING 교육"
+        },
+        {
+          "name": "name",
+          "label": "자격·과정명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "issuer",
+          "label": "발급·주관",
+          "type": "varchar(100)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "acquired_on",
+          "label": "취득·이수일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "expires_on",
+          "label": "만료일",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.attendance",
+      "label": "일 근태",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F12·F14(Q2). 근무 형태·core 휴일로 자동 생성(AUTO) 후 예외만 수정(MANUAL). 월 마감 확정 후 수정 불가",
+      "sub_module": "attendance",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "employee_id",
+          "label": "사원",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "work_date",
+          "label": "근무일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "day_kind",
+          "label": "일 구분",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "WORKDAY / OFFDAY / HOLIDAY(core 휴일)"
+        },
+        {
+          "name": "status",
+          "label": "근태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "NORMAL / LATE / EARLY / ABSENT / LEAVE / HALF_LEAVE / OFF"
+        },
+        {
+          "name": "clock_in",
+          "label": "출근",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "clock_out",
+          "label": "퇴근",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "overtime_minutes",
+          "label": "연장(분)",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "rule": ""
+        },
+        {
+          "name": "night_minutes",
+          "label": "야간(분)",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "rule": "22~06시"
+        },
+        {
+          "name": "holiday_minutes",
+          "label": "휴일 근로(분)",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "rule": ""
+        },
+        {
+          "name": "source",
+          "label": "출처",
+          "type": "varchar(6)",
+          "nullable": false,
+          "default": "'AUTO'",
+          "rule": "AUTO / MANUAL"
+        },
+        {
+          "name": "note",
+          "label": "비고",
+          "type": "varchar(200)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.attendance_close",
+      "label": "월 근태 마감",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F15. 월당 확정 1건. 확정 시 사원별 합계를 급여 입력으로 고정. 재마감은 새 버전",
+      "sub_module": "attendance",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "close_month",
+          "label": "마감 월",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY-MM'"
+        },
+        {
+          "name": "version",
+          "label": "버전",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / confirmed / superseded"
+        },
+        {
+          "name": "confirmed_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.leave_balance",
+      "label": "연차 발생",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F13. 사원·연도별 발생 일수. 사용·잔여는 승인 휴가에서 조회 계산",
+      "sub_module": "leave",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "employee_id",
+          "label": "사원",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "leave_year",
+          "label": "연도",
+          "type": "varchar(4)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY'"
+        },
+        {
+          "name": "granted_days",
+          "label": "발생 일수",
+          "type": "numeric(5,1)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.leave_request",
+      "label": "휴가 신청",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F13(Q3). 부서장(HR 조직의 부서장 직책) 승인. 승인 시 일 근태를 LEAVE로",
+      "sub_module": "leave",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "request_no",
+          "label": "신청 번호",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "employee_id",
+          "label": "사원",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "leave_kind",
+          "label": "휴가 종류",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "ANNUAL / HALF_AM / HALF_PM / SICK / SPECIAL"
+        },
+        {
+          "name": "from_date",
+          "label": "시작일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "to_date",
+          "label": "종료일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "days",
+          "label": "일수",
+          "type": "numeric(4,1)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "사유",
+          "type": "varchar(200)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'REQUESTED'",
+          "rule": "REQUESTED / APPROVED / REJECTED / CANCELLED"
+        },
+        {
+          "name": "approver_code",
+          "label": "승인자 사원 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "decided_at",
+          "label": "처리 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.pay_item",
+      "label": "급여 항목",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F21(Q4). 지급·공제. 계산 방식별 비율(연장 1.5배·공제 %)은 합성 고정값",
+      "sub_module": "payroll",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "항목 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "항목명",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "item_kind",
+          "label": "구분",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "EARNING 지급 / DEDUCTION 공제"
+        },
+        {
+          "name": "calc_kind",
+          "label": "계산 방식",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "BASE 기본급 / FIXED 고정 / OVERTIME / NIGHT / HOLIDAY(통상시급 × rate) / BONUS / RATE(과세 지급 합계 × rate%)"
+        },
+        {
+          "name": "rate",
+          "label": "배율·비율",
+          "type": "numeric(8,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_taxable",
+          "label": "과세",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "display_order",
+          "label": "순서",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.pay_base",
+      "label": "급여 기준",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F22. 사원별 기본급, 적용 시작 월 이력(가장 최근 시작 월 적용)",
+      "sub_module": "payroll",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "employee_id",
+          "label": "사원",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "effective_from",
+          "label": "적용 시작 월",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY-MM'"
+        },
+        {
+          "name": "base_salary",
+          "label": "월 기본급",
+          "type": "numeric(18,0)",
+          "nullable": false,
+          "default": null,
+          "rule": "원"
+        },
+        {
+          "name": "ordinary_hours",
+          "label": "월 통상 근로시간",
+          "type": "integer",
+          "nullable": false,
+          "default": "209",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.pay_base_item",
+      "label": "급여 기준 고정 수당",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F22. 급여 기준별 FIXED 항목 금액",
+      "sub_module": "payroll",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "pay_base_id",
+          "label": "급여 기준",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "pay_item_id",
+          "label": "급여 항목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "amount",
+          "label": "금액",
+          "type": "numeric(18,0)",
+          "nullable": false,
+          "default": null,
+          "rule": "원"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.bonus_rule",
+      "label": "상여 규칙",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F27(Q5). 지정 월에 기본급 × 지급률을 BONUS 항목으로 계산",
+      "sub_module": "payroll",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "payable_mm",
+          "label": "지급 월",
+          "type": "varchar(2)",
+          "nullable": false,
+          "default": null,
+          "rule": "'01'~'12'"
+        },
+        {
+          "name": "rate_percent",
+          "label": "지급률(%)",
+          "type": "numeric(6,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "pay_item_id",
+          "label": "상여 항목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.payroll_run",
+      "label": "급여 실행",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F23·F24(Q4). 월당 확정 1건. 확정 근태 마감을 입력으로 계산, 확정 후 불변, 재계산은 새 버전. ERP F94가 확정 결과를 읽음",
+      "sub_module": "payroll",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "pay_month",
+          "label": "급여 월",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY-MM'"
+        },
+        {
+          "name": "attendance_close_id",
+          "label": "근태 마감",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "pay_date",
+          "label": "지급일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "버전",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / confirmed / superseded"
+        },
+        {
+          "name": "confirmed_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.payslip",
+      "label": "급여명세서",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F25. 사원별 합계와 부서·직위 스냅샷(ERP 부서별 합계의 기준)",
+      "sub_module": "payroll",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "run_id",
+          "label": "급여 실행",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "employee_id",
+          "label": "사원",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "department_code",
+          "label": "부서 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": "계산 시점 스냅샷"
+        },
+        {
+          "name": "grade_name",
+          "label": "직위",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "gross_pay",
+          "label": "지급 합계",
+          "type": "numeric(18,0)",
+          "nullable": false,
+          "default": null,
+          "rule": "원"
+        },
+        {
+          "name": "deduction_total",
+          "label": "공제 합계",
+          "type": "numeric(18,0)",
+          "nullable": false,
+          "default": null,
+          "rule": "원"
+        },
+        {
+          "name": "net_pay",
+          "label": "실지급액",
+          "type": "numeric(18,0)",
+          "nullable": false,
+          "default": null,
+          "rule": "원"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.payslip_line",
+      "label": "급여명세 항목",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F23·F25. 항목별 금액과 근거 수량(분·일)",
+      "sub_module": "payroll",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "payslip_id",
+          "label": "급여명세서",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "pay_item_id",
+          "label": "급여 항목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "item_code",
+          "label": "항목 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": "스냅샷"
+        },
+        {
+          "name": "amount",
+          "label": "금액",
+          "type": "numeric(18,0)",
+          "nullable": false,
+          "default": null,
+          "rule": "원"
+        },
+        {
+          "name": "basis_quantity",
+          "label": "근거 수량",
+          "type": "numeric(10,2)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.review_cycle",
+      "label": "평가 기간",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F31(Q6). 연도별 평가 기간",
+      "sub_module": "review",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cycle_year",
+          "label": "평가 연도",
+          "type": "varchar(4)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY'"
+        },
+        {
+          "name": "name",
+          "label": "이름",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": "'OPEN'",
+          "rule": "OPEN / CLOSED"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "hr.review",
+      "label": "인사 평가",
+      "scope": "generation",
+      "phase": "DSN-30",
+      "retention": "세대 정리",
+      "note": "DSN-30 F31(Q6). 목표·자기 평가·평가자 등급. 확정 후 불변",
+      "sub_module": "review",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cycle_id",
+          "label": "평가 기간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "employee_id",
+          "label": "사원",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "goals",
+          "label": "목표",
+          "type": "varchar(2000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "self_comment",
+          "label": "자기 평가",
+          "type": "varchar(2000)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reviewer_code",
+          "label": "평가자 사원 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "grade",
+          "label": "등급",
+          "type": "varchar(1)",
+          "nullable": true,
+          "default": null,
+          "rule": "S / A / B / C / D"
+        },
+        {
+          "name": "reviewer_comment",
+          "label": "평가 의견",
+          "type": "varchar(2000)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / submitted / confirmed"
+        },
+        {
+          "name": "confirmed_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
     }
   ],
   "relations": [
@@ -16157,6 +18001,714 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "사용한 예비품"
+    },
+    {
+      "source": "core.holiday",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.department",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.title",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.work_pattern",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.employee",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.appointment",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.qualification",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.attendance",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.attendance_close",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.leave_balance",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.leave_request",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.pay_item",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.pay_base",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.pay_base_item",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.bonus_rule",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.payroll_run",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.payslip",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.payslip_line",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.review_cycle",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.review",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "hr.department",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "parent_id"
+      ],
+      "target": "hr.department",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "상위 부서"
+    },
+    {
+      "source": "hr.employee",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "department_id"
+      ],
+      "target": "hr.department",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "현재 부서"
+    },
+    {
+      "source": "hr.employee",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "grade_id"
+      ],
+      "target": "hr.title",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "현재 직위"
+    },
+    {
+      "source": "hr.employee",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "duty_id"
+      ],
+      "target": "hr.title",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "현재 직책"
+    },
+    {
+      "source": "hr.employee",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "work_pattern_id"
+      ],
+      "target": "hr.work_pattern",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "근무 형태"
+    },
+    {
+      "source": "hr.appointment",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "target": "hr.employee",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "사원"
+    },
+    {
+      "source": "hr.appointment",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "department_id"
+      ],
+      "target": "hr.department",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "부서"
+    },
+    {
+      "source": "hr.appointment",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "grade_id"
+      ],
+      "target": "hr.title",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "직위"
+    },
+    {
+      "source": "hr.appointment",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "duty_id"
+      ],
+      "target": "hr.title",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "직책"
+    },
+    {
+      "source": "hr.qualification",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "target": "hr.employee",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "사원"
+    },
+    {
+      "source": "hr.attendance",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "target": "hr.employee",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "사원"
+    },
+    {
+      "source": "hr.leave_balance",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "target": "hr.employee",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "사원"
+    },
+    {
+      "source": "hr.leave_request",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "target": "hr.employee",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "사원"
+    },
+    {
+      "source": "hr.pay_base",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "target": "hr.employee",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "사원"
+    },
+    {
+      "source": "hr.pay_base_item",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pay_base_id"
+      ],
+      "target": "hr.pay_base",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "급여 기준"
+    },
+    {
+      "source": "hr.pay_base_item",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pay_item_id"
+      ],
+      "target": "hr.pay_item",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "급여 항목"
+    },
+    {
+      "source": "hr.bonus_rule",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pay_item_id"
+      ],
+      "target": "hr.pay_item",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "상여 항목"
+    },
+    {
+      "source": "hr.payroll_run",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "attendance_close_id"
+      ],
+      "target": "hr.attendance_close",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "근태 마감"
+    },
+    {
+      "source": "hr.payslip",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "run_id"
+      ],
+      "target": "hr.payroll_run",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "급여 실행"
+    },
+    {
+      "source": "hr.payslip",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "target": "hr.employee",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "사원"
+    },
+    {
+      "source": "hr.payslip_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "payslip_id"
+      ],
+      "target": "hr.payslip",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "급여명세서"
+    },
+    {
+      "source": "hr.payslip_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pay_item_id"
+      ],
+      "target": "hr.pay_item",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "급여 항목"
+    },
+    {
+      "source": "hr.review",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cycle_id"
+      ],
+      "target": "hr.review_cycle",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "평가 기간"
+    },
+    {
+      "source": "hr.review",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "target": "hr.employee",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "사원"
     }
   ],
   "constraints": [
@@ -16354,7 +18906,7 @@
       "table": "core.workspace_module",
       "kind": "CHECK",
       "columns": [],
-      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms')",
+      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms', 'hr')",
       "reason": "행 내부 데이터 정합성"
     },
     {
@@ -24672,7 +27224,7 @@
       "columns": [
         "module_key"
       ],
-      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms')",
+      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms', 'hr')",
       "reason": "평가 대상 솔루션"
     },
     {
@@ -26469,6 +29021,1096 @@
       ],
       "expression": "솔루션 라우터 의존성 seed_ready가 요청 트랜잭션 전에 공간 잠금 → 다시 확인 → 그 솔루션 시드 복사 → 표시. 교차 조회는 준비 안 된 솔루션을 꺼짐과 같게 None(DSN-01 S2). 세대 초기화·회원 생성·게스트 생성은 core만 복사",
       "reason": "W0-1 지연 복사"
+    },
+    {
+      "table": "core.holiday",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "core.holiday",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "core.holiday",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "holiday_on"
+      ],
+      "expression": "",
+      "reason": "날짜당 1건"
+    },
+    {
+      "table": "core.holiday",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "name"
+      ],
+      "expression": "kind IN ('PUBLIC', 'COMPANY') AND length(btrim(name)) > 0",
+      "reason": "구분·이름"
+    },
+    {
+      "table": "core.holiday",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "holiday_on"
+      ],
+      "expression": "업무 솔루션은 core 조회 함수(holidays(from, to))로 날짜만 읽는다. 업무 → core FK는 범위 앵커만 허용(FS-013 §6)이라 FK 없음. 요일 구분: 휴일 > 토·일(WEEKEND) > 평일",
+      "reason": "공통 휴일 달력(Q1)"
+    },
+    {
+      "table": "hr.department",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.department",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.title",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.title",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.work_pattern",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.work_pattern",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.employee",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.employee",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.appointment",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.appointment",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.qualification",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.qualification",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.attendance",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.attendance",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.attendance_close",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.attendance_close",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.leave_balance",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.leave_balance",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.leave_request",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.leave_request",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.pay_item",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.pay_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.pay_base",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.pay_base",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.pay_base_item",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.pay_base_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.bonus_rule",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.bonus_rule",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.payroll_run",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.payroll_run",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.payslip",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.payslip",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.payslip_line",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.payslip_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.review_cycle",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.review_cycle",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.review",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "hr.review",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "hr.attendance_close",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "version",
+        "confirmed_at"
+      ],
+      "expression": "status IN ('draft', 'confirmed', 'superseded') AND version >= 1 AND ((status = 'draft') = (confirmed_at IS NULL))",
+      "reason": "상태·버전"
+    },
+    {
+      "table": "hr.payroll_run",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "version",
+        "confirmed_at"
+      ],
+      "expression": "status IN ('draft', 'confirmed', 'superseded') AND version >= 1 AND ((status = 'draft') = (confirmed_at IS NULL))",
+      "reason": "상태·버전"
+    },
+    {
+      "table": "hr.department",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "부서 코드 유일"
+    },
+    {
+      "table": "hr.department",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "hr.title",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "title_kind",
+        "code"
+      ],
+      "expression": "",
+      "reason": "구분·코드 유일"
+    },
+    {
+      "table": "hr.title",
+      "kind": "CHECK",
+      "columns": [
+        "title_kind",
+        "code",
+        "rank_order",
+        "is_head"
+      ],
+      "expression": "title_kind IN ('GRADE', 'DUTY') AND code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$' AND rank_order >= 1 AND (title_kind = 'DUTY' OR NOT is_head)",
+      "reason": "구분·부서장은 직책만"
+    },
+    {
+      "table": "hr.work_pattern",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "근무 형태 코드 유일"
+    },
+    {
+      "table": "hr.work_pattern",
+      "kind": "CHECK",
+      "columns": [
+        "pattern_kind",
+        "scheduled_minutes",
+        "break_minutes"
+      ],
+      "expression": "pattern_kind IN ('DAY', 'TWO_SHIFT', 'THREE_SHIFT') AND scheduled_minutes BETWEEN 1 AND 720 AND break_minutes >= 0",
+      "reason": "유형·시간"
+    },
+    {
+      "table": "hr.employee",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_code"
+      ],
+      "expression": "",
+      "reason": "사원 코드 유일"
+    },
+    {
+      "table": "hr.employee",
+      "kind": "CHECK",
+      "columns": [
+        "employee_code",
+        "status",
+        "retire_date"
+      ],
+      "expression": "employee_code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$' AND status IN ('ACTIVE', 'LEAVE', 'RETIRED') AND ((status = 'RETIRED') = (retire_date IS NOT NULL)) AND (retire_date IS NULL OR retire_date >= hire_date)",
+      "reason": "코드·상태·퇴직일"
+    },
+    {
+      "table": "hr.employee",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "employee_code"
+      ],
+      "expression": "사람 원천(Q1): fs.hr.interface.employees()·departments()가 코드·이름·부서·재직 상태를 돌려준다. 각 솔루션은 'HR에서 가져오기'로 자기 사람 마스터를 만들고 hr_employee_code를 스냅샷(자동 동기화 없음, 퇴직은 조회 때 표시). 현재 부서·직위·직책은 확정 발령으로만 바뀐다",
+      "reason": "사람 원천(Q1)"
+    },
+    {
+      "table": "hr.appointment",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "appointment_no"
+      ],
+      "expression": "",
+      "reason": "발령 번호 유일"
+    },
+    {
+      "table": "hr.appointment",
+      "kind": "CHECK",
+      "columns": [
+        "appointment_no",
+        "kind",
+        "status",
+        "confirmed_at"
+      ],
+      "expression": "appointment_no ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$' AND kind IN ('HIRE', 'TRANSFER', 'PROMOTION', 'DUTY', 'LEAVE', 'RETURN', 'RETIRE') AND status IN ('draft', 'confirmed') AND ((status = 'confirmed') = (confirmed_at IS NOT NULL))",
+      "reason": "종류·상태"
+    },
+    {
+      "table": "hr.appointment",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "department_id",
+        "grade_id"
+      ],
+      "expression": "(kind NOT IN ('HIRE', 'TRANSFER') OR department_id IS NOT NULL) AND (kind NOT IN ('HIRE', 'PROMOTION') OR grade_id IS NOT NULL)",
+      "reason": "입사·이동은 부서, 입사·승진은 직위 필수"
+    },
+    {
+      "table": "hr.appointment",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "확정 시 사원 현재값(부서·직위·직책·상태·퇴직일)을 갱신하고 이후 불변. 정정은 새 발령",
+      "reason": "발령 확정"
+    },
+    {
+      "table": "hr.qualification",
+      "kind": "CHECK",
+      "columns": [
+        "qual_kind",
+        "expires_on"
+      ],
+      "expression": "qual_kind IN ('CERT', 'TRAINING') AND (expires_on IS NULL OR expires_on >= acquired_on)",
+      "reason": "구분·만료일"
+    },
+    {
+      "table": "hr.attendance",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id",
+        "work_date"
+      ],
+      "expression": "",
+      "reason": "사원·일 1건"
+    },
+    {
+      "table": "hr.attendance",
+      "kind": "CHECK",
+      "columns": [
+        "day_kind",
+        "status",
+        "source",
+        "overtime_minutes",
+        "night_minutes",
+        "holiday_minutes"
+      ],
+      "expression": "day_kind IN ('WORKDAY', 'OFFDAY', 'HOLIDAY') AND status IN ('NORMAL', 'LATE', 'EARLY', 'ABSENT', 'LEAVE', 'HALF_LEAVE', 'OFF') AND source IN ('AUTO', 'MANUAL') AND overtime_minutes >= 0 AND night_minutes >= 0 AND holiday_minutes >= 0 AND (clock_out IS NULL OR clock_in IS NULL OR clock_out > clock_in)",
+      "reason": "구분·근태·시간"
+    },
+    {
+      "table": "hr.attendance",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "source"
+      ],
+      "expression": "월 단위 자동 생성: 근무 형태 + core.holiday(날짜) → 정상 근태(AUTO). 승인 휴가는 LEAVE. 예외 수정은 MANUAL. 그 달 근태 마감이 확정이면 수정 거부",
+      "reason": "근태 자동 생성(Q2)"
+    },
+    {
+      "table": "hr.attendance_close",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "close_month",
+        "version"
+      ],
+      "expression": "",
+      "reason": "월·버전 유일"
+    },
+    {
+      "table": "hr.attendance_close",
+      "kind": "CHECK",
+      "columns": [
+        "close_month"
+      ],
+      "expression": "close_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+      "reason": "'YYYY-MM' 형식"
+    },
+    {
+      "table": "hr.attendance_close",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "close_month"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, close_month) WHERE status = 'confirmed'",
+      "reason": "월당 확정 마감 1건"
+    },
+    {
+      "table": "hr.leave_balance",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id",
+        "leave_year"
+      ],
+      "expression": "",
+      "reason": "사원·연도 1건"
+    },
+    {
+      "table": "hr.leave_balance",
+      "kind": "CHECK",
+      "columns": [
+        "leave_year",
+        "granted_days"
+      ],
+      "expression": "leave_year ~ '^[0-9]{4}$' AND granted_days >= 0",
+      "reason": "연도·일수"
+    },
+    {
+      "table": "hr.leave_request",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "request_no"
+      ],
+      "expression": "",
+      "reason": "신청 번호 유일"
+    },
+    {
+      "table": "hr.leave_request",
+      "kind": "CHECK",
+      "columns": [
+        "leave_kind",
+        "status",
+        "from_date",
+        "to_date",
+        "days",
+        "decided_at"
+      ],
+      "expression": "leave_kind IN ('ANNUAL', 'HALF_AM', 'HALF_PM', 'SICK', 'SPECIAL') AND status IN ('REQUESTED', 'APPROVED', 'REJECTED', 'CANCELLED') AND to_date >= from_date AND days > 0 AND ((leave_kind IN ('HALF_AM', 'HALF_PM')) = (days = 0.5)) AND ((status IN ('APPROVED', 'REJECTED')) = (decided_at IS NOT NULL AND approver_code IS NOT NULL))",
+      "reason": "종류·상태·일수·처리"
+    },
+    {
+      "table": "hr.leave_request",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "approver_code"
+      ],
+      "expression": "승인자 = 신청자 부서의 부서장 직책(is_head) 사원(부서장 본인은 상위 부서장). 연차 잔여 = 발생 − 승인 ANNUAL·HALF 합(조회), 초과 신청 거부",
+      "reason": "휴가 승인(Q3)"
+    },
+    {
+      "table": "hr.pay_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "항목 코드 유일"
+    },
+    {
+      "table": "hr.pay_item",
+      "kind": "CHECK",
+      "columns": [
+        "code",
+        "item_kind",
+        "calc_kind",
+        "rate"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$' AND item_kind IN ('EARNING', 'DEDUCTION') AND calc_kind IN ('BASE', 'FIXED', 'OVERTIME', 'NIGHT', 'HOLIDAY', 'BONUS', 'RATE') AND ((calc_kind IN ('OVERTIME', 'NIGHT', 'HOLIDAY', 'RATE')) = (rate IS NOT NULL)) AND ((item_kind = 'DEDUCTION') = (calc_kind = 'RATE'))",
+      "reason": "구분·계산 방식·비율"
+    },
+    {
+      "table": "hr.pay_base",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id",
+        "effective_from"
+      ],
+      "expression": "",
+      "reason": "사원·시작 월 1건"
+    },
+    {
+      "table": "hr.pay_base",
+      "kind": "CHECK",
+      "columns": [
+        "effective_from",
+        "base_salary",
+        "ordinary_hours"
+      ],
+      "expression": "effective_from ~ '^[0-9]{4}-(0[1-9]|1[0-2])$' AND base_salary >= 0 AND ordinary_hours > 0",
+      "reason": "형식·금액"
+    },
+    {
+      "table": "hr.pay_base_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pay_base_id",
+        "pay_item_id"
+      ],
+      "expression": "",
+      "reason": "기준·항목 1행"
+    },
+    {
+      "table": "hr.pay_base_item",
+      "kind": "CHECK",
+      "columns": [
+        "amount"
+      ],
+      "expression": "amount >= 0",
+      "reason": "금액"
+    },
+    {
+      "table": "hr.bonus_rule",
+      "kind": "CHECK",
+      "columns": [
+        "payable_mm",
+        "rate_percent"
+      ],
+      "expression": "payable_mm ~ '^(0[1-9]|1[0-2])$' AND rate_percent > 0",
+      "reason": "지급 월·지급률"
+    },
+    {
+      "table": "hr.bonus_rule",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "payable_mm"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, payable_mm) WHERE is_active",
+      "reason": "지급 월당 활성 규칙 1건"
+    },
+    {
+      "table": "hr.payroll_run",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pay_month",
+        "version"
+      ],
+      "expression": "",
+      "reason": "월·버전 유일"
+    },
+    {
+      "table": "hr.payroll_run",
+      "kind": "CHECK",
+      "columns": [
+        "pay_month"
+      ],
+      "expression": "pay_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+      "reason": "'YYYY-MM' 형식"
+    },
+    {
+      "table": "hr.payroll_run",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pay_month"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, pay_month) WHERE status = 'confirmed'",
+      "reason": "월당 확정 급여 1건"
+    },
+    {
+      "table": "hr.payroll_run",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "계산 = 기본급 + 고정 수당 + 근태 수당(통상시급 = (기본급 + 고정 수당) ÷ 통상 근로시간, × 분/60 × rate) + 상여(지급 월이면 기본급 × 지급률) − 공제(과세 지급 합계 × rate%, 합성 고정 비율). 근태 마감은 같은 월 확정본만. 확정 후 명세 불변, 재계산은 새 버전 → 이전 superseded",
+      "reason": "급여 계산·확정(Q4·Q5)"
+    },
+    {
+      "table": "hr.payroll_run",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "pay_month"
+      ],
+      "expression": "fs.hr.interface.payroll_runs(month) = 확정 실행의 부서 코드·항목별 합계(개인별 금액 없음) → ERP F94 급여 전표. 퇴직금 추계 = 최근 3개월 평균 임금 × 30일 × 근속 연수(조회 계산, 저장 안 함)",
+      "reason": "ERP 제공·퇴직금 추계(Q5)"
+    },
+    {
+      "table": "hr.payslip",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "run_id",
+        "employee_id"
+      ],
+      "expression": "",
+      "reason": "실행·사원 1건"
+    },
+    {
+      "table": "hr.payslip",
+      "kind": "CHECK",
+      "columns": [
+        "gross_pay",
+        "deduction_total",
+        "net_pay"
+      ],
+      "expression": "gross_pay >= 0 AND deduction_total >= 0 AND net_pay = gross_pay - deduction_total",
+      "reason": "합계"
+    },
+    {
+      "table": "hr.payslip",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "employee_id"
+      ],
+      "expression": "급여 화면은 HR 관리자만. 본인 조회(Q7)는 EIP 사람 연결(fs.eip.interface.my_employee_code)의 사원 코드와 같은 명세서·잔여 연차·근태만",
+      "reason": "급여 열람 범위(Q7)"
+    },
+    {
+      "table": "hr.payslip_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "payslip_id",
+        "pay_item_id"
+      ],
+      "expression": "",
+      "reason": "명세서·항목 1행"
+    },
+    {
+      "table": "hr.payslip_line",
+      "kind": "CHECK",
+      "columns": [
+        "amount"
+      ],
+      "expression": "amount >= 0",
+      "reason": "금액"
+    },
+    {
+      "table": "hr.review_cycle",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cycle_year"
+      ],
+      "expression": "",
+      "reason": "연도당 평가 기간 1건"
+    },
+    {
+      "table": "hr.review_cycle",
+      "kind": "CHECK",
+      "columns": [
+        "cycle_year",
+        "status"
+      ],
+      "expression": "cycle_year ~ '^[0-9]{4}$' AND status IN ('OPEN', 'CLOSED')",
+      "reason": "연도·상태"
+    },
+    {
+      "table": "hr.review",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cycle_id",
+        "employee_id"
+      ],
+      "expression": "",
+      "reason": "기간·사원 1건"
+    },
+    {
+      "table": "hr.review",
+      "kind": "CHECK",
+      "columns": [
+        "grade",
+        "status",
+        "confirmed_at"
+      ],
+      "expression": "(grade IS NULL OR grade IN ('S', 'A', 'B', 'C', 'D')) AND status IN ('draft', 'submitted', 'confirmed') AND ((status = 'confirmed') = (confirmed_at IS NOT NULL AND grade IS NOT NULL))",
+      "reason": "등급·상태"
+    },
+    {
+      "table": "hr.review",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "reviewer_code"
+      ],
+      "expression": "평가자 기본값 = 부서장. 본인은 목표·자기 평가만, 등급·의견은 평가자. 확정 후 불변, 기간 CLOSED면 입력 불가",
+      "reason": "인사 평가(Q6)"
+    },
+    {
+      "table": "hr.department",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "parent_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "hr.employee",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "department_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "hr.appointment",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "hr.qualification",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "hr.qualification",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "expires_on"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "hr.leave_request",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "hr.pay_base_item",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pay_item_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "hr.payroll_run",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "attendance_close_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "hr.payslip",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "hr.payslip_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pay_item_id"
+      ],
+      "expression": "",
+      "reason": "조회"
+    },
+    {
+      "table": "hr.review",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "expression": "",
+      "reason": "조회"
     }
   ],
   "states": [
@@ -26873,6 +30515,61 @@
       ],
       "default": "REQUESTED",
       "transition": "REQUESTED→IN_PROGRESS→COMPLETED, REQUESTED/IN_PROGRESS→CANCELLED; 완료·취소 후 불변"
+    },
+    {
+      "table": "hr.attendance_close",
+      "column": "status",
+      "values": [
+        "draft",
+        "confirmed",
+        "superseded"
+      ],
+      "default": "draft",
+      "transition": "draft→confirmed→superseded"
+    },
+    {
+      "table": "hr.payroll_run",
+      "column": "status",
+      "values": [
+        "draft",
+        "confirmed",
+        "superseded"
+      ],
+      "default": "draft",
+      "transition": "draft→confirmed→superseded"
+    },
+    {
+      "table": "hr.appointment",
+      "column": "status",
+      "values": [
+        "draft",
+        "confirmed"
+      ],
+      "default": "draft",
+      "transition": "draft→confirmed"
+    },
+    {
+      "table": "hr.leave_request",
+      "column": "status",
+      "values": [
+        "REQUESTED",
+        "APPROVED",
+        "REJECTED",
+        "CANCELLED"
+      ],
+      "default": "REQUESTED",
+      "transition": "REQUESTED→APPROVED|REJECTED|CANCELLED; APPROVED→CANCELLED(근태 마감 전)"
+    },
+    {
+      "table": "hr.review",
+      "column": "status",
+      "values": [
+        "draft",
+        "submitted",
+        "confirmed"
+      ],
+      "default": "draft",
+      "transition": "draft→submitted→confirmed"
     }
   ],
   "sources": [
@@ -26929,7 +30626,8 @@
         "bems",
         "spc",
         "gw",
-        "cmms"
+        "cmms",
+        "hr"
       ],
       "default": null,
       "note": "QMS(FS-023)·WMS(FS-024)·BEMS(FS-025)·SPC(FS-028)는 구현 솔루션. SCM 설명 카드와 도움말은 정적 파일"
@@ -27243,7 +30941,8 @@
         "bems",
         "spc",
         "gw",
-        "cmms"
+        "cmms",
+        "hr"
       ],
       "default": null,
       "note": "운영 중인 솔루션(포털 core 제외)"
@@ -27520,6 +31219,13 @@
       "date": "2026-10-05",
       "change": "지연 복사: core.data_generation.template_generation_id, core.workspace_module.seeded_generation_id(기존 공간은 활성 세대로 채움). 테이블 수 변화 없음",
       "status": "마이그레이션 w01_lazy_seed 적용 대상"
+    },
+    {
+      "version": "0.19.0",
+      "task": "W1a",
+      "date": "2026-10-06",
+      "change": "HR 19테이블(조직·사원·발령·자격/교육·근태·마감·연차·휴가·급여 항목/기준/수당/상여/실행/명세·평가)과 core.holiday(공통 휴일 달력), 모듈 키 hr. 목표 설계 DSN-30·DSN-16에서 그대로 옮김",
+      "status": "마이그레이션 w1a_hr 적용 대상"
     }
   ]
 }

@@ -14,7 +14,7 @@ from seed.common import equipment_ratio_sql, month_mondays, month_text
 EXPECTED_COUNTS = {
     "core.workspace": 1,
     "core.data_generation": 1,
-    "core.workspace_module": 10,
+    "core.workspace_module": 11,
     "mes.site": 1,
     "mes.location": 3,
     "mes.equipment": 8,
@@ -120,7 +120,7 @@ def validate_all(
         actual == EXPECTED_COUNTS,
         f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}",
     )
-    _require(sum(actual.values()) == 14687, f"V1 total={sum(actual.values())}")
+    _require(sum(actual.values()) == 14688, f"V1 total={sum(actual.values())}")
     # FS-025c: BEMS +4,218. FS-028a: spc 모듈 행 +1. FS-026: WMS 예시 +22. FS-028c: SPC +2,752. FS-030a: gw 모듈 행 +1. FS-029a: cmms 모듈 행 +1(업무 시드는 각 c 단계).
     results["V1"] = "118개 중 시드 테이블, 14,687행 일치"
 

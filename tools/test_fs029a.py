@@ -7,7 +7,7 @@ from pathlib import Path
 
 import apply_fs029a
 from audit_schema_isolation import audit
-from validate_db_design import design_names, validate, validate_cmms
+from validate_db_design import expected_names, validate, validate_cmms
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -26,7 +26,7 @@ class ApplyTest(unittest.TestCase):
             sum(t["name"].startswith("cmms.") for t in self.current["tables"]), 6
         )
         self.assertEqual(audit(self.current), [])
-        self.assertEqual(validate(self.current, design_names(self.current["task"])), [])
+        self.assertEqual(validate(self.current, expected_names(self.current)), [])
 
     def test_cross_schema_fk_is_rejected(self):
         broken = copy.deepcopy(self.current)

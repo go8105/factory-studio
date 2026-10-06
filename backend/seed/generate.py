@@ -286,6 +286,7 @@ def create_template(
                 "spc",
                 "gw",
                 "cmms",
+                "hr",
             )
         ],
     )

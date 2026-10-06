@@ -230,16 +230,16 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     )
     assert guest_token.startswith("g_")
     workspace_id, generation_id = guest_data["workspaceId"], guest_data["generationId"]
-    # W0-1 지연 복사: 만들 때는 모듈 행 10개만, 솔루션은 처음 열 때 그 시드만 복사한다.
-    assert _business_count(engine, workspace_id, generation_id) == 10
+    # W0-1 지연 복사: 만들 때는 모듈 행(W1a에서 hr까지 11개)만, 솔루션은 처음 열 때 그 시드만 복사한다.
+    assert _business_count(engine, workspace_id, generation_id) == 11
     assert guest.get("/api/v1/qms/dashboard").status_code == 200
     assert _schema_count(engine, "qms", workspace_id, generation_id) > 0
     assert _schema_count(engine, "mes", workspace_id, generation_id) == 0
     _open_all_solutions(guest)
-    # FS-028c SPC 시드 +2,752, gw·cmms 모듈 행 +2 → 14,685 (모두 열면 예전 전체 복사와 같다)
-    assert _business_count(engine, workspace_id, generation_id) == 14685
+    # FS-028c SPC 시드 +2,752, gw·cmms·hr 모듈 행 +3 → 14,686 (모두 열면 전체 복사와 같다)
+    assert _business_count(engine, workspace_id, generation_id) == 14686
     _open_all_solutions(guest)  # 두 번 열어도 다시 복사하지 않는다
-    assert _business_count(engine, workspace_id, generation_id) == 14685
+    assert _business_count(engine, workspace_id, generation_id) == 14686
 
     reset_headers = {
         "Idempotency-Key": "guest-reset-entry-count",
@@ -251,9 +251,9 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     assert reset_first.status_code == 201
     reset_generation_id = reset_first.json()["data"]["generationId"]
     assert reset_generation_id != guest_data["generationId"]
-    assert _business_count(engine, workspace_id, reset_generation_id) == 10
+    assert _business_count(engine, workspace_id, reset_generation_id) == 11
     _open_all_solutions(guest)
-    assert _business_count(engine, workspace_id, reset_generation_id) == 14685
+    assert _business_count(engine, workspace_id, reset_generation_id) == 14686
     with engine.connect() as connection:
         assert (
             connection.execute(

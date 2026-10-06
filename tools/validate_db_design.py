@@ -27,6 +27,11 @@ CMMS_DESIGN = ROOT/'docs/modules/cmms/CMMS_모듈설계_FS-029.md'
 REVIEW_DESIGN = ROOT/'docs/plan/런처평가_한줄평_FS-040.md'
 
 
+def at_least(task, gate):
+    """일괄 개발(W…) 단계는 그 앞의 모든 검사를 켠다. 새 작업 ID를 집합마다 더하지 않는다."""
+    return task.startswith('W') or task in gate
+
+
 def gate_task(d):
     """목표 설계(DSN)는 base_task(지금 schema.json의 작업 ID)로 기존 검사를 모두 켠다."""
     return d.get('base_task') or d.get('task')
@@ -53,30 +58,36 @@ def validate_target(d):
 
 def design_names(task='FS-014'):
     names = set(re.findall(r'^\| `((?:core|mes|erp|fems)\.[a-z_]+)` \|', DESIGN.read_text(encoding='utf-8'), re.M))
-    if task in LATER_THAN_014B:
+    if at_least(task, LATER_THAN_014B):
         document = ROOT/'docs/db/스키마_재구성_FS-014b.md'
         names |= set(re.findall(r'^\| `(erp\.[a-z_]+)` \|', document.read_text(encoding='utf-8'), re.M))
-    if task in LATER_THAN_008B:
+    if at_least(task, LATER_THAN_008B):
         names.discard('core.dashboard_layout')
-    if task in LATER_THAN_023A:
+    if at_least(task, LATER_THAN_023A):
         names |= set(re.findall(r'^\| `(qms\.[a-z_]+)` \|', QMS_DESIGN.read_text(encoding='utf-8'), re.M))
-    if task in LATER_THAN_024A:
+    if at_least(task, LATER_THAN_024A):
         names |= set(re.findall(r'^\| `(wms\.[a-z_]+)` \|', WMS_DESIGN.read_text(encoding='utf-8'), re.M))
-    if task in LATER_THAN_025A:
+    if at_least(task, LATER_THAN_025A):
         names |= set(re.findall(r'^\| `(bems\.[a-z_]+)` \|', BEMS_DESIGN.read_text(encoding='utf-8'), re.M))
-    if task in LATER_THAN_028A:
+    if at_least(task, LATER_THAN_028A):
         names |= set(re.findall(r'^\| `(spc\.[a-z_]+)` \|', SPC_DESIGN.read_text(encoding='utf-8'), re.M))
-    if task in {'FS-040', 'FS-030a', 'FS-029a', 'W0-1'}:
+    if at_least(task, {'FS-040', 'FS-030a', 'FS-029a', 'W0-1'}):
         names |= set(re.findall(r'^\| `(core\.[a-z_]+)` \|', REVIEW_DESIGN.read_text(encoding='utf-8'), re.M))
-    if task in {'FS-026a', 'FS-040', 'FS-030a', 'FS-029a', 'W0-1'}:
+    if at_least(task, {'FS-026a', 'FS-040', 'FS-030a', 'FS-029a', 'W0-1'}):
         doc = ROOT/'docs/modules/wms/WMS_모듈설계_FS-026.md'
         names |= set(re.findall(r'^### 3\.[1-5] (wms\.[a-z_]+)', doc.read_text(encoding='utf-8'), re.M))
-    if task in {'FS-030a', 'FS-029a', 'W0-1'}:
+    if at_least(task, {'FS-030a', 'FS-029a', 'W0-1'}):
         doc = ROOT/'docs/modules/gw/GW_모듈설계_FS-030.md'
         names |= set(re.findall(r'^\| `(gw\.[a-z_]+)` \|', doc.read_text(encoding='utf-8'), re.M))
-    if task in {'FS-029a', 'W0-1'}:
+    if at_least(task, {'FS-029a', 'W0-1'}):
         names |= set(re.findall(r'^\| `(cmms\.[a-z_]+)` \|', CMMS_DESIGN.read_text(encoding='utf-8'), re.M))
     return names
+
+
+def expected_names(d):
+    """이 설계 파일이 가질 수 있는 표 이름. 일괄 개발(W…)·목표 설계는 DSN 설계 문서의 표도 포함한다."""
+    task = gate_task(d)
+    return design_names(task) | (target_names() if d.get('target') or task.startswith('W') else set())
 
 
 def validate(d, expected=None, isolation=True):
@@ -88,7 +99,11 @@ def validate(d, expected=None, isolation=True):
     tables = {t['name']: t for t in d['tables']}
     require(len(tables) == len(d['tables']), 'Duplicate table')
     if expected is not None:
-        require(set(tables) == expected, f'Design inventory mismatch: missing={sorted(expected-set(tables))}, extra={sorted(set(tables)-expected)}')
+        if task.startswith('W') and not d.get('target'):
+            # 일괄 개발: 제품 DB는 단계마다 자란다. 설계에 없는 표만 막는다.
+            require(set(tables) <= expected, f'Design inventory mismatch: extra={sorted(set(tables)-expected)}')
+        else:
+            require(set(tables) == expected, f'Design inventory mismatch: missing={sorted(expected-set(tables))}, extra={sorted(set(tables)-expected)}')
     columns = {}
     for name, table in tables.items():
         cols = {c['name']: c for c in table['columns']}
@@ -148,21 +163,21 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_accounting(d))
     if task in LATER_THAN_008B or d.get('version') in {'0.9.0', '0.9.1', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.15.0-gw', '0.16.0', '0.17.0', '0.18.0'}:
         errors.extend(validate_screen_gaps(d))
-    if task in LATER_THAN_023A:
+    if at_least(task, LATER_THAN_023A):
         errors.extend(validate_qms(d))
-    if task in LATER_THAN_024A:
+    if at_least(task, LATER_THAN_024A):
         errors.extend(validate_wms(d))
-    if task in LATER_THAN_025A:
+    if at_least(task, LATER_THAN_025A):
         errors.extend(validate_bems(d))
-    if task in LATER_THAN_028A:
+    if at_least(task, LATER_THAN_028A):
         errors.extend(validate_spc(d))
-    if task in {'FS-026a', 'FS-040', 'FS-030a', 'FS-029a', 'W0-1'}:
+    if at_least(task, {'FS-026a', 'FS-040', 'FS-030a', 'FS-029a', 'W0-1'}):
         from validate_fs026a import validate_extension
         errors.extend(validate_extension(d))
-    if task in {'FS-030a', 'FS-029a', 'W0-1'}:
+    if at_least(task, {'FS-030a', 'FS-029a', 'W0-1'}):
         from validate_fs030a import validate_gw
         errors.extend(validate_gw(d))
-    if task in {'FS-029a', 'W0-1'}:
+    if at_least(task, {'FS-029a', 'W0-1'}):
         errors.extend(validate_cmms(d))
     if 'erp.journal_entry' in {t['name'] for t in d['tables']}:
         errors.extend(validate_erp_dsn11(d))
@@ -198,6 +213,7 @@ def validate(d, expected=None, isolation=True):
         errors.extend(validate_rws_dsn29(d))
     if 'hr.employee' in {t['name'] for t in d['tables']}:
         errors.extend(validate_hr_dsn30(d))
+    if d.get('target'):
         errors.extend(validate_integration_dsn90(d))
     if 'gw.authority_rule' in {t['name'] for t in d['tables']}:
         errors.extend(validate_gw_dsn31(d))
@@ -828,7 +844,8 @@ def main():
     d = json.loads(raw)
     target = bool(d.get('target'))
     report_path = args.report or ROOT/('docs/db/validation-report-target.json' if target else 'docs/db/validation-report.json')
-    expected = design_names(gate_task(d)) | (target_names() if target else set())
+    # 일괄 개발(W…)에서는 DSN 설계 문서의 표도 제품에 들어올 수 있다.
+    expected = expected_names(d)
     errors = validate(d, expected) + (validate_target(d) if target else [])
     by_schema = {}
     for t in d['tables']:
