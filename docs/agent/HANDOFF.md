@@ -1,13 +1,15 @@
 # Factory Studio 작업 인계
 
-## CAD-03 WIP (2026-10-05)
+## CAD-03 완료 (2026-10-06)
 
-- worktree soap-cad-review, branch codex/soap-cad-review. main3e172cb 기반. 사용자 이번 CAD/POC 변경 요청만 수행, D82의 다른 업무 중단 유지.
-- 권한API13 테스트·유연외피9부품/강체간섭42표본 완료. 최신 POC-03이며 v2의 딱딱한 케이스를 대체한다. 최종 검증/메뉴·다운로드·배포자산 분리 확인 중.
-- 5243/8043 합성 세션+실제 권한 라우터로 확인. 실행은 docs/modules/cad-cam/README.md. 실제 DB/운영/탄성/출력 미검증. main 다른 세션 작업이 있어 최신 상태 확인 후 반영. push 없음.
+- branch `codex/soap-cad-review`, WIP d11471e, main ec1b373 병합 8dce56d. 최종 커밋은 `git log -1`. 최신 POC-03(유연 외피9부품)이 v2를 대체한다. 사용자 이번 요청만 수행, D82 다른 업무 중단 유지.
+- frontend524/prototype27/API13 및 빌드 통과. 실제 브라우저 관리자 모델/서랍 분리/다운로드 검증. [결과](CAD_CAM_관리자POC_CAD-03.md). 실물·탄성·실제 DB 인증·운영 배포 미검증.
+- 재현: `cd frontend && npm run build` (Node24), `cd prototypes/cad-cam && npm run poc:flex && npm test`, `uv run --directory backend pytest tests/test_cad_private_assets.py`.
+- 5243/8043은 합성 인증+실제 보호 라우터의 검토 환경. 실행법은 docs/modules/cad-cam/README.md. 테스트 fixture를 운영에 실행하지 않는다.
+- 보호 자료 backend/private-assets는 빌드 생성물. 공개 정적 경로로 노출 금지, 운영 배포시 오래된 public soap 파일도 교체. 원격 push·배포 없음.
+- main의 backend/pyproject.toml·seed/copy.py·tests/conftest.py·uv.lock은 다른 작업자의 진행 중 변경으로 보존. 다음은 사용자 검토 후 재료/결합 방식·실물 시험.
 
 
-최종 반영 확인(2026-10-05): CAD-02 `649e372` 로컬 main fast-forward 완료. main에서 Node24 frontend npm ci/build 성공, Git 미커밋 변경 없음 확인. 최종 화면 기록 크기 보정. 원격 push·배포 없음.
 ## Codex 최신 상태 — 2026-10-05 CAD-02 포털 통합 완료
 
 - branch `codex/soap-cad-review`, worktree `/Users/hwang-kyoungho/.codex/worktrees/soap-cad-review/factory-studio`. POC 커밋1a364f7, 최종 통합 커밋 `git log -1`; main의 DSN-29 기준표까지 병합 보존.
