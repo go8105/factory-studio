@@ -2,11 +2,11 @@
 
 ## CAD-04 완료 (2026-10-06)
 
-- branch codex/soap-cad-review, 기준 main8bb3194. 최종 커밋은 git log -1. 사용자 관리자 웹 연구노트 확인; 기존 보호 API 안에서 research-notebook.html과 research-history.json을 제공.
+- branch codex/soap-cad-review, 구현 11131e8, 최신 main8df92c4(W0-2/CI) 병합 보존. 최종 커밋은 git log -1. 사용자 관리자 웹 연구노트 확인; 기존 보호 API 안에서 research-notebook.html과 research-history.json을 제공.
 - POC01→03 회고/파일 해시·추가 노트 scope별 브라우저 저장·JSON 백업/복원. 미실행 값을 창작하지 않음. 기록은 전자서명/서버 동기화/사진 업로드 없음.
 - 검증 prototype29/API13, frontend build·공개자산 분리, 실제 브라우저 저장/JSON 다운로드·복원과 HTTP401/403/200 통과. 실제 DB/실물/커널 후보 실증은 미실행.
 - 재현: prototype npm test, frontend(Node24) npm run build, backend uv run pytest tests/test_cad_private_assets.py -q. 5243/8043 합성 로그인 검토 서버는 기존 실행 유지. 연구노트는 비누 POC 안 링크.
-- 다음: docs/modules/cad-cam/편집기_고도화분석_CAD-04.md 전체 방향 확인 후 E0커널 실증. 고도화 제품 구현 미착수. 다른 작업자 backend 미커밋4파일 보존, 원격 push/배포 없음.
+- 다음: docs/modules/cad-cam/편집기_고도화분석_CAD-04.md 전체 방향 확인 후 E0커널 실증. 고도화 제품 구현 미착수. 다른 작업자 W0-2/CI 변경을 병합하여 보존, 원격 push/배포 없음.
 
 ## CAD-03 완료 (2026-10-06)
 
