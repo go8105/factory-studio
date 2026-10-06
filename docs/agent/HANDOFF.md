@@ -2,10 +2,10 @@
 
 ## CAD-06 E1 완료 (2026-10-06)
 
-- branch codex/soap-cad-review, 기준 c663114. 이번 마지막 커밋은 git log -1. 사용자의 CNC 권장안·이어가기 및 기존 main push 승인에 따라 E1 구현/통합한다. 다른 작업자의 main backend 미커밋 변경은 보존, 운영 배포 없음.
+- branch codex/soap-cad-review, 기준 c663114, 구현09286e4·W0-4 be91ce9 병합4c87b7c. 로컬 main fast-forward 및 origin/main push 성공(be91ce9→4c87b7c). 최종 기록 커밋은 git log -1. 기존 사용자 main push 승인, 다른 작업자 변경 보존, 운영 배포 없음.
 - 선 연결·3점 원호(닫는 직선 포함)·회전 슬롯·좌표 치수·끝점/격자 스냅·JSON v2/v1 읽기·Manifold offset Worker·안전 높이 분리 이동. 단일 XY 영역/돌출·상면 포켓. 섬 편집/구속 해석/다중 돌출/필렛/STEP/NC 미구현.
-- prototype37/frontend524/build·공개/관리자 자산 분리 통과. 실제 브라우저 직접 윤곽·치수 편집·가공·되감기·오류 거부·390/1440폭 확인. 예제 JSON: prototypes/cad-cam/examples/cnc_E1_2026-10-06_L-slot-arc.form.json. [상세](자유스케치_편집기_CAD-06.md).
-- 재현: Node24 PATH=/opt/homebrew/opt/node@24/bin:$PATH; prototypes/cad-cam에서 npm ci && npm test; frontend에서 npm ci && npm run build && npm test. main/prototype 각각 manifold3.5.4 런타임 의존성·빌드 alias 포함. 브라우저 WASM worker 실행 확인, node:module externalized 빌드 경고는 Node 분기용.
+- prototype37/frontend524/관리자 권한API13/build·공개/관리자 자산 분리 통과. 실제 브라우저 직접 윤곽·치수 편집·가공·되감기·오류 거부·390/1440폭 확인. 예제 JSON: prototypes/cad-cam/examples/cnc_E1_2026-10-06_L-slot-arc.form.json. [상세](자유스케치_편집기_CAD-06.md).
+- 재현: Node24 PATH=/opt/homebrew/opt/node@24/bin:$PATH; prototypes/cad-cam에서 npm ci && npm test; frontend에서 npm ci && npm run build && npm test. frontend/prototype 각각 manifold3.5.4 런타임 의존성·빌드 alias 포함. 브라우저 WASM worker 실행 확인, node:module externalized 빌드 경고는 Node 분기용.
 - CAD 로컬 서버는 worktree frontend5243/backend8043 합성 인증 fixture. DB·실물·NC 미검증. IAB Blob 다운로드 이벤트 timeout으로 실파일 다운로드/선택 재열기 검증 미완료(순수 JSON 왕복 통과). 기존 개발 source-map-js1.2.1 audit high1 별도 대응 필요.
 - 다음: 사용자 이번 결과 확인 후 CAD-07/E2. 비누 심화는 창업 후속 때. 연구노트는 기존 관리자 기록/폴더·파일명만 유지, 사진 업로드 없음.
 
