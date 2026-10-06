@@ -7,6 +7,7 @@ export default function CadCam() {
   const admin =
     session?.actorKind === "MEMBER" && session.roles.includes("ADMIN");
   const soap = admin && params.get("view") === "soap";
+  const part = params.get("view") === "part";
   const scope = `${session!.workspaceId}:${session!.generationId}`;
   return (
     <section className="cad-cam-page" aria-label="CAD·CAM 작업실">
@@ -21,10 +22,17 @@ export default function CadCam() {
         <nav aria-label="CAD·CAM 화면">
           <Link
             to="/cad-cam"
-            className={!soap ? "active" : ""}
-            aria-current={!soap ? "page" : undefined}
+            className={!soap && !part ? "active" : ""}
+            aria-current={!soap && !part ? "page" : undefined}
           >
             설계·가공 편집기
+          </Link>
+          <Link
+            to="/cad-cam?view=part"
+            className={part ? "active" : ""}
+            aria-current={part ? "page" : undefined}
+          >
+            3D 부품 설계
           </Link>
           {admin && (
             <Link
@@ -38,9 +46,11 @@ export default function CadCam() {
         </nav>
       </div>
       <iframe
-        key={`${scope}:${soap}`}
-        title={soap ? "비누 그라인더 POC" : "CAD·CAM 편집기"}
-        src={`${soap ? "/api/v1/cad/admin/soap-poc/soap-poc.html" : "/cad-cam-app/index.html"}?embedded=1&scope=${encodeURIComponent(scope)}${admin ? "&poc=1" : ""}`}
+        key={`${scope}:${soap}:${part}`}
+        title={
+          soap ? "비누 그라인더 POC" : part ? "3D 부품 설계" : "CAD·CAM 편집기"
+        }
+        src={`${soap ? "/api/v1/cad/admin/soap-poc/soap-poc.html" : part ? "/cad-cam-app/part-design.html" : "/cad-cam-app/index.html"}?embedded=1&scope=${encodeURIComponent(scope)}${admin ? "&poc=1" : ""}`}
       />
     </section>
   );

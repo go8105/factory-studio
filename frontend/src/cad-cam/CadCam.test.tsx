@@ -88,3 +88,23 @@ it.each([["GUEST"], ["MEMBER"]])(
     ).not.toBeInTheDocument();
   },
 );
+
+it("keeps E2 route and workspace scope on direct entry and separates it from protected POC", async () => {
+  show(true, 11, ["GUEST"], "/cad-cam?view=part");
+  expect(await screen.findByTitle("3D 부품 설계")).toHaveAttribute(
+    "src",
+    "/cad-cam-app/part-design.html?embedded=1&scope=11%3A20",
+  );
+  expect(screen.getByRole("link", { name: "3D 부품 설계" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  expect(
+    screen.queryByRole("link", { name: "비누 그라인더 POC" }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("link", { name: "설계·가공 편집기" }));
+  expect(await screen.findByTitle("CAD·CAM 편집기")).toHaveAttribute(
+    "src",
+    "/cad-cam-app/index.html?embedded=1&scope=11%3A20",
+  );
+});

@@ -54,6 +54,10 @@ export function validatePart(m) {
     m.operations.length > 32
   )
     throw Error("지원하지 않는 3D 설계 파일입니다.");
+  if (m.base?.id !== "base" || m.base.kind)
+    throw Error("기본 돌출 ID는 base입니다.");
+  if (m.base?.constraints !== undefined && !Array.isArray(m.base.constraints))
+    throw Error("구속 목록이 잘못되었습니다.");
   validateShape(m.base);
   check(m.base.angle ?? 0, -180, 180, "스케치 회전");
   if (
@@ -86,6 +90,11 @@ export function validatePart(m) {
       check(f.offset, -200, 200, "평면 이동");
     }
     if (["add", "cut"].includes(f.kind)) {
+      if (
+        f.sketch?.constraints !== undefined &&
+        !Array.isArray(f.sketch.constraints)
+      )
+        throw Error("구속 목록이 잘못되었습니다.");
       validateShape(f.sketch);
       check(f.amount, 0.1, 100, "돌출/파내기 거리");
       check(f.sketch.angle ?? 0, -180, 180, "스케치 회전");

@@ -56,8 +56,10 @@ $("#app").innerHTML =
     .map(([k, v]) => `<button data-new="${k}">＋ ${v}</button>`)
     .join(
       "",
-    )}<button id="undo">실행 취소</button><button id="redo">다시 실행</button><button id="fit">전체 보기</button></div><main class="layout"><aside><h2>피처 이력</h2><div id="tree" class="tree"></div><div class="examples"><button id="bracket">측면 구멍 예제</button><button id="shell-example">쉘 / 필렛 예제</button><button id="copy-e1">2.5D 설계 가져오기</button><button id="new">새 부품</button></div><p class="note">선행 피처를 수정하면 뒤의 피처까지 다시 계산합니다. 실패하면 마지막 정상 설계를 유지합니다.</p><div id="status" role="status"></div><div id="error" role="alert"></div></aside><section class="stage"><div id="viewer"></div><div class="legend"><strong>단일 부품 · mm</strong><div id="measure">3D 커널 준비 중</div><small>드래그 회전 · 휠 확대<br>작업 평면의 U / V 좌표로 설계</small></div></section><aside><h2 id="form-title">기본 돌출</h2><div id="fields" class="fields"></div><div id="profile-ui"></div><button id="apply">변경 적용</button><div class="actions"><button id="delete">피처 삭제</button></div><p class="note">XY: U=X, V=Y / XZ: U=X, V=Z / YZ: U=Y, V=Z.<br>기준 피처의 바깥 경계면에서 돌출은 외측, 파내기는 내측으로 진행합니다. 평면 이동은 법선 방향입니다.</p><p class="note">E2 3D 형상의 측면·다축 CAM은 아직 지원하지 않습니다. 가공 시뮬레이션은 2.5D 편집기에서 수행하세요.</p></aside></main><div class="footer">OCCT / Replicad 1.1.0 · 형상 커널은 첫 진입 시 약 22MB를 불러옵니다. <a href="./licenses/README.txt" target="_blank">오픈소스 안내 ↗</a></div><input id="file" type="file" accept=".json" hidden>`;
-$("#back").href = `./index.html?${query}`;
+    )}<button id="undo">실행 취소</button><button id="redo">다시 실행</button><button id="fit">전체 보기</button><button id="cancel" hidden>계산 취소</button></div><main class="layout"><aside><h2>피처 이력</h2><div id="tree" class="tree"></div><div class="examples"><button id="bracket">측면 구멍 예제</button><button id="shell-example">쉘 / 필렛 예제</button><button id="copy-e1">2.5D 설계 가져오기</button><button id="new">새 부품</button></div><p class="note">선행 피처를 수정하면 뒤의 피처까지 다시 계산합니다. 실패하면 마지막 정상 설계를 유지합니다.</p><div id="status" role="status"></div><div id="error" role="alert"></div></aside><section class="stage"><div id="viewer"></div><div class="legend"><strong>단일 부품 · mm</strong><div id="measure">3D 커널 준비 중</div><small>드래그 회전 · 휠 확대<br>작업 평면의 U / V 좌표로 설계</small></div></section><aside><h2 id="form-title">기본 돌출</h2><div id="fields" class="fields"></div><div id="profile-ui"></div><button id="apply">변경 적용</button><div class="actions"><button id="delete">피처 삭제</button></div><p class="note">XY: U=X, V=Y / XZ: U=X, V=Z / YZ: U=Y, V=Z.<br>기준 피처의 바깥 경계면에서 돌출은 외측, 파내기는 내측으로 진행합니다. 평면 이동은 법선 방향입니다.</p><p class="note">E2 3D 형상의 측면·다축 CAM은 아직 지원하지 않습니다. 가공 시뮬레이션은 2.5D 편집기에서 수행하세요.</p></aside></main><div class="footer">OCCT / Replicad 1.1.0 · 형상 커널은 첫 진입 시 약 22MB를 불러옵니다. <a href="./licenses/README.txt" target="_blank">오픈소스 안내 ↗</a></div><input id="file" type="file" accept=".json" hidden>`;
+$("#back").href =
+  query.get("embedded") === "1" ? "/cad-cam" : `./index.html?${query}`;
+$("#back").target = query.get("embedded") === "1" ? "_parent" : "_self";
 const viewer = new Viewer($("#viewer"), () => {});
 function fail(message, id) {
   $("#error").className = "error";
@@ -342,6 +344,7 @@ function getWorker() {
     if (data.revision !== revision) return;
     clearTimeout(timer);
     busy = false;
+    $("#cancel").hidden = true;
     $("#apply").disabled = false;
     if (data.error) {
       fail(data.error, data.featureId);
@@ -408,6 +411,7 @@ function getWorker() {
   worker.onerror = () => {
     clearTimeout(timer);
     busy = false;
+    $("#cancel").hidden = true;
     pending = null;
     worker.terminate();
     worker = null;
@@ -431,6 +435,7 @@ function submit(candidate, mode = "edit", id = selected) {
     return;
   }
   busy = true;
+  $("#cancel").hidden = false;
   revision++;
   pending = { model: clone(candidate), mode, selected: id };
   $("#apply").disabled = true;
@@ -442,6 +447,7 @@ function submit(candidate, mode = "edit", id = selected) {
     worker = null;
     acceptedRevision = 0;
     busy = false;
+    $("#cancel").hidden = true;
     pending = null;
     $("#apply").disabled = false;
     fail("30초 계산 제한을 넘었습니다. 피처나 치수를 줄인 뒤 다시 적용하세요.");
@@ -456,6 +462,20 @@ function download(data, name) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
+$("#cancel").onclick = () => {
+  if (!busy) return;
+  clearTimeout(timer);
+  worker?.terminate();
+  worker = null;
+  revision++;
+  acceptedRevision = 0;
+  busy = false;
+  pending = null;
+  $("#cancel").hidden = true;
+  $("#apply").disabled = false;
+  $("#status").textContent = "계산 취소 · 마지막 정상 설계 유지";
+  renderUndo();
+};
 $("#apply").onclick = () => {
   try {
     const next = clone(model);
