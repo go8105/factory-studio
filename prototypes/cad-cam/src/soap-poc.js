@@ -173,3 +173,6 @@ renderer.setAnimationLoop(() => {
   controls.update();
   renderer.render(scene, camera);
 });
+
+const researchLink = document.querySelector("#researchLink");
+researchLink.href = `${base}research-notebook.html?scope=${encodeURIComponent(new URLSearchParams(location.search).get("scope") || "local")}`;

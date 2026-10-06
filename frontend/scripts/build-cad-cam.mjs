@@ -43,7 +43,12 @@ await build({
   build: {
     outDir: privateRoot,
     emptyOutDir: true,
-    rollupOptions: { input: path("../../prototypes/cad-cam/soap-poc.html") },
+    rollupOptions: {
+      input: {
+        soap: path("../../prototypes/cad-cam/soap-poc.html"),
+        research: path("../../prototypes/cad-cam/research-notebook.html"),
+      },
+    },
   },
 });
 await mkdir(privateRoot + "/soap-poc", { recursive: true });

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>비누 그라인더 연구노트</title>
+  </head>
+  <body>
+    <header>
+      <a id="back" href="./soap-poc.html">← 현재 설계</a
+      ><span>SOAP GRINDER / RESEARCH</span><b>관리자 전용</b>
+    </header>
+    <main>
+      <p class="eyebrow">설계 이력 · 실험 기록</p>
+      <h1>비누 그라인더 연구노트</h1>
+      <p>
+        첫 마찰판에서 유연한 케이스까지, 바꾼 이유와 확인한 결과를 함께
+        보관합니다.
+      </p>
+      <p id="notice" role="status">설계 기록을 불러오는 중…</p>
+      <nav aria-label="설계 버전">
+        <a href="#POC-01">설계 1</a><a href="#POC-02">설계 2</a
+        ><a href="#POC-03">설계 3 · 현재</a>
+      </nav>
+      <section id="history" aria-label="설계 변경 이력"></section>
+      <section class="panel">
+        <h2>새 연구 기록 작성</h2>
+        <p>
+          이 브라우저·공간에 저장됩니다. 서버나 다른 기기와 동기화되지 않으므로
+          JSON을 내려받아 보관하세요. 사진은 파일명과 보관 위치를 기록해 주세요.
+        </p>
+        <form id="noteForm">
+          <label
+            >기준 설계<select name="revision">
+              <option>POC-03</option>
+              <option>POC-02</option>
+              <option>POC-01</option>
+            </select></label
+          ><label
+            >기록 제목<input
+              name="title"
+              required
+              maxlength="120"
+              placeholder="예: 외피 벽 두께 비교 실험" /></label
+          ><label
+            >가설·바꾼 조건<textarea
+              name="hypothesis"
+              required
+              maxlength="4000"
+              placeholder="재료 등급, 벽 두께, 비누 종류, 출력 조건"
+            ></textarea></label
+          ><label
+            >관찰·측정 결과<textarea
+              name="result"
+              required
+              maxlength="4000"
+              placeholder="실험 전이면 미실행으로 기록. 분말 질량(g), 반복 횟수, 힘(N), 사진 파일명"
+            ></textarea></label
+          ><label
+            >판단·다음 설계<textarea
+              name="decision"
+              required
+              maxlength="4000"
+            ></textarea></label
+          ><button type="submit">연구 기록 추가</button>
+        </form>
+        <p id="saveStatus" role="status"></p>
+        <button id="export" type="button">연구노트 JSON 내려받기</button
+        ><label
+          >백업 JSON 불러오기<input
+            id="import"
+            type="file"
+            accept="application/json,.json"
+        /></label>
+        <div id="notes" aria-label="추가 연구 기록"></div>
+      </section>
+    </main>
+    <script type="module" src="/src/research-notebook.js"></script>
+  </body>
+</html>

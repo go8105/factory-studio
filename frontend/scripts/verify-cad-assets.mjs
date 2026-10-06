@@ -10,6 +10,8 @@ assert.equal(
 );
 for (const name of [
   "soap-poc.html",
+  "research-notebook.html",
+  "soap-poc/research-history.json",
   "soap-poc/soap-poc-03.zip",
   "soap-poc/sleeve-v3.stl",
   "soap-poc/drawer-v3.stl",

@@ -37,3 +37,12 @@ DB 없이 브라우저 UI 검토: `node frontend/scripts/cad-preview-api.mjs`(80
 권한 시험: backend `uv run pytest tests/test_cad_private_assets.py -q`, frontend `npm test -- src/cad-cam/CadCam.test.tsx`.
 로컬 모의 세션+실제 파일권한 라우터: backend `uv run uvicorn tests.cad_private_preview:app --host 127.0.0.1 --port 8043`; frontend `FS_SMOKE_API_PORT=8043 npm run dev -- --host 127.0.0.1 --port 5243`.
 모의 관리자 아이디 admin-preview, 비밀번호는 임의 시험문자. 이 fixture는 실제 로그인/실DB 검증이 아니다. 운영에서는 반드시 fs.main:app.
+
+## CAD-04 연구노트·고도화 분석 (2026-10-06)
+
+사용자 확인: 관리자 웹 연구노트와 설계 파일 이력. 기존 MEMBER+ADMIN 보호 API/빌드 경계 적용. DB/역할 추가 없음.
+
+- POC-01→02→03 회고: 이유·가정·검증/미실행·다음 방향·ZIP/STL/안내·SHA-256. 후속은 새 버전 추가.
+- 신규 기록은 scope별 브라우저 저장. append·JSON export/import, 중복 병합·충돌시 원본 보존. 서버 동기화/사진 업로드/서명 없음, 공유 브라우저 한계는 기존 CAD와 같다.
+- private/soap-poc/research-history.json·RESEARCH-NOTEBOOK.md, 보호 research-notebook.html. 공개 편집기에 넣지 않는다.
+- [고도화 분석](편집기_고도화분석_CAD-04.md): 커널 실증→자유 스케치→피처/조립→제작→CAM. 전체 확인 전 고도화 구현 미착수.

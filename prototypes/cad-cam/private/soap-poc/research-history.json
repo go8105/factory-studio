@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-06",
+  "notice": "기존 설계 자료를 2026-10-06에 정리한 회고 기록입니다. 당시 작성된 서명 연구노트나 실험 성적서는 아닙니다.",
+  "entries": [
+    {
+      "id": "POC-01",
+      "date": "2026-10-05",
+      "title": "플라스틱 마찰판 비교 시험편",
+      "reason": "플라스틱 돌기로 건조 비누를 갈 수 있는지 확인",
+      "dimensions": "84×64×14mm 트레이, A/B/C 돌기 0.6/1.0/1.4mm",
+      "result": "4개 폐곡면 STL·양의 체적 확인. 실물 분쇄 시험 미실행.",
+      "limits": "완성 케이스와 닳은 비누의 가압 구조가 없음.",
+      "next": "접이식 케이스와 회전부·분리 가루통 설계로 확장.",
+      "files": [
+        {
+          "name": "soap-poc-01.zip",
+          "sha256": "19007309411adc7aa9295ec7e41c897ff3e2842ba790238e8b0515c7bf09a754"
+        },
+        {
+          "name": "README.md",
+          "sha256": "d1f01bc75a4af9d0bdc5390e2bc37609c4a28cfd19aee483d8ad13e93bd8741c"
+        },
+        {
+          "name": "geometry-report.json",
+          "sha256": "01bcbf9d39daf427924c7f1d7e535da8ee586b74d8612d9359d2e80a744d0acd"
+        },
+        {
+          "name": "tray.stl",
+          "sha256": "255866e052cb2460cfee1a7b684f5407cad8f09445069d27a361c92352bec10d"
+        },
+        {
+          "name": "plate-A.stl",
+          "sha256": "2b01bd2017ac3f013640c06f36462da06a84322ebeebb5189051e17d68efadf4"
+        },
+        {
+          "name": "plate-B.stl",
+          "sha256": "babc801a16055cd15e12c1ce6bf1c4f8f14d6b34a19f8268e011fd035300eee3"
+        },
+        {
+          "name": "plate-C.stl",
+          "sha256": "4f54c58e3a6d44fd34524a4a4dfd987f36b383a3f4947dbbf646790c2d15cc52"
+        }
+      ]
+    },
+    {
+      "id": "POC-02",
+      "date": "2026-10-05",
+      "title": "접이식 케이스 + 회전판 + 분리 서랍",
+      "reason": "사용자 이미지와 내부 회전판·완전 분리 서랍 선택 반영",
+      "dimensions": "기준86×106mm, 회전판 Ø68mm, 서랍 이동115mm",
+      "result": "5개 강체 부품과 표본 자세 간섭 검토. 실물 시험 미실행.",
+      "limits": "딱딱한 케이스는 작은 비누를 밀착시키기 어려움.",
+      "next": "고무 같은 케이스 전체를 눌러 비트는 방식으로 변경.",
+      "files": [
+        {
+          "name": "soap-poc-02.zip",
+          "sha256": "f457464c6ae6393d2130b74a79421e48a7ad79c5dfdd2699665e9a89fa81c6ee"
+        },
+        {
+          "name": "DESIGN-v2.md",
+          "sha256": "f8f63c4a067a0f954d2ece914b79797d9a56eb5f0d5c85dd3a7f0c188c6b04a5"
+        },
+        {
+          "name": "assembly-v2.json",
+          "sha256": "68809f2a1ba9cfbd3919d95830a02280ad4125265cef4ea7073c51e51a65a19b"
+        },
+        {
+          "name": "body-v2.stl",
+          "sha256": "dab432433af9bca026c7642332ac31566d1bc366649c64aeeb696b46db61840e"
+        },
+        {
+          "name": "lid-v2.stl",
+          "sha256": "3ae8fd0ba2b36671e5f6298e50ba505688c3fde291beba405ab7f0613b7fe3ed"
+        },
+        {
+          "name": "rotor-v2.stl",
+          "sha256": "0a68b2677b663138539819150eff3c0ca55dee4b2201d3b358355259dc407433"
+        },
+        {
+          "name": "drawer-v2.stl",
+          "sha256": "1f9523966b609f4e6af77c1c8fbc6b42c2cae4a86c6746519f5ea9ace95565bf"
+        },
+        {
+          "name": "hinge-pin-v2.stl",
+          "sha256": "15bc4d754df8920de24dd24e2560aa044f5b43058855f2f5002da2b4262de91c"
+        }
+      ]
+    },
+    {
+      "id": "POC-03",
+      "date": "2026-10-06",
+      "title": "유연 외피 + 고정 하부 마찰판",
+      "reason": "케이스를 눌러 비누에 밀착한 뒤 비틀고 싶다는 사용자 정정 반영",
+      "dimensions": "기준86×106×45.6mm, 누름10mm·비틀림±12°는 검토 가정",
+      "result": "9개 단일 연결 폐곡면·양의 체적, 강체 간섭42표본 확인. 탄성/실물 미검증.",
+      "limits": "경도·누름 힘·외피 결합·힌지 이탈 방지·서랍 걸쇠 미확정.",
+      "next": "재료/결합 확정 후 출력·분말 질량·힘·복원·마모 실험.",
+      "files": [
+        {
+          "name": "soap-poc-03.zip",
+          "sha256": "d7dfd17aa7be8ac03018c30393f31b84e38780b5e7c661ee82e60ea62406b3a5"
+        },
+        {
+          "name": "DESIGN-v3.md",
+          "sha256": "c9ef903f1994eb9919f8342278e57b61e299ac848d2ff400b1b08d76385638a7"
+        },
+        {
+          "name": "assembly-v3.json",
+          "sha256": "5dc77948a7c66d4ecdf7149ab45a9fab8916a8623e0c4dfbef5fdfe3f0cbe7dd"
+        },
+        {
+          "name": "sleeve-v3.stl",
+          "sha256": "7b518edd7d9c185078d1d805356f0bdf41fb1820f8ad4a340e3a46462cee9165"
+        },
+        {
+          "name": "cover-v3.stl",
+          "sha256": "a105fd97e397df81beffdd1026977a3adc9d04c7405f3cf6261e46e07eb272dd"
+        },
+        {
+          "name": "boot-v3.stl",
+          "sha256": "023b9da399d2f00aa6c0256f9e51035adfa38cc0e94d41543515ef515a782a14"
+        },
+        {
+          "name": "base-v3.stl",
+          "sha256": "4d04ecaa7f8c3fa4168df625cb65256161d7356d90a4a5f24560cb6ac93cf175"
+        },
+        {
+          "name": "carrier-v3.stl",
+          "sha256": "647c05a260800039774ba3f2993710580c1c72b03b9670e781dd5a62e7ec630f"
+        },
+        {
+          "name": "lid-v3.stl",
+          "sha256": "c65eaa2ba97518550b0024b77d1a2aa2984b7c5b907c77a9fe3c2297b57b0053"
+        },
+        {
+          "name": "plate-v3.stl",
+          "sha256": "291f82d75b9adbfe4b0babc98b791e4b7ed9f7848a2fb4eaae0dff3c7f2ec3c3"
+        },
+        {
+          "name": "drawer-v3.stl",
+          "sha256": "1c2976650b3546af78f30d14401fcdf147664843c5bd28eddad1ad5a65b218d0"
+        },
+        {
+          "name": "hinge-pin-v3.stl",
+          "sha256": "c610ee2764ecb748533939b3f6b3f5717f3b30387b124f24180ef0e969660ad8"
+        }
+      ]
+    }
+  ]
+}
