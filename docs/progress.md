@@ -5,7 +5,7 @@
 - 권장안대로 이어가기 사용자 승인. 선 연결·끝점 닫기·3점 원호(직선으로 닫힌 면)·회전 슬롯, 점/원호 통과점 좌표·격자/끝점 스냅. JSON v2 ID/해석 좌표 보존, v1 형상 유지.
 - 원호 현 오차 목표0.01mm·열린/퇴화/교차 윤곽 거부·오목 소재 경계 교차 검사·실제 bounds 격자/카메라 적용. Manifold3.5.4 offset Worker·독립 공구 여유 표본·분리 구간 안전높이·오래된 응답 무시. 예제 JSON을 examples/cnc_E1_2026-10-06_L-slot-arc.form.json에 보관하고 예제 버튼 연결.
 - prototype37/frontend524/권한API13/build·자산 분리 통과. 브라우저 직접 작성·원호 통과Y32 편집·새로고침 복원·3작업 CNC·100%(6.00cm³)→20%(1.53cm³) 되감기·중복점/40mm공구 거부,1440×900/390×844 확인. JSON 순수 파일 왕복 테스트 통과. IAB 다운로드 이벤트 timeout, 실제 다운로드/파일선택 재열기는 완료로 처리하지 않음.
-- [상세 보고](agent/자유스케치_편집기_CAD-06.md). DB/실물/NC/연속 충돌·다중 돌출/필렛/구속/조립 미실행·미구현. 기존 source-map-js1.2.1 개발 의존성 audit high1은 이번 이전부터 존재, CAD 범위 밖에서 자동 변경하지 않음. 현황/인계 갱신. 구현09286e4, W0-4 be91ce9 보존 병합4c87b7c. 기존 사용자 main push 승인으로 로컬 main 통합 및 origin/main push 성공(be91ce9→4c87b7c), 운영 배포 없음. 다음CAD-07/E2는 결과 확인 후.
+- [상세 보고](agent/자유스케치_편집기_CAD-06.md). DB/실물/NC/연속 충돌·다중 돌출/필렛/구속/조립 미실행·미구현. 기존 source-map-js1.2.1 개발 의존성 audit high1은 이번 이전부터 존재, CAD 범위 밖에서 자동 변경하지 않음. 현황/인계 갱신. 구현09286e4, W0-4 be91ce9 보존 병합4c87b7c. 기존 사용자 main push 승인으로 로컬 main 통합 및 origin/main push 성공(be91ce9→4c87b7c), 운영 배포 없음. main CAD 빌드에서 prototype 의존성 없는 WASM ?url alias 실패를 발견,057100d 정규식 alias로 수정하고 frontend 의존성만으로 main 빌드/자산 분리 재검증 통과. 다음CAD-07/E2는 결과 확인 후.
 
 ## 2026-10-06 CAD-05 CNC 우선 E0·파일 참조
 

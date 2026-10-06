@@ -2,7 +2,7 @@
 
 ## CAD-06 E1 완료 (2026-10-06)
 
-- branch codex/soap-cad-review, 기준 c663114, 구현09286e4·W0-4 be91ce9 병합4c87b7c. 로컬 main fast-forward 및 origin/main push 성공(be91ce9→4c87b7c). 최종 기록 커밋은 git log -1. 기존 사용자 main push 승인, 다른 작업자 변경 보존, 운영 배포 없음.
+- branch codex/soap-cad-review, 기준 c663114, 구현09286e4·W0-4 be91ce9 병합4c87b7c. 로컬 main fast-forward 및 origin/main push 성공(be91ce9→4c87b7c). WASM ?url 경로 alias 보정057100d, frontend 의존성만 설치된 main CAD 빌드/자산 분리 재검증 통과. 최종 기록 커밋은 git log -1. 기존 사용자 main push 승인, 다른 작업자 변경 보존, 운영 배포 없음.
 - 선 연결·3점 원호(닫는 직선 포함)·회전 슬롯·좌표 치수·끝점/격자 스냅·JSON v2/v1 읽기·Manifold offset Worker·안전 높이 분리 이동. 단일 XY 영역/돌출·상면 포켓. 섬 편집/구속 해석/다중 돌출/필렛/STEP/NC 미구현.
 - prototype37/frontend524/관리자 권한API13/build·공개/관리자 자산 분리 통과. 실제 브라우저 직접 윤곽·치수 편집·가공·되감기·오류 거부·390/1440폭 확인. 예제 JSON: prototypes/cad-cam/examples/cnc_E1_2026-10-06_L-slot-arc.form.json. [상세](자유스케치_편집기_CAD-06.md).
 - 재현: Node24 PATH=/opt/homebrew/opt/node@24/bin:$PATH; prototypes/cad-cam에서 npm ci && npm test; frontend에서 npm ci && npm run build && npm test. frontend/prototype 각각 manifold3.5.4 런타임 의존성·빌드 alias 포함. 브라우저 WASM worker 실행 확인, node:module externalized 빌드 경고는 Node 분기용.
