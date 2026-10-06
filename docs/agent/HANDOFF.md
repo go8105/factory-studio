@@ -2,7 +2,7 @@
 
 ## CAD-05 CNC E0 완료 (2026-10-06)
 
-- branch codex/soap-cad-review, main5c19e1d 기반. 최종 커밋 git log -1. 사용자 main push 승인, 운영 배포 별도. CNC 우선·비누 심화 후속·사진 없이 폴더/파일명 기록 확정.
+- branch codex/soap-cad-review, 구현 ba00b69 로컬 main 병합 및 origin/main push 성공. 최종 기록 커밋 git log -1. 사용자 main push 승인, 운영 배포 없음. CNC 우선·비누 심화 후속·사진 없이 폴더/파일명 기록 확정.
 - experiments/cnc-offset-e0.mjs: L자/섬/좁은목/과대공구 offset·영역 분리·독립 여유10908표본·안전Z·돌출 검사 통과. Node24 실증, 브라우저 커널 성능/전체 제거·NC·장비 미검증.
 - 연구노트 폴더/파일명 입력/JSON 유지·구 백업 호환. 사용자 방향과 현재ZIP 경로를 합성 관리자 브라우저에 실제 기록. 파일 생성·존재 확인 기능 아님.
 - prototype32/빌드·자산 분리 통과. 재현 prototype npm run cnc:experiment && npm test; frontend(Node24) npm run build. 재실증 출력 work/cnc-e0, 커밋 기준자료 docs/agent/assets/cnc-e0는 자동 덮어쓰기 금지.
