@@ -64,6 +64,13 @@
 - 결정 초안/기존 결정서 안내/GW README/현황/HANDOFF만 변경. 상대 링크5·제안10·범위29항목·현황178/200줄·diff 정적 검사 통과(exit0). 최초 검사에서 Git 한글 경로 인용을 경로 변경으로 오인해 실패했고 NUL 구분 경로로 보정 후 통과. 제품 테스트/DB/브라우저/외부 연동 미실행.
 - 다음: 사용자 범위 확인 후 P0 요구사항과 A 모듈/화면 상세 설계. c 미착수 상태 유지, 개발 순서는 초안 제안. push·배포·실데이터 반입 없음.
 
+## 2026-10-06 W0-3 배포 스크립트 (Claude Code)
+- `tools/deploy.sh`(DSN-01 E): 사전 점검(main·커밋하지 않은 변경 없음·origin과 같음·**그 커밋의 CI 통과**·서버 접속·서버 저장소 깨끗함) → 프런트 빌드(별도 worktree, 같은 커밋) → 서버 `git merge --ff-only`+커밋 대조 → `uv sync` → `alembic upgrade head` → **시드 버전이 바뀌었을 때만** 템플릿 재생성 → API 재시작 → **프런트 업로드** → 확인(원점·공개 200, DDL 대조 0, 최근 2분 5xx). 실패하면 멈춘다. `--dry-run`은 서버를 바꾸지 않고 빌드까지만. 서버 주소 등은 `FS_DEPLOY_*`로 바꾼다.
+- 검사 `tools/test_deploy.py`: 가짜 ssh·rsync·npm·curl·gh로 스크립트를 실제로 실행한다(**서버 접속 없음**). 단계 순서, 프런트 업로드 포함(2026-10-04 누락 재발 방지), 서버 커밋 불일치 시 중단, CI 미통과 시 서버를 건드리지 않음, 시드 같으면 템플릿 유지, `--dry-run`이 아무것도 바꾸지 않음 — 5개 통과.
+- CI: tools 테스트 범위를 `test_fs0*.py` → `test_*.py`(73 → **125개**, 설계 test_dsn*·배포 test_deploy 포함, 14초). 배포 절차 문서 8장을 스크립트 기준으로 고치고 손 절차는 아래에 남김.
+- **실행하지 않음**: 스크립트를 실제 서버에 돌리지 않았다(ssh는 사용자 계정). 운영 반영은 사용자가 `tools/deploy.sh`로 한다.
+- 검증: `tools/test_deploy.py` 5 통과, tools 전체 125 통과, `bash -n`·`--help`·모르는 인자 종료 코드 2 확인. shellcheck는 설치돼 있지 않아 미실행. 배포 없음.
+
 ## 2026-10-06 W0-2 테스트 병렬 (Claude Code)
 - 복사 반영 캐시: `seed.copy`의 스키마 반영(reflection)·FK 조사가 게스트 복사 시간의 90% → DB·스키마별 1회만(`_reflected`·`_raw_foreign_keys`), 시드 유무는 count 대신 EXISTS. 게스트 생성 복사 **0.43 → 0.011초**, 9개 솔루션 모두 열기 0.69초(예전 전체 복사 1.5초).
 - 병렬: `pytest-xdist` 추가(dev). `conftest.pytest_configure`가 작업자마다 원본 `*_test` DB를 템플릿으로 `<원본>_gwN_test`를 새로 만들고 TEST_DATABASE_URL을 바꾼다(전체 DB를 비우는 테스트끼리 겹치지 않게, 복제는 advisory lock으로 직렬화). 시간 측정 테스트(`-m perf`, 1개)는 부하 없이 따로.
