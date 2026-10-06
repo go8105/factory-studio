@@ -166,7 +166,9 @@ from sqlalchemy.engine import make_url
 url = make_url(os.environ['DATABASE_URL']).set(database='factory_studio_fs016_test')
 assert url.database.endswith('_test')
 os.environ['TEST_DATABASE_URL'] = url.render_as_string(hide_password=False)
-subprocess.run(['uv', 'run', '--project', 'backend', 'pytest', 'backend/tests', '-q'], check=True)
+# W0-2: 병렬(작업자마다 <DB>_gwN_test 복제). 시간 측정 테스트는 따로.
+subprocess.run(['uv', 'run', '--project', 'backend', 'pytest', 'backend/tests', '-q', '-n', 'auto', '-m', 'not perf'], check=True)
+subprocess.run(['uv', 'run', '--project', 'backend', 'pytest', 'backend/tests', '-q', '-m', 'perf'], check=True)
 PYTEST
 ```
 

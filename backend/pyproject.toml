@@ -8,6 +8,7 @@ dependencies = ["fastapi", "sqlalchemy>=2,<3", "alembic", "psycopg[binary]"]
 dev = [
     "httpx",
     "pytest",
+    "pytest-xdist>=3.8.0",
     "ruff",
     "uvicorn>=0.53.0",
 ]

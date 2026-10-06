@@ -2,7 +2,6 @@ from dataclasses import replace
 
 import pytest
 from fastapi.testclient import TestClient
-
 from fs.cad_cam import router as assets
 from fs.common.auth import AuthContext, resolve_auth
 from fs.main import create_app

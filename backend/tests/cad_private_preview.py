@@ -2,7 +2,6 @@
 
 from fastapi import Cookie
 from fastapi.responses import JSONResponse
-
 from fs.common.auth import AuthContext, resolve_auth
 from fs.common.errors import ApiError
 from fs.main import create_app

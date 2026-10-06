@@ -38,9 +38,7 @@ def copy_template(
     W0-1 지연 복사: 서비스는 schemas=()로 core만 만들고, 솔루션 시드는 처음 열 때
     copy_module_seed가 복사한다(DSN-01 S2). 기본값(전체)은 도구·기존 호출용.
     """
-    metadata = MetaData()
-    for schema in ("core", *SCHEMAS):
-        metadata.reflect(connection, schema=schema)
+    metadata = _reflected(connection, ("core", *schemas))
     workspace = metadata.tables["core.workspace"]
     generation = metadata.tables["core.data_generation"]
     source_date = connection.execute(
@@ -109,9 +107,7 @@ def copy_template_generation(
     schemas: tuple[str, ...] = SCHEMAS,
 ) -> tuple[int, dict[str, int], float]:
     """기존 공간에 새 세대를 복사한다. 공간 설정은 유지한다. schemas=()이면 지연 복사(W0-1)."""
-    metadata = MetaData()
-    for schema in ("core", *SCHEMAS):
-        metadata.reflect(connection, schema=schema)
+    metadata = _reflected(connection, ("core", *schemas))
     workspace = metadata.tables["core.workspace"]
     generation = metadata.tables["core.data_generation"]
     source_date = connection.execute(
@@ -209,8 +205,7 @@ def _copy_business_rows(
     seeded = _seeded_tables(
         connection, source_workspace_id, source_generation_id, schemas
     )
-    inspector = inspect(connection)
-    foreign_keys = _foreign_keys(inspector, seeded)
+    foreign_keys = _foreign_keys(connection, seeded)
     parents = {
         target
         for fks in foreign_keys.values()
@@ -318,8 +313,7 @@ def copy_module_seed(
     )
     counts: dict[str, int] = {}
     if source is not None:
-        metadata = MetaData()
-        metadata.reflect(connection, schema=module_key)
+        metadata = _reflected(connection, (module_key,))
         counts = _copy_business_rows(
             connection,
             metadata,
@@ -336,6 +330,48 @@ def copy_module_seed(
     return counts
 
 
+# W0-2: 스키마 반영(reflection)이 게스트 복사 시간의 90%였다. 실행 중 스키마는 바뀌지 않으므로
+# DB·스키마별로 한 번만 반영한다. 마이그레이션 뒤에는 프로세스를 다시 시작한다(배포 절차와 같음).
+_CATALOG: dict[tuple[str, str], MetaData] = {}
+_RAW_FKS: dict[tuple[str, str], list[tuple[str, str, str]]] = {}
+
+
+def _reflected(connection: Connection, schemas: tuple[str, ...]) -> MetaData:
+    metadata = MetaData()
+    database = connection.engine.url.render_as_string(hide_password=True)
+    for schema in schemas:
+        key = (database, schema)
+        if key not in _CATALOG:
+            cached = MetaData()
+            cached.reflect(connection, schema=schema)
+            _CATALOG[key] = cached
+        for table in _CATALOG[key].tables.values():
+            table.to_metadata(metadata)
+    return metadata
+
+
+def _raw_foreign_keys(
+    connection: Connection, table_name: str
+) -> list[tuple[str, str, str]]:
+    """(로컬 칸, 원격 칸, 대상 표) — FK와, FK 없이 '<표>_id'로 같은 스키마 표를 가리키는 칸."""
+    key = (connection.engine.url.render_as_string(hide_password=True), table_name)
+    if key not in _RAW_FKS:
+        inspector = inspect(connection)
+        schema, table = table_name.split(".")
+        raw: list[tuple[str, str, str]] = []
+        for fk in inspector.get_foreign_keys(table, schema=schema):
+            target = f"{fk['referred_schema']}.{fk['referred_table']}"
+            for local, remote in zip(
+                fk["constrained_columns"], fk["referred_columns"], strict=True
+            ):
+                raw.append((local, remote, target))
+        for column in inspector.get_columns(table, schema=schema):
+            if column["name"].endswith("_id"):
+                raw.append((column["name"], "", f"{schema}.{column['name'][:-3]}"))
+        _RAW_FKS[key] = raw
+    return _RAW_FKS[key]
+
+
 def _seeded_tables(
     connection: Connection,
     workspace_id: int,
@@ -343,43 +379,37 @@ def _seeded_tables(
     schemas: tuple[str, ...] = SCHEMAS,
 ) -> set[str]:
     tables: set[str] = set()
-    for schema in schemas:
-        names = inspect(connection).get_table_names(schema=schema)
-        for table in names:
-            count = connection.execute(
-                text(
-                    f'SELECT count(*) FROM "{schema}"."{table}" WHERE workspace_id=:w AND generation_id=:g'
-                ),
-                {"w": workspace_id, "g": generation_id},
-            ).scalar_one()
-            if count:
-                tables.add(f"{schema}.{table}")
+    catalog = _reflected(connection, schemas)
+    for table_name in catalog.tables:
+        schema, table = table_name.split(".")
+        if schema not in schemas:  # FK로 함께 반영된 core 표
+            continue
+        if connection.execute(
+            text(
+                f'SELECT EXISTS (SELECT 1 FROM "{schema}"."{table}" WHERE workspace_id=:w AND generation_id=:g)'
+            ),
+            {"w": workspace_id, "g": generation_id},
+        ).scalar_one():
+            tables.add(table_name)
     return tables
 
 
 def _foreign_keys(
-    inspector: Any, seeded: set[str]
+    connection: Connection, seeded: set[str]
 ) -> dict[str, dict[str, tuple[str, str]]]:
     result: dict[str, dict[str, tuple[str, str]]] = defaultdict(dict)
     for table_name in seeded:
-        schema, table = table_name.split(".")
-        for fk in inspector.get_foreign_keys(table, schema=schema):
-            target = f"{fk['referred_schema']}.{fk['referred_table']}"
-            for local, remote in zip(
-                fk["constrained_columns"], fk["referred_columns"], strict=True
+        raw = _raw_foreign_keys(connection, table_name)
+        for local, remote, target in raw:  # 실제 FK 먼저
+            if (
+                remote
+                and local not in {"workspace_id", "generation_id"}
+                and remote == "id"
+                and target in seeded
             ):
-                if (
-                    local not in {"workspace_id", "generation_id"}
-                    and remote == "id"
-                    and target in seeded
-                ):
-                    result[table_name][local] = (remote, target)
-        for column in inspector.get_columns(table, schema=schema):
-            local = column["name"]
-            if local in result[table_name] or not local.endswith("_id"):
-                continue
-            target = f"{schema}.{local[:-3]}"
-            if target in seeded:
+                result[table_name][local] = (remote, target)
+        for local, remote, target in raw:  # FK 없는 '<표>_id' 칸
+            if not remote and local not in result[table_name] and target in seeded:
                 result[table_name][local] = ("id", target)
     return result
 
