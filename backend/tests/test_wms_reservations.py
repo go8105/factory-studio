@@ -311,14 +311,14 @@ def test_shipment_mismatch_preserves_active_reservation(
 
 @pytest.mark.parametrize("race", ["reserve", "consume"])
 def test_real_connection_races(receiving_env, monkeypatch, race):
-    from fs.wms import service
+    from fs.common import engine
 
     env = receiving_env
     if race == "reserve":
         raw_stock(env)
     else:
         r, src = shipment_reservation(env)
-    original = service.write_scope
+    original = engine.write_scope
     pids = set()
     barrier = Barrier(2)
 
@@ -327,7 +327,7 @@ def test_real_connection_races(receiving_env, monkeypatch, race):
         barrier.wait(timeout=15)
         return original(c, *args, **kwargs)
 
-    monkeypatch.setattr(service, "write_scope", lock)
+    monkeypatch.setattr(engine, "write_scope", lock)
 
     def request(index):
         with TestClient(env[0].app, base_url=str(env[0].base_url)) as client:

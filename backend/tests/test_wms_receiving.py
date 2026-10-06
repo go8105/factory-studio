@@ -340,7 +340,7 @@ def test_digest_ignores_time_but_detects_meaning(receiving_env, monkeypatch):
 
 @pytest.mark.parametrize("race", ["link", "inspect"])
 def test_real_connections_source_race(receiving_env, race, monkeypatch):
-    from fs.wms import service as scope
+    from fs.common import engine as scope
 
     env = receiving_env
     n, src = source_notice(env)

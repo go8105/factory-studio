@@ -3,6 +3,7 @@
 from decimal import Decimal
 
 from fs.common.db import get_engine
+from fs.common.engine import read
 from fs.common.errors import ApiError
 from fs.common.idempotency import find_receipt, request_digest, save_receipt
 from fs.common.scope import read_scope, write_scope
@@ -22,12 +23,8 @@ def not_found():
     return ApiError(404, "NOT_FOUND", "대상을 찾을 수 없습니다.")
 
 
-def _read():
-    return (
-        get_engine()
-        .execution_options(isolation_level="REPEATABLE READ", postgresql_readonly=True)
-        .begin()
-    )
+# 공통 엔진: 조회 트랜잭션(REPEATABLE READ · 읽기 전용)
+_read = read
 
 
 def listing(context, resource, offset, limit, sort, filters):

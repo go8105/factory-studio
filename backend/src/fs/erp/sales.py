@@ -11,14 +11,14 @@
 from __future__ import annotations
 
 from decimal import ROUND_HALF_UP, Decimal
+from functools import partial
 from typing import Any
 
 from sqlalchemy import text
 
-from fs.common.db import get_engine
+from fs.common.engine import action
 from fs.common.errors import ApiError
-from fs.common.idempotency import find_receipt, request_digest, save_receipt
-from fs.common.scope import read_scope, write_scope
+from fs.common.scope import read_scope
 from fs.erp.repository import present
 from fs.erp.service import _read, invalid, not_found
 
@@ -35,26 +35,8 @@ def _locked(message: str, reason: str, **details: Any) -> ApiError:
     return ApiError(409, "PRECONDITION_NOT_MET", message, {"reason": reason, **details})
 
 
-def _action(context, operation: str, key: str, body: Any, fn, status: int = 200):
-    with get_engine().begin() as connection:
-        scoped = write_scope(connection, context, MODULE)
-        digest = request_digest(body)
-        cached = find_receipt(connection, scoped, operation, key, digest)
-        if cached is not None:
-            return cached
-        result, entity, entity_id = fn(connection, scoped)
-        save_receipt(
-            connection,
-            scoped,
-            operation,
-            key,
-            digest,
-            entity,
-            entity_id,
-            result,
-            status,
-        )
-        return result
+# 공통 엔진(fs.common.engine.action): 공간 잠금 → 멱등 영수증 → 처리 → 영수증 저장
+_action = partial(action, MODULE)
 
 
 def _rows(connection, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
