@@ -17,6 +17,40 @@ from sqlalchemy import Engine, create_engine, inspect, text
 from sqlalchemy.engine import make_url
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    """W0-2 병렬(pytest-xdist): 작업자마다 테스트 DB를 복제해 쓴다(전체 DB를 비우는 테스트가 서로 겹치지 않게).
+
+    원본 `*_test` DB를 템플릿으로 `<원본>_<gwN>_test`를 새로 만들고 TEST_DATABASE_URL을 바꾼다.
+    원본은 마이그레이션을 마친 상태여야 하고, 복제하는 동안 원본에 다른 접속이 없어야 한다.
+    """
+    worker = getattr(config, "workerinput", {}).get("workerid")
+    url = os.environ.get("TEST_DATABASE_URL")
+    if not worker or not url:
+        return
+    base = make_url(url)
+    database = base.database or ""
+    if not database.endswith("_test"):
+        raise pytest.UsageError("TEST_DATABASE_URL database must end in _test")
+    clone = f"{database.removesuffix('_test')}_{worker}_test"
+    admin = create_engine(base.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    with admin.connect() as connection:
+        # 같은 원본을 동시에 템플릿으로 쓰면 실패하므로 작업자끼리 직렬화한다.
+        connection.execute(
+            text("SELECT pg_advisory_lock(hashtext('fs-test-db-clone'))")
+        )
+        try:
+            connection.execute(text(f'DROP DATABASE IF EXISTS "{clone}" WITH (FORCE)'))
+            connection.execute(text(f'CREATE DATABASE "{clone}" TEMPLATE "{database}"'))
+        finally:
+            connection.execute(
+                text("SELECT pg_advisory_unlock(hashtext('fs-test-db-clone'))")
+            )
+    admin.dispose()
+    os.environ["TEST_DATABASE_URL"] = base.set(database=clone).render_as_string(
+        hide_password=False
+    )
+
+
 @pytest.fixture(scope="session")
 def db_engine() -> Iterator[Engine]:
     url = os.environ.get("TEST_DATABASE_URL")

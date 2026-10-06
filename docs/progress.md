@@ -58,6 +58,14 @@
 - 결정 초안/기존 결정서 안내/GW README/현황/HANDOFF만 변경. 상대 링크5·제안10·범위29항목·현황178/200줄·diff 정적 검사 통과(exit0). 최초 검사에서 Git 한글 경로 인용을 경로 변경으로 오인해 실패했고 NUL 구분 경로로 보정 후 통과. 제품 테스트/DB/브라우저/외부 연동 미실행.
 - 다음: 사용자 범위 확인 후 P0 요구사항과 A 모듈/화면 상세 설계. c 미착수 상태 유지, 개발 순서는 초안 제안. push·배포·실데이터 반입 없음.
 
+## 2026-10-06 W0-2 테스트 병렬 (Claude Code)
+- 복사 반영 캐시: `seed.copy`의 스키마 반영(reflection)·FK 조사가 게스트 복사 시간의 90% → DB·스키마별 1회만(`_reflected`·`_raw_foreign_keys`), 시드 유무는 count 대신 EXISTS. 게스트 생성 복사 **0.43 → 0.011초**, 9개 솔루션 모두 열기 0.69초(예전 전체 복사 1.5초).
+- 병렬: `pytest-xdist` 추가(dev). `conftest.pytest_configure`가 작업자마다 원본 `*_test` DB를 템플릿으로 `<원본>_gwN_test`를 새로 만들고 TEST_DATABASE_URL을 바꾼다(전체 DB를 비우는 테스트끼리 겹치지 않게, 복제는 advisory lock으로 직렬화). 시간 측정 테스트(`-m perf`, 1개)는 부하 없이 따로.
+- CI(`ci.yml`): `pytest -n auto -m "not perf"` + `pytest -m perf`. README 로컬 실행 예도 같은 방식.
+- 측정(로컬 10코어, `-n auto`): 전체 pytest **22분 38초 → 3분 0초**(2회 연속 855 통과·0 실패), perf 1 통과(22초). 테스트 수 증가(843 → 855)는 다른 세션의 CAD-03 테스트가 main에 들어온 것.
+- 하지 않음: 읽기 전용 게스트 공유·변경 범위 선택 실행(A2·A4) — 3분이면 필요 없다고 판단, 필요해지면 추가.
+- 검증: pytest 855 통과(병렬 2회)·perf 1, ruff check·format. 원격 CI는 push 후 실행(결과 미확인). 배포 없음.
+
 ## 2026-10-05 W0-1 게스트·세대 지연 복사 (Claude Code)
 - 사용자 전체 설계 확인("전체 설계 확인했어 W0 진행해줘") → DSN-99 확정, 일괄 개발 시작. W0을 W0-1~6으로 나눔(DSN-99 7-1).
 - 구현: 게스트 생성·회원 생성·세대 초기화는 core(모듈 행)만 복사, 솔루션 시드는 **처음 열 때**(솔루션 라우터 의존성 `fs.common.scope.seed_ready` → 요청 트랜잭션 전 공간 잠금 → `seed.copy.copy_module_seed`). `core.workspace_module.seeded_generation_id`(복사한 세대 — 활성 세대와 같을 때만 준비됨)·`core.data_generation.template_generation_id`, 마이그레이션 `w01_lazy_seed`(기존 공간은 활성 세대로 채움), schema 0.18.0. 교차 조회 `interface.enabled()` 6곳은 `module_available`(켜짐 + 복사됨) — 아직 열지 않은 솔루션은 꺼짐과 같게 None(DSN-01 S2). GW의 "ERP가 꺼져 있어" 안내는 "꺼져 있거나 아직 열지 않아"로.
