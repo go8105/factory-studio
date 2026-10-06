@@ -1,0 +1,68 @@
+{
+  "version": 3,
+  "name": "측면 구멍 CNC 브래킷",
+  "base": {
+    "id": "base",
+    "type": "rect",
+    "x": 0,
+    "y": 0,
+    "w": 70,
+    "h": 50,
+    "radius": 0,
+    "height": 8
+  },
+  "operations": [
+    {
+      "id": "upright",
+      "name": "세로 벽",
+      "kind": "add",
+      "plane": "XY",
+      "referenceId": "base",
+      "offset": 0,
+      "amount": 28,
+      "sketch": {
+        "type": "rect",
+        "x": 0,
+        "y": 18,
+        "w": 60,
+        "h": 8,
+        "radius": 0,
+        "angle": 0
+      }
+    },
+    {
+      "id": "side-hole",
+      "name": "측면 관통 구멍",
+      "kind": "cut",
+      "plane": "XZ",
+      "referenceId": "upright",
+      "offset": 0,
+      "amount": 60,
+      "sketch": {
+        "type": "circle",
+        "x": -18,
+        "y": 22,
+        "w": 8,
+        "h": 8,
+        "radius": 0,
+        "angle": 0
+      }
+    },
+    {
+      "id": "hole-array",
+      "name": "구멍 직선 배열",
+      "kind": "pattern",
+      "sourceId": "side-hole",
+      "mode": "linear",
+      "axis": "X",
+      "count": 3,
+      "spacing": 18,
+      "angle": 30,
+      "center": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

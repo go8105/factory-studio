@@ -1,0 +1,35 @@
+{
+  "version": 3,
+  "name": "필렛과 쉘 연습 케이스",
+  "base": {
+    "id": "base",
+    "type": "rect",
+    "x": 0,
+    "y": 0,
+    "w": 60,
+    "h": 40,
+    "radius": 0,
+    "height": 24
+  },
+  "operations": [
+    {
+      "id": "shell",
+      "name": "윗면 개방 쉘",
+      "kind": "shell",
+      "plane": "XY",
+      "referenceId": "base",
+      "offset": 0,
+      "thickness": 2
+    },
+    {
+      "id": "fillet",
+      "name": "밑면 모서리 필렛",
+      "kind": "fillet",
+      "scope": "plane",
+      "plane": "XY",
+      "referenceId": "world",
+      "offset": 0,
+      "radius": 1
+    }
+  ]
+}

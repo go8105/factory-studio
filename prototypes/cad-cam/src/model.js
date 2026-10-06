@@ -135,7 +135,7 @@ function number(v, min, max, label) {
   if (!Number.isFinite(v) || v < min || v > max)
     throw Error(`${label}: ${min}~${max} 범위의 숫자를 입력하세요.`);
 }
-function validateShape(s) {
+export function validateShape(s) {
   if (!s || !["rect", "circle", "profile", "slot"].includes(s.type))
     throw Error("지원하지 않는 스케치입니다.");
   if (s.type === "profile") validateProfile(s);

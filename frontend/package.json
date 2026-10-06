@@ -30,6 +30,8 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.4",
     "remark-gfm": "^4.0.1",
+    "replicad": "1.1.0",
+    "replicad-opencascadejs": "1.1.0",
     "three": "0.186.1"
   },
   "devDependencies": {

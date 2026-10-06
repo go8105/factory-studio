@@ -15,9 +15,11 @@
     "cnc:experiment": "node experiments/cnc-offset-e0.mjs"
   },
   "dependencies": {
+    "manifold-3d": "3.5.4",
     "polygon-clipping": "0.15.7",
-    "three": "0.186.1",
-    "manifold-3d": "3.5.4"
+    "replicad": "1.1.0",
+    "replicad-opencascadejs": "1.1.0",
+    "three": "0.186.1"
   },
   "devDependencies": {
     "prettier": "3.9.9",

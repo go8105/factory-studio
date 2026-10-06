@@ -11,6 +11,22 @@ const shared = {
   resolve: {
     alias: [
       {
+        find: /^replicad-opencascadejs\/wasm(?=\?|$)/,
+        replacement: require.resolve("replicad-opencascadejs/wasm"),
+      },
+      {
+        find: /^replicad-opencascadejs$/,
+        replacement: require
+          .resolve("replicad-opencascadejs")
+          .replace(".cjs", ".js"),
+      },
+      {
+        find: /^replicad$/,
+        replacement: require
+          .resolve("replicad")
+          .replace("replicad.umd.cjs", "replicad.js"),
+      },
+      {
         find: /^manifold-3d\/manifold\.wasm(?=\?|$)/,
         replacement: require.resolve("manifold-3d/manifold.wasm"),
       },
@@ -41,9 +57,19 @@ await build({
   build: {
     outDir: path("../public/cad-cam-app"),
     emptyOutDir: true,
-    rollupOptions: { input: path("../../prototypes/cad-cam/index.html") },
+    rollupOptions: {
+      input: {
+        editor: path("../../prototypes/cad-cam/index.html"),
+        part: path("../../prototypes/cad-cam/part-design.html"),
+      },
+    },
   },
 });
+await cp(
+  path("../../prototypes/cad-cam/licenses"),
+  path("../public/cad-cam-app/licenses"),
+  { recursive: true },
+);
 const privateRoot = path("../../backend/private-assets/soap-poc");
 await build({
   ...shared,
