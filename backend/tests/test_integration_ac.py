@@ -14,6 +14,7 @@ import fs.erp.revenue
 import pytest
 from fastapi.testclient import TestClient
 from fs.main import create_app
+from seed.copy import SCHEMAS, copy_module_seed
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
@@ -471,6 +472,11 @@ def test_ac78_shipment_rejects_line_of_other_instruction(guest_space):
 def test_ac68_two_guest_copies_have_own_scope_and_full_rows(guest_space):
     _, created, engine = guest_space
     other = _new_guest().json()["data"]
+    with (
+        engine.begin() as connection
+    ):  # W0-1: 두 번째 게스트도 모든 솔루션을 연 상태로 비교한다
+        for module in SCHEMAS:
+            copy_module_seed(connection, other["workspaceId"], module)
     with engine.connect() as connection:
         template = connection.execute(
             text(

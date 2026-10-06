@@ -57,6 +57,13 @@
 - 결정 초안/기존 결정서 안내/GW README/현황/HANDOFF만 변경. 상대 링크5·제안10·범위29항목·현황178/200줄·diff 정적 검사 통과(exit0). 최초 검사에서 Git 한글 경로 인용을 경로 변경으로 오인해 실패했고 NUL 구분 경로로 보정 후 통과. 제품 테스트/DB/브라우저/외부 연동 미실행.
 - 다음: 사용자 범위 확인 후 P0 요구사항과 A 모듈/화면 상세 설계. c 미착수 상태 유지, 개발 순서는 초안 제안. push·배포·실데이터 반입 없음.
 
+## 2026-10-05 W0-1 게스트·세대 지연 복사 (Claude Code)
+- 사용자 전체 설계 확인("전체 설계 확인했어 W0 진행해줘") → DSN-99 확정, 일괄 개발 시작. W0을 W0-1~6으로 나눔(DSN-99 7-1).
+- 구현: 게스트 생성·회원 생성·세대 초기화는 core(모듈 행)만 복사, 솔루션 시드는 **처음 열 때**(솔루션 라우터 의존성 `fs.common.scope.seed_ready` → 요청 트랜잭션 전 공간 잠금 → `seed.copy.copy_module_seed`). `core.workspace_module.seeded_generation_id`(복사한 세대 — 활성 세대와 같을 때만 준비됨)·`core.data_generation.template_generation_id`, 마이그레이션 `w01_lazy_seed`(기존 공간은 활성 세대로 채움), schema 0.18.0. 교차 조회 `interface.enabled()` 6곳은 `module_available`(켜짐 + 복사됨) — 아직 열지 않은 솔루션은 꺼짐과 같게 None(DSN-01 S2). GW의 "ERP가 꺼져 있어" 안내는 "꺼져 있거나 아직 열지 않아"로.
+- 테스트: `conftest.guest_space`는 파일 이름의 솔루션 + 직접 제공자만 미리 복사(`SEEDS`로 지정, 통합 테스트는 전체). 새 `test_lazy_seed`(동시 처음 열기 1회 복사·실패 시 흔적 없음·초기화 후 다시 지연·꺼짐), `test_common` 복사 수 검사를 지연 복사 기준으로, 회원·통합·WMS 보조 게스트도 맞춤. tools 테스트 task 집합에 W0-1.
+- 측정(로컬, 같은 DB `factory_studio_fs016_test`): 게스트 복사 **1.5초 → 0.43초**(남은 시간은 스키마 반영 — W0-2에서 캐시), 전체 pytest **28분 39초 → 22분 38초**. 기준 실행의 실패 1건은 실행 중 파일을 고쳐 생긴 것(재실행에서 해소).
+- 검증: **pytest 843 통과·0 실패**, db:validate 0·격리 0·DDL 대조 일치·ERD·Excel(현재·목표), 목표 DB 361 검증 0, tools 73 + DSN 47, frontend typecheck·lint·format·GW 테스트 5. 로컬 개발 DB `factory_studio`도 `w01_lazy_seed` 적용. 배포 없음.
+
 ## 2026-10-05 DSN-31 GW 보강 설계 · DSN-90 GW 재검증 (Claude Code)
 - 결정: Q1 **실제 도입 A(TEAM 공간·멤버십·초대·직원 계정 연결·업무 권한·문서 열람·재배정)를 지금 목표 DB에 넣음**(제안과 다름, 개발은 별도 트랙) · Q2 결재 대상 ERP 발주·지출결의·PLM ECO · Q3 병렬·합의·전결·위임 · Q4·Q5 댓글·일정·알림함·**채팅 포함**(제안과 다름) · Q6 ERP 확정 통제 · 범위 24/28(반복 자동 결재·첨부·외부 메일·전자서명 제외).
 - 문서 `docs/modules/gw/GW_보강설계_DSN-31.md`: 기준표 28, 규칙 8묶음, DB(GW 8 → 24: 체험 10·조직 1·실제 도입 5, core 3, ERP 2), 화면 체험 14(G-01~13 + ERP 1)·실제 도입 9(별도), 교차 조회(PLM `eco_for_approval` 신규). D81대로 GW-EXT `person_assignment`는 두지 않음 — 조직 단위 = HR 부서 스냅샷.

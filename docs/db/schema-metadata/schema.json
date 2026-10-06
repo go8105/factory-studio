@@ -460,20 +460,20 @@
           "rule": ""
         },
         {
-          "name": "seeded_generation_id",
-          "label": "시드 복사 세대",
-          "type": "bigint",
-          "nullable": true,
-          "default": null,
-          "rule": "W0-1 이 솔루션 시드를 복사한 세대. 활성 세대와 같을 때만 준비됨, 아니면 처음 열 때 복사"
-        },
-        {
           "name": "created_at",
           "label": "등록 시각",
           "type": "timestamptz",
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "seeded_generation_id",
+          "label": "시드 복사 세대",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "W0-1 이 솔루션 시드를 복사한 세대. 활성 세대와 같을 때만 준비됨, 아니면 처음 열 때 복사"
         }
       ],
       "note": "",

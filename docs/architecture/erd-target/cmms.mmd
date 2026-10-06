@@ -184,6 +184,7 @@ erDiagram
     timestamptz purged_at "데이터 정리 시각 NULL"
     timestamptz created_at "등록 시각"
     varchar status "상태"
+    bigint template_generation_id "원천 템플릿 세대 NULL"
   }
   core_data_generation ||..o{ cmms_asset : "workspace_id,generation_id"
   core_data_generation ||..o{ cmms_pm_plan : "workspace_id,generation_id"

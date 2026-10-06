@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from seed.copy import copy_module_seed
 from sqlalchemy import text
 
 W = "/api/v1/wms"
@@ -331,6 +332,9 @@ def _other_guest(client, engine=None):
     assert response.status_code == 201
     created = response.json()["data"]
     if engine is not None:
+        with engine.begin() as connection:  # W0-1: 지운 뒤 다시 복사되지 않게 먼저 연다
+            for module in ("wms", "erp", "mes"):
+                copy_module_seed(connection, created["workspaceId"], module)
         _clear(engine, created)
     return other, created
 

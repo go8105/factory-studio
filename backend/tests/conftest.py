@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from fs.common.db import reset_engine
 from fs.core.service import _business_table_order
 from fs.main import create_app
+from seed.copy import SCHEMAS, copy_module_seed
 from seed.generate import create_template
 from sqlalchemy import Engine, create_engine, inspect, text
 from sqlalchemy.engine import make_url
@@ -149,8 +150,44 @@ def guest_template(db_engine: Engine) -> Iterator[GuestTemplate]:
         )
 
 
+# W0-1 지연 복사: 테스트 파일이 쓰는 솔루션 + 그 솔루션이 interface로 읽는 솔루션(직접 제공자)만 미리 복사한다.
+# interface는 다른 interface를 다시 부르지 않으므로(FS-030 §3) 직접 제공자로 충분하다.
+PROVIDERS = {
+    "mes": ("qms",),
+    "erp": ("gw",),
+    "fems": (),
+    "qms": ("mes", "spc"),
+    "wms": ("erp", "mes"),
+    "bems": ("fems",),
+    "spc": ("mes",),
+    "gw": ("erp",),
+}
+
+
+def _test_seeds(request: pytest.FixtureRequest) -> tuple[str, ...]:
+    """모듈 변수 SEEDS가 있으면 그것, test_<솔루션>… 파일이면 그 솔루션 + 제공자, 나머지는 전체."""
+    declared = getattr(request.module, "SEEDS", None)
+    if declared is not None:
+        return tuple(declared)
+    name = request.module.__name__.rsplit(".", 1)[-1].removeprefix("test_")
+    solution = name.split("_", 1)[0]
+    if solution in PROVIDERS:
+        return (solution, *PROVIDERS[solution])
+    return SCHEMAS
+
+
+def _copy_seeds(engine: Engine, workspace_id: int, modules: tuple[str, ...]) -> None:
+    with engine.begin() as connection:
+        for module in modules:
+            copy_module_seed(connection, workspace_id, module)
+
+
 @pytest.fixture
-def guest_space(guest_template: GuestTemplate, monkeypatch: pytest.MonkeyPatch):
+def guest_space(
+    guest_template: GuestTemplate,
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+):
     """A fresh API-created guest per test; the immutable template survives guest cleanup."""
     engine = guest_template.engine
     monkeypatch.setenv("DATABASE_URL", engine.url.render_as_string(hide_password=False))
@@ -168,7 +205,9 @@ def guest_space(guest_template: GuestTemplate, monkeypatch: pytest.MonkeyPatch):
                 headers={"Idempotency-Key": str(uuid4())},
             )
             assert response.status_code == 201, response.text
-            yield client, response.json()["data"], engine
+            data = response.json()["data"]
+            _copy_seeds(engine, data["workspaceId"], _test_seeds(request))
+            yield client, data, engine
     finally:
         reset_engine()
         _delete_test_guests(guest_template)
