@@ -30,6 +30,15 @@ function renderNotes() {
       ["판단·다음 설계", "decision"],
     ])
       card.append(node("h3", label), node("p", n[k]));
+    if (n.designFolder || n.designFile)
+      card.append(
+        node("h3", "설계 파일 참조"),
+        node(
+          "p",
+          `${n.designFolder}
+${n.designFile}`,
+        ),
+      );
     $("#notes").append(card);
   }
 }
@@ -62,6 +71,10 @@ try {
       node("h2", entry.title),
     );
     const dl = node("dl");
+    dl.append(
+      node("dt", "설계 폴더"),
+      node("dd", "prototypes/cad-cam/private/soap-poc/"),
+    );
     for (const [label, k] of [
       ["설계 이유", "reason"],
       ["주요 가정", "dimensions"],

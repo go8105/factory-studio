@@ -3,7 +3,11 @@ export function validateNotes(value) {
     throw Error("최대 200개 기록만 보관할 수 있습니다.");
   const ids = new Set();
   for (const note of value) {
-    if (!note || !["POC-01", "POC-02", "POC-03"].includes(note.revision))
+    if (
+      !note ||
+      typeof note.revision !== "string" ||
+      !/^POC-\d{2,4}$/.test(note.revision)
+    )
       throw Error("기준 설계가 올바르지 않습니다.");
     for (const key of [
       "id",
@@ -24,10 +28,22 @@ export function validateNotes(value) {
     }
     if (ids.has(note.id) || !Number.isFinite(Date.parse(note.createdAt)))
       throw Error("중복 ID 또는 올바르지 않은 날짜입니다.");
+    for (const [field, max] of [
+      ["designFolder", 500],
+      ["designFile", 150],
+    ]) {
+      if (
+        note[field] !== undefined &&
+        (typeof note[field] !== "string" ||
+          note[field].length > max ||
+          note[field].includes("\0"))
+      )
+        throw Error("설계 폴더/파일명을 확인하세요.");
+    }
     ids.add(note.id);
   }
   return value.map(
-    ({ id, createdAt, revision, title, hypothesis, result, decision }) => ({
+    ({
       id,
       createdAt,
       revision,
@@ -35,6 +51,18 @@ export function validateNotes(value) {
       hypothesis,
       result,
       decision,
+      designFolder = "",
+      designFile = "",
+    }) => ({
+      id,
+      createdAt,
+      revision,
+      title,
+      hypothesis,
+      result,
+      decision,
+      designFolder,
+      designFile,
     }),
   );
 }

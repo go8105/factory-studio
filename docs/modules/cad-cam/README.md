@@ -46,3 +46,11 @@ DB 없이 브라우저 UI 검토: `node frontend/scripts/cad-preview-api.mjs`(80
 - 신규 기록은 scope별 브라우저 저장. append·JSON export/import, 중복 병합·충돌시 원본 보존. 서버 동기화/사진 업로드/서명 없음, 공유 브라우저 한계는 기존 CAD와 같다.
 - private/soap-poc/research-history.json·RESEARCH-NOTEBOOK.md, 보호 research-notebook.html. 공개 편집기에 넣지 않는다.
 - [고도화 분석](편집기_고도화분석_CAD-04.md): 커널 실증→자유 스케치→피처/조립→제작→CAM. 전체 확인 전 고도화 구현 미착수.
+
+## CAD-05 CNC 우선 E0 실증·기록 규칙
+
+2026-10-06 사용자 전체 방향 확인 및 main push 승인. CNC 우선, 비누 심화는 후속 창업 단계. 사진 없이 설계 폴더/파일명·기록을 연결한다.
+
+이번 범위는 기존 Manifold 후보의 자유 평면 윤곽 offset·가공 가능 영역 분리·독립 여유 검사 실증이다. Node 실증으로 브라우저/worker 성능이나 전체 CAM 완료를 주장하지 않는다. 다음은 결과 보고 후 자유 스케치 편집기 작업 ID.
+
+설계 파일 위치는 연구 기록에 명시한다. 기존 POC-01~03 이름은 보존한다. 신규 비누 설계는 `private/soap-poc/revisions/POC-04/soap-grinder_POC-04_YYYY-MM-DD_<part>.stl` 같은 버전 폴더와 이름을 쓰며 덮어쓰지 않는다. 연구노트 기록의 폴더/파일명 입력은 참조 문자열이며 브라우저가 해당 디스크에 파일을 쓰거나 존재를 확인하는 기능은 아니다.

@@ -34,3 +34,17 @@ test("backup merges duplicate notes once and refuses conflicting replacement", (
   assert.throws(() => validateNotes([{ ...note, revision: "unknown" }]));
   assert.throws(() => validateNotes([{ ...note, title: "x".repeat(121) }]));
 });
+
+test("design folder/file reference survives backup and old notes remain compatible", () => {
+  const n = {
+    ...note,
+    designFolder: "prototypes/cad-cam/private/soap-poc/",
+    designFile: "soap-poc-03.zip",
+  };
+  assert.equal(validateNotes([n])[0].designFile, "soap-poc-03.zip");
+  assert.equal(validateNotes([note])[0].designFolder, "");
+  assert.equal(mergeNotes([note], [note]).length, 1);
+  assert.throws(() =>
+    validateNotes([{ ...note, designFile: "x".repeat(151) }]),
+  );
+});
