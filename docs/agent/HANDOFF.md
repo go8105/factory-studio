@@ -2,7 +2,7 @@
 
 ## CAD-03 완료 (2026-10-06)
 
-- branch `codex/soap-cad-review`, WIP d11471e, main ec1b373 병합 8dce56d. 최종 커밋은 `git log -1`. 최신 POC-03(유연 외피9부품)이 v2를 대체한다. 사용자 이번 요청만 수행, D82 다른 업무 중단 유지.
+- branch `codex/soap-cad-review`, WIP d11471e, main ec1b373 병합 8dce56d. 구현/검증 160b9b0 로컬 main 통합 완료. 최종 기록 커밋은 `git log -1`. 최신 POC-03(유연 외피9부품)이 v2를 대체한다. 사용자 이번 요청만 수행, D82 다른 업무 중단 유지.
 - frontend524/prototype27/API13 및 빌드 통과. 실제 브라우저 관리자 모델/서랍 분리/다운로드 검증. [결과](CAD_CAM_관리자POC_CAD-03.md). 실물·탄성·실제 DB 인증·운영 배포 미검증.
 - 재현: `cd frontend && npm run build` (Node24), `cd prototypes/cad-cam && npm run poc:flex && npm test`, `uv run --directory backend pytest tests/test_cad_private_assets.py`.
 - 5243/8043은 합성 인증+실제 보호 라우터의 검토 환경. 실행법은 docs/modules/cad-cam/README.md. 테스트 fixture를 운영에 실행하지 않는다.
@@ -72,7 +72,7 @@
 ## Codex 최신 상태 — 2026-10-04 FS-030b 완료
 
 - 아래 main 운영/Claude 기록은 보존한다. GW의 이전 a/WIP 상태는 이 항목으로 대체한다.
-- 위치 `/Users/hwang-kyoungho/projects/factory-studio-codex`, branch `codex/fs-030-gw`. main8531c05 fast-forward 후 구현 WIP2a80375, 최종 커밋은 `git log -1`. push·배포·main 병합 없음.
+- 위치 `/Users/hwang-kyoungho/projects/factory-studio-codex`, branch `codex/fs-030-gw`. main8531c05 fast-forward 후 구현 WIP2a80375, 구현/검증 160b9b0 로컬 main 통합 완료. 최종 기록 커밋은 `git log -1`. push·배포·main 병합 없음.
 - G01~07/API·ERP 조회계약/E11 배지·런처/전환 구현 완료. DB v0.17.0/headfs029b_cmms_module·시드14,687 유지. 교차쓰기 없음.
 - 검증: GW20·Vitest518(+마지막 관련11)·tools73·브라우저17 후 업무5 재검사(고유18)·Ruff163·빌드/타입/lint/format·설계/격리/DDL 오류0. 전체pytest839통과/성능1실패(3.426초>2초), 해당 검사 단독1통과. 기준 변경 없음. 실행 상세·미실행·재현: [FS-030b 보고](GW_API화면_FS-030b.md).
 - 다음은 **사용자 b 확인 후 c**: GW69행·게스트복사 검증·g01~07 도움말·참고문서·흐름맵·통합. 최신main의 CMMS/시드/head 확인부터. c는 아직 시작하지 않았다.

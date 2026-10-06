@@ -57,7 +57,7 @@ npm run format:check
 
 포털 `/cad-cam?view=soap`에서 MEMBER+ADMIN만 사용할 수 있다. 페이지·STL·ZIP은 인증 API로 제공하며 공개 빌드에 넣지 않는다. 일반 편집기의 설계 저장은 브라우저에 유지한다.
 
-최신 모델은 유연한 외피/상부 커버/하단 스킨과 단단한 마찰판·가이드, 완전 분리 가루통으로 구성된다. `npm run poc:flex`로 9개 부품을 생성한다. 원본과 안내는 `private/soap-poc/`, ZIP 재생성은 프로젝트 루트에서 `python3 tools/package-soap-flex.py`이다.
+최신 모델은 유연한 외피/상부 커버/하단 스킨과 단단한 마찰판·가이드, 완전 분리 가루통으로 구성된다. `npm run poc:flex`로 9개 부품을 생성한다. 원본과 안내는 `private/soap-poc/`, ZIP 재생성은 `prototypes/cad-cam`에서 `python3 tools/package-soap-flex.py`이다.
 
 포털 빌드: `cd frontend && npm run build` (Node 24). 공개 편집기는 `frontend/public/cad-cam-app`, 보호 자료는 `backend/private-assets/soap-poc`에 생성된다. 후자는 정적 공개 경로에 연결하지 않는다. 실행·권한 검증·배포는 [공통 설계](../../docs/modules/cad-cam/README.md)를 따른다.
 
