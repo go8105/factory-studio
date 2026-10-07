@@ -17,6 +17,9 @@ export class NCViewer {
     this.controls.enableDamping = true;
     this.paths = new THREE.Group();
     this.scene.add(this.paths);
+    this.reference = new THREE.Group();
+    this.scene.add(this.reference);
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x747b83, 2));
     this.axes = new THREE.AxesHelper(10);
     this.scene.add(this.axes);
     this.highlight = new THREE.Line(
@@ -102,6 +105,89 @@ export class NCViewer {
       }
     this.fit();
   }
+  setReference(mesh, stock, analysis) {
+    for (const child of [...this.reference.children]) {
+      child.geometry.dispose();
+      child.material.dispose();
+      this.reference.remove(child);
+    }
+    if (mesh) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(mesh.vertices, 3),
+      );
+      g.setIndex(mesh.triangles);
+      g.computeVertexNormals();
+      this.reference.add(
+        new THREE.Mesh(
+          g,
+          new THREE.MeshStandardMaterial({
+            color: 0x889ba5,
+            transparent: true,
+            opacity: 0.42,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          }),
+        ),
+      );
+    }
+    if (
+      stock &&
+      stock.min.every(Number.isFinite) &&
+      stock.size.every((v) => Number.isFinite(v) && v > 0)
+    ) {
+      const box = new THREE.BoxGeometry(...stock.size),
+        edges = new THREE.EdgesGeometry(box);
+      box.dispose();
+      const line = new THREE.LineSegments(
+        edges,
+        new THREE.LineBasicMaterial({ color: 0xa28a64 }),
+      );
+      line.position.set(...stock.min.map((v, i) => v + stock.size[i] / 2));
+      this.reference.add(line);
+      if (analysis) {
+        const positions = [],
+          colors = [],
+          { nx, ny, dx, dy } = analysis.grid;
+        for (let y = 0; y < ny; y++)
+          for (let x = 0; x < nx; x++) {
+            const k = y * nx + x,
+              d = analysis.heights[k] - analysis.target[k];
+            positions.push(
+              stock.min[0] + (x + 0.5) * dx,
+              stock.min[1] + (y + 0.5) * dy,
+              analysis.heights[k],
+            );
+            const color = new THREE.Color(
+              d < -analysis.tolerance
+                ? 0x98684f
+                : d > analysis.tolerance
+                  ? 0xb4a472
+                  : 0x4b827c,
+            );
+            colors.push(color.r, color.g, color.b);
+          }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute(
+          "position",
+          new THREE.Float32BufferAttribute(positions, 3),
+        );
+        g.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+        this.reference.add(
+          new THREE.Points(
+            g,
+            new THREE.PointsMaterial({
+              vertexColors: true,
+              size: 3,
+              sizeAttenuation: false,
+            }),
+          ),
+        );
+      }
+    }
+    this.fit();
+  }
   select(id) {
     const s = this.result?.segments[id];
     this.highlight.visible = !!s;
@@ -120,6 +206,7 @@ export class NCViewer {
       if (line.geometry.attributes.position.count)
         box.union(line.geometry.boundingBox);
     }
+    box.union(new THREE.Box3().setFromObject(this.reference));
     if (box.isEmpty())
       box.set(new THREE.Vector3(-20, -20, -5), new THREE.Vector3(20, 20, 20));
     const center = box.getCenter(new THREE.Vector3()),
