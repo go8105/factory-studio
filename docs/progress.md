@@ -5,7 +5,7 @@
 - 사용자 CAD-10 권장안 승인: 3축 밀링·G-code 우선, 선반 후속. 이번 ID 구현100%, NC/에너지 계산 미착수. [설계 계약](modules/cad-cam/편집명령_복구_설계_CAD-11.md) · [결과](agent/편집명령_복구_CAD-11.md).
 - E1/E2 공통 Ctrl/⌘Z·ShiftZ/CtrlY·Esc·Delete·F·저장/도움말, native 입력칸 undo·초안·확정 모델 이력 분리. 점/원호/닫기/드래그/치수 복구, 실패 원호 직전 두 점 유지, E2 참조 영향 검사/삭제 거부·정상 삭제 복구·Worker 인스턴스 방어.
 - prototype62/프런트66파일538/포맷/전체 build·자산 격리·diff 통과. 실제 iframe 선/닫기·원호 실패/복구·한 드래그·E2 초안/확정 치수·체적·삭제/참조거부·native 문자undo·Esc 계산취소·도움말 확인. 실제 Windows/IME·30초만료/stale 강제 주입·저장 파일 재열기·모든 도구 전수시험·DB/실물/NC/계측/운영 배포 미실행.
-- 구현6d4d8d3; HR 급여aaee3a3 보존 병합. 기존 main push 승인 유지, 다른 작업자 HR schema 미커밋 변경 보존. 다음은 결과 확인 뒤 CAD-12 한 ID, CAD-13~17 자동 시작 없음.
+- 구현6d4d8d3; HR 급여aaee3a3 보존 병합9a5c0a3, 문서2b6086c까지 main fast-forward·origin/main push 성공(b2390b7→2b6086c). 기존 main push 승인 유지, 다른 작업자 HR schema 미커밋 변경 보존. 다음은 결과 확인 뒤 CAD-12 한 ID, CAD-13~17 자동 시작 없음.
 
 ## 2026-10-07 W1b-3 HR 급여
 

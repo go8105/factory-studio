@@ -2,7 +2,7 @@
 
 ## CAD-11 편집 복구 완료 (2026-10-07)
 
-- branch codex/soap-cad-review, 구현6d4d8d3·HR 급여aaee3a3 보존 병합. 최종 문서 commit은 git log -1. 기존 사용자 main push 승인 유지, 운영 배포 없음. [계약](../modules/cad-cam/편집명령_복구_설계_CAD-11.md)·[검증](편집명령_복구_CAD-11.md).
+- branch codex/soap-cad-review, 구현6d4d8d3·HR 급여aaee3a3 보존 병합9a5c0a3. 문서2b6086c까지 로컬 main fast-forward·origin/main push 성공(b2390b7→2b6086c). 최종 인계 commit은 git log -1. 기존 사용자 main push 승인 유지, 운영 배포 없음. [계약](../modules/cad-cam/편집명령_복구_설계_CAD-11.md)·[검증](편집명령_복구_CAD-11.md).
 - 3축 밀링/G-code 우선·선반 후속 사용자 확정. E1/E2 키·초안/확정/nativeundo 분리, 점/원호/닫기/드래그·치수 복구, Esc취소, 참조 목록·삭제 보호. 저장은 확정 모델만. E2 취소Worker인스턴스 방어. JSON/DB/비누권한 정책 변경 없음.
 - 실제 prototype62/프런트66파일538/포맷/전체build·자산격리·웹키입력/드래그·형상체적/삭제 복구 통과. Windows/IME기기·30초만료/stale주입·저장재열기·전수도구·DB/NC/실물/계측/운영배포 미검증. 기본커널약23MB/chunk 경고 유지.
 - 다음: 결과 확인 뒤 CAD-12 G-code 부분집합/모달상태/원본행/경로/미지원차단·취소상한. 컨트롤러 모델 미정, 전체 NC 분석/장비 실행 보장하지 않는다. CAD-13~17 자동 착수 금지. 다른 작업자 main HR schema 미커밋 수정은 보존한다.
