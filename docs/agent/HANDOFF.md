@@ -2,7 +2,7 @@
 
 ## CAD-08 운영 비누 파일 복구·경로 제안 분석 (2026-10-07)
 
-- branch codex/soap-cad-review, 시작8a10ea6. deploy.sh 비공개 업로드 누락 수정: 필수 로컬 자산/서버 실행계정 읽기 검사, 보호 폴더 전송·750/640, 공개경로 추가 없음. 가짜 도구 계약7·기존 보호 API13 통과, 전체 실배포 스크립트 미실행. 최종commit git log -1, main push 결과는 progress.
+- branch codex/soap-cad-review, 시작8a10ea6. deploy.sh 비공개 업로드 누락 수정: 필수 로컬 자산/서버 실행계정 읽기 검사, 보호 폴더 전송·750/640, 공개경로 추가 없음. 가짜 도구 계약7·기존 보호 API13 통과, 전체 실배포 스크립트 미실행. 구현 ee5c499 로컬 main fast-forward 및 origin/main push 성공(8a10ea6→ee5c499). 최종 기록commit은 git log -1, main의 진행 중 HR 파일 보존.
 - 운영은3474942. 같은 커밋의 별도 archive 빌드로 private38파일만 복구, 전체 경로/내용해시 일치·factory 읽기·비로그인401 확인. 관리자 브라우저200은 세션 없어 미검증. E2/코드/DB 배포·API 재시작 안 함. work/cad08-server-build는 재현 가능한 임시 빌드이며 인계 의존 대상 아님.
 - 품질1·소비2 [설계초안](../modules/cad-cam/품질우선_경로제안_설계초안_CAD-08.md), 제품 구현 미착수. 재질/장비/목표품질 질문 답변 전 미정. 기존 E1의 절삭/방향/마무리·안전Z를 유지하며 래스터 방문만 조정하는 초기 제안. 장비 미정은 실제kWh/%를 표시하지 않음. 다음은 사용자 확인 뒤 경로 제안 구현, E3는 자동 시작 안 함.
 - 재현: python3 tools/test_deploy.py; bash -n tools/deploy.sh; backend .venv/bin/python -m pytest tests/test_cad_private_assets.py -q. main 미추적 backend/src/fs/hr는 다른 작업자 진행 중이므로 건드리지 않는다.
