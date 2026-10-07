@@ -9,6 +9,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
 
 from seed.common import equipment_ratio_sql, month_mondays, month_text
+from fs.common.modules import BUSINESS_SCHEMAS
 
 
 EXPECTED_COUNTS = {
@@ -316,7 +317,7 @@ def validate_all(
 
     future = 0
     inspector = inspect(connection)
-    for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw", "cmms"):
+    for schema in BUSINESS_SCHEMAS:
         for table in inspector.get_table_names(schema=schema):
             for column in inspector.get_columns(table, schema=schema):
                 if (
@@ -498,7 +499,7 @@ def _counts(
         {"w": workspace_id},
     )
     inspector = inspect(connection)
-    for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw", "cmms"):
+    for schema in BUSINESS_SCHEMAS:
         for table in inspector.get_table_names(schema=schema):
             count = _scalar(
                 connection,
@@ -520,7 +521,7 @@ def _created_at_order_errors(
     params = {"w": workspace_id, "g": generation_id}
     inspector = inspect(connection)
     errors = 0
-    for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw", "cmms"):
+    for schema in BUSINESS_SCHEMAS:
         for table in inspector.get_table_names(schema=schema):
             columns = {
                 column["name"] for column in inspector.get_columns(table, schema=schema)

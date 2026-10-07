@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Any
 
@@ -72,7 +72,7 @@ def present(row: Mapping[str, Any]) -> dict[str, Any]:
         camel(key): str(value)
         if isinstance(value, Decimal)
         else value.isoformat()
-        if isinstance(value, (date, datetime))
+        if isinstance(value, (date, datetime, time))
         else value
         for key, value in row.items()
     }
@@ -137,7 +137,7 @@ def references(
     return found
 
 
-def _duplicate(
+def duplicate(
     connection: Connection,
     master: Master,
     scoped: AuthContext,
@@ -163,7 +163,7 @@ def _duplicate(
     )
 
 
-def _store(
+def store(
     connection: Connection,
     master: Master,
     scoped: AuthContext,
@@ -250,10 +250,10 @@ def create(
     check: Check | None = None,
 ) -> dict[str, Any]:
     def run(connection: Connection, scoped: AuthContext):
-        _reject_duplicate(connection, master, scoped, values, None)
+        reject_duplicate(connection, master, scoped, values, None)
         if check is not None:
             check(connection, scoped, dict(values), None, None)
-        created = _store(connection, master, scoped, values, None)
+        created = store(connection, master, scoped, values, None)
         return created, master.entity, created["id"]
 
     return action(
@@ -278,10 +278,10 @@ def update(
         if current is None:
             raise _not_found(master)
         merged = {**current, **values}
-        _reject_duplicate(connection, master, scoped, merged, row_id)
+        reject_duplicate(connection, master, scoped, merged, row_id)
         if check is not None:
             check(connection, scoped, merged, current, row_id)
-        return _store(connection, master, scoped, values, row_id), master.entity, row_id
+        return store(connection, master, scoped, values, row_id), master.entity, row_id
 
     return action(
         master.module,
@@ -325,14 +325,14 @@ def delete(master: Master, context: AuthContext, row_id: int, key: str) -> None:
     )
 
 
-def _reject_duplicate(
+def reject_duplicate(
     connection: Connection,
     master: Master,
     scoped: AuthContext,
     values: Mapping[str, Any],
     row_id: int | None,
 ) -> None:
-    if _duplicate(connection, master, scoped, values, row_id):
+    if duplicate(connection, master, scoped, values, row_id):
         raise ApiError(
             400,
             "VALIDATION_FAILED",

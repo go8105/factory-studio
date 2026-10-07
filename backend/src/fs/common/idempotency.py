@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import Connection, text
@@ -11,9 +12,22 @@ from fs.common.auth import AuthContext
 from fs.common.errors import ApiError
 
 
+def _plain(value: Any) -> str:
+    """날짜·시각·소수처럼 JSON이 모르는 값은 표준 문자열로 (같은 요청이면 같은 digest)."""
+    if isinstance(value, (date, datetime, time)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return str(value)
+    raise TypeError(f"digest에 담을 수 없는 값: {type(value).__name__}")
+
+
 def request_digest(body: Any) -> str:
     canonical = json.dumps(
-        body, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        body,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=_plain,
     ).encode()
     return hashlib.sha256(canonical).hexdigest()
 

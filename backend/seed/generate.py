@@ -22,6 +22,7 @@ from seed.common import (
     month_text,
     round_half_up,
 )
+from fs.common.modules import BUSINESS_SCHEMAS, MODULE_KEYS
 
 Row = dict[str, Any]
 
@@ -275,19 +276,7 @@ def create_template(
                 "enabled": True,
                 "updated_at": at(seed_date, 0),
             }
-            for module in (
-                "core",
-                "mes",
-                "erp",
-                "fems",
-                "qms",
-                "wms",
-                "bems",
-                "spc",
-                "gw",
-                "cmms",
-                "hr",
-            )
+            for module in MODULE_KEYS
         ],
     )
     _masters(writer)
@@ -340,7 +329,7 @@ def normalize_created_at(
     )
     inspector = inspect(connection)
     tables: list[tuple[str, str, set[str]]] = []
-    for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw", "cmms"):
+    for schema in BUSINESS_SCHEMAS:
         for table in inspector.get_table_names(schema=schema):
             columns = {
                 column["name"] for column in inspector.get_columns(table, schema=schema)

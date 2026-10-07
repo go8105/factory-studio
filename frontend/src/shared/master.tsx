@@ -27,6 +27,9 @@ import {
   type Column,
 } from "./components";
 
+/** 코드 입력 검사. 브라우저의 pattern은 v 플래그라 문자 클래스 안의 '-'를 반드시 escape한다. */
+export const CODE_PATTERN = String.raw`[A-Z0-9][A-Z0-9_\-]{0,29}`;
+
 /** 입력 칸 한 개. 더 복잡한 입력은 spec.extra로 직접 넣는다. */
 export type MasterField<Draft> =
   | {
@@ -46,6 +49,21 @@ export type MasterField<Draft> =
       label: string;
       options: readonly string[] | Record<string, string>;
       note?: string;
+    }
+  | {
+      kind: "number";
+      key: keyof Draft & string;
+      label: string;
+      required?: boolean;
+      min?: number;
+      max?: number;
+      note?: string;
+    }
+  | {
+      kind: "time";
+      key: keyof Draft & string;
+      label: string;
+      required?: boolean;
     }
   | { kind: "check"; key: keyof Draft & string; label: string };
 
@@ -378,6 +396,28 @@ export function MasterScreen<
                         [field.key]: field.upper
                           ? event.target.value.toUpperCase()
                           : event.target.value,
+                      } as Partial<Draft>)
+                    }
+                  />
+                );
+              if (field.kind === "number" || field.kind === "time")
+                return (
+                  <Field
+                    key={field.key}
+                    label={field.label}
+                    type={field.kind === "time" ? "time" : "number"}
+                    step={field.kind === "time" ? 1 : undefined}
+                    value={String(value ?? "")}
+                    required={field.required}
+                    min={field.kind === "number" ? field.min : undefined}
+                    max={field.kind === "number" ? field.max : undefined}
+                    error={errors[field.key]}
+                    onChange={(event) =>
+                      set({
+                        [field.key]:
+                          field.kind === "number"
+                            ? Number(event.target.value)
+                            : event.target.value,
                       } as Partial<Draft>)
                     }
                   />

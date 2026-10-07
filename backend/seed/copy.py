@@ -10,10 +10,11 @@ from uuid import NAMESPACE_URL, uuid5
 from sqlalchemy import MetaData, inspect, text, update
 from sqlalchemy.engine import Connection
 
+from fs.common.modules import BUSINESS_SCHEMAS
 from seed.common import SEED_VERSION, at
 
 
-SCHEMAS = ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw", "cmms")
+SCHEMAS = BUSINESS_SCHEMAS  # 업무 스키마 목록은 fs.common.modules 한 곳
 MONTH_COLUMNS = {
     ("erp.partner_item_price", "effective_from"),
     ("erp.partner_item_price", "effective_to"),

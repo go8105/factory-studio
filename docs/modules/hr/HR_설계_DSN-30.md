@@ -132,26 +132,27 @@
 
 ## 5. 화면 목록
 
-화면 접두어 **HR**.
+화면 접두어 **H**(W1b 구현: 조직·직위를 부서·직위로 나눠 15화면).
 
 | 화면 | 이름 | 패턴 | 주 테이블 | 기능 ID |
 |---|---|---|---|---|
-| HR-01 | 인사 현황 | D | (조회) | F41 |
-| HR-02 | 조직·직위 | S(부서 트리) | department·title | F01 |
-| HR-03 | 사원 | L+DetailPanel wide(인사카드·발령 이력·자격) | employee·qualification | F02·F04·F06 |
-| HR-04 | 발령 | L+FormPanel(확정) | appointment | F03·F04 |
-| HR-05 | 근무 형태 | S | work_pattern | F11 |
-| HR-06 | 근태 | L(월 달력, 자동 생성·예외 수정) | attendance | F12·F14 |
-| HR-07 | 근태 마감 | L+DetailPanel | attendance_close | F15 |
-| HR-08 | 휴가 | L+FormPanel(신청·승인·잔여) | leave_request·leave_balance | F13 |
-| HR-09 | 급여 기준 | S | pay_item·pay_base·pay_base_item·bonus_rule | F21·F22·F27 |
-| HR-10 | 급여 계산 | W(마감 선택 → 계산 → 검토 → 확정) | payroll_run·payslip·payslip_line | F23·F24 |
-| HR-11 | 급여대장·명세서 | L+DetailPanel wide(인쇄) | payslip | F25·F28 |
-| HR-12 | 인사 평가 | L+FormPanel | review_cycle·review | F31 |
-| HR-13 | 인건비·근태 분석 | D | (조회) | F42·F43 |
-| HR-14 | 내 정보 | L(본인 명세서·잔여 연차·근태) | (본인만) | F44 |
+| H-01 | 인사 현황 | D | (조회) | F41 |
+| H-02 | 부서 | L+FormPanel | department | F01 |
+| H-03 | 직위·직책 | L+FormPanel | title | F01 |
+| H-04 | 근무 형태 | L+FormPanel | work_pattern | F11 |
+| H-05 | 사원 | L+DetailPanel wide(인사카드·발령 이력·자격) | employee·qualification | F02·F04·F06 |
+| H-06 | 발령 | L+FormPanel(작성 → 확정) | appointment | F03·F04 |
+| H-07 | 근태 | L(월 달력, 자동 생성·예외 수정) | attendance | F12·F14 |
+| H-08 | 근태 마감 | L+DetailPanel | attendance_close | F15 |
+| H-09 | 휴가 | L+FormPanel(신청·승인·잔여) | leave_request·leave_balance | F13 |
+| H-10 | 급여 기준 | S | pay_item·pay_base·pay_base_item·bonus_rule | F21·F22·F27 |
+| H-11 | 급여 계산 | W(마감 선택 → 계산 → 검토 → 확정) | payroll_run·payslip·payslip_line | F23·F24 |
+| H-12 | 급여대장·명세서 | L+DetailPanel wide(인쇄) | payslip | F25·F28 |
+| H-13 | 인사 평가 | L+FormPanel | review_cycle·review | F31 |
+| H-14 | 인건비·근태 분석 | D | (조회) | F42·F43 |
+| H-15 | 내 정보 | L(본인 명세서·잔여 연차·근태) | (본인만) | F44 |
 
-화면 수 **14**.
+화면 수 **15**.
 
 ## 6. 교차 조회
 
