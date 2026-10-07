@@ -23,6 +23,7 @@ from seed.validate import (
     _scalar,
     validate_all,
 )
+from fs.common.modules import BUSINESS_SCHEMAS
 
 
 URL = os.environ.get("TEST_DATABASE_URL")
@@ -372,7 +373,7 @@ def test_seed_v10_timestamps_upper_bound(seed_env: SeedFixtureData) -> None:
     future = 0
     with engine.connect() as connection:
         inspector = inspect(connection)
-        for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw", "cmms"):
+        for schema in BUSINESS_SCHEMAS:
             for table in inspector.get_table_names(schema=schema):
                 for column in inspector.get_columns(table, schema=schema):
                     if (

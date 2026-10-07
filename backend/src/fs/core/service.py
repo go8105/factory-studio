@@ -16,6 +16,7 @@ from fs.common.idempotency import (
     request_digest,
     save_receipt,
 )
+from fs.common.modules import BUSINESS_SCHEMAS
 from fs.common.security import (
     guest_csrf_token,
     hash_password,
@@ -718,7 +719,7 @@ def _business_table_order(connection: Connection) -> list[str]:
     inspector = inspect(connection)
     tables = {
         f"{schema}.{table}"
-        for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw", "cmms")
+        for schema in BUSINESS_SCHEMAS
         for table in inspector.get_table_names(schema=schema)
     }
     dependencies: dict[str, set[str]] = {}

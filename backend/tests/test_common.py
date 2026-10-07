@@ -48,10 +48,13 @@ def _schema_count(
         )
 
 
+from fs.common.modules import BUSINESS_SCHEMAS
+
+
 def _business_count(engine: Engine, workspace_id: int, generation_id: int) -> int:
     total = 0
     with engine.connect() as connection:
-        for schema in ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw", "cmms"):
+        for schema in BUSINESS_SCHEMAS:
             for table in inspect(connection).get_table_names(schema=schema):
                 total += connection.execute(
                     text(
