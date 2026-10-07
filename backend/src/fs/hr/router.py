@@ -10,7 +10,7 @@ from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
 from fs.common.errors import ApiError
 from fs.common.page import Page
-from fs.hr import attendance, leave, payroll, service
+from fs.hr import analytics, attendance, leave, payroll, review, service
 from fs.hr.schema import (
     AppointmentCreate,
     AttendanceUpdate,
@@ -31,6 +31,12 @@ from fs.hr.schema import (
     PayItemCreate,
     PayItemUpdate,
     PayrollRunCreate,
+    QualificationCreate,
+    QualificationUpdate,
+    ReviewCreate,
+    ReviewCycleCreate,
+    ReviewDecision,
+    ReviewSelf,
     TitleCreate,
     TitleUpdate,
     WorkPatternCreate,
@@ -47,9 +53,16 @@ _mutation = mutation_key
 
 
 def _values(
-    payload: BaseModel, nullable: frozenset[str] = frozenset()
+    payload: BaseModel,
+    nullable: frozenset[str] = frozenset(),
+    *,
+    full: bool = False,
 ) -> dict[str, Any]:
-    values = payload.model_dump(exclude_unset=True)
+    """수정은 보낸 칸만, 등록(full)은 적지 않은 칸의 기본값까지 보낸다.
+
+    DB 기본값이 없는 칸(예: `pay_item.display_order`)이 있어서, 등록에서 빼면 NOT NULL에 걸린다.
+    """
+    values = payload.model_dump(exclude_unset=not full)
     if any(value is None for name, value in values.items() if name not in nullable):
         raise ApiError(400, "VALIDATION_FAILED", "필수 항목은 null로 비울 수 없습니다.")
     return values
@@ -97,7 +110,7 @@ def post_department(
     key = _mutation(context, x_csrf_token, idempotency_key)
     return {
         "data": service.create_department(
-            context, _values(payload, frozenset({"parent_id"})), key
+            context, _values(payload, full=True, nullable=frozenset({"parent_id"})), key
         )
     }
 
@@ -160,7 +173,7 @@ def post_title(
     x_csrf_token: CsrfToken = None,
 ):
     key = _mutation(context, x_csrf_token, idempotency_key)
-    return {"data": service.create_title(context, _values(payload), key)}
+    return {"data": service.create_title(context, _values(payload, full=True), key)}
 
 
 @router.patch("/titles/{row_id}")
@@ -210,7 +223,9 @@ def post_work_pattern(
     x_csrf_token: CsrfToken = None,
 ):
     key = _mutation(context, x_csrf_token, idempotency_key)
-    return {"data": service.create_work_pattern(context, _values(payload), key)}
+    return {
+        "data": service.create_work_pattern(context, _values(payload, full=True), key)
+    }
 
 
 @router.patch("/work-patterns/{row_id}")
@@ -278,7 +293,7 @@ def post_employee(
     key = _mutation(context, x_csrf_token, idempotency_key)
     return {
         "data": service.create_employee(
-            context, _values(payload, frozenset({"duty_id"})), key
+            context, _values(payload, full=True, nullable=frozenset({"duty_id"})), key
         )
     }
 
@@ -494,7 +509,7 @@ def post_balance(
     x_csrf_token: CsrfToken = None,
 ):
     key = _mutation(context, x_csrf_token, idempotency_key)
-    return {"data": leave.create_balance(context, _values(payload), key)}
+    return {"data": leave.create_balance(context, _values(payload, full=True), key)}
 
 
 @router.patch("/leave-balances/{row_id}")
@@ -539,7 +554,7 @@ def post_request(
     key = _mutation(context, x_csrf_token, idempotency_key)
     return {
         "data": leave.create_request(
-            context, _values(payload, frozenset({"reason"})), key
+            context, _values(payload, full=True, nullable=frozenset({"reason"})), key
         )
     }
 
@@ -621,7 +636,9 @@ def post_pay_item(
 ):
     key = _mutation(context, x_csrf_token, idempotency_key)
     return {
-        "data": payroll.create_item(context, _values(payload, frozenset({"rate"})), key)
+        "data": payroll.create_item(
+            context, _values(payload, full=True, nullable=frozenset({"rate"})), key
+        )
     }
 
 
@@ -678,7 +695,7 @@ def post_pay_base(
     x_csrf_token: CsrfToken = None,
 ):
     key = _mutation(context, x_csrf_token, idempotency_key)
-    return {"data": payroll.create_base(context, _values(payload), key)}
+    return {"data": payroll.create_base(context, _values(payload, full=True), key)}
 
 
 @router.patch("/pay-bases/{row_id}")
@@ -715,7 +732,9 @@ def post_pay_base_item(
     x_csrf_token: CsrfToken = None,
 ):
     key = _mutation(context, x_csrf_token, idempotency_key)
-    return {"data": payroll.add_base_item(context, row_id, _values(payload), key)}
+    return {
+        "data": payroll.add_base_item(context, row_id, _values(payload, full=True), key)
+    }
 
 
 @router.patch("/pay-base-items/{row_id}")
@@ -764,7 +783,9 @@ def post_bonus_rule(
     x_csrf_token: CsrfToken = None,
 ):
     key = _mutation(context, x_csrf_token, idempotency_key)
-    return {"data": payroll.create_bonus_rule(context, _values(payload), key)}
+    return {
+        "data": payroll.create_bonus_rule(context, _values(payload, full=True), key)
+    }
 
 
 @router.patch("/bonus-rules/{row_id}")
@@ -861,3 +882,223 @@ def get_severance(
     context: Auth, employee_id: Annotated[int, Query(alias="employeeId")]
 ):
     return {"data": payroll.severance(context, employee_id)}
+
+
+# ── 자격·교육 ────────────────────────────────────────────────────────────────
+
+
+@router.get("/qualifications")
+def list_qualifications(
+    context: Auth,
+    offset: int = 0,
+    limit: int = 50,
+    employee_id: Annotated[int | None, Query(alias="employeeId")] = None,
+    qual_kind: Annotated[str | None, Query(alias="qualKind")] = None,
+    expiring: bool = False,
+):
+    page = Page(offset, limit).checked()
+    return _page(
+        review.qualifications(
+            context,
+            expiring,
+            filters={"employeeId": employee_id, "qualKind": qual_kind},
+            offset=page.offset,
+            limit=page.limit,
+        ),
+        page,
+    )
+
+
+@router.post("/qualifications", status_code=201)
+def post_qualification(
+    payload: QualificationCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = _values(payload, full=True, nullable=frozenset({"issuer", "expires_on"}))
+    return {"data": review.create_qualification(context, values, key)}
+
+
+@router.patch("/qualifications/{row_id}")
+def patch_qualification(
+    row_id: int,
+    payload: QualificationUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = _values(payload, frozenset({"issuer", "expires_on"}))
+    return {"data": review.update_qualification(context, row_id, values, key)}
+
+
+@router.delete("/qualifications/{row_id}", status_code=204)
+def delete_qualification(
+    row_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    review.delete_qualification(
+        context, row_id, _mutation(context, x_csrf_token, idempotency_key)
+    )
+    return Response(status_code=204)
+
+
+# ── 평가 기간·평가 ───────────────────────────────────────────────────────────
+
+
+@router.get("/review-cycles")
+def list_review_cycles(context: Auth, offset: int = 0, limit: int = 50):
+    page = Page(offset, limit).checked()
+    return _page(review.cycles(context, offset=page.offset, limit=page.limit), page)
+
+
+@router.post("/review-cycles", status_code=201)
+def post_review_cycle(
+    payload: ReviewCycleCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": review.create_cycle(context, _values(payload, full=True), key)}
+
+
+@router.post("/review-cycles/{row_id}/close")
+def close_review_cycle(
+    row_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": review.close_cycle(context, row_id, key)}
+
+
+@router.delete("/review-cycles/{row_id}", status_code=204)
+def delete_review_cycle(
+    row_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    review.delete_cycle(
+        context, row_id, _mutation(context, x_csrf_token, idempotency_key)
+    )
+    return Response(status_code=204)
+
+
+@router.get("/reviews")
+def list_reviews(
+    context: Auth,
+    offset: int = 0,
+    limit: int = 50,
+    cycle_id: Annotated[int | None, Query(alias="cycleId")] = None,
+    employee_id: Annotated[int | None, Query(alias="employeeId")] = None,
+    status: str | None = None,
+):
+    page = Page(offset, limit).checked()
+    return _page(
+        review.reviews(
+            context,
+            filters={
+                "cycleId": cycle_id,
+                "employeeId": employee_id,
+                "status": status,
+            },
+            offset=page.offset,
+            limit=page.limit,
+        ),
+        page,
+    )
+
+
+@router.post("/reviews", status_code=201)
+def post_review(
+    payload: ReviewCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = _values(payload, full=True, nullable=frozenset({"reviewer_code"}))
+    return {"data": review.create_review(context, values, key)}
+
+
+@router.patch("/reviews/{row_id}")
+def patch_review(
+    row_id: int,
+    payload: ReviewSelf,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = _values(payload, frozenset({"self_comment"}))
+    if not values:
+        raise ApiError(400, "VALIDATION_FAILED", "변경할 항목이 없습니다.")
+    return {"data": review.save_self(context, row_id, values, key)}
+
+
+@router.post("/reviews/{row_id}/submit")
+def submit_review(
+    row_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": review.submit_review(context, row_id, key)}
+
+
+@router.post("/reviews/{row_id}/confirm")
+def confirm_review(
+    row_id: int,
+    payload: ReviewDecision,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = _values(payload, frozenset({"reviewer_comment"}))
+    return {"data": review.confirm_review(context, row_id, values, key)}
+
+
+@router.delete("/reviews/{row_id}", status_code=204)
+def delete_review(
+    row_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    review.delete_review(
+        context, row_id, _mutation(context, x_csrf_token, idempotency_key)
+    )
+    return Response(status_code=204)
+
+
+# ── 현황·분석·본인 ───────────────────────────────────────────────────────────
+
+Month = Annotated[str, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")]
+
+
+@router.get("/overview")
+def get_overview(context: Auth, month: Month):
+    return {"data": analytics.overview(context, month)}
+
+
+@router.get("/cost")
+def get_cost(context: Auth, month: Month):
+    return {"data": analytics.cost(context, month)}
+
+
+@router.get("/me")
+def get_me(
+    context: Auth,
+    month: Month,
+    employee_code: Annotated[str, Query(alias="employeeCode")],
+):
+    return {"data": analytics.me(context, employee_code, month)}

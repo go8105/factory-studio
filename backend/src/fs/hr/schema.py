@@ -210,3 +210,50 @@ class PayrollRunCreate(ApiModel):
 
     month: str = Field(pattern=MONTH)
     pay_date: date = Field(alias="payDate")
+
+
+# ── 자격·교육·평가 (W1b-4) ───────────────────────────────────────────────────
+
+QualKind = Literal["CERT", "TRAINING"]
+Grade = Literal["S", "A", "B", "C", "D"]
+
+
+class QualificationCreate(ApiModel):
+    employee_id: int = Field(alias="employeeId")
+    qual_kind: QualKind = Field(alias="qualKind")
+    name: str = Field(min_length=1, max_length=100)
+    issuer: str | None = Field(None, max_length=100)
+    acquired_on: date = Field(alias="acquiredOn")
+    expires_on: date | None = Field(None, alias="expiresOn")
+
+
+class QualificationUpdate(ApiModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    issuer: str | None = Field(None, max_length=100)
+    acquired_on: date | None = Field(None, alias="acquiredOn")
+    expires_on: date | None = Field(None, alias="expiresOn")
+
+
+class ReviewCycleCreate(ApiModel):
+    cycle_year: str = Field(alias="cycleYear", pattern=YEAR)
+    name: str = Field(min_length=1, max_length=60)
+
+
+class ReviewCreate(ApiModel):
+    """평가 대상 한 사람. 평가자는 비워 두면 그 사원 부서의 부서장이 된다."""
+
+    cycle_id: int = Field(alias="cycleId")
+    employee_id: int = Field(alias="employeeId")
+    goals: str = Field(min_length=2, max_length=2000)
+    reviewer_code: str | None = Field(None, alias="reviewerCode", pattern=CODE)
+
+
+class ReviewSelf(ApiModel):
+    goals: str | None = Field(None, min_length=2, max_length=2000)
+    self_comment: str | None = Field(None, alias="selfComment", max_length=2000)
+
+
+class ReviewDecision(ApiModel):
+    reviewer_code: str = Field(alias="reviewerCode", pattern=CODE)
+    grade: Grade
+    reviewer_comment: str | None = Field(None, alias="reviewerComment", max_length=2000)

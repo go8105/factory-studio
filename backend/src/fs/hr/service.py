@@ -13,9 +13,11 @@ from sqlalchemy import Connection, text
 
 from fs.common import master
 from fs.common.auth import AuthContext
+from fs.common.clock import business_today
 from fs.common.engine import action, read
 from fs.common.errors import ApiError
 from fs.common.scope import read_scope
+from fs.hr.review import expiry_state
 
 MODULE = "hr"
 
@@ -307,7 +309,7 @@ def employees(context: AuthContext, **kwargs):
 
 
 def employee(context: AuthContext, row_id: int):
-    """인사카드: 사원 + 발령 이력."""
+    """인사카드: 사원 + 발령 이력 + 자격·교육(F06)."""
     with read() as connection:
         scoped = read_scope(connection, context, MODULE)
         row = master.fetch(connection, EMPLOYEE, scoped, row_id)
@@ -325,9 +327,32 @@ def employee(context: AuthContext, row_id: int):
             .mappings()
             .all()
         )
+        quals = (
+            connection.execute(
+                text(
+                    "SELECT id, qual_kind, name, issuer, acquired_on, expires_on "
+                    "FROM hr.qualification "
+                    "WHERE workspace_id=:w AND generation_id=:g AND employee_id=:id "
+                    "ORDER BY acquired_on DESC, id DESC"
+                ),
+                {"w": scoped.workspace_id, "g": scoped.generation_id, "id": row_id},
+            )
+            .mappings()
+            .all()
+        )
+    today = business_today().isoformat()
     return {
         **master.present(row),
         "appointments": [master.present(x) for x in history],
+        "qualifications": [
+            {
+                **master.present(x),
+                "expiryState": expiry_state(
+                    x["expires_on"].isoformat() if x["expires_on"] else None, today
+                ),
+            }
+            for x in quals
+        ],
     }
 
 

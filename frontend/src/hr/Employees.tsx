@@ -65,6 +65,33 @@ const EMPTY = {
   workPatternId: "",
 };
 
+export type Qualification = {
+  id: number;
+  qualKind: string;
+  name: string;
+  issuer: string | null;
+  acquiredOn: string;
+  expiresOn: string | null;
+  /** NONE 만료 없음 · VALID 유효 · EXPIRING 30일 이내 · EXPIRED 지남 */
+  expiryState: string;
+};
+type EmployeeCard = Employee & {
+  appointments: Appointment[];
+  qualifications: Qualification[];
+};
+const QUAL_KINDS = { CERT: "자격", TRAINING: "교육" };
+const EXPIRY_TONE: Record<string, "normal" | "warning" | "issue"> = {
+  EXPIRING: "warning",
+  EXPIRED: "issue",
+};
+const EMPTY_QUAL = {
+  qualKind: "CERT",
+  name: "",
+  issuer: "",
+  acquiredOn: "",
+  expiresOn: "",
+};
+
 export function Employees() {
   const { session, fail } = useSession();
   const keys = useRef(new MutationKeys());
@@ -76,9 +103,8 @@ export function Employees() {
   const [loadError, setLoadError] = useState<unknown>();
   const [draft, setDraft] = useState(EMPTY);
   const [creating, setCreating] = useState(false);
-  const [card, setCard] = useState<
-    (Employee & { appointments: Appointment[] }) | null
-  >(null);
+  const [card, setCard] = useState<EmployeeCard | null>(null);
+  const [qual, setQual] = useState(EMPTY_QUAL);
   const [saveError, setSaveError] = useState<unknown>();
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState("");
@@ -116,10 +142,9 @@ export function Employees() {
   async function openCard(row: Employee) {
     setDone("");
     try {
-      const reply = await api<Employee & { appointments: Appointment[] }>(
-        `${BASE}/employees/${row.id}`,
-      );
+      const reply = await api<EmployeeCard>(`${BASE}/employees/${row.id}`);
       setCard(reply.data);
+      setQual(EMPTY_QUAL);
     } catch (error) {
       setLoadError(error);
     }
@@ -161,6 +186,47 @@ export function Employees() {
     } finally {
       setPending(false);
     }
+  }
+
+  /** 자격·교육 한 줄 추가·삭제. 끝나면 인사카드를 다시 읽는다. */
+  async function sendQual(path: string, method: string, body?: unknown) {
+    if (!card || pending) return;
+    const operation = `${method} ${path} ${JSON.stringify(body ?? null)}`;
+    setPending(true);
+    setSaveError(undefined);
+    try {
+      await api(`${BASE}${path}`, {
+        method,
+        body,
+        csrf: session?.csrfToken,
+        key: keys.current.get(operation),
+      });
+      keys.current.complete(operation);
+      const reply = await api<EmployeeCard>(`${BASE}/employees/${card.id}`);
+      setCard(reply.data);
+      setQual(EMPTY_QUAL);
+    } catch (error) {
+      if (error instanceof ApiError && error.status > 0 && error.status < 500)
+        keys.current.complete(operation);
+      setSaveError(error);
+      if (error instanceof ApiError && [401, 410].includes(error.status))
+        fail(error);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function addQual(event: FormEvent) {
+    event.preventDefault();
+    if (!card) return;
+    await sendQual("/qualifications", "POST", {
+      employeeId: card.id,
+      qualKind: qual.qualKind,
+      name: qual.name,
+      issuer: qual.issuer || null,
+      acquiredOn: qual.acquiredOn,
+      expiresOn: qual.expiresOn || null,
+    });
   }
 
   if (moduleOff(loadError))
@@ -421,6 +487,130 @@ export function Employees() {
               limit={card.appointments.length || 1}
               onPage={() => {}}
             />
+            <h3>자격·교육</h3>
+            <DataTable
+              rows={card.qualifications}
+              columns={[
+                {
+                  key: "qualKind",
+                  label: "구분",
+                  render: (r) =>
+                    QUAL_KINDS[r.qualKind as keyof typeof QUAL_KINDS] ??
+                    r.qualKind,
+                },
+                { key: "name", label: "이름" },
+                {
+                  key: "issuer",
+                  label: "발급처",
+                  render: (r) => r.issuer ?? "—",
+                },
+                { key: "acquiredOn", label: "취득일" },
+                {
+                  key: "expiresOn",
+                  label: "만료일",
+                  render: (r) =>
+                    r.expiresOn ? (
+                      <Badge tone={EXPIRY_TONE[r.expiryState] ?? "normal"}>
+                        {r.expiresOn}
+                      </Badge>
+                    ) : (
+                      "없음"
+                    ),
+                },
+                {
+                  key: "id",
+                  label: "관리",
+                  render: (r) => (
+                    <button
+                      className="link-button"
+                      disabled={pending}
+                      onClick={() =>
+                        void sendQual(`/qualifications/${r.id}`, "DELETE")
+                      }
+                    >
+                      삭제
+                    </button>
+                  ),
+                },
+              ]}
+              caption="자격·교육"
+              offset={0}
+              total={card.qualifications.length}
+              limit={card.qualifications.length || 1}
+              onPage={() => {}}
+              empty={
+                <EmptyState
+                  reason="등록된 자격·교육이 없습니다. 만료일을 적으면 30일 전부터 현황에 표시됩니다."
+                  action="아래에서 추가"
+                  onAction={() => {}}
+                />
+              }
+            />
+            <form onSubmit={(event) => void addQual(event)}>
+              <ErrorNotice
+                error={Object.keys(errors).length ? undefined : saveError}
+              />
+              <div className="field">
+                <label htmlFor="qual-kind">구분</label>
+                <select
+                  id="qual-kind"
+                  value={qual.qualKind}
+                  onChange={(event) =>
+                    setQual({ ...qual, qualKind: event.target.value })
+                  }
+                >
+                  {Object.entries(QUAL_KINDS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Field
+                label="이름"
+                value={qual.name}
+                required
+                maxLength={100}
+                error={errors.name}
+                onChange={(event) =>
+                  setQual({ ...qual, name: event.target.value })
+                }
+              />
+              <Field
+                label="발급처 (선택)"
+                value={qual.issuer}
+                maxLength={100}
+                error={errors.issuer}
+                onChange={(event) =>
+                  setQual({ ...qual, issuer: event.target.value })
+                }
+              />
+              <Field
+                label="취득일"
+                type="date"
+                value={qual.acquiredOn}
+                required
+                error={errors.acquiredOn}
+                onChange={(event) =>
+                  setQual({ ...qual, acquiredOn: event.target.value })
+                }
+              />
+              <Field
+                label="만료일 (없으면 비웁니다)"
+                type="date"
+                value={qual.expiresOn}
+                min={qual.acquiredOn}
+                error={errors.expiresOn}
+                onChange={(event) =>
+                  setQual({ ...qual, expiresOn: event.target.value })
+                }
+              />
+              <div className="form-actions">
+                <button type="submit" disabled={pending} aria-busy={pending}>
+                  자격·교육 추가
+                </button>
+              </div>
+            </form>
           </DetailPanel>
         )}
       </div>

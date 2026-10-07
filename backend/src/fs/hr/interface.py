@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import Connection, text
@@ -153,3 +154,201 @@ def payroll_runs(
             for r in rows
         ],
     }
+
+
+def monthly_summary(
+    connection: Connection, scoped: AuthContext, month: str
+) -> dict[str, Any] | None:
+    """지표 키 → 값 (DSN-90 2-1 공통). 인건비는 **확정 급여**만 센다."""
+    if not enabled(connection, scoped):
+        return None
+    people = (
+        connection.execute(
+            text(
+                "SELECT count(*) FILTER (WHERE status='ACTIVE') headcount, "
+                "count(*) FILTER (WHERE to_char(hire_date,'YYYY-MM')=:month) hires, "
+                "count(*) FILTER (WHERE to_char(retire_date,'YYYY-MM')=:month) leavers "
+                "FROM hr.employee WHERE workspace_id=:w AND generation_id=:g"
+            ),
+            {**_scope(scoped), "month": month},
+        )
+        .mappings()
+        .one()
+    )
+    cost = connection.execute(
+        text(
+            "SELECT coalesce(sum(s.gross_pay),0) gross FROM hr.payslip s "
+            "JOIN hr.payroll_run r ON r.workspace_id=s.workspace_id AND r.generation_id=s.generation_id "
+            "                     AND r.id=s.run_id AND r.status='confirmed' AND r.pay_month=:month "
+            "WHERE s.workspace_id=:w AND s.generation_id=:g"
+        ),
+        {**_scope(scoped), "month": month},
+    ).scalar_one()
+    overtime = connection.execute(
+        text(
+            "SELECT coalesce(sum(overtime_minutes),0) FROM hr.attendance "
+            "WHERE workspace_id=:w AND generation_id=:g AND to_char(work_date,'YYYY-MM')=:month"
+        ),
+        {**_scope(scoped), "month": month},
+    ).scalar_one()
+    leave = (
+        connection.execute(
+            text(
+                """
+        SELECT coalesce(sum(b.granted_days),0) granted,
+               coalesce(sum((SELECT sum(r.days) FROM hr.leave_request r
+                              WHERE r.workspace_id=b.workspace_id AND r.generation_id=b.generation_id
+                                AND r.employee_id=b.employee_id AND r.status='APPROVED'
+                                AND r.leave_kind IN ('ANNUAL','HALF_AM','HALF_PM')
+                                AND to_char(r.from_date,'YYYY')=b.leave_year)),0) used
+        FROM hr.leave_balance b
+        WHERE b.workspace_id=:w AND b.generation_id=:g AND b.leave_year=:year
+            """
+            ),
+            {**_scope(scoped), "year": month[:4]},
+        )
+        .mappings()
+        .one()
+    )
+    granted, used = Decimal(leave["granted"]), Decimal(leave["used"])
+    return {
+        "month": month,
+        "metrics": {
+            "headcount": people["headcount"],
+            "hires": people["hires"],
+            "leavers": people["leavers"],
+            "laborCost": str(cost),
+            "overtimeHours": str(Decimal(overtime) / 60),
+            "leaveUsageRate": str(round(used / granted * 100, 1)) if granted else None,
+        },
+    }
+
+
+def pending_tasks(
+    connection: Connection, scoped: AuthContext, hr_employee_code: str
+) -> list[dict[str, Any]] | None:
+    """그 사람이 기다리고 있는 일 (DSN-90 흐름 6). 사원이 아니면 빈 목록이다."""
+    if not enabled(connection, scoped):
+        return None
+    employee = (
+        connection.execute(
+            text(
+                "SELECT e.id, e.department_id, coalesce(t.is_head,false) is_head "
+                "FROM hr.employee e "
+                "LEFT JOIN hr.title t ON t.workspace_id=e.workspace_id AND t.generation_id=e.generation_id "
+                "                    AND t.id=e.duty_id "
+                "WHERE e.workspace_id=:w AND e.generation_id=:g AND e.employee_code=:code"
+            ),
+            {**_scope(scoped), "code": hr_employee_code},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if employee is None:
+        return []
+    tasks: list[dict[str, Any]] = []
+    if employee["is_head"]:
+        waiting = connection.execute(
+            text(
+                "SELECT count(*) FROM hr.leave_request r "
+                "JOIN hr.employee e ON e.workspace_id=r.workspace_id AND e.generation_id=r.generation_id "
+                "                  AND e.id=r.employee_id AND e.department_id=:department "
+                "WHERE r.workspace_id=:w AND r.generation_id=:g AND r.status='REQUESTED' "
+                "AND r.employee_id<>:id"
+            ),
+            {
+                **_scope(scoped),
+                "department": employee["department_id"],
+                "id": employee["id"],
+            },
+        ).scalar_one()
+        if waiting:
+            tasks.append(
+                {
+                    "kind": "LEAVE_APPROVAL",
+                    "label": "휴가 승인 대기",
+                    "count": waiting,
+                    "path": "/hr/leaves",
+                }
+            )
+    reviewing = connection.execute(
+        text(
+            "SELECT count(*) FROM hr.review "
+            "WHERE workspace_id=:w AND generation_id=:g AND reviewer_code=:code AND status='submitted'"
+        ),
+        {**_scope(scoped), "code": hr_employee_code},
+    ).scalar_one()
+    if reviewing:
+        tasks.append(
+            {
+                "kind": "REVIEW_DECISION",
+                "label": "평가 확정 대기",
+                "count": reviewing,
+                "path": "/hr/reviews",
+            }
+        )
+    mine = connection.execute(
+        text(
+            "SELECT count(*) FROM hr.review "
+            "WHERE workspace_id=:w AND generation_id=:g AND employee_id=:id AND status='draft'"
+        ),
+        {**_scope(scoped), "id": employee["id"]},
+    ).scalar_one()
+    if mine:
+        tasks.append(
+            {
+                "kind": "REVIEW_SELF",
+                "label": "자기 평가 작성",
+                "count": mine,
+                "path": "/hr/me",
+            }
+        )
+    return tasks
+
+
+def lookup(
+    connection: Connection, scoped: AuthContext, code: str
+) -> dict[str, Any] | None:
+    """번호 하나로 HR 안의 대상을 찾는다 (DSN-90 2-1). 없으면 None."""
+    if not enabled(connection, scoped):
+        return None
+    targets = (
+        ("employee", "사원", "/hr/employees", "hr.employee", "employee_code", "name"),
+        (
+            "appointment",
+            "발령",
+            "/hr/appointments",
+            "hr.appointment",
+            "appointment_no",
+            "kind",
+        ),
+        (
+            "leaveRequest",
+            "휴가 신청",
+            "/hr/leaves",
+            "hr.leave_request",
+            "request_no",
+            "status",
+        ),
+    )
+    for kind, label, path, table, column, caption in targets:
+        row = (
+            connection.execute(
+                text(
+                    f"SELECT id, {column} code, {caption} caption FROM {table} "
+                    f"WHERE workspace_id=:w AND generation_id=:g AND {column}=:code"
+                ),
+                {**_scope(scoped), "code": code},
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is not None:
+            return {
+                "kind": kind,
+                "label": label,
+                "code": row["code"],
+                "caption": str(row["caption"]),
+                "path": path,
+            }
+    return None
