@@ -23,6 +23,7 @@ case "$*" in
   *"git status --porcelain"*) : ;;
   *SEED_VERSION*) cat "$FS_STATE/code_seed" ;;
   *psql*) cat "$FS_STATE/db_seed" ;;
+  *"test -s"*) [ ! -f "$FS_STATE/private_missing" ] ;;
   *"is-active"*) exit 0 ;;
   *curl*) echo 200 ;;
   *verify_ddl_matches_schema*) echo '{"errors": []}' ;;
@@ -37,7 +38,12 @@ STUBS = {
     "gh": '#!/usr/bin/env bash\necho "gh $*" >> "$FS_LOG"\ncat "$FS_STATE/ci"\n',
     "npm": """#!/usr/bin/env bash
 echo "npm $*" >> "$FS_LOG"
-case "$*" in *"run build"*) mkdir -p frontend/dist && echo ok > frontend/dist/index.html ;; esac
+case "$*" in *"run build"*)
+ mkdir -p frontend/dist backend/private-assets/soap-poc/soap-poc
+ echo ok > frontend/dist/index.html
+ for asset in soap-poc.html research-notebook.html soap-poc/assembly-v3.json soap-poc/research-history.json soap-poc/soap-poc-03.zip soap-poc/drawer-v3.stl; do
+   if [ ! -f "$FS_STATE/build_private_missing" ]; then echo private > "backend/private-assets/soap-poc/$asset"; fi
+ done ;; esac
 """,
 }
 
@@ -104,13 +110,32 @@ class DeployScriptTest(unittest.TestCase):
         result = self._run()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         log = self._commands()
-        order = ["git merge --ff-only", "uv sync", "alembic", "SEED_VERSION", "systemctl restart", "rsync ", "verify_ddl_matches_schema"]
+        order = ["git merge --ff-only", "uv sync", "alembic", "SEED_VERSION", "mkdir -p", "rsync -az --delete", "systemctl restart", "frontend/dist/", "verify_ddl_matches_schema"]
         positions = [log.find(step) for step in order]
         self.assertNotIn(-1, positions, log)
         self.assertEqual(positions, sorted(positions), log)
+        self.assertIn("backend/private-assets/soap-poc/", log)
+        self.assertIn("sudo -u factory test -s", log)
+        self.assertNotIn("frontend/dist/soap", log)
         self.assertIn("frontend/dist", log)  # 프런트 업로드 누락(2026-10-04) 재발 방지
         self.assertNotIn("seed.cli template", log)  # 시드 버전이 같으면 템플릿 유지
         self.assertIn("배포 완료", result.stdout)
+
+    def test_missing_local_private_build_stops_before_server_changes(self):
+        (self.state / "build_private_missing").touch()
+        result = self._run()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("관리자 비누 자산이 없습니다", result.stderr)
+        self.assertNotIn("git merge", self._commands())
+        self.assertNotIn("rsync ", self._commands())
+
+    def test_unreadable_uploaded_private_files_stop_before_restart(self):
+        (self.state / "private_missing").touch()
+        result = self._run()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("서버 관리자 비누 자산", result.stderr)
+        self.assertIn("rsync ", self._commands())
+        self.assertNotIn("systemctl restart", self._commands())
 
     def test_new_seed_version_rebuilds_template(self):
         (self.state / "db_seed").write_text("sv-old-9\n", encoding="utf-8")

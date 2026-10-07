@@ -111,11 +111,16 @@ trap cleanup EXIT
   npm --prefix frontend run build --silent
 )
 [ -f "$BUILD_DIR/frontend/dist/index.html" ] || fail "빌드 결과가 없습니다."
+PRIVATE_DIR="$BUILD_DIR/backend/private-assets/soap-poc"
+PRIVATE_FILES=(soap-poc.html research-notebook.html soap-poc/assembly-v3.json soap-poc/research-history.json soap-poc/soap-poc-03.zip soap-poc/drawer-v3.stl)
+for asset in "${PRIVATE_FILES[@]}"; do
+  [ -s "$PRIVATE_DIR/$asset" ] || fail "관리자 비누 자산이 없습니다: $asset"
+done
 echo "빌드 완료: $(du -sh "$BUILD_DIR/frontend/dist" | cut -f1)"
 
 if [ "$DRY_RUN" = 1 ]; then
   step "시험 실행(--dry-run) — 서버를 바꾸지 않고 끝냅니다"
-  echo "다음 단계였을 것: 서버 ${server_commit:0:7} → ${COMMIT:0:7}, 마이그레이션, 시드 확인, $SERVICE 재시작, 프런트 업로드, 확인"
+  echo "다음 단계였을 것: 서버 ${server_commit:0:7} → ${COMMIT:0:7}, 마이그레이션, 시드 확인, 비공개 비누 파일 업로드/읽기 확인, $SERVICE 재시작, 프런트 업로드, 확인"
   exit 0
 fi
 
@@ -140,6 +145,15 @@ elif [ "$code_seed" != "$db_seed" ]; then
 else
   echo "시드 그대로 — 템플릿 유지"
 fi
+
+# 관리자 비누 파일은 Git/공개 dist에 없다. 코드와 같은 빌드의 비공개 자산을 먼저 올린다.
+step "관리자 비누 자산 업로드 (웹 루트 밖)"
+remote "mkdir -p '$APP_DIR/backend/private-assets/soap-poc'"
+rsync -az --delete "$PRIVATE_DIR/" "$HOST:$APP_DIR/backend/private-assets/soap-poc/"
+remote "chown -R $APP_USER:$APP_USER '$APP_DIR/backend/private-assets/soap-poc' && find '$APP_DIR/backend/private-assets/soap-poc' -type d -exec chmod 750 {} + && find '$APP_DIR/backend/private-assets/soap-poc' -type f -exec chmod 640 {} +"
+for asset in "${PRIVATE_FILES[@]}"; do
+  remote "sudo -u $APP_USER test -s '$APP_DIR/backend/private-assets/soap-poc/$asset'" || fail "서버 관리자 비누 자산이 없습니다/읽을 수 없습니다: $asset"
+done
 
 # ── 5. API 재시작 ────────────────────────────────────────────────────────────
 step "API 재시작"
