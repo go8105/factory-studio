@@ -314,8 +314,10 @@ export function parseNC(text, settings, progress = () => {}) {
         if (m === 6) {
           if (next.selectedTool === null) fail("M6 이전에 T 공구 선택 필요");
           next.tool = next.selectedTool;
+          next.spindle = "off";
           localEvents.push({
             kind: "tool-change",
+            machineMotionUnknown: true,
             tool: next.tool,
             seconds: null,
           });
@@ -334,7 +336,11 @@ export function parseNC(text, settings, progress = () => {}) {
           next.coolant = [];
           next.distance = "absolute";
           next.motion = 1;
-          localEvents.push({ kind: "end", code: `M${m}` });
+          localEvents.push({
+            kind: "end",
+            code: `M${m}`,
+            machineMotionUnknown: m === 30,
+          });
         }
       }
       if (w.S !== undefined && !ms.some((m) => [3, 4, 5].includes(m)))

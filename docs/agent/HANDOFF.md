@@ -1,5 +1,13 @@
 # Factory Studio 작업 인계
 
+## CAD-12 NC 경로 검토 완료 (2026-10-07)
+
+- branch codex/soap-cad-review, 시작7861ed1·WIP24779cd, 최종 구현/문서 commit은 git log -1. 기존 main push 승인 유지, 운영 배포 없음. [계약](../modules/cad-cam/NC해석_경로검토_설계_CAD-12.md)·[검증](NC경로검토_CAD-12.md). main의 진행 중 HR 변경은 별도 작업자 소유이며 스테이징하지 않는다.
+- NC 메뉴 `/cad-cam?view=nc`, 3축 LinuxCNC 기반 제한 프로필·로컬 파일/붙여넣기·코드/경로 동기·이벤트/모달 전후 상태·첫 미지원 차단·200행페이지·원문/해시·Worker취소/상한. 초기좌표 확인 필요, G43/사이클/매크로/선반 미지원. M6/M30 기계 자동 동작 미정, 실제 장비 전체 재현 아님. 파일 메모리만·새로고침 소멸; DB/기존 E1/E2/비누 권한 정책 변경 없음.
+- prototype77/frontend66파일539/포맷·전체build/자산격리·실제 파일/BOM/CRLF·행↔경로·5만행 취소/재실행·390/1440폭 통과. 기존 ERP 비동기시험1회실패→전체재실행통과(미수정). 파서Node5만626.79ms/heap+126.13MiB/RSS+182.73MiB, browser/GPU/peak 제외. 다운로드 이벤트만료·다운로드재열기/30초만료/stale강제주입/실장비/계측/DB/운영배포 미검증.
+- 다음: 결과 확인 뒤 CAD-13 공구·소재·원점/목표 STEP 정합, CAD-14 시간/소비, CAD-15 품질우선제안. CAD-13~17 자동 착수 없음. 컨트롤러 실제 모델 미정, 현재부분집합을 실제 장비 호환으로 오인하지 않도록 유지한다.
+- 재현: Node24 PATH 적용; npm --prefix prototypes/cad-cam test; npm --prefix prototypes/cad-cam run format:check; npm --prefix frontend test; npm --prefix frontend run build; node --expose-gc prototypes/cad-cam/experiments/nc-benchmark.mjs. 예제 examples/cnc_CAD12_2026-10-07_milling.ngc, 검증 PNG/benchmarkJSON은 docs/agent/assets/cad-12. 로컬5243/8043 합성fixture, 운영 아님. work/tmp 파일에 의존하지 않는다.
+
 ## CAD-11 편집 복구 완료 (2026-10-07)
 
 - branch codex/soap-cad-review, 구현6d4d8d3·HR 급여aaee3a3 보존 병합9a5c0a3. 문서2b6086c까지 로컬 main fast-forward·origin/main push 성공(b2390b7→2b6086c). 최종 인계 commit은 git log -1. 기존 사용자 main push 승인 유지, 운영 배포 없음. [계약](../modules/cad-cam/편집명령_복구_설계_CAD-11.md)·[검증](편집명령_복구_CAD-11.md).

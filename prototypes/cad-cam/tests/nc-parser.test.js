@@ -229,3 +229,13 @@ test("percent delimiters bound execution and reject unfinished wrappers", () => 
   assert.equal(run("%\nG0 X1").complete, false);
   assert.equal(run("G0 X1\n%").complete, false);
 });
+test("tool change stops spindle, preserves coolant and flags unmodeled machine moves", () => {
+  const r = run("S6000 M3\nM8\nT2 M6\nG0 X10\nM30");
+  assert.equal(r.segments[0].state.spindle, "off");
+  assert.deepEqual(r.segments[0].state.coolant, ["flood"]);
+  assert.equal(
+    r.events.find((e) => e.kind === "tool-change").machineMotionUnknown,
+    true,
+  );
+  assert.equal(r.events.at(-1).machineMotionUnknown, true);
+});

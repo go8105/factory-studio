@@ -9,6 +9,7 @@ self.onmessage = async ({ data }) => {
       "SHA-256",
       new TextEncoder().encode(text),
     );
+    result.originalText = text;
     result.sourceHash = Array.from(new Uint8Array(digest), (v) =>
       v.toString(16).padStart(2, "0"),
     ).join("");

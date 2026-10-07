@@ -1,0 +1,35 @@
+{
+  "runtime": "v24.21.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "kind": "Node synthetic linear parser only; excludes browser transfer/render/GPU; deltas not peak memory",
+  "records": [
+    {
+      "lines": 1000,
+      "bytes": 3008,
+      "moves": 999,
+      "displayPoints": 1998,
+      "elapsedMs": 15.61,
+      "heapDeltaMiB": 2.59,
+      "rssDeltaMiB": 12.16
+    },
+    {
+      "lines": 10000,
+      "bytes": 30008,
+      "moves": 9999,
+      "displayPoints": 19998,
+      "elapsedMs": 136.11,
+      "heapDeltaMiB": 29.38,
+      "rssDeltaMiB": 51.41
+    },
+    {
+      "lines": 50000,
+      "bytes": 150008,
+      "moves": 49999,
+      "displayPoints": 99998,
+      "elapsedMs": 626.79,
+      "heapDeltaMiB": 126.13,
+      "rssDeltaMiB": 182.73
+    }
+  ]
+}
