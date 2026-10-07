@@ -14,6 +14,9 @@ export const hrScreens: Screen[] = [
     group: "근태·휴가",
   },
   { path: "leaves", id: "H-09", label: "휴가", group: "근태·휴가" },
+  { path: "pay-standards", id: "H-10", label: "급여 기준", group: "급여" },
+  { path: "payroll", id: "H-11", label: "급여 계산", group: "급여" },
+  { path: "payslips", id: "H-12", label: "급여대장·명세서", group: "급여" },
 ];
 const others = [
   { to: "/mes", label: "MES 생산관리" },

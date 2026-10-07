@@ -8,6 +8,9 @@ import { Departments } from "./Departments";
 import { Employees } from "./Employees";
 import { HrLayout } from "./HrLayout";
 import { Leaves } from "./Leaves";
+import { Payroll } from "./Payroll";
+import { Payslips } from "./Payslips";
+import { PayStandards } from "./PayStandards";
 import { Titles } from "./Titles";
 import { WorkPatterns } from "./WorkPatterns";
 
@@ -24,6 +27,9 @@ export default function HrRoutes() {
         <Route path="attendance" element={<Attendance />} />
         <Route path="attendance-closes" element={<AttendanceCloses />} />
         <Route path="leaves" element={<Leaves />} />
+        <Route path="pay-standards" element={<PayStandards />} />
+        <Route path="payroll" element={<Payroll />} />
+        <Route path="payslips" element={<Payslips />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

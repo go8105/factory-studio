@@ -328,7 +328,7 @@ export function Attendance() {
                   setEdit({ ...edit, note: event.target.value })
                 }
               />
-              <div className="panel-actions">
+              <div className="form-actions">
                 <button type="submit" disabled={pending} aria-busy={pending}>
                   저장
                 </button>

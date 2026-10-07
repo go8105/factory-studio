@@ -133,9 +133,7 @@ it("마감한 달은 고치기 버튼도 만들기 버튼도 잠근다", async (
   show("/hr/attendance");
   expect(await screen.findByText(/마감됨/)).toBeVisible();
   expect(screen.queryByRole("button", { name: "고치기" })).toBeNull();
-  expect(
-    screen.getByRole("button", { name: /근태 만들기/ }),
-  ).toBeDisabled();
+  expect(screen.getByRole("button", { name: /근태 만들기/ })).toBeDisabled();
 });
 
 it("휴가 승인은 부서장을 고르기 전에는 안내만 한다", async () => {

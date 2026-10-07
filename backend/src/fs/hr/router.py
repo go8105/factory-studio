@@ -10,10 +10,12 @@ from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
 from fs.common.errors import ApiError
 from fs.common.page import Page
-from fs.hr import attendance, leave, service
+from fs.hr import attendance, leave, payroll, service
 from fs.hr.schema import (
     AppointmentCreate,
     AttendanceUpdate,
+    BonusRuleCreate,
+    BonusRuleUpdate,
     DepartmentCreate,
     DepartmentUpdate,
     EmployeeCreate,
@@ -23,6 +25,12 @@ from fs.hr.schema import (
     LeaveDecision,
     LeaveRequestCreate,
     MonthBody,
+    PayBaseCreate,
+    PayBaseItemBody,
+    PayBaseUpdate,
+    PayItemCreate,
+    PayItemUpdate,
+    PayrollRunCreate,
     TitleCreate,
     TitleUpdate,
     WorkPatternCreate,
@@ -577,3 +585,279 @@ def cancel_request(
 ):
     key = _mutation(context, x_csrf_token, idempotency_key)
     return {"data": leave.cancel_request(context, row_id, key)}
+
+
+# ── 급여 항목 ────────────────────────────────────────────────────────────────
+
+
+@router.get("/pay-items")
+def list_pay_items(
+    context: Auth,
+    offset: int = 0,
+    limit: int = 50,
+    sort: str | None = None,
+    item_kind: Annotated[str | None, Query(alias="itemKind")] = None,
+    is_active: Annotated[bool | None, Query(alias="isActive")] = None,
+):
+    page = Page(offset, limit).checked()
+    return _page(
+        payroll.items(
+            context,
+            filters={"itemKind": item_kind, "isActive": is_active},
+            sort=sort,
+            offset=page.offset,
+            limit=page.limit,
+        ),
+        page,
+    )
+
+
+@router.post("/pay-items", status_code=201)
+def post_pay_item(
+    payload: PayItemCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": payroll.create_item(context, _values(payload, frozenset({"rate"})), key)
+    }
+
+
+@router.patch("/pay-items/{row_id}")
+def patch_pay_item(
+    row_id: int,
+    payload: PayItemUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = _values(payload, frozenset({"rate"}))
+    return {"data": payroll.update_item(context, row_id, values, key)}
+
+
+@router.delete("/pay-items/{row_id}", status_code=204)
+def delete_pay_item(
+    row_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    payroll.delete_item(
+        context, row_id, _mutation(context, x_csrf_token, idempotency_key)
+    )
+    return Response(status_code=204)
+
+
+# ── 사원 급여 기준 ───────────────────────────────────────────────────────────
+
+
+@router.get("/pay-bases")
+def list_pay_bases(
+    context: Auth,
+    offset: int = 0,
+    limit: int = 50,
+    employee_id: Annotated[int | None, Query(alias="employeeId")] = None,
+):
+    page = Page(offset, limit).checked()
+    return _page(payroll.bases(context, employee_id, page.offset, page.limit), page)
+
+
+@router.get("/pay-bases/{row_id}")
+def get_pay_base(row_id: int, context: Auth):
+    return {"data": payroll.base_detail(context, row_id)}
+
+
+@router.post("/pay-bases", status_code=201)
+def post_pay_base(
+    payload: PayBaseCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": payroll.create_base(context, _values(payload), key)}
+
+
+@router.patch("/pay-bases/{row_id}")
+def patch_pay_base(
+    row_id: int,
+    payload: PayBaseUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": payroll.update_base(context, row_id, _values(payload), key)}
+
+
+@router.delete("/pay-bases/{row_id}", status_code=204)
+def delete_pay_base(
+    row_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    payroll.delete_base(
+        context, row_id, _mutation(context, x_csrf_token, idempotency_key)
+    )
+    return Response(status_code=204)
+
+
+@router.post("/pay-bases/{row_id}/items", status_code=201)
+def post_pay_base_item(
+    row_id: int,
+    payload: PayBaseItemBody,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": payroll.add_base_item(context, row_id, _values(payload), key)}
+
+
+@router.patch("/pay-base-items/{row_id}")
+def patch_pay_base_item(
+    row_id: int,
+    payload: PayBaseItemBody,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = _values(payload)
+    values.pop("pay_item_id", None)  # 항목은 바꾸지 않는다 — 지우고 다시 넣는다
+    return {"data": payroll.update_base_item(context, row_id, values, key)}
+
+
+@router.delete("/pay-base-items/{row_id}", status_code=204)
+def delete_pay_base_item(
+    row_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    payroll.delete_base_item(
+        context, row_id, _mutation(context, x_csrf_token, idempotency_key)
+    )
+    return Response(status_code=204)
+
+
+# ── 상여 규칙 ────────────────────────────────────────────────────────────────
+
+
+@router.get("/bonus-rules")
+def list_bonus_rules(context: Auth, offset: int = 0, limit: int = 50):
+    page = Page(offset, limit).checked()
+    return _page(
+        payroll.bonus_rules(context, offset=page.offset, limit=page.limit), page
+    )
+
+
+@router.post("/bonus-rules", status_code=201)
+def post_bonus_rule(
+    payload: BonusRuleCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": payroll.create_bonus_rule(context, _values(payload), key)}
+
+
+@router.patch("/bonus-rules/{row_id}")
+def patch_bonus_rule(
+    row_id: int,
+    payload: BonusRuleUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": payroll.update_bonus_rule(context, row_id, _values(payload), key)}
+
+
+@router.delete("/bonus-rules/{row_id}", status_code=204)
+def delete_bonus_rule(
+    row_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    payroll.delete_bonus_rule(
+        context, row_id, _mutation(context, x_csrf_token, idempotency_key)
+    )
+    return Response(status_code=204)
+
+
+# ── 급여 계산·확정 ───────────────────────────────────────────────────────────
+
+
+@router.get("/payroll-runs")
+def list_payroll_runs(
+    context: Auth,
+    offset: int = 0,
+    limit: int = 50,
+    month: str | None = None,
+    status: str | None = None,
+):
+    page = Page(offset, limit).checked()
+    return _page(
+        payroll.runs(
+            context,
+            filters={"month": month, "status": status},
+            offset=page.offset,
+            limit=page.limit,
+        ),
+        page,
+    )
+
+
+@router.post("/payroll-runs", status_code=201)
+def post_payroll_run(
+    payload: PayrollRunCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": payroll.calculate(context, payload.month, payload.pay_date, key)}
+
+
+@router.post("/payroll-runs/{row_id}/confirm")
+def confirm_payroll_run(
+    row_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": payroll.confirm_run(context, row_id, key)}
+
+
+# ── 급여대장·명세서 ──────────────────────────────────────────────────────────
+
+
+@router.get("/payslips")
+def list_payslips(
+    context: Auth,
+    run_id: Annotated[int, Query(alias="runId")],
+    offset: int = 0,
+    limit: int = 50,
+):
+    page = Page(offset, limit).checked()
+    return _page(payroll.payslips(context, run_id, page.offset, page.limit), page)
+
+
+@router.get("/payslips/{row_id}")
+def get_payslip(row_id: int, context: Auth):
+    return {"data": payroll.payslip_detail(context, row_id)}
+
+
+@router.get("/severance")
+def get_severance(
+    context: Auth, employee_id: Annotated[int, Query(alias="employeeId")]
+):
+    return {"data": payroll.severance(context, employee_id)}
