@@ -1,5 +1,12 @@
 # Factory Studio 작업 인계
 
+## CAD-10 NC·소비·편집 고도화 분석 (2026-10-07)
+
+- branch codex/soap-cad-review, 시작9b54a29에 HR3596156 fast-forward 보존. 최종 commit은 git log -1. [상세 분석](../modules/cad-cam/NC에너지_편집고도화_분석_CAD-10.md), 이번은 문서만·제품 구현0%, 분석100%. main push 기존 승인 유지, 운영 배포 없음.
+- NC=경로/기계 상태 명령, CAD 이력 원본과 분리. 초기 3축 밀링·한 컨트롤러 부분집합 제안, 미지원 의미 명령은 전체 시간/kWh/최적화 차단. 공구/소재/초기XYZ/원점·장비 전력/실측 필요, G1을 곧바로 접촉으로 취급하지 않는다. CAD-09 방문 재배열을 외부 NC에 적용하지 않는다.
+- E1 확정 모델 CtrlZ는 있지만 그리는 중 점 이력 없음, E2 undo 버튼은 있지만 keydown 없음. 공통 명령·draft와 확정 undo·필드 native undo 분리부터 제안. STEP import API는 설치된 replicad에 있으나 제품 연결/실증 미착수.
+- 검증은 공식 문서/코드 조사·문서 링크/표/diff 검사, 신규 기능 시험·계측/DB/배포 미실행. 다음: 컨트롤러 질문 답변과 전체 구현 계약 확인 후 CAD-11 한 ID. CAD-12~17 자동 착수 금지. 재현: rg -n 'keydown|undo|redo' prototypes/cad-cam/src/{main,part-editor}.js; 분석 문서 출처 직접 확인. 다른 작업자의 HR 진행은 보존한다.
+
 ## W1b-2 HR 근태·휴가 완료 (2026-10-07)
 
 - branch main. 끝난 것: 근태 자동 생성·예외 수정(H-07), 월 마감 draft→확정→재마감 새 버전(H-08), 연차 발생·잔여 계산·신청·부서장 승인/반려/취소(H-09). 승인하면 마감하지 않은 달의 해당 날짜 근태가 LEAVE/HALF_LEAVE가 된다. HR OpenAPI 경로 23개.
