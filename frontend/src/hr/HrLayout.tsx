@@ -1,6 +1,7 @@
 // HR 솔루션 레이아웃: 공통 SolutionLayout에 메뉴만 넘긴다 (DSN-30 5장, UI-01)
 import { SolutionLayout, type Screen } from "../shared/SolutionLayout";
 export const hrScreens: Screen[] = [
+  { path: "overview", id: "H-01", label: "인사 현황", group: "현황" },
   { path: "departments", id: "H-02", label: "부서", group: "조직·사원" },
   { path: "titles", id: "H-03", label: "직위·직책", group: "조직·사원" },
   { path: "work-patterns", id: "H-04", label: "근무 형태", group: "조직·사원" },
@@ -17,6 +18,9 @@ export const hrScreens: Screen[] = [
   { path: "pay-standards", id: "H-10", label: "급여 기준", group: "급여" },
   { path: "payroll", id: "H-11", label: "급여 계산", group: "급여" },
   { path: "payslips", id: "H-12", label: "급여대장·명세서", group: "급여" },
+  { path: "reviews", id: "H-13", label: "인사 평가", group: "평가·분석" },
+  { path: "cost", id: "H-14", label: "인건비·근태 분석", group: "평가·분석" },
+  { path: "me", id: "H-15", label: "내 정보", group: "평가·분석" },
 ];
 const others = [
   { to: "/mes", label: "MES 생산관리" },

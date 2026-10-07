@@ -7,9 +7,13 @@ import { AttendanceCloses } from "./AttendanceCloses";
 import { Departments } from "./Departments";
 import { Employees } from "./Employees";
 import { HrLayout } from "./HrLayout";
+import { Cost } from "./Cost";
 import { Leaves } from "./Leaves";
+import { Me } from "./Me";
+import { Overview } from "./Overview";
 import { Payroll } from "./Payroll";
 import { Payslips } from "./Payslips";
+import { Reviews } from "./Reviews";
 import { PayStandards } from "./PayStandards";
 import { Titles } from "./Titles";
 import { WorkPatterns } from "./WorkPatterns";
@@ -18,7 +22,8 @@ export default function HrRoutes() {
   return (
     <Routes>
       <Route element={<HrLayout />}>
-        <Route index element={<Navigate to="employees" replace />} />
+        <Route index element={<Navigate to="overview" replace />} />
+        <Route path="overview" element={<Overview />} />
         <Route path="departments" element={<Departments />} />
         <Route path="titles" element={<Titles />} />
         <Route path="work-patterns" element={<WorkPatterns />} />
@@ -30,6 +35,9 @@ export default function HrRoutes() {
         <Route path="pay-standards" element={<PayStandards />} />
         <Route path="payroll" element={<Payroll />} />
         <Route path="payslips" element={<Payslips />} />
+        <Route path="reviews" element={<Reviews />} />
+        <Route path="cost" element={<Cost />} />
+        <Route path="me" element={<Me />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
