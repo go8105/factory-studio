@@ -17,7 +17,7 @@ const shape = r
   .extrude(5);
 await writeFile(
   new URL("../examples/cnc_CAD13_2026-10-07_target.step", import.meta.url),
-  new Uint8Array(await shape.blobSTEP().arrayBuffer()),
+  (await shape.blobSTEP().text()).replace(/[ \t]+$/gm, ""),
 );
 shape.delete();
 const lines = [
