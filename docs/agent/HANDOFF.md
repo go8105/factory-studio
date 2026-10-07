@@ -2,7 +2,7 @@
 
 ## CAD-13 소재·공구·STEP 정합 완료 (2026-10-07)
 
-- branch codex/soap-cad-review, 시작83483dc. 구현/검증 완료·main 통합/push 대기, 마지막 커밋은 git log -1. 기존 사용자 main push 승인 유지·운영 배포 없음. main 진행 중 HR 파일은 타 작업자 소유이므로 스테이징/편집하지 않는다. [계약](../modules/cad-cam/소재공구_STEP정합_설계_CAD-13.md)·[검증](소재공구_STEP정합_CAD-13.md).
+- branch codex/soap-cad-review, 시작83483dc·구현6fb5a96·STEP 정리0c34d32. 로컬 main fast-forward·origin/main push 성공(83483dc→0c34d32), 마지막 인계 커밋은 git log -1. 기존 사용자 main push 승인 유지·운영 배포 없음. main 진행 중 HR 파일은 타 작업자 소유이므로 스테이징/편집하지 않는다. [계약](../modules/cad-cam/소재공구_STEP정합_설계_CAD-13.md)·[검증](소재공구_STEP정합_CAD-13.md).
 - `/cad-cam?view=nc` 소재/평엔드밀 T·H/D참조·단일 STEP→G54 정합/겹침·제거/잔삭/과절삭/급속 접촉 후보 행·숫자 공구표·예제. 비교는 수평/수직 면의 바닥부터 이어지는 상면만, 곡면/중공/언더컷·H/D보정·홀더/지그/기계 안전·전력은 미지원. 입력 변경은 정합/분석 무효화. 샘플 NC→해석→STEP예제→정합/상면 확인→소재 검토 실행.
 - prototype88/frontend539·포맷·전체build/격리/diff·실제 NC/STEP/정합 차단/급속34행/입력 무효화/1440·390폭 확인. STEP취소 시도는 먼저 완료돼 미검증, 실제30초/stale강제주입·대형메모리/다운로드재열기·DB/실물/계측/운영 배포 미검증·미실행. 다음은 결과 확인 뒤 CAD-14 한 ID만, 이번에 시간/kWh 계산 없음.
 - 재현 PATH=/opt/homebrew/opt/node@24/bin:$PATH; npm --prefix prototypes/cad-cam test; npm --prefix prototypes/cad-cam run format:check; npm --prefix frontend test; npm --prefix frontend run build. fixtures 생성: node prototypes/cad-cam/experiments/nc-cad13-fixtures.mjs. 작업 화면 localhost5243/8043은 worktree 합성 관리자 fixture, 운영 DB 아님. 화면/샘플은 Git 기록, work 임시 파일 의존 없음.
