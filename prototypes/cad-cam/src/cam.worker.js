@@ -1,6 +1,6 @@
 import Module from "manifold-3d";
 import wasmUrl from "manifold-3d/manifold.wasm?url";
-import { generateKernelPaths } from "./cam.js";
+import { generateKernelPaths, generatePathProposals } from "./cam.js";
 let kernel;
 self.onmessage = async ({ data }) => {
   try {
@@ -11,7 +11,15 @@ self.onmessage = async ({ data }) => {
     const m = await kernel;
     self.postMessage({
       revision: data.revision,
-      path: generateKernelPaths(data.model, data.tool, m.CrossSection),
+      ...(data.action === "propose"
+        ? {
+            proposals: generatePathProposals(
+              data.model,
+              data.tool,
+              m.CrossSection,
+            ),
+          }
+        : { path: generateKernelPaths(data.model, data.tool, m.CrossSection) }),
     });
   } catch (error) {
     kernel = undefined;

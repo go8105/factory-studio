@@ -73,7 +73,9 @@ let past = [],
 let gridStep = 1,
   endpointSnap = true,
   arcClicks = [],
-  camPending = false;
+  camPending = false,
+  proposals = null,
+  camTimer = null;
 const scope = new URLSearchParams(location.search).get("scope");
 const storageKey = scope
   ? `form-studio-design-v1:${scope}`
@@ -104,30 +106,86 @@ const viewer = new Viewer($("#three-view"), (p) => {
     .find((f) => distance(f, p.x, p.y) <= 0);
   select(f?.id ?? "stock");
 });
-const camWorker = new Worker(new URL("./cam.worker.js", import.meta.url), {
-  type: "module",
-});
-camWorker.onmessage = ({ data }) => {
-  if (data.revision !== revision) return;
+let camWorker;
+function resetCamWorker() {
+  camWorker?.terminate();
+  camWorker = new Worker(new URL("./cam.worker.js", import.meta.url), {
+    type: "module",
+  });
+  const currentWorker = camWorker;
+  camWorker.onmessage = ({ data }) => {
+    if (currentWorker !== camWorker) return;
+    if (data.revision !== revision) return;
+    clearTimeout(camTimer);
+    camPending = false;
+    if (data.error) {
+      renderProperties();
+      $("#status-text").textContent = "경로 계산 실패 · 다시 시도하세요";
+      toast(data.error, true);
+      return;
+    }
+    if (data.proposals) {
+      proposals = data.proposals;
+      renderProperties();
+      if (path) requestSimulation(fraction);
+      $("#status-text").textContent = "경로 제안 준비됨 · 적용 전";
+      toast("후보를 비교하고 적용할 경로를 선택하세요.");
+    } else {
+      path = data.path;
+      fraction = 0;
+      $("#status-text").textContent = "경로 준비됨";
+      render();
+      toast("가공 경로를 생성했습니다. 재생으로 소재 제거를 확인하세요.");
+    }
+  };
+  camWorker.onerror = () =>
+    cancelCam("가공 계산기를 불러오지 못했습니다. 다시 시도하세요.");
+}
+function cancelCam(
+  message = "경로 계산을 취소했습니다. 기존 경로를 유지합니다.",
+) {
+  clearTimeout(camTimer);
   camPending = false;
-  if (data.error) {
-    $("#status-text").textContent = "경로 생성 실패";
-    renderProperties();
-    toast(data.error, true);
-    return;
+  resetCamWorker();
+  render();
+  $("#status-text").textContent = "경로 계산 중단됨";
+  toast(message, true);
+}
+resetCamWorker();
+function calculateCam(propose = false) {
+  try {
+    const next = Object.fromEntries(
+      [...new FormData($("#tool-form"))].map(([k, v]) => [k, Number(v)]),
+    );
+    validateTool(next);
+    if (!propose || JSON.stringify(next) !== JSON.stringify(tool)) invalidate();
+    stop();
+    tool = next;
+    proposals = null;
+    camPending = true;
+    camWorker.postMessage({
+      model,
+      tool,
+      revision,
+      action: propose ? "propose" : "generate",
+    });
+    camTimer = setTimeout(
+      () => cancelCam("30초 계산 한도를 초과했습니다. 기존 경로를 유지합니다."),
+      30000,
+    );
+    render();
+    $("#status-text").textContent = propose
+      ? "품질 우선 후보 비교 중…"
+      : "가공 윤곽 계산 중…";
+  } catch (error) {
+    toast(error.message, true);
   }
-  path = data.path;
-  fraction = 0;
-  $("#status-text").textContent = "경로 준비됨";
-  render();
-  toast("가공 경로를 생성했습니다. 재생으로 소재 제거를 확인하세요.");
-};
-camWorker.onerror = () => {
-  camPending = false;
-  invalidate();
-  render();
-  toast("가공 계산기를 불러오지 못했습니다. 화면을 새로고침하세요.", true);
-};
+}
+function proposalHtml() {
+  if (!proposals) return "";
+  const base = proposals.candidates[0].metrics;
+  return `<section class="path-proposals" aria-label="품질 우선 경로 비교"><h3>품질 우선 경로 비교</h3><p>${esc(proposals.reason)}</p>${proposals.candidates.map((c) => `<article><b>${esc(c.name)}${c.id === proposals.recommendedId ? " · 제안" : ""}</b><p>안전 높이·공구 여유 검사 통과<br>절삭 방향·깊이·마무리 유지<br>동일 격자 잔삭 ${c.metrics.residualVolume == null ? "—" : (c.metrics.residualVolume / 1000).toFixed(2) + " cm³"}</p><dl><dt>절삭 거리</dt><dd>${c.metrics.cutLength.toFixed(1)} mm</dd><dt>비절삭 거리</dt><dd>${c.metrics.rapidLength.toFixed(1)} mm</dd><dt>이송 시간 추정</dt><dd>${c.metrics.seconds.toFixed(1)} 초</dd><dt>비절삭 이동 감소</dt><dd>${((100 * (base.rapidLength - c.metrics.rapidLength)) / Math.max(base.rapidLength, 1e-9)).toFixed(1)}%</dd><dt>소비 에너지 / 절감률</dt><dd>산정 불가</dd></dl><button data-action="apply-${c.id}" class="full">${c.id === proposals.recommendedId ? "이 제안 적용" : "이 경로 적용"}</button></article>`).join("")}<p class="quiet-note">장비·재질 정보가 없어 kWh를 계산하지 않습니다. 거리 감소는 전력 절감률이 아닙니다. 전역 최적·실제 Ra/치수 공차를 보증하지 않습니다.</p></section>`;
+}
 const worker = new Worker(new URL("./simulation.worker.js", import.meta.url), {
   type: "module",
 });
@@ -180,6 +238,9 @@ if (new URLSearchParams(location.search).get("poc") === "1") {
   link.target = "_parent";
 }
 function invalidate() {
+  clearTimeout(camTimer);
+  if (camPending) resetCamWorker();
+  proposals = null;
   camPending = false;
   stop();
   path = null;
@@ -291,7 +352,7 @@ function renderProperties() {
           : "설계 안내";
   if (mode === "cam") {
     $("#properties").innerHTML =
-      `<div class="section-kicker">FLAT END MILL</div><h3>평 엔드밀</h3><p class="muted">기본 돌출 형상을 소재로 사용합니다.<br>윗면에서 홈을 깊이별로 가공합니다.</p><form id="tool-form">${field("공구 지름", "diameter", tool.diameter, 0.5, 40, 0.5)}${field("깊이 간격", "stepDown", tool.stepDown, 0.1, 20, 0.1)}${field("가로 간격", "stepOver", tool.stepOver, 10, 80, 5)}${field("이송 속도", "feed", tool.feed, 10, 5000, 50)}${field("안전 높이", "safeHeight", tool.safeHeight, 1, 30)}<button class="primary full" type="submit" ${camPending ? "disabled" : ""}>${icon("cut")}${camPending ? "계산 중…" : "가공 경로 생성"}</button></form><label class="check"><input type="checkbox" id="show-paths" ${showPaths ? "checked" : ""}/>공구 경로 표시</label><div class="cam-stats"><div><span>제거 부피 (근사)</span><b id="removed-volume">—</b></div><div><span>남은 절삭량 (근사)</span><b id="residual-volume">—</b></div><small id="sim-resolution">격자 기반 소재 제거</small></div><div id="cam-warnings">${path ? path.warnings.map((w) => `<p class="warning">${esc(w)}</p>`).join("") : ""}</div><p class="quiet-note">상면 2.5D 포켓 · 바깥 윤곽은 이미 가공된 소재로 가정합니다. 시간은 이송 길이 기반 추정입니다. 실제 장비용 NC는 생성하지 않습니다.</p>`;
+      `<div class="section-kicker">FLAT END MILL</div><h3>평 엔드밀</h3><p class="muted">기본 돌출 형상을 소재로 사용합니다.<br>윗면에서 홈을 깊이별로 가공합니다.</p><form id="tool-form">${field("공구 지름", "diameter", tool.diameter, 0.5, 40, 0.5)}${field("깊이 간격", "stepDown", tool.stepDown, 0.1, 20, 0.1)}${field("가로 간격", "stepOver", tool.stepOver, 10, 80, 5)}${field("이송 속도", "feed", tool.feed, 10, 5000, 50)}${field("안전 높이", "safeHeight", tool.safeHeight, 1, 30)}<button class="primary full" type="submit" ${camPending ? "disabled" : ""}>${icon("cut")}${camPending ? "계산 중…" : "가공 경로 생성"}</button><button type="button" data-action="propose" class="full" ${camPending ? "disabled" : ""}>품질 우선 경로 제안</button>${camPending ? `<button type="button" data-action="cancel-cam" class="full">계산 취소</button>` : ""}</form>${proposalHtml()}<label class="check"><input type="checkbox" id="show-paths" ${showPaths ? "checked" : ""}/>공구 경로 표시</label><div class="cam-stats"><div><span>제거 부피 (근사)</span><b id="removed-volume">—</b></div><div><span>남은 절삭량 (근사)</span><b id="residual-volume">—</b></div><small id="sim-resolution">격자 기반 소재 제거</small></div><div id="cam-warnings">${path ? path.warnings.map((w) => `<p class="warning">${esc(w)}</p>`).join("") : ""}</div><p class="quiet-note">상면 2.5D 포켓 · 바깥 윤곽은 이미 가공된 소재로 가정합니다. 시간은 이송 길이 기반 추정입니다. 실제 장비용 NC는 생성하지 않습니다.</p>`;
     return;
   }
   const a = active();
@@ -454,7 +515,22 @@ function setMode(next) {
   if (next === "cam") view = "solid";
   render();
 }
+function applyProposal(id) {
+  const candidate = proposals?.candidates.find((c) => c.id === id);
+  if (!candidate?.valid) return;
+  stop();
+  revision++;
+  queued = null;
+  path = candidate.path;
+  fraction = 0;
+  render();
+  toast("선택한 경로를 적용했습니다. 소재 제거를 확인하세요.");
+}
 const actions = {
+  propose: () => calculateCam(true),
+  "cancel-cam": () => cancelCam(),
+  "apply-baseline": () => applyProposal("baseline"),
+  "apply-nearest": () => applyProposal("nearest"),
   profile: () => startShape("profile"),
   arc: () => startShape("arc"),
   slot: () => startShape("slot"),
@@ -662,20 +738,7 @@ document.addEventListener("submit", (e) => {
       toast(base ? "돌출 형상을 만들었습니다." : "파내기를 적용했습니다.");
     }
   } else if (e.target.id === "tool-form") {
-    try {
-      const next = Object.fromEntries(
-        Object.entries(values).map(([k, v]) => [k, Number(v)]),
-      );
-      validateTool(next);
-      invalidate();
-      tool = next;
-      camPending = true;
-      camWorker.postMessage({ model, tool, revision });
-      render();
-      $("#status-text").textContent = "가공 윤곽 계산 중…";
-    } catch (err) {
-      toast(err.message, true);
-    }
+    calculateCam();
   }
 });
 $("#document-name").addEventListener("change", (e) => {
@@ -716,13 +779,20 @@ document.addEventListener("change", (e) => {
     showPaths = e.target.checked;
     viewer.paths.visible = showPaths;
   }
-  if (e.target.closest("#tool-form") && e.target.tagName === "INPUT" && path) {
+  if (
+    e.target.closest("#tool-form") &&
+    e.target.tagName === "INPUT" &&
+    (path || proposals || camPending)
+  ) {
     invalidate();
     const submit = $("#tool-form button[type=submit]");
     if (submit) {
       submit.disabled = false;
       submit.innerHTML = icon("cut") + "가공 경로 생성";
     }
+    $(".path-proposals")?.remove();
+    document.querySelector('[data-action="propose"]').disabled = false;
+    document.querySelector('[data-action="cancel-cam"]')?.remove();
     viewer.showModel(model);
     renderSimControls();
     $("#cam-warnings").innerHTML =
@@ -746,13 +816,16 @@ document.addEventListener("input", (e) => {
       }
     } catch {}
   }
-  if (e.target.closest("#tool-form") && (path || camPending)) {
+  if (e.target.closest("#tool-form") && (path || proposals || camPending)) {
     invalidate();
     const submit = $("#tool-form button[type=submit]");
     if (submit) {
       submit.disabled = false;
       submit.innerHTML = icon("cut") + "가공 경로 생성";
     }
+    $(".path-proposals")?.remove();
+    document.querySelector('[data-action="propose"]').disabled = false;
+    document.querySelector('[data-action="cancel-cam"]')?.remove();
     viewer.showModel(model);
     renderSimControls();
     $("#removed-volume").textContent = "—";
