@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 import apply_fs030a
-from validate_db_design import design_names, validate
+from validate_db_design import expected_names, validate
 from validate_fs030a import validate_gw
 
 
@@ -17,7 +17,7 @@ class GWMetadataTest(unittest.TestCase):
         again=copy.deepcopy(self.data)
         self.assertFalse(apply_fs030a.apply(again))
         self.assertEqual(again,self.data)
-        self.assertEqual(validate(again,design_names(again['task'])),[])
+        self.assertEqual(validate(again, expected_names(again)),[])
         again['constraints']=[c for c in again['constraints'] if c['expression']!='subgroup_size = 5']
         self.assertTrue(any('subgroup size fixed' in e for e in validate(again)))
 

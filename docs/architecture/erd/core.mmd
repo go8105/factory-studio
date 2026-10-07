@@ -56,6 +56,15 @@ erDiagram
     varchar status "상태"
     bigint template_generation_id "원천 템플릿 세대 NULL"
   }
+  core_holiday {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    date holiday_on "휴일"
+    varchar name "이름"
+    varchar kind "구분"
+    timestamptz created_at "등록 시각"
+  }
   core_job_run {
     bigint id PK "내부 식별자"
     bigint workspace_id FK "개인 체험 공간 NULL"
@@ -143,3 +152,4 @@ erDiagram
   core_data_generation ||..o{ core_request_receipt : "workspace_id,generation_id"
   core_app_user |o..o{ core_request_receipt : "actor_user_id"
   core_app_user |o..o{ core_app_review : "user_id"
+  core_data_generation ||..o{ core_holiday : "workspace_id,generation_id"

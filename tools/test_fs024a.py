@@ -6,7 +6,7 @@ from pathlib import Path
 
 import apply_fs024a
 from audit_schema_isolation import audit
-from validate_db_design import validate_wms
+from validate_db_design import at_least, validate_wms
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -19,7 +19,7 @@ class ApplyTest(unittest.TestCase):
         again = copy.deepcopy(self.current)
         self.assertFalse(apply_fs024a.apply(again))
         self.assertEqual(again, self.current)
-        self.assertEqual(sum(t['name'].startswith('wms.') for t in self.current['tables']), 11 if self.current.get('task') in {'FS-026a', 'FS-040', 'FS-030a', 'FS-029a', 'W0-1'} else 6)
+        self.assertEqual(sum(t['name'].startswith('wms.') for t in self.current['tables']), 11 if at_least(self.current.get('task', ''), {'FS-026a', 'FS-040', 'FS-030a', 'FS-029a'}) else 6)
         self.assertEqual(audit(self.current), [])
         self.assertEqual(validate_wms(self.current), [])
 

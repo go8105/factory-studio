@@ -623,10 +623,15 @@ def apply(d):
         new = REPLACED.get((x["table"], x["expression"]))
         if new:
             x["expression"] = new
-    d["tables"].extend(TABLES)
-    d["constraints"].extend(CONSTRAINTS + CHANGED_CONSTRAINTS)
-    d["relations"].extend(RELATIONS)
-    d["states"].extend(STATES)
+    # 일괄 개발로 제품(schema.json)이 core.holiday를 먼저 가져가면 기준 복사본에 이미 있다.
+    # 이 스크립트가 **새로 만드는 표** 중 이미 있는 것만 건너뛴다(기존 표에 더하는 제약·FK는 그대로).
+    skip = {t["name"] for t in TABLES} & {t["name"] for t in d["tables"]}
+    d["tables"].extend(t for t in TABLES if t["name"] not in skip)
+    d["constraints"].extend(
+        c for c in CONSTRAINTS + CHANGED_CONSTRAINTS if c["table"] not in skip
+    )
+    d["relations"].extend(r for r in RELATIONS if r["source"] not in skip)
+    d["states"].extend(x for x in STATES if x["table"] not in skip)
     for code in d["code_lists"]:
         if code["target"] == B + "sensor" and code["column"] == "metric":
             code.update(
