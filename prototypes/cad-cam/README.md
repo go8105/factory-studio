@@ -62,3 +62,11 @@ npm run format:check
 포털 빌드: `cd frontend && npm run build` (Node 24). 공개 편집기는 `frontend/public/cad-cam-app`, 보호 자료는 `backend/private-assets/soap-poc`에 생성된다. 후자는 정적 공개 경로에 연결하지 않는다. 실행·권한 검증·배포는 [공통 설계](../../docs/modules/cad-cam/README.md)를 따른다.
 
 누름/비틀림 화면은 동작 설명용이며 실제 탄성·분쇄·마모·방수 해석이 아니다. 이전 POC-01/02는 private 자료의 설계 이력이다.
+
+## CAD-07 / E2 3D 부품 설계
+
+`part-design.html` 또는 포털 ‘3D 부품 설계’ 탭으로 진입한다. OCCT 기반 다중 돌출/파내기·측면 구멍·XY/XZ/YZ 작업면·회전·직선/원형 배열·미러·필렛·쉘과 자유 윤곽의 제한된 수치 구속을 제공한다. 실패 시 직전 정상 부품을 유지한다. 최초 E2 진입의 별도 WASM은 약23MB이고 UI와 분리된 Worker에서 계산한다.
+
+좌측 예제를 불러온 뒤 피처 이력에서 치수를 편집해 ‘변경 적용’을 누른다. 자유 윤곽은 점을 클릭하거나 좌표를 입력하고 닫는다. 점 A의 선을 원호로 바꾸고 경유 좌표/반경 구속을 편집할 수 있다. 구속은 후보 적용 전에 해석하며 모순·교차 윤곽은 거부한다. 선행 피처 삭제는 종속 참조를 먼저 제거해야 한다.
+
+JSON v3는 편집 가능한 원본이며 v1/v2도 base/cut으로 가져온다. E1과 별도 브라우저 저장소를 쓴다. STL은 표시 메시, STEP은 이력 없는 BRep 내보내기다. STEP/STL 불러오기·조립·3D CAM은 지원하지 않는다. 예제 원본은 `examples/cnc_E2_2026-10-06_*.part.json`, 라이선스/소스/교체 안내는 `licenses/README.txt`다. frontend 의존성만 설치해도 포털 빌드가 가능하다.

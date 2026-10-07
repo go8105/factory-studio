@@ -63,3 +63,7 @@ DB 없이 브라우저 UI 검토: `node frontend/scripts/cad-preview-api.mjs`(80
 - 기존 단일 돌출·상면 홈·STL·격자 소재 제거를 확장한다. 다중 돌출/조립/STEP/NC/실제 기계 충돌과 물성 검증은 이후 단계다. 비누 POC·사진 업로드를 확장하지 않는다.
 
 CAD-06 E1 구현 완료: prototype37/frontend524/build·자산 분리, 실제 포털 및 1440/390폭 UI 검증 통과. 자유 스케치 예제 JSON은 `prototypes/cad-cam/examples/cnc_E1_2026-10-06_L-slot-arc.form.json`에 저장한다. 상세 검증과 미검증 항목은 [결과 보고](../../agent/자유스케치_편집기_CAD-06.md)에 기록했다. 다음 E2는 결과 확인 후 진행한다.
+
+## CAD-07 E2 부품 설계 (2026-10-07 완료)
+
+사용자 E2 진행 승인. 포털 `view=part`의 별도 3D 편집기로 다중 피처/평면/필렛/쉘을 제공한다. [구현 계약](부품설계_구현계약_CAD-07.md)과 [검증 보고](../../agent/부품설계_편집기_CAD-07.md)가 최신 E2 기준이다. E1 상면 CAM·관리자 비누 POC/연구노트의 권한과 범위는 유지한다. 설계 예제는 `prototypes/cad-cam/examples/cnc_E2_2026-10-06_<name>.part.json`에 보관한다. E2 원본 JSON v3는 별도 localStorage `form-studio-part-v3:<scope>`이며 E1 저장을 덮어쓰지 않는다. 조립은 E3, 측면/3D CAM은 E5 결과 확인 이후다.
