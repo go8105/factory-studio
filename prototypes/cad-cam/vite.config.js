@@ -11,6 +11,12 @@ export default defineConfig({
     },
   ],
   build: {
-    rollupOptions: { input: { main: "index.html", part: "part-design.html" } },
+    rollupOptions: {
+      input: {
+        main: "index.html",
+        part: "part-design.html",
+        nc: "nc-review.html",
+      },
+    },
   },
 });

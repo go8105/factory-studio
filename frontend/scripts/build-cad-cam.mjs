@@ -61,6 +61,7 @@ await build({
       input: {
         editor: path("../../prototypes/cad-cam/index.html"),
         part: path("../../prototypes/cad-cam/part-design.html"),
+        nc: path("../../prototypes/cad-cam/nc-review.html"),
       },
     },
   },

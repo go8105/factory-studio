@@ -108,3 +108,21 @@ it("keeps E2 route and workspace scope on direct entry and separates it from pro
     "/cad-cam-app/index.html?embedded=1&scope=11%3A20",
   );
 });
+
+it("opens the separate NC review without admin-only soap assets", async () => {
+  show(true, 11, ["GUEST"], "/cad-cam?view=nc");
+  expect(await screen.findByTitle("NC 경로 검토")).toHaveAttribute(
+    "src",
+    "/cad-cam-app/nc-review.html?embedded=1&scope=11%3A20",
+  );
+  expect(screen.getByRole("link", { name: "NC 경로 검토" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  expect(
+    screen.getByRole("link", { name: "설계·가공 편집기" }),
+  ).not.toHaveAttribute("aria-current");
+  expect(
+    screen.queryByRole("link", { name: "비누 그라인더 POC" }),
+  ).not.toBeInTheDocument();
+});

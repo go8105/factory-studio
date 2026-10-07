@@ -1,0 +1,22 @@
+%
+O1201
+(Factory Studio synthetic milling trace - not a machine-ready program)
+G21 G17 G90 G91.1 G94 G54 G40 G49 G80
+T1 M6
+S6000 M3
+M8
+G0 X0 Y0 Z10
+G1 Z-2 F200
+X30 F500
+G3 X40 Y10 I0 J10
+G1 Y30
+G3 X30 Y40 R10
+G1 X10
+G2 X0 Y30 R-10
+G1 Y0
+G0 Z10
+G4 P1.5
+M9
+M5
+M30
+%
