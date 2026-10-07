@@ -5,11 +5,19 @@ import { useSession } from "../app/session";
 import { api, ApiError, MutationKeys } from "./api";
 
 export function fieldErrors(error: unknown): Record<string, string> {
-  return error instanceof ApiError &&
+  const fields =
+    error instanceof ApiError &&
     error.error.code === "VALIDATION_FAILED" &&
     error.error.details?.fields
-    ? (error.error.details.fields as Record<string, string>)
-    : {};
+      ? (error.error.details.fields as Record<string, string>)
+      : {};
+  // 본문 검사(FastAPI)는 "body.rate"처럼 돌려준다. 입력 칸 이름과 맞춘다.
+  return Object.fromEntries(
+    Object.entries(fields).map(([key, message]) => [
+      key.replace(/^body\./, ""),
+      message,
+    ]),
+  );
 }
 
 export function moduleOff(error: unknown) {

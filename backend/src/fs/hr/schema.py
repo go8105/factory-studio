@@ -143,3 +143,70 @@ class LeaveRequestCreate(ApiModel):
 class LeaveDecision(ApiModel):
     approver_code: str = Field(alias="approverCode", pattern=CODE)
     reason: str | None = Field(None, min_length=2, max_length=200)
+
+
+# ── 급여 (W1b-3) ─────────────────────────────────────────────────────────────
+
+MM = r"^(0[1-9]|1[0-2])$"
+MONEY = r"^\d{1,12}$"  # numeric(18,0) — 원 단위 정수
+RATE = (
+    r"^(\d{1,4}(\.\d{1,4})?)?$"  # 연장은 배수(1.5), 공제는 퍼센트(4.5), 안 쓰면 빈 값
+)
+PERCENT = r"^\d{1,4}(\.\d{1,2})?$"
+ItemKind = Literal["EARNING", "DEDUCTION"]
+CalcKind = Literal["BASE", "FIXED", "OVERTIME", "NIGHT", "HOLIDAY", "BONUS", "RATE"]
+
+
+class PayItemCreate(ApiModel):
+    code: str = Field(pattern=CODE)
+    name: str = Field(min_length=1, max_length=60)
+    item_kind: ItemKind = Field(alias="itemKind")
+    calc_kind: CalcKind = Field(alias="calcKind")
+    rate: str | None = Field(None, pattern=RATE)
+    is_taxable: bool = Field(True, alias="isTaxable")
+    display_order: int = Field(1, alias="displayOrder", ge=1)
+    is_active: bool = Field(True, alias="isActive")
+
+
+class PayItemUpdate(ApiModel):
+    name: str | None = Field(None, min_length=1, max_length=60)
+    rate: str | None = Field(None, pattern=RATE)
+    is_taxable: bool | None = Field(None, alias="isTaxable")
+    display_order: int | None = Field(None, alias="displayOrder", ge=1)
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+class PayBaseCreate(ApiModel):
+    employee_id: int = Field(alias="employeeId")
+    effective_from: str = Field(alias="effectiveFrom", pattern=MONTH)
+    base_salary: str = Field(alias="baseSalary", pattern=MONEY)
+    ordinary_hours: int = Field(209, alias="ordinaryHours", ge=1, le=400)
+
+
+class PayBaseUpdate(ApiModel):
+    base_salary: str | None = Field(None, alias="baseSalary", pattern=MONEY)
+    ordinary_hours: int | None = Field(None, alias="ordinaryHours", ge=1, le=400)
+
+
+class PayBaseItemBody(ApiModel):
+    pay_item_id: int = Field(alias="payItemId")
+    amount: str = Field(pattern=MONEY)
+
+
+class BonusRuleCreate(ApiModel):
+    payable_mm: str = Field(alias="payableMm", pattern=MM)
+    rate_percent: str = Field(alias="ratePercent", pattern=PERCENT)
+    pay_item_id: int = Field(alias="payItemId")
+    is_active: bool = Field(True, alias="isActive")
+
+
+class BonusRuleUpdate(ApiModel):
+    rate_percent: str | None = Field(None, alias="ratePercent", pattern=PERCENT)
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+class PayrollRunCreate(ApiModel):
+    """같은 달 확정 근태 마감을 입력으로 계산한다. 지급일은 계산할 때 정한다."""
+
+    month: str = Field(pattern=MONTH)
+    pay_date: date = Field(alias="payDate")

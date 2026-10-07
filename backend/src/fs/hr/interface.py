@@ -95,3 +95,61 @@ def departments(
         }
         for r in rows
     ]
+
+
+def payroll_runs(
+    connection: Connection, scoped: AuthContext, month: str
+) -> dict[str, Any] | None:
+    """확정 급여의 **부서·항목별 합계**. ERP F94 급여 전표가 읽는다(DSN-90 흐름 4).
+
+    개인 금액은 넘기지 않는다. 확정본이 없으면 None이 아니라 빈 합계를 돌려준다.
+    """
+    if not enabled(connection, scoped):
+        return None
+    run = (
+        connection.execute(
+            text(
+                "SELECT id, pay_month, pay_date, version, confirmed_at FROM hr.payroll_run "
+                "WHERE workspace_id=:w AND generation_id=:g AND pay_month=:month AND status='confirmed'"
+            ),
+            {**_scope(scoped), "month": month},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if run is None:
+        return {"month": month, "confirmed": False, "lines": []}
+    rows = connection.execute(
+        text(
+            """
+        SELECT s.department_code, l.item_code, p.name item_name, p.item_kind,
+               sum(l.amount) amount, count(DISTINCT s.id) employees
+        FROM hr.payslip s
+        JOIN hr.payslip_line l ON l.workspace_id=s.workspace_id AND l.generation_id=s.generation_id AND l.payslip_id=s.id
+        JOIN hr.pay_item p ON p.workspace_id=l.workspace_id AND p.generation_id=l.generation_id AND p.id=l.pay_item_id
+        WHERE s.workspace_id=:w AND s.generation_id=:g AND s.run_id=:run
+        GROUP BY s.department_code, l.item_code, p.name, p.item_kind, p.display_order
+        ORDER BY s.department_code, p.item_kind, p.display_order, l.item_code
+            """
+        ),
+        {**_scope(scoped), "run": run["id"]},
+    ).mappings()
+    return {
+        "month": run["pay_month"],
+        "confirmed": True,
+        "runId": run["id"],
+        "version": run["version"],
+        "payDate": run["pay_date"].isoformat(),
+        "confirmedAt": run["confirmed_at"].isoformat(),
+        "lines": [
+            {
+                "departmentCode": r["department_code"],
+                "itemCode": r["item_code"],
+                "itemName": r["item_name"],
+                "itemKind": r["item_kind"],
+                "amount": str(r["amount"]),
+                "employees": r["employees"],
+            }
+            for r in rows
+        ],
+    }
