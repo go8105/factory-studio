@@ -307,3 +307,70 @@ dialog a {
 nav {
   flex-wrap: wrap;
 }
+.axis-limits {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.axis-limits fieldset {
+  min-width: 0;
+  padding: 6px;
+  margin: 0;
+  border: 1px solid #d7dcde;
+}
+.axis-limits label {
+  font-size: 11px;
+}
+.power-state {
+  min-width: 0;
+  border: 1px solid #d7dcde;
+  margin: 12px 0;
+  padding: 8px;
+}
+.power-state legend {
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  font-size: 11px;
+}
+.energy-output summary {
+  font-weight: bold;
+  cursor: pointer;
+}
+.energy-ledger {
+  overflow: auto;
+  max-height: 260px;
+}
+.energy-ledger table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.energy-ledger td,
+.energy-ledger th {
+  padding: 6px;
+  border-bottom: 1px solid #d7dcde;
+  text-align: left;
+}
+.energy-ledger small {
+  display: block;
+  color: #7a6c5e;
+}
+#energy-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 100px;
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+.energy-bar {
+  background: #718994;
+  border: 0;
+  border-radius: 0;
+  min-width: 8px;
+  padding: 0;
+  flex: 1;
+}
+.energy-bar:hover {
+  background: #1f2d3d;
+}

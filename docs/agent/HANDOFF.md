@@ -1,5 +1,12 @@
 # Factory Studio 작업 인계
 
+## CAD-14 시간·소비 모델 완료 (2026-10-08)
+
+- branch codex/soap-cad-review, 기준e7c42cd. 최종 커밋은 git log -1. 기존 사용자 main push 승인 유지·운영 배포 없음. main 진행 중 HR 파일은 타 작업자 소유이며 건드리지 않는다. [계약](../modules/cad-cam/시간소비모델_설계_CAD-14.md)·[검증](시간소비모델_CAD-14.md).
+- `/cad-cam?view=nc` 현재 NC/소재 → 상태표 → 장비 축 제한·전체 kW·이벤트 시간 → 시간/kWh. 빈칸 미정/알려진 소계, 출처/별도 비교 비보정, 합성 예제, 200구간/행 선택/JSON·Worker. 실제 CNC/계측/정확도·안전/부하 보정/DB/운영배포 미검증. CAD-15 자동 착수 금지, 사용자 결과 확인 뒤 한 ID.
+- prototype104/frontend539·포맷/build/격리/diff·실제 계산/미정/비교/행 선택/200페이지/1440·390폭 확인. Node5만행73.01ms(브라우저/peak 아님). 빌드 중 이전 Worker 자산 오류는 새로고침 후 통과; 실30초/브라우저취소 경합/stale주입/다운로드재열기 미검증.
+- Node24 PATH=/opt/homebrew/opt/node@24/bin:$PATH; npm --prefix prototypes/cad-cam test; npm --prefix prototypes/cad-cam run format:check; npm --prefix frontend test; npm --prefix frontend run build; node --expose-gc prototypes/cad-cam/experiments/nc-energy-benchmark.mjs. localhost5243/8043은 합성 관리자 fixture. Git 보고/PNG/benchmark에 결과 저장, work/tmp 의존 없음.
+
 ## CAD-13 소재·공구·STEP 정합 완료 (2026-10-07)
 
 - branch codex/soap-cad-review, 시작83483dc·구현6fb5a96·STEP 정리0c34d32. 로컬 main fast-forward·origin/main push 성공(83483dc→0c34d32), 마지막 인계 커밋은 git log -1. 기존 사용자 main push 승인 유지·운영 배포 없음. main 진행 중 HR 파일은 타 작업자 소유이므로 스테이징/편집하지 않는다. [계약](../modules/cad-cam/소재공구_STEP정합_설계_CAD-13.md)·[검증](소재공구_STEP정합_CAD-13.md).

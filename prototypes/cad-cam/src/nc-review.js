@@ -1,3 +1,4 @@
+import { createEnergyReview } from "./nc-energy-review.js";
 import { createStockReview } from "./nc-stock-review.js";
 import { NCViewer } from "./nc-viewer.js";
 import { NC_PROFILE, NC_LIMITS } from "./nc-parser.js";
@@ -19,7 +20,7 @@ const $ = (s) => document.querySelector(s),
     );
 $("#app").innerHTML =
   `<header><strong>FORM STUDIO · NC</strong><span>3축 밀링 경로 검토</span><nav><button id="sample">경로 예제</button><button id="stock-sample">소재 예제 NC</button><button id="load">NC 파일 열기</button><button id="export" disabled>분석 JSON 저장</button></nav><input id="file" type="file" accept=".nc,.ngc,.tap,.gcode,.cnc,.txt" hidden></header>
-<div class="notice">NC에서 CAD 설계 이력은 복원하지 않습니다. 소재·STEP 정합 후 제한된 상면 가공 검토가 가능합니다. 전체 시간·소비 전력은 미정입니다.</div>
+<div class="notice">NC에서 CAD 설계 이력은 복원하지 않습니다. 소재·STEP 정합 후 제한된 상면 가공 검토가 가능합니다. 시간·소비는 장비 입력과 별도 가정 모델로 검토합니다.</div>
 <main><aside class="inputs"><h2>파일과 초기 설정</h2><p id="filename">파일 미선택 · 서버 전송 없음</p><label>컨트롤러 프로필<select id="profile"><option value="${NC_PROFILE}">LinuxCNC 기반 · 3축 밀링 (제한)</option></select></label><p class="muted">LinuxCNC 숫자 리터럴 부분집합. 실제 장비 호환 보증 없음.</p><label>초기 단위<select id="unit"><option value="mm">mm</option><option value="inch">inch</option></select></label><div class="xyz">${["X", "Y", "Z"].map((axis) => `<label>초기 ${axis}<input id="${axis}" type="number" step="any" value="0"></label>`).join("")}</div><p class="muted">G54 작업좌표의 시작 위치. 기계좌표 변환 없음. 기본 G17/G90/G91.1/G94/G0, 보정 해제·주축/쿨런트 OFF, 활성 공구 미정.</p><label class="check"><input id="confirmed" type="checkbox">초기 좌표·단위와 기본 상태를 확인했습니다</label><label>입력 NC (붙여넣기)<textarea id="source" spellcheck="false" placeholder="G-code를 붙여넣거나 파일을 여세요"></textarea></label><div class="buttons"><button id="analyze">경로 해석</button><button id="cancel" disabled>해석 취소</button><button id="support">지원 명령</button></div><p id="status" role="status">NC를 입력하고 초기 설정을 확인하세요.</p><p class="muted">2MiB · 50,000행 · 500,000표시점 · 30초 상한. UTF-8/ASCII 텍스트.</p></aside>
 <section class="workspace"><div class="view-head"><strong id="summary">해석 결과 없음</strong><button id="fit">전체 보기</button></div><div id="viewer"></div><div class="legend"><span>● 급속 G0</span><span>● 이송 G1/G2/G3 (절삭 여부 미정)</span><span>● 선택 구간</span></div><div class="navigation"><button id="previous" disabled>이전 이동</button><input id="position" aria-label="이동 구간" type="range" min="0" max="0" value="0" disabled><button id="next" disabled>다음 이동</button></div><pre id="detail">원본 행 또는 3D 경로를 선택하세요.</pre><div class="code-head"><h2>원본 NC · 행별 상태</h2><button id="page-prev" disabled>앞 200행</button><span id="page-label"></span><button id="page-next" disabled>뒤 200행</button></div><div id="code" role="list" aria-label="원본 NC 행"></div></section></main>
 <dialog id="help"><h2>지원 프로필과 해석 경계</h2><p>G0/G1 XYZ · G17 XY G2/G3(I/J 또는 부호 있는 R, I/J 전체 원) · G20/21 · G90/91 · G91.1 · G94 · G54 · G40/G49/G80 · G4 P초 · F/S/T · M3/4/5/6/7/8/9/2/30.</p><p>G43/H, G41/42/D, G28/G53, G18/19, 헬릭스/다회전, 고정 사이클, 다른 원점, 매크로/서브프로그램, 선택 블록, M0/1, 사용자 코드는 차단합니다. M 이벤트와 이동은 별도 행만 지원합니다.</p><p>첫 미지원/오류부터 이후 경로는 연결하지 않습니다. M6는 교환 이벤트만, 급속은 끝점 연결만 표시합니다. 장비의 자동 이동/전체 시간/kWh는 미정입니다. F 전체 보기 · Esc 해석 취소.</p><a href="https://linuxcnc.org/docs/html/gcode/g-code.html" target="_blank" rel="noopener">LinuxCNC 공식 명세</a><button id="close-help">닫기</button></dialog>`;
@@ -33,9 +34,16 @@ let result = null,
   readRevision = 0,
   sourceText = "";
 const viewer = new NCViewer($("#viewer"), (id) => selectMove(id));
+let energyReview;
 const stockReview = createStockReview(
   viewer,
   () => result,
+  (line) => selectLine(line),
+  () => energyReview?.invalidate(),
+);
+energyReview = createEnergyReview(
+  () => result,
+  () => stockReview.analysis(),
   (line) => selectLine(line),
 );
 function message(text) {
@@ -197,7 +205,7 @@ $("#analyze").onclick = () => {
       `${result.complete ? "지원 범위 해석 완료" : "부분 해석 · 전체 분석 차단"} · ${result.segments.length.toLocaleString()}이동 / ${result.events.length}이벤트`;
     message(
       result.complete
-        ? `해석 완료 · ${result.ended ? "종료 명령 확인" : "종료 명령 없음 (EOF)"} · 전체 시간/kWh 미정`
+        ? `해석 완료 · ${result.ended ? "종료 명령 확인" : "종료 명령 없음 (EOF)"} · 시간·소비는 별도 장비 모델에서 계산`
         : `${result.diagnostics[0].line}행: ${result.diagnostics[0].message} · 이후 미해석`,
     );
     $("#position").max = Math.max(0, result.segments.length - 1);
@@ -256,7 +264,7 @@ function selectLine(line) {
   const move = b.segment !== null ? result.segments[b.segment] : null;
   const events = b.events.map((id) => result.events[id]);
   $("#detail").textContent =
-    `${line}행 · ${statusLabels[b.status]}${b.message ? " · " + b.message : ""}\n${move ? `${move.code} 시작 [${move.from.map((v) => v.toFixed(3))}] → 끝 [${move.to.map((v) => v.toFixed(3))}] mm\n길이 ${move.length.toFixed(3)} mm${move.arc ? ` · 반경 ${move.arc.radius.toFixed(3)} mm · ${move.arc.clockwise ? "CW" : "CCW"}` : ""}\n` : ""}${state ? `${state.unit} / ${state.distance === "absolute" ? "G90" : "G91"} / G17 / G91.1 / G94 / G54\nF ${state.feed ?? "미정"} mm/min · S ${state.rpm} rpm · 선택 T ${state.selectedTool ?? "미정"} / 활성 T ${state.tool ?? "미정"}\n주축 ${state.spindle} · 쿨런트 ${state.coolant.join("+") || "off"}` : "이 행의 상태는 해석되지 않았습니다."}${events.length ? "\n이벤트 " + events.map((v) => v.kind + (v.seconds !== undefined ? ` (${v.seconds ?? "미정"}초)` : "")).join(", ") : ""}\n전체 시간·에너지: 미정`;
+    `${line}행 · ${statusLabels[b.status]}${b.message ? " · " + b.message : ""}\n${move ? `${move.code} 시작 [${move.from.map((v) => v.toFixed(3))}] → 끝 [${move.to.map((v) => v.toFixed(3))}] mm\n길이 ${move.length.toFixed(3)} mm${move.arc ? ` · 반경 ${move.arc.radius.toFixed(3)} mm · ${move.arc.clockwise ? "CW" : "CCW"}` : ""}\n` : ""}${state ? `${state.unit} / ${state.distance === "absolute" ? "G90" : "G91"} / G17 / G91.1 / G94 / G54\nF ${state.feed ?? "미정"} mm/min · S ${state.rpm} rpm · 선택 T ${state.selectedTool ?? "미정"} / 활성 T ${state.tool ?? "미정"}\n주축 ${state.spindle} · 쿨런트 ${state.coolant.join("+") || "off"}` : "이 행의 상태는 해석되지 않았습니다."}${events.length ? "\n이벤트 " + events.map((v) => v.kind + (v.seconds !== undefined ? ` (${v.seconds ?? "미정"}초)` : "")).join(", ") : ""}\n시간·소비: 장비 모델에서 확인 (NC만으로 미정)`;
   if (move) $("#position").value = move.id;
   $("#previous").disabled =
     !result.segments.length || Number($("#position").value) <= 0;
@@ -291,7 +299,11 @@ $("#export").onclick = () => {
   const blob = new Blob(
       [
         JSON.stringify(
-          { ...result, stockReview: stockReview.export() },
+          {
+            ...result,
+            stockReview: stockReview.export(),
+            energyReview: energyReview.export(),
+          },
           null,
           2,
         ),

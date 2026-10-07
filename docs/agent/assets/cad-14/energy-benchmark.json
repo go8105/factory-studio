@@ -1,0 +1,54 @@
+{
+  "runtime": "v24.21.0",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "date": "2026-10-08",
+  "limits": "Node only; no browser/GPU/peak memory/accuracy measurement",
+  "results": [
+    {
+      "lines": 1000,
+      "moves": 995,
+      "states": 4,
+      "rows": 998,
+      "stockMilliseconds": 4.01,
+      "energyMilliseconds": 8.86,
+      "energyHeapDeltaMiB": -8.57,
+      "energyRSSDeltaMiB": 6.31,
+      "totalSeconds": 125.60000000000166,
+      "energyKWh": [
+        0.06977777777777802,
+        0.10466666666666859
+      ]
+    },
+    {
+      "lines": 10000,
+      "moves": 9995,
+      "states": 4,
+      "rows": 9998,
+      "stockMilliseconds": 15.25,
+      "energyMilliseconds": 27.9,
+      "energyHeapDeltaMiB": 24.98,
+      "energyRSSDeltaMiB": 22.91,
+      "totalSeconds": 1205.5999999998724,
+      "energyKWh": [
+        0.6697777777777236,
+        1.0046666666665727
+      ]
+    },
+    {
+      "lines": 50000,
+      "moves": 49995,
+      "states": 4,
+      "rows": 49998,
+      "stockMilliseconds": 35.2,
+      "energyMilliseconds": 73.01,
+      "energyHeapDeltaMiB": 54.6,
+      "energyRSSDeltaMiB": 20.53,
+      "totalSeconds": 6005.5999999955075,
+      "energyKWh": [
+        3.336444444444097,
+        5.004666666668346
+      ]
+    }
+  ]
+}

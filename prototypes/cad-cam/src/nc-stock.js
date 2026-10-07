@@ -155,7 +155,8 @@ export function analyzeStock(nc, reference, setup) {
   if (targetVolume <= 0)
     fail("격자로 목표 형상을 포착하지 못했습니다 · 간격을 줄이세요");
   let visits = 0;
-  const contacts = [],
+  const segmentReviews = [],
+    contacts = [],
     toolMap = new Map(setup.tools.map((t) => [t.t, t]));
   for (const seg of nc.segments) {
     const tool = toolMap.get(seg.state.tool ?? setup.initialTool);
@@ -166,7 +167,8 @@ export function analyzeStock(nc, reference, setup) {
       (seg.state.spindle === "off" || seg.state.rpm <= 0)
     )
       fail(`${seg.line}행 주축 회전 확인 필요`);
-    let contact = false;
+    let contact = false,
+      segmentRemoved = 0;
     for (let j = 1; j < seg.points.length; j++) {
       const a = seg.points[j - 1],
         b = seg.points[j],
@@ -209,11 +211,20 @@ export function analyzeStock(nc, reference, setup) {
             if (heights[k] - z > tool.flute + 0.001)
               fail(`${seg.line}행 날 길이 초과 접촉 · 몸통 검토 필요`);
             if (seg.code === "G0") contact = true;
-            else heights[k] = Math.max(bottom, z);
+            else {
+              const nextHeight = Math.max(bottom, z);
+              segmentRemoved += (heights[k] - nextHeight) * area;
+              heights[k] = nextHeight;
+            }
           }
         }
     }
     if (contact) contacts.push(seg.line);
+    segmentReviews.push({
+      id: seg.id,
+      line: seg.line,
+      removedMm3: segmentRemoved,
+    });
   }
   let removed = 0,
     remaining = 0,
@@ -230,6 +241,8 @@ export function analyzeStock(nc, reference, setup) {
   }
   return {
     schemaVersion: 1,
+    ncSourceHash: nc.sourceHash ?? null,
+    segments: segmentReviews,
     setup,
     reference: {
       fileName: reference.fileName,

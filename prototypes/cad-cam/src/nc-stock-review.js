@@ -1,6 +1,11 @@
 import stepSample from "../examples/cnc_CAD13_2026-10-07_target.step?raw";
 import { transformMesh, meshBounds } from "./nc-stock.js";
-export function createStockReview(viewer, getNC, selectLine) {
+export function createStockReview(
+  viewer,
+  getNC,
+  selectLine,
+  onChange = () => {},
+) {
   const panel = document.createElement("details");
   panel.className = "stock-panel";
   panel.open = true;
@@ -115,6 +120,7 @@ export function createStockReview(viewer, getNC, selectLine) {
     $("step-sample").disabled = false;
   }
   function resetNC(reconfirm = false) {
+    onChange();
     if (reconfirm) {
       $("aligned").checked = false;
       $("stock-status").textContent =
@@ -235,16 +241,21 @@ export function createStockReview(viewer, getNC, selectLine) {
             type: "module",
           }),
         {
-          nc: { complete: nc.complete, segments: nc.segments },
+          nc: {
+            complete: nc.complete,
+            segments: nc.segments,
+            sourceHash: nc.sourceHash,
+          },
           reference,
           setup: s,
         },
         (data) => {
           analysis = data.analysis;
+          onChange();
           $("stock-status").textContent =
             "상면 근사 검토 완료 · 기계 안전 판정 아님";
           $("stock-report").textContent =
-            `제거 ${analysis.removed.toFixed(3)} mm³\n잔삭 ${analysis.remaining.toFixed(3)} mm³ / 최대 ${analysis.maxRemaining.toFixed(3)} mm\n과절삭 ${analysis.overcut.toFixed(3)} mm³ / 최대 ${analysis.maxOvercut.toFixed(3)} mm\n급속 소재 접촉 후보 ${analysis.rapidContactLines.length}행\n격자 ${analysis.grid.nx}×${analysis.grid.ny} · 공차 기준 ${analysis.tolerance}mm\n목표 격자 체적 오차 ${(analysis.targetVolumeError * 100).toFixed(2)}%\n전체 시간/kWh 미정`;
+            `제거 ${analysis.removed.toFixed(3)} mm³\n잔삭 ${analysis.remaining.toFixed(3)} mm³ / 최대 ${analysis.maxRemaining.toFixed(3)} mm\n과절삭 ${analysis.overcut.toFixed(3)} mm³ / 최대 ${analysis.maxOvercut.toFixed(3)} mm\n급속 소재 접촉 후보 ${analysis.rapidContactLines.length}행\n격자 ${analysis.grid.nx}×${analysis.grid.ny} · 공차 기준 ${analysis.tolerance}mm\n목표 격자 체적 오차 ${(analysis.targetVolumeError * 100).toFixed(2)}%\n시간·소비는 별도 장비 모델에서 계산`;
           for (const line of analysis.rapidContactLines) {
             const b = document.createElement("button");
             b.textContent = `${line}행 급속 접촉`;
@@ -276,6 +287,7 @@ export function createStockReview(viewer, getNC, selectLine) {
   });
   geometry();
   return {
+    analysis: () => analysis,
     resetNC,
     export: () => ({
       setup: (() => {
