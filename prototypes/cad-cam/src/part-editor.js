@@ -1,3 +1,9 @@
+import {
+  DraftHistory,
+  shortcutCommand,
+  dependentFeatures,
+  SHORTCUT_HELP,
+} from "./editor-commands.js";
 import * as THREE from "three";
 import { Viewer } from "./viewer.js";
 import { clone } from "./model.js";
@@ -48,6 +54,11 @@ let model = emptyPart(),
   busy = false,
   undo = [],
   redo = [];
+const draftHistory = new DraftHistory(50);
+const draftState = () => clone(draft);
+const creating = () =>
+  selected !== "base" && !model.operations.some((f) => f.id === selected);
+const draftScope = () => creating() || draftHistory.active;
 $("#app").innerHTML =
   `<header><strong>FORM STUDIO · 3D</strong><input id="name" aria-label="부품 이름" maxlength="80"><nav><a id="back">2.5D 설계 / CAM ↗</a><button id="open">열기</button><button id="save">설계 저장</button><button id="stl">STL</button><button id="step">STEP</button></nav></header><div class="toolbar">${Object.entries(
     labels,
@@ -56,7 +67,7 @@ $("#app").innerHTML =
     .map(([k, v]) => `<button data-new="${k}">＋ ${v}</button>`)
     .join(
       "",
-    )}<button id="undo">실행 취소</button><button id="redo">다시 실행</button><button id="fit">전체 보기</button><button id="cancel" hidden>계산 취소</button></div><main class="layout"><aside><h2>피처 이력</h2><div id="tree" class="tree"></div><div class="examples"><button id="bracket">측면 구멍 예제</button><button id="shell-example">쉘 / 필렛 예제</button><button id="copy-e1">2.5D 설계 가져오기</button><button id="new">새 부품</button></div><p class="note">선행 피처를 수정하면 뒤의 피처까지 다시 계산합니다. 실패하면 마지막 정상 설계를 유지합니다.</p><div id="status" role="status"></div><div id="error" role="alert"></div></aside><section class="stage"><div id="viewer"></div><div class="legend"><strong>단일 부품 · mm</strong><div id="measure">3D 커널 준비 중</div><small>드래그 회전 · 휠 확대<br>작업 평면의 U / V 좌표로 설계</small></div></section><aside><h2 id="form-title">기본 돌출</h2><div id="fields" class="fields"></div><div id="profile-ui"></div><button id="apply">변경 적용</button><div class="actions"><button id="delete">피처 삭제</button></div><p class="note">XY: U=X, V=Y / XZ: U=X, V=Z / YZ: U=Y, V=Z.<br>기준 피처의 바깥 경계면에서 돌출은 외측, 파내기는 내측으로 진행합니다. 평면 이동은 법선 방향입니다.</p><p class="note">E2 3D 형상의 측면·다축 CAM은 아직 지원하지 않습니다. 가공 시뮬레이션은 2.5D 편집기에서 수행하세요.</p></aside></main><div class="footer">OCCT / Replicad 1.1.0 · 형상 커널은 첫 진입 시 약 23MB를 불러옵니다. <a href="./licenses/README.txt" target="_blank">오픈소스 안내 ↗</a></div><input id="file" type="file" accept=".json" hidden>`;
+    )}<button id="undo" title="Ctrl/⌘+Z">실행 취소</button><button id="redo" title="Ctrl/⌘+Shift+Z · Ctrl+Y">다시 실행</button><button id="fit" title="F 전체 보기">전체 보기</button><button id="help" title="? 단축키 도움말">단축키</button><button id="cancel" hidden>계산 취소</button></div><main class="layout"><aside><h2>피처 이력</h2><div id="tree" class="tree"></div><div class="examples"><button id="bracket">측면 구멍 예제</button><button id="shell-example">쉘 / 필렛 예제</button><button id="copy-e1">2.5D 설계 가져오기</button><button id="new">새 부품</button></div><p class="note">선행 피처를 수정하면 뒤의 피처까지 다시 계산합니다. 실패하면 마지막 정상 설계를 유지합니다.</p><div id="status" role="status"></div><div id="error" role="alert"></div></aside><section class="stage"><div id="viewer"></div><div class="legend"><strong>단일 부품 · mm</strong><div id="measure">3D 커널 준비 중</div><small>드래그 회전 · 휠 확대<br>작업 평면의 U / V 좌표로 설계</small></div></section><aside><h2 id="form-title">기본 돌출</h2><div id="fields" class="fields"></div><div id="profile-ui"></div><button id="apply">변경 적용</button><div class="actions"><button id="discard" title="Esc">편집 취소</button><button id="delete" title="Delete">피처 삭제</button></div><p id="delete-impact" class="note"></p><p class="note">진행 중 입력은 확정 설계와 별도로 되돌립니다. Ctrl/⌘+Z · 다시 실행 Shift+Z / Ctrl+Y</p><p class="note">XY: U=X, V=Y / XZ: U=X, V=Z / YZ: U=Y, V=Z.<br>기준 피처의 바깥 경계면에서 돌출은 외측, 파내기는 내측으로 진행합니다. 평면 이동은 법선 방향입니다.</p><p class="note">E2 3D 형상의 측면·다축 CAM은 아직 지원하지 않습니다. 가공 시뮬레이션은 2.5D 편집기에서 수행하세요.</p></aside></main><div class="footer">OCCT / Replicad 1.1.0 · 형상 커널은 첫 진입 시 약 23MB를 불러옵니다. <a href="./licenses/README.txt" target="_blank">오픈소스 안내 ↗</a></div><input id="file" type="file" accept=".json" hidden><dialog id="shortcut-help"><h2>편집 단축키</h2><p>${SHORTCUT_HELP}</p><button id="close-help">닫기</button></dialog>`;
 $("#back").href =
   query.get("embedded") === "1" ? "/cad-cam" : `./index.html?${query}`;
 $("#back").target = query.get("embedded") === "1" ? "_parent" : "_self";
@@ -184,7 +195,7 @@ function profileUI(s) {
   const container = $("#profile-ui");
   container.innerHTML =
     '<h3>자유 스케치 좌표</h3><svg id="sketch" viewBox="-50 -35 100 70" aria-label="자유 스케치 그리기"></svg><div class="actions"><button id="clear-points">새 윤곽 그리기</button><button id="close-points">윤곽 닫기</button></div><div class="points"></div><h3>스케치 구속</h3><select id="constraint-kind"><option value="horizontal">수평</option><option value="vertical">수직</option><option value="coincident">일치</option><option value="length">길이</option><option value="radius">원호 반경</option><option value="fix">점 고정</option></select><div class="fields"><label>점 A<input id="ca" type="number" value="1" min="1"></label><label>점 B<input id="cb" type="number" value="2" min="1"></label><label>치수<input id="cv" type="number" value="20" step="any"></label></div><div class="actions"><button id="add-constraint">구속 추가</button><button id="clear-constraints">구속 지우기</button><button id="arc-segment">점 A의 선 ↔ 원호</button></div><div id="constraints" class="note"></div><p class="note">새 윤곽: 작업면을 클릭해 점을 추가한 뒤 닫으세요. 좌표 입력은 mm. 점 A의 선을 원호로 바꾸고 경유 좌표를 편집할 수 있습니다. 원호 반경은 시작점에 적용합니다.</p>';
-  let drawing = false;
+  let drawing = !s.closed;
   function paint() {
     let ring = s.nodes.map((n) => n.point);
     try {
@@ -317,11 +328,11 @@ function render() {
   $("#tree")
     .querySelectorAll("button")
     .forEach((b) => (b.onclick = () => select(b.dataset.select)));
-  $("#undo").disabled = busy || !undo.length;
-  $("#redo").disabled = busy || !redo.length;
   select(selected);
+  renderUndo();
 }
 function select(id) {
+  draftHistory.clear();
   selected = model.operations.some((f) => f.id === id) ? id : "base";
   draft = clone(
     selected === "base"
@@ -334,13 +345,16 @@ function select(id) {
       b.classList.toggle("active", b.dataset.select === selected),
     );
   renderForm();
+  renderUndo();
 }
 function getWorker() {
   if (worker) return worker;
   worker = new Worker(new URL("./part.worker.js", import.meta.url), {
     type: "module",
   });
+  const currentWorker = worker;
   worker.onmessage = ({ data }) => {
+    if (worker !== currentWorker) return;
     if (data.revision !== revision) return;
     clearTimeout(timer);
     busy = false;
@@ -423,9 +437,61 @@ function getWorker() {
   return worker;
 }
 function renderUndo() {
-  $("#undo").disabled = busy || !undo.length;
-  $("#redo").disabled = busy || !redo.length;
+  $("#undo").disabled =
+    busy || (draftScope() ? !draftHistory.canUndo : !undo.length);
+  $("#redo").disabled =
+    busy || (draftScope() ? !draftHistory.canRedo : !redo.length);
+  const affected = dependentFeatures(model.operations, selected);
+  $("#delete-impact").textContent = affected.length
+    ? `참조하는 피처: ${affected.map((f) => f.name).join(", ")}. 이 피처들을 먼저 삭제해야 합니다.`
+    : "";
 }
+function restoreDraft(next) {
+  if (!next) return;
+  draft = next;
+  $("#error").textContent = "";
+  renderForm();
+  renderUndo();
+  $("#status").textContent = "진행 중 편집 복구 · 확정 설계 유지";
+}
+function undoEdit() {
+  if (busy) return;
+  if (draftScope()) {
+    restoreDraft(draftHistory.undo(draftState()));
+    return;
+  }
+  if (undo.length) submit(clone(undo.at(-1)), "undo", "base");
+}
+function redoEdit() {
+  if (busy) return;
+  if (draftScope()) {
+    restoreDraft(draftHistory.redo(draftState()));
+    return;
+  }
+  if (redo.length) submit(clone(redo.at(-1)), "redo", "base");
+}
+const draftEvents = new WeakMap();
+for (const type of ["input", "change", "click"]) {
+  document.addEventListener(
+    type,
+    (e) => {
+      if (!busy && e.target.closest?.("#fields, #profile-ui"))
+        draftEvents.set(e, { before: draftState(), selected });
+    },
+    true,
+  );
+  document.addEventListener(type, (e) => {
+    const snapshot = draftEvents.get(e);
+    if (!snapshot || busy || snapshot.selected !== selected) return;
+    draftHistory.record(
+      snapshot.before,
+      draftState(),
+      type === "input" ? e.target : null,
+    );
+    renderUndo();
+  });
+}
+document.addEventListener("focusout", () => draftHistory.endGroup());
 function submit(candidate, mode = "edit", id = selected) {
   if (busy) return;
   try {
@@ -462,8 +528,14 @@ function download(data, name) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
-$("#cancel").onclick = () => {
-  if (!busy) return;
+function cancelEdit() {
+  if (!busy) {
+    select(selected);
+    $("#name").value = model.name;
+    $("#error").textContent = "";
+    $("#status").textContent = "편집 취소 · 마지막 확정 치수 복원";
+    return;
+  }
   clearTimeout(timer);
   worker?.terminate();
   worker = null;
@@ -474,8 +546,12 @@ $("#cancel").onclick = () => {
   $("#cancel").hidden = true;
   $("#apply").disabled = false;
   $("#status").textContent = "계산 취소 · 마지막 정상 설계 유지";
+  select(selected);
+  $("#name").value = model.name;
   renderUndo();
-};
+}
+$("#cancel").onclick = cancelEdit;
+$("#discard").onclick = cancelEdit;
 $("#apply").onclick = () => {
   try {
     const next = clone(model);
@@ -495,6 +571,19 @@ $("#apply").onclick = () => {
   }
 };
 $("#delete").onclick = () => {
+  if (busy || selected === "base") return;
+  if (creating()) {
+    cancelEdit();
+    return;
+  }
+  const affected = dependentFeatures(model.operations, selected);
+  if (affected.length) {
+    fail(
+      `참조 피처를 먼저 삭제하세요: ${affected.map((f) => f.name).join(", ")}`,
+      selected,
+    );
+    return;
+  }
   const next = clone(model);
   next.operations = next.operations.filter((f) => f.id !== selected);
   submit(next, "edit", "base");
@@ -503,6 +592,7 @@ document.querySelectorAll("[data-new]").forEach(
   (b) =>
     (b.onclick = () => {
       if (busy) return;
+      draftHistory.clear();
       const kind = b.dataset.new,
         id = kind + "-" + crypto.randomUUID().slice(0, 8);
       selected = id;
@@ -544,10 +634,11 @@ document.querySelectorAll("[data-new]").forEach(
           center: [0, 0, 0],
         });
       renderForm();
+      renderUndo();
     }),
 );
-$("#undo").onclick = () => submit(clone(undo.at(-1)), "undo", "base");
-$("#redo").onclick = () => submit(clone(redo.at(-1)), "redo", "base");
+$("#undo").onclick = undoEdit;
+$("#redo").onclick = redoEdit;
 $("#fit").onclick = () => {
   const box = viewer.part.geometry.boundingBox;
   viewer.part.geometry.computeBoundingBox();
@@ -604,6 +695,36 @@ for (const format of ["stl", "step"])
       shapeRevision: acceptedRevision,
     });
   };
+$("#help").onclick = () => $("#shortcut-help").showModal();
+$("#close-help").onclick = () => $("#shortcut-help").close();
+document.addEventListener("keydown", (e) => {
+  const command = shortcutCommand(e);
+  if (!command) return;
+  if ($("#shortcut-help").open) {
+    if (command === "cancel") {
+      e.preventDefault();
+      $("#shortcut-help").close();
+    }
+    return;
+  }
+  const actions = {
+    undo: undoEdit,
+    redo: redoEdit,
+    cancel: cancelEdit,
+    "undo-point": () => {
+      if (draftScope()) undoEdit();
+    },
+    delete: () => $("#delete").onclick(),
+    fit: () => $("#fit").onclick(),
+    save: () => $("#save").onclick(),
+    help: () => $("#help").onclick(),
+  };
+  if (command === "undo-point" && !draftScope()) return;
+  if (actions[command]) {
+    e.preventDefault();
+    actions[command]();
+  }
+});
 try {
   const saved = localStorage.getItem(key);
   if (saved) model = importPart(saved);

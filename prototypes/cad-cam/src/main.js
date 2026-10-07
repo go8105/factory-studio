@@ -1,3 +1,8 @@
+import {
+  DraftHistory,
+  shortcutCommand,
+  SHORTCUT_HELP,
+} from "./editor-commands.js";
 import "./style.css";
 import freeExample from "../examples/cnc_E1_2026-10-06_L-slot-arc.form.json";
 import {
@@ -76,6 +81,29 @@ let gridStep = 1,
   camPending = false,
   proposals = null,
   camTimer = null;
+const draftHistory = new DraftHistory();
+const draftState = () => ({
+  draft: clone(draft),
+  arcClicks: clone(arcClicks),
+  drawTool,
+});
+function recordDraft(before, group = null) {
+  draftHistory.record(before, draftState(), group);
+}
+function restoreDraft(state) {
+  if (!state) return;
+  ({ draft, arcClicks, drawTool } = state);
+  dragStart = null;
+  render();
+}
+function updateHistoryButtons() {
+  document.querySelector('[data-action="undo"]').disabled = draft
+    ? !draftHistory.canUndo
+    : !past.length;
+  document.querySelector('[data-action="redo"]').disabled = draft
+    ? !draftHistory.canRedo
+    : !future.length;
+}
 const scope = new URLSearchParams(location.search).get("scope");
 const storageKey = scope
   ? `form-studio-design-v1:${scope}`
@@ -90,15 +118,15 @@ if (model.stock) {
 }
 $("#app").innerHTML = `
 <header class="app-header"><a class="brand" href="#" aria-label="Form Studio 홈"><span class="brand-mark">${icon("cube")}</span><span>FORM<span class="brand-light"> STUDIO</span><small>DESIGN / MANUFACTURE</small></span></a><div class="document"><input id="document-name" aria-label="설계 이름" maxlength="80"/><span class="save-status" id="save-status">이 브라우저에 저장</span></div><nav class="file-actions"><button data-action="new" title="새 설계 · 이전 작업은 실행 취소로 복구">${icon("plus")}새 설계</button><button data-action="open">${icon("folder")}열기</button><button data-action="save">${icon("save")}저장</button><button data-action="stl" title="삼각형 메시 STL · mm">${icon("download")}STL</button></nav>${new URLSearchParams(location.search).get("poc") === "1" ? `<a class="prototype" href="/cad-cam?view=soap" target="_parent">비누 POC ↗</a>` : `<span class="prototype">검토 시제품</span>`}</header>
-<div class="workspace-nav"><div class="tabs"><button data-action="design" class="active">01 <strong>설계</strong></button><button data-action="cam">02 <strong>가공 시뮬레이션</strong></button></div><a class="part-link" href="${new URLSearchParams(location.search).get("embedded") === "1" ? "/cad-cam?view=part" : "./part-design.html?" + new URLSearchParams(location.search)}" target="${new URLSearchParams(location.search).get("embedded") === "1" ? "_parent" : "_self"}">3D 부품 설계 ↗</a><span class="scope">2.5D · 단일 부품 · mm</span><button data-action="help" class="icon-button" aria-label="사용 방법">${icon("help")}</button></div>
-<div class="toolstrip"><div class="tools" id="tools"></div><div class="history-actions"><button data-action="undo" class="icon-button" aria-label="실행 취소" title="실행 취소 Ctrl/⌘ Z">${icon("undo")}</button><button data-action="redo" class="icon-button" aria-label="다시 실행">${icon("redo")}</button><span class="divider"></span><button data-action="fit" class="icon-button" aria-label="화면 맞춤">${icon("fit")}</button></div></div>
+<div class="workspace-nav"><div class="tabs"><button data-action="design" class="active">01 <strong>설계</strong></button><button data-action="cam">02 <strong>가공 시뮬레이션</strong></button></div><a class="part-link" href="${new URLSearchParams(location.search).get("embedded") === "1" ? "/cad-cam?view=part" : "./part-design.html?" + new URLSearchParams(location.search)}" target="${new URLSearchParams(location.search).get("embedded") === "1" ? "_parent" : "_self"}">3D 부품 설계 ↗</a><span class="scope">2.5D · 단일 부품 · mm</span><button data-action="help" class="icon-button" aria-label="사용 방법" title="? 단축키 도움말">${icon("help")}</button></div>
+<div class="toolstrip"><div class="tools" id="tools"></div><div class="history-actions"><button data-action="undo" class="icon-button" aria-label="실행 취소" title="실행 취소 Ctrl/⌘ Z">${icon("undo")}</button><button data-action="redo" class="icon-button" aria-label="다시 실행" title="Ctrl/⌘+Shift+Z · Ctrl+Y">${icon("redo")}</button><span class="divider"></span><button data-action="fit" class="icon-button" aria-label="화면 맞춤">${icon("fit")}</button></div></div>
 <main class="workbench"><aside class="left-panel"><div class="panel-heading">설계 탐색기 <span id="feature-count">0</span></div><div id="tree"></div><div class="left-bottom"><div class="mini-label">YOUR NEXT STEP</div><p id="next-step"></p><button class="text-button" data-action="sample">연습 부품 불러오기 ↗</button><button class="text-button" data-action="free-sample">자유 스케치 예제 ↗</button><div class="quiet-note">직접 그린 형상으로 설계합니다.<br>변경 사항은 로컬에 자동 저장됩니다.</div></div></aside>
 <section class="viewport"><div class="view-top"><div class="view-switch"><button data-action="sketch">평면 스케치</button><button data-action="solid">3D 모델</button></div><span id="view-label">XY 스케치 평면</span></div><div id="three-view"></div><svg id="sketch" aria-label="스케치 작업면" role="application"><defs><pattern id="minor-grid" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M 5 0 L 0 0 0 5" fill="none" stroke="#e0e4e2" stroke-width=".15"/></pattern><pattern id="major-grid" width="25" height="25" patternUnits="userSpaceOnUse"><rect width="25" height="25" fill="url(#minor-grid)"/><path d="M25 0H0V25" fill="none" stroke="#cdd3d2" stroke-width=".23"/></pattern></defs><rect id="grid-bg" x="-500" y="-500" width="1000" height="1000" fill="url(#major-grid)"/><path d="M-500 0H500M0-500V500" stroke="#9fadaa" stroke-width=".22"/><g id="sketch-shapes"></g><g id="draft-shape"></g></svg><div class="empty-guide" id="empty-guide"><span class="eyebrow">FROM YOUR FIRST LINE</span><h1>생각을, 형상으로.</h1><p>선을 이어 윤곽을 그리고 두께를 더하세요.<br>첫 스케치가 부품의 시작이 됩니다.</p><button class="primary" data-action="rect">${icon("rect")}사각형으로 시작</button><button class="text-button" data-action="sample">먼저 연습 부품 살펴보기 →</button></div><div class="view-bottom"><span id="view-hint"></span><div class="axis-label"><span class="axis-x">X</span><span class="axis-y">Y</span><span>Z</span></div></div><div id="cam-legend" hidden><span class="dot cut"></span>절삭 이동 <span class="dot rapid"></span>안전 높이 이동</div></section>
 <aside class="right-panel"><div class="panel-heading" id="properties-heading">속성</div><div id="properties"></div></aside></main>
 <section class="bottom-panel"><div id="timeline"></div><div id="simulation-controls" hidden></div></section>
 <footer class="statusbar"><span><span class="status-dot"></span><span id="status-text">준비됨</span></span><span id="model-summary">빈 설계 · 원점 XY / Z↑</span><span>로컬 작업 공간</span></footer>
 <div id="toast" role="status" aria-live="polite"></div><input type="file" id="file-input" accept=".json,application/json" hidden/>
-<dialog id="help-dialog"><div class="dialog-head"><h2>직접 설계하는 첫 부품</h2><button data-action="close-help" aria-label="닫기">×</button></div><ol><li><b>스케치</b> — 사각형은 대각선으로, 원은 중심에서 바깥으로 드래그합니다. 1mm 격자에 맞춰집니다.</li><li><b>돌출</b> — 오른쪽에서 치수와 높이를 정하고 ‘돌출 만들기’를 누릅니다.</li><li><b>파내기</b> — 새 사각형·원을 추가하고 깊이를 정합니다. 기존 작업을 선택해 치수 변경·복제·삭제도 가능합니다.</li><li><b>가공</b> — 공구 지름·깊이 간격을 정하고 경로를 생성합니다. 재생하거나 진행 막대를 움직여 소재 제거를 확인합니다.</li><li><b>보관</b> — JSON으로 편집 가능한 설계를 저장하고, STL로 3D 메시를 내보냅니다.</li></ol><p>선 연결은 점을 클릭하고 첫 점 또는 ‘윤곽 닫기’로 마칩니다. 3점 원호는 시작·통과·끝을 클릭하면 끝에서 시작까지 직선으로 닫힙니다. 슬롯은 길이·폭·각도로 편집합니다. 좌표 치수 편집과 격자·끝점 스냅을 지원합니다. 평면 스케치의 돌출·상면 포켓을 지원합니다. 자유 곡면·조립·스케치 구속·STEP·기계용 NC 출력은 포함하지 않습니다. 소재 제거는 격자 근사이며 실제 절삭력·공구 홀더·고정구 충돌은 계산하지 않습니다.</p><button class="primary" data-action="close-help">설계 시작하기</button></dialog>`;
+<dialog id="help-dialog"><div class="dialog-head"><h2>직접 설계하는 첫 부품</h2><button data-action="close-help" aria-label="닫기">×</button></div><p class="shortcut-note">${SHORTCUT_HELP}</p><ol><li><b>스케치</b> — 사각형은 대각선으로, 원은 중심에서 바깥으로 드래그합니다. 1mm 격자에 맞춰집니다.</li><li><b>돌출</b> — 오른쪽에서 치수와 높이를 정하고 ‘돌출 만들기’를 누릅니다.</li><li><b>파내기</b> — 새 사각형·원을 추가하고 깊이를 정합니다. 기존 작업을 선택해 치수 변경·복제·삭제도 가능합니다.</li><li><b>가공</b> — 공구 지름·깊이 간격을 정하고 경로를 생성합니다. 재생하거나 진행 막대를 움직여 소재 제거를 확인합니다.</li><li><b>보관</b> — JSON으로 편집 가능한 설계를 저장하고, STL로 3D 메시를 내보냅니다.</li></ol><p>선 연결은 점을 클릭하고 첫 점 또는 ‘윤곽 닫기’로 마칩니다. 3점 원호는 시작·통과·끝을 클릭하면 끝에서 시작까지 직선으로 닫힙니다. 슬롯은 길이·폭·각도로 편집합니다. 좌표 치수 편집과 격자·끝점 스냅을 지원합니다. 평면 스케치의 돌출·상면 포켓을 지원합니다. 자유 곡면·조립·스케치 구속·STEP·기계용 NC 출력은 포함하지 않습니다. 소재 제거는 격자 근사이며 실제 절삭력·공구 홀더·고정구 충돌은 계산하지 않습니다.</p><button class="primary" data-action="close-help">설계 시작하기</button></dialog>`;
 const viewer = new Viewer($("#three-view"), (p) => {
   if (mode !== "design") return;
   const f = [...model.features]
@@ -265,6 +293,7 @@ function commit(next, selection) {
     toast(e.message, true);
     return false;
   }
+  draftHistory.clear();
   past.push(clone(model));
   if (past.length > 50) past.shift();
   future = [];
@@ -278,6 +307,7 @@ function commit(next, selection) {
   return true;
 }
 function select(id) {
+  draftHistory.clear();
   selected = id;
   draft = null;
   drawTool = "select";
@@ -394,8 +424,7 @@ function render() {
     mode === "design"
       ? `<button data-action="select" class="${drawTool === "select" ? "active" : ""}">${icon("select")}선택</button><span class="divider"></span><button data-action="rect" class="${drawTool === "rect" ? "active" : ""}">${icon("rect")}사각형</button><button data-action="circle" class="${drawTool === "circle" ? "active" : ""}">${icon("circle")}원</button><button data-action="profile">${icon("profile")}선 연결</button><button data-action="arc">${icon("arc")}3점 원호</button><button data-action="slot">${icon("slot")}슬롯</button><label class="snap-control">격자<select id="grid-step" aria-label="격자 스냅">${[0, 0.1, 0.5, 1, 5].map((v) => `<option value="${v}" ${v === gridStep ? "selected" : ""}>${v ? `${v}mm` : "끔"}</option>`).join("")}</select></label><label class="snap-control"><input id="endpoint-snap" type="checkbox" ${endpointSnap ? "checked" : ""}/>끝점</label><span class="tool-description">${model.stock ? "그린 스케치를 파내기로 적용합니다" : "첫 스케치를 돌출해 부품을 만듭니다"}</span>`
       : `<span class="cam-tool-label">${icon("cut")}상면 포켓 밀링</span><span class="tool-description">공구 설정 → 경로 생성 → 소재 제거 확인</span>`;
-  document.querySelector('[data-action="undo"]').disabled = !past.length;
-  document.querySelector('[data-action="redo"]').disabled = !future.length;
+  updateHistoryButtons();
   document.querySelector('[data-action="stl"]').disabled = !model.stock;
   $("#feature-count").textContent =
     model.features.length + (model.stock ? 1 : 0);
@@ -448,6 +477,11 @@ function render() {
     : "빈 설계 · 원점 XY / Z↑";
   renderSketch();
   renderProperties();
+  if (draft)
+    $("#properties").insertAdjacentHTML(
+      "beforeend",
+      `<p class="quiet-note">${draft.type === "profile" ? "마지막 점/윤곽 닫기도 되돌릴 수 있습니다. " : "진행 중 스케치는 확정 부품과 별도로 되돌립니다. "}Ctrl/⌘+Z · 다시 실행 Shift+Z / Ctrl+Y</p><button class="full" data-action="cancel-edit" title="Esc">편집 취소</button>`,
+    );
   renderSimControls();
   if (mode === "design" || !path) viewer.showModel(model);
   if (mode === "cam" && path) {
@@ -475,6 +509,7 @@ function requestSimulation(value) {
   });
 }
 function startShape(type) {
+  draftHistory.clear();
   arcClicks = [];
   mode = "design";
   view = "sketch";
@@ -508,6 +543,7 @@ function download(data, name, type) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function setMode(next) {
+  draftHistory.clear();
   mode = next;
   draft = null;
   drawTool = "select";
@@ -527,6 +563,7 @@ function applyProposal(id) {
   toast("선택한 경로를 적용했습니다. 소재 제거를 확인하세요.");
 }
 const actions = {
+  "cancel-edit": () => cancelEdit(),
   propose: () => calculateCam(true),
   "cancel-cam": () => cancelCam(),
   "apply-baseline": () => applyProposal("baseline"),
@@ -536,6 +573,7 @@ const actions = {
   slot: () => startShape("slot"),
   "close-profile": () => {
     if (draft?.type !== "profile") return;
+    const before = draftState();
     draft.closed = true;
     try {
       syncProfile(draft);
@@ -544,17 +582,12 @@ const actions = {
       draft.closed = false;
       return;
     }
+    recordDraft(before);
     render();
   },
   "pop-node": () => {
     if (draft?.type !== "profile") return;
-    draft.closed = false;
-    if (drawTool === "arc") {
-      arcClicks = [];
-      draft.nodes = [];
-    } else draft.nodes = draft.nodes.slice(0, -1);
-    syncProfile(draft);
-    render();
+    restoreDraft(draftHistory.undo(draftState()));
   },
   rect: () => startShape("rect"),
   circle: () => startShape("circle"),
@@ -583,6 +616,10 @@ const actions = {
     fitSketch();
   },
   undo: () => {
+    if (draft) {
+      restoreDraft(draftHistory.undo(draftState()));
+      return;
+    }
     if (!past.length) return;
     future.push(clone(model));
     model = past.pop();
@@ -593,6 +630,10 @@ const actions = {
     render();
   },
   redo: () => {
+    if (draft) {
+      restoreDraft(draftHistory.redo(draftState()));
+      return;
+    }
     if (!future.length) return;
     past.push(clone(model));
     model = future.pop();
@@ -654,6 +695,7 @@ const actions = {
   duplicate: () => {
     const a = active();
     if (!a || selected === "stock") return;
+    draftHistory.clear();
     draft = { ...clone(a), id: uid(), name: `${a.name.slice(0, 70)} 복사` };
     selected = null;
     view = "sketch";
@@ -802,6 +844,7 @@ document.addEventListener("change", (e) => {
 document.addEventListener("input", (e) => {
   if (draft && e.target.closest("#shape-form")) {
     try {
+      const before = draftState();
       const preview = readShapeValues(
         draft,
         Object.fromEntries(new FormData($("#shape-form"))),
@@ -812,6 +855,8 @@ document.addEventListener("input", (e) => {
         )
       ) {
         draft = preview;
+        recordDraft(before, e.target.name);
+        updateHistoryButtons();
         renderSketch();
       }
     } catch {}
@@ -842,20 +887,50 @@ document.addEventListener("input", (e) => {
     b.innerHTML = icon("play") + "<span>재생</span>";
   }
 });
+function cancelEdit() {
+  if (camPending) {
+    cancelCam();
+    return;
+  }
+  draft = null;
+  arcClicks = [];
+  drawTool = "select";
+  dragStart = null;
+  dragBefore = null;
+  draftHistory.clear();
+  render();
+  toast("진행 중 편집 취소 · 확정 설계 유지");
+}
+document.addEventListener("focusout", () => draftHistory.endGroup());
 document.addEventListener("keydown", (e) => {
-  if (e.target.matches("input,select,textarea")) return;
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+  const command = shortcutCommand(e);
+  if (!command) return;
+  if ($("#help-dialog").open) {
+    if (command === "cancel") {
+      e.preventDefault();
+      $("#help-dialog").close();
+    }
+    return;
+  }
+  if (command === "cancel") {
     e.preventDefault();
-    actions[e.shiftKey ? "redo" : "undo"]();
+    cancelEdit();
+    return;
   }
-  if (e.key === "Escape") {
-    draft = null;
-    drawTool = "select";
-    render();
+  if (command === "undo-point") {
+    if (!draft) return;
+    e.preventDefault();
+    actions.undo();
+    return;
   }
-  if (e.key === "Delete" && mode === "design") actions.delete();
+  if (command === "delete" && mode !== "design") return;
+  if (actions[command]) {
+    e.preventDefault();
+    actions[command]();
+  }
 });
-let dragStart = null;
+let dragStart = null,
+  dragBefore = null;
 function sketchPoint(e) {
   const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(
     $("#sketch").getScreenCTM().inverse(),
@@ -901,6 +976,7 @@ $("#sketch").addEventListener("pointerdown", (e) => {
   if (e.button !== 0 || drawTool === "select" || !draft) return;
   if (draft.type === "profile") {
     if (draft.closed) return;
+    const before = draftState();
     const p = sketchPoint(e),
       point = [round(p.x - draft.x), round(p.y - draft.y)];
     if (drawTool === "arc") {
@@ -917,8 +993,9 @@ $("#sketch").addEventListener("pointerdown", (e) => {
           draft.closed = true;
         } catch (err) {
           toast(err.message, true);
-          arcClicks = [];
-          draft.nodes = [];
+          restoreDraft(before);
+          e.preventDefault();
+          return;
         }
       }
     } else {
@@ -936,10 +1013,12 @@ $("#sketch").addEventListener("pointerdown", (e) => {
     try {
       syncProfile(draft);
     } catch {}
+    recordDraft(before);
     render();
     e.preventDefault();
     return;
   }
+  dragBefore = draftState();
   dragStart = sketchPoint(e);
   $("#sketch").setPointerCapture(e.pointerId);
   e.preventDefault();
@@ -970,9 +1049,14 @@ $("#sketch").addEventListener("pointermove", (e) => {
   renderProperties();
 });
 $("#sketch").addEventListener("pointerup", () => {
+  if (dragBefore && draft) recordDraft(dragBefore);
+  dragBefore = null;
+  updateHistoryButtons();
   dragStart = null;
 });
 $("#sketch").addEventListener("pointercancel", () => {
+  if (dragBefore) restoreDraft(dragBefore);
+  dragBefore = null;
   dragStart = null;
 });
 let lastTick = performance.now();
