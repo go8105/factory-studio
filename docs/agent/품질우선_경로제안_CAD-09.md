@@ -22,7 +22,7 @@
 
 ## 반영과 다음 작업
 
-구현 `b10d157`, HR 보존 병합 `6f91b4c`, branch `codex/soap-cad-review`. 현황·progress·HANDOFF를 함께 기록한다. 사용자 기존 main push 승인에 따라 통합/push하되 운영 배포는 별도다. 최종 기록 커밋은 `git log -1`로 확인한다.
+구현 `b10d157`, HR 보존 병합 `6f91b4c`, branch `codex/soap-cad-review`. 현황·progress·HANDOFF를 함께 기록한다. 사용자 기존 main push 승인으로 e17fef8까지 로컬 main fast-forward·origin/main push 성공(1136611→e17fef8). 운영 배포는 하지 않았다. 최종 기록 커밋은 `git log -1`로 확인한다.
 
 재현: Node24 PATH 설정 후 `npm --prefix prototypes/cad-cam test`, `npm --prefix prototypes/cad-cam run format:check`, `npm --prefix frontend test`, `npm --prefix frontend run build`.
 

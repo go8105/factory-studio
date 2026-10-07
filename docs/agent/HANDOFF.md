@@ -2,7 +2,7 @@
 
 ## CAD-09 품질 우선 경로 제안 (2026-10-07 완료)
 
-- branch codex/soap-cad-review, 구현b10d157·HR1136611 보존 병합6f91b4c. 최신 기록commit은 git log -1. 기존 사용자 main push 승인, 통합/push 기록은 progress. 다른 작업자 변경은 스테이징하지 않는다.
+- branch codex/soap-cad-review, 구현b10d157·HR1136611 보존 병합6f91b4c. 최신 기록commit은 git log -1. 기존 사용자 main push 승인으로 e17fef8까지 로컬 main fast-forward·origin/main push 성공(1136611→e17fef8). 다음 HR 근태/휴가 미추적 파일 보존. 다른 작업자 변경은 스테이징하지 않는다.
 - E1 상면 포켓 순서 후보2개·256래스터 상한, 절삭/방향/깊이/실제 마지막 마무리/경계·안전Z·같은격자 보존, 기존보다 개선되면 제안. 선택 적용만 경로 변경, 입력 변경 후보 무효화, Worker30초/수동취소·revision/종료 Worker 응답 방어. 장비 미정 kWh/전력절감% 없음. [검증 보고](품질우선_경로제안_CAD-09.md).
 - 실제 prototype56/frontend530(64파일)/전체build·자산 분리·포맷·웹 적용/100%·기존진행률/무효화·상한·수동취소/복구 확인. 실제30초만료/stale강제주입·Ra/실물/전력·DB명령 미검증. 운영 배포 없음. 다음은 결과 확인 뒤 장비/목표품질 입력 설계. E3 자동 시작 안 함.
 - 재현 PATH=/opt/homebrew/opt/node@24/bin:$PATH; npm --prefix prototypes/cad-cam test; npm --prefix prototypes/cad-cam run format:check; npm --prefix frontend test; npm --prefix frontend run build. 로컬5243/8043 합성 관리자 preview만 검증, 운영관리자200은 이전 CAD-08도 미검증. 보호 비누 파일은 빌드시 backend/private-assets/soap-poc에 생성하며 Git에 넣지 않는다.
