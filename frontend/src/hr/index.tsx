@@ -2,9 +2,12 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { NotFound } from "../shared/components";
 import { Appointments } from "./Appointments";
+import { Attendance } from "./Attendance";
+import { AttendanceCloses } from "./AttendanceCloses";
 import { Departments } from "./Departments";
 import { Employees } from "./Employees";
 import { HrLayout } from "./HrLayout";
+import { Leaves } from "./Leaves";
 import { Titles } from "./Titles";
 import { WorkPatterns } from "./WorkPatterns";
 
@@ -18,6 +21,9 @@ export default function HrRoutes() {
         <Route path="work-patterns" element={<WorkPatterns />} />
         <Route path="employees" element={<Employees />} />
         <Route path="appointments" element={<Appointments />} />
+        <Route path="attendance" element={<Attendance />} />
+        <Route path="attendance-closes" element={<AttendanceCloses />} />
+        <Route path="leaves" element={<Leaves />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

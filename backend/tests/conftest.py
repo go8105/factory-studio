@@ -142,7 +142,13 @@ def _delete_test_guests(template: GuestTemplate) -> None:
             connection.execute(
                 text(f"DELETE FROM {table} WHERE workspace_id=ANY(:guests)"), params
             )
-        for table in ("request_receipt", "audit_event", "job_run", "workspace_module"):
+        for table in (
+            "holiday",
+            "request_receipt",
+            "audit_event",
+            "job_run",
+            "workspace_module",
+        ):
             connection.execute(
                 text(f"DELETE FROM core.{table} WHERE workspace_id=ANY(:guests)"),
                 params,

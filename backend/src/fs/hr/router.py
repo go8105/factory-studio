@@ -10,13 +10,19 @@ from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
 from fs.common.errors import ApiError
 from fs.common.page import Page
-from fs.hr import service
+from fs.hr import attendance, leave, service
 from fs.hr.schema import (
     AppointmentCreate,
+    AttendanceUpdate,
     DepartmentCreate,
     DepartmentUpdate,
     EmployeeCreate,
     EmployeeUpdate,
+    LeaveBalanceCreate,
+    LeaveBalanceUpdate,
+    LeaveDecision,
+    LeaveRequestCreate,
+    MonthBody,
     TitleCreate,
     TitleUpdate,
     WorkPatternCreate,
@@ -355,3 +361,219 @@ def delete_appointment(
         context, row_id, _mutation(context, x_csrf_token, idempotency_key)
     )
     return Response(status_code=204)
+
+
+# ── 근태 ────────────────────────────────────────────────────────────────────
+
+
+@router.get("/attendance")
+def list_attendance(
+    context: Auth,
+    month: Annotated[str, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")],
+    offset: int = 0,
+    limit: int = 100,
+    employee_id: Annotated[int | None, Query(alias="employeeId")] = None,
+):
+    page = Page(offset, limit).checked()
+    rows, total, closed = attendance.listing(
+        context, month, employee_id, page.offset, page.limit
+    )
+    return {
+        "data": rows,
+        "page": {"offset": page.offset, "limit": page.limit, "total": total},
+        "closed": closed,
+    }
+
+
+@router.get("/attendance/summary")
+def attendance_summary(
+    context: Auth, month: Annotated[str, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")]
+):
+    return {"data": attendance.summary(context, month)}
+
+
+@router.post("/attendance/generate", status_code=201)
+def generate_attendance(
+    payload: MonthBody,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": attendance.generate(context, payload.month, key)}
+
+
+@router.patch("/attendance/{row_id}")
+def patch_attendance(
+    row_id: int,
+    payload: AttendanceUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = _values(payload, frozenset({"clock_in", "clock_out", "note"}))
+    if not values:
+        raise ApiError(400, "VALIDATION_FAILED", "변경할 항목이 없습니다.")
+    return {"data": attendance.update(context, row_id, values, key)}
+
+
+# ── 근태 마감 ────────────────────────────────────────────────────────────────
+
+
+@router.get("/attendance-closes")
+def list_closes(
+    context: Auth,
+    offset: int = 0,
+    limit: int = 50,
+    month: str | None = None,
+    status: str | None = None,
+):
+    page = Page(offset, limit).checked()
+    return _page(
+        attendance.closes(
+            context,
+            filters={"month": month, "status": status},
+            offset=page.offset,
+            limit=page.limit,
+        ),
+        page,
+    )
+
+
+@router.post("/attendance-closes", status_code=201)
+def post_close(
+    payload: MonthBody,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": attendance.open_close(context, payload.month, key)}
+
+
+@router.post("/attendance-closes/{row_id}/confirm")
+def confirm_close(
+    row_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": attendance.confirm_close(context, row_id, key)}
+
+
+# ── 연차·휴가 ────────────────────────────────────────────────────────────────
+
+
+@router.get("/leave-balances")
+def list_balances(
+    context: Auth, offset: int = 0, limit: int = 50, year: str | None = None
+):
+    page = Page(offset, limit).checked()
+    rows, total = leave.balances(context, year, page.offset, page.limit)
+    return {
+        "data": rows,
+        "page": {"offset": page.offset, "limit": page.limit, "total": total},
+    }
+
+
+@router.post("/leave-balances", status_code=201)
+def post_balance(
+    payload: LeaveBalanceCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": leave.create_balance(context, _values(payload), key)}
+
+
+@router.patch("/leave-balances/{row_id}")
+def patch_balance(
+    row_id: int,
+    payload: LeaveBalanceUpdate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": leave.update_balance(context, row_id, _values(payload), key)}
+
+
+@router.get("/leave-requests")
+def list_requests(
+    context: Auth,
+    offset: int = 0,
+    limit: int = 50,
+    status: str | None = None,
+    employee_id: Annotated[int | None, Query(alias="employeeId")] = None,
+):
+    page = Page(offset, limit).checked()
+    return _page(
+        leave.requests(
+            context,
+            filters={"status": status, "employeeId": employee_id},
+            offset=page.offset,
+            limit=page.limit,
+        ),
+        page,
+    )
+
+
+@router.post("/leave-requests", status_code=201)
+def post_request(
+    payload: LeaveRequestCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": leave.create_request(
+            context, _values(payload, frozenset({"reason"})), key
+        )
+    }
+
+
+@router.post("/leave-requests/{row_id}/approve")
+def approve_request(
+    row_id: int,
+    payload: LeaveDecision,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": leave.approve_request(
+            context, row_id, _values(payload, frozenset({"reason"})), key
+        )
+    }
+
+
+@router.post("/leave-requests/{row_id}/reject")
+def reject_request(
+    row_id: int,
+    payload: LeaveDecision,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": leave.reject_request(
+            context, row_id, _values(payload, frozenset({"reason"})), key
+        )
+    }
+
+
+@router.post("/leave-requests/{row_id}/cancel")
+def cancel_request(
+    row_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+):
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": leave.cancel_request(context, row_id, key)}

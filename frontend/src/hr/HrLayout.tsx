@@ -6,6 +6,14 @@ export const hrScreens: Screen[] = [
   { path: "work-patterns", id: "H-04", label: "근무 형태", group: "조직·사원" },
   { path: "employees", id: "H-05", label: "사원", group: "조직·사원" },
   { path: "appointments", id: "H-06", label: "발령", group: "조직·사원" },
+  { path: "attendance", id: "H-07", label: "근태", group: "근태·휴가" },
+  {
+    path: "attendance-closes",
+    id: "H-08",
+    label: "근태 마감",
+    group: "근태·휴가",
+  },
+  { path: "leaves", id: "H-09", label: "휴가", group: "근태·휴가" },
 ];
 const others = [
   { to: "/mes", label: "MES 생산관리" },

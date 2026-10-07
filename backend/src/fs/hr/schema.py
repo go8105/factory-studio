@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, datetime, time
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -93,4 +93,53 @@ class AppointmentCreate(ApiModel):
     department_id: int | None = Field(None, alias="departmentId")
     grade_id: int | None = Field(None, alias="gradeId")
     duty_id: int | None = Field(None, alias="dutyId")
+    reason: str | None = Field(None, min_length=2, max_length=200)
+
+
+MONTH = r"^[0-9]{4}-(0[1-9]|1[0-2])$"
+YEAR = r"^[0-9]{4}$"
+DAYS = r"^\d{1,3}(\.[05])?$"  # numeric(4,1), 반일은 .5
+AttendanceStatus = Literal[
+    "NORMAL", "LATE", "EARLY", "ABSENT", "LEAVE", "HALF_LEAVE", "OFF"
+]
+LeaveKind = Literal["ANNUAL", "HALF_AM", "HALF_PM", "SICK", "SPECIAL"]
+
+
+class MonthBody(ApiModel):
+    month: str = Field(pattern=MONTH)
+
+
+class AttendanceUpdate(ApiModel):
+    """예외만 고친다. 날짜·사원은 바꾸지 않는다(자동 생성이 만든 행)."""
+
+    status: AttendanceStatus | None = None
+    clock_in: datetime | None = Field(None, alias="clockIn")
+    clock_out: datetime | None = Field(None, alias="clockOut")
+    overtime_minutes: int | None = Field(None, alias="overtimeMinutes", ge=0, le=960)
+    night_minutes: int | None = Field(None, alias="nightMinutes", ge=0, le=960)
+    holiday_minutes: int | None = Field(None, alias="holidayMinutes", ge=0, le=960)
+    note: str | None = Field(None, max_length=200)
+
+
+class LeaveBalanceCreate(ApiModel):
+    employee_id: int = Field(alias="employeeId")
+    leave_year: str = Field(alias="leaveYear", pattern=YEAR)
+    granted_days: str = Field(alias="grantedDays", pattern=DAYS)
+
+
+class LeaveBalanceUpdate(ApiModel):
+    granted_days: str = Field(alias="grantedDays", pattern=DAYS)
+
+
+class LeaveRequestCreate(ApiModel):
+    employee_id: int = Field(alias="employeeId")
+    leave_kind: LeaveKind = Field(alias="leaveKind")
+    from_date: date = Field(alias="fromDate")
+    to_date: date = Field(alias="toDate")
+    days: str = Field(pattern=DAYS)
+    reason: str | None = Field(None, min_length=2, max_length=200)
+
+
+class LeaveDecision(ApiModel):
+    approver_code: str = Field(alias="approverCode", pattern=CODE)
     reason: str | None = Field(None, min_length=2, max_length=200)

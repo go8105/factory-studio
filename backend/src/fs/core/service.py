@@ -674,6 +674,10 @@ def _delete_guest(connection: Connection, workspace_id: int) -> None:
             {"w": workspace_id},
         )
     connection.execute(
+        text("DELETE FROM core.holiday WHERE workspace_id=:w"),
+        {"w": workspace_id},
+    )
+    connection.execute(
         text("DELETE FROM core.request_receipt WHERE workspace_id=:w"),
         {"w": workspace_id},
     )
