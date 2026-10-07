@@ -47,4 +47,4 @@ WASM 크기22,980,267 bytes(약23MB), 빌드 gzip 약7.32MB. E2 페이지의 Wor
 
 ## 통합 기록
 
-WIP0377787·추가7ed2817, W0-5 e135f79를 b7edf18로 병합해 보존했다. 사용자 기존 main push 승인으로 로컬 main 통합/push를 진행하며 완료 결과를 이 문서와 progress/HANDOFF에 덧붙인다. 운영 배포는 하지 않는다. 다음 E3는 결과 확인 뒤 진행한다.
+WIP0377787·추가7ed2817, W0-5 e135f79를 b7edf18로 병합해 보존했다. 최신 원격 d135d7f의 HR/운영 기록도384e206으로 병합 보존했다. 사용자 기존 main push 승인으로 로컬 main fast-forward 및 origin/main push 성공(d135d7f→384e206). main에 prototype node_modules 없이 frontend 의존성만 설치하여 전체 build·자산 분리 재검증 통과했고 lock 변경은 없었다. E2 운영 배포는 하지 않았다. 다음 E3는 결과 확인 뒤 진행한다.

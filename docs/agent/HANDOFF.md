@@ -2,7 +2,7 @@
 
 ## CAD-07 E2 완료 (2026-10-07)
 
-- branch codex/soap-cad-review, 시작3f6b244. WIP0377787·포털/입력7ed2817, main W0-5 e135f79 보존 병합b7edf18. 최종 commit은 git log -1. 기존 사용자 main push 승인, 통합/push 후 아래 기록 갱신. 운영 배포 없음.
+- branch codex/soap-cad-review, 시작3f6b244. WIP0377787·포털/입력7ed2817, main W0-5 e135f79 보존 병합b7edf18. 최신 원격 d135d7f(HR/운영 기록)를384e206으로 병합 보존. 로컬 main fast-forward 및 origin/main push 성공(d135d7f→384e206), 최종 기록 commit은 git log -1. 기존 사용자 main push 승인, E2 운영 배포 없음. main prototype node_modules 없이 frontend 단독 의존성 설치/전체 build·자산 분리 재검증 통과, lock 변경 없음.
 - E2 OCCT1.1.0 단일 부품·기준3평면·다중 돌출·측면 구멍·배열/미러·필렛/쉘·제한된 점/원호 구속. 포털 view=part. JSON v3 별도 scope 키, legacy base/cut 변환. 형상 실패에 마지막 정상 원본/표시 유지, 30초 종료/수동 취소. [보고](부품설계_편집기_CAD-07.md).
 - prototype50/frontend525/API13·포맷·단독/전체 build·자산 분리, 실제 합성 관리자 브라우저 치수/구속/오류/undo/redo/복원/STEP 생성·1440/390폭 통과. DB/실물/NC/외부 STEP 읽기·브라우저 파일 다운로드/재열기·취소/타임아웃 실사용 미검증. E1 CAM 전용이며 E2를 평면 CAM으로 자동 변환하지 않음.
 - 재현 Node24 PATH=/opt/homebrew/opt/node@24/bin:$PATH; prototype npm ci && npm test && npm run build; frontend npm ci && npm run build && npm test; backend .venv/bin/python -m pytest tests/test_cad_private_assets.py -q. frontend 단독 설치 빌드 alias (?url regex) 유지. licenses를 public cad-cam-app/licenses로 복사. WASM22,980KB·gzip7316KB 별도 Worker 최초 진입만.
