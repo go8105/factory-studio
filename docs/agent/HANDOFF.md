@@ -2,7 +2,7 @@
 
 ## CAD-15 품질 우선 NC 검토 제안 완료 (2026-10-08)
 
-- branch codex/soap-cad-review, 기준f860e8b·구현5761608·운영 기록c769a42 보존 병합7aefb20, 최종 커밋 git log -1. 기존 main push 승인 유지·이번 CAD-15 운영 배포 없음. HR/시드 등 main 타 작업자 수정은 소유자 작업이므로 스테이징/편집하지 않는다. [계약](../modules/cad-cam/품질우선_NC제안_설계_CAD-15.md)·[검증](품질우선_NC제안_CAD-15.md).
+- branch codex/soap-cad-review, 기준f860e8b·구현5761608·운영 기록c769a42 보존 병합7aefb20, 최종 커밋 git log -1. 기존 main push 승인 유지. a3c1c6f까지 main fast-forward·origin/main push 성공(f860e8b→a3c1c6f)·이번 CAD-15 운영 배포 없음. HR/시드 등 main 타 작업자 수정은 소유자 작업이므로 스테이징/편집하지 않는다. [계약](../modules/cad-cam/품질우선_NC제안_설계_CAD-15.md)·[검증](품질우선_NC제안_CAD-15.md).
 - `/cad-cam?view=nc`: 전체 에너지 분석 후 품질 우선 개선 제안 → 대기 목록/품질 기준·최소시간·목적/영향 확인 → 소비 비교. 단독 G4만, 품질 미달/근거 없음 차단·범위/여유 미정 우열 보류. 원본/경로/F/S/T 보존·NC 자동 적용/출력 없음. JSON 근거·200대기/12선택·입력 무효화. 합성 예제 버튼으로만 가정 입력.
 - prototype117/frontend544·포맷/build/격리/diff·실제 후보/근거/과절삭 차단·행 선택/무효화/201페이지/상한·1440/390폭 통과. Node5만행 목록88.95/비교106.51ms, 동기 계산 느린 기기 지연 가능. 실측 품질/안전/절감·JSON재열기/Safari/실기기 대형 부하/DB/이번 운영 배포 미검증.
 - 다음은 사용자 결과 확인 후 CAD-16 한 ID. Node24 PATH=/opt/homebrew/opt/node@24/bin:$PATH; npm --prefix prototypes/cad-cam test; npm --prefix prototypes/cad-cam run format:check; npm --prefix frontend test; npm --prefix frontend run build; node --expose-gc prototypes/cad-cam/experiments/nc-proposal-benchmark.mjs. localhost5243/8043 합성 관리자 fixture. Git 예제/보고/PNG/benchmark 사용, work/tmp 의존 없음.
