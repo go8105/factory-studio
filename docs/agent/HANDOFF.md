@@ -1,10 +1,17 @@
 # Factory Studio 작업 인계
 
+## CAD-V01 발표 대상 확정·설계 수정 (2026-10-08)
+
+- branch main, 기준1ecd4f5. 마지막 커밋은 git log -1. 문서만 변경: [음성 발표 제안](../modules/cad-cam/음성발표데모_제안_CAD-V01.md), 현재 현황, 진행 기록. 타 작업자 파일 변경 없음.
+- 사용자 확정: **Windows·Google Chrome 일반 브라우저·NC 에너지 제안**. Mac/E1 가정으로 구현하지 않는다. 발표 브라우저 Google Chrome 확정. NC 현재 코드는 후보 비교/행 선택뿐이고 자동 재생이 없으므로 번호/revision 선택+후보 G4 시간 모델의 경로/시간/kWh 재생을 음성과 함께 구현할 전체 제안으로 작성했다.
+- 다음: 전체 수정 흐름 확인 후 CAD-V01 구현. Windows 실마이크/발화 검증 필요. 문서 검사만 수행했으며 음성/재생 제품 코드·테스트/build·DB/운영 배포 미실행. 기존 CAD-16 완료/main push1ecd4f5 유지; CAD-17 자동 착수 없음.
+- 재현: NC 코드 `prototypes/cad-cam/src/{nc-review,nc-proposal-review,nc-proposals,nc-viewer}.js`와 CAD-15 계약 대조. 문서 상대 링크 검사와 git diff --check. work/tmp에만 의존하지 않는다.
+
 ## CAD-16 완료 (2026-10-08)
 
 - branch codex/soap-cad-review, 기준257871e·WIP12cf7d0·HR W1c b8b3405 보존 병합69737d6·포털72b253a 보존 병합c3b3ec2. 마지막 커밋 git log -1. 442482e까지 main fast-forward·origin/main push 성공(72b253a→442482e), 운영 배포 없음. 타 작업자 main 포털/UI 수정은 편집/스테이징하지 않는다.
 - 끝난 것: E1/E2 공통 전문 스케치/섬 영역·국소 필렛/모따기/선택 면 기하 참조, 파일 상한/모달 키보드 격리. [계약](../modules/cad-cam/전문스케치_직접편집_설계_CAD-16.md)·[검증](전문스케치_직접편집_CAD-16.md). prototype134/frontend545·포맷/전체build/격리·실 UI/1440·390폭 통과. STEP 커널 왕복/STL 체적 통과, 브라우저 다운로드 수신은 시간 초과로 미확인. DB/실 CNC/운영 배포 미실행.
-- 다음: 사용자 결과 확인 후 CAD-17 또는 **추가 요청 [CAD-V01 음성 발표 제안](../modules/cad-cam/음성발표데모_제안_CAD-V01.md)** 범위 확정. Chrome/E1 기본 제안, 브라우저/제어대상 질문 중. 마이크·음성 구현 미착수. 자동으로 다음 ID를 시작하지 않는다.
+- 다음: 사용자 결과 확인 후 CAD-17 또는 **추가 요청 [CAD-V01 음성 발표 제안](../modules/cad-cam/음성발표데모_제안_CAD-V01.md)** 범위 확정. 최신 제안은 Windows Google Chrome/NC 에너지 대상 확정. 마이크·음성 구현 미착수. 자동으로 다음 ID를 시작하지 않는다.
 - 재현: Node24 PATH=/opt/homebrew/opt/node@24/bin:$PATH; npm --prefix prototypes/cad-cam test; npm --prefix prototypes/cad-cam run format:check; npm --prefix frontend test; npm --prefix frontend run build. localhost5243/8043은 모의 관리자 fixture. Git 예제 JSON/PNG/보고와 tests/{sketch-edit,direct-edit}.test.js를 사용한다. 임시 work/tmp 파일에 의존하지 않는다.
 
 ## W1c HR 시드·도움말 완료 (2026-10-08)
