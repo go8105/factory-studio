@@ -2,7 +2,7 @@
 
 ## UI-DESIGN-02 실제 UI 적용 (2026-10-09)
 
-- branch main, 시작 기준66e3001. 마지막 커밋은 `git log -1 --oneline`. 사용자 전체 추천안 확인 후 구현100%. 로컬 커밋만, 원격 push/운영 배포 없음. 병행 MES/common/master·shared/master·MES 화면/테스트는 다른 작업자의 변경이며 보존/스테이징 제외.
+- branch main, 시작 기준66e3001, UI 구현 커밋 **0d34ec5**. 마지막 인계 커밋은 `git log -1 --oneline`. 사용자 전체 추천안 확인 후 구현100%. 로컬 커밋만, 원격 push/운영 배포 없음. 병행 MES/common/master·shared/master·MES 화면/테스트는 다른 작업자의 변경이며 보존/스테이징 제외.
 - 끝난 것: Taste Entry.tsx+Entry.css/합성 NC 이미지, CAD 셸, E1/E2 공통 UI, nc-layout.js 기존 DOM 재배치/4준비단계·뷰포트/휴디·결과/접기, 공장 하단 시연·맥락 패널·초점. 현재 도움말/설계안/현황/progress 상태도 갱신. [결과와 캡처](UI개선_적용결과_UI-DESIGN-02.md).
 - 검증: CAD142/frontend551(68파일)·최종 대상40·build/격리·대상 lint/format/diff. Chrome NC 전체 분석/3후보/텍스트3번재생정지, E2 체적24,000mm³, 랜딩 로그인·공장/1440·390. 공장 browser4종 통과: CNC1개 완료·정지·오류 복구·모바일 포함; 외관33.3초로 기존30초 초과, 60초 재검증 통과/테스트 제한 보정. 실제 음성 발화·운영/DB/실장비·계측은 미검증/미실행.
 - 다음: 사용자 결과 확인. 다음 ID·운영 배포·원격 push 자동 진행 없음. NC 모델/품질 차단/후보revision/보호POC/iframe microphone 정책 유지. 스킬은 정적 프로젝트 지침이며 launcher/hook 사용하지 않는다.
