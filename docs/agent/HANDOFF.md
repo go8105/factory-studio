@@ -1,5 +1,13 @@
 # Factory Studio 작업 인계
 
+## CAD-V01 구현·로컬 검증 완료 (2026-10-08)
+
+- branch main, 기준2241851, 마지막 커밋 git log -1. 사용자 전체 흐름 구현 승인·최신 환경은 **맥북 Google Chrome/NC 에너지 제안**. 아래 Windows 설계 항목은 이전 이력이다. [계약](../modules/cad-cam/음성발표데모_제안_CAD-V01.md)·[검증/발표 준비](휴디_NC음성발표_CAD-V01.md).
+- 끝난 것: 휴디 호출/한국어 명령/응답·후보 번호/ID/revision·G4 시간 모델 재생/정지/누적kWh·기존 품질 차단·입력 무효화·음성 실패 대안·합성 발표 예제. CAD141/frontend545·전체build/격리/포맷/대상 lint/diff·실 Chrome/모의 게스트 포털 iframe 흐름·390폭 확인. 실제 인증/DB 아닌 합성 세션이다.
+- **남은 검증: 맥북 실제 마이크 발화·TTS 리허설**. 코드와 모의 음성 테스트 통과를 실제 음성 서비스 성공으로 소개하지 않는다. 발표자는 Chrome/macOS 마이크 권한과 인터넷을 확인한다. 운영 배포/실 CNC/실측 품질·절감 미실행/미검증. CAD-17 자동 착수 없음.
+- 재현: Node24 PATH=/opt/homebrew/opt/node@24/bin:$PATH; npm --prefix prototypes/cad-cam ci/test/format:check; npm --prefix frontend test -- --maxWorkers=2; npm --prefix frontend run build. 핵심 파일·합성 NC·캡처는 리포지토리에 저장, work/tmp에만 의존하지 않는다.
+- 로컬 검토: frontend/scripts/cad-preview-api.mjs(8042)와 FS_SMOKE_API_PORT=8042 frontend Vite(5244), 합성 게스트. 별도 frontend5243·prototype5245도 이 세션이 시작한 서버다. 실제 backend/공유 DB를 시작하지 않았다. 병행 작업자의 MES migration·schema·ERD·시드·service 변경은 그대로 보존하고 커밋에서 제외한다.
+
 ## CAD-V01 발표 대상 확정·설계 수정 (2026-10-08)
 
 - branch main, 기준1ecd4f5. 마지막 커밋은 git log -1. 문서만 변경: [음성 발표 제안](../modules/cad-cam/음성발표데모_제안_CAD-V01.md), 현재 현황, 진행 기록. 타 작업자 파일 변경 없음.

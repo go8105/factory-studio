@@ -1,5 +1,11 @@
 import { dwellReview, compareProposals } from "./nc-proposals.js";
-export function createProposalReview(getNC, getStock, getEnergy, selectLine) {
+export function createProposalReview(
+  getNC,
+  getStock,
+  getEnergy,
+  selectLine,
+  playback,
+) {
   const panel = document.createElement("details");
   panel.className = "stock-panel proposal-panel";
   panel.innerHTML = `<summary>품질 우선 개선 제안</summary><p class="muted">G4 대기의 목적과 최소 시간을 확인한 검토 시나리오입니다. 경로·F/S/T·쿨런트는 유지합니다. 실제 공차/Ra·열·칩 배출은 자동 검증하지 않습니다.</p><label>품질 기준·근거<input id="proposal-quality-source" placeholder="도면 기준/검토 기록 또는 가정"></label><label>허용 최대 잔삭 높이 mm<input id="proposal-remaining" type="number" step="any"></label><label>허용 최대 과절삭 깊이 mm<input id="proposal-overcut" type="number" step="any"></label><label>허용 목표 격자 체적 오차 %<input id="proposal-grid-error" type="number" step="any"></label><p class="muted">셀 중심 근사값 기준입니다. 실제 치수 공차/Ra와 다릅니다. 0 검출은 안전 보증이 아닙니다.</p><label>추가 비교 여유 kWh<input id="proposal-margin" type="number" step="any"></label><label>추가 여유 근거<input id="proposal-margin-source" placeholder="미정이면 우열 판단 보류"></label><label class="check"><input id="proposal-risk" type="checkbox">실기계·홀더/지그·공정 위험을 별도로 검토했습니다</label><div class="buttons"><button id="proposal-prepare">대기 목록 만들기</button><button id="proposal-demo">합성 검토 기준 채우기</button></div><p id="proposal-status" role="status">현재 NC/소재/시간·소비 분석 완료 후 검토하세요.</p><div id="proposal-dwells"></div><div class="buttons"><button id="proposal-prev" disabled>앞 200대기</button><span id="proposal-page"></span><button id="proposal-next" disabled>뒤 200대기</button></div><button id="proposal-run">품질 조건과 소비 비교</button><p class="muted">최대12대기 선택/13후보. 입력 변경 시 제안 무효화. NC 자동 적용·실행 파일 출력 없음.</p>`;
@@ -29,8 +35,11 @@ export function createProposalReview(getNC, getStock, getEnergy, selectLine) {
   let dwells = null,
     report = null,
     page = 0;
+  let revision = 0;
   const inputs = new Map();
   function clear() {
+    revision++;
+    playback?.clear();
     report = null;
     $("proposal-summary").textContent = "결과 없음 · 품질/대기 조건 확인 필요";
     $("proposal-candidates").replaceChildren();
@@ -116,8 +125,7 @@ export function createProposalReview(getNC, getStock, getEnergy, selectLine) {
       $("proposal-margin-source").value =
         "합성 비교 · 추가 여유0 가정, 실제 계측 아님";
       $("proposal-risk").checked = true;
-      const first = dwells.find((r) => r.eligible);
-      if (first)
+      for (const first of dwells.filter((r) => r.eligible).slice(0, 2))
         Object.assign(inputs.get(first.id), {
           selected: true,
           seconds: Math.min(10, first.seconds),
@@ -147,18 +155,23 @@ export function createProposalReview(getNC, getStock, getEnergy, selectLine) {
         .map(({ selected, ...r }) => r),
     };
   }
-  $("proposal-run").onclick = () => {
+  function run() {
     clear();
     try {
       if (!dwells) throw Error("현재 분석의 대기 목록을 먼저 만드세요");
       report = compareProposals(getNC(), getStock(), getEnergy(), settings());
+      report.revision = revision;
+      report.candidates.forEach((c, i) => {
+        c.id = `${report.sourceHash}:${revision}:${c.lines.join(",")}`;
+        c.number = i + 1;
+      });
       const b = report.baseline;
       $("proposal-summary").textContent =
         `원본 모델 ${fmt(b.seconds)}초 · ${range(b.energy)}kWh\n품질 근거: ${report.settings.quality.source || "미정"}\n추가 비교 여유: ${fmt(report.settings.marginKWh, 6)}kWh · ${report.settings.marginSource || "미정"}\n${report.reasons.length ? "제안 차단: " + report.reasons.join(" · ") : "사용자 조건으로 비교 · 실제 품질·안전 미검증"}\n형상 잔삭 ${fmt(report.quality.maxRemaining)}mm / 과절삭 ${fmt(report.quality.maxOvercut)}mm / 격자 체적 오차 ${fmt(report.quality.gridErrorPercent)}%`;
       $("proposal-candidates").innerHTML = report.candidates
         .map(
-          (c) =>
-            `<article class="proposal-card"><strong>${c.lines.map((l) => l + "행").join(" + ")} · ${c.status === "blocked" ? "차단" : c.status === "conditional-lower" ? "입력 범위에서 소비 감소 후보" : "우열 판단 불가"}</strong><div>${c.lines.map((l) => `<button data-proposal-line="${l}">원본 ${l}행 보기</button>`).join("")}</div>${c.status === "blocked" ? "" : `<p>후보 ${fmt(c.seconds)}초 · ${range(c.energy)}kWh</p><p>시간 감소 ${fmt(c.savedSeconds)}초 · 대기 소비 감소 ${range(c.savedEnergy)}kWh</p>`}<p>${esc(
+          (c, i) =>
+            `<article class="proposal-card" data-candidate-number="${i + 1}"><strong>${i + 1}번 · ${c.lines.map((l) => l + "행").join(" + ")} · ${c.status === "blocked" ? "차단" : c.status === "conditional-lower" ? "입력 범위에서 소비 감소 후보" : "우열 판단 불가"}</strong><div>${c.lines.map((l) => `<button data-proposal-line="${l}">원본 ${l}행 보기</button>`).join("")}</div>${c.status === "blocked" ? "" : `<p>후보 ${fmt(c.seconds)}초 · ${range(c.energy)}kWh</p><p>시간 감소 ${fmt(c.savedSeconds)}초 · 대기 소비 감소 ${range(c.savedEnergy)}kWh</p>`}<p>${esc(
               report.review
                 .filter((r) => c.lines.includes(r.line))
                 .map(
@@ -166,7 +179,7 @@ export function createProposalReview(getNC, getStock, getEnergy, selectLine) {
                     `${r.line}행 대기 ${fmt(r.seconds)}→${fmt(r.proposedSeconds)}초 · ${r.source || "근거 미정"}`,
                 )
                 .join(" / "),
-            )}</p><p>${esc(c.reasons.join(" · "))}</p></article>`,
+            )}</p><p>${esc(c.reasons.join(" · "))}</p><button data-candidate="${i + 1}" ${c.status === "blocked" ? "disabled" : ""}>${i + 1}번 시나리오 재생</button></article>`,
         )
         .join("");
       $("proposal-status").textContent = report.reasons.length
@@ -174,13 +187,40 @@ export function createProposalReview(getNC, getStock, getEnergy, selectLine) {
         : `${report.candidates.length}검토 후보 · 단일 최적/실제 절감 보장 없음`;
     } catch (e) {
       $("proposal-status").textContent = e.message;
+      throw e;
+    }
+    return report;
+  }
+  $("proposal-run").onclick = () => {
+    try {
+      run();
+    } catch {
+      /* status already shows failure */
     }
   };
+  function play(number) {
+    if (!report) throw Error("현재 제안을 먼저 계산하세요");
+    const response = playback.play(report, number);
+    output.querySelectorAll("[data-candidate-number]").forEach((card) => {
+      card.dataset.selected = String(
+        Number(card.dataset.candidateNumber) === number,
+      );
+    });
+    return response;
+  }
   panel.addEventListener("click", (e) => {
     const b = e.target.closest("[data-proposal-line]");
     if (b) selectLine(Number(b.dataset.proposalLine));
   });
   output.addEventListener("click", (e) => {
+    const candidate = e.target.closest("[data-candidate]");
+    if (candidate) {
+      try {
+        play(Number(candidate.dataset.candidate));
+      } catch (error) {
+        $("proposal-status").textContent = error.message;
+      }
+    }
     const b = e.target.closest("[data-proposal-line]");
     if (b) selectLine(Number(b.dataset.proposalLine));
   });
@@ -192,5 +232,10 @@ export function createProposalReview(getNC, getStock, getEnergy, selectLine) {
     page++;
     render();
   };
-  return { invalidate, export: () => ({ settings: settings(), report }) };
+  return {
+    invalidate,
+    run,
+    play,
+    export: () => ({ settings: settings(), report }),
+  };
 }

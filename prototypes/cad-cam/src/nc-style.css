@@ -388,3 +388,36 @@ nav {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.hugh-panel,
+.playback-panel {
+  background: #f7f7f6;
+  border: 1px solid #d8dcde;
+  border-radius: 10px;
+  padding: 16px;
+  margin: 12px 0;
+}
+.hugh-heading {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.hugh-panel[data-listening="true"] {
+  border-color: #1f2d3d;
+}
+.hugh-panel p,
+.playback-panel p {
+  overflow-wrap: anywhere;
+}
+#hugh-state {
+  background: #e8ecee;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.playback-panel progress {
+  width: 100%;
+}
+.proposal-card[data-selected="true"] {
+  border: 2px solid #1f2d3d;
+}

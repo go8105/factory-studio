@@ -56,6 +56,7 @@ export default function CadCam() {
       </div>
       <iframe
         key={`${scope}:${soap}:${part}:${nc}`}
+        allow={nc ? "microphone" : undefined}
         title={
           soap
             ? "비누 그라인더 POC"

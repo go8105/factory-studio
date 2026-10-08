@@ -115,6 +115,10 @@ it("opens the separate NC review without admin-only soap assets", async () => {
     "src",
     "/cad-cam-app/nc-review.html?embedded=1&scope=11%3A20",
   );
+  expect(screen.getByTitle("NC 경로 검토")).toHaveAttribute(
+    "allow",
+    "microphone",
+  );
   expect(screen.getByRole("link", { name: "NC 경로 검토" })).toHaveAttribute(
     "aria-current",
     "page",
