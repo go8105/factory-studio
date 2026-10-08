@@ -1,14 +1,17 @@
+import { resolveEdge, checkFace } from "./part-references.js";
 import * as r from "replicad";
 import { validatePart } from "./part-model.js";
 export const setKernel = r.setOC;
 const normal = { XY: [0, 0, 1], XZ: [0, -1, 0], YZ: [1, 0, 0] };
 export function planePosition(f, history) {
+  if (f.supportFace) return f.supportFace.position + f.offset;
   if (f.referenceId === "world") return f.offset;
   const box = history.get(f.referenceId);
   if (!box) throw Error("기준 피처를 찾을 수 없습니다.");
   return { XY: box[1][2], XZ: -box[0][1], YZ: box[1][0] }[f.plane] + f.offset;
 }
 function drawing(s) {
+  const holes = s.holes ?? [];
   let d;
   if (s.type === "circle") d = r.drawCircle(s.w / 2);
   else if (s.type === "profile") {
@@ -26,6 +29,7 @@ function drawing(s) {
       s.h,
       s.type === "slot" ? s.h / 2 : s.radius,
     );
+  for (const hole of holes) d = d.cut(drawing(hole));
   return d.rotate(s.angle ?? 0).translate(s.x, s.y);
 }
 function stats(shape) {
@@ -77,17 +81,30 @@ export function buildPart(model) {
         start = performance.now();
       try {
         if (["add", "cut"].includes(f.kind)) {
+          if (f.supportFace) checkFace(shape, f.supportFace);
           operand = drawing(f.sketch)
             .sketchOnPlane(f.plane, planePosition(f, history))
-            .extrude(f.kind === "add" ? f.amount : -f.amount);
+            .extrude(
+              (f.kind === "add" ? f.amount : -f.amount) *
+                (f.supportFace?.sign ?? 1),
+            );
           operands.set(f.id, { shape: operand.clone(), kind: f.kind });
           next = f.kind === "add" ? shape.fuse(operand) : shape.cut(operand);
-        } else if (f.kind === "fillet") {
-          const pos = planePosition(f, history);
-          next =
-            f.scope === "all"
-              ? shape.fillet(f.radius)
-              : shape.fillet(f.radius, (e) => e.inPlane(f.plane, pos));
+        } else if (["fillet", "chamfer"].includes(f.kind)) {
+          const pos = planePosition(f, history),
+            method = f.kind;
+          if (f.scope === "edge") {
+            const edge = resolveEdge(shape, f.edgeReference);
+            try {
+              next = shape[method](f.radius, (e) => e.inList([edge]));
+            } finally {
+              edge.delete();
+            }
+          } else
+            next =
+              f.scope === "all"
+                ? shape[method](f.radius)
+                : shape[method](f.radius, (e) => e.inPlane(f.plane, pos));
         } else if (f.kind === "shell")
           next = shape.shell(f.thickness, (e) =>
             e.inPlane(f.plane, planePosition(f, history)),

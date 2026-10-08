@@ -1,4 +1,6 @@
 import clipping from "polygon-clipping";
+import { validateHoles, regionRings } from "./sketch-region.js";
+import { solveSketch } from "./sketch-constraints.js";
 import { profileRing, polygonDistance, validateProfile } from "./profile.js";
 
 export const emptyModel = () => ({
@@ -58,7 +60,13 @@ export const sampleModel = () => ({
 // Signed distance to convex profiles. Negative means inside; units are millimetres.
 export function distance(shape, x, y) {
   if (shape.type === "profile" || shape.type === "slot")
-    return polygonDistance(ring(shape), x, y);
+    return Math.max(
+      polygonDistance(ring(shape), x, y),
+      ...(shape.holes ?? []).map(
+        (h) =>
+          -polygonDistance(profileRing({ ...h, x: shape.x, y: shape.y }), x, y),
+      ),
+    );
   const dx = Math.abs(x - shape.x),
     dy = Math.abs(y - shape.y);
   if (shape.type === "circle") return Math.hypot(dx, dy) - shape.w / 2;
@@ -138,7 +146,18 @@ function number(v, min, max, label) {
 export function validateShape(s) {
   if (!s || !["rect", "circle", "profile", "slot"].includes(s.type))
     throw Error("지원하지 않는 스케치입니다.");
-  if (s.type === "profile") validateProfile(s);
+  if (
+    s.constraints !== undefined &&
+    (!Array.isArray(s.constraints) ||
+      (s.type !== "profile" && s.constraints.length))
+  )
+    throw Error("구속은 자유 윤곽에서만 사용할 수 있습니다.");
+  if (s.type === "profile") {
+    validateProfile(s);
+    if (s.constraints?.length && solveSketch(s).changed)
+      throw Error("구속을 해석한 뒤 적용하세요.");
+  }
+  validateHoles(s);
   if (s.type === "slot") {
     number(s.angle, -180, 180, "회전 각도");
     if (s.w < s.h) throw Error("슬롯 길이는 폭 이상이어야 합니다.");
@@ -195,7 +214,13 @@ export function validateModel(m) {
           return true;
       return false;
     });
-    if (crosses || clipping.difference([edge], [ring(m.stock)]).length)
+    if (
+      crosses ||
+      clipping.difference(
+        regionRings(f, edge),
+        regionRings(m.stock, ring(m.stock)),
+      ).length
+    )
       throw Error(
         "홈을 외곽 안에 배치하세요. 바깥쪽 벽을 최소 0.1mm 남겨야 합니다.",
       );
@@ -221,11 +246,11 @@ export function layers(m) {
   const levels = [
     ...new Set([0, top, ...m.features.map((f) => top - f.depth)]),
   ].sort((a, b) => a - b);
-  const base = [[ring(m.stock)]];
+  const base = [regionRings(m.stock, ring(m.stock))];
   return levels.slice(0, -1).map((z, i) => {
     const cuts = m.features
       .filter((f) => top - f.depth <= z + 1e-8)
-      .map((f) => [ring(f)]);
+      .map((f) => regionRings(f, ring(f)));
     return {
       z0: z,
       z1: levels[i + 1],
@@ -239,6 +264,8 @@ export const polygonDifference = (a, b) =>
   b.length ? clipping.difference(a, b) : a;
 
 export function generatePaths(m, t) {
+  if (m.features.some((f) => f.holes?.length))
+    throw Error("섬 경로는 영역 가공 커널을 사용하세요.");
   validateModel(m);
   validateTool(t);
   if (!m.stock || !m.features.length)

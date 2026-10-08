@@ -1,0 +1,32 @@
+{
+  "version": 3,
+  "name": "CAD-16 국소 모따기 예제",
+  "base": {
+    "id": "base",
+    "type": "rect",
+    "x": 0,
+    "y": 0,
+    "w": 60,
+    "h": 40,
+    "radius": 0,
+    "height": 10
+  },
+  "operations": [
+    {
+      "id": "local-chamfer",
+      "name": "한 모서리 모따기",
+      "kind": "chamfer",
+      "plane": "XY",
+      "referenceId": "base",
+      "offset": 0,
+      "scope": "edge",
+      "radius": 1,
+      "edgeReference": {
+        "type": "LINE",
+        "a": [-30, -20, 0],
+        "b": [-30, -20, 10],
+        "length": 10
+      }
+    }
+  ]
+}

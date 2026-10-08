@@ -1,3 +1,4 @@
+import { openSketchEditor } from "./sketch-editor.js";
 import {
   DraftHistory,
   shortcutCommand,
@@ -126,7 +127,7 @@ $("#app").innerHTML = `
 <section class="bottom-panel"><div id="timeline"></div><div id="simulation-controls" hidden></div></section>
 <footer class="statusbar"><span><span class="status-dot"></span><span id="status-text">준비됨</span></span><span id="model-summary">빈 설계 · 원점 XY / Z↑</span><span>로컬 작업 공간</span></footer>
 <div id="toast" role="status" aria-live="polite"></div><input type="file" id="file-input" accept=".json,application/json" hidden/>
-<dialog id="help-dialog"><div class="dialog-head"><h2>직접 설계하는 첫 부품</h2><button data-action="close-help" aria-label="닫기">×</button></div><p class="shortcut-note">${SHORTCUT_HELP}</p><ol><li><b>스케치</b> — 사각형은 대각선으로, 원은 중심에서 바깥으로 드래그합니다. 1mm 격자에 맞춰집니다.</li><li><b>돌출</b> — 오른쪽에서 치수와 높이를 정하고 ‘돌출 만들기’를 누릅니다.</li><li><b>파내기</b> — 새 사각형·원을 추가하고 깊이를 정합니다. 기존 작업을 선택해 치수 변경·복제·삭제도 가능합니다.</li><li><b>가공</b> — 공구 지름·깊이 간격을 정하고 경로를 생성합니다. 재생하거나 진행 막대를 움직여 소재 제거를 확인합니다.</li><li><b>보관</b> — JSON으로 편집 가능한 설계를 저장하고, STL로 3D 메시를 내보냅니다.</li></ol><p>선 연결은 점을 클릭하고 첫 점 또는 ‘윤곽 닫기’로 마칩니다. 3점 원호는 시작·통과·끝을 클릭하면 끝에서 시작까지 직선으로 닫힙니다. 슬롯은 길이·폭·각도로 편집합니다. 좌표 치수 편집과 격자·끝점 스냅을 지원합니다. 평면 스케치의 돌출·상면 포켓을 지원합니다. 자유 곡면·조립·스케치 구속·STEP·기계용 NC 출력은 포함하지 않습니다. 소재 제거는 격자 근사이며 실제 절삭력·공구 홀더·고정구 충돌은 계산하지 않습니다.</p><button class="primary" data-action="close-help">설계 시작하기</button></dialog>`;
+<dialog id="help-dialog"><div class="dialog-head"><h2>직접 설계하는 첫 부품</h2><button data-action="close-help" aria-label="닫기">×</button></div><p class="shortcut-note">${SHORTCUT_HELP}</p><ol><li><b>스케치</b> — 사각형은 대각선으로, 원은 중심에서 바깥으로 드래그합니다. 1mm 격자에 맞춰집니다.</li><li><b>돌출</b> — 오른쪽에서 치수와 높이를 정하고 ‘돌출 만들기’를 누릅니다.</li><li><b>파내기</b> — 새 사각형·원을 추가하고 깊이를 정합니다. 기존 작업을 선택해 치수 변경·복제·삭제도 가능합니다.</li><li><b>가공</b> — 공구 지름·깊이 간격을 정하고 경로를 생성합니다. 재생하거나 진행 막대를 움직여 소재 제거를 확인합니다.</li><li><b>보관</b> — JSON으로 편집 가능한 설계를 저장하고, STL로 3D 메시를 내보냅니다.</li></ol><p>선 연결은 점을 클릭하고 첫 점 또는 ‘윤곽 닫기’로 마칩니다. 3점 원호는 시작·통과·끝을 클릭하면 끝에서 시작까지 직선으로 닫힙니다. 슬롯은 길이·폭·각도로 편집합니다. 좌표 치수 편집과 격자·끝점 스냅을 지원합니다. 평면 스케치의 돌출·상면 포켓을 지원합니다. 전문 스케치 창에서 다중 선택·점 드래그·변형·치수 구속·내부 섬을 편집합니다. 자유 곡면·조립·STEP·기계용 NC 출력은 포함하지 않습니다. 소재 제거는 격자 근사이며 실제 절삭력·공구 홀더·고정구 충돌은 계산하지 않습니다.</p><button class="primary" data-action="close-help">설계 시작하기</button></dialog>`;
 const viewer = new Viewer($("#three-view"), (p) => {
   if (mode !== "design") return;
   const f = [...model.features]
@@ -332,7 +333,13 @@ function shapeSvg(s, cls = "", id = "") {
     boundary = (s.nodes ?? []).map((n) => [n.point[0] + s.x, n.point[1] + s.y]);
   }
   const pts = boundary.map(([x, y]) => `${x},${-y}`).join(" ");
-  return `<${s.type === "profile" && !s.closed ? "polyline" : "polygon"} points="${pts}" class="${cls}" ${id ? `data-select="${esc(id)}"` : ""}/>`;
+  const holes = (s.holes ?? [])
+    .map((h) => shapeSvg({ ...h, x: s.x, y: s.y }, "pocket", id))
+    .join("");
+  return (
+    `<${s.type === "profile" && !s.closed ? "polyline" : "polygon"} points="${pts}" class="${cls}" ${id ? `data-select="${esc(id)}"` : ""}/>` +
+    holes
+  );
 }
 function renderSketch() {
   $("#sketch-shapes").innerHTML =
@@ -422,7 +429,7 @@ function render() {
     .forEach((b) => b.classList.toggle("active", b.dataset.action === mode));
   $("#tools").innerHTML =
     mode === "design"
-      ? `<button data-action="select" class="${drawTool === "select" ? "active" : ""}">${icon("select")}선택</button><span class="divider"></span><button data-action="rect" class="${drawTool === "rect" ? "active" : ""}">${icon("rect")}사각형</button><button data-action="circle" class="${drawTool === "circle" ? "active" : ""}">${icon("circle")}원</button><button data-action="profile">${icon("profile")}선 연결</button><button data-action="arc">${icon("arc")}3점 원호</button><button data-action="slot">${icon("slot")}슬롯</button><label class="snap-control">격자<select id="grid-step" aria-label="격자 스냅">${[0, 0.1, 0.5, 1, 5].map((v) => `<option value="${v}" ${v === gridStep ? "selected" : ""}>${v ? `${v}mm` : "끔"}</option>`).join("")}</select></label><label class="snap-control"><input id="endpoint-snap" type="checkbox" ${endpointSnap ? "checked" : ""}/>끝점</label><span class="tool-description">${model.stock ? "그린 스케치를 파내기로 적용합니다" : "첫 스케치를 돌출해 부품을 만듭니다"}</span>`
+      ? `<button data-action="select" class="${drawTool === "select" ? "active" : ""}">${icon("select")}선택</button><span class="divider"></span><button data-action="rect" class="${drawTool === "rect" ? "active" : ""}">${icon("rect")}사각형</button><button data-action="circle" class="${drawTool === "circle" ? "active" : ""}">${icon("circle")}원</button><button data-action="profile">${icon("profile")}선 연결</button><button data-action="arc">${icon("arc")}3점 원호</button><button data-action="slot">${icon("slot")}슬롯</button><button data-action="professional-sketch">전문 스케치</button><label class="snap-control">격자<select id="grid-step" aria-label="격자 스냅">${[0, 0.1, 0.5, 1, 5].map((v) => `<option value="${v}" ${v === gridStep ? "selected" : ""}>${v ? `${v}mm` : "끔"}</option>`).join("")}</select></label><label class="snap-control"><input id="endpoint-snap" type="checkbox" ${endpointSnap ? "checked" : ""}/>끝점</label><span class="tool-description">${model.stock ? "그린 스케치를 파내기로 적용합니다" : "첫 스케치를 돌출해 부품을 만듭니다"}</span>`
       : `<span class="cam-tool-label">${icon("cut")}상면 포켓 밀링</span><span class="tool-description">공구 설정 → 경로 생성 → 소재 제거 확인</span>`;
   updateHistoryButtons();
   document.querySelector('[data-action="stl"]').disabled = !model.stock;
@@ -563,6 +570,30 @@ function applyProposal(id) {
   toast("선택한 경로를 적용했습니다. 소재 제거를 확인하세요.");
 }
 const actions = {
+  "professional-sketch": () => {
+    const source = active();
+    if (!source) {
+      toast("먼저 스케치를 그리거나 형상을 선택하세요.", true);
+      return;
+    }
+    openSketchEditor(source, (shape) => {
+      if (draft) {
+        const before = draftState();
+        draft = shape;
+        recordDraft(before);
+        render();
+      } else {
+        const next = clone(model);
+        if (selected === "stock") next.stock = shape;
+        else
+          next.features = next.features.map((f) =>
+            f.id === selected ? shape : f,
+          );
+        if (!commit(next, selected))
+          throw Error("형상 적용 실패: 홈과 외곽 배치를 확인하세요.");
+      }
+    });
+  },
   "cancel-edit": () => cancelEdit(),
   propose: () => calculateCam(true),
   "cancel-cam": () => cancelCam(),

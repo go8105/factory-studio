@@ -1,3 +1,4 @@
+import { directReferences } from "./part-references.js";
 import OC from "replicad-opencascadejs";
 import wasmUrl from "replicad-opencascadejs/wasm?url";
 import { setKernel, buildPart } from "./part-kernel.js";
@@ -44,6 +45,7 @@ self.onmessage = async ({ data }) => {
     self.postMessage({
       revision: data.revision,
       mesh,
+      references: directReferences(result.shape),
       info: result.info,
       steps: result.steps,
       milliseconds: performance.now() - start,

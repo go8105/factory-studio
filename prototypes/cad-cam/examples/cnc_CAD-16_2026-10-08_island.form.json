@@ -1,0 +1,79 @@
+{
+  "version": 2,
+  "name": "CAD-16 섬 포켓 예제",
+  "stock": {
+    "id": "stock",
+    "type": "rect",
+    "x": 0,
+    "y": 0,
+    "w": 90,
+    "h": 70,
+    "radius": 8,
+    "height": 16
+  },
+  "features": [
+    {
+      "type": "profile",
+      "x": 0,
+      "y": 0,
+      "w": 60,
+      "h": 40,
+      "radius": 0,
+      "closed": true,
+      "angle": 0,
+      "constraints": [],
+      "nodes": [
+        {
+          "id": "p1",
+          "point": [-30, -20]
+        },
+        {
+          "id": "p2",
+          "point": [30, -20]
+        },
+        {
+          "id": "p3",
+          "point": [30, 20]
+        },
+        {
+          "id": "p4",
+          "point": [-30, 20]
+        }
+      ],
+      "id": "island-pocket",
+      "name": "내부 섬",
+      "depth": 6,
+      "holes": [
+        {
+          "type": "profile",
+          "x": 0,
+          "y": 0,
+          "w": 10,
+          "h": 8,
+          "radius": 0,
+          "closed": true,
+          "angle": 0,
+          "constraints": [],
+          "nodes": [
+            {
+              "id": "p1",
+              "point": [-5, -4]
+            },
+            {
+              "id": "p2",
+              "point": [5, -4]
+            },
+            {
+              "id": "p3",
+              "point": [5, 4]
+            },
+            {
+              "id": "p4",
+              "point": [-5, 4]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { regionRings } from "./sketch-region.js";
 import {
   ring,
   distance,
@@ -40,7 +41,7 @@ function prepare(m, t, C) {
   for (const f of m.features) {
     let original, region;
     try {
-      original = new C([ring(f)], "EvenOdd");
+      original = new C(regionRings(f, ring(f)), "EvenOdd");
       region = original.offset(-R - 0.05, "Round", 2, 128);
       if (region.isEmpty())
         throw Error(

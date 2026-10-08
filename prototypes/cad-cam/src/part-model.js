@@ -1,3 +1,4 @@
+import { validateReference } from "./part-references.js";
 import { clone, parseModel, validateShape } from "./model.js";
 import { syncProfile } from "./profile.js";
 import { solveSketch } from "./sketch-constraints.js";
@@ -79,10 +80,20 @@ export function validatePart(m) {
     )
       throw Error("피처 ID/이름이 잘못되거나 중복되었습니다.");
     if (
-      !["add", "cut", "fillet", "shell", "pattern", "mirror"].includes(f.kind)
+      ![
+        "add",
+        "cut",
+        "fillet",
+        "chamfer",
+        "shell",
+        "pattern",
+        "mirror",
+      ].includes(f.kind)
     )
       throw Error("지원하지 않는 피처입니다.");
-    if (["add", "cut", "fillet", "shell", "mirror"].includes(f.kind)) {
+    if (
+      ["add", "cut", "fillet", "chamfer", "shell", "mirror"].includes(f.kind)
+    ) {
       if (!planes.includes(f.plane))
         throw Error("작업면은 XY/XZ/YZ 중 선택하세요.");
       if (f.referenceId !== "world" && !ids.has(f.referenceId))
@@ -105,10 +116,16 @@ export function validatePart(m) {
       }
       instances++;
     }
-    if (f.kind === "fillet") {
+    if (["fillet", "chamfer"].includes(f.kind)) {
       check(f.radius, 0.1, 30, "필렛 반경");
-      if (!["all", "plane"].includes(f.scope))
+      if (!["all", "plane", "edge"].includes(f.scope))
         throw Error("필렛 범위를 선택하세요.");
+    }
+    if (f.scope === "edge") validateReference(f.edgeReference, "edge");
+    if (f.supportFace) {
+      validateReference(f.supportFace, "face");
+      if (!["add", "cut"].includes(f.kind) || f.plane !== f.supportFace.plane)
+        throw Error("작업면 참조와 피처 평면이 다릅니다.");
     }
     if (f.kind === "shell") check(f.thickness, 0.1, 20, "벽 두께");
     if (["pattern", "mirror"].includes(f.kind)) {

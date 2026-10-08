@@ -1,5 +1,11 @@
 # Factory Studio 작업 인계
 
+## CAD-16 진행 중 (2026-10-08)
+
+- branch codex/soap-cad-review, 기준257871e. WIP 커밋은 git log -1 확인. CAD-16 외 타 작업자 HR/포털 변경은 보존한다. main에 신규 b8b3405 HR W1c 확인, 병합 후 전체 검증 필요.
+- 구현: E1/E2 전문 스케치 창·섬 영역·국소 필렛/모따기/작업면 기하 참조. prototype132 통과, 실제 UI 흐름 확인. 다음: 최신main 병합 → frontend/build/자산 격리·PC/모바일 최종 확인 → 결과/현황/인수인계 갱신·커밋/main 통합/push(기존 사용자 승인). 운영 배포·CAD-17은 미착수.
+- 재현: Node24 PATH=/opt/homebrew/opt/node@24/bin:$PATH; npm --prefix prototypes/cad-cam test; npm --prefix frontend test; npm --prefix frontend run build. localhost5243/8043은 모의 관리자 fixture다. 독립 UI 합성 scope902:16. STEP 커널 왕복/STL 체적은 테스트 통과; 브라우저 다운로드 이벤트는 시간 초과로 파일 수신 미확인.
+
 ## CAD-15 품질 우선 NC 검토 제안 완료 (2026-10-08)
 
 - branch codex/soap-cad-review, 기준f860e8b·구현5761608·운영 기록c769a42 보존 병합7aefb20, 최종 커밋 git log -1. 기존 main push 승인 유지. a3c1c6f까지 main fast-forward·origin/main push 성공(f860e8b→a3c1c6f)·이번 CAD-15 운영 배포 없음. HR/시드 등 main 타 작업자 수정은 소유자 작업이므로 스테이징/편집하지 않는다. [계약](../modules/cad-cam/품질우선_NC제안_설계_CAD-15.md)·[검증](품질우선_NC제안_CAD-15.md).

@@ -1,3 +1,4 @@
+import { openSketchEditor } from "./sketch-editor.js";
 import {
   DraftHistory,
   shortcutCommand,
@@ -39,6 +40,7 @@ const labels = {
   add: "돌출",
   cut: "파내기 / 구멍",
   fillet: "필렛",
+  chamfer: "모따기",
   shell: "쉘",
   pattern: "배열",
   mirror: "미러",
@@ -67,11 +69,92 @@ $("#app").innerHTML =
     .map(([k, v]) => `<button data-new="${k}">＋ ${v}</button>`)
     .join(
       "",
-    )}<button id="undo" title="Ctrl/⌘+Z">실행 취소</button><button id="redo" title="Ctrl/⌘+Shift+Z · Ctrl+Y">다시 실행</button><button id="fit" title="F 전체 보기">전체 보기</button><button id="help" title="? 단축키 도움말">단축키</button><button id="cancel" hidden>계산 취소</button></div><main class="layout"><aside><h2>피처 이력</h2><div id="tree" class="tree"></div><div class="examples"><button id="bracket">측면 구멍 예제</button><button id="shell-example">쉘 / 필렛 예제</button><button id="copy-e1">2.5D 설계 가져오기</button><button id="new">새 부품</button></div><p class="note">선행 피처를 수정하면 뒤의 피처까지 다시 계산합니다. 실패하면 마지막 정상 설계를 유지합니다.</p><div id="status" role="status"></div><div id="error" role="alert"></div></aside><section class="stage"><div id="viewer"></div><div class="legend"><strong>단일 부품 · mm</strong><div id="measure">3D 커널 준비 중</div><small>드래그 회전 · 휠 확대<br>작업 평면의 U / V 좌표로 설계</small></div></section><aside><h2 id="form-title">기본 돌출</h2><div id="fields" class="fields"></div><div id="profile-ui"></div><button id="apply">변경 적용</button><div class="actions"><button id="discard" title="Esc">편집 취소</button><button id="delete" title="Delete">피처 삭제</button></div><p id="delete-impact" class="note"></p><p class="note">진행 중 입력은 확정 설계와 별도로 되돌립니다. Ctrl/⌘+Z · 다시 실행 Shift+Z / Ctrl+Y</p><p class="note">XY: U=X, V=Y / XZ: U=X, V=Z / YZ: U=Y, V=Z.<br>기준 피처의 바깥 경계면에서 돌출은 외측, 파내기는 내측으로 진행합니다. 평면 이동은 법선 방향입니다.</p><p class="note">E2 3D 형상의 측면·다축 CAM은 아직 지원하지 않습니다. 가공 시뮬레이션은 2.5D 편집기에서 수행하세요.</p></aside></main><div class="footer">OCCT / Replicad 1.1.0 · 형상 커널은 첫 진입 시 약 23MB를 불러옵니다. <a href="./licenses/README.txt" target="_blank">오픈소스 안내 ↗</a></div><input id="file" type="file" accept=".json" hidden><dialog id="shortcut-help"><h2>편집 단축키</h2><p>${SHORTCUT_HELP}</p><button id="close-help">닫기</button></dialog>`;
+    )}<button id="undo" title="Ctrl/⌘+Z">실행 취소</button><button id="redo" title="Ctrl/⌘+Shift+Z · Ctrl+Y">다시 실행</button><button id="fit" title="F 전체 보기">전체 보기</button><button id="help" title="? 단축키 도움말">단축키</button><button id="cancel" hidden>계산 취소</button></div><main class="layout"><aside><h2>피처 이력</h2><div id="tree" class="tree"></div><div class="examples"><button id="bracket">측면 구멍 예제</button><button id="shell-example">쉘 / 필렛 예제</button><button id="copy-e1">2.5D 설계 가져오기</button><button id="new">새 부품</button></div><p class="note">선행 피처를 수정하면 뒤의 피처까지 다시 계산합니다. 실패하면 마지막 정상 설계를 유지합니다.</p><div id="status" role="status"></div><div id="error" role="alert"></div></aside><section class="stage"><div id="viewer"></div><div class="legend"><strong>단일 부품 · mm</strong><div id="measure">3D 커널 준비 중</div><small>드래그 회전 · 휠 확대<br>작업 평면의 U / V 좌표로 설계</small></div></section><aside><h2 id="form-title">기본 돌출</h2><div id="fields" class="fields"></div><div id="profile-ui"></div><section class="direct-edit"><h3>면·모서리 직접 편집</h3><select id="direct-kind" aria-label="직접 편집 대상"><option value="edge">직선 모서리</option><option value="face">축 정렬 평면</option></select><select id="direct-list" aria-label="기하 대상 목록"></select><p id="direct-status" class="note"></p><div class="actions"><button id="use-edge">현재 필렛/모따기에 사용</button><button id="use-face">현재 돌출/파내기 작업면</button></div></section><button id="apply">변경 적용</button><div class="actions"><button id="discard" title="Esc">편집 취소</button><button id="delete" title="Delete">피처 삭제</button></div><p id="delete-impact" class="note"></p><p class="note">진행 중 입력은 확정 설계와 별도로 되돌립니다. Ctrl/⌘+Z · 다시 실행 Shift+Z / Ctrl+Y</p><p class="note">XY: U=X, V=Y / XZ: U=X, V=Z / YZ: U=Y, V=Z.<br>기준 피처의 바깥 경계면에서 돌출은 외측, 파내기는 내측으로 진행합니다. 평면 이동은 법선 방향입니다.</p><p class="note">E2 3D 형상의 측면·다축 CAM은 아직 지원하지 않습니다. 가공 시뮬레이션은 2.5D 편집기에서 수행하세요.</p></aside></main><div class="footer">OCCT / Replicad 1.1.0 · 형상 커널은 첫 진입 시 약 23MB를 불러옵니다. <a href="./licenses/README.txt" target="_blank">오픈소스 안내 ↗</a></div><input id="file" type="file" accept=".json" hidden><dialog id="shortcut-help"><h2>편집 단축키</h2><p>${SHORTCUT_HELP}</p><button id="close-help">닫기</button></dialog>`;
 $("#back").href =
   query.get("embedded") === "1" ? "/cad-cam" : `./index.html?${query}`;
 $("#back").target = query.get("embedded") === "1" ? "_parent" : "_self";
-const viewer = new Viewer($("#viewer"), () => {});
+let references = { edges: [], faces: [] },
+  directSelection = null,
+  highlight;
+const viewer = new Viewer($("#viewer"), (point) => {
+  if (busy) return;
+  const kind = $("#direct-kind").value;
+  const candidates =
+    kind === "edge"
+      ? references.edges.filter(
+          (e) => pointSegmentDistance(point.toArray(), e.a, e.b) < 1,
+        )
+      : references.faces.filter((f) => {
+          const axis = { XY: 2, XZ: 1, YZ: 0 }[f.plane];
+          return (
+            Math.abs(point.toArray()[axis] - f.bounds[0][axis]) < 0.01 &&
+            f.bounds[0].every(
+              (v, i) =>
+                point.toArray()[i] >= v - 0.01 &&
+                point.toArray()[i] <= f.bounds[1][i] + 0.01,
+            )
+          );
+        });
+  if (candidates.length !== 1) {
+    $("#direct-status").textContent =
+      "후보가 없거나 여러 개입니다. 목록에서 정확한 대상을 선택하세요.";
+    return;
+  }
+  directSelection = { kind, reference: clone(candidates[0]) };
+  paintReferences();
+});
+function pointSegmentDistance(p, a, b) {
+  const d = b.map((v, k) => v - a[k]),
+    len = d.reduce((sum, v) => sum + v * v, 0),
+    t = Math.max(
+      0,
+      Math.min(1, p.reduce((sum, v, k) => sum + (v - a[k]) * d[k], 0) / len),
+    );
+  return Math.hypot(...p.map((v, k) => v - a[k] - t * d[k]));
+}
+function paintReferences() {
+  const kind = $("#direct-kind").value,
+    list = kind === "edge" ? references.edges : references.faces;
+  $("#direct-list").innerHTML =
+    '<option value="">대상 선택</option>' +
+    list
+      .map(
+        (e, i) =>
+          `<option value="${i}">${kind === "edge" ? "모서리 " + (i + 1) + " · " + e.length.toFixed(2) + "mm" : "면 " + (i + 1) + " · " + e.plane + " · " + e.area.toFixed(1) + "mm²"}</option>`,
+      )
+      .join("");
+  if (highlight) {
+    viewer.scene.remove(highlight);
+    highlight.geometry.dispose();
+    highlight.material.dispose();
+    highlight = null;
+  }
+  if (directSelection?.kind === kind) {
+    const ref = directSelection.reference,
+      index = list.findIndex((e) => JSON.stringify(e) === JSON.stringify(ref));
+    $("#direct-list").value = index >= 0 ? String(index) : "";
+    $("#direct-status").textContent =
+      index >= 0
+        ? kind === "edge"
+          ? `직선 모서리 · ${ref.length.toFixed(3)}mm`
+          : `${ref.plane} 작업면 · 외향 ${ref.sign > 0 ? "+" : "−"}`
+        : "대상을 다시 선택하세요.";
+    if (index >= 0 && kind === "edge") {
+      const g = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(...ref.a),
+        new THREE.Vector3(...ref.b),
+      ]);
+      highlight = new THREE.Line(
+        g,
+        new THREE.LineBasicMaterial({ color: 0xb37d43, depthTest: false }),
+      );
+      viewer.scene.add(highlight);
+    }
+  } else
+    $("#direct-status").textContent =
+      "3D 형상을 클릭하거나 목록에서 선택하세요.";
+}
+
 function fail(message, id) {
   $("#error").className = "error";
   $("#error").textContent =
@@ -97,6 +180,7 @@ function field(path, label, type = "number", options) {
     for (const k of parts.slice(0, -1)) obj = obj[k];
     obj[parts.at(-1)] =
       type === "number" ? Number(e.target.value) : e.target.value;
+    if (["plane", "referenceId"].includes(path)) delete draft.supportFace;
     const shape = draft.sketch ?? draft;
     if (shape.type === "circle") {
       shape.h = shape.w;
@@ -129,7 +213,9 @@ function renderForm() {
   if (draft.kind) field("name", "피처 이름", "text");
   const idx = model.operations.findIndex((f) => f.id === selected),
     previous = idx < 0 ? model.operations : model.operations.slice(0, idx);
-  if (["add", "cut", "fillet", "shell", "mirror"].includes(draft.kind)) {
+  if (
+    ["add", "cut", "fillet", "chamfer", "shell", "mirror"].includes(draft.kind)
+  ) {
     field("plane", "작업 평면", "select", ["XY", "XZ", "YZ"]);
     field("referenceId", "기준 피처", "select", [
       ["world", "원점 평면"],
@@ -160,13 +246,43 @@ function renderForm() {
       draft.kind === "cut" ? "파내기 거리" : "돌출 높이",
     );
     if (s.type === "profile") profileUI(s);
+    const edit = document.createElement("button");
+    edit.textContent = "전문 스케치 편집";
+    edit.type = "button";
+    edit.onclick = () => {
+      if (busy) return;
+      openSketchEditor(draft.sketch ?? draft, (shape) => {
+        const before = draftState();
+        if (draft.kind) draft.sketch = shape;
+        else draft = shape;
+        draftHistory.record(before, draftState());
+        renderForm();
+        renderUndo();
+      });
+    };
+    $("#profile-ui").prepend(edit);
   }
-  if (draft.kind === "fillet") {
+  if (["fillet", "chamfer"].includes(draft.kind)) {
     field("scope", "모서리 범위", "select", [
       ["plane", "선택 평면의 모서리"],
       ["all", "모든 모서리"],
+      ["edge", "선택한 직선 모서리"],
     ]);
-    field("radius", "필렛 반경");
+    field("radius", draft.kind === "chamfer" ? "모따기 거리" : "필렛 반경");
+    if (draft.scope === "edge") {
+      const note = document.createElement("p");
+      note.className = "note";
+      note.textContent = draft.edgeReference
+        ? `선택 직선 ${draft.edgeReference.length.toFixed(3)}mm · 재계산 시 좌표/길이 재검증`
+        : "아래 기하 대상에서 모서리를 선택하고 사용 버튼을 누르세요.";
+      $("#fields").append(note);
+    }
+  }
+  if (draft.supportFace) {
+    const note = document.createElement("p");
+    note.className = "note";
+    note.textContent = `선택 면 ${draft.supportFace.plane} · 외향 ${draft.supportFace.sign > 0 ? "+" : "−"} · 재계산 시 경계/면적 재검증`;
+    $("#fields").append(note);
   }
   if (draft.kind === "shell") field("thickness", "안쪽 벽 두께");
   if (["pattern", "mirror"].includes(draft.kind))
@@ -383,6 +499,9 @@ function getWorker() {
     );
     g.setIndex(data.mesh.triangles);
     viewer.setGeometry(g);
+    references = data.references ?? { edges: [], faces: [] };
+    directSelection = null;
+    paintReferences();
     if (pending.mode === "edit") {
       undo.push(clone(model));
       undo = undo.slice(-30);
@@ -617,7 +736,7 @@ document.querySelectorAll("[data-new]").forEach(
             angle: 0,
           },
         });
-      if (kind === "fillet")
+      if (["fillet", "chamfer"].includes(kind))
         Object.assign(draft, { radius: 1, scope: "plane" });
       if (kind === "shell") draft.thickness = 2;
       if (["pattern", "mirror"].includes(kind))
@@ -733,3 +852,53 @@ try {
 }
 render();
 submit(model, "initial", "base");
+
+$("#direct-kind").onchange = () => {
+  directSelection = null;
+  paintReferences();
+};
+$("#direct-list").onchange = (e) => {
+  const kind = $("#direct-kind").value,
+    ref = (kind === "edge" ? references.edges : references.faces)[
+      Number(e.target.value)
+    ];
+  directSelection =
+    e.target.value !== "" && ref ? { kind, reference: clone(ref) } : null;
+  paintReferences();
+};
+$("#use-edge").onclick = () => {
+  if (
+    busy ||
+    !creating() ||
+    !["fillet", "chamfer"].includes(draft.kind) ||
+    directSelection?.kind !== "edge"
+  ) {
+    fail("새 필렛/모따기 피처를 추가하고 현재 직선 모서리를 선택하세요.");
+    return;
+  }
+  const before = draftState();
+  draft.scope = "edge";
+  draft.edgeReference = clone(directSelection.reference);
+  draftHistory.record(before, draftState());
+  renderForm();
+  renderUndo();
+};
+$("#use-face").onclick = () => {
+  if (
+    busy ||
+    !creating() ||
+    !["add", "cut"].includes(draft.kind) ||
+    directSelection?.kind !== "face"
+  ) {
+    fail("새 돌출/파내기 피처를 추가하고 현재 평면을 선택하세요.");
+    return;
+  }
+  const before = draftState();
+  draft.supportFace = clone(directSelection.reference);
+  draft.plane = draft.supportFace.plane;
+  draft.referenceId = model.operations.at(-1)?.id ?? "base";
+  draft.offset = 0;
+  draftHistory.record(before, draftState());
+  renderForm();
+  renderUndo();
+};
