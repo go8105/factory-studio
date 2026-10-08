@@ -7,6 +7,12 @@
 - prototype117/frontend544·포맷/build/격리/diff·실제 후보/근거/과절삭 차단·행 선택/무효화/201페이지/상한·1440/390폭 통과. Node5만행 목록88.95/비교106.51ms, 동기 계산 느린 기기 지연 가능. 실측 품질/안전/절감·JSON재열기/Safari/실기기 대형 부하/DB/이번 운영 배포 미검증.
 - 다음은 사용자 결과 확인 후 CAD-16 한 ID. Node24 PATH=/opt/homebrew/opt/node@24/bin:$PATH; npm --prefix prototypes/cad-cam test; npm --prefix prototypes/cad-cam run format:check; npm --prefix frontend test; npm --prefix frontend run build; node --expose-gc prototypes/cad-cam/experiments/nc-proposal-benchmark.mjs. localhost5243/8043 합성 관리자 fixture. Git 예제/보고/PNG/benchmark 사용, work/tmp 의존 없음.
 
+## 운영 배포 (2026-10-08)
+
+- 운영 https://eip.hugh-d.com = main **`f860e8b`** (이전 3474942). W1b-2·3·4 HR 전체 + CAD-12~14 포함. 마이그레이션 head `w1a_hr_module`, 시드 템플릿 변경 없음.
+- 확인: 원점/공개 200 · DDL 대조 0 · 5xx 0건 · 운영 브라우저에서 H-01·H-10 표시 · `/api` 응답 `Cache-Control: no-store`.
+- 배포는 `./tools/deploy.sh` 한 줄(먼저 `--dry-run`).
+
 ## CAD-14 시간·소비 모델 완료 (2026-10-08)
 
 - branch codex/soap-cad-review, 기준e7c42cd·구현8e5b19e·HR b16e721 보존 병합854a3c8. 최종 커밋은 git log -1. 기존 사용자 main push 승인 유지. 92a2b84까지 main fast-forward·origin/main push 성공(e7c42cd→92a2b84), 운영 배포 없음. main 진행 중 HR 파일은 타 작업자 소유이며 건드리지 않는다. [계약](../modules/cad-cam/시간소비모델_설계_CAD-14.md)·[검증](시간소비모델_CAD-14.md).
