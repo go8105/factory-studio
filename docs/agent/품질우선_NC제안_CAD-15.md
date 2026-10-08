@@ -1,6 +1,6 @@
 # CAD-15 품질 우선 NC 검토 제안 검증
 
-2026-10-08. 사용자 CAD-14 결과 확인 후 다음 진행 승인, CAD-15 한 ID. 기준f860e8b, branch codex/soap-cad-review. 기존 main push 승인 유지. 이번 CAD-15 운영 배포 없음.
+2026-10-08. 사용자 CAD-14 결과 확인 후 다음 진행 승인, CAD-15 한 ID. 기준f860e8b·구현5761608·운영 기록c769a42 보존 병합7aefb20, branch codex/soap-cad-review. 기존 main push 승인 유지. 이번 CAD-15 운영 배포 없음.
 
 ## 구현
 
