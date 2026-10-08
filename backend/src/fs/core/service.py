@@ -667,7 +667,17 @@ def _delete_guest(connection: Connection, workspace_id: int) -> None:
         .scalars()
         .all()
     )
-    for table_name in reversed(_business_table_order(connection)):
+    order, cut = _cleanup_plan(connection)
+    for table_name, columns in cut:
+        connection.execute(
+            text(
+                f"UPDATE {table_name} SET "
+                + ",".join(f"{c}=NULL" for c in columns)
+                + " WHERE workspace_id=:w"
+            ),
+            {"w": workspace_id},
+        )
+    for table_name in reversed(order):
         schema, table = table_name.split(".")
         connection.execute(
             text(f'DELETE FROM "{schema}"."{table}" WHERE workspace_id=:w'),
@@ -719,33 +729,76 @@ def _delete_guest(connection: Connection, workspace_id: int) -> None:
     )
 
 
-def _business_table_order(connection: Connection) -> list[str]:
+def _cleanup_plan(
+    connection: Connection,
+) -> tuple[list[str], list[tuple[str, tuple[str, ...]]]]:
+    """(지우는 순서, 먼저 비울 FK 칼럼).
+
+    MES 재작업 지시(work_order → lot)와 LOT(lot → work_order)처럼 **서로를 가리키는 고리**가 있어
+    순서만으로는 지울 수 없다. 고리에 들어간 FK 중 비울 수 있는 칼럼만 먼저 비워 고리를 끊는다.
+    고리 밖의 FK는 건드리지 않는다 — 비우면 다른 CHECK가 깨진다.
+    """
     inspector = inspect(connection)
     tables = {
         f"{schema}.{table}"
         for schema in BUSINESS_SCHEMAS
         for table in inspector.get_table_names(schema=schema)
     }
+    links: dict[str, dict[str, tuple[str, ...]]] = {}
     dependencies: dict[str, set[str]] = {}
     for table_name in tables:
         schema, table = table_name.split(".")
-        dependencies[table_name] = {
-            f"{fk['referred_schema']}.{fk['referred_table']}"
-            for fk in inspector.get_foreign_keys(table, schema=schema)
-            if f"{fk['referred_schema']}.{fk['referred_table']}" in tables
-            and f"{fk['referred_schema']}.{fk['referred_table']}" != table_name
+        nullable = {
+            column["name"]
+            for column in inspector.get_columns(table, schema=schema)
+            if column["nullable"]
         }
+        targets: set[str] = set()
+        breakable: dict[str, tuple[str, ...]] = {}
+        for fk in inspector.get_foreign_keys(table, schema=schema):
+            target = f"{fk['referred_schema']}.{fk['referred_table']}"
+            if target not in tables or target == table_name:
+                continue
+            targets.add(target)
+            columns = tuple(c for c in fk["constrained_columns"] if c in nullable)
+            if columns:
+                breakable[target] = columns
+        dependencies[table_name] = targets
+        links[table_name] = breakable
+
     ordered: list[str] = []
+    cut: list[tuple[str, tuple[str, ...]]] = []
     remaining = set(tables)
     while remaining:
-        ready = sorted(
-            table for table in remaining if not (dependencies[table] & remaining)
-        )
+        ready = sorted(t for t in remaining if not (dependencies[t] & remaining))
         if not ready:
-            raise RuntimeError(f"guest cleanup FK cycle: {sorted(remaining)}")
+            # 남은 것이 고리다. 고리 안을 가리키는 비울 수 있는 FK만 끊는다.
+            broken = {
+                table: tuple(
+                    column
+                    for target, columns in links[table].items()
+                    if target in remaining
+                    for column in columns
+                )
+                for table in sorted(remaining)
+            }
+            ready = sorted(t for t, columns in broken.items() if columns)
+            if not ready:
+                raise RuntimeError(f"guest cleanup FK cycle: {sorted(remaining)}")
+            cut += [(t, broken[t]) for t in ready]
+            for table in ready:
+                # 끊은 고리만 지운다 — 비울 수 없는 의존은 그대로 둬야 순서가 맞다.
+                dependencies[table] -= {
+                    target for target in links[table] if target in remaining
+                }
+            continue
         ordered.extend(ready)
         remaining.difference_update(ready)
-    return ordered
+    return ordered, cut
+
+
+def _business_table_order(connection: Connection) -> list[str]:
+    return _cleanup_plan(connection)[0]
 
 
 def _audit(

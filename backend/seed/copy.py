@@ -252,7 +252,9 @@ def _copy_business_rows(
         if copy_modules
         else {}
     )
-    for table_name in _table_order(seeded, foreign_keys):
+    for table_name in _table_order(
+        seeded, foreign_keys, _nullable_targets(connection, seeded)
+    ):
         result = connection.execute(
             text(
                 _insert_select_sql(
@@ -435,9 +437,31 @@ def _foreign_keys(
     return result
 
 
+def _nullable_targets(connection: Connection, seeded: set[str]) -> dict[str, set[str]]:
+    """표마다 '비울 수 있는 칼럼으로 가리키는' 다른 시드 표. 고리를 끊을 때만 쓴다."""
+    inspector = inspect(connection)
+    result: dict[str, set[str]] = {}
+    for table_name in seeded:
+        schema, table = table_name.split(".")
+        nullable = {
+            column["name"]
+            for column in inspector.get_columns(table, schema=schema)
+            if column["nullable"]
+        }
+        result[table_name] = {
+            f"{fk['referred_schema']}.{fk['referred_table']}"
+            for fk in inspector.get_foreign_keys(table, schema=schema)
+            if set(fk["constrained_columns"]) & nullable
+        } & seeded
+    return result
+
+
 def _table_order(
-    seeded: set[str], foreign_keys: dict[str, dict[str, tuple[str, str]]]
+    seeded: set[str],
+    foreign_keys: dict[str, dict[str, tuple[str, str]]],
+    nullable_targets: dict[str, set[str]] | None = None,
 ) -> list[str]:
+    nullable_targets = nullable_targets or {}
     dependencies = {
         table: {
             target
@@ -453,7 +477,16 @@ def _table_order(
             table for table in remaining if not (dependencies[table] & remaining)
         )
         if not ready:
-            raise RuntimeError(f"seed table FK cycle: {sorted(remaining)}")
+            # 고리(MES 재작업 지시 ↔ LOT). 남은 의존이 모두 비울 수 있는 칼럼인 표부터 넣는다.
+            # ponytail: 시드가 그 칼럼을 채우면 복사 뒤 UPDATE 한 번이 더 필요하다(지금은 모두 NULL).
+            ready = sorted(
+                table
+                for table in remaining
+                if (dependencies[table] & remaining)
+                <= nullable_targets.get(table, set())
+            )
+            if not ready:
+                raise RuntimeError(f"seed table FK cycle: {sorted(remaining)}")
         ordered.extend(ready)
         remaining.difference_update(ready)
     return ordered

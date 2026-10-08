@@ -9,7 +9,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from fs.common.db import reset_engine
-from fs.core.service import _business_table_order
+from fs.core.service import _business_table_order, _cleanup_plan
 from fs.main import create_app
 from seed.copy import SCHEMAS, copy_module_seed
 from seed.generate import create_template
@@ -137,6 +137,16 @@ def _delete_test_guests(template: GuestTemplate) -> None:
         if not guests:
             return
         params = {"guests": guests}
+        # 서로를 가리키는 FK(재작업 지시 ↔ LOT)는 먼저 비워 고리를 끊는다 — 제품 정리와 같은 순서.
+        for table_name, columns in _cleanup_plan(connection)[1]:
+            connection.execute(
+                text(
+                    f"UPDATE {table_name} SET "
+                    + ",".join(f"{c}=NULL" for c in columns)
+                    + " WHERE workspace_id=ANY(:guests)"
+                ),
+                params,
+            )
         # Resolve the FK order once per session; self-references are deleted in one statement.
         for table in reversed(template.business_tables):
             connection.execute(

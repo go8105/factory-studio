@@ -38,69 +38,148 @@ def column_sql(c: dict) -> str:
     return sql
 
 
+def constraint_name(index: int, kind: str) -> str:
+    suffix = {
+        "PK": "pk",
+        "UK": "uk",
+        "CHECK": "check",
+        "INDEX": "idx",
+        "UK_PARTIAL": "uidx",
+        "UNIQUE_INDEX": "uidx",
+    }[kind]
+    return f"c{index}_{suffix}"
+
+
+def create_sql(c: dict, index: int) -> str | None:
+    """제약 하나를 만드는 SQL. SERVICE/DB_POLICY는 서비스가 지키는 규칙이라 DB 제약이 아니다."""
+    if c["kind"] == "SERVICE/DB_POLICY":
+        return None
+    name, table, cols = (
+        constraint_name(index, c["kind"]),
+        c["table"],
+        ",".join(c["columns"]),
+    )
+    if c["kind"] == "PK":
+        return f"ALTER TABLE {table} ADD CONSTRAINT {name} PRIMARY KEY ({cols})"
+    if c["kind"] == "UK":
+        return f"ALTER TABLE {table} ADD CONSTRAINT {name} UNIQUE ({cols})"
+    if c["kind"] == "CHECK":
+        return f"ALTER TABLE {table} ADD CONSTRAINT {name} CHECK ({c['expression']})"
+    if c["kind"] == "INDEX":
+        where = f" WHERE {c['expression']}" if c["expression"] else ""
+        return f"CREATE INDEX {name} ON {table} ({cols}){where}"
+    if c["kind"] in ("UK_PARTIAL", "UNIQUE_INDEX"):
+        predicate = re.split(
+            r"\bWHERE\b", c["expression"], maxsplit=1, flags=re.IGNORECASE
+        )[1].strip()
+        return f"CREATE UNIQUE INDEX {name} ON {table} ({cols}) WHERE {predicate}"
+    return None
+
+
+def drop_sql(c: dict, index: int) -> str | None:
+    if c["kind"] == "SERVICE/DB_POLICY":
+        return None
+    name = constraint_name(index, c["kind"])
+    if c["kind"] in ("INDEX", "UK_PARTIAL", "UNIQUE_INDEX"):
+        return f"DROP INDEX {c['table'].split('.', 1)[0]}.{name}"
+    return f"ALTER TABLE {c['table']} DROP CONSTRAINT {name}"
+
+
+def foreign_key_sql(r: dict, index: int) -> str:
+    return (
+        f"ALTER TABLE {r['source']} ADD CONSTRAINT r{index}_fk FOREIGN KEY ({','.join(r['columns'])}) "
+        f"REFERENCES {r['target']} ({','.join(r['target_columns'])}) "
+        f"ON DELETE {r['on_delete']} ON UPDATE {r['on_update']}"
+    )
+
+
 def build(
-    design: dict, patterns: list[str], module_key: str | None
+    design: dict,
+    patterns: list[str],
+    module_key: str | None,
+    previous: dict | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
-    """(생성 SQL, 되돌리기 SQL, 새 스키마 이름)"""
+    """(생성 SQL, 되돌리기 SQL, 모듈 키 CHECK)
+
+    previous(지난 설계)를 주면 **달라진 것만** 만든다 — 이미 있는 표에는 칼럼을 더하고,
+    바뀐 제약은 지웠다 다시 만든다. 제약 이름은 schema.json 배열의 순번이라 순번이 곧 이름이다.
+    """
     tables = [t for t in design["tables"] if matches(t["name"], patterns)]
     names = {t["name"] for t in tables}
+    old_tables = {t["name"]: t for t in (previous or {}).get("tables", [])}
+    old_constraints = (previous or {}).get("constraints", [])
+    old_relations = (previous or {}).get("relations", [])
+    fresh = [t for t in tables if t["name"] not in old_tables]
+    kept = {t["name"] for t in tables if t["name"] in old_tables}
     have = {
-        t["name"].split(".", 1)[0] for t in design["tables"] if t["name"] not in names
+        t["name"].split(".", 1)[0]
+        for t in design["tables"]
+        if t["name"] not in {x["name"] for x in fresh}
     }
-    schemas = sorted({t["name"].split(".", 1)[0] for t in tables} - have)
+    schemas = sorted({t["name"].split(".", 1)[0] for t in fresh} - have)
+
     up: list[str] = [f"CREATE SCHEMA {s}" for s in schemas]
+    for t in fresh:
+        up.append(
+            f"CREATE TABLE {t['name']} ({', '.join(column_sql(c) for c in t['columns'])})"
+        )
+    added: list[tuple[str, str]] = []
     for t in tables:
-        columns = ", ".join(column_sql(c) for c in t["columns"])
-        up.append(f"CREATE TABLE {t['name']} ({columns})")
+        if t["name"] not in kept:
+            continue
+        existing = {c["name"] for c in old_tables[t["name"]]["columns"]}
+        for c in t["columns"]:
+            if c["name"] in existing:
+                continue
+            if not c["nullable"] and not c.get("default"):
+                raise SystemExit(
+                    f"{t['name']}.{c['name']}: 이미 있는 표에 NOT NULL을 기본값 없이 더할 수 없다"
+                )
+            up.append(f"ALTER TABLE {t['name']} ADD COLUMN {column_sql(c)}")
+            added.append((t["name"], c["name"]))
+
+    # 바뀐 제약은 옛 이름을 먼저 지운다.
+    replaced: list[int] = []
+    for i, c in enumerate(design["constraints"]):
+        if c["table"] not in kept or i >= len(old_constraints):
+            continue
+        if old_constraints[i] != c and old_constraints[i]["table"] == c["table"]:
+            statement = drop_sql(old_constraints[i], i)
+            if statement:
+                up.append(statement)
+            replaced.append(i)
     for i, c in enumerate(design["constraints"]):
         if c["table"] not in names:
             continue
-        cols = ",".join(c["columns"])
-        if c["kind"] == "PK":
-            up.append(
-                f"ALTER TABLE {c['table']} ADD CONSTRAINT c{i}_pk PRIMARY KEY ({cols})"
-            )
-        elif c["kind"] == "UK":
-            up.append(
-                f"ALTER TABLE {c['table']} ADD CONSTRAINT c{i}_uk UNIQUE ({cols})"
-            )
-        elif c["kind"] == "CHECK":
-            up.append(
-                f"ALTER TABLE {c['table']} ADD CONSTRAINT c{i}_check CHECK ({c['expression']})"
-            )
-        elif c["kind"] == "INDEX":
-            where = f" WHERE {c['expression']}" if c["expression"] else ""
-            up.append(f"CREATE INDEX c{i}_idx ON {c['table']} ({cols}){where}")
-        elif c["kind"] in ("UK_PARTIAL", "UNIQUE_INDEX"):
-            predicate = re.split(
-                r"\bWHERE\b", c["expression"], maxsplit=1, flags=re.IGNORECASE
-            )[1].strip()
-            up.append(
-                f"CREATE UNIQUE INDEX c{i}_uidx ON {c['table']} ({cols}) WHERE {predicate}"
-            )
-        # SERVICE/DB_POLICY는 서비스가 지키는 규칙이라 DB 제약이 아니다.
+        if i < len(old_constraints) and old_constraints[i] == c:
+            continue
+        statement = create_sql(c, i)
+        if statement:
+            up.append(statement)
     for i, r in enumerate(design["relations"]):
         if r["source"] not in names:
             continue
-        up.append(
-            f"ALTER TABLE {r['source']} ADD CONSTRAINT r{i}_fk FOREIGN KEY ({','.join(r['columns'])}) "
-            f"REFERENCES {r['target']} ({','.join(r['target_columns'])}) "
-            f"ON DELETE {r['on_delete']} ON UPDATE {r['on_update']}"
-        )
-    down = [f"DROP TABLE {t['name']}" for t in reversed(tables)]
+        if i < len(old_relations) and old_relations[i] == r:
+            continue
+        up.append(foreign_key_sql(r, i))
+
+    down = [f"DROP TABLE {t['name']}" for t in reversed(fresh)]
     down += [f"DROP SCHEMA {s}" for s in schemas]
+    down = [f"ALTER TABLE {t} DROP COLUMN {c}" for t, c in reversed(added)] + down
+    for i in reversed(replaced):
+        # 되돌릴 때는 새 제약을 먼저 지우고 옛 정의를 다시 만든다.
+        back = create_sql(old_constraints[i], i)
+        forward = drop_sql(design["constraints"][i], i)
+        if back:
+            down.insert(0, back)
+        if forward:
+            down.insert(0, forward)
+
     module = []
     if module_key:
         for table in ("core.workspace_module", "core.app_review"):
-            new = next(
-                c["expression"]
-                for c in design["constraints"]
-                if c["table"] == table
-                and c["kind"] == "CHECK"
-                and "module_key IN" in c["expression"]
-            )
-            index = next(
-                i
+            index, new = next(
+                (i, c["expression"])
                 for i, c in enumerate(design["constraints"])
                 if c["table"] == table
                 and c["kind"] == "CHECK"
@@ -112,11 +191,12 @@ def build(
 
 
 def render(args, up: list[str], down: list[str], module: list, digest: str) -> str:
-    quoted = ",\n".join(f'    "{s}"' for s in up)
-    down_quoted = ",\n".join(f'    "{s}"' for s in down)
-    module_rows = ",\n".join(
-        f'    ("{t}", "{n}", "{o}", "{w}")'.replace("'", "'") for t, n, o, w in module
-    )
+    # 비어 있을 수 있으니 줄마다 쉼표를 붙인다 — join은 빈 목록에서 쉼표만 남긴다.
+    quoted = "".join(f'    "{s}",\n' for s in up).rstrip("\n")
+    down_quoted = "".join(f'    "{s}",\n' for s in down).rstrip("\n")
+    module_rows = "".join(
+        f'    ("{t}", "{n}", "{o}", "{w}"),\n' for t, n, o, w in module
+    ).rstrip("\n")
     return f'''"""{args.title}.
 
 설계 schema.json {args.version}({args.task})에서 tools/build_migration.py로 생성했다. 실행할 때 JSON을 읽지 않는다.
@@ -132,14 +212,14 @@ branch_labels = None
 depends_on = None
 
 STATEMENTS = [
-{quoted},
+{quoted}
 ]
 DROPS = [
-{down_quoted},
+{down_quoted}
 ]
 # 모듈 키: (표, 제약 이름, 옛 식, 새 식)
 MODULE_CHECKS = [
-{module_rows},
+{module_rows}
 ]
 
 
@@ -169,13 +249,19 @@ def main() -> None:
     p.add_argument("--down", required=True)
     p.add_argument("--tables", nargs="+", required=True, help="hr.* core.holiday")
     p.add_argument("--module-key")
+    p.add_argument(
+        "--previous",
+        type=Path,
+        help="지난 설계 schema.json. 주면 달라진 것만 만든다(이미 있는 표에 칼럼·제약 추가)",
+    )
     p.add_argument("--title", required=True)
     p.add_argument("--out", type=Path, required=True)
     args = p.parse_args()
     raw = CURRENT.read_bytes()
     design = json.loads(raw)
     args.version, args.task = design["version"], design["task"]
-    up, down, module = build(design, args.tables, args.module_key)
+    previous = json.loads(args.previous.read_text(encoding="utf-8")) if args.previous else None
+    up, down, module = build(design, args.tables, args.module_key, previous)
     args.out.write_text(
         render(args, up, down, module, hashlib.sha256(raw).hexdigest()),
         encoding="utf-8",

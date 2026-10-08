@@ -1,5 +1,14 @@
 # Factory Studio 작업 인계
 
+## W2a-1a MES 보강 DB 완료 (2026-10-08)
+
+- branch main. mes 21 → 45테이블, 전체 162. 마이그레이션 **`w2a1_mes`**(head). schema.json 0.20.0 / W2a-1a.
+- 새 파일 `tools/apply_w2a1.py`. `tools/build_migration.py`에 `--previous`(기존 표 변경) 추가.
+- 주의점: 제약 이름은 **schema.json `constraints` 배열의 순번**이다. 새 제약은 반드시 **배열 끝에** 붙이고, 바꾸는 제약만 제자리에서 고친다 — 중간에 끼우면 운영 DB의 제약 이름과 어긋난다.
+- `mes.work_order` ↔ `mes.lot`이 서로를 가리키는 **고리 FK**다. 게스트 정리(`fs/core/service.py::_cleanup_plan`)는 고리 안의 비울 수 있는 FK만 먼저 비우고, 시드 복사(`seed/copy.py::_table_order`)는 그 간선만 무시한다. **고리 밖 nullable FK를 비우면 안 된다**(fems.energy_target CHECK가 깨진다). 시드가 그 칼럼을 채우게 되면 복사 뒤 UPDATE 단계가 필요하다(`ponytail:` 주석).
+- 재현: `backend/.venv/bin/python tools/apply_w2a1.py`; `... tools/build_migration.py --revision w2a1_mes --down w1a_hr_module --tables 'mes.*' --previous <git show HEAD:schema.json> --out ...`; `npm run db:validate`; `npm run db:build`; `python3 tools/build_erd.py`; `DATABASE_URL=... python tools/verify_ddl_matches_schema.py`.
+- 미실행: 화면·API·시드, 운영 배포(운영은 `f860e8b`, 다른 세션 미커밋 문서 때문에 배포 보류 중). 다음: W2a-1b.
+
 ## CAD-V01 구현·로컬 검증 완료 (2026-10-08)
 
 - branch main, 기준2241851·구현39204d3, origin/main push 성공(1ecd4f5→39204d3), 마지막 커밋 git log -1. 사용자 전체 흐름 구현 승인·최신 환경은 **맥북 Google Chrome/NC 에너지 제안**. 아래 Windows 설계 항목은 이전 이력이다. [계약](../modules/cad-cam/음성발표데모_제안_CAD-V01.md)·[검증/발표 준비](휴디_NC음성발표_CAD-V01.md).
