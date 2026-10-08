@@ -1,5 +1,11 @@
 # Factory Studio 작업 인계
 
+## 운영 배포 (2026-10-08)
+
+- 운영 https://eip.hugh-d.com = main **`f860e8b`** (이전 3474942). W1b-2·3·4 HR 전체 + CAD-12~14 포함. 마이그레이션 head `w1a_hr_module`, 시드 템플릿 변경 없음.
+- 확인: 원점/공개 200 · DDL 대조 0 · 5xx 0건 · 운영 브라우저에서 H-01·H-10 표시 · `/api` 응답 `Cache-Control: no-store`.
+- 배포는 `./tools/deploy.sh` 한 줄(먼저 `--dry-run`).
+
 ## CAD-14 시간·소비 모델 완료 (2026-10-08)
 
 - branch codex/soap-cad-review, 기준e7c42cd·구현8e5b19e·HR b16e721 보존 병합854a3c8. 최종 커밋은 git log -1. 기존 사용자 main push 승인 유지. 92a2b84까지 main fast-forward·origin/main push 성공(e7c42cd→92a2b84), 운영 배포 없음. main 진행 중 HR 파일은 타 작업자 소유이며 건드리지 않는다. [계약](../modules/cad-cam/시간소비모델_설계_CAD-14.md)·[검증](시간소비모델_CAD-14.md).
