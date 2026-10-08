@@ -1,5 +1,14 @@
 # Factory Studio 작업 인계
 
+## UI-DESIGN-01 도움말·스킬·전체 UI 검토 (2026-10-09)
+
+- branch main, 시작 기준 bb3b1bd. 이번 최종 커밋은 `git log -1 --oneline`로 확인한다. 로컬 커밋, 원격 push/운영 배포 없음. 병행 작업자의 common/master·MES backend/화면/테스트 파일은 건드리거나 스테이징하지 않는다.
+- 완료: 공개 도움말5편·P-05·검색/목차/화면 경로·CAD/공장 직접 도움말. `.agents/skills/`의 factory-taste/factory-impeccable 고정 원본+프로젝트 파생 지침/라이선스/출처. CLI/hook/자동 다운로드/별도 agent 설정 미설치. 다음 턴부터 프로젝트 스킬 사용 가능.
+- [전체 UI 검토안](../ui/UI개선_전체검토안_UI-DESIGN-01.md)·[구조 시제품](../ui/previews/UI-DESIGN-01.html)·PNG4장. 시제품은 배치·문구 검토용이며 실제 CAD/3D 엔진·분석·세션 생성 없음. 도움말 링크 외 제품 UI 재배치 미착수. 사용자 전체 확인 후 UI-DESIGN-02만 진행, 자동 다음 ID 착수 없음.
+- 검증: frontend546/67파일·대상40, 전체build/자산 격리·대상 lint/format/diff, 스킬 frontmatter2개, Chrome3탭구성/1440·390폭/가로 넘침0·육안. 처음 도움말 Markdown 강조 오류는 수정 후 재검증. 시스템 YAML 미설치→임시 검증 venv, 제품 패키지 변경 없음. 기존 번들 경고 유지.
+- 주의: 관리자 비누 POC를 공개 도움말/랜딩 이미지로 사용하지 않는다. NC 계산/품질/권한/파일 저장 동작과 3D 시연 안전 상태 유지. CAD-V01 실제 음성 리허설은 여전히 미검증. DB·장비·운영 배포 미실행.
+- 재현: Node24 PATH=/opt/homebrew/opt/node@24/bin:$PATH; `npm --prefix frontend test -- --maxWorkers=2`; `npm --prefix frontend run build`. 시제품은 HTML을 Chrome에서 열어 상단 랜딩/CAD·CAM/3D공장 전환. 검토 자료와 스킬은 Git에 저장되며 work/tmp에 의존하지 않는다.
+
 ## W2a-1a MES 보강 DB 완료 (2026-10-08)
 
 - branch main. mes 21 → 45테이블, 전체 162. 마이그레이션 **`w2a1_mes`**(head). schema.json 0.20.0 / W2a-1a.

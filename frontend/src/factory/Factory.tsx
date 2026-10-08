@@ -190,6 +190,7 @@ export default function Factory() {
         <div>
           <h1>정밀 부품 가공 공장</h1>
           <p>로봇·CNC 가공부터 비전검사와 포장까지, 제조 공간을 둘러보세요.</p>
+          <Link to="/help/portal/factory">공장 사용 도움말</Link>
         </div>
         <span className="factory-demo">
           3D 합성 시연 · 실시간 설비 정보 아님

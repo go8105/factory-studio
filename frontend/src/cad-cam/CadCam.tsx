@@ -20,6 +20,13 @@ export default function CadCam() {
               ? "NC 파일은 브라우저 메모리에서만 읽으며 서버에 전송하지 않습니다."
               : "직접 설계하고 가공 과정을 확인하세요. 설계는 이 공간의 브라우저에 저장됩니다."}
           </p>
+          {!soap && (
+            <Link
+              to={`/help/portal/${nc ? "nc-review" : part ? "part-design" : "cad-cam"}`}
+            >
+              사용 도움말
+            </Link>
+          )}
         </div>
         <nav aria-label="CAD·CAM 화면">
           <Link

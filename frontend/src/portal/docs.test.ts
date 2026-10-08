@@ -62,3 +62,24 @@ it("합성 검사 사용법은 사용자 참고 문서에 속하고 검사실로
     searchDocs(help, "C++").some((d) => d.key === "portal/vision-lab"),
   ).toBe(true);
 });
+
+it("CAD·CAM과 공장 안내는 검색·목차·실제 작업 화면에 연결된다", () => {
+  const paths = {
+    "portal/cad-cam": "/cad-cam",
+    "portal/part-design": "/cad-cam?view=part",
+    "portal/nc-review": "/cad-cam?view=nc",
+    "portal/hugh-d": "/cad-cam?view=nc",
+    "portal/factory": "/factory",
+  };
+  for (const [key, path] of Object.entries(paths)) {
+    expect(help[key]).toBeTruthy();
+    expect(sectionOf(docSections(help), key)?.key).toBe("reference");
+    expect(screenPath(key)).toBe(path);
+  }
+  expect(
+    searchDocs(help, "kWh").some((d) => d.key === "portal/nc-review"),
+  ).toBe(true);
+  expect(
+    searchDocs(help, "헤이 휴디").some((d) => d.key === "portal/hugh-d"),
+  ).toBe(true);
+});

@@ -78,3 +78,9 @@ npm run db:validate                        # 검증기 경로 확인
 - [FS-026b2 WMS 예약 API 구현·검증](agent/WMS확장_API_FS-026b2.md) — 예약·소진·가용 완료, 전체 pytest777 통과.
 
 - FS-026 WMS 후속: [입고·예약 화면, 3D 트럭, 시드·도움말 통합](agent/WMS확장_화면트럭통합_FS-026.md).
+
+## CAD·CAM·공장 UI와 디자인 스킬
+
+- [UI 전체 검토안 UI-DESIGN-01](ui/UI개선_전체검토안_UI-DESIGN-01.md)·[구조 시제품](ui/previews/UI-DESIGN-01.html): 랜딩·CAD·CAM·3D 공장 제안. 제품 구조 적용은 사용자 전체 확인 대기.
+- [프로젝트 디자인 스킬](../.agents/skills/README.md): Taste는 랜딩, Impeccable은 작업 화면과 도움말.
+- 공개 사용자 안내는 `content/help/portal/{cad-cam,part-design,nc-review,hugh-d,factory}.md`에 있다. 관리자 비공개 POC 설계를 공개 도움말에 싣지 않는다.
