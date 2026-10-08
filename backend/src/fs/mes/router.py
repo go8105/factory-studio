@@ -9,7 +9,8 @@ from pydantic import BaseModel
 from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
 from fs.common.errors import ApiError
-from fs.mes import dashboard, execution, packing, planning, service
+from fs.common.page import Page
+from fs.mes import dashboard, execution, masters, packing, planning, service
 from fs.mes import repository as repo
 from fs.mes.repository import Master
 from fs.mes.schema import (
@@ -18,13 +19,19 @@ from fs.mes.schema import (
     BomRevise,
     ConversionCreate,
     ConversionUpdate,
+    DefectCodeCreate,
+    DefectCodeUpdate,
     EquipmentCreate,
     EquipmentUpdate,
     ExecutionResult,
     ExecutionStart,
+    InspectionItemCreate,
+    InspectionItemUpdate,
     IssueCreate,
     ItemCreate,
     ItemUpdate,
+    LabelTemplateCreate,
+    LabelTemplateUpdate,
     LocationCreate,
     LocationUpdate,
     MemberSet,
@@ -36,13 +43,19 @@ from fs.mes.schema import (
     PlanUpdate,
     ProcessCreate,
     ProcessUpdate,
+    ReasonCodeCreate,
+    ReasonCodeUpdate,
     ReceiptCreate,
     RouteCreate,
     RouteSteps,
+    ShiftCreate,
+    ShiftUpdate,
     SiteCreate,
     SiteUpdate,
     UnitCreate,
     UnitParent,
+    WorkerCreate,
+    WorkerUpdate,
 )
 
 router = APIRouter()
@@ -55,8 +68,11 @@ CsrfToken = Annotated[str | None, Header(alias="X-CSRF-Token")]
 _mutation = mutation_key
 
 
-def _values(payload: BaseModel, nullable: frozenset[str]) -> dict[str, Any]:
-    values = payload.model_dump(exclude_unset=True)
+def _values(
+    payload: BaseModel, nullable: frozenset[str], *, full: bool = False
+) -> dict[str, Any]:
+    """수정은 보낸 칸만, 등록(full)은 적지 않은 칸의 기본값까지 보낸다(DB 기본값이 없는 칸이 있다)."""
+    values = payload.model_dump(exclude_unset=not full)
     if any(v is None for k, v in values.items() if k not in nullable):
         raise ApiError(400, "VALIDATION_FAILED", "필수 항목은 null로 비울 수 없습니다.")
     return values
@@ -674,3 +690,149 @@ def post_receipt(
 @router.get("/dashboard")
 def get_dashboard(context: Auth, month: str | None = None) -> dict[str, object]:
     return {"data": dashboard.dashboard(context, month)}
+
+
+# ---- W2a-1b 기준정보: 불량·사유 코드, 근무조·작업자, 라벨 양식, 공정 검사 항목 ----
+
+
+def _master_routes(
+    path: str,
+    listing,
+    create,
+    update,
+    delete,
+    create_model: type[BaseModel],
+    update_model: type[BaseModel],
+    nullable: frozenset[str] = frozenset(),
+    filters: tuple[str, ...] = (),
+) -> None:
+    """한 기준정보의 목록·등록·수정·삭제. 조회 조건은 이름 그대로 넘긴다."""
+
+    @router.get(path, name=f"list {path}")
+    def list_(
+        context: Auth,
+        offset: int = 0,
+        limit: int = 50,
+        sort: str | None = None,
+        category: str | None = None,
+        isActive: bool | None = None,
+        processId: int | None = None,
+        itemId: int | None = None,
+        shiftId: int | None = None,
+        labelKind: str | None = None,
+    ) -> dict[str, object]:
+        page = Page(offset, limit).checked()
+        supplied = {
+            "category": category,
+            "isActive": isActive,
+            "processId": processId,
+            "itemId": itemId,
+            "shiftId": shiftId,
+            "labelKind": labelKind,
+        }
+        rows, total = listing(
+            context,
+            filters={name: supplied[name] for name in filters},
+            sort=sort,
+            offset=page.offset,
+            limit=page.limit,
+        )
+        return {
+            "data": rows,
+            "page": {"offset": page.offset, "limit": page.limit, "total": total},
+        }
+
+    @router.post(path, status_code=201, name=f"create {path}")
+    def create_(
+        payload: create_model,  # type: ignore[valid-type]
+        context: Auth,
+        idempotency_key: IdempotencyKey = None,
+        x_csrf_token: CsrfToken = None,
+    ) -> dict[str, object]:
+        key = _mutation(context, x_csrf_token, idempotency_key)
+        return {"data": create(context, _values(payload, nullable, full=True), key)}
+
+    @router.patch(path + "/{row_id}", name=f"update {path}")
+    def update_(
+        row_id: int,
+        payload: update_model,  # type: ignore[valid-type]
+        context: Auth,
+        idempotency_key: IdempotencyKey = None,
+        x_csrf_token: CsrfToken = None,
+    ) -> dict[str, object]:
+        key = _mutation(context, x_csrf_token, idempotency_key)
+        return {"data": update(context, row_id, _values(payload, nullable), key)}
+
+    @router.delete(path + "/{row_id}", status_code=204, name=f"delete {path}")
+    def delete_(
+        row_id: int,
+        context: Auth,
+        idempotency_key: IdempotencyKey = None,
+        x_csrf_token: CsrfToken = None,
+    ) -> Response:
+        delete(context, row_id, _mutation(context, x_csrf_token, idempotency_key))
+        return Response(status_code=204)
+
+
+_master_routes(
+    "/defect-codes",
+    masters.defect_codes,
+    masters.create_defect_code,
+    masters.update_defect_code,
+    masters.delete_defect_code,
+    DefectCodeCreate,
+    DefectCodeUpdate,
+    filters=("category", "isActive"),
+)
+_master_routes(
+    "/reason-codes",
+    masters.reason_codes,
+    masters.create_reason_code,
+    masters.update_reason_code,
+    masters.delete_reason_code,
+    ReasonCodeCreate,
+    ReasonCodeUpdate,
+    filters=("category", "isActive"),
+)
+_master_routes(
+    "/shifts",
+    masters.shifts,
+    masters.create_shift,
+    masters.update_shift,
+    masters.delete_shift,
+    ShiftCreate,
+    ShiftUpdate,
+    filters=("isActive",),
+)
+_master_routes(
+    "/workers",
+    masters.workers,
+    masters.create_worker,
+    masters.update_worker,
+    masters.delete_worker,
+    WorkerCreate,
+    WorkerUpdate,
+    nullable=frozenset({"shift_id", "hr_employee_code"}),
+    filters=("shiftId", "isActive"),
+)
+_master_routes(
+    "/label-templates",
+    masters.label_templates,
+    masters.create_label_template,
+    masters.update_label_template,
+    masters.delete_label_template,
+    LabelTemplateCreate,
+    LabelTemplateUpdate,
+    filters=("labelKind", "isActive"),
+)
+_master_routes(
+    "/inspection-items",
+    masters.inspection_items,
+    masters.create_inspection_item,
+    masters.update_inspection_item,
+    masters.delete_inspection_item,
+    InspectionItemCreate,
+    InspectionItemUpdate,
+    nullable=frozenset({"item_id", "lower_limit", "upper_limit", "unit"}),
+    filters=("processId", "itemId", "isActive"),
+)

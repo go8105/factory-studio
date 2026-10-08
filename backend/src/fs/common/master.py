@@ -146,7 +146,11 @@ def duplicate(
 ) -> bool:
     if not master.unique:
         return False
-    where = " AND ".join(f"{column}=:{column}" for column in master.unique)
+    # SQL에서 NULL = NULL은 참이 아니다. 비워 둘 수 있는 키 칸(예: 공정 검사의 품목)은
+    # IS NOT DISTINCT FROM으로 비교해야 '둘 다 비었음'을 같은 값으로 본다.
+    where = " AND ".join(
+        f"{column} IS NOT DISTINCT FROM :{column}" for column in master.unique
+    )
     return (
         connection.execute(
             text(

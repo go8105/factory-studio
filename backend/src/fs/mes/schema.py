@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, time
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -227,3 +227,121 @@ class UnitParent(ApiModel):
 
 class ReceiptCreate(ApiModel):
     packing_unit_id: int = Field(alias="packingUnitId", gt=0)
+
+
+# ── W2a-1b 기준정보 (DSN-12 F06~F09·F18·F52) ────────────────────────────────
+
+MASTER_CODE = r"^[A-Z0-9][A-Z0-9_\-]{0,29}$"
+AMOUNT = r"^-?\d{1,11}(\.\d{1,4})?$"  # numeric(15,4)
+DefectCategory = Literal["APPEARANCE", "DIMENSION", "FUNCTION", "OTHER"]
+ReasonCategory = Literal["ADJUST", "DOWNTIME", "SCRAP", "REWORK"]
+LabelKind = Literal["LOT", "BOX", "PALLET", "MATERIAL", "WORK_ORDER"]
+BarcodeType = Literal["CODE128", "QR"]
+InspectionMethod = Literal["RANGE", "PASS_FAIL"]
+
+
+class DefectCodeCreate(ApiModel):
+    code: str = Field(pattern=MASTER_CODE)
+    name: str = Field(min_length=1, max_length=100)
+    category: DefectCategory
+    is_active: bool = Field(True, alias="isActive")
+
+
+class DefectCodeUpdate(ApiModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    category: DefectCategory | None = None
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+class ReasonCodeCreate(ApiModel):
+    category: ReasonCategory
+    code: str = Field(pattern=MASTER_CODE)
+    name: str = Field(min_length=1, max_length=100)
+    planned: bool = False
+    is_active: bool = Field(True, alias="isActive")
+
+
+class ReasonCodeUpdate(ApiModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    planned: bool | None = None
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+class ShiftCreate(ApiModel):
+    code: str = Field(pattern=MASTER_CODE)
+    name: str = Field(min_length=1, max_length=60)
+    start_time: time = Field(alias="startTime")
+    end_time: time = Field(alias="endTime")
+    is_active: bool = Field(True, alias="isActive")
+
+
+class ShiftUpdate(ApiModel):
+    name: str | None = Field(None, min_length=1, max_length=60)
+    start_time: time | None = Field(None, alias="startTime")
+    end_time: time | None = Field(None, alias="endTime")
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+class WorkerCreate(ApiModel):
+    """코드가 곧 작업자 바코드다(DSN-12 F08). 인사 정보는 HR에 있고 사원 코드만 스냅샷한다."""
+
+    code: str = Field(pattern=MASTER_CODE)
+    name: str = Field(min_length=1, max_length=100)
+    shift_id: int | None = Field(None, alias="shiftId", gt=0)
+    hr_employee_code: str | None = Field(
+        None, alias="hrEmployeeCode", pattern=MASTER_CODE
+    )
+    is_active: bool = Field(True, alias="isActive")
+
+
+class WorkerUpdate(ApiModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    shift_id: int | None = Field(None, alias="shiftId", gt=0)
+    hr_employee_code: str | None = Field(
+        None, alias="hrEmployeeCode", pattern=MASTER_CODE
+    )
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+class LabelTemplateCreate(ApiModel):
+    code: str = Field(pattern=MASTER_CODE)
+    label_kind: LabelKind = Field(alias="labelKind")
+    barcode_type: BarcodeType = Field("CODE128", alias="barcodeType")
+    width_mm: int = Field(alias="widthMm", ge=20, le=210)
+    height_mm: int = Field(alias="heightMm", ge=10, le=297)
+    fields: str = Field(min_length=1, max_length=300)
+    is_default: bool = Field(False, alias="isDefault")
+    is_active: bool = Field(True, alias="isActive")
+
+
+class LabelTemplateUpdate(ApiModel):
+    barcode_type: BarcodeType | None = Field(None, alias="barcodeType")
+    width_mm: int | None = Field(None, alias="widthMm", ge=20, le=210)
+    height_mm: int | None = Field(None, alias="heightMm", ge=10, le=297)
+    fields: str | None = Field(None, min_length=1, max_length=300)
+    is_default: bool | None = Field(None, alias="isDefault")
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+class InspectionItemCreate(ApiModel):
+    """공정(·품목)별 초·중·종물 점검 항목. 품목을 비우면 그 공정 공통이다."""
+
+    process_id: int = Field(alias="processId", gt=0)
+    item_id: int | None = Field(None, alias="itemId", gt=0)
+    seq: int = Field(ge=1, le=99)
+    name: str = Field(min_length=1, max_length=100)
+    method: InspectionMethod
+    lower_limit: str | None = Field(None, alias="lowerLimit", pattern=AMOUNT)
+    upper_limit: str | None = Field(None, alias="upperLimit", pattern=AMOUNT)
+    unit: str | None = Field(None, min_length=1, max_length=10)
+    is_active: bool = Field(True, alias="isActive")
+
+
+class InspectionItemUpdate(ApiModel):
+    seq: int | None = Field(None, ge=1, le=99)
+    name: str | None = Field(None, min_length=1, max_length=100)
+    method: InspectionMethod | None = None
+    lower_limit: str | None = Field(None, alias="lowerLimit", pattern=AMOUNT)
+    upper_limit: str | None = Field(None, alias="upperLimit", pattern=AMOUNT)
+    unit: str | None = Field(None, min_length=1, max_length=10)
+    is_active: bool | None = Field(None, alias="isActive")

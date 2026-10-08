@@ -9,6 +9,10 @@ import { Items } from "./Items";
 import { Processes } from "./Processes";
 import { Routes as RouteVersions } from "./Routes";
 import { Boms } from "./Boms";
+import { Codes } from "./Codes";
+import { Workers } from "./Workers";
+import { Labels } from "./Labels";
+import { InspectionItems } from "./InspectionItems";
 import { Plans } from "./Plans";
 import { Orders } from "./Orders";
 import { Lots } from "./Lots";
@@ -38,6 +42,10 @@ export default function MesRoutes() {
         <Route path="processes" element={<Processes />} />
         <Route path="routes" element={<RouteVersions />} />
         <Route path="boms" element={<Boms />} />
+        <Route path="codes" element={<Codes />} />
+        <Route path="workers" element={<Workers />} />
+        <Route path="labels" element={<Labels />} />
+        <Route path="inspection-items" element={<InspectionItems />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

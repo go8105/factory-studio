@@ -27,6 +27,15 @@ export const mesScreens: Screen[] = [
   { path: "processes", id: "M-13", label: "공정", group: "기준정보" },
   { path: "routes", id: "M-14", label: "공정 경로", group: "기준정보" },
   { path: "boms", id: "M-15", label: "BOM", group: "기준정보" },
+  { path: "codes", id: "M-16", label: "불량·사유 코드", group: "기준정보" },
+  { path: "workers", id: "M-17", label: "작업자·근무조", group: "기준정보" },
+  { path: "labels", id: "M-19", label: "라벨 양식", group: "기준정보" },
+  {
+    path: "inspection-items",
+    id: "M-26",
+    label: "공정 검사 기준",
+    group: "기준정보",
+  },
 ];
 const others = [
   { to: "/fems", label: "FEMS 에너지관리" },

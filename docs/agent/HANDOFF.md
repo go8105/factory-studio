@@ -1,5 +1,15 @@
 # Factory Studio 작업 인계
 
+## W2a-1b MES 기준정보 화면 완료 (2026-10-09)
+
+- branch main. M-16 불량·사유 코드, M-17 작업자·근무조, M-19 라벨 양식, M-26 공정 검사 기준. MES OpenAPI 경로 50 → 62.
+- 새 파일 `backend/src/fs/mes/masters.py`, `backend/tests/test_mes_masters.py`, `frontend/src/mes/{Codes,Workers,Labels,InspectionItems}.tsx`, `frontend/src/mes/masters.test.tsx`. 수정: mes/{schema,router}.py, `fs/common/master.py`, `frontend/src/shared/master.tsx`, mes/{index,MesLayout}.tsx.
+- 주의점: `MasterScreen`을 **탭으로 갈아끼울 때는 `key`를 준다** — 같은 컴포넌트라 목록·입력이 그대로 남는다. 공통 엔진의 중복 검사는 이제 `IS NOT DISTINCT FROM`이라 NULL 키 칸도 잡는다.
+- MES 라우터는 `_values(payload, nullable, full=True)`가 등록용이다(기본값까지 보낸다). 기존 `_register`는 옛 `repository.Master`용이라 섞지 않는다.
+- **남은 결함**: `mes.inspection_item`의 UK는 `item_id IS NULL`인 행끼리 DB가 막지 못한다. 서비스가 막지만 동시 등록이면 뚫린다. 목표 설계에 조건부 유니크를 더해야 한다.
+- 재현: `cd backend && TEST_DATABASE_URL=... .venv/bin/python -m pytest tests/test_mes_masters.py -q`; `npx --prefix frontend vitest run src/mes`.
+- 미실행: M-12~15 보강, 시드·도움말, 운영 배포(운영 `f860e8b`). 다음: W2a-1b2.
+
 ## UI-DESIGN-01 도움말·스킬·전체 UI 검토 (2026-10-09)
 
 - branch main, 시작 기준 bb3b1bd, 구현/검토 자료 커밋 **fc7e3f1**. 인계 문서의 최종 커밋은 `git log -1 --oneline`로 확인한다. 로컬 커밋, 원격 push/운영 배포 없음. 병행 작업자의 common/master·MES backend/화면/테스트 파일은 건드리거나 스테이징하지 않는다.

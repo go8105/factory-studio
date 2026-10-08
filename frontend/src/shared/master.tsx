@@ -135,6 +135,7 @@ function SelectField({
   );
 }
 
+/** spec을 바꿔 가며 쓰려면(탭 등) `key`를 함께 준다 — 목록·입력 상태가 그대로 남는다. */
 export function MasterScreen<
   Row extends { id: number },
   Draft extends Record<string, unknown>,
