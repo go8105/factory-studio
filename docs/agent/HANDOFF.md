@@ -1,5 +1,15 @@
 # Factory Studio 작업 인계
 
+## W1c HR 시드·도움말 완료 (2026-10-08)
+
+- branch main. 끝난 것: HR 합성 시드(`backend/seed/hr.py`), 공통 휴일 달력(`core.holiday` 16건 + 게스트 복사), 검증 규칙 V-HR, 도움말 15편(`content/help/hr/`), 전체 흐름 맵 HR 3노드.
+- **시드 버전 `sv-20261001-1` → `sv-20261008-1`.** 다음 배포에서 시드 템플릿이 다시 만들어져 배포가 길어진다.
+- 주의점: 시드는 기준일 T 기준으로 **지난달 = 마감·급여 확정 / 이번달 = 기준일까지 근태 + 마감 작성 중**이다. V-HR은 복사본에서도 통과하도록 **절대 월이 아니라 달 사이 관계**로 본다. 금액은 제품의 `fs.hr.payroll.slip_lines`를 그대로 쓴다 — 계산식을 고치면 시드도 같이 바뀐다. 공휴일은 복사할 때 **날짜를 밀지 않는다**(실제 달력).
+- 행 수가 기준일에 따라 달라지는 `hr.attendance`·`hr.payslip_line`은 `seed.validate.DATE_VARYING`으로 빼고 규칙으로 본다. 고정 합계 **14,794**(검증기) / **14,811**(writer, core.holiday 포함) / **14,809**(복사본).
+- 빈 공간을 전제하는 테스트는 모듈에 `EMPTY_MODULES = ("hr",)`를 선언한다. 선언하지 않으면 화면을 처음 열 때 지연 복사가 시드를 넣는다.
+- 재현: `cd backend && DATABASE_URL=... PYTHONPATH=src .venv/bin/python -m seed.cli template --date $(TZ=Asia/Seoul date +%F)` 후 `... validate --date ... --workspace N --generation M`. 테스트는 `pytest -m "not perf" -n 4`.
+- 미실행: 운영 배포. 다음: W2a.
+
 ## CAD-15 품질 우선 NC 검토 제안 완료 (2026-10-08)
 
 - branch codex/soap-cad-review, 기준f860e8b·구현5761608·운영 기록c769a42 보존 병합7aefb20, 최종 커밋 git log -1. 기존 main push 승인 유지. a3c1c6f까지 main fast-forward·origin/main push 성공(f860e8b→a3c1c6f)·이번 CAD-15 운영 배포 없음. HR/시드 등 main 타 작업자 수정은 소유자 작업이므로 스테이징/편집하지 않는다. [계약](../modules/cad-cam/품질우선_NC제안_설계_CAD-15.md)·[검증](품질우선_NC제안_CAD-15.md).

@@ -452,7 +452,7 @@ def _bonus_percent(
     }
 
 
-def _slip_lines(
+def slip_lines(
     person: dict[str, Any],
     items_: list[dict[str, Any]],
     fixed: dict[tuple[int, int], Decimal],
@@ -484,7 +484,8 @@ def _slip_lines(
             amount = _won(base_salary * percent / Decimal(100))
         else:  # pragma: no cover - CHECK가 막는 조합
             continue
-        if amount == 0 and calc not in ("BASE", "FIXED"):
+        # 기본급은 0이어도 남긴다. 그 사람에게 설정하지 않은 고정 수당은 줄을 만들지 않는다.
+        if amount == 0 and calc != "BASE":
             continue
         gross += amount
         if item["is_taxable"]:
@@ -557,7 +558,7 @@ def calculate(context: AuthContext, month: str, pay_date: date, key: str):
             None,
         )
         for person in people:
-            lines, gross, deduction = _slip_lines(person, items_, fixed, bonus)
+            lines, gross, deduction = slip_lines(person, items_, fixed, bonus)
             slip_id = connection.execute(
                 text(
                     """

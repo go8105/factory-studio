@@ -9,8 +9,8 @@
     },
     "nodes": {
       "type": "array",
-      "minItems": 18,
-      "maxItems": 18,
+      "minItems": 21,
+      "maxItems": 21,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -25,7 +25,17 @@
             "minLength": 1
           },
           "module": {
-            "enum": ["mes", "erp", "fems", "qms", "wms", "bems", "spc", "scm"]
+            "enum": [
+              "hr",
+              "mes",
+              "erp",
+              "fems",
+              "qms",
+              "wms",
+              "bems",
+              "spc",
+              "scm"
+            ]
           },
           "kind": {
             "enum": ["solution", "card"]
@@ -46,11 +56,20 @@
             "then": {
               "properties": {
                 "module": {
-                  "enum": ["mes", "erp", "fems", "qms", "wms", "bems", "spc"]
+                  "enum": [
+                    "hr",
+                    "mes",
+                    "erp",
+                    "fems",
+                    "qms",
+                    "wms",
+                    "bems",
+                    "spc"
+                  ]
                 },
                 "helpKey": {
                   "type": "string",
-                  "pattern": "^(mes/m|erp/e|fems/f|qms/q|wms/w|bems/b|spc/s)-[0-9]{2}$"
+                  "pattern": "^(hr/h|mes/m|erp/e|fems/f|qms/q|wms/w|bems/b|spc/s)-[0-9]{2}$"
                 }
               }
             },
@@ -70,8 +89,8 @@
     },
     "edges": {
       "type": "array",
-      "minItems": 21,
-      "maxItems": 21,
+      "minItems": 24,
+      "maxItems": 24,
       "items": {
         "type": "object",
         "additionalProperties": false,

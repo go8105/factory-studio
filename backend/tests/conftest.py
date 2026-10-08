@@ -222,6 +222,27 @@ def _copy_seeds(engine: Engine, workspace_id: int, modules: tuple[str, ...]) -> 
             copy_module_seed(connection, workspace_id, module)
 
 
+def _lock_empty(engine: Engine, workspace_id: int, modules: tuple[str, ...]) -> None:
+    """시드 없이 시작하고 싶은 솔루션을 '복사 끝'으로 표시한다.
+
+    표시해 두지 않으면 화면을 처음 열 때 지연 복사가 시드를 넣는다(W0-1).
+    """
+    if not modules:
+        return
+    with engine.begin() as connection:
+        generation_id = connection.execute(
+            text("SELECT active_generation_id FROM core.workspace WHERE id=:w"),
+            {"w": workspace_id},
+        ).scalar_one()
+        connection.execute(
+            text(
+                "UPDATE core.workspace_module SET seeded_generation_id=:g "
+                "WHERE workspace_id=:w AND module_key=ANY(:keys)"
+            ),
+            {"w": workspace_id, "g": generation_id, "keys": list(modules)},
+        )
+
+
 @pytest.fixture
 def guest_space(
     guest_template: GuestTemplate,
@@ -247,6 +268,11 @@ def guest_space(
             assert response.status_code == 201, response.text
             data = response.json()["data"]
             _copy_seeds(engine, data["workspaceId"], _test_seeds(request))
+            _lock_empty(
+                engine,
+                data["workspaceId"],
+                tuple(getattr(request.module, "EMPTY_MODULES", ())),
+            )
             yield client, data, engine
     finally:
         reset_engine()

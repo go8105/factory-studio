@@ -23,6 +23,7 @@ from seed.common import (
     round_half_up,
 )
 from fs.common.modules import BUSINESS_SCHEMAS, MODULE_KEYS
+from seed.hr import seed_hr
 
 Row = dict[str, Any]
 
@@ -171,6 +172,7 @@ class SeedWriter:
         self.metadata = MetaData()
         for schema in (
             "core",
+            "hr",
             "mes",
             "erp",
             "fems",
@@ -287,6 +289,7 @@ def create_template(
     _wms(writer)
     _bems(writer)
     _spc(writer)
+    seed_hr(writer)
     normalize_created_at(connection, workspace_id, generation_id, seed_date)
     return workspace_id, generation_id, dict(writer.counts)
 
@@ -318,6 +321,7 @@ def normalize_created_at(
         "measured_at",  # spc.subgroup
         "effective_at",  # spc.control_limit — 게시 시각(publishedAt)
         "detected_at",  # spc.signal
+        "decided_at",  # hr.leave_request
     )
     date_priority = (
         "quoted_on",
@@ -371,6 +375,7 @@ def normalize_created_at(
                     "spc",
                     "gw",
                     "cmms",
+                    "hr",
                 }:
                     continue
                 join = " AND ".join(
