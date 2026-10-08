@@ -21,7 +21,7 @@ Node24 `PATH=/opt/homebrew/opt/node@24/bin:$PATH`.
 |---|---|
 | `npm --prefix prototypes/cad-cam test` | **134 통과** (기존117+신규17) |
 | `npm --prefix prototypes/cad-cam run format:check` | 통과 |
-| `npm --prefix frontend test` | main HR W1c 병합 후 **545 통과 / 67파일** |
+| `npm --prefix frontend test` | main HR W1c·포털72b253a 병합 후 **545 통과 / 67파일** |
 | `npm --prefix frontend run build` | 전체 빌드/TS 검사·내장 CAD·비공개 비누 자산 격리 통과. 기존 대형 청크 경고 유지 |
 | `git diff --check` | 통과 |
 
@@ -40,4 +40,4 @@ Node24 `PATH=/opt/homebrew/opt/node@24/bin:$PATH`.
 
 브라우저 STEP 내보내기 화면은 ‘준비 완료’, 오류 없음. 다운로드 이벤트는10초 시간 초과로 **브라우저 파일 수신/재열기 미확인**; 커널 STEP 왕복/STL 체적 시험과 구분한다. 실제 CNC/실물·공차/절삭력·최대 규모/저성능 기기/실30초 timeout·브라우저 종류별 드래그·서버 인증/DB/운영 배포는 미검증·미실행. 음성/마이크/호출어도 미구현·미검증.
 
-기준257871e, 구현 WIP12cf7d0, 타 작업자 HR W1c b8b3405 보존 병합69737d6. 최종 커밋은 git log -1로 확인. main 통합/push 결과는 현황·인수인계에 기록한다. 다음은 사용자 결과 확인 후 CAD-17 또는 새 음성 제안의 범위 확정이며 자동 착수하지 않는다.
+기준257871e, 구현 WIP12cf7d0, 타 작업자 HR W1c b8b3405 보존 병합69737d6·포털72b253a 보존 병합c3b3ec2. 최종 커밋은 git log -1로 확인. main 통합/push 결과는 현황·인수인계에 기록한다. 다음은 사용자 결과 확인 후 CAD-17 또는 새 음성 제안의 범위 확정이며 자동 착수하지 않는다.

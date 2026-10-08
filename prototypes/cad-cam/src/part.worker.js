@@ -29,9 +29,10 @@ self.onmessage = async ({ data }) => {
     }
     const start = performance.now(),
       result = buildPart(data.model);
-    let mesh;
+    let mesh, references;
     try {
       mesh = result.shape.mesh({ tolerance: 0.05, angularTolerance: 0.2 });
+      references = directReferences(result.shape);
     } catch (error) {
       result.shape.delete();
       throw error;
@@ -45,7 +46,7 @@ self.onmessage = async ({ data }) => {
     self.postMessage({
       revision: data.revision,
       mesh,
-      references: directReferences(result.shape),
+      references,
       info: result.info,
       steps: result.steps,
       milliseconds: performance.now() - start,
