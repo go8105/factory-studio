@@ -45,3 +45,5 @@ npm --prefix frontend run build
 ```
 
 핵심 파일: `src/hugh-commands.js`, `hugh-voice.js`, `nc-playback.js`, `nc-playback-review.js`, 기존 `nc-review.js`, `nc-proposal-review.js`; 모두 `prototypes/cad-cam/` 아래. 합성 NC는 `examples/cnc_CADV01_2026-10-08_voice.ngc`, 테스트는 `tests/hugh-*.test.js`. 다음은 맥북 Chrome 실제 발화 리허설과 필요 시 인식 문구 조정. CAD-17 자동 착수 없음.
+
+구현 커밋 **39204d3**, main/origin push 성공(1ecd4f5→39204d3). 운영 배포 없음. 병행 MES/DB 수정은 커밋에 포함하지 않았다. 로컬 포털 검토는 모의 게스트 세션8042 + frontend5244이며 실제 로그인/DB 검증이 아니다.
