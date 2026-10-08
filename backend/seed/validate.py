@@ -108,7 +108,24 @@ EXPECTED_COUNTS = {
     "spc.measurement": 2280,
     "spc.control_limit": 7,
     "spc.signal": 3,
+    "hr.department": 4,
+    "hr.title": 7,
+    "hr.work_pattern": 2,
+    "hr.employee": 10,
+    "hr.appointment": 10,
+    "hr.qualification": 7,
+    "hr.leave_balance": 10,
+    "hr.leave_request": 7,
+    "hr.attendance_close": 2,
+    "hr.pay_item": 11,
+    "hr.pay_base": 10,
+    "hr.pay_base_item": 15,
+    "hr.bonus_rule": 1,
+    "hr.payroll_run": 1,
+    "hr.payslip": 10,
 }
+# 행 수가 기준일에 따라 달라지는 표(달의 길이·기준일까지의 날짜). V-HR에서 규칙으로 본다.
+DATE_VARYING = ("hr.attendance", "hr.payslip_line")
 
 
 def validate_all(
@@ -117,13 +134,15 @@ def validate_all(
     params = {"w": workspace_id, "g": generation_id, "t": seed_date}
     results: dict[str, str] = {}
     actual = _counts(connection, workspace_id, generation_id)
+    varying = {name: actual.pop(name, 0) for name in DATE_VARYING}
     _require(
         actual == EXPECTED_COUNTS,
         f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}",
     )
-    _require(sum(actual.values()) == 14688, f"V1 total={sum(actual.values())}")
+    _require(sum(actual.values()) == 14795, f"V1 total={sum(actual.values())}")
+    _require(all(varying.values()), f"V1 date-varying empty: {varying}")
     # FS-025c: BEMS +4,218. FS-028a: spc 모듈 행 +1. FS-026: WMS 예시 +22. FS-028c: SPC +2,752. FS-030a: gw 모듈 행 +1. FS-029a: cmms 모듈 행 +1(업무 시드는 각 c 단계).
-    results["V1"] = "118개 중 시드 테이블, 14,687행 일치"
+    results["V1"] = "138개 중 시드 테이블, 14,794행 일치(근태·명세 줄은 V-HR)"
 
     plans = connection.execute(
         text(
@@ -375,6 +394,7 @@ def validate_all(
     _require(policy_errors == 0, f"V12 policy errors={policy_errors}")
     results["V12"] = "DB 밖 시드 정책 및 created_at 확정·취소·부모-자식 순서 일치"
     results["V13"] = _spc_check(connection, workspace_id, generation_id)
+    results["V-HR"] = _hr_check(connection, workspace_id, generation_id, seed_date)
     return results
 
 
@@ -580,3 +600,83 @@ def _created_at_order_errors(
 def _require(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
+
+
+def _hr_check(
+    connection: Connection, workspace_id: int, generation_id: int, seed_date: date
+) -> str:
+    """HR 시드 규칙. 복사본은 날짜가 통째로 밀리므로 **달 사이의 관계**로 본다.
+
+    한 달은 마감·급여를 확정했고, 그 다음 달은 마감 작성 중이다 — 사용자가 확정 → 계산을 해 본다.
+    """
+    params = {"w": workspace_id, "g": generation_id, "t": seed_date}
+    holidays = _scalar(
+        connection,
+        "SELECT count(*) FROM core.holiday WHERE workspace_id=:w AND generation_id=:g",
+        params,
+    )
+    _require(holidays == 16, f"V-HR holidays={holidays}")
+    closes = dict(
+        connection.execute(
+            text(
+                "SELECT status, close_month FROM hr.attendance_close "
+                "WHERE workspace_id=:w AND generation_id=:g"
+            ),
+            params,
+        ).all()
+    )
+    _require(
+        set(closes) == {"confirmed", "draft"} and closes["confirmed"] < closes["draft"],
+        f"V-HR closes={closes}",
+    )
+    settled, open_month = closes["confirmed"], closes["draft"]
+    months = (
+        connection.execute(
+            text(
+                "SELECT DISTINCT to_char(work_date,'YYYY-MM') FROM hr.attendance "
+                "WHERE workspace_id=:w AND generation_id=:g ORDER BY 1"
+            ),
+            params,
+        )
+        .scalars()
+        .all()
+    )
+    _require(settled in months and open_month in months, f"V-HR months={months}")
+    # 승인한 휴가는 그 날 근태가 휴가다(제품 규칙과 같은 상태).
+    unmatched = _scalar(
+        connection,
+        """
+        SELECT count(*) FROM hr.leave_request r
+        JOIN hr.attendance a ON a.workspace_id=r.workspace_id AND a.generation_id=r.generation_id
+                            AND a.employee_id=r.employee_id
+                            AND a.work_date BETWEEN r.from_date AND r.to_date
+        WHERE r.workspace_id=:w AND r.generation_id=:g AND r.status='APPROVED'
+          AND a.day_kind='WORKDAY' AND a.status NOT IN ('LEAVE','HALF_LEAVE')
+        """,
+        params,
+    )
+    _require(unmatched == 0, f"V-HR approved leave not on attendance={unmatched}")
+    runs = connection.execute(
+        text(
+            "SELECT pay_month, status, version FROM hr.payroll_run "
+            "WHERE workspace_id=:w AND generation_id=:g"
+        ),
+        params,
+    ).all()
+    _require(runs == [(settled, "confirmed", 1)], f"V-HR runs={runs}")
+    broken = _scalar(
+        connection,
+        """
+        SELECT count(*) FROM hr.payslip s
+        WHERE s.workspace_id=:w AND s.generation_id=:g
+          AND (s.net_pay <> s.gross_pay - s.deduction_total
+            OR s.gross_pay <> (SELECT coalesce(sum(l.amount),0) FROM hr.payslip_line l
+                                JOIN hr.pay_item p ON p.workspace_id=l.workspace_id
+                                 AND p.generation_id=l.generation_id AND p.id=l.pay_item_id
+                               WHERE l.workspace_id=s.workspace_id AND l.generation_id=s.generation_id
+                                 AND l.payslip_id=s.id AND p.item_kind='EARNING'))
+        """,
+        params,
+    )
+    _require(broken == 0, f"V-HR payslip totals={broken}")
+    return f"{settled} 마감·급여 확정, {open_month} 마감 작성 중"

@@ -23,6 +23,9 @@ MONTH_COLUMNS = {
     ("fems.energy_target", "target_month"),
     ("fems.energy_baseline", "period_from"),
     ("fems.energy_baseline", "period_to"),
+    ("hr.attendance_close", "close_month"),
+    ("hr.payroll_run", "pay_month"),
+    ("hr.pay_base", "effective_from"),
 }
 
 
@@ -203,6 +206,21 @@ def _copy_business_rows(
             ),
             params,
         ).rowcount
+    if copy_modules:
+        # 공통 휴일 달력은 core지만 공간·세대마다 있어야 한다(HR 근태·FEMS TOU가 읽는다).
+        # 공휴일은 실제 달력 날짜라 다른 업무 날짜처럼 밀지 않는다 — 개천절은 늘 10-03이다.
+        counts_holiday = connection.execute(
+            text(
+                """
+                INSERT INTO core.holiday (workspace_id,generation_id,holiday_on,name,kind,created_at)
+                SELECT :target_workspace,:target_generation,holiday_on,name,kind,
+                       created_at + (:target_date - :source_date) * interval '1 day'
+                FROM core.holiday
+                WHERE workspace_id=:source_workspace AND generation_id=:source_generation
+                """
+            ),
+            params,
+        ).rowcount
     seeded = _seeded_tables(
         connection, source_workspace_id, source_generation_id, schemas
     )
@@ -230,7 +248,9 @@ def _copy_business_rows(
             params,
         )
     counts: dict[str, int] = (
-        {"core.workspace_module": module_rows} if copy_modules else {}
+        {"core.workspace_module": module_rows, "core.holiday": counts_holiday}
+        if copy_modules
+        else {}
     )
     for table_name in _table_order(seeded, foreign_keys):
         result = connection.execute(
@@ -548,12 +568,19 @@ def _column_expression(table_name: str, column: str, type_name: str) -> str:
         ("qms.quality_hold", "hold_no"),
         ("wms.stock_document", "document_no"),
         ("wms.inbound_notice", "notice_no"),
+        ("hr.appointment", "appointment_no"),
+        ("hr.leave_request", "request_no"),
     }:
-        # QI-/QH-/WD-YYYYMMDD-NNN: 번호 속 날짜도 같은 일수만큼 옮긴다.
+        # QI-/QH-/WD-/AP-/LV-YYYYMMDD-NNN: 번호 속 날짜도 같은 일수만큼 옮긴다.
         return (
             f'left(src."{column}", 3) || to_char(to_date(substr(src."{column}", 4, 8), \'YYYYMMDD\') '
             f"+ (:target_date - :source_date), 'YYYYMMDD') || substr(src.\"{column}\", 12)"
         )
+    if (table_name, column) == ("hr.leave_balance", "leave_year"):
+        return "extract(year from CAST(:target_date AS date))::int::text"
+    if (table_name, column) == ("hr.bonus_rule", "payable_mm"):
+        # 상여는 늘 '지난달'에 지급한다 — 옮긴 기준일의 지난달로 다시 맞춘다.
+        return "to_char(date_trunc('month', CAST(:target_date AS date)) - interval '1 month', 'MM')"
     if (table_name, column) in MONTH_COLUMNS:
         return f'CASE WHEN src."{column}" IS NULL THEN NULL ELSE {_month_expression(f'src."{column}"')} END'
     if type_name in {"TIMESTAMP", "DateTime"}:

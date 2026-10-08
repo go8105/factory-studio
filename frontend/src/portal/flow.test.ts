@@ -16,7 +16,7 @@ it("도움말 없는 업무 노드는 스키마에서 거부한다", () => {
   expect(validate(invalid)).toBe(false);
 });
 it("노드 키는 중복되지 않는다", () => {
-  expect(new Set(flow.nodes.map((n) => n.id)).size).toBe(18);
+  expect(new Set(flow.nodes.map((n) => n.id)).size).toBe(21);
 });
 it("연결의 양 끝은 실제 노드로 존재한다", () => {
   const ids = new Set(flow.nodes.map((n) => n.id));
@@ -52,6 +52,15 @@ it("BEMS 분해 노드는 FEMS에서 실선으로 이어지는 업무 노드다(
     expect.objectContaining({
       from: "energy_master",
       to: "building_energy",
+      kind: "solution",
+    }),
+  );
+});
+it("HR 사람 기준은 다른 솔루션 기준정보로 이어진다(W1c)", () => {
+  expect(flow.edges).toContainEqual(
+    expect.objectContaining({
+      from: "hr_people",
+      to: "master_data",
       kind: "solution",
     }),
   );

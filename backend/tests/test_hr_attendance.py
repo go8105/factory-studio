@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy import text
 
 SEEDS = ()
+EMPTY_MODULES = ("hr",)  # 빈 공간에서 규칙만 본다 — HR 시드는 W1c에서 따로 검증한다
 H = "/api/v1/hr"
 
 

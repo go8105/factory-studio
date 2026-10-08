@@ -126,6 +126,27 @@
       "module": "bems",
       "kind": "solution",
       "helpKey": "bems/b-02"
+    },
+    {
+      "id": "hr_people",
+      "label": "사원·조직 기준",
+      "module": "hr",
+      "kind": "solution",
+      "helpKey": "hr/h-05"
+    },
+    {
+      "id": "hr_attendance",
+      "label": "근태 마감",
+      "module": "hr",
+      "kind": "solution",
+      "helpKey": "hr/h-08"
+    },
+    {
+      "id": "hr_payroll",
+      "label": "급여 확정",
+      "module": "hr",
+      "kind": "solution",
+      "helpKey": "hr/h-11"
     }
   ],
   "edges": [
@@ -253,6 +274,24 @@
       "from": "process_control",
       "to": "quality_inspection",
       "label": "미조치 이상은 QMS에 배지로 보인다(판정은 그대로)",
+      "kind": "solution"
+    },
+    {
+      "from": "hr_people",
+      "to": "hr_attendance",
+      "label": "근무 형태와 휴일로 한 달치를 만들고 마감한다",
+      "kind": "solution"
+    },
+    {
+      "from": "hr_attendance",
+      "to": "hr_payroll",
+      "label": "확정한 마감이 급여 계산의 입력이다",
+      "kind": "solution"
+    },
+    {
+      "from": "hr_people",
+      "to": "master_data",
+      "label": "사람·부서 코드의 원천 — 각 솔루션이 가져다 쓴다",
       "kind": "solution"
     }
   ]

@@ -17,6 +17,7 @@ from seed.common import equipment_ratio_sql, month_mondays, month_text
 from seed.copy import copy_template
 from seed.generate import create_template
 from seed.validate import (
+    DATE_VARYING,
     EXPECTED_COUNTS,
     _counts,
     _created_at_order_errors,
@@ -96,7 +97,17 @@ def seed_env() -> Generator[SeedFixtureData]:
     _reset()
     with engine.begin() as connection:
         workspace_id, generation_id, counts = create_template(connection, seed_date)
-        assert sum(counts.values()) == 14688  # SPC +2,752, gw·cmms·hr 모듈 행 +3
+        # W1c: HR 시드 + 공통 휴일. 근태·명세 줄은 기준일에 따라 달라져 하한만 본다.
+        fixed = sum(
+            value
+            for name, value in counts.items()
+            if name not in ("hr.attendance", "hr.payslip_line")
+        )
+        # 14,795(검증기 기준) + core.holiday 16 — 휴일은 core라 validate의 표 수에 안 들어간다.
+        assert (
+            fixed == 14811
+        )  # SPC +2,752, gw·cmms·hr 모듈 행 +3, HR 시드 +107, 휴일 +16
+        assert counts["hr.attendance"] > 0 and counts["hr.payslip_line"] > 0
     first_snapshot = _snapshot(workspace_id, generation_id)
 
     _reset()
@@ -114,7 +125,13 @@ def seed_env() -> Generator[SeedFixtureData]:
             copied_workspace, copied_generation, counts, elapsed = copy_template(
                 connection, workspace_id, generation_id, target, f"fs015-test-{index}"
             )
-            assert sum(counts.values()) == 14686  # SPC +2,752, gw·cmms·hr 모듈 행 +3
+            fixed_copy = sum(
+                value
+                for name, value in counts.items()
+                if name not in ("hr.attendance", "hr.payslip_line")
+            )
+            # 템플릿과 같되 core.workspace·data_generation 2행이 빠지고 휴일 16행이 더해진다.
+            assert fixed_copy == 14809  # SPC +2,752, HR 시드 +107, 휴일 +16
             copied.append((copied_workspace, copied_generation, target))
             if index >= 2:
                 timings.append(elapsed)
@@ -142,10 +159,13 @@ def test_seed_v1_row_counts(seed_env: SeedFixtureData) -> None:
         actual = _counts(
             connection, seed_env.template_workspace_id, seed_env.template_generation_id
         )
+        # 근태·명세 줄은 기준일에 따라 행 수가 달라진다(검증기와 같은 기준).
+        varying = {name: actual.pop(name, 0) for name in DATE_VARYING}
         assert actual == EXPECTED_COUNTS, (
             f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}"
         )
-        assert sum(actual.values()) == 14688, f"V1 total={sum(actual.values())}"
+        assert sum(actual.values()) == 14795, f"V1 total={sum(actual.values())}"
+        assert all(varying.values()), f"V1 date-varying empty: {varying}"
 
 
 def test_seed_v2_calendar_months_and_weeks(seed_env: SeedFixtureData) -> None:
@@ -438,14 +458,14 @@ def test_seed_calendar_t1_2026_10_07(seed_env: SeedFixtureData) -> None:
     ws_id, gen_id, target = seed_env.calendar_t1
     with engine.connect() as connection:
         results = validate_all(connection, ws_id, gen_id, target)
-        assert len(results) == 13  # FS-028c: V13 SPC 판정 재계산
+        assert len(results) == 14  # W1c: V-HR 추가
 
 
 def test_seed_calendar_t2_2027_01_05(seed_env: SeedFixtureData) -> None:
     ws_id, gen_id, target = seed_env.calendar_t2
     with engine.connect() as connection:
         results = validate_all(connection, ws_id, gen_id, target)
-        assert len(results) == 13  # FS-028c: V13 SPC 판정 재계산
+        assert len(results) == 14  # W1c: V-HR 추가
 
 
 @pytest.mark.perf

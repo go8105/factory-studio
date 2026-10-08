@@ -1,6 +1,7 @@
 // P-05 참고 문서 구조 (DOC-01 §3~5). 구역은 경로 앞부분, 순서는 파일명, 제목은 첫 줄에서 얻는다.
 // 사용자 참고 문서 트리는 새로 정의하지 않고 솔루션 메뉴 배열의 group을 그대로 쓴다.
 import type { Screen } from "../shared/SolutionLayout";
+import { hrScreens } from "../hr/HrLayout";
 import { mesScreens } from "../mes/MesLayout";
 import { erpScreens } from "../erp/ErpLayout";
 import { femsScreens } from "../fems/FemsLayout";
@@ -20,6 +21,7 @@ export type DocSection = {
 };
 type Docs = Record<string, string>;
 const solutions: [string, string, Screen[]][] = [
+  ["hr", "HR 인사·급여", hrScreens],
   ["mes", "MES 생산관리", mesScreens],
   ["erp", "ERP 경영관리", erpScreens],
   ["fems", "FEMS 에너지관리", femsScreens],
