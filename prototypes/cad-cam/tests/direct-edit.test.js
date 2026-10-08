@@ -224,3 +224,41 @@ test("local direct edit STEP roundtrip retains solid volume", async () => {
     imported?.delete();
   }
 });
+
+test("equal area and bounds do not hide a moved inner face boundary", () => {
+  const m = emptyPart();
+  m.operations = [
+    {
+      id: "hole",
+      name: "inner",
+      kind: "cut",
+      plane: "XY",
+      referenceId: "base",
+      offset: 0,
+      amount: 5,
+      sketch: { type: "circle", x: 0, y: 0, w: 4, h: 4, radius: 0, angle: 0 },
+    },
+  ];
+  const face = refs(m).faces.find(
+    (f) =>
+      f.plane === "XY" && f.sign === 1 && Math.abs(f.position - 10) < 0.001,
+  );
+  m.operations.push({
+    id: "boss",
+    name: "supported",
+    kind: "add",
+    plane: "XY",
+    referenceId: "hole",
+    offset: 0,
+    amount: 2,
+    supportFace: face,
+    sketch: { type: "rect", x: -20, y: 0, w: 4, h: 4, radius: 0, angle: 0 },
+  });
+  const result = buildPart(m);
+  result.shape.delete();
+  m.operations[0].sketch.x = 5;
+  assert.throws(
+    () => buildPart(m),
+    (e) => e.featureId === "boss" && /작업면 참조/.test(e.message),
+  );
+});

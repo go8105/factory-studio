@@ -7,7 +7,7 @@ import {
 } from "./editor-commands.js";
 import * as THREE from "three";
 import { Viewer } from "./viewer.js";
-import { clone } from "./model.js";
+import { clone, designJSON } from "./model.js";
 import {
   emptyPart,
   importPart,
@@ -776,7 +776,7 @@ $("#new").onclick = () => submit(emptyPart(), "edit", "base");
 $("#bracket").onclick = () => submit(bracketExample(), "edit", "base");
 $("#shell-example").onclick = () => submit(shellExample(), "edit", "base");
 $("#save").onclick = () =>
-  download(JSON.stringify(model, null, 2), `${model.name}.part.json`);
+  download(designJSON(model, 250000), `${model.name}.part.json`);
 $("#open").onclick = () => $("#file").click();
 $("#file").onchange = async (e) => {
   const f = e.target.files[0];

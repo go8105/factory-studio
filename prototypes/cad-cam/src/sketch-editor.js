@@ -428,12 +428,22 @@ export function openSketchEditor(input, onApply) {
   function key(e) {
     if (!dialog.open) return;
     const c = shortcutCommand(e);
-    if (["undo", "redo", "cancel"].includes(c)) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      if (c === "cancel") done();
-      else restore(history[c](snapshot()));
-    }
+    if (!c) return; // Native text editing and IME stay in their input.
+    e.preventDefault();
+    e.stopImmediatePropagation(); // No parent model command may run behind a modal draft.
+    if (c === "cancel") done();
+    else if (c === "undo" || c === "undo-point")
+      restore(history.undo(snapshot()));
+    else if (c === "redo") restore(history.redo(snapshot()));
+    else if (c === "fit") {
+      fit();
+      paint();
+    } else if (c === "save")
+      error("스케치를 적용한 뒤 설계 저장을 사용하세요.");
+    else if (c === "delete")
+      error("선택 엔티티 자르기 또는 내부 경계 삭제를 사용하세요.");
+    else if (c === "help")
+      error("Shift 다중 선택 · Ctrl/⌘+Z 실행 취소 · F 전체 보기 · Esc 취소");
   }
   document.addEventListener("keydown", key, true);
   dialog.oncancel = (e) => {

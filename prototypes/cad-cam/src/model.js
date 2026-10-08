@@ -170,7 +170,18 @@ export function validateShape(s) {
   if (s.type === "circle" && s.w !== s.h)
     throw Error("원의 폭과 길이는 같아야 합니다.");
 }
+export function designJSON(model, limit = 100000) {
+  const pretty = JSON.stringify(model, null, 2);
+  if (pretty.length <= limit) return pretty;
+  const compact = JSON.stringify(model);
+  if (compact.length > limit)
+    throw Error(
+      `설계 파일 상한 ${limit / 1000}KB를 넘었습니다. 피처 또는 경계를 줄이세요.`,
+    );
+  return compact;
+}
 export function validateModel(m) {
+  designJSON(m);
   if (
     !m ||
     ![1, 2].includes(m.version) ||

@@ -1,5 +1,5 @@
 import { validateReference } from "./part-references.js";
-import { clone, parseModel, validateShape } from "./model.js";
+import { designJSON, clone, parseModel, validateShape } from "./model.js";
 import { syncProfile } from "./profile.js";
 import { solveSketch } from "./sketch-constraints.js";
 export const partKey = (scope) =>
@@ -47,6 +47,7 @@ export function importPart(text) {
   });
 }
 export function validatePart(m) {
+  designJSON(m, 250000);
   if (
     m?.version !== 3 ||
     typeof m.name !== "string" ||

@@ -7,6 +7,7 @@ import {
 import "./style.css";
 import freeExample from "../examples/cnc_E1_2026-10-06_L-slot-arc.form.json";
 import {
+  designJSON,
   emptyModel,
   defaultTool,
   sampleModel,
@@ -701,11 +702,7 @@ const actions = {
     toast("연습 부품입니다. 작업을 선택해 치수를 바꿔 보세요.");
   },
   save: () => {
-    download(
-      JSON.stringify(model, null, 2),
-      "design.form.json",
-      "application/json",
-    );
+    download(designJSON(model), "design.form.json", "application/json");
     toast("편집 가능한 설계를 저장했습니다.");
   },
   open: () => $("#file-input").click(),

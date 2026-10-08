@@ -23,6 +23,29 @@ export function faceReference(face) {
   const plane = ["YZ", "XZ", "XY"][axis],
     basis = axis === 1 ? -1 : 1,
     sign = Math.sign(normal[axis]) * basis;
+  const edges = face.edges;
+  let boundary;
+  try {
+    if (edges.length > 256) return null;
+    boundary = JSON.stringify(
+      edges
+        .map((e) => {
+          let a = tuple(e.startPoint),
+            b = tuple(e.endPoint);
+          if (a.join(",") > b.join(",")) [a, b] = [b, a];
+          return [
+            e.geomType,
+            e.length,
+            ...a,
+            ...tuple(e.pointAt(0.5)),
+            ...b,
+          ].map((v) => (typeof v === "number" ? Math.round(v * 1e6) / 1e6 : v));
+        })
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+    );
+  } finally {
+    edges.forEach((e) => e.delete());
+  }
   const box = face.boundingBox,
     p = r.measureShapeSurfaceProperties(face);
   try {
@@ -33,6 +56,7 @@ export function faceReference(face) {
       bounds: box.bounds,
       area: p.area,
       position: box.bounds[0][axis] * basis,
+      boundary,
     };
   } finally {
     box.delete();
@@ -56,6 +80,7 @@ export function sameFace(a, b) {
     a.type === b.type &&
     a.plane === b.plane &&
     a.sign === b.sign &&
+    a.boundary === b.boundary &&
     near(a.area, b.area) &&
     a.bounds.flat().every((v, i) => near(v, b.bounds.flat()[i]))
   );
@@ -97,6 +122,11 @@ export function checkFace(shape, reference) {
   }
 }
 export function validateReference(ref, kind) {
+  if (
+    kind === "face" &&
+    (typeof ref?.boundary !== "string" || ref.boundary.length > 50000)
+  )
+    throw Error("면 경계 참조가 없습니다.");
   const nums =
     kind === "edge"
       ? [...(ref?.a ?? []), ...(ref?.b ?? []), ref?.length]

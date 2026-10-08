@@ -10,6 +10,7 @@ import {
   constrain,
 } from "../src/sketch-edit.js";
 import {
+  designJSON,
   validateShape,
   validateModel,
   sampleModel,
@@ -197,4 +198,15 @@ test("real Manifold path leaves island plus tool radius; cuts never connect thro
     }
   }
   assert.ok(path.points.length > 50);
+});
+
+test("saved expanded region models remain importable within the file cap", () => {
+  const m = islandModel();
+  m.padding = "a".repeat(98500);
+  validateModel(m);
+  const text = designJSON(m);
+  assert.ok(text.length <= 100000);
+  assert.deepEqual(parseModel(text), m);
+  m.padding += "a".repeat(2000);
+  assert.throws(() => validateModel(m), /상한/);
 });

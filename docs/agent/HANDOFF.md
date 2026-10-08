@@ -1,10 +1,11 @@
 # Factory Studio 작업 인계
 
-## CAD-16 진행 중 (2026-10-08)
+## CAD-16 완료 (2026-10-08)
 
-- branch codex/soap-cad-review, 기준257871e. WIP 커밋은 git log -1 확인. CAD-16 외 타 작업자 HR/포털 변경은 보존한다. main에 신규 b8b3405 HR W1c 확인, 병합 후 전체 검증 필요.
-- 구현: E1/E2 전문 스케치 창·섬 영역·국소 필렛/모따기/작업면 기하 참조. prototype132 통과, 실제 UI 흐름 확인. 다음: 최신main 병합 → frontend/build/자산 격리·PC/모바일 최종 확인 → 결과/현황/인수인계 갱신·커밋/main 통합/push(기존 사용자 승인). 운영 배포·CAD-17은 미착수.
-- 재현: Node24 PATH=/opt/homebrew/opt/node@24/bin:$PATH; npm --prefix prototypes/cad-cam test; npm --prefix frontend test; npm --prefix frontend run build. localhost5243/8043은 모의 관리자 fixture다. 독립 UI 합성 scope902:16. STEP 커널 왕복/STL 체적은 테스트 통과; 브라우저 다운로드 이벤트는 시간 초과로 파일 수신 미확인.
+- branch codex/soap-cad-review, 기준257871e·WIP12cf7d0·HR W1c b8b3405 보존 병합69737d6. 마지막 커밋 git log -1. main/원격 통합은 아래 후속 기록 확인. 타 작업자 main 포털/UI 수정은 편집/스테이징하지 않는다.
+- 끝난 것: E1/E2 공통 전문 스케치/섬 영역·국소 필렛/모따기/선택 면 기하 참조, 파일 상한/모달 키보드 격리. [계약](../modules/cad-cam/전문스케치_직접편집_설계_CAD-16.md)·[검증](전문스케치_직접편집_CAD-16.md). prototype134/frontend545·포맷/전체build/격리·실 UI/1440·390폭 통과. STEP 커널 왕복/STL 체적 통과, 브라우저 다운로드 수신은 시간 초과로 미확인. DB/실 CNC/운영 배포 미실행.
+- 다음: 사용자 결과 확인 후 CAD-17 또는 **추가 요청 [CAD-V01 음성 발표 제안](../modules/cad-cam/음성발표데모_제안_CAD-V01.md)** 범위 확정. Chrome/E1 기본 제안, 브라우저/제어대상 질문 중. 마이크·음성 구현 미착수. 자동으로 다음 ID를 시작하지 않는다.
+- 재현: Node24 PATH=/opt/homebrew/opt/node@24/bin:$PATH; npm --prefix prototypes/cad-cam test; npm --prefix prototypes/cad-cam run format:check; npm --prefix frontend test; npm --prefix frontend run build. localhost5243/8043은 모의 관리자 fixture. Git 예제 JSON/PNG/보고와 tests/{sketch-edit,direct-edit}.test.js를 사용한다. 임시 work/tmp 파일에 의존하지 않는다.
 
 ## W1c HR 시드·도움말 완료 (2026-10-08)
 
