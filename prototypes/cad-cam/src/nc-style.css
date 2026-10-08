@@ -374,3 +374,17 @@ nav {
 .energy-bar:hover {
   background: #1f2d3d;
 }
+
+.proposal-card {
+  border: 1px solid #d4d8db;
+  padding: 12px;
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+.proposal-card button {
+  margin: 6px 4px 0 0;
+}
+#proposal-summary {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

@@ -1,5 +1,10 @@
 import { energyPlan, ENERGY_MODEL, compactEnergyNC } from "./nc-energy.js";
-export function createEnergyReview(getNC, getStock, selectLine) {
+export function createEnergyReview(
+  getNC,
+  getStock,
+  selectLine,
+  onChange = () => {},
+) {
   const panel = document.createElement("details");
   panel.className = "stock-panel energy-panel";
   panel.open = true;
@@ -43,6 +48,7 @@ export function createEnergyReview(getNC, getStock, selectLine) {
   function clearResult() {
     stop();
     analysis = null;
+    onChange();
     page = 0;
     $("energy-summary").textContent = "결과 없음 · 시간/kWh 미정";
     $("energy-chart").replaceChildren();
@@ -254,6 +260,7 @@ export function createEnergyReview(getNC, getStock, selectLine) {
         }
         stop();
         analysis = data.analysis;
+        onChange();
         $("energy-status").textContent = analysis.issues.length
           ? `미정 ${analysis.issues.length}구간 · 전체 합계 제한`
           : "입력 범위 시나리오 완료 · 실측 정확도 미검증";
@@ -288,5 +295,9 @@ export function createEnergyReview(getNC, getStock, selectLine) {
       $("energy-cancel").click();
     }
   });
-  return { invalidate, export: () => ({ model: model(), analysis }) };
+  return {
+    invalidate,
+    analysis: () => analysis,
+    export: () => ({ model: model(), analysis }),
+  };
 }

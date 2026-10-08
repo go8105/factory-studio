@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-08",
+  "runtime": "v24.21.0",
+  "scope": "Node only; synthetic stock metadata. Excludes browser/DOM/GPU/peak memory/accuracy; worst-case 12 selected dwells and 13 candidates",
+  "results": [
+    {
+      "lines": 1000,
+      "dwells": 997,
+      "candidates": 13,
+      "listMilliseconds": 2.97,
+      "comparisonMilliseconds": 5.28,
+      "heapDeltaMiB": 1.63,
+      "rssDeltaMiB": 6.11
+    },
+    {
+      "lines": 10000,
+      "dwells": 9997,
+      "candidates": 13,
+      "listMilliseconds": 18.38,
+      "comparisonMilliseconds": 35.64,
+      "heapDeltaMiB": 15.95,
+      "rssDeltaMiB": 17.39
+    },
+    {
+      "lines": 50000,
+      "dwells": 49997,
+      "candidates": 13,
+      "listMilliseconds": 88.95,
+      "comparisonMilliseconds": 106.51,
+      "heapDeltaMiB": 54.45,
+      "rssDeltaMiB": 13.89
+    }
+  ]
+}
