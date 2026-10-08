@@ -81,6 +81,6 @@ npm run db:validate                        # 검증기 경로 확인
 
 ## CAD·CAM·공장 UI와 디자인 스킬
 
-- [UI 전체 검토안 UI-DESIGN-01](ui/UI개선_전체검토안_UI-DESIGN-01.md)·[구조 시제품](ui/previews/UI-DESIGN-01.html): 랜딩·CAD·CAM·3D 공장 제안. 제품 구조 적용은 사용자 전체 확인 대기.
+- [UI 전체 검토안 UI-DESIGN-01](ui/UI개선_전체검토안_UI-DESIGN-01.md)·[구조 시제품](ui/previews/UI-DESIGN-01.html): 랜딩·CAD·CAM·3D 공장 제안. 사용자 추천안 확인 후 [UI-DESIGN-02 적용](agent/UI개선_적용결과_UI-DESIGN-02.md).
 - [프로젝트 디자인 스킬](../.agents/skills/README.md): Taste는 랜딩, Impeccable은 작업 화면과 도움말.
 - 공개 사용자 안내는 `content/help/portal/{cad-cam,part-design,nc-review,hugh-d,factory}.md`에 있다. 관리자 비공개 POC 설계를 공개 도움말에 싣지 않는다.

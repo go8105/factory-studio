@@ -10,6 +10,7 @@ import { NC_PROFILE, NC_LIMITS } from "./nc-parser.js";
 import stockSample from "../examples/cnc_CAD13_2026-10-07_face.ngc?raw";
 import sample from "../examples/cnc_CAD12_2026-10-07_milling.ngc?raw";
 import "./nc-style.css";
+import { arrangeNCReview } from "./nc-layout.js";
 const $ = (s) => document.querySelector(s),
   esc = (v) =>
     String(v).replace(
@@ -84,6 +85,7 @@ createHughVoice({
   play: (number) => proposalReview.play(number),
   stop: () => playback.pause(),
 });
+arrangeNCReview();
 function message(text) {
   $("#status").textContent = text;
 }

@@ -616,3 +616,107 @@
     margin: 0;
   }
 }
+
+/* UI-DESIGN-02: navigation above, playback below, contextual panels beside. */
+.factory-heading {
+  align-items: center;
+  margin-bottom: 18px;
+}
+.factory-heading p {
+  color: var(--muted);
+  margin-top: 5px;
+}
+.factory-heading a {
+  font-size: 12px;
+  text-underline-offset: 3px;
+}
+.factory-controls {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+.factory-building-switch > span {
+  display: none;
+}
+.factory-actions .primary {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--border);
+}
+.factory-instructions {
+  color: var(--muted);
+  padding: 6px 0;
+}
+.factory-stage {
+  border-radius: 6px;
+  background: #eef0f0;
+}
+.factory-playback-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 0 18px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.factory-control-label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-right: 8px;
+}
+.factory-playback-controls button {
+  font-size: 13px;
+  min-height: 36px;
+}
+.factory-process-buttons {
+  display: flex;
+  flex-wrap: wrap;
+}
+.factory-page button:focus-visible,
+.factory-page a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+.factory-work-links {
+  box-shadow: none;
+}
+.factory-workspace .cnc-panel,
+.factory-workspace .vision-panel {
+  box-shadow: none;
+  border-radius: 6px;
+}
+@media (min-width: 1100px) {
+  .factory-page:not(.factory-immersive) .factory-workspace:has(.vision-panel) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 16px;
+  }
+  .factory-page:not(.factory-immersive) .factory-workspace > .vision-panel {
+    position: static;
+    width: auto;
+    max-height: calc(100dvh - 200px);
+    overflow: auto;
+    margin: 0;
+  }
+}
+@media (max-width: 700px) {
+  .factory-heading {
+    align-items: start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .factory-demo {
+    white-space: normal;
+  }
+  .factory-stage {
+    height: 420px;
+  }
+  .factory-toolbar {
+    gap: 12px;
+  }
+  .factory-control-label {
+    width: 100%;
+  }
+}

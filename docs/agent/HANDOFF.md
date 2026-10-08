@@ -1,5 +1,13 @@
 # Factory Studio 작업 인계
 
+## UI-DESIGN-02 실제 UI 적용 (2026-10-09)
+
+- branch main, 시작 기준66e3001. 마지막 커밋은 `git log -1 --oneline`. 사용자 전체 추천안 확인 후 구현100%. 로컬 커밋만, 원격 push/운영 배포 없음. 병행 MES/common/master·shared/master·MES 화면/테스트는 다른 작업자의 변경이며 보존/스테이징 제외.
+- 끝난 것: Taste Entry.tsx+Entry.css/합성 NC 이미지, CAD 셸, E1/E2 공통 UI, nc-layout.js 기존 DOM 재배치/4준비단계·뷰포트/휴디·결과/접기, 공장 하단 시연·맥락 패널·초점. 현재 도움말/설계안/현황/progress 상태도 갱신. [결과와 캡처](UI개선_적용결과_UI-DESIGN-02.md).
+- 검증: CAD142/frontend551(68파일)·최종 대상40·build/격리·대상 lint/format/diff. Chrome NC 전체 분석/3후보/텍스트3번재생정지, E2 체적24,000mm³, 랜딩 로그인·공장/1440·390. 공장 browser4종 통과: CNC1개 완료·정지·오류 복구·모바일 포함; 외관33.3초로 기존30초 초과, 60초 재검증 통과/테스트 제한 보정. 실제 음성 발화·운영/DB/실장비·계측은 미검증/미실행.
+- 다음: 사용자 결과 확인. 다음 ID·운영 배포·원격 push 자동 진행 없음. NC 모델/품질 차단/후보revision/보호POC/iframe microphone 정책 유지. 스킬은 정적 프로젝트 지침이며 launcher/hook 사용하지 않는다.
+- 재현: Node24 PATH=/opt/homebrew/opt/node@24/bin:$PATH; `npm --prefix prototypes/cad-cam test`; `npm --prefix frontend test -- --maxWorkers=2`; `npm --prefix frontend run build`; `npm --prefix frontend run test:factory-browser -- --grep '공장 장면은|건물|CNC'`. 3D 소프트웨어 렌더 캡처는 시간이 걸린다. 이 세션의 검토 Vite는5194, 기존 다른 포트/DB는 건드리지 않았다. 재실행은 `npm --prefix frontend run dev -- --host 127.0.0.1 --port 5194 --strictPort`; Git의 합성 예제·문서·캡처를 사용하고 work/tmp에 의존하지 않는다.
+
 ## W2a-1b MES 기준정보 화면 완료 (2026-10-09)
 
 - branch main. M-16 불량·사유 코드, M-17 작업자·근무조, M-19 라벨 양식, M-26 공정 검사 기준. MES OpenAPI 경로 50 → 62.

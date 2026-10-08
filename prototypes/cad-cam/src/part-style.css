@@ -271,3 +271,81 @@ a {
 #shortcut-help::backdrop {
   background: #1f2d3d33;
 }
+
+/* UI-DESIGN-02: common workspace control vocabulary. */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid #1f2d3d;
+  outline-offset: 3px;
+}
+button,
+input,
+select {
+  min-height: 34px;
+}
+button {
+  border-radius: 6px;
+  transition: background-color 150ms ease;
+}
+input,
+select,
+textarea {
+  border-color: #c9cfd3;
+}
+aside {
+  scrollbar-gutter: stable;
+}
+h2 {
+  letter-spacing: -0.015em;
+}
+header {
+  padding: 10px 16px;
+}
+button:disabled {
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
+  }
+}
+.toolbar #undo {
+  margin-left: auto;
+}
+.layout > aside {
+  background: #fafafa;
+}
+.layout > aside h2 {
+  padding-bottom: 12px;
+  border-bottom: 1px solid #dce0e2;
+  color: #1f2d3d;
+}
+#apply {
+  width: 100%;
+  background: #1f2d3d;
+  color: white;
+  border-color: #1f2d3d;
+  margin: 14px 0 8px;
+}
+.direct-edit {
+  border-top: 1px solid #dce0e2;
+  padding-top: 16px;
+  margin-top: 20px;
+}
+@media (min-width: 1100px) {
+  .layout {
+    grid-template-columns: 220px minmax(0, 1fr) 300px;
+    min-height: 480px;
+    height: calc(100dvh - 138px);
+  }
+}
+.layout > * {
+  min-width: 0;
+}
+#viewer canvas {
+  display: block;
+  max-width: 100%;
+}

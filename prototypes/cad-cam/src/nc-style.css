@@ -421,3 +421,163 @@ nav {
 .proposal-card[data-selected="true"] {
   border: 2px solid #1f2d3d;
 }
+
+/* UI-DESIGN-02: existing controls, clear preparation / viewport / results. */
+main.nc-review-layout {
+  grid-template-columns: 280px minmax(0, 1fr) 360px;
+  min-height: 0;
+  height: calc(100dvh - 120px);
+}
+.nc-review-layout > .inputs,
+.nc-review-layout > .workspace,
+.nc-review-layout > .review-results {
+  overflow: auto;
+  min-width: 0;
+  padding: 16px;
+  scrollbar-gutter: stable;
+}
+.nc-review-layout > .review-results {
+  border-left: 1px solid #dce0e2;
+  border-right: 0;
+  background: #fafafa;
+}
+.nc-review-layout > .inputs {
+  background: #fafafa;
+}
+.nc-review-layout #viewer {
+  height: clamp(300px, 48dvh, 620px);
+  background: #eff1f1;
+}
+.preparation-step {
+  border: 0;
+  border-top: 1px solid #dce0e2;
+  padding: 14px 0;
+  margin: 0;
+  border-radius: 0;
+}
+.preparation-step > summary,
+.review-results > details > summary {
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0;
+  line-height: 1.5;
+}
+.review-results .stock-output,
+.review-results .hugh-panel {
+  border: 0;
+  border-top: 1px solid #dce0e2;
+  border-radius: 0;
+  padding: 16px 0;
+  margin: 0;
+  background: transparent;
+}
+.review-results pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.review-results table {
+  display: block;
+  max-width: 100%;
+  overflow: auto;
+}
+.review-results .hugh-panel .buttons {
+  gap: 6px;
+}
+.review-results details {
+  min-width: 0;
+}
+.review-results .stock-output h2 {
+  font-size: 14px;
+}
+.review-results .hugh-panel p {
+  line-height: 1.6;
+}
+.nc-review-layout .view-head {
+  position: sticky;
+  top: -16px;
+  background: #f7f7f6;
+  z-index: 2;
+  padding: 10px 0;
+}
+.nc-review-layout .playback-panel {
+  border-radius: 6px;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 2px solid #1f2d3d;
+  outline-offset: 3px;
+}
+button,
+input,
+select,
+textarea {
+  min-height: 34px;
+}
+header nav {
+  flex-wrap: wrap;
+}
+.notice {
+  font-size: 12px;
+  line-height: 1.6;
+}
+@media (max-width: 1200px) {
+  main.nc-review-layout {
+    grid-template-columns: 240px minmax(0, 1fr) 310px;
+  }
+}
+@media (max-width: 950px) {
+  main.nc-review-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .nc-review-layout > .inputs,
+  .nc-review-layout > .workspace,
+  .nc-review-layout > .review-results {
+    overflow: visible;
+    border: 0;
+    border-bottom: 1px solid #dce0e2;
+  }
+  .nc-review-layout .view-head {
+    position: static;
+  }
+  .nc-review-layout #viewer {
+    height: 360px;
+  }
+  .nc-review-layout .review-results {
+    padding: 18px;
+  }
+  .nc-review-layout .axis-limits {
+    grid-template-columns: 1fr;
+  }
+  .nc-review-layout .xyz {
+    flex-wrap: wrap;
+  }
+  .nc-review-layout .xyz label {
+    flex: 1 1 70px;
+  }
+}
+.preparation-step > h2,
+.review-results > details > .stock-output > h2 {
+  display: none;
+}
+
+main.nc-review-layout {
+  align-items: stretch;
+  grid-template-rows: minmax(0, 1fr);
+}
+.nc-review-layout > .inputs,
+.nc-review-layout > .workspace,
+.nc-review-layout > .review-results {
+  min-height: 0;
+  max-height: none;
+  position: static;
+}
+@media (max-width: 950px) {
+  main.nc-review-layout {
+    grid-template-rows: none;
+  }
+}

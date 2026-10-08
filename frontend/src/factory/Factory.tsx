@@ -270,23 +270,6 @@ export default function Factory() {
             >
               {walking ? "전체 조감도로" : "걸어서 둘러보기"}
             </button>
-            <button
-              aria-pressed={!animated}
-              onClick={() => setAnimated(!animated)}
-            >
-              {animated ? "시연 일시정지" : "시연 재생"}
-            </button>
-            <button
-              onClick={() => {
-                setFocused(false);
-                position.current = immersive
-                  ? { x: 4, y: 0, z: 4.6 }
-                  : { ...(view === "office" ? OFFICE_START : START) };
-                setReset((n) => n + 1);
-              }}
-            >
-              시점 초기화
-            </button>
           </div>
         </div>
       </div>
@@ -643,6 +626,27 @@ export default function Factory() {
           </section>
         )}
       </div>
+      <div
+        className="factory-playback-controls"
+        role="group"
+        aria-label="시연과 시점 조작"
+      >
+        <span className="factory-control-label">시연 조작</span>
+        <button aria-pressed={!animated} onClick={() => setAnimated(!animated)}>
+          {animated ? "시연 일시정지" : "시연 재생"}
+        </button>
+        <button
+          onClick={() => {
+            setFocused(false);
+            position.current = immersive
+              ? { x: 4, y: 0, z: 4.6 }
+              : { ...(view === "office" ? OFFICE_START : START) };
+            setReset((n) => n + 1);
+          }}
+        >
+          시점 초기화
+        </button>
+      </div>
       <section className="factory-work-links" aria-label="공간과 업무 연결">
         <Link to="/mes">
           <span>01 / 생산 현장</span>
@@ -662,8 +666,7 @@ export default function Factory() {
       </section>
       <div className="factory-bottom">
         <section className="factory-process">
-          <span className="eyebrow">PROCESS LINE / 1F</span>
-          <h2>세 공정이 하나의 흐름으로</h2>
+          <h2>공정 선택</h2>
           <div className="factory-process-buttons">
             {stations.map((s, i) => (
               <button

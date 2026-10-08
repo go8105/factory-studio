@@ -115,6 +115,7 @@ test("Blender 설비를 불러오고 검사·정지·재개를 시연한다", as
   await page.screenshot({ path: "../work/vision-desktop.png", fullPage: true });
 });
 test("건물 외관과 내부를 전환하고 모바일에서도 표시한다", async ({ page }) => {
+  test.setTimeout(60000); // Multiple software WebGL captures and navigation across the viewport.
   await expect(
     page.getByRole("button", { name: "건물 외관", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
