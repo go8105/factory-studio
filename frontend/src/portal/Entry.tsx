@@ -66,7 +66,7 @@ export function Entry() {
           올인원 시스템
         </h1>
         <p className="lead">
-          MES · ERP · FEMS · QMS · WMS · BEMS · SPC · GW를 각각 독립된
+          MES · ERP · FEMS · QMS · WMS · BEMS · SPC · GW · HR을 각각 독립된
           솔루션으로 만들었습니다.
           <br />
           가입 없이 바로 둘러보세요.
@@ -155,6 +155,7 @@ export function Entry() {
         <span>BEMS / 건물관리</span>
         <span>SPC / 공정관리</span>
         <span>GW / 그룹웨어</span>
+        <span>HR / 인사·급여</span>
       </footer>
     </main>
   );

@@ -51,6 +51,22 @@
       "field": "경영·협업"
     },
     {
+      "id": "hr",
+      "abbr": "HR",
+      "name": "인사·급여",
+      "layer": "경영/전략",
+      "status": "implemented",
+      "to": "/hr",
+      "summary": "사원·발령에서 근태·휴가, 급여 확정까지",
+      "receives": ["core 공통 휴일 달력"],
+      "gives": [
+        "사원·부서 코드(모든 솔루션 'HR에서 가져오기')",
+        "확정 급여 부서·항목별 합계 → ERP 급여 전표"
+      ],
+      "rel": ["erp", "gw", "mes", "eip"],
+      "field": "경영·협업"
+    },
+    {
       "id": "plm",
       "abbr": "PLM",
       "name": "제품 생애주기",
