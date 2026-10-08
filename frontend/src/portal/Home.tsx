@@ -57,6 +57,12 @@ export const solutions = [
     description: "기안·순차 결재에서 게시·정정 기록까지",
     to: "/gw",
   },
+  {
+    key: "hr",
+    name: "인사·급여",
+    description: "사원·발령에서 근태·휴가, 급여 확정까지",
+    to: "/hr",
+  },
 ] as const;
 /** 솔루션 수를 목록 길이에서 만든다 — 솔루션이 늘어도 문구를 고치지 않는다. */
 const COUNTS = [
@@ -151,6 +157,12 @@ function AppIcon({ kind }: { kind: (typeof solutions)[number]["key"] }) {
             strokeLinecap="round"
             strokeLinejoin="round"
           />
+        </>
+      ) : kind === "hr" ? (
+        <>
+          <circle cx="24" cy="16" r="7" fill="#5d6f7e" />
+          <path d="M10 42c0-8 6-13 14-13s14 5 14 13Z" fill="#8c93a0" />
+          <rect x="29" y="30" width="12" height="9" rx="2" fill="#a69574" />
         </>
       ) : kind === "wms" ? (
         <>
