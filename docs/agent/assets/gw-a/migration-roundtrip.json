@@ -1,0 +1,16 @@
+{
+  "legacy_rows_preserved": {
+    "gw.person": 2,
+    "gw.approval_route": 1,
+    "gw.route_step": 1,
+    "gw.approval_document": 1,
+    "gw.approval_step": 1,
+    "gw.approval_event": 3,
+    "gw.board_post": 0,
+    "gw.board_event": 0
+  },
+  "approved_document_preserved": true,
+  "downgrade_ddl_errors": 0,
+  "upgrade_ddl_errors": 0,
+  "head": "gw_a_dsn31"
+}

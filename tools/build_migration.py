@@ -163,17 +163,29 @@ def build(
             continue
         up.append(foreign_key_sql(r, i))
 
-    down = [f"DROP TABLE {t['name']}" for t in reversed(fresh)]
-    down += [f"DROP SCHEMA {s}" for s in schemas]
-    down = [f"ALTER TABLE {t} DROP COLUMN {c}" for t, c in reversed(added)] + down
+    # 새 FK/제약을 먼저 해제한다. 기존 표 → 새 표 참조 및 self-FK도 있어
+    # 표/칼럼부터 지우면 RESTRICT에서 실패하거나 제약이 묵시 삭제된다.
+    down: list[str] = []
+    for i, r in reversed(list(enumerate(design["relations"]))):
+        if r["source"] in names and not (
+            i < len(old_relations) and old_relations[i] == r
+        ):
+            down.append(f"ALTER TABLE {r['source']} DROP CONSTRAINT r{i}_fk")
+    for i, c in reversed(list(enumerate(design["constraints"]))):
+        if c["table"] not in names or (
+            i < len(old_constraints) and old_constraints[i] == c
+        ):
+            continue
+        statement = drop_sql(c, i)
+        if statement:
+            down.append(statement)
+    down.extend(f"ALTER TABLE {t} DROP COLUMN {c}" for t, c in reversed(added))
+    down.extend(f"DROP TABLE {t['name']}" for t in reversed(fresh))
+    down.extend(f"DROP SCHEMA {s}" for s in schemas)
     for i in reversed(replaced):
-        # 되돌릴 때는 새 제약을 먼저 지우고 옛 정의를 다시 만든다.
         back = create_sql(old_constraints[i], i)
-        forward = drop_sql(design["constraints"][i], i)
         if back:
-            down.insert(0, back)
-        if forward:
-            down.insert(0, forward)
+            down.append(back)
 
     module = []
     if module_key:
@@ -260,7 +272,9 @@ def main() -> None:
     raw = CURRENT.read_bytes()
     design = json.loads(raw)
     args.version, args.task = design["version"], design["task"]
-    previous = json.loads(args.previous.read_text(encoding="utf-8")) if args.previous else None
+    previous = (
+        json.loads(args.previous.read_text(encoding="utf-8")) if args.previous else None
+    )
     up, down, module = build(design, args.tables, args.module_key, previous)
     args.out.write_text(
         render(args, up, down, module, hashlib.sha256(raw).hexdigest()),

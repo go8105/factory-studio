@@ -1,0 +1,2 @@
+900 passed, 1 skipped, 25 warnings in 330.21s (0:05:30)
+perf excluded; independent factory_studio_gw_a_test and four worker clones.

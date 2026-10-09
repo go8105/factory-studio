@@ -29,7 +29,7 @@ REVIEW_DESIGN = ROOT/'docs/plan/런처평가_한줄평_FS-040.md'
 
 def at_least(task, gate):
     """일괄 개발(W…) 단계는 그 앞의 모든 검사를 켠다. 새 작업 ID를 집합마다 더하지 않는다."""
-    return task.startswith('W') or task in gate
+    return task.startswith(('W', 'GW-')) or task in gate
 
 
 def gate_task(d):
@@ -87,7 +87,7 @@ def design_names(task='FS-014'):
 def expected_names(d):
     """이 설계 파일이 가질 수 있는 표 이름. 일괄 개발(W…)·목표 설계는 DSN 설계 문서의 표도 포함한다."""
     task = gate_task(d)
-    return design_names(task) | (target_names() if d.get('target') or task.startswith('W') else set())
+    return design_names(task) | (target_names() if d.get('target') or task.startswith(('W', 'GW-')) else set())
 
 
 def validate(d, expected=None, isolation=True):
@@ -99,7 +99,7 @@ def validate(d, expected=None, isolation=True):
     tables = {t['name']: t for t in d['tables']}
     require(len(tables) == len(d['tables']), 'Duplicate table')
     if expected is not None:
-        if task.startswith('W') and not d.get('target'):
+        if task.startswith(('W', 'GW-')) and not d.get('target'):
             # 일괄 개발: 제품 DB는 단계마다 자란다. 설계에 없는 표만 막는다.
             require(set(tables) <= expected, f'Design inventory mismatch: extra={sorted(set(tables)-expected)}')
         else:
@@ -629,9 +629,11 @@ def validate_gw_dsn31(d):
     require(any(c['table'] == 'gw.approval_document' and c['kind'] == 'CHECK' and "'PLM_ECO'" in c['expression'] and "'ERP_PO'" in c['expression'] for c in cs), 'approval kinds include ERP PO/expense and PLM ECO (Q2)')
     require(not uk('gw.approval_step', ['document_id', 'seq']) and uk('gw.approval_step', ['document_id', 'person_id']), 'parallel approval: several people per stage, one row per person (Q3)')
     require(uk('gw.notification', ['recipient_id', 'event_key']) and uk('gw.chat_message', ['channel_id', 'seq']), 'notification and message idempotency (Q5)')
-    require(any(c['table'] == 'core.workspace' and c['kind'] == 'CHECK' and "'TEAM'" in c['expression'] for c in cs) and uk('core.workspace_membership', ['workspace_id', 'user_id']), 'TEAM space and membership live in core (Q1)')
+    if d.get('target') or 'core.workspace_membership' in ts:
+        require(any(c['table'] == 'core.workspace' and c['kind'] == 'CHECK' and "'TEAM'" in c['expression'] for c in cs) and uk('core.workspace_membership', ['workspace_id', 'user_id']), 'TEAM space and membership live in core (Q1)')
     require(not any(r['source'].startswith('gw.') and r['target'] == 'core.app_user' for r in rs), 'GW keeps account subjects as strings, no FK to core.app_user')
-    require(any(c['table'] == 'erp.approval_policy' and c['kind'] == 'CHECK' and "'REQUIRED'" in c['expression'] for c in cs) and 'gw_document_no' in ts.get('erp.approval_evidence', ()), 'ERP owns the confirm control and evidence (Q6)')
+    if d.get('target') or 'erp.approval_policy' in ts:
+        require(any(c['table'] == 'erp.approval_policy' and c['kind'] == 'CHECK' and "'REQUIRED'" in c['expression'] for c in cs) and 'gw_document_no' in ts.get('erp.approval_evidence', ()), 'ERP owns the confirm control and evidence (Q6)')
     return errors
 
 

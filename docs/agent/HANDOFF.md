@@ -1,5 +1,13 @@
 # Factory Studio 작업 인계
 
+## GW-a 체험 그룹웨어 DB (2026-10-09)
+
+- branch `codex/gw-dsn31`, 시작 `af10726`, 마지막 커밋 `git log -1 --oneline`. 작업 경로는 `git worktree list`의 해당 브랜치. main/다른 세션 폴더는 수정하지 않았다. [결과](GW_체험보강_DB_GW-a.md).
+- 완료: DSN-31 체험·조직11표 + 기존6표15칼럼, GW19/전체173, schema0.21.0/head`gw_a_dsn31`. 실제 도입A5표·CORE TEAM·ERP통제 제외. metadata/Excel/ERD/현황/progress 동시 갱신. `apply_gw_a.py` 멱등·제약순번보존; `build_migration.py` rollback FK/제약→칼럼→표→옛제약복원으로 보정. 이전 migration은 수정하지 않았다.
+- 독립 `factory_studio_gw_a_test`에만 적용. 공유개발·CI원본·운영DB 미적용. 기존승인문서 왕복/DDL대조0, 도구4/실DB신규3·기존GWfrontend5/tsc/eslint/ruff/브라우저담당자등록 통과. 전체 backend900통과·1건너뜀(330.21초). 코드/API/신규화면은 미구현, 원격push/배포 없음.
+- 다음: 사용자 결과 확인 후 GW-b. 기존policy_version1 기본값으로 v1 순차결재 유지. ERP 발주/지출결의·PLM ECO 제공 인터페이스 존재 확인. A를 GW-a16표로 다시 넣지 않는다(인계프롬프트의 A 제외와 충돌).
+- 재현: 결과문서의 명령. 새 DB는 PG18 및 `_test` 접미사. venv/node_modules는 main 것 재사용 가능하나 `PYTHONPATH=backend/src:backend`로 현재 worktree의 코드 사용. 테스트는 `EMPTY_MODULES=("gw",)`로 빈모듈 표시. 목표 `base_task`는 GW-a; main MES 진행과 병합할 때 schema/migration 부모/제약순번/버전을 다시 대조해야 한다. worktree branch의 단일 head는 w2a1_mes→gw_a_dsn31. 시드버전 변경 없음.
+
 ## UI-DESIGN-02 실제 UI 적용 (2026-10-09)
 
 - branch main, 시작 기준66e3001, UI 구현 커밋 **0d34ec5**. 마지막 인계 커밋은 `git log -1 --oneline`. 사용자 전체 추천안 확인 후 구현100%. 로컬 커밋만, 원격 push/운영 배포 없음. 병행 MES/common/master·shared/master·MES 화면/테스트는 다른 작업자의 변경이며 보존/스테이징 제외.
