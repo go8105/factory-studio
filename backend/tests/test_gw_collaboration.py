@@ -654,3 +654,63 @@ def test_common_providers_pending_month_and_disabled(space):
         assert interface.pending_tasks(conn, ctx, "HR-ONE") is None
         assert interface.monthly_summary(conn, ctx, month) is None
         assert interface.lookup(conn, ctx, d["documentNo"]) is None
+
+
+def test_inactive_department_does_not_prevent_notice_withdrawal(space):
+    c, s, e, pp = space
+    orgs = organizations(space)
+    p = post(space, "ORG", orgs[0])
+    with e.begin() as conn:
+        conn.execute(
+            text("UPDATE gw.organization_unit SET is_active=false WHERE id=:id"),
+            {"id": orgs[0]},
+        )
+    withdrawn = ok(
+        call(
+            c,
+            s,
+            "POST",
+            f"/posts/{p['id']}/withdraw",
+            {
+                "actingPersonId": pp[0]["id"],
+                "expectedVersion": p["version"],
+                "reason": "부서 공지 철회",
+            },
+        )
+    )
+    assert withdrawn["status"] == "WITHDRAWN"
+
+
+def test_left_member_cannot_replay_cached_message_but_leave_retries(space):
+    c, s, _e, pp = space
+    ch = channel(space)
+    path = f"/channels/{ch['id']}"
+    key = str(uuid4())
+    body = {
+        "actingPersonId": pp[1]["id"],
+        "body": "나가기 전 내용",
+        "clientKey": "prior",
+    }
+    ok(call(c, s, "POST", path + "/messages", body, key))
+    leave_key = str(uuid4())
+    leave = {"actingPersonId": pp[1]["id"]}
+    ok(call(c, s, "POST", path + "/leave", leave, leave_key))
+    assert ok(call(c, s, "POST", path + "/leave", leave, leave_key))["left"]
+    assert call(c, s, "POST", path + "/messages", body, key).status_code == 404
+
+
+def test_hidden_notice_notification_cannot_replay_cached_read(space):
+    c, s, e, pp = space
+    orgs = organizations(space)
+    post(space, "ORG", orgs[0])
+    n = inbox(space, 1)[0]
+    key = str(uuid4())
+    body = {"actingPersonId": pp[1]["id"]}
+    path = f"/notifications/{n['id']}/read"
+    ok(call(c, s, "POST", path, body, key))
+    with e.begin() as conn:
+        conn.execute(
+            text("UPDATE gw.person SET organization_unit_id=:org WHERE id=:id"),
+            {"id": int(pp[1]["id"]), "org": orgs[1]},
+        )
+    assert call(c, s, "POST", path, body, key).status_code == 404

@@ -286,6 +286,40 @@ def mutate(context, resource, id, action, v, key):
         "messages": "chat_message",
     }[resource]
 
+    def authorize(c, ctx):
+        p = s.actor(c, ctx, v["acting_person_id"])
+        if resource == "comments":
+            row = s.one(c, ctx, "comment", id) if id else None
+            target(
+                c,
+                ctx,
+                row["target_kind"] if row else v["target_kind"],
+                (row["post_id"] or row["document_id"]) if row else v["target_id"],
+                p,
+            )
+            if row and row["status"] == "DELETED" and action != "delete":
+                missing()
+        elif resource == "notifications":
+            row = s.one(c, ctx, "notification", id)
+            s.authored(row, p, "recipient_id")
+            if row["ref_kind"] == "POST":
+                target(c, ctx, "POST", row["ref_id"], p)
+            if row["ref_kind"] == "EVENT":
+                calendar_detail(c, ctx, row["ref_id"], p)
+        elif resource == "calendar" and id:
+            calendar_detail(c, ctx, id, p)
+        elif resource == "messages" or (resource == "channels" and action == "read"):
+            membership(c, ctx, id, p)
+        elif resource == "channels" and action == "leave":
+            # A repeated leave can safely replay its confirmation, never message content.
+            s.one(c, ctx, "chat_channel", id)
+            if not s.rows(
+                c,
+                f"SELECT id FROM gw.chat_member WHERE {s.S} AND channel_id=:id AND person_id=:person",
+                s.params(ctx, id=id, person=p["id"]),
+            ):
+                missing()
+
     def run(c, ctx):
         p = s.actor(c, ctx, v["acting_person_id"])
         entity = id
@@ -560,6 +594,7 @@ def mutate(context, resource, id, action, v, key):
         v,
         run,
         201 if id is None else 200,
+        authorize=authorize,
     )
 
 
@@ -587,4 +622,14 @@ def respond(context, id, v, key):
         s.audit(c, ctx, "calendar", id, "respond", result, table="calendar_event")
         return result, "gw.calendar_event", id
 
-    return s.run_action("gw", context, f"gw.calendar.{id}.respond", key, v, run)
+    return s.run_action(
+        "gw",
+        context,
+        f"gw.calendar.{id}.respond",
+        key,
+        v,
+        run,
+        authorize=lambda c, ctx: calendar_detail(
+            c, ctx, id, s.actor(c, ctx, v["acting_person_id"])
+        ),
+    )

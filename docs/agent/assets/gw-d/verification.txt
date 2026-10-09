@@ -1,0 +1,8 @@
+2026-10-09 Chrome / isolated local API8073+Vite5273 / synthetic workspace21
+- Calendar: GE-000001; Korean14:00~15:00 after edit, weekly10-05~11; separate attendee ACCEPTED.
+- Notification: recipient schedule2, one read; workspace notice; link opens post.
+- Post GB-000001: published body unchanged; other person comment create -> revision1 preserved -> delete marker via inline confirmation.
+- Chat: direct channel6; separate tabs person146/147; automatic messages seq1,2 then reply seq3; read cursor3; left person's list removes channel.
+- 390px: chat375/375, calendar375/375, inbox390/390 (clientWidth/scrollWidth). Responsive menu closed before screenshots.
+- g-13 help content and screen backlink visible.
+- Native confirmation control delayed while macOS locked; application inline confirmation verified in new tab. Desktop capture of old native dialog excluded.

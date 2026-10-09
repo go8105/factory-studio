@@ -1,8 +1,13 @@
-# GW-d 협업 구현·검증 진행 중 (2026-10-09)
+# GW-d 협업 인계 (2026-10-09)
 
-- 사용자 다음 단계 승인. codex/gw-dsn31, 기준b39e274, 댓글/부서공지/일정/알림/채팅·제공4종 구현. 전체 프런트565통과, 신규DB18통과, 전체backend 실행 중. 완료 아님.
-- Chrome 실제 일정 생성/시각수정/참석응답·알림읽음·공지게시/댓글수정이력 확인. 댓글삭제 확인창 뒤 CDP응답 지연 점검 중. 채팅/390px·최종보고/검증 남음.
-- 공유 main/DB/push/배포 없음. 로컬8073/5273 검증 서버 실행 중. 상세재현은 이전 GW-c 기록 참고. .env/work/의존성 심볼릭링크 스테이징 제외.
+- 브랜치 codex/gw-dsn31, 기준b39e274, WIP2a30415, 마지막커밋 git log -1 --oneline. worktree `/Users/hwang-kyoungho/Documents/Codex/2026-10-09/gw/work/factory-studio-gw`. [결과](GW_협업_GW-d.md). main/공유DB/push/merge/배포 없음.
+- 완료: 댓글revision/삭제표시·부서공지/현재조직열람, 개인/부서 월/주 일정·응답/수정/취소, 알림 동일TX recipient/event_key중복0·읽음/현재열람, 채팅 1:1/그룹·HTTP저장/활성3초조회·seq/clientKey·탈퇴차단. G-04/05보강·G-11/12/13, 도움말4신규+G04보강. EIP전체공간공지·공통4종제공(None off/빈결과구분). commonengine optional authorize를 공간잠금후/멱등재사용전에 실행, 기존호출 기본None.
+- 검증: 전체backend967/1skipped(마지막권한보정전), 최종공통/GW 103통과(협업23), frontend566/71파일, 최종타입/전체lint/build·범위Ruff/format·DB설계/격리0. 실제Chrome 일정/응답·알림/공지댓글/삭제·두탭자동채팅/읽음/탈퇴·390px/도움말 확인. 대량부하/네이티브인쇄PDF/실제회사권한/운영 미검증, 기존rootRuff GW import2건 유지.
+- DB schema0.21.0/GW19·전체173/headgw_a_dsn31, 시드버전 변경없음. 실제도입A/CORE TEAM/ERP F44 제외. 신규ERP발주/경비·PLMECO 원천제공은 외부미구현, GW계약 유지.
+- 다음: 사용자 결과 확인 후 GW-e 시드·도움말·통합 검증. 아직 착수안함. 전결rule/위임/approval_event.details/조직 및 협업 댓글revision·일정attendee·알림event_key·chatseq/clientKey/readCursor 유데이터의 세대 복사/날짜/내부ID·정리 검증. 일반/부서공지·결재알림대기·채팅·일정 체험시드와 공통도움말/DSN90 계약 정리.
+- 재현은 결과문서 표준명령. 기존 main venv/node_modules/Node24 재사용 가능하나 PYTHONPATH=backend/src:backend 필수. 독립 *_test DB만, 같은DB 독립pytest 병렬금지; 전체 -n4 초기원본복제 동안 preview연결금지. 최종집중은 원본preview와 별도작업자DB사용. 서버8073/5273 종료, 의존성 심볼릭링크 최종정리. mac잠금native창은제어지연, 화면내확인으로검증완료. work/비밀정보스테이징금지.
+
+## 이전 GW-c 기록
 
 # GW-c 조직·HR 연계 인계 (2026-10-09)
 

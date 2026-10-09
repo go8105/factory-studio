@@ -193,4 +193,8 @@
     display: none !important;
   }
 }
-@media(max-width:600px) { .gw-calendar-spacer { display:none; } }
+@media (max-width: 600px) {
+  .gw-calendar-spacer {
+    display: none;
+  }
+}

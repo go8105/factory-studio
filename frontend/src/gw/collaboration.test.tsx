@@ -240,3 +240,39 @@ it("collaboration does not read private resources without a selected role", () =
   ).toBeInTheDocument();
   expect(fetch).not.toHaveBeenCalled();
 });
+it("comment deletion requires an inline confirmation and preserves version", async () => {
+  const fetch = vi
+    .spyOn(globalThis, "fetch")
+    .mockImplementation(async (_u, o) =>
+      reply(
+        o?.method === "POST"
+          ? { id: "3", status: "DELETED" }
+          : [
+              {
+                id: "3",
+                authorId: "1",
+                authorName: "등록자",
+                body: "의견",
+                status: "ACTIVE",
+                version: 4,
+                createdAt: null,
+                revisions: [],
+              },
+            ],
+      ),
+    );
+  show(<Comments kind="POST" id="5" />);
+  fireEvent.click(await screen.findByRole("button", { name: "댓글 삭제" }));
+  expect(fetch.mock.calls.filter(([, o]) => o?.method === "POST")).toHaveLength(
+    0,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "댓글 삭제 확인" }));
+  await waitFor(() =>
+    expect(fetch.mock.calls.some(([, o]) => o?.method === "POST")).toBe(true),
+  );
+  expect(
+    JSON.parse(
+      String(fetch.mock.calls.find(([, o]) => o?.method === "POST")?.[1]?.body),
+    ),
+  ).toEqual({ actingPersonId: "1", expectedVersion: 4 });
+});

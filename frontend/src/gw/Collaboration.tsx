@@ -24,6 +24,49 @@ function GuardNotice({ guard }: { guard: DiscardGuard }) {
   ) : null;
 }
 
+function ConfirmButton({
+  label,
+  question,
+  disabled,
+  onConfirm,
+}: {
+  label: string;
+  question: string;
+  disabled: boolean;
+  onConfirm: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" disabled={disabled} onClick={() => setOpen(true)}>
+        {label}
+      </button>
+      {open && (
+        <div role="alert">
+          <p>{question}</p>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => {
+              setOpen(false);
+              onConfirm();
+            }}
+          >
+            {label} 확인
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setOpen(false)}
+          >
+            계속 유지
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
 type Comment = {
   id: string;
   authorId: string;
@@ -141,25 +184,24 @@ function CommentSpace({
               >
                 댓글 수정
               </button>
-              <button
+              <ConfirmButton
+                label="댓글 삭제"
+                question="댓글을 삭제 표시할까요?"
                 disabled={req.pending}
-                onClick={() => {
-                  if (window.confirm("댓글을 삭제 표시할까요?"))
-                    void req
-                      .send(`/comments/${c.id}/delete`, "POST", {
-                        actingPersonId: person,
-                        expectedVersion: c.version,
-                      })
-                      .then((r) => {
-                        if (r) {
-                          list.reload();
-                          if (offset) more.reload();
-                        }
-                      });
+                onConfirm={() => {
+                  void req
+                    .send(`/comments/${c.id}/delete`, "POST", {
+                      actingPersonId: person,
+                      expectedVersion: c.version,
+                    })
+                    .then((r) => {
+                      if (r) {
+                        list.reload();
+                        if (offset) more.reload();
+                      }
+                    });
                 }}
-              >
-                댓글 삭제
-              </button>
+              />
             </div>
           )}
         </article>
@@ -608,29 +650,28 @@ function CalendarSpace() {
                     {ev.ownerId === person && (
                       <>
                         <button onClick={() => edit(ev)}>일정 수정</button>
-                        <button
+                        <ConfirmButton
+                          label="일정 취소"
+                          question="일정을 취소할까요?"
                           disabled={req.pending}
-                          onClick={() => {
-                            if (window.confirm("일정을 취소할까요?"))
-                              void req
-                                .send<CalendarEvent>(
-                                  `/calendar/${ev.id}/cancel`,
-                                  "POST",
-                                  {
-                                    actingPersonId: person,
-                                    expectedVersion: ev.version,
-                                  },
-                                )
-                                .then((r) => {
-                                  if (r) {
-                                    detail.setData(r);
-                                    list.reload();
-                                  }
-                                });
+                          onConfirm={() => {
+                            void req
+                              .send<CalendarEvent>(
+                                `/calendar/${ev.id}/cancel`,
+                                "POST",
+                                {
+                                  actingPersonId: person,
+                                  expectedVersion: ev.version,
+                                },
+                              )
+                              .then((r) => {
+                                if (r) {
+                                  detail.setData(r);
+                                  list.reload();
+                                }
+                              });
                           }}
-                        >
-                          일정 취소
-                        </button>
+                        />
                       </>
                     )}
                     {ev.attendees.some((a) => a.personId === person) &&
@@ -693,7 +734,7 @@ export function Chat() {
   return <ChatSpace key={person} />;
 }
 function ChatSpace() {
-  const { person, people } = useRole();
+  const { person, people, busy } = useRole();
   const channels = useGet<Channel[]>(
     person ? `/channels?personId=${person}` : null,
   );
@@ -715,7 +756,12 @@ function ChatSpace() {
         <NoRole />
       ) : (
         <>
-          <button onClick={() => setCreating(!creating)}>새 대화</button>
+          <button
+            disabled={busy}
+            onClick={() => guard.guard(() => setCreating(!creating))}
+          >
+            새 대화
+          </button>
           {creating && (
             <form
               onSubmit={(e) => {
@@ -782,6 +828,7 @@ function ChatSpace() {
                 <button
                   className="gw-channel"
                   key={ch.id}
+                  disabled={busy}
                   onClick={() => guard.guard(() => setSelected(ch.id))}
                 >
                   {ch.name} · 안 읽음 {ch.lastSeq - ch.lastReadSeq}
@@ -870,7 +917,6 @@ function Conversation({
   return (
     <section>
       <h3>{thread.data?.channel.name ?? "대화"}</h3>
-      <GuardNotice guard={guard} />
       <p>
         {thread.data?.members
           .map((m) => m.name + (m.leftAt ? " (나감)" : ""))
@@ -882,27 +928,21 @@ function Conversation({
       </p>
       <ErrorNotice error={thread.error ?? req.error} />
       <button onClick={thread.reload}>메시지 새로고침</button>
-      <button
+      <ConfirmButton
+        label="대화 나가기"
+        question="대화를 나가면 메시지를 더 이상 볼 수 없습니다. 나갈까요?"
         disabled={req.pending}
-        onClick={() =>
+        onConfirm={() =>
           guard.guard(() => {
-            if (
-              window.confirm(
-                "대화를 나가면 메시지를 더 이상 볼 수 없습니다. 나갈까요?",
-              )
-            )
-              void req
-                .send(`/channels/${id}/leave`, "POST", {
-                  actingPersonId: person,
-                })
-                .then((r) => {
-                  if (r) onLeave();
-                });
+            void req
+              .send(`/channels/${id}/leave`, "POST", { actingPersonId: person })
+              .then((r) => {
+                if (r) onLeave();
+              });
           })
         }
-      >
-        대화 나가기
-      </button>
+      />
+
       <div className="gw-messages" aria-live="polite">
         {messages.map((m) => (
           <article className="gw-message" key={m.id}>

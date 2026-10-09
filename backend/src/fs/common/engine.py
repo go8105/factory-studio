@@ -43,10 +43,15 @@ def action(
     body: Any,
     fn: Action,
     status: int = 200,
+    *,
+    authorize: Callable[[Connection, AuthContext], None] | None = None,
 ) -> Any:
-    """쓰기 한 건: 공간 잠금 → 멱등 영수증 확인 → 처리 → 영수증 저장(같은 트랜잭션)."""
+    """쓰기 한 건: 공간 잠금 → 선택 권한 재검사 → 멱등 영수증 확인 → 처리/영수증 저장."""
     with get_engine().begin() as connection:
         scoped = write_scope(connection, context, module)
+        # Access may be revoked after a receipt was saved (e.g. leaving a chat).
+        if authorize is not None:
+            authorize(connection, scoped)
         digest = request_digest(body)
         cached = find_receipt(connection, scoped, operation, key, digest)
         if cached is not None:

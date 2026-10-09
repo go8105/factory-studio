@@ -51,4 +51,5 @@ G-10은 현재 HR 계층과 마지막 GW 조직을 읽기 전용으로 비교한
 - `GET /notifications`, `POST /notifications/{id}/read`: 사람별/50개 페이지. 현재 공지·일정 열람을 페이지 처리 전에 재검사. 업무와 동일 TX 안 `recipient,event_key` ON CONFLICT 중복 제거. 읽음 시각 최초 값 유지. 결재 상신/단계 전환·종결, 공지 게시, 댓글 등록, 일정 생성/수정/취소.
 - `GET/POST /channels`, `GET/POST /channels/{id}/messages`, `POST .../read|leave`: 1:1/그룹, 고정 명단2~100명. 메시지 채널행 FOR UPDATE, 증가 seq, (channel,author,clientKey) 유일 + 내용 동일 재전송 확인. 공간 잠금·CSRF·멱등 영수증/감사 공통 action. 나간 후 전체 메시지 읽기·전송 차단. HTTP 저장 + 화면 활성 때3초 조회, 순번 cursor/100개 chunk, 오류 때 수동 재연결. 읽음 수동 단조 증가.
 - 제공 interface: `published_notices(connection,scoped,limit=10)`은 선택 역할 없는 EIP에 전체 공간 공지만, `monthly_summary(...,month)` KST 상신월 통계, `pending_tasks(...,hr_employee_code)` 현재 본인/위임 결재 대기, `lookup(...,code)` 문서/전체 게시 공지. 비활성 GW는 모두 None, 조회 가능 빈 결과와 구분. 제공 측은 타 업무 interface 호출 안 함.
+- common action의 선택 `authorize` 훅으로 영수증 재사용 전에도 현재 열람/멤버십을 재검사한다. 탈퇴 후 과거 전송 캐시 및 부서 이동 후 알림 읽음 캐시는 차단하며, 나가기 확인 재시도는 유지한다.
 - 실제 회사 계정/TEAM ACL·외부 메일/푸시·첨부·WebSocket/SSE·참여자 재초대는 미구현/범위 밖. GW-e에서 체험 시드와 유데이터 세대 복사·정리를 추가 검증한다. DB/schema0.21.0/headgw_a_dsn31 유지.
