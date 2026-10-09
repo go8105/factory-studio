@@ -1,0 +1,17 @@
+GW-c / 2026-10-09 / codex/gw-dsn31
+전체 backend: 944 passed, 1 skipped, 362.48s
+GW 집중: 66 passed, 107.36s
+감사 보정 후 GW-c 최종: 17 passed, 46.13s
+전체 frontend: 559 passed / 70 files, 38.52s
+최종 GW/MES master/shared/portal: 134 passed / 16 files, 8.30s
+TypeScript / frontend 전체 ESLint / 최종 build: pass
+GW backend / 신규 테스트 Ruff check+format: pass
+root 전체 backend Ruff: 기존 test_gw.py/test_gw_policy.py I001 2건(시작 커밋과 파일 동일)
+db:validate: errors [] / 173 tables / 412 FK
+실제 Chrome: HR 미개방 안내, HR 개방, 신규 사원10/부서4,
+HR명칭 변경 후 현재HR/마지막GW 차이, 재가져오기 신규0/갱신10,
+G10 도움말 본문 연결.
+390px viewport: 담당자 및 가져오기 client/body 375/375 (스크롤바 포함),
+표 내부 client/scroll 341/611; 조직도 client/body 390/390.
+하위 조직 및 HR 발령/상신 기록 불변: API/DB+frontend 검사, 브라우저 발령 재연 없음.
+브라우저 viewport복원, 탭/API/Vite 종료. 합성 데이터만 사용.

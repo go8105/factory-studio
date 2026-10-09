@@ -133,3 +133,9 @@
 .gw-org-tree small {
   display: block;
 }
+
+.gw-hr-import fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}

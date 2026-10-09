@@ -1,9 +1,14 @@
-# GW-c 검증 중 (2026-10-09)
+# GW-c 조직·HR 연계 인계 (2026-10-09)
 
-- 사용자 다음 진행/이어서 진행 승인으로 조직·HR 연계 수행. `codex/gw-dsn31`, 시작 `0dd6ef9`, 현재 마지막 커밋은 `git log -1 --oneline`.
-- 구현: G-07 공통 MasterScreen·명시적 HR 가져오기 미리보기/선택/재확인 digest, G-10 HR 조직·GW 스냅샷 조회. HR interface만 소비, 스냅샷 갱신·기존 직무/활성/문서 이력 보존, 순환·비활성 상위·중복·코드 충돌 거부. 읽기 상태에서 퇴직/원천 없음/조회 불가 구분.
-- 검증 진행: 신규 DB15개·전체 backend944/1 skipped 통과(역할 전체조회 추가 전). 전체 frontend559 통과 뒤 공통 마스터 검색/갱신·역할 옵션 보정, 최종 집중·정적/빌드 재검증 중. 브라우저 실제 사원10·부서4 가져오기·조직 스냅샷 확인, 모바일·계층/재가져오기 최종 확인 남음.
-- 독립 `_test` DB, `PYTHONPATH=backend/src:backend`, main venv/Node24 사용. 기본 cookie가 localhost의 다른 로컬 세션과 충돌할 수 있어 다음 브라우저 검증은127.0.0.2:5273 loopback으로 분리한다. API8073/Vite5273 현재 중지. DB/schema/시드 변경 없음. push·배포 없음. GW-d 미착수.
+- 완료: 사용자 후속 승인 범위 GW-c(G-07·G-10/F21~23). `codex/gw-dsn31`, 시작0dd6ef9/WIP1fe0642, 최종커밋 `git log -1 --oneline`. 격리 worktree `/Users/hwang-kyoungho/Documents/Codex/2026-10-09/gw/work/factory-studio-gw`. [결과](GW_조직HR연계_GW-c.md).
+- G-07 공통 MasterScreen·HR 미리보기/선택/명시적 가져오기, G-10 현재 HR/마지막 조직 조회, 도움말2편. HR interface만 읽는다. 이름/부서만 갱신·동일 사원 ID 유지, 기존 GW 직무/활성·상신 조직/이력 보존. 퇴직/원천 없음/조회 불가 구분. 조직 순환·비활성 상위·누락·중복·코드 충돌·원천 변경·동시성·롤백 보호. 신규 STAFF·최대1,000명/회·부서만 가져오기 가능. 전체 역할 조회로100명 이후 누락 방지.
+- 검증: 전체 backend944/1skipped(362.48초), 최종 GW66/신규17(107.36초), 감사 보정 후 신규17(46.13초). 전체 frontend559/70파일·최종집중134/16파일, 타입/빌드/전체frontend ESLint·GW Ruff·DB설계0. root 전체Ruff는 시작과 동일한 기존 test_gw.py·test_gw_policy.py import 정렬2건. import 분류는 실행 위치에 영향을 받으므로 결과문서의 명령/위치를 함께 재현한다.
+- 실제 Chrome: HR 미개방→개방→부서4/사원10 가져오기, HR 명칭 변경 뒤 현재HR/마지막GW 차이, 신규0·갱신10 재가져오기,390px 본문 넘침0·표 내부 스크롤·도움말. 발령/조직 불변은 실제HR API+DB로 검증(브라우저 발령 재연 없음). 모바일 체크박스 공통 inline-check 보정. 기존 MES 진입 테스트의 빈 dashboard mock만 정상 합성 응답으로 수정해 전체 프런트 회귀 안정화; MES 제품 코드 변경 없음.
+- 상태: DB/schema/시드 버전은 GW-a 그대로. main/공유DB/push/배포 없음. API8073/Vite5273·검증탭 종료, viewport복원, 의존성 symlink 제외/정리. 최종 브라우저는127.0.0.1(기본 localhost의 인증 쿠키와 분리). 접속값은 인계 문서/로그/Git에 넣지 않았다.
+- 재현: 독립 `_test` DB에 TEST_DATABASE_URL, `PYTHONPATH=backend/src:backend`, main venv와Node24 사용 가능. 전체pytest `-m 'not perf' -n4`, GW파일3개 집중, 프런트 전체/build·결과문서 명령. 같은DB에서 독립pytest 동시 실행 금지. xdist 복제 중 원본 DB에 접속하지 않는다.
+- 다음: 사용자 결과 확인 후 **GW-d 협업**(댓글/일정/알림/채팅). 미착수. 이후 GW-e 시드/도움말, 채워진 rule/delegation/event.details 복사·날짜·ID·증빙 검증 보강. EIP published_notices/공통4조회 실제 제공 상태도 후속 재대조. ERP F44/신규원천제공은 외부 담당자 소유, 실제 도입 A트랙은 제외. GW-b 인쇄 미리보기/PDF 미검증은 유지.
+
+## 이전 GW-b 인계 기록
 
 # GW-b 인계 (2026-10-09)
 

@@ -90,6 +90,18 @@ const processes = [
 
 type Reply = { status: number; body?: unknown };
 const LISTS: Record<string, unknown> = {
+  // 진입 화면의 비동기 조회도 실제 대시보드 계약을 반환해야 한다.
+  "/api/v1/mes/dashboard": {
+    month: "2026-09",
+    openOrders: 0,
+    producedQty: "0",
+    goodRate: null,
+    receivedPallets: 0,
+    pipeline: [],
+    defectReasons: [],
+    planVsActual: [],
+    pending: { unconfirmedResults: 0, unpackedLots: 0 },
+  },
   "/api/v1/mes/sites": sites,
   "/api/v1/mes/locations": places,
   "/api/v1/mes/equipments": equipments,

@@ -614,7 +614,9 @@ def dashboard(c, ctx, person):
     }
 
 
-def audit(c, ctx, kind, entity, action, result, table=None, summary=None):
+def audit(
+    c, ctx, kind, entity, action, result, table=None, summary=None, entity_kind=None
+):
     c.execute(
         text(
             "INSERT INTO core.audit_event(workspace_id,actor_user_id,action,entity_kind,entity_key,summary,actor_kind,actor_key,scope_kind,created_at) VALUES(:w,:user,:action,:entity,:id,CAST(:summary AS jsonb),:ak,:actor,'WORKSPACE',clock_timestamp())"
@@ -623,7 +625,7 @@ def audit(c, ctx, kind, entity, action, result, table=None, summary=None):
             "w": ctx.workspace_id,
             "user": ctx.user_id,
             "action": f"gw.{kind}.{action}",
-            "entity": "gw." + (table or TABLES[kind]),
+            "entity": entity_kind or "gw." + (table or TABLES[kind]),
             "id": str(entity),
             "summary": json.dumps(
                 summary

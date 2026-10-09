@@ -67,7 +67,7 @@ export type MasterField<Draft> =
     }
   | { kind: "check"; key: keyof Draft & string; label: string };
 
-export type MasterSpec<Row extends { id: number }, Draft> = {
+export type MasterSpec<Row extends { id: number | string }, Draft> = {
   /** 화면 ID·제목·도움말 경로 (PageTitle과 같은 ID를 쓴다) */
   id: string;
   title: string;
@@ -142,7 +142,7 @@ function SelectField({
 
 /** spec을 바꿔 가며 쓰려면(탭 등) `key`를 함께 준다 — 목록·입력 상태가 그대로 남는다. */
 export function MasterScreen<
-  Row extends { id: number },
+  Row extends { id: number | string },
   Draft extends Record<string, unknown>,
 >({ spec }: { spec: MasterSpec<Row, Draft> }) {
   const limit = spec.limit ?? 20;
@@ -158,7 +158,7 @@ export function MasterScreen<
   const editing = panel?.row ?? null;
   const [draft, setDraft] = useState<Draft>(spec.blank);
   const [initial, setInitial] = useState<Draft>(spec.blank);
-  const [confirmDelete, setConfirmDelete] = useState<number>();
+  const [confirmDelete, setConfirmDelete] = useState<number | string>();
   const [done, setDone] = useState("");
   // 저장·삭제 요청(CSRF·멱등 키·응답 불확실 시 키 보존)은 공통 훅이 맡는다.
   const {

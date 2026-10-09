@@ -36,3 +36,9 @@ FS-030b 결과 확인 → FS-030c 업무69행 시드/도움말/흐름맵/통합 
 `approvals()`는 PURCHASE_INVOICE·PURCHASE_ORDER·EXPENSE_CLAIM·ECO를 지원한다. 한 종류의 배치는 기존처럼 번호 키를 유지하며 혼합 종류의 배치는 `종류:번호` 키를 사용한다(같은 번호의 원천 충돌 방지). 저장된 GW 증빙만 읽고 외부 솔루션을 재조회하지 않는다.
 
 원문 소비 계약: ERP `APPROVAL_KINDS`에 구현한 종류를 선언하면 해당 종류의 `approval_documents()`·`approval_document()`를 사용한다. 선언이 없으면 기존 PURCHASE_INVOICE만 연결한다. PLM `eco_for_approval(c, scoped, no)`가 있으면 ECO 번호 직접 입력으로 조회한다. 모두 꺼짐=None, 없음={found:false}, 있음={found:true,snapshot,digest,status}로 구분한다. snapshot 금액은 totalAmount/currency 쌍(금액 없는 ECO는 모두 없음)이며 결재 증빙은 동일 digest 계약을 따른다. 현재 저장소의 ERP 발주·경비와 PLM 제공은 미구현이며 GW 소비 측 계약 테스트에서만 mock으로 검증했다. ERP 확정 통제는 ERP 소유 작업이다.
+
+## GW-c 조직·HR 연계 (2026-10-09)
+
+G-07 담당자는 공통 MasterScreen으로 관리하고 `GET /hr-preview`에서 HR 사원·부서 및 GW 스냅샷을 확인한 뒤 `POST /import-hr`로 선택한 재직 사원을 가져온다. `previewDigest`·`employeeCodes`를 보내며 미리보기 이후 원천/담당자 변경은409 재확인한다. 부서는 전체 반영, 담당자는 HR 사원 코드로 같은 ID를 갱신한다. 신규 STAFF·기존 직무/활성 보존, 자동 퇴직 비활성화/자동 동기화 없음. 일반 목록은 페이지 조회, 역할 선택은 `/people-options` 전체 조회를 사용한다.
+
+G-10은 현재 HR 계층과 마지막 GW 조직을 읽기 전용으로 비교한다. HR 꺼짐/미개방은0건과 구분하고 마지막 값을 유지한다. HR `employees(status=None)`·`departments()`만 소비하며 직접 HR SQL·교차쓰기·FK는 없다. 상신 조직 기록은 이동 이후에도 불변이다. 결과·검증·제약은 [GW-c 결과](../../agent/GW_조직HR연계_GW-c.md). 다음은 사용자 확인 후 GW-d 협업이다.

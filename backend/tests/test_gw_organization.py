@@ -57,6 +57,23 @@ def test_hr_import_idempotence_and_local_role_preserved(org):
     result = ok(import_people(org, digest=before["digest"], key=key))
     assert result["created"] == 1 and result["departments"] == 2
     assert ok(import_people(org, digest=before["digest"], key=key)) == result
+    with e.connect() as db:
+        audit = list(
+            db.execute(
+                text(
+                    "SELECT entity_kind,entity_key,summary FROM core.audit_event WHERE workspace_id=:w AND action='gw.people.import-hr'"
+                ),
+                {"w": s["workspaceId"]},
+            ).mappings()
+        )
+        assert len(audit) == 1
+        assert audit[0]["entity_kind"] == "core.workspace" and audit[0][
+            "entity_key"
+        ] == str(s["workspaceId"])
+        assert (
+            audit[0]["summary"]["created"] == 1
+            and audit[0]["summary"]["departments"] == 2
+        )
     after = preview(org)
     p = after["people"][0]
     assert p["hrEmployeeCode"] == "E001" and p["jobRole"] == "STAFF"

@@ -13,7 +13,7 @@ import {
 } from "./common";
 
 type Row = {
-  id: number;
+  id: string;
   code: string;
   name: string;
   jobRole: string;
@@ -124,7 +124,7 @@ export function People() {
     ],
     extra: (d, set) =>
       "isActive" in d ? (
-        <label>
+        <label className="inline-check">
           <input
             type="checkbox"
             checked={!!d.isActive}
@@ -184,7 +184,8 @@ function HrImport({ done }: { done: () => void }) {
                 부서 {data.departments?.length ?? 0}개 전체와 선택한 재직 사원의
                 이름·현재 부서를 가져옵니다. 신규 담당자의 GW 직무는 일반
                 담당자입니다. 기존 GW 직무·활성 상태는 유지합니다. 선택하지 않은
-                사원과 퇴직 사원은 자동으로 변경하지 않습니다.
+                사원과 퇴직 사원은 자동으로 변경하지 않습니다. 한 번에 최대
+                1,000명을 가져올 수 있습니다.
               </p>
               <details>
                 <summary>가져올 부서 정보 확인</summary>
@@ -202,6 +203,11 @@ function HrImport({ done }: { done: () => void }) {
                 담당자 {selected.filter((c) => !linked.has(c)).length}명 신규 /{" "}
                 {selected.filter((c) => linked.has(c)).length}명 갱신
               </p>
+              {selected.length > 1000 && (
+                <p role="alert">
+                  한 번에 1,000명까지 선택할 수 있습니다. 나누어 가져오세요.
+                </p>
+              )}
               <fieldset disabled={request.pending}>
                 <button
                   type="button"
@@ -219,7 +225,7 @@ function HrImport({ done }: { done: () => void }) {
                 </button>
                 <div className="gw-hr-list">
                   {active.map((e) => (
-                    <label key={e.employeeCode}>
+                    <label className="inline-check" key={e.employeeCode}>
                       <input
                         type="checkbox"
                         checked={selected.includes(e.employeeCode)}
@@ -240,7 +246,9 @@ function HrImport({ done }: { done: () => void }) {
                   <p>재직 사원이 없습니다. 부서만 가져올 수 있습니다.</p>
                 )}
                 <button
-                  disabled={!data.digest || request.pending}
+                  disabled={
+                    !data.digest || request.pending || selected.length > 1000
+                  }
                   onClick={async () => {
                     const result = await request.send<{
                       created: number;
@@ -359,7 +367,7 @@ export function Organization() {
             </p>
           )}
           {d.available && (
-            <label>
+            <label className="inline-check">
               <input
                 type="checkbox"
                 checked={snapshot}

@@ -205,7 +205,7 @@ def import_hr(context, values, key):
             ctx.workspace_id,
             "import-hr",
             result,
-            table="organization_unit",
+            entity_kind="core.workspace",
             summary=result,
         )
         return (
