@@ -127,8 +127,16 @@ function MasterEditor({
     value && "jobRole" in value ? value.jobRole : "STAFF",
   );
   const [active, setActive] = useState(value?.isActive ?? true);
-  const [steps, setSteps] = useState<string[]>(
-    value && "steps" in value ? value.steps.map((s) => s.personId) : [""],
+  const [steps, setSteps] = useState<
+    { personId: string; seq: number; participantRole: string }[]
+  >(
+    value && "steps" in value
+      ? value.steps.map((s) => ({
+          personId: s.personId,
+          seq: s.seq,
+          participantRole: s.participantRole ?? "APPROVER",
+        }))
+      : [{ personId: "", seq: 1, participantRole: "APPROVER" }],
   );
   const { people } = useRole();
   const request = useSend();
@@ -142,7 +150,7 @@ function MasterEditor({
     const body =
       kind === "people"
         ? { ...base, name, jobRole: job }
-        : { ...base, name, steps: steps.map((personId) => ({ personId })) };
+        : { ...base, name, steps };
     if (
       await request.send(
         `/${kind}${value ? "/" + value.id : ""}`,
@@ -197,30 +205,78 @@ function MasterEditor({
           </label>
         ) : (
           <>
-            <h3>결재 순서 (1~3단계)</h3>
-            {steps.map((id, i) => (
+            <h3>결재 참여자 (1~3단계)</h3>
+            <p>
+              같은 단계의 결재·합의가 모두 끝나야 다음 단계로 넘어갑니다. 참고
+              의견은 진행을 막지 않습니다. 각 단계에 결재 담당자가 필요합니다.
+            </p>
+            {steps.map((entry, i) => (
               <div className="gw-step" key={i}>
                 <label>
                   {i + 1}단계
                   <select
                     aria-label={`${i + 1}단계 담당자`}
                     required
-                    value={id}
+                    value={entry.personId}
                     onChange={(e) =>
                       setSteps((s) =>
-                        s.map((v, j) => (j === i ? e.target.value : v)),
+                        s.map((v, j) =>
+                          j === i ? { ...v, personId: e.target.value } : v,
+                        ),
                       )
                     }
                   >
                     <option value="">담당자 선택</option>
                     {people
-                      .filter((p) => p.isActive || p.id === id)
+                      .filter((p) => p.isActive || p.id === entry.personId)
                       .map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.name}
                           {!p.isActive ? " (비활성)" : ""}
                         </option>
                       ))}
+                  </select>
+                </label>
+                <label>
+                  단계
+                  <select
+                    aria-label={`${i + 1}참여자 단계`}
+                    value={entry.seq}
+                    onChange={(e) =>
+                      setSteps((s) =>
+                        s.map((v, j) =>
+                          j === i ? { ...v, seq: Number(e.target.value) } : v,
+                        ),
+                      )
+                    }
+                  >
+                    {[1, 2, 3].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  역할
+                  <select
+                    aria-label={`${i + 1}참여자 역할`}
+                    value={entry.participantRole}
+                    onChange={(e) =>
+                      setSteps((s) =>
+                        s.map((v, j) =>
+                          j === i
+                            ? { ...v, participantRole: e.target.value }
+                            : v,
+                        ),
+                      )
+                    }
+                  >
+                    {["APPROVER", "CONSENT", "REFERENCE"].map((r) => (
+                      <option key={r} value={r}>
+                        {labels[r]}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <button
@@ -260,10 +316,19 @@ function MasterEditor({
             ))}
             <button
               type="button"
-              disabled={steps.length >= 3}
-              onClick={() => setSteps((s) => [...s, ""])}
+              disabled={steps.length >= 30}
+              onClick={() =>
+                setSteps((s) => [
+                  ...s,
+                  {
+                    personId: "",
+                    seq: Math.min(3, Math.max(...s.map((v) => v.seq)) + 1),
+                    participantRole: "APPROVER",
+                  },
+                ])
+              }
             >
-              단계 추가
+              참여자 추가
             </button>
           </>
         )}

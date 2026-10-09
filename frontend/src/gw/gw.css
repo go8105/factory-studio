@@ -50,3 +50,27 @@
     min-width: 0;
   }
 }
+
+@media print {
+  body:has(.gw-print-content) * {
+    visibility: hidden;
+  }
+  body .gw-print-content,
+  body .gw-print-content * {
+    visibility: visible;
+  }
+  .gw-print-content {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    overflow: visible;
+  }
+  .gw-print-content button,
+  .gw-print-content form,
+  .gw-print-content .gw-actions {
+    display: none;
+  }
+  .gw-print-content table {
+    break-inside: auto;
+  }
+}

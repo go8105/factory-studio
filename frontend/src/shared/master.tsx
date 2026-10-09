@@ -76,6 +76,7 @@ export type MasterSpec<Row extends { id: number }, Draft> = {
   /** API 경로. 목록 GET, 등록 POST, 수정 PATCH/{id}, 삭제 DELETE/{id} */
   base: string;
   limit?: number;
+  updateBody?: (changes: Record<string, unknown>, row: Row) => unknown;
   /** 등록할 때의 빈 값 */
   blank: Draft;
   columns: Column<Row>[];
@@ -220,7 +221,7 @@ export function MasterScreen<
     const saved = await send(
       editing ? `/${editing.id}` : "",
       editing ? "PATCH" : "POST",
-      body,
+      editing && spec.updateBody ? spec.updateBody(body, editing) : body,
     );
     if (saved !== undefined) {
       closePanel();

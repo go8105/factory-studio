@@ -7,14 +7,15 @@ from __future__ import annotations
 import json
 from datetime import date, datetime
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from fs.common.db import get_engine
+from fs.common.engine import action as run_action
+from fs.common.engine import read as read_transaction
 from fs.common.errors import ApiError
-from fs.common.idempotency import find_receipt, request_digest, save_receipt
-from fs.common.scope import read_scope, write_scope
+from fs.common.scope import read_scope
 from fs.erp import interface as erp
 
 S = "workspace_id=:w AND generation_id=:g"
@@ -57,6 +58,13 @@ def conflict(reason, **details):
         "SUCCESSOR_EXISTS": "이미 후속 문서가 있습니다.",
         "ROUTE_INACTIVE": "비활성 결재선은 선택할 수 없습니다.",
         "DUPLICATE_CODE": "이미 사용 중인 코드입니다.",
+        "AUTHORITY_OVERLAP": "같은 유형·통화의 전결 금액과 기간이 겹칩니다.",
+        "AUTHORITY_AMBIGUOUS": "적용할 전결 규칙이 여러 개입니다. 규칙을 확인하세요.",
+        "AUTHORITY_IN_USE": "상신 문서에서 사용한 규칙은 내용 수정·삭제가 불가합니다. 비활성화 후 새 규칙을 등록하세요.",
+        "DELEGATION_OVERLAP_OR_CHAIN": "위임 기간이 겹치거나 연쇄 위임이 됩니다.",
+        "DELEGATION_REVOKED": "이미 회수한 위임입니다.",
+        "ASSIGNMENT_REQUIRED": "대리 처리할 담당 단계를 선택하세요.",
+        "SOURCE_NOT_IMPLEMENTED": "해당 솔루션의 원천 조회 기능이 아직 구현되지 않았습니다.",
     }
     return ApiError(
         409,
@@ -109,11 +117,12 @@ def insert(c, ctx, table, values):
         **values,
     }
     expressions = [
-        f"CAST(:{k} AS jsonb)" if k == "source_snapshot" else ":" + k for k in values
+        f"CAST(:{k} AS jsonb)" if k in {"source_snapshot", "details"} else ":" + k
+        for k in values
     ]
     data = {
         k: json.dumps(v, ensure_ascii=False)
-        if k == "source_snapshot" and v is not None
+        if k in {"source_snapshot", "details"} and v is not None
         else v
         for k, v in values.items()
     }
@@ -127,18 +136,20 @@ def insert(c, ctx, table, values):
 
 def update(c, ctx, table, id, values):
     assignments = [
-        f"{k}=CAST(:{k} AS jsonb)" if k == "source_snapshot" else f"{k}=:{k}"
+        f"{k}=CAST(:{k} AS jsonb)"
+        if k in {"source_snapshot", "details"}
+        else f"{k}=:{k}"
         for k in values
     ]
     data = {
         k: json.dumps(v, ensure_ascii=False)
-        if k == "source_snapshot" and v is not None
+        if k in {"source_snapshot", "details"} and v is not None
         else v
         for k, v in values.items()
     }
     c.execute(
         text(
-            f"UPDATE gw.{table} SET {','.join(assignments)},version=version+1 WHERE {S} AND id=:id"
+            f"UPDATE gw.{table} SET {','.join([*assignments, 'version=version+1'])} WHERE {S} AND id=:id"
         ),
         params(ctx, id=id, **data),
     )
@@ -197,7 +208,7 @@ def reason(values, required=False):
     return r
 
 
-def event(c, ctx, table, row, p, kind, r=None, step=None):
+def event(c, ctx, table, row, p, kind, r=None, step=None, on_behalf=None, details=None):
     isdoc = table == "approval_document"
     et = "approval_event" if isdoc else "board_event"
     fk = "document_id" if isdoc else "post_id"
@@ -221,37 +232,76 @@ def event(c, ctx, table, row, p, kind, r=None, step=None):
         ("document_version" if isdoc else "post_version"): row["version"],
     }
     if isdoc:
-        values["step_seq"] = step
+        values.update(step_seq=step, on_behalf_of_person_id=on_behalf, details=details)
     insert(c, ctx, et, values)
 
 
-def source(c, ctx, no):
-    s = erp.approval_document(c, ctx, "PURCHASE_INVOICE", no)
+SOURCE_KINDS = {
+    "ERP_PURCHASE": "PURCHASE_INVOICE",
+    "ERP_PO": "PURCHASE_ORDER",
+    "ERP_EXPENSE": "EXPENSE_CLAIM",
+    "PLM_ECO": "ECO",
+}
+
+
+def provider(c, ctx, kind, no=None, **query):
+    # 제공된 계약만 연결한다. 신규 ERP 유형은 제공 측 선언을 기다린다.
+    if kind == "ECO":
+        try:
+            from fs.plm import interface as plm
+        except ModuleNotFoundError as e:
+            if e.name not in {"fs.plm", "fs.plm.interface"}:
+                raise
+            return {"availability": "UNIMPLEMENTED"}
+        if not hasattr(plm, "eco_for_approval") or no is None:
+            return {"availability": "UNIMPLEMENTED"}
+        result = plm.eco_for_approval(c, ctx, no)
+    else:
+        supported = getattr(erp, "APPROVAL_KINDS", ("PURCHASE_INVOICE",))
+        if kind not in supported:
+            return {"availability": "UNIMPLEMENTED"}
+        result = (
+            erp.approval_document(c, ctx, kind, no)
+            if no is not None
+            else erp.approval_documents(c, ctx, kind, **query)
+        )
+    return {
+        "availability": "DISABLED" if result is None else "AVAILABLE",
+        "value": result,
+    }
+
+
+def source(c, ctx, no, kind="PURCHASE_INVOICE"):
+    result = provider(c, ctx, kind, no)
+    if result["availability"] == "UNIMPLEMENTED":
+        raise conflict("SOURCE_NOT_IMPLEMENTED")
+    s = result["value"]
     if s is None:
         raise conflict("SOURCE_MODULE_DISABLED")
     if not s["found"]:
         raise conflict("SOURCE_MISSING")
-    if s["status"] == "cancelled":
+    if s["status"] in {"cancelled", "CANCELLED", "withdrawn", "WITHDRAWN"}:
         raise conflict("SOURCE_CANCELLED")
     return {
-        "source_kind": "PURCHASE_INVOICE",
+        "source_kind": kind,
         "source_no": no,
         "source_snapshot": s["snapshot"],
         "source_digest": s["digest"],
         "source_status": s["status"],
-        "amount": s["snapshot"]["totalAmount"],
-        "currency": s["snapshot"]["currency"],
+        "amount": s["snapshot"].get("totalAmount"),
+        "currency": s["snapshot"].get("currency"),
     }
 
 
 def comparison(c, ctx, row):
     if row["kind"] == "GENERAL":
         return None
-    s = erp.approval_document(c, ctx, row["source_kind"], row["source_no"])
+    result = provider(c, ctx, row["source_kind"], row["source_no"])
+    s = result.get("value")
     present = s is not None and s["found"]
     return {
-        "availability": "DISABLED"
-        if s is None
+        "availability": result["availability"]
+        if not s
         else ("AVAILABLE" if present else "MISSING"),
         "contentChanged": s["digest"] != row["source_digest"] if present else None,
         "statusChanged": s["status"] != row["source_status"] if present else None,
@@ -262,41 +312,44 @@ def comparison(c, ctx, row):
 def steps(c, ctx, id):
     return rows(
         c,
-        f"SELECT * FROM gw.approval_step WHERE {S} AND document_id=:id ORDER BY seq",
+        f"SELECT * FROM gw.approval_step WHERE {S} AND document_id=:id ORDER BY seq,id",
         params(ctx, id=id),
     )
 
 
-def route_people(c, ctx, id, drafter=None):
+def route_people(c, ctx, id, drafter=None, legacy=False):
+    from fs.gw import policy
+
     route = one(c, ctx, "approval_route", id)
     if not route["is_active"]:
         raise conflict("ROUTE_INACTIVE")
     rr = rows(
         c,
-        f"SELECT person_id FROM gw.route_step WHERE {S} AND route_id=:id ORDER BY seq",
+        f"SELECT * FROM gw.route_step WHERE {S} AND route_id=:id ORDER BY seq,id",
         params(ctx, id=id),
     )
-    pp = validate_people(c, ctx, [r["person_id"] for r in rr], drafter)
-    return route, pp
-
-
-def validate_people(c, ctx, ids, drafter=None):
-    if not 1 <= len(ids) <= 3 or len(set(ids)) != len(ids) or drafter in ids:
-        raise invalid("steps", "기안자를 제외한 서로 다른 담당자 1~3명을 지정하세요.")
-    return [actor(c, ctx, id) for id in ids]
+    return route, policy.participants(c, ctx, rr, drafter, legacy)
 
 
 def write_steps(c, ctx, id, pp):
+    from fs.gw import policy
+
     c.execute(
         text(f"DELETE FROM gw.approval_step WHERE {S} AND document_id=:id"),
         params(ctx, id=id),
     )
-    for seq, p in enumerate(pp, 1):
+    for p in pp:
         insert(
             c,
             ctx,
             "approval_step",
-            {"document_id": id, "seq": seq, **identity(p, "person")},
+            {
+                "document_id": id,
+                "seq": p["seq"],
+                "participant_role": p["participant_role"],
+                **identity(p, "person"),
+                **policy.organization(c, ctx, p),
+            },
         )
 
 
@@ -316,7 +369,7 @@ def detail(c, ctx, kind, id, person=None):
     if kind == "routes":
         row["steps"] = rows(
             c,
-            "SELECT r.seq,r.person_id,p.name,p.job_role,p.is_active FROM gw.route_step r JOIN gw.person p ON (p.workspace_id,p.generation_id,p.id)=(r.workspace_id,r.generation_id,r.person_id) WHERE r.workspace_id=:w AND r.generation_id=:g AND r.route_id=:id ORDER BY r.seq",
+            "SELECT r.seq,r.person_id,r.participant_role,p.name,p.job_role,p.is_active FROM gw.route_step r JOIN gw.person p ON (p.workspace_id,p.generation_id,p.id)=(r.workspace_id,r.generation_id,r.person_id) WHERE r.workspace_id=:w AND r.generation_id=:g AND r.route_id=:id ORDER BY r.seq,r.id",
             params(ctx, id=id),
         )
     if kind in {"documents", "posts"}:
@@ -333,6 +386,15 @@ def detail(c, ctx, kind, id, person=None):
         if doc:
             row["steps"] = steps(c, ctx, id)
             row["source_comparison"] = comparison(c, ctx, row)
+            submission = next(
+                (e for e in row["events"] if e["event_type"] == "SUBMITTED"), None
+            )
+            row["authority_snapshot"] = (
+                (submission.get("details") or {}).get("authorityRule")
+                if submission
+                else None
+            )
+            row["action_steps"] = []
         if person is not None:
             p = one(c, ctx, "person", person)
             if p["is_active"]:
@@ -343,13 +405,15 @@ def detail(c, ctx, kind, id, person=None):
                             "edit",
                             "select-route",
                             "submit",
-                        ] + (
-                            ["refresh-source"] if row["kind"] == "ERP_PURCHASE" else []
-                        )
+                        ] + (["refresh-source"] if row["kind"] != "GENERAL" else [])
                     if (
                         owns
                         and row["status"] == "IN_REVIEW"
-                        and not any(s["status"] == "APPROVED" for s in row["steps"])
+                        and not any(
+                            s["status"] == "APPROVED"
+                            and s["participant_role"] != "REFERENCE"
+                            for s in row["steps"]
+                        )
                     ):
                         row["available_actions"] = ["withdraw"]
                     if (
@@ -358,11 +422,31 @@ def detail(c, ctx, kind, id, person=None):
                         and not row["successor"]
                     ):
                         row["available_actions"] = ["resubmit"]
-                    if row["status"] == "IN_REVIEW" and any(
-                        s["seq"] == row["current_step"] and s["person_id"] == p["id"]
-                        for s in row["steps"]
-                    ):
-                        row["available_actions"] = ["approve", "reject"]
+                    from fs.gw import policy
+
+                    eligible = policy.eligible(c, ctx, row, p, row["steps"])
+                    row["action_steps"] = [
+                        {
+                            "step_id": x["step"]["id"],
+                            "person_name": x["step"]["person_name"],
+                            "participant_role": x["step"]["participant_role"],
+                            "delegation_id": x["delegation"]["id"]
+                            if x["delegation"]
+                            else None,
+                        }
+                        for x in eligible
+                    ]
+                    for x in eligible:
+                        row["available_actions"].extend(
+                            {
+                                "APPROVER": ["approve", "reject"],
+                                "CONSENT": ["consent", "oppose"],
+                                "REFERENCE": ["reference"],
+                            }[x["step"]["participant_role"]]
+                        )
+                    row["available_actions"] = list(
+                        dict.fromkeys(row["available_actions"])
+                    )
                 elif owns and (
                     row["board_kind"] == "FREE" or p["job_role"] == "BOARD_ADMIN"
                 ):
@@ -378,32 +462,29 @@ def detail(c, ctx, kind, id, person=None):
 
 
 def read(context, kind, id=None, **q):
-    with (
-        get_engine()
-        .execution_options(isolation_level="REPEATABLE READ", postgresql_readonly=True)
-        .begin() as c
-    ):
+    with read_transaction() as c:
         ctx = read_scope(c, context, "gw")
         person = q.get("person_id")
         if person is not None:
             one(c, ctx, "person", person)
         if kind == "sources":
-            if id is not None:
-                result = erp.approval_document(c, ctx, "PURCHASE_INVOICE", id)
-                if result is not None and not result["found"]:
-                    raise ApiError(404, "NOT_FOUND", "원문이 없습니다.")
-                return {"enabled": result is not None, **(result or {})}
-            result = erp.approval_documents(
+            source_kind = q.get("source_kind", "PURCHASE_INVOICE")
+            result = provider(
                 c,
                 ctx,
-                "PURCHASE_INVOICE",
+                source_kind,
+                id,
                 search=q.get("search", ""),
                 offset=q.get("offset", 0),
                 limit=q.get("limit", 50),
             )
+            value = result.get("value")
+            if id is not None and value is not None and not value["found"]:
+                raise ApiError(404, "NOT_FOUND", "원문이 없습니다.")
             return {
-                "enabled": result is not None,
-                **(result or {"rows": [], "total": 0}),
+                "enabled": value is not None,
+                "availability": result["availability"],
+                **(value or {"rows": [], "total": 0}),
             }
         if kind == "dashboard":
             return dashboard(c, ctx, person)
@@ -439,7 +520,7 @@ def listing(c, ctx, kind, q):
         if box == "archive":
             where += " AND status IN ('APPROVED','REJECTED','WITHDRAWN')"
         if box == "pending":
-            where += " AND status='IN_REVIEW' AND EXISTS (SELECT 1 FROM gw.approval_step s WHERE (s.workspace_id,s.generation_id,s.document_id)=(approval_document.workspace_id,approval_document.generation_id,approval_document.id) AND s.seq=approval_document.current_step AND s.person_id=:person AND s.status='WAITING')"
+            where += " AND status='IN_REVIEW' AND EXISTS (SELECT 1 FROM gw.approval_step s WHERE (s.workspace_id,s.generation_id,s.document_id)=(approval_document.workspace_id,approval_document.generation_id,approval_document.id) AND s.seq=approval_document.current_step AND s.status='WAITING' AND (s.person_id=:person OR EXISTS (SELECT 1 FROM gw.delegation d WHERE (d.workspace_id,d.generation_id,d.delegator_person_id)=(s.workspace_id,s.generation_id,s.person_id) AND d.delegate_person_id=:person AND d.revoked_at IS NULL)))"
             p["person"] = person
     if kind == "posts" and q.get("mine"):
         if person is None:
@@ -449,6 +530,21 @@ def listing(c, ctx, kind, q):
     sort = q.get("sort", "serial")
     if kind in {"people", "routes"}:
         sort = "code"
+    if kind == "documents" and q.get("box") == "pending":
+        from fs.gw import policy
+
+        person_row = one(c, ctx, "person", person)
+        candidates = rows(
+            c, f"SELECT * FROM gw.{table} WHERE {where} ORDER BY {sort} DESC,id DESC", p
+        )
+        t = now(c)
+        found = [r for r in candidates if policy.eligible(c, ctx, r, person_row, t=t)]
+        return {
+            "rows": wire(found[p["offset"] : p["offset"] + p["limit"]]),
+            "total": len(found),
+            "offset": p["offset"],
+            "limit": p["limit"],
+        }
     found = rows(
         c,
         f"SELECT * FROM gw.{table} WHERE {where} ORDER BY {sort} DESC,id DESC OFFSET :offset LIMIT :limit",
@@ -497,51 +593,49 @@ def dashboard(c, ctx, person):
     }
 
 
+def audit(c, ctx, kind, entity, action, result, table=None):
+    c.execute(
+        text(
+            "INSERT INTO core.audit_event(workspace_id,actor_user_id,action,entity_kind,entity_key,summary,actor_kind,actor_key,scope_kind,created_at) VALUES(:w,:user,:action,:entity,:id,CAST(:summary AS jsonb),:ak,:actor,'WORKSPACE',clock_timestamp())"
+        ),
+        {
+            "w": ctx.workspace_id,
+            "user": ctx.user_id,
+            "action": f"gw.{kind}.{action}",
+            "entity": "gw." + (table or TABLES[kind]),
+            "id": str(entity),
+            "summary": json.dumps(
+                {"version": result.get("version"), "status": result.get("status")}
+            ),
+            "ak": ctx.actor_kind,
+            "actor": ctx.actor_key,
+        },
+    )
+
+
 def mutate(context, kind, id, action, values, key):
-    table = TABLES[kind]
-    operation = f"gw.{kind}.{id or 'new'}.{action}"
-    digest = request_digest(values)
+    def run(c, ctx):
+        entity = (
+            master(c, ctx, kind, id, values)
+            if kind in {"people", "routes"}
+            else document(c, ctx, id, action, values)
+            if kind == "documents"
+            else post(c, ctx, id, action, values)
+        )
+        result = detail(c, ctx, kind, entity, values.get("acting_person_id"))
+        audit(c, ctx, kind, entity, action, result)
+        return result, "gw." + TABLES[kind], entity
+
     try:
-        with get_engine().begin() as c:
-            ctx = write_scope(c, context, "gw")
-            cached = find_receipt(c, ctx, operation, key, digest)
-            if cached is not None:
-                return cached
-            if kind in {"people", "routes"}:
-                entity = master(c, ctx, kind, id, values)
-            elif kind == "documents":
-                entity = document(c, ctx, id, action, values)
-            else:
-                entity = post(c, ctx, id, action, values)
-            result = detail(c, ctx, kind, entity, values.get("acting_person_id"))
-            c.execute(
-                text("""INSERT INTO core.audit_event(workspace_id,actor_user_id,action,entity_kind,entity_key,summary,actor_kind,actor_key,scope_kind,created_at)
-              VALUES (:w,:user,:action,:entity,:id,CAST(:summary AS jsonb),:ak,:actor,'WORKSPACE',clock_timestamp())"""),
-                {
-                    "w": ctx.workspace_id,
-                    "user": ctx.user_id,
-                    "action": f"gw.{kind}.{action}",
-                    "entity": "gw." + table,
-                    "id": str(entity),
-                    "summary": json.dumps(
-                        {"version": result["version"], "status": result.get("status")}
-                    ),
-                    "ak": ctx.actor_kind,
-                    "actor": ctx.actor_key,
-                },
-            )
-            save_receipt(
-                c,
-                ctx,
-                operation,
-                key,
-                digest,
-                "gw." + table,
-                entity,
-                result,
-                201 if id is None else 200,
-            )
-            return result
+        return run_action(
+            "gw",
+            context,
+            f"gw.{kind}.{id or 'new'}.{action}",
+            key,
+            values,
+            run,
+            201 if id is None else 200,
+        )
     except IntegrityError as e:
         if getattr(e.orig, "sqlstate", None) == "23505":
             raise conflict(
@@ -593,7 +687,9 @@ def master(c, ctx, kind, id, v):
         if row:
             data["is_active"] = v["is_active"]
     else:
-        pp = validate_people(c, ctx, [s["person_id"] for s in v["steps"]])
+        from fs.gw import policy
+
+        pp = policy.participants(c, ctx, v["steps"])
         data = {"name": v["name"]}
         if row:
             data["is_active"] = v["is_active"]
@@ -606,9 +702,17 @@ def master(c, ctx, kind, id, v):
             text(f"DELETE FROM gw.route_step WHERE {S} AND route_id=:id"),
             params(ctx, id=id),
         )
-        for seq, p in enumerate(pp, 1):
+        for p in pp:
             insert(
-                c, ctx, "route_step", {"route_id": id, "seq": seq, "person_id": p["id"]}
+                c,
+                ctx,
+                "route_step",
+                {
+                    "route_id": id,
+                    "seq": p["seq"],
+                    "person_id": p["id"],
+                    "participant_role": p["participant_role"],
+                },
             )
     return id
 
@@ -623,6 +727,7 @@ def document(c, ctx, id, action, v):
             "serial": serial,
             "document_no": f"GW-{serial:06d}",
             "kind": v["kind"],
+            "policy_version": 2,
             "title": v["title"],
             "body": v["body"],
             **identity(p, "drafter"),
@@ -630,12 +735,12 @@ def document(c, ctx, id, action, v):
             "route_code": route["code"],
             "route_name": route["name"],
         }
-        if v["kind"] == "ERP_PURCHASE":
+        if v["kind"] != "GENERAL":
             if not v.get("source_no"):
                 raise invalid("sourceNo", "매입 전표를 선택하세요.")
-            if "amount" in v or "currency" in v:
+            if v.get("amount") is not None or v.get("currency") is not None:
                 raise invalid("amount", "ERP 금액은 서버 원문을 사용합니다.")
-            data.update(source(c, ctx, v["source_no"]))
+            data.update(source(c, ctx, v["source_no"], SOURCE_KINDS[v["kind"]]))
         else:
             if v.get("source_no") is not None:
                 raise invalid("sourceNo", "일반 기안은 원천을 지정할 수 없습니다.")
@@ -646,12 +751,15 @@ def document(c, ctx, id, action, v):
         return id
     row = one(c, ctx, table, id, True)
     check_version(row, v)
-    if action not in {"approve", "reject"}:
+    if action not in {"approve", "reject", "consent", "oppose", "reference"}:
         authored(row, p)
     changes = {}
     evt = ""
     r = None
     step = None
+    on_behalf = None
+    event_details = None
+    skipped = []
     if action in {"edit", "select-route", "refresh-source", "submit"}:
         draft(row)
         if action == "edit":
@@ -662,7 +770,9 @@ def document(c, ctx, id, action, v):
                 raise invalid("amount", "ERP 금액은 바꿀 수 없습니다.")
             evt = "DRAFT_SAVED"
         if action == "select-route":
-            route, pp = route_people(c, ctx, v["route_id"], p["id"])
+            route, pp = route_people(
+                c, ctx, v["route_id"], p["id"], legacy=row["policy_version"] == 1
+            )
             write_steps(c, ctx, id, pp)
             changes = {
                 "route_id": route["id"],
@@ -671,19 +781,22 @@ def document(c, ctx, id, action, v):
             }
             evt = "ROUTE_SELECTED"
         if action == "refresh-source":
-            if row["kind"] != "ERP_PURCHASE":
+            if row["kind"] == "GENERAL":
                 raise invalid("kind", "ERP 기안만 원문을 갱신할 수 있습니다.")
-            changes = source(c, ctx, row["source_no"])
+            changes = source(c, ctx, row["source_no"], row["source_kind"])
             evt = "SOURCE_REFRESHED"
         if action == "submit":
             route = one(c, ctx, "approval_route", row["route_id"])
             if not route["is_active"]:
                 raise conflict("ROUTE_INACTIVE")
-            pp = validate_people(
-                c, ctx, [s["person_id"] for s in steps(c, ctx, id)], p["id"]
+            from fs.gw import policy
+
+            ss = steps(c, ctx, id)
+            pp = policy.participants(
+                c, ctx, ss, p["id"], legacy=row["policy_version"] == 1
             )
-            if row["kind"] == "ERP_PURCHASE":
-                current = source(c, ctx, row["source_no"])
+            if row["kind"] != "GENERAL":
+                current = source(c, ctx, row["source_no"], row["source_kind"])
                 if (
                     current["source_digest"] != row["source_digest"]
                     or current["source_status"] != row["source_status"]
@@ -704,43 +817,53 @@ def document(c, ctx, id, action, v):
                 "submitted_at": now(c),
                 **identity(p, "drafter"),
             }
+            t = changes["submitted_at"]
+            org = policy.organization(c, ctx, p)
+            changes.update(
+                drafter_org_code=org["organization_code"],
+                drafter_org_name=org["organization_name"],
+            )
+            rule = policy.authority(c, ctx, row, t)
+            changes["authority_rule_id"] = rule["id"] if rule else None
+            event_details = {
+                "policyVersion": row["policy_version"],
+                "authorityRule": wire(rule) if rule else None,
+                "appliedMonth": t.astimezone(ZoneInfo("Asia/Seoul")).strftime("%Y-%m"),
+            }
+            if rule:
+                for seq in sorted(
+                    {s["seq"] for s in pp if s["seq"] > rule["final_seq"]}
+                ):
+                    skipped.extend(policy.skip(c, ctx, id, seq))
             evt = "SUBMITTED"
-    elif action in {"approve", "reject", "withdraw"}:
+    elif action in {"approve", "reject", "consent", "oppose", "reference", "withdraw"}:
+        from fs.gw import policy
+
         if row["status"] != "IN_REVIEW":
             raise conflict("IMMUTABLE_DOCUMENT", status=row["status"])
-        ss = steps(c, ctx, id)
-        t = now(c)
         if action == "withdraw":
-            if any(s["status"] == "APPROVED" for s in ss):
+            if any(
+                s["status"] == "APPROVED" and s["participant_role"] != "REFERENCE"
+                for s in steps(c, ctx, id)
+            ):
                 raise conflict("WITHDRAW_NOT_ALLOWED")
             r = reason(v, True)
-            changes = {"status": "WITHDRAWN", "closed_at": t, "current_step": None}
+            changes = {"status": "WITHDRAWN", "closed_at": now(c), "current_step": None}
             evt = "WITHDRAWN"
+            skipped = policy.skip(c, ctx, id)
         else:
-            current = ss[row["current_step"] - 1]
-            if current["person_id"] != p["id"] or p["id"] == row["drafter_id"]:
-                raise conflict("NOT_CURRENT_STEP")
-            r = reason(v, action == "reject")
-            step = current["seq"]
-            evt = "APPROVED" if action == "approve" else "REJECTED"
-            c.execute(
-                text(
-                    f"UPDATE gw.approval_step SET status=:status,decided_at=:t,decision_reason=:reason WHERE {S} AND id=:id"
-                ),
-                params(ctx, id=current["id"], status=evt, t=t, reason=r),
+            changes, evt, r, step, grant, event_details, skipped = policy.decision(
+                c, ctx, row, p, action, v
             )
-            final = action == "reject" or current["seq"] == len(ss)
-            changes = (
-                {"status": evt, "closed_at": t, "current_step": None}
-                if final
-                else {"current_step": current["seq"] + 1}
-            )
-        if action in {"reject", "withdraw"}:
-            c.execute(
-                text(
-                    f"UPDATE gw.approval_step SET status='SKIPPED' WHERE {S} AND document_id=:id AND status='WAITING'"
-                ),
-                params(ctx, id=id),
+            on_behalf = (
+                event_details
+                and next(
+                    s["person_id"]
+                    for s in steps(c, ctx, id)
+                    if str(s["id"]) == event_details["stepId"]
+                )
+                if grant
+                else None
             )
     elif action == "resubmit":
         if row["status"] not in {"REJECTED", "WITHDRAWN"}:
@@ -769,6 +892,7 @@ def document(c, ctx, id, action, v):
                 "source_status",
                 "amount",
                 "currency",
+                "policy_version",
             ]
         }
         data.update(
@@ -793,6 +917,9 @@ def document(c, ctx, id, action, v):
                             "person_code",
                             "person_name",
                             "person_job_role",
+                            "participant_role",
+                            "organization_code",
+                            "organization_name",
                         ]
                     },
                 },
@@ -802,7 +929,25 @@ def document(c, ctx, id, action, v):
     else:
         raise ApiError(404, "NOT_FOUND", "지원하지 않는 작업입니다.")
     update(c, ctx, table, id, changes)
-    event(c, ctx, table, one(c, ctx, table, id), p, evt, r, step)
+    saved = one(c, ctx, table, id)
+    event(c, ctx, table, saved, p, evt, r, step, on_behalf, event_details)
+    if saved["policy_version"] == 2:
+        for skipped_step in skipped:
+            event(
+                c,
+                ctx,
+                table,
+                saved,
+                p,
+                "SKIPPED",
+                step=skipped_step["seq"],
+                details={
+                    "stepId": str(skipped_step["id"]),
+                    "personName": skipped_step["person_name"],
+                    "participantRole": skipped_step["participant_role"],
+                    "cause": evt,
+                },
+            )
     return id
 
 

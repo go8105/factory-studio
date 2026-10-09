@@ -10,6 +10,13 @@ export const gwScreens: Screen[] = [
   { path: "board", id: "G-05", label: "공지·자유 게시판", group: "게시판" },
   { path: "routes", id: "G-06", label: "결재선 템플릿", group: "기준정보" },
   { path: "people", id: "G-07", label: "체험 담당자", group: "기준정보" },
+  {
+    path: "authority-rules",
+    id: "G-08",
+    label: "전결 규칙",
+    group: "기준정보",
+  },
+  { path: "delegations", id: "G-09", label: "결재 위임", group: "전자결재" },
 ];
 function Space() {
   const { session } = useSession();

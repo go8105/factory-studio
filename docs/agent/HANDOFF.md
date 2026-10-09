@@ -1,3 +1,9 @@
+# GW-b 진행 중 (2026-10-09)
+
+사용자가 GW-a 제안대로 진행 및 GW-b 착수를 승인했다. `codex/gw-dsn31` 격리 worktree에서 결재 정책 v2·병렬/합의/참고·전결·위임 API와 G-08/09 및 기존 화면을 구현 중이다. 아직 완료 아님. PostgreSQL 경계/동시성 테스트 및 브라우저 확인 남음. 공유 DB/main/push/배포 없음. 원문 제공은 기존 ERP 매입만 구현되어 있고 신규 ERP 발주/경비 및 PLM ECO는 제공 인터페이스 미구현 안내를 포함한다.
+
+재현 환경: 기존 아래 GW-a 경로와 venv 사용, `PYTHONPATH=backend/src:backend`, 독립 `_test` DB에서 `pytest backend/tests/test_gw_policy.py backend/tests/test_gw.py`; 동일 DB에 독립 pytest 프로세스를 동시에 실행하지 말 것.
+
 # Factory Studio 작업 인계
 
 ## GW-a 체험 그룹웨어 DB (2026-10-09)

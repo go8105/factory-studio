@@ -4,8 +4,10 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query
 
-from fs.common.auth import AuthContext, require_csrf, resolve_auth
-from fs.gw import schema, service
+from fs.common import master
+from fs.common.auth import AuthContext, resolve_auth
+from fs.common.engine import mutation_key
+from fs.gw import policy, schema, service
 
 router = APIRouter()
 Auth = Annotated[AuthContext, Depends(resolve_auth)]
@@ -18,14 +20,16 @@ Search = Annotated[str, Query(max_length=100)]
 
 
 def write(ctx, csrf, key, kind, id, action, payload):
-    require_csrf(ctx, csrf)
-    if not key or len(key) > 100:
-        raise service.invalid("Idempotency-Key", "멱등 키가 필요합니다.")
+    mutation_key(ctx, csrf, key)
     return {
         "data": service.mutate(
-            ctx, kind, id, action, payload.model_dump(exclude_unset=True), key
+            ctx, kind, id, action, _values(payload, full=id is None), key
         )
     }
+
+
+def _values(payload, full=False):
+    return payload.model_dump(exclude_unset=not full)
 
 
 @router.get("/dashboard")
@@ -36,21 +40,32 @@ def dashboard(context: Auth, person_id: Person = None):
 @router.get("/sources")
 def sources(
     context: Auth,
-    kind: Literal["PURCHASE_INVOICE"] = "PURCHASE_INVOICE",
+    kind: Literal[
+        "PURCHASE_INVOICE", "PURCHASE_ORDER", "EXPENSE_CLAIM", "ECO"
+    ] = "PURCHASE_INVOICE",
     search: Search = "",
     offset: Offset = 0,
     limit: Limit = 50,
 ):
     return {
         "data": service.read(
-            context, "sources", search=search, offset=offset, limit=limit
+            context,
+            "sources",
+            source_kind=kind,
+            search=search,
+            offset=offset,
+            limit=limit,
         )
     }
 
 
 @router.get("/sources/{kind}/{document_no}")
-def source(context: Auth, kind: Literal["PURCHASE_INVOICE"], document_no: str):
-    return {"data": service.read(context, "sources", document_no)}
+def source(
+    context: Auth,
+    kind: Literal["PURCHASE_INVOICE", "PURCHASE_ORDER", "EXPENSE_CLAIM", "ECO"],
+    document_no: str,
+):
+    return {"data": service.read(context, "sources", document_no, source_kind=kind)}
 
 
 @router.get("/documents")
@@ -60,7 +75,7 @@ def documents(
     box: Literal["drafts", "pending", "archive", "all"] = "all",
     status: Literal["DRAFT", "IN_REVIEW", "APPROVED", "REJECTED", "WITHDRAWN"]
     | None = None,
-    kind: Literal["GENERAL", "ERP_PURCHASE"] | None = None,
+    kind: schema.DocumentKind | None = None,
     search: Search = "",
     offset: Offset = 0,
     limit: Limit = 50,
@@ -298,3 +313,94 @@ def posts_correct(
     id: int, payload: schema.Act, context: Auth, csrf: Csrf = None, key: Key = None
 ):
     return write(context, csrf, key, "posts", id, "correct", payload)
+
+
+@router.get("/authority-rules")
+def authority_rules(context: Auth, offset: Offset = 0, limit: Limit = 50):
+    rows, total = master.listing(policy.AUTHORITY, context, offset=offset, limit=limit)
+    return {"data": rows, "page": {"total": total, "offset": offset, "limit": limit}}
+
+
+@router.post("/authority-rules", status_code=201)
+def create_authority(
+    payload: schema.AuthorityCreate, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return {
+        "data": policy.rules_write(
+            context,
+            None,
+            "create",
+            _values(payload, full=True),
+            mutation_key(context, csrf, key),
+        )
+    }
+
+
+@router.patch("/authority-rules/{id}")
+def patch_authority(
+    id: int,
+    payload: schema.AuthorityPatch,
+    context: Auth,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    return {
+        "data": policy.rules_write(
+            context, id, "edit", _values(payload), mutation_key(context, csrf, key)
+        )
+    }
+
+
+@router.delete("/authority-rules/{id}", status_code=204)
+def delete_authority(id: int, context: Auth, csrf: Csrf = None, key: Key = None):
+    policy.rules_write(
+        context, id, "delete", {"id": id}, mutation_key(context, csrf, key)
+    )
+
+
+@router.get("/delegations")
+def list_delegations(context: Auth, offset: Offset = 0, limit: Limit = 50):
+    return {"data": policy.delegations(context, offset, limit)}
+
+
+@router.post("/delegations", status_code=201)
+def create_delegation(
+    payload: schema.DelegationCreate, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return {
+        "data": policy.delegation_write(
+            context, None, _values(payload, full=True), mutation_key(context, csrf, key)
+        )
+    }
+
+
+@router.post("/delegations/{id}/revoke")
+def revoke_delegation(
+    id: int, payload: schema.Act, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return {
+        "data": policy.delegation_write(
+            context, id, _values(payload), mutation_key(context, csrf, key)
+        )
+    }
+
+
+@router.post("/documents/{id}/consent")
+def consent_document(
+    id: int, payload: schema.Decision, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return write(context, csrf, key, "documents", id, "consent", payload)
+
+
+@router.post("/documents/{id}/oppose")
+def oppose_document(
+    id: int, payload: schema.Decision, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return write(context, csrf, key, "documents", id, "oppose", payload)
+
+
+@router.post("/documents/{id}/reference")
+def reference_document(
+    id: int, payload: schema.Decision, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return write(context, csrf, key, "documents", id, "reference", payload)

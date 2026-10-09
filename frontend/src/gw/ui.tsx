@@ -76,9 +76,20 @@ export function Events({ rows }: { rows: Event[] }) {
         {
           key: "eventType",
           label: "행위",
-          render: (r) => labels[r.eventType] ?? r.eventType,
+          render: (r) =>
+            r.details?.participantRole === "REFERENCE" &&
+            r.eventType === "CONSENTED"
+              ? "참고 의견"
+              : (labels[r.eventType] ?? r.eventType),
         },
-        { key: "personName", label: "합성 담당자" },
+        {
+          key: "personName",
+          label: "합성 담당자",
+          render: (r) =>
+            r.onBehalfOfPersonId
+              ? `${r.personName} (위임 · 원 담당자 ${r.details?.originalPersonName ?? r.onBehalfOfPersonId})`
+              : r.personName,
+        },
         {
           key: "actorKind",
           label: "실제 주체",
@@ -107,13 +118,13 @@ export function Events({ rows }: { rows: Event[] }) {
 export function SnapshotView({ value }: { value: Snapshot }) {
   return (
     <section>
-      <h3>고정된 ERP 원문 · {value.documentNo}</h3>
+      <h3>고정된 원문 · {value.documentNo}</h3>
       <p>
         {value.partnerName} · 공급가 {value.supplyAmount} / 세액{" "}
         {value.taxAmount} / 합계 {value.totalAmount} {value.currency}
       </p>
       <DataTable
-        rows={value.lines.map((r) => ({ ...r, id: r.lineNo }))}
+        rows={(value.lines ?? []).map((r) => ({ ...r, id: r.lineNo }))}
         columns={[
           { key: "lineNo", label: "행" },
           { key: "itemCode", label: "품목" },
@@ -124,8 +135,8 @@ export function SnapshotView({ value }: { value: Snapshot }) {
         ]}
         caption="원문 명세"
         offset={0}
-        total={value.lines.length}
-        limit={value.lines.length || 1}
+        total={(value.lines ?? []).length}
+        limit={(value.lines ?? []).length || 1}
         onPage={() => {}}
       />
     </section>

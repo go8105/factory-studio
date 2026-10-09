@@ -14,6 +14,8 @@ import {
 import { fieldErrors } from "../shared/hooks";
 import {
   labels,
+  documentKinds,
+  sourceKinds,
   time,
   useGet,
   useRole,
@@ -128,8 +130,11 @@ function DocumentsSpace({ box }: { box: "drafts" | "pending" | "archive" }) {
                     onChange={(e) => change("kind", e.target.value)}
                   >
                     <option value="">전체 종류</option>
-                    <option value="GENERAL">일반 기안</option>
-                    <option value="ERP_PURCHASE">ERP 매입</option>
+                    {documentKinds.map((k) => (
+                      <option key={k} value={k}>
+                        {labels[k]}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
@@ -234,10 +239,14 @@ function DocumentEditor({
   const [page, setPage] = useState(0);
   const routes = useGet<Page<Route>>("/routes?limit=100");
   const sources = useGet<
-    { enabled: boolean } & Page<Snapshot & { status: string }>
+    { enabled: boolean; availability?: string } & Page<
+      Snapshot & { status: string }
+    >
   >(
-    kind === "ERP_PURCHASE" && !value
-      ? "/sources?search=" +
+    kind !== "GENERAL" && !value
+      ? "/sources?kind=" +
+          sourceKinds[kind] +
+          "&search=" +
           encodeURIComponent(search) +
           "&offset=" +
           page +
@@ -246,7 +255,7 @@ function DocumentEditor({
   );
   const preview = useGet<{ snapshot: Snapshot }>(
     sourceNo
-      ? "/sources/PURCHASE_INVOICE/" + encodeURIComponent(sourceNo)
+      ? "/sources/" + sourceKinds[kind] + "/" + encodeURIComponent(sourceNo)
       : null,
   );
   const request = useSend();
@@ -272,7 +281,7 @@ function DocumentEditor({
           ...fields,
           routeId,
           kind,
-          ...(kind === "ERP_PURCHASE" ? { sourceNo } : {}),
+          ...(kind !== "GENERAL" ? { sourceNo } : {}),
         };
     const d = await request.send<Document>(
       "/documents" + (value ? "/" + value.id : ""),
@@ -291,7 +300,15 @@ function DocumentEditor({
       }}
       onSubmit={(e) => void submit(e)}
       actions={
-        <button disabled={request.pending || (!value && (!routeId || !!self))}>
+        <button
+          disabled={
+            request.pending ||
+            (!value &&
+              (!routeId ||
+                !!self ||
+                (kind !== "GENERAL" && (!sourceNo || !sources.data?.enabled))))
+          }
+        >
           초안 저장
         </button>
       }
@@ -306,14 +323,21 @@ function DocumentEditor({
             <select
               aria-label="문서 종류"
               value={kind}
-              onChange={(e) => setKind(e.target.value)}
+              onChange={(e) => {
+                setKind(e.target.value);
+                setSource("");
+                setPage(0);
+              }}
             >
-              <option value="GENERAL">일반 기안</option>
-              <option value="ERP_PURCHASE">ERP 매입</option>
+              {documentKinds.map((k) => (
+                <option key={k} value={k}>
+                  {labels[k]}
+                </option>
+              ))}
             </select>
           </label>
         )}
-        {kind === "ERP_PURCHASE" && !value && (
+        {kind !== "GENERAL" && !value && (
           <>
             <Field
               label="ERP 원문 검색"
@@ -326,8 +350,9 @@ function DocumentEditor({
             <ErrorNotice error={sources.error} />
             {sources.data && !sources.data.enabled ? (
               <p role="status">
-                ERP가 꺼져 있거나 아직 열지 않아 원문을 조회할 수 없습니다.
-                ERP를 한 번 열면 조회됩니다.
+                {sources.data.availability === "UNIMPLEMENTED"
+                  ? "이 종류의 원문 제공 기능은 아직 구현되지 않았습니다. 제공 솔루션 구현 후 이용할 수 있습니다."
+                  : "원문 솔루션이 꺼져 있거나 아직 열지 않아 조회할 수 없습니다."}
               </p>
             ) : (
               sources.data && (
@@ -431,7 +456,7 @@ function DocumentEditor({
             </label>
             <ol>
               {selected?.steps.map((s) => (
-                <li key={s.seq}>
+                <li key={s.personId}>
                   {s.name} · {labels[s.jobRole]}
                 </li>
               ))}
@@ -468,6 +493,7 @@ function DocumentDetail({
   const [action, setAction] = useState("");
   const [reason, setReason] = useState("");
   const [route, setRoute] = useState("");
+  const [stepId, setStepId] = useState("");
   const guard = useDiscardGuard(!!action || !!reason);
   const routes = useGet<Page<Route>>(
     action === "select-route" ? "/routes?limit=100" : null,
@@ -479,7 +505,17 @@ function DocumentDetail({
     const payload = {
       actingPersonId: person,
       expectedVersion: d.version,
-      ...(["approve", "reject", "withdraw"].includes(action) ? { reason } : {}),
+      ...([
+        "approve",
+        "reject",
+        "withdraw",
+        "consent",
+        "oppose",
+        "reference",
+      ].includes(action)
+        ? { reason }
+        : {}),
+      ...(stepId ? { stepId } : {}),
       ...(action === "select-route" ? { routeId: route } : {}),
     };
     const saved = await request.send<Document>(
@@ -534,7 +570,7 @@ function DocumentDetail({
         <Loading />
       ) : (
         d && (
-          <>
+          <section className="gw-print-content">
             <h2>
               {d.title} <Status value={d.status} />
             </h2>
@@ -580,6 +616,11 @@ function DocumentDetail({
                 { key: "seq", label: "단계" },
                 { key: "personName", label: "담당자" },
                 {
+                  key: "participantRole",
+                  label: "역할",
+                  render: (s) => labels[s.participantRole ?? "APPROVER"],
+                },
+                {
                   key: "status",
                   label: "처리",
                   render: (s) => (
@@ -598,7 +639,7 @@ function DocumentDetail({
               ]}
               caption="결재 단계"
               offset={0}
-              limit={3}
+              limit={30}
               total={d.steps.length}
               onPage={() => {}}
             />
@@ -611,6 +652,7 @@ function DocumentDetail({
                     if (a === "edit") setEditing(true);
                     else {
                       setAction(a);
+                      setStepId("");
                       setReason("");
                     }
                   }}
@@ -628,18 +670,36 @@ function DocumentDetail({
                 </p>
                 <p>
                   {action === "approve"
-                    ? `${d.currentStep}단계 상신본을 승인합니다.${d.currentStep === d.steps.length ? " 결재가 완료됩니다." : ""}`
+                    ? `${d.currentStep}단계를 승인합니다. 필수 결재·합의가 모두 끝나면 다음 단계로 넘어갑니다.`
                     : action === "submit"
                       ? "저장된 본문·원문·결재선을 검토한 뒤 상신합니다."
                       : action === "refresh-source"
                         ? "현재 ERP 원문으로 초안을 갱신합니다. 자동 상신되지 않습니다."
                         : "처리 후 기존 기록은 이력으로 보존됩니다."}
                 </p>
-                {["approve", "reject", "withdraw"].includes(action) && (
+                {[
+                  "approve",
+                  "reject",
+                  "withdraw",
+                  "consent",
+                  "oppose",
+                  "reference",
+                ].includes(action) && (
                   <Field
                     label="처리 사유"
-                    required={action !== "approve"}
-                    minLength={action !== "approve" ? 2 : undefined}
+                    required={[
+                      "reject",
+                      "withdraw",
+                      "oppose",
+                      "reference",
+                    ].includes(action)}
+                    minLength={
+                      ["reject", "withdraw", "oppose", "reference"].includes(
+                        action,
+                      )
+                        ? 2
+                        : undefined
+                    }
                     maxLength={500}
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
@@ -665,6 +725,52 @@ function DocumentDetail({
                     </select>
                   </label>
                 )}
+                {[
+                  "approve",
+                  "reject",
+                  "consent",
+                  "oppose",
+                  "reference",
+                ].includes(action) &&
+                  !!d.actionSteps?.length && (
+                    <label>
+                      처리할 참여자
+                      <select
+                        aria-label="처리할 참여자"
+                        value={stepId}
+                        required={
+                          d.actionSteps.filter(
+                            (s) =>
+                              s.participantRole ===
+                              (["approve", "reject"].includes(action)
+                                ? "APPROVER"
+                                : action === "reference"
+                                  ? "REFERENCE"
+                                  : "CONSENT"),
+                          ).length > 1
+                        }
+                        onChange={(e) => setStepId(e.target.value)}
+                      >
+                        <option value="">자동 선택 (한 명인 경우)</option>
+                        {d.actionSteps
+                          .filter(
+                            (s) =>
+                              s.participantRole ===
+                              (["approve", "reject"].includes(action)
+                                ? "APPROVER"
+                                : action === "reference"
+                                  ? "REFERENCE"
+                                  : "CONSENT"),
+                          )
+                          .map((s) => (
+                            <option key={s.stepId} value={s.stepId}>
+                              {s.personName} · {labels[s.participantRole]}
+                              {s.delegationId ? " · 위임" : ""}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  )}
                 <button disabled={request.pending}>확정</button>{" "}
                 <button
                   type="button"
@@ -690,8 +796,24 @@ function DocumentDetail({
                 </Link>
               )}
             </div>
+            <p>
+              결재 정책 v{d.policyVersion ?? 1} · 합성 담당자 체험 기록
+              (전자서명 아님)
+            </p>
+            {d.authoritySnapshot && (
+              <p>
+                상신 시 전결: {d.authoritySnapshot.code} · 최종{" "}
+                {d.authoritySnapshot.finalSeq}단계 ·{" "}
+                {d.authoritySnapshot.amountFrom} 이상 /{" "}
+                {d.authoritySnapshot.amountTo ?? "상한 없음"} 미만{" "}
+                {d.authoritySnapshot.currency}
+              </p>
+            )}
+            <button className="gw-no-print" onClick={() => window.print()}>
+              기록 인쇄 / PDF 저장
+            </button>
             <Events rows={d.events} />
-          </>
+          </section>
         )
       )}
     </DetailPanel>

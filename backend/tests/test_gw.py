@@ -190,7 +190,16 @@ def test_concurrent_approve_and_withdraw(gw):
         futures = [pool.submit(run, "approve", 1), pool.submit(run, "withdraw", 0)]
         results = [f.result() for f in futures]
     assert sorted(r.status_code for r in results) == [200, 409]
-    assert len(ok(c.get(P + "/documents/" + d["id"]))["events"]) == 3
+    assert (
+        len(
+            [
+                e
+                for e in ok(c.get(P + "/documents/" + d["id"]))["events"]
+                if e["eventType"] != "SKIPPED"
+            ]
+        )
+        == 3
+    )
 
 
 def test_route_validation_and_self_approval(gw):
@@ -458,7 +467,16 @@ def test_concurrent_decisions_one_event(gw, actions, actors):
     with ThreadPoolExecutor(2) as pool:
         futures = [pool.submit(run, a, i) for a, i in zip(actions, actors)]
         assert sorted(f.result().status_code for f in futures) == [200, 409]
-    assert len(ok(c.get(P + "/documents/" + d["id"]))["events"]) == 3
+    assert (
+        len(
+            [
+                e
+                for e in ok(c.get(P + "/documents/" + d["id"]))["events"]
+                if e["eventType"] != "SKIPPED"
+            ]
+        )
+        == 3
+    )
 
 
 def test_same_source_concurrent_submission(gw):

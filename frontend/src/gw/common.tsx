@@ -10,6 +10,20 @@ export type Person = {
   isActive: boolean;
   version: number;
 };
+export type ParticipantRole = "APPROVER" | "CONSENT" | "REFERENCE";
+export const documentKinds = [
+  "GENERAL",
+  "ERP_PURCHASE",
+  "ERP_PO",
+  "ERP_EXPENSE",
+  "PLM_ECO",
+];
+export const sourceKinds: Record<string, string> = {
+  ERP_PURCHASE: "PURCHASE_INVOICE",
+  ERP_PO: "PURCHASE_ORDER",
+  ERP_EXPENSE: "EXPENSE_CLAIM",
+  PLM_ECO: "ECO",
+};
 export type Route = {
   id: string;
   code: string;
@@ -18,6 +32,7 @@ export type Route = {
   version: number;
   steps: {
     seq: number;
+    participantRole: ParticipantRole;
     personId: string;
     name: string;
     jobRole: string;
@@ -36,6 +51,12 @@ export type Event = {
   eventType: string;
   personName: string;
   actorKind: string;
+  onBehalfOfPersonId?: string | null;
+  details?: {
+    participantRole?: ParticipantRole;
+    originalPersonName?: string;
+    cause?: string;
+  };
   reason: string | null;
   createdAt: string;
 };
@@ -46,7 +67,7 @@ export type Snapshot = {
   totalAmount: string;
   supplyAmount: string;
   taxAmount: string;
-  lines: {
+  lines?: {
     lineNo: number;
     itemCode: string;
     quantity: string;
@@ -69,6 +90,22 @@ export type Document = {
   routeName: string;
   currentStep: number | null;
   roundNo: number;
+  policyVersion?: number;
+  authoritySnapshot?: {
+    code: string;
+    finalSeq: number;
+    amountFrom: string;
+    amountTo: string | null;
+    currency: string;
+    effectiveFrom: string;
+    effectiveTo: string | null;
+  };
+  actionSteps?: {
+    stepId: string;
+    participantRole: ParticipantRole;
+    personName: string;
+    delegationId: string | null;
+  }[];
   amount: string | null;
   currency: string | null;
   sourceNo: string | null;
@@ -83,6 +120,7 @@ export type Document = {
   steps: {
     id: string;
     seq: number;
+    participantRole?: ParticipantRole;
     personId: string;
     personName: string;
     status: string;
@@ -126,6 +164,17 @@ export const labels: Record<string, string> = {
   SKIPPED: "건너뜀",
   GENERAL: "일반 기안",
   ERP_PURCHASE: "ERP 매입",
+  ERP_PO: "ERP 구매발주",
+  ERP_EXPENSE: "ERP 경비",
+  PLM_ECO: "PLM 설계변경",
+  APPROVER: "결재",
+  CONSENT: "합의",
+  REFERENCE: "참고",
+  CONSENTED: "합의 완료",
+  OPPOSED: "합의 반대",
+  consent: "합의",
+  oppose: "합의 반대",
+  reference: "참고 의견",
   NOTICE: "공지",
   FREE: "자유",
   CREATED: "초안 생성",
