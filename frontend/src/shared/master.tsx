@@ -76,6 +76,10 @@ export type MasterSpec<Row extends { id: number }, Draft> = {
   /** API 경로. 목록 GET, 등록 POST, 수정 PATCH/{id}, 삭제 DELETE/{id} */
   base: string;
   limit?: number;
+  allowDelete?: boolean;
+  onSaved?: () => void;
+  reloadKey?: number;
+  search?: boolean;
   updateBody?: (changes: Record<string, unknown>, row: Row) => unknown;
   /** 등록할 때의 빈 값 */
   blank: Draft;
@@ -147,6 +151,7 @@ export function MasterScreen<
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [filtered, setFiltered] = useState(false);
+  const [search, setSearch] = useState("");
   const [reload, setReload] = useState(0);
   const [loadError, setLoadError] = useState<unknown>();
   const [panel, setPanel] = useState<{ row: Row | null } | null>(null);
@@ -161,16 +166,22 @@ export function MasterScreen<
     pending,
     error: saveError,
     setError: setSaveError,
-  } = useApiSend(spec.base, () => setReload((n) => n + 1));
+  } = useApiSend(spec.base, () => {
+    setReload((n) => n + 1);
+    spec.onSaved?.();
+  });
 
   useEffect(() => {
     const controller = new AbortController();
     setLoadError(undefined);
-    const query = filtered && spec.filter ? `&${spec.filter.query}` : "";
+    const query =
+      (filtered && spec.filter ? `&${spec.filter.query}` : "") +
+      (spec.search ? `&search=${encodeURIComponent(search)}` : "");
     api<Row[]>(`${spec.base}?offset=${offset}&limit=${limit}${query}`, {
       signal: controller.signal,
     })
       .then((reply) => {
+        if (controller.signal.aborted) return;
         setRows(reply.data);
         setTotal(reply.page?.total ?? 0);
       })
@@ -181,7 +192,7 @@ export function MasterScreen<
           fail(error);
       });
     return () => controller.abort();
-  }, [offset, filtered, reload]);
+  }, [offset, filtered, reload, search, spec.reloadKey]);
 
   const dirty =
     !!panel &&
@@ -281,12 +292,14 @@ export function MasterScreen<
             >
               수정
             </button>
-            <button
-              className="link-button"
-              onClick={() => setConfirmDelete(row.id)}
-            >
-              삭제
-            </button>
+            {spec.allowDelete !== false && (
+              <button
+                className="link-button"
+                onClick={() => setConfirmDelete(row.id)}
+              >
+                삭제
+              </button>
+            )}
           </span>
         ),
     },
@@ -315,6 +328,16 @@ export function MasterScreen<
       {done && <p role="status">{done}</p>}
       <div className="split-view fill">
         <section className="fill">
+          {spec.search && (
+            <Field
+              label="검색"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setOffset(0);
+              }}
+            />
+          )}
           {spec.filter && (
             <div className="filter-bar">
               <label className="inline-check">

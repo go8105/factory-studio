@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Header, Query
 from fs.common import master
 from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
-from fs.gw import policy, schema, service
+from fs.gw import organization, policy, schema, service
 
 router = APIRouter()
 Auth = Annotated[AuthContext, Depends(resolve_auth)]
@@ -136,6 +136,12 @@ def list_people(
             context, "people", search=search, offset=offset, limit=limit
         )
     }
+
+
+@router.get("/people-options")
+def people_options(context: Auth):
+    # 역할 선택은 전체 명단이 필요하다. 일반 목록의 페이지 제한과 분리한다.
+    return {"data": service.read(context, "people", limit=2147483647)["rows"]}
 
 
 @router.get("/people/{id}")
@@ -404,3 +410,65 @@ def reference_document(
     id: int, payload: schema.Decision, context: Auth, csrf: Csrf = None, key: Key = None
 ):
     return write(context, csrf, key, "documents", id, "reference", payload)
+
+
+@router.get("/hr-preview")
+def hr_preview(context: Auth):
+    return {"data": organization.preview(context)}
+
+
+@router.post("/import-hr")
+def import_hr(
+    payload: schema.HrImport, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return {
+        "data": organization.import_hr(
+            context, _values(payload, full=True), mutation_key(context, csrf, key)
+        )
+    }
+
+
+@router.get("/people-master")
+def people_master(
+    context: Auth, offset: Offset = 0, limit: Limit = 20, search: Search = ""
+):
+    page = service.read(context, "people", offset=offset, limit=limit, search=search)
+    return {
+        "data": page["rows"],
+        "page": {"total": page["total"], "offset": offset, "limit": limit},
+    }
+
+
+@router.post("/people-master", status_code=201)
+def create_people_master(
+    payload: schema.PersonCreate, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return write(context, csrf, key, "people", None, "create", payload)
+
+
+@router.patch("/people-master/{id}")
+def edit_people_master(
+    id: int,
+    payload: schema.PersonPatch,
+    context: Auth,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    mutation_key(context, csrf, key)
+    values = _values(payload)
+
+    def run(c, ctx):
+        row = service.one(c, ctx, "person", id, True)
+        merged = {k: row[k] for k in ("name", "job_role", "is_active")} | values
+        if any(merged[k] is None for k in ("name", "job_role", "is_active")):
+            raise service.invalid("person", "이름·직무·활성 상태는 비울 수 없습니다.")
+        service.master(c, ctx, "people", id, merged)
+        result = service.wire(service.one(c, ctx, "person", id))
+        service.audit(c, ctx, "people", id, "edit", result)
+        return result, "gw.person", id
+
+    return {
+        "data": service.run_action(
+            "gw", context, f"gw.people.{id}.edit", key, values, run
+        )
+    }

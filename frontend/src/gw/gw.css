@@ -103,3 +103,33 @@
     break-inside: auto;
   }
 }
+
+.gw-hr-import {
+  margin-block: 0.75rem;
+}
+.gw-hr-list {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 18rem;
+  overflow: auto;
+  margin-block: 0.75rem;
+}
+.gw-hr-list label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
+}
+.gw-org-tree {
+  list-style: none;
+  padding: 0;
+}
+.gw-org-tree li {
+  border-bottom: 1px solid var(--border);
+  padding-block: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.gw-org-tree span,
+.gw-org-tree small {
+  display: block;
+}

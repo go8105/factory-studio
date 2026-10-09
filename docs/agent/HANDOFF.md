@@ -1,3 +1,10 @@
+# GW-c 검증 중 (2026-10-09)
+
+- 사용자 다음 진행/이어서 진행 승인으로 조직·HR 연계 수행. `codex/gw-dsn31`, 시작 `0dd6ef9`, 현재 마지막 커밋은 `git log -1 --oneline`.
+- 구현: G-07 공통 MasterScreen·명시적 HR 가져오기 미리보기/선택/재확인 digest, G-10 HR 조직·GW 스냅샷 조회. HR interface만 소비, 스냅샷 갱신·기존 직무/활성/문서 이력 보존, 순환·비활성 상위·중복·코드 충돌 거부. 읽기 상태에서 퇴직/원천 없음/조회 불가 구분.
+- 검증 진행: 신규 DB15개·전체 backend944/1 skipped 통과(역할 전체조회 추가 전). 전체 frontend559 통과 뒤 공통 마스터 검색/갱신·역할 옵션 보정, 최종 집중·정적/빌드 재검증 중. 브라우저 실제 사원10·부서4 가져오기·조직 스냅샷 확인, 모바일·계층/재가져오기 최종 확인 남음.
+- 독립 `_test` DB, `PYTHONPATH=backend/src:backend`, main venv/Node24 사용. 기본 cookie가 localhost의 다른 로컬 세션과 충돌할 수 있어 다음 브라우저 검증은127.0.0.2:5273 loopback으로 분리한다. API8073/Vite5273 현재 중지. DB/schema/시드 변경 없음. push·배포 없음. GW-d 미착수.
+
 # GW-b 인계 (2026-10-09)
 
 - 브랜치 `codex/gw-dsn31`, 시작GW-a `19e8f9e`, WIP `6ce757c`, 마지막 커밋 `git log -1 --oneline`. 격리 worktree: `/Users/hwang-kyoungho/Documents/Codex/2026-10-09/gw/work/factory-studio-gw`. main/공유DB/push/배포 없음. [결과](GW_결재확장_GW-b.md).

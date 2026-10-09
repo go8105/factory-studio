@@ -508,8 +508,20 @@ def listing(c, ctx, kind, q):
         limit=q.get("limit", 50),
     )
     person = q.get("person_id")
-    col = "name" if kind in {"people", "routes"} else "title"
-    where += f" AND (strpos(lower({col}),lower(:search))>0 OR strpos(lower({'code' if kind in {'people', 'routes'} else 'document_no' if kind == 'documents' else 'post_no'}),lower(:search))>0)"
+    search_columns = (
+        ["name", "code", "coalesce(hr_employee_code,'')"]
+        if kind == "people"
+        else ["name", "code"]
+        if kind == "routes"
+        else ["title", "document_no" if kind == "documents" else "post_no"]
+    )
+    where += (
+        " AND ("
+        + " OR ".join(
+            f"strpos(lower({column}),lower(:search))>0" for column in search_columns
+        )
+        + ")"
+    )
     q = {**q, "kind": q.get("document_kind")}
     for name in ["status", "kind", "board_kind"]:
         if q.get(name):
@@ -555,6 +567,10 @@ def listing(c, ctx, kind, q):
         f"SELECT * FROM gw.{table} WHERE {where} ORDER BY {sort} DESC,id DESC OFFSET :offset LIMIT :limit",
         p,
     )
+    if kind == "people":
+        from fs.gw.organization import enrich_people
+
+        found = enrich_people(c, ctx, found)
     if kind == "routes":
         found = [detail(c, ctx, kind, r["id"]) for r in found]
     total = c.execute(
@@ -598,7 +614,7 @@ def dashboard(c, ctx, person):
     }
 
 
-def audit(c, ctx, kind, entity, action, result, table=None):
+def audit(c, ctx, kind, entity, action, result, table=None, summary=None):
     c.execute(
         text(
             "INSERT INTO core.audit_event(workspace_id,actor_user_id,action,entity_kind,entity_key,summary,actor_kind,actor_key,scope_kind,created_at) VALUES(:w,:user,:action,:entity,:id,CAST(:summary AS jsonb),:ak,:actor,'WORKSPACE',clock_timestamp())"
@@ -610,7 +626,9 @@ def audit(c, ctx, kind, entity, action, result, table=None):
             "entity": "gw." + (table or TABLES[kind]),
             "id": str(entity),
             "summary": json.dumps(
-                {"version": result.get("version"), "status": result.get("status")}
+                summary
+                if summary is not None
+                else {"version": result.get("version"), "status": result.get("status")}
             ),
             "ak": ctx.actor_kind,
             "actor": ctx.actor_key,
@@ -688,6 +706,10 @@ def master(c, ctx, kind, id, v):
                 ).scalar_one()
             if used:
                 raise conflict("PERSON_IN_USE", count=used)
+        if row and row["hr_employee_code"] and v["name"] != row["name"]:
+            raise invalid(
+                "name", "HR 연결 담당자의 이름은 HR에서 가져오기로 갱신하세요."
+            )
         data = {k: v[k] for k in ["name", "job_role"]}
         if row:
             data["is_active"] = v["is_active"]

@@ -589,6 +589,7 @@ function DocumentDetail({
             </h2>
             <p>
               {d.documentNo} · {d.drafterName} · {d.roundNo}회차 · {d.routeName}
+              {d.drafterOrgName && ` · 기안 조직: ${d.drafterOrgName}`}
             </p>
             <p className="muted">
               상신 당시 문서의 검토 기록이며 ERP 확정을 제어하지 않습니다.
@@ -631,6 +632,11 @@ function DocumentDetail({
               columns={[
                 { key: "seq", label: "단계" },
                 { key: "personName", label: "담당자" },
+                {
+                  key: "organizationName",
+                  label: "상신 조직",
+                  render: (s) => s.organizationName ?? "미연결",
+                },
                 {
                   key: "participantRole",
                   label: "역할",

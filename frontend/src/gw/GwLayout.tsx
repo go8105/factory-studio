@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { SolutionLayout, type Screen } from "../shared/SolutionLayout";
 import { useSession } from "../app/session";
-import { RoleContext, useGet, type Page, type Person } from "./common";
+import { RoleContext, useGet, type Person } from "./common";
 export const gwScreens: Screen[] = [
   { path: "dashboard", id: "G-01", label: "업무 현황", group: "전자결재" },
   { path: "drafts", id: "G-02", label: "기안함", group: "전자결재" },
@@ -16,6 +16,7 @@ export const gwScreens: Screen[] = [
     label: "전결 규칙",
     group: "기준정보",
   },
+  { path: "organization", id: "G-10", label: "조직도", group: "기준정보" },
   { path: "delegations", id: "G-09", label: "결재 위임", group: "전자결재" },
 ];
 function Space() {
@@ -25,8 +26,8 @@ function Space() {
     () => sessionStorage.getItem(key) ?? "",
   );
   const [busy, setBusy] = useState(false);
-  const people = useGet<Page<Person>>("/people?limit=100");
-  const valid = people.data?.rows.some((p) => p.id === selected && p.isActive)
+  const people = useGet<Person[]>("/people-options");
+  const valid = people.data?.some((p) => p.id === selected && p.isActive)
     ? selected
     : "";
   return (
@@ -37,7 +38,7 @@ function Space() {
           setSelected(p);
           sessionStorage.setItem(key, p);
         },
-        people: people.data?.rows ?? [],
+        people: people.data ?? [],
         reload: people.reload,
         error: people.error,
         busy,
@@ -49,7 +50,7 @@ function Space() {
         title="GW 그룹웨어"
         base="/gw"
         screens={gwScreens}
-        others={["mes", "erp", "fems", "qms", "wms", "bems", "spc"]
+        others={["mes", "erp", "fems", "qms", "wms", "bems", "spc", "hr"]
           .map((k) => ({ to: "/" + k, label: k.toUpperCase() }))
           .concat({ to: "/home", label: "포털 홈" })}
       />

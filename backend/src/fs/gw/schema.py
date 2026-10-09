@@ -133,3 +133,16 @@ class DelegationCreate(Actor):
     document_kind: DocumentKind | None = Field(None, alias="documentKind")
     max_amount: Money | None = Field(None, alias="maxAmount")
     reason: Text = Field(min_length=2, max_length=500)
+
+
+class HrImport(Model):
+    preview_digest: str = Field(alias="previewDigest", pattern=r"^[a-f0-9]{64}$")
+    employee_codes: list[
+        Annotated[str, StringConstraints(min_length=1, max_length=30)]
+    ] = Field(alias="employeeCodes", max_length=1000)
+
+
+class PersonPatch(Version):
+    name: Text | None = Field(None, max_length=80)
+    job_role: Role | None = Field(None, alias="jobRole")
+    is_active: bool | None = Field(None, alias="isActive", strict=True)

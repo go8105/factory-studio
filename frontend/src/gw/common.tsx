@@ -10,6 +10,42 @@ export type Person = {
   isActive: boolean;
   version: number;
 };
+export type HrEmployee = {
+  employeeCode: string;
+  name: string;
+  status: string;
+  departmentCode: string;
+  departmentName: string;
+  gradeName: string;
+  dutyName: string | null;
+  isHead: boolean;
+};
+export type Department = {
+  code: string;
+  name: string;
+  parentCode: string | null;
+  isActive: boolean;
+  headEmployeeCode: string | null;
+};
+export type OrgSnapshot = {
+  id: string;
+  code: string;
+  name: string;
+  parentId: string | null;
+  isActive: boolean;
+  hrSyncedAt: string | null;
+};
+export type HrPreview = {
+  available: boolean;
+  digest: string | null;
+  employees: HrEmployee[] | null;
+  departments: Department[] | null;
+  organizations: OrgSnapshot[];
+  people: (Person & {
+    hrEmployeeCode: string | null;
+    organizationUnitId: string | null;
+  })[];
+};
 export type ParticipantRole = "APPROVER" | "CONSENT" | "REFERENCE";
 export const documentKinds = [
   "GENERAL",
@@ -86,6 +122,7 @@ export type Document = {
   status: string;
   version: number;
   drafterName: string;
+  drafterOrgName?: string | null;
   drafterId: string;
   routeId: string;
   routeName: string;
@@ -124,6 +161,7 @@ export type Document = {
     participantRole?: ParticipantRole;
     personId: string;
     personName: string;
+    organizationName?: string | null;
     status: string;
     decisionReason: string | null;
     decidedAt: string | null;

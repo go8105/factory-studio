@@ -7,6 +7,7 @@ import { Board } from "./Board";
 import { Masters } from "./Masters";
 import { Authority } from "./Authority";
 import { Delegations } from "./Delegations";
+import { People, Organization } from "./Organization";
 import "./gw.css";
 export default function GwRoutes() {
   return (
@@ -21,7 +22,8 @@ export default function GwRoutes() {
         <Route path="routes" element={<Masters kind="routes" />} />
         <Route path="authority-rules" element={<Authority />} />
         <Route path="delegations" element={<Delegations />} />
-        <Route path="people" element={<Masters kind="people" />} />
+        <Route path="people" element={<People />} />
+        <Route path="organization" element={<Organization />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
