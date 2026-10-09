@@ -142,7 +142,8 @@ def apply(d):
     for name, columns in EXT_COLUMNS.items():
         cols = tables[name]["columns"]
         at = len(cols) - 1 if cols[-1]["name"] == "created_at" else len(cols)
-        cols[at:at] = [dict(x) for x in columns]
+        existing = {c["name"] for c in cols}
+        cols[at:at] = [dict(x) for x in columns if x["name"] not in existing]
     for (t, old), found in hits.items():
         new = next(n for tt, o, n, _ in REPLACE if (tt, o) == (t, old))
         for x in found:

@@ -5,6 +5,8 @@ import json
 import unittest
 from pathlib import Path
 
+import apply_dsn00
+import apply_dsn31
 from validate_db_design import validate_gw_dsn31
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,6 +26,21 @@ class GwTargetTest(unittest.TestCase):
         self.assertEqual(
             sum(t["name"].startswith("gw.") for t in self.target["tables"]), 24
         )
+
+    def test_demo_implementation_does_not_skip_future_team_design(self):
+        current = json.loads((ROOT / "docs/db/schema-metadata/schema.json").read_text())
+        target = apply_dsn00.base(copy.deepcopy(current))
+        self.assertTrue(apply_dsn31.apply(target))
+        names = {t["name"] for t in target["tables"]}
+        self.assertIn("core.workspace_membership", names)
+        self.assertIn("gw.document_reader", names)
+        self.assertIn("erp.approval_evidence", names)
+        person = next(t for t in target["tables"] if t["name"] == "gw.person")
+        self.assertIn("hr_employee_code", {c["name"] for c in person["columns"]})
+        before = copy.deepcopy(target)
+        self.assertFalse(apply_dsn31.apply(target))
+        self.assertEqual(target, before)
+        self.assertEqual(validate_gw_dsn31(target), [])
 
     def test_rejects_regressions(self):
         d = copy.deepcopy(self.target)

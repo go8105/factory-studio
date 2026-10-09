@@ -21,8 +21,8 @@ erDiagram
     numeric qty_per_unit "단위 소요량"
     varchar unit "단위"
     numeric loss_rate "로스율"
-    bigint issue_process_id FK "투입 공정 NULL"
     timestamptz created_at "등록 시각"
+    bigint issue_process_id FK "투입 공정 NULL"
   }
   mes_bom_substitute {
     bigint id PK "내부 식별자"
@@ -43,8 +43,8 @@ erDiagram
     integer version_no "버전 번호"
     varchar status "상태"
     timestamptz published_at "게시 시각 NULL"
-    varchar plm_bom_ref "PLM E-BOM NULL"
     timestamptz created_at "등록 시각"
+    varchar plm_bom_ref "PLM E-BOM NULL"
   }
   mes_defect_code {
     bigint id PK "내부 식별자"
@@ -96,9 +96,9 @@ erDiagram
     bigint packing_unit_id FK "패킹 단위"
     timestamptz received_at "입고 시각"
     varchar status "상태"
+    timestamptz created_at "등록 시각"
     varchar source "출처"
     varchar pop_entry_ref "POP 입력 코드 NULL"
-    timestamptz created_at "등록 시각"
   }
   mes_inspection_item {
     bigint id PK "내부 식별자"
@@ -124,6 +124,7 @@ erDiagram
     varchar base_unit "기준단위"
     varchar item_type "품목 유형"
     boolean is_active "사용 여부"
+    timestamptz created_at "등록 시각"
     varchar spec "규격 NULL"
     varchar drawing_no "도번 NULL"
     varchar revision "리비전 NULL"
@@ -141,7 +142,6 @@ erDiagram
     integer boxes_per_pallet "팔레트당 박스 수 NULL"
     varchar plm_part_no "PLM 부품 번호 NULL"
     varchar plm_revision "PLM 리비전 NULL"
-    timestamptz created_at "등록 시각"
   }
   mes_item_unit_conversion {
     bigint id PK "내부 식별자"
@@ -247,9 +247,9 @@ erDiagram
     numeric issued_qty "투입 수량"
     varchar unit "단위"
     timestamptz issued_at "투입 시각"
+    timestamptz created_at "등록 시각"
     varchar material_lot_no "자재 LOT 번호 NULL"
     varchar source "출처"
-    timestamptz created_at "등록 시각"
   }
   mes_material_requirement {
     bigint id PK "내부 식별자"
@@ -368,8 +368,8 @@ erDiagram
     varchar packing_kind "패킹 유형"
     bigint parent_packing_unit_id FK "상위 패킹 단위 NULL"
     varchar status "상태"
-    timestamptz voided_at "해체 시각 NULL"
     timestamptz created_at "등록 시각"
+    timestamptz voided_at "해체 시각 NULL"
   }
   mes_pop_import {
     bigint id PK "내부 식별자"
@@ -483,11 +483,11 @@ erDiagram
     bigint route_version_id FK "경로 버전"
     bigint process_id FK "공정"
     integer sequence_no "순번"
+    timestamptz created_at "등록 시각"
     numeric standard_cycle_sec "표준 사이클(초/개) NULL"
     integer setup_minutes "준비 시간(분) NULL"
     boolean is_subcontract "외주 단계"
     varchar subcontractor_code "기본 외주처 NULL"
-    timestamptz created_at "등록 시각"
   }
   mes_route_version {
     bigint id PK "내부 식별자"

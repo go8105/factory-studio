@@ -435,7 +435,11 @@ def apply(d):
         raise SystemExit("apply_dsn21을 먼저 적용한다")
     if EN in names:
         return False
-    hits = {(x["table"], x["expression"]) for x in d["constraints"]} & set(REPLACED)
+    # W2a MES already has the full POP kinds; accept both the original and
+    # the completed expression without weakening missing/unknown-check detection.
+    accepted = set(REPLACED) | {(table, new) for (table, _), new in REPLACED.items()}
+    hits = {x["table"] for x in d["constraints"] if (x["table"], x["expression"]) in accepted}
+    expected_tables = {table for table, _ in REPLACED}
     modules = [
         x
         for x in d["constraints"]
@@ -443,9 +447,9 @@ def apply(d):
         and x["kind"] == "CHECK"
         and "module_key IN" in x["expression"]
     ]
-    if len(hits) != len(REPLACED) or len(modules) != 2:
+    if hits != expected_tables or len(modules) != 2:
         raise SystemExit(
-            f"바꿀 기존 제약을 찾지 못했다: {set(REPLACED) - hits}, 모듈 키 CHECK {len(modules)}개"
+            f"바꿀 기존 제약을 찾지 못했다: {expected_tables - hits}, 모듈 키 CHECK {len(modules)}개"
         )
     for x in d["constraints"]:
         new = REPLACED.get((x["table"], x["expression"]))

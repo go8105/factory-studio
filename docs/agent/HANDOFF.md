@@ -1,3 +1,9 @@
+# GW·즐겨찾기 main 병합/배포 진행 (2026-10-10)
+
+- 사용자 로컬main병합/운영배포 명시승인, 원격push 포함. 기존CI실패2건 보정: 목표재생성 partial 구현 호환·목표361표866FK/전체미구현설계 보존, tools133통과. SPC 테스트 시계만 고정·정책무변경, SPC18통과. 실제schema0.22.1/headw0_fav_menu_shape 유지.
+- 현재 codex/workspace-favorites, 최종커밋git log -1. 로컬mainaf10726·originmain3ff4cf5·운영f860e8b 모두조상/깨끗함. 다음 로컬mainfast-forward→origin/mainpush→해당headCI통과→운영백업/정식deploy.sh(우회옵션없음)→공개사이트실제메뉴저장/사이드바/API/DDL확인→최종문서. 아직배포완료아님.
+- 서버 158.247.236.136 /srv/factory-studio/app, service factory-studio-api, 공개 https://eip.hugh-d.com. 다른서비스/secretary DB 미접촉·초기화없음. 서버.env 읽거나출력하지 않음.
+
 # W0-FAV 즐겨찾기 완료 인계 (2026-10-10)
 
 - 사용자 이미지2장·참고React 분석→실제9솔루션108메뉴 연결. codex/workspace-favorites, 시작GW검토bfae108/WIPca74aaa, 최종커밋git log -1. [검증과화면](내공간_즐겨찾기_검증_W0-FAV.md), [계약](../ui/내공간_즐겨찾기_W0-FAV.md).

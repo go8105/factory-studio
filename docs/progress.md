@@ -1,3 +1,9 @@
+## 2026-10-10 GW·즐겨찾기 main 병합/배포 진행
+
+- 사용자 명시적 로컬 main 병합·운영 반영 요청. main af10726 깨끗함, origin/main3ff4cf5 및 운영f860e8b는 작업head 조상. fast-forward 병합 예정. 기존 사용자 변경 보존.
+- 기존 CI 차단 보정: DSN-22는 W2a가 이미 확장한 MES CHECK 허용(누락/알 수 없는 형태 거부 유지), DSN-12는 부분 구현에서도 ERP 원천 코드 보정, DSN-28/90은 이미 구현한 컬럼 중복 추가 방지. DSN-31은 체험19표 존재만으로 TEAM/ERP 목표 설계 완료로 오판하지 않도록 기본GW→전체목표24표 재구성하고 구현 추가컬럼 보존. 목표재생성/멱등/계약 및 체험→미구현설계 회귀 포함 tools133통과. 목표361표866FK·Excel/ERD 재생성, 실제DB스키마/마이그레이션 변경 없음.
+- SPC 종료일 없는 관리도 테스트는 고정 기준일 이후 측정·DB정책 시계를 테스트에서 고정한다. 제품 실행기간 검증 유지, SPC18통과. backendRuff/format 통과. 다음: 커밋→로컬main병합/push→해당head CI→백업/정식deploy.sh→운영 브라우저/API 확인·최종 인계. 아직 배포 완료 아님.
+
 ## 2026-10-10 W0-FAV 내 공간·즐겨찾기 완료
 
 - 사용자 참고폴더/이미지 기반 내 공간·사이드바 개인화 구현. GW 검토 bfae108→codex/workspace-favorites, WIP ca74aaa, 최종 커밋 git log -1. main/공유DB/push/배포 미실행.

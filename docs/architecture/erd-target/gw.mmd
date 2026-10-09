@@ -309,8 +309,8 @@ erDiagram
     varchar job_role "job_role"
     boolean is_active "is_active"
     integer version "version"
-    varchar hr_employee_code "HR 사원 코드 NULL"
     bigint organization_unit_id FK "현재 조직 NULL"
+    varchar hr_employee_code "HR 사원 코드 NULL"
     timestamptz created_at "등록 시각"
   }
   gw_person_identity_binding {

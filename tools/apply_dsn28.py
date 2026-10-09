@@ -429,7 +429,8 @@ def apply(d):
     for name, columns in EXT_COLUMNS.items():
         cols = tables[name]["columns"]
         at = len(cols) - 1 if cols[-1]["name"] == "created_at" else len(cols)
-        cols[at:at] = columns
+        existing = {c["name"] for c in cols}
+        cols[at:at] = [dict(c) for c in columns if c["name"] not in existing]
     d["tables"].extend(TABLES + EXT_TABLES)
     d["constraints"].extend(CONSTRAINTS + EXT_CONSTRAINTS)
     d["relations"].extend(RELATIONS)

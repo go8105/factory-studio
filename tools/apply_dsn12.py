@@ -1146,7 +1146,15 @@ def apply(d):
     if "erp.journal_entry" not in names:
         raise SystemExit("apply_dsn11을 먼저 적용한다")
     if PI in names:
-        return False
+        # MES can already be implemented while ERP is newly expanded by DSN-11.
+        # Still apply the cross-solution source-code contract, then become a no-op.
+        changed = False
+        for x in d["constraints"]:
+            new = REPLACED.get((x["table"], x["expression"]))
+            if new:
+                x["expression"] = new
+                changed = True
+        return changed
     tables = {t["name"]: t for t in d["tables"]}
     for name, columns in NEW_COLUMNS.items():
         cols = tables[name]["columns"]

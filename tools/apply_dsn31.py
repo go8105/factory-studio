@@ -7,9 +7,11 @@ GW 협업 설정·직원 계정 연결·업무 권한·문서 열람·결재 재
 (조직은 HR 부서를 가져온 gw.organization_unit, 사람의 현재 조직은 gw.person.organization_unit_id).
 """
 
+import copy
 import json
 from pathlib import Path
 
+import apply_fs030a
 from apply_fs023a import S, c, col, r
 from apply_fs023a import table as _table
 
@@ -1201,8 +1203,32 @@ def apply(d):
     tables = {t["name"]: t for t in d["tables"]}
     if "hr.employee" not in tables:
         raise SystemExit("apply_dsn30을 먼저 적용한다")
-    if AR in tables:
+    planned_names = {t["name"] for t in TABLES + CORE_TABLES + ERP_TABLES}
+    if planned_names <= set(tables):
         return False
+    if AR in tables:
+        # GW-a implements the demo subset, not the TEAM/ERP design. Rebuild the
+        # planned GW from its canonical initial definition, then carry forward
+        # extra implemented columns (e.g. the HR employee code snapshot).
+        implemented = {n: t for n, t in tables.items() if n.startswith(P)}
+        allowed = {t["name"] for t in apply_fs030a.TABLES + TABLES}
+        if set(implemented) - allowed:
+            raise SystemExit("미지원 GW 확장이 있어 목표 설계 재생성을 중단한다")
+        candidate = copy.deepcopy(d)
+        candidate["tables"] = [t for t in candidate["tables"] if not t["name"].startswith(P)] + copy.deepcopy(apply_fs030a.TABLES)
+        candidate["constraints"] = [c for c in candidate["constraints"] if not c["table"].startswith(P)] + copy.deepcopy(apply_fs030a.CONSTRAINTS)
+        candidate["relations"] = [r for r in candidate["relations"] if not r["source"].startswith(P)] + copy.deepcopy(apply_fs030a.RELATIONS)
+        candidate["states"] = [s for s in candidate["states"] if not s["table"].startswith(P)] + copy.deepcopy(apply_fs030a.STATES)
+        apply(candidate)
+        for t in candidate["tables"]:
+            if t["name"] in implemented:
+                names = {c["name"] for c in t["columns"]}
+                extra = [c for c in implemented[t["name"]]["columns"] if c["name"] not in names]
+                at = len(t["columns"]) - 1 if t["columns"][-1]["name"] == "created_at" else len(t["columns"])
+                t["columns"][at:at] = copy.deepcopy(extra)
+        d.clear()
+        d.update(candidate)
+        return True
     missing = set(EXT_COLUMNS) - set(tables)
     hits = [
         [

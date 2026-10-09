@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
-from fs.spc import stats
+from fs.spc import service, stats
 from sqlalchemy import text
 
 P = "/api/v1/spc"
@@ -595,12 +595,31 @@ def test_qms_badge_follows_open_signals(spc):
     assert client.get(f"{P}/dashboard").status_code == 409
 
 
-def test_chart_without_end_date_includes_measurements_after_business_day(spc):
+def test_chart_without_end_date_includes_measurements_after_business_day(
+    spc, monkeypatch
+):
     """종료일이 없으면 업무 기준일(FS_TODAY 09-24)보다 늦게 측정한 부분군도 관리도에 보인다."""
     client, created, _, ch = spc
+    # The open-ended run uses the DB clock, which can differ from the host.
+    # Fix this test's clock and measurement after FS_TODAY instead of depending
+    # on wall-clock time or allowing out-of-period measurements in the product.
+    late = datetime(2026, 9, 25, 10, tzinfo=SEOUL)
+    monkeypatch.setattr(service, "_now", lambda _: late + timedelta(minutes=1))
     _basis(client, created, ch, 20)
-    _ok(_publish(client, created, ch), 201)
-    late = datetime.now(SEOUL)
+    _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/characteristics/{ch['id']}/limits",
+            {
+                "basisFrom": RUN_START.isoformat(),
+                "basisTo": "2026-09-24T00:00:00+09:00",
+                "reason": "초기 한계",
+            },
+        ),
+        201,
+    )
     _ok(_record(client, created, ch, late, _around("2.700")), 201)
     points = _ok(
         client.get(
