@@ -371,6 +371,11 @@ def successor(c, ctx, table, id):
 def detail(c, ctx, kind, id, person=None):
     table = TABLES[kind]
     row = one(c, ctx, table, id)
+    if kind == "posts":
+        from fs.gw.collaboration import missing, post_visible
+
+        if not post_visible(row, one(c, ctx, "person", person) if person else None):
+            missing()
     if kind == "routes":
         row["steps"] = rows(
             c,
@@ -539,6 +544,9 @@ def listing(c, ctx, kind, q):
         if box == "pending":
             where += " AND status='IN_REVIEW' AND EXISTS (SELECT 1 FROM gw.approval_step s WHERE (s.workspace_id,s.generation_id,s.document_id)=(approval_document.workspace_id,approval_document.generation_id,approval_document.id) AND s.seq=approval_document.current_step AND s.status='WAITING' AND (s.person_id=:person OR EXISTS (SELECT 1 FROM gw.delegation d WHERE (d.workspace_id,d.generation_id,d.delegator_person_id)=(s.workspace_id,s.generation_id,s.person_id) AND d.delegate_person_id=:person AND d.revoked_at IS NULL)))"
             p["person"] = person
+    if kind == "posts":
+        p["viewer"] = person
+        where += " AND (visibility='WORKSPACE' OR author_id=:viewer OR audience_org_id=(SELECT organization_unit_id FROM gw.person WHERE workspace_id=:w AND generation_id=:g AND id=:viewer AND is_active))"
     if kind == "posts" and q.get("mine"):
         if person is None:
             raise invalid("personId", "담당자를 선택하세요.")
@@ -608,9 +616,9 @@ def dashboard(c, ctx, person):
         "recentDocuments": listing(c, ctx, "documents", {"box": "archive", "limit": 5})[
             "rows"
         ],
-        "recentPosts": listing(c, ctx, "posts", {"status": "PUBLISHED", "limit": 5})[
-            "rows"
-        ],
+        "recentPosts": listing(
+            c, ctx, "posts", {"status": "PUBLISHED", "limit": 5, "person_id": person}
+        )["rows"],
     }
 
 
@@ -640,6 +648,11 @@ def audit(
 
 def mutate(context, kind, id, action, values, key):
     def run(c, ctx):
+        before = (
+            one(c, ctx, TABLES[kind], id)
+            if id and kind in {"documents", "posts"}
+            else None
+        )
         entity = (
             master(c, ctx, kind, id, values)
             if kind in {"people", "routes"}
@@ -647,6 +660,12 @@ def mutate(context, kind, id, action, values, key):
             if kind == "documents"
             else post(c, ctx, id, action, values)
         )
+        if kind in {"documents", "posts"}:
+            from fs.gw.collaboration import business_notifications
+
+            business_notifications(
+                c, ctx, kind, before, one(c, ctx, TABLES[kind], entity)
+            )
         result = detail(c, ctx, kind, entity, values.get("acting_person_id"))
         audit(c, ctx, kind, entity, action, result)
         return result, "gw." + TABLES[kind], entity
@@ -999,6 +1018,20 @@ def post(c, ctx, id, action, v):
     if board == "NOTICE" and p["job_role"] != "BOARD_ADMIN":
         raise conflict("WRONG_ACTOR")
     r = None
+    visibility = v.get("visibility", row["visibility"] if row else "WORKSPACE")
+    org = v.get("audience_org_id", row["audience_org_id"] if row else None)
+    if visibility == "ORG":
+        if (
+            board != "NOTICE"
+            or not org
+            or (
+                action in {"create", "edit", "publish"}
+                and not one(c, ctx, "organization_unit", org)["is_active"]
+            )
+        ):
+            raise invalid("audienceOrgId", "부서 공지는 활성 조직을 선택하세요.")
+    elif org is not None:
+        raise invalid("audienceOrgId", "전체 공개 글은 부서를 지정할 수 없습니다.")
     if row is None:
         serial = number(c, ctx, table)
         id = insert(
@@ -1009,6 +1042,8 @@ def post(c, ctx, id, action, v):
                 "serial": serial,
                 "post_no": f"GB-{serial:06d}",
                 "board_kind": board,
+                "visibility": visibility,
+                "audience_org_id": org,
                 **identity(p, "author"),
                 "title": v["title"],
                 "body": v["body"],
@@ -1018,7 +1053,12 @@ def post(c, ctx, id, action, v):
     elif action in {"edit", "publish"}:
         draft(row)
         values = (
-            {"title": v["title"], "body": v["body"]}
+            {
+                "title": v["title"],
+                "body": v["body"],
+                "visibility": visibility,
+                "audience_org_id": org,
+            }
             if action == "edit"
             else {
                 "status": "PUBLISHED",
@@ -1056,6 +1096,8 @@ def post(c, ctx, id, action, v):
                 "post_no": f"GB-{serial:06d}",
                 "previous_post_id": id,
                 "board_kind": board,
+                "visibility": visibility,
+                "audience_org_id": org,
                 **identity(p, "author"),
                 "title": row["title"],
                 "body": row["body"],

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Header, Query
 from fs.common import master
 from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
-from fs.gw import organization, policy, schema, service
+from fs.gw import collaboration, organization, policy, schema, service
 
 router = APIRouter()
 Auth = Annotated[AuthContext, Depends(resolve_auth)]
@@ -472,3 +472,198 @@ def edit_people_master(
             "gw", context, f"gw.people.{id}.edit", key, values, run
         )
     }
+
+
+# Collaboration uses the same common action envelope as approval mutations.
+def collaborate(ctx, csrf, key, resource, id, action, payload):
+    return {
+        "data": collaboration.mutate(
+            ctx,
+            resource,
+            id,
+            action,
+            _values(payload, full=True),
+            mutation_key(ctx, csrf, key),
+        )
+    }
+
+
+@router.get("/comments")
+def comments(
+    context: Auth,
+    person_id: Annotated[int, Query(alias="personId", gt=0)],
+    target_kind: Annotated[Literal["POST", "DOCUMENT"], Query(alias="targetKind")],
+    target_id: Annotated[int, Query(alias="targetId", gt=0)],
+    offset: Offset = 0,
+    limit: Limit = 50,
+):
+    return {
+        "data": collaboration.query(
+            context,
+            "comments",
+            person_id,
+            target_kind=target_kind,
+            target_id=target_id,
+            offset=offset,
+            limit=limit,
+        )
+    }
+
+
+@router.get("/calendar")
+def calendar(
+    context: Auth,
+    person_id: Annotated[int, Query(alias="personId", gt=0)],
+    starts_at: Annotated[schema.AwareDatetime, Query(alias="startsAt")],
+    ends_at: Annotated[schema.AwareDatetime, Query(alias="endsAt")],
+):
+    return {
+        "data": collaboration.query(
+            context, "calendar", person_id, starts_at=starts_at, ends_at=ends_at
+        )
+    }
+
+
+@router.get("/calendar/{id}")
+def calendar_detail(
+    id: int, context: Auth, person_id: Annotated[int, Query(alias="personId", gt=0)]
+):
+    return {"data": collaboration.query(context, "calendar", person_id, id=id)}
+
+
+@router.get("/notifications")
+def notifications(
+    context: Auth,
+    person_id: Annotated[int, Query(alias="personId", gt=0)],
+    offset: Offset = 0,
+    limit: Limit = 50,
+):
+    return {
+        "data": collaboration.query(
+            context, "notifications", person_id, offset=offset, limit=limit
+        )
+    }
+
+
+@router.get("/channels")
+def channels(context: Auth, person_id: Annotated[int, Query(alias="personId", gt=0)]):
+    return {"data": collaboration.query(context, "channels", person_id)}
+
+
+@router.get("/channels/{id}/messages")
+def messages(
+    id: int,
+    context: Auth,
+    person_id: Annotated[int, Query(alias="personId", gt=0)],
+    after: Annotated[int, Query(ge=0)] = 0,
+    limit: Limit = 100,
+):
+    return {
+        "data": collaboration.query(
+            context, "messages", person_id, id=id, after=after, limit=limit
+        )
+    }
+
+
+@router.post("/calendar/{id}/respond")
+def respond_calendar(
+    id: int,
+    payload: schema.CalendarResponse,
+    context: Auth,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    return {
+        "data": collaboration.respond(
+            context, id, _values(payload), mutation_key(context, csrf, key)
+        )
+    }
+
+
+@router.post("/comments", status_code=201)
+def create_comment(
+    payload: schema.CommentCreate, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return collaborate(context, csrf, key, "comments", None, "create", payload)
+
+
+@router.patch("/comments/{id}")
+def edit_comment(
+    id: int,
+    payload: schema.CommentEdit,
+    context: Auth,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    return collaborate(context, csrf, key, "comments", id, "edit", payload)
+
+
+@router.post("/comments/{id}/delete")
+def delete_comment(
+    id: int, payload: schema.Act, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return collaborate(context, csrf, key, "comments", id, "delete", payload)
+
+
+@router.post("/calendar", status_code=201)
+def create_calendar(
+    payload: schema.CalendarCreate, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return collaborate(context, csrf, key, "calendar", None, "create", payload)
+
+
+@router.patch("/calendar/{id}")
+def edit_calendar(
+    id: int,
+    payload: schema.CalendarEdit,
+    context: Auth,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    return collaborate(context, csrf, key, "calendar", id, "edit", payload)
+
+
+@router.post("/calendar/{id}/cancel")
+def cancel_calendar(
+    id: int, payload: schema.Act, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return collaborate(context, csrf, key, "calendar", id, "cancel", payload)
+
+
+@router.post("/notifications/{id}/read")
+def read_notification(
+    id: int, payload: schema.Actor, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return collaborate(context, csrf, key, "notifications", id, "read", payload)
+
+
+@router.post("/channels", status_code=201)
+def create_channel(
+    payload: schema.ChannelCreate, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return collaborate(context, csrf, key, "channels", None, "create", payload)
+
+
+@router.post("/channels/{id}/leave")
+def leave_channel(
+    id: int, payload: schema.Actor, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return collaborate(context, csrf, key, "channels", id, "leave", payload)
+
+
+@router.post("/channels/{id}/read")
+def read_channel(
+    id: int, payload: schema.Cursor, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    return collaborate(context, csrf, key, "channels", id, "read", payload)
+
+
+@router.post("/channels/{id}/messages")
+def send_message(
+    id: int,
+    payload: schema.MessageCreate,
+    context: Auth,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    return collaborate(context, csrf, key, "messages", id, "send", payload)

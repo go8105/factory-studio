@@ -1,3 +1,4 @@
+import { Comments } from "./Collaboration";
 import { useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -507,7 +508,8 @@ function DocumentDetail({
   const [reason, setReason] = useState("");
   const [route, setRoute] = useState("");
   const [stepId, setStepId] = useState("");
-  const guard = useDiscardGuard(!!action || !!reason);
+  const [commentDirty, setCommentDirty] = useState(false);
+  const guard = useDiscardGuard(!!action || !!reason || commentDirty);
   const routes = useGet<Page<Route>>(
     action === "select-route" ? "/routes?limit=100" : null,
   );
@@ -835,6 +837,9 @@ function DocumentDetail({
               기록 인쇄 / PDF 저장
             </button>
             <Events rows={d.events} />
+            {d.status !== "DRAFT" && (
+              <Comments kind="DOCUMENT" id={d.id} onDirty={setCommentDirty} />
+            )}
           </section>
         )
       )}

@@ -3,6 +3,9 @@ import { SolutionLayout, type Screen } from "../shared/SolutionLayout";
 import { useSession } from "../app/session";
 import { RoleContext, useGet, type Person } from "./common";
 export const gwScreens: Screen[] = [
+  { path: "calendar", id: "G-11", label: "일정", group: "협업" },
+  { path: "notifications", id: "G-12", label: "알림함", group: "협업" },
+  { path: "chat", id: "G-13", label: "채팅", group: "협업" },
   { path: "dashboard", id: "G-01", label: "업무 현황", group: "전자결재" },
   { path: "drafts", id: "G-02", label: "기안함", group: "전자결재" },
   { path: "pending", id: "G-03", label: "결재함", group: "전자결재" },

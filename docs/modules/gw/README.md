@@ -42,3 +42,13 @@ FS-030b 결과 확인 → FS-030c 업무69행 시드/도움말/흐름맵/통합 
 G-07 담당자는 공통 MasterScreen으로 관리하고 `GET /hr-preview`에서 HR 사원·부서 및 GW 스냅샷을 확인한 뒤 `POST /import-hr`로 선택한 재직 사원을 가져온다. `previewDigest`·`employeeCodes`를 보내며 미리보기 이후 원천/담당자 변경은409 재확인한다. 부서는 전체 반영, 담당자는 HR 사원 코드로 같은 ID를 갱신한다. 신규 STAFF·기존 직무/활성 보존, 자동 퇴직 비활성화/자동 동기화 없음. 일반 목록은 페이지 조회, 역할 선택은 `/people-options` 전체 조회를 사용한다.
 
 G-10은 현재 HR 계층과 마지막 GW 조직을 읽기 전용으로 비교한다. HR 꺼짐/미개방은0건과 구분하고 마지막 값을 유지한다. HR `employees(status=None)`·`departments()`만 소비하며 직접 HR SQL·교차쓰기·FK는 없다. 상신 조직 기록은 이동 이후에도 불변이다. 결과·검증·제약은 [GW-c 결과](../../agent/GW_조직HR연계_GW-c.md). 다음은 사용자 확인 후 GW-d 협업이다.
+
+## GW-d 협업 계약 (2026-10-09)
+
+- `GET/POST /comments`, `PATCH /comments/{id}`, `POST /comments/{id}/delete`: POST/DOCUMENT 대상. 수정 전 revision 추가, 삭제 내용은 저장하되 API에서는 숨김. 작성자만 변경, 원문 버전 불변. 댓글·이력에 대상 공지의 현재 조직 열람 판정 적용.
+- 게시글 `visibility=WORKSPACE|ORG`, `audienceOrgId`: NOTICE만 ORG, 활성 GW 조직 필요. 작성자/현재 소속 조회, 선택 역할 없는 조회는 WORKSPACE만. 정정 초안에도 공개 범위 유지.
+- `GET/POST /calendar`, `GET/PATCH /calendar/{id}`, `POST .../cancel|respond`: 개인/부서, 참석 응답. 기간 교차 `[start,end)`, 조회 최대93일, 등록자 편집·취소, 이벤트 version 확인. 수정은 참석자/응답 재설정, 취소는 이력 보존. 부서 ID는 생성 때 고정, 같은 부서 범위 편집 시 소속 이동으로 재배정하지 않음. 종일 한국 자정 경계.
+- `GET /notifications`, `POST /notifications/{id}/read`: 사람별/50개 페이지. 현재 공지·일정 열람을 페이지 처리 전에 재검사. 업무와 동일 TX 안 `recipient,event_key` ON CONFLICT 중복 제거. 읽음 시각 최초 값 유지. 결재 상신/단계 전환·종결, 공지 게시, 댓글 등록, 일정 생성/수정/취소.
+- `GET/POST /channels`, `GET/POST /channels/{id}/messages`, `POST .../read|leave`: 1:1/그룹, 고정 명단2~100명. 메시지 채널행 FOR UPDATE, 증가 seq, (channel,author,clientKey) 유일 + 내용 동일 재전송 확인. 공간 잠금·CSRF·멱등 영수증/감사 공통 action. 나간 후 전체 메시지 읽기·전송 차단. HTTP 저장 + 화면 활성 때3초 조회, 순번 cursor/100개 chunk, 오류 때 수동 재연결. 읽음 수동 단조 증가.
+- 제공 interface: `published_notices(connection,scoped,limit=10)`은 선택 역할 없는 EIP에 전체 공간 공지만, `monthly_summary(...,month)` KST 상신월 통계, `pending_tasks(...,hr_employee_code)` 현재 본인/위임 결재 대기, `lookup(...,code)` 문서/전체 게시 공지. 비활성 GW는 모두 None, 조회 가능 빈 결과와 구분. 제공 측은 타 업무 interface 호출 안 함.
+- 실제 회사 계정/TEAM ACL·외부 메일/푸시·첨부·WebSocket/SSE·참여자 재초대는 미구현/범위 밖. GW-e에서 체험 시드와 유데이터 세대 복사·정리를 추가 검증한다. DB/schema0.21.0/headgw_a_dsn31 유지.

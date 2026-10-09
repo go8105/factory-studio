@@ -139,3 +139,58 @@
   padding: 0;
   min-width: 0;
 }
+
+.gw-message {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border, #ddd);
+  overflow-wrap: anywhere;
+}
+.gw-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.25rem;
+  margin: 1rem 0;
+}
+.gw-day {
+  min-height: 6rem;
+  padding: 0.4rem;
+  border: 1px solid #ddd;
+}
+.gw-day button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  margin-top: 0.3rem;
+}
+.gw-chat {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(0, 3fr);
+  gap: 1rem;
+}
+.gw-channel {
+  display: block;
+  width: 100%;
+  text-align: left;
+  white-space: normal;
+  margin: 0.4rem 0;
+}
+.gw-messages {
+  max-height: 28rem;
+  overflow: auto;
+}
+@media (max-width: 600px) {
+  .gw-calendar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .gw-chat {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media print {
+  .gw-no-print {
+    display: none !important;
+  }
+}
+@media(max-width:600px) { .gw-calendar-spacer { display:none; } }

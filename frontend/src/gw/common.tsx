@@ -173,6 +173,8 @@ export type Document = {
   submittedAt: string | null;
 };
 export type Post = {
+  visibility?: string;
+  audienceOrgId?: string | null;
   id: string;
   postNo: string;
   boardKind: string;

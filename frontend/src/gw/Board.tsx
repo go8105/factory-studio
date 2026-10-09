@@ -20,6 +20,7 @@ import {
   type Post,
 } from "./common";
 import { Events, RoleBar, Status } from "./ui";
+import { Comments, Audience } from "./Collaboration";
 export function Board() {
   const { person } = useRole();
   return <BoardSpace key={person} />;
@@ -185,6 +186,10 @@ function PostEditor({
   const [kind, setKind] = useState(value?.boardKind ?? "FREE");
   const [title, setTitle] = useState(value?.title ?? "");
   const [body, setBody] = useState(value?.body ?? "");
+  const [visibility, setVisibility] = useState(
+    value?.visibility ?? "WORKSPACE",
+  );
+  const [org, setOrg] = useState(value?.audienceOrgId ?? "");
   const req = useSend();
   const guard = useDiscardGuard(true);
   async function submit(e: FormEvent) {
@@ -196,6 +201,8 @@ function PostEditor({
         actingPersonId: person,
         title,
         body,
+        visibility,
+        audienceOrgId: org || null,
         ...(value ? { expectedVersion: value.version } : { boardKind: kind }),
       },
     );
@@ -227,6 +234,16 @@ function PostEditor({
               <option value="NOTICE">공지 (게시판 운영 담당자)</option>
             </select>
           </label>
+        )}
+        {kind === "NOTICE" && (
+          <Audience
+            visibility={visibility}
+            org={org}
+            onChange={(v, o) => {
+              setVisibility(v);
+              setOrg(o);
+            }}
+          />
         )}
         <Field
           label="제목"
@@ -269,7 +286,8 @@ function PostDetail({
   const [edit, setEdit] = useState(false);
   const [action, setAction] = useState("");
   const [reason, setReason] = useState("");
-  const guard = useDiscardGuard(!!action || !!reason);
+  const [commentDirty, setCommentDirty] = useState(false);
+  const guard = useDiscardGuard(!!action || !!reason || commentDirty);
   const p = query.data;
   const saved = (v: Post) => {
     query.setData(v);
@@ -376,6 +394,9 @@ function PostDetail({
             )}
           </div>
           <Events rows={p.events} />
+          {p.status !== "DRAFT" && (
+            <Comments kind="POST" id={p.id} onDirty={setCommentDirty} />
+          )}
         </>
       ) : (
         !query.error && <Loading />

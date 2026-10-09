@@ -89,12 +89,16 @@ class Decision(Act):
 
 
 class PostCreate(Actor):
+    visibility: Literal["WORKSPACE", "ORG"] = "WORKSPACE"
+    audience_org_id: Id | None = Field(None, alias="audienceOrgId")
     board_kind: Literal["NOTICE", "FREE"] = Field(alias="boardKind")
     title: Text = Field(max_length=200)
     body: Text = Field(max_length=10000)
 
 
 class PostUpdate(Act):
+    visibility: Literal["WORKSPACE", "ORG"] = "WORKSPACE"
+    audience_org_id: Id | None = Field(None, alias="audienceOrgId")
     title: Text = Field(max_length=200)
     body: Text = Field(max_length=10000)
 
@@ -146,3 +150,48 @@ class PersonPatch(Version):
     name: Text | None = Field(None, max_length=80)
     job_role: Role | None = Field(None, alias="jobRole")
     is_active: bool | None = Field(None, alias="isActive", strict=True)
+
+
+class CommentCreate(Actor):
+    target_kind: Literal["POST", "DOCUMENT"] = Field(alias="targetKind")
+    target_id: Id = Field(alias="targetId")
+    body: Text = Field(max_length=2000)
+
+
+class CommentEdit(Act):
+    body: Text = Field(max_length=2000)
+
+
+class CalendarCreate(Actor):
+    title: Text = Field(max_length=200)
+    scope: Literal["PERSONAL", "DEPARTMENT"]
+    starts_at: AwareDatetime = Field(alias="startsAt")
+    ends_at: AwareDatetime = Field(alias="endsAt")
+    all_day: bool = Field(False, alias="allDay", strict=True)
+    location: Text | None = Field(None, max_length=200)
+    attendee_ids: list[Id] = Field(
+        default_factory=list, alias="attendeeIds", max_length=100
+    )
+
+
+class CalendarEdit(CalendarCreate, Version):
+    pass
+
+
+class CalendarResponse(Act):
+    response: Literal["ACCEPTED", "DECLINED"]
+
+
+class ChannelCreate(Actor):
+    name: Text = Field(max_length=100)
+    channel_kind: Literal["DIRECT", "GROUP"] = Field(alias="channelKind")
+    member_ids: list[Id] = Field(alias="memberIds", min_length=1, max_length=99)
+
+
+class MessageCreate(Actor):
+    body: Text = Field(max_length=2000)
+    client_key: Text = Field(alias="clientKey", max_length=80)
+
+
+class Cursor(Actor):
+    seq: int = Field(ge=0, le=9223372036854775807, strict=True)

@@ -111,11 +111,13 @@ it("delegated approval sends the selected original assignment and current docume
     .spyOn(globalThis, "fetch")
     .mockImplementation(async (url, init) =>
       reply(
-        String(url).includes("/documents/10")
-          ? init?.method === "POST"
-            ? { ...doc, version: 5, availableActions: [] }
-            : doc
-          : { rows: [doc], total: 1, offset: 0, limit: 20 },
+        String(url).includes("/comments?")
+          ? []
+          : String(url).includes("/documents/10")
+            ? init?.method === "POST"
+              ? { ...doc, version: 5, availableActions: [] }
+              : doc
+            : { rows: [doc], total: 1, offset: 0, limit: 20 },
       ),
     );
   render(

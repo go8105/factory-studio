@@ -1,3 +1,9 @@
+# GW-d 협업 구현·검증 진행 중 (2026-10-09)
+
+- 사용자 다음 단계 승인. codex/gw-dsn31, 기준b39e274, 댓글/부서공지/일정/알림/채팅·제공4종 구현. 전체 프런트565통과, 신규DB18통과, 전체backend 실행 중. 완료 아님.
+- Chrome 실제 일정 생성/시각수정/참석응답·알림읽음·공지게시/댓글수정이력 확인. 댓글삭제 확인창 뒤 CDP응답 지연 점검 중. 채팅/390px·최종보고/검증 남음.
+- 공유 main/DB/push/배포 없음. 로컬8073/5273 검증 서버 실행 중. 상세재현은 이전 GW-c 기록 참고. .env/work/의존성 심볼릭링크 스테이징 제외.
+
 # GW-c 조직·HR 연계 인계 (2026-10-09)
 
 - 완료: 사용자 후속 승인 범위 GW-c(G-07·G-10/F21~23). `codex/gw-dsn31`, 시작0dd6ef9/WIP1fe0642, 최종커밋 `git log -1 --oneline`. 격리 worktree `/Users/hwang-kyoungho/Documents/Codex/2026-10-09/gw/work/factory-studio-gw`. [결과](GW_조직HR연계_GW-c.md).
