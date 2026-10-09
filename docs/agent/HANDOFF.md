@@ -1,3 +1,14 @@
+# GW-main 병합 검토 완료 인계 (2026-10-09)
+
+- codex/gw-dsn31, 제품17f0f18, 최종검토커밋은 `git log -1 --oneline`. main af10726 직접조상/충돌0·fast-forward 가능. 실제 main 병합/push/배포 없음. [검토](GW_main_병합검토.md).
+- 수정: tools/apply_fs030a.py 초기8표 포함 검사로 후속19표 보존, test_fs030a.py 확장 무변경 회귀. 기본표 누락 거부 유지. 도구7+4통과.
+- 검증: PG18 빈DB/main/GW/rollback/reupgrade 카탈로그4회0·frontend566/71파일·lint/format/typecheck/build·Ruff202파일·DB설계/격리0. backend974통과/기존main SPC실패1/skip1, 독립perf1통과. tools131통과/기존main DSN재생성오류1. 원본main에서 둘다재현. 처음loadscope실행은 공유템플릿 초기화순서파손으로 무효, 기본분배 재실행 결과가 최종.
+- 다음: DSN목표재생성·SPC측정시각 테스트 CI차단 해결 후 최신main재대조/병합. 새시드 배포시새템플릿 필요. 실제회사A/ERP확정통제/신규원천/인쇄PDF는 기존제한 유지.
+- 사용자 새 요청: 참고 React시제품·이미지 기반 내공간 메뉴 추가/순서편집 및 MES/ERP 등 즐겨찾기만 표시하는 사이드바. 다음 별도 codex 브랜치에서 구현. GW 검토를 제품 전체CI통과로 인계하지 않는다.
+- 재현: 독립 PG18 `_test` DB 환경 주입, PYTHONPATH=backend/src:backend, `pytest backend/tests -q -n 4 -m 'not perf'`, 이후 `pytest backend/tests -q -m perf`; tools 전체unittest/프런트 명령은 검토문서 참조. 비밀 접속값 Git에 없음.
+
+## 이전 GW-e 완료 인계
+
 # GW-e 완료 인계 (2026-10-09)
 
 - codex/gw-dsn31, 시작8216636/WIPd78e534, 마지막커밋 `git log -1 --oneline`. worktree `/Users/hwang-kyoungho/Documents/Codex/2026-10-09/gw/work/factory-studio-gw`. [결과](GW_시드도움말_GW-e.md).

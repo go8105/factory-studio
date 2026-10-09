@@ -179,7 +179,8 @@ STATES = [dict(table=t,column='status',values=values,default=values[0],transitio
 def apply(d):
     names = {t['name'] for t in d['tables'] if t['name'].startswith('gw.')}
     if names:
-        if names != {t['name'] for t in TABLES}:
+        # 후속 GW-a가 표를 추가해도 최초 8표가 모두 있으면 재적용하지 않는다.
+        if not {t['name'] for t in TABLES}.issubset(names):
             raise ValueError('partial GW schema: refusing to hide incomplete application')
         return False
     d['tables'].extend(copy.deepcopy(TABLES))

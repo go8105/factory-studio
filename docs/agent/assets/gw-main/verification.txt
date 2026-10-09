@@ -1,0 +1,11 @@
+main af1072669d6441d3b70605ff01054bc294cca393; GW product 17f0f18
+merge-base main; merge-tree success; shared main clean
+PostgreSQL18 empty->main->GW->main->GW catalog comparisons 4 passed; disposable DB removed
+backend default distribution: 974 passed, 1 baseline SPC failure, 1 skipped (388.90s)
+backend perf standalone: 1 passed, 976 deselected (28.70s)
+frontend: 566 passed /71files; lint/format/build passed
+backend Ruff check/format passed (202files); DB design/isolation zero errors
+tools: 131 passed, 1 baseline DSN rebuild error; original main reproduced
+FS030a 7 passed; GW-a tools4 passed
+loadscope initial run invalid for this test suite; rerun with default distribution
+No main merge, push, deployment or shared DB changes

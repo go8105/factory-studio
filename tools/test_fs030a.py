@@ -36,6 +36,13 @@ class GWMetadataTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             apply_fs030a.apply(self.data)
 
+    def test_later_gw_extension_is_preserved_on_reapplication(self):
+        extended=copy.deepcopy(self.data)
+        extended['tables'].append(dict(name='gw.future_extension',columns=[]))
+        before=copy.deepcopy(extended)
+        self.assertFalse(apply_fs030a.apply(extended))
+        self.assertEqual(extended,before)
+
     def test_missing_active_source_key_is_rejected(self):
         self.data['constraints']=[c for c in self.data['constraints'] if not(c['table']=='gw.approval_document' and c['kind']=='UK_PARTIAL')]
         self.assertIn('FS-030: one active source approval',validate_gw(self.data))

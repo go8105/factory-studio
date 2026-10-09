@@ -1,3 +1,11 @@
+## 2026-10-09 GW-main 병합 검토 완료 — 기존 main CI 실패 2건 해결 후 병합 제안
+
+- 사용자 main 병합 검토 요청. codex/gw-dsn31 제품17f0f18 / main af1072669d6441d3b70605ff01054bc294cca393. main 직접 조상, merge-tree 충돌0/fast-forward 가능. 공유 main 작업 트리 변경 없음, 병합·push·배포 미실행.
+- 최초 GW 8표 설치 도구가 후속19표를 부분 설치로 오판하는 회귀 수정. 기본8표 포함 검사로 확장 보존, 기존 누락 거부 유지·후속 확장 무변경 회귀 추가. 도구7+4통과.
+- PG18 일회용 DB에서 빈DB→main→GW→main롤백→GW재업그레이드 실제 DDL4회 대조 오류0, DB제거. frontend566/71파일·전체lint/Prettier/typecheck/build·전체backendRuff/format202파일·DB설계/격리0.
+- CI방식 backend974통과/기존main SPC실패1/skip1(388.90초), 독립perf1통과(28.70초). tools132건 중131통과/기존main DSN목표재생성오류1. 원본 main에서 DSN오류 및 SPC단독실패 재현. 전체CI통과로 표시하지 않음. 최초 임의loadscope 분배로 발생한 초기화순서 파손 실행은 회귀판정에서 제외하고 기본분배로 재검증.
+- 기존 CI차단2건 해결 뒤 최신main/head 재검토→병합 제안. 신규 ERP/PLM원천·ERP F44·실제회사A·인쇄/PDF 제한 유지. [검토·재현](agent/GW_main_병합검토.md). 사용자 추가 승인: 다음 작업은 참고폴더/이미지 기반 내공간 즐겨찾기·솔루션 사이드바 개인화, 별도브랜치에서 진행.
+
 ## 2026-10-09 GW-e 시드·도움말·통합 검증 완료
 
 - 작업 ID GW-e, codex/gw-dsn31, 시작8216636. 새 시드 sv-20261009-gw1: GW19표98행, HR 합성 사원/부서 사전·ERP 공개 조회 원문 연결. 병렬 대기/전결·위임/기존순차/댓글이력/일정응답/알림/채팅 포함.
