@@ -100,7 +100,15 @@ export function Events({ rows }: { rows: Event[] }) {
                 ? "게스트"
                 : "회원",
         },
-        { key: "reason", label: "사유" },
+        {
+          key: "reason",
+          label: "사유",
+          render: (r) =>
+            r.reason ??
+            (r.eventType === "SKIPPED"
+              ? `${r.details?.personName ?? "참여자"} · ${r.details?.cause === "SUBMITTED" ? "상신 시 전결" : r.details?.cause === "APPROVED" || r.details?.cause === "CONSENTED" ? "필수 처리 완료 후 참고 생략" : (labels[r.details?.cause ?? ""] ?? "진행 종료")}`
+              : "—"),
+        },
         {
           key: "createdAt",
           label: "처리 시각",

@@ -1,0 +1,13 @@
+GW-b verification 2026-10-09
+Whole backend regression: 927 passed, 1 skipped, 25 warnings, 331.13s.
+Final GW policy/API/schema checks after final schema contract correction: 58 passed, 8 warnings, 122.59s.
+Whole frontend: 554 passed. Final GW + portal content focused tests: 26 passed.
+TypeScript noEmit, whole frontend ESLint, Vite production build: passed.
+GW source + related tests Ruff: passed.
+Whole backend Ruff: pre-existing core/service.py I001; reproduced on WIP baseline.
+DB design validation: 0 errors; no GW-b schema/DDL changes.
+Chrome actual route/rule/delegation creation, draft, submit, delegated approve, required consent, final APPROVED: confirmed.
+Mobile initial load at 390x844: body width390, table containers333, content widths600/784, no page horizontal overflow.
+Print/PDF preview: not visually verified; native Mac access unavailable while locked. No PDF output claimed.
+ERP new purchase-order/expense and PLM ECO provider implementations: unavailable. GW consumer contracts tested with explicit mocks.
+No shared DB/main/push/deployment changes. Preview servers stopped.

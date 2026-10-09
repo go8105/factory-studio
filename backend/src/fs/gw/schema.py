@@ -99,8 +99,11 @@ class PostUpdate(Act):
     body: Text = Field(max_length=10000)
 
 
+AuthorityCode = Annotated[str, StringConstraints(pattern=r"^[A-Z0-9][A-Z0-9_-]{0,29}$")]
+
+
 class AuthorityCreate(Model):
-    code: Annotated[str, StringConstraints(pattern=r"^[A-Z0-9][A-Z0-9_-]{0,29}$")]
+    code: AuthorityCode
     document_kind: DocumentKind = Field(alias="documentKind")
     currency: str = Field("KRW", pattern=r"^[A-Z]{3}$")
     amount_from: Money = Field("0", alias="amountFrom")
@@ -112,7 +115,7 @@ class AuthorityCreate(Model):
 
 
 class AuthorityPatch(Version):
-    code: Code | None = None
+    code: AuthorityCode | None = None
     document_kind: DocumentKind | None = Field(None, alias="documentKind")
     currency: str | None = Field(None, pattern=r"^[A-Z]{3}$")
     amount_from: Money | None = Field(None, alias="amountFrom")

@@ -49,9 +49,9 @@ def conflict(reason, **details):
         "PERSON_IN_USE": "초안 또는 진행 결재에서 사용 중인 담당자입니다.",
         "LAST_BOARD_ADMIN": "마지막 활성 게시판 운영 담당자는 유지해야 합니다.",
         "IMMUTABLE_DOCUMENT": "현재 상태에서는 이 작업을 할 수 없습니다.",
-        "SOURCE_CHANGED": "ERP 원문이 바뀌었습니다. 원문을 갱신하고 다시 검토하세요.",
+        "SOURCE_CHANGED": "원문이 바뀌었습니다. 원문을 갱신하고 다시 검토하세요.",
         "SOURCE_MODULE_DISABLED": "ERP가 꺼져 있거나 아직 열지 않아 원문을 조회할 수 없습니다. ERP를 한 번 열면 조회됩니다.",
-        "SOURCE_MISSING": "ERP 원문이 없습니다.",
+        "SOURCE_MISSING": "원문이 없습니다.",
         "SOURCE_CANCELLED": "취소된 원문은 상신할 수 없습니다.",
         "ACTIVE_APPROVAL_EXISTS": "동일 원천의 결재가 진행 중입니다.",
         "WITHDRAW_NOT_ALLOWED": "첫 승인 이후에는 회수할 수 없습니다.",
@@ -253,8 +253,13 @@ def provider(c, ctx, kind, no=None, **query):
             if e.name not in {"fs.plm", "fs.plm.interface"}:
                 raise
             return {"availability": "UNIMPLEMENTED"}
-        if not hasattr(plm, "eco_for_approval") or no is None:
+        if not hasattr(plm, "eco_for_approval"):
             return {"availability": "UNIMPLEMENTED"}
+        if no is None:
+            return {
+                "availability": "AVAILABLE",
+                "value": {"rows": [], "total": 0, "manualEntry": True},
+            }
         result = plm.eco_for_approval(c, ctx, no)
     else:
         supported = getattr(erp, "APPROVAL_KINDS", ("PURCHASE_INVOICE",))
@@ -737,9 +742,9 @@ def document(c, ctx, id, action, v):
         }
         if v["kind"] != "GENERAL":
             if not v.get("source_no"):
-                raise invalid("sourceNo", "매입 전표를 선택하세요.")
+                raise invalid("sourceNo", "결재 원문을 선택하세요.")
             if v.get("amount") is not None or v.get("currency") is not None:
-                raise invalid("amount", "ERP 금액은 서버 원문을 사용합니다.")
+                raise invalid("amount", "금액은 서버 원문을 사용합니다.")
             data.update(source(c, ctx, v["source_no"], SOURCE_KINDS[v["kind"]]))
         else:
             if v.get("source_no") is not None:
@@ -767,7 +772,7 @@ def document(c, ctx, id, action, v):
             if row["kind"] == "GENERAL":
                 changes.update(money(v))
             elif "amount" in v or "currency" in v:
-                raise invalid("amount", "ERP 금액은 바꿀 수 없습니다.")
+                raise invalid("amount", "원문 금액은 바꿀 수 없습니다.")
             evt = "DRAFT_SAVED"
         if action == "select-route":
             route, pp = route_people(
@@ -782,7 +787,7 @@ def document(c, ctx, id, action, v):
             evt = "ROUTE_SELECTED"
         if action == "refresh-source":
             if row["kind"] == "GENERAL":
-                raise invalid("kind", "ERP 기안만 원문을 갱신할 수 있습니다.")
+                raise invalid("kind", "외부 원문 기안만 원문을 갱신할 수 있습니다.")
             changes = source(c, ctx, row["source_no"], row["source_kind"])
             evt = "SOURCE_REFRESHED"
         if action == "submit":

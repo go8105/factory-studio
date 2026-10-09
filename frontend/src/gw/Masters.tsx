@@ -213,9 +213,9 @@ function MasterEditor({
             {steps.map((entry, i) => (
               <div className="gw-step" key={i}>
                 <label>
-                  {i + 1}단계
+                  {i + 1}참여자
                   <select
-                    aria-label={`${i + 1}단계 담당자`}
+                    aria-label={`${i + 1}참여자 담당자`}
                     required
                     value={entry.personId}
                     onChange={(e) =>

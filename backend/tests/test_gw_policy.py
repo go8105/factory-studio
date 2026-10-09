@@ -306,7 +306,7 @@ def test_delegation_original_actual_actor_and_pending_box(space):
     assert "approve" in detail(z, d, 6)["availableActions"]
     d = ok(act(z, d, "approve", 6))
     ev = d["events"][-1]
-    assert ev["personId"] == z[3][6]["id"]
+    assert ev["actingPersonId"] == z[3][6]["id"]
     assert ev["onBehalfOfPersonId"] == z[3][1]["id"]
     assert ev["details"]["delegationId"] == g["id"]
     assert d["steps"][0]["personId"] == z[3][1]["id"]
@@ -351,7 +351,14 @@ def test_expired_future_revoked_chain_and_self_delegation(space):
         201,
     )
     why(act(z, d, "approve", 6), "NOT_CURRENT_STEP")
-    g = ok(grant(z), 201)
+    g = ok(
+        grant(
+            z,
+            startsAt=(t - timedelta(hours=1)).isoformat(),
+            endsAt=(t + timedelta(hours=1)).isoformat(),
+        ),
+        201,
+    )
     why(grant(z, owner=6, delegate=7), "DELEGATION_OVERLAP_OR_CHAIN")
     why(
         call(
@@ -377,9 +384,18 @@ def test_expired_future_revoked_chain_and_self_delegation(space):
 
 def test_delegate_drafter_and_other_participant_forbidden(space):
     z = space
-    ok(grant(z, delegate=0), 201)
+    g = ok(grant(z, delegate=0), 201)
     d = ok(act(z, draft(z), "submit"))
     why(act(z, d, "approve", 0), "NOT_CURRENT_STEP")
+    ok(
+        call(
+            z[0],
+            z[1],
+            "POST",
+            f"/delegations/{g['id']}/revoke",
+            {"actingPersonId": z[3][1]["id"], "expectedVersion": g["version"]},
+        )
+    )
     ok(grant(z, owner=2, delegate=1), 201)
     d = ok(act(z, d, "approve", 1))
     why(act(z, d, "approve", 1), "NOT_CURRENT_STEP")
@@ -460,3 +476,188 @@ def test_concurrent_parallel_decisions_version_retry(space):
     i = next(i for i, p in enumerate(p) if p["id"] == remaining["personId"])
     now = ok(act(z, now, "approve", i))
     assert now["status"] == "APPROVED"
+
+
+def test_delegation_time_exact_start_and_end(space, monkeypatch):
+    from fs.gw import service
+
+    z = space
+    t = datetime.now(UTC)
+    ok(
+        grant(z, startsAt=t.isoformat(), endsAt=(t + timedelta(hours=1)).isoformat()),
+        201,
+    )
+    d = ok(act(z, draft(z), "submit"))
+    monkeypatch.setattr(service, "now", lambda c: t)
+    assert "approve" in detail(z, d, 6)["availableActions"]
+    monkeypatch.setattr(service, "now", lambda c: t + timedelta(hours=1))
+    assert "approve" not in detail(z, d, 6)["availableActions"]
+    why(act(z, d, "approve", 6), "NOT_CURRENT_STEP")
+
+
+def test_concurrent_revoke_and_delegated_decision(space):
+    z = space
+    g = ok(grant(z), 201)
+    d = ok(act(z, draft(z), "submit"))
+
+    def run(revoke):
+        with TestClient(z[0].app, base_url=str(z[0].base_url)) as c:
+            c.cookies.update(z[0].cookies)
+            path = (
+                f"/delegations/{g['id']}/revoke"
+                if revoke
+                else f"/documents/{d['id']}/approve"
+            )
+            return call(
+                c,
+                z[1],
+                "POST",
+                path,
+                {
+                    "actingPersonId": z[3][1 if revoke else 6]["id"],
+                    "expectedVersion": g["version"] if revoke else d["version"],
+                },
+            )
+
+    with ThreadPoolExecutor(2) as pool:
+        revoke, approve = list(pool.map(run, (True, False)))
+    assert revoke.status_code == 200
+    assert approve.status_code in (200, 409)
+    events = [e for e in detail(z, d)["events"] if e["eventType"] == "APPROVED"]
+    assert len(events) == (1 if approve.status_code == 200 else 0)
+    assert "approve" not in detail(z, d, 6)["availableActions"]
+
+
+def test_concurrent_overlapping_authority_rules(space):
+    z = space
+
+    def run(i):
+        with TestClient(z[0].app, base_url=str(z[0].base_url)) as c:
+            c.cookies.update(z[0].cookies)
+            return call(
+                c,
+                z[1],
+                "POST",
+                "/authority-rules",
+                {
+                    "code": f"RULE{i}",
+                    "documentKind": "GENERAL",
+                    "finalSeq": 1,
+                    "effectiveFrom": "2026-01",
+                },
+            )
+
+    with ThreadPoolExecutor(2) as pool:
+        responses = list(pool.map(run, (1, 2)))
+    assert sorted(r.status_code for r in responses) == [201, 409]
+
+
+@pytest.mark.parametrize(
+    "kind,source_kind",
+    [
+        ("ERP_PO", "PURCHASE_ORDER"),
+        ("ERP_EXPENSE", "EXPENSE_CLAIM"),
+        ("PLM_ECO", "ECO"),
+    ],
+)
+def test_new_source_consumer_contract_with_mock_provider(
+    space, monkeypatch, kind, source_kind
+):
+    """GW consumer only: external ERP/PLM implementations are deliberately mocked."""
+    from fs.gw import interface, service
+
+    z = space
+    snap = {
+        "documentNo": "SYNTHETIC-01",
+        "partnerName": "합성",
+        "currency": "KRW",
+        "totalAmount": "100.00",
+        "supplyAmount": "100.00",
+        "taxAmount": "0.00",
+        "lines": [],
+    }
+    digest = {"value": "a" * 64}
+
+    def provider(c, ctx, k, no=None, **query):
+        assert k == source_kind
+        return {
+            "availability": "AVAILABLE",
+            "value": {
+                "found": True,
+                "snapshot": snap,
+                "digest": digest["value"],
+                "status": "draft",
+            }
+            if no
+            else {"rows": [{**snap, "status": "draft"}], "total": 1},
+        }
+
+    monkeypatch.setattr(service, "provider", provider)
+    d = draft(z, kind=kind, sourceNo="SYNTHETIC-01")
+    assert d["sourceKind"] == source_kind and d["amount"] == "100.00"
+    digest["value"] = "b" * 64
+    why(act(z, d, "submit"), "SOURCE_CHANGED")
+    d = ok(act(z, d, "refresh-source"))
+    d = ok(act(z, d, "submit"))
+    other = draft(z, kind=kind, sourceNo="SYNTHETIC-01")
+    why(act(z, other, "submit"), "ACTIVE_APPROVAL_EXISTS")
+    # Provider uses only GW stored evidence, with existing single-kind number keys.
+    from fs.common.auth import AuthContext
+
+    ctx = AuthContext(
+        actor_kind=z[1]["actorKind"],
+        actor_key="synthetic",
+        workspace_id=z[1]["workspaceId"],
+        generation_id=z[1]["generationId"],
+        user_id=None,
+        roles=frozenset(),
+        token="synthetic",
+    )
+    with z[2].connect() as c:
+        result = interface.approvals(c, ctx, [(source_kind, "SYNTHETIC-01")])
+        assert result["SYNTHETIC-01"]["id"] == d["id"]
+
+
+def test_authority_code_patch_uses_create_contract_and_version(space):
+    z = space
+    a = ok(rule(z, code="1_SMALL"), 201)
+    changed = ok(
+        call(
+            z[0],
+            z[1],
+            "PATCH",
+            f"/authority-rules/{a['id']}",
+            {"code": "2_NEW", "expectedVersion": a["version"]},
+        )
+    )
+    assert changed["code"] == "2_NEW" and changed["version"] == a["version"] + 1
+    why(
+        call(
+            z[0],
+            z[1],
+            "PATCH",
+            f"/authority-rules/{a['id']}",
+            {"isActive": False, "expectedVersion": a["version"]},
+        ),
+        "VERSION_CONFLICT",
+    )
+
+
+def test_authority_uses_seoul_month_and_inclusive_end_month(space, monkeypatch):
+    from fs.gw import service
+
+    z = space
+    ok(rule(z, effectiveFrom="2026-10", effectiveTo="2026-10"), 201)
+    monkeypatch.setattr(service, "now", lambda c: datetime(2026, 9, 30, 15, tzinfo=UTC))
+    first = ok(act(z, draft(z, amount="10", currency="KRW"), "submit"))
+    assert first["authorityRuleId"] is not None
+    monkeypatch.setattr(
+        service, "now", lambda c: datetime(2026, 10, 31, 14, 59, tzinfo=UTC)
+    )
+    last = ok(act(z, draft(z, amount="10", currency="KRW"), "submit"))
+    assert last["authorityRuleId"] is not None
+    monkeypatch.setattr(
+        service, "now", lambda c: datetime(2026, 10, 31, 15, tzinfo=UTC)
+    )
+    after = ok(act(z, draft(z, amount="10", currency="KRW"), "submit"))
+    assert after["authorityRuleId"] is None

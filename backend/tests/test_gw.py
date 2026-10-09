@@ -5,8 +5,9 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from fs.erp.interface import approval_source_digest
 from sqlalchemy import text
+
+from fs.erp.interface import approval_source_digest
 
 P = "/api/v1/gw"
 

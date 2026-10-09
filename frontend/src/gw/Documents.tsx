@@ -239,7 +239,7 @@ function DocumentEditor({
   const [page, setPage] = useState(0);
   const routes = useGet<Page<Route>>("/routes?limit=100");
   const sources = useGet<
-    { enabled: boolean; availability?: string } & Page<
+    { enabled: boolean; availability?: string; manualEntry?: boolean } & Page<
       Snapshot & { status: string }
     >
   >(
@@ -306,7 +306,8 @@ function DocumentEditor({
             (!value &&
               (!routeId ||
                 !!self ||
-                (kind !== "GENERAL" && (!sourceNo || !sources.data?.enabled))))
+                (kind !== "GENERAL" &&
+                  (!sourceNo || !sources.data?.enabled || !preview.data))))
           }
         >
           초안 저장
@@ -340,7 +341,7 @@ function DocumentEditor({
         {kind !== "GENERAL" && !value && (
           <>
             <Field
-              label="ERP 원문 검색"
+              label="원문 검색"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -348,6 +349,14 @@ function DocumentEditor({
               }}
             />
             <ErrorNotice error={sources.error} />
+            {sources.data?.manualEntry && (
+              <Field
+                label="PLM ECO 번호"
+                required
+                value={sourceNo}
+                onChange={(e) => setSource(e.target.value)}
+              />
+            )}
             {sources.data && !sources.data.enabled ? (
               <p role="status">
                 {sources.data.availability === "UNIMPLEMENTED"
@@ -395,9 +404,12 @@ function DocumentEditor({
             )}
             <ErrorNotice error={preview.error} />
             {preview.data && <SnapshotView value={preview.data.snapshot} />}
-            <p>
-              확정 매입의 결재는 사후 검토이며 ERP 처리 상태를 바꾸지 않습니다.
-            </p>
+            {kind === "ERP_PURCHASE" && (
+              <p>
+                확정 매입의 결재는 사후 검토이며 ERP 처리 상태를 바꾸지
+                않습니다.
+              </p>
+            )}
           </>
         )}
         <Field
@@ -457,7 +469,8 @@ function DocumentEditor({
             <ol>
               {selected?.steps.map((s) => (
                 <li key={s.personId}>
-                  {s.name} · {labels[s.jobRole]}
+                  {s.seq}단계 · {s.name} ·{" "}
+                  {labels[s.participantRole ?? "APPROVER"]}
                 </li>
               ))}
             </ol>
@@ -575,11 +588,12 @@ function DocumentDetail({
               {d.title} <Status value={d.status} />
             </h2>
             <p>
-              {d.drafterName} · {d.roundNo}회차 · {d.routeName}
+              {d.documentNo} · {d.drafterName} · {d.roundNo}회차 · {d.routeName}
             </p>
             <p className="muted">
               상신 당시 문서의 검토 기록이며 ERP 확정을 제어하지 않습니다.
             </p>
+            <p>상신 시각: {time(d.submittedAt)}</p>
             <p className="gw-body">{d.body}</p>
             {d.amount && (
               <p>
@@ -589,15 +603,17 @@ function DocumentDetail({
             {d.sourceSnapshot && <SnapshotView value={d.sourceSnapshot} />}{" "}
             {d.sourceComparison && (
               <div className="gw-comparison" role="status">
-                <strong>현재 ERP 원문 비교</strong>
+                <strong>현재 원문 비교</strong>
                 <p>
                   {d.sourceComparison.availability === "DISABLED"
-                    ? "ERP 꺼짐 · 저장된 상신본은 열람·결재할 수 있습니다."
-                    : d.sourceComparison.availability === "MISSING"
-                      ? "원문 없음 · 저장된 상신본은 열람·결재할 수 있습니다."
-                      : d.sourceComparison.contentChanged
-                        ? `${d.status === "APPROVED" ? "과거 상신본 승인 · " : ""}원문 내용 변경 · 아래 고정된 상신본을 검토합니다.`
-                        : "상신본 의미 값과 동일합니다."}
+                    ? "원문 솔루션 꺼짐 · 저장된 상신본은 열람·결재할 수 있습니다."
+                    : d.sourceComparison.availability === "UNIMPLEMENTED"
+                      ? "원문 제공 기능 미구현 · 현재 원문을 비교할 수 없습니다."
+                      : d.sourceComparison.availability === "MISSING"
+                        ? "원문 없음 · 저장된 상신본은 열람·결재할 수 있습니다."
+                        : d.sourceComparison.contentChanged
+                          ? `${d.status === "APPROVED" ? "과거 상신본 승인 · " : ""}원문 내용 변경 · 아래 고정된 상신본을 검토합니다.`
+                          : "상신본 의미 값과 동일합니다."}
                 </p>
                 {d.sourceComparison.statusChanged && (
                   <p>

@@ -1,8 +1,8 @@
 # GW — 전자결재·게시판
 
-> **2026-10-05 DSN-31 보강 설계 완료 — 확인 대기**(Claude, D82) — [GW_보강설계_DSN-31.md](GW_보강설계_DSN-31.md). 체험 GW(일괄 개발 W5)와 실제 도입 GW(GW-EXT, 별도 트랙)를 나눈다. 사람·조직 원천은 HR(D81).
+> **2026-10-09 GW-a DB·GW-b 핵심 결재 보강 완료**(Codex, D83). GW-b 외부 원문 제공 의존성과 인쇄 미검증은 아래 최신 항목 참고. **2026-10-05 DSN-31 보강 설계**(Claude, D82) — [GW_보강설계_DSN-31.md](GW_보강설계_DSN-31.md). 체험 GW(일괄 개발 W5)와 실제 도입 GW(GW-EXT, 별도 트랙)를 나눈다. 사람·조직 원천은 HR(D81).
 
-## 현재 기준 (2026-10-04, FS-030b)
+## 이전 기준 (2026-10-04, FS-030b)
 
 - 상태: **FS-030b API·G-01~07·ERP 배지 구현 완료, c 시작 확인 대기**. 로컬 미배포; 업무 시드/도움말은 c에서 추가.
 - 기준 브랜치 `codex/fs-030-gw`, main `8531c05`(a 병합·SPC 시드·CMMS DB)까지 fast-forward. “진행해줘”로 결정서, “구현 진행해줘”로 전체 설계 승인을 기록했다.
@@ -28,3 +28,11 @@ FS-030b 결과 확인 → FS-030c 업무69행 시드/도움말/흐름맵/통합 
 ### 확장 설계 검토 (2026-10-05)
 
 실제 회사 도입 목표의 [GW-EXT-01 결정 초안](../../plan/GW확장_협업플랫폼_결정초안_GW-EXT-01.md)을 작성했다. 공유 공간/권한·고급 결재·파일/PDF·인사/협업·ERP 통제/EIP 계약·외부 연동과 운영 준비를 단계화했다. 사용자 “상세 설계 진행해줘”로 범위/순서 승인. [P0/A 상세 설계 묶음](../../plan/GW확장_상세설계검증_GW-EXT-A.md)을 작성했고 전체 설계 확인 대상이다. 현재 구현 범위는 FS-030b 그대로이며 c도 아직 미착수다.
+
+## GW-b 정책 v2 (2026-10-09)
+
+신규 문서는 서버에서 `policy_version=2`로 생성한다. 기존 v1은 전결·위임을 적용하지 않고 순차 결재를 유지한다. 상세 정책·검증·제약은 [GW-b 결과](../../agent/GW_결재확장_GW-b.md).
+
+`approvals()`는 PURCHASE_INVOICE·PURCHASE_ORDER·EXPENSE_CLAIM·ECO를 지원한다. 한 종류의 배치는 기존처럼 번호 키를 유지하며 혼합 종류의 배치는 `종류:번호` 키를 사용한다(같은 번호의 원천 충돌 방지). 저장된 GW 증빙만 읽고 외부 솔루션을 재조회하지 않는다.
+
+원문 소비 계약: ERP `APPROVAL_KINDS`에 구현한 종류를 선언하면 해당 종류의 `approval_documents()`·`approval_document()`를 사용한다. 선언이 없으면 기존 PURCHASE_INVOICE만 연결한다. PLM `eco_for_approval(c, scoped, no)`가 있으면 ECO 번호 직접 입력으로 조회한다. 모두 꺼짐=None, 없음={found:false}, 있음={found:true,snapshot,digest,status}로 구분한다. snapshot 금액은 totalAmount/currency 쌍(금액 없는 ECO는 모두 없음)이며 결재 증빙은 동일 digest 계약을 따른다. 현재 저장소의 ERP 발주·경비와 PLM 제공은 미구현이며 GW 소비 측 계약 테스트에서만 mock으로 검증했다. ERP 확정 통제는 ERP 소유 작업이다.

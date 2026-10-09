@@ -59,6 +59,17 @@
   body .gw-print-content * {
     visibility: visible;
   }
+  body:has(.gw-print-content) *:has(.gw-print-content) {
+    position: static;
+    display: block;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    width: auto;
+    overflow: visible;
+    transform: none;
+    box-shadow: none;
+  }
   .gw-print-content {
     position: absolute;
     inset: 0;
@@ -70,7 +81,25 @@
   .gw-print-content .gw-actions {
     display: none;
   }
+  .gw-print-content th button {
+    display: inline;
+    border: 0;
+    padding: 0;
+    font: inherit;
+  }
+  .gw-print-content .table-scroll {
+    overflow: visible;
+  }
+  .gw-print-content .pagination,
+  .gw-print-content .table-toolbar {
+    display: none;
+  }
   .gw-print-content table {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+    font-size: 9pt;
+    overflow-wrap: anywhere;
     break-inside: auto;
   }
 }

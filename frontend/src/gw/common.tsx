@@ -56,6 +56,7 @@ export type Event = {
     participantRole?: ParticipantRole;
     originalPersonName?: string;
     cause?: string;
+    personName?: string;
   };
   reason: string | null;
   createdAt: string;

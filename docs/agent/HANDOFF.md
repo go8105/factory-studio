@@ -1,17 +1,21 @@
-# GW-b 진행 중 (2026-10-09)
+# GW-b 인계 (2026-10-09)
 
-사용자가 GW-a 제안대로 진행 및 GW-b 착수를 승인했다. `codex/gw-dsn31` 격리 worktree에서 결재 정책 v2·병렬/합의/참고·전결·위임 API와 G-08/09 및 기존 화면을 구현 중이다. 아직 완료 아님. PostgreSQL 경계/동시성 테스트 및 브라우저 확인 남음. 공유 DB/main/push/배포 없음. 원문 제공은 기존 ERP 매입만 구현되어 있고 신규 ERP 발주/경비 및 PLM ECO는 제공 인터페이스 미구현 안내를 포함한다.
+- 브랜치 `codex/gw-dsn31`, 시작GW-a `19e8f9e`, WIP `6ce757c`, 마지막 커밋 `git log -1 --oneline`. 격리 worktree: `/Users/hwang-kyoungho/Documents/Codex/2026-10-09/gw/work/factory-studio-gw`. main/공유DB/push/배포 없음. [결과](GW_결재확장_GW-b.md).
+- 완료: 신규문서 정책2·병렬/합의/참고·상신전결고정·처리시점 위임조건/해제 재검사. G-02/03/04/06·G-08/09, 브라우저인쇄 코드·도움말6편. 기존policy1은 전결/위임 제외·순차 유지. 공통action/master사용, 버전/멱등/공간잠금/감사.
+- 검증: 전체backend927/1skipped, 마지막보정 GW58, 전체frontend554·최종GW/콘텐츠26, tsc/전체frontendeslint/build/GWruff/DB검증0. Chrome결재선·전결·위임등록→상신→대리승인→합의→최종승인, 390px 넘침없음. 전체backendruff 기존core/service.py I001(기준본 재현), 인쇄 미리보기/PDF는 Mac잠금으로 미검증.
+- 외부 의존: ERP PURCHASE_ORDER·EXPENSE_CLAIM 제공미구현, PLM eco_for_approval 없음. GW종류/소비/배지계약은 구현·mock검증. ERP는 APPROVAL_KINDS 선언, PLM은 ECO번호직접입력 지원. approvals 단일종류 번호키/혼합종류 `종류:번호` 키. 실제 회사 신원/공유공간/A트랙 및 F44 ERP 확정통제 제외.
+- 다음: 사용자 결과 확인 후 GW-c 조직·HR 연계. 시작하지 않았다. GW-e 시드에서 rule/delegation/approval_event.details가 채워지면 날짜 이동·내부ID·증빙 스냅샷의 복사/정리 검증을 보강할 것.
+- 재현: `TEST_DATABASE_URL`은 독립 `_test` DB, `PYTHONPATH=backend/src:backend`, 기존 backend venv/Node24 재사용 가능. 결과 문서 명령 참고. 동일DB에 여러 독립pytest를 동시 실행하지 않는다. 브라우저용8073/5273 프로세스 중지, 의존성심볼릭링크는제외/정리. `work/`에만 다음작업의 필수정보를 두지 않았다.
+- DB는 GW-a schema0.21.0/headgw_a_dsn31/GW19·전체173 그대로. 병합 시 main MESmetadata·부모revision·제약순번/버전을 재대조할 것. GW-b schema migration 추가 없음.
 
-재현 환경: 기존 아래 GW-a 경로와 venv 사용, `PYTHONPATH=backend/src:backend`, 독립 `_test` DB에서 `pytest backend/tests/test_gw_policy.py backend/tests/test_gw.py`; 동일 DB에 독립 pytest 프로세스를 동시에 실행하지 말 것.
-
-# Factory Studio 작업 인계
+## 이전 GW-a 인계 기록
 
 ## GW-a 체험 그룹웨어 DB (2026-10-09)
 
 - branch `codex/gw-dsn31`, 시작 `af10726`, 마지막 커밋 `git log -1 --oneline`. 작업 경로는 `git worktree list`의 해당 브랜치. main/다른 세션 폴더는 수정하지 않았다. [결과](GW_체험보강_DB_GW-a.md).
 - 완료: DSN-31 체험·조직11표 + 기존6표15칼럼, GW19/전체173, schema0.21.0/head`gw_a_dsn31`. 실제 도입A5표·CORE TEAM·ERP통제 제외. metadata/Excel/ERD/현황/progress 동시 갱신. `apply_gw_a.py` 멱등·제약순번보존; `build_migration.py` rollback FK/제약→칼럼→표→옛제약복원으로 보정. 이전 migration은 수정하지 않았다.
 - 독립 `factory_studio_gw_a_test`에만 적용. 공유개발·CI원본·운영DB 미적용. 기존승인문서 왕복/DDL대조0, 도구4/실DB신규3·기존GWfrontend5/tsc/eslint/ruff/브라우저담당자등록 통과. 전체 backend900통과·1건너뜀(330.21초). 코드/API/신규화면은 미구현, 원격push/배포 없음.
-- 다음: 사용자 결과 확인 후 GW-b. 기존policy_version1 기본값으로 v1 순차결재 유지. ERP 발주/지출결의·PLM ECO 제공 인터페이스 존재 확인. A를 GW-a16표로 다시 넣지 않는다(인계프롬프트의 A 제외와 충돌).
+- 당시 다음 단계: GW-b(사용자 승인 후 위 최신 기록처럼 구현 완료). 기존policy_version1 기본값으로 v1 순차결재 유지. ERP 발주/지출결의·PLM ECO 제공 인터페이스 존재 확인. A를 GW-a16표로 다시 넣지 않는다(인계프롬프트의 A 제외와 충돌).
 - 재현: 결과문서의 명령. 새 DB는 PG18 및 `_test` 접미사. venv/node_modules는 main 것 재사용 가능하나 `PYTHONPATH=backend/src:backend`로 현재 worktree의 코드 사용. 테스트는 `EMPTY_MODULES=("gw",)`로 빈모듈 표시. 목표 `base_task`는 GW-a; main MES 진행과 병합할 때 schema/migration 부모/제약순번/버전을 다시 대조해야 한다. worktree branch의 단일 head는 w2a1_mes→gw_a_dsn31. 시드버전 변경 없음.
 
 ## UI-DESIGN-02 실제 UI 적용 (2026-10-09)

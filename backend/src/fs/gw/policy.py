@@ -332,6 +332,9 @@ def rules_write(context, id, operation, values, key):
                 text(f"DELETE FROM gw.authority_rule WHERE {gw.S} AND id=:id"),
                 gw.params(ctx, id=id),
             )
+            gw.audit(
+                c, ctx, "authority-rules", id, operation, current, "authority_rule"
+            )
             return {}, "gw.authority_rule", id
         data = {**(current or {}), **values}
         rule_check(c, ctx, data, current, id)
