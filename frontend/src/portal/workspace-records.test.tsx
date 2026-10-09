@@ -52,6 +52,8 @@ function mock(handler: Handler = () => undefined, roles = ["GUEST"]) {
     .spyOn(globalThis, "fetch")
     .mockImplementation(async (input, options) => {
       const path = String(input).replace("/api/v1/core", "");
+      if (path === "/workspace/menus")
+        return response({ menuIds: [], sidebarMode: "all", version: 1 });
       const handled = handler(path, options);
       if (handled) return handled;
       if (path === "/sessions/current")

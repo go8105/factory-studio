@@ -12,6 +12,7 @@ from fs.common.errors import ApiError
 from fs.common.idempotency import find_receipt, request_digest
 from fs.common.page import Page
 from fs.common.security import guest_csrf_token, member_csrf_token
+from fs.core import favorites
 from fs.core.schema import GuestCreate, LoginRequest, ModuleUpdate
 from fs.core.service import (
     create_guest,
@@ -163,6 +164,28 @@ def get_modules(
 ) -> dict[str, object]:
     with get_engine().connect() as connection:
         return {"data": list_modules(connection, context)}
+
+
+@router.get("/workspace/menus")
+def get_workspace_menus(
+    context: Annotated[AuthContext, Depends(resolve_auth)],
+) -> dict[str, object]:
+    with get_engine().connect() as connection:
+        return {"data": favorites.read(connection, context)}
+
+
+@router.put("/workspace/menus")
+def put_workspace_menus(
+    payload: favorites.MenuPreferencesUpdate,
+    context: Annotated[AuthContext, Depends(resolve_auth)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    x_csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> dict[str, object]:
+    require_csrf(context, x_csrf_token)
+    if not idempotency_key or len(idempotency_key) > 100:
+        raise ApiError(400, "VALIDATION_FAILED", "Idempotency-Key가 필요합니다.")
+    with get_engine().begin() as connection:
+        return {"data": favorites.update(connection, context, payload, idempotency_key)}
 
 
 @router.patch("/workspace/modules/{module_key}")

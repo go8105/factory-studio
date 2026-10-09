@@ -1,9 +1,9 @@
 {
-  "version": "0.21.0",
-  "task": "GW-a",
-  "date": "2026-10-09",
+  "version": "0.22.1",
+  "task": "W0-FAV",
+  "date": "2026-10-10",
   "status": "구현 명세 / 환경별 적용 상태는 인계 참조",
-  "migration_revision": "gw_a_dsn31",
+  "migration_revision": "w0_fav_menu_shape",
   "tables": [
     {
       "name": "core.app_user",
@@ -314,6 +314,22 @@
           "nullable": true,
           "default": null,
           "rule": ""
+        },
+        {
+          "name": "menu_preferences",
+          "label": "개인 메뉴 구성",
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "rule": "menuIds 순서·sidebarMode(all/favorites). NULL은 기본 구성. 초기화 보존, 회원 재로그인/기기 간 공유"
+        },
+        {
+          "name": "menu_preferences_version",
+          "label": "개인 메뉴 구성 버전",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1",
+          "rule": "낙관적 잠금, 저장 시 증가. 데이터 세대와 독립"
         }
       ],
       "note": "",
@@ -37571,6 +37587,33 @@
       ],
       "expression": "",
       "reason": "조회"
+    },
+    {
+      "table": "core.workspace",
+      "kind": "CHECK",
+      "columns": [
+        "menu_preferences"
+      ],
+      "expression": "menu_preferences IS NULL OR (jsonb_typeof(menu_preferences) = 'object' AND menu_preferences ?& ARRAY['menuIds','sidebarMode'] AND jsonb_typeof(menu_preferences->'menuIds') = 'array' AND menu_preferences->>'sidebarMode' IN ('all','favorites'))",
+      "reason": "W0-FAV 메뉴 구성 형태"
+    },
+    {
+      "table": "core.workspace",
+      "kind": "CHECK",
+      "columns": [
+        "menu_preferences_version"
+      ],
+      "expression": "menu_preferences_version > 0",
+      "reason": "W0-FAV 설정 버전"
+    },
+    {
+      "table": "core.workspace",
+      "kind": "CHECK",
+      "columns": [
+        "menu_preferences"
+      ],
+      "expression": "menu_preferences IS NULL OR jsonb_typeof(menu_preferences->'sidebarMode') = 'string'",
+      "reason": "W0-FAV JSON null 모드 거부"
     }
   ],
   "states": [
@@ -38720,6 +38763,20 @@
       "date": "2026-10-09",
       "change": "DSN-31 체험·조직 신규 11표와 기존 GW 6표 확장. 실제 도입 A 5표·CORE TEAM·ERP 통제는 제외. 제거 제약 슬롯 보존.",
       "status": "마이그레이션 gw_a_dsn31 적용 대상"
+    },
+    {
+      "version": "0.22.0",
+      "task": "W0-FAV",
+      "date": "2026-10-09",
+      "change": "core.workspace 개인 메뉴 구성 JSON·독립버전. 세대 초기화 보존, 업무 스키마/FK 변경 없음",
+      "status": "구현 검증 대상"
+    },
+    {
+      "version": "0.22.1",
+      "task": "W0-FAV",
+      "date": "2026-10-10",
+      "change": "JSON null sidebarMode 거부 CHECK 보강. 전용DB 적용한 초기revision 수정 대신 후속revision",
+      "status": "구현 검증 대상"
     }
   ]
 }

@@ -12,6 +12,7 @@ import { lazy, Suspense, useRef, useState } from "react";
 import "./HomeShell.css";
 import { SessionProvider, useSession } from "./session";
 import { api } from "../shared/api";
+import { FavoritesProvider } from "../shared/favorites";
 import { ErrorNotice, Loading, NotFound } from "../shared/components";
 import { Entry } from "../portal/Entry";
 import { Home } from "../portal/Home";
@@ -194,7 +195,9 @@ function PortalRoutes() {
 export function App() {
   return (
     <SessionProvider>
-      <PortalRoutes />
+      <FavoritesProvider>
+        <PortalRoutes />
+      </FavoritesProvider>
     </SessionProvider>
   );
 }

@@ -1,3 +1,14 @@
+# W0-FAV 즐겨찾기 구현 WIP (2026-10-10)
+
+- 사용자 GW 검토 뒤 참고 React/이미지2 기반 내 공간 즐겨찾기·MES/ERP 등 사이드바 개인화 구현 요청. codex/workspace-favorites, 시작GW검토bfae108, worktree git worktree list 참조. 현재WIP커밋은 git log -1.
+- core.menu_catalog.json 9솔루션108실메뉴를 API/프런트/9레이아웃이 공유. 6기본카드·3열선택/검색·순서·사이드바등록메뉴/전체전환·서버공간저장/초기화보존·최근브라우저공간별 저장.
+- schema0.22.1/headw0_fav_menu_shape, core.workspace2칼럼3CHECK(173표1918칼럼412FK), Excel/ERD. 독립 factory_studio_favorites_test만 적용. 최초후JSON nullCHECK는 새revision으로 보강. backend8/frontend8·실DDL0 통과. 전체회귀/실브라우저 검증 진행 중이며 완료 아님.
+- 초기 전체프런트569통과/5실패는 공통설정GET이 기존업무mock을 받는 3파일 stub 보정. typecheck 테스트타입보정도 진행 중. 기존main DSN재생성/SPC시각실패는 GW_main_병합검토.md 참조.
+- 다음: 회귀수정/최종typecheck·lint·build·범위format, 브라우저8074/5274 1440/390 실제저장·새로고침·사이드바·포커스/넘침, 도움말·현황/progress/결과보고·최종커밋. 원격push/main병합/배포 없음.
+- 재현: 독립 *_test DB 환경주입 및 PYTHONPATH=backend/src:backend 필수. xdist 복제중 원본접속금지·동일DBpytest동시금지. venv/Node24는 기존main재사용, node_modules symlink 및 work/env는 스테이징 제외. [계약](../ui/내공간_즐겨찾기_W0-FAV.md).
+
+## 이전 GW 병합 검토 인계
+
 # GW-main 병합 검토 완료 인계 (2026-10-09)
 
 - codex/gw-dsn31, 제품17f0f18, 최종검토커밋은 `git log -1 --oneline`. main af10726 직접조상/충돌0·fast-forward 가능. 실제 main 병합/push/배포 없음. [검토](GW_main_병합검토.md).

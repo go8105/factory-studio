@@ -8,7 +8,8 @@ import {
   type Module,
   type Workspace as WorkspaceData,
 } from "../shared/api";
-import { Badge, ErrorNotice, Loading, PageTitle } from "../shared/components";
+import { Badge, ErrorNotice, Loading } from "../shared/components";
+import { WorkspaceFavorites } from "./WorkspaceFavorites";
 import { solutions } from "./Home";
 export function Workspace() {
   const { session, refresh, fail, busy, setBusy, setNavigationBlocked } =
@@ -115,10 +116,9 @@ export function Workspace() {
     : null;
   return (
     <>
-      <PageTitle
-        id="P-06"
-        title="내 공간"
-        subtitle="예시 데이터와 솔루션 사용 설정"
+      <WorkspaceFavorites
+        modules={modules}
+        disabled={busy || !!uncertain || reloadNeeded}
       />
       <ErrorNotice
         error={error}

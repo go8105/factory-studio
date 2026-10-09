@@ -50,6 +50,13 @@ function mockApi(
     .mockImplementation(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
+      if (url.endsWith("/workspace/menus"))
+        return new Response(
+          JSON.stringify({
+            data: { menuIds: [], sidebarMode: "all", version: 1 },
+          }),
+          { status: 200 },
+        );
       const reply = replies[`${method} ${url.split("?")[0]}`];
       if (reply)
         return new Response(

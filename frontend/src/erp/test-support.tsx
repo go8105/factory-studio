@@ -39,6 +39,13 @@ export function mount(
     .mockImplementation(async (input, init) => {
       const url = String(input).split("?")[0];
       const method = init?.method ?? "GET";
+      if (url.endsWith("/workspace/menus"))
+        return new Response(
+          JSON.stringify({
+            data: { menuIds: [], sidebarMode: "all", version: 1 },
+          }),
+          { status: 200 },
+        );
       const reply = replies[`${method} ${url}`];
       if (reply)
         return new Response(

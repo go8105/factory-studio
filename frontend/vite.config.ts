@@ -9,6 +9,9 @@ export default defineConfig({
         fileURLToPath(new URL(".", import.meta.url)),
         fileURLToPath(new URL("../content", import.meta.url)),
         fileURLToPath(new URL("../backend/src/fs/factory", import.meta.url)),
+        fileURLToPath(
+          new URL("../backend/src/fs/core/menu_catalog.json", import.meta.url),
+        ),
       ],
     },
     host: "localhost",

@@ -1,27 +1,10 @@
 import { useState } from "react";
-import { SolutionLayout, type Screen } from "../shared/SolutionLayout";
+import { SolutionLayout } from "../shared/SolutionLayout";
+import { gwScreens } from "../shared/menuCatalog";
 import { useSession } from "../app/session";
 import { RoleContext, useGet, type Person } from "./common";
-export const gwScreens: Screen[] = [
-  { path: "calendar", id: "G-11", label: "일정", group: "협업" },
-  { path: "notifications", id: "G-12", label: "알림함", group: "협업" },
-  { path: "chat", id: "G-13", label: "채팅", group: "협업" },
-  { path: "dashboard", id: "G-01", label: "업무 현황", group: "전자결재" },
-  { path: "drafts", id: "G-02", label: "기안함", group: "전자결재" },
-  { path: "pending", id: "G-03", label: "결재함", group: "전자결재" },
-  { path: "documents", id: "G-04", label: "결재 기록", group: "전자결재" },
-  { path: "board", id: "G-05", label: "공지·자유 게시판", group: "게시판" },
-  { path: "routes", id: "G-06", label: "결재선 템플릿", group: "기준정보" },
-  { path: "people", id: "G-07", label: "체험 담당자", group: "기준정보" },
-  {
-    path: "authority-rules",
-    id: "G-08",
-    label: "전결 규칙",
-    group: "기준정보",
-  },
-  { path: "organization", id: "G-10", label: "조직도", group: "기준정보" },
-  { path: "delegations", id: "G-09", label: "결재 위임", group: "전자결재" },
-];
+export { gwScreens } from "../shared/menuCatalog";
+
 function Space() {
   const { session } = useSession();
   const key = `gw-role:${session?.workspaceId}:${session?.generationId}`;

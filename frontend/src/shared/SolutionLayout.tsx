@@ -1,8 +1,12 @@
 // MES·ERP·FEMS 공통 솔루션 레이아웃: 좌측 사이드바(넓은 화면 접기, 좁은 화면 서랍) + 본문 (UI-01)
 import { useLayoutEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useFavorites } from "./favorites";
+import { MenuIcon } from "./MenuIcon";
+import { ErrorNotice } from "./components";
+import type { Screen } from "./menuCatalog";
 
-export type Screen = { path: string; id: string; label: string; group: string };
+export type { Screen } from "./menuCatalog";
 
 const STORAGE_KEY = "fs.sidebar.collapsed";
 function readCollapsed() {
@@ -27,6 +31,49 @@ export function SolutionLayout({
   others: { to: string; label: string }[];
 }) {
   const location = useLocation();
+  const favorites = useFavorites();
+  const favoriteMode = favorites.data?.sidebarMode === "favorites";
+  const moduleKey = base.slice(1);
+  const selected = favorites.data?.menuIds ?? [];
+  const visibleScreens = favoriteMode
+    ? selected.flatMap((key) => {
+        const screen = screens.find(
+          (screen) => key === `${moduleKey}:${screen.path}`,
+        );
+        return screen ? [screen] : [];
+      })
+    : screens;
+  function menuRow(screen: Screen) {
+    const key = `${moduleKey}:${screen.path}`;
+    const pinned = selected.includes(key);
+    return (
+      <div className="sidebar-menu-row" key={screen.path}>
+        <NavLink to={`${base}/${screen.path}`} onClick={closeMenu}>
+          <span>{screen.id}</span> {screen.label}
+        </NavLink>
+        {favorites.data && (
+          <button
+            className="favorite-icon-button"
+            aria-label={`${screen.label} 즐겨찾기 ${pinned ? "해제" : "등록"}`}
+            aria-pressed={pinned}
+            disabled={
+              favorites.pending || favorites.loading || favorites.uncertain
+            }
+            onClick={() =>
+              void favorites.save(
+                pinned
+                  ? selected.filter((id) => id !== key)
+                  : [...selected, key],
+                favorites.data!.sidebarMode,
+              )
+            }
+          >
+            <MenuIcon kind="star" />
+          </button>
+        )}
+      </div>
+    );
+  }
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const summaryRef = useRef<HTMLElement>(null);
   const [collapsed, setCollapsed] = useState(readCollapsed);
@@ -113,29 +160,99 @@ export function SolutionLayout({
               </button>
             </div>
             <nav>
-              {[...new Set(screens.map((s) => s.group))].map((group) => (
-                <section key={group}>
-                  <h2>{group}</h2>
-                  {screens
-                    .filter((s) => s.group === group)
-                    .map((s) => (
-                      <NavLink
-                        key={s.path}
-                        to={`${base}/${s.path}`}
-                        onClick={closeMenu}
-                      >
-                        <span>{s.id}</span> {s.label}
-                      </NavLink>
-                    ))}
-                </section>
-              ))}
-              <section>
-                <h2>다른 앱</h2>
-                {others.map((o) => (
-                  <NavLink key={o.to} to={o.to} onClick={closeMenu}>
-                    {o.label}
+              {!!(favorites.data || favorites.loading || favorites.error) && (
+                <>
+                  <div
+                    className="sidebar-menu-mode"
+                    aria-label="사이드바 메뉴 표시"
+                  >
+                    <button
+                      aria-label="즐겨찾기만 보기"
+                      aria-pressed={favoriteMode}
+                      disabled={
+                        !favorites.data ||
+                        favorites.pending ||
+                        favorites.loading ||
+                        favorites.uncertain
+                      }
+                      onClick={() => void favorites.save(selected, "favorites")}
+                    >
+                      즐겨찾기
+                    </button>
+                    <button
+                      aria-label="전체 메뉴 보기"
+                      aria-pressed={!favoriteMode}
+                      disabled={
+                        !favorites.data ||
+                        favorites.pending ||
+                        favorites.loading ||
+                        favorites.uncertain
+                      }
+                      onClick={() => void favorites.save(selected, "all")}
+                    >
+                      전체 메뉴
+                    </button>
+                  </div>
+                  <ErrorNotice
+                    error={favorites.error}
+                    retry={
+                      favorites.pending
+                        ? undefined
+                        : () => void favorites.reload()
+                    }
+                  />
+                </>
+              )}
+              {favoriteMode ? (
+                <section>
+                  <h2>즐겨찾기</h2>
+                  {visibleScreens.map(menuRow)}
+                  {visibleScreens.length === 0 && (
+                    <p className="sidebar-favorite-empty">
+                      등록된 {name} 메뉴가 없습니다. 전체 메뉴에서 선택하거나 내
+                      공간에서 추가하세요.
+                    </p>
+                  )}
+                  <NavLink
+                    to={`/workspace?menus=${moduleKey}`}
+                    onClick={closeMenu}
+                  >
+                    메뉴 추가·순서 편집
                   </NavLink>
-                ))}
+                </section>
+              ) : (
+                [...new Set(visibleScreens.map((s) => s.group))].map(
+                  (group) => (
+                    <section key={group}>
+                      <h2>{group}</h2>
+                      {visibleScreens
+                        .filter((s) => s.group === group)
+                        .map(menuRow)}
+                    </section>
+                  ),
+                )
+              )}
+              <section>
+                <h2>{favoriteMode ? "내 공간" : "다른 앱"}</h2>
+                {!favoriteMode &&
+                  others.map((o) => (
+                    <NavLink key={o.to} to={o.to} onClick={closeMenu}>
+                      {o.label}
+                    </NavLink>
+                  ))}
+                {favoriteMode && (
+                  <NavLink to="/home" onClick={closeMenu}>
+                    앱 런처
+                  </NavLink>
+                )}
+                {!favoriteMode && (
+                  <NavLink
+                    to={`/workspace?menus=${moduleKey}`}
+                    onClick={closeMenu}
+                  >
+                    즐겨찾기 구성
+                  </NavLink>
+                )}
                 {/* 업무 화면에는 바닥글이 없으므로 공통 안내를 여기에 둔다(UI-02). */}
                 <NavLink to="/help/common" onClick={closeMenu}>
                   공통 이용 안내

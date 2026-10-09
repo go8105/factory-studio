@@ -1,5 +1,5 @@
 {
-  "task": "GW-a",
+  "task": "W0-FAV",
   "validation": "정적 메타데이터 검증 + FS-013 R1~R6",
   "database_applied": false,
   "tables": 173,
@@ -16,10 +16,10 @@
     "spc": 5,
     "wms": 11
   },
-  "columns": 1916,
+  "columns": 1918,
   "foreign_keys": 412,
-  "constraints_and_policies": 1345,
-  "source_sha256": "24ad51ed055cf1885a2c5f4a611b572b5182abf63b578204cf1f4e2da3a323bf",
+  "constraints_and_policies": 1347,
+  "source_sha256": "3290edfb6ab449c85fa220b2b7498a73a1970b6a4ad7c2f9a039cf75ecdd937b",
   "errors": [],
   "not_tested": [
     "실제 DDL 적용",

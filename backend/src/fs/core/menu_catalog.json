@@ -1,0 +1,724 @@
+{
+  "version": 1,
+  "defaultMenuIds": [
+    "gw:drafts",
+    "gw:pending",
+    "gw:documents",
+    "mes:dashboard",
+    "wms:dashboard",
+    "gw:board"
+  ],
+  "solutions": [
+    {
+      "key": "gw",
+      "name": "GW",
+      "title": "그룹웨어",
+      "screens": [
+        {
+          "path": "calendar",
+          "id": "G-11",
+          "label": "일정",
+          "group": "협업"
+        },
+        {
+          "path": "notifications",
+          "id": "G-12",
+          "label": "알림함",
+          "group": "협업"
+        },
+        {
+          "path": "chat",
+          "id": "G-13",
+          "label": "채팅",
+          "group": "협업"
+        },
+        {
+          "path": "dashboard",
+          "id": "G-01",
+          "label": "업무 현황",
+          "group": "전자결재"
+        },
+        {
+          "path": "drafts",
+          "id": "G-02",
+          "label": "기안함",
+          "group": "전자결재"
+        },
+        {
+          "path": "pending",
+          "id": "G-03",
+          "label": "결재함",
+          "group": "전자결재"
+        },
+        {
+          "path": "documents",
+          "id": "G-04",
+          "label": "결재 기록",
+          "group": "전자결재"
+        },
+        {
+          "path": "board",
+          "id": "G-05",
+          "label": "공지·자유 게시판",
+          "group": "게시판"
+        },
+        {
+          "path": "routes",
+          "id": "G-06",
+          "label": "결재선 템플릿",
+          "group": "기준정보"
+        },
+        {
+          "path": "people",
+          "id": "G-07",
+          "label": "체험 담당자",
+          "group": "기준정보"
+        },
+        {
+          "path": "authority-rules",
+          "id": "G-08",
+          "label": "전결 규칙",
+          "group": "기준정보"
+        },
+        {
+          "path": "organization",
+          "id": "G-10",
+          "label": "조직도",
+          "group": "기준정보"
+        },
+        {
+          "path": "delegations",
+          "id": "G-09",
+          "label": "결재 위임",
+          "group": "전자결재"
+        }
+      ]
+    },
+    {
+      "key": "mes",
+      "name": "MES",
+      "title": "생산관리",
+      "screens": [
+        {
+          "path": "dashboard",
+          "id": "M-01",
+          "label": "대시보드",
+          "group": "생산 현황"
+        },
+        {
+          "path": "production-plans",
+          "id": "M-02",
+          "label": "생산계획",
+          "group": "생산계획"
+        },
+        {
+          "path": "work-orders",
+          "id": "M-03",
+          "label": "작업지시",
+          "group": "생산계획"
+        },
+        {
+          "path": "lots",
+          "id": "M-04",
+          "label": "LOT 현황",
+          "group": "생산실행"
+        },
+        {
+          "path": "executions",
+          "id": "M-05",
+          "label": "공정 실행",
+          "group": "생산실행"
+        },
+        {
+          "path": "material-issues",
+          "id": "M-06",
+          "label": "자재 투입",
+          "group": "생산실행"
+        },
+        {
+          "path": "results",
+          "id": "M-07",
+          "label": "실적 확정",
+          "group": "생산실행"
+        },
+        {
+          "path": "packing",
+          "id": "M-08",
+          "label": "패킹",
+          "group": "포장·입고"
+        },
+        {
+          "path": "receipts",
+          "id": "M-09",
+          "label": "완제품 입고",
+          "group": "포장·입고"
+        },
+        {
+          "path": "sites",
+          "id": "M-10",
+          "label": "사업장·공간",
+          "group": "기준정보"
+        },
+        {
+          "path": "equipments",
+          "id": "M-11",
+          "label": "설비",
+          "group": "기준정보"
+        },
+        {
+          "path": "items",
+          "id": "M-12",
+          "label": "품목",
+          "group": "기준정보"
+        },
+        {
+          "path": "processes",
+          "id": "M-13",
+          "label": "공정",
+          "group": "기준정보"
+        },
+        {
+          "path": "routes",
+          "id": "M-14",
+          "label": "공정 경로",
+          "group": "기준정보"
+        },
+        {
+          "path": "boms",
+          "id": "M-15",
+          "label": "BOM",
+          "group": "기준정보"
+        },
+        {
+          "path": "codes",
+          "id": "M-16",
+          "label": "불량·사유 코드",
+          "group": "기준정보"
+        },
+        {
+          "path": "workers",
+          "id": "M-17",
+          "label": "작업자·근무조",
+          "group": "기준정보"
+        },
+        {
+          "path": "labels",
+          "id": "M-19",
+          "label": "라벨 양식",
+          "group": "기준정보"
+        },
+        {
+          "path": "inspection-items",
+          "id": "M-26",
+          "label": "공정 검사 기준",
+          "group": "기준정보"
+        }
+      ]
+    },
+    {
+      "key": "erp",
+      "name": "ERP",
+      "title": "경영관리",
+      "screens": [
+        {
+          "path": "dashboard",
+          "id": "E-01",
+          "label": "대시보드",
+          "group": "개요"
+        },
+        {
+          "path": "quotations",
+          "id": "E-02",
+          "label": "견적",
+          "group": "영업"
+        },
+        {
+          "path": "sales-plans",
+          "id": "E-03",
+          "label": "판매계획",
+          "group": "영업"
+        },
+        {
+          "path": "sales-orders",
+          "id": "E-04",
+          "label": "수주",
+          "group": "영업"
+        },
+        {
+          "path": "shipment-orders",
+          "id": "E-05",
+          "label": "출하지시",
+          "group": "출하·매출"
+        },
+        {
+          "path": "shipments",
+          "id": "E-06",
+          "label": "출하",
+          "group": "출하·매출"
+        },
+        {
+          "path": "sales-records",
+          "id": "E-07",
+          "label": "매출",
+          "group": "출하·매출"
+        },
+        {
+          "path": "tax-invoices",
+          "id": "E-08",
+          "label": "세금계산서",
+          "group": "출하·매출"
+        },
+        {
+          "path": "receivables",
+          "id": "E-09",
+          "label": "매출채권 현황",
+          "group": "채권·수금"
+        },
+        {
+          "path": "receipts",
+          "id": "E-10",
+          "label": "수금 등록·소명",
+          "group": "채권·수금"
+        },
+        {
+          "path": "purchase-invoices",
+          "id": "E-11",
+          "label": "매입 전표",
+          "group": "매입·채무"
+        },
+        {
+          "path": "payables",
+          "id": "E-12",
+          "label": "매입채무 현황",
+          "group": "매입·채무"
+        },
+        {
+          "path": "payments",
+          "id": "E-13",
+          "label": "지급 등록·소명",
+          "group": "매입·채무"
+        },
+        {
+          "path": "journal-preview",
+          "id": "E-14",
+          "label": "분개 미리보기",
+          "group": "회계"
+        },
+        {
+          "path": "partners",
+          "id": "E-15",
+          "label": "거래처",
+          "group": "기준정보"
+        },
+        {
+          "path": "items",
+          "id": "E-16",
+          "label": "품목",
+          "group": "기준정보"
+        },
+        {
+          "path": "partner-prices",
+          "id": "E-17",
+          "label": "거래처별 단가",
+          "group": "기준정보"
+        },
+        {
+          "path": "accounts",
+          "id": "E-18",
+          "label": "계정과목·분개규칙",
+          "group": "기준정보"
+        }
+      ]
+    },
+    {
+      "key": "wms",
+      "name": "WMS",
+      "title": "창고관리",
+      "screens": [
+        {
+          "path": "dashboard",
+          "id": "W-01",
+          "label": "대시보드",
+          "group": "재고"
+        },
+        {
+          "path": "stock",
+          "id": "W-02",
+          "label": "재고 현황",
+          "group": "재고"
+        },
+        {
+          "path": "sources",
+          "id": "W-03",
+          "label": "원천 반영",
+          "group": "입출고"
+        },
+        {
+          "path": "inbounds",
+          "id": "W-08",
+          "label": "입고 예정·검수",
+          "group": "입출고"
+        },
+        {
+          "path": "reservations",
+          "id": "W-09",
+          "label": "출고 예약",
+          "group": "입출고"
+        },
+        {
+          "path": "documents",
+          "id": "W-04",
+          "label": "재고 전표",
+          "group": "입출고"
+        },
+        {
+          "path": "moves",
+          "id": "W-05",
+          "label": "재고 원장",
+          "group": "입출고"
+        },
+        {
+          "path": "warehouses",
+          "id": "W-06",
+          "label": "창고·위치",
+          "group": "기준정보"
+        },
+        {
+          "path": "items",
+          "id": "W-07",
+          "label": "품목·단위",
+          "group": "기준정보"
+        }
+      ]
+    },
+    {
+      "key": "fems",
+      "name": "FEMS",
+      "title": "에너지관리",
+      "screens": [
+        {
+          "path": "dashboard",
+          "id": "F-01",
+          "label": "대시보드",
+          "group": "에너지 현황"
+        },
+        {
+          "path": "readings",
+          "id": "F-02",
+          "label": "계측 조회",
+          "group": "에너지 현황"
+        },
+        {
+          "path": "allocations",
+          "id": "F-03",
+          "label": "설비별 배분",
+          "group": "에너지 현황"
+        },
+        {
+          "path": "emissions",
+          "id": "F-04",
+          "label": "배출량 현황",
+          "group": "에너지 현황"
+        },
+        {
+          "path": "production",
+          "id": "F-05",
+          "label": "생산량 등록",
+          "group": "원단위·목표"
+        },
+        {
+          "path": "intensity",
+          "id": "F-06",
+          "label": "원단위 분석",
+          "group": "원단위·목표"
+        },
+        {
+          "path": "targets",
+          "id": "F-07",
+          "label": "목표 대비 실적",
+          "group": "원단위·목표"
+        },
+        {
+          "path": "billing",
+          "id": "F-08",
+          "label": "요금 산정",
+          "group": "요금"
+        },
+        {
+          "path": "sites",
+          "id": "F-09",
+          "label": "사업장·공간",
+          "group": "기준정보"
+        },
+        {
+          "path": "equipments",
+          "id": "F-10",
+          "label": "설비",
+          "group": "기준정보"
+        },
+        {
+          "path": "energy-sources",
+          "id": "F-11",
+          "label": "에너지원",
+          "group": "기준정보"
+        },
+        {
+          "path": "meters",
+          "id": "F-12",
+          "label": "계측기·채널",
+          "group": "기준정보"
+        },
+        {
+          "path": "energy-factors",
+          "id": "F-13",
+          "label": "환산·배출계수",
+          "group": "기준정보"
+        },
+        {
+          "path": "tariffs",
+          "id": "F-14",
+          "label": "요금제",
+          "group": "기준정보"
+        }
+      ]
+    },
+    {
+      "key": "qms",
+      "name": "QMS",
+      "title": "품질관리",
+      "screens": [
+        {
+          "path": "dashboard",
+          "id": "Q-01",
+          "label": "대시보드",
+          "group": "품질 현황"
+        },
+        {
+          "path": "pending",
+          "id": "Q-03",
+          "label": "검사 대기",
+          "group": "검사"
+        },
+        {
+          "path": "inspections",
+          "id": "Q-04",
+          "label": "검사",
+          "group": "검사"
+        },
+        {
+          "path": "holds",
+          "id": "Q-05",
+          "label": "품질 보류",
+          "group": "검사"
+        },
+        {
+          "path": "specs",
+          "id": "Q-02",
+          "label": "검사 기준",
+          "group": "기준정보"
+        },
+        {
+          "path": "defect-types",
+          "id": "Q-06",
+          "label": "불량 유형",
+          "group": "기준정보"
+        }
+      ]
+    },
+    {
+      "key": "bems",
+      "name": "BEMS",
+      "title": "건물관리",
+      "screens": [
+        {
+          "path": "dashboard",
+          "id": "B-01",
+          "label": "대시보드",
+          "group": "건물 현황"
+        },
+        {
+          "path": "breakdown",
+          "id": "B-02",
+          "label": "에너지 분해",
+          "group": "건물 현황"
+        },
+        {
+          "path": "environment",
+          "id": "B-03",
+          "label": "환경 모니터링",
+          "group": "건물 현황"
+        },
+        {
+          "path": "hvac",
+          "id": "B-04",
+          "label": "공조 운전",
+          "group": "운전·경보"
+        },
+        {
+          "path": "schedules",
+          "id": "B-05",
+          "label": "운전 스케줄",
+          "group": "운전·경보"
+        },
+        {
+          "path": "alarms",
+          "id": "B-06",
+          "label": "경보",
+          "group": "운전·경보"
+        },
+        {
+          "path": "zones",
+          "id": "B-07",
+          "label": "구역·계측",
+          "group": "기준정보"
+        }
+      ]
+    },
+    {
+      "key": "spc",
+      "name": "SPC",
+      "title": "통계적 공정관리",
+      "screens": [
+        {
+          "path": "dashboard",
+          "id": "S-01",
+          "label": "대시보드",
+          "group": "공정 현황"
+        },
+        {
+          "path": "chart",
+          "id": "S-02",
+          "label": "관리도",
+          "group": "공정 현황"
+        },
+        {
+          "path": "capability",
+          "id": "S-03",
+          "label": "공정능력",
+          "group": "공정 현황"
+        },
+        {
+          "path": "measure",
+          "id": "S-04",
+          "label": "측정 입력",
+          "group": "측정·이상"
+        },
+        {
+          "path": "signals",
+          "id": "S-05",
+          "label": "이상·조치",
+          "group": "측정·이상"
+        },
+        {
+          "path": "subgroups",
+          "id": "S-06",
+          "label": "부분군 기록",
+          "group": "측정·이상"
+        },
+        {
+          "path": "characteristics",
+          "id": "S-07",
+          "label": "관리 특성·한계",
+          "group": "기준정보"
+        }
+      ]
+    },
+    {
+      "key": "hr",
+      "name": "HR",
+      "title": "인사관리",
+      "screens": [
+        {
+          "path": "overview",
+          "id": "H-01",
+          "label": "인사 현황",
+          "group": "현황"
+        },
+        {
+          "path": "departments",
+          "id": "H-02",
+          "label": "부서",
+          "group": "조직·사원"
+        },
+        {
+          "path": "titles",
+          "id": "H-03",
+          "label": "직위·직책",
+          "group": "조직·사원"
+        },
+        {
+          "path": "work-patterns",
+          "id": "H-04",
+          "label": "근무 형태",
+          "group": "조직·사원"
+        },
+        {
+          "path": "employees",
+          "id": "H-05",
+          "label": "사원",
+          "group": "조직·사원"
+        },
+        {
+          "path": "appointments",
+          "id": "H-06",
+          "label": "발령",
+          "group": "조직·사원"
+        },
+        {
+          "path": "attendance",
+          "id": "H-07",
+          "label": "근태",
+          "group": "근태·휴가"
+        },
+        {
+          "path": "attendance-closes",
+          "id": "H-08",
+          "label": "근태 마감",
+          "group": "근태·휴가"
+        },
+        {
+          "path": "leaves",
+          "id": "H-09",
+          "label": "휴가",
+          "group": "근태·휴가"
+        },
+        {
+          "path": "pay-standards",
+          "id": "H-10",
+          "label": "급여 기준",
+          "group": "급여"
+        },
+        {
+          "path": "payroll",
+          "id": "H-11",
+          "label": "급여 계산",
+          "group": "급여"
+        },
+        {
+          "path": "payslips",
+          "id": "H-12",
+          "label": "급여대장·명세서",
+          "group": "급여"
+        },
+        {
+          "path": "reviews",
+          "id": "H-13",
+          "label": "인사 평가",
+          "group": "평가·분석"
+        },
+        {
+          "path": "cost",
+          "id": "H-14",
+          "label": "인건비·근태 분석",
+          "group": "평가·분석"
+        },
+        {
+          "path": "me",
+          "id": "H-15",
+          "label": "내 정보",
+          "group": "평가·분석"
+        }
+      ]
+    }
+  ]
+}
