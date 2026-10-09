@@ -7,6 +7,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
+SEEDS = ("erp",)
+EMPTY_MODULES = ("gw",)
+
 from fs.erp.interface import approval_source_digest
 
 P = "/api/v1/gw"

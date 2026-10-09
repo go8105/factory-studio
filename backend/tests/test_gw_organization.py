@@ -301,7 +301,22 @@ def test_workspace_isolation_and_csrf(org):
             201,
         )
         d = ok(other.get("/api/v1/gw/hr-preview"))
-        assert not d["available"] and d["people"] == [] and d["organizations"] == []
+        # 두 번째 실제 게스트는 GW-e 시드가 지연 복사된다. HR은 아직 열리지 않았다.
+        assert (
+            not d["available"]
+            and len(d["people"]) == 10
+            and len(d["organizations"]) == 4
+        )
+        ok(import_people(org))
+        own = preview(org)
+        assert {p["id"] for p in d["people"]}.isdisjoint(p["id"] for p in own["people"])
+        assert {p["id"] for p in d["organizations"]}.isdisjoint(
+            p["id"] for p in own["organizations"]
+        )
+        assert (
+            other.get("/api/v1/gw/people/" + own["people"][0]["id"]).status_code
+            == 404
+        )
         why(call(other, other_s, "POST", "/import-hr", body), "HR_UNAVAILABLE")
 
 

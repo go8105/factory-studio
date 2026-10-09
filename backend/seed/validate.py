@@ -9,6 +9,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
 
 from seed.common import equipment_ratio_sql, month_mondays, month_text
+from seed.gw import COUNTS as GW_COUNTS
 from fs.common.modules import BUSINESS_SCHEMAS
 
 
@@ -124,8 +125,15 @@ EXPECTED_COUNTS = {
     "hr.payroll_run": 1,
     "hr.payslip": 10,
 }
+EXPECTED_COUNTS.update(GW_COUNTS)
 # 행 수가 기준일에 따라 달라지는 표(달의 길이·기준일까지의 날짜). V-HR에서 규칙으로 본다.
 DATE_VARYING = ("hr.attendance", "hr.payslip_line")
+# 일정 예약과 위임 종료는 의도적으로 미래를 포함한다. 기록 시각에는 적용하지 않는다.
+FUTURE_ALLOWED = {
+    ("gw", "calendar_event", "starts_at"),
+    ("gw", "calendar_event", "ends_at"),
+    ("gw", "delegation", "ends_at"),
+}
 
 
 def validate_all(
@@ -139,10 +147,19 @@ def validate_all(
         actual == EXPECTED_COUNTS,
         f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}",
     )
-    _require(sum(actual.values()) == 14795, f"V1 total={sum(actual.values())}")
+    _require(
+        sum(actual.values()) == 14795 + sum(GW_COUNTS.values()),
+        f"V1 total={sum(actual.values())}",
+    )
     _require(all(varying.values()), f"V1 date-varying empty: {varying}")
     # FS-025c: BEMS +4,218. FS-028a: spc 모듈 행 +1. FS-026: WMS 예시 +22. FS-028c: SPC +2,752. FS-030a: gw 모듈 행 +1. FS-029a: cmms 모듈 행 +1(업무 시드는 각 c 단계).
-    results["V1"] = "138개 중 시드 테이블, 14,794행 일치(근태·명세 줄은 V-HR)"
+    validate_gw(connection, workspace_id, generation_id)
+    results["V-GW"] = (
+        "GW 19개 표: 사건 JSON·알림 대상·채팅 순번/읽음·댓글 이력·종일 일정 검증"
+    )
+    results["V1"] = (
+        f"시드 {len(actual)}개 표, {sum(actual.values()):,}행 일치(근태·명세 줄은 V-HR)"
+    )
 
     plans = connection.execute(
         text(
@@ -342,6 +359,7 @@ def validate_all(
                 if (
                     "TIMESTAMP" in str(column["type"]).upper()
                     and column["name"] != "ended_at"
+                    and (schema, table, column["name"]) not in FUTURE_ALLOWED
                 ):
                     future += _scalar(
                         connection,
@@ -680,3 +698,20 @@ def _hr_check(
     )
     _require(broken == 0, f"V-HR payslip totals={broken}")
     return f"{settled} 마감·급여 확정, {open_month} 마감 작성 중"
+
+
+def validate_gw(connection, workspace_id, generation_id):
+    params = {"w": workspace_id, "g": generation_id}
+    checks = [
+        "SELECT count(*) FROM gw.notification n WHERE n.workspace_id=:w AND n.generation_id=:g AND NOT (CASE n.ref_kind WHEN 'DOCUMENT' THEN EXISTS(SELECT 1 FROM gw.approval_document d WHERE (d.workspace_id,d.generation_id,d.id)=(n.workspace_id,n.generation_id,n.ref_id)) WHEN 'POST' THEN EXISTS(SELECT 1 FROM gw.board_post d WHERE (d.workspace_id,d.generation_id,d.id)=(n.workspace_id,n.generation_id,n.ref_id)) WHEN 'EVENT' THEN EXISTS(SELECT 1 FROM gw.calendar_event d WHERE (d.workspace_id,d.generation_id,d.id)=(n.workspace_id,n.generation_id,n.ref_id)) ELSE EXISTS(SELECT 1 FROM gw.chat_channel d WHERE (d.workspace_id,d.generation_id,d.id)=(n.workspace_id,n.generation_id,n.ref_id)) END)",
+        "SELECT count(*) FROM gw.chat_channel c WHERE c.workspace_id=:w AND c.generation_id=:g AND (c.last_seq<>(SELECT count(*) FROM gw.chat_message m WHERE (m.workspace_id,m.generation_id,m.channel_id)=(c.workspace_id,c.generation_id,c.id)) OR c.last_seq<>coalesce((SELECT max(seq) FROM gw.chat_message m WHERE m.channel_id=c.id),0))",
+        "SELECT count(*) FROM gw.chat_member m JOIN gw.chat_channel c ON c.id=m.channel_id WHERE m.workspace_id=:w AND m.generation_id=:g AND m.last_read_seq>c.last_seq",
+        "SELECT count(*) FROM gw.calendar_event WHERE workspace_id=:w AND generation_id=:g AND all_day AND ((starts_at AT TIME ZONE 'Asia/Seoul')::time<>'00:00' OR (ends_at AT TIME ZONE 'Asia/Seoul')::time<>'00:00')",
+        "SELECT count(*) FROM gw.comment c WHERE c.workspace_id=:w AND c.generation_id=:g AND c.revision_no-1<>(SELECT count(*) FROM gw.comment_revision r WHERE r.comment_id=c.id)",
+        "SELECT count(*) FROM gw.approval_event e WHERE e.workspace_id=:w AND e.generation_id=:g AND e.details->>'stepId' IS NOT NULL AND NOT EXISTS(SELECT 1 FROM gw.approval_step s WHERE (s.workspace_id,s.generation_id,s.document_id,s.id)=(e.workspace_id,e.generation_id,e.document_id,(e.details->>'stepId')::bigint))",
+        "SELECT count(*) FROM gw.approval_event e WHERE e.workspace_id=:w AND e.generation_id=:g AND e.details->>'delegationId' IS NOT NULL AND NOT EXISTS(SELECT 1 FROM gw.delegation d WHERE (d.workspace_id,d.generation_id,d.id)=(e.workspace_id,e.generation_id,(e.details->>'delegationId')::bigint))",
+        "SELECT count(*) FROM gw.approval_event e JOIN gw.approval_document d ON d.id=e.document_id WHERE e.workspace_id=:w AND e.generation_id=:g AND e.details->'authorityRule'->>'id' IS NOT NULL AND (d.authority_rule_id<>(e.details->'authorityRule'->>'id')::bigint OR NOT EXISTS(SELECT 1 FROM gw.authority_rule r WHERE (r.workspace_id,r.generation_id,r.id)=(e.workspace_id,e.generation_id,(e.details->'authorityRule'->>'id')::bigint)))",
+        "SELECT count(*) FROM gw.approval_event e JOIN gw.approval_document d ON d.id=e.document_id WHERE e.workspace_id=:w AND e.generation_id=:g AND e.details->>'appliedMonth' IS NOT NULL AND e.details->>'appliedMonth'<>to_char(d.submitted_at AT TIME ZONE 'Asia/Seoul','YYYY-MM')",
+    ]
+    for index, sql in enumerate(checks, 1):
+        _require(_scalar(connection, sql, params) == 0, f"V-GW check {index}")

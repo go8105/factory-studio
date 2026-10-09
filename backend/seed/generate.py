@@ -24,6 +24,7 @@ from seed.common import (
 )
 from fs.common.modules import BUSINESS_SCHEMAS, MODULE_KEYS
 from seed.hr import seed_hr
+from seed.gw import seed_gw
 
 Row = dict[str, Any]
 
@@ -290,6 +291,14 @@ def create_template(
     _bems(writer)
     _spc(writer)
     seed_hr(writer)
+    # GW는 ERP 공개 조회 계약으로 원문을 고정한다. 완성한 템플릿 ERP를 조회 가능으로 표시.
+    connection.execute(
+        text(
+            "UPDATE core.workspace_module SET seeded_generation_id=:g WHERE workspace_id=:w AND module_key='erp'"
+        ),
+        {"w": workspace_id, "g": generation_id},
+    )
+    seed_gw(writer)
     normalize_created_at(connection, workspace_id, generation_id, seed_date)
     return workspace_id, generation_id, dict(writer.counts)
 
@@ -352,6 +361,8 @@ def normalize_created_at(
                 if candidates
                 else ":master"
             )
+            if schema == "gw":  # GW는 사건별 합성 시각을 생성기에서 명시한다.
+                continue
             connection.execute(
                 text(
                     f'UPDATE "{schema}"."{table}" SET created_at={expression} '

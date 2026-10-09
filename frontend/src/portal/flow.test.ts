@@ -16,7 +16,7 @@ it("도움말 없는 업무 노드는 스키마에서 거부한다", () => {
   expect(validate(invalid)).toBe(false);
 });
 it("노드 키는 중복되지 않는다", () => {
-  expect(new Set(flow.nodes.map((n) => n.id)).size).toBe(21);
+  expect(new Set(flow.nodes.map((n) => n.id)).size).toBe(24);
 });
 it("연결의 양 끝은 실제 노드로 존재한다", () => {
   const ids = new Set(flow.nodes.map((n) => n.id));

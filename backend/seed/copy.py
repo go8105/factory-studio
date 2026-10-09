@@ -2,6 +2,7 @@ from __future__ import annotations
 # ruff: noqa: I001
 
 from collections import defaultdict
+import json
 from datetime import UTC, date, datetime
 from time import perf_counter
 from typing import Any
@@ -26,6 +27,8 @@ MONTH_COLUMNS = {
     ("hr.attendance_close", "close_month"),
     ("hr.payroll_run", "pay_month"),
     ("hr.pay_base", "effective_from"),
+    ("gw.authority_rule", "effective_from"),
+    ("gw.authority_rule", "effective_to"),
 }
 
 
@@ -231,6 +234,8 @@ def _copy_business_rows(
         for _, target in fks.values()
         if target in seeded
     }
+    # GW JSON 사건·다형 알림 참조도 같은 ID 지도가 필요하다.
+    parents |= {name for name in seeded if name.startswith("gw.")}
     for table_name in sorted(parents):
         schema, table = table_name.split(".")
         map_name = _map_name(table_name)
@@ -267,9 +272,134 @@ def _copy_business_rows(
             params,
         )
         counts[table_name] = result.rowcount
+    if "gw" in schemas:
+        _remap_gw_references(connection, seeded, params)
+    # 같은 트랜잭션에서 여러 공간·세대를 복사해도 ID 지도를 재사용하지 않는다.
+    for table_name in sorted(parents):
+        connection.execute(text(f'DROP TABLE "{_map_name(table_name)}"'))
     if copy_modules:
         _mark_seeded(connection, target_workspace_id, target_generation_id, schemas)
     return counts
+
+
+def _remap_gw_references(connection, seeded, params):
+    """관계 FK 밖의 GW 참조만 이동한다. 코드·이름·금액 스냅샷은 보존한다."""
+    maps = {
+        name: dict(
+            connection.execute(
+                text(f'SELECT old_id,new_id FROM "{_map_name(name)}"')
+            ).all()
+        )
+        for name in seeded
+        if name.startswith("gw.")
+    }
+
+    def mapped(name, value):
+        if value is None:
+            return None
+        new = maps.get("gw." + name, {}).get(int(value))
+        if new is None:
+            raise RuntimeError(f"GW seed reference missing: {name}")
+        return str(new) if isinstance(value, str) else new
+
+    if "gw.approval_event" in seeded:
+        rows = (
+            connection.execute(
+                text(
+                    "SELECT id,details FROM gw.approval_event WHERE workspace_id=:target_workspace AND generation_id=:target_generation AND details IS NOT NULL"
+                ),
+                params,
+            )
+            .mappings()
+            .all()
+        )
+        for row in rows:
+            details = dict(row["details"])
+            for key, table in (
+                ("stepId", "approval_step"),
+                ("delegationId", "delegation"),
+            ):
+                if key in details:
+                    details[key] = mapped(table, details[key])
+            rule = details.get("authorityRule")
+            if rule:
+                rule = dict(rule)
+                for key, param in (
+                    ("workspaceId", "target_workspace"),
+                    ("generationId", "target_generation"),
+                ):
+                    if key in rule:
+                        rule[key] = (
+                            str(params[param])
+                            if isinstance(rule[key], str)
+                            else params[param]
+                        )
+                rule["id"] = mapped("authority_rule", rule["id"])
+                for key in ("effectiveFrom", "effectiveTo"):
+                    if rule.get(key):
+                        rule[key] = connection.execute(
+                            text("SELECT " + _month_expression(":month")),
+                            dict(params, month=rule[key]),
+                        ).scalar_one()
+                if rule.get("createdAt"):
+                    rule["createdAt"] = (
+                        connection.execute(
+                            text(
+                                "SELECT CAST(:stamp AS timestamptz) + (:target_date - :source_date) * interval '1 day'"
+                            ),
+                            dict(params, stamp=rule["createdAt"]),
+                        )
+                        .scalar_one()
+                        .isoformat()
+                    )
+                details["authorityRule"] = rule
+            if details.get("appliedMonth"):
+                details["appliedMonth"] = connection.execute(
+                    text(
+                        "SELECT to_char(submitted_at AT TIME ZONE 'Asia/Seoul','YYYY-MM') FROM gw.approval_document WHERE id=(SELECT document_id FROM gw.approval_event WHERE id=:id)"
+                    ),
+                    {"id": row["id"]},
+                ).scalar_one()
+            connection.execute(
+                text(
+                    "UPDATE gw.approval_event SET details=CAST(:details AS jsonb) WHERE id=:id AND workspace_id=:target_workspace AND generation_id=:target_generation"
+                ),
+                dict(params, id=row["id"], details=json.dumps(details)),
+            )
+    if "gw.notification" in seeded:
+        targets = {
+            "DOCUMENT": "approval_document",
+            "POST": "board_post",
+            "EVENT": "calendar_event",
+            "CHANNEL": "chat_channel",
+        }
+        keys = {
+            "D": "approval_document",
+            "P": "board_post",
+            "E": "calendar_event",
+            "C": "comment",
+        }
+        rows = (
+            connection.execute(
+                text(
+                    "SELECT id,ref_kind,ref_id,event_key FROM gw.notification WHERE workspace_id=:target_workspace AND generation_id=:target_generation"
+                ),
+                params,
+            )
+            .mappings()
+            .all()
+        )
+        for row in rows:
+            ref = mapped(targets[row["ref_kind"]], row["ref_id"])
+            parts = row["event_key"].split(":")
+            if len(parts) >= 3 and parts[0] in keys and parts[1].isdigit():
+                parts[1] = str(mapped(keys[parts[0]], parts[1]))
+            connection.execute(
+                text(
+                    "UPDATE gw.notification SET ref_id=:ref,event_key=:key WHERE id=:id AND workspace_id=:target_workspace AND generation_id=:target_generation"
+                ),
+                dict(params, id=row["id"], ref=ref, key=":".join(parts)),
+            )
 
 
 def _mark_seeded(

@@ -13,6 +13,7 @@ from fs.common.security import hash_password, token_hash
 from fs.core.service import cleanup_expired_guests
 from fs.main import create_app
 from seed.generate import create_template
+from seed.gw import COUNTS as GW_COUNTS
 from sqlalchemy import Engine, inspect, text
 
 SOLUTION_PAGES = {
@@ -240,9 +241,13 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     assert _schema_count(engine, "mes", workspace_id, generation_id) == 0
     _open_all_solutions(guest)
     # FS-028c SPC 시드 +2,752, gw·cmms·hr 모듈 행 +3 → 14,686 (모두 열면 전체 복사와 같다)
-    assert _business_count(engine, workspace_id, generation_id) == 14686
+    assert _business_count(engine, workspace_id, generation_id) == 14686 + sum(
+        GW_COUNTS.values()
+    )
     _open_all_solutions(guest)  # 두 번 열어도 다시 복사하지 않는다
-    assert _business_count(engine, workspace_id, generation_id) == 14686
+    assert _business_count(engine, workspace_id, generation_id) == 14686 + sum(
+        GW_COUNTS.values()
+    )
 
     reset_headers = {
         "Idempotency-Key": "guest-reset-entry-count",
@@ -256,7 +261,9 @@ def test_guest_entry_and_copy_count(common_env: CommonEnv) -> None:
     assert reset_generation_id != guest_data["generationId"]
     assert _business_count(engine, workspace_id, reset_generation_id) == 11
     _open_all_solutions(guest)
-    assert _business_count(engine, workspace_id, reset_generation_id) == 14686
+    assert _business_count(engine, workspace_id, reset_generation_id) == 14686 + sum(
+        GW_COUNTS.values()
+    )
     with engine.connect() as connection:
         assert (
             connection.execute(

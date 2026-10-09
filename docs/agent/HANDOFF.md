@@ -1,3 +1,13 @@
+# GW-e 작업 중 인계 (2026-10-09)
+
+- 브랜치 codex/gw-dsn31, 시작8216636, 마지막커밋 git log -1. worktree `/Users/hwang-kyoungho/Documents/Codex/2026-10-09/gw/work/factory-studio-gw`.
+- GW-e 구현 완료, 회귀검증 마무리 중. seed sv-20261009-gw1/GW19표98행, JSON 및 알림 다형참조 복사·월/날짜 이동·같은TX 복사지도정리, 도움말13/흐름맵/DSN90 실제계약. [결과](GW_시드도움말_GW-e.md).
+- 실제DB 신규6통과·frontend566/build/lint/변경Ruff/DB격리0. 전체backend974통과/1skip, 조직격리 테스트의 다른새공간이GW빈상태 가정을 새시드10명4부서+ID격리로 보정. 해당파일17개를 idle gw3 worker DB에서 재검증 중(work/gwe-orgfix.log). 제품 변경은 없음.
+- 현재 preview8073/5273, base DB의 합성guest11/gen13에서 실제위임→합의→종결·일정응답·채팅seq3 검증, 증거 docs/agent/assets/gw-e. viewport복원 완료, Chrome 검증탭은 종료할 것. venv PYTHONPATH 필수, 같은DB pytest 중복실행금지, fullxdistclone중preview연결금지.
+- 다음: 조직검증 결과 확인·최종문서/커밋, 심볼릭링크 node_modules 제거·preview종료. main/공유DB/push/merge/배포 없음. rootRuff 기존test_gw_policy.py I001 1건, 네이티브인쇄PDF 미검증. 실제도입A/TEAM·ERP F44/ERP신규제공·PLMECO 제공은 외부후속.
+
+## 이전 GW-d 기록
+
 # GW-d 협업 인계 (2026-10-09)
 
 - 브랜치 codex/gw-dsn31, 기준b39e274, WIP2a30415, 마지막커밋 git log -1 --oneline. worktree `/Users/hwang-kyoungho/Documents/Codex/2026-10-09/gw/work/factory-studio-gw`. [결과](GW_협업_GW-d.md). main/공유DB/push/merge/배포 없음.

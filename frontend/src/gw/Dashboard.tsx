@@ -23,7 +23,7 @@ export function Dashboard() {
         id="G-01"
         title="업무 현황"
         help="gw/g-01"
-        subtitle="기안 → 상신 → 순차 결재 → 기록 보관"
+        subtitle="기안 → 병렬 결재·합의·위임 → 기록 보관"
       />
       <RoleBar />
       {!person ? (

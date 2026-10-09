@@ -7,6 +7,9 @@ from seed.copy import copy_template_generation
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+SEEDS = ("erp",)
+EMPTY_MODULES = ("gw",)
+
 
 @pytest.fixture
 def gw_db(guest_space):

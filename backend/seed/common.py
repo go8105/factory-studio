@@ -8,7 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-SEED_VERSION = "sv-20261008-1"  # W1c: HR 시드와 공통 휴일 달력 추가(앞 단계 유지)
+SEED_VERSION = "sv-20261009-gw1"  # GW-e: HR 코드 기반 GW 결재·협업 체험 추가
 SEOUL = ZoneInfo("Asia/Seoul")
 CODEBOOK_PATH = Path(__file__).with_name("codebook.json")
 
