@@ -314,8 +314,7 @@ def test_workspace_isolation_and_csrf(org):
             p["id"] for p in own["organizations"]
         )
         assert (
-            other.get("/api/v1/gw/people/" + own["people"][0]["id"]).status_code
-            == 404
+            other.get("/api/v1/gw/people/" + own["people"][0]["id"]).status_code == 404
         )
         why(call(other, other_s, "POST", "/import-hr", body), "HR_UNAVAILABLE")
 

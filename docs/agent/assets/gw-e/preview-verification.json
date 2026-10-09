@@ -1,0 +1,53 @@
+{
+  "workspace": 11,
+  "generation": 13,
+  "gwValidation": "passed",
+  "counts": {
+    "gw.organization_unit": 4,
+    "gw.person": 10,
+    "gw.approval_route": 2,
+    "gw.route_step": 6,
+    "gw.authority_rule": 1,
+    "gw.delegation": 1,
+    "gw.approval_document": 5,
+    "gw.approval_step": 16,
+    "gw.approval_event": 18,
+    "gw.board_post": 3,
+    "gw.board_event": 5,
+    "gw.comment": 3,
+    "gw.comment_revision": 1,
+    "gw.calendar_event": 3,
+    "gw.event_attendee": 4,
+    "gw.notification": 10,
+    "gw.chat_channel": 2,
+    "gw.chat_member": 5,
+    "gw.chat_message": 6
+  },
+  "documents": [
+    {
+      "document_no": "GW-000001",
+      "status": "DRAFT",
+      "version": 1
+    },
+    {
+      "document_no": "GW-000002",
+      "status": "APPROVED",
+      "version": 5
+    },
+    {
+      "document_no": "GW-000003",
+      "status": "APPROVED",
+      "version": 4
+    },
+    {
+      "document_no": "GW-000004",
+      "status": "APPROVED",
+      "version": 4
+    },
+    {
+      "document_no": "GW-000005",
+      "status": "DRAFT",
+      "version": 1
+    }
+  ]
+}

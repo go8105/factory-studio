@@ -1,0 +1,16 @@
+GW-e · 2026-10-09 · codex/gw-dsn31 · synthetic isolated test only
+Seed: sv-20261009-gw1, 19 GW tables / 98 rows; unchanged schema0.21.0/headgw_a_dsn31.
+New PostgreSQL integration: 6 passed / 28.65s.
+Full backend first run: 974 passed, 1 failed, 1 skipped / 379.71s.
+Failure was empty GW assumption for second real guest in org isolation test; fixed to seeded10people/4orgs + separate IDs + foreign person404.
+Final organization file: 17 passed / 37.85s. 975 distinct backend tests verified; full suite not repeated after test-only correction.
+Frontend: 566 passed / 71 files. Final build/typecheck and full ESLint passed.
+Whole backend Ruff passed after existing policy import-order cleanup; changed format and git diff check passed.
+DB design validation and isolation: 173 tables, 412 FKs, 0 errors.
+Chrome synthetic workspace11 / generation13: initial own draft2/review1/closed2; GW-000002 delegated approve, consent, executive approve -> APPROVED v5.
+Copied notification -> GE000002 department all-day schedule -> accepted.
+Copied comments: active revision1 old body and deleted marker shown.
+Copied chat seq1/2 -> new seq3; 390px viewport width390/document scroll375, no overflow.
+G01 help and HR->GW org->approval->collaboration static flow links shown.
+After browser actions validate_gw passed; see preview-verification.json and screenshots.
+No shared/production database write, push, merge, deployment. Native print/PDF and production-scale load not tested.

@@ -1,10 +1,10 @@
-# GW-e 작업 중 인계 (2026-10-09)
+# GW-e 완료 인계 (2026-10-09)
 
-- 브랜치 codex/gw-dsn31, 시작8216636, 마지막커밋 git log -1. worktree `/Users/hwang-kyoungho/Documents/Codex/2026-10-09/gw/work/factory-studio-gw`.
-- GW-e 구현 완료, 회귀검증 마무리 중. seed sv-20261009-gw1/GW19표98행, JSON 및 알림 다형참조 복사·월/날짜 이동·같은TX 복사지도정리, 도움말13/흐름맵/DSN90 실제계약. [결과](GW_시드도움말_GW-e.md).
-- 실제DB 신규6통과·frontend566/build/lint/변경Ruff/DB격리0. 전체backend974통과/1skip, 조직격리 테스트의 다른새공간이GW빈상태 가정을 새시드10명4부서+ID격리로 보정. 해당파일17개를 idle gw3 worker DB에서 재검증 중(work/gwe-orgfix.log). 제품 변경은 없음.
-- 현재 preview8073/5273, base DB의 합성guest11/gen13에서 실제위임→합의→종결·일정응답·채팅seq3 검증, 증거 docs/agent/assets/gw-e. viewport복원 완료, Chrome 검증탭은 종료할 것. venv PYTHONPATH 필수, 같은DB pytest 중복실행금지, fullxdistclone중preview연결금지.
-- 다음: 조직검증 결과 확인·최종문서/커밋, 심볼릭링크 node_modules 제거·preview종료. main/공유DB/push/merge/배포 없음. rootRuff 기존test_gw_policy.py I001 1건, 네이티브인쇄PDF 미검증. 실제도입A/TEAM·ERP F44/ERP신규제공·PLMECO 제공은 외부후속.
+- codex/gw-dsn31, 시작8216636/WIPd78e534, 마지막커밋 `git log -1 --oneline`. worktree `/Users/hwang-kyoungho/Documents/Codex/2026-10-09/gw/work/factory-studio-gw`. [결과](GW_시드도움말_GW-e.md).
+- 완료: GW19표98행/sv-20261009-gw1(HR4부서10담당자·일반/ERP매입초안·병렬대기·전결/위임/기존순차이력·댓글/일정/알림/채팅). ERP공개조회 snapshot 연결, JSON SQL NULL구분·GW사건시각 보존. 복사 FK외 JSON단계/위임/전결ID·범위/월/시각 및 알림refId/eventKey변환, KST상신월재계산, 같은TX지도정리. 원본/digest/코드금액조직·채팅seq/clientKey/readCursor보존. V-GW검증, 도움말13+공통안내·정적흐름3노드3연결·DSN90실제계약.
+- 검증: DB신규6통과. 전체backend974통과/1실패/1skip(379.71s), 다른새공간GW빈가정 조직격리1건 테스트만 보정→조직17전체 재통과(37.85s), 총975서로다른테스트확인(보정후전체재실행은안함). frontend566/71files·최종타입/build/전체ESLint·전체backendRuff/변경format/diff·DB설계/173표412FK격리0. rootRuff기존policy import1건보정. Chrome새guest11/gen13 시드10명·기안현황2/1/2, 실제위임→합의→종결, 알림링크→일정응답, 댓글revision/삭제, 채팅seq1/2→3,390px/도움말/흐름, 처리후V-GW통과. 증거 docs/agent/assets/gw-e.
+- 다음: 사용자 결과 확인 후 **main과 병합 검토**. main공통엔진optional authorize·MasterScreen·MES테스트mock·seedversion·migrationparent/schemametadata·current/progress/HANDOFF충돌을 재대조할 것. 아직push/merge/배포 없음. 새시드배포는 새템플릿생성 필요(기존운영템플릿수정금지). 실제도입A/TEAM계정ACL·ERP F44 및 ERP발주/경비·PLMECO원천제공은 별도후속. 네이티브인쇄PDF/대량운영부하 미검증 유지.
+- 재현: 전용 *_test DB만 사용, mainvenv재사용시 PYTHONPATH=backend/src:backend 필수. 같은DB의 독립pytest 동시실행금지; -n4 원본DB복제중preview접속금지, 끝난workerDB집중검증가능. API8073/Vite5273·검증탭 종료, viewport복원·node_modules 심볼릭링크 정리. 접속값은Git/문서/로그에 넣지 않았다.
 
 ## 이전 GW-d 기록
 
