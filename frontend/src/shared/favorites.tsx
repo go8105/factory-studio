@@ -71,7 +71,14 @@ function preferences(value: Preferences): Preferences {
 }
 
 function SpaceFavorites({ children }: { children: ReactNode }) {
-  const { session, fail, setBusy, setNavigationBlocked } = useSession();
+  const {
+    session,
+    fail,
+    busy,
+    navigationBlocked,
+    setBusy,
+    setNavigationBlocked,
+  } = useSession();
   const location = useLocation();
   const needsPreferences =
     location.pathname === "/workspace" ||
@@ -171,7 +178,13 @@ function SpaceFavorites({ children }: { children: ReactNode }) {
     menuIds: string[],
     sidebarMode: Preferences["sidebarMode"],
   ) {
-    if (!data || inFlight.current || loading) return false;
+    if (
+      !data ||
+      inFlight.current ||
+      loading ||
+      ((busy || navigationBlocked) && !ownsNavigationBlock.current)
+    )
+      return false;
     const body = retryBody.current ?? {
       menuIds,
       sidebarMode,
@@ -218,7 +231,18 @@ function SpaceFavorites({ children }: { children: ReactNode }) {
   }
   return (
     <Context.Provider
-      value={{ data, loading, pending, uncertain, error, recent, save, reload }}
+      value={{
+        data,
+        loading,
+        pending:
+          pending ||
+          ((busy || navigationBlocked) && !ownsNavigationBlock.current),
+        uncertain,
+        error,
+        recent,
+        save,
+        reload,
+      }}
     >
       {children}
     </Context.Provider>

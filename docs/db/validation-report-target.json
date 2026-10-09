@@ -24,10 +24,10 @@
     "tms": 10,
     "wms": 23
   },
-  "columns": 4164,
+  "columns": 4166,
   "foreign_keys": 866,
-  "constraints_and_policies": 2522,
-  "source_sha256": "f848383fa2f0658ac4312d09fa3876b13a6dff78ed39671b2da1385a6499eb0b",
+  "constraints_and_policies": 2525,
+  "source_sha256": "48f80fb009eea74164f47d74d91f4b80149056ffbec070c748ccb9dbfe4baedb",
   "errors": [],
   "not_tested": [
     "실제 DDL 적용",

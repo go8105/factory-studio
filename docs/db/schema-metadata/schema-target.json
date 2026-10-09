@@ -1,9 +1,9 @@
 {
-  "version": "target-0.20.0",
+  "version": "target-0.20.1",
   "task": "DSN-90",
-  "base_task": "GW-a",
+  "base_task": "W0-FAV",
   "target": true,
-  "date": "2026-10-05",
+  "date": "2026-10-10",
   "status": "목표 설계(ROADMAP-02 D78) — 실제 DB 아님. 개발 때 schema.json과의 차이를 마이그레이션으로 옮긴다",
   "migration_revision": null,
   "tables": [
@@ -388,6 +388,22 @@
           "nullable": false,
           "default": "1",
           "rule": "멤버십·권한이 바뀌면 +1"
+        },
+        {
+          "name": "menu_preferences",
+          "label": "개인 메뉴 구성",
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "rule": "menuIds 순서·sidebarMode(all/favorites). NULL은 기본 구성. 초기화 보존, 회원 재로그인/기기 간 공유"
+        },
+        {
+          "name": "menu_preferences_version",
+          "label": "개인 메뉴 구성 버전",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1",
+          "rule": "낙관적 잠금, 저장 시 증가. 데이터 세대와 독립"
         }
       ],
       "note": "",
@@ -77151,6 +77167,33 @@
       ],
       "expression": "(plm_part_no IS NULL) = (plm_revision IS NULL)",
       "reason": "PLM 번호·리비전 함께"
+    },
+    {
+      "table": "core.workspace",
+      "kind": "CHECK",
+      "columns": [
+        "menu_preferences"
+      ],
+      "expression": "menu_preferences IS NULL OR (jsonb_typeof(menu_preferences) = 'object' AND menu_preferences ?& ARRAY['menuIds','sidebarMode'] AND jsonb_typeof(menu_preferences->'menuIds') = 'array' AND menu_preferences->>'sidebarMode' IN ('all','favorites'))",
+      "reason": "W0-FAV 메뉴 구성 형태"
+    },
+    {
+      "table": "core.workspace",
+      "kind": "CHECK",
+      "columns": [
+        "menu_preferences_version"
+      ],
+      "expression": "menu_preferences_version > 0",
+      "reason": "W0-FAV 설정 버전"
+    },
+    {
+      "table": "core.workspace",
+      "kind": "CHECK",
+      "columns": [
+        "menu_preferences"
+      ],
+      "expression": "menu_preferences IS NULL OR jsonb_typeof(menu_preferences->'sidebarMode') = 'string'",
+      "reason": "W0-FAV JSON null 모드 거부"
     }
   ],
   "states": [
@@ -79479,6 +79522,13 @@
       "date": "2026-10-05",
       "change": "통합 검증 보정: 가져오기 원천 번호 칸(ERP 거래처·견적·판매계획, ERP·MES·WMS 품목 PLM 리비전, MES BOM, QMS 클레임·4M) + 멱등 UK, QMS NCR 원천당 1건, ERP 매입 종류 FREIGHT(TMS 운송비)·INDIRECT(ELB 비재고), WMS 문서 CMMS_ISSUE(정비 부품 출고). 교차 FK 0",
       "status": "설계 전용"
+    },
+    {
+      "version": "target-0.20.1",
+      "task": "W0-FAV",
+      "date": "2026-10-10",
+      "change": "실제 core.workspace 개인 메뉴 설정 2컬럼·3CHECK를 목표 플랫폼 정의와 동기화, base_task 갱신. 업무 테이블·FK 변경 없음.",
+      "status": "설계 전용, 실제 DB 적용 기록 아님"
     }
   ]
 }

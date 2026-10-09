@@ -1,11 +1,12 @@
-# W0-FAV 즐겨찾기 구현 WIP (2026-10-10)
+# W0-FAV 즐겨찾기 완료 인계 (2026-10-10)
 
-- 사용자 GW 검토 뒤 참고 React/이미지2 기반 내 공간 즐겨찾기·MES/ERP 등 사이드바 개인화 구현 요청. codex/workspace-favorites, 시작GW검토bfae108, worktree git worktree list 참조. 현재WIP커밋은 git log -1.
-- core.menu_catalog.json 9솔루션108실메뉴를 API/프런트/9레이아웃이 공유. 6기본카드·3열선택/검색·순서·사이드바등록메뉴/전체전환·서버공간저장/초기화보존·최근브라우저공간별 저장.
-- schema0.22.1/headw0_fav_menu_shape, core.workspace2칼럼3CHECK(173표1918칼럼412FK), Excel/ERD. 독립 factory_studio_favorites_test만 적용. 최초후JSON nullCHECK는 새revision으로 보강. backend8/frontend8·실DDL0 통과. 전체회귀/실브라우저 검증 진행 중이며 완료 아님.
-- 초기 전체프런트569통과/5실패는 공통설정GET이 기존업무mock을 받는 3파일 stub 보정. typecheck 테스트타입보정도 진행 중. 기존main DSN재생성/SPC시각실패는 GW_main_병합검토.md 참조.
-- 다음: 회귀수정/최종typecheck·lint·build·범위format, 브라우저8074/5274 1440/390 실제저장·새로고침·사이드바·포커스/넘침, 도움말·현황/progress/결과보고·최종커밋. 원격push/main병합/배포 없음.
-- 재현: 독립 *_test DB 환경주입 및 PYTHONPATH=backend/src:backend 필수. xdist 복제중 원본접속금지·동일DBpytest동시금지. venv/Node24는 기존main재사용, node_modules symlink 및 work/env는 스테이징 제외. [계약](../ui/내공간_즐겨찾기_W0-FAV.md).
+- 사용자 이미지2장·참고React 분석→실제9솔루션108메뉴 연결. codex/workspace-favorites, 시작GW검토bfae108/WIPca74aaa, 최종커밋git log -1. [검증과화면](내공간_즐겨찾기_검증_W0-FAV.md), [계약](../ui/내공간_즐겨찾기_W0-FAV.md).
+- 내 공간 카드/3열선택·검색·순서·임시선택취소, 사이드바등록메뉴/전체전환·별버튼. 공간 서버저장·초기화보존·게스트격리·회원다른세션공유. 최근브라우저별. 미확인응답멱등재시도/실제GET·다른업무잠금보존.
+- schema0.22.1/headw0_fav_menu_shape/core.workspace2컬럼3CHECK(173표1918컬럼412FK). 실제·목표Excel/ERD/base_task동기화. 독립 factory_studio_favorites_test만 적용, 최초revision적용후무변경·JSONnullCHECK새revision. 별도왕복DB4회DDL0·삭제완료.
+- frontend575/72파일·최종lint/format/typecheck/build, Ruff/format206·설계격리0. backend신규8/전체982통과·기존SPC실패1/skip1·독립perf1. tools131통과·기존DSN목표재생성오류1. 두기존main실패근거는GW_main_병합검토.md. 전체CI통과아님.
+- Chrome6카드/ERP추가/순서저장·새로고침유지/MES등록2메뉴만/최근메뉴, 390px가로넘침0·44px적용·Esc포커스/Tab순환 확인. 회원실기기간UI/실마우스드래그는미검증(두회원로그인API/버튼순서검증).
+- 공유main af1072669d6441d3b70605ff01054bc294cca393 깨끗함. main병합/push/운영배포/공유DB적용없음. 다음 반영 시 기존CI차단 해결 후 최신main재검토, 두플랫폼마이그레이션과프런트함께배포. 새업무자동착수없음.
+- 재현: 독립 *_test DB+PYTHONPATH=backend/src:backend, xdist원본복제중접속금지·동일DBpytest동시금지. 로컬검증서버/생성브라우저탭종료, node_modules공유symlink제거·work/env스테이징제외.
 
 ## 이전 GW 병합 검토 인계
 

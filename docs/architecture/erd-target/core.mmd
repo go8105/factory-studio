@@ -144,6 +144,8 @@ erDiagram
     uuid guest_actor_key "게스트 주체 UUID NULL"
     varchar name "공간 이름 NULL"
     bigint access_version "접근 버전"
+    jsonb menu_preferences "개인 메뉴 구성 NULL"
+    bigint menu_preferences_version "개인 메뉴 구성 버전"
   }
   core_workspace_invitation {
     bigint id PK "내부 식별자"

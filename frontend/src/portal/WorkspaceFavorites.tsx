@@ -332,34 +332,40 @@ function MenuEditor({
             />
           </label>
           {choices.length === 0 && <p>검색 결과가 없습니다.</p>}
-          {[...new Set(choices.map((m) => m.group))].map((group) => (
-            <section className="menu-picker-group" key={group}>
-              <h4>{group}</h4>
-              <div>
-                {choices
-                  .filter((m) => m.group === group)
-                  .map((menu) => (
-                    <label className="menu-choice" key={menu.key}>
-                      <input
-                        type="checkbox"
-                        checked={draft.includes(menu.key)}
-                        disabled={blocked}
-                        onChange={() => toggle(menu.key)}
-                      />
-                      <span
-                        className={`menu-choice-icon favorite-tone-${menu.module}`}
-                      >
-                        <MenuIcon menu={menu} />
-                      </span>
-                      <span>
-                        <strong>{menu.label}</strong>
-                        <small>{menu.id}</small>
-                      </span>
-                    </label>
-                  ))}
-              </div>
-            </section>
-          ))}
+          {[...new Set(choices.map((m) => m.group))]
+            .sort((a, b) => {
+              if (solution !== "gw") return 0;
+              const order = ["전자결재", "게시판", "기준정보", "협업"];
+              return order.indexOf(a) - order.indexOf(b);
+            })
+            .map((group) => (
+              <section className="menu-picker-group" key={group}>
+                <h4>{group}</h4>
+                <div>
+                  {choices
+                    .filter((m) => m.group === group)
+                    .map((menu) => (
+                      <label className="menu-choice" key={menu.key}>
+                        <input
+                          type="checkbox"
+                          checked={draft.includes(menu.key)}
+                          disabled={blocked}
+                          onChange={() => toggle(menu.key)}
+                        />
+                        <span
+                          className={`menu-choice-icon favorite-tone-${menu.module}`}
+                        >
+                          <MenuIcon menu={menu} />
+                        </span>
+                        <span>
+                          <strong>{menu.label}</strong>
+                          <small>{menu.id}</small>
+                        </span>
+                      </label>
+                    ))}
+                </div>
+              </section>
+            ))}
         </section>
         <section className="menu-picker-selected" aria-label="선택한 메뉴 순서">
           <div className="menu-selected-title">

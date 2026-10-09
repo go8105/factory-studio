@@ -214,8 +214,7 @@ def test_member_configuration_shared_by_two_login_sessions(guest_space):
             assert response.status_code == 201, response.text
             sessions.append(response.json()["data"])
         assert (
-            put(first, sessions[0], ["erp:dashboard", "hr:overview"]).status_code
-            == 200
+            put(first, sessions[0], ["erp:dashboard", "hr:overview"]).status_code == 200
         )
         assert second.get(PATH).json()["data"]["menuIds"] == [
             "erp:dashboard",

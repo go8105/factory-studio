@@ -8,7 +8,7 @@ import {
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import { App } from "../app/App";
-import { SessionProvider } from "../app/session";
+import { SessionProvider, useSession } from "../app/session";
 import { FavoritesProvider, type Preferences } from "../shared/favorites";
 import { SolutionLayout } from "../shared/SolutionLayout";
 import { defaultMenuIds, mesScreens, menuCatalog } from "../shared/menuCatalog";
@@ -102,10 +102,24 @@ function workspace() {
     </MemoryRouter>,
   );
 }
+function OtherOperation() {
+  const { setNavigationBlocked } = useSession();
+  return (
+    <>
+      <button onClick={() => setNavigationBlocked(true)}>
+        다른 업무 작업 시작
+      </button>
+      <button onClick={() => setNavigationBlocked(false)}>
+        다른 업무 작업 종료
+      </button>
+    </>
+  );
+}
 function sidebar() {
   render(
     <MemoryRouter initialEntries={["/mes/work-orders"]}>
       <SessionProvider>
+        <OtherOperation />
         <FavoritesProvider>
           <Routes>
             <Route
@@ -136,6 +150,15 @@ async function open() {
 }
 beforeEach(() => {
   localStorage.clear();
+  for (const method of ["showModal", "close"] as const) {
+    if (!(method in HTMLDialogElement.prototype)) {
+      Object.defineProperty(HTMLDialogElement.prototype, method, {
+        configurable: true,
+        writable: true,
+        value: () => {},
+      });
+    }
+  }
   vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(
     function (this: HTMLDialogElement) {
       this.setAttribute("open", "");
@@ -314,4 +337,21 @@ it("최근 방문한 실제 메뉴를 브라우저의 현재 공간 키에 보�
       JSON.parse(localStorage.getItem("fs.recentMenus:v1:GUEST:10")!),
     ).toEqual(["mes:work-orders"]),
   );
+});
+
+it("다른 업무의 미확인 작업 잠금을 즐겨찾기 저장이 해제하지 않는다", async () => {
+  const server = mock();
+  sidebar();
+  const pin = await screen.findByRole("button", {
+    name: "대시보드 즐겨찾기 해제",
+  });
+  fireEvent.click(screen.getByRole("button", { name: "다른 업무 작업 시작" }));
+  expect(pin).toBeDisabled();
+  expect(screen.getByRole("button", { name: "전체 메뉴 보기" })).toBeDisabled();
+  fireEvent.click(pin);
+  expect(server.calls).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "다른 업무 작업 종료" }));
+  expect(pin).toBeEnabled();
+  fireEvent.click(pin);
+  await waitFor(() => expect(server.calls).toHaveLength(1));
 });

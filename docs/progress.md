@@ -1,9 +1,10 @@
-## 2026-10-10 W0-FAV 내 공간·즐겨찾기 WIP
+## 2026-10-10 W0-FAV 내 공간·즐겨찾기 완료
 
-- 사용자 참고폴더/이미지 기반 메뉴 추가·편집 및 MES/ERP 등 사이드바 개인화 구현 승인. GW 검토 bfae108에서 codex/workspace-favorites 별도 worktree. main/공유DB 변경 없음.
-- [계약](ui/내공간_즐겨찾기_W0-FAV.md): 실제9솔루션108화면 공통JSON, 기본6카드·선택/검색·순서·사이드바 즐겨찾기/전체전환. 플랫폼 공간에만 서버저장, 최근방문은 브라우저 공간별.
-- schema0.22.1/core.workspace2칼럼3CHECK, 기존173표/412FK·컬럼1918. w0_fav_workspace_menus→w0_fav_menu_shape(이미 전용DB 적용한 초기revision 수정 안함), Excel/ERD 갱신. 독립 factory_studio_favorites_test 실제DDL0·backend8/frontend8통과. 전체회귀/브라우저 검증 중.
-- 전체frontend 최초569통과/실패5는 새설정GET을 기존 업무 레코드로 응답하는 구mock3파일 보정 중. 기존 main의 DSN재생성/SPC시각실패는 이번제품오류와 구분. 미검증을 완료로 표시하지 않음.
+- 사용자 참고폴더/이미지 기반 내 공간·사이드바 개인화 구현. GW 검토 bfae108→codex/workspace-favorites, WIP ca74aaa, 최종 커밋 git log -1. main/공유DB/push/배포 미실행.
+- 실제9솔루션108메뉴 공통JSON, 기본6카드·3열선택·검색·순서·등록메뉴 사이드바/전체전환. 공간 서버저장·멱등/버전/감사·초기화보존·최근방문 브라우저별, 다른 업무 잠금 보존. P-06 도움말 갱신.
+- schema0.22.1/173표1918컬럼412FK, core.workspace2컬럼3CHECK, 적용한 초기revision 변경 없이 새revision 보강. 실제·목표Excel/ERD/base_task 동기화. 독립DB 실제DDL0·별도빈DB GW→신규→롤백→재적용4회DDL0, 임시왕복DB 제거.
+- 신규backend8, 전체frontend575/72파일, lint/format/typecheck/build 및 backendRuff/format206파일·설계/격리 오류0. 전체backend982통과/기존main SPC실패1/skip1·perf1통과. tools131통과/기존main DSN목표재생성오류1. 전체CI완료로 표시하지 않음.
+- Chrome 카드/ERP추가/순서·새로고침 유지/MES2메뉴만/최근방문, 390px넘침0·적용44px·Esc포커스/Tab순환 확인. [검증·화면](agent/내공간_즐겨찾기_검증_W0-FAV.md). 실제main병합은 기존CI차단 해결 후 최신head 검토 필요.
 
 ## 2026-10-09 GW-main 병합 검토 완료 — 기존 main CI 실패 2건 해결 후 병합 제안
 
