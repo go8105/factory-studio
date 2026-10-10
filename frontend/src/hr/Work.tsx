@@ -274,8 +274,32 @@ export function Work({ demo = false }: { demo?: boolean }) {
           : kind === "ANNUAL"
             ? 480
             : kind === "HOURLY"
-              ? Math.max(0, (Date.parse(body.endsAt) - Date.parse(body.startsAt)) / 60000 - (a < "13:00" && b > "12:00" ? Math.max(0, Math.min(Date.parse(`${day}T13:00:00+09:00`), Date.parse(body.endsAt)) - Math.max(Date.parse(`${day}T12:00:00+09:00`), Date.parse(body.startsAt))) / 60000 : 0))
+              ? Math.max(
+                  0,
+                  (Date.parse(body.endsAt) - Date.parse(body.startsAt)) /
+                    60000 -
+                    (a < "13:00" && b > "12:00"
+                      ? Math.max(
+                          0,
+                          Math.min(
+                            Date.parse(`${day}T13:00:00+09:00`),
+                            Date.parse(body.endsAt),
+                          ) -
+                            Math.max(
+                              Date.parse(`${day}T12:00:00+09:00`),
+                              Date.parse(body.startsAt),
+                            ),
+                        ) / 60000
+                      : 0),
+                )
               : 240;
+      if (
+        Date.parse(body.endsAt) <= Date.parse(body.startsAt) ||
+        (kind === "HOURLY" && (mins <= 0 || mins % 60 !== 0))
+      ) {
+        setNotice("시간차는 휴게시간을 제외한 1시간 단위로 선택하세요.");
+        return;
+      }
       setDemoRequests((v) => [
         {
           id: Date.now(),
@@ -400,7 +424,9 @@ export function Work({ demo = false }: { demo?: boolean }) {
               <p>
                 {active
                   ? `출근 ${time(active.clock_in)}`
-                  : "서버 시각으로 출근·퇴근을 기록합니다."}
+                  : demo
+                    ? "합성 예제 시각으로 출퇴근을 체험합니다."
+                    : "서버 시각으로 출근·퇴근을 기록합니다."}
               </p>
               <div className="actions">
                 <button
@@ -631,13 +657,13 @@ export function Work({ demo = false }: { demo?: boolean }) {
                               new Date(r.clock_in).getTime() + 9 * 3600000,
                             )
                               .toISOString()
-                              .slice(0, 16),
+                              .slice(0, 23),
                             clockOut: r.clock_out
                               ? new Date(
                                   new Date(r.clock_out).getTime() + 9 * 3600000,
                                 )
                                   .toISOString()
-                                  .slice(0, 16)
+                                  .slice(0, 23)
                               : "",
                             reason: "",
                           })
@@ -661,9 +687,14 @@ export function Work({ demo = false }: { demo?: boolean }) {
                   e.preventDefault();
                   void send("/corrections", {
                     id: correction.id,
-                    clockIn: correction.clockIn + ":00+09:00",
+                    clockIn:
+                      correction.clockIn +
+                      (correction.clockIn.length === 16 ? ":00" : "") +
+                      "+09:00",
                     clockOut: correction.clockOut
-                      ? correction.clockOut + ":00+09:00"
+                      ? correction.clockOut +
+                        (correction.clockOut.length === 16 ? ":00" : "") +
+                        "+09:00"
                       : null,
                     reason: correction.reason,
                   });
@@ -673,6 +704,7 @@ export function Work({ demo = false }: { demo?: boolean }) {
                   출근 시각
                   <input
                     type="datetime-local"
+                    step="0.001"
                     required
                     disabled={locked}
                     value={correction.clockIn}
@@ -685,6 +717,7 @@ export function Work({ demo = false }: { demo?: boolean }) {
                   퇴근 시각
                   <input
                     type="datetime-local"
+                    step="0.001"
                     disabled={locked}
                     value={correction.clockOut}
                     onChange={(e) =>

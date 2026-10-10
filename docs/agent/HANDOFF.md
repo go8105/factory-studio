@@ -1,3 +1,12 @@
+## 2026-10-10 W1-HR-TIME 구현 완료 / 최초 비밀번호 사용자 입력 대기
+
+- 브랜치 codex/hr-time-company, WIP cd46db4 이후 최종 커밋은 git log -1. 사용자 main 즉시 push 지시 유지, 로컬 main·origin/main 반영. 운영 배포는 미실행.
+- [검증/시작안내](회사근무_구현검증_W1-HR-TIME.md). 회사 멤버십+HR 사원 연결, 실제 원장은 기존 개인 AUTO 근태와 분리. 게스트 실제API403, 합성 체험만 허용. schema0.23.3/headhr_time_check. 회사 코드/정책/직원 2명은 로컬 DB에 생성됨. 계정 hugh-admin/hugh-staff는 disabled, 사용자 터미널 getpass 활성화 대기. 비밀번호를 요청하거나 문서에 기록하지 말 것.
+- 활성화: 저장소에서 `uv run --project backend --env-file .env python tools/create_work_company.py --activate`. 예제회사 두 비활성 계정만 최초 활성화, 기존 활성 계정 비밀번호는 덮어쓰지 않음.
+- 검증: 회사API9+활성화1, 도구133, 프런트580, 스키마9, DDL왕복오류0·Chrome 별도 테스트DB 실제직원 출퇴근/관리자 기록정정. 최초 전체backend991통과/1skip/DDL1실패는 후속 CHECK 재생성으로 고쳐 해당 스키마9 검사 재통과. 기존 적용 migration SQL 변경 없음.
+- 다음: 사용자가 PC 터미널 비밀번호 입력→두 계정 실제 사용 확인. 운영 반영을 진행할 경우 현재 head CI 확인/정식 deploy.sh·서버 백업·운영 회사/계정 별도 준비 및 사용자 터미널 비밀번호 설정·HTTPS Android/iPhone 실제 설치검증. 로컬DB 계정 데이터를 운영에 복제하지 않음. 추가 직원 초대/다음 연도 연차 부여/정책 설정 UI는 별도 후속.
+- 테스트 DB factory_studio_hr_time_test만 검증 데이터 초기화에 사용. 사용자 로컬 factory_studio는 백업 후 새 revision만 적용, 초기화하지 않음. 별도8001/5181/5182 검증 서버 정리, 사용자8000/5173 유지.
+
 ## 2026-10-10 HR-TIME-01 회사 공동 출퇴근 PWA 설계
 
 사용자 회사공동/버튼출퇴근/1시간시간차 확정. [설계안](plan/회사공동_출퇴근_PWA_HR-TIME-01.md) 작성: HR소유·GW바로가기, 회사멤버십/사원연결 선행, 실제회원/합성게스트체험 분리, 실제시각원장·휴가분단위·출장·PWA오프라인제출금지. 기존AUTO예정근태·반차승인clock초기화와 실제기록 충돌 확인. 구현/DB변경/회사활성화 없음. 다음: 전체설계확인 후 회사접근기반부터 구현.

@@ -64,7 +64,7 @@ it("합성 체험에서 직원 신청→관리자 승인 및 시간차 잔여를
   fireEvent.change(screen.getByLabelText("체험 역할"), {
     target: { value: "ADMIN" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "승인", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: /^승인$/ }));
   expect(screen.getByText("119시간")).toBeInTheDocument();
   expect(fetch).not.toHaveBeenCalled();
 });
@@ -119,4 +119,84 @@ it("회원은 서버 회사 연결로 출근하고 오프라인 제출은 차단
   fireEvent(window, new Event("offline"));
   expect(clock).toBeDisabled();
   expect(screen.getByRole("alert")).toHaveTextContent("오프라인");
+});
+
+it("체험 시간차도 선택한 두 시간을 차감한다", () => {
+  page(true);
+  fireEvent.change(screen.getByLabelText("종료 시간"), {
+    target: { value: "11:00" },
+  });
+  fireEvent.change(screen.getByLabelText("사유"), {
+    target: { value: "합성 두 시간" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "신청하기" }));
+  expect(screen.getByText(/차감 2시간/)).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("체험 역할"), {
+    target: { value: "ADMIN" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^승인$/ }));
+  expect(screen.getByText("118시간")).toBeInTheDocument();
+});
+
+it("관리자 정정에서 원래 출퇴근의 초·밀리초를 보존한다", async () => {
+  state.actor = "MEMBER";
+  const company = {
+    id: 4,
+    name: "hugh-D Company",
+    isExample: true,
+    timezone: "Asia/Seoul",
+  };
+  const data = {
+    company,
+    person: { id: 1, name: "예제 관리자", role: "ADMIN" },
+    remainingMinutes: 7200,
+    activeSession: null,
+    sessions: [
+      {
+        id: 8,
+        employee_id: 2,
+        employeeName: "예제 직원",
+        work_date: "2026-10-10",
+        clock_in: "2026-10-10T01:22:03.123Z",
+        clock_out: "2026-10-10T01:22:04.456Z",
+      },
+    ],
+    requests: [],
+    events: [],
+    policy: { daily_minutes: 480, annual_days: 15 },
+    closed: false,
+  };
+  const fetch = vi.fn(
+    async (url: string) =>
+      new Response(
+        JSON.stringify({
+          data: url.endsWith("companies")
+            ? [company]
+            : url.includes("overview")
+              ? data
+              : { id: 8 },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+  );
+  vi.stubGlobal("fetch", fetch);
+  page();
+  fireEvent.click(await screen.findByRole("button", { name: "기록 정정" }));
+  fireEvent.change(screen.getByLabelText("정정 사유"), {
+    target: { value: "합성 기록 확인" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "이력 남기고 정정" }));
+  await waitFor(() =>
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/hr/work/corrections?companyId=4",
+      expect.objectContaining({
+        body: JSON.stringify({
+          id: 8,
+          clockIn: "2026-10-10T10:22:03.123+09:00",
+          clockOut: "2026-10-10T10:22:04.456+09:00",
+          reason: "합성 기록 확인",
+        }),
+      }),
+    ),
+  );
 });

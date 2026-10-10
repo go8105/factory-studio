@@ -5,13 +5,12 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import text
-
 from fs.common.db import reset_engine
 from fs.hr import work
 from fs.hr.work_setup import create_example_company
 from fs.main import create_app
 from seed.generate import create_template
+from sqlalchemy import text
 
 
 @pytest.fixture
@@ -219,26 +218,91 @@ def test_concurrent_clock_in_single_session(company_env):
 
 
 def test_approved_cancel_returns_balance_once(company_env):
-    _,company,admin,staff=company_env
-    id=request(staff,company).json()['data']['id']
-    assert call(admin,company,'requests/approve',{'id':id}).status_code==200
-    assert call(staff,company,'requests/cancel',{'id':id}).json()['data']['status']=='CANCEL_REQUESTED'
-    assert overview(staff,company)['remainingMinutes']==7140
-    key=str(uuid4())
-    assert call(admin,company,'requests/approve',{'id':id},key).json()['data']['status']=='CANCELLED'
-    assert call(admin,company,'requests/approve',{'id':id},key).status_code==200
-    assert overview(staff,company)['remainingMinutes']==7200
+    _, company, admin, staff = company_env
+    id = request(staff, company).json()["data"]["id"]
+    assert call(admin, company, "requests/approve", {"id": id}).status_code == 200
+    assert (
+        call(staff, company, "requests/cancel", {"id": id}).json()["data"]["status"]
+        == "CANCEL_REQUESTED"
+    )
+    assert overview(staff, company)["remainingMinutes"] == 7140
+    key = str(uuid4())
+    assert (
+        call(admin, company, "requests/approve", {"id": id}, key).json()["data"][
+            "status"
+        ]
+        == "CANCELLED"
+    )
+    assert call(admin, company, "requests/approve", {"id": id}, key).status_code == 200
+    assert overview(staff, company)["remainingMinutes"] == 7200
 
 
-def test_closed_month_and_invalid_timestamp(company_env,monkeypatch):
-    _,company,admin,staff=company_env
-    monkeypatch.setattr(work,'now',lambda:datetime(2026,9,10,0,0,tzinfo=UTC))
-    assert call(staff,company,'clock/clock-in').status_code==200
-    assert call(admin,company,'close',{'month':'2026-09'}).status_code==400
-    monkeypatch.setattr(work,'now',lambda:datetime(2026,10,12,0,0,tzinfo=UTC))
-    assert call(admin,company,'close',{'month':'2026-09'}).status_code==400
-    assert call(staff,company,'clock/clock-out').status_code==200
-    assert call(admin,company,'close',{'month':'2026-09'}).status_code==200
-    assert request(staff,company,day='2026-09-14').status_code==409
-    assert call(staff,company,'requests',{'kind':'HOURLY','startsAt':'invalid','endsAt':'invalid','reason':'예제 시각'}).status_code==400
-    assert request(staff,company,day='2027-01-04').status_code==400
+def test_closed_month_and_invalid_timestamp(company_env, monkeypatch):
+    _, company, admin, staff = company_env
+    monkeypatch.setattr(work, "now", lambda: datetime(2026, 9, 10, 0, 0, tzinfo=UTC))
+    assert call(staff, company, "clock/clock-in").status_code == 200
+    assert call(admin, company, "close", {"month": "2026-09"}).status_code == 400
+    monkeypatch.setattr(work, "now", lambda: datetime(2026, 10, 12, 0, 0, tzinfo=UTC))
+    assert call(admin, company, "close", {"month": "2026-09"}).status_code == 400
+    assert call(staff, company, "clock/clock-out").status_code == 200
+    assert call(admin, company, "close", {"month": "2026-09"}).status_code == 200
+    assert request(staff, company, day="2026-09-14").status_code == 409
+    assert (
+        call(
+            staff,
+            company,
+            "requests",
+            {
+                "kind": "HOURLY",
+                "startsAt": "invalid",
+                "endsAt": "invalid",
+                "reason": "예제 시각",
+            },
+        ).status_code
+        == 400
+    )
+    assert request(staff, company, day="2027-01-04").status_code == 400
+
+
+def test_example_accounts_prepare_then_activate(clean_database, monkeypatch):
+    from fs.common.security import verify_password
+    from fs.hr.work_setup import activate_example_company, prepare_example_company
+
+    password = "Test-only-" + str(uuid4())
+    with clean_database.begin() as c:
+        create_template(c, date(2026, 9, 24))
+        company = prepare_example_company(c)
+        users = (
+            c.execute(
+                text(
+                    "SELECT login_id,status,password_hash FROM core.app_user WHERE login_id IN ('hugh-admin','hugh-staff') ORDER BY login_id"
+                )
+            )
+            .mappings()
+            .all()
+        )
+        assert len(users) == 2
+        assert all(u["status"] == "disabled" for u in users)
+        activate_example_company(c, password, password)
+        users = (
+            c.execute(
+                text(
+                    "SELECT login_id,status,password_hash FROM core.app_user WHERE login_id IN ('hugh-admin','hugh-staff') ORDER BY login_id"
+                )
+            )
+            .mappings()
+            .all()
+        )
+        assert all(
+            u["status"] == "active" and verify_password(password, u["password_hash"])
+            for u in users
+        )
+        assert (
+            c.execute(
+                text("SELECT count(*) FROM core.company_member WHERE workspace_id=:w"),
+                {"w": company["companyId"]},
+            ).scalar()
+            == 2
+        )
+        with pytest.raises(ValueError):
+            activate_example_company(c, password, password)

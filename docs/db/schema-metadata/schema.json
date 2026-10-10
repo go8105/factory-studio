@@ -1,9 +1,9 @@
 {
-  "version": "0.23.2",
+  "version": "0.23.3",
   "task": "W1-HR-TIME",
   "date": "2026-10-10",
   "status": "구현 명세 / 환경별 적용 상태는 인계 참조",
-  "migration_revision": "hr_time_status_len",
+  "migration_revision": "hr_time_check",
   "tables": [
     {
       "name": "core.app_user",
@@ -40069,6 +40069,13 @@
       "date": "2026-10-10",
       "change": "회사 공동근무 8표 및 COMPANY 공간. 계정코드는 서비스에서 core 멤버십 검증, 업무→인증 FK 없음.",
       "status": "구현 검증 중"
+    },
+    {
+      "version": "0.23.3",
+      "task": "W1-HR-TIME",
+      "date": "2026-10-10",
+      "change": "회사 공동 근무 8표·승인 취소 요청·상태 길이 및 CHECK 정규화. 실제 버튼 원장과 기존 개인 AUTO 근태 분리.",
+      "status": "로컬 적용·검증 / 운영 미배포"
     }
   ]
 }

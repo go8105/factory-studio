@@ -32,6 +32,10 @@ class GwTargetTest(unittest.TestCase):
         target = apply_dsn00.base(copy.deepcopy(current))
         self.assertTrue(apply_dsn31.apply(target))
         names = {t["name"] for t in target["tables"]}
+        self.assertIn("core.company", names)
+        self.assertIn("hr.work_request", names)
+        workspace_checks = [c["expression"] for c in target["constraints"] if c["table"] == "core.workspace" and c["kind"] == "CHECK"]
+        self.assertTrue(any("COMPANY" in e and "TEAM" in e for e in workspace_checks))
         self.assertIn("core.workspace_membership", names)
         self.assertIn("gw.document_reader", names)
         self.assertIn("erp.approval_evidence", names)

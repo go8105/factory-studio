@@ -21,7 +21,7 @@ class HrTargetTest(unittest.TestCase):
     def test_contract_holds(self):
         self.assertEqual(validate_hr_dsn30(self.target), [])
         self.assertEqual(
-            sum(t["name"].startswith("hr.") for t in self.target["tables"]), 19
+            sum(t["name"].startswith("hr.") and t["name"] not in {"hr.work_account", "hr.work_policy", "hr.clock_session", "hr.work_request", "hr.work_event", "hr.work_close"} for t in self.target["tables"]), 19
         )
 
     def test_rejects_regressions(self):

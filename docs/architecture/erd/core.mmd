@@ -44,6 +44,23 @@ erDiagram
     timestamptz revoked_at "취소 시각 NULL"
     timestamptz created_at "등록 시각"
   }
+  core_company {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    varchar name "name"
+    boolean is_example "is_example"
+    varchar timezone "timezone"
+    varchar status "status"
+    timestamptz created_at "created_at"
+  }
+  core_company_member {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint user_id FK "user_id"
+    varchar role "role"
+    boolean is_active "is_active"
+    timestamptz created_at "created_at"
+  }
   core_data_generation {
     bigint id PK "내부 식별자"
     bigint workspace_id FK "개인 체험 공간"
@@ -155,3 +172,6 @@ erDiagram
   core_app_user |o..o{ core_request_receipt : "actor_user_id"
   core_app_user |o..o{ core_app_review : "user_id"
   core_data_generation ||..o{ core_holiday : "workspace_id,generation_id"
+  core_workspace ||..o| core_company : "workspace_id"
+  core_company ||..o{ core_company_member : "workspace_id"
+  core_app_user ||..o{ core_company_member : "user_id"

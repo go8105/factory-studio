@@ -502,6 +502,23 @@ erDiagram
     timestamptz assurance_expires_at "추가 인증 만료 NULL"
     timestamptz created_at "등록 시각"
   }
+  core_company {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    varchar name "name"
+    boolean is_example "is_example"
+    varchar timezone "timezone"
+    varchar status "status"
+    timestamptz created_at "created_at"
+  }
+  core_company_member {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint user_id FK "user_id"
+    varchar role "role"
+    boolean is_active "is_active"
+    timestamptz created_at "created_at"
+  }
   core_data_generation {
     bigint id PK "내부 식별자"
     bigint workspace_id FK "개인 체험 공간"
@@ -2704,6 +2721,16 @@ erDiagram
     boolean is_active "사용 여부"
     timestamptz created_at "등록 시각"
   }
+  hr_clock_session {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint generation_id FK "generation_id"
+    bigint employee_id FK "employee_id"
+    date work_date "work_date"
+    timestamptz clock_in "clock_in"
+    timestamptz clock_out "clock_out NULL"
+    timestamptz created_at "created_at"
+  }
   hr_department {
     bigint id PK "내부 식별자"
     bigint workspace_id FK "개인 체험 공간"
@@ -2872,6 +2899,35 @@ erDiagram
     boolean is_head "부서장 여부"
     timestamptz created_at "등록 시각"
   }
+  hr_work_account {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint generation_id FK "generation_id"
+    bigint user_id "user_id"
+    bigint employee_id FK "employee_id"
+    varchar work_role "work_role"
+    boolean is_active "is_active"
+    timestamptz created_at "created_at"
+  }
+  hr_work_close {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint generation_id FK "generation_id"
+    varchar month "month"
+    bigint closed_by FK "closed_by"
+    timestamptz created_at "created_at"
+  }
+  hr_work_event {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint generation_id FK "generation_id"
+    bigint employee_id FK "employee_id"
+    bigint actor_user_id "actor_user_id"
+    varchar action "action"
+    bigint entity_id "entity_id"
+    jsonb summary "summary"
+    timestamptz created_at "created_at"
+  }
   hr_work_pattern {
     bigint id PK "내부 식별자"
     bigint workspace_id FK "개인 체험 공간"
@@ -2884,6 +2940,34 @@ erDiagram
     integer break_minutes "휴게(분)"
     boolean works_weekend "주말 근무"
     timestamptz created_at "등록 시각"
+  }
+  hr_work_policy {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint generation_id FK "generation_id"
+    time start_time "start_time"
+    time end_time "end_time"
+    time break_start "break_start"
+    time break_end "break_end"
+    integer daily_minutes "daily_minutes"
+    integer annual_days "annual_days"
+    timestamptz created_at "created_at"
+  }
+  hr_work_request {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint generation_id FK "generation_id"
+    bigint employee_id FK "employee_id"
+    varchar kind "kind"
+    timestamptz starts_at "starts_at"
+    timestamptz ends_at "ends_at"
+    integer minutes "minutes"
+    varchar reason "reason"
+    varchar destination "destination NULL"
+    varchar status "status"
+    bigint decided_by FK "decided_by NULL"
+    timestamptz decided_at "decided_at NULL"
+    timestamptz created_at "created_at"
   }
   mes_bom_line {
     bigint id PK "내부 식별자"
@@ -5246,6 +5330,27 @@ erDiagram
   mes_work_order |o..o{ mes_work_order : "workspace_id,generation_id,split_from_id"
   mes_lot |o..o{ mes_work_order : "workspace_id,generation_id,rework_of_lot_id"
   mes_lot |o..o{ mes_lot : "workspace_id,generation_id,origin_lot_id"
+  core_workspace ||..o| core_company : "workspace_id"
+  core_company ||..o{ core_company_member : "workspace_id"
+  core_app_user ||..o{ core_company_member : "user_id"
+  core_workspace ||..o{ hr_work_account : "workspace_id"
+  core_data_generation ||..o{ hr_work_account : "workspace_id,generation_id"
+  hr_employee ||..o| hr_work_account : "workspace_id,generation_id,employee_id"
+  core_workspace ||..o{ hr_work_policy : "workspace_id"
+  core_data_generation ||..o| hr_work_policy : "workspace_id,generation_id"
+  core_workspace ||..o{ hr_clock_session : "workspace_id"
+  core_data_generation ||..o{ hr_clock_session : "workspace_id,generation_id"
+  hr_employee ||..o{ hr_clock_session : "workspace_id,generation_id,employee_id"
+  core_workspace ||..o{ hr_work_request : "workspace_id"
+  core_data_generation ||..o{ hr_work_request : "workspace_id,generation_id"
+  hr_employee ||..o{ hr_work_request : "workspace_id,generation_id,employee_id"
+  hr_employee |o..o{ hr_work_request : "workspace_id,generation_id,decided_by"
+  core_workspace ||..o{ hr_work_event : "workspace_id"
+  core_data_generation ||..o{ hr_work_event : "workspace_id,generation_id"
+  hr_employee ||..o{ hr_work_event : "workspace_id,generation_id,employee_id"
+  core_workspace ||..o{ hr_work_close : "workspace_id"
+  core_data_generation ||..o{ hr_work_close : "workspace_id,generation_id"
+  hr_employee ||..o{ hr_work_close : "workspace_id,generation_id,closed_by"
   core_data_generation ||..o{ erp_department : "workspace_id,generation_id"
   core_data_generation ||..o{ erp_employee : "workspace_id,generation_id"
   core_data_generation ||..o{ erp_project : "workspace_id,generation_id"

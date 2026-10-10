@@ -1215,32 +1215,16 @@ def _apply(d):
         if set(implemented) - allowed:
             raise SystemExit("미지원 GW 확장이 있어 목표 설계 재생성을 중단한다")
         candidate = copy.deepcopy(d)
-        candidate["tables"] = [
-            t for t in candidate["tables"] if not t["name"].startswith(P)
-        ] + copy.deepcopy(apply_fs030a.TABLES)
-        candidate["constraints"] = [
-            c for c in candidate["constraints"] if not c["table"].startswith(P)
-        ] + copy.deepcopy(apply_fs030a.CONSTRAINTS)
-        candidate["relations"] = [
-            r for r in candidate["relations"] if not r["source"].startswith(P)
-        ] + copy.deepcopy(apply_fs030a.RELATIONS)
-        candidate["states"] = [
-            s for s in candidate["states"] if not s["table"].startswith(P)
-        ] + copy.deepcopy(apply_fs030a.STATES)
+        candidate["tables"] = [t for t in candidate["tables"] if not t["name"].startswith(P)] + copy.deepcopy(apply_fs030a.TABLES)
+        candidate["constraints"] = [c for c in candidate["constraints"] if not c["table"].startswith(P)] + copy.deepcopy(apply_fs030a.CONSTRAINTS)
+        candidate["relations"] = [r for r in candidate["relations"] if not r["source"].startswith(P)] + copy.deepcopy(apply_fs030a.RELATIONS)
+        candidate["states"] = [s for s in candidate["states"] if not s["table"].startswith(P)] + copy.deepcopy(apply_fs030a.STATES)
         apply(candidate)
         for t in candidate["tables"]:
             if t["name"] in implemented:
                 names = {c["name"] for c in t["columns"]}
-                extra = [
-                    c
-                    for c in implemented[t["name"]]["columns"]
-                    if c["name"] not in names
-                ]
-                at = (
-                    len(t["columns"]) - 1
-                    if t["columns"][-1]["name"] == "created_at"
-                    else len(t["columns"])
-                )
+                extra = [c for c in implemented[t["name"]]["columns"] if c["name"] not in names]
+                at = len(t["columns"]) - 1 if t["columns"][-1]["name"] == "created_at" else len(t["columns"])
                 t["columns"][at:at] = copy.deepcopy(extra)
         d.clear()
         d.update(candidate)
