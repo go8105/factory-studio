@@ -63,7 +63,11 @@ export function docSections(docs: Docs): DocSection[] {
       ),
     },
   ];
-  reference.push({solution:"Factory Flow 프로젝트 협업",title:"이전 GW 링크 안내",keys:["gw/g-14","gw/g-15"].filter((k)=>Object.hasOwn(docs,k))});
+  reference.push({
+    solution: "Factory Flow 프로젝트 협업",
+    title: "이전 GW 링크 안내",
+    keys: ["gw/g-14", "gw/g-15"].filter((k) => Object.hasOwn(docs, k)),
+  });
   for (const [prefix, name, screens] of solutions)
     for (const s of screens) {
       const key = `${prefix}/${s.id.toLowerCase()}`;

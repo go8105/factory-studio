@@ -168,7 +168,7 @@ def test_seed_v1_row_counts(seed_env: SeedFixtureData) -> None:
         assert actual == EXPECTED_COUNTS, (
             f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}"
         )
-        assert sum(actual.values()) == 14795 + sum(GW_COUNTS.values()), (
+        assert sum(actual.values()) == 14796 + sum(GW_COUNTS.values()), (
             f"V1 total={sum(actual.values())}"
         )
         assert all(varying.values()), f"V1 date-varying empty: {varying}"

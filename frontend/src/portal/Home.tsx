@@ -65,7 +65,7 @@ export const solutions = [
   },
   {
     key: "flow",
-    name: "Factory Flow",
+    name: "프로젝트 관리·협업",
     description: "Work OS · 프로젝트 관리·협업",
     to: "/work-os",
   },
@@ -142,7 +142,10 @@ function AppIcon({ kind }: { kind: (typeof solutions)[number]["key"] }) {
           />
         </>
       ) : kind === "flow" ? (
-        <g fill="none" stroke="#1f2d3d" strokeWidth="3"><rect x="6" y="8" width="36" height="32" rx="6"/><path d="M18 8v32M30 8v32M10 18h4m8 8h4m8-8h4"/></g>
+        <g fill="none" stroke="#1f2d3d" strokeWidth="3">
+          <rect x="6" y="8" width="36" height="32" rx="6" />
+          <path d="M18 8v32M30 8v32M10 18h4m8 8h4m8-8h4" />
+        </g>
       ) : kind === "gw" ? (
         <>
           <path d="M9 5h22v30H9zM14 12h12M14 18h8" />
@@ -305,7 +308,10 @@ export function Home() {
                               <AppIcon kind={s.key} />
                             </span>
                             <h3>
-                              {s.key.toUpperCase()} <span>{s.name}</span>
+                              {s.key === "flow"
+                                ? "Factory Flow"
+                                : s.key.toUpperCase()}{" "}
+                              <span>{s.name}</span>
                             </h3>
                           </Link>
                           <RatingLine

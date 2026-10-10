@@ -921,23 +921,48 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                                         .filter((k) => !pref.hidden.includes(k))
                                         .map((k) => (
                                           <td key={k}>
-                                            {k === "assignees"
-                                              ? t.assignees
-                                                  ?.map(
-                                                    (a) =>
-                                                      a.display_name +
-                                                      (a.active
-                                                        ? ""
-                                                        : " (비활성)"),
-                                                  )
-                                                  .join(", ") || "미지정"
-                                              : k === "status"
-                                                ? state(t)
-                                                : k === "priority"
-                                                  ? priorities[t.priority]
-                                                  : k === "dates"
-                                                    ? `${t.starts_on ?? "미정"} → ${t.ends_on ?? "미정"}`
-                                                    : `${t.progress}%`}
+                                            {k === "assignees" ? (
+                                              <span className="flow-people">
+                                                {t.assignees?.length
+                                                  ? t.assignees.map((a) => (
+                                                      <span
+                                                        className="flow-person"
+                                                        key={a.user_id}
+                                                      >
+                                                        <span
+                                                          className="flow-avatar"
+                                                          aria-hidden="true"
+                                                        >
+                                                          {a.display_name.slice(
+                                                            0,
+                                                            1,
+                                                          )}
+                                                        </span>
+                                                        {a.display_name}
+                                                        {!a.active &&
+                                                          " (비활성)"}
+                                                      </span>
+                                                    ))
+                                                  : "미지정"}
+                                              </span>
+                                            ) : k === "status" ? (
+                                              state(t)
+                                            ) : k === "priority" ? (
+                                              priorities[t.priority]
+                                            ) : k === "dates" ? (
+                                              `${t.starts_on ?? "미정"} → ${t.ends_on ?? "미정"}`
+                                            ) : (
+                                              <span
+                                                className={`flow-progress ${t.status === "DONE" ? "done" : ""}`}
+                                              >
+                                                <progress
+                                                  aria-label={`${t.title} 진행률`}
+                                                  max={100}
+                                                  value={t.progress}
+                                                />
+                                                <span>{t.progress}%</span>
+                                              </span>
+                                            )}
                                           </td>
                                         ))}
                                     </tr>

@@ -55,7 +55,7 @@ class Settings(Body):
 
 class GroupCreate(BoardId):
     name: str = Field(min_length=1, max_length=120)
-    color: str = Field(default="#658ab1", pattern=r"^#[0-9a-fA-F]{6}$")
+    color: str = Field(default="#40566b", pattern=r"^#[0-9a-fA-F]{6}$")
     position: int = Field(default=0, ge=0)
 
     @field_validator("name")

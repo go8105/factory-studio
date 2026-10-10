@@ -1,3 +1,13 @@
+## 2026-10-10 FLOW-02a 독립 진입·보드 이관 인계
+
+사용자 앱 런처 Factory Flow/독립 보드 분리 진행 및 기존 배포 승인 유지. 신규 참조 폴더의 src/App.tsx/index.css 읽기 분석, 백자#F7F7F6/먹색#1A1C1E/쪽빛#1F2D3D/한지#E8E8E6/청자#2D4442/프로필#E2E3E5·4% 그림자 적용. 참조 파일은 변경하지 않았다.
+
+런처 열 번째 카드 Factory Flow → /work-os/boards, /work-os/my-tasks, 내 공간/메뉴/도움말/카탈로그 연결. 독립 UI에 기존 네 보기/권한/댓글 유지·아바타/진행바 추가. 기존 /gw/projects,/gw/my-tasks query/hash보존 redirect. API 패키지 fs.flow·/api/v1/flow, 구APIalias는 같은 원장 사용. gw.work_*10표 SET SCHEMA→flow, 기존ID/시퀀스/FK/댓글/감사이력 보존. Flow모듈 별도등록/off, 새회사/템플릿/복사정리 목록/후기허용 확장. 메뉴즐겨찾기 순서/중복보존 전환. 기존 gw.projects.* receipt namespace 유지로 재시도 중복0, 데이터엔티티는flow. 날짜별 업무일지8표/가상화 고도화는 이번 요청의 진입·분리와 구분하며 후속 FLOW-02b 미구현.
+
+schema0.24.1/headflow_split·191표2074컬럼464FK, 목표379표918FK·Excel/ERD 동기화. 전용DB DDL0·프로젝트9검사(구API멱등/off독립/실제보드·댓글/10표역이관digest/즐겨찾기왕복 포함), 기존관련26검사, frontend588/타입/lint/format/build, tools133/격리0 통과. 초기 migration SQL 문법·신규테스트 operation명 오류 보정 후 재통과. 로컬 DB 백업 pg_restore검증 후 migration 적용·10표행수/digest보존/DDL0. Chrome 실제 제품UI+합성응답으로 런처진입/oldURL선택유지/색상계산값/390px가로넘침0 확인; 운영 실제계정쓰기 검증은 아니다. 사용자8000/5173·실제계정/비밀번호/확장 설정 유지. main push/CI/운영배포는 후속 확인 중이며 완료 후 이 문서와 인계 갱신.
+
+다음: 정확한main제품커밋 CI success 확인→실서버DB/파일백업→API쓰기중지→기존배포스크립트→10표digest/DDL/publicassets검증. 데이터삭제/초기화 금지. 로컬8000/5173유지.
+
 ## 2026-10-10 FLOW-02a 独立 진입·보드 이관 WIP
 
 사용자 앱 런처 Factory Flow·/work-os·기존 보드 분리 구현 및 배포 승인. codex/gw-flow-entry에서 작업 중. Flow 패키지/API와10표 SET SCHEMA·메뉴/즐겨찾기 이전 구현, 검증 진행 중. 날짜별 일지8표/FLOW-02b는 미구현으로 구분한다. 첫 마이그레이션 SQL 문법 검사 실패를 수정 중이며 운영/로컬 실DB에는 아직 미적용. 기존8000/5173 유지. 다음: 전용 테스트DB·역이관 보존/권한/alias·UI검증 후 main push, CI 통과 뒤 백업·쓰기 중지·운영배포. 제품 완료로 표시하지 않는다.

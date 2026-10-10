@@ -456,3 +456,76 @@ def test_flow_alias_receipt_and_independent_module(company_env):
     assert (
         admin.get(ROOT, params={"companyId": company["companyId"]}).status_code == 409
     )
+
+
+def test_flow_migration_roundtrip_preserves_records_and_favorites(
+    company_env, monkeypatch
+):
+    from alembic import command
+    from alembic.config import Config
+
+    engine, company, admin, _ = company_env
+    bid = board(admin, company)
+    gid = get(admin, company, bid)["groups"][0]["id"]
+    tid = task(admin, company, bid, gid)
+    assert (
+        post(
+            admin,
+            company,
+            "comment-create",
+            {"boardId": bid, "taskId": tid, "body": "합성 보존 댓글"},
+        ).status_code
+        == 200
+    )
+    tables = (
+        "work_board",
+        "work_board_member",
+        "work_group",
+        "work_task",
+        "work_task_assignee",
+        "work_task_comment",
+        "work_task_event",
+        "work_board_favorite",
+        "work_view_preference",
+        "work_project_settings",
+    )
+
+    def snapshot(schema):
+        with engine.connect() as c:
+            return [
+                c.execute(
+                    text(
+                        f"SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id),'[]'::jsonb) FROM {schema}.{name} t"
+                    )
+                ).scalar_one()
+                for name in tables
+            ]
+
+    before = snapshot("flow")
+    with engine.begin() as c:
+        c.execute(
+            text(
+                "UPDATE core.workspace SET menu_preferences=CAST(:prefs AS jsonb) WHERE id=:w"
+            ),
+            {
+                "w": company["companyId"],
+                "prefs": '{"menuIds":["flow:boards","gw:pending","flow:my-tasks"],"sidebarMode":"favorites"}',
+            },
+        )
+    monkeypatch.setenv("DATABASE_URL", engine.url.render_as_string(hide_password=False))
+    cfg = Config("backend/alembic.ini")
+    command.downgrade(cfg, "gw_projects")
+    assert snapshot("gw") == before
+    with engine.connect() as c:
+        assert c.execute(
+            text("SELECT menu_preferences->'menuIds' FROM core.workspace WHERE id=:w"),
+            {"w": company["companyId"]},
+        ).scalar_one() == ["gw:projects", "gw:pending", "gw:my-tasks"]
+    command.upgrade(cfg, "head")
+    assert snapshot("flow") == before
+    with engine.connect() as c:
+        assert c.execute(
+            text("SELECT menu_preferences->'menuIds' FROM core.workspace WHERE id=:w"),
+            {"w": company["companyId"]},
+        ).scalar_one() == ["flow:boards", "gw:pending", "flow:my-tasks"]
+    assert get(admin, company, bid)["board"]["id"] == bid
