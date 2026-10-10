@@ -250,7 +250,7 @@ it("순서 편집을 키보드로 할 수 있는 버튼으로 저장한다", asy
 
 it("MES 사이드바는 등록 메뉴만 표시하고 전체 메뉴에서 새 항목을 등록한다", async () => {
   const store = mock({
-    menuIds: ["mes:work-orders"],
+    menuIds: ["mes:work-orders", "gw:pending", "wms:dashboard"],
     sidebarMode: "favorites",
     version: 1,
   });
@@ -265,6 +265,18 @@ it("MES 사이드바는 등록 메뉴만 표시하고 전체 메뉴에서 새 �
     within(aside).getByRole("link", { name: /M-03 작업지시/ }),
   ).toBeInTheDocument();
   expect(
+    within(aside).getByRole("link", { name: /G-03 결재함/ }),
+  ).toHaveAttribute("href", "/gw/pending");
+  expect(within(aside).getByRole("link", { name: /W-01/ })).toHaveAttribute(
+    "href",
+    "/wms/dashboard",
+  );
+  fireEvent.click(within(aside).getByRole("button", { name: "메뉴 접기" }));
+  expect(
+    within(aside).getByRole("link", { name: /G-03 결재함/ }),
+  ).toBeInTheDocument();
+  fireEvent.click(within(aside).getByRole("button", { name: "메뉴 펼치기" }));
+  expect(
     within(aside).queryByRole("link", { name: /M-12 품목/ }),
   ).not.toBeInTheDocument();
   fireEvent.click(
@@ -272,10 +284,15 @@ it("MES 사이드바는 등록 메뉴만 표시하고 전체 메뉴에서 새 �
   );
   await within(aside).findByRole("link", { name: /M-12 품목/ });
   fireEvent.click(
-    within(aside).getByRole("button", { name: "LOT 현황 즐겨찾기 등록" }),
+    within(aside).getByRole("button", { name: "MES LOT 현황 즐겨찾기 등록" }),
   );
   await waitFor(() =>
-    expect(store.get().menuIds).toEqual(["mes:work-orders", "mes:lots"]),
+    expect(store.get().menuIds).toEqual([
+      "mes:work-orders",
+      "gw:pending",
+      "wms:dashboard",
+      "mes:lots",
+    ]),
   );
   await waitFor(() =>
     expect(
@@ -343,7 +360,7 @@ it("다른 업무의 미확인 작업 잠금을 즐겨찾기 저장이 해제하
   const server = mock();
   sidebar();
   const pin = await screen.findByRole("button", {
-    name: "대시보드 즐겨찾기 해제",
+    name: "MES 대시보드 즐겨찾기 해제",
   });
   fireEvent.click(screen.getByRole("button", { name: "다른 업무 작업 시작" }));
   expect(pin).toBeDisabled();

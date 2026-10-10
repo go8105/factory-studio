@@ -471,8 +471,7 @@ main:focus {
     padding: 0;
     justify-content: center;
   }
-  .solution-layout.collapsed .sidebar-head .eyebrow,
-  .solution-layout.collapsed .solution-sidebar details {
+  .solution-layout.collapsed .sidebar-head .eyebrow {
     display: none;
   }
 }

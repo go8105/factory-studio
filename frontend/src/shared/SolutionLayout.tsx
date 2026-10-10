@@ -4,7 +4,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useFavorites } from "./favorites";
 import { MenuIcon } from "./MenuIcon";
 import { ErrorNotice } from "./components";
-import type { Screen } from "./menuCatalog";
+import { menuByKey, type Menu, type Screen } from "./menuCatalog";
 
 export type { Screen } from "./menuCatalog";
 
@@ -35,26 +35,35 @@ export function SolutionLayout({
   const favoriteMode = favorites.data?.sidebarMode === "favorites";
   const moduleKey = base.slice(1);
   const selected = favorites.data?.menuIds ?? [];
-  const visibleScreens = favoriteMode
+  const visibleScreens: Menu[] = favoriteMode
     ? selected.flatMap((key) => {
-        const screen = screens.find(
-          (screen) => key === `${moduleKey}:${screen.path}`,
-        );
-        return screen ? [screen] : [];
+        const menu = menuByKey.get(key);
+        return menu ? [menu] : [];
       })
-    : screens;
-  function menuRow(screen: Screen) {
-    const key = `${moduleKey}:${screen.path}`;
+    : screens.map((screen) => menuByKey.get(`${moduleKey}:${screen.path}`)!);
+  function menuRow(screen: Menu) {
+    const key = screen.key;
     const pinned = selected.includes(key);
     return (
-      <div className="sidebar-menu-row" key={screen.path}>
-        <NavLink to={`${base}/${screen.path}`} onClick={closeMenu}>
-          <span>{screen.id}</span> {screen.label}
+      <div className="sidebar-menu-row" key={screen.key}>
+        <NavLink
+          to={screen.to}
+          onClick={closeMenu}
+          title={`${screen.solution} · ${screen.label}`}
+          aria-label={`${screen.id} ${screen.label} · ${screen.solution}`}
+        >
+          <span className="sidebar-menu-icon">
+            <MenuIcon menu={screen} />
+          </span>
+          <span className="sidebar-menu-label">
+            <span>{screen.id}</span> {screen.label}
+            {favoriteMode && <small>{screen.solution}</small>}
+          </span>
         </NavLink>
         {favorites.data && (
           <button
             className="favorite-icon-button"
-            aria-label={`${screen.label} 즐겨찾기 ${pinned ? "해제" : "등록"}`}
+            aria-label={`${screen.solution} ${screen.label} 즐겨찾기 ${pinned ? "해제" : "등록"}`}
             aria-pressed={pinned}
             disabled={
               favorites.pending || favorites.loading || favorites.uncertain
@@ -209,12 +218,13 @@ export function SolutionLayout({
                   {visibleScreens.map(menuRow)}
                   {visibleScreens.length === 0 && (
                     <p className="sidebar-favorite-empty">
-                      등록된 {name} 메뉴가 없습니다. 전체 메뉴에서 선택하거나 내
-                      공간에서 추가하세요.
+                      등록된 즐겨찾기 메뉴가 없습니다. 전체 메뉴에서 선택하거나
+                      내 공간에서 추가하세요.
                     </p>
                   )}
                   <NavLink
                     to={`/workspace?menus=${moduleKey}`}
+                    title="메뉴 추가·순서 편집"
                     onClick={closeMenu}
                   >
                     메뉴 추가·순서 편집
@@ -241,20 +251,25 @@ export function SolutionLayout({
                     </NavLink>
                   ))}
                 {favoriteMode && (
-                  <NavLink to="/home" onClick={closeMenu}>
+                  <NavLink to="/home" title="앱 런처" onClick={closeMenu}>
                     앱 런처
                   </NavLink>
                 )}
                 {!favoriteMode && (
                   <NavLink
                     to={`/workspace?menus=${moduleKey}`}
+                    title="메뉴 추가·순서 편집"
                     onClick={closeMenu}
                   >
                     즐겨찾기 구성
                   </NavLink>
                 )}
                 {/* 업무 화면에는 바닥글이 없으므로 공통 안내를 여기에 둔다(UI-02). */}
-                <NavLink to="/help/common" onClick={closeMenu}>
+                <NavLink
+                  to="/help/common"
+                  title="공통 이용 안내"
+                  onClick={closeMenu}
+                >
                   공통 이용 안내
                 </NavLink>
               </section>

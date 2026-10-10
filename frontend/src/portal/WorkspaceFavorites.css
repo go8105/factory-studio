@@ -391,7 +391,9 @@
   flex-shrink: 0;
   border-radius: 12px;
   background: #eff3f7;
-  color: #35465e;
+  color: #956000;
+  background: #fff0bd;
+  border-color: #c9921a;
 }
 .menu-choice strong {
   font-weight: 550;
@@ -545,10 +547,12 @@
   padding: 8px;
 }
 .sidebar-menu-row .favorite-icon-button[aria-pressed="true"] {
-  color: #35465e;
+  color: #956000;
+  background: #fff0bd;
+  border-color: #c9921a;
 }
 .sidebar-menu-row .favorite-icon-button[aria-pressed="true"] svg {
-  fill: #e3eaf0;
+  fill: #edb629;
 }
 .sidebar-favorite-empty {
   color: var(--muted);
@@ -556,9 +560,7 @@
   line-height: 1.7;
   margin: 8px 0;
 }
-.solution-layout.collapsed .sidebar-menu-mode {
-  display: none;
-}
+
 @media (max-width: 1200px) {
   .favorite-cards {
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -696,5 +698,59 @@
 @media (prefers-reduced-motion: reduce) {
   .favorite-card {
     transition: none;
+  }
+}
+
+.sidebar-menu-row a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar-menu-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.sidebar-menu-label small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+}
+.sidebar-menu-row .favorite-icon-button[aria-pressed="false"] {
+  color: #77818b;
+  background: transparent;
+}
+@media (min-width: 801px) {
+  .solution-layout.collapsed .sidebar-menu-mode {
+    display: none;
+  }
+  .solution-layout.collapsed {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+  .solution-layout.collapsed .sidebar-menu-label,
+  .solution-layout.collapsed .sidebar-menu-row .favorite-icon-button,
+  .solution-layout.collapsed .solution-sidebar h2,
+  .solution-layout.collapsed .sidebar-favorite-empty {
+    display: none;
+  }
+  .solution-layout.collapsed .sidebar-menu-row a {
+    justify-content: center;
+    padding: 10px 0;
+  }
+  .solution-layout.collapsed .solution-sidebar nav section > a {
+    font-size: 0;
+    padding: 10px 0;
+  }
+  .solution-layout.collapsed .solution-sidebar nav section > a::before {
+    content: "＋";
+    font-size: 22px;
+  }
+  .solution-layout.collapsed .solution-sidebar nav a[href="/home"]::before {
+    content: "⌂";
+  }
+  .solution-layout.collapsed
+    .solution-sidebar
+    nav
+    a[href="/help/common"]::before {
+    content: "?";
   }
 }
