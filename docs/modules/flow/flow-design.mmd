@@ -1,0 +1,251 @@
+erDiagram
+  flow_work_board {
+    bigint id
+    bigint workspace_id
+    bigint generation_id
+    string name
+    string description
+    string template
+    integer version
+    timestamptz archived_at
+    timestamptz created_at
+    string board_kind
+  }
+  flow_work_board_member {
+    bigint id
+    bigint workspace_id
+    bigint generation_id
+    bigint board_id
+    bigint user_id
+    string role
+    timestamptz created_at
+  }
+  flow_work_group {
+    bigint id
+    bigint workspace_id
+    bigint generation_id
+    bigint board_id
+    string name
+    string color
+    integer position
+    integer version
+    timestamptz created_at
+    string organization_code
+  }
+  flow_work_task {
+    bigint id
+    bigint workspace_id
+    bigint generation_id
+    bigint board_id
+    bigint group_id
+    bigint parent_id
+    string title
+    string description
+    string status
+    string priority
+    date starts_on
+    date ends_on
+    integer progress
+    integer position
+    integer version
+    timestamptz archived_at
+    timestamptz created_at
+  }
+  flow_work_task_assignee {
+    bigint id
+    bigint workspace_id
+    bigint generation_id
+    bigint task_id
+    bigint user_id
+    string display_name
+    timestamptz created_at
+  }
+  flow_work_task_comment {
+    bigint id
+    bigint workspace_id
+    bigint generation_id
+    bigint task_id
+    bigint user_id
+    string body
+    timestamptz updated_at
+    timestamptz deleted_at
+    integer version
+    timestamptz created_at
+  }
+  flow_work_task_event {
+    bigint id
+    bigint workspace_id
+    bigint generation_id
+    bigint board_id
+    bigint task_id
+    bigint user_id
+    string action
+    jsonb details
+    timestamptz created_at
+  }
+  flow_work_board_favorite {
+    bigint id
+    bigint workspace_id
+    bigint generation_id
+    bigint board_id
+    bigint user_id
+    integer position
+    timestamptz created_at
+  }
+  flow_work_view_preference {
+    bigint id
+    bigint workspace_id
+    bigint generation_id
+    bigint board_id
+    bigint user_id
+    jsonb settings
+    timestamptz created_at
+  }
+  flow_work_project_settings {
+    bigint id
+    bigint workspace_id
+    bigint generation_id
+    boolean allow_create
+    integer version
+    timestamptz created_at
+  }
+  flow_organization_unit {
+    bigint workspace_id
+    bigint generation_id
+    bigint id
+    timestamptz created_at
+    integer version
+    string code
+    string name
+    bigint parent_id
+    string source
+    string hr_code
+    integer position
+    boolean is_active
+  }
+  flow_person_link {
+    bigint workspace_id
+    bigint generation_id
+    bigint id
+    timestamptz created_at
+    integer version
+    uuid user_id
+    string display_name
+    bigint organization_id
+    string hr_employee_code
+    string employee_name
+    uuid linked_by
+  }
+  flow_log_period {
+    bigint workspace_id
+    bigint generation_id
+    bigint id
+    timestamptz created_at
+    integer version
+    bigint board_id
+    bigint team_task_id
+    bigint organization_id
+    string period_kind
+    string week_key
+    date starts_on
+    date ends_on
+    jsonb expected_dates
+    timestamptz archived_at
+  }
+  flow_log_assignment {
+    bigint workspace_id
+    bigint generation_id
+    bigint id
+    timestamptz created_at
+    integer version
+    bigint period_id
+    bigint personal_task_id
+    uuid user_id
+    string display_name
+    date effective_from
+    date effective_until
+    jsonb expected_dates
+    timestamptz archived_at
+  }
+  flow_log_reviewer {
+    bigint workspace_id
+    bigint generation_id
+    bigint id
+    timestamptz created_at
+    integer version
+    bigint period_id
+    uuid user_id
+    string display_name
+  }
+  flow_work_log {
+    bigint workspace_id
+    bigint generation_id
+    bigint id
+    timestamptz created_at
+    integer version
+    bigint assignment_id
+    date log_date
+    string state
+    string done_text
+    string next_text
+    string issue_text
+    integer current_revision
+    timestamptz submitted_at
+    timestamptz updated_at
+  }
+  flow_work_log_revision {
+    bigint workspace_id
+    bigint generation_id
+    bigint id
+    timestamptz created_at
+    integer version
+    bigint log_id
+    integer revision_no
+    string operation
+    string state
+    uuid author_id
+    string author_name
+    string done_text
+    string next_text
+    string issue_text
+    string review_note
+    integer source_revision_no
+    timestamptz occurred_at
+  }
+  flow_log_comment {
+    bigint workspace_id
+    bigint generation_id
+    bigint id
+    timestamptz created_at
+    integer version
+    bigint log_id
+    bigint revision_id
+    uuid author_id
+    string author_name
+    string body
+    timestamptz updated_at
+    timestamptz deleted_at
+  }
+  flow_work_board ||--o{ flow_work_board_member : "board_id S RESTRICT"
+  flow_work_board ||--o{ flow_work_group : "board_id S RESTRICT"
+  flow_work_board ||--o{ flow_work_task : "board_id S RESTRICT"
+  flow_work_board ||--o{ flow_work_task_event : "board_id S RESTRICT"
+  flow_work_board ||--o{ flow_work_board_favorite : "board_id S RESTRICT"
+  flow_work_board ||--o{ flow_work_view_preference : "board_id S RESTRICT"
+  flow_work_group ||--o{ flow_work_task : "group_id S RESTRICT"
+  flow_work_task ||--o{ flow_work_task : "parent_id S RESTRICT"
+  flow_work_task ||--o{ flow_work_task_assignee : "task_id S RESTRICT"
+  flow_work_task ||--o{ flow_work_task_comment : "task_id S RESTRICT"
+  flow_work_task ||--o{ flow_work_task_event : "task_id S RESTRICT"
+  flow_organization_unit ||--o{ flow_organization_unit : "parent_id S RESTRICT"
+  flow_organization_unit ||--o{ flow_person_link : "organization_id S RESTRICT"
+  flow_work_board ||--o{ flow_log_period : "board_id S RESTRICT"
+  flow_work_task ||--o{ flow_log_period : "team_task_id S RESTRICT"
+  flow_organization_unit ||--o{ flow_log_period : "organization_id S RESTRICT"
+  flow_log_period ||--o{ flow_log_assignment : "period_id S RESTRICT"
+  flow_work_task ||--o{ flow_log_assignment : "personal_task_id S RESTRICT"
+  flow_log_period ||--o{ flow_log_reviewer : "period_id S RESTRICT"
+  flow_log_assignment ||--o{ flow_work_log : "assignment_id S RESTRICT"
+  flow_work_log ||--o{ flow_work_log_revision : "log_id S RESTRICT"
+  flow_work_log ||--o{ flow_log_comment : "log_id S RESTRICT"
+  flow_work_log_revision ||--o{ flow_log_comment : "revision_id S RESTRICT"

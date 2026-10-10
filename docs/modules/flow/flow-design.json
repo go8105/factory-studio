@@ -1,0 +1,2718 @@
+{
+  "version": "FLOW-01-design-1",
+  "status": "전체확인대기/미구현/미적용",
+  "baseline": "fa2f959/schema0.24.0/gw_projects",
+  "tables": [
+    {
+      "name": "flow.work_board",
+      "label": "work_board",
+      "scope": "workspace_generation",
+      "phase": "GW-PROJECT",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "name",
+          "type": "varchar(120)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "description",
+          "label": "description",
+          "type": "text",
+          "nullable": false,
+          "default": "''",
+          "rule": ""
+        },
+        {
+          "name": "template",
+          "label": "template",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": "'PROJECT'",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "archived_at",
+          "label": "archived_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        },
+        {
+          "name": "board_kind",
+          "type": "varchar(16)",
+          "nullable": false,
+          "default": "TASK",
+          "rule": "TASK/WORK_LOG"
+        }
+      ],
+      "note": "회사 공동 프로젝트 업무",
+      "retention": "회사 보관 정책, 영구 삭제 UI 없음",
+      "guest_cleanup": "자식부터 부모 순 정리",
+      "migration": "기존 ID/S/전 행 보존 SET SCHEMA",
+      "designRules": [
+        "PK id",
+        "UK workspace_id,generation_id,id",
+        "INDEX workspace_id,generation_id",
+        "CHECK name,version"
+      ]
+    },
+    {
+      "name": "flow.work_board_member",
+      "label": "work_board_member",
+      "scope": "workspace_generation",
+      "phase": "GW-PROJECT",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "board_id",
+          "label": "board_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "user_id",
+          "label": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "role",
+          "label": "role",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 공동 프로젝트 업무",
+      "retention": "회사 보관 정책, 영구 삭제 UI 없음",
+      "guest_cleanup": "자식부터 부모 순 정리",
+      "migration": "기존 ID/S/전 행 보존 SET SCHEMA",
+      "designRules": [
+        "PK id",
+        "UK workspace_id,generation_id,id",
+        "INDEX workspace_id,generation_id",
+        "UK workspace_id,generation_id,board_id,user_id",
+        "CHECK role"
+      ]
+    },
+    {
+      "name": "flow.work_group",
+      "label": "work_group",
+      "scope": "workspace_generation",
+      "phase": "GW-PROJECT",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "board_id",
+          "label": "board_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "name",
+          "type": "varchar(120)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "color",
+          "label": "color",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": "'#658ab1'",
+          "rule": ""
+        },
+        {
+          "name": "position",
+          "label": "position",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        },
+        {
+          "name": "organization_code",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "Flow 조직코드snapshot; 업무교차FK없음"
+        }
+      ],
+      "note": "회사 공동 프로젝트 업무",
+      "retention": "회사 보관 정책, 영구 삭제 UI 없음",
+      "guest_cleanup": "자식부터 부모 순 정리",
+      "migration": "기존 ID/S/전 행 보존 SET SCHEMA",
+      "designRules": [
+        "PK id",
+        "UK workspace_id,generation_id,id",
+        "INDEX workspace_id,generation_id",
+        "UK workspace_id,generation_id,board_id,id",
+        "CHECK name,color,version"
+      ]
+    },
+    {
+      "name": "flow.work_task",
+      "label": "work_task",
+      "scope": "workspace_generation",
+      "phase": "GW-PROJECT",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "board_id",
+          "label": "board_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "group_id",
+          "label": "group_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "parent_id",
+          "label": "parent_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "title",
+          "label": "title",
+          "type": "varchar(250)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "description",
+          "label": "description",
+          "type": "text",
+          "nullable": false,
+          "default": "''",
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "status",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'WAITING'",
+          "rule": ""
+        },
+        {
+          "name": "priority",
+          "label": "priority",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'NORMAL'",
+          "rule": ""
+        },
+        {
+          "name": "starts_on",
+          "label": "starts_on",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "ends_on",
+          "label": "ends_on",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "progress",
+          "label": "progress",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "rule": ""
+        },
+        {
+          "name": "position",
+          "label": "position",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "archived_at",
+          "label": "archived_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 공동 프로젝트 업무",
+      "retention": "회사 보관 정책, 영구 삭제 UI 없음",
+      "guest_cleanup": "자식부터 부모 순 정리",
+      "migration": "기존 ID/S/전 행 보존 SET SCHEMA",
+      "designRules": [
+        "PK id",
+        "UK workspace_id,generation_id,id",
+        "INDEX workspace_id,generation_id",
+        "UK workspace_id,generation_id,board_id,group_id,id",
+        "CHECK title,status,priority,starts_on,ends_on,progress,version"
+      ]
+    },
+    {
+      "name": "flow.work_task_assignee",
+      "label": "work_task_assignee",
+      "scope": "workspace_generation",
+      "phase": "GW-PROJECT",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "task_id",
+          "label": "task_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "user_id",
+          "label": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "display_name",
+          "label": "display_name",
+          "type": "varchar(120)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 공동 프로젝트 업무",
+      "retention": "회사 보관 정책, 영구 삭제 UI 없음",
+      "guest_cleanup": "자식부터 부모 순 정리",
+      "migration": "기존 ID/S/전 행 보존 SET SCHEMA",
+      "designRules": [
+        "PK id",
+        "UK workspace_id,generation_id,id",
+        "INDEX workspace_id,generation_id",
+        "UK workspace_id,generation_id,task_id,user_id"
+      ]
+    },
+    {
+      "name": "flow.work_task_comment",
+      "label": "work_task_comment",
+      "scope": "workspace_generation",
+      "phase": "GW-PROJECT",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "task_id",
+          "label": "task_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "user_id",
+          "label": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "body",
+          "label": "body",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "updated_at",
+          "label": "updated_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "deleted_at",
+          "label": "deleted_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 공동 프로젝트 업무",
+      "retention": "회사 보관 정책, 영구 삭제 UI 없음",
+      "guest_cleanup": "자식부터 부모 순 정리",
+      "migration": "기존 ID/S/전 행 보존 SET SCHEMA",
+      "designRules": [
+        "PK id",
+        "UK workspace_id,generation_id,id",
+        "INDEX workspace_id,generation_id",
+        "CHECK body,version"
+      ]
+    },
+    {
+      "name": "flow.work_task_event",
+      "label": "work_task_event",
+      "scope": "workspace_generation",
+      "phase": "GW-PROJECT",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "board_id",
+          "label": "board_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "task_id",
+          "label": "task_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "user_id",
+          "label": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "action",
+          "label": "action",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "details",
+          "label": "details",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 공동 프로젝트 업무",
+      "retention": "회사 보관 정책, 영구 삭제 UI 없음",
+      "guest_cleanup": "자식부터 부모 순 정리",
+      "migration": "기존 ID/S/전 행 보존 SET SCHEMA",
+      "designRules": [
+        "PK id",
+        "UK workspace_id,generation_id,id",
+        "INDEX workspace_id,generation_id"
+      ]
+    },
+    {
+      "name": "flow.work_board_favorite",
+      "label": "work_board_favorite",
+      "scope": "workspace_generation",
+      "phase": "GW-PROJECT",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "board_id",
+          "label": "board_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "user_id",
+          "label": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "position",
+          "label": "position",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 공동 프로젝트 업무",
+      "retention": "회사 보관 정책, 영구 삭제 UI 없음",
+      "guest_cleanup": "자식부터 부모 순 정리",
+      "migration": "기존 ID/S/전 행 보존 SET SCHEMA",
+      "designRules": [
+        "PK id",
+        "UK workspace_id,generation_id,id",
+        "INDEX workspace_id,generation_id",
+        "UK workspace_id,generation_id,board_id,user_id"
+      ]
+    },
+    {
+      "name": "flow.work_view_preference",
+      "label": "work_view_preference",
+      "scope": "workspace_generation",
+      "phase": "GW-PROJECT",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "board_id",
+          "label": "board_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "user_id",
+          "label": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "settings",
+          "label": "settings",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 공동 프로젝트 업무",
+      "retention": "회사 보관 정책, 영구 삭제 UI 없음",
+      "guest_cleanup": "자식부터 부모 순 정리",
+      "migration": "기존 ID/S/전 행 보존 SET SCHEMA",
+      "designRules": [
+        "PK id",
+        "UK workspace_id,generation_id,id",
+        "INDEX workspace_id,generation_id",
+        "UK workspace_id,generation_id,board_id,user_id"
+      ]
+    },
+    {
+      "name": "flow.work_project_settings",
+      "label": "work_project_settings",
+      "scope": "workspace_generation",
+      "phase": "GW-PROJECT",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "allow_create",
+          "label": "allow_create",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 공동 프로젝트 업무",
+      "retention": "회사 보관 정책, 영구 삭제 UI 없음",
+      "guest_cleanup": "자식부터 부모 순 정리",
+      "migration": "기존 ID/S/전 행 보존 SET SCHEMA",
+      "designRules": [
+        "PK id",
+        "UK workspace_id,generation_id,id",
+        "INDEX workspace_id,generation_id",
+        "UK workspace_id,generation_id"
+      ]
+    },
+    {
+      "name": "flow.organization_unit",
+      "label": "조직",
+      "columns": [
+        {
+          "name": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": 1,
+          "rule": "CHECK > 0"
+        },
+        {
+          "name": "code",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "parent_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "source",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "MANUAL",
+          "rule": "MANUAL/HR"
+        },
+        {
+          "name": "hr_code",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "position",
+          "type": "integer",
+          "nullable": false,
+          "default": 0,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "type": "boolean",
+          "nullable": false,
+          "default": true,
+          "rule": ""
+        }
+      ],
+      "designRules": [
+        "PK(id)",
+        "UK(workspace_id,generation_id,id)",
+        "범위 앵커→core.workspace/core.data_generation; RESTRICT",
+        "UK(S,code)",
+        "SERVICE: parent 자기 참조/순환 차단",
+        "HR 가져오기 미리보기 digest 일치"
+      ],
+      "references": [
+        [
+          "parent_id",
+          "flow.organization_unit"
+        ]
+      ],
+      "migration": "신설 / 미적용"
+    },
+    {
+      "name": "flow.person_link",
+      "label": "계정·사원 연결",
+      "columns": [
+        {
+          "name": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": 1,
+          "rule": "CHECK > 0"
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "display_name",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "organization_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "hr_employee_code",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "employee_name",
+          "type": "varchar(100)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "linked_by",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        }
+      ],
+      "designRules": [
+        "PK(id)",
+        "UK(workspace_id,generation_id,id)",
+        "범위 앵커→core.workspace/core.data_generation; RESTRICT",
+        "UK(S,user_id)",
+        "HR코드 선택 연결, 동명 자동매칭 금지",
+        "SERVICE: 활성 회사 계정 확인"
+      ],
+      "references": [
+        [
+          "organization_id",
+          "flow.organization_unit"
+        ]
+      ],
+      "migration": "신설 / 미적용"
+    },
+    {
+      "name": "flow.log_period",
+      "label": "팀·기간",
+      "columns": [
+        {
+          "name": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": 1,
+          "rule": "CHECK > 0"
+        },
+        {
+          "name": "board_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "team_task_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "organization_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "period_kind",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": "WEEK",
+          "rule": "DAY/WEEK"
+        },
+        {
+          "name": "week_key",
+          "type": "varchar(8)",
+          "nullable": true,
+          "default": null,
+          "rule": "CHECK nullable OR ~ ^[0-9]{4}-W(0[1-9]|[1-4][0-9]|5[0-3])$; SERVICE ISO 실재 주차"
+        },
+        {
+          "name": "starts_on",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "ends_on",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "expected_dates",
+          "type": "jsonb",
+          "nullable": false,
+          "default": [],
+          "rule": ""
+        },
+        {
+          "name": "archived_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        }
+      ],
+      "designRules": [
+        "PK(id)",
+        "UK(workspace_id,generation_id,id)",
+        "범위 앵커→core.workspace/core.data_generation; RESTRICT",
+        "UK(S,team_task_id)",
+        "CHECK starts_on<=ends_on",
+        "SERVICE: team task 같은 보드/일지종류/root 검증",
+        "SERVICE: expected dates 중복0·기간내"
+      ],
+      "references": [
+        [
+          "board_id",
+          "flow.work_board"
+        ],
+        [
+          "team_task_id",
+          "flow.work_task"
+        ],
+        [
+          "organization_id",
+          "flow.organization_unit"
+        ]
+      ],
+      "migration": "신설 / 미적용"
+    },
+    {
+      "name": "flow.log_assignment",
+      "label": "팀원 대상",
+      "columns": [
+        {
+          "name": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": 1,
+          "rule": "CHECK > 0"
+        },
+        {
+          "name": "period_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "personal_task_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "display_name",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "effective_from",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "effective_until",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "expected_dates",
+          "type": "jsonb",
+          "nullable": false,
+          "default": [],
+          "rule": ""
+        },
+        {
+          "name": "archived_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        }
+      ],
+      "designRules": [
+        "PK(id)",
+        "UK(workspace_id,generation_id,id)",
+        "범위 앵커→core.workspace/core.data_generation; RESTRICT",
+        "UK(S,period_id,user_id)",
+        "UK(S,personal_task_id)",
+        "SERVICE: 같은 팀 부모/계정1명만연결",
+        "SERVICE: 기존 제출 대상일 제거불가"
+      ],
+      "references": [
+        [
+          "period_id",
+          "flow.log_period"
+        ],
+        [
+          "personal_task_id",
+          "flow.work_task"
+        ]
+      ],
+      "migration": "신설 / 미적용"
+    },
+    {
+      "name": "flow.log_reviewer",
+      "label": "기간 검토자",
+      "columns": [
+        {
+          "name": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": 1,
+          "rule": "CHECK > 0"
+        },
+        {
+          "name": "period_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "display_name",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        }
+      ],
+      "designRules": [
+        "PK(id)",
+        "UK(workspace_id,generation_id,id)",
+        "범위 앵커→core.workspace/core.data_generation; RESTRICT",
+        "UK(S,period_id,user_id)",
+        "SERVICE: 현재 활성 회사 회원·보드읽기권한",
+        "본인 일지 자가검토 불가"
+      ],
+      "references": [
+        [
+          "period_id",
+          "flow.log_period"
+        ]
+      ],
+      "migration": "신설 / 미적용"
+    },
+    {
+      "name": "flow.work_log",
+      "label": "날짜별 일지",
+      "columns": [
+        {
+          "name": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": 1,
+          "rule": "CHECK > 0"
+        },
+        {
+          "name": "assignment_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "log_date",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "state",
+          "type": "varchar(24)",
+          "nullable": false,
+          "default": "DRAFT",
+          "rule": "DRAFT/SUBMITTED/CHANGES_REQUESTED/REVIEWED"
+        },
+        {
+          "name": "done_text",
+          "type": "text",
+          "nullable": false,
+          "default": "",
+          "rule": ""
+        },
+        {
+          "name": "next_text",
+          "type": "text",
+          "nullable": false,
+          "default": "",
+          "rule": ""
+        },
+        {
+          "name": "issue_text",
+          "type": "text",
+          "nullable": false,
+          "default": "",
+          "rule": ""
+        },
+        {
+          "name": "current_revision",
+          "type": "integer",
+          "nullable": false,
+          "default": 0,
+          "rule": "CHECK >= 0"
+        },
+        {
+          "name": "submitted_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "designRules": [
+        "PK(id)",
+        "UK(workspace_id,generation_id,id)",
+        "범위 앵커→core.workspace/core.data_generation; RESTRICT",
+        "UK(S,assignment_id,log_date)",
+        "SERVICE: 각본문10000자·제출수행업무필수",
+        "SERVICE: 대상일/미래일/작성자/상태/version검증",
+        "임시본 본인만읽기, 제출 snapshot 변경불가"
+      ],
+      "references": [
+        [
+          "assignment_id",
+          "flow.log_assignment"
+        ]
+      ],
+      "migration": "신설 / 미적용"
+    },
+    {
+      "name": "flow.work_log_revision",
+      "label": "불변 제출·검토 이력",
+      "columns": [
+        {
+          "name": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": 1,
+          "rule": "CHECK > 0"
+        },
+        {
+          "name": "log_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "revision_no",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "CHECK > 0"
+        },
+        {
+          "name": "operation",
+          "type": "varchar(24)",
+          "nullable": false,
+          "default": null,
+          "rule": "SUBMIT/WITHDRAW/REVIEW/REQUEST_CHANGES/START_REVISION"
+        },
+        {
+          "name": "state",
+          "type": "varchar(24)",
+          "nullable": false,
+          "default": null,
+          "rule": "위 일지 상태"
+        },
+        {
+          "name": "author_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "author_name",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "done_text",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "next_text",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "issue_text",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "review_note",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "source_revision_no",
+          "type": "integer",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "occurred_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "designRules": [
+        "PK(id)",
+        "UK(workspace_id,generation_id,id)",
+        "범위 앵커→core.workspace/core.data_generation; RESTRICT",
+        "UK(S,log_id,revision_no)",
+        "APPEND ONLY 서비스; row 수정/삭제API없음",
+        "SERVICE: 검토 source revision=현재제출 revision",
+        "current_revision는 일지잠금하에증가;순환FK없음"
+      ],
+      "references": [
+        [
+          "log_id",
+          "flow.work_log"
+        ]
+      ],
+      "migration": "신설 / 미적용"
+    },
+    {
+      "name": "flow.log_comment",
+      "label": "일지 댓글",
+      "columns": [
+        {
+          "name": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": 1,
+          "rule": "CHECK > 0"
+        },
+        {
+          "name": "log_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "revision_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "author_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "author_name",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "body",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        }
+      ],
+      "designRules": [
+        "PK(id)",
+        "UK(workspace_id,generation_id,id)",
+        "범위 앵커→core.workspace/core.data_generation; RESTRICT",
+        "SERVICE: revision 같은 log 및 공개 가능한 제출본",
+        "댓글 본인수정/삭제·전본audit보존",
+        "SERVICE: draft본문 우회노출차단"
+      ],
+      "references": [
+        [
+          "log_id",
+          "flow.work_log"
+        ],
+        [
+          "revision_id",
+          "flow.work_log_revision"
+        ]
+      ],
+      "migration": "신설 / 미적용"
+    }
+  ],
+  "constraints": [
+    {
+      "table": "flow.work_board",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_board",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_board",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_board",
+      "kind": "CHECK",
+      "columns": [
+        "name",
+        "version"
+      ],
+      "expression": "length(trim(name))>0 AND version>0 AND template IN ('PROJECT','TEAM','ISSUE','MEETING')",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_board_member",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_board_member",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_board_member",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_board_member",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "user_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_board_member",
+      "kind": "CHECK",
+      "columns": [
+        "role"
+      ],
+      "expression": "role IN ('OWNER','EDITOR')",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_group",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_group",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_group",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_group",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_group",
+      "kind": "CHECK",
+      "columns": [
+        "name",
+        "color",
+        "version"
+      ],
+      "expression": "length(trim(name))>0 AND color ~ '^#[0-9a-fA-F]{6}$' AND version>0",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "group_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task",
+      "kind": "CHECK",
+      "columns": [
+        "title",
+        "status",
+        "priority",
+        "starts_on",
+        "ends_on",
+        "progress",
+        "version"
+      ],
+      "expression": "length(trim(title))>0 AND status IN ('WAITING','WORKING','BLOCKED','DONE','CANCELLED') AND priority IN ('LOW','NORMAL','HIGH','URGENT') AND (starts_on IS NULL OR ends_on IS NULL OR starts_on<=ends_on) AND progress BETWEEN 0 AND 100 AND (status!='DONE' OR progress=100) AND (status IN ('DONE','CANCELLED') OR progress<100) AND version>0 AND parent_id IS DISTINCT FROM id",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task_assignee",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task_assignee",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task_assignee",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task_assignee",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "task_id",
+        "user_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task_comment",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task_comment",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task_comment",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task_comment",
+      "kind": "CHECK",
+      "columns": [
+        "body",
+        "version"
+      ],
+      "expression": "length(trim(body)) BETWEEN 1 AND 5000 AND version>0",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task_event",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task_event",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task_event",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_board_favorite",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_board_favorite",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_board_favorite",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_board_favorite",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "user_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_view_preference",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_view_preference",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_view_preference",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_view_preference",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "user_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_project_settings",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_project_settings",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_project_settings",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_project_settings",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "프로젝트 업무 무결성"
+    }
+  ],
+  "relations": [
+    {
+      "source": "flow.work_board",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_board",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_board_member",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_board_member",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_group",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_group",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task_assignee",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task_assignee",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task_comment",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task_comment",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task_event",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task_event",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_board_favorite",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_board_favorite",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_view_preference",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_view_preference",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_project_settings",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_project_settings",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_board_member",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id"
+      ],
+      "target": "flow.work_board",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_group",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id"
+      ],
+      "target": "flow.work_board",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id"
+      ],
+      "target": "flow.work_board",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task_event",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id"
+      ],
+      "target": "flow.work_board",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_board_favorite",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id"
+      ],
+      "target": "flow.work_board",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_view_preference",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id"
+      ],
+      "target": "flow.work_board",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "group_id"
+      ],
+      "target": "flow.work_group",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "group_id",
+        "parent_id"
+      ],
+      "target": "flow.work_task",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "group_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task_assignee",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "task_id"
+      ],
+      "target": "flow.work_task",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task_comment",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "task_id"
+      ],
+      "target": "flow.work_task",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_task_event",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "task_id"
+      ],
+      "target": "flow.work_task",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 격리"
+    }
+  ],
+  "states": []
+}

@@ -1,3 +1,13 @@
+## 2026-10-10 FLOW-01 독립 Work OS·업무일지 전체 설계
+
+사용자가 GW 프로젝트 보드를 독립 시스템으로 분리·제공 UI 코드 이식·업무일지 고도화 요청 및 이어서 진행 지시. 방향 승인과 신규 전체 설계 확인을 구별한다. Factory Flow(Work OS·프로젝트 관리·협업), module/schema/package flow, 프런트 /work-os, API /api/v1/flow. 기존 포털 /flow 맵 유지. GW10표 SET SCHEMA로ID/S/댓글/이력 보존, 새 일지8표/총18표191컬럼 설계. 기존 제약42/FK31/상태 보존. 실제 schema0.24.0/headgw_projects·191표464FK 유지.
+
+새 공통 설계: docs/modules/flow/README.md 및 Factory_Flow_독립시스템_업무일지_FLOW-01.md·flow-design.json·flow-design.mmd·별도설계Excel·ui-preview.html. 본부/실→팀기간→팀원→날짜별일지, 제출본회사공유/임시본본인만/지정검토자·자가검토금지/immutable revision. HR원천interface읽기·계정명자동연결금지/수동조직fallback. 구GW주소/메뉴즐겨찾기보존,계정/스키마독립모듈등록·멱등이행·세대정리·성능/가상화·검증명세 포함. 첨부는FLOW-03후속,첫공개는독립앱+UI+일지.
+
+검증: 참조React코드분석(캘린더/간트EmptyView,고정명단/child boolean,일부무동작버튼),설계18표191컬럼/관계·앵커/문서링크/XLSX3시트통과. Spreadsheet artifact-tool 생성·3시트렌더확인. UI시제품JS문법/브라우저검색·일지트리·우측패널·가상제출·390px확인. 모두합성예제/탭내시제품으로 실제API저장 없음. 제품pytest/vitest/실제DDL/migration/부하/배포 미실행(제품변경없음). 사용자원본폴더/실제회사/계정/비밀번호/확장설정 변경없음. 기존5173/8000유지,검토8766서버는종료.
+
+브랜치 codex/gw-flow-design, 설계 문서만 main 반영 대상. 사용자 전체 설계 확인 전 FLOW-02 제품구현/DB변경 시작금지(AGENTS §2 및 설계완료 승인기준). 다음: 설계확인후 새codex/gw-flow-implementation에서원장독립이관·UI·일지동일범위구현→검증→로컬백업적용→mainpush. 전체설계후데이터책임/권한변경이커서기존GW-PROJECT승인으로대체하지않는다. 최종커밋은git log -1. 검토화면/Excel은사용자 outputs와저장소모듈에보존하여work임시파일없이재개가능.
+
 ## 2026-10-10 GW-PROJECT 첫 공개 구현 완료
 
 회사 공동 보드·그룹·1단계 하위 업무·복수 담당자·상태/중요도/기간/진행률·표/칸반/기간 캘린더/기본 간트·내 업무·댓글/변경 이력·보드 즐겨찾기/보기 설정 구현. GW G-14/G-15와 도움말 추가. 회사 회원 기본 VIEWER, 지정 EDITOR/OWNER만 업무 수정, 플랫폼 ADMIN/HR ADMIN 자동 권한 없음. 멤버십 fresh authorize·회사 격리·version409·멱등 재시도·마지막 OWNER 보호·자식 집계·보관 배치 복구 검증. 부모 기준 페이지 조회가 자식을 함께 반환한다.
