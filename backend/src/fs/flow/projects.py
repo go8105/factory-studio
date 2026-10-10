@@ -22,7 +22,7 @@ def rows(c, ctx, table, where="", extra=None):
     return [
         dict(r)
         for r in c.execute(
-            text(f"SELECT * FROM gw.{table} WHERE {S} {where}"),
+            text(f"SELECT * FROM flow.{table} WHERE {S} {where}"),
             {**params(ctx), **(extra or {})},
         ).mappings()
     ]
@@ -64,7 +64,7 @@ def company_list(ctx):
 def overview(ctx, cid, bid=None, offset=0, limit=50, search="", status="", mine=False):
     with read() as c:
         sc, company = resolve_company(c, ctx, cid)
-        sc = read_scope(c, sc, "gw")
+        sc = read_scope(c, sc, "flow")
         person, people = principal(c, sc)
         boards = rows(c, sc, "work_board", "ORDER BY id DESC")
         favorites = rows(
@@ -83,11 +83,11 @@ def overview(ctx, cid, bid=None, offset=0, limit=50, search="", status="", mine=
         if bid:
             b, role = board(c, sc, bid, archived=True)
             # 부모 단위 페이지: 부모와 그 하위 업무를 같은 페이지에 담아 집계를 보존한다.
-            matches = f"""SELECT DISTINCT COALESCE(t.parent_id,t.id) root FROM gw.work_task t
+            matches = f"""SELECT DISTINCT COALESCE(t.parent_id,t.id) root FROM flow.work_task t
               WHERE t.{S.replace(" AND ", " AND t.")} AND t.board_id=:id
                 AND (:search='' OR strpos(lower(t.title),lower(:search))>0)
                 AND (:status='' OR t.status=:status)
-                AND (NOT :mine OR EXISTS(SELECT 1 FROM gw.work_task_assignee a WHERE
+                AND (NOT :mine OR EXISTS(SELECT 1 FROM flow.work_task_assignee a WHERE
                   (a.workspace_id,a.generation_id,a.task_id,a.user_id)=(t.workspace_id,t.generation_id,t.id,:u)))"""
             query = {
                 **params(sc),
@@ -104,7 +104,7 @@ def overview(ctx, cid, bid=None, offset=0, limit=50, search="", status="", mine=
             root_ids = (
                 c.execute(
                     text(
-                        f"SELECT id FROM gw.work_task WHERE {S} AND board_id=:id AND parent_id IS NULL AND id IN ({matches}) ORDER BY position,id LIMIT :limit OFFSET :offset"
+                        f"SELECT id FROM flow.work_task WHERE {S} AND board_id=:id AND parent_id IS NULL AND id IN ({matches}) ORDER BY position,id LIMIT :limit OFFSET :offset"
                     ),
                     query,
                 )
@@ -130,7 +130,7 @@ def overview(ctx, cid, bid=None, offset=0, limit=50, search="", status="", mine=
                 dict(r)
                 for r in c.execute(
                     text(
-                        f"SELECT a.* FROM gw.work_task_assignee a JOIN gw.work_task t ON (a.workspace_id,a.generation_id,a.task_id)=(t.workspace_id,t.generation_id,t.id) WHERE t.{S.replace(' AND ', ' AND t.')} AND t.board_id=:id AND t.id=ANY(:task_ids)"
+                        f"SELECT a.* FROM flow.work_task_assignee a JOIN flow.work_task t ON (a.workspace_id,a.generation_id,a.task_id)=(t.workspace_id,t.generation_id,t.id) WHERE t.{S.replace(' AND ', ' AND t.')} AND t.board_id=:id AND t.id=ANY(:task_ids)"
                     ),
                     {**params(sc), "id": bid, "task_ids": [t["id"] for t in tasks]},
                 ).mappings()
@@ -203,7 +203,7 @@ def aggregate(tasks):
 def detail(ctx, cid, bid, tid, offset=0):
     with read() as c:
         sc, _ = resolve_company(c, ctx, cid)
-        sc = read_scope(c, sc, "gw")
+        sc = read_scope(c, sc, "flow")
         board(c, sc, bid, archived=True)
         task = rows(
             c, sc, "work_task", "AND board_id=:b AND id=:id", {"b": bid, "id": tid}
@@ -233,15 +233,15 @@ def detail(ctx, cid, bid, tid, offset=0):
 def my_tasks(ctx, cid):
     with read() as c:
         sc, company = resolve_company(c, ctx, cid)
-        sc = read_scope(c, sc, "gw")
+        sc = read_scope(c, sc, "flow")
         _, people = principal(c, sc)
         tasks = [
             dict(r)
             for r in c.execute(
-                text(f"""SELECT t.*,b.name AS board_name FROM gw.work_task t JOIN gw.work_board b ON (t.workspace_id,t.generation_id,t.board_id)=(b.workspace_id,b.generation_id,b.id)
-        JOIN gw.work_task_assignee a ON (t.workspace_id,t.generation_id,t.id)=(a.workspace_id,a.generation_id,a.task_id)
+                text(f"""SELECT t.*,b.name AS board_name FROM flow.work_task t JOIN flow.work_board b ON (t.workspace_id,t.generation_id,t.board_id)=(b.workspace_id,b.generation_id,b.id)
+        JOIN flow.work_task_assignee a ON (t.workspace_id,t.generation_id,t.id)=(a.workspace_id,a.generation_id,a.task_id)
         WHERE t.{S.replace(" AND ", " AND t.")} AND a.user_id=:u AND t.archived_at IS NULL AND b.archived_at IS NULL
-        AND NOT EXISTS(SELECT 1 FROM gw.work_task ch WHERE (ch.workspace_id,ch.generation_id,ch.parent_id)=(t.workspace_id,t.generation_id,t.id) AND ch.archived_at IS NULL)
+        AND NOT EXISTS(SELECT 1 FROM flow.work_task ch WHERE (ch.workspace_id,ch.generation_id,ch.parent_id)=(t.workspace_id,t.generation_id,t.id) AND ch.archived_at IS NULL)
         ORDER BY t.ends_on NULLS LAST,t.id LIMIT 1000"""),
                 params(sc),
             ).mappings()
@@ -273,7 +273,7 @@ def my_tasks(ctx, cid):
 def mutate(ctx, cid, op, key, body):
     with read() as c:
         sc, _ = resolve_company(c, ctx, cid)
-        sc = read_scope(c, sc, "gw")
+        sc = read_scope(c, sc, "flow")
     bid = body.get("boardId")
     personal = op in ("favorite", "preference")
     owner = op in ("board-update", "member", "settings")
@@ -306,7 +306,7 @@ def mutate(ctx, cid, op, key, body):
             }
             return c.execute(
                 text(
-                    f"INSERT INTO gw.{table} ({','.join(values)}) VALUES ({','.join(':' + k for k in values)}) RETURNING id"
+                    f"INSERT INTO flow.{table} ({','.join(values)}) VALUES ({','.join(':' + k for k in values)}) RETURNING id"
                 ),
                 values,
             ).scalar_one()
@@ -314,7 +314,7 @@ def mutate(ctx, cid, op, key, body):
         def update(table, id, values, version):
             count = c.execute(
                 text(
-                    f"UPDATE gw.{table} SET {','.join(k + '=:' + k for k in values)},version=version+1 WHERE {S} AND id=:id AND version=:version"
+                    f"UPDATE flow.{table} SET {','.join(k + '=:' + k for k in values)},version=version+1 WHERE {S} AND id=:id AND version=:version"
                 ),
                 {**p, **values, "id": id, "version": version},
             ).rowcount
@@ -367,7 +367,7 @@ def mutate(ctx, cid, op, key, body):
         elif op == "settings":
             c.execute(
                 text(
-                    "INSERT INTO gw.work_project_settings(workspace_id,generation_id,allow_create) VALUES(:w,:g,:allow) ON CONFLICT(workspace_id,generation_id) DO UPDATE SET allow_create=:allow,version=gw.work_project_settings.version+1"
+                    "INSERT INTO flow.work_project_settings(workspace_id,generation_id,allow_create) VALUES(:w,:g,:allow) ON CONFLICT(workspace_id,generation_id) DO UPDATE SET allow_create=:allow,version=flow.work_project_settings.version+1"
                 ),
                 {**p, "allow": body["allowCreate"]},
             )
@@ -397,7 +397,7 @@ def mutate(ctx, cid, op, key, body):
                 raise ApiError(409, "LAST_OWNER", "다른 활성 소유자를 먼저 지정하세요.")
             c.execute(
                 text(
-                    f"DELETE FROM gw.work_board_member WHERE {S} AND board_id=:b AND user_id=:target"
+                    f"DELETE FROM flow.work_board_member WHERE {S} AND board_id=:b AND user_id=:target"
                 ),
                 {**p, "b": bid, "target": body["userId"]},
             )
@@ -562,7 +562,7 @@ def mutate(ctx, cid, op, key, body):
                         )
                         c.execute(
                             text(
-                                f"UPDATE gw.work_task SET archived_at=:a,version=version+1 WHERE {S} AND parent_id=:id AND {predicate}"
+                                f"UPDATE flow.work_task SET archived_at=:a,version=version+1 WHERE {S} AND parent_id=:id AND {predicate}"
                             ),
                             {
                                 **p,
@@ -586,7 +586,7 @@ def mutate(ctx, cid, op, key, body):
                     422, "INVALID_ASSIGNEE", "활성 회사 계정만 새로 배정할 수 있습니다."
                 )
             c.execute(
-                text(f"DELETE FROM gw.work_task_assignee WHERE {S} AND task_id=:id"),
+                text(f"DELETE FROM flow.work_task_assignee WHERE {S} AND task_id=:id"),
                 {**p, "id": tid},
             )
             for u in set(users):
@@ -601,7 +601,7 @@ def mutate(ctx, cid, op, key, body):
             if parent:
                 c.execute(
                     text(
-                        f"UPDATE gw.work_task SET version=version+1 WHERE {S} AND id=:id"
+                        f"UPDATE flow.work_task SET version=version+1 WHERE {S} AND id=:id"
                     ),
                     {**p, "id": parent},
                 )
@@ -657,7 +657,7 @@ def mutate(ctx, cid, op, key, body):
             )
             c.execute(
                 text(
-                    f"DELETE FROM gw.{entity} WHERE {S} AND board_id=:b AND user_id=:u"
+                    f"DELETE FROM flow.{entity} WHERE {S} AND board_id=:b AND user_id=:u"
                 ),
                 {**p, "b": bid},
             )
@@ -686,6 +686,6 @@ def mutate(ctx, cid, op, key, body):
                     ),
                 },
             ) if op != "settings" else None
-        return {"id": eid}, "gw." + entity, eid
+        return {"id": eid}, "flow." + entity, eid
 
-    return action("gw", sc, "gw.projects." + op, key, body, run, authorize=authorize)
+    return action("flow", sc, "gw.projects." + op, key, body, run, authorize=authorize)

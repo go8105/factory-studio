@@ -1,5 +1,6 @@
 // P-05 참고 문서 구조 (DOC-01 §3~5). 구역은 경로 앞부분, 순서는 파일명, 제목은 첫 줄에서 얻는다.
 // 사용자 참고 문서 트리는 새로 정의하지 않고 솔루션 메뉴 배열의 group을 그대로 쓴다.
+import { flowScreens } from "../shared/menuCatalog";
 import type { Screen } from "../shared/SolutionLayout";
 import { hrScreens } from "../hr/HrLayout";
 import { mesScreens } from "../mes/MesLayout";
@@ -30,6 +31,7 @@ const solutions: [string, string, Screen[]][] = [
   ["bems", "BEMS 건물관리", bemsScreens],
   ["spc", "SPC 공정관리", spcScreens],
   ["gw", "GW 그룹웨어", gwScreens],
+  ["flow", "Factory Flow 프로젝트 협업", flowScreens],
 ];
 // 첫 화면 "많이 찾는 문서". 없는 키는 건너뛴다.
 export const popular = [
@@ -61,6 +63,7 @@ export function docSections(docs: Docs): DocSection[] {
       ),
     },
   ];
+  reference.push({solution:"Factory Flow 프로젝트 협업",title:"이전 GW 링크 안내",keys:["gw/g-14","gw/g-15"].filter((k)=>Object.hasOwn(docs,k))});
   for (const [prefix, name, screens] of solutions)
     for (const s of screens) {
       const key = `${prefix}/${s.id.toLowerCase()}`;

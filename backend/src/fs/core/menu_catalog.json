@@ -91,18 +91,6 @@
           "id": "G-09",
           "label": "결재 위임",
           "group": "전자결재"
-        },
-        {
-          "path": "projects",
-          "id": "G-14",
-          "label": "프로젝트·업무",
-          "group": "업무 관리"
-        },
-        {
-          "path": "my-tasks",
-          "id": "G-15",
-          "label": "내 업무",
-          "group": "업무 관리"
         }
       ]
     },
@@ -747,6 +735,24 @@
           "id": "H-18",
           "label": "사용자 관리",
           "group": "회사 근무"
+        }
+      ]
+    },
+    {
+      "key": "flow",
+      "name": "Factory Flow",
+      "screens": [
+        {
+          "path": "my-tasks",
+          "id": "F-01",
+          "label": "내 업무",
+          "group": "프로젝트 협업"
+        },
+        {
+          "path": "boards",
+          "id": "F-02",
+          "label": "프로젝트 보드",
+          "group": "프로젝트 협업"
         }
       ]
     }

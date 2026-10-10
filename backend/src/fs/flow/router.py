@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
-from fs.gw import projects
+from fs.flow import projects
 
 router = APIRouter()
 Auth = Annotated[AuthContext, Depends(resolve_auth)]

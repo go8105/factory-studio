@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const target=process.argv.includes('--target'); // DSN-00: 목표 설계 → DB설계서_목표.xlsx
 const d=JSON.parse(await fs.readFile(path.join(root,target?'docs/db/schema-metadata/schema-target.json':'docs/db/schema-metadata/schema.json'),'utf8'));
-const modules={core:'CORE',mes:'MES',erp:'ERP',fems:'FEMS',qms:'QMS',wms:'WMS',bems:'BEMS',spc:'SPC',gw:'GW',cmms:'CMMS'};
+const modules={core:'CORE',mes:'MES',erp:'ERP',fems:'FEMS',qms:'QMS',wms:'WMS',bems:'BEMS',spc:'SPC',gw:'GW',flow:'Factory Flow',cmms:'CMMS'};
 for(const t of d.tables){const m=t.name.split('.')[0];modules[m]??=m.toUpperCase()}
 const specs=[];
 function spec(name,title,heads,rows,widths){const s={name,title,heads,rows:rows.map(row=>row.map(value=>value===''?null:value)),widths,links:[]};specs.push(s);return s}

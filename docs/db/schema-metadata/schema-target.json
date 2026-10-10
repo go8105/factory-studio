@@ -16585,7 +16585,7 @@
       "retention": "회사 기록 보존 / 세대 정리 제외"
     },
     {
-      "name": "gw.work_board",
+      "name": "flow.work_board",
       "label": "work_board",
       "scope": "workspace_generation",
       "phase": "GW-PROJECT",
@@ -16668,7 +16668,7 @@
       "guest_cleanup": "자식부터 부모 순 정리"
     },
     {
-      "name": "gw.work_board_member",
+      "name": "flow.work_board_member",
       "label": "work_board_member",
       "scope": "workspace_generation",
       "phase": "GW-PROJECT",
@@ -16735,7 +16735,7 @@
       "guest_cleanup": "자식부터 부모 순 정리"
     },
     {
-      "name": "gw.work_group",
+      "name": "flow.work_group",
       "label": "work_group",
       "scope": "workspace_generation",
       "phase": "GW-PROJECT",
@@ -16818,7 +16818,7 @@
       "guest_cleanup": "자식부터 부모 순 정리"
     },
     {
-      "name": "gw.work_task",
+      "name": "flow.work_task",
       "label": "work_task",
       "scope": "workspace_generation",
       "phase": "GW-PROJECT",
@@ -16965,7 +16965,7 @@
       "guest_cleanup": "자식부터 부모 순 정리"
     },
     {
-      "name": "gw.work_task_assignee",
+      "name": "flow.work_task_assignee",
       "label": "work_task_assignee",
       "scope": "workspace_generation",
       "phase": "GW-PROJECT",
@@ -17032,7 +17032,7 @@
       "guest_cleanup": "자식부터 부모 순 정리"
     },
     {
-      "name": "gw.work_task_comment",
+      "name": "flow.work_task_comment",
       "label": "work_task_comment",
       "scope": "workspace_generation",
       "phase": "GW-PROJECT",
@@ -17123,7 +17123,7 @@
       "guest_cleanup": "자식부터 부모 순 정리"
     },
     {
-      "name": "gw.work_task_event",
+      "name": "flow.work_task_event",
       "label": "work_task_event",
       "scope": "workspace_generation",
       "phase": "GW-PROJECT",
@@ -17206,7 +17206,7 @@
       "guest_cleanup": "자식부터 부모 순 정리"
     },
     {
-      "name": "gw.work_board_favorite",
+      "name": "flow.work_board_favorite",
       "label": "work_board_favorite",
       "scope": "workspace_generation",
       "phase": "GW-PROJECT",
@@ -17273,7 +17273,7 @@
       "guest_cleanup": "자식부터 부모 순 정리"
     },
     {
-      "name": "gw.work_view_preference",
+      "name": "flow.work_view_preference",
       "label": "work_view_preference",
       "scope": "workspace_generation",
       "phase": "GW-PROJECT",
@@ -17340,7 +17340,7 @@
       "guest_cleanup": "자식부터 부모 순 정리"
     },
     {
-      "name": "gw.work_project_settings",
+      "name": "flow.work_project_settings",
       "label": "work_project_settings",
       "scope": "workspace_generation",
       "phase": "GW-PROJECT",
@@ -44953,7 +44953,7 @@
       "note": "HR-TIME-01"
     },
     {
-      "source": "gw.work_board",
+      "source": "flow.work_board",
       "columns": [
         "workspace_id"
       ],
@@ -44966,7 +44966,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_board",
+      "source": "flow.work_board",
       "columns": [
         "workspace_id",
         "generation_id"
@@ -44981,7 +44981,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_board_member",
+      "source": "flow.work_board_member",
       "columns": [
         "workspace_id"
       ],
@@ -44994,7 +44994,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_board_member",
+      "source": "flow.work_board_member",
       "columns": [
         "workspace_id",
         "generation_id"
@@ -45009,7 +45009,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_group",
+      "source": "flow.work_group",
       "columns": [
         "workspace_id"
       ],
@@ -45022,7 +45022,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_group",
+      "source": "flow.work_group",
       "columns": [
         "workspace_id",
         "generation_id"
@@ -45037,7 +45037,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task",
+      "source": "flow.work_task",
       "columns": [
         "workspace_id"
       ],
@@ -45050,7 +45050,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task",
+      "source": "flow.work_task",
       "columns": [
         "workspace_id",
         "generation_id"
@@ -45065,7 +45065,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task_assignee",
+      "source": "flow.work_task_assignee",
       "columns": [
         "workspace_id"
       ],
@@ -45078,7 +45078,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task_assignee",
+      "source": "flow.work_task_assignee",
       "columns": [
         "workspace_id",
         "generation_id"
@@ -45093,7 +45093,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task_comment",
+      "source": "flow.work_task_comment",
       "columns": [
         "workspace_id"
       ],
@@ -45106,7 +45106,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task_comment",
+      "source": "flow.work_task_comment",
       "columns": [
         "workspace_id",
         "generation_id"
@@ -45121,7 +45121,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task_event",
+      "source": "flow.work_task_event",
       "columns": [
         "workspace_id"
       ],
@@ -45134,7 +45134,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task_event",
+      "source": "flow.work_task_event",
       "columns": [
         "workspace_id",
         "generation_id"
@@ -45149,7 +45149,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_board_favorite",
+      "source": "flow.work_board_favorite",
       "columns": [
         "workspace_id"
       ],
@@ -45162,7 +45162,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_board_favorite",
+      "source": "flow.work_board_favorite",
       "columns": [
         "workspace_id",
         "generation_id"
@@ -45177,7 +45177,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_view_preference",
+      "source": "flow.work_view_preference",
       "columns": [
         "workspace_id"
       ],
@@ -45190,7 +45190,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_view_preference",
+      "source": "flow.work_view_preference",
       "columns": [
         "workspace_id",
         "generation_id"
@@ -45205,7 +45205,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_project_settings",
+      "source": "flow.work_project_settings",
       "columns": [
         "workspace_id"
       ],
@@ -45218,7 +45218,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_project_settings",
+      "source": "flow.work_project_settings",
       "columns": [
         "workspace_id",
         "generation_id"
@@ -45233,13 +45233,13 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_board_member",
+      "source": "flow.work_board_member",
       "columns": [
         "workspace_id",
         "generation_id",
         "board_id"
       ],
-      "target": "gw.work_board",
+      "target": "flow.work_board",
       "target_columns": [
         "workspace_id",
         "generation_id",
@@ -45250,13 +45250,13 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_group",
+      "source": "flow.work_group",
       "columns": [
         "workspace_id",
         "generation_id",
         "board_id"
       ],
-      "target": "gw.work_board",
+      "target": "flow.work_board",
       "target_columns": [
         "workspace_id",
         "generation_id",
@@ -45267,13 +45267,13 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task",
+      "source": "flow.work_task",
       "columns": [
         "workspace_id",
         "generation_id",
         "board_id"
       ],
-      "target": "gw.work_board",
+      "target": "flow.work_board",
       "target_columns": [
         "workspace_id",
         "generation_id",
@@ -45284,13 +45284,13 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task_event",
+      "source": "flow.work_task_event",
       "columns": [
         "workspace_id",
         "generation_id",
         "board_id"
       ],
-      "target": "gw.work_board",
+      "target": "flow.work_board",
       "target_columns": [
         "workspace_id",
         "generation_id",
@@ -45301,13 +45301,13 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_board_favorite",
+      "source": "flow.work_board_favorite",
       "columns": [
         "workspace_id",
         "generation_id",
         "board_id"
       ],
-      "target": "gw.work_board",
+      "target": "flow.work_board",
       "target_columns": [
         "workspace_id",
         "generation_id",
@@ -45318,13 +45318,13 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_view_preference",
+      "source": "flow.work_view_preference",
       "columns": [
         "workspace_id",
         "generation_id",
         "board_id"
       ],
-      "target": "gw.work_board",
+      "target": "flow.work_board",
       "target_columns": [
         "workspace_id",
         "generation_id",
@@ -45335,14 +45335,14 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task",
+      "source": "flow.work_task",
       "columns": [
         "workspace_id",
         "generation_id",
         "board_id",
         "group_id"
       ],
-      "target": "gw.work_group",
+      "target": "flow.work_group",
       "target_columns": [
         "workspace_id",
         "generation_id",
@@ -45354,7 +45354,7 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task",
+      "source": "flow.work_task",
       "columns": [
         "workspace_id",
         "generation_id",
@@ -45362,7 +45362,7 @@
         "group_id",
         "parent_id"
       ],
-      "target": "gw.work_task",
+      "target": "flow.work_task",
       "target_columns": [
         "workspace_id",
         "generation_id",
@@ -45375,13 +45375,13 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task_assignee",
+      "source": "flow.work_task_assignee",
       "columns": [
         "workspace_id",
         "generation_id",
         "task_id"
       ],
-      "target": "gw.work_task",
+      "target": "flow.work_task",
       "target_columns": [
         "workspace_id",
         "generation_id",
@@ -45392,13 +45392,13 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task_comment",
+      "source": "flow.work_task_comment",
       "columns": [
         "workspace_id",
         "generation_id",
         "task_id"
       ],
-      "target": "gw.work_task",
+      "target": "flow.work_task",
       "target_columns": [
         "workspace_id",
         "generation_id",
@@ -45409,13 +45409,13 @@
       "note": "회사 공간·세대 격리"
     },
     {
-      "source": "gw.work_task_event",
+      "source": "flow.work_task_event",
       "columns": [
         "workspace_id",
         "generation_id",
         "task_id"
       ],
-      "target": "gw.work_task",
+      "target": "flow.work_task",
       "target_columns": [
         "workspace_id",
         "generation_id",
@@ -53798,7 +53798,7 @@
       "table": "core.workspace_module",
       "kind": "CHECK",
       "columns": [],
-      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms', 'hr', 'pop', 'tms', 'plm', 'crm', 'scm', 'elb', 'rws')",
+      "expression": "module_key IN ('core','mes','erp','fems','qms','wms','bems','spc', 'gw', 'cmms', 'hr', 'flow', 'pop', 'tms', 'plm', 'crm', 'scm', 'elb', 'rws')",
       "reason": "행 내부 데이터 정합성"
     },
     {
@@ -62050,7 +62050,7 @@
       "columns": [
         "module_key"
       ],
-      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms', 'hr', 'pop', 'tms', 'plm', 'crm', 'scm', 'elb', 'rws')",
+      "expression": "module_key IN ('mes', 'erp', 'fems', 'qms', 'wms', 'bems', 'spc', 'gw', 'cmms', 'hr', 'flow', 'pop', 'tms', 'plm', 'crm', 'scm', 'elb', 'rws')",
       "reason": "평가 대상 솔루션"
     },
     {
@@ -65705,7 +65705,7 @@
       "reason": "HR-TIME-01 회사 근무 정합성"
     },
     {
-      "table": "gw.work_board",
+      "table": "flow.work_board",
       "kind": "PK",
       "columns": [
         "id"
@@ -65714,7 +65714,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_board",
+      "table": "flow.work_board",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -65725,7 +65725,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_board",
+      "table": "flow.work_board",
       "kind": "INDEX",
       "columns": [
         "workspace_id",
@@ -65735,7 +65735,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_board",
+      "table": "flow.work_board",
       "kind": "CHECK",
       "columns": [
         "name",
@@ -65745,7 +65745,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_board_member",
+      "table": "flow.work_board_member",
       "kind": "PK",
       "columns": [
         "id"
@@ -65754,7 +65754,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_board_member",
+      "table": "flow.work_board_member",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -65765,7 +65765,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_board_member",
+      "table": "flow.work_board_member",
       "kind": "INDEX",
       "columns": [
         "workspace_id",
@@ -65775,7 +65775,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_board_member",
+      "table": "flow.work_board_member",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -65787,7 +65787,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_board_member",
+      "table": "flow.work_board_member",
       "kind": "CHECK",
       "columns": [
         "role"
@@ -65796,7 +65796,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_group",
+      "table": "flow.work_group",
       "kind": "PK",
       "columns": [
         "id"
@@ -65805,7 +65805,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_group",
+      "table": "flow.work_group",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -65816,7 +65816,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_group",
+      "table": "flow.work_group",
       "kind": "INDEX",
       "columns": [
         "workspace_id",
@@ -65826,7 +65826,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_group",
+      "table": "flow.work_group",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -65838,7 +65838,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_group",
+      "table": "flow.work_group",
       "kind": "CHECK",
       "columns": [
         "name",
@@ -65849,7 +65849,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task",
+      "table": "flow.work_task",
       "kind": "PK",
       "columns": [
         "id"
@@ -65858,7 +65858,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task",
+      "table": "flow.work_task",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -65869,7 +65869,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task",
+      "table": "flow.work_task",
       "kind": "INDEX",
       "columns": [
         "workspace_id",
@@ -65879,7 +65879,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task",
+      "table": "flow.work_task",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -65892,7 +65892,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task",
+      "table": "flow.work_task",
       "kind": "CHECK",
       "columns": [
         "title",
@@ -65907,7 +65907,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task_assignee",
+      "table": "flow.work_task_assignee",
       "kind": "PK",
       "columns": [
         "id"
@@ -65916,7 +65916,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task_assignee",
+      "table": "flow.work_task_assignee",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -65927,7 +65927,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task_assignee",
+      "table": "flow.work_task_assignee",
       "kind": "INDEX",
       "columns": [
         "workspace_id",
@@ -65937,7 +65937,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task_assignee",
+      "table": "flow.work_task_assignee",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -65949,7 +65949,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task_comment",
+      "table": "flow.work_task_comment",
       "kind": "PK",
       "columns": [
         "id"
@@ -65958,7 +65958,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task_comment",
+      "table": "flow.work_task_comment",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -65969,7 +65969,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task_comment",
+      "table": "flow.work_task_comment",
       "kind": "INDEX",
       "columns": [
         "workspace_id",
@@ -65979,7 +65979,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task_comment",
+      "table": "flow.work_task_comment",
       "kind": "CHECK",
       "columns": [
         "body",
@@ -65989,7 +65989,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task_event",
+      "table": "flow.work_task_event",
       "kind": "PK",
       "columns": [
         "id"
@@ -65998,7 +65998,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task_event",
+      "table": "flow.work_task_event",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -66009,7 +66009,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_task_event",
+      "table": "flow.work_task_event",
       "kind": "INDEX",
       "columns": [
         "workspace_id",
@@ -66019,7 +66019,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_board_favorite",
+      "table": "flow.work_board_favorite",
       "kind": "PK",
       "columns": [
         "id"
@@ -66028,7 +66028,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_board_favorite",
+      "table": "flow.work_board_favorite",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -66039,7 +66039,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_board_favorite",
+      "table": "flow.work_board_favorite",
       "kind": "INDEX",
       "columns": [
         "workspace_id",
@@ -66049,7 +66049,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_board_favorite",
+      "table": "flow.work_board_favorite",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -66061,7 +66061,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_view_preference",
+      "table": "flow.work_view_preference",
       "kind": "PK",
       "columns": [
         "id"
@@ -66070,7 +66070,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_view_preference",
+      "table": "flow.work_view_preference",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -66081,7 +66081,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_view_preference",
+      "table": "flow.work_view_preference",
       "kind": "INDEX",
       "columns": [
         "workspace_id",
@@ -66091,7 +66091,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_view_preference",
+      "table": "flow.work_view_preference",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -66103,7 +66103,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_project_settings",
+      "table": "flow.work_project_settings",
       "kind": "PK",
       "columns": [
         "id"
@@ -66112,7 +66112,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_project_settings",
+      "table": "flow.work_project_settings",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -66123,7 +66123,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_project_settings",
+      "table": "flow.work_project_settings",
       "kind": "INDEX",
       "columns": [
         "workspace_id",
@@ -66133,7 +66133,7 @@
       "reason": "프로젝트 업무 무결성"
     },
     {
-      "table": "gw.work_project_settings",
+      "table": "flow.work_project_settings",
       "kind": "UK",
       "columns": [
         "workspace_id",
@@ -82343,7 +82343,7 @@
       "version": "target-0.1.0",
       "task": "DSN-00",
       "date": "2026-10-05",
-      "change": "목표 설계 시작: schema.json 0.24.0/GW-PROJECT 복사(191테이블). 이후 DSN-11~ 보강·신규 설계를 여기에 쌓는다",
+      "change": "목표 설계 시작: schema.json 0.24.1/GW-PROJECT 복사(191테이블). 이후 DSN-11~ 보강·신규 설계를 여기에 쌓는다",
       "status": "설계 전용"
     },
     {

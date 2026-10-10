@@ -127,7 +127,7 @@ it("회사 보드를 열고 네 보기가 같은 업무를 표시한다", async 
   });
   await waitFor(() =>
     expect(fetch).toHaveBeenCalledWith(
-      "/api/v1/gw/projects/task-update?companyId=4",
+      "/api/v1/flow/task-update?companyId=4",
       expect.objectContaining({ method: "POST" }),
     ),
   );

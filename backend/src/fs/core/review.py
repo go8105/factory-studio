@@ -16,7 +16,7 @@ from fs.common.idempotency import find_receipt, request_digest, save_receipt
 from fs.core.schema import ApiModel
 from fs.core.service import guest_nickname
 
-MODULES = ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw")
+MODULES = ("mes", "erp", "fems", "qms", "wms", "bems", "spc", "gw", "flow")
 OPERATION = "review.create"
 
 router = APIRouter()

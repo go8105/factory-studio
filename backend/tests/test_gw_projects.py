@@ -6,7 +6,7 @@ from sqlalchemy import text
 
 pytest_plugins = ["test_hr_work"]
 
-ROOT = "/api/v1/gw/projects"
+ROOT = "/api/v1/flow"
 
 
 def get(client, company, bid=None):
@@ -355,7 +355,7 @@ def test_company_policy_group_reorder_and_comment_audit(company_env):
     with engine.connect() as c:
         event = c.execute(
             text(
-                "SELECT details FROM gw.work_task_event WHERE workspace_id=:w AND action='comment-update'"
+                "SELECT details FROM flow.work_task_event WHERE workspace_id=:w AND action='comment-update'"
             ),
             {"w": company["companyId"]},
         ).scalar_one()
@@ -423,3 +423,36 @@ def test_parent_pagination_preserves_children_and_server_filters(company_env):
     assert {t["id"] for t in found["tasks"]} == {first, child}
     assert found["tasks"][0]["progress"] == 100
     assert page(search="%")["tasks"] == []
+
+
+def test_flow_alias_receipt_and_independent_module(company_env):
+    engine, company, admin, _ = company_env
+    key = str(uuid4())
+    body = {"name": "이전 링크 재시도 보드", "template": "PROJECT"}
+    first = post(admin, company, "board-create", body, key)
+    assert first.status_code == 200
+    replay = admin.post(
+        "/api/v1/gw/projects/board-create",
+        params={"companyId": company["companyId"]},
+        json=body,
+        headers={"X-CSRF-Token": admin.csrf, "Idempotency-Key": key},
+    )
+    assert replay.json() == first.json()
+    with engine.begin() as c:
+        c.execute(
+            text(
+                "UPDATE core.workspace_module SET enabled=false WHERE workspace_id=:w AND module_key='gw'"
+            ),
+            {"w": company["companyId"]},
+        )
+    assert get(admin, company)["boards"][0]["id"] == first.json()["data"]["id"]
+    with engine.begin() as c:
+        c.execute(
+            text(
+                "UPDATE core.workspace_module SET enabled=false WHERE workspace_id=:w AND module_key='flow'"
+            ),
+            {"w": company["companyId"]},
+        )
+    assert (
+        admin.get(ROOT, params={"companyId": company["companyId"]}).status_code == 409
+    )

@@ -14,7 +14,7 @@ export const menuCatalog: Menu[] = menuSolutions.flatMap((solution) =>
     key: `${solution.key}:${screen.path}`,
     module: solution.key,
     solution: solution.name,
-    to: `/${solution.key}/${screen.path}`,
+    to: `${solution.key === "flow" ? "/work-os" : "/" + solution.key}/${screen.path}`,
   })),
 );
 export const menuByKey = new Map(menuCatalog.map((menu) => [menu.key, menu]));
@@ -30,3 +30,5 @@ export const qmsScreens = screens("qms");
 export const bemsScreens = screens("bems");
 export const spcScreens = screens("spc");
 export const hrScreens = screens("hr");
+
+export const flowScreens = screens("flow");

@@ -56,6 +56,12 @@ def create_example_company(c, admin_password, staff_password):
         ),
         {"w": w, "g": g},
     )
+    c.execute(
+        text(
+            "INSERT INTO core.workspace_module(workspace_id,module_key,enabled,seeded_generation_id) VALUES (:w,'flow',true,:g)"
+        ),
+        {"w": w, "g": g},
+    )
     params = {"w": w, "g": g}
     department = c.execute(
         text(

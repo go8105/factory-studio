@@ -294,7 +294,7 @@ def create_member_account(
     connection.execute(
         text(
             "INSERT INTO core.workspace_module(workspace_id,module_key,enabled) "
-            "SELECT :w,m,true FROM unnest(ARRAY['core','mes','erp','fems','qms','wms','bems','spc','gw','cmms','hr']) m"
+            "SELECT :w,m,true FROM unnest(ARRAY['core','mes','erp','fems','qms','wms','bems','spc','gw','cmms','hr','flow']) m"
         ),
         {"w": workspace_id},
     )

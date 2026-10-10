@@ -3,7 +3,7 @@ import { useSession } from "../app/session";
 import { api, MutationKeys } from "../shared/api";
 import { ErrorNotice } from "../shared/components";
 import "./Projects.css";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 type Member = { id: number; name: string; active: boolean; role: string };
 type Board = {
@@ -106,7 +106,7 @@ const columnLabels: Record<string, string> = {
   progress: "진행률",
 };
 const defaultColumns = Object.keys(columnLabels);
-const prefix = "/api/v1/gw/projects";
+const prefix = "/api/v1/flow";
 function payload(t: Task) {
   return {
     boardId: t.board_id,
@@ -128,6 +128,9 @@ function payload(t: Task) {
 }
 export function Projects({ myTasks = false }: { myTasks?: boolean }) {
   const { session } = useSession();
+  const [query, setQuery] = useSearchParams();
+  const requestedCompany = Number(query.get("companyId"));
+  const requestedBoard = Number(query.get("boardId"));
   const [companies, setCompanies] = useState<{ id: number; name: string }[]>(
     [],
   );
@@ -213,13 +216,25 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
     })
       .then((r) => {
         setCompanies(r.data);
-        setCid(r.data[0]?.id);
+        const chosen =
+          r.data.find((c) => c.id === requestedCompany) ?? r.data[0];
+        setCid(chosen?.id);
+        if (chosen?.id === requestedCompany && requestedBoard > 0)
+          setBid(requestedBoard);
       })
       .catch((e) => {
         if (!controller.signal.aborted) setError(e);
       });
     return () => controller.abort();
   }, [session]);
+  useEffect(() => {
+    if (!cid) return;
+    const next = new URLSearchParams(query);
+    next.set("companyId", String(cid));
+    if (bid) next.set("boardId", String(bid));
+    else next.delete("boardId");
+    if (next.toString() !== query.toString()) setQuery(next, { replace: true });
+  }, [cid, bid, query, setQuery]);
   async function load(company = cid, boardId = bid) {
     if (!company) return;
     const ticket = ++epoch.current;
@@ -380,7 +395,9 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
       <header>
         <div>
           <h1>{myTasks ? "내 업무" : "프로젝트·업무"}</h1>
-          <Link to={myTasks ? "/help/gw/g-15" : "/help/gw/g-14"}>? 도움말</Link>
+          <Link to={myTasks ? "/help/flow/f-01" : "/help/flow/f-02"}>
+            ? 도움말
+          </Link>
           <p>담당자·일정·진행 상황을 회사 구성원과 함께 관리하세요.</p>
         </div>
         <label>

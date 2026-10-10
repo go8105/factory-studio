@@ -32,7 +32,7 @@ function show(enabled = true) {
     </MemoryRouter>,
   );
 }
-it("홈은 운영 중인 아홉 솔루션을 분야 라벨 없이 차례대로 보인다", async () => {
+it("홈은 운영 중인 열 솔루션을 분야 라벨 없이 차례대로 보인다", async () => {
   show();
   await screen.findByRole("link", { name: /QMS 품질관리/ });
   expect(screen.getByRole("link", { name: /SPC 공정관리/ })).toHaveAttribute(
@@ -48,7 +48,7 @@ it("홈은 운영 중인 아홉 솔루션을 분야 라벨 없이 차례대로 �
       .slice(0, 3),
   ).toEqual(["/mes", "/qms", "/spc"]);
   expect(
-    screen.getByText("하나의 공간에서 만나는 아홉 가지 독립 솔루션"),
+    screen.getByText("하나의 공간에서 만나는 열 가지 독립 솔루션"),
   ).toBeVisible();
   expect(
     screen.getByRole("link", { name: /계층 아키텍처에서 보기/ }),

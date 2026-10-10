@@ -10,14 +10,17 @@ import { Delegations } from "./Delegations";
 import { People, Organization } from "./Organization";
 import { Calendar, Notifications, Chat } from "./Collaboration";
 import "./gw.css";
-import { Projects } from "./Projects";
+import { LegacyFlowRedirect } from "../flow/LegacyFlowRedirect";
 export default function GwRoutes() {
   return (
     <Routes>
       <Route element={<GwLayout />}>
         <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="projects" element={<Projects />} />
-        <Route path="my-tasks" element={<Projects myTasks />} />
+        <Route path="projects" element={<LegacyFlowRedirect page="boards" />} />
+        <Route
+          path="my-tasks"
+          element={<LegacyFlowRedirect page="my-tasks" />}
+        />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="drafts" element={<Documents box="drafts" />} />
         <Route path="pending" element={<Documents box="pending" />} />

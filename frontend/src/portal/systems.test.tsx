@@ -23,8 +23,8 @@ function show(path: string) {
     </MemoryRouter>,
   );
 }
-it("시스템 18개, 구현 표시는 홈 솔루션 목록과 정확히 같다", () => {
-  expect(systems.systems).toHaveLength(18);
+it("시스템 19개, 구현 표시는 홈 솔루션 목록과 정확히 같다", () => {
+  expect(systems.systems).toHaveLength(19);
   expect(
     systems.systems
       .filter((s) => s.status === "implemented")
@@ -36,7 +36,7 @@ it("시스템 18개, 구현 표시는 홈 솔루션 목록과 정확히 같다",
 });
 it("계층·연관 시스템 참조가 모두 존재한다", () => {
   const ids = new Set(systems.systems.map((s) => s.id));
-  expect(ids.size).toBe(18);
+  expect(ids.size).toBe(19);
   for (const s of systems.systems) {
     expect(systems.layers, s.id).toContain(s.layer);
     expect(

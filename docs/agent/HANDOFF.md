@@ -1,3 +1,7 @@
+## 2026-10-10 FLOW-02a 独立 진입·보드 이관 WIP
+
+사용자 앱 런처 Factory Flow·/work-os·기존 보드 분리 구현 및 배포 승인. codex/gw-flow-entry에서 작업 중. Flow 패키지/API와10표 SET SCHEMA·메뉴/즐겨찾기 이전 구현, 검증 진행 중. 날짜별 일지8표/FLOW-02b는 미구현으로 구분한다. 첫 마이그레이션 SQL 문법 검사 실패를 수정 중이며 운영/로컬 실DB에는 아직 미적용. 기존8000/5173 유지. 다음: 전용 테스트DB·역이관 보존/권한/alias·UI검증 후 main push, CI 통과 뒤 백업·쓰기 중지·운영배포. 제품 완료로 표시하지 않는다.
+
 ## 2026-10-10 GW-PROJECT·HR 운영 배포 완료
 
 사용자 실서버 배포 요청으로 main/origin/main의 제품 커밋 `98402d978428a60bd070bda910f740fca234f765`를 기존 `tools/deploy.sh`로 실제 배포했다. 기존 운영 `31af096` → `98402d9`, DB `w0_fav_menu_shape` → `gw_projects`. GW 프로젝트 보드·내 업무, 회사 근무/PWA·관리자 사용자 관리 등 기존 main 변경 포함. Factory Flow 독립 Work OS/업무일지는 설계·검토용 시제품만이며 제품 구현/DB 이관은 아직 승인 대기다.

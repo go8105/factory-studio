@@ -9,7 +9,8 @@
     "core": 14,
     "erp": 27,
     "fems": 13,
-    "gw": 29,
+    "flow": 10,
+    "gw": 19,
     "hr": 25,
     "mes": 45,
     "qms": 6,
@@ -19,7 +20,7 @@
   "columns": 2074,
   "foreign_keys": 464,
   "constraints_and_policies": 1428,
-  "source_sha256": "5897fd5fe87cee1d1c865ee5ec3537efc45ece36f3f14a4eaf3f054ff1521331",
+  "source_sha256": "72c593644d191eae719c5fcc79b54b75ae4cd34ed4a2c6f7deb13245242897ea",
   "errors": [],
   "not_tested": [
     "실제 DDL 적용",

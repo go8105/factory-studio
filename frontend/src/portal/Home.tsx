@@ -63,6 +63,12 @@ export const solutions = [
     description: "사원·발령에서 근태·휴가, 급여 확정까지",
     to: "/hr",
   },
+  {
+    key: "flow",
+    name: "Factory Flow",
+    description: "Work OS · 프로젝트 관리·협업",
+    to: "/work-os",
+  },
 ] as const;
 /** 솔루션 수를 목록 길이에서 만든다 — 솔루션이 늘어도 문구를 고치지 않는다. */
 const COUNTS = [
@@ -135,6 +141,8 @@ function AppIcon({ kind }: { kind: (typeof solutions)[number]["key"] }) {
             strokeLinecap="round"
           />
         </>
+      ) : kind === "flow" ? (
+        <g fill="none" stroke="#1f2d3d" strokeWidth="3"><rect x="6" y="8" width="36" height="32" rx="6"/><path d="M18 8v32M30 8v32M10 18h4m8 8h4m8-8h4"/></g>
       ) : kind === "gw" ? (
         <>
           <path d="M9 5h22v30H9zM14 12h12M14 18h8" />

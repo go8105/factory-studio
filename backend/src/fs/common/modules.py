@@ -16,6 +16,7 @@ BUSINESS_SCHEMAS = (
     "gw",
     "cmms",
     "hr",
+    "flow",
 )
 # core는 업무 스키마가 아니지만 모듈 행은 함께 만든다(인증·공간·세대).
 MODULE_KEYS = ("core", *BUSINESS_SCHEMAS)
