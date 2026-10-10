@@ -1,3 +1,7 @@
+## 2026-10-10 GW·즐겨찾기 main 병합·운영 배포 완료
+
+제품31af096 로컬main/원격main 병합 후 CI전체통과 및 정식deploy.sh 완료. 운영HTTP200/DDL오류0/최근5xx0/API14검사 통과, 실제Chrome저장·새로고침·MES등록메뉴표시 확인. 로컬DB구버전500은 백업 후 head마이그레이션으로 복구·기존공간유지. [결과](agent/GW_즐겨찾기_main_배포검증.md). 후속기록커밋은문서전용, 제품배포31af096.
+
 ## 2026-10-10 GW·즐겨찾기 main 병합/배포 진행
 
 - 사용자 명시적 로컬 main 병합·운영 반영 요청. main af10726 깨끗함, origin/main3ff4cf5 및 운영f860e8b는 작업head 조상. fast-forward 병합 예정. 기존 사용자 변경 보존.
