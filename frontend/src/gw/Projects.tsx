@@ -3,6 +3,7 @@ import { useSession } from "../app/session";
 import { api, MutationKeys } from "../shared/api";
 import { ErrorNotice } from "../shared/components";
 import "./Projects.css";
+import { Link } from "react-router-dom";
 
 type Member = { id: number; name: string; active: boolean; role: string };
 type Board = {
@@ -47,6 +48,7 @@ type Preference = {
   mine: boolean;
   sort: string;
   hidden: string[];
+  columns?: string[];
 };
 type Overview = {
   company: { id: number; name: string; timezone: string };
@@ -62,6 +64,7 @@ type Overview = {
   tasks?: Task[];
   preference?: { settings: Preference }[];
   boardMembers?: { user_id: number; role: string }[];
+  nextOffset?: number | null;
 };
 type Detail = {
   comments: {
@@ -95,6 +98,14 @@ const initial: Preference = {
   sort: "position",
   hidden: [],
 };
+const columnLabels: Record<string, string> = {
+  assignees: "담당자",
+  status: "상태",
+  priority: "중요도",
+  dates: "일정",
+  progress: "진행률",
+};
+const defaultColumns = Object.keys(columnLabels);
 const prefix = "/api/v1/gw/projects";
 function payload(t: Task) {
   return {
@@ -150,9 +161,45 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
     body: string;
   }>();
   const [zoom, setZoom] = useState(1);
+  const [historyOffset, setHistoryOffset] = useState(0);
   const keys = useRef(new MutationKeys());
   const epoch = useRef(0);
   const detailEpoch = useRef(0);
+  useEffect(() => {
+    if (!selected && !createBoard && !taskForm) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const modal = document.querySelector<HTMLElement>(".project-modal");
+    modal?.querySelector<HTMLElement>("input,textarea,select,button")?.focus();
+    const handle = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !pending) {
+        detailEpoch.current++;
+        setSelected(undefined);
+        setCreateBoard(false);
+        setTaskForm(undefined);
+      }
+      if (e.key === "Tab" && modal) {
+        const controls = Array.from(
+          modal.querySelectorAll<HTMLElement>(
+            "button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled)",
+          ),
+        );
+        const first = controls[0],
+          last = controls[controls.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", handle);
+    return () => {
+      document.removeEventListener("keydown", handle);
+      previous?.focus();
+    };
+  }, [!!selected, createBoard, !!taskForm, pending]);
   const editable =
     !!data?.role &&
     ["EDITOR", "OWNER"].includes(data.role) &&
@@ -181,7 +228,20 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
         `${prefix}?companyId=${company}${boardId ? `&boardId=${boardId}` : ""}`,
       );
       if (ticket !== epoch.current) return;
-      setData(r.data);
+      let combined = r.data;
+      // 네 보기에서 같은 업무를 표시하도록 부모 단위 페이지를 읽는다.
+      while (combined.nextOffset != null) {
+        const next = await api<Overview>(
+          `${prefix}?companyId=${company}&boardId=${boardId}&offset=${combined.nextOffset}`,
+        );
+        if (ticket !== epoch.current) return;
+        combined = {
+          ...combined,
+          tasks: [...(combined.tasks ?? []), ...(next.data.tasks ?? [])],
+          nextOffset: next.data.nextOffset,
+        };
+      }
+      setData(combined);
       if (myTasks) {
         const tasks = await api<Task[]>(
           `${prefix}/my-tasks?companyId=${company}`,
@@ -211,12 +271,16 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
     setPending(true);
     const operation = JSON.stringify([cid, op, body]);
     try {
-      await api(`${prefix}/${op}?companyId=${cid}`, {
-        method: "POST",
-        body,
-        csrf: session?.csrfToken,
-        key: keys.current.get(operation),
-      });
+      const response = await api<{ id: number }>(
+        `${prefix}/${op}?companyId=${cid}`,
+        {
+          method: "POST",
+          body,
+          csrf: session?.csrfToken,
+          key: keys.current.get(operation),
+        },
+      );
+      if (op === "board-create") setBid(response.data.id);
       keys.current.complete(operation);
       setError(undefined);
       await load();
@@ -235,6 +299,8 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
   async function openTask(t: Task) {
     const ticket = ++detailEpoch.current;
     setSelected(t);
+    setEditingComment(undefined);
+    setHistoryOffset(0);
     setDetail(undefined);
     try {
       const r = await api<Detail>(
@@ -314,6 +380,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
       <header>
         <div>
           <h1>{myTasks ? "내 업무" : "프로젝트·업무"}</h1>
+          <Link to={myTasks ? "/help/gw/g-15" : "/help/gw/g-14"}>? 도움말</Link>
           <p>담당자·일정·진행 상황을 회사 구성원과 함께 관리하세요.</p>
         </div>
         <label>
@@ -541,6 +608,46 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                     {!myTasks && (
                       <div className="project-columns">
                         열 표시{" "}
+                        <details>
+                          <summary>열 순서</summary>
+                          {(pref.columns ?? defaultColumns).map((k, i) => (
+                            <span key={k}>
+                              {columnLabels[k]}
+                              <button
+                                aria-label={`${columnLabels[k]} 열 앞으로`}
+                                disabled={!i}
+                                onClick={() => {
+                                  const cols = [
+                                    ...(pref.columns ?? defaultColumns),
+                                  ];
+                                  [cols[i - 1], cols[i]] = [
+                                    cols[i],
+                                    cols[i - 1],
+                                  ];
+                                  setPref({ ...pref, columns: cols });
+                                }}
+                              >
+                                ←
+                              </button>
+                              <button
+                                aria-label={`${columnLabels[k]} 열 뒤로`}
+                                disabled={i === 4}
+                                onClick={() => {
+                                  const cols = [
+                                    ...(pref.columns ?? defaultColumns),
+                                  ];
+                                  [cols[i + 1], cols[i]] = [
+                                    cols[i],
+                                    cols[i + 1],
+                                  ];
+                                  setPref({ ...pref, columns: cols });
+                                }}
+                              >
+                                →
+                              </button>
+                            </span>
+                          ))}
+                        </details>
                         {["assignees", "priority", "progress"].map((k, i) => (
                           <label key={k}>
                             <input
@@ -620,6 +727,36 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                             </>
                           )}
                         </h3>
+                        <div className="project-group-summary">
+                          {Object.entries(states).map(([k, label]) => {
+                            const count = leaves.filter(
+                              (t) =>
+                                (myTasks || t.group_id === g.id) &&
+                                t.status === k,
+                            ).length;
+                            return count ? (
+                              <span key={k} className={`project-status ${k}`}>
+                                {label} {count}
+                              </span>
+                            ) : null;
+                          })}
+                          <span>
+                            진행률{" "}
+                            {(() => {
+                              const list = leaves.filter(
+                                (t) =>
+                                  (myTasks || t.group_id === g.id) &&
+                                  t.status !== "CANCELLED",
+                              );
+                              return list.length
+                                ? Math.round(
+                                    list.reduce((n, t) => n + t.progress, 0) /
+                                      list.length,
+                                  ) + "%"
+                                : "대상 없음";
+                            })()}
+                          </span>
+                        </div>
                         {editable && (
                           <details>
                             <summary>그룹 이름·색상 편집</summary>
@@ -661,17 +798,11 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                                 <tr>
                                   <th>업무</th>
                                   {myTasks && <th>보드</th>}
-                                  {!pref.hidden.includes("assignees") && (
-                                    <th>담당자</th>
-                                  )}
-                                  <th>상태</th>
-                                  {!pref.hidden.includes("priority") && (
-                                    <th>중요도</th>
-                                  )}
-                                  <th>일정</th>
-                                  {!pref.hidden.includes("progress") && (
-                                    <th>진행률</th>
-                                  )}
+                                  {(pref.columns ?? defaultColumns)
+                                    .filter((k) => !pref.hidden.includes(k))
+                                    .map((k) => (
+                                      <th key={k}>{columnLabels[k]}</th>
+                                    ))}
                                 </tr>
                               </thead>
                               <tbody>
@@ -769,28 +900,29 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                                         )}
                                       </td>
                                       {myTasks && <td>{t.board_name}</td>}
-                                      {!pref.hidden.includes("assignees") && (
-                                        <td>
-                                          {t.assignees
-                                            ?.map(
-                                              (a) =>
-                                                a.display_name +
-                                                (a.active ? "" : " (비활성)"),
-                                            )
-                                            .join(", ") || "미지정"}
-                                        </td>
-                                      )}
-                                      <td>{state(t)}</td>
-                                      {!pref.hidden.includes("priority") && (
-                                        <td>{priorities[t.priority]}</td>
-                                      )}
-                                      <td>
-                                        {t.starts_on ?? "미정"} →{" "}
-                                        {t.ends_on ?? "미정"}
-                                      </td>
-                                      {!pref.hidden.includes("progress") && (
-                                        <td>{t.progress}%</td>
-                                      )}
+                                      {(pref.columns ?? defaultColumns)
+                                        .filter((k) => !pref.hidden.includes(k))
+                                        .map((k) => (
+                                          <td key={k}>
+                                            {k === "assignees"
+                                              ? t.assignees
+                                                  ?.map(
+                                                    (a) =>
+                                                      a.display_name +
+                                                      (a.active
+                                                        ? ""
+                                                        : " (비활성)"),
+                                                  )
+                                                  .join(", ") || "미지정"
+                                              : k === "status"
+                                                ? state(t)
+                                                : k === "priority"
+                                                  ? priorities[t.priority]
+                                                  : k === "dates"
+                                                    ? `${t.starts_on ?? "미정"} → ${t.ends_on ?? "미정"}`
+                                                    : `${t.progress}%`}
+                                          </td>
+                                        ))}
                                     </tr>
                                   ))}
                               </tbody>
@@ -973,7 +1105,16 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                             return (
                               <div className="project-track" key={t.id}>
                                 {title(t)}
-                                <div>
+                                <div style={{ position: "relative" }}>
+                                  {today.slice(0, 7) === month && (
+                                    <i
+                                      aria-label="오늘선"
+                                      className="project-today-line"
+                                      style={{
+                                        left: `${((Number(today.slice(8)) - 1) / days) * 100}%`,
+                                      }}
+                                    />
+                                  )}
                                   <span
                                     style={{
                                       marginLeft: `${((start - 1) / days) * 100}%`,
@@ -1266,6 +1407,17 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                 ＋ 하위 업무
               </button>
             )}
+            <div>
+              {(selected.description.match(/https?:\/\/[^\s<>"']+/g) ?? []).map(
+                (url) => (
+                  <p key={url}>
+                    <a href={url} target="_blank" rel="noreferrer">
+                      {url}
+                    </a>
+                  </p>
+                ),
+              )}
+            </div>
             <h3>댓글</h3>
             {detail?.comments.map((c) => (
               <article key={c.id}>
@@ -1383,6 +1535,31 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                   "이전 구성원"}
               </p>
             ))}
+            {detail &&
+              (detail.comments.length >= 50 || detail.events.length >= 50) && (
+                <button
+                  disabled={pending}
+                  onClick={() => {
+                    const offset = historyOffset + 50;
+                    const ticket = detailEpoch.current;
+                    void api<Detail>(
+                      `${prefix}/detail?companyId=${cid}&boardId=${selected.board_id}&taskId=${selected.id}&offset=${offset}`,
+                    )
+                      .then((r) => {
+                        if (ticket === detailEpoch.current) {
+                          setHistoryOffset(offset);
+                          setDetail({
+                            comments: [...detail.comments, ...r.data.comments],
+                            events: [...detail.events, ...r.data.events],
+                          });
+                        }
+                      })
+                      .catch(setError);
+                  }}
+                >
+                  이전 댓글·이력 더 보기
+                </button>
+              )}
             {!!error && <ErrorNotice error={error} />}
           </div>
         </div>

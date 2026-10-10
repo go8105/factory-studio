@@ -156,14 +156,13 @@ def test_subtask_aggregation_dates_conflict_and_scope(company_env):
     p = next(t for t in get(admin, company, bid)["tasks"] if t["id"] == parent)
     assert p["status"] == "DONE"
     assert p["progress"] == 100
-    assert (
-        len(
-            staff.get(
-                ROOT + "/my-tasks", params={"companyId": company["companyId"]}
-            ).json()["data"]
-        )
-        == 1
-    )
+    mine = staff.get(
+        ROOT + "/my-tasks", params={"companyId": company["companyId"]}
+    ).json()["data"]
+    assert len(mine) == 1
+    assert mine[0]["assignees"][0]["display_name"]
+    assert mine[0]["assignees"][0]["active"]
+
     other = board(admin, company)
     assert (
         post(
@@ -302,3 +301,125 @@ def test_guest_and_invalid_fields(company_env):
         ).status_code
         == 400
     )
+
+
+def test_company_policy_group_reorder_and_comment_audit(company_env):
+    engine, company, admin, staff = company_env
+    bid = board(admin, company)
+    data = get(admin, company, bid)
+    first, second = data["groups"]
+    assert (
+        post(
+            admin,
+            company,
+            "group-update",
+            {
+                "boardId": bid,
+                "id": second["id"],
+                "version": second["version"],
+                "name": second["name"],
+                "color": second["color"],
+                "position": 0,
+            },
+        ).status_code
+        == 200
+    )
+    assert get(admin, company, bid)["groups"][0]["id"] == second["id"]
+    assert post(staff, company, "settings", {"allowCreate": False}).status_code == 403
+    assert post(admin, company, "settings", {"allowCreate": False}).status_code == 200
+    assert (
+        post(staff, company, "board-create", {"name": "제한 보드"}).status_code == 403
+    )
+    tid = task(admin, company, bid, first["id"])
+    comment = post(
+        admin,
+        company,
+        "comment-create",
+        {"boardId": bid, "taskId": tid, "body": "변경 전 합성 댓글"},
+    ).json()["data"]["id"]
+    assert (
+        post(
+            admin,
+            company,
+            "comment-update",
+            {
+                "boardId": bid,
+                "taskId": tid,
+                "id": comment,
+                "version": 1,
+                "body": "변경 후 합성 댓글",
+            },
+        ).status_code
+        == 200
+    )
+    with engine.connect() as c:
+        event = c.execute(
+            text(
+                "SELECT details FROM gw.work_task_event WHERE workspace_id=:w AND action='comment-update'"
+            ),
+            {"w": company["companyId"]},
+        ).scalar_one()
+        assert event["before"]["body"] == "변경 전 합성 댓글"
+
+
+def test_parent_archive_restores_only_its_batch_and_concurrent_edit(company_env):
+    from concurrent.futures import ThreadPoolExecutor
+
+    _, company, admin, _ = company_env
+    bid = board(admin, company)
+    gid = get(admin, company, bid)["groups"][0]["id"]
+    parent = task(admin, company, bid, gid)
+    first = task(admin, company, bid, gid, parentId=parent)
+    second = task(admin, company, bid, gid, parentId=parent)
+
+    def current(tid):
+        return next(t for t in get(admin, company, bid)["tasks"] if t["id"] == tid)
+
+    b = update(current(first))
+    b["archived"] = True
+    assert post(admin, company, "task-update", b).status_code == 200
+    b = update(current(parent))
+    b["archived"] = True
+    assert post(admin, company, "task-update", b).status_code == 200
+    b = update(current(parent))
+    b["archived"] = False
+    assert post(admin, company, "task-update", b).status_code == 200
+    assert current(first)["archived_at"] is not None
+    assert current(second)["archived_at"] is None
+    b = update(current(second))
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(
+            pool.map(
+                lambda _: post(admin, company, "task-update", b).status_code, range(2)
+            )
+        )
+    assert sorted(responses) == [200, 409]
+
+
+def test_parent_pagination_preserves_children_and_server_filters(company_env):
+    _, company, admin, _ = company_env
+    bid = board(admin, company)
+    gid = get(admin, company, bid)["groups"][0]["id"]
+    first = task(admin, company, bid, gid, title="검색 부모")
+    child = task(
+        admin, company, bid, gid, title="완료 하위", parentId=first, status="DONE"
+    )
+    second = task(admin, company, bid, gid, title="두 번째 업무")
+
+    def page(**extra):
+        r = admin.get(
+            ROOT, params={"companyId": company["companyId"], "boardId": bid, **extra}
+        )
+        assert r.status_code == 200, r.text
+        return r.json()["data"]
+
+    one = page(limit=1)
+    assert {t["id"] for t in one["tasks"]} == {first, child}
+    assert one["nextOffset"] == 1
+    two = page(limit=1, offset=1)
+    assert [t["id"] for t in two["tasks"]] == [second]
+    assert two["nextOffset"] is None
+    found = page(search="완료 하위", status="DONE")
+    assert {t["id"] for t in found["tasks"]} == {first, child}
+    assert found["tasks"][0]["progress"] == 100
+    assert page(search="%")["tasks"] == []

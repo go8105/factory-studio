@@ -130,6 +130,27 @@ class ViewSettings(Body):
         default_factory=list
     )
 
+    columns: list[Literal["assignees", "status", "priority", "dates", "progress"]] = (
+        Field(
+            default_factory=lambda: [
+                "assignees",
+                "status",
+                "priority",
+                "dates",
+                "progress",
+            ],
+            min_length=5,
+            max_length=5,
+        )
+    )
+
+    @field_validator("columns")
+    @classmethod
+    def unique_columns(cls, v):
+        if len(set(v)) != 5:
+            raise ValueError("열은 각각 한 번씩 지정하세요.")
+        return v
+
 
 class Preference(BoardId):
     settings: ViewSettings
@@ -141,8 +162,21 @@ def companies(ctx: Auth):
 
 
 @router.get("")
-def overview(ctx: Auth, cid: Company, boardId: int | None = Query(default=None, gt=0)):
-    return {"data": projects.overview(ctx, cid, boardId)}
+def overview(
+    ctx: Auth,
+    cid: Company,
+    boardId: int | None = Query(default=None, gt=0),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+    search: str = Query(default="", max_length=250),
+    status: Literal["", "WAITING", "WORKING", "BLOCKED", "DONE", "CANCELLED"] = "",
+    mine: bool = False,
+):
+    return {
+        "data": projects.overview(
+            ctx, cid, boardId, offset, limit, search, status, mine
+        )
+    }
 
 
 @router.get("/my-tasks")

@@ -42,6 +42,9 @@ def target_names():
     names = set()
     for doc in sorted(ROOT.glob('docs/modules/*/*_DSN-*.md')):
         names |= set(re.findall(r'^\| `([a-z]+\.[a-z_]+)` \|', doc.read_text(encoding='utf-8'), re.M))
+    project = ROOT/'docs/modules/gw/GW_프로젝트업무보드_설계초안_GW-PROJECT-01.md'
+    if project.exists():
+        names |= set(re.findall(r'^\| `(gw\.work_[a-z_]+)` \|', project.read_text(), re.M))
     return names
 
 

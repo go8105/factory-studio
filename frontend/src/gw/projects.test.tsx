@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Projects } from "./Projects";
+import { MemoryRouter } from "react-router-dom";
 const state = vi.hoisted(() => ({ actor: "MEMBER", role: "OWNER" }));
 vi.mock("../app/session", () => ({
   useSession: () => ({
@@ -100,13 +101,21 @@ afterEach(() => {
 });
 it("게스트 체험은 실제 회사 API를 호출하지 않는다", () => {
   state.actor = "GUEST";
-  render(<Projects />);
+  render(
+    <MemoryRouter>
+      <Projects />
+    </MemoryRouter>,
+  );
   fireEvent.change(screen.getByRole("combobox"), { target: { value: "DONE" } });
   expect(fetch).not.toHaveBeenCalled();
   expect(screen.getByText("합성 업무 체험")).toBeInTheDocument();
 });
 it("회사 보드를 열고 네 보기가 같은 업무를 표시한다", async () => {
-  render(<Projects />);
+  render(
+    <MemoryRouter>
+      <Projects />
+    </MemoryRouter>,
+  );
   fireEvent.click(await screen.findByRole("button", { name: "예제 보드" }));
   await screen.findByRole("button", { name: "합성 업무" });
   for (const view of ["칸반", "캘린더", "간트", "메인 테이블"]) {
@@ -125,7 +134,11 @@ it("회사 보드를 열고 네 보기가 같은 업무를 표시한다", async 
 });
 it("조회 권한은 수정 입력을 표시하지 않으며 상세를 열 수 있다", async () => {
   state.role = "VIEWER";
-  render(<Projects />);
+  render(
+    <MemoryRouter>
+      <Projects />
+    </MemoryRouter>,
+  );
   fireEvent.click(await screen.findByRole("button", { name: "예제 보드" }));
   fireEvent.click(await screen.findByRole("button", { name: "합성 업무" }));
   expect(screen.queryByLabelText("합성 업무 상태")).not.toBeInTheDocument();
@@ -147,7 +160,11 @@ it("조회 실패 후 다른 메뉴와 재시도는 비활성화하지 않는다
         ),
     ),
   );
-  render(<Projects />);
+  render(
+    <MemoryRouter>
+      <Projects />
+    </MemoryRouter>,
+  );
   expect(await screen.findByText("조회 실패")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "다시 시도" })).toBeEnabled();
 });

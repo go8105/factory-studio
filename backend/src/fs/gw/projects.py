@@ -61,7 +61,7 @@ def company_list(ctx):
         return companies(c, ctx)
 
 
-def overview(ctx, cid, bid=None):
+def overview(ctx, cid, bid=None, offset=0, limit=50, search="", status="", mine=False):
     with read() as c:
         sc, company = resolve_company(c, ctx, cid)
         sc = read_scope(c, sc, "gw")
@@ -82,25 +82,67 @@ def overview(ctx, cid, bid=None):
         }
         if bid:
             b, role = board(c, sc, bid, archived=True)
-            tasks = rows(
-                c, sc, "work_task", "AND board_id=:id ORDER BY position,id", {"id": bid}
+            # 부모 단위 페이지: 부모와 그 하위 업무를 같은 페이지에 담아 집계를 보존한다.
+            matches = f"""SELECT DISTINCT COALESCE(t.parent_id,t.id) root FROM gw.work_task t
+              WHERE t.{S.replace(" AND ", " AND t.")} AND t.board_id=:id
+                AND (:search='' OR strpos(lower(t.title),lower(:search))>0)
+                AND (:status='' OR t.status=:status)
+                AND (NOT :mine OR EXISTS(SELECT 1 FROM gw.work_task_assignee a WHERE
+                  (a.workspace_id,a.generation_id,a.task_id,a.user_id)=(t.workspace_id,t.generation_id,t.id,:u)))"""
+            query = {
+                **params(sc),
+                "id": bid,
+                "offset": offset,
+                "limit": limit,
+                "search": search,
+                "status": status,
+                "mine": mine,
+            }
+            root_count = c.execute(
+                text(f"SELECT count(*) FROM ({matches}) matched"), query
+            ).scalar_one()
+            root_ids = (
+                c.execute(
+                    text(
+                        f"SELECT id FROM gw.work_task WHERE {S} AND board_id=:id AND parent_id IS NULL AND id IN ({matches}) ORDER BY position,id LIMIT :limit OFFSET :offset"
+                    ),
+                    query,
+                )
+                .scalars()
+                .all()
             )
+            tasks = (
+                rows(
+                    c,
+                    sc,
+                    "work_task",
+                    "AND board_id=:id AND (id=ANY(:roots) OR parent_id=ANY(:roots)) ORDER BY position,id",
+                    {"id": bid, "roots": root_ids},
+                )
+                if root_ids
+                else []
+            )
+            result["nextOffset"] = (
+                offset + len(root_ids) if offset + len(root_ids) < root_count else None
+            )
+            result["rootCount"] = root_count
             assignees = [
                 dict(r)
                 for r in c.execute(
                     text(
-                        f"SELECT a.* FROM gw.work_task_assignee a JOIN gw.work_task t ON (a.workspace_id,a.generation_id,a.task_id)=(t.workspace_id,t.generation_id,t.id) WHERE t.{S.replace(' AND ', ' AND t.')} AND t.board_id=:id"
+                        f"SELECT a.* FROM gw.work_task_assignee a JOIN gw.work_task t ON (a.workspace_id,a.generation_id,a.task_id)=(t.workspace_id,t.generation_id,t.id) WHERE t.{S.replace(' AND ', ' AND t.')} AND t.board_id=:id AND t.id=ANY(:task_ids)"
                     ),
-                    {**params(sc), "id": bid},
+                    {**params(sc), "id": bid, "task_ids": [t["id"] for t in tasks]},
                 ).mappings()
             ]
             active = {p["id"]: p["active"] for p in people}
-            for t in tasks:
-                t["assignees"] = [
+            assigned = {}
+            for a in assignees:
+                assigned.setdefault(a["task_id"], []).append(
                     {**a, "active": active.get(a["user_id"], False)}
-                    for a in assignees
-                    if a["task_id"] == t["id"]
-                ]
+                )
+            for t in tasks:
+                t["assignees"] = assigned.get(t["id"], [])
             aggregate(tasks)
             result.update(
                 boardMembers=rows(
@@ -128,10 +170,12 @@ def overview(ctx, cid, bid=None):
 
 
 def aggregate(tasks):
+    by_parent = {}
+    for t in tasks:
+        if t["parent_id"] and not t["archived_at"]:
+            by_parent.setdefault(t["parent_id"], []).append(t)
     for parent in tasks:
-        children = [
-            t for t in tasks if t["parent_id"] == parent["id"] and not t["archived_at"]
-        ]
+        children = by_parent.get(parent["id"], [])
         parent["aggregate"] = bool(children)
         if not children:
             continue
@@ -190,7 +234,7 @@ def my_tasks(ctx, cid):
     with read() as c:
         sc, company = resolve_company(c, ctx, cid)
         sc = read_scope(c, sc, "gw")
-        principal(c, sc)
+        _, people = principal(c, sc)
         tasks = [
             dict(r)
             for r in c.execute(
@@ -202,8 +246,22 @@ def my_tasks(ctx, cid):
                 params(sc),
             ).mappings()
         ]
+        assignees = rows(
+            c,
+            sc,
+            "work_task_assignee",
+            "AND task_id=ANY(:ids)",
+            {"ids": [t["id"] for t in tasks]},
+        )
+        active = {p["id"]: p["active"] for p in people}
+        assigned = {}
+        for a in assignees:
+            assigned.setdefault(a["task_id"], []).append(
+                {**a, "active": active.get(a["user_id"], False)}
+            )
         today = datetime.now(ZoneInfo(company["timezone"])).date()
         for t in tasks:
+            t["assignees"] = assigned.get(t["id"], [])
             t["overdue"] = bool(
                 t["ends_on"]
                 and t["ends_on"] < today
@@ -496,12 +554,23 @@ def mutate(ctx, cid, op, key, body):
                             "하위 업무가 있는 업무의 그룹 이동은 제한됩니다.",
                         )
                     # 부모 보관 시 자식 함께 보관; 복구도 같은 범위에서 수행.
-                    c.execute(
-                        text(
-                            f"UPDATE gw.work_task SET archived_at=:a,version=version+1 WHERE {S} AND parent_id=:id"
-                        ),
-                        {**p, "id": tid, "a": values["archived_at"]},
-                    )
+                    if bool(values["archived_at"]) != bool(current[0]["archived_at"]):
+                        predicate = (
+                            "archived_at IS NULL"
+                            if values["archived_at"]
+                            else "archived_at=:previous_archive"
+                        )
+                        c.execute(
+                            text(
+                                f"UPDATE gw.work_task SET archived_at=:a,version=version+1 WHERE {S} AND parent_id=:id AND {predicate}"
+                            ),
+                            {
+                                **p,
+                                "id": tid,
+                                "a": values["archived_at"],
+                                "previous_archive": current[0]["archived_at"],
+                            },
+                        )
                 update(entity, tid, values, body["version"])
                 eid = tid
             else:
