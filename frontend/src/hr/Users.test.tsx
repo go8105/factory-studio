@@ -119,9 +119,7 @@ it("직원 추가 시 회사·사원 코드·권한·연차를 함께 전송한�
     ["비밀번호 확인", "Synthetic-ui-new-user"],
   ])
     fireEvent.change(screen.getByLabelText(label), { target: { value } });
-  fireEvent.click(
-    screen.getByRole("button", { name: /^사용자 추가$/ }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: /^사용자 추가$/ }));
   await waitFor(() =>
     expect(fetch).toHaveBeenCalledWith(
       "/api/v1/hr/work/users?companyId=4",
