@@ -392,8 +392,8 @@
   border-radius: 12px;
   background: #eff3f7;
   color: #956000;
-  background: #fff0bd;
-  border-color: #c9921a;
+  background: transparent;
+  border-color: transparent;
 }
 .menu-choice strong {
   font-weight: 550;
@@ -548,8 +548,8 @@
 }
 .sidebar-menu-row .favorite-icon-button[aria-pressed="true"] {
   color: #956000;
-  background: #fff0bd;
-  border-color: #c9921a;
+  background: transparent;
+  border-color: transparent;
 }
 .sidebar-menu-row .favorite-icon-button[aria-pressed="true"] svg {
   fill: #edb629;
@@ -752,5 +752,53 @@
     nav
     a[href="/help/common"]::before {
     content: "?";
+  }
+}
+
+/* 고정 아이콘·별 너비와 가변 텍스트: 긴 이름도 사이드바 안에서 줄바꿈한다. */
+.solution-sidebar .sidebar-menu-row > a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.solution-sidebar .sidebar-menu-row .sidebar-menu-icon {
+  display: inline-flex;
+  flex: 0 0 24px;
+  min-width: 24px;
+  width: 24px;
+}
+.solution-sidebar .sidebar-menu-row .sidebar-menu-icon svg {
+  flex-shrink: 0;
+}
+.solution-sidebar .sidebar-menu-row .sidebar-menu-label {
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.5;
+}
+.solution-sidebar .sidebar-menu-row .sidebar-menu-label > span {
+  min-width: 0;
+  margin-right: 4px;
+}
+.solution-sidebar .sidebar-menu-row .favorite-icon-button {
+  flex-shrink: 0;
+  background: transparent;
+  border-color: transparent;
+}
+@media (min-width: 801px) {
+  .solution-layout.collapsed
+    .solution-sidebar
+    .sidebar-menu-row
+    .sidebar-menu-label {
+    display: none;
+  }
+  .solution-layout.collapsed .solution-sidebar .sidebar-menu-row > a {
+    justify-content: center;
+    padding: 10px 0;
   }
 }
