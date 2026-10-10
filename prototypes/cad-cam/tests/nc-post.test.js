@@ -133,3 +133,112 @@ test("independent verification rejects path, spindle or non-selected dwell chang
   );
   assert.throws(() => verifyNCOutput(f.nc, dwell, []), /보존/);
 });
+
+test("FANUC review actual dialect: O header, integer ms dwell, ASCII CRLF, reopened 10 seconds", async () => {
+  const { FANUC_REVIEW_PROFILE, parseControllerNC } =
+    await import("../src/nc-controller.js");
+  const f = await fixture();
+  const r = await generateNCOutput({
+    ...f,
+    profile: FANUC_REVIEW_PROFILE,
+    number: 1,
+    programNumber: 1234,
+  });
+  assert.match(r.text, /O1234\r\n/);
+  assert.match(r.text, /G4 P10000/);
+  assert.ok(!r.text.includes("🙂"));
+  assert.equal(r.manifest.machineReady, false);
+  assert.equal(r.manifest.dwellUnit, "milliseconds");
+  const reopened = parseControllerNC(r.text, {
+    ...f.nc.settings,
+    profile: FANUC_REVIEW_PROFILE,
+  });
+  assert.equal(reopened.events.find((e) => e.kind === "dwell").seconds, 10);
+  assert.deepEqual(
+    reopened.segments.map(({ line, ...s }) => s),
+    f.nc.segments.map(({ line, ...s }) => s),
+  );
+  reopened.originalText = r.text;
+  reopened.sourceHash = await ncDigest(r.text);
+  const again = await generateNCOutput({
+    nc: reopened,
+    profile: FANUC_REVIEW_PROFILE,
+    programNumber: 1234,
+  });
+  assert.equal(
+    parseControllerNC(again.text, reopened.settings).events.find(
+      (e) => e.kind === "dwell",
+    ).seconds,
+    10,
+  );
+});
+test("FANUC ms granularity, program bounds, malformed/import dialect are blocked", async () => {
+  const { FANUC_REVIEW_PROFILE, parseControllerNC } =
+    await import("../src/nc-controller.js");
+  const f = await fixture();
+  for (const programNumber of [0, 8000, 1.5])
+    await assert.rejects(
+      generateNCOutput({ ...f, profile: FANUC_REVIEW_PROFILE, programNumber }),
+      /프로그램 번호/,
+    );
+  f.proposalSettings.dwells[0].seconds = 0.0001;
+  await assert.rejects(
+    generateNCOutput({ ...f, profile: FANUC_REVIEW_PROFILE, number: 1 }),
+    /정밀도/,
+  );
+  const settings = { ...f.nc.settings, profile: FANUC_REVIEW_PROFILE };
+  for (const text of [
+    "O1001\nG4 P1.5\nM2",
+    "O1001\nG91.1\nM2",
+    "G1 X10 F100\nO1001\nM2",
+    "O8000\nM2",
+    "G4 P10\nM2",
+  ])
+    assert.throws(() => parseControllerNC(text, settings));
+});
+test("FANUC original mode converts every dwell, omits only G91.1, preserves mixed modal block state", async () => {
+  const { FANUC_REVIEW_PROFILE, parseControllerNC } =
+    await import("../src/nc-controller.js");
+  const f = await fixture(
+    "%\nG21 G17 G90 G91.1 G94\nG091.10\nT1 M6\nG1 X10 F600\nG4 P0\nG21 G4 P2.125\nM2\n%\n",
+  );
+  const r = await generateNCOutput({ ...f, profile: FANUC_REVIEW_PROFILE });
+  assert.ok(!r.text.includes("G91.1"));
+  assert.match(r.text, /G21 G4 P2125/);
+  assert.deepEqual(
+    parseControllerNC(r.text, {
+      ...f.nc.settings,
+      profile: FANUC_REVIEW_PROFILE,
+    })
+      .events.filter((e) => e.kind === "dwell")
+      .map((e) => e.seconds),
+    [0, 2.125],
+  );
+});
+
+test("FANUC code numeric spellings cannot bypass dwell units or unsupported G91.1", async () => {
+  const { FANUC_REVIEW_PROFILE, parseControllerNC } =
+    await import("../src/nc-controller.js");
+  const settings = {
+    profile: FANUC_REVIEW_PROFILE,
+    confirmed: true,
+    unit: "mm",
+    initial: [0, 0, 0],
+  };
+  for (const word of ["G091.1", "G91.10", "G+91.1"])
+    assert.throws(
+      () => parseControllerNC(`O1001\n${word}\nM2`, settings),
+      /91.1/,
+    );
+  for (const word of ["G+4", "G004.00"]) {
+    const n = parseControllerNC(
+      `O1001\nG1 X1 F100\n${word} P10000\nM2`,
+      settings,
+    );
+    assert.equal(n.events.find((e) => e.kind === "dwell").seconds, 10);
+  }
+  assert.throws(
+    () => parseControllerNC("O1001 (unclosed\nM2", settings),
+    /주석/,
+  );
+});

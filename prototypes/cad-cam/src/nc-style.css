@@ -581,3 +581,11 @@ main.nc-review-layout {
     grid-template-rows: none;
   }
 }
+
+/* CAD-17: keep the NC preview within the result panel. */
+.review-results [data-post-preview] {
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

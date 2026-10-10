@@ -1,12 +1,18 @@
+import { FANUC_REVIEW_PROFILE } from "./nc-controller.js";
 import { NC_LIMITS } from "./nc-parser.js";
 export function createNCPostReview(getContext, doc = document) {
   const panel = doc.createElement("details");
-  panel.innerHTML = `<summary>NC 파일 출력 · LinuxCNC 제한</summary><p>원본 또는 확인된 G4 변경 후보를 재해석해 출력합니다. 실제 장비 호환·안전 검증은 별도입니다.</p><label>출력 대상 번호 (0: 원본)<input data-post-number type="number" min="0" max="13" step="1" value="0"></label><label class="check"><input data-post-confirm type="checkbox">초기 G54 좌표·단위·기본 상태와 공구표를 장비에서 별도로 확인해야 함을 이해했습니다</label><button data-post-prepare>검증·미리보기</button><button data-post-cancel disabled>검증 취소</button><p data-post-status role="status">현재 NC 해석 후 출력 대상을 선택하세요.</p><pre data-post-preview></pre><button data-post-save disabled>검증된 NC 저장 (.ngc)</button><button data-post-manifest disabled>출력 검증 JSON 저장</button>`;
+  panel.innerHTML = `<summary>NC 파일 출력 · FANUC 검토용</summary><p>기종 미정 · 장비 실행용 아님. 원본 또는 확인된 G4 변경 후보를 재해석해 출력합니다. G4 P는 밀리초 정수, H/D 보정은 미지원입니다. 실제 장비 호환·안전 검증은 별도입니다.</p><label>프로그램 번호 (1~7999)<input data-post-program type="number" min="1" max="7999" step="1" value="1001"></label><label>출력 대상 번호 (0: 원본)<input data-post-number type="number" min="0" max="13" step="1" value="0"></label><label class="check"><input data-post-confirm type="checkbox">초기 G54 좌표·단위·기본 상태와 공구표를 장비에서 별도로 확인해야 함을 이해했습니다</label><button data-post-prepare>검증·미리보기</button><button data-post-cancel disabled>검증 취소</button><p data-post-status role="status">현재 NC 해석 후 출력 대상을 선택하세요.</p><pre data-post-preview></pre><button data-post-save disabled>검증된 NC 저장 (.review.nc)</button><button data-post-manifest disabled>출력 검증 JSON 저장</button>`;
   doc.querySelector(".review-results").append(panel);
   const el = (s) => panel.querySelector(`[data-post-${s}]`);
   let worker, timer, prepared, fingerprint;
   const key = () =>
-    JSON.stringify([getContext(), el("number").value, el("confirm").checked]);
+    JSON.stringify([
+      getContext(),
+      el("number").value,
+      el("program").value,
+      el("confirm").checked,
+    ]);
   function reset() {
     worker?.terminate();
     worker = null;
@@ -33,6 +39,12 @@ export function createNCPostReview(getContext, doc = document) {
     },
     true,
   );
+  doc.addEventListener("visibilitychange", () => {
+    if (doc.hidden) {
+      reset();
+      el("status").textContent = "탭 비활성 · 출력 검증 취소";
+    }
+  });
   el("cancel").onclick = () => {
     reset();
     el("status").textContent = "검증 취소";
@@ -87,7 +99,12 @@ export function createNCPostReview(getContext, doc = document) {
           ? "\n…미리보기 생략 (저장 파일은 전체)"
           : "");
     };
-    w.postMessage({ ...getContext(), number: Number(el("number").value) });
+    w.postMessage({
+      ...getContext(),
+      number: Number(el("number").value),
+      profile: FANUC_REVIEW_PROFILE,
+      programNumber: Number(el("program").value),
+    });
   };
   function save(manifest) {
     if (!prepared || fingerprint !== key()) {
@@ -95,7 +112,7 @@ export function createNCPostReview(getContext, doc = document) {
       el("status").textContent = "입력 변경 · 다시 검증하세요.";
       return;
     }
-    const base = `linuxcnc-${prepared.manifest.outputHash.slice(0, 12)}-${prepared.manifest.number ? `candidate-${prepared.manifest.number}` : "original"}`;
+    const base = `fanuc-review-O${prepared.manifest.programNumber}-${prepared.manifest.outputHash.slice(0, 12)}-${prepared.manifest.number ? `candidate-${prepared.manifest.number}` : "original"}`;
     const url = URL.createObjectURL(
       new Blob(
         [manifest ? JSON.stringify(prepared.manifest, null, 2) : prepared.text],
@@ -104,7 +121,7 @@ export function createNCPostReview(getContext, doc = document) {
     );
     const a = doc.createElement("a");
     a.href = url;
-    a.download = base + (manifest ? ".verification.json" : ".ngc");
+    a.download = base + (manifest ? ".verification.json" : ".review.nc");
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }

@@ -1,3 +1,10 @@
+## 2026-10-10 CAD-17 FANUC 검토용 완료 인계
+
+- branch codex/cad-17, `/Users/hwang-kyoungho/projects/factory-studio-cad17`, 기준main e137f61/내부기반738433d, 마지막커밋 `git log -1 --oneline`. 사용자기종미정 검토용출력 승인. [결과](FANUC검토용_NC출력_CAD-17.md)/[계약](../modules/cad-cam/NC출력_설계_CAD-17.md).
+- 완료: FANUC review profile/O1~7999/G4 P밀리초·기존 NC→출력/다시열기·재해석/원본행매핑/의미보존·품질후보재계산·UI다운로드/JSON·30초취소/무효화/도움말. 검토용100%, 실장비용아님. CAD153/프런트대상15/build/격리·Chrome 실제다운로드/재업로드/재출력/1440·390 통과. 합성 파일/캡처 docs/agent/assets/cad-17.
+- 다음: 사용자 결과 확인 후 반영 또는 기종/매뉴얼확정 후 실제post/장비 검증. FANUC 실제 interpreter/H·D/실기계/실측/음성/운영/DB 미검증. main병합/push/배포 없음. 다른 작업자 사이드바 코드 보존.
+- 재현: Node24에서 prototype test/frontend대상test/build, nc-review.html의 도움말/출력 순서. node_modules 공유 symlink는검증후제거; 필요시npm ci. 새 로컬Vite5257 검증종료, Chromeheadless닫음. work/env스테이징없음. 다음ID자동착수없음.
+
 ## 2026-10-10 CAD-17 FANUC 착수 인계 (미완료)
 
 - branch codex/cad-17, workspace `/Users/hwang-kyoungho/projects/factory-studio-cad17`, 기준 main e137f61. 마지막 커밋은 `git log -1 --oneline`. 공유 checkout 다른 작업자의 사이드바4파일 미접촉. main/push/배포/DB 변경 없음.
