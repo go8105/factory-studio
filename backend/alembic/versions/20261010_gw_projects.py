@@ -183,13 +183,13 @@ DROPS = [
     "DROP TABLE gw.work_board",
 ]
 # 모듈 키: (표, 제약 이름, 옛 식, 새 식)
-MODULE_CHECKS = [
-
-]
+MODULE_CHECKS = []
 
 
 def upgrade() -> None:
-    op.execute("INSERT INTO core.workspace_module(workspace_id,module_key,enabled,seeded_generation_id) SELECT id,'gw',true,active_generation_id FROM core.workspace WHERE workspace_kind='COMPANY' ON CONFLICT(workspace_id,module_key) DO NOTHING")
+    op.execute(
+        "INSERT INTO core.workspace_module(workspace_id,module_key,enabled,seeded_generation_id) SELECT id,'gw',true,active_generation_id FROM core.workspace WHERE workspace_kind='COMPANY' ON CONFLICT(workspace_id,module_key) DO NOTHING"
+    )
     for statement in STATEMENTS:
         op.execute(statement)
     for table, name, _old, new in MODULE_CHECKS:
