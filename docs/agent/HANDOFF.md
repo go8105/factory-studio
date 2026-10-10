@@ -1,3 +1,11 @@
+## 2026-10-10 LOCAL-START 로컬 500 및 IntelliJ 주소 통일
+
+실제 로컬 DB/Colima가 중지된 상태에서 DB 연결 거부 재현. 기존 IntelliJ 전체 구성은 DB 기동 없이 front/backend만 실행했고 Compose 플러그인도 없었다. 공통 start_local.py가 기존 Colima 프로필/DB를 기동하고 실제 DB 연결 확인 후 서버를 실행한다. 동시 DB 준비 파일 잠금, Compose standalone fallback, 기존 데이터/볼륨 보존. 공유 .run Local - All 추가와 PC 기존 .idea 명령 보정. backend 표시/접속은 localhost:8000, front는 localhost:5173; Vite DNS verbatim 고정 및 프록시 IPv4 지정으로 표시 변동/IPv6 API 연결 실패 방지.
+
+검증: 중지된 Colima/DB 실제 복구, backend/frontend 동시 기동, localhost front HTTP200, 만료/위조 쿠키 API401(500 없음), 기존 admin의 current_session 서비스 조회 성공. schema head hr_time_check 유지, 실제 계정/비밀번호 변경 없음. frontend584·타입/lint/build·기동스크립트 Ruff 통과. 사용자 main push 승인 유지. 검증용 앱 서버는 종료하고 DB 유지; IntelliJ Local - All로 실행. 운영 배포 없음.
+
+- 브랜치 codex/local-startup → main fast-forward/push, 최종 커밋은 git log -1. 재현: uv run --project backend --env-file .env python tools/start_local.py backend 또는 frontend. 공유 .run 구성은 IntelliJ 프로젝트를 다시 로드하면 표시된다. 사용자 PC의 기존 .idea 구성도 보정했으며 .idea 자체는 Git 제외다.
+
 ## 2026-10-10 W1-HR-USERS 관리자 사용자 관리 완료
 
 사용자 요청으로 터미널 최초 비밀번호 설정을 관리자 웹 화면으로 대체했다. 기존 활성 플랫폼 admin 로그인 → /hr/users → hugh-D Company 선택 → 각 계정 관리 → 비밀번호 설정·사용 재개. 새 사용자 아이디·비밀번호·사원 코드·이름·근무 권한·올해 연차를 함께 등록한다. 플랫폼 ADMIN은 회사 목록, 회사 ADMIN은 자기 회사만 관리하며 STAFF/게스트는 접근 불가. 비밀번호는 반환하지 않고 변경 시 기존 세션 종료. 자기 계정 변경·마지막 회사 관리자 제거·다중 회사 계정 변경 차단, 멱등 요청/동시성/감사 기록에서 비밀번호 제외. 로컬 두 예제 계정은 사용자 설정 전까지 비활성 유지.

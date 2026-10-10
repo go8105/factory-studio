@@ -123,21 +123,25 @@ uv run --project backend --env-file .env python -m seed.cli template --date 2026
 
 ```sh
 # 터미널 1 — 저장소 루트
-uv run --project backend --env-file .env uvicorn fs.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir backend/src
+uv run --project backend --env-file .env python tools/start_local.py backend
 
 # 터미널 2 — 저장소 루트
-npm --prefix frontend run dev
+uv run --project backend --env-file .env python tools/start_local.py frontend
 ```
 
 ### IntelliJ 실행 구성
+
+공유 `.run/`의 **Local - All**을 선택하면 프런트와 백엔드를 함께 실행한다. 각 구성은 `tools/start_local.py`로 기존 DB를 먼저 기동·접속 확인한다. 현재 Docker context가 `colima-factory-studio`일 때만 해당 프로필을 자동 시작하며, 다른 Docker 환경은 사용자가 먼저 기동한다. Compose 플러그인이 없으면 `docker-compose`를 사용한다. 동시 실행은 파일 잠금으로 DB 준비를 직렬화하며 데이터/볼륨을 삭제하거나 마이그레이션하지 않는다. 기존 IntelliJ 로컬 실행 구성도 같은 명령을 쓰도록 수정했다.
+
+브라우저는 항상 `http://localhost:5173/`, 백엔드 표시 주소는 `http://localhost:8000`을 사용한다. Vite의 Node DNS 순서를 `verbatim`으로 고정해 표시 주소 변동을 막고 API 프록시 연결만 IPv4로 지정한다. `localhost`와 `127.0.0.1`은 같은 PC의 loopback이지만 브라우저 쿠키 저장소는 다르므로 주소를 혼용하지 않는다. Uvicorn 접근 로그의 `127.0.0.1`은 접속자의 내부 IP로, 브라우저 URL 변경을 의미하지 않는다.
 
 `<repo>`는 `/Users/hwang-kyoungho/projects/factory-studio`다. Shell Script 또는 npm 실행 구성을 사용한다. `.env`는 uv의 `--env-file`에서 읽으며 실제 비밀 값을 공유 실행 구성 파일에 저장하지 않는다.
 
 | 구성 | 작업 디렉터리 | 명령 | 필요한 환경변수 |
 |---|---|---|---|
-| 백엔드 개발 | `<repo>` | `uv run --project backend --env-file .env uvicorn fs.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir backend/src` | `.env`: `DATABASE_URL`, 32자 이상 `SESSION_SECRET`; `PATH`에 uv/Python 3.14 |
-| 프론트 개발 | `<repo>/frontend` | `npm run dev` | `PATH=/opt/homebrew/opt/node@24/bin:기존PATH`; 별도 VITE 환경변수 없음 |
-| DB 기동 | `<repo>` | `docker compose up -d --wait` | `.env`: `POSTGRES_PASSWORD`, 선택 `POSTGRES_PORT=55432`; Colima 사용 시 위 Docker 환경 설정 |
+| 백엔드 개발 | `<repo>` | `uv run --project backend --env-file .env python tools/start_local.py backend` | `.env`: `DATABASE_URL`, 32자 이상 `SESSION_SECRET`; `PATH`에 uv/Python 3.14 |
+| 프론트 개발 | `<repo>` | `uv run --project backend --env-file .env python tools/start_local.py frontend` | `PATH=/opt/homebrew/opt/node@24/bin:기존PATH`; 별도 VITE 환경변수 없음 |
+| DB 기동 | `<repo>` | `uv run --project backend --env-file .env python tools/start_local.py db` | `.env`: `POSTGRES_PASSWORD`, 선택 `POSTGRES_PORT=55432`; Colima 사용 시 위 Docker 환경 설정 |
 | 프론트 단위/화면 | `<repo>/frontend` | `npm test` | Node 24 PATH |
 | 브라우저 스모크 | `<repo>` | `uv run --project backend --env-file .env python tools/run_portal_smoke.py` | Node 24 PATH·.env의 DB 접속 정보. 8000·5173 포트가 비어 있어야 함 |
 
