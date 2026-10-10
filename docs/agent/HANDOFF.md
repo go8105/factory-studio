@@ -1,3 +1,11 @@
+## 2026-10-10 W1-HR-USERS 관리자 사용자 관리 완료
+
+사용자 요청으로 터미널 최초 비밀번호 설정을 관리자 웹 화면으로 대체했다. 기존 활성 플랫폼 admin 로그인 → /hr/users → hugh-D Company 선택 → 각 계정 관리 → 비밀번호 설정·사용 재개. 새 사용자 아이디·비밀번호·사원 코드·이름·근무 권한·올해 연차를 함께 등록한다. 플랫폼 ADMIN은 회사 목록, 회사 ADMIN은 자기 회사만 관리하며 STAFF/게스트는 접근 불가. 비밀번호는 반환하지 않고 변경 시 기존 세션 종료. 자기 계정 변경·마지막 회사 관리자 제거·다중 회사 계정 변경 차단, 멱등 요청/동시성/감사 기록에서 비밀번호 제외. 로컬 두 예제 계정은 사용자 설정 전까지 비활성 유지.
+
+검증: 관련 backend29개 및 새 사용자 API4개 재검증, frontend전체584개/새 화면4개 재검증, 타입·lint·format·build 통과. Chrome 별도 합성 테스트 DB에서 실제 회사 조회/계정 관리 폼 표시 확인(브라우저 비밀번호 제출은 사용자에게 맡김). 스키마 변경 없음: schema0.23.3/headhr_time_check·181표433FK. 사용자 main push 승인 유지; 운영 배포/실제 휴대폰 설치 미실행. 다음: 기존 admin에서 두 계정 비밀번호 설정 후 사용. 회사 정책 편집·다음 연도 연차 자동 부여는 후속.
+
+- 브랜치 codex/hr-user-management → main fast-forward/push 반영, 마지막 커밋은 git log -1 참조. 이전 터미널 활성화 안내는 이번 사용자 요청으로 대체됨. 실제 비밀번호를 요청/기록하지 말 것. 재현: frontend에서 npm exec vitest -- run src/hr/Users.test.tsx, backend TEST_DATABASE_URL에 독립 테스트 DB 지정 후 pytest backend/tests/test_hr_users.py.
+
 ## 2026-10-10 W1-HR-TIME 구현 완료 / 최초 비밀번호 사용자 입력 대기
 
 - 브랜치 codex/hr-time-company, WIP cd46db4 이후 최종 커밋은 git log -1. 사용자 main 즉시 push 지시 유지, 로컬 main·origin/main 반영. 운영 배포는 미실행.

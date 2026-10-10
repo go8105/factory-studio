@@ -142,3 +142,113 @@ def close(
             body.model_dump(mode="json"),
         )
     }
+
+
+# 사용자 관리에서도 게스트·직원·다른 회사 요청은 서비스에서 차단한다.
+from decimal import Decimal
+
+from pydantic import SecretStr
+
+from fs.hr import users
+
+LoginId = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9._-]{2,39}$")]
+Password = Annotated[SecretStr, Field(min_length=10, max_length=256)]
+
+
+class CreateUser(Body):
+    loginId: LoginId
+    password: Password
+    name: str = Field(min_length=2, max_length=100)
+    employeeCode: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,29}$")
+    role: Literal["ADMIN", "STAFF"] = "STAFF"
+    annualDays: Decimal = Field(
+        default=15, ge=0, le=366, max_digits=5, decimal_places=2
+    )
+
+
+class UserId(Body):
+    userId: int = Field(gt=0)
+
+
+class UserPassword(UserId):
+    password: Password
+
+
+class UserLogin(UserId):
+    loginId: LoginId
+
+
+class UserRole(UserId):
+    role: Literal["ADMIN", "STAFF"]
+
+
+def user_action(context, company_id, operation, body, csrf, key):
+    values = body.model_dump(mode="json")
+    if hasattr(body, "password"):
+        values["password"] = body.password.get_secret_value()
+    return {
+        "data": users.mutate(
+            context, company_id, operation, mutation_key(context, csrf, key), values
+        )
+    }
+
+
+@router.get("/managed-companies")
+def managed_companies(context: Auth):
+    return {"data": users.managed_companies(context)}
+
+
+@router.get("/users")
+def list_users(context: Auth, company_id: Company):
+    return {"data": users.listing(context, company_id)}
+
+
+@router.post("/users")
+def create_user(
+    body: CreateUser,
+    context: Auth,
+    company_id: Company,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    return user_action(context, company_id, "create", body, csrf, key)
+
+
+@router.post("/users/password")
+def user_password(
+    body: UserPassword,
+    context: Auth,
+    company_id: Company,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    return user_action(context, company_id, "password", body, csrf, key)
+
+
+@router.post("/users/login-id")
+def user_login(
+    body: UserLogin,
+    context: Auth,
+    company_id: Company,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    return user_action(context, company_id, "login-id", body, csrf, key)
+
+
+@router.post("/users/role")
+def user_role(
+    body: UserRole,
+    context: Auth,
+    company_id: Company,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    return user_action(context, company_id, "role", body, csrf, key)
+
+
+@router.post("/users/disable")
+def user_disable(
+    body: UserId, context: Auth, company_id: Company, csrf: Csrf = None, key: Key = None
+):
+    return user_action(context, company_id, "disable", body, csrf, key)

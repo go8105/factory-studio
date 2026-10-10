@@ -90,7 +90,10 @@ function Layout() {
           )}
           <NavLink to="/help">도움말</NavLink>
           {session?.roles.includes("ADMIN") && (
-            <NavLink to="/records">운영 기록</NavLink>
+            <>
+              <NavLink to="/hr/users">사용자 관리</NavLink>
+              <NavLink to="/records">운영 기록</NavLink>
+            </>
           )}
           {session ? (
             <button

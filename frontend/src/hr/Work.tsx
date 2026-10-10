@@ -355,6 +355,9 @@ export function Work({ demo = false }: { demo?: boolean }) {
               : `${data?.company.name ?? "회사 연결 확인"} · ${person?.name ?? ""}`}
           </p>
         </div>
+        {!demo && person?.role === "ADMIN" && (
+          <Link to="/hr/users">사용자 관리</Link>
+        )}
         <Link to={demo ? "/hr/work" : "/hr/work-demo"}>
           {demo ? "실제 근무로" : "체험 화면"}
         </Link>
