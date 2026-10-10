@@ -44,3 +44,20 @@ def resolve_company(connection, context, company_id):
     if row is None:
         raise ApiError(403, "COMPANY_ACCESS_DENIED", "회사 공간을 확인할 수 없습니다.")
     return replace(context, workspace_id=company_id, generation_id=row[0]), company
+
+
+def members(connection, context):
+    """회사 구성원의 공개 식별자/이름/소유자 여부. 업무 솔루션용 읽기 계약."""
+    scoped, _ = resolve_company(connection, context, context.workspace_id)
+    return [
+        dict(r)
+        for r in connection.execute(
+            text("""
+      SELECT u.id,u.display_name AS name,m.role,m.is_active AND u.status='active'
+        AND u.disabled_at IS NULL AS active
+      FROM core.company_member m JOIN core.app_user u ON u.id=m.user_id
+      WHERE m.workspace_id=:w ORDER BY u.display_name,u.id
+    """),
+            {"w": scoped.workspace_id},
+        ).mappings()
+    ]

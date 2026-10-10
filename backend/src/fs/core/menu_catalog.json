@@ -91,6 +91,18 @@
           "id": "G-09",
           "label": "결재 위임",
           "group": "전자결재"
+        },
+        {
+          "path": "projects",
+          "id": "G-14",
+          "label": "프로젝트·업무",
+          "group": "업무 관리"
+        },
+        {
+          "path": "my-tasks",
+          "id": "G-15",
+          "label": "내 업무",
+          "group": "업무 관리"
         }
       ]
     },

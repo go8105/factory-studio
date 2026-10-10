@@ -114,3 +114,18 @@ API 초안: 회사 목록은 core 제공 계약, `/api/v1/gw/projects?companyId=
 **추천: 회사 공동 공유 보드, 기본 열 중심, 테이블·칸반·캘린더·기본 간트 네 보기까지 첫 공개.** 프로젝트/팀 업무/회의 후속 템플릿으로 시작한다. 파일·자유 열·외부 공유·자동화는 후속.
 
 확인 대상은 이 전체 범위와 회사 회원 기본 VIEWER/OWNER가 편집 권한 부여하는 정책이다. 현재 사용자에게 추천 범위 확인을 요청하며 제품 구현은 아직 시작하지 않았다.
+
+## 승인 후 상세 DB 명세 (2026-10-10)
+
+사용자 “그대로 진행해줘”로 전체 첫 공개 범위 승인. COMPANY 소유자 역할은 현재 core 계약의 OWNER만 존재하므로 OWNER가 복구/정책 설정을 맡는다. 아래 열·제약은 구현 메타데이터와 함께 관리한다.
+
+| `gw.work_board` | id bigint, workspace_id bigint, generation_id bigint, name varchar(120), description text, template varchar(20), version integer, archived_at timestamptz, created_at timestamptz |
+| `gw.work_board_member` | id bigint, workspace_id bigint, generation_id bigint, board_id bigint, user_id bigint, role varchar(10), created_at timestamptz |
+| `gw.work_group` | id bigint, workspace_id bigint, generation_id bigint, board_id bigint, name varchar(120), color varchar(7), position integer, version integer, created_at timestamptz |
+| `gw.work_task` | id bigint, workspace_id bigint, generation_id bigint, board_id bigint, group_id bigint, parent_id bigint, title varchar(250), description text, status varchar(12), priority varchar(10), starts_on date, ends_on date, progress integer, position integer, version integer, archived_at timestamptz, created_at timestamptz |
+| `gw.work_task_assignee` | id bigint, workspace_id bigint, generation_id bigint, task_id bigint, user_id bigint, display_name varchar(120), created_at timestamptz |
+| `gw.work_task_comment` | id bigint, workspace_id bigint, generation_id bigint, task_id bigint, user_id bigint, body text, updated_at timestamptz, deleted_at timestamptz, version integer, created_at timestamptz |
+| `gw.work_task_event` | id bigint, workspace_id bigint, generation_id bigint, board_id bigint, task_id bigint, user_id bigint, action varchar(40), details jsonb, created_at timestamptz |
+| `gw.work_board_favorite` | id bigint, workspace_id bigint, generation_id bigint, board_id bigint, user_id bigint, position integer, created_at timestamptz |
+| `gw.work_view_preference` | id bigint, workspace_id bigint, generation_id bigint, board_id bigint, user_id bigint, settings jsonb, created_at timestamptz |
+| `gw.work_project_settings` | id bigint, workspace_id bigint, generation_id bigint, allow_create boolean, version integer, created_at timestamptz |

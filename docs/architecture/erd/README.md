@@ -1,7 +1,7 @@
-# W1-HR-TIME 독립 솔루션별 ERD
+# GW-PROJECT 독립 솔루션별 ERD
 
 `EIP_모듈별_ERD.html`은 외부 라이브러리 없이 여는 SVG 관계 탐색기다. EIP→모듈 구성과 FK 관계를 구분한다.
 
 전체 및 7스키마 Mermaid 원본은 `.mmd` 파일로 제공한다. 각 관계는 참조 대상 0..1/1 및 자식 0..1/다수를 NULL·UNIQUE에서 유도했다. 환경별 DB 적용 상태는 해당 작업 인계 문서를 참조한다. 서비스 정책은 선으로 증명되지 않는다.
 
-기준 해시: f153df3a98cd289caa4bd6321a745776562615cf46e0d8174b24c8c64297d10a
+기준 해시: 5897fd5fe87cee1d1c865ee5ec3537efc45ece36f3f14a4eaf3f054ff1521331

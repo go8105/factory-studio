@@ -24,7 +24,7 @@ class GwTargetTest(unittest.TestCase):
     def test_contract_holds(self):
         self.assertEqual(validate_gw_dsn31(self.target), [])
         self.assertEqual(
-            sum(t["name"].startswith("gw.") for t in self.target["tables"]), 24
+            sum(t["name"].startswith("gw.") and not t["name"].startswith("gw.work_") for t in self.target["tables"]), 24
         )
 
     def test_demo_implementation_does_not_skip_future_team_design(self):

@@ -1,0 +1,206 @@
+"""GW 회사 공동 프로젝트.
+
+설계 schema.json 0.24.0(GW-PROJECT)에서 tools/build_migration.py로 생성했다. 실행할 때 JSON을 읽지 않는다.
+c·r 번호는 schema.json의 constraints·relations 순번이다. SERVICE/DB_POLICY는 서비스가 지키는 규칙이라 DB 제약이 아니다.
+Source SHA256: 5897fd5fe87cee1d1c865ee5ec3537efc45ece36f3f14a4eaf3f054ff1521331
+"""
+
+from alembic import op
+
+revision = "gw_projects"
+down_revision = "hr_time_check"
+branch_labels = None
+depends_on = None
+
+STATEMENTS = [
+    "CREATE TABLE gw.work_board (id bigint GENERATED ALWAYS AS IDENTITY NOT NULL, workspace_id bigint NOT NULL, generation_id bigint NOT NULL, name varchar(120) NOT NULL, description text DEFAULT '' NOT NULL, template varchar(20) DEFAULT 'PROJECT' NOT NULL, version integer DEFAULT 1 NOT NULL, archived_at timestamptz, created_at timestamptz DEFAULT now() NOT NULL)",
+    "CREATE TABLE gw.work_board_member (id bigint GENERATED ALWAYS AS IDENTITY NOT NULL, workspace_id bigint NOT NULL, generation_id bigint NOT NULL, board_id bigint NOT NULL, user_id bigint NOT NULL, role varchar(10) NOT NULL, created_at timestamptz DEFAULT now() NOT NULL)",
+    "CREATE TABLE gw.work_group (id bigint GENERATED ALWAYS AS IDENTITY NOT NULL, workspace_id bigint NOT NULL, generation_id bigint NOT NULL, board_id bigint NOT NULL, name varchar(120) NOT NULL, color varchar(7) DEFAULT '#658ab1' NOT NULL, position integer DEFAULT 0 NOT NULL, version integer DEFAULT 1 NOT NULL, created_at timestamptz DEFAULT now() NOT NULL)",
+    "CREATE TABLE gw.work_task (id bigint GENERATED ALWAYS AS IDENTITY NOT NULL, workspace_id bigint NOT NULL, generation_id bigint NOT NULL, board_id bigint NOT NULL, group_id bigint NOT NULL, parent_id bigint, title varchar(250) NOT NULL, description text DEFAULT '' NOT NULL, status varchar(12) DEFAULT 'WAITING' NOT NULL, priority varchar(10) DEFAULT 'NORMAL' NOT NULL, starts_on date, ends_on date, progress integer DEFAULT 0 NOT NULL, position integer DEFAULT 0 NOT NULL, version integer DEFAULT 1 NOT NULL, archived_at timestamptz, created_at timestamptz DEFAULT now() NOT NULL)",
+    "CREATE TABLE gw.work_task_assignee (id bigint GENERATED ALWAYS AS IDENTITY NOT NULL, workspace_id bigint NOT NULL, generation_id bigint NOT NULL, task_id bigint NOT NULL, user_id bigint NOT NULL, display_name varchar(120) NOT NULL, created_at timestamptz DEFAULT now() NOT NULL)",
+    "CREATE TABLE gw.work_task_comment (id bigint GENERATED ALWAYS AS IDENTITY NOT NULL, workspace_id bigint NOT NULL, generation_id bigint NOT NULL, task_id bigint NOT NULL, user_id bigint NOT NULL, body text NOT NULL, updated_at timestamptz, deleted_at timestamptz, version integer DEFAULT 1 NOT NULL, created_at timestamptz DEFAULT now() NOT NULL)",
+    "CREATE TABLE gw.work_task_event (id bigint GENERATED ALWAYS AS IDENTITY NOT NULL, workspace_id bigint NOT NULL, generation_id bigint NOT NULL, board_id bigint NOT NULL, task_id bigint, user_id bigint NOT NULL, action varchar(40) NOT NULL, details jsonb DEFAULT '{}'::jsonb NOT NULL, created_at timestamptz DEFAULT now() NOT NULL)",
+    "CREATE TABLE gw.work_board_favorite (id bigint GENERATED ALWAYS AS IDENTITY NOT NULL, workspace_id bigint NOT NULL, generation_id bigint NOT NULL, board_id bigint NOT NULL, user_id bigint NOT NULL, position integer DEFAULT 0 NOT NULL, created_at timestamptz DEFAULT now() NOT NULL)",
+    "CREATE TABLE gw.work_view_preference (id bigint GENERATED ALWAYS AS IDENTITY NOT NULL, workspace_id bigint NOT NULL, generation_id bigint NOT NULL, board_id bigint NOT NULL, user_id bigint NOT NULL, settings jsonb DEFAULT '{}'::jsonb NOT NULL, created_at timestamptz DEFAULT now() NOT NULL)",
+    "CREATE TABLE gw.work_project_settings (id bigint GENERATED ALWAYS AS IDENTITY NOT NULL, workspace_id bigint NOT NULL, generation_id bigint NOT NULL, allow_create boolean DEFAULT true NOT NULL, version integer DEFAULT 1 NOT NULL, created_at timestamptz DEFAULT now() NOT NULL)",
+    "ALTER TABLE gw.work_board ADD CONSTRAINT c1386_pk PRIMARY KEY (id)",
+    "ALTER TABLE gw.work_board ADD CONSTRAINT c1387_uk UNIQUE (workspace_id,generation_id,id)",
+    "CREATE INDEX c1388_idx ON gw.work_board (workspace_id,generation_id)",
+    "ALTER TABLE gw.work_board ADD CONSTRAINT c1389_check CHECK (length(trim(name))>0 AND version>0 AND template IN ('PROJECT','TEAM','ISSUE','MEETING'))",
+    "ALTER TABLE gw.work_board_member ADD CONSTRAINT c1390_pk PRIMARY KEY (id)",
+    "ALTER TABLE gw.work_board_member ADD CONSTRAINT c1391_uk UNIQUE (workspace_id,generation_id,id)",
+    "CREATE INDEX c1392_idx ON gw.work_board_member (workspace_id,generation_id)",
+    "ALTER TABLE gw.work_board_member ADD CONSTRAINT c1393_uk UNIQUE (workspace_id,generation_id,board_id,user_id)",
+    "ALTER TABLE gw.work_board_member ADD CONSTRAINT c1394_check CHECK (role IN ('OWNER','EDITOR'))",
+    "ALTER TABLE gw.work_group ADD CONSTRAINT c1395_pk PRIMARY KEY (id)",
+    "ALTER TABLE gw.work_group ADD CONSTRAINT c1396_uk UNIQUE (workspace_id,generation_id,id)",
+    "CREATE INDEX c1397_idx ON gw.work_group (workspace_id,generation_id)",
+    "ALTER TABLE gw.work_group ADD CONSTRAINT c1398_uk UNIQUE (workspace_id,generation_id,board_id,id)",
+    "ALTER TABLE gw.work_group ADD CONSTRAINT c1399_check CHECK (length(trim(name))>0 AND color ~ '^#[0-9a-fA-F]{6}$' AND version>0)",
+    "ALTER TABLE gw.work_task ADD CONSTRAINT c1400_pk PRIMARY KEY (id)",
+    "ALTER TABLE gw.work_task ADD CONSTRAINT c1401_uk UNIQUE (workspace_id,generation_id,id)",
+    "CREATE INDEX c1402_idx ON gw.work_task (workspace_id,generation_id)",
+    "ALTER TABLE gw.work_task ADD CONSTRAINT c1403_uk UNIQUE (workspace_id,generation_id,board_id,group_id,id)",
+    "ALTER TABLE gw.work_task ADD CONSTRAINT c1404_check CHECK (length(trim(title))>0 AND status IN ('WAITING','WORKING','BLOCKED','DONE','CANCELLED') AND priority IN ('LOW','NORMAL','HIGH','URGENT') AND (starts_on IS NULL OR ends_on IS NULL OR starts_on<=ends_on) AND progress BETWEEN 0 AND 100 AND (status!='DONE' OR progress=100) AND (status IN ('DONE','CANCELLED') OR progress<100) AND version>0 AND parent_id IS DISTINCT FROM id)",
+    "ALTER TABLE gw.work_task_assignee ADD CONSTRAINT c1405_pk PRIMARY KEY (id)",
+    "ALTER TABLE gw.work_task_assignee ADD CONSTRAINT c1406_uk UNIQUE (workspace_id,generation_id,id)",
+    "CREATE INDEX c1407_idx ON gw.work_task_assignee (workspace_id,generation_id)",
+    "ALTER TABLE gw.work_task_assignee ADD CONSTRAINT c1408_uk UNIQUE (workspace_id,generation_id,task_id,user_id)",
+    "ALTER TABLE gw.work_task_comment ADD CONSTRAINT c1409_pk PRIMARY KEY (id)",
+    "ALTER TABLE gw.work_task_comment ADD CONSTRAINT c1410_uk UNIQUE (workspace_id,generation_id,id)",
+    "CREATE INDEX c1411_idx ON gw.work_task_comment (workspace_id,generation_id)",
+    "ALTER TABLE gw.work_task_comment ADD CONSTRAINT c1412_check CHECK (length(trim(body)) BETWEEN 1 AND 5000 AND version>0)",
+    "ALTER TABLE gw.work_task_event ADD CONSTRAINT c1413_pk PRIMARY KEY (id)",
+    "ALTER TABLE gw.work_task_event ADD CONSTRAINT c1414_uk UNIQUE (workspace_id,generation_id,id)",
+    "CREATE INDEX c1415_idx ON gw.work_task_event (workspace_id,generation_id)",
+    "ALTER TABLE gw.work_board_favorite ADD CONSTRAINT c1416_pk PRIMARY KEY (id)",
+    "ALTER TABLE gw.work_board_favorite ADD CONSTRAINT c1417_uk UNIQUE (workspace_id,generation_id,id)",
+    "CREATE INDEX c1418_idx ON gw.work_board_favorite (workspace_id,generation_id)",
+    "ALTER TABLE gw.work_board_favorite ADD CONSTRAINT c1419_uk UNIQUE (workspace_id,generation_id,board_id,user_id)",
+    "ALTER TABLE gw.work_view_preference ADD CONSTRAINT c1420_pk PRIMARY KEY (id)",
+    "ALTER TABLE gw.work_view_preference ADD CONSTRAINT c1421_uk UNIQUE (workspace_id,generation_id,id)",
+    "CREATE INDEX c1422_idx ON gw.work_view_preference (workspace_id,generation_id)",
+    "ALTER TABLE gw.work_view_preference ADD CONSTRAINT c1423_uk UNIQUE (workspace_id,generation_id,board_id,user_id)",
+    "ALTER TABLE gw.work_project_settings ADD CONSTRAINT c1424_pk PRIMARY KEY (id)",
+    "ALTER TABLE gw.work_project_settings ADD CONSTRAINT c1425_uk UNIQUE (workspace_id,generation_id,id)",
+    "CREATE INDEX c1426_idx ON gw.work_project_settings (workspace_id,generation_id)",
+    "ALTER TABLE gw.work_project_settings ADD CONSTRAINT c1427_uk UNIQUE (workspace_id,generation_id)",
+    "ALTER TABLE gw.work_board ADD CONSTRAINT r433_fk FOREIGN KEY (workspace_id) REFERENCES core.workspace (id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_board ADD CONSTRAINT r434_fk FOREIGN KEY (workspace_id,generation_id) REFERENCES core.data_generation (workspace_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_board_member ADD CONSTRAINT r435_fk FOREIGN KEY (workspace_id) REFERENCES core.workspace (id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_board_member ADD CONSTRAINT r436_fk FOREIGN KEY (workspace_id,generation_id) REFERENCES core.data_generation (workspace_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_group ADD CONSTRAINT r437_fk FOREIGN KEY (workspace_id) REFERENCES core.workspace (id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_group ADD CONSTRAINT r438_fk FOREIGN KEY (workspace_id,generation_id) REFERENCES core.data_generation (workspace_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task ADD CONSTRAINT r439_fk FOREIGN KEY (workspace_id) REFERENCES core.workspace (id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task ADD CONSTRAINT r440_fk FOREIGN KEY (workspace_id,generation_id) REFERENCES core.data_generation (workspace_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task_assignee ADD CONSTRAINT r441_fk FOREIGN KEY (workspace_id) REFERENCES core.workspace (id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task_assignee ADD CONSTRAINT r442_fk FOREIGN KEY (workspace_id,generation_id) REFERENCES core.data_generation (workspace_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task_comment ADD CONSTRAINT r443_fk FOREIGN KEY (workspace_id) REFERENCES core.workspace (id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task_comment ADD CONSTRAINT r444_fk FOREIGN KEY (workspace_id,generation_id) REFERENCES core.data_generation (workspace_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task_event ADD CONSTRAINT r445_fk FOREIGN KEY (workspace_id) REFERENCES core.workspace (id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task_event ADD CONSTRAINT r446_fk FOREIGN KEY (workspace_id,generation_id) REFERENCES core.data_generation (workspace_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_board_favorite ADD CONSTRAINT r447_fk FOREIGN KEY (workspace_id) REFERENCES core.workspace (id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_board_favorite ADD CONSTRAINT r448_fk FOREIGN KEY (workspace_id,generation_id) REFERENCES core.data_generation (workspace_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_view_preference ADD CONSTRAINT r449_fk FOREIGN KEY (workspace_id) REFERENCES core.workspace (id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_view_preference ADD CONSTRAINT r450_fk FOREIGN KEY (workspace_id,generation_id) REFERENCES core.data_generation (workspace_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_project_settings ADD CONSTRAINT r451_fk FOREIGN KEY (workspace_id) REFERENCES core.workspace (id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_project_settings ADD CONSTRAINT r452_fk FOREIGN KEY (workspace_id,generation_id) REFERENCES core.data_generation (workspace_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_board_member ADD CONSTRAINT r453_fk FOREIGN KEY (workspace_id,generation_id,board_id) REFERENCES gw.work_board (workspace_id,generation_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_group ADD CONSTRAINT r454_fk FOREIGN KEY (workspace_id,generation_id,board_id) REFERENCES gw.work_board (workspace_id,generation_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task ADD CONSTRAINT r455_fk FOREIGN KEY (workspace_id,generation_id,board_id) REFERENCES gw.work_board (workspace_id,generation_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task_event ADD CONSTRAINT r456_fk FOREIGN KEY (workspace_id,generation_id,board_id) REFERENCES gw.work_board (workspace_id,generation_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_board_favorite ADD CONSTRAINT r457_fk FOREIGN KEY (workspace_id,generation_id,board_id) REFERENCES gw.work_board (workspace_id,generation_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_view_preference ADD CONSTRAINT r458_fk FOREIGN KEY (workspace_id,generation_id,board_id) REFERENCES gw.work_board (workspace_id,generation_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task ADD CONSTRAINT r459_fk FOREIGN KEY (workspace_id,generation_id,board_id,group_id) REFERENCES gw.work_group (workspace_id,generation_id,board_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task ADD CONSTRAINT r460_fk FOREIGN KEY (workspace_id,generation_id,board_id,group_id,parent_id) REFERENCES gw.work_task (workspace_id,generation_id,board_id,group_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task_assignee ADD CONSTRAINT r461_fk FOREIGN KEY (workspace_id,generation_id,task_id) REFERENCES gw.work_task (workspace_id,generation_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task_comment ADD CONSTRAINT r462_fk FOREIGN KEY (workspace_id,generation_id,task_id) REFERENCES gw.work_task (workspace_id,generation_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+    "ALTER TABLE gw.work_task_event ADD CONSTRAINT r463_fk FOREIGN KEY (workspace_id,generation_id,task_id) REFERENCES gw.work_task (workspace_id,generation_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+]
+DROPS = [
+    "ALTER TABLE gw.work_task_event DROP CONSTRAINT r463_fk",
+    "ALTER TABLE gw.work_task_comment DROP CONSTRAINT r462_fk",
+    "ALTER TABLE gw.work_task_assignee DROP CONSTRAINT r461_fk",
+    "ALTER TABLE gw.work_task DROP CONSTRAINT r460_fk",
+    "ALTER TABLE gw.work_task DROP CONSTRAINT r459_fk",
+    "ALTER TABLE gw.work_view_preference DROP CONSTRAINT r458_fk",
+    "ALTER TABLE gw.work_board_favorite DROP CONSTRAINT r457_fk",
+    "ALTER TABLE gw.work_task_event DROP CONSTRAINT r456_fk",
+    "ALTER TABLE gw.work_task DROP CONSTRAINT r455_fk",
+    "ALTER TABLE gw.work_group DROP CONSTRAINT r454_fk",
+    "ALTER TABLE gw.work_board_member DROP CONSTRAINT r453_fk",
+    "ALTER TABLE gw.work_project_settings DROP CONSTRAINT r452_fk",
+    "ALTER TABLE gw.work_project_settings DROP CONSTRAINT r451_fk",
+    "ALTER TABLE gw.work_view_preference DROP CONSTRAINT r450_fk",
+    "ALTER TABLE gw.work_view_preference DROP CONSTRAINT r449_fk",
+    "ALTER TABLE gw.work_board_favorite DROP CONSTRAINT r448_fk",
+    "ALTER TABLE gw.work_board_favorite DROP CONSTRAINT r447_fk",
+    "ALTER TABLE gw.work_task_event DROP CONSTRAINT r446_fk",
+    "ALTER TABLE gw.work_task_event DROP CONSTRAINT r445_fk",
+    "ALTER TABLE gw.work_task_comment DROP CONSTRAINT r444_fk",
+    "ALTER TABLE gw.work_task_comment DROP CONSTRAINT r443_fk",
+    "ALTER TABLE gw.work_task_assignee DROP CONSTRAINT r442_fk",
+    "ALTER TABLE gw.work_task_assignee DROP CONSTRAINT r441_fk",
+    "ALTER TABLE gw.work_task DROP CONSTRAINT r440_fk",
+    "ALTER TABLE gw.work_task DROP CONSTRAINT r439_fk",
+    "ALTER TABLE gw.work_group DROP CONSTRAINT r438_fk",
+    "ALTER TABLE gw.work_group DROP CONSTRAINT r437_fk",
+    "ALTER TABLE gw.work_board_member DROP CONSTRAINT r436_fk",
+    "ALTER TABLE gw.work_board_member DROP CONSTRAINT r435_fk",
+    "ALTER TABLE gw.work_board DROP CONSTRAINT r434_fk",
+    "ALTER TABLE gw.work_board DROP CONSTRAINT r433_fk",
+    "ALTER TABLE gw.work_project_settings DROP CONSTRAINT c1427_uk",
+    "DROP INDEX gw.c1426_idx",
+    "ALTER TABLE gw.work_project_settings DROP CONSTRAINT c1425_uk",
+    "ALTER TABLE gw.work_project_settings DROP CONSTRAINT c1424_pk",
+    "ALTER TABLE gw.work_view_preference DROP CONSTRAINT c1423_uk",
+    "DROP INDEX gw.c1422_idx",
+    "ALTER TABLE gw.work_view_preference DROP CONSTRAINT c1421_uk",
+    "ALTER TABLE gw.work_view_preference DROP CONSTRAINT c1420_pk",
+    "ALTER TABLE gw.work_board_favorite DROP CONSTRAINT c1419_uk",
+    "DROP INDEX gw.c1418_idx",
+    "ALTER TABLE gw.work_board_favorite DROP CONSTRAINT c1417_uk",
+    "ALTER TABLE gw.work_board_favorite DROP CONSTRAINT c1416_pk",
+    "DROP INDEX gw.c1415_idx",
+    "ALTER TABLE gw.work_task_event DROP CONSTRAINT c1414_uk",
+    "ALTER TABLE gw.work_task_event DROP CONSTRAINT c1413_pk",
+    "ALTER TABLE gw.work_task_comment DROP CONSTRAINT c1412_check",
+    "DROP INDEX gw.c1411_idx",
+    "ALTER TABLE gw.work_task_comment DROP CONSTRAINT c1410_uk",
+    "ALTER TABLE gw.work_task_comment DROP CONSTRAINT c1409_pk",
+    "ALTER TABLE gw.work_task_assignee DROP CONSTRAINT c1408_uk",
+    "DROP INDEX gw.c1407_idx",
+    "ALTER TABLE gw.work_task_assignee DROP CONSTRAINT c1406_uk",
+    "ALTER TABLE gw.work_task_assignee DROP CONSTRAINT c1405_pk",
+    "ALTER TABLE gw.work_task DROP CONSTRAINT c1404_check",
+    "ALTER TABLE gw.work_task DROP CONSTRAINT c1403_uk",
+    "DROP INDEX gw.c1402_idx",
+    "ALTER TABLE gw.work_task DROP CONSTRAINT c1401_uk",
+    "ALTER TABLE gw.work_task DROP CONSTRAINT c1400_pk",
+    "ALTER TABLE gw.work_group DROP CONSTRAINT c1399_check",
+    "ALTER TABLE gw.work_group DROP CONSTRAINT c1398_uk",
+    "DROP INDEX gw.c1397_idx",
+    "ALTER TABLE gw.work_group DROP CONSTRAINT c1396_uk",
+    "ALTER TABLE gw.work_group DROP CONSTRAINT c1395_pk",
+    "ALTER TABLE gw.work_board_member DROP CONSTRAINT c1394_check",
+    "ALTER TABLE gw.work_board_member DROP CONSTRAINT c1393_uk",
+    "DROP INDEX gw.c1392_idx",
+    "ALTER TABLE gw.work_board_member DROP CONSTRAINT c1391_uk",
+    "ALTER TABLE gw.work_board_member DROP CONSTRAINT c1390_pk",
+    "ALTER TABLE gw.work_board DROP CONSTRAINT c1389_check",
+    "DROP INDEX gw.c1388_idx",
+    "ALTER TABLE gw.work_board DROP CONSTRAINT c1387_uk",
+    "ALTER TABLE gw.work_board DROP CONSTRAINT c1386_pk",
+    "DROP TABLE gw.work_project_settings",
+    "DROP TABLE gw.work_view_preference",
+    "DROP TABLE gw.work_board_favorite",
+    "DROP TABLE gw.work_task_event",
+    "DROP TABLE gw.work_task_comment",
+    "DROP TABLE gw.work_task_assignee",
+    "DROP TABLE gw.work_task",
+    "DROP TABLE gw.work_group",
+    "DROP TABLE gw.work_board_member",
+    "DROP TABLE gw.work_board",
+]
+# 모듈 키: (표, 제약 이름, 옛 식, 새 식)
+MODULE_CHECKS = [
+
+]
+
+
+def upgrade() -> None:
+    op.execute("INSERT INTO core.workspace_module(workspace_id,module_key,enabled,seeded_generation_id) SELECT id,'gw',true,active_generation_id FROM core.workspace WHERE workspace_kind='COMPANY' ON CONFLICT(workspace_id,module_key) DO NOTHING")
+    for statement in STATEMENTS:
+        op.execute(statement)
+    for table, name, _old, new in MODULE_CHECKS:
+        op.execute(f"ALTER TABLE {table} DROP CONSTRAINT {name}")
+        op.execute(f"ALTER TABLE {table} ADD CONSTRAINT {name} CHECK ({new})")
+
+
+def downgrade() -> None:
+    # 모듈 행·평가가 남아 있으면 옛 CHECK 복원이 실패한다. CASCADE 없이 멈추는 쪽이 안전하다.
+    for table, name, old, _new in MODULE_CHECKS:
+        op.execute(f"ALTER TABLE {table} DROP CONSTRAINT {name}")
+        op.execute(f"ALTER TABLE {table} ADD CONSTRAINT {name} CHECK ({old})")
+    for statement in DROPS:
+        op.execute(statement)

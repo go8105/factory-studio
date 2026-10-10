@@ -1,3 +1,7 @@
+## 2026-10-10 GW-PROJECT 구현 WIP
+
+사용자 전체 범위 승인. codex/gw-projects에서 회사 프로젝트 10표/API/4보기/댓글/내업무 구현 중. 합성 전용 gw_projects_20261010_test 사용, 로컬 DB 적용 전. 관련 API/HR/GW스키마17통과·신규UI4통과·191표464FK 카탈로그 대조0. 도구 목표 설계 재생성 호환 보정과 최종 UI/회귀 검증 진행 중. 아직 main 병합/push 없음. 기존 로컬 서버/확장 설정 유지.
+
 # GW-PROJECT-01 인계 — 2026-10-10
 
 브랜치 codex/gw-project-design → main. 설계 문서만 반영하며 최종 커밋은 git log -1로 확인. 프로젝트 보드 신규 범위는 사용자 전체 설계 확인 전. 회사 공유·기본 VIEWER/지정 EDITOR·네 보기·10개 신규 테이블 후보. 기존 GW 체험 actor/seed_ready와 회사 프로젝트 경로를 분리한다. 실제 데이터/비밀번호 복사 금지. 상세 DB/API/권한 명세와 설계 Excel/ERD 후 개발 가능. HTML 시안 JS 문법 검사만 완료, 브라우저 file URL 정책 차단으로 렌더링 미검증. 기존 5173/8000 서버·확장 설정 유지.

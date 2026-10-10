@@ -41,7 +41,7 @@ class GwMigrationTests(unittest.TestCase):
     def test_partial_scope_and_idempotency(self):
         self.assertFalse(EXCLUDED & {t["name"] for t in self.current["tables"]})
         self.assertEqual(
-            sum(t["name"].startswith("gw.") for t in self.current["tables"]), 19
+            sum(t["name"].startswith("gw.") and not t["name"].startswith("gw.work_") for t in self.current["tables"]), 19
         )
         self.assertFalse(apply(self.current, self.target))
         self.assertEqual(

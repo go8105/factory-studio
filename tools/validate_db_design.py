@@ -87,7 +87,9 @@ def design_names(task='FS-014'):
 def expected_names(d):
     """이 설계 파일이 가질 수 있는 표 이름. 일괄 개발(W…)·목표 설계는 DSN 설계 문서의 표도 포함한다."""
     task = gate_task(d)
-    return design_names(task) | (target_names() if d.get('target') or task.startswith(('W', 'GW-')) else set())
+    project = ROOT/"docs/modules/gw/GW_프로젝트업무보드_설계초안_GW-PROJECT-01.md"
+    extra = set(re.findall(r"^\| `?(gw\.work_[a-z_]+)`? \|", project.read_text(), re.M)) if project.exists() else set()
+    return extra | design_names(task) | (target_names() if d.get('target') or task.startswith(('W', 'GW-')) else set())
 
 
 def validate(d, expected=None, isolation=True):

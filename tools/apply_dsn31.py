@@ -1210,15 +1210,16 @@ def _apply(d):
         # GW-a implements the demo subset, not the TEAM/ERP design. Rebuild the
         # planned GW from its canonical initial definition, then carry forward
         # extra implemented columns (e.g. the HR employee code snapshot).
-        implemented = {n: t for n, t in tables.items() if n.startswith(P)}
+        project_names = {"gw." + n for n in ("work_board", "work_board_member", "work_group", "work_task", "work_task_assignee", "work_task_comment", "work_task_event", "work_board_favorite", "work_view_preference", "work_project_settings")}
+        implemented = {n: t for n, t in tables.items() if n.startswith(P) and n not in project_names}
         allowed = {t["name"] for t in apply_fs030a.TABLES + TABLES}
         if set(implemented) - allowed:
             raise SystemExit("미지원 GW 확장이 있어 목표 설계 재생성을 중단한다")
         candidate = copy.deepcopy(d)
-        candidate["tables"] = [t for t in candidate["tables"] if not t["name"].startswith(P)] + copy.deepcopy(apply_fs030a.TABLES)
-        candidate["constraints"] = [c for c in candidate["constraints"] if not c["table"].startswith(P)] + copy.deepcopy(apply_fs030a.CONSTRAINTS)
-        candidate["relations"] = [r for r in candidate["relations"] if not r["source"].startswith(P)] + copy.deepcopy(apply_fs030a.RELATIONS)
-        candidate["states"] = [s for s in candidate["states"] if not s["table"].startswith(P)] + copy.deepcopy(apply_fs030a.STATES)
+        candidate["tables"] = [t for t in candidate["tables"] if not t["name"].startswith(P) or t["name"] in project_names] + copy.deepcopy(apply_fs030a.TABLES)
+        candidate["constraints"] = [c for c in candidate["constraints"] if not c["table"].startswith(P) or c["table"] in project_names] + copy.deepcopy(apply_fs030a.CONSTRAINTS)
+        candidate["relations"] = [r for r in candidate["relations"] if not r["source"].startswith(P) or r["source"] in project_names] + copy.deepcopy(apply_fs030a.RELATIONS)
+        candidate["states"] = [s for s in candidate["states"] if not s["table"].startswith(P) or s["table"] in project_names] + copy.deepcopy(apply_fs030a.STATES)
         apply(candidate)
         for t in candidate["tables"]:
             if t["name"] in implemented:
