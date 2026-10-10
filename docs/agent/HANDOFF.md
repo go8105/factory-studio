@@ -1,3 +1,7 @@
+# GW-PROJECT-01 인계 — 2026-10-10
+
+브랜치 codex/gw-project-design → main. 설계 문서만 반영하며 최종 커밋은 git log -1로 확인. 프로젝트 보드 신규 범위는 사용자 전체 설계 확인 전. 회사 공유·기본 VIEWER/지정 EDITOR·네 보기·10개 신규 테이블 후보. 기존 GW 체험 actor/seed_ready와 회사 프로젝트 경로를 분리한다. 실제 데이터/비밀번호 복사 금지. 상세 DB/API/권한 명세와 설계 Excel/ERD 후 개발 가능. HTML 시안 JS 문법 검사만 완료, 브라우저 file URL 정책 차단으로 렌더링 미검증. 기존 5173/8000 서버·확장 설정 유지.
+
 ## 2026-10-10 LOCAL-AUDIT 진입 오류·메뉴 클릭 전체 점검
 
 사용자 기존 Chrome 탭에서 메뉴 클릭이 반응하지 않는 현상 재현. 서버는 점검 시작 시 중지되어 있어 공통 기동기로 DB 확인 후 backend/frontend 재실행, 현재 localhost:5173/8000 유지. 실제 Chrome의 기존 admin 세션으로 새 탭에서 MES/QMS/SPC/WMS/FEMS/BEMS/ERP/GW/HR 9개 대시보드 클릭·데이터 로딩·오류 알림 없음 확인. 내 공간·즐겨찾기 편집 창 열기/취소·사용자 관리 회사 조회·CAD iframe 로딩·3D 공장·전체 흐름·도움말도 확인. 콘솔 permission error는 Monica extension ofpnmcalabcbjgholdjcjblkibolbppb의 /writing/get_template_list, EventEmitter/ObjectMultiplex 경고는 MetaMask extension nkbihfbeogaeaoehlefnkodbefgpgknn에서 발생. 해당 확장 오류는 정상 새 탭에서도 발생하므로 클릭 차단 원인이라고 단정하지 않음.

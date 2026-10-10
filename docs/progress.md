@@ -1,3 +1,9 @@
+## 2026-10-10 GW-PROJECT-01 프로젝트·업무 보드 분석·설계 초안
+
+사용자 monday 화면 요청을 분석하고 GW 회사 공동 보드·그룹/1단계 하위 업무·복수 담당자·상태/진행률·테이블/칸반/캘린더/기본 간트·내 업무·댓글/이력·보드 개인화를 제안했다. 기존 게시판/체험 actor 및 과거 TEAM 설계와 현재 COMPANY 공간의 차이를 명시. 실제 회사/스크린샷 업무 데이터 복사 없음. 기본 회사 회원 VIEWER, OWNER 지정 EDITOR; HR 근무 ADMIN/플랫폼 ADMIN 자동 권한 없음. 신규 GW 10테이블 후보만 제시, 실제 schema0.23.3/headhr_time_check·181표433FK 유지.
+
+산출물: docs/modules/gw/GW_프로젝트업무보드_설계초안_GW-PROJECT-01.md, 사용자 outputs 설계서/합성 HTML 시안. 시안 JS node --check 통과. 브라우저 file URL 열기는 브라우저 보안 정책에 차단되어 우회하지 않았으며 렌더링/클릭 검증 미실행. 제품 코드·마이그레이션·운영 배포 없음. 기존 localhost 5173/8000 및 확장 설정 유지. 다음: 사용자 전체 범위 확인 후 상세 DB/API/권한 명세·설계 Excel/ERD 준비, 그 뒤 제품 개발. 기존 사용자 main 즉시 push 승인에 따라 설계 문서만 브랜치→main 반영.
+
 ## 2026-10-10 LOCAL-AUDIT 진입 오류·메뉴 클릭 전체 점검
 
 사용자 기존 Chrome 탭에서 메뉴 클릭이 반응하지 않는 현상 재현. 서버는 점검 시작 시 중지되어 있어 공통 기동기로 DB 확인 후 backend/frontend 재실행, 현재 localhost:5173/8000 유지. 실제 Chrome의 기존 admin 세션으로 새 탭에서 MES/QMS/SPC/WMS/FEMS/BEMS/ERP/GW/HR 9개 대시보드 클릭·데이터 로딩·오류 알림 없음 확인. 내 공간·즐겨찾기 편집 창 열기/취소·사용자 관리 회사 조회·CAD iframe 로딩·3D 공장·전체 흐름·도움말도 확인. 콘솔 permission error는 Monica extension ofpnmcalabcbjgholdjcjblkibolbppb의 /writing/get_template_list, EventEmitter/ObjectMultiplex 경고는 MetaMask extension nkbihfbeogaeaoehlefnkodbefgpgknn에서 발생. 해당 확장 오류는 정상 새 탭에서도 발생하므로 클릭 차단 원인이라고 단정하지 않음.
