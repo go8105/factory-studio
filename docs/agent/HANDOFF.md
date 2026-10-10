@@ -1,3 +1,10 @@
+## 2026-10-10 CAD-17 FANUC 착수 인계 (미완료)
+
+- branch codex/cad-17, workspace `/Users/hwang-kyoungho/projects/factory-studio-cad17`, 기준 main e137f61. 마지막 커밋은 `git log -1 --oneline`. 공유 checkout 다른 작업자의 사이드바4파일 미접촉. main/push/배포/DB 변경 없음.
+- 사용자 출력 대상 FANUC 계열. 시리즈/장비명 질문 대기. [설계](../modules/cad-cam/NC출력_설계_CAD-17.md). nc-post.js/tests의 기존 해석기 내부 출력/보존 코어 완료, nc-post-review/worker UI 초안은 제품 미연결. LinuxCNC→FANUC 이름변경/무검증 변환 금지.
+- CAD149(신규7)·frontend전체build/자산격리 통과. FANUC post·실제 브라우저/다운로드/장비 시험 미실행. 다음 기종/매뉴얼 확정→FANUC post/재해석 어댑터→UI연결→실제 파일수신/회귀→현황/progress 갱신. CAD-17 완료로 표시하지 않는다.
+- 재현: Node24 PATH에서 `npm --prefix prototypes/cad-cam test`, `npm --prefix frontend run build`. 의존성 symlink는 원래 프로젝트 node_modules 참조(제품 변경 아님), 제거 후 npm ci로 재설치 가능. 서버/브라우저 새로 띄우지 않음.
+
 ## 2026-10-10 GW·즐겨찾기 main 병합·운영 배포 완료
 
 제품31af096 로컬main/원격main 병합 후 CI전체통과 및 정식deploy.sh 완료. 운영HTTP200/DDL오류0/최근5xx0/API14검사 통과, 실제Chrome저장·새로고침·MES등록메뉴표시 확인. 로컬DB구버전500은 백업 후 head마이그레이션으로 복구·기존공간유지. [결과](GW_즐겨찾기_main_배포검증.md). 후속기록커밋은문서전용, 제품배포31af096.
