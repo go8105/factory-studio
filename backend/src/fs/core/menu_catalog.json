@@ -717,6 +717,18 @@
           "id": "H-15",
           "label": "내 정보",
           "group": "평가·분석"
+        },
+        {
+          "path": "work",
+          "id": "H-16",
+          "label": "내 근무",
+          "group": "회사 근무"
+        },
+        {
+          "path": "work-demo",
+          "id": "H-17",
+          "label": "근무 체험",
+          "group": "회사 근무"
         }
       ]
     }

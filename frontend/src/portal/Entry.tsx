@@ -38,7 +38,11 @@ export function Entry() {
       keys.current.complete(operation);
       setSession({ ...response.data, roles: response.data.roles ?? ["GUEST"] });
       setPassword("");
-      navigate("/home");
+      navigate(
+        member && window.matchMedia?.("(display-mode: standalone)").matches
+          ? "/hr/work"
+          : "/home",
+      );
     } catch (e) {
       setError(e);
     } finally {

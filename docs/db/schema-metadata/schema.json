@@ -1,9 +1,9 @@
 {
-  "version": "0.22.1",
-  "task": "W0-FAV",
+  "version": "0.23.2",
+  "task": "W1-HR-TIME",
   "date": "2026-10-10",
   "status": "구현 명세 / 환경별 적용 상태는 인계 참조",
-  "migration_revision": "w0_fav_menu_shape",
+  "migration_revision": "hr_time_status_len",
   "tables": [
     {
       "name": "core.app_user",
@@ -17310,6 +17310,622 @@
           "rule": ""
         }
       ]
+    },
+    {
+      "name": "core.company",
+      "label": "회사",
+      "scope": "global",
+      "phase": "HR-TIME-01",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "name",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_example",
+          "label": "is_example",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "rule": ""
+        },
+        {
+          "name": "timezone",
+          "label": "timezone",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": "'Asia/Seoul'",
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "status",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'ACTIVE'",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "retention": "회사 보존정책 / 삭제 전 인수 확인"
+    },
+    {
+      "name": "core.company_member",
+      "label": "회사 구성원",
+      "scope": "global",
+      "phase": "HR-TIME-01",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "user_id",
+          "label": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "role",
+          "label": "role",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "is_active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "retention": "회사 보존정책 / 삭제 전 인수 확인"
+    },
+    {
+      "name": "hr.work_account",
+      "label": "근무 계정 연결",
+      "scope": "generation",
+      "phase": "HR-TIME-01",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "user_id",
+          "label": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "employee_id",
+          "label": "employee_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "work_role",
+          "label": "work_role",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "is_active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "retention": "회사 기록 보존 / 세대 정리 제외"
+    },
+    {
+      "name": "hr.work_policy",
+      "label": "회사 근무 기준",
+      "scope": "generation",
+      "phase": "HR-TIME-01",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "start_time",
+          "label": "start_time",
+          "type": "time",
+          "nullable": false,
+          "default": "'09:00'",
+          "rule": ""
+        },
+        {
+          "name": "end_time",
+          "label": "end_time",
+          "type": "time",
+          "nullable": false,
+          "default": "'18:00'",
+          "rule": ""
+        },
+        {
+          "name": "break_start",
+          "label": "break_start",
+          "type": "time",
+          "nullable": false,
+          "default": "'12:00'",
+          "rule": ""
+        },
+        {
+          "name": "break_end",
+          "label": "break_end",
+          "type": "time",
+          "nullable": false,
+          "default": "'13:00'",
+          "rule": ""
+        },
+        {
+          "name": "daily_minutes",
+          "label": "daily_minutes",
+          "type": "integer",
+          "nullable": false,
+          "default": "480",
+          "rule": ""
+        },
+        {
+          "name": "annual_days",
+          "label": "annual_days",
+          "type": "integer",
+          "nullable": false,
+          "default": "15",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "retention": "회사 기록 보존 / 세대 정리 제외"
+    },
+    {
+      "name": "hr.clock_session",
+      "label": "실제 출퇴근 원장",
+      "scope": "generation",
+      "phase": "HR-TIME-01",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "employee_id",
+          "label": "employee_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "work_date",
+          "label": "work_date",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "clock_in",
+          "label": "clock_in",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "clock_out",
+          "label": "clock_out",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "retention": "회사 기록 보존 / 세대 정리 제외"
+    },
+    {
+      "name": "hr.work_request",
+      "label": "휴가 시간차 출장 신청",
+      "scope": "generation",
+      "phase": "HR-TIME-01",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "employee_id",
+          "label": "employee_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kind",
+          "label": "kind",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "starts_at",
+          "label": "starts_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "ends_at",
+          "label": "ends_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "minutes",
+          "label": "minutes",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "reason",
+          "type": "varchar(500)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "destination",
+          "label": "destination",
+          "type": "varchar(200)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "status",
+          "type": "varchar(24)",
+          "nullable": false,
+          "default": "'REQUESTED'",
+          "rule": ""
+        },
+        {
+          "name": "decided_by",
+          "label": "decided_by",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "decided_at",
+          "label": "decided_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "retention": "회사 기록 보존 / 세대 정리 제외"
+    },
+    {
+      "name": "hr.work_event",
+      "label": "근무 변경 이력",
+      "scope": "generation",
+      "phase": "HR-TIME-01",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "employee_id",
+          "label": "employee_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "actor_user_id",
+          "label": "actor_user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "action",
+          "label": "action",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "entity_id",
+          "label": "entity_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "summary",
+          "label": "summary",
+          "type": "jsonb",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "retention": "회사 기록 보존 / 세대 정리 제외"
+    },
+    {
+      "name": "hr.work_close",
+      "label": "회사 근태 월 마감",
+      "scope": "generation",
+      "phase": "HR-TIME-01",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "month",
+          "label": "month",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "closed_by",
+          "label": "closed_by",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "retention": "회사 기록 보존 / 세대 정리 제외"
     }
   ],
   "relations": [
@@ -24018,6 +24634,315 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "대상 조직"
+    },
+    {
+      "source": "core.company",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "core.company_member",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.company",
+      "target_columns": [
+        "workspace_id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "core.company_member",
+      "columns": [
+        "user_id"
+      ],
+      "target": "core.app_user",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_account",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_account",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_account",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "target": "hr.employee",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_policy",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_policy",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.clock_session",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.clock_session",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.clock_session",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "target": "hr.employee",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_request",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_request",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_request",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "target": "hr.employee",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_request",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "decided_by"
+      ],
+      "target": "hr.employee",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_event",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_event",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_event",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "target": "hr.employee",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_close",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_close",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
+    },
+    {
+      "source": "hr.work_close",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "closed_by"
+      ],
+      "target": "hr.employee",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "HR-TIME-01"
     }
   ],
   "constraints": [
@@ -26687,7 +27612,7 @@
       "columns": [
         "workspace_kind"
       ],
-      "expression": "workspace_kind IN ('MEMBER','GUEST','TEMPLATE')",
+      "expression": "workspace_kind IN ('MEMBER','GUEST','TEMPLATE','COMPANY')",
       "reason": "FS-006b 계약"
     },
     {
@@ -26700,7 +27625,7 @@
         "expires_at",
         "guest_actor_key"
       ],
-      "expression": "(workspace_kind = 'MEMBER' AND owner_user_id IS NOT NULL AND guest_session_key IS NULL AND expires_at IS NULL AND guest_actor_key IS NULL) OR (workspace_kind = 'GUEST' AND owner_user_id IS NULL AND guest_session_key IS NOT NULL AND expires_at IS NOT NULL AND guest_actor_key IS NOT NULL) OR (workspace_kind = 'TEMPLATE' AND owner_user_id IS NULL AND guest_session_key IS NULL AND expires_at IS NULL AND guest_actor_key IS NULL)",
+      "expression": "(workspace_kind = 'MEMBER' AND owner_user_id IS NOT NULL AND guest_session_key IS NULL AND expires_at IS NULL AND guest_actor_key IS NULL) OR (workspace_kind = 'GUEST' AND owner_user_id IS NULL AND guest_session_key IS NOT NULL AND expires_at IS NOT NULL AND guest_actor_key IS NOT NULL) OR (workspace_kind IN ('TEMPLATE','COMPANY') AND owner_user_id IS NULL AND guest_session_key IS NULL AND expires_at IS NULL AND guest_actor_key IS NULL)",
       "reason": "FS-006b 계약"
     },
     {
@@ -37614,6 +38539,365 @@
       ],
       "expression": "menu_preferences IS NULL OR jsonb_typeof(menu_preferences->'sidebarMode') = 'string'",
       "reason": "W0-FAV JSON null 모드 거부"
+    },
+    {
+      "table": "core.company",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "core.company",
+      "kind": "UK",
+      "columns": [
+        "workspace_id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "core.company",
+      "kind": "CHECK",
+      "columns": [],
+      "expression": "status IN ('ACTIVE','INACTIVE')",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "core.company_member",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "core.company_member",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "user_id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "core.company_member",
+      "kind": "CHECK",
+      "columns": [],
+      "expression": "role IN ('OWNER','MEMBER')",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "core.company_member",
+      "kind": "INDEX",
+      "columns": [
+        "user_id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_account",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_account",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_account",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_account",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "user_id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_account",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_account",
+      "kind": "CHECK",
+      "columns": [],
+      "expression": "work_role IN ('ADMIN','STAFF')",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_policy",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_policy",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_policy",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_policy",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_policy",
+      "kind": "CHECK",
+      "columns": [],
+      "expression": "start_time < break_start AND break_start < break_end AND break_end < end_time AND daily_minutes > 0 AND annual_days >= 0",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.clock_session",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.clock_session",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.clock_session",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.clock_session",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id",
+        "work_date"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.clock_session",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "expression": "UNIQUE (workspace_id,generation_id,employee_id) WHERE clock_out IS NULL",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.clock_session",
+      "kind": "CHECK",
+      "columns": [],
+      "expression": "clock_out IS NULL OR clock_out >= clock_in",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_request",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_request",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_request",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_request",
+      "kind": "CHECK",
+      "columns": [],
+      "expression": "kind IN ('ANNUAL','HALF_AM','HALF_PM','HOURLY','TRIP') AND status IN ('REQUESTED','APPROVED','REJECTED','CANCELLED','CANCEL_REQUESTED') AND starts_at < ends_at AND minutes >= 0",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_request",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "employee_id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_event",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_event",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_event",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_event",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [],
+      "expression": "출퇴근/신청 승인/반려/취소/정정/마감의 이전·이후 값 보존; API 수정 삭제 금지",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_close",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_close",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_close",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_close",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "month"
+      ],
+      "expression": "",
+      "reason": "HR-TIME-01 회사 근무 정합성"
+    },
+    {
+      "table": "hr.work_close",
+      "kind": "CHECK",
+      "columns": [],
+      "expression": "month ~ '^\\d{4}-(0[1-9]|1[0-2])$'",
+      "reason": "HR-TIME-01 회사 근무 정합성"
     }
   ],
   "states": [
@@ -38120,7 +39404,8 @@
       "values": [
         "MEMBER",
         "GUEST",
-        "TEMPLATE"
+        "TEMPLATE",
+        "COMPANY"
       ],
       "default": "MEMBER",
       "note": "게스트는 관리자 화면·콘텐츠 게시 차단, 만료 시 회수"
@@ -38777,6 +40062,13 @@
       "date": "2026-10-10",
       "change": "JSON null sidebarMode 거부 CHECK 보강. 전용DB 적용한 초기revision 수정 대신 후속revision",
       "status": "구현 검증 대상"
+    },
+    {
+      "version": "0.23.0",
+      "task": "W1-HR-TIME",
+      "date": "2026-10-10",
+      "change": "회사 공동근무 8표 및 COMPANY 공간. 계정코드는 서비스에서 core 멤버십 검증, 업무→인증 FK 없음.",
+      "status": "구현 검증 중"
     }
   ]
 }

@@ -38,7 +38,11 @@ function Space() {
         screens={gwScreens}
         others={["mes", "erp", "fems", "qms", "wms", "bems", "spc", "hr"]
           .map((k) => ({ to: "/" + k, label: k.toUpperCase() }))
-          .concat({ to: "/home", label: "포털 홈" })}
+          .concat([
+            { to: "/hr/work", label: "내 근무 · 출퇴근" },
+            { to: "/hr/work-demo", label: "근무 체험" },
+            { to: "/home", label: "포털 홈" },
+          ])}
       />
     </RoleContext.Provider>
   );

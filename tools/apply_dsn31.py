@@ -1196,7 +1196,7 @@ DROP = [
 ]
 
 
-def apply(d):
+def _apply(d):
     """목표 dict를 제자리에서 바꾸고, 바뀌었으면 True."""
     if not d.get("target"):
         raise SystemExit("apply_dsn31은 schema-target.json에만 적용한다")
@@ -1215,16 +1215,32 @@ def apply(d):
         if set(implemented) - allowed:
             raise SystemExit("미지원 GW 확장이 있어 목표 설계 재생성을 중단한다")
         candidate = copy.deepcopy(d)
-        candidate["tables"] = [t for t in candidate["tables"] if not t["name"].startswith(P)] + copy.deepcopy(apply_fs030a.TABLES)
-        candidate["constraints"] = [c for c in candidate["constraints"] if not c["table"].startswith(P)] + copy.deepcopy(apply_fs030a.CONSTRAINTS)
-        candidate["relations"] = [r for r in candidate["relations"] if not r["source"].startswith(P)] + copy.deepcopy(apply_fs030a.RELATIONS)
-        candidate["states"] = [s for s in candidate["states"] if not s["table"].startswith(P)] + copy.deepcopy(apply_fs030a.STATES)
+        candidate["tables"] = [
+            t for t in candidate["tables"] if not t["name"].startswith(P)
+        ] + copy.deepcopy(apply_fs030a.TABLES)
+        candidate["constraints"] = [
+            c for c in candidate["constraints"] if not c["table"].startswith(P)
+        ] + copy.deepcopy(apply_fs030a.CONSTRAINTS)
+        candidate["relations"] = [
+            r for r in candidate["relations"] if not r["source"].startswith(P)
+        ] + copy.deepcopy(apply_fs030a.RELATIONS)
+        candidate["states"] = [
+            s for s in candidate["states"] if not s["table"].startswith(P)
+        ] + copy.deepcopy(apply_fs030a.STATES)
         apply(candidate)
         for t in candidate["tables"]:
             if t["name"] in implemented:
                 names = {c["name"] for c in t["columns"]}
-                extra = [c for c in implemented[t["name"]]["columns"] if c["name"] not in names]
-                at = len(t["columns"]) - 1 if t["columns"][-1]["name"] == "created_at" else len(t["columns"])
+                extra = [
+                    c
+                    for c in implemented[t["name"]]["columns"]
+                    if c["name"] not in names
+                ]
+                at = (
+                    len(t["columns"]) - 1
+                    if t["columns"][-1]["name"] == "created_at"
+                    else len(t["columns"])
+                )
                 t["columns"][at:at] = copy.deepcopy(extra)
         d.clear()
         d.update(candidate)
@@ -1280,6 +1296,43 @@ def apply(d):
             status="설계 전용(실제 도입 A는 별도 트랙에서 개발)",
         )
     )
+    return True
+
+
+def apply(d):
+    """회사 근태 COMPANY를 보존하면서 미구현 TEAM 목표 설계를 확장한다."""
+    company_kind = "workspace_kind IN ('MEMBER','GUEST','TEMPLATE','COMPANY')"
+    company_shape = "OR (workspace_kind IN ('TEMPLATE','COMPANY') AND owner_user_id IS NULL AND guest_session_key IS NULL AND expires_at IS NULL AND guest_actor_key IS NULL)"
+    constraints = d["constraints"]
+    if not any(
+        c["table"] == "core.workspace" and c.get("expression") == company_kind
+        for c in constraints
+    ):
+        return _apply(d)
+    candidate = copy.deepcopy(d)
+    for c in candidate["constraints"]:
+        if c["table"] != "core.workspace":
+            continue
+        c["expression"] = (
+            c.get("expression", "")
+            .replace(company_kind, WS_KIND_OLD)
+            .replace(company_shape, WS_SHAPE_OLD)
+        )
+    changed = _apply(candidate)
+    if not changed:
+        return False
+    for c in candidate["constraints"]:
+        if c["table"] != "core.workspace":
+            continue
+        e = c.get("expression", "")
+        if "workspace_kind IN ('MEMBER','GUEST','TEMPLATE','TEAM')" in e:
+            c["expression"] = e.replace(
+                "'TEMPLATE','TEAM')", "'TEMPLATE','TEAM','COMPANY')"
+            )
+        elif WS_SHAPE_OLD in e:
+            c["expression"] = e.replace(WS_SHAPE_OLD, company_shape)
+    d.clear()
+    d.update(candidate)
     return True
 
 

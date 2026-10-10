@@ -14,6 +14,7 @@ from fs.factory.router import router as factory_router
 from fs.fems.router import router as fems_router
 from fs.gw.router import router as gw_router
 from fs.hr.router import router as hr_router
+from fs.hr.work_router import router as hr_work_router
 from fs.mes.router import router as mes_router
 from fs.qms.router import router as qms_router
 from fs.spc.router import router as spc_router
@@ -29,6 +30,7 @@ def create_app() -> FastAPI:
     app.include_router(factory_router, prefix="/api/v1/factory")
     app.include_router(cad_cam_router, prefix="/api/v1/cad")
     app.include_router(core_router, prefix="/api/v1/core")
+    app.include_router(hr_work_router, prefix="/api/v1/hr/work")
     app.include_router(review_router, prefix="/api/v1/core")
     app.include_router(
         fems_router, prefix="/api/v1/fems", dependencies=[Depends(seed_ready("fems"))]

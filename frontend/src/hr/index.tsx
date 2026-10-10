@@ -16,6 +16,7 @@ import { Payslips } from "./Payslips";
 import { Reviews } from "./Reviews";
 import { PayStandards } from "./PayStandards";
 import { Titles } from "./Titles";
+import { Work } from "./Work";
 import { WorkPatterns } from "./WorkPatterns";
 
 export default function HrRoutes() {
@@ -23,6 +24,8 @@ export default function HrRoutes() {
     <Routes>
       <Route element={<HrLayout />}>
         <Route index element={<Navigate to="overview" replace />} />
+        <Route path="work" element={<Work />} />
+        <Route path="work-demo" element={<Work demo />} />
         <Route path="overview" element={<Overview />} />
         <Route path="departments" element={<Departments />} />
         <Route path="titles" element={<Titles />} />
