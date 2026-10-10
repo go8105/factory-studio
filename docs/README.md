@@ -1,6 +1,6 @@
 # 문서 지도
 
-[Factory Flow 독립 Work OS·업무일지 전체 설계](modules/flow/README.md) — FLOW-01 전체확인 대상, 제품 미구현.
+[Factory Flow 독립 Work OS·업무일지 전체 설계](modules/flow/README.md) — FLOW-02a 독립 진입·기존 보드 이관·UI 운영 배포 완료, 날짜별 일지는 후속.
 
 이 폴더의 구조와 각 폴더가 담는 것.
 **무엇부터 읽을지 모르겠다면 [현재 기획과 진행 현황](plan/현재기획_진행현황.md) 하나만 읽으면 된다.** **2026-10-04부터는 전체 설계 우선**([ROADMAP-02](plan/전체설계우선_전환_ROADMAP-02.md))이다 — 솔루션 설계는 [기능 기준표 양식 DSN-00](plan/기능기준표_DSN-00.md)을 따른다. 17개 목록·교차 조회 규칙은 [ROADMAP-01](plan/로드맵_17개시스템_ROADMAP-01.md).

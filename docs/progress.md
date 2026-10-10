@@ -1,3 +1,13 @@
+## 2026-10-10 FLOW-02a 운영 배포 완료·로컬 admin 클릭 비교
+
+Factory Flow 앱 런처 카드→/work-os/boards·/work-os/my-tasks 독립 진입, flow API/10표 이관, 구GW URL·즐겨찾기·멱등 요청 보존, 새 백자/먹색/쪽빛 UI를 운영 제품31623b0으로 배포 완료(21:03 KST). 정확한 HEAD CI38048961871 success: backend1006/skip1·perf1·frontend588/75파일·tools133 및 타입/lint/빌드/DDL왕복·격리 통과. 초기 모듈 개수 상수 실패는 MODULE_KEYS 기준 보정 후 전체 CI 재통과.
+
+서버 백업20261010-flow-31623b0(DB/프런트·비공개/commit/10표digest) 목록·압축 검증 완료. 초기 SSHstdin을 Docker가 소비한 백업 준비를 입력/dev/null 지정으로 재실행·완전 검증 후 배포. tools/deploy.sh exit0/CI우회0, 서버git31623b0/alembicflow_split/APIactive·10표행수/hash보존·DDL0·공개/원점/JS/CSS200·최근5xx0·구/신API미로그인401. 템플릿 시드 버전 동일로 유지, 사용자/비밀번호/DB초기화 없음. 제품 스키마0.24.1·191표2074열464FK. 날짜별 업무일지8표/가상화 FLOW-02b는 후속 미구현.
+
+추가 로컬 admin 조사: 기존Chrome탭 링크 클릭·Enter 이동 차단 재현/직접URL 관리자 정상. busy=false/disabled0/DOM가림·inert0. 동일 프로필·admin세션 새탭 사용자관리/런처/MES 이동 정상 및 사용자 직접 “새 탭은 정상 동작” 확인, 정상 비교탭 유지. 정상탭에도 확장오류가 있어 403과 클릭 차단 인과 단정 금지. 기존탭 입력 차단 원인미확정, 계정·서버권한/확장설정 변경 없음. 로컬8000/5173유지. 실제운영계정쓰기/휴대폰설치 미검증.
+
+상세: [배포 검증](agent/Factory_Flow_독립시스템_배포검증_FLOW-02a.md). 후속 기록은 문서만이며 운영 제품31623b0과 구분. 다음 FLOW-02b 별도 범위 확인.
+
 ## 2026-10-10 FLOW-02a 독립 진입·보드 이관 구현
 
 사용자 앱 런처 Factory Flow/독립 보드 분리 진행 및 기존 배포 승인 유지. 신규 참조 폴더의 src/App.tsx/index.css 읽기 분석, 백자#F7F7F6/먹색#1A1C1E/쪽빛#1F2D3D/한지#E8E8E6/청자#2D4442/프로필#E2E3E5·4% 그림자 적용. 참조 파일은 변경하지 않았다.
