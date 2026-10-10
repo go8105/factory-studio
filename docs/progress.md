@@ -1,3 +1,9 @@
+## 2026-10-10 LOCAL-AUDIT 진입 오류·메뉴 클릭 전체 점검
+
+사용자 기존 Chrome 탭에서 메뉴 클릭이 반응하지 않는 현상 재현. 서버는 점검 시작 시 중지되어 있어 공통 기동기로 DB 확인 후 backend/frontend 재실행, 현재 localhost:5173/8000 유지. 실제 Chrome의 기존 admin 세션으로 새 탭에서 MES/QMS/SPC/WMS/FEMS/BEMS/ERP/GW/HR 9개 대시보드 클릭·데이터 로딩·오류 알림 없음 확인. 내 공간·즐겨찾기 편집 창 열기/취소·사용자 관리 회사 조회·CAD iframe 로딩·3D 공장·전체 흐름·도움말도 확인. 콘솔 permission error는 Monica extension ofpnmcalabcbjgholdjcjblkibolbppb의 /writing/get_template_list, EventEmitter/ObjectMultiplex 경고는 MetaMask extension nkbihfbeogaeaoehlefnkodbefgpgknn에서 발생. 해당 확장 오류는 정상 새 탭에서도 발생하므로 클릭 차단 원인이라고 단정하지 않음.
+
+기존 탭은 새로고침/문서 재진입/DevTools 종료 후에도 클릭 차단 재현, JS debugger는 Not paused, 앱 busy=false/내비게이션 버튼 활성/앱 dialog·고정 덮개 없음. 기존 탭의 정확한 차단 원인은 미확정. 사용자는 확장 설정 유지 선택; 확장/쿠키/계정/비밀번호 변경 없음. 정상 동작하는 새 Chrome 탭을 사용자 관리에 남김. 앱 코드 변경 없음·DB 스키마 변경 없음. 새 게스트 검증은 기존 로컬 게스트 상한 때문에 RATE_LIMITED였으며 데이터를 지우거나 상한을 변경하지 않음. 실제 증거는 사용자-facing outputs/로컬_메뉴_동작확인.png. 다음: 새 탭에서 사용, 기존 탭의 환경 문제는 추가 재현 정보 또는 사용자 별도 브라우저 비교가 필요. 점검 결과 문서만 main push.
+
 ## 2026-10-10 LOCAL-START 로컬 500 및 IntelliJ 주소 통일
 
 실제 로컬 DB/Colima가 중지된 상태에서 DB 연결 거부 재현. 기존 IntelliJ 전체 구성은 DB 기동 없이 front/backend만 실행했고 Compose 플러그인도 없었다. 공통 start_local.py가 기존 Colima 프로필/DB를 기동하고 실제 DB 연결 확인 후 서버를 실행한다. 동시 DB 준비 파일 잠금, Compose standalone fallback, 기존 데이터/볼륨 보존. 공유 .run Local - All 추가와 PC 기존 .idea 명령 보정. backend 표시/접속은 localhost:8000, front는 localhost:5173; Vite DNS verbatim 고정 및 프록시 IPv4 지정으로 표시 변동/IPv6 API 연결 실패 방지.
