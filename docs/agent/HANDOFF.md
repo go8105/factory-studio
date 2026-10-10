@@ -1,3 +1,15 @@
+## 2026-10-10 GW-PROJECT·HR 운영 배포 완료
+
+사용자 실서버 배포 요청으로 main/origin/main의 제품 커밋 `98402d978428a60bd070bda910f740fca234f765`를 기존 `tools/deploy.sh`로 실제 배포했다. 기존 운영 `31af096` → `98402d9`, DB `w0_fav_menu_shape` → `gw_projects`. GW 프로젝트 보드·내 업무, 회사 근무/PWA·관리자 사용자 관리 등 기존 main 변경 포함. Factory Flow 독립 Work OS/업무일지는 설계·검토용 시제품만이며 제품 구현/DB 이관은 아직 승인 대기다.
+
+CI 차단 Ruff migration 서식과 HR 사용자 테스트 Prettier 서식만 보정했다(`71d140a`, `98402d9`). migration AST 비교로 실행 의미/SQL 불변 확인. 최종 CI [38044267825](https://github.com/go8105/factory-studio/actions/runs/38044267825) success: backend1004 passed/1 skipped, 성능1 passed, frontend75파일588검사, 타입/lint/서식/빌드, DB upgrade·downgrade 왕복/DDL·격리·설계 검증 및 도구 검사 통과.
+
+운영 서버 전용 백업 `/srv/factory-studio/backups/20261010-projects-71d140a`에 DB dump/프런트·비공개 자산/이전 커밋을 저장, pg_restore 목록 및 gzip 무결성 검사 완료. 시드 버전 동일 `sv-20261009-gw1`로 기존 템플릿 유지. API active, 공개·원점200, 실제 운영 DDL오류0, 재시작 후 최근2분5xx0. 공개 `/gw/projects`, `/gw/my-tasks`, `/hr/users` 및 JS/CSS200; 미로그인 세션·프로젝트 회사 API401. Python urllib 기본 요청은 Cloudflare403이었으나 curl 공개/원점 검증은 정상; 앱500과 구분한다. 실제 회사 로그인·쓰기/휴대폰 설치는 미검증, 실제 계정/비밀번호/회사 생성 없음. 기존 로컬8000/5173·확장 설정 유지.
+
+상세: [배포 보고서](GW_프로젝트_main_배포검증.md). 이 후속 기록 커밋은 문서만이며 운영 제품 커밋98402d9와 구분한다. 다음: FLOW-01 전체 설계 확인 후 FLOW-02 개발.
+
+재현: main에서 `tools/deploy.sh`(정확한 HEAD CI success 필요), `gh run view 38044267825`, 공개 `https://eip.hugh-d.com`. 브랜치 codex/gw-deploy-report → main으로 문서 보고서만 병합/push. DB 초기화·실제 사용자 생성·비밀번호 설정은 하지 않는다. 백업은 서버에만 보관하고 Git/outputs로 복사하지 않는다.
+
 ## 2026-10-10 FLOW-01 독립 Work OS·업무일지 전체 설계
 
 사용자가 GW 프로젝트 보드를 독립 시스템으로 분리·제공 UI 코드 이식·업무일지 고도화 요청 및 이어서 진행 지시. 방향 승인과 신규 전체 설계 확인을 구별한다. Factory Flow(Work OS·프로젝트 관리·협업), module/schema/package flow, 프런트 /work-os, API /api/v1/flow. 기존 포털 /flow 맵 유지. GW10표 SET SCHEMA로ID/S/댓글/이력 보존, 새 일지8표/총18표191컬럼 설계. 기존 제약42/FK31/상태 보존. 실제 schema0.24.0/headgw_projects·191표464FK 유지.
