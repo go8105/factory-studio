@@ -420,22 +420,25 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
     !["DONE", "CANCELLED"].includes(t.status);
   function state(t: Task) {
     return editable && !t.aggregate ? (
-      <select
-        aria-label={`${t.title} 상태`}
-        className={`project-status ${t.status}`}
-        value={t.status}
-        disabled={pending}
-        onChange={(e) => void update(t, { status: e.target.value })}
-      >
-        {Object.entries(states).map(([k, v]) => (
-          <option key={k} value={k}>
-            {v}
-          </option>
-        ))}
-      </select>
+      <span className={`flow-status-control project-status ${t.status}`}>
+        <span aria-hidden="true">● {states[t.status]}</span>
+        <select
+          aria-label={`${t.title} 상태`}
+          className={`project-status ${t.status}`}
+          value={t.status}
+          disabled={pending}
+          onChange={(e) => void update(t, { status: e.target.value })}
+        >
+          {Object.entries(states).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </select>
+      </span>
     ) : (
       <span className={`project-status ${t.status}`}>
-        {states[t.status]}
+        ● {states[t.status]}
         {t.aggregate ? " · 집계" : ""}
       </span>
     );
@@ -448,7 +451,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
           inline && editable ? setEditingTitle(t.id) : void openTask(t)
         }
       >
-        {t.parent_id ? "↳ " : t.aggregate ? "▾ " : ""}
+        {!inline && (t.parent_id ? "↳ " : t.aggregate ? "▾ " : "")}
         {t.title}
         {late(t) && <small> · 지연</small>}
       </button>
@@ -468,7 +471,11 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
     >
       <header>
         <div>
-          <h1>{myTasks ? "내 업무" : "프로젝트·업무"}</h1>
+          <h1>
+            <span className="flow-breadcrumb-parent">프로젝트 보드</span>
+            <span aria-hidden="true"> › </span>
+            {myTasks ? "내 업무" : (data?.board?.name ?? "내 보드")}
+          </h1>
           <Link to={myTasks ? "/help/flow/f-01" : "/help/flow/f-02"}>
             ? 도움말
           </Link>
@@ -661,7 +668,17 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                 <span className="nav-name">홈</span>
               </Link>
               <Link title="내 업무" to="/work-os/my-tasks">
-                <MenuIcon />
+                <svg
+                  aria-hidden="true"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                >
+                  <path d="M4 5h16v14H4ZM4 14h4l2 3h4l2-3h4" />
+                </svg>
                 <span className="nav-name">내 업무</span>
               </Link>
               <Link title="전체 솔루션" to="/home">
@@ -685,7 +702,18 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                   </button>
                 </div>
               ))}
-            <h2>내 보드</h2>
+            <h2 className="flow-board-list-heading">
+              내 보드
+              {(data.allowCreate || data.companyOwner) && (
+                <button
+                  aria-label="보드 만들기"
+                  title="보드 만들기"
+                  onClick={() => setCreateBoard(true)}
+                >
+                  ＋
+                </button>
+              )}
+            </h2>
             {data.boards
               .filter((b) => showArchived || !b.archived_at)
               .sort(
@@ -727,32 +755,35 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                   </button>
                 </div>
               ))}
-            {(data.allowCreate || data.companyOwner) && (
-              <button onClick={() => setCreateBoard(true)}>
-                ＋ 보드 만들기
-              </button>
-            )}
-            <label>
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={(e) => setShowArchived(e.target.checked)}
-              />{" "}
-              보관 항목 보기
-            </label>
-            {data.companyOwner && (
-              <label>
-                <input
-                  type="checkbox"
-                  disabled={pending}
-                  checked={data.allowCreate}
-                  onChange={(e) =>
-                    void mutate("settings", { allowCreate: e.target.checked })
-                  }
-                />{" "}
-                구성원 보드 생성 허용
-              </label>
-            )}
+            <details className="flow-sidebar-settings">
+              <summary aria-label="보드 설정">···</summary>
+              <div>
+                {" "}
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={showArchived}
+                    onChange={(e) => setShowArchived(e.target.checked)}
+                  />{" "}
+                  보관 항목 보기
+                </label>
+                {data.companyOwner && (
+                  <label>
+                    <input
+                      type="checkbox"
+                      disabled={pending}
+                      checked={data.allowCreate}
+                      onChange={(e) =>
+                        void mutate("settings", {
+                          allowCreate: e.target.checked,
+                        })
+                      }
+                    />{" "}
+                    구성원 보드 생성 허용
+                  </label>
+                )}
+              </div>
+            </details>
             <footer className="flow-sidebar-footer">
               <span>
                 {data.members.find((m) => m.id === data.userId)?.name ??
@@ -781,13 +812,32 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                   <h2>
                     {myTasks ? "참여한 보드의 내 담당 업무" : data.board?.name}
                   </h2>
+                  {data.board && (
+                    <button
+                      className={`project-star flow-heading-star ${data.favorites.includes(data.board!.id) ? "on" : ""}`}
+                      aria-label="현재 보드 즐겨찾기"
+                      aria-pressed={data.favorites.includes(data.board!.id)}
+                      disabled={pending}
+                      onClick={() =>
+                        void mutate("favorite", {
+                          boardId: bid,
+                          selected: !data.favorites.includes(data.board!.id),
+                        })
+                      }
+                    >
+                      {data.favorites.includes(data.board!.id) ? "★" : "☆"}
+                    </button>
+                  )}
                   {data.board && owner && (
                     <button
+                      className="flow-share"
                       onClick={() => {
                         const settings = document.getElementById(
                           "flow-board-settings",
                         );
-                        settings?.setAttribute("open", "");
+                        if (settings?.hasAttribute("open"))
+                          settings.removeAttribute("open");
+                        else settings?.setAttribute("open", "");
                         settings?.scrollIntoView({ behavior: "smooth" });
                       }}
                     >
@@ -796,6 +846,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                   )}
                   {data.board && owner && (
                     <button
+                      className="flow-archive-board"
                       disabled={pending}
                       onClick={() =>
                         void mutate("board-update", {
@@ -815,9 +866,9 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                   <p>보관된 보드입니다. 복구 후 편집할 수 있습니다.</p>
                 )}
                 {data.board && (
-                  <p>
-                    {data.board.description} ·{" "}
-                    {editable ? "편집 가능" : "조회 권한"}
+                  <p className="flow-board-description">
+                    {data.board.description ||
+                      "업무를 그룹으로 묶어 팀과 함께 관리하세요."}
                   </p>
                 )}
                 {!myTasks && (
@@ -833,6 +884,28 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                         aria-pressed={pref.view === k}
                         onClick={() => setPref({ ...pref, view: k })}
                       >
+                        <svg
+                          aria-hidden="true"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                        >
+                          <rect x="4" y="4" width="16" height="16" rx="2" />
+                          <path
+                            d={
+                              k === "table"
+                                ? "M4 10h16M10 4v16"
+                                : k === "kanban"
+                                  ? "M9 4v16M15 4v16"
+                                  : k === "calendar"
+                                    ? "M4 10h16M8 2v5M16 2v5"
+                                    : "M7 9h6M11 14h6"
+                            }
+                          />
+                        </svg>
                         {v}
                       </button>
                     ))}
@@ -870,7 +943,20 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                     }
                   />
                   <details className="flow-filter">
-                    <summary>필터·정렬</summary>
+                    <summary>
+                      <svg
+                        aria-hidden="true"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                      >
+                        <path d="M4 6h16M7 12h10M10 18h4" />
+                      </svg>
+                      필터
+                    </summary>
                     <select
                       aria-label="상태 필터"
                       value={pref.status}
@@ -907,20 +993,37 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                             setPref({ ...pref, mine: e.target.checked })
                           }
                         />{" "}
+                        <svg
+                          aria-hidden="true"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                        >
+                          <circle cx="9" cy="7" r="3" />
+                          <path d="M3 21v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6M18 13a5 5 0 0 1 3 5v3" />
+                        </svg>
                         내 업무만
                       </label>
-                      <button
-                        disabled={pending}
-                        onClick={() =>
-                          void mutate("preference", {
-                            boardId: bid,
-                            settings: pref,
-                          })
-                        }
-                      >
-                        보기 저장
-                      </button>
-                      <button onClick={() => void load()}>새로고침</button>
+                      <details className="flow-view-actions">
+                        <summary aria-label="보기 메뉴">···</summary>
+                        <div>
+                          <button
+                            disabled={pending}
+                            onClick={() =>
+                              void mutate("preference", {
+                                boardId: bid,
+                                settings: pref,
+                              })
+                            }
+                          >
+                            보기 저장
+                          </button>
+                          <button onClick={() => void load()}>새로고침</button>
+                        </div>
+                      </details>
                     </>
                   )}
                   <span className="flow-visible-count">
@@ -1068,7 +1171,9 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                         )
                     ).map((g) => (
                       <section key={g.id} className="project-group">
-                        <h3 style={{ borderLeftColor: g.color }}>
+                        <h3
+                          style={{ borderLeftColor: g.color, color: g.color }}
+                        >
                           <button
                             onClick={() =>
                               setCollapsed(
@@ -1127,89 +1232,93 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                               <summary aria-label={`${g.name} 그룹 메뉴`}>
                                 ···
                               </summary>
-                              <button
-                                disabled={pending}
-                                onClick={() =>
-                                  void mutate("group-duplicate", {
-                                    boardId: bid,
-                                    id: g.id,
-                                    version: g.version,
-                                  })
-                                }
-                              >
-                                이 그룹 복제
-                              </button>
-                              <button
-                                disabled={pending}
-                                onClick={() =>
-                                  void mutate("group-update", {
-                                    boardId: bid,
-                                    id: g.id,
-                                    version: g.version,
-                                    name: g.name,
-                                    color: g.color,
-                                    position: Math.max(0, g.position - 1),
-                                  })
-                                }
-                              >
-                                ↑
-                              </button>
-                              <button
-                                disabled={pending}
-                                onClick={() =>
-                                  void mutate("group-update", {
-                                    boardId: bid,
-                                    id: g.id,
-                                    version: g.version,
-                                    name: g.name,
-                                    color: g.color,
-                                    position: g.position + 1,
-                                  })
-                                }
-                              >
-                                ↓
-                              </button>
-                              <label>
-                                그룹 색상
-                                <input
-                                  aria-label={`${g.name} 그룹 색상`}
-                                  type="color"
-                                  defaultValue={g.color}
+                              <div>
+                                <button
                                   disabled={pending}
-                                  onChange={(e) =>
+                                  onClick={() =>
+                                    void mutate("group-duplicate", {
+                                      boardId: bid,
+                                      id: g.id,
+                                      version: g.version,
+                                    })
+                                  }
+                                >
+                                  이 그룹 복제
+                                </button>
+                                <button
+                                  disabled={pending}
+                                  onClick={() =>
                                     void mutate("group-update", {
                                       boardId: bid,
                                       id: g.id,
                                       version: g.version,
                                       name: g.name,
-                                      color: e.target.value,
-                                      position: g.position,
-                                    })
-                                  }
-                                />
-                              </label>
-                              {["archive", "delete", "restore"].map((state) => (
-                                <button
-                                  key={state}
-                                  disabled={pending}
-                                  onClick={() =>
-                                    void mutate("group-state", {
-                                      boardId: bid,
-                                      id: g.id,
-                                      version: g.version,
-                                      state,
+                                      color: g.color,
+                                      position: Math.max(0, g.position - 1),
                                     })
                                   }
                                 >
-                                  {
-                                    {
-                                      archive: "그룹 보관",
-                                      delete: "그룹 삭제",
-                                      restore: "그룹 복구",
-                                    }[state]
-                                  }
+                                  ↑
                                 </button>
-                              ))}
+                                <button
+                                  disabled={pending}
+                                  onClick={() =>
+                                    void mutate("group-update", {
+                                      boardId: bid,
+                                      id: g.id,
+                                      version: g.version,
+                                      name: g.name,
+                                      color: g.color,
+                                      position: g.position + 1,
+                                    })
+                                  }
+                                >
+                                  ↓
+                                </button>
+                                <label>
+                                  그룹 색상
+                                  <input
+                                    aria-label={`${g.name} 그룹 색상`}
+                                    type="color"
+                                    defaultValue={g.color}
+                                    disabled={pending}
+                                    onChange={(e) =>
+                                      void mutate("group-update", {
+                                        boardId: bid,
+                                        id: g.id,
+                                        version: g.version,
+                                        name: g.name,
+                                        color: e.target.value,
+                                        position: g.position,
+                                      })
+                                    }
+                                  />
+                                </label>
+                                {["archive", "delete", "restore"].map(
+                                  (state) => (
+                                    <button
+                                      key={state}
+                                      disabled={pending}
+                                      onClick={() =>
+                                        void mutate("group-state", {
+                                          boardId: bid,
+                                          id: g.id,
+                                          version: g.version,
+                                          state,
+                                        })
+                                      }
+                                    >
+                                      {
+                                        {
+                                          archive: "그룹 보관",
+                                          delete: "그룹 삭제",
+                                          restore: "그룹 복구",
+                                        }[state]
+                                      }
+                                    </button>
+                                  ),
+                                )}
+                              </div>
                             </details>
                           )}
                         </h3>
@@ -1529,7 +1638,35 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                                               ) : k === "priority" ? (
                                                 priorities[t.priority]
                                               ) : k === "dates" ? (
-                                                `${t.starts_on ?? "미정"} → ${t.ends_on ?? "미정"}`
+                                                <span className="flow-date">
+                                                  <svg
+                                                    aria-hidden="true"
+                                                    width="15"
+                                                    height="15"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="1.6"
+                                                  >
+                                                    <rect
+                                                      x="4"
+                                                      y="5"
+                                                      width="16"
+                                                      height="16"
+                                                      rx="2"
+                                                    />
+                                                    <path d="M4 10h16M8 2v6M16 2v6" />
+                                                  </svg>
+                                                  {t.starts_on
+                                                    ?.slice(5)
+                                                    .replace("-", ".") ??
+                                                    "미정"}{" "}
+                                                  -{" "}
+                                                  {t.ends_on
+                                                    ?.slice(5)
+                                                    .replace("-", ".") ??
+                                                    "미정"}
+                                                </span>
                                               ) : (
                                                 <span
                                                   className={`flow-progress ${t.status === "DONE" ? "done" : ""}`}
@@ -1815,7 +1952,10 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                   </button>
                 )}
                 {data.board && owner && (
-                  <details id="flow-board-settings">
+                  <details
+                    id="flow-board-settings"
+                    className="flow-board-settings"
+                  >
                     <summary>보드 설정·구성원 권한</summary>
                     <button
                       disabled={pending}

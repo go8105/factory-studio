@@ -68,48 +68,50 @@ function Layout() {
       <a className="skip-link" href="#main">
         본문으로 건너뛰기
       </a>
-      <header
-        className={`site-header${pathname === "/home" ? " launcher-header" : ""}`}
-        onClickCapture={(e) => {
-          if (busy) e.preventDefault();
-        }}
-        aria-busy={busy}
-      >
-        <Link className="brand" to={session ? "/home" : "/"}>
-          <img className="brand-mark" src="/logo.svg" alt="" />
-          Factory Studio
-          <span className="brand-tagline">제조 현장의 올인원 시스템</span>
-        </Link>
-        <nav aria-label="주 메뉴">
-          {session && (
-            <>
-              <NavLink to="/home">앱 런처</NavLink>
-              <NavLink to="/cad-cam">CAD·CAM</NavLink>
-              <NavLink to="/factory">3D 공장</NavLink>
-              <NavLink to="/flow">전체 흐름</NavLink>
-              <NavLink to="/workspace">내 공간</NavLink>
-            </>
-          )}
-          <NavLink to="/help">도움말</NavLink>
-          {session?.roles.includes("ADMIN") && (
-            <>
-              <NavLink to="/hr/users">사용자 관리</NavLink>
-              <NavLink to="/records">운영 기록</NavLink>
-            </>
-          )}
-          {session ? (
-            <button
-              className="link-button"
-              disabled={busy || navigationBlocked || leaving}
-              onClick={() => void logout()}
-            >
-              나가기
-            </button>
-          ) : (
-            <Link to="/">시작하기</Link>
-          )}
-        </nav>
-      </header>
+      {!pathname.startsWith("/work-os/") && (
+        <header
+          className={`site-header${pathname === "/home" ? " launcher-header" : ""}`}
+          onClickCapture={(e) => {
+            if (busy) e.preventDefault();
+          }}
+          aria-busy={busy}
+        >
+          <Link className="brand" to={session ? "/home" : "/"}>
+            <img className="brand-mark" src="/logo.svg" alt="" />
+            Factory Studio
+            <span className="brand-tagline">제조 현장의 올인원 시스템</span>
+          </Link>
+          <nav aria-label="주 메뉴">
+            {session && (
+              <>
+                <NavLink to="/home">앱 런처</NavLink>
+                <NavLink to="/cad-cam">CAD·CAM</NavLink>
+                <NavLink to="/factory">3D 공장</NavLink>
+                <NavLink to="/flow">전체 흐름</NavLink>
+                <NavLink to="/workspace">내 공간</NavLink>
+              </>
+            )}
+            <NavLink to="/help">도움말</NavLink>
+            {session?.roles.includes("ADMIN") && (
+              <>
+                <NavLink to="/hr/users">사용자 관리</NavLink>
+                <NavLink to="/records">운영 기록</NavLink>
+              </>
+            )}
+            {session ? (
+              <button
+                className="link-button"
+                disabled={busy || navigationBlocked || leaving}
+                onClick={() => void logout()}
+              >
+                나가기
+              </button>
+            ) : (
+              <Link to="/">시작하기</Link>
+            )}
+          </nav>
+        </header>
+      )}
       {/* 업무 화면(솔루션·3D)은 사이드바·캔버스가 폭을 직접 쓴다. */}
       <main
         id="main"
