@@ -1607,3 +1607,142 @@
 .flow-board .project-summary > span:last-child progress {
   height: 6px;
 }
+
+/* A collapsed group is only its header; editors stay anchored to their row. */
+.flow-board .project-group.is-collapsed > :not(h3) {
+  display: none;
+}
+.flow-board .project-group.is-collapsed > h3 {
+  border-bottom: 0;
+  margin-bottom: 0;
+}
+.flow-board .flow-row-actions {
+  position: relative;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+.flow-board .flow-cell-popover {
+  position: absolute;
+  z-index: 20;
+  background: #fff;
+  border: 1px solid #e8e8e6;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px #1a1c1e0a;
+  padding: 12px;
+  min-width: 220px;
+}
+.flow-board .flow-cell-editor {
+  position: relative;
+}
+.flow-board .flow-cell-trigger {
+  border: 0;
+  background: transparent;
+  padding: 4px 0;
+  width: 100%;
+  text-align: left;
+}
+.flow-board .flow-cell-popover {
+  right: 0;
+  top: 100%;
+}
+.flow-board .flow-cell-popover label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+}
+.flow-board .flow-cell-popover fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.flow-board .flow-cell-popover input:not([type="checkbox"]) {
+  width: 145px;
+}
+.flow-board .flow-cell-popover > div {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.flow-board .flow-priority {
+  background: #f3efe6;
+  color: #8b7040;
+}
+
+.flow-board.flow-cell-portal {
+  margin: 0;
+  padding: 0;
+}
+.flow-board.flow-cell-portal .flow-cell-popover {
+  position: relative;
+  right: auto;
+  top: auto;
+  width: 250px;
+}
+
+.flow-board .flow-cell-backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  z-index: -1;
+}
+.flow-board.flow-menu-portal {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1000;
+}
+.flow-board.flow-menu-portal .flow-cell-backdrop {
+  pointer-events: auto;
+}
+.flow-board .flow-row-menu {
+  pointer-events: auto;
+  width: 250px;
+  background: #fff;
+  border: 1px solid #e8e8e6;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 2px 6px #1a1c1e0a;
+}
+.flow-board .flow-row-menu > button {
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+.flow-board .flow-row-menu small {
+  display: block;
+  white-space: normal;
+  color: #5d6166;
+  font-size: 11px;
+  padding-top: 8px;
+}
+.flow-board .flow-cell-popover {
+  z-index: 1;
+}
+.flow-board .flow-cell-backdrop:hover:not(:disabled),
+.flow-board .flow-cell-backdrop:focus {
+  background: transparent;
+}
+.flow-board .flow-row-menu > button {
+  background: transparent;
+  border: 0;
+  color: #1a1c1e;
+  justify-content: flex-start;
+  font-weight: 500;
+}
+.flow-board .flow-row-menu > button:hover:not(:disabled) {
+  background: #f7f7f6;
+}
+.flow-board .flow-cell-popover input {
+  font: inherit;
+  border: 1px solid #e8e8e6;
+  border-radius: 7px;
+  padding: 8px;
+  color: #1a1c1e;
+}

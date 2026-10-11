@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSession } from "../app/session";
 import { api, MutationKeys } from "../shared/api";
 import { MenuIcon } from "../shared/MenuIcon";
@@ -363,6 +364,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
   async function update(t: Task, patch: Record<string, unknown>) {
     const ok = await mutate("task-update", { ...payload(t), ...patch });
     if (ok && selected?.id === t.id) setSelected(undefined);
+    return ok;
   }
   async function openTask(t: Task) {
     const ticket = ++detailEpoch.current;
@@ -1196,7 +1198,10 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                             showArchived || (!g.archived_at && !g.deleted_at),
                         )
                     ).map((g) => (
-                      <section key={g.id} className="project-group">
+                      <section
+                        key={g.id}
+                        className={`project-group ${collapsed.includes(g.id) ? "is-collapsed" : ""}`}
+                      >
                         <h3
                           style={{ borderLeftColor: g.color, color: g.color }}
                         >
@@ -1348,38 +1353,6 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                             </details>
                           )}
                         </h3>
-                        <div
-                          className={`project-group-summary ${collapsed.includes(g.id) ? "is-collapsed" : ""}`}
-                        >
-                          {Object.entries(states).map(([k, label]) => {
-                            const count = leaves.filter(
-                              (t) =>
-                                (myTasks || t.group_id === g.id) &&
-                                t.status === k,
-                            ).length;
-                            return count ? (
-                              <span key={k} className={`project-status ${k}`}>
-                                {label} {count}
-                              </span>
-                            ) : null;
-                          })}
-                          <span>
-                            진행률{" "}
-                            {(() => {
-                              const list = leaves.filter(
-                                (t) =>
-                                  (myTasks || t.group_id === g.id) &&
-                                  t.status !== "CANCELLED",
-                              );
-                              return list.length
-                                ? Math.round(
-                                    list.reduce((n, t) => n + t.progress, 0) /
-                                      list.length,
-                                  ) + "%"
-                                : "대상 없음";
-                            })()}
-                          </span>
-                        </div>
                         {owner && editable && (
                           <details>
                             <summary>그룹 이름·색상 편집</summary>
@@ -1482,10 +1455,11 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                                           </button>
                                         </th>
                                       ))}
-                                    {owner && (
+                                    {(owner || editable) && (
                                       <th>
                                         <button
                                           aria-label="컬럼 추가"
+                                          disabled={!owner}
                                           onClick={() => setColumnForm("new")}
                                         >
                                           ＋
@@ -1632,14 +1606,6 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                                           ) : (
                                             title(t, true)
                                           )}
-                                          {editable && (
-                                            <button
-                                              aria-label={`${t.title} 업데이트`}
-                                              onClick={() => void openTask(t)}
-                                            >
-                                              ···
-                                            </button>
-                                          )}
                                         </td>
                                         {myTasks && <td>{t.board_name}</td>}
                                         {orderedColumns
@@ -1648,75 +1614,22 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                                           )
                                           .map((k) => (
                                             <td key={k}>
-                                              {k === "assignees" ? (
-                                                <span className="flow-people">
-                                                  {t.assignees?.length
-                                                    ? t.assignees.map((a) => (
-                                                        <span
-                                                          className="flow-person"
-                                                          key={a.user_id}
-                                                        >
-                                                          <span
-                                                            className="flow-avatar"
-                                                            aria-hidden="true"
-                                                          >
-                                                            {a.display_name.slice(
-                                                              0,
-                                                              1,
-                                                            )}
-                                                          </span>
-                                                          {a.display_name}
-                                                          {!a.active &&
-                                                            " (비활성)"}
-                                                        </span>
-                                                      ))
-                                                    : "미지정"}
-                                                </span>
-                                              ) : k === "status" ? (
+                                              {k === "status" ? (
                                                 state(t)
-                                              ) : k === "priority" ? (
-                                                priorities[t.priority]
-                                              ) : k === "dates" ? (
-                                                <span className="flow-date">
-                                                  <svg
-                                                    aria-hidden="true"
-                                                    width="15"
-                                                    height="15"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    strokeWidth="1.6"
-                                                  >
-                                                    <rect
-                                                      x="4"
-                                                      y="5"
-                                                      width="16"
-                                                      height="16"
-                                                      rx="2"
-                                                    />
-                                                    <path d="M4 10h16M8 2v6M16 2v6" />
-                                                  </svg>
-                                                  {t.starts_on
-                                                    ?.slice(5)
-                                                    .replace("-", ".") ??
-                                                    "미정"}{" "}
-                                                  -{" "}
-                                                  {t.ends_on
-                                                    ?.slice(5)
-                                                    .replace("-", ".") ??
-                                                    "미정"}
-                                                </span>
                                               ) : (
-                                                <span
-                                                  className={`flow-progress ${t.status === "DONE" ? "done" : ""}`}
-                                                >
-                                                  <progress
-                                                    aria-label={`${t.title} 진행률`}
-                                                    max={100}
-                                                    value={t.progress}
-                                                  />
-                                                  <span>{t.progress}%</span>
-                                                </span>
+                                                <BuiltinCell
+                                                  key={`${t.id}-${k}-${t.version}`}
+                                                  task={t}
+                                                  kind={k}
+                                                  members={data.members}
+                                                  disabled={
+                                                    !editable || pending
+                                                  }
+                                                  pending={pending}
+                                                  save={(patch) =>
+                                                    update(t, patch)
+                                                  }
+                                                />
                                               )}
                                             </td>
                                           ))}
@@ -1758,23 +1671,41 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                                               </td>
                                             );
                                           })}
-                                        {owner && <td />}
+                                        {(owner || editable) && (
+                                          <td>
+                                            {editable && (
+                                              <RowMenu
+                                                task={t}
+                                                pending={pending}
+                                                openDetail={() =>
+                                                  void openTask(t)
+                                                }
+                                                save={(patch) =>
+                                                  update(t, patch)
+                                                }
+                                              />
+                                            )}
+                                          </td>
+                                        )}
                                       </tr>
                                     ))}
                                 </tbody>
                               </table>
                             </div>
                           )}
-                        {editable && !g.archived_at && !g.deleted_at && (
-                          <button
-                            disabled={pending}
-                            onClick={() => {
-                              void addTask(g.id);
-                            }}
-                          >
-                            ＋ 업무 추가
-                          </button>
-                        )}
+                        {editable &&
+                          !collapsed.includes(g.id) &&
+                          !g.archived_at &&
+                          !g.deleted_at && (
+                            <button
+                              disabled={pending}
+                              onClick={() => {
+                                void addTask(g.id);
+                              }}
+                            >
+                              ＋ 업무 추가
+                            </button>
+                          )}
                       </section>
                     ))}
                   </>
@@ -2181,7 +2112,6 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
               <TaskEditor
                 key={selected.id + ":" + selected.version}
                 task={selected}
-                members={data?.members ?? []}
                 pending={pending}
                 save={(patch) => void update(selected, patch)}
               />
@@ -2190,16 +2120,6 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                 {selected.description} · {states[selected.status]} ·{" "}
                 {selected.progress}%
               </p>
-            )}
-            {editable && !selected.parent_id && (
-              <button
-                onClick={() => {
-                  void addTask(selected.group_id, selected.id);
-                  setSelected(undefined);
-                }}
-              >
-                ＋ 하위 업무
-              </button>
             )}
             <div>
               {(selected.description.match(/https?:\/\/[^\s<>"']+/g) ?? []).map(
@@ -2361,18 +2281,354 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
     </section>
   );
 }
-function TaskEditor({
+function RowMenu({
   task,
+  pending,
+  openDetail,
+  save,
+}: {
+  task: Task;
+  pending: boolean;
+  openDetail: () => void;
+  save: (patch: Record<string, unknown>) => Promise<boolean>;
+}) {
+  const [position, setPosition] = useState<{ top: number; left: number }>();
+  useEffect(() => {
+    if (!position) return;
+    const close = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPosition(undefined);
+    };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [position]);
+  return (
+    <div className="flow-row-actions">
+      <button
+        aria-label={`${task.title} 업무 메뉴`}
+        aria-expanded={!!position}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setPosition(
+            position
+              ? undefined
+              : {
+                  top: Math.max(
+                    8,
+                    Math.min(r.bottom + 4, window.innerHeight - 180),
+                  ),
+                  left: Math.max(
+                    8,
+                    Math.min(r.right - 250, window.innerWidth - 260),
+                  ),
+                },
+          );
+        }}
+      >
+        ···
+      </button>
+      {position &&
+        createPortal(
+          <div
+            className="flow-board flow-menu-portal"
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setPosition(undefined);
+            }}
+          >
+            <button
+              className="flow-cell-backdrop"
+              aria-label="업무 메뉴 닫기"
+              onClick={() => setPosition(undefined)}
+            />
+            <div
+              className="flow-row-menu"
+              style={{ position: "fixed", ...position, zIndex: 1001 }}
+            >
+              <button
+                disabled={pending}
+                aria-label={`${task.title} 업데이트`}
+                onClick={() => {
+                  setPosition(undefined);
+                  openDetail();
+                }}
+              >
+                상세·업데이트
+              </button>
+              <button
+                disabled={pending}
+                onClick={() =>
+                  void save({ archived: !task.archived_at }).then((ok) => {
+                    if (ok) setPosition(undefined);
+                  })
+                }
+              >
+                {task.archived_at
+                  ? "업무 복구"
+                  : task.parent_id
+                    ? "하위 업무 삭제"
+                    : "업무 삭제"}
+              </button>
+              <small>
+                {task.aggregate && !task.archived_at
+                  ? "삭제 시 하위 업무도 함께 보관됩니다. "
+                  : ""}
+                삭제한 업무는 보관 항목에서 복구할 수 있습니다.
+              </small>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+function BuiltinCell({
+  task,
+  kind,
   members,
+  disabled,
   pending,
   save,
 }: {
   task: Task;
+  kind: string;
   members: Member[];
+  disabled: boolean;
+  pending: boolean;
+  save: (patch: Record<string, unknown>) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const [draft, setDraft] = useState(payload(task));
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [open]);
+  const aggregate =
+    !!task.aggregate && (kind === "dates" || kind === "progress");
+  const label = `${task.title} ${columnLabels[kind]}`;
+  const display =
+    kind === "assignees" ? (
+      <span className="flow-people">
+        {task.assignees.length
+          ? task.assignees.map((a) => (
+              <span className="flow-person" key={a.user_id}>
+                <span className="flow-avatar" aria-hidden="true">
+                  {a.display_name.slice(0, 1)}
+                </span>
+                {a.display_name}
+                {!a.active && " (비활성)"}
+              </span>
+            ))
+          : "미지정"}
+      </span>
+    ) : kind === "priority" ? (
+      priorities[task.priority]
+    ) : kind === "dates" ? (
+      <span className="flow-date">
+        {task.starts_on?.slice(5).replace("-", ".") ?? "미정"} -{" "}
+        {task.ends_on?.slice(5).replace("-", ".") ?? "미정"}
+      </span>
+    ) : (
+      <span className={`flow-progress ${task.status === "DONE" ? "done" : ""}`}>
+        <progress aria-label={label} max={100} value={task.progress} />
+        <span>{task.progress}%</span>
+      </span>
+    );
+  if (disabled || aggregate)
+    return (
+      <span title={aggregate ? "하위 업무에서 자동 집계합니다." : undefined}>
+        {display}
+      </span>
+    );
+  if (kind === "priority")
+    return (
+      <span className="flow-status-control flow-priority">
+        <span aria-hidden="true">{display}</span>
+        <select
+          aria-label={label}
+          value={task.priority}
+          disabled={pending}
+          onChange={(e) => void save({ priority: e.target.value })}
+        >
+          {Object.entries(priorities).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </select>
+      </span>
+    );
+  return (
+    <div className="flow-cell-editor">
+      <button
+        className="flow-cell-trigger"
+        aria-label={`${label} 수정`}
+        aria-expanded={open}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setPosition({
+            top: Math.max(8, Math.min(r.bottom + 4, window.innerHeight - 240)),
+            left: Math.max(8, Math.min(r.left, window.innerWidth - 270)),
+          });
+          setDraft(payload(task));
+          setOpen(!open);
+        }}
+      >
+        {display}
+      </button>
+      {open &&
+        createPortal(
+          <div
+            className="flow-board flow-cell-portal"
+            style={{ position: "fixed", ...position, zIndex: 1000 }}
+          >
+            <button
+              className="flow-cell-backdrop"
+              aria-label="셀 편집 닫기"
+              onClick={() => setOpen(false)}
+            />
+            <form
+              className="flow-cell-popover"
+              aria-label={`${label} 편집`}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.stopPropagation();
+                  setOpen(false);
+                }
+              }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                const patch =
+                  kind === "assignees"
+                    ? { assignees: draft.assignees }
+                    : kind === "dates"
+                      ? {
+                          startsOn:
+                            new FormData(e.currentTarget).get("startsOn") ||
+                            null,
+                          endsOn:
+                            new FormData(e.currentTarget).get("endsOn") || null,
+                        }
+                      : {
+                          progress: draft.progress,
+                          status:
+                            draft.progress === 100
+                              ? "DONE"
+                              : task.status === "DONE"
+                                ? "WORKING"
+                                : task.status,
+                        };
+                void save(patch).then((ok) => {
+                  if (ok) setOpen(false);
+                });
+              }}
+            >
+              {kind === "assignees" ? (
+                <fieldset>
+                  <legend>담당자</legend>
+                  {members
+                    .filter((m) => m.active || draft.assignees.includes(m.id))
+                    .map((m) => (
+                      <label key={m.id}>
+                        <input
+                          type="checkbox"
+                          disabled={pending}
+                          checked={draft.assignees.includes(m.id)}
+                          onChange={(e) =>
+                            setDraft({
+                              ...draft,
+                              assignees: e.target.checked
+                                ? [...draft.assignees, m.id]
+                                : draft.assignees.filter((id) => id !== m.id),
+                            })
+                          }
+                        />
+                        {m.name}
+                        {!m.active && " (비활성)"}
+                      </label>
+                    ))}
+                </fieldset>
+              ) : kind === "dates" ? (
+                <>
+                  <label>
+                    시작일
+                    <input
+                      aria-label={`${task.title} 시작일`}
+                      name="startsOn"
+                      type="date"
+                      disabled={pending}
+                      value={draft.startsOn ?? ""}
+                      max={draft.endsOn ?? undefined}
+                      onChange={(e) =>
+                        setDraft({ ...draft, startsOn: e.target.value || null })
+                      }
+                    />
+                  </label>
+                  <label>
+                    종료일
+                    <input
+                      aria-label={`${task.title} 종료일`}
+                      name="endsOn"
+                      type="date"
+                      disabled={pending}
+                      value={draft.endsOn ?? ""}
+                      min={draft.startsOn ?? undefined}
+                      onChange={(e) =>
+                        setDraft({ ...draft, endsOn: e.target.value || null })
+                      }
+                    />
+                  </label>
+                </>
+              ) : (
+                <label>
+                  진행률
+                  <input
+                    aria-label={`${task.title} 진행률 입력`}
+                    type="number"
+                    min={0}
+                    max={100}
+                    required
+                    disabled={pending}
+                    value={draft.progress}
+                    onChange={(e) =>
+                      setDraft({ ...draft, progress: Number(e.target.value) })
+                    }
+                  />
+                </label>
+              )}
+              <div>
+                <button disabled={pending}>적용</button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => setOpen(false)}
+                >
+                  취소
+                </button>
+              </div>
+            </form>
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+function TaskEditor({
+  task,
+  pending,
+  save,
+}: {
+  task: Task;
   pending: boolean;
   save: (patch: Record<string, unknown>) => void;
 }) {
-  const [draft, setDraft] = useState(payload(task));
+  const [draft, setDraft] = useState({
+    title: task.title,
+    description: task.description,
+  });
   return (
     <form
       onSubmit={(e) => {
@@ -2397,114 +2653,6 @@ function TaskEditor({
           onChange={(e) => setDraft({ ...draft, description: e.target.value })}
         />
       </label>
-      <label>
-        담당자
-        <select
-          multiple
-          value={draft.assignees.map(String)}
-          onChange={(e) =>
-            setDraft({
-              ...draft,
-              assignees: Array.from(e.target.selectedOptions, (o) =>
-                Number(o.value),
-              ),
-            })
-          }
-        >
-          {members
-            .filter((m) => m.active || draft.assignees.includes(m.id))
-            .map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-                {m.active ? "" : " (비활성)"}
-              </option>
-            ))}
-        </select>
-      </label>
-      <label>
-        상태
-        <select
-          disabled={task.aggregate}
-          value={draft.status}
-          onChange={(e) => setDraft({ ...draft, status: e.target.value })}
-        >
-          {Object.entries(states).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        중요도
-        <select
-          value={draft.priority}
-          onChange={(e) => setDraft({ ...draft, priority: e.target.value })}
-        >
-          {Object.entries(priorities).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        시작일
-        <input
-          type="date"
-          disabled={task.aggregate}
-          value={draft.startsOn ?? ""}
-          onChange={(e) =>
-            setDraft({ ...draft, startsOn: e.target.value || null })
-          }
-        />
-      </label>
-      <label>
-        종료일
-        <input
-          type="date"
-          disabled={task.aggregate}
-          value={draft.endsOn ?? ""}
-          onChange={(e) =>
-            setDraft({ ...draft, endsOn: e.target.value || null })
-          }
-        />
-      </label>
-      <label>
-        진행률
-        <input
-          type="number"
-          min={0}
-          max={100}
-          disabled={task.aggregate}
-          value={draft.progress}
-          onChange={(e) =>
-            setDraft({ ...draft, progress: Number(e.target.value) })
-          }
-        />
-      </label>
-      <label>
-        순서
-        <input
-          type="number"
-          min={0}
-          value={draft.position}
-          onChange={(e) =>
-            setDraft({ ...draft, position: Number(e.target.value) })
-          }
-        />
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          checked={draft.archived}
-          onChange={(e) => setDraft({ ...draft, archived: e.target.checked })}
-        />{" "}
-        업무 보관
-      </label>
-      {task.aggregate && (
-        <p>상태·기간·진행률은 하위 업무에서 자동 집계합니다.</p>
-      )}
       <button disabled={pending}>저장</button>
     </form>
   );
