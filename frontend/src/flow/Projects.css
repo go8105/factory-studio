@@ -1572,3 +1572,7 @@
 .flow-board .project-table td input[type="checkbox"]:disabled {
   cursor: default;
 }
+/* The standalone shell supplies navigation only after company data loads. */
+.app-shell:has(.flow-board .project-workspace) > .site-header {
+  display: none;
+}
