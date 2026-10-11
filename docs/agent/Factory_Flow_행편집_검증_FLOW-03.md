@@ -21,3 +21,14 @@
 ## 자동 검증 및 배포
 
 로컬 전체 frontend596/75파일, 타입/lint/전체 format/build, diff 공백 검사 통과. 보드3 검증 후 보관 및 사용자 보드1 복귀 완료. 정확HEAD CI/운영 배포 결과는 완료 후 갱신한다. 운영 로그인 UI는 기존 세션 만료로 미검증이며 공개 자산/서비스/Flow12원장 보존을 확인한다. 다른 작업 ID는 자동 착수하지 않는다.
+
+## 운영 반영 결과
+
+FLOW-03 행 편집·접힘 UX 보정 운영 배포 완료(2026-10-11 18:41 KST): 제품2c30b42 main/origin/실서버 반영. 접힌 그룹68px 한 줄·업무/하위 업무 행 우측 삭제/복구·상세 편집 제목/설명2항목·담당자/상태/중요도/일정/진행률 행 편집. CI38128137226 SUCCESS(backend1010/skip1·perf1·frontend596·tools133), 실제 로컬 저장/새로고침/삭제/복구/390px 검증. 기존 Flow12원장전체hash보존·보호 백업·APIactive/DDL0/공개200/최근5xx0·공개JS/CSS SHA동일. 운영 로그인 UI는 기존 세션 만료로 미검증. FLOW-02b 후속.
+
+제품 커밋 `2c30b42acb388dc62d1713c04dc2080545a0aaba`; 정확HEAD CI `38128137226`. 보호 백업 `/srv/factory-studio/backups/20261011-flow-row-2c30b42` 검증 후 표준 `tools/deploy.sh` 성공, CI 확인 우회 없음. 기존12원장 모든 행 건수 및 to_jsonb 전체내용 md5 전후동일. DB/API 변경 없음. 공개 자산 SHA 검증 결과:
+
+- `flow-D44ijXKH.js`: `33a31441008d91384a7a9724f39a88f32a24ff81e076bedee77da62770be4595` (로컬/서버/공개 동일)
+- `flow-YnxoS2bA.css`: `f94ec595ab30669fa9add9e8cd8aba0b95d02dedab7eea049aca4ae914839080` (로컬/서버/공개 동일)
+
+운영 로그인 후 업무 쓰기 검증은 하지 않았으며 실제 UI 저장/삭제/복구는 로컬 합성 보드에서 확인했다.
