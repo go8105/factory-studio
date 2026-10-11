@@ -175,16 +175,12 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
   const [createBoard, setCreateBoard] = useState(false);
   const [boardName, setBoardName] = useState("");
   const [template, setTemplate] = useState("PROJECT");
-  const [taskForm, setTaskForm] = useState<{
-    group: number;
-    parent: number | null;
-  }>();
-  const [taskTitle, setTaskTitle] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [editingGroup, setEditingGroup] = useState<number>();
   const [columnForm, setColumnForm] = useState<Column | "new">();
   const [childrenCollapsed, setChildrenCollapsed] = useState<number[]>([]);
   const [editingTitle, setEditingTitle] = useState<number>();
+  const [titleDraft, setTitleDraft] = useState("");
   const [editingComment, setEditingComment] = useState<{
     id: number;
     version: number;
@@ -193,10 +189,11 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
   const [zoom, setZoom] = useState(1);
   const [historyOffset, setHistoryOffset] = useState(0);
   const keys = useRef(new MutationKeys());
+  const mutationBusy = useRef(false);
   const epoch = useRef(0);
   const detailEpoch = useRef(0);
   useEffect(() => {
-    if (!selected && !createBoard && !taskForm && !columnForm) return;
+    if (!selected && !createBoard && !columnForm) return;
     const previous = document.activeElement as HTMLElement | null;
     const modal = document.querySelector<HTMLElement>(".project-modal");
     modal?.querySelector<HTMLElement>("input,textarea,select,button")?.focus();
@@ -205,7 +202,6 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
         detailEpoch.current++;
         setSelected(undefined);
         setCreateBoard(false);
-        setTaskForm(undefined);
         setColumnForm(undefined);
       }
       if (e.key === "Tab" && modal) {
@@ -230,7 +226,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
       document.removeEventListener("keydown", handle);
       previous?.focus();
     };
-  }, [!!selected, createBoard, !!taskForm, !!columnForm, pending]);
+  }, [!!selected, createBoard, !!columnForm, pending]);
   const editable =
     !!data?.role &&
     ["EDITOR", "OWNER"].includes(data.role) &&
@@ -311,7 +307,8 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
     if (data?.preference) setPref(data.preference[0]?.settings ?? initial);
   }, [data?.board?.id]);
   async function mutate(op: string, body: unknown) {
-    if (!cid || pending) return false;
+    if (!cid || mutationBusy.current) return false;
+    mutationBusy.current = true;
     setPending(true);
     const operation = JSON.stringify([cid, op, body]);
     try {
@@ -325,6 +322,11 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
         },
       );
       if (op === "board-create") setBid(response.data.id);
+      if (op === "task-create") {
+        setTitleDraft((body as { title: string }).title);
+        setEditingTitle(response.data.id);
+      }
+      if (op === "group-create") setEditingGroup(response.data.id);
       keys.current.complete(operation);
       setError(undefined);
       await load();
@@ -333,7 +335,29 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
       setError(e);
       return false;
     } finally {
+      mutationBusy.current = false;
       setPending(false);
+    }
+  }
+  async function addTask(group: number, parent: number | null = null) {
+    if (!editable || mutationBusy.current) return;
+    const ok = await mutate("task-create", {
+      boardId: bid,
+      groupId: group,
+      parentId: parent,
+      title: parent ? "새 하위 업무" : "새 업무",
+      position: Math.max(0, ...(data?.tasks ?? []).map((t) => t.position)) + 1,
+    });
+    if (ok) {
+      setCollapsed((ids) => ids.filter((id) => id !== group));
+      setChildrenCollapsed((ids) => ids.filter((id) => id !== parent));
+      setPref((current) => ({
+        ...current,
+        view: "table",
+        search: "",
+        status: "",
+        mine: false,
+      }));
     }
   }
   async function update(t: Task, patch: Record<string, unknown>) {
@@ -447,9 +471,12 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
     return (
       <button
         className="project-task-title"
-        onClick={() =>
-          inline && editable ? setEditingTitle(t.id) : void openTask(t)
-        }
+        onClick={() => {
+          if (inline && editable) {
+            setTitleDraft(t.title);
+            setEditingTitle(t.id);
+          } else void openTask(t);
+        }}
       >
         {!inline && (t.parent_id ? "↳ " : t.aggregate ? "▾ " : "")}
         {t.title}
@@ -926,8 +953,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                           (g) => !g.archived_at && !g.deleted_at,
                         );
                         if (g) {
-                          setTaskTitle("");
-                          setTaskForm({ group: g.id, parent: null });
+                          void addTask(g.id);
                         }
                       }}
                     >
@@ -1525,13 +1551,10 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                                           {editable && !t.parent_id && (
                                             <button
                                               className="flow-subitem-add"
+                                              disabled={pending}
                                               aria-label={`${t.title} 하위 업무 추가`}
                                               onClick={() => {
-                                                setTaskTitle("");
-                                                setTaskForm({
-                                                  group: g.id,
-                                                  parent: t.id,
-                                                });
+                                                void addTask(g.id, t.id);
                                               }}
                                             >
                                               ＋
@@ -1565,29 +1588,45 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                                               autoFocus
                                               maxLength={250}
                                               aria-label="업무 제목 바로 편집"
-                                              defaultValue={t.title}
+                                              value={titleDraft}
+                                              disabled={pending}
+                                              onChange={(e) =>
+                                                setTitleDraft(e.target.value)
+                                              }
                                               onKeyDown={(e) => {
+                                                if (e.nativeEvent.isComposing)
+                                                  return;
                                                 if (e.key === "Escape") {
                                                   e.currentTarget.dataset.cancelled =
                                                     "true";
+                                                  setEditingTitle(undefined);
+                                                }
+                                                if (e.key === "Enter") {
+                                                  e.preventDefault();
                                                   e.currentTarget.blur();
                                                 }
-                                                if (e.key === "Enter")
-                                                  e.currentTarget.blur();
                                               }}
                                               onBlur={(e) => {
                                                 if (
-                                                  !e.currentTarget.dataset
-                                                    .cancelled &&
-                                                  e.target.value.trim() &&
-                                                  e.target.value.trim() !==
-                                                    t.title
+                                                  e.currentTarget.dataset
+                                                    .cancelled ||
+                                                  mutationBusy.current
                                                 )
-                                                  void update(t, {
-                                                    title:
-                                                      e.target.value.trim(),
-                                                  });
-                                                setEditingTitle(undefined);
+                                                  return;
+                                                const value =
+                                                  e.target.value.trim();
+                                                if (!value) return;
+                                                if (value === t.title) {
+                                                  setEditingTitle(undefined);
+                                                  return;
+                                                }
+                                                void mutate("task-update", {
+                                                  ...payload(t),
+                                                  title: value,
+                                                }).then((ok) => {
+                                                  if (ok)
+                                                    setEditingTitle(undefined);
+                                                });
                                               }}
                                             />
                                           ) : (
@@ -1728,9 +1767,9 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                           )}
                         {editable && !g.archived_at && !g.deleted_at && (
                           <button
+                            disabled={pending}
                             onClick={() => {
-                              setTaskTitle("");
-                              setTaskForm({ group: g.id, parent: null });
+                              void addTask(g.id);
                             }}
                           >
                             ＋ 업무 추가
@@ -2120,51 +2159,6 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
           </form>
         </div>
       )}
-      {taskForm && (
-        <div
-          className="project-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label="업무 추가"
-        >
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void mutate("task-create", {
-                boardId: bid,
-                groupId: taskForm.group,
-                parentId: taskForm.parent,
-                title: taskTitle,
-                position: (data?.tasks?.length ?? 0) + 1,
-              }).then((ok) => {
-                if (ok) setTaskForm(undefined);
-              });
-            }}
-          >
-            <h2>{taskForm.parent ? "하위 업무" : "업무"} 추가</h2>
-            {taskForm.parent && (
-              <p>상위 업무의 상태·기간·진행률은 하위 업무 집계로 바뀝니다.</p>
-            )}
-            <input
-              required
-              autoFocus
-              maxLength={250}
-              aria-label="업무 제목"
-              value={taskTitle}
-              onChange={(e) => setTaskTitle(e.target.value)}
-            />
-            <button disabled={pending}>추가</button>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => setTaskForm(undefined)}
-            >
-              취소
-            </button>
-            {!!error && <ErrorNotice error={error} />}
-          </form>
-        </div>
-      )}
       {selected && (
         <div
           className="project-modal"
@@ -2200,11 +2194,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
             {editable && !selected.parent_id && (
               <button
                 onClick={() => {
-                  setTaskTitle("");
-                  setTaskForm({
-                    group: selected.group_id,
-                    parent: selected.id,
-                  });
+                  void addTask(selected.group_id, selected.id);
                   setSelected(undefined);
                 }}
               >

@@ -1576,3 +1576,34 @@
 .app-shell:has(.flow-board .project-workspace) > .site-header {
   display: none;
 }
+
+/* Measured in the live Figma Make preview: 96 × 72, progress 160 × 72. */
+.flow-board .project-summary {
+  gap: 8px;
+}
+.flow-board .project-summary > span {
+  width: 96px;
+  min-width: 96px;
+  height: 72px;
+  min-height: 72px;
+  padding: 12px 16px;
+  gap: 2px;
+  border-radius: 12px;
+}
+.flow-board .project-summary b {
+  font-size: 20px;
+  line-height: 28px;
+}
+.flow-board .project-summary > span:last-child {
+  width: 160px;
+  min-width: 160px;
+  align-content: start;
+  gap: 8px;
+}
+.flow-board .project-summary > span:last-child b {
+  font-size: 11px;
+  line-height: inherit;
+}
+.flow-board .project-summary > span:last-child progress {
+  height: 6px;
+}

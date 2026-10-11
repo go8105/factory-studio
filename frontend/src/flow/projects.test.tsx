@@ -19,7 +19,7 @@ const task = {
   id: 2,
   board_id: 1,
   group_id: 3,
-  parent_id: null,
+  parent_id: null as number | null,
   title: "합성 업무",
   description: "내용",
   status: "WAITING",
@@ -189,4 +189,110 @@ it("업무 이름을 클릭해 바로 편집하고 Escape로 저장 없이 취�
   expect(
     await screen.findByRole("dialog", { name: "업무 상세" }),
   ).toBeInTheDocument();
+});
+
+it("하위 업무를 서버에 한 번 생성하고 부모 아래에서 바로 이름을 편집한다", async () => {
+  let child: typeof task | undefined;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, options?: RequestInit) => {
+      let result: unknown;
+      if (url.includes("/task-create")) {
+        const body = JSON.parse(options!.body as string);
+        expect(body).toMatchObject({
+          boardId: 1,
+          groupId: 3,
+          parentId: 2,
+          title: "새 하위 업무",
+        });
+        child = {
+          ...task,
+          id: 9,
+          parent_id: 2,
+          title: body.title,
+          position: 2,
+        };
+        result = { id: 9 };
+      } else if (url.includes("/task-update")) {
+        const body = JSON.parse(options!.body as string);
+        child = { ...child!, title: body.title };
+        result = { id: 9 };
+      } else if (url.endsWith("/companies")) result = [company];
+      else if (url.includes("boardId=1"))
+        result = { ...data(true), tasks: child ? [task, child] : [task] };
+      else result = data();
+      return new Response(JSON.stringify({ data: result }), { status: 200 });
+    }),
+  );
+  render(
+    <MemoryRouter>
+      <Projects />
+    </MemoryRouter>,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "예제 보드" }));
+  const add = await screen.findByRole("button", {
+    name: "합성 업무 하위 업무 추가",
+  });
+  fireEvent.click(add);
+  fireEvent.click(add);
+  const input = await screen.findByLabelText("업무 제목 바로 편집");
+  expect(input).toHaveValue("새 하위 업무");
+  expect(input.closest("tr")?.previousElementSibling).toHaveTextContent(
+    "합성 업무",
+  );
+  expect(
+    screen.queryByRole("dialog", { name: "업무 추가" }),
+  ).not.toBeInTheDocument();
+  expect(
+    vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => String(url).includes("/task-create")),
+  ).toHaveLength(1);
+  await waitFor(() => expect(add).toBeEnabled());
+  fireEvent.change(input, { target: { value: "직접 입력한 하위 업무" } });
+  fireEvent.blur(input);
+  expect(
+    await screen.findByRole("button", { name: "직접 입력한 하위 업무" }),
+  ).toBeInTheDocument();
+});
+
+it("이름 저장 실패 시 입력을 유지하고 재시도할 수 있다", async () => {
+  const baseFetch = fetch;
+  let failed = true;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, options?: RequestInit) => {
+      if (url.includes("/task-update")) {
+        if (failed)
+          return new Response(
+            JSON.stringify({
+              error: { code: "INTERNAL_ERROR", message: "합성 저장 실패" },
+            }),
+            { status: 500 },
+          );
+        task.title = "재시도한 업무";
+        return new Response(JSON.stringify({ data: { id: 2 } }), {
+          status: 200,
+        });
+      }
+      return baseFetch(url, options);
+    }),
+  );
+  render(
+    <MemoryRouter>
+      <Projects />
+    </MemoryRouter>,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "예제 보드" }));
+  fireEvent.click(await screen.findByRole("button", { name: "합성 업무" }));
+  const input = screen.getByLabelText("업무 제목 바로 편집");
+  fireEvent.change(input, { target: { value: "재시도한 업무" } });
+  fireEvent.blur(input);
+  await screen.findByText("합성 저장 실패");
+  await waitFor(() => expect(input).toBeEnabled());
+  expect(input).toHaveValue("재시도한 업무");
+  failed = false;
+  fireEvent.blur(input);
+  await screen.findByRole("button", { name: "재시도한 업무" });
+  task.title = "합성 업무";
 });
