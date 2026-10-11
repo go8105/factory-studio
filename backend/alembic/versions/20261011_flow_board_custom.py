@@ -56,7 +56,7 @@ def downgrade():
     count = (
         op.get_bind()
         .exec_driver_sql(
-            "SELECT (SELECT count(*) FROM flow.work_cell)+(SELECT count(*) FROM flow.work_column WHERE kind<>'BUILTIN')"
+            "SELECT (SELECT count(*) FROM flow.work_cell)+(SELECT count(*) FROM flow.work_column WHERE kind<>'BUILTIN')+(SELECT count(*) FROM flow.work_group WHERE archived_at IS NOT NULL OR deleted_at IS NOT NULL)+(SELECT count(*) FROM flow.work_task WHERE status='REVIEW')"
         )
         .scalar_one()
     )
