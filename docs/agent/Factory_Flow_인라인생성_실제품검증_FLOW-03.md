@@ -19,3 +19,13 @@ frontend 단위 검증: 하위 API payload/부모 바로 아래 행/모달 없�
 실제품 캡처: outputs/Factory_Flow_FLOW05_인라인_실제품.png (로컬 합성 검증 보드). 픽셀 단위 전체 UI 일치나 Figma의 미구현 캘린더/간트 시제품 동작 동일성을 주장하지 않는다. 기존 제품의 실제 캘린더·간트 기능은 유지한다.
 
 로컬 전체 frontend592/75파일 통과, 타입/전체lint/범위format/build/diff 공백 검사 통과. 운영 배포는 정확HEAD CI 성공 후 표준 tools/deploy.sh로 수행한다.
+
+## main·운영 배포 완료 (2026-10-11 17:55 KST)
+
+제품 커밋 b255c6c684187baaa4e700837878d9e4d8cbf961을 로컬main·origin/main·실서버에 반영했다. 정확HEAD CI38124898787 SUCCESS: backend1010/skip1(20분38초), perf1, frontend592/75파일, tools133, 타입/lint/전체format/build/DDL왕복 성공.
+
+보호 백업 /srv/factory-studio/backups/20261011-flow-inline-b255c6c 의 DB dump/프런트·private-assets 압축 검증. 기존 Flow12원장 전체행 건수/hash 일치(이번에는 그룹의 보관/삭제 필드도 포함). APIactive·DDL차이0·원점/공개/Flow경로200·최근2분5xx0·미로그인세션401. 기존 시드 템플릿 유지. 실제 운영 업무/회사/계정 생성 없음.
+
+공개 flow-DXY3Acjg.js 및 flow-D_tW5weu.css를 curl로 다운로드해 로컬 제품 빌드·서버 파일 SHA256과 일치 확인. CSS96×72/160×72와 JS 새 하위 업무 코드 존재 확인. 운영 기존 Chrome 탭을 새로 불러왔으나 세션 만료 화면/401로 전환돼 로그인한 운영 보드 DOM/실제 업무 생성은 미검증이다. 로그인 강제 우회·비밀번호 입력·확장 설정 변경은 하지 않았다. 로컬 실제 API 저장/새로고침/그룹명 확인과 전체CI·공개자산해시 검증을 운영 UI 검증 근거와 구분한다.
+
+최종 기록 커밋은 문서만 변경하며 운영 제품 b255c6c와 구분한다. 후속 FLOW-02b 자동 착수 없음.
