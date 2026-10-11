@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "../app/session";
 import { api, MutationKeys } from "../shared/api";
+import { MenuIcon } from "../shared/MenuIcon";
 import { ErrorNotice } from "../shared/components";
 import "./Projects.css";
 import { Link, useSearchParams } from "react-router-dom";
@@ -14,7 +15,27 @@ type Board = {
   version: number;
   archived_at: string | null;
 };
+type Column = {
+  id: number;
+  name: string;
+  kind: string;
+  position: number;
+  width: number;
+  options: { labels?: string[] };
+  version: number;
+  archived_at: string | null;
+  deleted_at: string | null;
+};
+type Cell = {
+  id: number;
+  task_id: number;
+  column_id: number;
+  value: unknown;
+  version: number;
+};
 type Group = {
+  archived_at?: string | null;
+  deleted_at?: string | null;
   id: number;
   name: string;
   color: string;
@@ -60,6 +81,8 @@ type Overview = {
   allowCreate: boolean;
   board?: Board;
   role?: string;
+  columns?: Column[];
+  cells?: Cell[];
   groups?: Group[];
   tasks?: Task[];
   preference?: { settings: Preference }[];
@@ -80,6 +103,7 @@ type Detail = {
 const states: Record<string, string> = {
   WAITING: "대기",
   WORKING: "진행 중",
+  REVIEW: "검토",
   BLOCKED: "보류",
   DONE: "완료",
   CANCELLED: "취소",
@@ -96,14 +120,14 @@ const initial: Preference = {
   status: "",
   mine: false,
   sort: "position",
-  hidden: [],
+  hidden: ["priority"],
 };
 const columnLabels: Record<string, string> = {
   assignees: "담당자",
   status: "상태",
-  priority: "중요도",
   dates: "일정",
   progress: "진행률",
+  priority: "중요도",
 };
 const defaultColumns = Object.keys(columnLabels);
 const prefix = "/api/v1/flow";
@@ -155,7 +179,9 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
     parent: number | null;
   }>();
   const [taskTitle, setTaskTitle] = useState("");
-  const [groupName, setGroupName] = useState("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<number>();
+  const [columnForm, setColumnForm] = useState<Column | "new">();
   const [childrenCollapsed, setChildrenCollapsed] = useState<number[]>([]);
   const [editingTitle, setEditingTitle] = useState<number>();
   const [editingComment, setEditingComment] = useState<{
@@ -330,7 +356,13 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
     .filter(
       (t) =>
         (showArchived || !t.archived_at) &&
-        t.title.toLowerCase().includes(pref.search.toLowerCase()) &&
+        (myTasks ||
+          !data?.groups?.some(
+            (g) => g.id === t.group_id && (g.archived_at || g.deleted_at),
+          )) &&
+        `${t.title} ${t.assignees.map((a) => a.display_name).join(" ")}`
+          .toLowerCase()
+          .includes(pref.search.toLowerCase()) &&
         (!pref.status || t.status === pref.status) &&
         (!pref.mine || t.assignees?.some((a) => a.user_id === data?.userId)),
     )
@@ -391,7 +423,9 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
       </section>
     );
   return (
-    <section className="projects">
+    <section
+      className={`projects flow-board ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}
+    >
       <header>
         <div>
           <h1>{myTasks ? "내 업무" : "프로젝트·업무"}</h1>
@@ -419,6 +453,121 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
           </select>
         </label>
       </header>
+      {columnForm && (
+        <div className="project-overlay">
+          <form
+            className="project-modal"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              const kind = String(f.get("kind"));
+              void mutate(
+                columnForm === "new" ? "column-create" : "column-update",
+                {
+                  boardId: bid,
+                  ...(columnForm === "new"
+                    ? {}
+                    : { id: columnForm.id, version: columnForm.version }),
+                  name: f.get("name"),
+                  kind,
+                  position: Number(f.get("position")),
+                  width: Number(f.get("width")),
+                  options:
+                    kind === "STATUS"
+                      ? {
+                          labels: String(f.get("labels"))
+                            .split(",")
+                            .map((x) => x.trim())
+                            .filter(Boolean),
+                        }
+                      : {},
+                },
+              ).then((ok) => {
+                if (ok) setColumnForm(undefined);
+              });
+            }}
+          >
+            <h2>{columnForm === "new" ? "컬럼 추가" : "컬럼 편집"}</h2>
+            <label>
+              열 이름
+              <input
+                name="name"
+                required
+                maxLength={120}
+                defaultValue={columnForm === "new" ? "" : columnForm.name}
+              />
+            </label>
+            <label>
+              유형
+              <select
+                name="kind"
+                defaultValue={columnForm === "new" ? "TEXT" : columnForm.kind}
+                disabled={columnForm !== "new"}
+              >
+                {Object.entries({
+                  TEXT: "텍스트",
+                  NUMBER: "숫자",
+                  DATE: "날짜",
+                  STATUS: "상태",
+                  CHECKBOX: "체크박스",
+                  TIMELINE: "기간",
+                }).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+              {columnForm !== "new" && (
+                <input type="hidden" name="kind" value={columnForm.kind} />
+              )}
+            </label>
+            <label>
+              순서
+              <input
+                name="position"
+                type="number"
+                min="0"
+                required
+                defaultValue={
+                  columnForm === "new"
+                    ? (data?.columns?.length ?? 0)
+                    : columnForm.position
+                }
+              />
+            </label>
+            <label>
+              너비
+              <input
+                name="width"
+                type="number"
+                min="80"
+                max="600"
+                required
+                defaultValue={columnForm === "new" ? 160 : columnForm.width}
+              />
+            </label>
+            <label>
+              상태 이름 (쉼표로 구분)
+              <input
+                name="labels"
+                defaultValue={
+                  columnForm === "new"
+                    ? "대기, 진행 중, 완료"
+                    : columnForm.options.labels?.join(", ")
+                }
+              />
+            </label>
+            <button disabled={pending}>저장</button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => setColumnForm(undefined)}
+            >
+              취소
+            </button>
+          </form>
+        </div>
+      )}
       {!!error && <ErrorNotice error={error} retry={() => void load()} />}{" "}
       {!companies.length && !error && (
         <p>연결된 회사가 없습니다. 회사 관리자에게 계정 등록을 요청하세요.</p>
@@ -426,7 +575,59 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
       {data && (
         <div className="project-workspace">
           <aside className="project-boards">
-            <h2>업무 보드</h2>
+            <div className="flow-sidebar-brand">
+              <span aria-hidden="true">▥</span>
+              <strong>
+                Factory Flow<small>통합 업무 공간</small>
+              </strong>
+              <button
+                aria-label="사이드바 접기"
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              >
+                ◧
+              </button>
+            </div>
+            <nav className="flow-sidebar-nav">
+              <Link title="홈" to="/work-os/boards">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                >
+                  <path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8" />
+                </svg>
+                <span className="nav-name">홈</span>
+              </Link>
+              <Link title="내 업무" to="/work-os/my-tasks">
+                <MenuIcon />
+                <span className="nav-name">내 업무</span>
+              </Link>
+              <Link title="전체 솔루션" to="/home">
+                <MenuIcon kind="grid" />
+                <span className="nav-name">전체 솔루션</span>
+              </Link>
+            </nav>
+            <h2>즐겨찾기</h2>
+            {data.boards
+              .filter((b) => data.favorites.includes(b.id) && !b.archived_at)
+              .map((b) => (
+                <div
+                  key={`favorite-${b.id}`}
+                  className={b.id === bid ? "selected" : ""}
+                >
+                  <button title={b.name} onClick={() => setBid(b.id)}>
+                    <span aria-hidden="true" className="flow-board-dot">
+                      ★
+                    </span>
+                    <span className="nav-name">{b.name}</span>
+                  </button>
+                </div>
+              ))}
+            <h2>내 보드</h2>
             {data.boards
               .filter((b) => showArchived || !b.archived_at)
               .sort(
@@ -444,8 +645,13 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                     }}
                     disabled={pending}
                   >
-                    {b.name}
-                    {b.archived_at ? " · 보관" : ""}
+                    <span aria-hidden="true" className="flow-board-dot">
+                      ●
+                    </span>
+                    <span className="nav-name">
+                      {b.name}
+                      {b.archived_at ? " · 보관" : ""}
+                    </span>
                   </button>
                   <button
                     className={`project-star ${data.favorites.includes(b.id) ? "on" : ""}`}
@@ -489,6 +695,14 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                 구성원 보드 생성 허용
               </label>
             )}
+            <footer className="flow-sidebar-footer">
+              <Link title="사용자 관리" to="/hr/users">
+                사용자 관리
+              </Link>
+              <Link title="내 공간" to="/workspace">
+                내 공간
+              </Link>
+            </footer>
           </aside>
           <div className="project-main">
             {!data.board && !myTasks ? (
@@ -550,9 +764,31 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                   </nav>
                 )}
                 <div className="project-tools">
+                  {editable && (
+                    <button
+                      className="flow-new-task"
+                      disabled={
+                        pending ||
+                        !data.groups?.some(
+                          (g) => !g.archived_at && !g.deleted_at,
+                        )
+                      }
+                      onClick={() => {
+                        const g = data.groups?.find(
+                          (g) => !g.archived_at && !g.deleted_at,
+                        );
+                        if (g) {
+                          setTaskTitle("");
+                          setTaskForm({ group: g.id, parent: null });
+                        }
+                      }}
+                    >
+                      ＋ 새 업무
+                    </button>
+                  )}
                   <input
                     aria-label="업무 검색"
-                    placeholder="업무 검색"
+                    placeholder="업무 또는 담당자 검색"
                     value={pref.search}
                     onChange={(e) =>
                       setPref({ ...pref, search: e.target.value })
@@ -610,79 +846,140 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                 </div>
                 <div className="project-summary">
                   <span>
-                    업무 <b>{leaves.length}</b>
+                    전체 업무<b>{tasks.length}</b>
                   </span>
                   <span>
-                    완료{" "}
-                    <b>{leaves.filter((t) => t.status === "DONE").length}</b>
+                    진행 중
+                    <b>{tasks.filter((t) => t.status === "WORKING").length}</b>
                   </span>
                   <span>
-                    지연 <b>{leaves.filter(late).length}</b>
+                    완료<b>{tasks.filter((t) => t.status === "DONE").length}</b>
+                  </span>
+                  <span>
+                    전체 진행률
+                    <b>
+                      {leaves.length
+                        ? Math.round(
+                            leaves.reduce((n, t) => n + t.progress, 0) /
+                              leaves.length,
+                          )
+                        : 0}
+                      %
+                    </b>
+                    <progress
+                      max="100"
+                      value={
+                        leaves.length
+                          ? leaves.reduce((n, t) => n + t.progress, 0) /
+                            leaves.length
+                          : 0
+                      }
+                    />
                   </span>
                 </div>
                 {(pref.view === "table" || myTasks) && (
                   <>
                     {!myTasks && (
-                      <div className="project-columns">
-                        열 표시{" "}
-                        <details>
-                          <summary>열 순서</summary>
-                          {(pref.columns ?? defaultColumns).map((k, i) => (
-                            <span key={k}>
-                              {columnLabels[k]}
-                              <button
-                                aria-label={`${columnLabels[k]} 열 앞으로`}
-                                disabled={!i}
-                                onClick={() => {
-                                  const cols = [
-                                    ...(pref.columns ?? defaultColumns),
-                                  ];
-                                  [cols[i - 1], cols[i]] = [
-                                    cols[i],
-                                    cols[i - 1],
-                                  ];
-                                  setPref({ ...pref, columns: cols });
-                                }}
-                              >
-                                ←
-                              </button>
-                              <button
-                                aria-label={`${columnLabels[k]} 열 뒤로`}
-                                disabled={i === 4}
-                                onClick={() => {
-                                  const cols = [
-                                    ...(pref.columns ?? defaultColumns),
-                                  ];
-                                  [cols[i + 1], cols[i]] = [
-                                    cols[i],
-                                    cols[i + 1],
-                                  ];
-                                  setPref({ ...pref, columns: cols });
-                                }}
-                              >
-                                →
-                              </button>
-                            </span>
+                      <details className="project-column-menu">
+                        <summary>열 관리</summary>
+                        <div className="project-columns">
+                          열 표시{" "}
+                          <details>
+                            <summary>열 순서</summary>
+                            {(pref.columns ?? defaultColumns).map((k, i) => (
+                              <span key={k}>
+                                {columnLabels[k]}
+                                <button
+                                  aria-label={`${columnLabels[k]} 열 앞으로`}
+                                  disabled={!i}
+                                  onClick={() => {
+                                    const cols = [
+                                      ...(pref.columns ?? defaultColumns),
+                                    ];
+                                    [cols[i - 1], cols[i]] = [
+                                      cols[i],
+                                      cols[i - 1],
+                                    ];
+                                    setPref({ ...pref, columns: cols });
+                                  }}
+                                >
+                                  ←
+                                </button>
+                                <button
+                                  aria-label={`${columnLabels[k]} 열 뒤로`}
+                                  disabled={i === 4}
+                                  onClick={() => {
+                                    const cols = [
+                                      ...(pref.columns ?? defaultColumns),
+                                    ];
+                                    [cols[i + 1], cols[i]] = [
+                                      cols[i],
+                                      cols[i + 1],
+                                    ];
+                                    setPref({ ...pref, columns: cols });
+                                  }}
+                                >
+                                  →
+                                </button>
+                              </span>
+                            ))}
+                          </details>
+                          {["assignees", "priority", "progress"].map((k, i) => (
+                            <label key={k}>
+                              <input
+                                type="checkbox"
+                                checked={!pref.hidden.includes(k)}
+                                onChange={(e) =>
+                                  setPref({
+                                    ...pref,
+                                    hidden: e.target.checked
+                                      ? pref.hidden.filter((h) => h !== k)
+                                      : [...pref.hidden, k],
+                                  })
+                                }
+                              />
+                              {["담당자", "중요도", "진행률"][i]}
+                            </label>
                           ))}
-                        </details>
-                        {["assignees", "priority", "progress"].map((k, i) => (
-                          <label key={k}>
-                            <input
-                              type="checkbox"
-                              checked={!pref.hidden.includes(k)}
-                              onChange={(e) =>
-                                setPref({
-                                  ...pref,
-                                  hidden: e.target.checked
-                                    ? pref.hidden.filter((h) => h !== k)
-                                    : [...pref.hidden, k],
-                                })
-                              }
-                            />
-                            {["담당자", "중요도", "진행률"][i]}
-                          </label>
-                        ))}
-                      </div>
+                          {owner && (
+                            <button onClick={() => setColumnForm("new")}>
+                              ＋ 컬럼 추가
+                            </button>
+                          )}
+                          {(data.columns ?? [])
+                            .filter((c) => c.kind !== "BUILTIN")
+                            .map((c) => (
+                              <span key={c.id}>
+                                {c.name}
+                                {owner && (
+                                  <>
+                                    <button onClick={() => setColumnForm(c)}>
+                                      편집
+                                    </button>
+                                    <button
+                                      disabled={pending}
+                                      onClick={() =>
+                                        void mutate("column-state", {
+                                          boardId: bid,
+                                          id: c.id,
+                                          version: c.version,
+                                          state:
+                                            c.deleted_at || c.archived_at
+                                              ? "restore"
+                                              : "delete",
+                                        })
+                                      }
+                                    >
+                                      {c.deleted_at || c.archived_at
+                                        ? "복구"
+                                        : "삭제"}
+                                    </button>
+                                  </>
+                                )}
+                              </span>
+                            ))}
+                        </div>
+                      </details>
                     )}
                     {(myTasks
                       ? [
@@ -694,7 +991,10 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                             version: 1,
                           },
                         ]
-                      : (data.groups ?? [])
+                      : (data.groups ?? []).filter(
+                          (g) =>
+                            showArchived || (!g.archived_at && !g.deleted_at),
+                        )
                     ).map((g) => (
                       <section key={g.id} className="project-group">
                         <h3 style={{ borderLeftColor: g.color }}>
@@ -707,8 +1007,91 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                               )
                             }
                           >
-                            {collapsed.includes(g.id) ? "▸" : "▾"} {g.name}
+                            {collapsed.includes(g.id) ? "▸" : "▾"}
                           </button>
+                          {editingGroup === g.id ? (
+                            <input
+                              autoFocus
+                              aria-label="그룹 이름 바로 편집"
+                              defaultValue={g.name}
+                              maxLength={120}
+                              onKeyDown={(e) => {
+                                if (e.key === "Escape") {
+                                  e.currentTarget.dataset.cancelled = "true";
+                                  e.currentTarget.blur();
+                                }
+                                if (e.key === "Enter") e.currentTarget.blur();
+                              }}
+                              onBlur={(e) => {
+                                if (
+                                  !e.currentTarget.dataset.cancelled &&
+                                  e.target.value.trim() &&
+                                  e.target.value.trim() !== g.name
+                                )
+                                  void mutate("group-update", {
+                                    boardId: bid,
+                                    id: g.id,
+                                    version: g.version,
+                                    name: e.target.value.trim(),
+                                    color: g.color,
+                                    position: g.position,
+                                  });
+                                setEditingGroup(undefined);
+                              }}
+                            />
+                          ) : (
+                            <button
+                              disabled={!editable || pending}
+                              className="flow-group-name"
+                              onClick={() => setEditingGroup(g.id)}
+                            >
+                              {g.name}
+                            </button>
+                          )}
+                          <small>
+                            {tasks.filter((t) => t.group_id === g.id).length}
+                          </small>
+                          {editable && (
+                            <details className="flow-group-actions">
+                              <summary aria-label={`${g.name} 그룹 메뉴`}>
+                                ···
+                              </summary>
+                              <button
+                                disabled={pending}
+                                onClick={() =>
+                                  void mutate("group-duplicate", {
+                                    boardId: bid,
+                                    id: g.id,
+                                    version: g.version,
+                                  })
+                                }
+                              >
+                                이 그룹 복제
+                              </button>
+                              {["archive", "delete", "restore"].map((state) => (
+                                <button
+                                  key={state}
+                                  disabled={pending}
+                                  onClick={() =>
+                                    void mutate("group-state", {
+                                      boardId: bid,
+                                      id: g.id,
+                                      version: g.version,
+                                      state,
+                                    })
+                                  }
+                                >
+                                  {
+                                    {
+                                      archive: "그룹 보관",
+                                      delete: "그룹 삭제",
+                                      restore: "그룹 복구",
+                                    }[state]
+                                  }
+                                </button>
+                              ))}
+                            </details>
+                          )}
                           {editable && (
                             <>
                               <button
@@ -744,7 +1127,9 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                             </>
                           )}
                         </h3>
-                        <div className="project-group-summary">
+                        <div
+                          className={`project-group-summary ${collapsed.includes(g.id) ? "is-collapsed" : ""}`}
+                        >
                           {Object.entries(states).map(([k, label]) => {
                             const count = leaves.filter(
                               (t) =>
@@ -808,170 +1193,285 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                             </form>
                           </details>
                         )}
-                        {!collapsed.includes(g.id) && (
-                          <div className="project-table">
-                            <table>
-                              <thead>
-                                <tr>
-                                  <th>업무</th>
-                                  {myTasks && <th>보드</th>}
-                                  {(pref.columns ?? defaultColumns)
-                                    .filter((k) => !pref.hidden.includes(k))
-                                    .map((k) => (
-                                      <th key={k}>{columnLabels[k]}</th>
-                                    ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {tasks
-                                  .filter(
-                                    (t) =>
-                                      (myTasks || t.group_id === g.id) &&
-                                      (!t.parent_id ||
-                                        !childrenCollapsed.includes(
-                                          t.parent_id,
-                                        )),
-                                  )
-                                  .sort((a, b) => {
-                                    const pa =
-                                        tasks.find(
-                                          (t) => t.id === a.parent_id,
-                                        ) ?? a,
-                                      pb =
-                                        tasks.find(
-                                          (t) => t.id === b.parent_id,
-                                        ) ?? b;
-                                    return (
-                                      pa.position - pb.position ||
-                                      pa.id - pb.id ||
-                                      (a.parent_id ? 1 : 0) -
-                                        (b.parent_id ? 1 : 0) ||
-                                      a.position - b.position
-                                    );
-                                  })
-                                  .map((t) => (
-                                    <tr key={t.id}>
-                                      <td>
-                                        {t.aggregate && (
+                        {!collapsed.includes(g.id) &&
+                          !g.archived_at &&
+                          !g.deleted_at && (
+                            <div className="project-table">
+                              <table>
+                                <thead>
+                                  <tr>
+                                    <th>업무</th>
+                                    {myTasks && <th>보드</th>}
+                                    {(pref.columns ?? defaultColumns)
+                                      .filter((k) => !pref.hidden.includes(k))
+                                      .map((k) => (
+                                        <th key={k}>{columnLabels[k]}</th>
+                                      ))}
+                                    {(data.columns ?? [])
+                                      .filter(
+                                        (c) =>
+                                          c.kind !== "BUILTIN" &&
+                                          !c.archived_at &&
+                                          !c.deleted_at,
+                                      )
+                                      .map((c) => (
+                                        <th
+                                          key={c.id}
+                                          style={{ minWidth: c.width }}
+                                        >
                                           <button
-                                            aria-label={`${t.title} 하위 업무 접기`}
-                                            onClick={() =>
-                                              setChildrenCollapsed(
-                                                childrenCollapsed.includes(t.id)
-                                                  ? childrenCollapsed.filter(
-                                                      (id) => id !== t.id,
-                                                    )
-                                                  : [
-                                                      ...childrenCollapsed,
-                                                      t.id,
-                                                    ],
-                                              )
-                                            }
+                                            disabled={!owner}
+                                            onClick={() => setColumnForm(c)}
                                           >
-                                            {childrenCollapsed.includes(t.id)
-                                              ? "▸"
-                                              : "▾"}
+                                            {c.name}
                                           </button>
-                                        )}
-                                        {editingTitle === t.id ? (
+                                        </th>
+                                      ))}
+                                    {owner && (
+                                      <th>
+                                        <button
+                                          aria-label="컬럼 추가"
+                                          onClick={() => setColumnForm("new")}
+                                        >
+                                          ＋
+                                        </button>
+                                      </th>
+                                    )}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {tasks
+                                    .filter(
+                                      (t) =>
+                                        (myTasks || t.group_id === g.id) &&
+                                        (!t.parent_id ||
+                                          !childrenCollapsed.includes(
+                                            t.parent_id,
+                                          )),
+                                    )
+                                    .sort((a, b) => {
+                                      const pa =
+                                          tasks.find(
+                                            (t) => t.id === a.parent_id,
+                                          ) ?? a,
+                                        pb =
+                                          tasks.find(
+                                            (t) => t.id === b.parent_id,
+                                          ) ?? b;
+                                      return (
+                                        pa.position - pb.position ||
+                                        pa.id - pb.id ||
+                                        (a.parent_id ? 1 : 0) -
+                                          (b.parent_id ? 1 : 0) ||
+                                        a.position - b.position
+                                      );
+                                    })
+                                    .map((t) => (
+                                      <tr key={t.id}>
+                                        <td
+                                          className={
+                                            t.parent_id ? "flow-subitem" : ""
+                                          }
+                                        >
                                           <input
-                                            autoFocus
-                                            maxLength={250}
-                                            aria-label="업무 제목 바로 편집"
-                                            defaultValue={t.title}
-                                            onKeyDown={(e) => {
-                                              if (e.key === "Escape") {
-                                                e.currentTarget.dataset.cancelled =
-                                                  "true";
-                                                e.currentTarget.blur();
-                                              }
-                                              if (e.key === "Enter")
-                                                e.currentTarget.blur();
-                                            }}
-                                            onBlur={(e) => {
-                                              if (
-                                                !e.currentTarget.dataset
-                                                  .cancelled &&
-                                                e.target.value.trim() &&
-                                                e.target.value.trim() !==
-                                                  t.title
-                                              )
-                                                void update(t, {
-                                                  title: e.target.value.trim(),
-                                                });
-                                              setEditingTitle(undefined);
-                                            }}
-                                          />
-                                        ) : (
-                                          title(t)
-                                        )}
-                                        {editable && (
-                                          <button
-                                            aria-label={`${t.title} 제목 편집`}
-                                            onClick={() =>
-                                              setEditingTitle(t.id)
+                                            type="checkbox"
+                                            aria-label={`${t.title} 완료`}
+                                            checked={t.status === "DONE"}
+                                            disabled={
+                                              !editable ||
+                                              pending ||
+                                              t.aggregate
                                             }
-                                          >
-                                            편집
-                                          </button>
-                                        )}
-                                      </td>
-                                      {myTasks && <td>{t.board_name}</td>}
-                                      {(pref.columns ?? defaultColumns)
-                                        .filter((k) => !pref.hidden.includes(k))
-                                        .map((k) => (
-                                          <td key={k}>
-                                            {k === "assignees" ? (
-                                              <span className="flow-people">
-                                                {t.assignees?.length
-                                                  ? t.assignees.map((a) => (
-                                                      <span
-                                                        className="flow-person"
-                                                        key={a.user_id}
-                                                      >
+                                            onChange={(e) =>
+                                              void update(t, {
+                                                status: e.target.checked
+                                                  ? "DONE"
+                                                  : "WAITING",
+                                                progress: e.target.checked
+                                                  ? 100
+                                                  : 0,
+                                              })
+                                            }
+                                          />
+                                          {editable && !t.parent_id && (
+                                            <button
+                                              className="flow-subitem-add"
+                                              aria-label={`${t.title} 하위 업무 추가`}
+                                              onClick={() => {
+                                                setTaskTitle("");
+                                                setTaskForm({
+                                                  group: g.id,
+                                                  parent: t.id,
+                                                });
+                                              }}
+                                            >
+                                              ＋
+                                            </button>
+                                          )}
+                                          {t.aggregate && (
+                                            <button
+                                              aria-label={`${t.title} 하위 업무 접기`}
+                                              onClick={() =>
+                                                setChildrenCollapsed(
+                                                  childrenCollapsed.includes(
+                                                    t.id,
+                                                  )
+                                                    ? childrenCollapsed.filter(
+                                                        (id) => id !== t.id,
+                                                      )
+                                                    : [
+                                                        ...childrenCollapsed,
+                                                        t.id,
+                                                      ],
+                                                )
+                                              }
+                                            >
+                                              {childrenCollapsed.includes(t.id)
+                                                ? "▸"
+                                                : "▾"}
+                                            </button>
+                                          )}
+                                          {editingTitle === t.id ? (
+                                            <input
+                                              autoFocus
+                                              maxLength={250}
+                                              aria-label="업무 제목 바로 편집"
+                                              defaultValue={t.title}
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Escape") {
+                                                  e.currentTarget.dataset.cancelled =
+                                                    "true";
+                                                  e.currentTarget.blur();
+                                                }
+                                                if (e.key === "Enter")
+                                                  e.currentTarget.blur();
+                                              }}
+                                              onBlur={(e) => {
+                                                if (
+                                                  !e.currentTarget.dataset
+                                                    .cancelled &&
+                                                  e.target.value.trim() &&
+                                                  e.target.value.trim() !==
+                                                    t.title
+                                                )
+                                                  void update(t, {
+                                                    title:
+                                                      e.target.value.trim(),
+                                                  });
+                                                setEditingTitle(undefined);
+                                              }}
+                                            />
+                                          ) : (
+                                            title(t)
+                                          )}
+                                          {editable && (
+                                            <button
+                                              aria-label={`${t.title} 제목 편집`}
+                                              onClick={() =>
+                                                setEditingTitle(t.id)
+                                              }
+                                            >
+                                              편집
+                                            </button>
+                                          )}
+                                        </td>
+                                        {myTasks && <td>{t.board_name}</td>}
+                                        {(pref.columns ?? defaultColumns)
+                                          .filter(
+                                            (k) => !pref.hidden.includes(k),
+                                          )
+                                          .map((k) => (
+                                            <td key={k}>
+                                              {k === "assignees" ? (
+                                                <span className="flow-people">
+                                                  {t.assignees?.length
+                                                    ? t.assignees.map((a) => (
                                                         <span
-                                                          className="flow-avatar"
-                                                          aria-hidden="true"
+                                                          className="flow-person"
+                                                          key={a.user_id}
                                                         >
-                                                          {a.display_name.slice(
-                                                            0,
-                                                            1,
-                                                          )}
+                                                          <span
+                                                            className="flow-avatar"
+                                                            aria-hidden="true"
+                                                          >
+                                                            {a.display_name.slice(
+                                                              0,
+                                                              1,
+                                                            )}
+                                                          </span>
+                                                          {a.display_name}
+                                                          {!a.active &&
+                                                            " (비활성)"}
                                                         </span>
-                                                        {a.display_name}
-                                                        {!a.active &&
-                                                          " (비활성)"}
-                                                      </span>
-                                                    ))
-                                                  : "미지정"}
-                                              </span>
-                                            ) : k === "status" ? (
-                                              state(t)
-                                            ) : k === "priority" ? (
-                                              priorities[t.priority]
-                                            ) : k === "dates" ? (
-                                              `${t.starts_on ?? "미정"} → ${t.ends_on ?? "미정"}`
-                                            ) : (
-                                              <span
-                                                className={`flow-progress ${t.status === "DONE" ? "done" : ""}`}
-                                              >
-                                                <progress
-                                                  aria-label={`${t.title} 진행률`}
-                                                  max={100}
-                                                  value={t.progress}
+                                                      ))
+                                                    : "미지정"}
+                                                </span>
+                                              ) : k === "status" ? (
+                                                state(t)
+                                              ) : k === "priority" ? (
+                                                priorities[t.priority]
+                                              ) : k === "dates" ? (
+                                                `${t.starts_on ?? "미정"} → ${t.ends_on ?? "미정"}`
+                                              ) : (
+                                                <span
+                                                  className={`flow-progress ${t.status === "DONE" ? "done" : ""}`}
+                                                >
+                                                  <progress
+                                                    aria-label={`${t.title} 진행률`}
+                                                    max={100}
+                                                    value={t.progress}
+                                                  />
+                                                  <span>{t.progress}%</span>
+                                                </span>
+                                              )}
+                                            </td>
+                                          ))}
+                                        {(data.columns ?? [])
+                                          .filter(
+                                            (c) =>
+                                              c.kind !== "BUILTIN" &&
+                                              !c.archived_at &&
+                                              !c.deleted_at,
+                                          )
+                                          .map((c) => {
+                                            const cell = data.cells?.find(
+                                              (v) =>
+                                                v.task_id === t.id &&
+                                                v.column_id === c.id,
+                                            );
+                                            return (
+                                              <td key={c.id}>
+                                                <CustomCell
+                                                  key={`${c.id}-${cell?.version ?? 0}`}
+                                                  column={c}
+                                                  value={cell?.value}
+                                                  disabled={
+                                                    !editable || pending
+                                                  }
+                                                  save={(value) =>
+                                                    void mutate("cell-update", {
+                                                      boardId: bid,
+                                                      taskId: t.id,
+                                                      taskVersion: t.version,
+                                                      columnId: c.id,
+                                                      columnVersion: c.version,
+                                                      version:
+                                                        cell?.version ?? 0,
+                                                      value,
+                                                    })
+                                                  }
                                                 />
-                                                <span>{t.progress}%</span>
-                                              </span>
-                                            )}
-                                          </td>
-                                        ))}
-                                    </tr>
-                                  ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                        {editable && (
+                                              </td>
+                                            );
+                                          })}
+                                        {owner && <td />}
+                                      </tr>
+                                    ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        {editable && !g.archived_at && !g.deleted_at && (
                           <button
                             onClick={() => {
                               setTaskTitle("");
@@ -1181,30 +1681,20 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                   </>
                 )}
                 {editable && (
-                  <form
-                    className="project-tools"
-                    onSubmit={(e) => {
-                      e.preventDefault();
+                  <button
+                    className="flow-new-group"
+                    disabled={pending}
+                    onClick={() =>
                       void mutate("group-create", {
                         boardId: bid,
-                        name: groupName,
-                        color: "#658ab1",
+                        name: "새 그룹",
+                        color: "#40566b",
                         position: (data.groups?.length ?? 0) + 1,
-                      }).then((ok) => {
-                        if (ok) setGroupName("");
-                      });
-                    }}
+                      })
+                    }
                   >
-                    <input
-                      required
-                      maxLength={120}
-                      aria-label="새 그룹 이름"
-                      placeholder="새 그룹 이름"
-                      value={groupName}
-                      onChange={(e) => setGroupName(e.target.value)}
-                    />
-                    <button disabled={pending}>＋ 그룹 추가</button>
-                  </form>
+                    ＋ 새 그룹 추가하기
+                  </button>
                 )}
                 {data.board && owner && (
                   <details>
@@ -1757,6 +2247,109 @@ function TaskEditor({
     </form>
   );
 }
+function CustomCell({
+  column,
+  value,
+  disabled,
+  save,
+}: {
+  column: Column;
+  value: unknown;
+  disabled: boolean;
+  save: (v: unknown) => void;
+}) {
+  const [draft, setDraft] = useState(value ?? "");
+  if (column.kind === "CHECKBOX")
+    return (
+      <input
+        aria-label={column.name}
+        type="checkbox"
+        checked={value === true}
+        disabled={disabled}
+        onChange={(e) => save(e.target.checked)}
+      />
+    );
+  if (column.kind === "STATUS")
+    return (
+      <select
+        aria-label={column.name}
+        disabled={disabled}
+        value={String(value ?? "")}
+        onChange={(e) => save(e.target.value || null)}
+      >
+        <option value="">미정</option>
+        {column.options.labels?.map((x) => (
+          <option key={x}>{x}</option>
+        ))}
+      </select>
+    );
+  if (column.kind === "TIMELINE") {
+    const v = draft as { start?: string; end?: string };
+    return (
+      <form
+        className="flow-cell-period"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save(v.start && v.end ? v : null);
+        }}
+      >
+        <input
+          aria-label={`${column.name} 시작`}
+          type="date"
+          value={v.start ?? ""}
+          disabled={disabled}
+          onChange={(e) => setDraft({ ...v, start: e.target.value })}
+        />
+        <input
+          aria-label={`${column.name} 종료`}
+          type="date"
+          value={v.end ?? ""}
+          disabled={disabled}
+          onChange={(e) => setDraft({ ...v, end: e.target.value })}
+        />
+        <button disabled={disabled}>적용</button>
+      </form>
+    );
+  }
+  return (
+    <input
+      aria-label={column.name}
+      disabled={disabled}
+      type={
+        column.kind === "NUMBER"
+          ? "number"
+          : column.kind === "DATE"
+            ? "date"
+            : "text"
+      }
+      maxLength={4000}
+      value={String(draft)}
+      onChange={(e) => setDraft(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.currentTarget.dataset.cancelled = "true";
+          setDraft(value ?? "");
+          e.currentTarget.blur();
+        }
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+      onBlur={(e) => {
+        if (e.currentTarget.dataset.cancelled) {
+          delete e.currentTarget.dataset.cancelled;
+          return;
+        }
+        const v =
+          draft === ""
+            ? null
+            : column.kind === "NUMBER"
+              ? Number(draft)
+              : draft;
+        if (v !== value) save(v);
+      }}
+    />
+  );
+}
+
 function ProjectDemo() {
   const [state, setState] = useState("WAITING");
   return (

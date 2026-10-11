@@ -6,6 +6,114 @@ from fs.common.clock import real_today
 from fs.core.service import create_member_account
 
 
+def create_company(c, body):
+    """웹 총 관리자 등록. 호출자의 한 트랜잭션 안에서 최소 운영 기준을 만든다."""
+    from fs.common.errors import ApiError
+
+    name = body["companyName"].strip()
+    c.execute(
+        text(
+            "SELECT pg_advisory_xact_lock(hashtextextended('fs.company.user-management',0))"
+        )
+    )
+    existing = c.execute(text("SELECT name FROM core.company")).scalars()
+    if any(n.strip().casefold() == name.casefold() for n in existing):
+        raise ApiError(409, "DUPLICATE_COMPANY", "이미 등록된 회사명입니다.")
+    user = create_member_account(
+        c, body["loginId"], body["name"], body["password"], real_today()
+    )
+    w = c.execute(
+        text(
+            "INSERT INTO core.workspace(workspace_kind) VALUES ('COMPANY') RETURNING id"
+        )
+    ).scalar_one()
+    g = c.execute(
+        text(
+            "INSERT INTO core.data_generation(workspace_id,seed_version,seed_date,status,activated_at) VALUES (:w,'company-web-1',:day,'active',now()) RETURNING id"
+        ),
+        {"w": w, "day": real_today()},
+    ).scalar_one()
+    p = {"w": w, "g": g}
+    c.execute(text("UPDATE core.workspace SET active_generation_id=:g WHERE id=:w"), p)
+    c.execute(
+        text(
+            "INSERT INTO core.company(workspace_id,name,is_example) VALUES (:w,:name,false)"
+        ),
+        {**p, "name": name},
+    )
+    for module in ("hr", "gw", "flow"):
+        c.execute(
+            text(
+                "INSERT INTO core.workspace_module(workspace_id,module_key,enabled,seeded_generation_id) VALUES (:w,:module,true,:g)"
+            ),
+            {**p, "module": module},
+        )
+    department = c.execute(
+        text(
+            "INSERT INTO hr.department(workspace_id,generation_id,code,name) VALUES (:w,:g,'MAIN',:name) RETURNING id"
+        ),
+        {**p, "name": name},
+    ).scalar_one()
+    grade = c.execute(
+        text(
+            "INSERT INTO hr.title(workspace_id,generation_id,title_kind,code,name,rank_order) VALUES (:w,:g,'GRADE','STAFF','구성원',1) RETURNING id"
+        ),
+        p,
+    ).scalar_one()
+    pattern = c.execute(
+        text(
+            "INSERT INTO hr.work_pattern(workspace_id,generation_id,code,name,pattern_kind,start_time,scheduled_minutes,break_minutes) VALUES (:w,:g,'DAY','주간근무','DAY',:start,:minutes,:break) RETURNING id"
+        ),
+        {
+            **p,
+            "start": body["workStart"],
+            "minutes": body["dailyMinutes"],
+            "break": body["breakMinutes"],
+        },
+    ).scalar_one()
+    c.execute(
+        text("INSERT INTO hr.work_policy(workspace_id,generation_id) VALUES (:w,:g)"), p
+    )
+    employee = c.execute(
+        text(
+            "INSERT INTO hr.employee(workspace_id,generation_id,employee_code,name,hire_date,department_id,grade_id,work_pattern_id) VALUES (:w,:g,:code,:name,:day,:department,:grade,:pattern) RETURNING id"
+        ),
+        {
+            **p,
+            "code": body["employeeCode"],
+            "name": body["name"],
+            "day": real_today(),
+            "department": department,
+            "grade": grade,
+            "pattern": pattern,
+        },
+    ).scalar_one()
+    c.execute(
+        text(
+            "INSERT INTO core.company_member(workspace_id,user_id,role) VALUES (:w,:u,'OWNER')"
+        ),
+        {**p, "u": user["userId"]},
+    )
+    c.execute(
+        text(
+            "INSERT INTO hr.work_account(workspace_id,generation_id,user_id,employee_id,work_role) VALUES (:w,:g,:u,:e,'ADMIN')"
+        ),
+        {**p, "u": user["userId"], "e": employee},
+    )
+    c.execute(
+        text(
+            "INSERT INTO hr.leave_balance(workspace_id,generation_id,employee_id,leave_year,granted_days) VALUES (:w,:g,:e,:year,:days)"
+        ),
+        {
+            **p,
+            "e": employee,
+            "year": str(real_today().year),
+            "days": body["annualDays"],
+        },
+    )
+    return {"companyId": w, "company": name, "userId": user["userId"]}
+
+
 def create_example_company(c, admin_password, staff_password):
     if c.execute(
         text(

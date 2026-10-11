@@ -1,3 +1,8 @@
+# 2026-10-11 GW-FLOW-03·HR-USERS-02 구현 진행
+
+- 사용자 main 반영·배포 승인. 회사 등록·보드 자유 컬럼 API, Figma 화면 연결.
+- 테스트 DB DDL 명세 0오류. 기능 회귀검증 진행, 아직 main/push/배포 미실행.
+
 ## 2026-10-10 FLOW-02a 운영 배포 완료·로컬 admin 클릭 비교
 
 Factory Flow 앱 런처 카드→/work-os/boards·/work-os/my-tasks 독립 진입, flow API/10표 이관, 구GW URL·즐겨찾기·멱등 요청 보존, 새 백자/먹색/쪽빛 UI를 운영 제품31623b0으로 배포 완료(21:03 KST). 정확한 HEAD CI38048961871 success: backend1006/skip1·perf1·frontend588/75파일·tools133 및 타입/lint/빌드/DDL왕복·격리 통과. 초기 모듈 개수 상수 실패는 MODULE_KEYS 기준 보정 후 전체 CI 재통과.

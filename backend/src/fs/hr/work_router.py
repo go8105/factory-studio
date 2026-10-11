@@ -3,7 +3,7 @@
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
@@ -168,6 +168,40 @@ class CreateUser(Body):
 
 class UserId(Body):
     userId: int = Field(gt=0)
+
+
+class CreateCompany(CreateUser):
+    companyName: str = Field(min_length=1, max_length=120)
+    workStart: str = Field(
+        default="09:00", pattern=r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+    )
+    dailyMinutes: int = Field(default=480, ge=60, le=960)
+    breakMinutes: int = Field(default=60, ge=0, le=240)
+
+    @field_validator("companyName")
+    @classmethod
+    def company_nonblank(cls, v):
+        if not v.strip():
+            raise ValueError("회사명을 입력하세요.")
+        return v.strip()
+
+
+@router.get("/management-capabilities")
+def management_capabilities(context: Auth):
+    return {"data": users.capabilities(context)}
+
+
+@router.post("/companies")
+def register_company(
+    body: CreateCompany, context: Auth, csrf: Csrf = None, key: Key = None
+):
+    values = body.model_dump(mode="json")
+    values["password"] = body.password.get_secret_value()
+    return {
+        "data": users.register_company(
+            context, mutation_key(context, csrf, key), values
+        )
+    }
 
 
 class UserPassword(UserId):

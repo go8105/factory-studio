@@ -65,6 +65,40 @@ def managed_companies(ctx):
         return result
 
 
+def capabilities(ctx):
+    with read() as c:
+        allowed = platform_admin(c, ctx)
+        return {"isPlatformAdmin": allowed, "canCreateCompany": allowed}
+
+
+def register_company(ctx, key, body):
+    from fs.hr.work_setup import create_company
+
+    safe = {k: v for k, v in body.items() if k != "password"}
+    safe["credentialFingerprint"] = hmac.new(
+        get_settings().session_secret.encode(),
+        json.dumps(body, sort_keys=True).encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+    def authorize(c, scoped):
+        if not platform_admin(c, scoped):
+            raise ApiError(403, "FORBIDDEN", "총 관리자만 회사를 등록할 수 있습니다.")
+
+    def run(c, scoped):
+        try:
+            result = create_company(c, body)
+        except (IntegrityError, ValueError) as exc:
+            raise ApiError(
+                409, "DUPLICATE_ACCOUNT", "이미 사용 중인 아이디 또는 사원 코드입니다."
+            ) from exc
+        return result, "core.company", result["companyId"]
+
+    return action(
+        "core", ctx, "hr.users.company-create", key, safe, run, authorize=authorize
+    )
+
+
 def listing(ctx, company_id):
     with read() as c:
         sc = management_scope(c, ctx, company_id)

@@ -71,12 +71,54 @@ class GroupUpdate(GroupCreate):
     version: int = Field(gt=0)
 
 
+class EntityState(BoardId):
+    id: int = Field(gt=0)
+    version: int = Field(gt=0)
+    state: Literal["archive", "delete", "restore"]
+
+
+class GroupDuplicate(BoardId):
+    id: int = Field(gt=0)
+    version: int = Field(gt=0)
+
+
+class ColumnCreate(BoardId):
+    name: str = Field(min_length=1, max_length=120)
+    kind: Literal["TEXT", "NUMBER", "DATE", "STATUS", "CHECKBOX", "TIMELINE"]
+    position: int = Field(default=0, ge=0)
+    width: int = Field(default=160, ge=80, le=600)
+    options: dict = Field(default_factory=dict)
+
+    @field_validator("name")
+    @classmethod
+    def nonblank(cls, v):
+        if not v.strip():
+            raise ValueError("열 이름을 입력하세요.")
+        return v.strip()
+
+
+class ColumnUpdate(ColumnCreate):
+    id: int = Field(gt=0)
+    version: int = Field(gt=0)
+
+
+class CellUpdate(BoardId):
+    taskId: int = Field(gt=0)
+    taskVersion: int = Field(gt=0)
+    columnId: int = Field(gt=0)
+    columnVersion: int = Field(gt=0)
+    version: int = Field(default=0, ge=0)
+    value: str | int | float | bool | dict | None
+
+
 class TaskCreate(BoardId):
     groupId: int = Field(gt=0)
     parentId: int | None = Field(default=None, gt=0)
     title: str = Field(min_length=1, max_length=250)
     description: str = Field(default="", max_length=10000)
-    status: Literal["WAITING", "WORKING", "BLOCKED", "DONE", "CANCELLED"] = "WAITING"
+    status: Literal["WAITING", "WORKING", "REVIEW", "BLOCKED", "DONE", "CANCELLED"] = (
+        "WAITING"
+    )
     priority: Literal["LOW", "NORMAL", "HIGH", "URGENT"] = "NORMAL"
     startsOn: date | None = None
     endsOn: date | None = None
@@ -123,7 +165,9 @@ class Favorite(BoardId):
 class ViewSettings(Body):
     view: Literal["table", "kanban", "calendar", "gantt"] = "table"
     search: str = Field(default="", max_length=250)
-    status: Literal["", "WAITING", "WORKING", "BLOCKED", "DONE", "CANCELLED"] = ""
+    status: Literal[
+        "", "WAITING", "WORKING", "REVIEW", "BLOCKED", "DONE", "CANCELLED"
+    ] = ""
     mine: bool = False
     sort: Literal["position", "due", "title"] = "position"
     hidden: list[Literal["assignees", "priority", "progress"]] = Field(
@@ -169,7 +213,9 @@ def overview(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     search: str = Query(default="", max_length=250),
-    status: Literal["", "WAITING", "WORKING", "BLOCKED", "DONE", "CANCELLED"] = "",
+    status: Literal[
+        "", "WAITING", "WORKING", "REVIEW", "BLOCKED", "DONE", "CANCELLED"
+    ] = "",
     mine: bool = False,
 ):
     return {
@@ -219,6 +265,12 @@ for operation, model in [
     ("settings", Settings),
     ("group-create", GroupCreate),
     ("group-update", GroupUpdate),
+    ("group-state", EntityState),
+    ("group-duplicate", GroupDuplicate),
+    ("column-create", ColumnCreate),
+    ("column-update", ColumnUpdate),
+    ("column-state", EntityState),
+    ("cell-update", CellUpdate),
     ("task-create", TaskCreate),
     ("task-update", TaskUpdate),
     ("comment-create", CommentCreate),

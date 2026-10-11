@@ -1,9 +1,9 @@
 {
-  "version": "0.24.1",
-  "task": "GW-PROJECT",
-  "date": "2026-10-10",
+  "version": "0.25.0",
+  "task": "GW-FLOW-03",
+  "date": "2026-10-11",
   "status": "구현 명세 / 환경별 적용 상태는 인계 참조",
-  "migration_revision": "flow_split",
+  "migration_revision": "flow_board_custom",
   "tables": [
     {
       "name": "core.app_user",
@@ -18154,6 +18154,22 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "archived_at",
+          "label": "archived_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "deleted_at",
+          "label": "deleted_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
         }
       ],
       "note": "회사 공동 프로젝트 업무",
@@ -18739,6 +18755,236 @@
       ],
       "note": "회사 공동 프로젝트 업무",
       "retention": "회사 보관 정책, 영구 삭제 UI 없음",
+      "guest_cleanup": "자식부터 부모 순 정리"
+    },
+    {
+      "name": "flow.work_column",
+      "label": "보드 컬럼",
+      "scope": "workspace_generation",
+      "phase": "FLOW-03",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "board_id",
+          "label": "board_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "name",
+          "type": "varchar(120)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kind",
+          "label": "kind",
+          "type": "varchar(16)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "builtin_key",
+          "label": "builtin_key",
+          "type": "varchar(32)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "position",
+          "label": "position",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "rule": ""
+        },
+        {
+          "name": "width",
+          "label": "width",
+          "type": "integer",
+          "nullable": false,
+          "default": "160",
+          "rule": ""
+        },
+        {
+          "name": "options",
+          "label": "options",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb",
+          "rule": ""
+        },
+        {
+          "name": "archived_at",
+          "label": "archived_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "deleted_at",
+          "label": "deleted_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        },
+        {
+          "name": "updated_at",
+          "label": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 공동 보드",
+      "retention": "보관·휴지통, 영구삭제 UI 없음",
+      "guest_cleanup": "자식부터 부모 순 정리"
+    },
+    {
+      "name": "flow.work_cell",
+      "label": "사용자 컬럼 값",
+      "scope": "workspace_generation",
+      "phase": "FLOW-03",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "board_id",
+          "label": "board_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "task_id",
+          "label": "task_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "column_id",
+          "label": "column_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kind",
+          "label": "kind",
+          "type": "varchar(16)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "value",
+          "label": "value",
+          "type": "jsonb",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        },
+        {
+          "name": "updated_at",
+          "label": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 공동 보드",
+      "retention": "보관·휴지통, 영구삭제 UI 없음",
       "guest_cleanup": "자식부터 부모 순 정리"
     }
   ],
@@ -26230,6 +26476,119 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "회사 공간·세대 격리"
+    },
+    {
+      "source": "flow.work_column",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대·보드 격리"
+    },
+    {
+      "source": "flow.work_column",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대·보드 격리"
+    },
+    {
+      "source": "flow.work_cell",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대·보드 격리"
+    },
+    {
+      "source": "flow.work_cell",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대·보드 격리"
+    },
+    {
+      "source": "flow.work_column",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id"
+      ],
+      "target": "flow.work_board",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대·보드 격리"
+    },
+    {
+      "source": "flow.work_cell",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "task_id"
+      ],
+      "target": "flow.work_task",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대·보드 격리"
+    },
+    {
+      "source": "flow.work_cell",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "column_id",
+        "kind"
+      ],
+      "target": "flow.work_column",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "id",
+        "kind"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대·보드 격리"
     }
   ],
   "constraints": [
@@ -40385,7 +40744,7 @@
         "progress",
         "version"
       ],
-      "expression": "length(trim(title))>0 AND status IN ('WAITING','WORKING','BLOCKED','DONE','CANCELLED') AND priority IN ('LOW','NORMAL','HIGH','URGENT') AND (starts_on IS NULL OR ends_on IS NULL OR starts_on<=ends_on) AND progress BETWEEN 0 AND 100 AND (status!='DONE' OR progress=100) AND (status IN ('DONE','CANCELLED') OR progress<100) AND version>0 AND parent_id IS DISTINCT FROM id",
+      "expression": "length(trim(title))>0 AND status IN ('WAITING','WORKING','REVIEW','BLOCKED','DONE','CANCELLED') AND priority IN ('LOW','NORMAL','HIGH','URGENT') AND (starts_on IS NULL OR ends_on IS NULL OR starts_on<=ends_on) AND progress BETWEEN 0 AND 100 AND (status!='DONE' OR progress=100) AND (status IN ('DONE','CANCELLED') OR progress<100) AND version>0 AND parent_id IS DISTINCT FROM id",
       "reason": "프로젝트 업무 무결성"
     },
     {
@@ -40623,6 +40982,153 @@
       ],
       "expression": "",
       "reason": "프로젝트 업무 무결성"
+    },
+    {
+      "table": "flow.work_task",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "FLOW-03 보드 무결성"
+    },
+    {
+      "table": "flow.work_column",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "FLOW-03 보드 무결성"
+    },
+    {
+      "table": "flow.work_column",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "FLOW-03 보드 무결성"
+    },
+    {
+      "table": "flow.work_column",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "FLOW-03 보드 무결성"
+    },
+    {
+      "table": "flow.work_cell",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "FLOW-03 보드 무결성"
+    },
+    {
+      "table": "flow.work_cell",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "FLOW-03 보드 무결성"
+    },
+    {
+      "table": "flow.work_cell",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "FLOW-03 보드 무결성"
+    },
+    {
+      "table": "flow.work_column",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "FLOW-03 보드 무결성"
+    },
+    {
+      "table": "flow.work_column",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "id",
+        "kind"
+      ],
+      "expression": "",
+      "reason": "FLOW-03 보드 무결성"
+    },
+    {
+      "table": "flow.work_column",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "board_id",
+        "builtin_key"
+      ],
+      "expression": "",
+      "reason": "FLOW-03 보드 무결성"
+    },
+    {
+      "table": "flow.work_column",
+      "kind": "CHECK",
+      "columns": [
+        "name",
+        "kind",
+        "builtin_key",
+        "position",
+        "width",
+        "options",
+        "version"
+      ],
+      "expression": "length(trim(name))>0 AND position>=0 AND width BETWEEN 80 AND 600 AND version>0 AND jsonb_typeof(options)='object' AND ((kind='BUILTIN' AND builtin_key IN ('assignee','status','timeline','priority','progress','description')) OR (kind IN ('TEXT','NUMBER','DATE','STATUS','CHECKBOX','TIMELINE') AND builtin_key IS NULL))",
+      "reason": "FLOW-03 보드 무결성"
+    },
+    {
+      "table": "flow.work_cell",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "task_id",
+        "column_id"
+      ],
+      "expression": "",
+      "reason": "FLOW-03 보드 무결성"
+    },
+    {
+      "table": "flow.work_cell",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "value",
+        "version"
+      ],
+      "expression": "version>0 AND (value='null'::jsonb OR CASE kind WHEN 'TEXT' THEN jsonb_typeof(value)='string' AND length(value#>>'{}')<=4000 WHEN 'NUMBER' THEN jsonb_typeof(value)='number' WHEN 'DATE' THEN jsonb_typeof(value)='string' WHEN 'STATUS' THEN jsonb_typeof(value)='string' WHEN 'CHECKBOX' THEN jsonb_typeof(value)='boolean' WHEN 'TIMELINE' THEN jsonb_typeof(value)='object' AND value ?& ARRAY['start','end'] ELSE false END)",
+      "reason": "FLOW-03 보드 무결성"
     }
   ],
   "states": [
@@ -41808,6 +42314,13 @@
       "date": "2026-10-10",
       "change": "회사 공동 프로젝트 10표, 업무 원장·보드권한·보기·댓글·감사",
       "status": "구현 검증 중"
+    },
+    {
+      "version": "0.25.0",
+      "task": "GW-FLOW-03",
+      "date": "2026-10-11",
+      "change": "自由 컬럼·셀 2표, 그룹 보관·삭제·복구, REVIEW 상태",
+      "status": "구현·검증 진행"
     }
   ]
 }

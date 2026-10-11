@@ -510,3 +510,518 @@
   z-index: 1;
   pointer-events: none;
 }
+/* FLOW-03: approved Figma shell, white porcelain / ink / indigo. */
+.flow-board.projects {
+  max-width: none;
+  margin: 0;
+  background: #f7f7f6;
+  min-height: 100vh;
+  color: #1a1c1e;
+  position: relative;
+}
+.flow-board > header {
+  position: absolute;
+  z-index: 1;
+  left: 274px;
+  right: 0;
+  top: 0;
+  height: 64px;
+  padding: 0 32px;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e6;
+}
+.flow-board > header h1 {
+  font-size: 13px;
+  margin: 0;
+  color: #5d6166;
+}
+.flow-board > header p,
+.flow-board > header a {
+  display: none;
+}
+.flow-board > header label {
+  font-size: 12px;
+}
+.flow-board .project-workspace {
+  grid-template-columns: 274px minmax(0, 1fr);
+  gap: 0;
+  margin: 0;
+  min-height: 100vh;
+}
+.flow-board .project-boards {
+  border-right: 1px solid #e8e8e6;
+  background: #fff;
+  border-radius: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+.flow-sidebar-brand {
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 35px !important;
+  min-height: 40px;
+}
+.flow-sidebar-brand > span {
+  background: #1f2d3d;
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 20px;
+}
+.flow-sidebar-brand strong {
+  font-size: 14px;
+  flex: 1;
+}
+.flow-sidebar-brand small {
+  display: block;
+  font-weight: 400;
+  font-size: 11px;
+  color: #5d6166;
+  margin-top: 4px;
+}
+.flow-sidebar-brand button {
+  padding: 4px !important;
+}
+.flow-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 30px;
+}
+.flow-sidebar-nav a {
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+  color: #5d6166;
+  text-decoration: none;
+  align-items: center;
+}
+.flow-sidebar-nav a > span:first-child {
+  width: 20px;
+  text-align: center;
+}
+.flow-board .project-boards h2 {
+  font-size: 11px;
+  font-weight: 500;
+  color: #5d6166;
+  margin: 24px 6px 8px;
+}
+.flow-board .project-boards > div {
+  margin: 3px 0;
+}
+.flow-board .project-boards > div > button {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  font-size: 13px;
+}
+.flow-board .project-boards > div.selected {
+  background: #1f2d3d;
+  color: #fff;
+}
+.flow-board .project-boards > div.selected button {
+  color: #fff;
+}
+.flow-board-dot {
+  font-size: 12px;
+  color: #9c8458;
+  flex-shrink: 0;
+}
+.flow-sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  gap: 14px;
+  padding: 24px 6px;
+  font-size: 12px;
+  border-top: 1px solid #e8e8e6;
+}
+.flow-sidebar-footer a {
+  color: #5d6166;
+  text-decoration: none;
+}
+.flow-board .project-main {
+  padding: 112px clamp(24px, 5vw, 100px) 48px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.flow-board .project-board-header {
+  order: 0;
+  padding-right: 510px;
+  min-height: 44px;
+}
+.flow-board .project-board-header h2 {
+  font-size: 28px;
+  color: #1a1c1e;
+  line-height: 1.4;
+  margin: 0;
+}
+.flow-board .project-board-header > button {
+  font-size: 11px;
+  white-space: nowrap;
+}
+.flow-board .project-main > p {
+  order: 1;
+  margin: 6px 0 32px;
+  font-size: 13px;
+  color: #5d6166;
+}
+.flow-board .project-summary {
+  position: absolute;
+  right: clamp(24px, 5vw, 100px);
+  top: 112px;
+  display: flex;
+  gap: 10px;
+  margin: 0;
+}
+.flow-board .project-summary > span {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 100px;
+  padding: 16px 18px;
+  border: 1px solid #e8e8e6;
+  border-radius: 15px;
+  background: #fff;
+  color: #5d6166;
+  font-size: 11px;
+  box-shadow: 0 2px 6px #1a1c1e0a;
+}
+.flow-board .project-summary b {
+  font-size: 22px;
+  color: #1f2d3d;
+}
+.flow-board .project-summary progress {
+  width: 110px;
+  height: 5px;
+  accent-color: #40566b;
+}
+.flow-board .project-tabs {
+  order: 2;
+  border-bottom: 1px solid #e8e8e6;
+  margin-bottom: 22px;
+  gap: 14px;
+}
+.flow-board .project-tabs button {
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  padding: 14px 16px;
+  color: #5d6166;
+  font-size: 13px;
+  box-shadow: none;
+}
+.flow-board .project-tabs button[aria-pressed="true"] {
+  color: #1a1c1e;
+  background: transparent;
+  border-bottom: 2px solid #1f2d3d;
+}
+.flow-board .project-tools {
+  order: 3;
+  margin: 0 0 22px;
+  gap: 12px;
+  align-items: center;
+}
+.flow-board .project-tools input[aria-label="업무 검색"] {
+  width: 350px;
+}
+.flow-board .project-tools input,
+.flow-board .project-tools select,
+.flow-board .project-tools button {
+  border: 1px solid #e8e8e6;
+  border-radius: 14px;
+  background: #fff;
+  padding: 13px 16px;
+  font-size: 13px;
+  box-shadow: 0 2px 6px #1a1c1e0a;
+}
+.flow-board .flow-new-task {
+  background: #1f2d3d !important;
+  color: #fff;
+}
+.flow-board .project-column-menu {
+  order: 4;
+  font-size: 12px;
+  color: #5d6166;
+  margin: 0 0 18px;
+}
+.flow-board .project-group,
+.flow-board .project-kanban,
+.flow-board .project-calendar,
+.flow-board .project-gantt {
+  order: 5;
+}
+.flow-board .project-group {
+  border: 1px solid #e8e8e6;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 2px 6px #1a1c1e0a;
+  margin: 0 0 18px;
+  overflow: visible;
+  padding: 0;
+}
+.flow-board .project-group h3 {
+  padding: 18px 20px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-left: 4px solid;
+  border-radius: 18px 0 0 0;
+  font-size: 14px;
+}
+.flow-board .project-group h3 button {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 4px;
+}
+.flow-board .project-group h3 small {
+  border-radius: 16px;
+  padding: 3px 9px;
+  background: #eee;
+  color: #5d6166;
+  font-weight: 400;
+}
+.flow-board .project-group h3 > button:not(.flow-group-name) {
+  color: #5d6166;
+}
+.flow-board .project-group h3 > button:last-child {
+  margin-left: auto;
+}
+.flow-board .flow-group-actions {
+  margin-left: auto;
+  position: relative;
+}
+.flow-board .flow-group-actions summary {
+  cursor: pointer;
+  color: #5d6166;
+  list-style: none;
+}
+.flow-board .flow-group-actions[open] {
+  background: #fff;
+  border: 1px solid #e8e8e6;
+  border-radius: 8px;
+  padding: 8px;
+  z-index: 3;
+}
+.flow-board .flow-group-actions button {
+  display: block;
+  white-space: nowrap;
+}
+.flow-board .project-group-summary {
+  display: none;
+}
+.flow-board .project-group-summary.is-collapsed {
+  display: flex;
+  padding: 14px 24px;
+}
+.flow-board .project-group > details {
+  padding: 0 24px 10px;
+  font-size: 11px;
+  color: #5d6166;
+}
+.flow-board .project-group > details:not([open]) {
+  position: absolute;
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.flow-board .project-table table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.flow-board .project-table th {
+  background: #fafafa;
+  color: #5d6166;
+  font-weight: 400;
+  font-size: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e8e8e6;
+  text-align: left;
+}
+.flow-board .project-table td {
+  border-bottom: 1px solid #f0f0ef;
+  padding: 20px;
+  font-size: 13px;
+  height: 66px;
+}
+.flow-board .project-table td:first-child {
+  width: 52%;
+  min-width: 330px;
+}
+.flow-board .project-table td input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: #4b6154;
+  vertical-align: middle;
+  margin-right: 12px;
+}
+.flow-board .project-task-title {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #1a1c1e;
+  text-align: left;
+  font-size: 13px;
+  box-shadow: none;
+}
+.flow-board .flow-subitem-add {
+  border-radius: 50%;
+  border: 1px solid #e8e8e6;
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  color: #5d6166;
+  margin-right: 12px;
+  background: white;
+}
+.flow-board .flow-subitem {
+  padding-left: 44px !important;
+}
+.flow-board .flow-avatar {
+  background: #e2e3e5;
+  color: #1f2d3d;
+  width: 30px;
+  height: 30px;
+}
+.flow-board .project-status {
+  border: 0;
+  border-radius: 9px;
+  padding: 8px 14px;
+  min-width: 88px;
+  font-size: 12px;
+  background: #eeeeed;
+  color: #5d6166;
+}
+.flow-board .project-status.WORKING {
+  background: #edf0f3;
+  color: #40566b;
+}
+.flow-board .project-status.REVIEW {
+  background: #f3eee5;
+  color: #8b7142;
+}
+.flow-board .project-status.DONE {
+  background: #e8eeeb;
+  color: #2d4442;
+}
+.flow-board .project-group > button {
+  border: 0;
+  background: transparent;
+  padding: 14px 24px;
+  color: #5d6166;
+  font-size: 12px;
+  box-shadow: none;
+}
+.flow-board .flow-new-group {
+  order: 6;
+  border: 1px dashed #dededb;
+  background: #fcfcfb;
+  border-radius: 18px;
+  color: #5d6166;
+  padding: 22px;
+  text-align: left;
+  font-size: 15px;
+  margin-bottom: 24px;
+}
+.flow-board .project-main > details {
+  order: 7;
+}
+.flow-board .project-main > label,
+.flow-board .project-main > div:not([class]),
+.flow-board .project-main > p:has(+ .project-gantt) {
+  order: 5;
+}
+.flow-cell-period {
+  display: flex;
+  gap: 4px;
+}
+.flow-cell-period input {
+  width: 130px;
+}
+.flow-board.sidebar-collapsed .project-workspace {
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+.flow-board.sidebar-collapsed > header {
+  left: 72px;
+}
+.sidebar-collapsed .nav-name,
+.sidebar-collapsed .flow-sidebar-brand strong,
+.sidebar-collapsed .project-boards h2,
+.sidebar-collapsed .project-boards label,
+.sidebar-collapsed .project-star,
+.sidebar-collapsed .flow-sidebar-footer {
+  display: none;
+}
+.sidebar-collapsed .flow-sidebar-brand {
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.sidebar-collapsed .project-boards > button {
+  font-size: 0;
+}
+.sidebar-collapsed .project-boards > button::before {
+  content: "＋";
+  font-size: 20px;
+}
+@media (max-width: 1300px) {
+  .flow-board .project-board-header {
+    padding-right: 0;
+  }
+  .flow-board .project-summary {
+    position: static;
+    order: 1;
+    margin: 20px 0;
+  }
+  .flow-board .project-main > p {
+    margin-bottom: 0;
+  }
+}
+@media (max-width: 800px) {
+  .flow-board .project-workspace {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+  .flow-board > header {
+    left: 72px;
+    padding: 0 12px;
+  }
+  .flow-board .project-main {
+    padding: 95px 16px 30px;
+  }
+  .flow-board .nav-name,
+  .flow-board .project-boards h2,
+  .flow-board .flow-sidebar-brand strong,
+  .flow-board .project-boards label,
+  .flow-board .project-star,
+  .flow-board .flow-sidebar-footer {
+    display: none;
+  }
+  .flow-board .flow-sidebar-brand {
+    flex-wrap: wrap;
+  }
+  .flow-board .project-summary {
+    flex-wrap: wrap;
+  }
+  .flow-board .project-tools input[aria-label="업무 검색"] {
+    width: 100%;
+  }
+  .flow-board .project-boards > button {
+    font-size: 0;
+  }
+  .flow-board .project-boards > button::before {
+    content: "＋";
+    font-size: 20px;
+  }
+}

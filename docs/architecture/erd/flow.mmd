@@ -54,6 +54,36 @@ erDiagram
     varchar role "role"
     timestamptz created_at "created_at"
   }
+  flow_work_cell {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint generation_id FK "generation_id"
+    bigint board_id FK "board_id"
+    bigint task_id FK "task_id"
+    bigint column_id FK "column_id"
+    varchar kind FK "kind"
+    jsonb value "value"
+    integer version "version"
+    timestamptz created_at "created_at"
+    timestamptz updated_at "updated_at"
+  }
+  flow_work_column {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint generation_id FK "generation_id"
+    bigint board_id FK "board_id"
+    varchar name "name"
+    varchar kind "kind"
+    varchar builtin_key "builtin_key NULL"
+    integer position "position"
+    integer width "width"
+    jsonb options "options"
+    timestamptz archived_at "archived_at NULL"
+    timestamptz deleted_at "deleted_at NULL"
+    integer version "version"
+    timestamptz created_at "created_at"
+    timestamptz updated_at "updated_at"
+  }
   flow_work_group {
     bigint id PK "id"
     bigint workspace_id FK "workspace_id"
@@ -64,6 +94,8 @@ erDiagram
     integer position "position"
     integer version "version"
     timestamptz created_at "created_at"
+    timestamptz archived_at "archived_at NULL"
+    timestamptz deleted_at "deleted_at NULL"
   }
   flow_work_project_settings {
     bigint id PK "id"
@@ -164,3 +196,10 @@ erDiagram
   flow_work_task ||..o{ flow_work_task_assignee : "workspace_id,generation_id,task_id"
   flow_work_task ||..o{ flow_work_task_comment : "workspace_id,generation_id,task_id"
   flow_work_task |o..o{ flow_work_task_event : "workspace_id,generation_id,task_id"
+  core_workspace ||..o{ flow_work_column : "workspace_id"
+  core_data_generation ||..o{ flow_work_column : "workspace_id,generation_id"
+  core_workspace ||..o{ flow_work_cell : "workspace_id"
+  core_data_generation ||..o{ flow_work_cell : "workspace_id,generation_id"
+  flow_work_board ||..o{ flow_work_column : "workspace_id,generation_id,board_id"
+  flow_work_task ||..o{ flow_work_cell : "workspace_id,generation_id,board_id,task_id"
+  flow_work_column ||..o{ flow_work_cell : "workspace_id,generation_id,board_id,column_id,kind"

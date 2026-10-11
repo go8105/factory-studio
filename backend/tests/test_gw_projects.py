@@ -495,7 +495,9 @@ def test_flow_migration_roundtrip_preserves_records_and_favorites(
             return [
                 c.execute(
                     text(
-                        f"SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id),'[]'::jsonb) FROM {schema}.{name} t"
+                        f"SELECT coalesce(jsonb_agg((to_jsonb(t) - 'archived_at' - 'deleted_at') ORDER BY id),'[]'::jsonb) FROM {schema}.{name} t"
+                        if name == "work_group"
+                        else f"SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id),'[]'::jsonb) FROM {schema}.{name} t"
                     )
                 ).scalar_one()
                 for name in tables

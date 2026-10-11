@@ -157,6 +157,20 @@ def overview(ctx, cid, bid=None, offset=0, limit=50, search="", status="", mine=
                     "AND board_id=:id ORDER BY position,id",
                     {"id": bid},
                 ),
+                columns=rows(
+                    c,
+                    sc,
+                    "work_column",
+                    "AND board_id=:id ORDER BY position,id",
+                    {"id": bid},
+                ),
+                cells=rows(
+                    c,
+                    sc,
+                    "work_cell",
+                    "AND board_id=:id AND task_id=ANY(:ids)",
+                    {"id": bid, "ids": [t["id"] for t in tasks]},
+                ),
                 tasks=tasks,
                 preference=rows(
                     c,
@@ -193,6 +207,8 @@ def aggregate(tasks):
             if all(t["status"] == "WAITING" for t in valid)
             else "BLOCKED"
             if all(t["status"] == "BLOCKED" for t in pending)
+            else "REVIEW"
+            if all(t["status"] == "REVIEW" for t in pending)
             else "WORKING"
         )
         for field, fn in [("starts_on", min), ("ends_on", max)]:
@@ -241,6 +257,7 @@ def my_tasks(ctx, cid):
                 text(f"""SELECT t.*,b.name AS board_name FROM flow.work_task t JOIN flow.work_board b ON (t.workspace_id,t.generation_id,t.board_id)=(b.workspace_id,b.generation_id,b.id)
         JOIN flow.work_task_assignee a ON (t.workspace_id,t.generation_id,t.id)=(a.workspace_id,a.generation_id,a.task_id)
         WHERE t.{S.replace(" AND ", " AND t.")} AND a.user_id=:u AND t.archived_at IS NULL AND b.archived_at IS NULL
+        AND EXISTS(SELECT 1 FROM flow.work_group gr WHERE (gr.workspace_id,gr.generation_id,gr.id)=(t.workspace_id,t.generation_id,t.group_id) AND gr.archived_at IS NULL AND gr.deleted_at IS NULL)
         AND NOT EXISTS(SELECT 1 FROM flow.work_task ch WHERE (ch.workspace_id,ch.generation_id,ch.parent_id)=(t.workspace_id,t.generation_id,t.id) AND ch.archived_at IS NULL)
         ORDER BY t.ends_on NULLS LAST,t.id LIMIT 1000"""),
                 params(sc),
@@ -276,7 +293,7 @@ def mutate(ctx, cid, op, key, body):
         sc = read_scope(c, sc, "flow")
     bid = body.get("boardId")
     personal = op in ("favorite", "preference")
-    owner = op in ("board-update", "member", "settings")
+    owner = op in ("board-update", "member", "settings") or op.startswith("column-")
 
     def authorize(c, sc):
         p, _ = principal(c, sc)
@@ -329,6 +346,23 @@ def mutate(ctx, cid, op, key, body):
         entity = "work_board"
         eid = bid or sc.workspace_id
         tid = None
+        if op in ("task-update", "comment-create", "comment-update"):
+            target_id = body.get("taskId", body.get("id"))
+            existing = rows(
+                c,
+                sc,
+                "work_task",
+                "AND board_id=:b AND id=:id",
+                {"b": bid, "id": target_id},
+            )
+            if existing and not rows(
+                c,
+                sc,
+                "work_group",
+                "AND board_id=:b AND id=:id AND archived_at IS NULL AND deleted_at IS NULL",
+                {"b": bid, "id": existing[0]["group_id"]},
+            ):
+                raise ApiError(409, "ARCHIVED", "그룹을 먼저 복구하세요.")
         if op == "board-create":
             eid = insert(
                 "work_board",
@@ -351,6 +385,20 @@ def mutate(ctx, cid, op, key, body):
                 }[body["template"]]
             ):
                 insert("work_group", {"board_id": eid, "name": name, "position": i})
+            from fs.flow.board_custom import defaults
+
+            defaults(c, sc, eid)
+        elif op in (
+            "group-state",
+            "group-duplicate",
+            "column-create",
+            "column-update",
+            "column-state",
+            "cell-update",
+        ):
+            from fs.flow.board_custom import change
+
+            entity, eid = change(c, sc, op, body)
         elif op == "board-update":
             update(
                 "work_board",
@@ -475,7 +523,7 @@ def mutate(ctx, cid, op, key, body):
                 c,
                 sc,
                 "work_group",
-                "AND board_id=:b AND id=:id",
+                "AND board_id=:b AND id=:id AND archived_at IS NULL AND deleted_at IS NULL",
                 {"b": bid, "id": body["groupId"]},
             )
             if not group:
