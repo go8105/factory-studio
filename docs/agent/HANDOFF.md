@@ -1,3 +1,11 @@
+# 2026-10-11 GW-FLOW-03 배포 진행
+
+- 현재 작업 디렉터리 /Users/hwang-kyoungho/projects/factory-studio, branch main (사용자 main 반영·push·배포 승인). 이전 WIP 9f0baa8.
+- 구현·검증은 docs/modules/flow/Factory_Flow_간결보드_FLOW-03.md 최신 기록. 새 head flow_board_custom, 로컬 적용/원장10표보존 완료.
+- 다음: exact HEAD origin/main push → FS-009 CI 통과 → 서버 백업/기존 tools/deploy.sh → 공개/DDL/원장 hash/5xx 확인 → 배포 기록 커밋/push.
+- 운영 실제 회사·계정·비밀번호 자동 생성 금지. 사용자 admin → 사용자 관리 → 회사 등록에서 입력.
+- 재현: uv run --project backend --env-file .env python tools/verify_ddl_matches_schema.py; npm --prefix frontend run build/test; uv run --project backend python -m unittest discover -s tools -p 'test_*.py'. 테스트는 별도 *_test DB를 지정한다.
+
 # 2026-10-11 진행 중 인계
 
 - branch: codex/gw-flow-simple-design. 사용자 전체 구현/main/push/배포 승인.

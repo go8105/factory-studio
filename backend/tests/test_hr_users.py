@@ -3,10 +3,9 @@
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from fs.main import create_app
 from sqlalchemy import text
 from test_hr_work import company_env  # noqa: F401
-
-from fs.main import create_app
 
 
 def manage(client, company, operation="", body=None, key=None):

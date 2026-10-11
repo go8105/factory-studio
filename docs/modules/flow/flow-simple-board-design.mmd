@@ -1,0 +1,41 @@
+erDiagram
+  work_board ||--o{ work_group : "S + board_id"
+  work_group ||--o{ work_task : "S + group_id"
+  work_task ||--o{ work_task : "one level subitem"
+  work_board ||--o{ work_column : "S + board_id"
+  work_task ||--o{ work_cell : "S + board_id + task_id"
+  work_column ||--o{ work_cell : "S + board_id + column_id + kind"
+  work_column {
+    bigint id PK
+    bigint workspace_id
+    bigint generation_id
+    bigint board_id
+    varchar name
+    varchar kind
+    varchar builtin_key
+    integer position
+    integer width
+    jsonb options
+    timestamptz archived_at
+    timestamptz deleted_at
+    integer version
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  work_cell {
+    bigint id PK
+    bigint workspace_id
+    bigint generation_id
+    bigint board_id
+    bigint task_id
+    bigint column_id
+    varchar kind
+    jsonb value
+    integer version
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  work_group {
+    timestamptz archived_at "new nullable"
+    timestamptz deleted_at "new nullable"
+  }

@@ -149,3 +149,82 @@ def test_free_cell_date_number_status_validation(company_env):
         assert post(admin, co, "cell-update", {**body, "value": bad}).status_code == 422
         r = post(admin, co, "cell-update", {**body, "value": good})
         assert r.status_code == 200, r.text
+
+
+def test_cell_batch_is_atomic_and_builtin_metadata_keeps_task_values(company_env):
+    _, co, admin, staff = company_env
+    bid = board(admin, co)
+    initial = get(admin, co, bid)
+    gid = initial["groups"][0]["id"]
+    tid = task(admin, co, bid, gid)
+    col = post(
+        admin, co, "column-create", {"boardId": bid, "name": "합성", "kind": "TEXT"}
+    ).json()["data"]["id"]
+    cell = {
+        "boardId": bid,
+        "taskId": tid,
+        "taskVersion": 1,
+        "columnId": col,
+        "columnVersion": 1,
+        "version": 0,
+        "value": "원자적 저장",
+    }
+    r = post(
+        admin,
+        co,
+        "cell-batch-update",
+        {"boardId": bid, "cells": [cell, {**cell, "taskId": 999999}]},
+    )
+    assert r.status_code == 404, r.text
+    assert get(admin, co, bid)["cells"] == []
+    assert (
+        post(
+            admin, co, "cell-batch-update", {"boardId": bid, "cells": [cell]}
+        ).status_code
+        == 200
+    )
+    builtin = next(x for x in initial["columns"] if x["builtin_key"] == "status")
+    r = post(
+        admin,
+        co,
+        "column-update",
+        {
+            "boardId": bid,
+            "id": builtin["id"],
+            "version": 1,
+            "kind": "BUILTIN",
+            "name": "업무 상태",
+            "width": 200,
+            "position": 2,
+        },
+    )
+    assert r.status_code == 200, r.text
+    data = get(admin, co, bid)
+    assert data["tasks"][0]["status"] == "WAITING"
+    assert (
+        next(x for x in data["columns"] if x["id"] == builtin["id"])["name"]
+        == "업무 상태"
+    )
+    assert (
+        post(
+            admin,
+            co,
+            "member",
+            {
+                "boardId": bid,
+                "userId": next(
+                    m["id"]
+                    for m in data["members"]
+                    if m["active"] and m["id"] != data["userId"]
+                ),
+                "role": "EDITOR",
+            },
+        ).status_code
+        == 200
+    )
+    assert (
+        post(
+            staff, co, "group-create", {"boardId": bid, "name": "구조 권한 검사"}
+        ).status_code
+        == 403
+    )

@@ -217,7 +217,7 @@ export function Users() {
           onClick={() => {
             select();
             setCreatingCompany(!creatingCompany);
-            setRole("ADMIN");
+            setRole(creatingCompany ? "STAFF" : "ADMIN");
           }}
         >
           {creatingCompany ? "회사 등록 취소" : "+ 회사 등록"}
@@ -302,7 +302,7 @@ export function Users() {
                     회사명
                     <input
                       required
-                      maxLength={120}
+                      maxLength={100}
                       value={companyName}
                       disabled={locked}
                       onChange={(e) => setCompanyName(e.target.value)}

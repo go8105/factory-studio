@@ -1025,3 +1025,70 @@
     font-size: 20px;
   }
 }
+.flow-board .project-board-header > button:last-child {
+  display: none;
+}
+.flow-board .project-table th:first-child {
+  width: 52%;
+}
+.flow-board .project-columns {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px;
+}
+.flow-board .project-column-menu {
+  align-self: flex-end;
+  position: absolute;
+  right: clamp(24px, 5vw, 100px);
+  top: 328px;
+  z-index: 4;
+}
+.flow-board .project-column-menu[open] {
+  background: #fff;
+  box-shadow: 0 2px 6px #1a1c1e0a;
+  border: 1px solid #e8e8e6;
+  border-radius: 12px;
+  max-width: 620px;
+}
+@media (max-width: 1300px) {
+  .flow-board .project-column-menu {
+    position: static;
+    align-self: flex-end;
+  }
+}
+.flow-board .flow-new-group {
+  justify-content: flex-start;
+}
+.flow-board .flow-filter {
+  position: relative;
+  border: 1px solid #e8e8e6;
+  border-radius: 14px;
+  background: #fff;
+  padding: 13px 16px;
+  font-size: 13px;
+  color: #5d6166;
+}
+.flow-board .flow-filter summary {
+  cursor: pointer;
+  list-style: none;
+}
+.flow-board .flow-filter[open] {
+  z-index: 5;
+}
+.flow-board .flow-filter[open] select {
+  display: block;
+  margin: 10px 0;
+}
+.flow-board .flow-visible-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: #5d6166;
+}
+.flow-board .project-tools > label {
+  border: 1px solid #e8e8e6;
+  border-radius: 14px;
+  background: #fff;
+  padding: 13px 16px;
+  font-size: 13px;
+}

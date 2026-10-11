@@ -84,6 +84,14 @@ def change(c, sc, op, body):
         if row.get("archived_at") or row.get("deleted_at"):
             raise ApiError(409, "ARCHIVED", "보관·삭제된 항목을 먼저 복구하세요.")
 
+    if op == "cell-batch-update":
+        for cell in body["cells"]:
+            if cell["boardId"] != body["boardId"]:
+                raise ApiError(
+                    422, "BOARD_SCOPE", "같은 보드의 셀만 일괄 수정할 수 있습니다."
+                )
+            result = change(c, sc, "cell-update", cell)
+        return result
     if op.startswith("group-"):
         group = get("work_group", body["id"])
         version(group, body["version"])
@@ -187,7 +195,7 @@ def change(c, sc, op, body):
         else:
             column = get("work_column", body["id"])
             version(column, body["version"])
-            if column["kind"] == "BUILTIN":
+            if column["kind"] == "BUILTIN" and op == "column-state":
                 raise ApiError(
                     422, "BUILTIN_COLUMN", "기본 열은 보기 설정에서 관리하세요."
                 )

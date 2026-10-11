@@ -293,7 +293,9 @@ def mutate(ctx, cid, op, key, body):
         sc = read_scope(c, sc, "flow")
     bid = body.get("boardId")
     personal = op in ("favorite", "preference")
-    owner = op in ("board-update", "member", "settings") or op.startswith("column-")
+    owner = op in ("board-update", "member", "settings") or op.startswith(
+        ("column-", "group-")
+    )
 
     def authorize(c, sc):
         p, _ = principal(c, sc)
@@ -395,6 +397,7 @@ def mutate(ctx, cid, op, key, body):
             "column-update",
             "column-state",
             "cell-update",
+            "cell-batch-update",
         ):
             from fs.flow.board_custom import change
 

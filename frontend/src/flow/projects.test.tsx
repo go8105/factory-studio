@@ -168,3 +168,25 @@ it("조회 실패 후 다른 메뉴와 재시도는 비활성화하지 않는다
   expect(await screen.findByText("조회 실패")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "다시 시도" })).toBeEnabled();
 });
+
+it("업무 이름을 클릭해 바로 편집하고 Escape로 저장 없이 취소한다", async () => {
+  render(
+    <MemoryRouter>
+      <Projects />
+    </MemoryRouter>,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "예제 보드" }));
+  fireEvent.click(await screen.findByRole("button", { name: "합성 업무" }));
+  const input = screen.getByLabelText("업무 제목 바로 편집");
+  fireEvent.change(input, { target: { value: "취소할 이름" } });
+  fireEvent.keyDown(input, { key: "Escape" });
+  fireEvent.blur(input);
+  expect(
+    screen.queryByLabelText("업무 제목 바로 편집"),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "합성 업무" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "합성 업무 업데이트" }));
+  expect(
+    await screen.findByRole("dialog", { name: "업무 상세" }),
+  ).toBeInTheDocument();
+});

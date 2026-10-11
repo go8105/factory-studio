@@ -22,6 +22,7 @@ type Column = {
   position: number;
   width: number;
   options: { labels?: string[] };
+  builtin_key?: string | null;
   version: number;
   archived_at: string | null;
   deleted_at: string | null;
@@ -195,7 +196,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
   const epoch = useRef(0);
   const detailEpoch = useRef(0);
   useEffect(() => {
-    if (!selected && !createBoard && !taskForm) return;
+    if (!selected && !createBoard && !taskForm && !columnForm) return;
     const previous = document.activeElement as HTMLElement | null;
     const modal = document.querySelector<HTMLElement>(".project-modal");
     modal?.querySelector<HTMLElement>("input,textarea,select,button")?.focus();
@@ -205,6 +206,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
         setSelected(undefined);
         setCreateBoard(false);
         setTaskForm(undefined);
+        setColumnForm(undefined);
       }
       if (e.key === "Tab" && modal) {
         const controls = Array.from(
@@ -228,7 +230,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
       document.removeEventListener("keydown", handle);
       previous?.focus();
     };
-  }, [!!selected, createBoard, !!taskForm, pending]);
+  }, [!!selected, createBoard, !!taskForm, !!columnForm, pending]);
   const editable =
     !!data?.role &&
     ["EDITOR", "OWNER"].includes(data.role) &&
@@ -279,6 +281,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
         combined = {
           ...combined,
           tasks: [...(combined.tasks ?? []), ...(next.data.tasks ?? [])],
+          cells: [...(combined.cells ?? []), ...(next.data.cells ?? [])],
           nextOffset: next.data.nextOffset,
         };
       }
@@ -373,7 +376,39 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
           ? (a.ends_on ?? "9999").localeCompare(b.ends_on ?? "9999")
           : a.position - b.position || a.id - b.id,
     );
+  const orderedColumns =
+    pref.columns ??
+    [...defaultColumns].sort((a, b) => {
+      const key = (k: string) =>
+        (
+          ({ assignees: "assignee", dates: "timeline" }) as Record<
+            string,
+            string
+          >
+        )[k] ?? k;
+      return (
+        (data?.columns?.find((c) => c.builtin_key === key(a))?.position ??
+          defaultColumns.indexOf(a)) -
+        (data?.columns?.find((c) => c.builtin_key === key(b))?.position ??
+          defaultColumns.indexOf(b))
+      );
+    });
   const leaves = tasks.filter((t) => !t.aggregate);
+  const summaryTasks = (myTasks ? mineTasks : (data?.tasks ?? [])).filter(
+    (t) =>
+      !t.archived_at &&
+      t.status !== "CANCELLED" &&
+      !data?.groups?.some(
+        (g) => g.id === t.group_id && (g.archived_at || g.deleted_at),
+      ),
+  );
+  const summaryLeaves = summaryTasks.filter((t) => !t.aggregate);
+  const summaryProgress = summaryLeaves.length
+    ? Math.round(
+        summaryLeaves.reduce((n, t) => n + t.progress, 0) /
+          summaryLeaves.length,
+      )
+    : 0;
   const today = data
     ? new Intl.DateTimeFormat("sv-SE", {
         timeZone: data.company.timezone,
@@ -405,9 +440,14 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
       </span>
     );
   }
-  function title(t: Task) {
+  function title(t: Task, inline = false) {
     return (
-      <button className="project-task-title" onClick={() => void openTask(t)}>
+      <button
+        className="project-task-title"
+        onClick={() =>
+          inline && editable ? setEditingTitle(t.id) : void openTask(t)
+        }
+      >
         {t.parent_id ? "↳ " : t.aggregate ? "▾ " : ""}
         {t.title}
         {late(t) && <small> · 지연</small>}
@@ -454,9 +494,13 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
         </label>
       </header>
       {columnForm && (
-        <div className="project-overlay">
+        <div
+          className="project-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="자유 컬럼 설정"
+        >
           <form
-            className="project-modal"
             onSubmit={(e) => {
               e.preventDefault();
               const f = new FormData(e.currentTarget);
@@ -504,6 +548,9 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                 defaultValue={columnForm === "new" ? "TEXT" : columnForm.kind}
                 disabled={columnForm !== "new"}
               >
+                {columnForm !== "new" && columnForm.kind === "BUILTIN" && (
+                  <option value="BUILTIN">기본 업무 필드</option>
+                )}
                 {Object.entries({
                   TEXT: "텍스트",
                   NUMBER: "숫자",
@@ -576,7 +623,18 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
         <div className="project-workspace">
           <aside className="project-boards">
             <div className="flow-sidebar-brand">
-              <span aria-hidden="true">▥</span>
+              <span aria-hidden="true">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                >
+                  <path d="M2 12h4l3-8 4 16 3-8h6" />
+                </svg>
+              </span>
               <strong>
                 Factory Flow<small>통합 업무 공간</small>
               </strong>
@@ -696,6 +754,10 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
               </label>
             )}
             <footer className="flow-sidebar-footer">
+              <span>
+                {data.members.find((m) => m.id === data.userId)?.name ??
+                  "로그인 사용자"}
+              </span>
               <Link title="사용자 관리" to="/hr/users">
                 사용자 관리
               </Link>
@@ -719,6 +781,19 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                   <h2>
                     {myTasks ? "참여한 보드의 내 담당 업무" : data.board?.name}
                   </h2>
+                  {data.board && owner && (
+                    <button
+                      onClick={() => {
+                        const settings = document.getElementById(
+                          "flow-board-settings",
+                        );
+                        settings?.setAttribute("open", "");
+                        settings?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                    >
+                      공유
+                    </button>
+                  )}
                   {data.board && owner && (
                     <button
                       disabled={pending}
@@ -794,29 +869,34 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                       setPref({ ...pref, search: e.target.value })
                     }
                   />
-                  <select
-                    aria-label="상태 필터"
-                    value={pref.status}
-                    onChange={(e) =>
-                      setPref({ ...pref, status: e.target.value })
-                    }
-                  >
-                    <option value="">모든 상태</option>
-                    {Object.entries(states).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="정렬"
-                    value={pref.sort}
-                    onChange={(e) => setPref({ ...pref, sort: e.target.value })}
-                  >
-                    <option value="position">업무 순서</option>
-                    <option value="due">마감일</option>
-                    <option value="title">제목</option>
-                  </select>
+                  <details className="flow-filter">
+                    <summary>필터·정렬</summary>
+                    <select
+                      aria-label="상태 필터"
+                      value={pref.status}
+                      onChange={(e) =>
+                        setPref({ ...pref, status: e.target.value })
+                      }
+                    >
+                      <option value="">모든 상태</option>
+                      {Object.entries(states).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="정렬"
+                      value={pref.sort}
+                      onChange={(e) =>
+                        setPref({ ...pref, sort: e.target.value })
+                      }
+                    >
+                      <option value="position">업무 순서</option>
+                      <option value="due">마감일</option>
+                      <option value="title">제목</option>
+                    </select>
+                  </details>
                   {!myTasks && (
                     <>
                       <label>
@@ -827,7 +907,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                             setPref({ ...pref, mine: e.target.checked })
                           }
                         />{" "}
-                        내 담당
+                        내 업무만
                       </label>
                       <button
                         disabled={pending}
@@ -843,38 +923,33 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                       <button onClick={() => void load()}>새로고침</button>
                     </>
                   )}
+                  <span className="flow-visible-count">
+                    표시 중 {tasks.length}개
+                  </span>
                 </div>
                 <div className="project-summary">
                   <span>
-                    전체 업무<b>{tasks.length}</b>
+                    전체 업무<b>{summaryTasks.length}</b>
                   </span>
                   <span>
                     진행 중
-                    <b>{tasks.filter((t) => t.status === "WORKING").length}</b>
-                  </span>
-                  <span>
-                    완료<b>{tasks.filter((t) => t.status === "DONE").length}</b>
-                  </span>
-                  <span>
-                    전체 진행률
                     <b>
-                      {leaves.length
-                        ? Math.round(
-                            leaves.reduce((n, t) => n + t.progress, 0) /
-                              leaves.length,
-                          )
-                        : 0}
-                      %
-                    </b>
-                    <progress
-                      max="100"
-                      value={
-                        leaves.length
-                          ? leaves.reduce((n, t) => n + t.progress, 0) /
-                            leaves.length
-                          : 0
+                      {
+                        summaryTasks.filter((t) =>
+                          ["WORKING", "REVIEW"].includes(t.status),
+                        ).length
                       }
-                    />
+                    </b>
+                  </span>
+                  <span>
+                    완료
+                    <b>
+                      {summaryTasks.filter((t) => t.status === "DONE").length}
+                    </b>
+                  </span>
+                  <span>
+                    전체 진행률<b>{summaryProgress}%</b>
+                    <progress max="100" value={summaryProgress} />
                   </span>
                 </div>
                 {(pref.view === "table" || myTasks) && (
@@ -886,16 +961,14 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                           열 표시{" "}
                           <details>
                             <summary>열 순서</summary>
-                            {(pref.columns ?? defaultColumns).map((k, i) => (
+                            {orderedColumns.map((k, i) => (
                               <span key={k}>
                                 {columnLabels[k]}
                                 <button
                                   aria-label={`${columnLabels[k]} 열 앞으로`}
                                   disabled={!i}
                                   onClick={() => {
-                                    const cols = [
-                                      ...(pref.columns ?? defaultColumns),
-                                    ];
+                                    const cols = [...orderedColumns];
                                     [cols[i - 1], cols[i]] = [
                                       cols[i],
                                       cols[i - 1],
@@ -909,9 +982,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                                   aria-label={`${columnLabels[k]} 열 뒤로`}
                                   disabled={i === 4}
                                   onClick={() => {
-                                    const cols = [
-                                      ...(pref.columns ?? defaultColumns),
-                                    ];
+                                    const cols = [...orderedColumns];
                                     [cols[i + 1], cols[i]] = [
                                       cols[i],
                                       cols[i + 1],
@@ -1041,7 +1112,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                             />
                           ) : (
                             <button
-                              disabled={!editable || pending}
+                              disabled={!owner || pending}
                               className="flow-group-name"
                               onClick={() => setEditingGroup(g.id)}
                             >
@@ -1051,7 +1122,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                           <small>
                             {tasks.filter((t) => t.group_id === g.id).length}
                           </small>
-                          {editable && (
+                          {owner && editable && (
                             <details className="flow-group-actions">
                               <summary aria-label={`${g.name} 그룹 메뉴`}>
                                 ···
@@ -1068,32 +1139,6 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                               >
                                 이 그룹 복제
                               </button>
-                              {["archive", "delete", "restore"].map((state) => (
-                                <button
-                                  key={state}
-                                  disabled={pending}
-                                  onClick={() =>
-                                    void mutate("group-state", {
-                                      boardId: bid,
-                                      id: g.id,
-                                      version: g.version,
-                                      state,
-                                    })
-                                  }
-                                >
-                                  {
-                                    {
-                                      archive: "그룹 보관",
-                                      delete: "그룹 삭제",
-                                      restore: "그룹 복구",
-                                    }[state]
-                                  }
-                                </button>
-                              ))}
-                            </details>
-                          )}
-                          {editable && (
-                            <>
                               <button
                                 disabled={pending}
                                 onClick={() =>
@@ -1124,7 +1169,48 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                               >
                                 ↓
                               </button>
-                            </>
+                              <label>
+                                그룹 색상
+                                <input
+                                  aria-label={`${g.name} 그룹 색상`}
+                                  type="color"
+                                  defaultValue={g.color}
+                                  disabled={pending}
+                                  onChange={(e) =>
+                                    void mutate("group-update", {
+                                      boardId: bid,
+                                      id: g.id,
+                                      version: g.version,
+                                      name: g.name,
+                                      color: e.target.value,
+                                      position: g.position,
+                                    })
+                                  }
+                                />
+                              </label>
+                              {["archive", "delete", "restore"].map((state) => (
+                                <button
+                                  key={state}
+                                  disabled={pending}
+                                  onClick={() =>
+                                    void mutate("group-state", {
+                                      boardId: bid,
+                                      id: g.id,
+                                      version: g.version,
+                                      state,
+                                    })
+                                  }
+                                >
+                                  {
+                                    {
+                                      archive: "그룹 보관",
+                                      delete: "그룹 삭제",
+                                      restore: "그룹 복구",
+                                    }[state]
+                                  }
+                                </button>
+                              ))}
+                            </details>
                           )}
                         </h3>
                         <div
@@ -1159,7 +1245,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                             })()}
                           </span>
                         </div>
-                        {editable && (
+                        {owner && editable && (
                           <details>
                             <summary>그룹 이름·색상 편집</summary>
                             <form
@@ -1200,12 +1286,46 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                               <table>
                                 <thead>
                                   <tr>
-                                    <th>업무</th>
+                                    <th>업무명</th>
                                     {myTasks && <th>보드</th>}
-                                    {(pref.columns ?? defaultColumns)
+                                    {orderedColumns
                                       .filter((k) => !pref.hidden.includes(k))
                                       .map((k) => (
-                                        <th key={k}>{columnLabels[k]}</th>
+                                        <th key={k}>
+                                          <button
+                                            disabled={!owner}
+                                            onClick={() => {
+                                              const builtin =
+                                                data.columns?.find(
+                                                  (c) =>
+                                                    c.builtin_key ===
+                                                      (
+                                                        {
+                                                          assignees: "assignee",
+                                                          dates: "timeline",
+                                                        } as Record<
+                                                          string,
+                                                          string
+                                                        >
+                                                      )[k] ||
+                                                    c.builtin_key === k,
+                                                );
+                                              if (builtin)
+                                                setColumnForm(builtin);
+                                            }}
+                                          >
+                                            {data.columns?.find(
+                                              (c) =>
+                                                c.builtin_key ===
+                                                ((
+                                                  {
+                                                    assignees: "assignee",
+                                                    dates: "timeline",
+                                                  } as Record<string, string>
+                                                )[k] ?? k),
+                                            )?.name ?? columnLabels[k]}
+                                          </button>
+                                        </th>
                                       ))}
                                     {(data.columns ?? [])
                                       .filter(
@@ -1362,21 +1482,19 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                                               }}
                                             />
                                           ) : (
-                                            title(t)
+                                            title(t, true)
                                           )}
                                           {editable && (
                                             <button
-                                              aria-label={`${t.title} 제목 편집`}
-                                              onClick={() =>
-                                                setEditingTitle(t.id)
-                                              }
+                                              aria-label={`${t.title} 업데이트`}
+                                              onClick={() => void openTask(t)}
                                             >
-                                              편집
+                                              ···
                                             </button>
                                           )}
                                         </td>
                                         {myTasks && <td>{t.board_name}</td>}
-                                        {(pref.columns ?? defaultColumns)
+                                        {orderedColumns
                                           .filter(
                                             (k) => !pref.hidden.includes(k),
                                           )
@@ -1680,7 +1798,7 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                     </p>
                   </>
                 )}
-                {editable && (
+                {owner && editable && (
                   <button
                     className="flow-new-group"
                     disabled={pending}
@@ -1697,8 +1815,22 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                   </button>
                 )}
                 {data.board && owner && (
-                  <details>
+                  <details id="flow-board-settings">
                     <summary>보드 설정·구성원 권한</summary>
+                    <button
+                      disabled={pending}
+                      onClick={() =>
+                        void mutate("board-update", {
+                          boardId: bid,
+                          name: data.board!.name,
+                          description: data.board!.description,
+                          version: data.board!.version,
+                          archived: !data.board!.archived_at,
+                        })
+                      }
+                    >
+                      {data.board.archived_at ? "보드 복구" : "보드 보관"}
+                    </button>
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();

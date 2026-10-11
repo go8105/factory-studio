@@ -30,3 +30,6 @@ frontend/public/cad-cam-app/
 
 # Admin-only compiled POC, served by authenticated API.
 backend/private-assets/
+
+# Generated spreadsheet inspection logs
+*.xlsx.inspect.ndjson

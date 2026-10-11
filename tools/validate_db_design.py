@@ -85,7 +85,6 @@ def design_names(task='FS-014'):
         names |= set(re.findall(r'^\| `(gw\.[a-z_]+)` \|', doc.read_text(encoding='utf-8'), re.M))
     if at_least(task, {'FS-029a', 'W0-1'}):
         names |= set(re.findall(r'^\| `(cmms\.[a-z_]+)` \|', CMMS_DESIGN.read_text(encoding='utf-8'), re.M))
-    names |= {"flow.work_column", "flow.work_cell"}
     return {n.replace("gw.work_", "flow.work_") for n in names}
 
 

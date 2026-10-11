@@ -1,3 +1,10 @@
+# 2026-10-11 GW-FLOW-03·HR-USERS-02 로컬 구현 검증 완료 / 배포 대기
+
+- Figma UI / 즐겨찾기·내보드·4보기·inline 이름 / 그룹 상태·복제 / 자유 열6종·기본 열 메타·원자적 셀 batch100 / 회사·첫 관리자 웹 등록 구현.
+- 실제193표2102컬럼471FK·목표381표925FK/Excel/ERD 동기화·카탈로그0오류·빈DB 왕복·로컬 백업 및 Flow 기존10원장 hash 보존.
+- backend1009+skip1, 최신 추가 자유열3/HR집중5, 성능1, frontend590 및 최종집중10, 도구133, 타입/lint/format/build·브라우저 진입/구주소/컬럼drawer/Escape/390px overflow0.
+- 사용자 main/push/실서버 배포 승인. 현재 main 제품 코드 커밋 후 원격CI 확인·운영 백업·배포 예정. 운영 실제 회사/계정은 생성하지 않는다.
+
 # 2026-10-11 GW-FLOW-03·HR-USERS-02 구현 진행
 
 - 사용자 main 반영·배포 승인. 회사 등록·보드 자유 컬럼 API, Figma 화면 연결.

@@ -98,6 +98,7 @@ class ColumnCreate(BoardId):
 
 
 class ColumnUpdate(ColumnCreate):
+    kind: Literal["BUILTIN", "TEXT", "NUMBER", "DATE", "STATUS", "CHECKBOX", "TIMELINE"]
     id: int = Field(gt=0)
     version: int = Field(gt=0)
 
@@ -109,6 +110,17 @@ class CellUpdate(BoardId):
     columnVersion: int = Field(gt=0)
     version: int = Field(default=0, ge=0)
     value: str | int | float | bool | dict | None
+
+
+class CellBatch(BoardId):
+    cells: list[CellUpdate] = Field(min_length=1, max_length=100)
+
+    @field_validator("cells")
+    @classmethod
+    def unique_cells(cls, cells):
+        if len({(x.taskId, x.columnId) for x in cells}) != len(cells):
+            raise ValueError("동일 셀은 한 번만 지정하세요.")
+        return cells
 
 
 class TaskCreate(BoardId):
@@ -271,6 +283,7 @@ for operation, model in [
     ("column-update", ColumnUpdate),
     ("column-state", EntityState),
     ("cell-update", CellUpdate),
+    ("cell-batch-update", CellBatch),
     ("task-create", TaskCreate),
     ("task-update", TaskUpdate),
     ("comment-create", CommentCreate),

@@ -16,3 +16,9 @@
 구현 API /api/v1/flow, 기존 /api/v1/gw/projects alias 유지. 기존 gw.projects.* 멱등 operation namespace는 예전 요청 재시도 보존을 위해 유지하며 데이터/엔티티 소유는 flow다. /work-os 진입은 보드목록으로 연결한다. 기존 GW URL query/hash·즐겨찾기 순서 보존. 실행 SQL이 적용된 migration은 수정하지 않는다.
 
 운영 진입: [Factory Flow](https://eip.hugh-d.com/work-os). 제품31623b0 배포·10표 보존/DDL0 확인. [배포 검증](../../agent/Factory_Flow_독립시스템_배포검증_FLOW-02a.md).
+
+## FLOW-03 간결 보드·총 관리자 관리
+
+[전체 설계](Factory_Flow_간결보드_FLOW-03.md) · [검토 UI](ui-simple-board-preview.html) · [DB 명세](Factory_Flow_간결보드_DB명세.xlsx) · [ERD](flow-simple-board-design.mmd). 2026-10-11 전체 확인 대기. 신규 2표는 설계 후보이며 실제 제품 스키마에 적용하지 않았다.
+
+최신 UI 기준(2026-10-11): [사용자 Figma 원본 스냅샷](figma-reference/README.md). 요약 카드·4보기·즐겨찾기/내보드·둥근 그룹 카드·하단 점선 새그룹 버튼 유지. 초기 사각표 시제품보다 FLOW-03의 Figma 기준 변경 절이 우선한다.

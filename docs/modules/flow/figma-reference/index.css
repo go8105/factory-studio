@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Pretendard Variable", "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo",
+    sans-serif;
+
+  /* Porcelain, ink, and indigo-slate foundation */
+  --color-porcelain: #f7f7f6;
+  --color-pure-white: #ffffff;
+  --color-rice-paper: #e8e8e6;
+  --color-deep-ink: #1a1c1e;
+  --color-muted-ink: #5d6166;
+  --color-indigo-slate: #1f2d3d;
+  --color-celadon-pine: #2d4442;
+  --color-warm-gray: #e2e3e5;
+
+  /* Remap the utility palette to subdued Korean traditional tones. */
+  --color-slate-50: #f7f7f6;
+  --color-slate-100: #efefed;
+  --color-slate-200: #e8e8e6;
+  --color-slate-300: #d7d8d6;
+  --color-slate-400: #8a8e92;
+  --color-slate-500: #5d6166;
+  --color-slate-600: #4e5358;
+  --color-slate-700: #363a3f;
+  --color-slate-800: #2e3238;
+  --color-slate-900: #1f2d3d;
+  --color-slate-950: #1a1c1e;
+
+  --color-blue-50: #edf0f2;
+  --color-blue-100: #e2e3e5;
+  --color-blue-200: #cbd3da;
+  --color-blue-400: #718293;
+  --color-blue-500: #40566b;
+  --color-blue-600: #1f2d3d;
+  --color-blue-700: #182532;
+
+  --color-emerald-50: #e9efec;
+  --color-emerald-500: #4b5e4f;
+  --color-emerald-600: #3d5248;
+  --color-emerald-700: #2d4442;
+
+  --color-amber-50: #f3eee4;
+  --color-amber-400: #9a8153;
+  --color-amber-500: #8a6d3b;
+  --color-amber-700: #6f572f;
+
+  --color-violet-400: #77717c;
+  --color-violet-500: #5f5865;
+  --color-violet-700: #49434e;
+  --color-rose-400: #8a6b66;
+
+  --shadow-sm: 0 2px 6px rgb(26 28 30 / 4%);
+  --shadow-md: 0 2px 8px rgb(26 28 30 / 5%);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    background: var(--color-porcelain);
+    color: var(--color-deep-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button {
+    cursor: pointer;
+  }
+}

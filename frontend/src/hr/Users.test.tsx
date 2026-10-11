@@ -137,3 +137,49 @@ it("직원 추가 시 회사·사원 코드·권한·연차를 함께 전송한�
     ),
   );
 });
+
+it("총 관리자는 회사가 없어도 첫 회사와 회사 관리자 계정을 등록한다", async () => {
+  const fetch = vi.fn(
+    async (url: string, init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          data: url.includes("management-capabilities")
+            ? { isPlatformAdmin: true }
+            : url.includes("managed-companies")
+              ? []
+              : init?.method === "POST"
+                ? { companyId: 6 }
+                : [],
+        }),
+      ),
+  );
+  vi.stubGlobal("fetch", fetch);
+  page();
+  fireEvent.click(await screen.findByRole("button", { name: /회사 등록/ }));
+  fireEvent.change(screen.getByLabelText("회사명"), {
+    target: { value: "합성 회사" },
+  });
+  fireEvent.change(screen.getByLabelText("아이디"), {
+    target: { value: "synthetic-owner" },
+  });
+  fireEvent.change(screen.getByLabelText("직원 이름"), {
+    target: { value: "회사 관리자" },
+  });
+  fireEvent.change(screen.getByLabelText("사원 코드"), {
+    target: { value: "OWNER-001" },
+  });
+  fireEvent.change(screen.getByLabelText("새 비밀번호", { exact: true }), {
+    target: { value: "Synthetic-password-123" },
+  });
+  fireEvent.change(screen.getByLabelText("비밀번호 확인"), {
+    target: { value: "Synthetic-password-123" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "회사·첫 관리자 등록" }));
+  await waitFor(() =>
+    expect(
+      fetch.mock.calls.some(
+        ([url, init]) => url.endsWith("/companies") && init?.method === "POST",
+      ),
+    ).toBe(true),
+  );
+});

@@ -171,7 +171,8 @@ class UserId(Body):
 
 
 class CreateCompany(CreateUser):
-    companyName: str = Field(min_length=1, max_length=120)
+    role: Literal["ADMIN"] = "ADMIN"
+    companyName: str = Field(min_length=1, max_length=100)
     workStart: str = Field(
         default="09:00", pattern=r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
     )
