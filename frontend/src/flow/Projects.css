@@ -1746,3 +1746,12 @@
   padding: 8px;
   color: #1a1c1e;
 }
+@media (max-width: 800px) {
+  .flow-board .project-table th:first-child,
+  .flow-board .project-table td:first-child {
+    position: static;
+    width: 220px;
+    min-width: 220px;
+    max-width: 220px;
+  }
+}
