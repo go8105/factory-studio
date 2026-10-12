@@ -381,7 +381,13 @@ def reconcile_bom_lines(
             )
         delete_row(connection, context, LINE, row["id"])
 
-    # 갱신 또는 추가: 요청 순서대로 반영
+    # 1차: 살아남는 기존 줄들의 line_no를 충돌하지 않는 임시 음수로 변경
+    # UK(workspace_id, generation_id, bom_version_id, line_no) 순서 교체 시 충돌 방지
+    for idx, (item_id, row) in enumerate(existing_by_item.items(), 1):
+        if item_id in incoming_by_item:
+            update_row(connection, context, LINE, row["id"], {"line_no": -idx})
+
+    # 2차: 최종 순서 및 값으로 갱신(UPDATE) 또는 신규 추가(INSERT)
     for r in rows:
         item_id = r["material_item_id"]
         values = {

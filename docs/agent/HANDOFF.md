@@ -1,19 +1,26 @@
-# 2026-10-12 W2a-1b2-rest MES 공정 경로(M-14)·BOM(M-15) R-3·R-4 백엔드 완료
+# 2026-10-12 W2a-1b2-rest MES 공정 경로(M-14)·BOM(M-15) R-1~R-5 전체 완료
 
 - 브랜치: `antigravity/w2a-1b2-rest`
-- 마지막 커밋: `df8fb8b` (feat(mes): R-3·R-4 BOM 투입 공정, 키 기반 맞춤 저장 및 대체 자재 API 구현)
-- 진행 상태: **R-1, R-2, R-3, R-4 완료 / R-5(화면) 미착수 — 사용자 확인 대기**
+- 마지막 커밋: 다음 커밋 대상 (BOM-FIX 및 R-5 완료)
+- 진행 상태: **R-1 ~ R-5 전체 완료 — 사용자 최종 확인 및 main 병합 대기**
 - 작업 내용:
-  - R-1: `mes.route_step` 컬럼 확장(표준 CT, 준비 분, 외주 여부, 외주처), `schema.RouteSteps` 객체 목록 변경, `validate_steps` 검증 및 정규화, 백엔드 테스트 통과
-  - R-2: `Routes.tsx` 단계별 4개 속성 편집 폼 및 목록 컬럼 추가, 외주 체크 해제 시 외주처 코드 비움/감춤, 빈 칸 null 정규화, `versions.test.tsx` 갱신 및 신규 속성 추가 테스트(9 passed), 전체 프론트엔드 597테스트/typecheck/lint/build 통과, Playwright 브라우저 실동작 검증 완료
+  - R-1: `mes.route_step` 컬럼 확장(표준 CT, 준비 분, 외주 여부, 외주처), `schema.RouteSteps` 객체 목록 변경, `validate_steps` 검증 및 정규화, 백엔드 테스트 통과.
+  - R-2: `Routes.tsx` 단계별 4개 속성 편집 폼 및 목록 컬럼 추가, 외주 체크 해제 시 외주처 코드 비움/감춤, 빈 칸 null 정규화, `versions.test.tsx` 갱신 및 신규 속성 추가 테스트(9 passed), 전체 프론트엔드 597테스트/typecheck/lint/build 통과, Playwright 브라우저 실동작 검증 완료.
   - R-3: `bom_line.issue_process_id` 추가 (`repository.LINE` 컬럼, `schema.BomLineIn`, `service.validate_lines`에서 `mes.process` 검증). `PUT /boms/{id}/lines`를 `service.set_bom_lines`로 연결하여 `material_item_id` 키 기반 맞춤 저장(UPDATE/INSERT/DELETE) 구현. 기존 줄 UPDATE로 `bom_line.id` 보존 및 하위 대체 자재 유지. 삭제 대상에 대체 자재가 딸려 있으면 409 `REFERENCED_BY_OTHERS` 반환.
   - R-4: `mes.bom_substitute` 조회·편집 API (`GET /boms/{id}/lines/{lineId}/substitutes`, `PUT /boms/{id}/lines/{lineId}/substitutes`). 초안(`draft`)에서만 편집 가능 (`VERSION_LOCKED` 409). 완제품 자신/원래 구성 자재와 동일 품목/중복 등록/미존재 품목 차단. BOM 개정(`revise`) 시 새 버전의 구성 자재 라인 아래로 대체 자재 자동 복제.
-  - 백엔드 검증: `test_mes_route_bom.py` 33 passed, 전체 MES 157 passed, `ruff check` 및 `ruff format` 통과. (기존 실패하던 `test_gw_projects.py`는 단독 실행 시 통과 확인)
-
-### 다음 작업 (R-5)
-
-- 대상: M-15 화면 — `Boms.tsx` 투입 공정(`issueProcessId`) 선택 드롭다운 + 구성 자재 행별 대체 자재(`substitutes`) 조회/편집 UI 및 `versions.test.tsx` 갱신.
-- 사용자 확인 후 R-5 착수.
+  - BOM-FIX: 자재 순서 교체 시 `UK(workspace_id, generation_id, bom_version_id, line_no)` 위반 해결. `reconcile_bom_lines`에서 살아남는 줄의 `line_no`를 1단계에서 `-idx` 임시 음수로 일괄 업데이트 후 2단계에서 최종 순서 번호로 업데이트하여 충돌 방지. 자재 순서 교체 시 `bom_line.id` 및 하위 대체 자재 보존 테스트(`test_bom_lines_reordering_preserves_line_ids_and_substitutes`) 추가 및 34 passed 통과.
+  - R-5: `Boms.tsx` 화면 보강:
+    - 구성 자재 등록/수정 시 투입 공정(`issueProcessId`) 선택 드롭다운 (비우면 `null` 전송, "공정 지정 안 함").
+    - 구성 자재 행별 대체 자재 펼치기/접기 토글 및 대체 자재 추가/삭제 기능 연동 (`PUT /boms/{id}/lines/{lineId}/substitutes`, `ratio` string 정규화).
+    - 자재 순서 변경(↑/↓) 및 "순서 저장" 버튼.
+    - 대체 자재가 딸린 구성 자재 삭제 시도 시 409 `REFERENCED_BY_OTHERS` 응답을 감지하여 해당 행 옆에 인라인 에러 안내(`대체 자재를 먼저 지우세요`) 표시.
+    - 게시·폐기 버전에서는 대체 자재 추가/삭제/관리 버튼 비활성화/숨김.
+    - 390px 반응형 뷰포트 지원.
+  - 검증:
+    - 백엔드: `backend/tests/test_mes_route_bom.py` 34 passed, 전체 MES 138 passed (전체 통과), `ruff check`/`ruff format` 통과.
+    - 프론트엔드: `npm run typecheck`, `npm run lint`, `npm run build` 통과, `versions.test.tsx` 13 passed, 프론트엔드 전체 75파일 601 passed.
+    - 브라우저 E2E 실동작 검증(Playwright): 포털 접속 -> 게스트 로그인 -> `/mes/boms` -> 신규 BOM 생성 -> 투입 공정 지정 자재 2건 추가 -> 대체 자재 추가 -> 순서 교체 및 저장(BOM-FIX 확인) -> 페이지 새로고침 후 순서 및 대체 자재 유지 확인 -> 대체 자재 있는 줄 삭제 시도 시 409 인라인 안내 표시 확인 -> 대체 자재 삭제 후 줄 삭제 -> 게시(게시 상태 잠금 전환) -> 390px 뷰포트 확인까지 전체 통과 확인.
+- 주의: main 브랜치 병합은 수행하지 않고 사용자 확인을 기다린다.
 
 ---
 

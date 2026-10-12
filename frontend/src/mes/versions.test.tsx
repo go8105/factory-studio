@@ -46,6 +46,15 @@ const items = [
     isActive: true,
     conversions: [{ fromUnit: "BOX" }],
   },
+  {
+    id: 7,
+    itemCode: "RM-ALT",
+    name: "대체 수지",
+    baseUnit: "KG",
+    itemType: "raw",
+    isActive: true,
+    conversions: [],
+  },
 ];
 const processes = [
   {
@@ -127,6 +136,62 @@ const boms = [
     versionNo: 2,
     status: "draft",
     lines: [],
+  },
+  {
+    id: 33,
+    bomCode: "BOM-C100-V3",
+    itemId: 1,
+    versionNo: 3,
+    status: "draft",
+    lines: [
+      {
+        id: 2,
+        lineNo: 1,
+        materialItemId: 5,
+        qtyPerUnit: "0.012",
+        unit: "KG",
+        lossRate: "2.00",
+        issueProcessId: 11,
+        substitutes: [
+          {
+            id: 10,
+            bomLineId: 2,
+            substituteItemId: 6,
+            priority: 1,
+            ratio: "1.000000",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 34,
+    bomCode: "BOM-C100-V4",
+    itemId: 1,
+    versionNo: 4,
+    status: "draft",
+    lines: [
+      {
+        id: 3,
+        lineNo: 1,
+        materialItemId: 5,
+        qtyPerUnit: "0.012",
+        unit: "KG",
+        lossRate: "2.00",
+        issueProcessId: 11,
+        substitutes: [],
+      },
+      {
+        id: 4,
+        lineNo: 2,
+        materialItemId: 6,
+        qtyPerUnit: "4",
+        unit: "EA",
+        lossRate: "0",
+        issueProcessId: null,
+        substitutes: [],
+      },
+    ],
   },
 ];
 const LISTS: Record<string, unknown> = {
@@ -334,7 +399,13 @@ it("초안 BOM에 자재를 추가하면 단위는 기준 단위와 환산 단�
   await waitFor(() =>
     expect(body(fetcher, "PUT")).toEqual({
       lines: [
-        { materialItemId: 6, qtyPerUnit: "4", unit: "EA", lossRate: "0" },
+        {
+          materialItemId: 6,
+          qtyPerUnit: "4",
+          unit: "EA",
+          lossRate: "0",
+          issueProcessId: null,
+        },
       ],
     }),
   );
@@ -429,3 +500,157 @@ it("공정 단계의 표준 사이클 타임, 준비 시간, 외주 속성을 �
     }),
   );
 });
+
+it("BOM 라인에 투입 공정을 지정하여 추가한다", async () => {
+  const fetcher = mockApi({
+    "PUT /api/v1/mes/boms/32/lines": { status: 200, body: { data: boms[1] } },
+  });
+  show("/mes/boms");
+  fireEvent.click(
+    within(await row("BOM 목록", /^BOM-C100-V2/)).getByRole("button", {
+      name: /자재 0/,
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "자재 추가" }));
+  fireEvent.change(screen.getByLabelText("자재"), { target: { value: "6" } });
+  fireEvent.change(screen.getByLabelText("소요량(1개당)"), {
+    target: { value: "5" },
+  });
+  fireEvent.change(screen.getByLabelText("투입 공정 (선택)"), {
+    target: { value: "11" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "추가" }));
+  await waitFor(() =>
+    expect(body(fetcher, "PUT")).toEqual({
+      lines: [
+        {
+          materialItemId: 6,
+          qtyPerUnit: "5",
+          unit: "EA",
+          lossRate: "0",
+          issueProcessId: 11,
+        },
+      ],
+    }),
+  );
+});
+
+it("초안 BOM에서 대체 자재를 펼쳐 추가한다", async () => {
+  const fetcher = mockApi({
+    "PUT /api/v1/mes/boms/33/lines/2/substitutes": {
+      status: 200,
+      body: { data: [] },
+    },
+  });
+  show("/mes/boms");
+  fireEvent.click(
+    within(await row("BOM 목록", /^BOM-C100-V3/)).getByRole("button", {
+      name: /자재 1/,
+    }),
+  );
+  expect(screen.getByText(/PBT 수지/)).toBeVisible();
+  // 대체 자재 펼치기 버튼 클릭
+  fireEvent.click(screen.getByRole("button", { name: /대체 자재/ }));
+  expect(screen.getByText("우선순위 순으로 적용됩니다")).toBeVisible();
+
+  // 기존 대체 자재 표시 확인 (1순위, RM-PIN)
+  expect(screen.getByText("1순위")).toBeVisible();
+
+  // 새 대체 자재 입력 및 추가
+  fireEvent.change(screen.getByLabelText("대체 품목"), {
+    target: { value: "7" },
+  });
+  fireEvent.change(screen.getByLabelText("우선순위"), {
+    target: { value: "2" },
+  });
+  fireEvent.change(screen.getByLabelText("비율"), {
+    target: { value: "1.05" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "대체 자재 추가" }));
+
+  await waitFor(() =>
+    expect(body(fetcher, "PUT")).toEqual({
+      substitutes: [
+        {
+          substituteItemId: 6,
+          priority: 1,
+          ratio: "1.000000",
+        },
+        {
+          substituteItemId: 7,
+          priority: 2,
+          ratio: "1.05",
+        },
+      ],
+    }),
+  );
+});
+
+it("대체 자재가 있는 줄을 삭제 시도하면 409 안내 문구가 표시된다", async () => {
+  mockApi({
+    "PUT /api/v1/mes/boms/33/lines": {
+      status: 409,
+      body: {
+        error: {
+          code: "REFERENCED_BY_OTHERS",
+          message: "대체 자재를 먼저 지우세요.",
+        },
+      },
+    },
+  });
+  show("/mes/boms");
+  fireEvent.click(
+    within(await row("BOM 목록", /^BOM-C100-V3/)).getByRole("button", {
+      name: /자재 1/,
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: /1번째 자재 빼기/ }));
+  expect(
+    await screen.findByText("대체 자재를 먼저 지우세요."),
+  ).toBeVisible();
+});
+
+it("초안 BOM의 자재 순서를 바꿔 저장한다", async () => {
+  const fetcher = mockApi({
+    "PUT /api/v1/mes/boms/34/lines": {
+      status: 200,
+      body: { data: boms[3] },
+    },
+  });
+  show("/mes/boms");
+  fireEvent.click(
+    within(await row("BOM 목록", /^BOM-C100-V4/)).getByRole("button", {
+      name: /자재 2/,
+    }),
+  );
+
+  // 1번째 자재 아래로 이동 클릭
+  fireEvent.click(screen.getByRole("button", { name: "1번째 자재 아래로" }));
+  expect(screen.getByText(/순서가 변경되었습니다/)).toBeVisible();
+
+  // 순서 저장 버튼 클릭
+  fireEvent.click(screen.getByRole("button", { name: "순서 저장" }));
+
+  await waitFor(() =>
+    expect(body(fetcher, "PUT")).toEqual({
+      lines: [
+        {
+          materialItemId: 6,
+          qtyPerUnit: "4",
+          unit: "EA",
+          lossRate: "0",
+          issueProcessId: null,
+        },
+        {
+          materialItemId: 5,
+          qtyPerUnit: "0.012",
+          unit: "KG",
+          lossRate: "2",
+          issueProcessId: 11,
+        },
+      ],
+    }),
+  );
+});
+
+

@@ -846,3 +846,67 @@ def test_bom_revise_copies_substitutes(mes):
     assert rev_line["substitutes"][0]["ratio"] == "2.500000"
     assert rev_line["substitutes"][0]["bomLineId"] == rev_line["id"]
     assert rev_line["id"] != line_id
+
+
+def test_bom_lines_reordering_preserves_line_ids_and_substitutes(mes):
+    client, created = mes
+    draft = _find(client, "/boms", "bomCode", "BOM-H100")
+    pbt_id = _id(client, "/items", "itemCode", "RM-PBT")
+    pin_id = _id(client, "/items", "itemCode", "RM-PIN")
+
+    # 1. 자재 2개 등록: 1번 RM-PBT, 2번 RM-PIN
+    body1 = _lines(
+        client,
+        ("RM-PBT", {"qtyPerUnit": "0.010", "unit": "KG", "lossRate": "0"}),
+        ("RM-PIN", {"qtyPerUnit": "2.000", "unit": "EA", "lossRate": "0"}),
+    )
+    res1 = _call(
+        client, created, "PUT", f"/boms/{draft['id']}/lines", "reorder-init", body1
+    )
+    assert res1.status_code == 200
+    lines1 = res1.json()["data"]["lines"]
+    assert len(lines1) == 2
+    assert lines1[0]["materialItemId"] == pbt_id and lines1[0]["lineNo"] == 1
+    assert lines1[1]["materialItemId"] == pin_id and lines1[1]["lineNo"] == 2
+    pbt_line_id = lines1[0]["id"]
+    pin_line_id = lines1[1]["id"]
+
+    # 2. 첫 번째 자재(RM-PBT)에 대체 자재 등록
+    sub_res = _call(
+        client,
+        created,
+        "PUT",
+        f"/boms/{draft['id']}/lines/{pbt_line_id}/substitutes",
+        "reorder-sub",
+        {
+            "substitutes": [
+                {"substituteItemId": pin_id, "priority": 1, "ratio": "1.500000"}
+            ]
+        },
+    )
+    assert sub_res.status_code == 200
+
+    # 3. 자재 2개의 순서를 바꿔 저장: 1번 RM-PIN, 2번 RM-PBT (BOM-FIX: UK 충돌 없이 200 성공해야 함)
+    body2 = _lines(
+        client,
+        ("RM-PIN", {"qtyPerUnit": "2.000", "unit": "EA", "lossRate": "0"}),
+        ("RM-PBT", {"qtyPerUnit": "0.010", "unit": "KG", "lossRate": "0"}),
+    )
+    res2 = _call(
+        client, created, "PUT", f"/boms/{draft['id']}/lines", "reorder-swap", body2
+    )
+    assert res2.status_code == 200
+    lines2 = res2.json()["data"]["lines"]
+    assert len(lines2) == 2
+    assert lines2[0]["materialItemId"] == pin_id and lines2[0]["lineNo"] == 1
+    assert lines2[1]["materialItemId"] == pbt_id and lines2[1]["lineNo"] == 2
+
+    # 4. 각 줄의 bom_line.id가 보존되었는지 검증
+    assert lines2[0]["id"] == pin_line_id
+    assert lines2[1]["id"] == pbt_line_id
+
+    # 5. RM-PBT의 대체 자재가 그대로 살아있는지 검증
+    pbt_subs = lines2[1]["substitutes"]
+    assert len(pbt_subs) == 1
+    assert pbt_subs[0]["substituteItemId"] == pin_id
+    assert pbt_subs[0]["ratio"] == "1.500000"

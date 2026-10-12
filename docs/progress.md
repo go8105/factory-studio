@@ -1,3 +1,23 @@
+# 2026-10-12 W2a-1b2-rest MES BOM(M-15) BOM-FIX 및 R-5 화면 완료
+
+- 브랜치: `antigravity/w2a-1b2-rest`
+- BOM-FIX 순서 교체 시 `line_no` 유니크 위반 해결:
+  - `reconcile_bom_lines` 갱신 루프에서 살아남는 줄의 `line_no`를 1단계에서 `-idx` 임시 음수로 일괄 UPDATE 후 2단계에서 최종 순서 번호로 UPDATE하여 UK 충돌 방지.
+  - 신규 테스트 `test_bom_lines_reordering_preserves_line_ids_and_substitutes` 추가 (`test_mes_route_bom.py` 34 passed).
+- R-5 `Boms.tsx` 화면 보강:
+  - 구성 자재 추가/수정 폼에 투입 공정(`issueProcessId`) 드롭다운 연동 (비우면 `null` 전송).
+  - 구성 자재 행별 대체 자재 펼치기 토글 및 대체 자재 추가/삭제 기능 구현 (`/boms/{id}/lines/{lineId}/substitutes`, `ratio` string 정규화).
+  - 구성 자재 행 순서 변경(↑/↓) 및 '순서 저장' 버튼.
+  - 대체 자재가 딸린 행 삭제 시도 시 409 `REFERENCED_BY_OTHERS` 감지 후 행 옆에 인라인 빨간 에러 안내(`대체 자재를 먼저 지우세요`) 표시.
+  - 게시·폐기 버전에서 대체 자재 편집 버튼 잠금/숨김.
+  - 390px 반응형 뷰포트 레이아웃 지원.
+- 검증:
+  - `backend/tests/test_mes_route_bom.py` 34 passed, 백엔드 전체 MES 138 passed, `ruff check`/`format` 통과.
+  - `frontend/src/mes/versions.test.tsx` 13 passed (BOM 투입 공정 추가, 대체 자재 펼침/추가, 409 인라인 에러 안내, 순서 교체 및 저장 등 4건 신규 추가).
+  - 프론트엔드 전체 75파일 601 passed, `npm run typecheck`, `npm run lint`, `npm run build` 통과.
+  - Playwright 브라우저 E2E 실동작 검증: BOM 생성 -> 투입 공정 지정 자재 2건 추가 -> 대체 자재 추가 -> 순서 교체 및 저장(BOM-FIX 검증) -> 새로고침 후 유지 확인 -> 409 안내 확인 -> 대체 자재 삭제 후 줄 삭제 -> 게시(잠금 전환) -> 390px 화면 점검 완료.
+- 다음: W2a-1b2-rest R-1~R-5 전체 완료 보고 및 사용자 확인 후 main 병합.
+
 # 2026-10-12 W2a-1b2-rest MES BOM(M-15) R-3·R-4 백엔드 완료
 
 - 브랜치: `antigravity/w2a-1b2-rest`
