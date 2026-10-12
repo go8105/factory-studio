@@ -1,8 +1,8 @@
-import { parseNC } from "./nc-parser.js";
+import { parseControllerNC } from "./nc-controller.js";
 self.onmessage = async ({ data }) => {
   const { revision, text, settings } = data;
   try {
-    const result = parseNC(text, settings, (progress) =>
+    const result = parseControllerNC(text, settings, (progress) =>
       self.postMessage({ revision, progress }),
     );
     const digest = await crypto.subtle.digest(

@@ -8,6 +8,18 @@
 - **운영 브라우저 확인 미실행**: `/mes/codes`·`/mes/workers`·`/mes/labels`·`/mes/inspection-items`의 "? 도움말"이 실제로 뜨는지 아직 보지 않았다. 로컬에서는 headless Chromium으로 4편 모두 확인했다.
 - main 이력에 빈 커밋 `41ca68d`("ci: rerun after billing fix")가 남았다. CI를 다시 걸려던 시도이며 내용 변경은 없다.
 - ANTI-HELP-01 종료. 다음은 W2a-1b2-rest R-5(`antigravity/w2a-1b2-rest`, 마지막 커밋 `01e29b8`).
+## 2026-10-12 CAD-V02 STEP 점검·YC 음성 카드 시연 완료
+
+- 사용자 첨부 Figma 참고+실제G4조건/시간/kWh표시 전체확인 후 codex/cad-v02 별도worktree. 최신main3d850fc와 CAD17 f2a1052 통합aebce5d, 최신도움말/기존기록보존. [결과](agent/YC_음성카드_STEP검증_CAD-V02.md).
+- 운영STEP예제30초타임아웃재현(관찰HTTP/스크립트오류0). 준비90초/형상30초·진행/HTTP오류/재시도, 구조시제품실제화면링크. 기본호출YC/헤이와이씨·휴디별칭유지, 실제정지3D캡처+후보조건·번호선택/나머지숨김/확대기존뷰어재생·전체/닫기/무효화·도움말갱신. Ra/향상률/가공조건가짜값없음.
+- CAD154·대상frontend15·전체build/비누격리/포맷/diff통과. Chrome정적제품빌드 STEP실패후재시도/32초지연성공·텍스트YC제안→정지3카드→3번확대/실제진행→정지/전체/반복/버튼/닫기/복원/입력무효화/Esc/390넘침0/pageerror0. 최초dev OCCT최적화reload로NC잃은실행실패후정적빌드검증통과. 캡처Git보관.
+- 실제마이크/TTS/인식서비스·실장비/실측·90초만료·DB·main병합/push/운영수정배포 미실행. 다음결과확인후반영/운영STEP재검증·실음성리허설. 새ID자동착수없음.
+
+## 2026-10-10 CAD-17 FANUC 검토용 출력 완료
+
+- 사용자 기종 미정 검토용 출력/남은 작업 진행 승인. codex/cad-17, 기준e137f61/기반738433d. [결과](agent/FANUC검토용_NC출력_CAD-17.md). O번호·ASCII/CRLF·G4 P밀리초·프로필 어댑터/원본행·최신 품질 재계산·해시/재해석·경로/이벤트/모달 보존·검토NC/JSON 저장·Worker/입력/탭무효화·UI/도움말 연결. 구현100% 제한범위, 실장비용 완료 아님.
+- CAD153(출력11)/대상frontend15·전체build/자산격리·범위포맷/diff 통과. 실제Chrome 원본600/300초→P600000/300000·후보3 10/10초→P10000/10000 수신/JSON·FANUC재업로드/재출력·프로그램/프로필무효화·1440/390넘침0/pageerror0. 출력NC의 의도된CRLF에 증거폴더gitattributes 지정 후 diff검사 통과. 구분자/O 헤더 비교 실패를 실행 의미 비교로 보정해 회귀 재통과. 최초 Vite reload중 STEP 대기 실패 후 전체 흐름 재통과. 합성파일/캡처 Git 보관.
+- 실제FANUC interpreter/장비/H·D/지그/실측품질·절감/실음성/운영·DB·main병합/push/배포 미실행. 현재공유checkout 사용자변경 미접촉. 다음 사용자 결과 확인/반영 또는 실제 기종/매뉴얼로 장비post 후속검증, 다음ID자동착수없음.
 
 # 2026-10-12 HELP-01 다섯 시스템 도움말·운영 배포 완료
 

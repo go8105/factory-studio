@@ -1,0 +1,2 @@
+# Preserve the exact downloaded NC bytes and recognize the required CRLF endings.
+*.review.nc -text whitespace=cr-at-eol

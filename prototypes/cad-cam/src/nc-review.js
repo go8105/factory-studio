@@ -1,3 +1,5 @@
+import { FANUC_REVIEW_PROFILE } from "./nc-controller.js";
+import { createNCPostReview } from "./nc-post-review.js";
 import { createHughVoice } from "./hugh-voice.js";
 import { createPlaybackReview } from "./nc-playback-review.js";
 import voiceSample from "../examples/cnc_CADV01_2026-10-08_voice.ngc?raw";
@@ -25,11 +27,11 @@ const $ = (s) => document.querySelector(s),
         })[c],
     );
 $("#app").innerHTML =
-  `<header><strong>FORM STUDIO · NC</strong><span>3축 밀링 경로 검토</span><nav><button id="sample">경로 예제</button><button id="stock-sample">소재 예제 NC</button><button id="proposal-sample">대기 검토 예제 NC</button><button id="voice-sample">휴디 발표 예제 NC (합성)</button><button id="load">NC 파일 열기</button><button id="export" disabled>분석 JSON 저장</button></nav><input id="file" type="file" accept=".nc,.ngc,.tap,.gcode,.cnc,.txt" hidden></header>
+  `<header><strong>FORM STUDIO · NC</strong><span>3축 밀링 경로 검토</span><nav><button id="sample">경로 예제</button><button id="stock-sample">소재 예제 NC</button><button id="proposal-sample">대기 검토 예제 NC</button><button id="voice-sample">YC 발표 예제 NC (합성)</button><button id="load">NC 파일 열기</button><button id="export" disabled>분석 JSON 저장</button></nav><input id="file" type="file" accept=".nc,.ngc,.tap,.gcode,.cnc,.txt" hidden></header>
 <div class="notice">NC에서 CAD 설계 이력은 복원하지 않습니다. 소재·STEP 정합 후 제한된 상면 가공 검토가 가능합니다. 시간·소비는 장비 입력과 별도 가정 모델로 검토합니다.</div>
-<main><aside class="inputs"><h2>파일과 초기 설정</h2><p id="filename">파일 미선택 · 서버 전송 없음</p><label>컨트롤러 프로필<select id="profile"><option value="${NC_PROFILE}">LinuxCNC 기반 · 3축 밀링 (제한)</option></select></label><p class="muted">LinuxCNC 숫자 리터럴 부분집합. 실제 장비 호환 보증 없음.</p><label>초기 단위<select id="unit"><option value="mm">mm</option><option value="inch">inch</option></select></label><div class="xyz">${["X", "Y", "Z"].map((axis) => `<label>초기 ${axis}<input id="${axis}" type="number" step="any" value="0"></label>`).join("")}</div><p class="muted">G54 작업좌표의 시작 위치. 기계좌표 변환 없음. 기본 G17/G90/G91.1/G94/G0, 보정 해제·주축/쿨런트 OFF, 활성 공구 미정.</p><label class="check"><input id="confirmed" type="checkbox">초기 좌표·단위와 기본 상태를 확인했습니다</label><label>입력 NC (붙여넣기)<textarea id="source" spellcheck="false" placeholder="G-code를 붙여넣거나 파일을 여세요"></textarea></label><div class="buttons"><button id="analyze">경로 해석</button><button id="cancel" disabled>해석 취소</button><button id="support">지원 명령</button></div><p id="status" role="status">NC를 입력하고 초기 설정을 확인하세요.</p><p class="muted">2MiB · 50,000행 · 500,000표시점 · 30초 상한. UTF-8/ASCII 텍스트.</p></aside>
+<main><aside class="inputs"><h2>파일과 초기 설정</h2><p id="filename">파일 미선택 · 서버 전송 없음</p><label>컨트롤러 프로필<select id="profile"><option value="${NC_PROFILE}">LinuxCNC 기반 · 3축 밀링 (제한)</option><option value="${FANUC_REVIEW_PROFILE}">FANUC 검토용 · 기종 미정 · G4 P 밀리초</option></select></label><p class="muted">선택 프로필의 숫자 리터럴 부분집합. LinuxCNC G4 P초 / FANUC 검토용 G4 P밀리초·O번호 필요. 실제 장비 호환 보증 없음.</p><label>초기 단위<select id="unit"><option value="mm">mm</option><option value="inch">inch</option></select></label><div class="xyz">${["X", "Y", "Z"].map((axis) => `<label>초기 ${axis}<input id="${axis}" type="number" step="any" value="0"></label>`).join("")}</div><p class="muted">G54 작업좌표의 시작 위치. 기계좌표 변환 없음. 기본 G17/G90/증분 I·J/G94/G0, 보정 해제·주축/쿨런트 OFF, 활성 공구 미정.</p><label class="check"><input id="confirmed" type="checkbox">초기 좌표·단위와 기본 상태를 확인했습니다</label><label>입력 NC (붙여넣기)<textarea id="source" spellcheck="false" placeholder="G-code를 붙여넣거나 파일을 여세요"></textarea></label><div class="buttons"><button id="analyze">경로 해석</button><button id="cancel" disabled>해석 취소</button><button id="support">지원 명령</button></div><p id="status" role="status">NC를 입력하고 초기 설정을 확인하세요.</p><p class="muted">2MiB · 50,000행 · 500,000표시점 · 30초 상한. UTF-8/ASCII 텍스트.</p></aside>
 <section class="workspace"><div class="view-head"><strong id="summary">해석 결과 없음</strong><button id="fit">전체 보기</button></div><div id="viewer"></div><div class="legend"><span>● 급속 G0</span><span>● 이송 G1/G2/G3 (절삭 여부 미정)</span><span>● 선택 구간</span></div><div class="navigation"><button id="previous" disabled>이전 이동</button><input id="position" aria-label="이동 구간" type="range" min="0" max="0" value="0" disabled><button id="next" disabled>다음 이동</button></div><pre id="detail">원본 행 또는 3D 경로를 선택하세요.</pre><div class="code-head"><h2>원본 NC · 행별 상태</h2><button id="page-prev" disabled>앞 200행</button><span id="page-label"></span><button id="page-next" disabled>뒤 200행</button></div><div id="code" role="list" aria-label="원본 NC 행"></div></section></main>
-<dialog id="help"><h2>지원 프로필과 해석 경계</h2><p>G0/G1 XYZ · G17 XY G2/G3(I/J 또는 부호 있는 R, I/J 전체 원) · G20/21 · G90/91 · G91.1 · G94 · G54 · G40/G49/G80 · G4 P초 · F/S/T · M3/4/5/6/7/8/9/2/30.</p><p>G43/H, G41/42/D, G28/G53, G18/19, 헬릭스/다회전, 고정 사이클, 다른 원점, 매크로/서브프로그램, 선택 블록, M0/1, 사용자 코드는 차단합니다. M 이벤트와 이동은 별도 행만 지원합니다.</p><p>첫 미지원/오류부터 이후 경로는 연결하지 않습니다. M6는 교환 이벤트만, 급속은 끝점 연결만 표시합니다. 장비의 자동 이동/전체 시간/kWh는 미정입니다. F 전체 보기 · Esc 해석 취소.</p><a href="https://linuxcnc.org/docs/html/gcode/g-code.html" target="_blank" rel="noopener">LinuxCNC 공식 명세</a><button id="close-help">닫기</button></dialog>`;
+<dialog id="help"><h2>지원 프로필과 해석 경계</h2><p>G0/G1 XYZ · G17 XY G2/G3(I/J 또는 부호 있는 R, I/J 전체 원) · G20/21 · G90/91 · G91.1 · G94 · G54 · G40/G49/G80 · G4 P초 · F/S/T · M3/4/5/6/7/8/9/2/30.</p><p>FANUC 검토용은 O1~O7999·G4 P밀리초 정수, G91.1 명령 미지원입니다. 내보내기는 결과 패널에서 검토용 파일로만 제공합니다.</p><p>G43/H, G41/42/D, G28/G53, G18/19, 헬릭스/다회전, 고정 사이클, 다른 원점, 매크로/서브프로그램, 선택 블록, M0/1, 사용자 코드는 차단합니다. M 이벤트와 이동은 별도 행만 지원합니다.</p><p>첫 미지원/오류부터 이후 경로는 연결하지 않습니다. M6는 교환 이벤트만, 급속은 끝점 연결만 표시합니다. 장비의 자동 이동/전체 시간/kWh는 미정입니다. F 전체 보기 · Esc 해석 취소.</p><a href="https://linuxcnc.org/docs/html/gcode/g-code.html" target="_blank" rel="noopener">LinuxCNC 공식 명세</a><button id="close-help">닫기</button></dialog>`;
 let result = null,
   worker = null,
   revision = 0,
@@ -65,6 +67,7 @@ proposalReview = createProposalReview(
   () => energyReview.analysis(),
   (line) => selectLine(line),
   playback,
+  viewer,
 );
 createHughVoice({
   propose() {
@@ -86,6 +89,12 @@ createHughVoice({
   stop: () => playback.pause(),
 });
 arrangeNCReview();
+const postReview = createNCPostReview(() => ({
+  nc: result,
+  stock: stockReview.analysis(),
+  energy: energyReview.analysis(),
+  proposalSettings: proposalReview.export().settings,
+}));
 function message(text) {
   $("#status").textContent = text;
 }
@@ -98,6 +107,7 @@ function stop() {
   $("#analyze").disabled = false;
 }
 function clear() {
+  postReview.reset();
   stockReview.resetNC(true);
   result = null;
   selected = null;
@@ -119,7 +129,7 @@ function invalidate() {
   clear();
   message("입력 변경 · 이전 분석 무효화. 다시 해석하세요.");
 }
-for (const id of ["source", "unit", "X", "Y", "Z", "confirmed"])
+for (const id of ["source", "profile", "unit", "X", "Y", "Z", "confirmed"])
   $("#" + id).addEventListener("input", () => {
     readRevision++;
     invalidate();
@@ -156,6 +166,7 @@ $("#file").onchange = async (e) => {
   }
 };
 $("#sample").onclick = () => {
+  $("#profile").value = NC_PROFILE;
   readRevision++;
   invalidate();
   fileName = "cnc_CAD12_2026-10-07_milling.ngc";
@@ -168,6 +179,7 @@ $("#sample").onclick = () => {
   message("합성 예제 초기 XYZ=0mm · 경로 해석을 누르세요.");
 };
 $("#stock-sample").onclick = () => {
+  $("#profile").value = NC_PROFILE;
   readRevision++;
   invalidate();
   fileName = "cnc_CAD13_2026-10-07_face.ngc";
@@ -180,6 +192,7 @@ $("#stock-sample").onclick = () => {
   message("20×20×8 소재 / T1 지름4·날15 / 목표 STEP 예제와 함께 검토하세요.");
 };
 $("#proposal-sample").onclick = () => {
+  $("#profile").value = NC_PROFILE;
   $("#stock-sample").click();
   fileName = "cnc_CAD15_2026-10-08_dwell.ngc";
   sourceText = proposalSample;
@@ -190,13 +203,14 @@ $("#proposal-sample").onclick = () => {
   );
 };
 $("#voice-sample").onclick = () => {
+  $("#profile").value = NC_PROFILE;
   $("#stock-sample").click();
   fileName = "cnc_CADV01_2026-10-08_voice.ngc";
   sourceText = voiceSample;
   $("#source").value = voiceSample;
   $("#filename").textContent = fileName + " · 합성 발표 예제";
   message(
-    "합성 발표 예제: 경로 해석 → STEP 예제·소재 검토 → 합성 장비 값·시간 에너지 계산 → 합성 검토 기준 → 휴디 제안. 실제 공정 검토가 아닙니다.",
+    "합성 발표 예제: 경로 해석 → STEP 예제·소재 검토 → 합성 장비 값·시간 에너지 계산 → 합성 검토 기준 → YC 제안. 실제 공정 검토가 아닙니다.",
   );
 };
 $("#analyze").onclick = () => {
@@ -207,7 +221,7 @@ $("#analyze").onclick = () => {
     $("#" + k).value.trim() === "" ? NaN : Number($("#" + k).value),
   );
   const settings = {
-    profile: NC_PROFILE,
+    profile: $("#profile").value,
     unit: $("#unit").value,
     initial,
     confirmed: $("#confirmed").checked,

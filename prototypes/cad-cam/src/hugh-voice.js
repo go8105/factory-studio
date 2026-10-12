@@ -2,7 +2,7 @@ import { HughCommands } from "./hugh-commands.js";
 export function createHughVoice(actions, host = window) {
   const panel = document.createElement("section");
   panel.className = "hugh-panel";
-  panel.innerHTML = `<div class="hugh-heading"><strong>Hugh-D · 휴디</strong><span id="hugh-state" role="status">음성 꺼짐</span></div><p>마이크를 켜고 “헤이 휴디” → “최적안 제안해줘” → “2번 시뮬레이션 실행해줘”. 호출 후 30초 동안 명령을 듣습니다.</p><p class="muted">Chrome 한국어 인식은 브라우저 서비스로 원격 처리될 수 있습니다. 인식 문장은 저장하지 않습니다. 열린 화면에서만 대기합니다.</p><div class="buttons"><button id="hugh-enable">음성 켜기 · 마이크 허용</button><button id="hugh-disable" disabled>마이크 끄기</button><button id="hugh-propose">NC 에너지 제안</button><button id="hugh-stop">시뮬레이션 정지</button></div><p id="hugh-reply" aria-live="polite">NC·소재·시간/소비·품질 검토를 먼저 준비하세요.</p><details><summary>텍스트 명령 테스트 (실제 음성 아님)</summary><form id="hugh-form"><label>테스트 명령<input id="hugh-text" autocomplete="off" placeholder="2번 시뮬레이션 실행해줘"></label><button>명령 테스트</button></form></details>`;
+  panel.innerHTML = `<div class="hugh-heading"><strong>YC · 와이씨</strong><span id="hugh-state" role="status">음성 꺼짐</span></div><p>마이크를 켜고 “헤이 와이씨” → “최적안 제안해줘” → “3번 시뮬레이션 실행해줘”. 호출 후 30초 동안 명령을 듣습니다.</p><p class="muted">Chrome 한국어 인식은 브라우저 서비스로 원격 처리될 수 있습니다. 인식 문장은 저장하지 않습니다. 열린 화면에서만 대기합니다.</p><div class="buttons"><button id="hugh-enable">음성 켜기 · 마이크 허용</button><button id="hugh-disable" disabled>마이크 끄기</button><button id="hugh-propose">NC 에너지 제안</button><button id="hugh-stop">시뮬레이션 정지</button></div><p id="hugh-reply" aria-live="polite">NC·소재·시간/소비·품질 검토를 먼저 준비하세요.</p><details><summary>텍스트 명령 테스트 (실제 음성 아님)</summary><form id="hugh-form"><label>테스트 명령<input id="hugh-text" autocomplete="off" placeholder="3번 시뮬레이션 실행해줘"></label><button>명령 테스트</button></form></details>`;
   document.querySelector(".workspace").prepend(panel);
   const $ = (id) => panel.querySelector("#" + id);
   const Recognition = host.SpeechRecognition || host.webkitSpeechRecognition;
@@ -47,7 +47,7 @@ export function createHughVoice(actions, host = window) {
         state(
           Date.now() < commands.until
             ? "명령 대기 · 30초"
-            : "호출 대기 · 헤이 휴디",
+            : "호출 대기 · 헤이 와이씨",
         );
     };
     r.onresult = (event) => {
@@ -109,7 +109,7 @@ export function createHughVoice(actions, host = window) {
     recognition = null;
     clearTimeout(retry);
     host.speechSynthesis.cancel();
-    state("휴디 응답 중");
+    state("와이씨 응답 중");
     utterance = new host.SpeechSynthesisUtterance(text);
     utterance.lang = "ko-KR";
     const finish = () => {

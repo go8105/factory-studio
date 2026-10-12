@@ -13,7 +13,7 @@ export function createStockReview(
   panel.innerHTML = `<summary>소재 · 공구 · STEP 정합</summary><p class="muted">G54 공구 끝점 기준 · mm. 보정 명령 H/D는 아직 미지원. 평엔드밀·수평/수직 면의 상면 형상 검토만 지원합니다.</p>
   <label>소재 이름<input id="material" value="검토용 알루미늄"></label><p>소재 최소 좌표 (mm)</p><div class="xyz">${axes.map((a) => `<label>${a}<input id="stock-${a}" type="number" value="0" step="any"></label>`).join("")}</div><p>소재 크기 (mm)</p><div class="xyz">${axes.map((a, i) => `<label>${a}<input id="size-${a}" type="number" value="${i === 2 ? 8 : 20}" step="any"></label>`).join("")}</div>
   <h3>공구표 · 평엔드밀</h3><div id="tool-rows"></div><button id="add-tool">공구 추가</button><p class="muted">지름·날 길이 mm. H/D는 참조 기록만, 보정 계산은 미지원입니다.</p><label>NC 시작 시 활성 T (미정은 빈칸)<input id="initial-tool" type="number" step="1" placeholder="미정"></label>
-  <button id="step-load">목표 STEP 열기</button><button id="step-sample">STEP 예제</button><input id="step-file" type="file" accept=".step,.stp" hidden><p id="step-info">STEP 미선택 · 서버 전송 없음</p><p>STEP→G54 평행 이동 (mm)</p><div class="xyz">${axes.map((a) => `<label>${a}<input id="offset-${a}" type="number" value="0" step="any"></label>`).join("")}</div><label>Z축 회전 (도)<input id="angle" type="number" value="0" step="any"></label><label>격자 간격 (mm)<input id="pitch" type="number" value="1" step="0.1" min="0.1" max="10"></label><label class="check"><input id="aligned" type="checkbox">STEP 치수와 G54 좌표 정합을 확인했습니다</label><label class="check"><input id="top-confirmed" type="checkbox">바닥부터 이어지는 단일 상면 형상입니다</label><div class="buttons"><button id="stock-analyze">소재 검토 실행</button><button id="stock-cancel" disabled>소재 검토 취소</button></div><p id="stock-status" role="status">NC·STEP·공구를 연결하세요.</p><p class="muted">STEP10MiB · 20,000삼각형 · 40,000셀 · 30초. 격자보다 작은 특징·홀더/지그/장비 이동 제외. 검출 0은 안전 보증이 아닙니다.</p>`;
+  <button id="step-load">목표 STEP 열기</button><button id="step-sample">STEP 예제</button><input id="step-file" type="file" accept=".step,.stp" hidden><p id="step-info">STEP 미선택 · 서버 전송 없음</p><p>STEP→G54 평행 이동 (mm)</p><div class="xyz">${axes.map((a) => `<label>${a}<input id="offset-${a}" type="number" value="0" step="any"></label>`).join("")}</div><label>Z축 회전 (도)<input id="angle" type="number" value="0" step="any"></label><label>격자 간격 (mm)<input id="pitch" type="number" value="1" step="0.1" min="0.1" max="10"></label><label class="check"><input id="aligned" type="checkbox">STEP 치수와 G54 좌표 정합을 확인했습니다</label><label class="check"><input id="top-confirmed" type="checkbox">바닥부터 이어지는 단일 상면 형상입니다</label><div class="buttons"><button id="stock-analyze">소재 검토 실행</button><button id="stock-cancel" disabled>소재 검토 취소</button></div><p id="stock-status" role="status">NC·STEP·공구를 연결하세요.</p><p class="muted">STEP10MiB · 커널 준비90초/형상·소재30초 · 20,000삼각형 · 40,000셀. 격자보다 작은 특징·홀더/지그/장비 이동 제외. 검출 0은 안전 보증이 아닙니다.</p>`;
   document.querySelector(".inputs").append(panel);
   const output = document.createElement("section");
   output.className = "stock-output";
@@ -173,10 +173,29 @@ export function createStockReview(
       analysis = null;
       $("stock-status").textContent = text;
     };
-    timer = setTimeout(() => reject("30초 상한 초과 · 결과 없음"), 30000);
+    timer = setTimeout(
+      () =>
+        reject(
+          w.step
+            ? "STEP 커널 준비90초 상한 초과 · 네트워크/파일을 확인하고 다시 시도하세요"
+            : "30초 상한 초과 · 결과 없음",
+        ),
+      w.step ? 90000 : 30000,
+    );
     w.onerror = () => reject("Worker 오류 · 결과 없음");
     w.onmessage = ({ data }) => {
       if (worker !== w || data.revision !== own) return;
+      if (data.progress) {
+        $("stock-status").textContent = data.progress;
+        if (data.phase === "read") {
+          clearTimeout(timer);
+          timer = setTimeout(
+            () => reject("STEP 형상 읽기30초 상한 초과"),
+            30000,
+          );
+        }
+        return;
+      }
       if (data.error) {
         reject(data.error);
         return;
