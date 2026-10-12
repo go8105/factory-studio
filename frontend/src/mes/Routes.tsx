@@ -24,7 +24,15 @@ import {
   type VersionStatus,
 } from "./common";
 
-type Step = { id: number; processId: number; sequenceNo: number };
+export type Step = {
+  id: number;
+  processId: number;
+  sequenceNo: number;
+  standardCycleSec?: string | null;
+  setupMinutes?: number | null;
+  isSubcontract: boolean;
+  subcontractorCode?: string | null;
+};
 export type Route = {
   id: number;
   itemId: number;
@@ -33,6 +41,20 @@ export type Route = {
   status: VersionStatus;
   publishedAt: string | null;
   steps: Step[];
+};
+type StepDraft = {
+  processId: number;
+  standardCycleSec?: string | null;
+  setupMinutes?: number | null;
+  isSubcontract: boolean;
+  subcontractorCode?: string | null;
+};
+type StepForm = {
+  processId: number;
+  standardCycleSec: string;
+  setupMinutes: string;
+  isSubcontract: boolean;
+  subcontractorCode: string;
 };
 type Named = { id: number; name: string };
 type Item = Named & { itemCode: string };
@@ -64,17 +86,60 @@ export function Routes() {
     itemId: 0,
     routeCode: "",
   });
-  const [steps, setSteps] = useState<number[]>();
-  const [stepProcessId, setStepProcessId] = useState<number>(0);
-  const [initialStepProcessId, setInitialStepProcessId] = useState<number>(0);
+  const [steps, setSteps] = useState<StepDraft[]>();
+  const [stepForm, setStepForm] = useState<StepForm>({
+    processId: 0,
+    standardCycleSec: "",
+    setupMinutes: "",
+    isSubcontract: false,
+    subcontractorCode: "",
+  });
+  const [initialStepForm, setInitialStepForm] = useState<StepForm>({
+    processId: 0,
+    standardCycleSec: "",
+    setupMinutes: "",
+    isSubcontract: false,
+    subcontractorCode: "",
+  });
 
   if (moduleOff(error)) return <ModuleOff />;
   const [routes, items, processes] = data ?? [undefined, [], []];
 
   const selectedId = panel && "routeId" in panel ? panel.routeId : undefined;
   const selected = routes?.find((r) => r.id === selectedId);
-  const draftSteps = steps ?? selected?.steps.map((s) => s.processId) ?? [];
+  const draftSteps: StepDraft[] =
+    steps ??
+    selected?.steps.map((s) => ({
+      processId: s.processId,
+      standardCycleSec: s.standardCycleSec ?? null,
+      setupMinutes: s.setupMinutes ?? null,
+      isSubcontract: Boolean(s.isSubcontract),
+      subcontractorCode: s.subcontractorCode ?? null,
+    })) ??
+    [];
   const errors = fieldErrors(saveError);
+
+  function toPayloadStep(s: StepDraft) {
+    const cycle = s.standardCycleSec?.trim() || null;
+    const setupStr =
+      s.setupMinutes !== undefined && s.setupMinutes !== null
+        ? String(s.setupMinutes).trim()
+        : "";
+    const setup =
+      setupStr !== "" && !Number.isNaN(Number(setupStr))
+        ? Number(setupStr)
+        : null;
+    const isSub = Boolean(s.isSubcontract);
+    const subCode =
+      isSub && s.subcontractorCode?.trim() ? s.subcontractorCode.trim() : null;
+    return {
+      processId: s.processId,
+      standardCycleSec: cycle,
+      setupMinutes: setup,
+      isSubcontract: isSub,
+      subcontractorCode: subCode,
+    };
+  }
 
   const itemLabel = (id: number) => {
     const item = items.find((i) => i.id === id);
@@ -88,7 +153,8 @@ export function Routes() {
   const dirty =
     (panel?.kind === "create" &&
       JSON.stringify(create) !== JSON.stringify(initialCreate)) ||
-    (panel?.kind === "step" && stepProcessId !== initialStepProcessId);
+    (panel?.kind === "step" &&
+      JSON.stringify(stepForm) !== JSON.stringify(initialStepForm));
   const guard = useDiscardGuard(dirty);
 
   function openCreate() {
@@ -106,13 +172,20 @@ export function Routes() {
   }
 
   function openStepForm(routeId: number, stepIndex: number | null) {
-    const targetRoute = routes?.find((r) => r.id === routeId);
-    const currentPid =
-      stepIndex !== null && targetRoute
-        ? (targetRoute.steps[stepIndex]?.processId ?? processes[0]?.id ?? 0)
-        : (processes[0]?.id ?? 0);
-    setStepProcessId(currentPid);
-    setInitialStepProcessId(currentPid);
+    const target =
+      stepIndex !== null && draftSteps[stepIndex]
+        ? draftSteps[stepIndex]
+        : undefined;
+    const initial: StepForm = {
+      processId: target?.processId ?? processes[0]?.id ?? 0,
+      standardCycleSec: target?.standardCycleSec ?? "",
+      setupMinutes:
+        target?.setupMinutes != null ? String(target.setupMinutes) : "",
+      isSubcontract: target?.isSubcontract ?? false,
+      subcontractorCode: target?.subcontractorCode ?? "",
+    };
+    setStepForm(initial);
+    setInitialStepForm(initial);
     setPanel({ kind: "step", routeId, stepIndex });
     setError(undefined);
   }
@@ -159,7 +232,7 @@ export function Routes() {
   async function saveSteps() {
     if (!selected || pending) return;
     const saved = await send<Route>(`/routes/${selected.id}/steps`, "PUT", {
-      processIds: draftSteps,
+      steps: draftSteps.map(toPayloadStep),
     });
     if (saved) setSteps(undefined);
   }
@@ -167,16 +240,30 @@ export function Routes() {
   async function submitStep(event: FormEvent) {
     event.preventDefault();
     if (pending || !selected) return;
-    let nextSteps: number[];
+    const newStep: StepDraft = {
+      processId: stepForm.processId || processes[0]?.id || 0,
+      standardCycleSec: stepForm.standardCycleSec.trim() || null,
+      setupMinutes:
+        stepForm.setupMinutes.trim() !== "" &&
+        !Number.isNaN(Number(stepForm.setupMinutes))
+          ? Number(stepForm.setupMinutes)
+          : null,
+      isSubcontract: stepForm.isSubcontract,
+      subcontractorCode:
+        stepForm.isSubcontract && stepForm.subcontractorCode.trim()
+          ? stepForm.subcontractorCode.trim()
+          : null,
+    };
+    let nextSteps: StepDraft[];
     if (panel?.kind === "step" && panel.stepIndex !== null) {
-      nextSteps = draftSteps.map((pid, idx) =>
-        idx === panel.stepIndex ? stepProcessId : pid,
+      nextSteps = draftSteps.map((s, idx) =>
+        idx === panel.stepIndex ? newStep : s,
       );
     } else {
-      nextSteps = [...draftSteps, stepProcessId];
+      nextSteps = [...draftSteps, newStep];
     }
     const saved = await send<Route>(`/routes/${selected.id}/steps`, "PUT", {
-      processIds: nextSteps,
+      steps: nextSteps.map(toPayloadStep),
     });
     if (saved) {
       openSteps(selected.id);
@@ -217,8 +304,19 @@ export function Routes() {
     { key: "itemId", label: "품목", render: (r) => itemLabel(r.itemId) },
   ];
 
+  type StepRow = {
+    id: number;
+    pid: number;
+    label: string;
+    standardCycleSec: string | null;
+    setupMinutes: number | null;
+    isSubcontract: boolean;
+    subcontractorCode: string | null;
+    step: StepDraft;
+  };
+
   const editable = selected?.status === "draft";
-  const stepColumns: Column<{ id: number; pid: number; label: string }>[] = [
+  const stepColumns: Column<StepRow>[] = [
     { key: "id", label: "순서", render: (r) => String(r.id + 1) },
     {
       key: "pid",
@@ -265,12 +363,37 @@ export function Routes() {
         ),
     },
     { key: "label", label: "공정" },
+    {
+      key: "standardCycleSec",
+      label: "표준 CT (초)",
+      render: (r) =>
+        r.step.standardCycleSec ? `${r.step.standardCycleSec}초` : "-",
+    },
+    {
+      key: "setupMinutes",
+      label: "준비 (분)",
+      render: (r) =>
+        r.step.setupMinutes != null ? `${r.step.setupMinutes}분` : "-",
+    },
+    {
+      key: "isSubcontract",
+      label: "구분",
+      render: (r) =>
+        r.step.isSubcontract ? (
+          <span>
+            외주
+            {r.step.subcontractorCode ? ` (${r.step.subcontractorCode})` : ""}
+          </span>
+        ) : (
+          "사내"
+        ),
+    },
   ];
 
   const dirtySteps =
     steps !== undefined &&
-    JSON.stringify(steps) !==
-      JSON.stringify(selected?.steps.map((s) => s.processId));
+    JSON.stringify(steps.map(toPayloadStep)) !==
+      JSON.stringify((selected?.steps ?? []).map((s) => toPayloadStep(s)));
 
   const formError = Object.keys(errors).length ? undefined : saveError;
 
@@ -426,10 +549,15 @@ export function Routes() {
                     : " · 폐기된 버전은 바꿀 수 없습니다.")}
               </p>
               <DataTable
-                rows={draftSteps.map((pid, index) => ({
+                rows={draftSteps.map((step, index) => ({
                   id: index,
-                  pid,
-                  label: processLabel(pid),
+                  pid: step.processId,
+                  label: processLabel(step.processId),
+                  standardCycleSec: step.standardCycleSec ?? null,
+                  setupMinutes: step.setupMinutes ?? null,
+                  isSubcontract: Boolean(step.isSubcontract),
+                  subcontractorCode: step.subcontractorCode ?? null,
+                  step,
                 }))}
                 columns={stepColumns}
                 caption={`${selected.routeCode} v${selected.version} 공정 순서`}
@@ -486,8 +614,13 @@ export function Routes() {
                 <label htmlFor="step-process">공정</label>
                 <select
                   id="step-process"
-                  value={stepProcessId || processes[0]?.id || ""}
-                  onChange={(e) => setStepProcessId(Number(e.target.value))}
+                  value={stepForm.processId || processes[0]?.id || ""}
+                  onChange={(e) =>
+                    setStepForm({
+                      ...stepForm,
+                      processId: Number(e.target.value),
+                    })
+                  }
                 >
                   {processes.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -496,7 +629,71 @@ export function Routes() {
                     </option>
                   ))}
                 </select>
+                {errors.processId && <small>{errors.processId}</small>}
               </div>
+              <Field
+                label="표준 사이클 타임 (초)"
+                type="text"
+                inputMode="decimal"
+                value={stepForm.standardCycleSec}
+                placeholder="예: 45.50 (소수 2자리 이내)"
+                error={errors.standardCycleSec}
+                onChange={(e) =>
+                  setStepForm({
+                    ...stepForm,
+                    standardCycleSec: e.target.value,
+                  })
+                }
+              />
+              <Field
+                label="준비 시간 (분)"
+                type="number"
+                min={0}
+                value={stepForm.setupMinutes}
+                placeholder="예: 15"
+                error={errors.setupMinutes}
+                onChange={(e) =>
+                  setStepForm({
+                    ...stepForm,
+                    setupMinutes: e.target.value,
+                  })
+                }
+              />
+              <div className="field">
+                <label className="inline-check" htmlFor="step-is-subcontract">
+                  <input
+                    id="step-is-subcontract"
+                    type="checkbox"
+                    checked={stepForm.isSubcontract}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setStepForm({
+                        ...stepForm,
+                        isSubcontract: checked,
+                        subcontractorCode: checked
+                          ? stepForm.subcontractorCode
+                          : "",
+                      });
+                    }}
+                  />
+                  외주 공정
+                </label>
+              </div>
+              {stepForm.isSubcontract && (
+                <Field
+                  label="외주처 코드"
+                  value={stepForm.subcontractorCode}
+                  maxLength={40}
+                  placeholder="예: SC-VEND01"
+                  error={errors.subcontractorCode}
+                  onChange={(e) =>
+                    setStepForm({
+                      ...stepForm,
+                      subcontractorCode: e.target.value,
+                    })
+                  }
+                />
+              )}
             </FormPanel>
           )}
         </div>

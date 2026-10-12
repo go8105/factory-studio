@@ -404,6 +404,12 @@ def _with_children(
     connection, scoped, v: Versioned, row: dict[str, Any]
 ) -> dict[str, Any]:
     children = repo.list_rows(connection, scoped, v.child, {v.parent_column: row["id"]})
+    if v is BOMS:
+        substitutes = repo.list_rows(connection, scoped, repo.SUBSTITUTE)
+        by_line: dict[int, list[dict[str, Any]]] = {}
+        for s in substitutes:
+            by_line.setdefault(s["bomLineId"], []).append(s)
+        children = [{**c, "substitutes": by_line.get(c["id"], [])} for c in children]
     key = "steps" if v is ROUTES else "lines"
     return {**row, key: children}
 
@@ -413,6 +419,14 @@ def list_versions(context: AuthContext, v: Versioned) -> list[dict[str, Any]]:
         scoped = read_scope(connection, context, MODULE)
         rows = repo.list_rows(connection, scoped, v.master)
         children = repo.list_rows(connection, scoped, v.child)
+        if v is BOMS:
+            substitutes = repo.list_rows(connection, scoped, repo.SUBSTITUTE)
+            by_line: dict[int, list[dict[str, Any]]] = {}
+            for s in substitutes:
+                by_line.setdefault(s["bomLineId"], []).append(s)
+            children = [
+                {**c, "substitutes": by_line.get(c["id"], [])} for c in children
+            ]
     key = "steps" if v is ROUTES else "lines"
     by_parent: dict[int, list[dict[str, Any]]] = {}
     for c in children:
@@ -496,14 +510,37 @@ def revise_version(
             connection, scoped, v.child, {v.parent_column: row_id}
         )
         skip = {"id", "createdAt", repo._camel(v.parent_column)}
-        repo.replace_children(
-            connection,
-            scoped,
-            v.child.table,
-            v.parent_column,
-            row["id"],
-            [{_snake(k): c[k] for k in c if k not in skip} for c in children],
-        )
+        if v is BOMS:
+            for c in children:
+                line_values = {
+                    _snake(k): c[k] for k in c if k not in skip and k != "substitutes"
+                }
+                new_line = repo.insert_row(
+                    connection,
+                    scoped,
+                    repo.LINE,
+                    {"bom_version_id": row["id"], **line_values},
+                )
+                subs = repo.list_rows(
+                    connection, scoped, repo.SUBSTITUTE, {"bom_line_id": c["id"]}
+                )
+                for s in subs:
+                    sub_values = {
+                        "bom_line_id": new_line["id"],
+                        "substitute_item_id": s["substituteItemId"],
+                        "priority": s["priority"],
+                        "ratio": s["ratio"],
+                    }
+                    repo.insert_row(connection, scoped, repo.SUBSTITUTE, sub_values)
+        else:
+            repo.replace_children(
+                connection,
+                scoped,
+                v.child.table,
+                v.parent_column,
+                row["id"],
+                [{_snake(k): c[k] for k in c if k not in skip} for c in children],
+            )
         return _with_children(connection, scoped, v, row), v.master.table, row["id"]
 
     return _action(
@@ -539,6 +576,34 @@ def set_children(
 
     return _action(
         context, f"{v.master.table}.children", key, {"id": row_id, "rows": rows}, run
+    )
+
+
+def set_bom_lines(
+    context: AuthContext,
+    row_id: int,
+    rows: list[dict[str, Any]],
+    key: str,
+):
+    """초안의 구성 자재를 material_item_id 키 기반으로 맞춘다 (UPDATE/INSERT/DELETE)."""
+
+    def run(connection, scoped):
+        version = _get_version(connection, scoped, BOMS, row_id)
+        if version["status"] != "draft":
+            raise _locked(
+                "게시·폐기된 BOM은 바꿀 수 없습니다. 개정해서 새 버전으로 편집하세요.",
+                "VERSION_LOCKED",
+            )
+        children = validate_lines(connection, scoped, version, rows)
+        repo.reconcile_bom_lines(connection, scoped, row_id, children)
+        return (
+            _with_children(connection, scoped, BOMS, version),
+            BOMS.master.table,
+            row_id,
+        )
+
+    return _action(
+        context, f"{BOMS.master.table}.lines", key, {"id": row_id, "rows": rows}, run
     )
 
 
@@ -588,6 +653,19 @@ def delete_version(context: AuthContext, v: Versioned, row_id: int, key: str) ->
                 f"다른 데이터가 참조 중인 {v.label}은(는) 삭제할 수 없습니다.",
                 {"references": references},
             )
+        if v is BOMS:
+            lines = repo.list_rows(
+                connection, scoped, repo.LINE, {"bom_version_id": row_id}
+            )
+            for line in lines:
+                repo.replace_children(
+                    connection,
+                    scoped,
+                    "mes.bom_substitute",
+                    "bom_line_id",
+                    line["id"],
+                    [],
+                )
         repo.replace_children(
             connection, scoped, v.child.table, v.parent_column, row_id, []
         )
@@ -601,13 +679,43 @@ def validate_steps(connection, scoped, version, rows) -> list[dict[str, Any]]:
     ids = [r["process_id"] for r in rows]
     if set(ids) - repo.existing_ids(connection, scoped, "mes.process", ids):
         raise _field("steps", "유효하지 않은 공정이 있습니다.")
-    # 같은 공정을 두 번 거치는 경로(재검사 등)는 허용한다. 순서는 요청 순서 1, 2, 3 …
-    return [{"process_id": pid, "sequence_no": n} for n, pid in enumerate(ids, 1)]
+    result = []
+    for n, r in enumerate(rows, 1):
+        where = f"{n}번째 공정: "
+        cycle_sec = r.get("standard_cycle_sec")
+        if cycle_sec is not None and Decimal(cycle_sec) <= 0:
+            raise _field("steps", where + "표준 사이클 타임은 0보다 커야 합니다.")
+        setup = r.get("setup_minutes")
+        if setup is not None and setup < 0:
+            raise _field("steps", where + "준비 시간은 0 이상이어야 합니다.")
+        is_subcontract = bool(r.get("is_subcontract", False))
+        sub_code = (r.get("subcontractor_code") or "").strip() or None
+        if not is_subcontract:
+            sub_code = None
+        result.append(
+            {
+                "process_id": r["process_id"],
+                "sequence_no": n,
+                "standard_cycle_sec": cycle_sec,
+                "setup_minutes": setup,
+                "is_subcontract": is_subcontract,
+                "subcontractor_code": sub_code,
+            }
+        )
+    return result
 
 
 def validate_lines(connection, scoped, version, rows) -> list[dict[str, Any]]:
     items = {i["id"]: i for i in repo.list_rows(connection, scoped, repo.ITEM)}
     conversions = repo.list_rows(connection, scoped, repo.CONVERSION)
+    process_ids = [
+        r["issue_process_id"] for r in rows if r.get("issue_process_id") is not None
+    ]
+    valid_processes = (
+        repo.existing_ids(connection, scoped, "mes.process", process_ids)
+        if process_ids
+        else set()
+    )
     seen: set[int] = set()
     result = []
     for n, r in enumerate(rows, 1):
@@ -632,5 +740,108 @@ def validate_lines(connection, scoped, version, rows) -> list[dict[str, Any]]:
             raise _field("lines", where + "소요량은 0보다 커야 합니다.")
         if not 0 <= Decimal(r["loss_rate"]) < 100:
             raise _field("lines", where + "손실률은 0 이상 100 미만입니다.")
+        issue_proc = r.get("issue_process_id")
+        if issue_proc is not None and issue_proc not in valid_processes:
+            raise _field("lines", where + "유효하지 않은 공정입니다.")
         result.append({**r, "line_no": n})
     return result
+
+
+def list_substitutes(
+    context: AuthContext, bom_version_id: int, line_id: int
+) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        _get_version(connection, scoped, BOMS, bom_version_id)
+        line = repo.get_row(connection, scoped, repo.LINE, line_id)
+        if line is None or line["bomVersionId"] != bom_version_id:
+            raise _not_found("구성 자재")
+        return repo.list_rows(
+            connection, scoped, repo.SUBSTITUTE, {"bom_line_id": line_id}
+        )
+
+
+def validate_substitutes(
+    connection,
+    scoped,
+    version: dict[str, Any],
+    line: dict[str, Any],
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    items = {i["id"]: i for i in repo.list_rows(connection, scoped, repo.ITEM)}
+    seen: set[int] = set()
+    result = []
+    for n, r in enumerate(rows, 1):
+        where = f"{n}번째 대체 자재: "
+        sub_id = r["substitute_item_id"]
+        sub_item = items.get(sub_id)
+        if sub_item is None:
+            raise _field("substitutes", where + "유효하지 않은 품목입니다.")
+        if sub_id == version["itemId"]:
+            raise _field(
+                "substitutes", where + "만들 품목 자신은 대체 자재가 될 수 없습니다."
+            )
+        if sub_id == line["materialItemId"]:
+            raise _field(
+                "substitutes",
+                where + "원래 구성 자재와 같은 품목을 대체 자재로 지정할 수 없습니다.",
+            )
+        if sub_id in seen:
+            raise _field("substitutes", where + "같은 대체 자재가 이미 있습니다.")
+        seen.add(sub_id)
+        priority = r.get("priority", 1)
+        if priority < 1:
+            raise _field("substitutes", where + "우선순위는 1 이상이어야 합니다.")
+        ratio = Decimal(r["ratio"])
+        if ratio <= 0:
+            raise _field("substitutes", where + "대체 비율은 0보다 커야 합니다.")
+        result.append(
+            {
+                "substitute_item_id": sub_id,
+                "priority": priority,
+                "ratio": str(ratio),
+            }
+        )
+    return result
+
+
+def set_substitutes(
+    context: AuthContext,
+    bom_version_id: int,
+    line_id: int,
+    rows: list[dict[str, Any]],
+    key: str,
+):
+    """BOM 구성 자재의 대체 자재를 교체한다. 초안에서만 편집할 수 있다."""
+
+    def run(connection, scoped):
+        version = _get_version(connection, scoped, BOMS, bom_version_id)
+        if version["status"] != "draft":
+            raise _locked(
+                "게시·폐기된 BOM은 바꿀 수 없습니다. 개정해서 새 버전으로 편집하세요.",
+                "VERSION_LOCKED",
+            )
+        line = repo.get_row(connection, scoped, repo.LINE, line_id)
+        if line is None or line["bomVersionId"] != bom_version_id:
+            raise _not_found("구성 자재")
+        validated = validate_substitutes(connection, scoped, version, line, rows)
+        repo.replace_children(
+            connection,
+            scoped,
+            "mes.bom_substitute",
+            "bom_line_id",
+            line_id,
+            validated,
+        )
+        saved = repo.list_rows(
+            connection, scoped, repo.SUBSTITUTE, {"bom_line_id": line_id}
+        )
+        return saved, "mes.bom_substitute", line_id
+
+    return _action(
+        context,
+        "mes.bom_substitute.update",
+        key,
+        {"bomVersionId": bom_version_id, "lineId": line_id, "rows": rows},
+        run,
+    )

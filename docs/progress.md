@@ -40,6 +40,40 @@ antigravity 브랜치 `antigravity/anti-help-01`에서 수행.
 - HR 3편(H-16, H-17, H-18)은 main 커밋 `f14b75b`에서 이미 완료되어 있어 중복 작성하지 않고 ANTI-HELP-01은 이 수정으로 종료.
 - 검증: `npm --prefix frontend test -- src/portal/content-pages.test.tsx` 통과(18/18), `npm --prefix frontend test -- src/mes/masters.test.tsx` 통과(5/5), `npm --prefix frontend run build` 통과, headless Chromium 브라우저에서 `/mes/codes`, `/mes/workers`, `/mes/labels`, `/mes/inspection-items`의 "? 도움말" 클릭 시 각 도움말 화면이 정상 로드되고 "이 화면 열기 →" 링크가 올바르게 작동함을 검증.
 
+# 2026-10-12 W2a-1b2-rest MES BOM(M-15) BOM-FIX 및 R-5 화면 완료
+
+- 브랜치: `antigravity/w2a-1b2-rest`
+- BOM-FIX 순서 교체 시 `line_no` 유니크 위반 해결:
+  - `reconcile_bom_lines` 갱신 루프에서 살아남는 줄의 `line_no`를 1단계에서 `-idx` 임시 음수로 일괄 UPDATE 후 2단계에서 최종 순서 번호로 UPDATE하여 UK 충돌 방지.
+  - 신규 테스트 `test_bom_lines_reordering_preserves_line_ids_and_substitutes` 추가 (`test_mes_route_bom.py` 34 passed).
+- R-5 `Boms.tsx` 화면 보강:
+  - 구성 자재 추가/수정 폼에 투입 공정(`issueProcessId`) 드롭다운 연동 (비우면 `null` 전송).
+  - 구성 자재 행별 대체 자재 펼치기 토글 및 대체 자재 추가/삭제 기능 구현 (`/boms/{id}/lines/{lineId}/substitutes`, `ratio` string 정규화).
+  - 구성 자재 행 순서 변경(↑/↓) 및 '순서 저장' 버튼.
+  - 대체 자재가 딸린 행 삭제 시도 시 409 `REFERENCED_BY_OTHERS` 감지 후 행 옆에 인라인 빨간 에러 안내(`대체 자재를 먼저 지우세요`) 표시.
+  - 게시·폐기 버전에서 대체 자재 편집 버튼 잠금/숨김.
+  - 390px 반응형 뷰포트 레이아웃 지원.
+- 검증:
+  - `backend/tests/test_mes_route_bom.py` 34 passed, 백엔드 전체 MES 138 passed, `ruff check`/`format` 통과.
+  - `frontend/src/mes/versions.test.tsx` 13 passed (BOM 투입 공정 추가, 대체 자재 펼침/추가, 409 인라인 에러 안내, 순서 교체 및 저장 등 4건 신규 추가).
+  - 프론트엔드 전체 75파일 601 passed, `npm run typecheck`, `npm run lint`, `npm run build` 통과.
+  - Playwright 브라우저 E2E 실동작 검증: BOM 생성 -> 투입 공정 지정 자재 2건 추가 -> 대체 자재 추가 -> 순서 교체 및 저장(BOM-FIX 검증) -> 새로고침 후 유지 확인 -> 409 안내 확인 -> 대체 자재 삭제 후 줄 삭제 -> 게시(잠금 전환) -> 390px 화면 점검 완료.
+- 다음: W2a-1b2-rest R-1~R-5 전체 완료 보고 및 사용자 확인 후 main 병합.
+
+# 2026-10-12 W2a-1b2-rest MES BOM(M-15) R-3·R-4 백엔드 완료
+
+- 브랜치: `antigravity/w2a-1b2-rest`
+- R-3 BOM 투입 공정 및 키 기반 맞춤 저장:
+  - `mes.bom_line.issue_process_id`: `repository.LINE` 컬럼, `schema.BomLineIn`, `service.validate_lines`(`mes.process` 확인) 반영.
+  - `reconcile_bom_lines`: `PUT /boms/{id}/lines` 저장 시 `material_item_id`를 키로 기존 줄을 UPDATE하여 `bom_line.id` 유지 및 대체 자재 보존. 삭제 대상 줄에 대체 자재가 있으면 409 `REFERENCED_BY_OTHERS` ("대체 자재가 있는 구성 자재는 삭제할 수 없습니다. 대체 자재를 먼저 지우세요.") 반환.
+- R-4 BOM 대체 자재 조회·편집:
+  - `GET /boms/{id}/lines/{lineId}/substitutes`, `PUT /boms/{id}/lines/{lineId}/substitutes` 엔드포인트 구현.
+  - 초안(`draft`)에서만 편집 가능 (`VERSION_LOCKED` 409).
+  - 완제품 자신 / 원래 구성 자재와 동일 품목 / 중복 등록 / 존재하지 않는 품목 차단.
+  - `revise`(개정) 시 구성 자재와 함께 대체 자재(`mes.bom_substitute`) 복제.
+- 검증: `backend/tests/test_mes_route_bom.py` 신규 6개 테스트 추가, 33 passed, 전체 MES 157 passed, `ruff check`/`ruff format` 통과.
+- 다음: 사용자 확인 후 R-5(`Boms.tsx` 투입 공정 + 대체 자재 화면) 착수.
+
 # 2026-10-12 HELP-01 제품 도움말 구현 대조·로컬 검증 완료
 
 사용자 다섯 시스템 문서화·main/origin·기존 실서버 배포 승인. 기준main3306777, 브랜치codex/product-help-20261012, 별도factory-studio-help 체크아웃. 제품 정적 도움말과 진입 링크만 변경; 공유main의 진행 중 MES 변경은 보존/제외. HR H-16~18 신설, Flow 행편집·부모집계·보관복구·권한·/work-os 이동 보정, GW 전체 합성 업무 안내, CAD 가정/실측·3D 시연 구분과 README 이력 표시. 상세 [구현 대조](agent/제품도움말_구현대조_HELP-01.md).
