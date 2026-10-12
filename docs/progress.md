@@ -1,3 +1,9 @@
+## 2026-10-10 CAD-17 FANUC 검토용 출력 완료
+
+- 사용자 기종 미정 검토용 출력/남은 작업 진행 승인. codex/cad-17, 기준e137f61/기반738433d. [결과](agent/FANUC검토용_NC출력_CAD-17.md). O번호·ASCII/CRLF·G4 P밀리초·프로필 어댑터/원본행·최신 품질 재계산·해시/재해석·경로/이벤트/모달 보존·검토NC/JSON 저장·Worker/입력/탭무효화·UI/도움말 연결. 구현100% 제한범위, 실장비용 완료 아님.
+- CAD153(출력11)/대상frontend15·전체build/자산격리·범위포맷/diff 통과. 실제Chrome 원본600/300초→P600000/300000·후보3 10/10초→P10000/10000 수신/JSON·FANUC재업로드/재출력·프로그램/프로필무효화·1440/390넘침0/pageerror0. 출력NC의 의도된CRLF에 증거폴더gitattributes 지정 후 diff검사 통과. 구분자/O 헤더 비교 실패를 실행 의미 비교로 보정해 회귀 재통과. 최초 Vite reload중 STEP 대기 실패 후 전체 흐름 재통과. 합성파일/캡처 Git 보관.
+- 실제FANUC interpreter/장비/H·D/지그/실측품질·절감/실음성/운영·DB·main병합/push/배포 미실행. 현재공유checkout 사용자변경 미접촉. 다음 사용자 결과 확인/반영 또는 실제 기종/매뉴얼로 장비post 후속검증, 다음ID자동착수없음.
+
 # 2026-10-12 HELP-01 다섯 시스템 도움말·운영 배포 완료
 
 제품027505f 로컬main/origin/main/실서버 반영(21:58KST). 정확HEAD CI38249603910 SUCCESS: backend1010/skip1·perf1·frontend596/75파일·tools133·타입/lint/format/build/DDL왕복. 표준배포 성공·CI 우회 없음·보호백업검증·회사59/회사+회원59원장/계정 전체hash보존·시드유지·APIactive/DDL0/원점공개200/5xx0·기존이지스active/office200. 공개10주소200/주요JS서버해시일치·운영다섯시스템/HR3편 렌더링 및 이전G14→F02 이동 확인. 결과 기록 커밋은 배포 제품 커밋과 구분한다. 상세 [구현 대조·검증](agent/제품도움말_구현대조_HELP-01.md).

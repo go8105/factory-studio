@@ -1,3 +1,10 @@
+## 2026-10-10 CAD-17 FANUC 검토용 완료 인계
+
+- branch codex/cad-17, `/Users/hwang-kyoungho/projects/factory-studio-cad17`, 기준main e137f61/내부기반738433d, 구현커밋 dcf7a8f, 최종인계커밋 `git log -1 --oneline`. 사용자기종미정 검토용출력 승인. [결과](FANUC검토용_NC출력_CAD-17.md)/[계약](../modules/cad-cam/NC출력_설계_CAD-17.md).
+- 완료: FANUC review profile/O1~7999/G4 P밀리초·기존 NC→출력/다시열기·재해석/원본행매핑/의미보존·품질후보재계산·UI다운로드/JSON·30초취소/무효화/도움말. 검토용100%, 실장비용아님. CAD153/프런트대상15/build/격리·Chrome 실제다운로드/재업로드/재출력/1440·390 통과. 합성 파일/캡처 docs/agent/assets/cad-17.
+- 다음: 사용자 결과 확인 후 반영 또는 기종/매뉴얼확정 후 실제post/장비 검증. FANUC 실제 interpreter/H·D/실기계/실측/음성/운영/DB 미검증. main병합/push/배포 없음. 다른 작업자 사이드바 코드 보존.
+- 재현: Node24에서 prototype test/frontend대상test/build, nc-review.html의 도움말/출력 순서. node_modules 공유 symlink는검증후제거; 필요시npm ci. 새 로컬Vite5257 검증종료, Chromeheadless닫음. work/env스테이징없음. 다음ID자동착수없음.
+
 # 2026-10-12 HELP-01 다섯 시스템 도움말·운영 배포 완료
 
 제품027505f main/origin/실서버 반영(21:58KST), 정확HEAD CI38249603910 SUCCESS: backend1010/skip1·perf1·frontend596·tools133·타입/lint/format/build/DDL왕복. 표준배포 성공·CI우회 없음·보호백업20261012-help-f14b75b 검증·회사59/회사+회원59원장/계정 전체hash보존·템플릿sv-20261009-gw1유지·APIactive/DDL0/공개원점200/5xx0·기존이지스active/office200·공개10주소200/JS해시일치·운영 도움말 렌더링/관련이동 확인. 배포 후 결과 기록 커밋은 제품과 구분한다. 상세 [구현 대조·검증](제품도움말_구현대조_HELP-01.md).

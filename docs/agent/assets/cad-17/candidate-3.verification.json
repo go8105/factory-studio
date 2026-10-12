@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "post": "fanuc-mill-review-v1",
+  "programNumber": 1001,
+  "verificationProfile": "fanuc-mill-review-v1",
+  "lineMap": [
+    null,
+    null,
+    null,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    null,
+    null
+  ],
+  "controllerModel": null,
+  "machineReady": false,
+  "dwellUnit": "milliseconds",
+  "notes": [
+    "원본 주석 제외/코드 대문자·CRLF 정규화",
+    "G91.1 생략: 증분 I/J 검토 가정"
+  ],
+  "number": 3,
+  "sourceHash": "5713aa350c020f92979a3f0e30d4f8a88254368e1197bead6d81fb4243b2a636",
+  "outputHash": "9462fae18abae6089eb29d0230bd1f89d89d411828a06f2610347873bf1e9190",
+  "initialSettings": {
+    "profile": "linuxcnc-mill-subset-v1",
+    "unit": "mm",
+    "initial": [
+      -3,
+      -1,
+      10
+    ],
+    "confirmed": true
+  },
+  "changes": [
+    {
+      "line": 36,
+      "fromSeconds": 600,
+      "toSeconds": 10,
+      "source": "합성 대기 · 최소10초 가정, 실제 공정 검토 아님"
+    },
+    {
+      "line": 37,
+      "fromSeconds": 300,
+      "toSeconds": 10,
+      "source": "합성 대기 · 최소10초 가정, 실제 공정 검토 아님"
+    }
+  ],
+  "moves": 27,
+  "events": 8,
+  "verification": "restricted-parser-roundtrip",
+  "limitations": [
+    "기계 초기 G54 XYZ·기본 모달 상태/공구표 확인 필요",
+    "H/D 보정·홀더/지그·실제 장비 검증 없음",
+    "실제 컨트롤러 interpreter 검증 아님 · 자동 장비 실행 없음"
+  ]
+}
