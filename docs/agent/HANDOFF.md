@@ -1,27 +1,17 @@
-# 2026-10-12 W2a-1b2-rest MES 공정 경로(M-14) R-1 완료 및 중단
+# 2026-10-12 W2a-1b2-rest MES 공정 경로(M-14) R-2 완료
 
 - 브랜치: `antigravity/w2a-1b2-rest`
-- 마지막 커밋: `3b069cd` (feat(mes): R-1 공정 경로 단계별 속성 백엔드 및 테스트 구현)
-- 진행 상태: **R-1까지 완료 / R-2~R-5 미착수**
+- 마지막 커밋: `6a7158a` (feat(mes): R-2 공정 경로 화면 단계별 속성 편집 및 브라우저 검증 완료)
+- 진행 상태: **R-1, R-2 완료 / R-3~R-5 대기**
 - 작업 내용:
-  - `mes.route_step` 컬럼 확장: `standard_cycle_sec`, `setup_minutes`, `is_subcontract`, `subcontractor_code`
-  - `schema.RouteSteps` 본문을 `steps: [{processId, standardCycleSec?, setupMinutes?, isSubcontract, subcontractorCode?}]` 객체 목록으로 변경
-  - `validate_steps` 유효성 검사(표준 사이클 > 0, 준비 시간 >= 0, 외주 아닐 시 subcontractor_code null 정규화)
-  - `backend/tests/test_mes_route_bom.py` 27 passed (신규 속성 CRUD/검증/개정 복사 테스트 포함), 전체 MES 131 passed
+  - R-1: `mes.route_step` 컬럼 확장(표준 CT, 준비 분, 외주 여부, 외주처), `schema.RouteSteps` 객체 목록 변경, `validate_steps` 검증 및 정규화, 백엔드 테스트 27 passed, 전체 MES 131 passed
+  - R-2: `Routes.tsx` 단계별 4개 속성 편집 폼 및 목록 컬럼 추가, 외주 체크 해제 시 외주처 코드 비움/감춤, 빈 칸 null 정규화, `versions.test.tsx` 갱신 및 신규 속성 추가 테스트(9 passed), 전체 프론트엔드 75파일 597테스트/typecheck/lint/build 통과
+  - 브라우저 실동작 검증: Playwright(1280px 및 390px 모바일)로 경로 등록 → 단계 추가(외주 25.50초/15분/VENDOR-001, 사내 10.00초/5분) → 순서 저장 → 새로고침 후 값 유지 확인 → 게시 완료까지 실제 확인 완료
 
-### 중단 상태 주의 (반드시 확인)
+### 다음 작업 (R-3)
 
-이 브랜치는 **반쯤 고친 상태다.** 백엔드는 `steps: [{processId, ...}]`를 받는데 화면은 아직 `processIds: [...]`를 보낸다. 남은 곳은 세 군데다:
-- `frontend/src/mes/Routes.tsx:162`
-- `frontend/src/mes/Routes.tsx:179`
-- `frontend/src/mes/versions.test.tsx:223`
-
-그래서 **이 브랜치에서는 `/mes/routes`의 단계 저장이 400으로 실패한다.** 정상이다. R-2를 끝내야 맞는다.
-→ **이 브랜치를 main에 병합하지 않는다.** R-2까지 끝난 뒤에 병합한다.
-
-### 재개할 때
-
-`docs/agent/W2a-1b2-rest_MES경로BOM.md`의 R-2부터 시작한다. 그 전에 `git branch --show-current`가 `antigravity/w2a-1b2-rest`인지 확인한다.
+- 대상: M-15 백엔드 — `bom_line.issue_process_id` (`repository.LINE`·`BomLineIn`·`validate_lines`)
+- 주의: M-15 대체 자재(R-4)에서는 "구성 자재 교체 시 대체 자재를 어떻게 하는가"를 사전에 결정해서 물어보고 진행한다.
 
 ---
 
