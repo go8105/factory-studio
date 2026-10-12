@@ -6,6 +6,29 @@
 
 통합은 별도factory-studio-help-main의main에서 수행; 원래 체크아웃의 병행antigravity 브랜치·MES 미추적 도움말 보존. 검증 서버/탭 종료, 기존8000/5173 유지. 다음은 사용자 요청 후에만 P1근태정책-화면일치→실회사GW인증/권한→PWA실기기, P2Flow업무일지/규모→CAD실측/음성→3D실데이터. 재현: Node24 frontend npm test/typecheck/lint/format:check/build, db:validate, 프로젝트uv Python3.14 격리감사. pytest는 격리 *_test DB만 사용. 후속 개발 자동 착수 금지.
 
+# 2026-10-12 ANTI-HELP-01 MES 화면 도움말 4편 작성 및 정리 완료
+
+- **브랜치**: `antigravity/anti-help-01`
+- **마지막 커밋**: `12162f3` (ANTI-HELP-01 완료 문서 갱신 커밋)
+- **끝난 것**:
+  - `content/help/mes/m-16.md` (M-16 불량·사유 코드)
+  - `content/help/mes/m-17.md` (M-17 작업자·근무조)
+  - `content/help/mes/m-19.md` (M-19 라벨 양식)
+  - `content/help/mes/m-26.md` (M-26 공정 검사 기준)
+  - `backend/src/fs/core/menu_catalog.json` 기준 미제공 화면(M-20, M-25, M-27, M-29) 링크 및 관련 화면 참조 정리
+  - `frontend/src/portal/content-pages.test.tsx:50`의 `count("mes/m-")` 기댓값 15 → 19 갱신
+  - HR 3편(H-16, H-17, H-18)은 main 커밋 `f14b75b`에서 이미 완료되어 있어 중복 작성하지 않고 ANTI-HELP-01은 종료
+- **검증**:
+  - `npx --prefix frontend vitest run src/portal/content-pages.test.tsx` (18/18 통과)
+  - `npm --prefix frontend test -- src/mes/masters.test.tsx` (5/5 통과)
+  - `npm --prefix frontend run build` (통과)
+  - Playwright Chromium 브라우저에서 `/mes/codes`, `/mes/workers`, `/mes/labels`, `/mes/inspection-items`의 "? 도움말" 클릭 시 4개 문서 정상 로드 및 "이 화면 열기 →" 링크 동작 검증 완료
+- **다음 할 일**: 사용자 확인 후 `antigravity/anti-help-01` 브랜치를 main에 병합 검토. 후속 W2a-1b2-rest 작업 착수는 사용자 지시 대기.
+- **주의점**: 다른 antigravity 세션과의 충돌 방지를 위해 임의로 브랜치를 checkout하지 않고 `antigravity/anti-help-01` 브랜치에 그대로 두고 대기한다.
+- **재현 명령**:
+  - `npm --prefix frontend test -- src/portal/content-pages.test.tsx`
+  - `npm --prefix frontend run build`
+
 # 2026-10-12 HELP-01 제품 도움말 구현 대조·로컬 검증 완료
 
 사용자 다섯 시스템 문서화·main/origin·기존 실서버 배포 승인. 기준main3306777, 브랜치codex/product-help-20261012, 별도factory-studio-help 체크아웃. 제품 정적 도움말과 진입 링크만 변경; 공유main의 진행 중 MES 변경은 보존/제외. HR H-16~18 신설, Flow 행편집·부모집계·보관복구·권한·/work-os 이동 보정, GW 전체 합성 업무 안내, CAD 가정/실측·3D 시연 구분과 README 이력 표시. 상세 [구현 대조](제품도움말_구현대조_HELP-01.md).
