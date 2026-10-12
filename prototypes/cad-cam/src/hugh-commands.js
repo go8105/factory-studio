@@ -5,11 +5,11 @@ export function parseHughCommand(value) {
     .replace(/\s+/g, "")
     .trim();
   const wake =
-    /헤이(?:휴디|휴디디|휴디이|휴디야)|hey(?:hughd|hugh디|휴디|hudy)|헤이휴디/.test(
+    /헤이(?:와이씨|와이시|yc)|hey(?:yc|와이씨)|헤이(?:휴디|휴디디|휴디이|휴디야)|hey(?:hughd|hugh디|휴디|hudy)|헤이휴디/.test(
       text,
     );
   const rest = text.replace(
-    /헤이(?:휴디디|휴디이|휴디야|휴디)|hey(?:hughd|hugh디|휴디|hudy)/g,
+    /헤이(?:와이씨|와이시|yc|휴디디|휴디이|휴디야|휴디)|hey(?:yc|와이씨|hughd|hugh디|휴디|hudy)/g,
     "",
   );
   if (/하지마|하지말|말고|취소|하지않/.test(rest))

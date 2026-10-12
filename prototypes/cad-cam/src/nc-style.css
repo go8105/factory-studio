@@ -589,3 +589,152 @@ main.nc-review-layout {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.proposal-stage {
+  width: min(1500px, 96vw);
+  max-width: 96vw;
+  max-height: 92vh;
+  border: 1px solid #dce0e2;
+  padding: 0;
+  background: #f7f7f6;
+  color: #1a1c1e;
+  box-shadow: 0 8px 24px #0000000a;
+}
+.proposal-stage::backdrop {
+  background: #1a1c1e66;
+}
+.stage-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+}
+.stage-main {
+  padding: 24px;
+  min-width: 0;
+}
+.stage-main header {
+  padding: 0;
+  border: 0;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.stage-main h2 {
+  margin: 0;
+  font-size: 24px;
+}
+.stage-main header > div {
+  flex: 1;
+}
+.stage-main header p {
+  margin: 8px 0;
+}
+.stage-assistant {
+  padding: 24px;
+  border-left: 1px solid #dce0e2;
+}
+.stage-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.stage-cards article {
+  background: white;
+  border: 1px solid #dce0e2;
+  padding: 20px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.stage-cards article[hidden] {
+  display: none;
+}
+.stage-cards h3 {
+  margin: 0;
+  font-size: 20px;
+}
+.stage-state {
+  font-size: 13px;
+  color: #416977;
+  margin: 0;
+}
+.stage-cards img {
+  width: 100%;
+  aspect-ratio: 1.35;
+  object-fit: contain;
+  background: #f1f2f0;
+}
+.stage-cards img[hidden] {
+  display: none;
+}
+.stage-cards dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+.stage-cards dt {
+  font-size: 12px;
+  color: #505961;
+}
+.stage-cards dd {
+  margin: 0 0 10px;
+  font-variant-numeric: tabular-nums;
+}
+.stage-reasons {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.stage-cards button {
+  margin-top: auto;
+}
+.stage-cards.is-playing {
+  grid-template-columns: minmax(0, 1fr);
+}
+.stage-cards .is-selected {
+  border-color: #416977;
+}
+.stage-live {
+  min-width: 0;
+}
+.stage-live #viewer {
+  height: clamp(260px, 40vh, 520px);
+  width: 100%;
+}
+.stage-assistant .hugh-panel {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+.stage-assistant .buttons {
+  flex-wrap: wrap;
+}
+@media (max-width: 950px) {
+  .stage-layout {
+    grid-template-columns: 1fr;
+  }
+  .stage-assistant {
+    border-left: 0;
+    border-top: 1px solid #dce0e2;
+  }
+  .stage-cards {
+    grid-template-columns: 1fr;
+  }
+  .stage-main,
+  .stage-assistant {
+    padding: 16px;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stage-cards .is-selected {
+    animation: stage-appear 180ms ease-out;
+  }
+  @keyframes stage-appear {
+    from {
+      opacity: 0.6;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}

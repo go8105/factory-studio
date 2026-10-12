@@ -27,7 +27,7 @@ const $ = (s) => document.querySelector(s),
         })[c],
     );
 $("#app").innerHTML =
-  `<header><strong>FORM STUDIO · NC</strong><span>3축 밀링 경로 검토</span><nav><button id="sample">경로 예제</button><button id="stock-sample">소재 예제 NC</button><button id="proposal-sample">대기 검토 예제 NC</button><button id="voice-sample">휴디 발표 예제 NC (합성)</button><button id="load">NC 파일 열기</button><button id="export" disabled>분석 JSON 저장</button></nav><input id="file" type="file" accept=".nc,.ngc,.tap,.gcode,.cnc,.txt" hidden></header>
+  `<header><strong>FORM STUDIO · NC</strong><span>3축 밀링 경로 검토</span><nav><button id="sample">경로 예제</button><button id="stock-sample">소재 예제 NC</button><button id="proposal-sample">대기 검토 예제 NC</button><button id="voice-sample">YC 발표 예제 NC (합성)</button><button id="load">NC 파일 열기</button><button id="export" disabled>분석 JSON 저장</button></nav><input id="file" type="file" accept=".nc,.ngc,.tap,.gcode,.cnc,.txt" hidden></header>
 <div class="notice">NC에서 CAD 설계 이력은 복원하지 않습니다. 소재·STEP 정합 후 제한된 상면 가공 검토가 가능합니다. 시간·소비는 장비 입력과 별도 가정 모델로 검토합니다.</div>
 <main><aside class="inputs"><h2>파일과 초기 설정</h2><p id="filename">파일 미선택 · 서버 전송 없음</p><label>컨트롤러 프로필<select id="profile"><option value="${NC_PROFILE}">LinuxCNC 기반 · 3축 밀링 (제한)</option><option value="${FANUC_REVIEW_PROFILE}">FANUC 검토용 · 기종 미정 · G4 P 밀리초</option></select></label><p class="muted">선택 프로필의 숫자 리터럴 부분집합. LinuxCNC G4 P초 / FANUC 검토용 G4 P밀리초·O번호 필요. 실제 장비 호환 보증 없음.</p><label>초기 단위<select id="unit"><option value="mm">mm</option><option value="inch">inch</option></select></label><div class="xyz">${["X", "Y", "Z"].map((axis) => `<label>초기 ${axis}<input id="${axis}" type="number" step="any" value="0"></label>`).join("")}</div><p class="muted">G54 작업좌표의 시작 위치. 기계좌표 변환 없음. 기본 G17/G90/증분 I·J/G94/G0, 보정 해제·주축/쿨런트 OFF, 활성 공구 미정.</p><label class="check"><input id="confirmed" type="checkbox">초기 좌표·단위와 기본 상태를 확인했습니다</label><label>입력 NC (붙여넣기)<textarea id="source" spellcheck="false" placeholder="G-code를 붙여넣거나 파일을 여세요"></textarea></label><div class="buttons"><button id="analyze">경로 해석</button><button id="cancel" disabled>해석 취소</button><button id="support">지원 명령</button></div><p id="status" role="status">NC를 입력하고 초기 설정을 확인하세요.</p><p class="muted">2MiB · 50,000행 · 500,000표시점 · 30초 상한. UTF-8/ASCII 텍스트.</p></aside>
 <section class="workspace"><div class="view-head"><strong id="summary">해석 결과 없음</strong><button id="fit">전체 보기</button></div><div id="viewer"></div><div class="legend"><span>● 급속 G0</span><span>● 이송 G1/G2/G3 (절삭 여부 미정)</span><span>● 선택 구간</span></div><div class="navigation"><button id="previous" disabled>이전 이동</button><input id="position" aria-label="이동 구간" type="range" min="0" max="0" value="0" disabled><button id="next" disabled>다음 이동</button></div><pre id="detail">원본 행 또는 3D 경로를 선택하세요.</pre><div class="code-head"><h2>원본 NC · 행별 상태</h2><button id="page-prev" disabled>앞 200행</button><span id="page-label"></span><button id="page-next" disabled>뒤 200행</button></div><div id="code" role="list" aria-label="원본 NC 행"></div></section></main>
@@ -67,6 +67,7 @@ proposalReview = createProposalReview(
   () => energyReview.analysis(),
   (line) => selectLine(line),
   playback,
+  viewer,
 );
 createHughVoice({
   propose() {
@@ -209,7 +210,7 @@ $("#voice-sample").onclick = () => {
   $("#source").value = voiceSample;
   $("#filename").textContent = fileName + " · 합성 발표 예제";
   message(
-    "합성 발표 예제: 경로 해석 → STEP 예제·소재 검토 → 합성 장비 값·시간 에너지 계산 → 합성 검토 기준 → 휴디 제안. 실제 공정 검토가 아닙니다.",
+    "합성 발표 예제: 경로 해석 → STEP 예제·소재 검토 → 합성 장비 값·시간 에너지 계산 → 합성 검토 기준 → YC 제안. 실제 공정 검토가 아닙니다.",
   );
 };
 $("#analyze").onclick = () => {

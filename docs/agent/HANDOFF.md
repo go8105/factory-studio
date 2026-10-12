@@ -1,3 +1,10 @@
+## 2026-10-12 CAD-V02 STEP·YC 카드 완료 인계
+
+- branch codex/cad-v02, `/Users/hwang-kyoungho/projects/factory-studio-cadv02`, 최신main3d850fc+CAD17f2a1052 통합aebce5d, 마지막커밋 `git log -1 --oneline`. [결과](YC_음성카드_STEP검증_CAD-V02.md)/[계약](../modules/cad-cam/음성카드_시연_설계_CAD-V02.md).
+- 완료: 운영STEP30초초과재현→커널준비90/읽기30/진행/재시도·시제품기능안내, 기본호출헤이와이씨/YC+휴디별칭, 정지3D캡처후보카드→번호선택/나머지숨김/확대기존뷰어재생→전체/닫기/復元/무효화. 실제계산조건만표시, Ra가짜값없음. CAD154/프런트대상15/build/격리/포맷·Chrome정적빌드STEP재시도/32초지연·전체카드/3번진행/정지/반복/복귀/Esc/390통과.
+- 다음사용자결과확인후main/push/배포/운영STEP재검증·맥북Chrome실발화리허설. 실마이크/실장비/품질전력/90초만료/DB/운영수정배포 미검증. 공유MES5파일·main보존, backend/secretary/계정변경없음. 다음ID자동착수없음.
+- Node24 테스트/build·빌드정적NC화면 재현은 결과보고참조. 새검증서버5258/5259·headless Chrome 종료, dependency공유symlink제거·work/env스테이징제외. 원본첨부App.tsx는UI참고만하고실행하지않음.
+
 ## 2026-10-10 CAD-17 FANUC 검토용 완료 인계
 
 - branch codex/cad-17, `/Users/hwang-kyoungho/projects/factory-studio-cad17`, 기준main e137f61/내부기반738433d, 구현커밋 dcf7a8f, 최종인계커밋 `git log -1 --oneline`. 사용자기종미정 검토용출력 승인. [결과](FANUC검토용_NC출력_CAD-17.md)/[계약](../modules/cad-cam/NC출력_설계_CAD-17.md).

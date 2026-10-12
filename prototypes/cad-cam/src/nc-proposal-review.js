@@ -1,3 +1,5 @@
+import { createProposalStage } from "./nc-proposal-stage.js";
+import { proposalTimeline } from "./nc-playback.js";
 import { dwellReview, compareProposals } from "./nc-proposals.js";
 export function createProposalReview(
   getNC,
@@ -5,7 +7,11 @@ export function createProposalReview(
   getEnergy,
   selectLine,
   playback,
+  viewer,
 ) {
+  const stage = createProposalStage(getNC, viewer, playback, (number) =>
+    play(number),
+  );
   const panel = document.createElement("details");
   panel.className = "stock-panel proposal-panel";
   panel.innerHTML = `<summary>품질 우선 개선 제안</summary><p class="muted">G4 대기의 목적과 최소 시간을 확인한 검토 시나리오입니다. 경로·F/S/T·쿨런트는 유지합니다. 실제 공차/Ra·열·칩 배출은 자동 검증하지 않습니다.</p><label>품질 기준·근거<input id="proposal-quality-source" placeholder="도면 기준/검토 기록 또는 가정"></label><label>허용 최대 잔삭 높이 mm<input id="proposal-remaining" type="number" step="any"></label><label>허용 최대 과절삭 깊이 mm<input id="proposal-overcut" type="number" step="any"></label><label>허용 목표 격자 체적 오차 %<input id="proposal-grid-error" type="number" step="any"></label><p class="muted">셀 중심 근사값 기준입니다. 실제 치수 공차/Ra와 다릅니다. 0 검출은 안전 보증이 아닙니다.</p><label>추가 비교 여유 kWh<input id="proposal-margin" type="number" step="any"></label><label>추가 여유 근거<input id="proposal-margin-source" placeholder="미정이면 우열 판단 보류"></label><label class="check"><input id="proposal-risk" type="checkbox">실기계·홀더/지그·공정 위험을 별도로 검토했습니다</label><div class="buttons"><button id="proposal-prepare">대기 목록 만들기</button><button id="proposal-demo">합성 검토 기준 채우기</button></div><p id="proposal-status" role="status">현재 NC/소재/시간·소비 분석 완료 후 검토하세요.</p><div id="proposal-dwells"></div><div class="buttons"><button id="proposal-prev" disabled>앞 200대기</button><span id="proposal-page"></span><button id="proposal-next" disabled>뒤 200대기</button></div><button id="proposal-run">품질 조건과 소비 비교</button><p class="muted">최대12대기 선택/13후보. 입력 변경 시 제안 무효화. NC 자동 적용 없음 · 결과 패널에서 FANUC 검토용 파일 출력 가능.</p>`;
@@ -39,6 +45,7 @@ export function createProposalReview(
   const inputs = new Map();
   function clear() {
     revision++;
+    stage.clear();
     playback?.clear();
     report = null;
     $("proposal-summary").textContent = "결과 없음 · 품질/대기 조건 확인 필요";
@@ -189,6 +196,7 @@ export function createProposalReview(
       $("proposal-status").textContent = e.message;
       throw e;
     }
+    if (!report.reasons.length && report.candidates.length) stage.show(report);
     return report;
   }
   $("proposal-run").onclick = () => {
@@ -200,6 +208,8 @@ export function createProposalReview(
   };
   function play(number) {
     if (!report) throw Error("현재 제안을 먼저 계산하세요");
+    proposalTimeline(getNC(), getEnergy(), report, number);
+    stage.select(report, number);
     const response = playback.play(report, number);
     output.querySelectorAll("[data-candidate-number]").forEach((card) => {
       card.dataset.selected = String(

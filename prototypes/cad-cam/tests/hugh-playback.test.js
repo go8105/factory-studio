@@ -168,3 +168,27 @@ test("wake window, duplicate final events, stop/off, and manual fallback", () =>
   assert.equal(calls.at(-1), "off");
   assert.equal(c.until, 0);
 });
+
+test("YC wake aliases enter the existing command window and select number3", () => {
+  for (const wake of ["헤이 와이씨", "헤이 와이시", "hey YC", "헤이YC"]) {
+    assert.equal(parseHughCommand(wake).type, "wake");
+    assert.deepEqual(parseHughCommand(wake + " 3번 시뮬레이션 실행해줘"), {
+      wake: true,
+      type: "play",
+      number: 3,
+    });
+    let selected = null;
+    const c = new HughCommands(
+      {
+        play: (n) => {
+          selected = n;
+          return "played";
+        },
+      },
+      () => 100,
+    );
+    c.accept(wake, "wake");
+    c.accept("3번 시뮬레이션 실행해줘", "play");
+    assert.equal(selected, 3);
+  }
+});
