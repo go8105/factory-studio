@@ -126,7 +126,9 @@ export function Routes() {
         ? String(s.setupMinutes).trim()
         : "";
     const setup =
-      setupStr !== "" && !Number.isNaN(Number(setupStr)) ? Number(setupStr) : null;
+      setupStr !== "" && !Number.isNaN(Number(setupStr))
+        ? Number(setupStr)
+        : null;
     const isSub = Boolean(s.isSubcontract);
     const subCode =
       isSub && s.subcontractorCode?.trim() ? s.subcontractorCode.trim() : null;
@@ -379,7 +381,8 @@ export function Routes() {
       render: (r) =>
         r.step.isSubcontract ? (
           <span>
-            외주{r.step.subcontractorCode ? ` (${r.step.subcontractorCode})` : ""}
+            외주
+            {r.step.subcontractorCode ? ` (${r.step.subcontractorCode})` : ""}
           </span>
         ) : (
           "사내"
@@ -390,9 +393,7 @@ export function Routes() {
   const dirtySteps =
     steps !== undefined &&
     JSON.stringify(steps.map(toPayloadStep)) !==
-      JSON.stringify(
-        (selected?.steps ?? []).map((s) => toPayloadStep(s)),
-      );
+      JSON.stringify((selected?.steps ?? []).map((s) => toPayloadStep(s)));
 
   const formError = Object.keys(errors).length ? undefined : saveError;
 

@@ -605,9 +605,7 @@ it("대체 자재가 있는 줄을 삭제 시도하면 409 안내 문구가 표�
     }),
   );
   fireEvent.click(screen.getByRole("button", { name: /1번째 자재 빼기/ }));
-  expect(
-    await screen.findByText("대체 자재를 먼저 지우세요."),
-  ).toBeVisible();
+  expect(await screen.findByText("대체 자재를 먼저 지우세요.")).toBeVisible();
 });
 
 it("초안 BOM의 자재 순서를 바꿔 저장한다", async () => {
@@ -652,5 +650,3 @@ it("초안 BOM의 자재 순서를 바꿔 저장한다", async () => {
     }),
   );
 });
-
-
