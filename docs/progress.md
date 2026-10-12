@@ -1,3 +1,16 @@
+# 2026-10-12 D84 역할 전환 — 개발을 antigravity로 이관
+
+사용자 결정 D84: Claude Code는 **설계·기획·리뷰·다음 진행 결정만** 하고 개발은 하지 않는다. 개발은 **antigravity**가 작업별 프롬프트를 받아 수행하며, 프롬프트는 읽을 문서를 **폴더 경로**로 지정한다(파일 나열 금지). Codex의 기존 GW 배정은 유지.
+
+- `AGENTS.md` §8에 D84 기록. 역할 표를 Claude Code/antigravity/Codex 세 줄로 교체.
+- `docs/agent/ANTIGRAVITY_인계.md`를 역할 확대에 맞춰 다시 씀: §1 **폴더 지도**(어느 폴더에 무엇이 있고 언제 읽는지 17행), §2 프롬프트 틀, §3 공통 규칙(브랜치·설계 불변 규칙·DB·코드·시드·테스트/검증), §4 마무리 규칙, §5 대기 작업 표. `docs/agent/`는 파일이 100개가 넘어 **통째로 읽지 말 것**을 명시.
+- 작업 프롬프트 2건 작성: `docs/agent/ANTI-HELP-01_도움말7편.md`(MES m-16·17·19·26, HR h-16·17·18 — 파일이 없어 "? 도움말"이 NotFound), `docs/agent/W2a-1b2-rest_MES경로BOM.md`(M-14 단계별 속성, M-15 투입 공정·대체 자재).
+- **확인한 사실**: `mes.route_step`의 `standard_cycle_sec`·`setup_minutes`·`is_subcontract`·`subcontractor_code`, `mes.bom_line.issue_process_id`, `mes.bom_substitute`는 `schema.json`과 `20261008_w2a1_mes.py`에 **이미 있고** 코드·시드·화면 어디서도 쓰지 않는다(grep 0건). 따라서 W2a-1b2-rest는 **DB 변경 없는 응용 계층 작업**이며, 과거 보고의 "새 표 추가 필요"는 해당하지 않는다.
+- 프롬프트에 적은 주요 함정: `RouteSteps.processIds` 본문 모양 변경의 전파 범위, `bom_substitute`가 **손자**라 `set_children`/`replace_children`(부모–자식 한 단계)로는 다룰 수 없다는 점, 게시·폐기 버전 잠금, `is_subcontract` NOT NULL 기본값, 기존부터 실패 중인 `test_gw_projects.py::test_flow_migration_roundtrip_preserves_records_and_favorites`.
+- `docs/plan/현재기획_진행현황.md`에 D84 절 추가. 200줄 제한을 지키려 CAD-03·CAD-05·06 상세를 `docs/plan/진행현황_이력.md`로 이동(현재 200줄).
+- **문서만 변경.** 제품 코드·DB·시드 변경 없음, 테스트·브라우저·배포 미실행. 운영은 여전히 `f860e8b`이고 시드 `sv-20261008-1`이라 다음 배포는 템플릿 재생성을 포함한다.
+- 다음: 사용자가 두 프롬프트 중 하나를 antigravity에 넘긴다. 결과 리뷰는 Claude Code가 한다.
+
 # 2026-10-11 FLOW-03 행 편집·접힘 UX 운영 배포 완료
 
 FLOW-03 행 편집·접힘 UX 보정 운영 배포 완료(2026-10-11 18:41 KST): 제품2c30b42 main/origin/실서버 반영. 접힌 그룹68px 한 줄·업무/하위 업무 행 우측 삭제/복구·상세 편집 제목/설명2항목·담당자/상태/중요도/일정/진행률 행 편집. CI38128137226 SUCCESS(backend1010/skip1·perf1·frontend596·tools133), 실제 로컬 저장/새로고침/삭제/복구/390px 검증. 기존 Flow12원장전체hash보존·보호 백업·APIactive/DDL0/공개200/최근5xx0·공개JS/CSS SHA동일. 운영 로그인 UI는 기존 세션 만료로 미검증. FLOW-02b 후속. 검증용 로컬 보드는 보관하고 기존 Kim 보드로 복귀. 실제 운영 업무 쓰기·계정/확장 설정 변경 없음. 문서 기록 커밋은 배포 제품과 구분.
