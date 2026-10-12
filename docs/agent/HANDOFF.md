@@ -1,7 +1,7 @@
 # 2026-10-12 W2a-1b2-rest MES 공정 경로(M-14)·BOM(M-15) R-1~R-5 전체 완료
 
 - 브랜치: `antigravity/w2a-1b2-rest`
-- 마지막 커밋: 다음 커밋 대상 (BOM-FIX 및 R-5 완료)
+- 마지막 커밋: `d64a95f` (style(mes): format Routes.tsx and versions.test.tsx with prettier)
 - 진행 상태: **R-1 ~ R-5 전체 완료 — 사용자 최종 확인 및 main 병합 대기**
 - 작업 내용:
   - R-1: `mes.route_step` 컬럼 확장(표준 CT, 준비 분, 외주 여부, 외주처), `schema.RouteSteps` 객체 목록 변경, `validate_steps` 검증 및 정규화, 백엔드 테스트 통과.
