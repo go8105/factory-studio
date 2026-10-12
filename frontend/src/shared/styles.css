@@ -2589,3 +2589,15 @@ th[aria-sort="none"] button span {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* 입력 패널에서 덜 쓰는 칸을 접어 둔다(품목 상세·관리·포장). */
+.field-group {
+  border-top: 1px solid var(--border);
+  padding-top: var(--s2);
+  margin-bottom: var(--s2);
+}
+.field-group > summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: var(--s2);
+}

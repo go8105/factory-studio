@@ -250,7 +250,7 @@ def start(context: AuthContext, lot_id: int, values: dict[str, Any], key: str):
             raise _conflict(
                 "사용 안 함인 공정은 실행할 수 없습니다.", "PROCESS_INACTIVE"
             )
-        allowed = repo.process_equipment_ids(connection, scoped).get(
+        allowed = repo.process_link_ids(connection, scoped, "equipment").get(
             step["processId"], []
         )
         if equipment["id"] not in allowed:

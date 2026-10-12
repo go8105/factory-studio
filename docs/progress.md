@@ -200,6 +200,16 @@ schema0.24.0/headgw_projects: 실제191표2074열464FK, 목표379표918FK. migra
 
 # 개발 진행 기록
 
+## 2026-10-12 W2a-1b2 MES 기준정보 보강 (M-12·M-13)
+
+- **M-12 품목**: 설계(DSN-12 F12·F13·F17)의 상세·관리·포장 칼럼 15개를 화면까지 붙였다. 조회 칼럼·요청 본문(`ItemDetail`을 Create/Update가 상속)·목록 열(품목 그룹·규격·포장)·입력 패널. 입력 패널은 덜 쓰는 칸을 `<details>`로 접어 두었다 — 설계의 '탭' 대신 접이 묶음을 썼다(새 탭 컴포넌트를 만들지 않으려고). `plm_part_no`·`plm_revision`은 PLM(W4) 몫이라 화면에 넣지 않았다(DB에는 있다).
+- **M-13 공정**: 공정별 불량 코드(`mes.process_defect_code`)를 허용 설비와 같은 방식으로 붙였다. 공정이 가진 목록이 둘이 되어 `process_equipment_ids`·`replace_process_equipment`를 **종류를 받는 한 쌍**(`process_link_ids`·`replace_process_links`)으로 합쳤다. 공정을 지울 때 두 목록 모두 비운다.
+- 검증: 백엔드 **1,009개 통과**(perf 제외), 프런트 **596개 통과**, ruff·prettier·eslint·tsc·build 통과.
+  - `tests/test_gw_projects.py::test_flow_migration_roundtrip_preserves_records_and_favorites` 1건 실패는 **내 변경 전에도 실패**한다(stash 후 확인). 다른 세션 몫이라 건드리지 않았다.
+  - 로컬·CI·테스트 DB를 head로 올렸다(다른 세션의 `flow` 모듈 마이그레이션이 빠져 있어 MES 테스트가 전부 깨져 있었다).
+- 미실행: 브라우저 확인, M-14 공정 경로(표준 시간·외주 단계)·M-15 BOM(투입 공정·대체 자재), 시드·도움말.
+- 다음: M-14·M-15 — 둘 다 요청 본문 모양이 바뀐다(`RouteSteps.processIds` → 단계별 속성, `BomLineIn` + 투입 공정, `mes.bom_substitute` 자식 표). 화면·테스트를 함께 고쳐야 한다.
+
 ## 2026-10-09 GW-a 체험 그룹웨어 DB 보강
 
 - 사용자 “최종 판단하고 진행”으로 D83의 GW 범위를 착수. [결과](agent/GW_체험보강_DB_GW-a.md). 별도 브랜치 `codex/gw-dsn31`/worktree, 시작 `af10726`. Claude 인계의 16표와 A 제외가 충돌하여 DSN-31 §4-1 체험·조직 11표를 이관, A5표·CORE TEAM·ERP 통제는 제외했다. GW8→19·전체162→173, 기존6표15칼럼, schema0.21.0/head`gw_a_dsn31`.

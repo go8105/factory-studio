@@ -199,7 +199,7 @@ def delete(
 
 
 # 요청 본문 중 테이블 컬럼이 아닌 값(공정의 허용 설비 목록)은 따로 처리한다.
-_EXTRA = ("equipment_ids",)
+_EXTRA = ("equipment_ids", "defect_code_ids")
 
 
 def _split(values: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -304,30 +304,62 @@ def processes_with_equipment(context: AuthContext) -> list[dict[str, Any]]:
     with _read() as connection:
         scoped = read_scope(connection, context, MODULE)
         processes = repo.list_rows(connection, scoped, repo.PROCESS)
-        links = repo.process_equipment_ids(connection, scoped)
-    return [{**p, "equipmentIds": links.get(p["id"], [])} for p in processes]
+        links = {
+            kind: repo.process_link_ids(connection, scoped, kind)
+            for kind in repo.PROCESS_LINKS
+        }
+    return [
+        {
+            **p,
+            "equipmentIds": links["equipment"].get(p["id"], []),
+            "defectCodeIds": links["defect_code"].get(p["id"], []),
+        }
+        for p in processes
+    ]
 
 
 def check_process(connection, scoped, final, current) -> dict[str, Any]:
     return {}
 
 
+# (요청 칸, 연결 종류, 참조 표, 오류 문구)
+_PROCESS_LINKS = (
+    ("equipment_ids", "equipment", "mes.equipment", "유효하지 않은 설비가 있습니다."),
+    (
+        "defect_code_ids",
+        "defect_code",
+        "mes.defect_code",
+        "유효하지 않은 불량 코드가 있습니다.",
+    ),
+)
+
+
 def save_process_equipment(connection, scoped, row: dict[str, Any]) -> dict[str, Any]:
-    """허용 설비 목록을 통째로 바꾼다. 요청에 목록이 없으면 그대로 둔다."""
-    ids = row.pop("equipment_ids", None)
-    if ids is not None:
+    """허용 설비와 공정별 불량 코드를 통째로 바꾼다. 요청에 목록이 없으면 그대로 둔다."""
+    for field, kind, table, message in _PROCESS_LINKS:
+        ids = row.pop(field, None)
+        if ids is None:
+            continue
         ids = sorted(set(ids))
-        missing = set(ids) - repo.existing_ids(connection, scoped, "mes.equipment", ids)
+        missing = set(ids) - repo.existing_ids(connection, scoped, table, ids)
         if missing:
-            raise _field("equipmentIds", "유효하지 않은 설비가 있습니다.")
-        repo.replace_process_equipment(connection, scoped, row["id"], ids)
-    links = repo.process_equipment_ids(connection, scoped)
-    return {**row, "equipmentIds": links.get(row["id"], [])}
+            raise _field(repo.camel(field), message)
+        repo.replace_process_links(connection, scoped, kind, row["id"], ids)
+    return {
+        **row,
+        "equipmentIds": repo.process_link_ids(connection, scoped, "equipment").get(
+            row["id"], []
+        ),
+        "defectCodeIds": repo.process_link_ids(connection, scoped, "defect_code").get(
+            row["id"], []
+        ),
+    }
 
 
 def delete_process_links(process_id: int):
     def before(connection, scoped) -> None:
-        repo.replace_process_equipment(connection, scoped, process_id, [])
+        for kind in repo.PROCESS_LINKS:
+            repo.replace_process_links(connection, scoped, kind, process_id, [])
 
     return before
 

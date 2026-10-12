@@ -34,6 +34,9 @@ def _value(value: Any) -> Any:
     return value
 
 
+camel = _camel  # 서비스가 입력 칸 이름을 만들 때 쓴다
+
+
 def row_dict(row: Any) -> dict[str, Any]:
     return {_camel(k): _value(v) for k, v in row.items()}
 
@@ -82,7 +85,7 @@ EQUIPMENT = Master(
 )
 ITEM = Master(
     "mes.item",
-    "id,item_code,name,base_unit,item_type,is_active,created_at",
+    "id,item_code,name,base_unit,item_type,is_active,spec,drawing_no,revision,item_group,material,color,unit_weight_kg,customer_part_no,lot_tracked,shelf_life_days,inspection_required,default_warehouse_code,barcode_enabled,box_qty,boxes_per_pallet,created_at",
     "item_code",
     None,
     (
@@ -374,40 +377,49 @@ def location_ancestors(
     return set(rows)
 
 
-def process_equipment_ids(
-    connection: Connection, context: AuthContext
+# 공정이 가진 목록 두 가지: 허용 설비(process_equipment)와 보일 불량 코드(process_defect_code).
+PROCESS_LINKS = {
+    "equipment": ("mes.process_equipment", "equipment_id"),
+    "defect_code": ("mes.process_defect_code", "defect_code_id"),
+}
+
+
+def process_link_ids(
+    connection: Connection, context: AuthContext, kind: str
 ) -> dict[int, list[int]]:
+    table, child = PROCESS_LINKS[kind]
     rows = connection.execute(
         text(
-            f"SELECT process_id, equipment_id FROM mes.process_equipment WHERE {_S} "
-            "ORDER BY process_id, equipment_id"
+            f"SELECT process_id, {child} FROM {table} WHERE {_S} "
+            f"ORDER BY process_id, {child}"
         ),
         _s(context),
     )
     result: dict[int, list[int]] = {}
-    for process_id, equipment_id in rows:
-        result.setdefault(process_id, []).append(equipment_id)
+    for process_id, child_id in rows:
+        result.setdefault(process_id, []).append(child_id)
     return result
 
 
-def replace_process_equipment(
+def replace_process_links(
     connection: Connection,
     context: AuthContext,
+    kind: str,
     process_id: int,
-    equipment_ids: list[int],
+    child_ids: list[int],
 ) -> None:
+    table, child = PROCESS_LINKS[kind]
     connection.execute(
-        text(f"DELETE FROM mes.process_equipment WHERE {_S} AND process_id=:p"),
+        text(f"DELETE FROM {table} WHERE {_S} AND process_id=:p"),
         {**_s(context), "p": process_id},
     )
-    for equipment_id in equipment_ids:
+    for child_id in child_ids:
         connection.execute(
             text(
-                "INSERT INTO mes.process_equipment "
-                "(workspace_id, generation_id, process_id, equipment_id) "
-                "VALUES (:w, :g, :p, :e)"
+                f"INSERT INTO {table} (workspace_id, generation_id, process_id, {child}) "
+                "VALUES (:w, :g, :p, :c)"
             ),
-            {**_s(context), "p": process_id, "e": equipment_id},
+            {**_s(context), "p": process_id, "c": child_id},
         )
 
 

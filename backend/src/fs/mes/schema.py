@@ -7,7 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 CODE = r"^[A-Z][A-Z0-9_\-]{1,29}$"
 ITEM_CODE = r"^[A-Z][A-Z0-9_\-]{1,39}$"
-FACTOR = r"^\d{1,12}(\.\d{1,6})?$"  # numeric(18,6). 0은 서비스에서 거부
+FACTOR = r"^\d{1,12}(\.\d{1,6})?$"
+WEIGHT = r"^\d{1,8}(\.\d{1,4})?$"  # numeric(12,4), 0 허용
+QTY = r"^\d{1,15}(\.\d{1,3})?$"  # numeric(18,3), 0은 CHECK가 막는다  # numeric(18,6). 0은 서비스에서 거부
 LocationKind = Literal["building", "zone", "workcenter"]
 BaseUnit = Literal["EA", "BOX", "KG", "M", "L", "SET"]
 ItemType = Literal["finished", "semi_finished", "raw", "auxiliary"]
@@ -63,7 +65,29 @@ class EquipmentUpdate(ApiModel):
     is_active: bool | None = Field(None, alias="isActive")
 
 
-class ItemCreate(ApiModel):
+class ItemDetail(ApiModel):
+    """F12·F13·F17 품목 상세·관리·포장. 모두 선택이고, 적으면 양수여야 한다."""
+
+    spec: str | None = Field(None, max_length=100)
+    drawing_no: str | None = Field(None, alias="drawingNo", max_length=40)
+    revision: str | None = Field(None, max_length=10)
+    item_group: str | None = Field(None, alias="itemGroup", max_length=40)
+    material: str | None = Field(None, max_length=60)
+    color: str | None = Field(None, max_length=30)
+    unit_weight_kg: str | None = Field(None, alias="unitWeightKg", pattern=WEIGHT)
+    customer_part_no: str | None = Field(None, alias="customerPartNo", max_length=40)
+    lot_tracked: bool = Field(True, alias="lotTracked")
+    shelf_life_days: int | None = Field(None, alias="shelfLifeDays", ge=1, le=36500)
+    inspection_required: bool = Field(False, alias="inspectionRequired")
+    default_warehouse_code: str | None = Field(
+        None, alias="defaultWarehouseCode", max_length=30
+    )
+    barcode_enabled: bool = Field(True, alias="barcodeEnabled")
+    box_qty: str | None = Field(None, alias="boxQty", pattern=QTY)
+    boxes_per_pallet: int | None = Field(None, alias="boxesPerPallet", ge=1, le=9999)
+
+
+class ItemCreate(ItemDetail):
     item_code: str = Field(alias="itemCode", pattern=ITEM_CODE)
     name: str = Field(min_length=1, max_length=100)
     base_unit: BaseUnit = Field("EA", alias="baseUnit")
@@ -71,12 +95,15 @@ class ItemCreate(ApiModel):
     is_active: bool = Field(True, alias="isActive")
 
 
-class ItemUpdate(ApiModel):
+class ItemUpdate(ItemDetail):
     item_code: str | None = Field(None, alias="itemCode", pattern=ITEM_CODE)
     name: str | None = Field(None, min_length=1, max_length=100)
     base_unit: BaseUnit | None = Field(None, alias="baseUnit")
     item_type: ItemType | None = Field(None, alias="itemType")
     is_active: bool | None = Field(None, alias="isActive")
+    lot_tracked: bool | None = Field(None, alias="lotTracked")
+    inspection_required: bool | None = Field(None, alias="inspectionRequired")
+    barcode_enabled: bool | None = Field(None, alias="barcodeEnabled")
 
 
 class ConversionCreate(ApiModel):
@@ -95,6 +122,7 @@ class ProcessCreate(ApiModel):
     process_type: str = Field(alias="processType", min_length=1, max_length=20)
     is_active: bool = Field(True, alias="isActive")
     equipment_ids: list[int] = Field(default_factory=list, alias="equipmentIds")
+    defect_code_ids: list[int] = Field(default_factory=list, alias="defectCodeIds")
 
 
 class ProcessUpdate(ApiModel):
@@ -105,6 +133,7 @@ class ProcessUpdate(ApiModel):
     )
     is_active: bool | None = Field(None, alias="isActive")
     equipment_ids: list[int] | None = Field(None, alias="equipmentIds")
+    defect_code_ids: list[int] | None = Field(None, alias="defectCodeIds")
 
 
 # ---- M-14 공정 경로 · M-15 BOM ----

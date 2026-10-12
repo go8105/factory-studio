@@ -22,6 +22,7 @@ import {
   useSend,
   type Equipment,
 } from "./common";
+import type { DefectCode } from "./Codes";
 
 export type Process = {
   id: number;
@@ -30,6 +31,7 @@ export type Process = {
   processType: string;
   isActive: boolean;
   equipmentIds: number[];
+  defectCodeIds: number[];
 };
 type Draft = Omit<Process, "id">;
 type Panel = { row: Process | null };
@@ -40,13 +42,13 @@ const EMPTY: Draft = {
   processType: "",
   isActive: true,
   equipmentIds: [],
+  defectCodeIds: [],
 };
 
 export function Processes() {
-  const { data, error, reload } = useLists<[Process[], Equipment[]]>([
-    "/processes",
-    "/equipments",
-  ]);
+  const { data, error, reload } = useLists<
+    [Process[], Equipment[], DefectCode[]]
+  >(["/processes", "/equipments", "/defect-codes?limit=200"]);
   const {
     send,
     pending,
@@ -74,7 +76,7 @@ export function Processes() {
   const guard = useDiscardGuard(dirty);
 
   if (moduleOff(error)) return <ModuleOff />;
-  const [rows, equipments] = data ?? [undefined, []];
+  const [rows, equipments, defectCodes] = data ?? [undefined, [], []];
 
   const d: Draft = draft;
   const errors = fieldErrors(saveError);
@@ -87,6 +89,7 @@ export function Processes() {
           processType: row.processType,
           isActive: row.isActive,
           equipmentIds: [...row.equipmentIds],
+          defectCodeIds: [...(row.defectCodeIds ?? [])],
         }
       : {
           processCode: "",
@@ -94,6 +97,7 @@ export function Processes() {
           processType: "",
           isActive: true,
           equipmentIds: [],
+          defectCodeIds: [],
         };
     setPanel({ row });
     setDraft(values);
@@ -106,11 +110,13 @@ export function Processes() {
     setError(undefined);
   }
 
-  function toggle(id: number, on: boolean) {
-    const ids = on
-      ? [...d.equipmentIds, id]
-      : d.equipmentIds.filter((x) => x !== id);
-    setDraft({ ...d, equipmentIds: ids.sort((a, b) => a - b) });
+  function toggle(
+    field: "equipmentIds" | "defectCodeIds",
+    id: number,
+    on: boolean,
+  ) {
+    const ids = on ? [...d[field], id] : d[field].filter((x) => x !== id);
+    setDraft({ ...d, [field]: ids.sort((a, b) => a - b) });
   }
 
   async function submit(event: FormEvent) {
@@ -122,6 +128,7 @@ export function Processes() {
       processType: d.processType.trim(),
       isActive: d.isActive,
       equipmentIds: d.equipmentIds,
+      defectCodeIds: d.defectCodeIds,
     };
     const body = editing ? changed(clean, editing) : clean;
     if (editing && !Object.keys(body).length) return;
@@ -162,6 +169,16 @@ export function Processes() {
       render: (r) =>
         r.equipmentIds.length ? (
           r.equipmentIds.map(code).join(", ")
+        ) : (
+          <Badge tone="warning">없음</Badge>
+        ),
+    },
+    {
+      key: "defectCodeIds",
+      label: "불량 코드",
+      render: (r) =>
+        r.defectCodeIds?.length ? (
+          `${r.defectCodeIds.length}종`
         ) : (
           <Badge tone="warning">없음</Badge>
         ),
@@ -292,7 +309,9 @@ export function Processes() {
                       <input
                         type="checkbox"
                         checked={d.equipmentIds.includes(e.id)}
-                        onChange={(ev) => toggle(e.id, ev.target.checked)}
+                        onChange={(ev) =>
+                          toggle("equipmentIds", e.id, ev.target.checked)
+                        }
                       />
                       {e.equipmentCode} {e.name}
                       {!e.isActive && " (사용 안 함)"}
@@ -300,6 +319,30 @@ export function Processes() {
                   ))
                 )}
                 {errors.equipmentIds && <small>{errors.equipmentIds}</small>}
+              </fieldset>
+              <fieldset className="field">
+                <legend>이 공정에서 고를 불량 코드</legend>
+                {defectCodes.length === 0 ? (
+                  <p className="muted">
+                    불량 코드가 없습니다. 불량·사유 코드 화면(M-16)에서 먼저
+                    등록하세요.
+                  </p>
+                ) : (
+                  defectCodes.map((c) => (
+                    <label key={c.id} className="inline-check">
+                      <input
+                        type="checkbox"
+                        checked={d.defectCodeIds.includes(c.id)}
+                        onChange={(ev) =>
+                          toggle("defectCodeIds", c.id, ev.target.checked)
+                        }
+                      />
+                      {c.code} {c.name}
+                      {!c.isActive && " (사용 안 함)"}
+                    </label>
+                  ))
+                )}
+                {errors.defectCodeIds && <small>{errors.defectCodeIds}</small>}
               </fieldset>
               <label className="inline-check">
                 <input

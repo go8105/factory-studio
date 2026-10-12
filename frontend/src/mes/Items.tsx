@@ -36,6 +36,22 @@ export type Item = {
   baseUnit: string;
   itemType: "finished" | "semi_finished" | "raw" | "auxiliary";
   isActive: boolean;
+  // F12 상세 · F13 관리 · F17 포장 (모두 선택)
+  spec: string | null;
+  drawingNo: string | null;
+  revision: string | null;
+  itemGroup: string | null;
+  material: string | null;
+  color: string | null;
+  unitWeightKg: string | null;
+  customerPartNo: string | null;
+  lotTracked: boolean;
+  shelfLifeDays: number | null;
+  inspectionRequired: boolean;
+  defaultWarehouseCode: string | null;
+  barcodeEnabled: boolean;
+  boxQty: string | null;
+  boxesPerPallet: number | null;
   conversions: Conversion[];
 };
 type ItemDraft = Omit<Item, "id" | "conversions">;
@@ -45,6 +61,21 @@ type Panel =
   { type: "item"; row: Item | null } | { type: "conv"; row: Conversion | null };
 
 const UNITS = ["EA", "BOX", "KG", "M", "L", "SET"];
+// 상세 탭의 글자 칸: [키, 라벨, 최대 길이]
+const TEXTS = {
+  detail: [
+    ["spec", "규격", 100],
+    ["drawingNo", "도면 번호", 40],
+    ["revision", "리비전", 10],
+    ["itemGroup", "품목 그룹", 40],
+    ["material", "재질", 60],
+    ["color", "색상", 30],
+    ["unitWeightKg", "단위 중량(kg)", 13],
+    ["customerPartNo", "고객 품번", 40],
+  ],
+} as const satisfies {
+  detail: readonly (readonly [keyof ItemDraft, string, number])[];
+};
 const TYPES = {
   finished: "완제품",
   semi_finished: "반제품",
@@ -58,6 +89,21 @@ const EMPTY_ITEM: ItemDraft = {
   baseUnit: "EA",
   itemType: "finished",
   isActive: true,
+  spec: null,
+  drawingNo: null,
+  revision: null,
+  itemGroup: null,
+  material: null,
+  color: null,
+  unitWeightKg: null,
+  customerPartNo: null,
+  lotTracked: true,
+  shelfLifeDays: null,
+  inspectionRequired: false,
+  defaultWarehouseCode: null,
+  barcodeEnabled: true,
+  boxQty: null,
+  boxesPerPallet: null,
 };
 
 const EMPTY_CONV: ConvDraft = {
@@ -106,14 +152,14 @@ export function Items() {
   const errors = fieldErrors(saveError);
 
   function openItemPanel(row: Item | null) {
+    // id·환산은 입력값이 아니다. 나머지 칸은 그대로 가져온다.
     const values: ItemDraft = row
-      ? {
-          itemCode: row.itemCode,
-          name: row.name,
-          baseUnit: row.baseUnit,
-          itemType: row.itemType,
-          isActive: row.isActive,
-        }
+      ? (Object.fromEntries(
+          Object.keys(EMPTY_ITEM).map((key) => [
+            key,
+            row[key as keyof ItemDraft],
+          ]),
+        ) as ItemDraft)
       : EMPTY_ITEM;
     setPanel({ type: "item", row });
     setItemDraft(values);
@@ -179,6 +225,16 @@ export function Items() {
 
   const columns: Column<Item>[] = [
     { key: "itemCode", label: "코드" },
+    { key: "itemGroup", label: "품목 그룹", render: (r) => r.itemGroup ?? "—" },
+    { key: "spec", label: "규격", render: (r) => r.spec ?? "—" },
+    {
+      key: "boxQty",
+      label: "포장",
+      render: (r) =>
+        r.boxQty
+          ? `박스 ${r.boxQty}${r.boxesPerPallet ? ` · 팔레트 ${r.boxesPerPallet}박스` : ""}`
+          : "—",
+    },
     {
       key: "id",
       label: "관리",
@@ -428,6 +484,129 @@ export function Items() {
                   단위 환산이나 작업지시가 있으면 기준 단위를 바꿀 수 없습니다.
                 </p>
               )}
+              <details className="field-group">
+                <summary>상세 (도면·재질·중량)</summary>
+                {TEXTS.detail.map(([key, label, max]) => (
+                  <Field
+                    key={key}
+                    label={label}
+                    value={itemDraft[key] ?? ""}
+                    maxLength={max}
+                    error={errors[key]}
+                    onChange={(e) =>
+                      setItemDraft({
+                        ...itemDraft,
+                        [key]: e.target.value || null,
+                      })
+                    }
+                  />
+                ))}
+              </details>
+              <details className="field-group">
+                <summary>관리 (LOT·유통기한·검사)</summary>
+                <label className="inline-check">
+                  <input
+                    type="checkbox"
+                    checked={itemDraft.lotTracked}
+                    onChange={(e) =>
+                      setItemDraft({
+                        ...itemDraft,
+                        lotTracked: e.target.checked,
+                      })
+                    }
+                  />
+                  LOT 추적
+                </label>
+                <label className="inline-check">
+                  <input
+                    type="checkbox"
+                    checked={itemDraft.inspectionRequired}
+                    onChange={(e) =>
+                      setItemDraft({
+                        ...itemDraft,
+                        inspectionRequired: e.target.checked,
+                      })
+                    }
+                  />
+                  입고 검사 대상
+                </label>
+                <label className="inline-check">
+                  <input
+                    type="checkbox"
+                    checked={itemDraft.barcodeEnabled}
+                    onChange={(e) =>
+                      setItemDraft({
+                        ...itemDraft,
+                        barcodeEnabled: e.target.checked,
+                      })
+                    }
+                  />
+                  바코드 사용
+                </label>
+                <Field
+                  label="유통기한(일)"
+                  type="number"
+                  min={1}
+                  max={36500}
+                  value={itemDraft.shelfLifeDays ?? ""}
+                  error={errors.shelfLifeDays}
+                  onChange={(e) =>
+                    setItemDraft({
+                      ...itemDraft,
+                      shelfLifeDays: e.target.value
+                        ? Number(e.target.value)
+                        : null,
+                    })
+                  }
+                />
+                <Field
+                  label="기본 창고 코드"
+                  value={itemDraft.defaultWarehouseCode ?? ""}
+                  maxLength={30}
+                  error={errors.defaultWarehouseCode}
+                  onChange={(e) =>
+                    setItemDraft({
+                      ...itemDraft,
+                      defaultWarehouseCode: e.target.value || null,
+                    })
+                  }
+                />
+              </details>
+              <details className="field-group">
+                <summary>포장 (박스 입수·팔레트)</summary>
+                <Field
+                  label="박스 입수"
+                  value={itemDraft.boxQty ?? ""}
+                  maxLength={19}
+                  error={errors.boxQty}
+                  onChange={(e) =>
+                    setItemDraft({
+                      ...itemDraft,
+                      boxQty: e.target.value || null,
+                    })
+                  }
+                />
+                <Field
+                  label="팔레트당 박스 수"
+                  type="number"
+                  min={1}
+                  max={9999}
+                  value={itemDraft.boxesPerPallet ?? ""}
+                  error={errors.boxesPerPallet}
+                  onChange={(e) =>
+                    setItemDraft({
+                      ...itemDraft,
+                      boxesPerPallet: e.target.value
+                        ? Number(e.target.value)
+                        : null,
+                    })
+                  }
+                />
+                <p className="muted">
+                  패킹은 박스 수량이 박스 입수 이하일 때만 닫습니다. 기준이
+                  없으면 검사하지 않습니다.
+                </p>
+              </details>
               <label className="inline-check">
                 <input
                   type="checkbox"

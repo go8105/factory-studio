@@ -85,6 +85,7 @@ const processes = [
     processType: "INJ",
     isActive: true,
     equipmentIds: [7],
+    defectCodeIds: [],
   },
 ];
 

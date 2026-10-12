@@ -170,6 +170,23 @@ _register(
     ItemCreate,
     ItemUpdate,
     service.check_item,
+    # 상세·관리·포장 칸은 비울 수 있다(F12·F13·F17).
+    nullable=frozenset(
+        {
+            "spec",
+            "drawing_no",
+            "revision",
+            "item_group",
+            "material",
+            "color",
+            "unit_weight_kg",
+            "customer_part_no",
+            "shelf_life_days",
+            "default_warehouse_code",
+            "box_qty",
+            "boxes_per_pallet",
+        }
+    ),
     listing=service.items_with_conversions,
 )
 _register(
