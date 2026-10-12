@@ -1,3 +1,12 @@
+# 2026-10-12 ANTI-HELP-01 MES 화면 도움말 4편 작성 및 정리 완료
+
+antigravity 브랜치 `antigravity/anti-help-01`에서 수행.
+- MES 화면 도움말 4편 신설: `content/help/mes/m-16.md`(M-16 불량·사유 코드), `m-17.md`(M-17 작업자·근무조), `m-19.md`(M-19 라벨 양식), `m-26.md`(M-26 공정 검사 기준).
+- `menu_catalog.json` 기준 미제공 화면(M-20, M-25, M-27, M-29) 링크 및 관련 화면 참조 정리. 네 편 전체의 화면 ID 참조가 실제 존재하는 화면(M-05, M-07, M-08, M-12, M-13, H-05)만 가리키도록 검증.
+- `frontend/src/portal/content-pages.test.tsx`의 `count("mes/m-")` 기댓값을 15에서 19로 갱신 (도움말 파일 수 가드 동기화).
+- HR 3편(H-16, H-17, H-18)은 main 커밋 `f14b75b`에서 이미 완료되어 있어 중복 작성하지 않고 ANTI-HELP-01은 이 수정으로 종료.
+- 검증: `npm --prefix frontend test -- src/portal/content-pages.test.tsx` 통과(18/18), `npm --prefix frontend test -- src/mes/masters.test.tsx` 통과(5/5), `npm --prefix frontend run build` 통과, headless Chromium 브라우저에서 `/mes/codes`, `/mes/workers`, `/mes/labels`, `/mes/inspection-items`의 "? 도움말" 클릭 시 각 도움말 화면이 정상 로드되고 "이 화면 열기 →" 링크가 올바르게 작동함을 검증.
+
 # 2026-10-12 HELP-01 제품 도움말 구현 대조·로컬 검증 완료
 
 사용자 다섯 시스템 문서화·main/origin·기존 실서버 배포 승인. 기준main3306777, 브랜치codex/product-help-20261012, 별도factory-studio-help 체크아웃. 제품 정적 도움말과 진입 링크만 변경; 공유main의 진행 중 MES 변경은 보존/제외. HR H-16~18 신설, Flow 행편집·부모집계·보관복구·권한·/work-os 이동 보정, GW 전체 합성 업무 안내, CAD 가정/실측·3D 시연 구분과 README 이력 표시. 상세 [구현 대조](agent/제품도움말_구현대조_HELP-01.md).
