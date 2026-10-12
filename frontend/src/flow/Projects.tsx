@@ -713,6 +713,13 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
                 </svg>
                 <span className="nav-name">내 업무</span>
               </Link>
+              <Link
+                title="도움말"
+                to={myTasks ? "/help/flow/f-01" : "/help/flow/f-02"}
+              >
+                <span aria-hidden="true">?</span>
+                <span className="nav-name">도움말</span>
+              </Link>
               <Link title="전체 솔루션" to="/home">
                 <MenuIcon kind="grid" />
                 <span className="nav-name">전체 솔루션</span>

@@ -1,8 +1,8 @@
-# 2026-10-12 HELP-01 제품 도움말 구현 대조 진행
+# 2026-10-12 HELP-01 제품 도움말 구현 대조·로컬 검증 완료
 
 사용자 다섯 시스템 문서화·main/origin·기존 실서버 배포 승인. 기준main3306777, 브랜치codex/product-help-20261012, 별도factory-studio-help 체크아웃. 제품 정적 도움말과 진입 링크만 변경; 공유main의 진행 중 MES 변경은 보존/제외. HR H-16~18 신설, Flow 행편집·부모집계·보관복구·권한·/work-os 이동 보정, GW 전체 합성 업무 안내, CAD 가정/실측·3D 시연 구분과 README 이력 표시. 상세 [구현 대조](제품도움말_구현대조_HELP-01.md).
 
-진행: 타입/lint/format/build 통과. frontend596 초기Markdown오류1→수정후관련46통과. 프로젝트uv Python3.14 격리감사193표471FK오류0. 격리 *_help_api_test에서 근무/계정/Flow/GW 검사 진행, *_help_browser_test+8046/5246은 실제API 합성UI 전용. 기존8000/5173·실제 회사/계정/비밀번호/브라우저확장 변경 없음. 다음: 대표UI·검사 완료→문서결과 갱신→main/push→정확HEAD CI→기존백업/배포→운영검증. 아직 배포 완료 아님. 후속고도화 자동착수 금지.
+로컬 검증: frontend596/75파일 전체 통과, 타입/lint/format/build 및 링크 보정 후 관련36통과. 프로젝트uv Python3.14 격리감사193표471FK오류0. 격리 *_help_api_test에서 근무/계정/Flow/GW116통과, *_help_browser_test+8046/5246은 실제API 합성UI 전용. 기존8000/5173·실제 회사/계정/비밀번호/브라우저확장 변경 없음. 다음: main/push→정확HEAD CI→기존백업/배포→운영검증. 아직 배포 완료 아님. 후속고도화 자동착수 금지.
 
 # FLOW-03 행 편집·접힘 UX 운영 배포 완료
 
