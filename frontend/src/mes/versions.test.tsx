@@ -77,6 +77,10 @@ const step = (id: number, processId: number, sequenceNo: number) => ({
   id,
   processId,
   sequenceNo,
+  standardCycleSec: null,
+  setupMinutes: null,
+  isSubcontract: false,
+  subcontractorCode: null,
 });
 const routes = [
   {
@@ -220,7 +224,24 @@ it("초안 경로의 순서를 바꿔 요청 순서대로 저장한다", async (
   fireEvent.click(screen.getByRole("button", { name: "1번째 공정 빼기" }));
   fireEvent.click(screen.getByRole("button", { name: "순서 저장" }));
   await waitFor(() =>
-    expect(body(fetcher, "PUT")).toEqual({ processIds: [13, 12] }),
+    expect(body(fetcher, "PUT")).toEqual({
+      steps: [
+        {
+          processId: 13,
+          standardCycleSec: null,
+          setupMinutes: null,
+          isSubcontract: false,
+          subcontractorCode: null,
+        },
+        {
+          processId: 12,
+          standardCycleSec: null,
+          setupMinutes: null,
+          isSubcontract: false,
+          subcontractorCode: null,
+        },
+      ],
+    }),
   );
 });
 
@@ -345,4 +366,66 @@ it("BOM 자재 규칙 오류를 보여준다", async () => {
   expect(
     await screen.findByText("1번째 자재: 같은 자재가 이미 있습니다."),
   ).toBeVisible();
+});
+
+it("공정 단계의 표준 사이클 타임, 준비 시간, 외주 속성을 입력해 추가한다", async () => {
+  const fetcher = mockApi({
+    "PUT /api/v1/mes/routes/22/steps": {
+      status: 200,
+      body: { data: routes[1] },
+    },
+  });
+  show("/mes/routes");
+  fireEvent.click(
+    within(await row("공정 경로 목록", /^RT-C100 .* v2/)).getByRole("button", {
+      name: /공정 3/,
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "공정 추가" }));
+  fireEvent.change(screen.getByLabelText("공정"), { target: { value: "11" } });
+  fireEvent.change(screen.getByLabelText("표준 사이클 타임 (초)"), {
+    target: { value: "35.5" },
+  });
+  fireEvent.change(screen.getByLabelText("준비 시간 (분)"), {
+    target: { value: "20" },
+  });
+  fireEvent.click(screen.getByLabelText("외주 공정"));
+  fireEvent.change(screen.getByLabelText("외주처 코드"), {
+    target: { value: "VEND-01" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "추가" }));
+  await waitFor(() =>
+    expect(body(fetcher, "PUT")).toEqual({
+      steps: [
+        {
+          processId: 11,
+          standardCycleSec: null,
+          setupMinutes: null,
+          isSubcontract: false,
+          subcontractorCode: null,
+        },
+        {
+          processId: 12,
+          standardCycleSec: null,
+          setupMinutes: null,
+          isSubcontract: false,
+          subcontractorCode: null,
+        },
+        {
+          processId: 13,
+          standardCycleSec: null,
+          setupMinutes: null,
+          isSubcontract: false,
+          subcontractorCode: null,
+        },
+        {
+          processId: 11,
+          standardCycleSec: "35.5",
+          setupMinutes: 20,
+          isSubcontract: true,
+          subcontractorCode: "VEND-01",
+        },
+      ],
+    }),
+  );
 });
