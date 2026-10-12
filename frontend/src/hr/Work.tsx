@@ -207,6 +207,7 @@ export function Work({ demo = false }: { demo?: boolean }) {
     return (
       <section className="work-page">
         <h1>내 근무</h1>
+        <Link to="/help/hr/h-16">? 도움말</Link>
         <p>회사 근무는 로그인 회원만 이용할 수 있습니다.</p>
         <Link to="/hr/work-demo">합성 데이터로 근무 체험하기</Link>
         <p>
@@ -346,6 +347,7 @@ export function Work({ demo = false }: { demo?: boolean }) {
   return (
     <section className="work-page" aria-busy={pending}>
       <header className="work-heading">
+        <Link to={demo ? "/help/hr/h-17" : "/help/hr/h-16"}>? 도움말</Link>
         <div>
           <p>{demo ? "합성 데이터 체험" : "회사 공동 근무"}</p>
           <h1>{demo ? "근무 체험" : "내 근무"}</h1>

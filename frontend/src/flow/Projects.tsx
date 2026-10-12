@@ -490,6 +490,9 @@ export function Projects({ myTasks = false }: { myTasks?: boolean }) {
     return (
       <section className="projects">
         <h1>프로젝트·업무</h1>
+        <Link to={myTasks ? "/help/flow/f-01" : "/help/flow/f-02"}>
+          ? 도움말
+        </Link>
         <p>회사 공동 보드는 로그인한 회사 회원만 사용할 수 있습니다.</p>
         <ProjectDemo />
       </section>

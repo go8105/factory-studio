@@ -34,6 +34,16 @@ it("화면 경로는 업무 화면 문서에만 있다", () => {
   expect(screenPath("mes/m-04")).toBe("/mes/lots");
   expect(screenPath("portal/p-02")).toBeUndefined();
   expect(screenPath("design/d-01")).toBeUndefined();
+  expect(screenPath("flow/f-01")).toBe("/work-os/my-tasks");
+  expect(screenPath("flow/f-02")).toBe("/work-os/boards");
+  for (const [id, path] of [
+    ["h-16", "work"],
+    ["h-17", "work-demo"],
+    ["h-18", "users"],
+  ]) {
+    expect(help[`hr/${id}`]).toBeTruthy();
+    expect(screenPath(`hr/${id}`)).toBe(`/hr/${path}`);
+  }
 });
 it("검색은 대소문자를 무시하고 제목 일치를 먼저, 출처 주석은 제외한다", () => {
   const docs = {

@@ -192,12 +192,14 @@ export function Users() {
     return (
       <section className="work-page">
         <h1>사용자 관리</h1>
+        <Link to="/help/hr/h-18">? 도움말</Link>
         <p>관리자 계정으로 로그인해 주세요.</p>
       </section>
     );
   return (
     <section className="work-page" aria-busy={busy}>
       <header className="work-heading">
+        <Link to="/help/hr/h-18">? 도움말</Link>
         <div>
           <p>{platformAdmin ? "총 관리자" : "회사 관리자"}</p>
           <h1>사용자 관리</h1>

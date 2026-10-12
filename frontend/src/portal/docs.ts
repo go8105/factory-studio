@@ -105,7 +105,9 @@ export function screenPath(key: string) {
   const screen = solutions
     .find(([p]) => p === prefix)?.[2]
     .find((s) => s.id.toLowerCase() === id);
-  return screen && `/${prefix}/${screen.path}`;
+  return (
+    screen && `${prefix === "flow" ? "/work-os" : "/" + prefix}/${screen.path}`
+  );
 }
 export const headings = (body: string) =>
   [...body.matchAll(/^## (.+)$/gm)].map((m) => m[1].trim());
