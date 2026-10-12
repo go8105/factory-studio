@@ -1,3 +1,7 @@
+# 2026-10-12 OPS-CAD-01 main push / CI billing blocker
+
+CAD17/V02 merged into main (13f3a8e), NC help markup fixed. CAD154/frontend596/build/isolation/format passed. Runs38258159540/38258223617 failed before any step due to billing or spending limit. Server41ca68d/APIactive preserved; latest CAD deployment not executed. Next: owner resolves Billing & plans, rerun exact main HEAD CI, then backup/standard deployment. See docs/agent/main_CI_배포점검_OPS-CAD-01.md. Final commit: git log -1 --oneline. Shared MES changes untouched. Backend/DDL roundtrip and new browser/microphone checks not run.
+
 ## 2026-10-12 CAD-V02 STEP·YC 카드 완료 인계
 
 - branch codex/cad-v02, `/Users/hwang-kyoungho/projects/factory-studio-cadv02`, 최신main3d850fc+CAD17f2a1052 통합aebce5d, 구현커밋8e47eb9, 최종인계커밋 `git log -1 --oneline`. [결과](YC_음성카드_STEP검증_CAD-V02.md)/[계약](../modules/cad-cam/음성카드_시연_설계_CAD-V02.md).

@@ -1,3 +1,7 @@
+# 2026-10-12 OPS-CAD-01 main push / CI billing blocker
+
+CAD17/V02 merged into main (13f3a8e), NC help markup fixed. CAD154/frontend596/build/isolation/format passed. Runs38258159540/38258223617 failed before any step due to billing or spending limit. Server41ca68d/APIactive preserved; latest CAD deployment not executed. Next: owner resolves Billing & plans, rerun exact main HEAD CI, then backup/standard deployment. See docs/agent/main_CI_배포점검_OPS-CAD-01.md. Final commit: git log -1 --oneline. Shared MES changes untouched. Backend/DDL roundtrip and new browser/microphone checks not run.
+
 # 2026-10-12 ANTI-HELP-01 운영 배포 완료
 
 제품 `41ca68d` 로컬main/origin/실서버 반영(22:37 KST). 서버 `027505f` → `41ca68d`, 41초. MES 화면 도움말 4편(M-16 불량·사유 코드, M-17 작업자·근무조, M-19 라벨 양식, M-26 공정 검사 기준)과 도움말 수 가드 기댓값(15→19).
