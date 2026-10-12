@@ -60,7 +60,7 @@ def test_published_route_steps_are_locked(mes):
         "PUT",
         f"/routes/{route['id']}/steps",
         "lock",
-        {"processIds": []},
+        {"steps": []},
     )
     assert response.status_code == 409
     assert _reason(response) == "VERSION_LOCKED"
@@ -77,7 +77,7 @@ def test_draft_steps_follow_request_order(mes):
         "PUT",
         f"/routes/{draft['id']}/steps",
         "order",
-        {"processIds": [ins, inj, ins]},
+        {"steps": [{"processId": ins}, {"processId": inj}, {"processId": ins}]},
     )
     assert response.status_code == 200
     steps = response.json()["data"]["steps"]
@@ -97,7 +97,7 @@ def test_unknown_process_is_rejected(mes):
         "PUT",
         f"/routes/{draft['id']}/steps",
         "bad",
-        {"processIds": [999999]},
+        {"steps": [{"processId": 999999}]},
     )
     assert response.status_code == 400
     assert "steps" in response.json()["error"]["details"]["fields"]
@@ -159,7 +159,7 @@ def test_empty_route_cannot_be_published(mes):
         "PUT",
         f"/routes/{draft['id']}/steps",
         "empty",
-        {"processIds": []},
+        {"steps": []},
     )
     response = _call(client, created, "POST", f"/routes/{draft['id']}/publish", "pub-e")
     assert response.status_code == 409
@@ -206,6 +206,153 @@ def test_only_draft_route_can_be_deleted(mes):
     ok = _call(client, created, "DELETE", f"/routes/{draft['id']}", "del-d")
     assert ok.status_code == 204
     assert all(r["routeCode"] != "RT-H100" for r in _rows(client, "/routes"))
+
+
+def test_route_step_attributes_crud(mes):
+    client, created = mes
+    item = _id(client, "/items", "itemCode", "RM-PBT")
+    created_route = _call(
+        client,
+        created,
+        "POST",
+        "/routes",
+        "new-attr",
+        {"itemId": item, "routeCode": "RT-ATTR"},
+    )
+    route_id = created_route.json()["data"]["id"]
+    inj = _id(client, "/processes", "processCode", "INJ")
+    ins = _id(client, "/processes", "processCode", "INS")
+
+    # 1. 외주 아닌 단계(isSubcontract=False)에 subcontractorCode가 주어져도 비워짐
+    # 2. 외주 단계(isSubcontract=True)에는 subcontractorCode 보존
+    payload = {
+        "steps": [
+            {
+                "processId": inj,
+                "standardCycleSec": "45.50",
+                "setupMinutes": 30,
+                "isSubcontract": False,
+                "subcontractorCode": "VENDOR-IGNORED",
+            },
+            {
+                "processId": ins,
+                "standardCycleSec": "12.00",
+                "setupMinutes": 0,
+                "isSubcontract": True,
+                "subcontractorCode": "VENDOR-EXT",
+            },
+        ]
+    }
+    response = _call(
+        client,
+        created,
+        "PUT",
+        f"/routes/{route_id}/steps",
+        "save-attr",
+        payload,
+    )
+    assert response.status_code == 200
+    steps = response.json()["data"]["steps"]
+    assert len(steps) == 2
+
+    assert steps[0]["sequenceNo"] == 1
+    assert steps[0]["processId"] == inj
+    assert steps[0]["standardCycleSec"] == "45.50"
+    assert steps[0]["setupMinutes"] == 30
+    assert steps[0]["isSubcontract"] is False
+    assert steps[0]["subcontractorCode"] is None
+
+    assert steps[1]["sequenceNo"] == 2
+    assert steps[1]["processId"] == ins
+    assert steps[1]["standardCycleSec"] == "12.00"
+    assert steps[1]["setupMinutes"] == 0
+    assert steps[1]["isSubcontract"] is True
+    assert steps[1]["subcontractorCode"] == "VENDOR-EXT"
+
+    # 목록 조회 시에도 자식에 속성들이 실리는지 확인
+    found = _find(client, "/routes", "id", route_id)
+    assert found["steps"][0]["standardCycleSec"] == "45.50"
+    assert found["steps"][1]["subcontractorCode"] == "VENDOR-EXT"
+
+
+def test_route_step_attributes_validation(mes):
+    client, created = mes
+    draft = _find(client, "/routes", "routeCode", "RT-H100")
+    inj = _id(client, "/processes", "processCode", "INJ")
+
+    # standardCycleSec <= 0 에러
+    res_zero = _call(
+        client,
+        created,
+        "PUT",
+        f"/routes/{draft['id']}/steps",
+        "zero-cycle",
+        {"steps": [{"processId": inj, "standardCycleSec": "0"}]},
+    )
+    assert res_zero.status_code == 400
+    assert "steps" in res_zero.json()["error"]["details"]["fields"]
+
+    # setupMinutes < 0 에러
+    res_neg_setup = _call(
+        client,
+        created,
+        "PUT",
+        f"/routes/{draft['id']}/steps",
+        "neg-setup",
+        {"steps": [{"processId": inj, "setupMinutes": -1}]},
+    )
+    assert res_neg_setup.status_code in (400, 422)
+
+
+def test_revise_route_copies_step_attributes(mes):
+    client, created = mes
+    item = _id(client, "/items", "itemCode", "RM-PBT")
+    created_route = _call(
+        client,
+        created,
+        "POST",
+        "/routes",
+        "rev-attr",
+        {"itemId": item, "routeCode": "RT-REV-ATTR"},
+    )
+    route_id = created_route.json()["data"]["id"]
+    inj = _id(client, "/processes", "processCode", "INJ")
+    _call(
+        client,
+        created,
+        "PUT",
+        f"/routes/{route_id}/steps",
+        "save-steps",
+        {
+            "steps": [
+                {
+                    "processId": inj,
+                    "standardCycleSec": "60.00",
+                    "setupMinutes": 15,
+                    "isSubcontract": True,
+                    "subcontractorCode": "VENDOR-A",
+                }
+            ]
+        },
+    )
+    # 게시
+    _call(client, created, "POST", f"/routes/{route_id}/publish", "pub-attr")
+
+    # 개정
+    rev_res = _call(
+        client, created, "POST", f"/routes/{route_id}/revise", "rev-attr-action"
+    )
+    assert rev_res.status_code == 201
+    rev_data = rev_res.json()["data"]
+    assert rev_data["version"] == 2
+    assert rev_data["status"] == "draft"
+    assert len(rev_data["steps"]) == 1
+    copied = rev_data["steps"][0]
+    assert copied["processId"] == inj
+    assert copied["standardCycleSec"] == "60.00"
+    assert copied["setupMinutes"] == 15
+    assert copied["isSubcontract"] is True
+    assert copied["subcontractorCode"] == "VENDOR-A"
 
 
 # ---- M-15 BOM ----

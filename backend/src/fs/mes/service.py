@@ -601,8 +601,30 @@ def validate_steps(connection, scoped, version, rows) -> list[dict[str, Any]]:
     ids = [r["process_id"] for r in rows]
     if set(ids) - repo.existing_ids(connection, scoped, "mes.process", ids):
         raise _field("steps", "유효하지 않은 공정이 있습니다.")
-    # 같은 공정을 두 번 거치는 경로(재검사 등)는 허용한다. 순서는 요청 순서 1, 2, 3 …
-    return [{"process_id": pid, "sequence_no": n} for n, pid in enumerate(ids, 1)]
+    result = []
+    for n, r in enumerate(rows, 1):
+        where = f"{n}번째 공정: "
+        cycle_sec = r.get("standard_cycle_sec")
+        if cycle_sec is not None and Decimal(cycle_sec) <= 0:
+            raise _field("steps", where + "표준 사이클 타임은 0보다 커야 합니다.")
+        setup = r.get("setup_minutes")
+        if setup is not None and setup < 0:
+            raise _field("steps", where + "준비 시간은 0 이상이어야 합니다.")
+        is_subcontract = bool(r.get("is_subcontract", False))
+        sub_code = (r.get("subcontractor_code") or "").strip() or None
+        if not is_subcontract:
+            sub_code = None
+        result.append(
+            {
+                "process_id": r["process_id"],
+                "sequence_no": n,
+                "standard_cycle_sec": cycle_sec,
+                "setup_minutes": setup,
+                "is_subcontract": is_subcontract,
+                "subcontractor_code": sub_code,
+            }
+        )
+    return result
 
 
 def validate_lines(connection, scoped, version, rows) -> list[dict[str, Any]]:

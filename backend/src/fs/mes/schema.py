@@ -155,8 +155,23 @@ class BomRevise(ApiModel):
     bom_code: str = Field(alias="bomCode", pattern=ITEM_CODE)
 
 
+CYCLE_SEC = r"^\d{1,8}(\.\d{1,2})?$"  # numeric(10,2)
+
+
+class RouteStepIn(ApiModel):
+    process_id: int = Field(alias="processId", gt=0)
+    standard_cycle_sec: str | None = Field(
+        None, alias="standardCycleSec", pattern=CYCLE_SEC
+    )
+    setup_minutes: int | None = Field(None, alias="setupMinutes", ge=0, le=100000)
+    is_subcontract: bool = Field(False, alias="isSubcontract")
+    subcontractor_code: str | None = Field(
+        None, alias="subcontractorCode", max_length=40
+    )
+
+
 class RouteSteps(ApiModel):
-    process_ids: list[int] = Field(alias="processIds", max_length=50)
+    steps: list[RouteStepIn] = Field(max_length=50)
 
 
 class BomLineIn(ApiModel):

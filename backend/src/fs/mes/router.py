@@ -355,7 +355,7 @@ def put_steps(
     x_csrf_token: CsrfToken = None,
 ) -> dict[str, object]:
     key = _mutation(context, x_csrf_token, idempotency_key)
-    rows = [{"process_id": pid} for pid in payload.process_ids]
+    rows = [step.model_dump() for step in payload.steps]
     return {
         "data": service.set_children(
             context, service.ROUTES, row_id, rows, key, service.validate_steps

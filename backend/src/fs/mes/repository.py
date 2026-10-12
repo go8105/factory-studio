@@ -126,7 +126,7 @@ ROUTE = Master(
 )
 STEP = Master(
     "mes.route_step",
-    "id,route_version_id,process_id,sequence_no,created_at",
+    "id,route_version_id,process_id,sequence_no,created_at,standard_cycle_sec,setup_minutes,is_subcontract,subcontractor_code",
     "sequence_no",
     "route_version_id",
     (),
