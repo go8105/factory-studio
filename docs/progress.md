@@ -1,3 +1,17 @@
+# 2026-10-12 W2a-1b2-rest MES BOM(M-15) R-3·R-4 백엔드 완료
+
+- 브랜치: `antigravity/w2a-1b2-rest`
+- R-3 BOM 투입 공정 및 키 기반 맞춤 저장:
+  - `mes.bom_line.issue_process_id`: `repository.LINE` 컬럼, `schema.BomLineIn`, `service.validate_lines`(`mes.process` 확인) 반영.
+  - `reconcile_bom_lines`: `PUT /boms/{id}/lines` 저장 시 `material_item_id`를 키로 기존 줄을 UPDATE하여 `bom_line.id` 유지 및 대체 자재 보존. 삭제 대상 줄에 대체 자재가 있으면 409 `REFERENCED_BY_OTHERS` ("대체 자재가 있는 구성 자재는 삭제할 수 없습니다. 대체 자재를 먼저 지우세요.") 반환.
+- R-4 BOM 대체 자재 조회·편집:
+  - `GET /boms/{id}/lines/{lineId}/substitutes`, `PUT /boms/{id}/lines/{lineId}/substitutes` 엔드포인트 구현.
+  - 초안(`draft`)에서만 편집 가능 (`VERSION_LOCKED` 409).
+  - 완제품 자신 / 원래 구성 자재와 동일 품목 / 중복 등록 / 존재하지 않는 품목 차단.
+  - `revise`(개정) 시 구성 자재와 함께 대체 자재(`mes.bom_substitute`) 복제.
+- 검증: `backend/tests/test_mes_route_bom.py` 신규 6개 테스트 추가, 33 passed, 전체 MES 157 passed, `ruff check`/`ruff format` 통과.
+- 다음: 사용자 확인 후 R-5(`Boms.tsx` 투입 공정 + 대체 자재 화면) 착수.
+
 # 2026-10-12 HELP-01 제품 도움말 구현 대조·로컬 검증 완료
 
 사용자 다섯 시스템 문서화·main/origin·기존 실서버 배포 승인. 기준main3306777, 브랜치codex/product-help-20261012, 별도factory-studio-help 체크아웃. 제품 정적 도움말과 진입 링크만 변경; 공유main의 진행 중 MES 변경은 보존/제외. HR H-16~18 신설, Flow 행편집·부모집계·보관복구·권한·/work-os 이동 보정, GW 전체 합성 업무 안내, CAD 가정/실측·3D 시연 구분과 README 이력 표시. 상세 [구현 대조](agent/제품도움말_구현대조_HELP-01.md).

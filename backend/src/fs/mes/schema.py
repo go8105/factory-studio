@@ -174,15 +174,29 @@ class RouteSteps(ApiModel):
     steps: list[RouteStepIn] = Field(max_length=50)
 
 
+RATIO = r"^\d{1,6}(\.\d{1,6})?$"  # numeric(12,6)
+
+
 class BomLineIn(ApiModel):
     material_item_id: int = Field(alias="materialItemId", gt=0)
     qty_per_unit: str = Field(alias="qtyPerUnit", pattern=QTY)
     unit: str = Field(min_length=1, max_length=10)
     loss_rate: str = Field("0", alias="lossRate", pattern=RATE)
+    issue_process_id: int | None = Field(None, alias="issueProcessId", gt=0)
 
 
 class BomLines(ApiModel):
     lines: list[BomLineIn] = Field(max_length=100)
+
+
+class BomSubstituteIn(ApiModel):
+    substitute_item_id: int = Field(alias="substituteItemId", gt=0)
+    priority: int = Field(1, ge=1)
+    ratio: str = Field("1", pattern=RATIO)
+
+
+class BomSubstitutes(ApiModel):
+    substitutes: list[BomSubstituteIn] = Field(max_length=50)
 
 
 # ---- M-02 생산계획 · M-03 작업지시 ----

@@ -13,6 +13,7 @@ from typing import Any
 from sqlalchemy import Connection, text
 
 from fs.common.auth import AuthContext
+from fs.common.errors import ApiError
 
 _S = "workspace_id=:w AND generation_id=:g"
 
@@ -145,11 +146,19 @@ BOM = Master(
 )
 LINE = Master(
     "mes.bom_line",
-    "id,bom_version_id,line_no,material_item_id,qty_per_unit,unit,loss_rate,created_at",
+    "id,bom_version_id,line_no,material_item_id,qty_per_unit,unit,loss_rate,created_at,issue_process_id",
     "line_no",
     "bom_version_id",
     (),
     "bom_version_id, line_no, id",
+)
+SUBSTITUTE = Master(
+    "mes.bom_substitute",
+    "id,bom_line_id,substitute_item_id,priority,ratio,created_at",
+    "priority",
+    "bom_line_id",
+    (),
+    "bom_line_id, priority, id",
 )
 
 
@@ -338,6 +347,58 @@ def delete_row(
         text(f"DELETE FROM {master.table} WHERE {_S} AND id=:id"),
         {**_s(context), "id": row_id},
     )
+
+
+def reconcile_bom_lines(
+    connection: Connection,
+    context: AuthContext,
+    bom_version_id: int,
+    rows: list[dict[str, Any]],
+) -> None:
+    """material_item_id를 키로 기존 줄을 맞춘다 (UPDATE/INSERT/DELETE).
+
+    삭제 대상에 대체 자재가 있으면 409 REFERENCED_BY_OTHERS를 발생시킨다.
+    """
+    existing = list_rows(connection, context, LINE, {"bom_version_id": bom_version_id})
+    existing_by_item = {row["materialItemId"]: row for row in existing}
+    incoming_by_item = {r["material_item_id"]: r for r in rows}
+
+    # 삭제 대상: 기존에 있었으나 요청에 없는 자재
+    to_delete = [
+        row
+        for item_id, row in existing_by_item.items()
+        if item_id not in incoming_by_item
+    ]
+    for row in to_delete:
+        if exists_where(
+            connection, context, "mes.bom_substitute", {"bom_line_id": row["id"]}
+        ):
+            raise ApiError(
+                409,
+                "REFERENCED_BY_OTHERS",
+                "대체 자재가 있는 구성 자재는 삭제할 수 없습니다. 대체 자재를 먼저 지우세요.",
+                {"lineId": row["id"], "materialItemId": row["materialItemId"]},
+            )
+        delete_row(connection, context, LINE, row["id"])
+
+    # 갱신 또는 추가: 요청 순서대로 반영
+    for r in rows:
+        item_id = r["material_item_id"]
+        values = {
+            "bom_version_id": bom_version_id,
+            "line_no": r["line_no"],
+            "material_item_id": item_id,
+            "qty_per_unit": r["qty_per_unit"],
+            "unit": r["unit"],
+            "loss_rate": r["loss_rate"],
+            "issue_process_id": r.get("issue_process_id"),
+        }
+        if item_id in existing_by_item:
+            update_row(
+                connection, context, LINE, existing_by_item[item_id]["id"], values
+            )
+        else:
+            insert_row(connection, context, LINE, values)
 
 
 def count_references(

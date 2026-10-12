@@ -17,6 +17,7 @@ from fs.mes.schema import (
     BomCreate,
     BomLines,
     BomRevise,
+    BomSubstitutes,
     ConversionCreate,
     ConversionUpdate,
     DefectCodeCreate,
@@ -373,11 +374,30 @@ def put_lines(
 ) -> dict[str, object]:
     key = _mutation(context, x_csrf_token, idempotency_key)
     rows = [line.model_dump() for line in payload.lines]
-    return {
-        "data": service.set_children(
-            context, service.BOMS, row_id, rows, key, service.validate_lines
-        )
-    }
+    return {"data": service.set_bom_lines(context, row_id, rows, key)}
+
+
+@router.get("/boms/{row_id}/lines/{line_id}/substitutes")
+def list_substitutes(
+    row_id: int,
+    line_id: int,
+    context: Auth,
+) -> dict[str, object]:
+    return {"data": service.list_substitutes(context, row_id, line_id)}
+
+
+@router.put("/boms/{row_id}/lines/{line_id}/substitutes")
+def put_substitutes(
+    row_id: int,
+    line_id: int,
+    payload: BomSubstitutes,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    rows = [sub.model_dump() for sub in payload.substitutes]
+    return {"data": service.set_substitutes(context, row_id, line_id, rows, key)}
 
 
 # ---- M-02 생산계획 ----

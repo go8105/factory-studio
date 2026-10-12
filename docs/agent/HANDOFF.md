@@ -1,17 +1,19 @@
-# 2026-10-12 W2a-1b2-rest MES 공정 경로(M-14) R-2 완료
+# 2026-10-12 W2a-1b2-rest MES 공정 경로(M-14)·BOM(M-15) R-3·R-4 백엔드 완료
 
 - 브랜치: `antigravity/w2a-1b2-rest`
-- 마지막 커밋: `6a7158a` (feat(mes): R-2 공정 경로 화면 단계별 속성 편집 및 브라우저 검증 완료)
-- 진행 상태: **R-1, R-2 완료 / R-3~R-5 대기**
+- 마지막 커밋: `df8fb8b` (feat(mes): R-3·R-4 BOM 투입 공정, 키 기반 맞춤 저장 및 대체 자재 API 구현)
+- 진행 상태: **R-1, R-2, R-3, R-4 완료 / R-5(화면) 미착수 — 사용자 확인 대기**
 - 작업 내용:
-  - R-1: `mes.route_step` 컬럼 확장(표준 CT, 준비 분, 외주 여부, 외주처), `schema.RouteSteps` 객체 목록 변경, `validate_steps` 검증 및 정규화, 백엔드 테스트 27 passed, 전체 MES 131 passed
-  - R-2: `Routes.tsx` 단계별 4개 속성 편집 폼 및 목록 컬럼 추가, 외주 체크 해제 시 외주처 코드 비움/감춤, 빈 칸 null 정규화, `versions.test.tsx` 갱신 및 신규 속성 추가 테스트(9 passed), 전체 프론트엔드 75파일 597테스트/typecheck/lint/build 통과
-  - 브라우저 실동작 검증: Playwright(1280px 및 390px 모바일)로 경로 등록 → 단계 추가(외주 25.50초/15분/VENDOR-001, 사내 10.00초/5분) → 순서 저장 → 새로고침 후 값 유지 확인 → 게시 완료까지 실제 확인 완료
+  - R-1: `mes.route_step` 컬럼 확장(표준 CT, 준비 분, 외주 여부, 외주처), `schema.RouteSteps` 객체 목록 변경, `validate_steps` 검증 및 정규화, 백엔드 테스트 통과
+  - R-2: `Routes.tsx` 단계별 4개 속성 편집 폼 및 목록 컬럼 추가, 외주 체크 해제 시 외주처 코드 비움/감춤, 빈 칸 null 정규화, `versions.test.tsx` 갱신 및 신규 속성 추가 테스트(9 passed), 전체 프론트엔드 597테스트/typecheck/lint/build 통과, Playwright 브라우저 실동작 검증 완료
+  - R-3: `bom_line.issue_process_id` 추가 (`repository.LINE` 컬럼, `schema.BomLineIn`, `service.validate_lines`에서 `mes.process` 검증). `PUT /boms/{id}/lines`를 `service.set_bom_lines`로 연결하여 `material_item_id` 키 기반 맞춤 저장(UPDATE/INSERT/DELETE) 구현. 기존 줄 UPDATE로 `bom_line.id` 보존 및 하위 대체 자재 유지. 삭제 대상에 대체 자재가 딸려 있으면 409 `REFERENCED_BY_OTHERS` 반환.
+  - R-4: `mes.bom_substitute` 조회·편집 API (`GET /boms/{id}/lines/{lineId}/substitutes`, `PUT /boms/{id}/lines/{lineId}/substitutes`). 초안(`draft`)에서만 편집 가능 (`VERSION_LOCKED` 409). 완제품 자신/원래 구성 자재와 동일 품목/중복 등록/미존재 품목 차단. BOM 개정(`revise`) 시 새 버전의 구성 자재 라인 아래로 대체 자재 자동 복제.
+  - 백엔드 검증: `test_mes_route_bom.py` 33 passed, 전체 MES 157 passed, `ruff check` 및 `ruff format` 통과. (기존 실패하던 `test_gw_projects.py`는 단독 실행 시 통과 확인)
 
-### 다음 작업 (R-3)
+### 다음 작업 (R-5)
 
-- 대상: M-15 백엔드 — `bom_line.issue_process_id` (`repository.LINE`·`BomLineIn`·`validate_lines`)
-- 주의: M-15 대체 자재(R-4)에서는 "구성 자재 교체 시 대체 자재를 어떻게 하는가"를 사전에 결정해서 물어보고 진행한다.
+- 대상: M-15 화면 — `Boms.tsx` 투입 공정(`issueProcessId`) 선택 드롭다운 + 구성 자재 행별 대체 자재(`substitutes`) 조회/편집 UI 및 `versions.test.tsx` 갱신.
+- 사용자 확인 후 R-5 착수.
 
 ---
 
