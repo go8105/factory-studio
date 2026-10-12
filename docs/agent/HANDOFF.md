@@ -1,3 +1,30 @@
+# 2026-10-12 W2a-1b2-rest MES 공정 경로(M-14) R-1 완료 및 중단
+
+- 브랜치: `antigravity/w2a-1b2-rest`
+- 마지막 커밋: `3b069cd` (feat(mes): R-1 공정 경로 단계별 속성 백엔드 및 테스트 구현)
+- 진행 상태: **R-1까지 완료 / R-2~R-5 미착수**
+- 작업 내용:
+  - `mes.route_step` 컬럼 확장: `standard_cycle_sec`, `setup_minutes`, `is_subcontract`, `subcontractor_code`
+  - `schema.RouteSteps` 본문을 `steps: [{processId, standardCycleSec?, setupMinutes?, isSubcontract, subcontractorCode?}]` 객체 목록으로 변경
+  - `validate_steps` 유효성 검사(표준 사이클 > 0, 준비 시간 >= 0, 외주 아닐 시 subcontractor_code null 정규화)
+  - `backend/tests/test_mes_route_bom.py` 27 passed (신규 속성 CRUD/검증/개정 복사 테스트 포함), 전체 MES 131 passed
+
+### 중단 상태 주의 (반드시 확인)
+
+이 브랜치는 **반쯤 고친 상태다.** 백엔드는 `steps: [{processId, ...}]`를 받는데 화면은 아직 `processIds: [...]`를 보낸다. 남은 곳은 세 군데다:
+- `frontend/src/mes/Routes.tsx:162`
+- `frontend/src/mes/Routes.tsx:179`
+- `frontend/src/mes/versions.test.tsx:223`
+
+그래서 **이 브랜치에서는 `/mes/routes`의 단계 저장이 400으로 실패한다.** 정상이다. R-2를 끝내야 맞는다.
+→ **이 브랜치를 main에 병합하지 않는다.** R-2까지 끝난 뒤에 병합한다.
+
+### 재개할 때
+
+`docs/agent/W2a-1b2-rest_MES경로BOM.md`의 R-2부터 시작한다. 그 전에 `git branch --show-current`가 `antigravity/w2a-1b2-rest`인지 확인한다.
+
+---
+
 # 2026-10-12 HELP-01 제품 도움말 구현 대조·로컬 검증 완료
 
 사용자 다섯 시스템 문서화·main/origin·기존 실서버 배포 승인. 기준main3306777, 브랜치codex/product-help-20261012, 별도factory-studio-help 체크아웃. 제품 정적 도움말과 진입 링크만 변경; 공유main의 진행 중 MES 변경은 보존/제외. HR H-16~18 신설, Flow 행편집·부모집계·보관복구·권한·/work-os 이동 보정, GW 전체 합성 업무 안내, CAD 가정/실측·3D 시연 구분과 README 이력 표시. 상세 [구현 대조](제품도움말_구현대조_HELP-01.md).
