@@ -51,7 +51,7 @@
 
 ## 이번 검증 기록
 
-로컬 검증 완료. main·정확 HEAD CI·운영 결과는 배포 후 갱신한다.
+로컬·정확 HEAD CI·운영 검증 완료. 아래 운영 결과를 기준으로 판정한다.
 
 - 소스·설계·과거 검증 대조: AGENTS, 현황, FS-013, docs README/progress/HANDOFF, CAD 공통/11~16, GW 공통/DSN-31, Flow 공통/FLOW-03, HR 공통/DSN-TIME, factory 공통.
 - 별도 체크아웃: `/Users/hwang-kyoungho/projects/factory-studio-help`. 공유 main의 진행 중 MES 변경은 제외한다. 실제 사용자 데이터·계정·비밀번호·확장 설정을 변경하지 않는다.
@@ -72,6 +72,19 @@
 | P3 | 문서 지도·도움말 커버리지 전 시스템 정비 | 기존 docs README 상태표와 계획 이력이 오래됨. 범위 밖 MES M-16/17/19/26 도움말 누락은 본 작업에서 개발하지 않음. 각 담당자가 현행 기준/역사 분리 |
 
 문서화 중 발견한 제품 문제는 위 후보로만 남긴다. 이번 작업이 후속 기능 착수 승인을 뜻하지 않는다.
+
+## main·운영 반영 결과 · 2026-10-12 21:58 KST
+
+- 제품 `027505f12c3e9e01da0cd55e13759b076771bc51` 로컬 main/origin/main/실서버 반영. 배포 후 결과 기록 커밋은 제품 커밋과 구분한다.
+- 정확 HEAD [CI 38249603910](https://github.com/go8105/factory-studio/actions/runs/38249603910) SUCCESS: backend1010/skip1·perf1·frontend596/75파일·tools133·타입/lint/format/build·DDL upgrade/downgrade/upgrade 통과. 격리 API116, 최종 main의 로컬 frontend596도 통과. 중간 도움말 커밋3개의 중복 CI는 취소했고 이를 통과로 계산하지 않는다.
+- 표준 `tools/deploy.sh` 성공, CI 우회 없음. 서버2c30b42→027505f. 기존 main의 MES/D84 선행 커밋은 보존한 통합 배포이며 HELP-01 자체 변경은 정적 도움말·진입 링크/경로·검사/기록30파일이다. 이번 작업 DB/API/시드 변경 없음. 코드/템플릿 sv-20261009-gw1 동일, 기존 템플릿 유지.
+- 보호 백업 `/srv/factory-studio/backups/20261012-help-f14b75b`: DB custom dump 복원 목록 읽기·자산 압축/gzip 검사 통과, 디렉터리700/파일600. 백업·환경·계정 내용을 다운로드하거나 Git/문서에 넣지 않았다.
+- 회사 원장/계정59항목과 회사+회원 원장/계정59항목의 모든 행 건수·to_jsonb 내용 hash 전후동일. 게스트/TEMPLATE 정상 정리와 회원 자료 보존을 구분한다. 실제 사용자 자료·계정·비밀번호·확장 설정 변경 없음.
+- APIactive·원점200·공개200·DDL오류0·최근2분5xx0. 기존 secretary-api/secretary-scheduler active, office200.
+- 공개 도움말/근태 설치 관련10주소200. 공개 index/ContentPages/Flow/HR JS SHA256이 서버와 일치하며 현행 도움말 본문 포함 확인. Python urllib 첫 요청403은 통과로 쓰지 않고 표준 배포와 같은 curl로 재확인 성공.
+- 운영 Chrome에서 CAD/GW/Flow/3D/H-16/17/18 렌더링, G-14→현재F-02 이동 확인. 공장 도움말의 전체 페이지 이동 시간초과 뒤 실제 도착/본문을 확인하고 나머지는 제품 내부 링크로 검증했다. 기존 운영 세션에서 도움말 읽기만 했으며 실제 회사 업무 쓰기는 하지 않았다.
+- 변경 문서 링크317개 최종 대조, 끊김0. 사용자 출력에 실제 로컬 제품의 합성 Flow/근무 승인과 운영 도움말 캡처·본 보고서 사본 저장. 합성 캡처는 시제품·실운영 업무 검증과 구분한다.
+- 실휴대폰 설치·마이크·실가공/실설비 검증은 미실행. 로컬 WebGL사용불가로 3D 렌더링/걷기도 미검증. 격리 검증 서버/탭 종료, 기존8000/5173 유지. 후속 개발 미착수.
 
 ### 로컬 최종 검증 (2026-10-12)
 

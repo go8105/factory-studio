@@ -1,3 +1,11 @@
+# 2026-10-12 HELP-01 다섯 시스템 도움말·운영 배포 완료
+
+제품027505f main/origin/실서버 반영(21:58KST), 정확HEAD CI38249603910 SUCCESS: backend1010/skip1·perf1·frontend596·tools133·타입/lint/format/build/DDL왕복. 표준배포 성공·CI우회 없음·보호백업20261012-help-f14b75b 검증·회사59/회사+회원59원장/계정 전체hash보존·템플릿sv-20261009-gw1유지·APIactive/DDL0/공개원점200/5xx0·기존이지스active/office200·공개10주소200/JS해시일치·운영 도움말 렌더링/관련이동 확인. 배포 후 결과 기록 커밋은 제품과 구분한다. 상세 [구현 대조·검증](제품도움말_구현대조_HELP-01.md).
+
+이번 작업 정적도움말·진입링크/문서경로·검사/기록30파일, 업무기능·DB/API/시드 변경 없음. HR H16~18·Flow사이드바/행편집/집계/보관복구/G14·15 현행연결·GW합성/실회사·CAD가정/실측·3D시연 구분. 격리API116·최종main 로컬frontend596·링크317/끊김0. 실제 합성 GW/Flow/근무직원신청→관리자승인/E1CAM/NC후보재생/CNC시연 확인. 실제 회사쓰기·계정/비밀번호/확장 설정 변경 없음. 실휴대폰·마이크·실가공/실설비 및 로컬WebGL불가 3D렌더링/걷기 미검증.
+
+통합은 별도factory-studio-help-main의main에서 수행; 원래 체크아웃의 병행antigravity 브랜치·MES 미추적 도움말 보존. 검증 서버/탭 종료, 기존8000/5173 유지. 다음은 사용자 요청 후에만 P1근태정책-화면일치→실회사GW인증/권한→PWA실기기, P2Flow업무일지/규모→CAD실측/음성→3D실데이터. 재현: Node24 frontend npm test/typecheck/lint/format:check/build, db:validate, 프로젝트uv Python3.14 격리감사. pytest는 격리 *_test DB만 사용. 후속 개발 자동 착수 금지.
+
 # 2026-10-12 HELP-01 제품 도움말 구현 대조·로컬 검증 완료
 
 사용자 다섯 시스템 문서화·main/origin·기존 실서버 배포 승인. 기준main3306777, 브랜치codex/product-help-20261012, 별도factory-studio-help 체크아웃. 제품 정적 도움말과 진입 링크만 변경; 공유main의 진행 중 MES 변경은 보존/제외. HR H-16~18 신설, Flow 행편집·부모집계·보관복구·권한·/work-os 이동 보정, GW 전체 합성 업무 안내, CAD 가정/실측·3D 시연 구분과 README 이력 표시. 상세 [구현 대조](제품도움말_구현대조_HELP-01.md).
