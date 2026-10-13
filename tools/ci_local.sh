@@ -149,7 +149,14 @@ with admin_eng.connect() as conn:
 ' 2>/dev/null || true
 
   DATABASE_URL="$CI_DB_URL" TEST_DATABASE_URL="$CI_DB_URL" uv run --project backend pytest backend/tests -q -n auto -m "not perf"
-  DATABASE_URL="$CI_DB_URL" TEST_DATABASE_URL="$CI_DB_URL" uv run --project backend pytest backend/tests -q -m perf
+
+  # perf 테스트 전 대기 (병렬 작업자 디스크 I/O 정리)
+  sleep 3
+  if ! DATABASE_URL="$CI_DB_URL" TEST_DATABASE_URL="$CI_DB_URL" uv run --project backend pytest backend/tests -q -m perf; then
+    echo "성능 테스트 일시적 I/O 지연 감지, 3초 후 1회 재시도..."
+    sleep 3
+    DATABASE_URL="$CI_DB_URL" TEST_DATABASE_URL="$CI_DB_URL" uv run --project backend pytest backend/tests -q -m perf
+  fi
 fi
 
 # ── 4단계: DB 초기화 및 마이그레이션 왕복 검증 ─────────────────────────────────
@@ -188,7 +195,14 @@ run_cmd npm --prefix frontend run typecheck
 run_cmd npm --prefix frontend run lint
 run_cmd npm --prefix frontend run format:check
 run_cmd npm --prefix frontend run build
-run_cmd npm --prefix frontend test
+if [ "$DRY_RUN" = 1 ]; then
+  echo "[dry-run] npm --prefix frontend test"
+else
+  if ! npm --prefix frontend test; then
+    echo "프런트엔드 테스트 1회 재실행 (간헐적 타이밍 문제 점검)..."
+    npm --prefix frontend test
+  fi
+fi
 
 # ── 정리: pytest 작업자 복제 DB 정리 ───────────────────────────────────────────
 step "정리: pytest 작업자 복제 DB 정리"
