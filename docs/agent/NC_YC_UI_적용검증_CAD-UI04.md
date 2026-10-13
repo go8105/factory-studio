@@ -22,3 +22,5 @@
 
 Node24 prototype npm ci/test/format:check, frontend npm ci/build 및대상help/docs/CadCam검사. frontend/dist 정적서버5263→node docs/agent/assets/cad-ui04/workspace-check.mjs (Chrome필요, CAD_TEST_URL선택). 모의인식/합성예제사용. 테스트전용서버는종료한다. 계정/비밀번호/원장/병행antigravity변경없음.
 사용자기존main/push승인범위로통합하며원격CI/배포결과는후속기록을참조한다. GitHub결제차단과Figma호출한도는별개, CI우회/새운영배포없음. 다음사용자결과확인/실발화·운영검증, CAD/CAM다른모드확장은자동착수없음.
+
+제품3818b38 main/origin반영. [CI38403227492](https://github.com/go8105/factory-studio/actions/runs/38403227492) verify runner시작전 결제실패/한도증액 annotation확인. 검사는시작하지않았고새운영배포없음. 검증서버5263/Chrome종료, 최종인계commit은gitlog확인.
