@@ -27,7 +27,7 @@ export function arrangeNCReview(doc = document) {
   inputs.prepend(title);
   const results = doc.createElement("aside");
   results.className = "review-results";
-  results.setAttribute("aria-label", "분석 결과와 휴디");
+  results.setAttribute("aria-label", "분석 결과와 와이씨");
   results.innerHTML =
     '<h2>분석 결과·제안</h2><p class="muted">품질을 먼저 확인하고 예상 소비 범위를 비교합니다.</p>';
   for (const selector of [

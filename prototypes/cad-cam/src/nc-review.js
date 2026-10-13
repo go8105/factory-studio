@@ -1,3 +1,4 @@
+import { createVoiceDemo } from "./nc-voice-demo.js";
 import { FANUC_REVIEW_PROFILE } from "./nc-controller.js";
 import { createNCPostReview } from "./nc-post-review.js";
 import { createHughVoice } from "./hugh-voice.js";
@@ -69,9 +70,9 @@ proposalReview = createProposalReview(
   playback,
   viewer,
 );
-createHughVoice({
+const voice = createHughVoice({
   propose() {
-    const r = proposalReview.run();
+    const r = proposalReview.run({ present: true });
     if (r.reasons.length) throw Error("제안 차단: " + r.reasons.join(" · "));
     if (!r.candidates.length) throw Error("검토할 대기를 먼저 선택하세요");
     const valid = r.candidates.filter((c) => c.status !== "blocked");
@@ -202,17 +203,21 @@ $("#proposal-sample").onclick = () => {
     "소재 예제와 동일 형상 · 종료 전 합성 G4 600초. 실제 공정 목적이 아닙니다.",
   );
 };
-$("#voice-sample").onclick = () => {
-  $("#profile").value = NC_PROFILE;
-  $("#stock-sample").click();
-  fileName = "cnc_CADV01_2026-10-08_voice.ngc";
-  sourceText = voiceSample;
-  $("#source").value = voiceSample;
-  $("#filename").textContent = fileName + " · 합성 발표 예제";
-  message(
-    "합성 발표 예제: 경로 해석 → STEP 예제·소재 검토 → 합성 장비 값·시간 에너지 계산 → 합성 검토 기준 → YC 제안. 실제 공정 검토가 아닙니다.",
-  );
-};
+const voiceDemo = createVoiceDemo({
+  voice,
+  getNC: () => result,
+  getStock: () => stockReview.export(),
+  getEnergy: () => energyReview.analysis(),
+  load() {
+    $("#profile").value = NC_PROFILE;
+    $("#stock-sample").click();
+    fileName = "cnc_CADV01_2026-10-08_voice.ngc";
+    sourceText = voiceSample;
+    $("#source").value = voiceSample;
+    $("#filename").textContent = fileName + " · 합성 발표 예제";
+  },
+});
+$("#voice-sample").onclick = () => voiceDemo.start();
 $("#analyze").onclick = () => {
   stop();
   clear();

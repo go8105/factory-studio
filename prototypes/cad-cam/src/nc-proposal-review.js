@@ -162,7 +162,7 @@ export function createProposalReview(
         .map(({ selected, ...r }) => r),
     };
   }
-  function run() {
+  function run({ present = false } = {}) {
     clear();
     try {
       if (!dwells) throw Error("현재 분석의 대기 목록을 먼저 만드세요");
@@ -196,7 +196,8 @@ export function createProposalReview(
       $("proposal-status").textContent = e.message;
       throw e;
     }
-    if (!report.reasons.length && report.candidates.length) stage.show(report);
+    if (present && !report.reasons.length && report.candidates.length)
+      stage.show(report);
     return report;
   }
   $("proposal-run").onclick = () => {

@@ -1,3 +1,9 @@
+## 2026-10-13 CAD-V03 YC 예제·음성 요청 흐름 보정 완료
+
+YC 예제 클릭→마이크 요청/합성NC·STEP·소재·장비·품질 준비→헤이와이씨/파일최적안요청→정지카드3→번호확대재생. Step4는 계산만 하고 자동팝업 제거. 실제업로드는 기존조건검증 유지/후보수강제없음. CAD154/대상frontend33/build/격리/format·실Chrome모의인식이벤트 전체흐름/진행률·정지/복귀/390/입력중단/재시도/pageerror0. 실마이크/운영새흐름/실장비/DB검증미실행·CI우회없음. branch codex/cad-v03, 기준main65aaea5; main반영/push는 승인된 기존반영범위. [결과](YC_음성요청_흐름검증_CAD-V03.md). 공유MES변경없음, 이전antigravity로컬휴디코드와최신빌드구분. 다음결과확인/실발화·운영검증, 다음ID자동착수없음.
+
+- 재현: Node24 prototype npm ci/test, frontend npm ci/build 및 대상33검사, 정적빌드5260+assets/cad-v03/voice-flow-check.mjs. 마지막커밋 git log -1. 실마이크는모의인식과구분. 계정/DB/원장/비밀번호변경없음.
+
 # 2026-10-12 OPS-CAD-01 main push / CI billing blocker
 
 CAD17/V02 merged into main (13f3a8e), NC help markup fixed. CAD154/frontend596/build/isolation/format passed. Runs38258159540/38258223617 failed before any step due to billing or spending limit. Server41ca68d/APIactive preserved; latest CAD deployment not executed. Next: owner resolves Billing & plans, rerun exact main HEAD CI, then backup/standard deployment. See docs/agent/main_CI_배포점검_OPS-CAD-01.md. Final commit: git log -1 --oneline. Shared MES changes untouched. Backend/DDL roundtrip and new browser/microphone checks not run.
