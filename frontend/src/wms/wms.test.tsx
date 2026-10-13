@@ -367,3 +367,75 @@ it.each([
   expect(within(table).getByText(label)).toBeVisible();
   expect(within(table).queryByRole("button", { name: "반영" })).toBeNull();
 });
+
+it("W-07 품목 등록 시 유효기간·안전재고·ABC·PLM 등 확장 필드를 전송한다", async () => {
+  const items = [
+    {
+      id: 1,
+      itemCode: "RAW-STEEL",
+      name: "강판",
+      baseUnit: "KG",
+      itemClass: "RAW",
+      lotTracked: true,
+      shelfLifeDays: 180,
+      storageCondition: "상온 건조",
+      safetyStock: "50.000",
+      maxStock: "200.000",
+      abcClass: "A",
+      plmPartNo: "PLM-ST-01",
+      plmRevision: "R1",
+      isActive: true,
+      moveCount: 0,
+      conversions: [],
+    },
+  ];
+  const fetcher = mount("/wms/items", {
+    [`GET ${W}/items`]: ok(items),
+    [`POST ${W}/items`]: ok({ id: 2 }),
+  });
+  expect(await screen.findByText("RAW-STEEL")).toBeVisible();
+  expect(screen.getByText("180일")).toBeVisible();
+  expect(screen.getByText("50 / 200")).toBeVisible();
+  expect(screen.getByText("A")).toBeVisible();
+
+  fireEvent.click(screen.getByRole("button", { name: "품목 등록" }));
+  const dialog = await screen.findByRole("dialog", { name: "품목 등록" });
+
+  fireEvent.change(within(dialog).getByLabelText("품목 코드"), {
+    target: { value: "FG-BOX" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("이름"), {
+    target: { value: "포장박스" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("유효기간 (일)"), {
+    target: { value: "365" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("안전재고"), {
+    target: { value: "100" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("최대재고"), {
+    target: { value: "500" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("ABC 등급"), {
+    target: { value: "B" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("PLM 품번"), {
+    target: { value: "PLM-BX-01" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("PLM 리비전"), {
+    target: { value: "A" },
+  });
+
+  fireEvent.click(within(dialog).getByRole("button", { name: "등록" }));
+  await waitFor(() => expect(sent(fetcher, "POST", "/items")).toHaveLength(1));
+  expect(body(sent(fetcher, "POST", "/items")[0])).toMatchObject({
+    itemCode: "FG-BOX",
+    name: "포장박스",
+    shelfLifeDays: 365,
+    safetyStock: "100",
+    maxStock: "500",
+    abcClass: "B",
+    plmPartNo: "PLM-BX-01",
+    plmRevision: "A",
+  });
+});

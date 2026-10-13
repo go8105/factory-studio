@@ -5,7 +5,7 @@ export { fieldErrors, moduleOff } from "../shared/hooks";
 
 export const WMS = "/api/v1/wms";
 
-export type Purpose = "RAW" | "FG";
+export type Purpose = "RAW" | "SEMI" | "FG" | "MERCH" | "SUPPLY";
 export type Warehouse = {
   id: number;
   code: string;
@@ -33,6 +33,13 @@ export type Item = {
   baseUnit: string;
   itemClass: Purpose;
   lotTracked: boolean;
+  shelfLifeDays?: number | null;
+  storageCondition?: string | null;
+  safetyStock?: string | null;
+  maxStock?: string | null;
+  abcClass?: "A" | "B" | "C" | null;
+  plmPartNo?: string | null;
+  plmRevision?: string | null;
   isActive: boolean;
   moveCount: number;
   conversions: Conversion[];
@@ -165,7 +172,10 @@ export const REASON_LABEL: Record<Reason, string> = {
 };
 export const PURPOSE_LABEL: Record<Purpose, string> = {
   RAW: "원자재",
+  SEMI: "반제품",
   FG: "완제품",
+  MERCH: "상품",
+  SUPPLY: "부자재",
 };
 export const BLOCK_LABEL: Record<string, string> = {
   ITEM_NOT_REGISTERED: "품목 미등록",

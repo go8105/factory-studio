@@ -392,7 +392,9 @@ def delete_location(context: AuthContext, row_id: int, key: str) -> dict[str, An
 # ---------- 품목·단위 (W-07) ----------
 
 ITEM_SQL = """
-SELECT i.id, i.item_code, i.name, i.base_unit, i.item_class, i.lot_tracked, i.is_active,
+SELECT i.id, i.item_code, i.name, i.base_unit, i.item_class, i.lot_tracked,
+       i.shelf_life_days, i.storage_condition, i.safety_stock, i.max_stock,
+       i.abc_class, i.plm_part_no, i.plm_revision, i.is_active,
        (SELECT count(*) FROM wms.stock_move m
          WHERE m.workspace_id=i.workspace_id AND m.generation_id=i.generation_id AND m.item_id=i.id) move_count
 FROM wms.item i WHERE i.workspace_id=:w AND i.generation_id=:g
@@ -400,6 +402,28 @@ FROM wms.item i WHERE i.workspace_id=:w AND i.generation_id=:g
 CONVERSION_SQL = f"""
 SELECT id, item_id, from_unit, factor FROM wms.item_unit_conversion WHERE {_S}
 """
+
+
+def _validate_item_rules(values: dict) -> None:
+    part_no = values.get("plm_part_no")
+    revision = values.get("plm_revision")
+    if (part_no is None) != (revision is None):
+        raise _fields(
+            {"plmPartNo": "PLM 품번과 리비전은 둘 다 입력하거나 둘 다 비워야 합니다."}
+        )
+    safety = values.get("safety_stock")
+    max_s = values.get("max_stock")
+    if safety is not None and max_s is not None:
+        from decimal import Decimal
+
+        if Decimal(str(max_s)) < Decimal(str(safety)):
+            raise _fields({"maxStock": "최대재고는 안전재고보다 크거나 같아야 합니다."})
+    days = values.get("shelf_life_days")
+    if days is not None and int(days) <= 0:
+        raise _fields({"shelfLifeDays": "유효기간 일수는 1일 이상이어야 합니다."})
+    abc = values.get("abc_class")
+    if abc is not None and abc not in ("A", "B", "C"):
+        raise _fields({"abcClass": "ABC 등급은 A, B, C 중 하나여야 합니다."})
 
 
 def _item(connection, scoped, row_id: int) -> dict[str, Any] | None:
@@ -445,12 +469,32 @@ def _insert_item(connection, scoped, values: dict) -> int:
         {**_s(scoped), "c": values["item_code"]},
     ).first():
         raise _fields({"itemCode": "이미 등록된 품목 코드입니다."})
+    _validate_item_rules(values)
+    lot_tracked = values.get("lot_tracked", values.get("item_class") == "FG")
     return connection.execute(
         text(
-            "INSERT INTO wms.item(workspace_id,generation_id,item_code,name,base_unit,item_class,lot_tracked) "
-            "VALUES (:w,:g,:item_code,:name,:base_unit,:item_class,:lot) RETURNING id"
+            "INSERT INTO wms.item(workspace_id, generation_id, item_code, name, base_unit, item_class, "
+            "lot_tracked, shelf_life_days, storage_condition, safety_stock, max_stock, abc_class, "
+            "plm_part_no, plm_revision) "
+            "VALUES (:w, :g, :item_code, :name, :base_unit, :item_class, :lot_tracked, "
+            ":shelf_life_days, :storage_condition, :safety_stock, :max_stock, :abc_class, "
+            ":plm_part_no, :plm_revision) RETURNING id"
         ),
-        {**_s(scoped), **values, "lot": values["item_class"] == "FG"},
+        {
+            **_s(scoped),
+            "item_code": values["item_code"],
+            "name": values["name"],
+            "base_unit": values["base_unit"],
+            "item_class": values["item_class"],
+            "lot_tracked": lot_tracked,
+            "shelf_life_days": values.get("shelf_life_days"),
+            "storage_condition": values.get("storage_condition"),
+            "safety_stock": values.get("safety_stock"),
+            "max_stock": values.get("max_stock"),
+            "abc_class": values.get("abc_class"),
+            "plm_part_no": values.get("plm_part_no"),
+            "plm_revision": values.get("plm_revision"),
+        },
     ).scalar_one()
 
 
@@ -469,12 +513,15 @@ def update_item(
         raise ApiError(400, "VALIDATION_FAILED", "변경할 항목이 없습니다.")
 
     def fn(connection, scoped):
-        if _item(connection, scoped, row_id) is None:
+        current = _item(connection, scoped, row_id)
+        if current is None:
             raise _not_found("품목")
         if values.get("is_active") is False:
             from fs.wms.receiving import guard_master
 
             guard_master(connection, scoped, "item", row_id)
+        merged = {**current, **values}
+        _validate_item_rules(merged)
         sets = ", ".join(f"{k}=:{k}" for k in values)
         connection.execute(
             text(f"UPDATE wms.item SET {sets} WHERE {_S} AND id=:id"),

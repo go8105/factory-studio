@@ -12,7 +12,11 @@ ITEM_CODE = r"^[A-Z][A-Z0-9_\-]{1,39}$"
 QTY = r"^\d{1,15}(\.\d{1,3})?$"  # numeric(18,3), 0은 서비스에서 거부
 SIGNED_QTY = r"^-?\d{1,15}(\.\d{1,3})?$"
 FACTOR = r"^\d{1,12}(\.\d{1,6})?$"  # numeric(18,6)
-Purpose = Literal["RAW", "FG"]
+WarehousePurpose = Literal[
+    "RAW", "SEMI", "FG", "MERCH", "LINE", "SUBCON", "DEFECT", "RETURN"
+]
+ItemClass = Literal["RAW", "SEMI", "FG", "MERCH", "SUPPLY"]
+Purpose = WarehousePurpose | ItemClass
 ManualType = Literal["OPENING", "ADJUSTMENT", "TRANSFER"]
 Reason = Literal["RETURN", "SCRAP", "COUNT", "OTHER"]
 SourceKind = Literal["MES_RECEIPT", "MES_ISSUE", "ERP_SHIPMENT", "ERP_PURCHASE"]
@@ -56,11 +60,29 @@ class ItemCreate(ApiModel):
     item_code: str = Field(alias="itemCode", pattern=ITEM_CODE)
     name: str = Field(min_length=1, max_length=100)
     base_unit: str = Field(alias="baseUnit", min_length=1, max_length=10)
-    item_class: Purpose = Field(alias="itemClass")
+    item_class: ItemClass = Field(alias="itemClass")
+    lot_tracked: bool = Field(False, alias="lotTracked")
+    shelf_life_days: int | None = Field(None, alias="shelfLifeDays", ge=1)
+    storage_condition: str | None = Field(None, alias="storageCondition", max_length=60)
+    safety_stock: str | None = Field(None, alias="safetyStock", pattern=QTY)
+    max_stock: str | None = Field(None, alias="maxStock", pattern=QTY)
+    abc_class: Literal["A", "B", "C"] | None = Field(None, alias="abcClass")
+    plm_part_no: str | None = Field(None, alias="plmPartNo", max_length=40)
+    plm_revision: str | None = Field(None, alias="plmRevision", max_length=10)
 
 
 class ItemUpdate(ApiModel):
     name: str | None = Field(None, min_length=1, max_length=100)
+    base_unit: str | None = Field(None, alias="baseUnit", min_length=1, max_length=10)
+    item_class: ItemClass | None = Field(None, alias="itemClass")
+    lot_tracked: bool | None = Field(None, alias="lotTracked")
+    shelf_life_days: int | None = Field(None, alias="shelfLifeDays", ge=1)
+    storage_condition: str | None = Field(None, alias="storageCondition", max_length=60)
+    safety_stock: str | None = Field(None, alias="safetyStock", pattern=QTY)
+    max_stock: str | None = Field(None, alias="maxStock", pattern=QTY)
+    abc_class: Literal["A", "B", "C"] | None = Field(None, alias="abcClass")
+    plm_part_no: str | None = Field(None, alias="plmPartNo", max_length=40)
+    plm_revision: str | None = Field(None, alias="plmRevision", max_length=10)
     is_active: bool | None = Field(None, alias="isActive")
 
 

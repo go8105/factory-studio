@@ -173,6 +173,19 @@ def create_item(
     )
 
 
+NULLABLE_ITEM_FIELDS = frozenset(
+    {
+        "shelf_life_days",
+        "storage_condition",
+        "safety_stock",
+        "max_stock",
+        "abc_class",
+        "plm_part_no",
+        "plm_revision",
+    }
+)
+
+
 @router.patch("/items/{row_id}")
 def update_item(
     row_id: int,
@@ -183,7 +196,10 @@ def update_item(
 ):
     return _data(
         service.update_item(
-            context, row_id, _values(payload), _mutation(context, csrf, key)
+            context,
+            row_id,
+            _values(payload, nullable=NULLABLE_ITEM_FIELDS),
+            _mutation(context, csrf, key),
         )
     )
 

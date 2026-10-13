@@ -663,3 +663,97 @@ def test_seed_demo_flow(guest_space):
     assert lt10 == {"F-A01": "1440.000", "F-A02": "500.000"}
     assert _sync(client, created, "ERP_SHIPMENT", "ERP:SHIPMENT:SH-0004")["synced"] == 1
     assert _stock(client, itemCode="FG-C200", lotNo="LT-0008") == []
+
+
+def test_item_extended_fields_and_rules(blank):
+    """W-07: 품목 확장 필드 등록·수정과 비즈니스 규칙(PLM 쌍, 최대재고>=안전재고) 검증."""
+    client, created = blank
+
+    # 1. 정상 등록 (확장 필드 포함)
+    item = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/items",
+            {
+                "itemCode": "TEST-ITEM-01",
+                "name": "테스트 품목",
+                "baseUnit": "EA",
+                "itemClass": "RAW",
+                "lotTracked": True,
+                "shelfLifeDays": 90,
+                "storageCondition": "상온 보관 (15~25도)",
+                "safetyStock": "50.000",
+                "maxStock": "200.000",
+                "abcClass": "A",
+                "plmPartNo": "PART-999",
+                "plmRevision": "R1",
+            },
+        ),
+        201,
+    )
+    assert item["lotTracked"] is True
+    assert item["shelfLifeDays"] == 90
+    assert item["safetyStock"] == "50.000"
+    assert item["maxStock"] == "200.000"
+    assert item["abcClass"] == "A"
+    assert item["plmPartNo"] == "PART-999"
+    assert item["plmRevision"] == "R1"
+
+    # 2. 수정 및 null 초기화
+    updated = _ok(
+        _call(
+            client,
+            created,
+            "PATCH",
+            f"/items/{item['id']}",
+            {
+                "name": "수정된 테스트 품목",
+                "safetyStock": "80.000",
+                "maxStock": "300.000",
+                "plmPartNo": None,
+                "plmRevision": None,
+            },
+        )
+    )
+    assert updated["name"] == "수정된 테스트 품목"
+    assert updated["safetyStock"] == "80.000"
+    assert updated["maxStock"] == "300.000"
+    assert updated["plmPartNo"] is None
+    assert updated["plmRevision"] is None
+
+    # 3. 규칙 위반: PLM 품번만 입력하고 리비전 누락
+    res_plm = _call(
+        client,
+        created,
+        "POST",
+        "/items",
+        {
+            "itemCode": "TEST-ITEM-02",
+            "name": "PLM 단독",
+            "baseUnit": "EA",
+            "itemClass": "RAW",
+            "plmPartNo": "PART-888",
+        },
+    )
+    assert res_plm.status_code == 400
+    assert "plmPartNo" in res_plm.json()["error"]["details"]["fields"]
+
+    # 4. 규칙 위반: 최대재고 < 안전재고
+    res_stock = _call(
+        client,
+        created,
+        "POST",
+        "/items",
+        {
+            "itemCode": "TEST-ITEM-03",
+            "name": "재고 역전",
+            "baseUnit": "EA",
+            "itemClass": "RAW",
+            "safetyStock": "500.000",
+            "maxStock": "100.000",
+        },
+    )
+    assert res_stock.status_code == 400
+    assert "maxStock" in res_stock.json()["error"]["details"]["fields"]
