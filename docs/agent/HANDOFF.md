@@ -1,3 +1,24 @@
+# 2026-10-13 W2b-1b B-1 품목 보강 (W-07) 완료
+
+- **브랜치**: `antigravity/w2b-1b`
+- **마지막 커밋**: `794c38b` (feat(wms): reinforce W-07 item master with shelf life and stock bounds (B-1))
+- **끝난 것 (B-1)**:
+  - W-07 품목 백엔드: `wms.item` 확장 칼럼(`lot_tracked`, `shelf_life_days`, `storage_condition`, `safety_stock`, `max_stock`, `abc_class`, `plm_part_no`, `plm_revision`) 조회/등록/수정 지원.
+  - 규칙 검증: PLM 품번/리비전 쌍 필수, 최대재고 >= 안전재고, 유효기간 >= 1일, ABC 등급 A/B/C 검증.
+  - `update_item` 시 빈 값(`null`) 업데이트 지원 (`NULLABLE_ITEM_FIELDS`).
+  - W-07 품목 프론트엔드: `Items.tsx` 폼 패널에 확장 필드 입력 추가, 목록 테이블에 LOT 추적·유효기간·안전/최대재고·ABC 컬럼 표시, 빈 값은 `null` 전송.
+  - 품목 분류 `Purpose` 5종(`RAW`, `SEMI`, `FG`, `MERCH`, `SUPPLY`) 확장 및 완제품 선택 시 LOT 추적 기본 활성화.
+  - 테스트: `backend/tests/test_wms.py` (`test_item_extended_fields_and_rules`) 16 passed, `frontend/src/wms/wms.test.tsx` 11 passed.
+  - 빌드 및 검사: `npm --prefix frontend run build`, `npm --prefix frontend run lint`, `format:check`, `uv run ruff check/format` 모두 통과.
+- **다음 할 일**: 사용자 확인 후 **B-2 (W-10 LOT 조회·등록)** 착수.
+- **주의점**:
+  - DB 변경 없음 (W2b-1a에서 확정됨).
+  - B-1 사용자 확인 전 B-2 착수 금지.
+- **재현 명령**:
+  - `TEST_DATABASE_URL="..." uv run --project backend pytest backend/tests/test_wms.py -k test_item_extended_fields_and_rules`
+  - `npm --prefix frontend test -- src/wms/wms.test.tsx`
+  - `npm --prefix frontend run build`
+
 CAD-V03 제품 c0efb5b main/origin push 완료. 운영 새흐름 배포 미실행. 최종 main CI도 runner 시작 전 결제/한도 차단 확인(check115285673525). 실마이크 미검증, 기존 MES 브랜치 보존.
 
 ## 2026-10-13 CAD-V03 YC 예제·음성 요청 흐름 보정 완료
