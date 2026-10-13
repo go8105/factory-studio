@@ -1,3 +1,33 @@
+# 2026-10-13 OPS-CI-01 로컬 CI 스크립트 개발 및 전 단계 검증 완료
+
+- 브랜치: `antigravity/ops-ci-01`
+- 마지막 커밋: `git log -1 --oneline`
+- 끝난 것:
+  - `tools/ci_local.sh`: `.github/workflows/ci.yml`과 동일한 순서의 1~5단계 로컬 CI 스크립트 작성.
+  - `package.json`: `"ci:local": "bash tools/ci_local.sh"` 추가.
+  - `tools/test_ci_local.py`: `--help`, `--dry-run`, 미지원 옵션, `_test` 접미사 검사 단위 테스트 작성 (4/4 passed).
+  - 안전장치 구현:
+    - Node 24 (`/opt/homebrew/opt/node@24/bin`) 및 Python 3.14 (`backend/.venv/bin`) PATH 우선 적용.
+    - PostgreSQL 18.6 버전 검증 및 테스트 DB `_test` 접미사 강제.
+    - 터미널/로그에 비밀번호 미노출 (DB명만 출력).
+    - 4단계 DB 초기화 전 대상 안내 및 5초 취소 대기 시간 부여.
+    - pytest 병렬 워커 임시 복제 DB(`factory_studio_ci_*_test`) 자동 정리.
+    - 가상 환경 디스크/I/O 지연 대응: `pytest -m perf` 및 `npm test` 1회 재시도 보호.
+  - 검증 완료:
+    - `tools/ci_local.sh` 전체 실행: 1~5단계 전체 통과 (백엔드 1,020 passed/1 skipped, perf 1 passed, 도구 137 passed, 프런트 601/601 passed).
+    - 의도적 실패 검증: 2단계 ruff format 미준수 주입 시 즉시 중단 확인.
+    - `--help`, `--dry-run` 무해성 및 비밀번호 미노출 확인.
+- 다음 할 일:
+  - 사용자 최종 리뷰 후 `main` 병합.
+  - GitHub Actions 결제 해결 전까지 배포 전 로컬 검증 표준으로 활용 (`npm run ci:local`).
+- 주의점:
+  - `tools/ci_local.sh` 실행 시 포트 55432의 PostgreSQL 18 컨테이너가 켜져 있어야 한다 (`uv run --project backend --env-file .env python tools/start_local.py db`).
+  - 단일 프런트엔드 테스트 실행 시 반드시 `npm --prefix frontend test -- <파일>`을 사용한다 (`npx vitest run` 사용 금지).
+- 재현 명령:
+  - `npm run ci:local -- --help`
+  - `npm run ci:local -- --dry-run`
+  - `npm run ci:local`
+
 CAD-V03 제품 c0efb5b main/origin push 완료. 운영 새흐름 배포 미실행. 최종 main CI도 runner 시작 전 결제/한도 차단 확인(check115285673525). 실마이크 미검증, 기존 MES 브랜치 보존.
 
 ## 2026-10-13 CAD-V03 YC 예제·음성 요청 흐름 보정 완료

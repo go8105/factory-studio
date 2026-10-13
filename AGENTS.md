@@ -55,6 +55,7 @@
 - 기능의 실제 결과를 검증한다. 시제품·문법 검사만으로 구현 완료로 처리하지 않는다.
 - **미실행 검증을 완료로 표시하지 않는다.** 무엇을 검증했고 무엇을 하지 않았는지 명시한다.
 - 검증 명령: `npm run db:validate`, `npm run db:build`, `python3 tools/build_erd.py`
+- GitHub Actions가 막히면 `npm run ci:local`
 - 작업 ID, 변경 내용, 검증 결과, 제약, 다음 작업을 `docs/progress.md`에 기록한다.
 
 ## 6. 환경 제약
