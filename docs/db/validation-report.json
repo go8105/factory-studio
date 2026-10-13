@@ -1,8 +1,8 @@
 {
-  "task": "GW-FLOW-03",
+  "task": "W2b-1a",
   "validation": "정적 메타데이터 검증 + FS-013 R1~R6",
   "database_applied": false,
-  "tables": 193,
+  "tables": 205,
   "tables_by_schema": {
     "bems": 10,
     "cmms": 6,
@@ -15,12 +15,12 @@
     "mes": 45,
     "qms": 6,
     "spc": 5,
-    "wms": 11
+    "wms": 23
   },
-  "columns": 2102,
-  "foreign_keys": 471,
-  "constraints_and_policies": 1441,
-  "source_sha256": "ce41ab0f4540effa82d161aee192772991855a80f84eed6d1649bc32d7c1a227",
+  "columns": 2246,
+  "foreign_keys": 507,
+  "constraints_and_policies": 1515,
+  "source_sha256": "1e64e5e6e9b53b8c05b94719d603a3f816d164ca3e6140e73d562fb848737c8e",
   "errors": [],
   "not_tested": [
     "실제 DDL 적용",
