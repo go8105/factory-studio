@@ -1,3 +1,9 @@
+## 2026-10-13 CAD-UI04 NC·YC 제품 화면 구조 적용 완료
+
+사용자 UI03 Figma시안 이후 진행 승인. 좌준비단계/중앙실제뷰어/우속성YC/하단재생. 제안중앙비교→번호확대/뷰어1·YC접근·고정재생·닫기/Esc/단계복귀, 값/핸들러/원본행/출력/검증유지. CAD154/대상frontend33/build/격리/format/diff·실Chrome합성Worker/모의음성이벤트/3카드/3번진행/정지/복귀/변경무효화/원본행/FANUC미리보기/390넘침0/pageerror0통과. Figma신규조회한도로보관시안/script대체·완벽동일주장없음. 실마이크/운영새UI/실장비/DB검증미실행. branch codex/cad-ui04, 마지막커밋gitlog. [결과](NC_YC_UI_적용검증_CAD-UI04.md). 다음확인/운영·실발화검증, 다른ID자동착수없음.
+
+- 기준main ee9555a+설계b60a2a4, 별도factory-studio-cad-ui04. 기존업무/DB/계정/원장/antigravity변경없음. 재현명령/script/PNG는결과참조. main승인범위로반영후CI확인, 우회없음. 마지막커밋 git log -1.
+
 ## 2026-10-13 CAD-UI03 NC·YC Figma 구조 시안
 
 사용자 제안방향 확인 후 Figma Design Z9reC31WUdfLMhfC02VM2m 생성. NC우선5상태/7화면·공통5가족17variants/20변수/3텍스트스타일/113instances·클릭전환·중앙뷰포트/좌준비단계/우속성YC/하단재생. 7화면 최초구조넘침0/글꼴불일치0, 5상태캡처시각확인. 마지막진행/완료구분·초기제안차단 수정성공 뒤 Starter MCP호출한도로 캡처/최종구조재검증미실행. 이미지직전버전/시뮬레이션SVG도식/클릭은모의. 제품코드/DB/배포변경없음. 다음 사용자시안확인→최종보정검증/전체확인→별도제품UI적용. [설계기록](../modules/cad-cam/NC_YC_화면구조_CAD-UI03.md).

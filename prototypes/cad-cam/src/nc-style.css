@@ -738,3 +738,349 @@ main.nc-review-layout {
     }
   }
 }
+
+/* CAD-UI04: NC preparation rail / live viewport / context inspector. */
+#app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+#app > header {
+  background: #fff;
+}
+#app > .notice {
+  padding: 6px 18px;
+  font-size: 12px;
+}
+main.nc-workbench {
+  flex: 1;
+  height: calc(100dvh - 240px);
+  min-height: 480px;
+  grid-template-columns: 220px minmax(0, 1fr) 300px;
+  gap: 16px;
+  padding: 16px;
+  align-items: stretch;
+}
+.nc-workbench > .inputs,
+.nc-workbench > .workspace,
+.nc-workbench > .review-results {
+  padding: 16px;
+  background: #fff;
+  border: 0;
+  min-width: 0;
+}
+.nc-workbench > .inputs {
+  overflow: visible;
+}
+.nc-workbench h2 {
+  font-size: 18px;
+}
+.preparation-nav {
+  display: grid;
+  gap: 12px;
+  margin: 24px 0;
+}
+.preparation-nav button {
+  text-align: left;
+  padding: 14px 12px;
+  border-radius: 6px;
+}
+.preparation-nav button span,
+.preparation-nav button small {
+  display: block;
+}
+.preparation-nav button small {
+  margin-top: 5px;
+  font-size: 11px;
+  color: #59636c;
+}
+.preparation-nav button[data-complete="true"] {
+  background: #edf2f1;
+}
+.preparation-nav button[aria-current="step"] {
+  background: #1f2d3d;
+  color: white;
+}
+.preparation-nav button[aria-current="step"] small {
+  color: white;
+}
+.inspector-forms {
+  margin-bottom: 16px;
+}
+.inspector-forms .preparation-step {
+  border: 0;
+  padding: 0;
+}
+.inspector-forms .preparation-step > summary {
+  font-size: 16px;
+}
+.inspector-forms .preparation-step[hidden] {
+  display: none;
+}
+.inspector-forms textarea {
+  height: 150px;
+}
+.inspector-forms .axis-limits {
+  grid-template-columns: 1fr;
+}
+.inspector-forms .xyz {
+  flex-wrap: wrap;
+}
+.inspector-forms .xyz label {
+  flex: 1 1 60px;
+}
+.nc-workbench .view-head {
+  position: static;
+  padding: 0 0 12px;
+}
+.nc-workbench #viewer {
+  height: clamp(340px, 51dvh, 620px);
+  border: 0;
+  background: #f1f2f0;
+}
+.nc-viewport[hidden],
+.proposal-stage[hidden],
+.nc-empty[hidden] {
+  display: none;
+}
+.nc-viewport.is-empty > #viewer,
+.nc-viewport.is-empty > .legend,
+.nc-viewport.is-empty > .navigation {
+  display: none;
+}
+.nc-empty {
+  min-height: 360px;
+  padding: 42px 24px;
+  background: #f7f7f6;
+}
+.nc-empty h2 {
+  font-size: 24px;
+  line-height: 1.7;
+}
+.nc-empty p {
+  color: #59636c;
+  line-height: 1.7;
+}
+.nc-empty .buttons {
+  margin-top: 28px;
+  gap: 12px;
+}
+.nc-empty [data-empty-load],
+[data-stage-play] {
+  background: #1f2d3d;
+  color: white;
+}
+.nc-source-details,
+.nc-evidence {
+  margin-top: 20px;
+}
+.nc-source-details > summary,
+.nc-evidence > summary {
+  padding: 10px 0;
+  cursor: pointer;
+  font-weight: bold;
+}
+.nc-workbench .hugh-panel {
+  padding: 16px 0;
+  border: 0;
+  border-top: 1px solid #d4d8db;
+}
+.nc-workbench .hugh-panel .buttons {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+.nc-workbench .review-results > h2 {
+  margin-bottom: 12px;
+}
+.nc-playback-dock {
+  background: #fff;
+  border-top: 1px solid #d4d8db;
+  padding: 12px 20px;
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+}
+.nc-playback-dock .playback-panel {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(220px, 1.5fr) minmax(
+      180px,
+      1fr
+    );
+  gap: 4px 20px;
+  align-items: center;
+}
+.nc-playback-dock .playback-panel > strong {
+  font-size: 12px;
+}
+.nc-playback-dock .playback-panel > p {
+  margin: 0;
+}
+.nc-playback-dock .playback-panel > .buttons {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.nc-playback-dock label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.nc-playback-dock select {
+  width: auto;
+}
+.nc-playback-dock progress {
+  grid-column: 3;
+  grid-row: 1;
+  accent-color: #2d6257;
+}
+.nc-playback-dock .playback-panel > details {
+  grid-column: 3;
+  grid-row: 2;
+}
+.nc-playback-dock summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.nc-playback-dock pre {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 11px;
+}
+.nc-workbench .proposal-stage {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  background: #fff;
+}
+.nc-workbench .stage-layout {
+  display: block;
+}
+.nc-workbench .stage-main {
+  padding: 0;
+}
+.nc-workbench .stage-main h2 {
+  font-size: 22px;
+}
+.nc-workbench .stage-cards {
+  gap: 12px;
+}
+.nc-workbench .stage-cards article {
+  padding: 14px;
+  border: 0;
+  background: #f7f7f6;
+  gap: 10px;
+}
+.nc-workbench .stage-cards h3 {
+  font-size: 17px;
+}
+.nc-workbench .stage-cards img {
+  aspect-ratio: 1.5;
+}
+.nc-workbench .stage-cards .is-selected {
+  padding: 0;
+  background: #fff;
+}
+.nc-workbench .stage-live #viewer {
+  height: clamp(320px, 48dvh, 580px);
+}
+.nc-workbench .stage-cards.is-playing dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+}
+.nc-workbench .stage-state {
+  color: #2d6257;
+}
+.nc-workbench .stage-reasons {
+  line-height: 1.6;
+}
+@media (max-width: 1200px) and (min-width: 951px) {
+  main.nc-workbench {
+    grid-template-columns: 180px minmax(0, 1fr) 280px;
+    gap: 10px;
+    padding: 10px;
+  }
+  .nc-workbench .stage-cards {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 950px) {
+  main.nc-workbench {
+    height: auto;
+    min-height: 0;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .nc-workbench > .inputs,
+  .nc-workbench > .workspace,
+  .nc-workbench > .review-results {
+    overflow: visible;
+  }
+  .preparation-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 12px 0;
+  }
+  .nc-workbench .stage-cards {
+    grid-template-columns: 1fr;
+  }
+  .nc-workbench .stage-live #viewer {
+    height: 320px;
+  }
+  .nc-playback-dock {
+    position: static;
+    padding: 12px 16px;
+  }
+  .nc-playback-dock .playback-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .nc-empty {
+    min-height: 250px;
+    padding: 24px 16px;
+  }
+}
+
+.nc-showing-proposals .inspector-forms {
+  display: none;
+}
+.nc-showing-proposals .review-results .hugh-panel {
+  border-top: 0;
+  padding-top: 0;
+}
+
+@media (min-width: 951px) {
+  #app {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  main.nc-workbench {
+    height: auto;
+    min-height: 0;
+  }
+  .nc-playback-dock {
+    flex-shrink: 0;
+  }
+}
+
+.nc-return-view {
+  display: none;
+}
+@media (max-width: 950px) {
+  .nc-return-view {
+    display: block;
+    margin-bottom: 12px;
+  }
+}

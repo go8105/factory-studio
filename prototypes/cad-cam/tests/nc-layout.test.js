@@ -12,7 +12,8 @@ test("NC preparation and results retain input values, references and listeners a
     output = doc.querySelector(".proposal-output");
   let clicks = 0;
   button.addEventListener("click", () => clicks++);
-  arrangeNCReview(doc);
+  let current = { nc: false };
+  const layout = arrangeNCReview(doc, () => current);
   button.click();
   assert.equal(doc.querySelector("input"), input);
   assert.equal(input.value, "retained");
@@ -21,4 +22,18 @@ test("NC preparation and results retain input values, references and listeners a
   assert.equal(doc.querySelector(".preparation-step").open, true);
   assert.equal(doc.querySelector(".energy-panel").open, false);
   assert.equal(doc.querySelector(".review-results .hugh-panel") !== null, true);
+  doc.querySelector('[data-step="1"]').click();
+  assert.equal(doc.querySelector(".stock-panel").hidden, false);
+  assert.equal(doc.querySelector(".preparation-step").hidden, true);
+  assert.equal(
+    doc.querySelector('[data-step="1"]').getAttribute("aria-current"),
+    "step",
+  );
+  current = { nc: true, stock: true, energy: false, quality: false };
+  layout.update();
+  assert.equal(doc.querySelector('[data-step="0"]').dataset.complete, "true");
+  assert.equal(doc.querySelector('[data-step="2"]').dataset.complete, "false");
+  assert.equal(doc.querySelector(".nc-empty").hidden, true);
+  layout.select(0);
+  assert.equal(input.value, "retained");
 });

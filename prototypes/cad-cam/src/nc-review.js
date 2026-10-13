@@ -89,7 +89,14 @@ const voice = createHughVoice({
   play: (number) => proposalReview.play(number),
   stop: () => playback.pause(),
 });
-arrangeNCReview();
+arrangeNCReview(document, () => ({
+  nc: !!result?.complete,
+  stock: !!stockReview.analysis(),
+  energy: !!energyReview.analysis(),
+  quality:
+    !!proposalReview.export().report &&
+    !proposalReview.export().report.reasons.length,
+}));
 const postReview = createNCPostReview(() => ({
   nc: result,
   stock: stockReview.analysis(),

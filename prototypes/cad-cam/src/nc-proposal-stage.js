@@ -6,11 +6,12 @@ export function createProposalStage(
   onPlay,
   doc = document,
 ) {
-  const dialog = doc.createElement("dialog");
+  const dialog = doc.createElement("section");
   dialog.className = "proposal-stage";
+  dialog.hidden = true;
   dialog.setAttribute("aria-labelledby", "proposal-stage-title");
   dialog.innerHTML = `<div class="stage-layout"><section class="stage-main"><header><div><h2 id="proposal-stage-title">가공 검토 제안</h2><p>품질 조건을 먼저 확인한 G4 대기 후보 · 실제 장비 실행 아님</p></div><button data-stage-all hidden>전체 제안 보기</button><button data-stage-close aria-label="제안 창 닫기">닫기</button></header><p data-stage-status role="status">번호를 선택하면 재생합니다.</p><div class="stage-cards"></div></section><aside class="stage-assistant" aria-label="YC 음성 명령"></aside></div>`;
-  doc.body.append(dialog);
+  doc.querySelector(".workspace").append(dialog);
   const cards = dialog.querySelector(".stage-cards"),
     assistant = dialog.querySelector(".stage-assistant"),
     all = dialog.querySelector("[data-stage-all]");
@@ -52,14 +53,22 @@ export function createProposalStage(
     playback.pause();
     restore();
     current = null;
-    if (dialog.open) dialog.close();
-    lastFocus?.focus();
+    const wasOpen = !dialog.hidden;
+    dialog.hidden = true;
+    doc.querySelector("main")?.classList.remove("nc-showing-proposals");
+    doc.querySelector(".nc-viewport")?.removeAttribute("hidden");
+    if (wasOpen) lastFocus?.focus();
   }
   dialog.querySelector("[data-stage-close]").onclick = close;
   all.onclick = compare;
-  dialog.addEventListener("cancel", () => close());
+  doc.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !dialog.hidden) {
+      event.preventDefault();
+      close();
+    }
+  });
   dialog.addEventListener("close", () => {
-    if (dialog.open) return;
+    if (!dialog.hidden) return;
     playback.pause();
     restore();
     current = null;
@@ -152,11 +161,14 @@ export function createProposalStage(
         `가공 검토 제안 ${report.candidates.length}개`;
       dialog.querySelector("[data-stage-status]").textContent =
         "정지 미리보기 · G4 대기만 달라 경로는 같습니다. 실측 품질·절감 미검증.";
-      dialog.showModal();
-      move(doc.querySelector(".hugh-panel"), assistant);
+      dialog.hidden = false;
+      doc.querySelector("main")?.classList.add("nc-showing-proposals");
+      doc.querySelector(".nc-viewport")?.setAttribute("hidden", "");
+      assistant.hidden = true;
+      dialog.querySelector("[data-stage-close]").focus();
     },
     select(report, number) {
-      if (!dialog.open || current !== report) this.show(report);
+      if (dialog.hidden || current !== report) this.show(report);
       restore(true);
       const selected = dialog.querySelector(`[data-stage-card="${number}"]`);
       if (!selected) throw Error("현재 제안 번호가 없습니다");
@@ -172,7 +184,7 @@ export function createProposalStage(
       live.className = "stage-live";
       selected.querySelector("img").after(live);
       move(doc.querySelector("#viewer"), live);
-      move(doc.querySelector(".playback-panel"), live);
+
       dialog.querySelector("[data-stage-status]").textContent =
         `${number}번 선택 · 실제 NC 경로/시간 모델 재생`;
       requestAnimationFrame(() => viewer.fit());

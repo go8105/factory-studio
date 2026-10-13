@@ -25,7 +25,10 @@ export function createVoiceDemo({ voice, getNC, getStock, getEnergy, load }) {
       type,
       (event) => {
         if (!event.isTrusted || !running) return;
-        if (event.target.closest(".inputs") || event.target.closest("header"))
+        if (
+          event.target.closest(".inputs, .inspector-forms") ||
+          event.target.closest("header")
+        )
           cancel();
       },
       true,

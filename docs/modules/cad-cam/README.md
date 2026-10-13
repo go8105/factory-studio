@@ -119,3 +119,5 @@ CAD-06 E1 구현 완료: prototype37/frontend524/build·자산 분리, 실제 �
 - CAD-V03: [음성요청 준비흐름](음성요청_준비흐름_CAD-V03.md), [검증](../../agent/YC_음성요청_흐름검증_CAD-V03.md). YC 예제 자동준비·요청시 카드 표시·번호 재생.
 
 - CAD-UI03 [NC·YC Figma 구조 시안](NC_YC_화면구조_CAD-UI03.md): 검토용5상태/7화면. 제품적용전 전체확인 필요.
+
+- CAD-UI04 [NC·YC 제품UI 적용](../../agent/NC_YC_UI_적용검증_CAD-UI04.md): 중앙제안/상시YC/하단재생·준비단계속성. 실Chrome합성검증, 운영/실마이크미검증.
