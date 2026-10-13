@@ -20,3 +20,5 @@ Step4 품질 조건과 소비 비교는 report만 계산, 음성/NC에너지제�
 실마이크 발화/TTS/권한 및 실장비·품질전력 정확도, 운영 새흐름 검증은 미실행. 가짜 인식 이벤트가 실제 음성 핸들러를 통과한 검증이다. 서버배포는 이전GitHub계정결제 차단 상태와 구분해야 하며 이번작업에서 CI를 우회하지 않는다.
 
 Node24 npm --prefix frontend ci/build, npm --prefix prototypes/cad-cam ci/test. frontend/dist 정적서버5260 실행 후 node docs/agent/assets/cad-v03/voice-flow-check.mjs (Chrome 설치 필요; URL은 CAD_TEST_URL). 제품 커밋과 최종인계는 git log -1로 확인.
+
+제품c0efb5b main/origin 반영 완료. 해당 check115285673525도 runner시작전 결제/한도차단. 새운영배포미실행·CI우회없음.
