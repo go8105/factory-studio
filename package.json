@@ -6,7 +6,8 @@
   "description": "문서 생성 도구의 의존성. 제품 프론트엔드/백엔드와는 분리되어 있다.",
   "scripts": {
     "db:validate": "python3 tools/validate_db_design.py",
-    "db:build": "node tools/build_db_design.mjs"
+    "db:build": "node tools/build_db_design.mjs",
+    "ci:local": "bash tools/ci_local.sh"
   },
   "dependencies": {
     "exceljs": "^4.4.0"

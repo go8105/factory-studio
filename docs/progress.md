@@ -12,6 +12,34 @@ CAD-UI04 제품3818b38 main/origin 반영 완료. CI38403227492/check11531597102
 
 사용자 제안방향 확인 후 Figma Design Z9reC31WUdfLMhfC02VM2m 생성. NC우선5상태/7화면·공통5가족17variants/20변수/3텍스트스타일/113instances·클릭전환·중앙뷰포트/좌준비단계/우속성YC/하단재생. 7화면 최초구조넘침0/글꼴불일치0, 5상태캡처시각확인. 마지막진행/완료구분·초기제안차단 수정성공 뒤 Starter MCP호출한도로 캡처/최종구조재검증미실행. 이미지직전버전/시뮬레이션SVG도식/클릭은모의. 제품코드/DB/배포변경없음. 다음 사용자시안확인→최종보정검증/전체확인→별도제품UI적용. [설계기록](modules/cad-cam/NC_YC_화면구조_CAD-UI03.md).
 
+# 2026-10-13 OPS-CI-01 로컬 CI 스크립트 개발 및 검증 완료
+
+- 브랜치: `antigravity/ops-ci-01`
+- 내용:
+  - GitHub Actions 결제 한도/차단("recent account payments have failed") 대응 로컬 CI 표준 스크립트 `tools/ci_local.sh` 작성.
+  - `package.json`에 `"ci:local": "bash tools/ci_local.sh"` 스크립트 추가.
+  - `.github/workflows/ci.yml`과 동일한 순서의 1~5단계 구현:
+    - 1단계: `npm run db:validate` · `tools/audit_schema_isolation.py` · `python -m unittest discover -s tools -p 'test_*.py'`
+    - 2단계: `uv run --project backend ruff check` · `ruff format --check`
+    - 3단계: `alembic upgrade head` · `verify_ddl_matches_schema.py` · `pytest backend/tests -q -n auto -m "not perf"` · `pytest backend/tests -q -m perf`
+    - 4단계: `clear_test_data.py` · `alembic downgrade base` · `alembic upgrade head` · `verify_ddl_matches_schema.py`
+    - 5단계: 프런트엔드 `typecheck` · `lint` · `format:check` · `build` · `test`
+    - 정리: pytest 다중 워커 임시 복제 DB(`factory_studio_ci_*_test`) 자동 정리.
+  - 안전장치 및 규약 준수:
+    - `tools/deploy.sh` 양식 준수: `step()`, `fail()`, `--help`, `--dry-run` 지원.
+    - Python venv 및 Node 24 PATH 우선순위 강제 (`backend/.venv/bin`, `/opt/homebrew/opt/node@24/bin`).
+    - PostgreSQL 18.6 버전 검사(포트 55432) 및 테스트 DB 이름 `_test` 접미사 필수 확인.
+    - 터미널/로그에 DB 비밀번호 미노출 (DB 이름만 출력).
+    - 4단계 DB 초기화 전 대상 DB 안내 및 5초 취소 대기 시간 부여.
+    - 가상 환경/로컬 I/O 부하 시 perf 테스트 및 프런트 테스트 1회 재시도 보호.
+  - 단위 테스트 `tools/test_ci_local.py` 작성 (4/4 passed).
+- 검증 결과:
+  - `tools/ci_local.sh` 전체 실행: 1~5단계 전 단계 통과 (백엔드 1,020 passed/1 skipped, perf 1 passed, 도구 137 passed, 프런트 601/601 passed).
+  - 의도적 실패 검증: 2단계 ruff format 미준수 주입 시 즉시 중단 확인 (후속 단계 미실행).
+  - `--help`, `--dry-run` 동작 및 비밀번호 미노출 확인.
+- 문서 반영: `AGENTS.md` §5 및 `docs/agent/ANTIGRAVITY_인계.md` §3에 `npm run ci:local` 가이드 추가.
+- 다음: 사용자 확인 및 main 병합 대기.
+
 CAD-V03 제품 c0efb5b main/origin push 완료. 운영 새흐름 배포 미실행. 최종 main CI도 runner 시작 전 결제/한도 차단 확인(check115285673525). 실마이크 미검증, 기존 MES 브랜치 보존.
 
 ## 2026-10-13 CAD-V03 YC 예제·음성 요청 흐름 보정 완료

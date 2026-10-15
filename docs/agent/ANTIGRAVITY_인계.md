@@ -109,6 +109,7 @@ Factory Studio 저장소에서 <작업 ID: 이름>을 개발한다.
 - 백엔드: `set -a && . ./.env && set +a` 뒤 `cd backend && TEST_DATABASE_URL=… .venv/bin/python -m pytest tests/ -q -m "not perf" -n 4`
 - 프런트: `npx --prefix frontend vitest run src` · `tsc --noEmit -p frontend/tsconfig.json` · `eslint src` · `npm --prefix frontend run build`
 - 린트: `backend/.venv/bin/ruff check --config backend/pyproject.toml backend` + `ruff format --check`
+- GitHub Actions가 막히면 `npm run ci:local`
 - **미실행 검증을 통과로 적지 않는다.** 무엇을 검증했고 무엇을 안 했는지 명시한다.
 - 문법 검사만으로 완료 처리하지 않는다. **브라우저로 실제 화면을 확인한다**(`.claude/launch.json`의 backend 8000 · frontend 5173. uvicorn에 `--reload`가 없어 백엔드를 고치면 다시 띄운다).
 - 테스트가 기존에 실패하고 있었는지 먼저 확인한다(`git stash` 후 재실행). 내 변경 탓이 아니면 건드리지 말고 보고한다.
