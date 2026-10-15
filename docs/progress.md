@@ -1,3 +1,36 @@
+# 2026-10-15 W2b-1b B-2 W-10 LOT 조회·등록 완료
+
+- 브랜치: `antigravity/w2b-1b`
+- 완료 내용:
+  - W-10 LOT 백엔드 (`backend/src/fs/wms/`):
+    - `wms.lot` 조회/등록/수정 API (`GET /lots`, `GET /lots/{id}`, `POST /lots`, `PATCH /lots/{id}`).
+    - **LOT 수량 DB 미저장 원칙 준수**: 원장(`wms.stock_move`) 합계(`SUM(qty_delta)`)로만 계산. N+1 방지를 위해 `WITH lot_stock AS (...)`, `active_holds AS (...)` 서브쿼리로 단일 질의 처리.
+    - 만료 여부 DB 미저장: 조회 시 `business_today()` 기준 실시간 판정.
+    - 페이징: `fs/common/page.py` (`Page(offset, limit).checked()`) 표준 적용.
+    - 품목별 `lot_tracked` 플래그를 고려한 전표 검증(`_validate_lines`) 보완.
+  - W-10 LOT 화면 (`frontend/src/wms/Lots.tsx`):
+    - 목록: LOT 번호, 상태 배지(가용/보류/만료), 품목, 현재고(원장 합계), 입고일, 유효기간, 공급처 LOT, 출처, 관리(상세).
+    - 검색 필터: 품목 선택 드롭다운, 상태 선택 드롭다운, 검색어(품목코드/명, LOT 번호, 공급처 LOT), 만료만 보기 체크박스.
+    - 등록 패널 (`FormPanel`): 품목 선택(선택 시 `shelfLifeDays`로 유효기간 자동 계산 제안), LOT 번호, 입고일, 유효기간, 공급처 LOT, 출처.
+    - 상세 패널 (`DetailPanel`, wide): 기본 정보, 원장 집계 총 재고 및 위치별 재고 분포(`locations`), 보류 상태 및 이력(`holds`), **B-3 보류 안내 문구** 명시.
+    - 메뉴 및 라우트 등록: `menu_catalog.json` (W-10), `WmsRoutes` (`/wms/lots`).
+    - 표준 훅 연동: `useSend` 훅으로 CSRF 토큰 및 멱등키 보장.
+- 검증 결과:
+  - 백엔드 WMS 테스트: `pytest backend/tests/test_wms.py -v` (17 passed).
+  - 프론트엔드 테스트: `npm --prefix frontend test -- src/wms/wms.test.tsx` (12 passed).
+  - 프론트엔드 검사: `lint` (0 errors), `typecheck` (0 errors), `format:check` (Prettier 통과), `build` (tsc & vite) 통과.
+  - 백엔드 린트: `ruff check backend/src/fs/wms/` & `ruff format --check` 통과.
+  - **브라우저 실기동 및 기능 검증 (`verify-wms-browser.mjs`)**:
+    - `/wms/items` (B-1 품목 보강): 유효기간, ABC, 안전/최대재고, PLM 필드 렌더링 확인.
+    - `/wms/lots` (B-2 LOT 등록): `LOT-20261015-LIVE` 등록, 목록 및 상세 패널 정상 확인.
+    - **원장 수량 실시간 대조**: 기초재고 전표 750 EA 확정 후 LOT 목록 및 위치별 상세에서 현재고가 즉시 정확히 750 EA로 증가 일치 확인!
+    - 390px 모바일 뷰포트 레이아웃 검증 완료.
+  - **A-2 검증 지표 실측치**:
+    - `verify_ddl_matches_schema.py` 오류 수 (적용 후): **0건**
+    - 왕복 결과: `downgrade -1` -> `upgrade head` 후 다시 **오류 0건**
+    - 적용 DB 목록: `factory_studio` 및 `factory_studio_test` 둘 다 **`w2b1_wms (head)`** 상태.
+- 다음 작업: 사용자 확인 후 B-3 (W-10 보류·해제 이력) 착수.
+
 # 2026-10-13 W2b-1b B-1 W-07 품목 보강 완료
 
 - 브랜치: `antigravity/w2b-1b`, 커밋 `794c38b` (feat(wms): reinforce W-07 item master with shelf life and stock bounds (B-1))

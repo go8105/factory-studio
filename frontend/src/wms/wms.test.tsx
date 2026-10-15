@@ -439,3 +439,113 @@ it("W-07 품목 등록 시 유효기간·안전재고·ABC·PLM 등 확장 필�
     plmRevision: "A",
   });
 });
+
+it("W-10 LOT 목록 렌더링, 원장 재고 표시, 상세 패널, LOT 등록을 검증한다", async () => {
+  const items = [
+    {
+      id: 1,
+      itemCode: "FG-T300",
+      name: "T300 완제품",
+      baseUnit: "EA",
+      itemClass: "FG",
+      lotTracked: true,
+      shelfLifeDays: 90,
+      isActive: true,
+      moveCount: 0,
+      conversions: [],
+    },
+  ];
+  const lotRow = {
+    id: 101,
+    itemId: 1,
+    itemCode: "FG-T300",
+    itemName: "T300 완제품",
+    itemClass: "FG",
+    baseUnit: "EA",
+    lotNo: "LOT-20261015-001",
+    origin: "RECEIPT",
+    receivedOn: "2026-10-15",
+    expiryDate: "2027-01-13",
+    supplierLotNo: "SUP-999",
+    status: "AVAILABLE",
+    rawStatus: "AVAILABLE",
+    qtyOnHand: "1500.000",
+    isExpired: false,
+    holdCount: 0,
+    currentHoldReason: null,
+    createdAt: "2026-10-15T09:00:00Z",
+  };
+  const lotDetail = {
+    ...lotRow,
+    locations: [
+      {
+        locationId: 11,
+        locationCode: "F-A01",
+        locationName: "기본 보관",
+        warehouseId: 1,
+        warehouseCode: "WH-FG",
+        warehouseName: "완제품 창고",
+        qtyOnHand: "1500.000",
+      },
+    ],
+    holds: [],
+  };
+
+  const fetcher = mount("/wms/lots", {
+    [`GET ${W}/items`]: ok(items),
+    [`GET ${W}/lots`]: {
+      status: 200,
+      body: {
+        data: [lotRow],
+        page: { offset: 0, limit: 50, total: 1 },
+      },
+    },
+    [`GET ${W}/lots/101`]: ok(lotDetail),
+    [`POST ${W}/lots`]: ok({ id: 102, lotNo: "LOT-20261015-002" }),
+  });
+
+  // 목록 렌더링 및 원장 합계 재고 표시 확인
+  expect(await screen.findByText("LOT-20261015-001")).toBeVisible();
+  expect(screen.getByText("1,500 EA")).toBeVisible();
+  expect(screen.getByText("SUP-999")).toBeVisible();
+  expect(within(screen.getByRole("table")).getByText("가용")).toBeVisible();
+
+  // 상세 패널 열기 및 확인
+  fireEvent.click(screen.getByRole("button", { name: "상세" }));
+  const detailPanel = await screen.findByRole("dialog", {
+    name: "LOT-20261015-001 상세",
+  });
+  expect(within(detailPanel).getByText("원장 집계 현재고")).toBeVisible();
+  expect(within(detailPanel).getByText("F-A01 (기본 보관)")).toBeVisible();
+  expect(
+    within(detailPanel).getByText(
+      "보류 설정 및 해제 기능은 다음 단계(B-3)에서 제공됩니다.",
+    ),
+  ).toBeVisible();
+
+  // 닫기
+  fireEvent.click(within(detailPanel).getByLabelText("패널 닫기"));
+
+  // LOT 등록 모달 열기 및 등록
+  fireEvent.click(screen.getByRole("button", { name: "LOT 등록" }));
+  const createDialog = await screen.findByRole("dialog", { name: "LOT 등록" });
+
+  fireEvent.change(within(createDialog).getByLabelText("품목"), {
+    target: { value: "1" },
+  });
+  fireEvent.change(within(createDialog).getByLabelText("LOT 번호"), {
+    target: { value: "LOT-20261015-002" },
+  });
+  fireEvent.change(within(createDialog).getByLabelText("공급처 LOT 번호"), {
+    target: { value: "SUP-002" },
+  });
+
+  fireEvent.click(within(createDialog).getByRole("button", { name: "등록" }));
+  await waitFor(() => expect(sent(fetcher, "POST", "/lots")).toHaveLength(1));
+  expect(body(sent(fetcher, "POST", "/lots")[0])).toMatchObject({
+    itemId: 1,
+    lotNo: "LOT-20261015-002",
+    supplierLotNo: "SUP-002",
+    origin: "RECEIPT",
+  });
+});

@@ -1,23 +1,45 @@
-# 2026-10-13 W2b-1b B-1 품목 보강 (W-07) 완료
+# 2026-10-15 W2b-1b B-2 W-10 LOT 조회·등록 완료
 
 - **브랜치**: `antigravity/w2b-1b`
-- **마지막 커밋**: `794c38b` (feat(wms): reinforce W-07 item master with shelf life and stock bounds (B-1))
-- **끝난 것 (B-1)**:
-  - W-07 품목 백엔드: `wms.item` 확장 칼럼(`lot_tracked`, `shelf_life_days`, `storage_condition`, `safety_stock`, `max_stock`, `abc_class`, `plm_part_no`, `plm_revision`) 조회/등록/수정 지원.
-  - 규칙 검증: PLM 품번/리비전 쌍 필수, 최대재고 >= 안전재고, 유효기간 >= 1일, ABC 등급 A/B/C 검증.
-  - `update_item` 시 빈 값(`null`) 업데이트 지원 (`NULLABLE_ITEM_FIELDS`).
-  - W-07 품목 프론트엔드: `Items.tsx` 폼 패널에 확장 필드 입력 추가, 목록 테이블에 LOT 추적·유효기간·안전/최대재고·ABC 컬럼 표시, 빈 값은 `null` 전송.
-  - 품목 분류 `Purpose` 5종(`RAW`, `SEMI`, `FG`, `MERCH`, `SUPPLY`) 확장 및 완제품 선택 시 LOT 추적 기본 활성화.
-  - 테스트: `backend/tests/test_wms.py` (`test_item_extended_fields_and_rules`) 16 passed, `frontend/src/wms/wms.test.tsx` 11 passed.
-  - 빌드 및 검사: `npm --prefix frontend run build`, `npm --prefix frontend run lint`, `format:check`, `uv run ruff check/format` 모두 통과.
-- **다음 할 일**: 사용자 확인 후 **B-2 (W-10 LOT 조회·등록)** 착수.
+- **끝난 것 (B-2)**:
+  - W-10 LOT 백엔드 (`backend/src/fs/wms/`):
+    - `wms.lot` 조회/등록/수정 API (`GET /lots`, `GET /lots/{id}`, `POST /lots`, `PATCH /lots/{id}`).
+    - **LOT 수량 DB 미저장 원칙 준수**: 단일 출처는 재고 이동 원장(`wms.stock_move`). N+1 방지를 위해 `WITH lot_stock AS (...)`, `active_holds AS (...)` 단일 질의로 현재고(`qty_on_hand`) 및 활성 보류 산출.
+    - 만료 여부 DB 미저장: `business_today()` 기준 조회 시 실시간 판정 (`isExpired`).
+    - 페이징: `fs/common/page.py` (`Page(offset, limit).checked()`) 표준 적용.
+    - 품목별 `lot_tracked` 플래그 반영 전표 줄 검증(`_validate_lines`).
+  - W-10 LOT 화면 (`frontend/src/wms/Lots.tsx`):
+    - 목록: LOT 번호, 상태 배지(가용/보류/만료), 품목, 현재고(원장 합계), 입고일, 유효기간, 공급처 LOT, 출처, 관리(상세).
+    - 필터: 품목 드롭다운, 상태 드롭다운, 키워드 검색, 만료만 보기 토글.
+    - 등록 패널 (`FormPanel`): 품목 선택(선택 시 `shelfLifeDays`로 유효기간 자동 제안), LOT 번호, 입고일, 유효기간, 공급처 LOT, 출처.
+    - 상세 패널 (`DetailPanel`, wide): 기본 정보, 원장 집계 총 재고 및 위치별 재고 분포(`locations`), 보류 상태/이력(`holds`), **B-3 보류 안내 문구** 명시.
+    - 메뉴 및 라우트 등록: `menu_catalog.json` (W-10 LOT·보류), `WmsRoutes` (`/wms/lots`).
+    - 표준 훅: `useSend` 훅으로 CSRF 토큰 및 멱등키 보장.
+  - 검증 결과:
+    - 백엔드 WMS 테스트: `pytest backend/tests/test_wms.py -v` (17 passed).
+    - 프론트엔드 테스트: `npm --prefix frontend test -- src/wms/wms.test.tsx` (12 passed).
+    - 프론트엔드 검사: `npm run lint` (0 errors), `npm run typecheck` (0 errors), `npm run format:check` (Prettier 통과), `npm run build` (tsc & vite) 통과.
+    - 백엔드 린트: `ruff check backend/src/fs/wms/` & `ruff format --check` 통과.
+    - **브라우저 실기동 및 기능 검증 (`verify-wms-browser.mjs`)**:
+      - `/wms/items` (B-1 품목 보강 확인): 테이블 컬럼 및 등록 폼에 유효기간, ABC, 안전/최대재고, PLM 필드 노출 확인.
+      - `/wms/lots` (B-2 LOT 등록): `LOT-20261015-LIVE` 등록, 목록 및 상세 패널 정상 확인.
+      - **원장 수량 실시간 대조**: 기초재고 전표 750 EA 확정 후 LOT 목록 및 상세에서 현재고가 즉시 정확히 750 EA로 증가 일치 확인!
+      - 390px 모바일 뷰포트 레이아웃 검증 완료.
+    - **A-2 검증 지표 실측치**:
+      - `verify_ddl_matches_schema.py` 오류 수 (적용 후): **0건**
+      - 왕복 결과: `downgrade -1` -> `upgrade head` 후 다시 **오류 0건**
+      - 적용 DB 목록: `factory_studio` 및 `factory_studio_test` 둘 다 **`w2b1_wms (head)`** 상태.
+- **다음 할 일**: 사용자 확인 후 **B-3 (W-10 보류·해제 이력)** 착수.
 - **주의점**:
-  - DB 변경 없음 (W2b-1a에서 확정됨).
-  - B-1 사용자 확인 전 B-2 착수 금지.
+  - B-3 사용자 확인 전 착수 금지.
+  - DB 변경 없음 (W2b-1a 확정분 유지).
 - **재현 명령**:
-  - `TEST_DATABASE_URL="..." uv run --project backend pytest backend/tests/test_wms.py -k test_item_extended_fields_and_rules`
+  - `TEST_DATABASE_URL="..." pytest backend/tests/test_wms.py -v`
   - `npm --prefix frontend test -- src/wms/wms.test.tsx`
-  - `npm --prefix frontend run build`
+  - `npm --prefix frontend run lint && npm --prefix frontend run typecheck && npm --prefix frontend run build`
+  - `node frontend/scripts/verify-wms-browser.mjs`
+
+# 2026-10-13 W2b-1b B-1 품목 보강 (W-07) 완료
 
 CAD-V03 제품 c0efb5b main/origin push 완료. 운영 새흐름 배포 미실행. 최종 main CI도 runner 시작 전 결제/한도 차단 확인(check115285673525). 실마이크 미검증, 기존 MES 브랜치 보존.
 

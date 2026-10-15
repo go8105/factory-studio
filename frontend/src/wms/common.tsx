@@ -44,6 +44,63 @@ export type Item = {
   moveCount: number;
   conversions: Conversion[];
 };
+
+export type LotOrigin = "RECEIPT" | "MES" | "RETURN" | "OPENING";
+export type LotStatus = "AVAILABLE" | "HOLD" | "EXPIRED";
+
+export type LotLocation = {
+  locationId: number;
+  locationCode: string;
+  locationName: string;
+  warehouseId: number;
+  warehouseCode: string;
+  warehouseName: string;
+  qtyOnHand: string;
+};
+
+export type LotHold = {
+  id: number;
+  source: "MANUAL" | "QMS" | "EXPIRY";
+  sourceRef: string | null;
+  heldAt: string;
+  releasedAt: string | null;
+  reason: string;
+  isActive: boolean;
+};
+
+export type LotRow = {
+  id: number;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  itemClass: Purpose;
+  baseUnit: string;
+  lotNo: string;
+  origin: LotOrigin;
+  receivedOn: string;
+  expiryDate: string | null;
+  supplierLotNo: string | null;
+  status: LotStatus;
+  rawStatus: LotStatus;
+  qtyOnHand: string;
+  isExpired: boolean;
+  holdCount: number;
+  currentHoldReason: string | null;
+  createdAt: string;
+  locations?: LotLocation[];
+  holds?: LotHold[];
+};
+
+export type PageInfo = {
+  offset: number;
+  limit: number;
+  total: number;
+};
+
+export type Paged<T> = {
+  data: T[];
+  page: PageInfo;
+};
 export type StockQuantities = {
   normalOnHand: string;
   quarantinedOnHand: string;
@@ -176,6 +233,17 @@ export const PURPOSE_LABEL: Record<Purpose, string> = {
   FG: "완제품",
   MERCH: "상품",
   SUPPLY: "부자재",
+};
+export const LOT_STATUS_LABEL: Record<LotStatus, string> = {
+  AVAILABLE: "가용",
+  HOLD: "보류",
+  EXPIRED: "만료",
+};
+export const LOT_ORIGIN_LABEL: Record<LotOrigin, string> = {
+  RECEIPT: "입고",
+  MES: "생산",
+  RETURN: "반품",
+  OPENING: "기초",
 };
 export const BLOCK_LABEL: Record<string, string> = {
   ITEM_NOT_REGISTERED: "품목 미등록",

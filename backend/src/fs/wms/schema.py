@@ -123,3 +123,23 @@ class DocumentUpdate(ApiModel):
 class SourceSync(ApiModel):
     kind: SourceKind
     source_keys: list[str] = Field(alias="sourceKeys", min_length=1, max_length=200)
+
+
+LotOrigin = Literal["RECEIPT", "MES", "RETURN", "OPENING"]
+LotStatus = Literal["AVAILABLE", "HOLD", "EXPIRED"]
+
+
+class LotCreate(ApiModel):
+    item_id: int = Field(alias="itemId", gt=0)
+    lot_no: str = Field(alias="lotNo", min_length=1, max_length=50)
+    origin: LotOrigin = Field("RECEIPT")
+    received_on: date = Field(alias="receivedOn")
+    expiry_date: date | None = Field(None, alias="expiryDate")
+    supplier_lot_no: str | None = Field(None, alias="supplierLotNo", max_length=50)
+    status: LotStatus = Field("AVAILABLE")
+
+
+class LotUpdate(ApiModel):
+    expiry_date: date | None = Field(None, alias="expiryDate")
+    supplier_lot_no: str | None = Field(None, alias="supplierLotNo", max_length=50)
+    status: LotStatus | None = None

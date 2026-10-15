@@ -12,8 +12,9 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from seed.copy import copy_module_seed
 from sqlalchemy import text
+
+from seed.copy import copy_module_seed
 
 W = "/api/v1/wms"
 _keys = count()
@@ -108,6 +109,8 @@ WMS_TABLES = (
     "inbound_notice",
     "stock_move",
     "stock_document",
+    "lot_hold",
+    "lot",
     "item_unit_conversion",
     "item",
     "storage_location",
@@ -757,3 +760,180 @@ def test_item_extended_fields_and_rules(blank):
     )
     assert res_stock.status_code == 400
     assert "maxStock" in res_stock.json()["error"]["details"]["fields"]
+
+
+def test_lot_registration_and_stock_aggregation(blank):
+    """W-10: LOT 등록, 유효성 검증, 페이징, 원장 합계 집계(수량 비저장), 만료일 계산."""
+    client, created = blank
+
+    # 1. 창고 및 위치, 품목 생성
+    wh = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/warehouses",
+            {"code": "WH-RAW", "name": "원자재 창고", "purpose": "RAW"},
+        ),
+        201,
+    )
+    loc = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/warehouses/{wh['id']}/locations",
+            {"code": "R-01", "name": "기본 위치"},
+        ),
+        201,
+    )
+    item = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/items",
+            {
+                "itemCode": "RAW-COIL",
+                "name": "코일 자재",
+                "baseUnit": "KG",
+                "itemClass": "RAW",
+                "lotTracked": True,
+                "shelfLifeDays": 30,
+            },
+        ),
+        201,
+    )
+
+    # 2. LOT 등록 유효성 검증
+    # 2-1. expiry_date < received_on 인 경우 에러
+    res_err1 = _call(
+        client,
+        created,
+        "POST",
+        "/lots",
+        {
+            "itemId": item["id"],
+            "lotNo": "LT-ERR-01",
+            "receivedOn": "2026-10-15",
+            "expiryDate": "2026-10-10",
+        },
+    )
+    assert res_err1.status_code == 400
+    assert "expiryDate" in res_err1.json()["error"]["details"]["fields"]
+
+    # 2-2. 정상 LOT 2건 등록 (LOT-001: 가용 / LOT-002: 과거 날짜 만료)
+    lot1 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/lots",
+            {
+                "itemId": item["id"],
+                "lotNo": "LT-20261015-01",
+                "receivedOn": "2026-10-15",
+                "expiryDate": "2026-11-15",
+                "supplierLotNo": "SUP-9999",
+                "origin": "RECEIPT",
+            },
+        ),
+        201,
+    )
+    assert lot1["lotNo"] == "LT-20261015-01"
+    assert lot1["status"] == "AVAILABLE"
+    assert lot1["isExpired"] is False
+    assert lot1["qtyOnHand"] == "0.000"
+
+    # 중복 lotNo 등록 시도 -> 400
+    res_dup = _call(
+        client,
+        created,
+        "POST",
+        "/lots",
+        {
+            "itemId": item["id"],
+            "lotNo": "LT-20261015-01",
+            "receivedOn": "2026-10-15",
+        },
+    )
+    assert res_dup.status_code == 400
+    assert "lotNo" in res_dup.json()["error"]["details"]["fields"]
+
+    # 만료된 LOT (expiryDate = 2026-01-01)
+    lot2 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/lots",
+            {
+                "itemId": item["id"],
+                "lotNo": "LT-OLD-002",
+                "receivedOn": "2025-12-01",
+                "expiryDate": "2026-01-01",
+                "origin": "OPENING",
+            },
+        ),
+        201,
+    )
+    assert lot2["isExpired"] is True
+    assert lot2["status"] == "EXPIRED"
+
+    # 3. 목록 조회 및 페이징 확인
+    res = client.get(f"{W}/lots")
+    assert res.status_code == 200
+    lots_body = res.json()
+    assert lots_body["page"] == {"offset": 0, "limit": 50, "total": 2}
+    assert len(lots_body["data"]) == 2
+
+    # 4. 원장 수량 연동 확인: 입고 전표 등록 및 확정 후 LOT 수량 자동 산출 검증
+    doc = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/documents",
+            {
+                "documentType": "OPENING",
+                "lines": [
+                    {
+                        "itemId": item["id"],
+                        "locationId": loc["id"],
+                        "lotNo": "LT-20261015-01",
+                        "qty": "250.000",
+                    }
+                ],
+            },
+        ),
+        201,
+    )
+    _ok(_call(client, created, "POST", f"/documents/{doc['id']}/post"))
+
+    # LOT 목록 다시 조회 -> LOT-001의 qtyOnHand가 250.000으로 집계됨
+    lots_after = client.get(f"{W}/lots").json()["data"]
+    lt1_after = next(l for l in lots_after if l["lotNo"] == "LT-20261015-01")
+    assert lt1_after["qtyOnHand"] == "250.000"
+
+    # LOT 상세 조회 -> locations 목록에 해당 위치와 수량이 분해되어 나옴
+    detail = _ok(client.get(f"{W}/lots/{lot1['id']}"))
+    assert detail["qtyOnHand"] == "250.000"
+    assert len(detail["locations"]) == 1
+    assert detail["locations"][0]["locationCode"] == "R-01"
+    assert detail["locations"][0]["qtyOnHand"] == "250.000"
+
+    # 5. 필터링 검증
+    # 5-1. status=EXPIRED 필터
+    expired_res = client.get(f"{W}/lots", params={"status": "EXPIRED"}).json()
+    assert expired_res["page"]["total"] == 1
+    assert expired_res["data"][0]["lotNo"] == "LT-OLD-002"
+
+    # 5-2. status=AVAILABLE 필터
+    avail_res = client.get(f"{W}/lots", params={"status": "AVAILABLE"}).json()
+    assert avail_res["page"]["total"] == 1
+    assert avail_res["data"][0]["lotNo"] == "LT-20261015-01"
+
+    # 5-3. keyword 필터
+    kw_res = client.get(f"{W}/lots", params={"keyword": "SUP-9999"}).json()
+    assert kw_res["page"]["total"] == 1
+    assert kw_res["data"][0]["lotNo"] == "LT-20261015-01"

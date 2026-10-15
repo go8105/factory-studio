@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
 from fs.common.errors import ApiError
+from fs.common.page import Page
 from fs.wms import receiving, reservations, service
 from fs.wms.receiving_schema import (
     InspectionInput,
@@ -34,6 +35,8 @@ from fs.wms.schema import (
     ItemUpdate,
     LocationCreate,
     LocationUpdate,
+    LotCreate,
+    LotUpdate,
     ManualType,
     SourceKind,
     SourceSync,
@@ -247,6 +250,76 @@ def delete_conversion(
     return _data(
         service.delete_conversion(
             context, item_id, conversion_id, _mutation(context, csrf, key)
+        )
+    )
+
+
+# ---- LOT·보류 (W-10) ----
+@router.get("/lots")
+def list_lots(
+    context: Auth,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    item_id: Annotated[int | None, Query(alias="itemId")] = None,
+    lot_no: Annotated[str | None, Query(alias="lotNo", max_length=50)] = None,
+    supplier_lot_no: Annotated[
+        str | None, Query(alias="supplierLotNo", max_length=50)
+    ] = None,
+    status: Annotated[str | None, Query()] = None,
+    keyword: Annotated[str | None, Query()] = None,
+    expired_only: Annotated[bool, Query(alias="expiredOnly")] = False,
+):
+    page = Page(offset, limit).checked()
+    rows, total = service.list_lots(
+        context,
+        page.offset,
+        page.limit,
+        {
+            "item_id": item_id,
+            "lot_no": lot_no,
+            "supplier_lot_no": supplier_lot_no,
+            "status": status,
+            "keyword": keyword,
+            "expired_only": expired_only,
+        },
+    )
+    return {
+        "data": rows,
+        "page": {"offset": page.offset, "limit": page.limit, "total": total},
+    }
+
+
+@router.get("/lots/{row_id}")
+def get_lot(row_id: int, context: Auth):
+    return _data(service.get_lot(context, row_id))
+
+
+@router.post("/lots", status_code=201)
+def create_lot(
+    payload: LotCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_lot(context, payload.model_dump(), _mutation(context, csrf, key))
+    )
+
+
+@router.patch("/lots/{row_id}")
+def update_lot(
+    row_id: int,
+    payload: LotUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_lot(
+            context,
+            row_id,
+            _values(payload, nullable=service.NULLABLE_LOT_FIELDS),
+            _mutation(context, csrf, key),
         )
     )
 
