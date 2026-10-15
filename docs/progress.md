@@ -1,3 +1,7 @@
+## 2026-10-15 OPS-CAD-02 CAD·YC main 수동 운영 배포 완료
+
+사용자수동배포요청으로 운영3a6019f→main제품c0f118e 반영(12:00KST). backend/DB/시드차이0, 정확main frontend601·CAD154/type/lint/format/build/격리/dbvalidate통과. GitHub결제차단은수동검증으로대체하여 --skip-ci-check 명시사용(CI성공아님). 보호백업r2검증·회사/계정191표건수/hash보존·APIactive/공개원점200/DDL0/최근5xx0·시드유지·공개NC JS/CSS SHA동일/비로그인비누401. 공개운영실Chrome합성NC/STEP/에너지/모의음성→3카드/3번재생/정지/복귀/출력미리보기/변경무효화/390/pageerror0통과. 실마이크/실장비/실측/운영계정쓰기미검증. 초기backup fingerprint별칭오류는배포전중단/API복구후보정·r2재검증,원장변경없음. [배포기록](agent/main_수동운영배포_OPS-CAD-02.md). 다음사용자결과확인/실발화리허설,자동다음ID없음.
+
 CAD-UI04 제품3818b38 main/origin 반영 완료. CI38403227492/check115315971025는 runner시작전 결제/지출한도 차단(annotation확인). 새운영UI 배포미실행·CI우회없음. 로컬검증용5263/Chrome 종료, 실제회사/계정/원장/병행브랜치변경없음.
 
 ## 2026-10-13 CAD-UI04 NC·YC 제품 화면 구조 적용 완료
