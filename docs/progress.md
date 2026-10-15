@@ -1,3 +1,26 @@
+# 2026-10-15 W2b-1b WMS-FIX 완료
+
+- 브랜치: `antigravity/w2b-1b`
+- 완료 내용:
+  - `tools/test_fs024a.py`: WMS 표 개수 가드를 23으로 업데이트 (`W2b-1a` 및 `W2b*` 분기 추가, 기존 6/11 분기 유지).
+  - `tools/test_dsn11.py`: `test_rebuild_from_schema_json_is_identical` 제거(안 B 채택) 및 분리 사유 주석 기록 (W2 단계마다 `schema.json`에 목표 표가 선반영되어 재생성 비교가 성립하지 않으며, 목표 설계 검증은 `test_contract_holds`, `test_rejects_regressions`, `validate_db_design.py --schema`가 전담).
+  - `tools/rebuild_target.py`: docstring 상단에 "W2 이후에는 schema.json이 진화해 결과가 목표 파일과 달라진다. 설계 단계 재현용이다" 1줄 안내 추가.
+  - `docs/modules/wms/WMS_보강설계_DSN-13.md`: 8절(구현 및 스키마 반영 메모) 추가하여 `apply_dsn90.py` 재적용 시 `CMMS_ISSUE` 중복 생성 제약 및 기존 WMS 3표 칼럼 순서(DDL 대조 0건으로 기능 영향 없음) 문서화.
+  - `backend/alembic/versions/20261013_w2b1_wms.py`:
+    - `downgrade()` 복원 시 `c831_check` -> `c781_check` (`storage_location`), `c818_check` -> `c768_check` (`source_claim`)로 pre-w2b1 원래 제약 이름 복원 (이를 통해 `alembic downgrade base` 전체 왕복이 오류 없이 통과).
+    - `MODULE_CHECKS = []` ruff 포맷 보정.
+  - `backend/tests/test_wms.py`: ruff I001 import 정렬 보정.
+  - `frontend/src/portal/favorites.test.tsx`: W-10 LOT 메뉴 추가에 따른 메뉴 카탈로그 개수 가드 113 -> 114 보정 (`menuCatalog` 114개 키·경로 고유성 100% 통과).
+- 검증 결과:
+  - `backend/.venv/bin/python -m unittest discover -s tools -p 'test_*.py'`: **136 passed (OK)**.
+  - `npm run ci:local`: **1~5단계 전체 통과 (SUCCESS)**.
+    - 1단계: DB 정적 검증(`npm run db:validate`, 0 errors), 격리 감사(`audit_schema_isolation.py`, R1~R6 0 errors), 도구 단위 테스트 (136 passed).
+    - 2단계: 백엔드 ruff check & ruff format check (227 files, 0 errors).
+    - 3단계: 마이그레이션 적용 및 `verify_ddl_matches_schema.py` (0 errors), pytest (843+ passed, 1 perf passed).
+    - 4단계: `clear_test_data.py` -> `downgrade base` -> `upgrade head` -> `verify_ddl_matches_schema.py` (0 errors, 완벽한 왕복).
+    - 5단계: 프런트엔드 `typecheck`, `lint`, `format:check`, `build`, `test` (75 test files, 603 passed, 0 errors).
+- 다음 작업: 사용자 확인 후 B-3 (W-10 보류·해제 이력) 착수.
+
 # 2026-10-15 W2b-1b B-2 W-10 LOT 조회·등록 완료
 
 - 브랜치: `antigravity/w2b-1b`

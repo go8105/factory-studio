@@ -12,9 +12,8 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import text
-
 from seed.copy import copy_module_seed
+from sqlalchemy import text
 
 W = "/api/v1/wms"
 _keys = count()

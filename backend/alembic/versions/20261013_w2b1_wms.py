@@ -304,8 +304,8 @@ DROPS = [
     "DROP TABLE wms.putaway_task",
     "DROP TABLE wms.lot_hold",
     "DROP TABLE wms.lot",
-    "ALTER TABLE wms.storage_location ADD CONSTRAINT c831_check CHECK (location_type IN ('NORMAL','QUARANTINE'))",
-    "ALTER TABLE wms.source_claim ADD CONSTRAINT c818_check CHECK (source_key ~ '^ERP:PURCHASE:.+$')",
+    "ALTER TABLE wms.storage_location ADD CONSTRAINT c781_check CHECK (location_type IN ('NORMAL','QUARANTINE'))",
+    "ALTER TABLE wms.source_claim ADD CONSTRAINT c768_check CHECK (source_key ~ '^ERP:PURCHASE:.+$')",
     "ALTER TABLE wms.stock_document ADD CONSTRAINT c624_check CHECK ((document_type IN ('MES_RECEIPT', 'MES_ISSUE', 'ERP_SHIPMENT', 'ERP_PURCHASE', 'WMS_INSPECTION', 'REVERSAL')) = (source_key IS NOT NULL))",
     "ALTER TABLE wms.stock_document ADD CONSTRAINT c623_check CHECK (document_type IN ('OPENING', 'ADJUSTMENT', 'TRANSFER') OR status = 'posted')",
     "ALTER TABLE wms.stock_document ADD CONSTRAINT c620_check CHECK (document_type IN ('OPENING', 'MES_RECEIPT', 'MES_ISSUE', 'ERP_SHIPMENT', 'ERP_PURCHASE', 'WMS_INSPECTION', 'ADJUSTMENT', 'TRANSFER', 'REVERSAL'))",
@@ -315,9 +315,7 @@ DROPS = [
     "ALTER TABLE wms.warehouse ADD CONSTRAINT c601_check CHECK (purpose IN ('RAW', 'FG'))",
 ]
 # 모듈 키: (표, 제약 이름, 옛 식, 새 식)
-MODULE_CHECKS = [
-
-]
+MODULE_CHECKS = []
 
 
 def upgrade() -> None:
