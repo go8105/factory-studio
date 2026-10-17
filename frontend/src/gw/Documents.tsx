@@ -1,6 +1,7 @@
 import { Comments } from "./Collaboration";
 import { useState, type FormEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import { GwLink as Link } from "./common";
 import {
   DataTable,
   DetailPanel,
@@ -15,7 +16,7 @@ import {
 import { fieldErrors } from "../shared/hooks";
 import {
   labels,
-  documentKinds,
+  useDocumentKinds,
   sourceKinds,
   time,
   useGet,
@@ -32,6 +33,7 @@ export function Documents({ box }: { box: "drafts" | "pending" | "archive" }) {
   return <DocumentsSpace key={role.person} box={box} />;
 }
 function DocumentsSpace({ box }: { box: "drafts" | "pending" | "archive" }) {
+  const kinds = useDocumentKinds();
   const { person, busy } = useRole();
   const [q, setQ] = useSearchParams();
   const [create, setCreate] = useState(false);
@@ -131,7 +133,7 @@ function DocumentsSpace({ box }: { box: "drafts" | "pending" | "archive" }) {
                     onChange={(e) => change("kind", e.target.value)}
                   >
                     <option value="">전체 종류</option>
-                    {documentKinds.map((k) => (
+                    {kinds.map((k) => (
                       <option key={k} value={k}>
                         {labels[k]}
                       </option>
@@ -228,6 +230,7 @@ function DocumentEditor({
   close: () => void;
   done: (d: Document) => void;
 }) {
+  const kinds = useDocumentKinds();
   const { person } = useRole();
   const [title, setTitle] = useState(value?.title ?? "");
   const [body, setBody] = useState(value?.body ?? "");
@@ -331,7 +334,7 @@ function DocumentEditor({
                 setPage(0);
               }}
             >
-              {documentKinds.map((k) => (
+              {kinds.map((k) => (
                 <option key={k} value={k}>
                   {labels[k]}
                 </option>

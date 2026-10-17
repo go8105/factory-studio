@@ -330,114 +330,111 @@ def rule_check(c, ctx, v, current=None, id=None):
 
 
 def rules_write(context, id, operation, values, key):
-    def run(c, ctx):
-        current = master.fetch(c, AUTHORITY, ctx, id) if id else None
-        if id and current is None:
-            raise gw.ApiError(404, "NOT_FOUND", "전결 규칙을 찾을 수 없습니다.")
-        if operation == "delete":
-            if master.references(c, AUTHORITY, ctx, id):
-                raise gw.conflict("AUTHORITY_IN_USE")
-            c.execute(
-                text(f"DELETE FROM gw.authority_rule WHERE {gw.S} AND id=:id"),
-                gw.params(ctx, id=id),
-            )
-            gw.audit(
-                c, ctx, "authority-rules", id, operation, current, "authority_rule"
-            )
-            return {}, "gw.authority_rule", id
-        data = {**(current or {}), **values}
-        rule_check(c, ctx, data, current, id)
-        stored = {k: data[k] for k in AUTHORITY.columns if k != "version"}
-        stored["amount_from"] = Decimal(stored["amount_from"])
-        stored["amount_to"] = (
-            Decimal(stored["amount_to"]) if stored["amount_to"] is not None else None
-        )
-        stored["version"] = current["version"] + 1 if current else 1
-        master.reject_duplicate(c, AUTHORITY, ctx, stored, id)
-        result = master.store(c, AUTHORITY, ctx, stored, id)
-        gw.audit(
-            c, ctx, "authority-rules", result["id"], operation, result, "authority_rule"
-        )
-        return result, "gw.authority_rule", result["id"]
-
     return action(
         "gw",
         context,
         f"gw.authority-rules.{id or 'new'}.{operation}",
         key,
         values,
-        run,
+        lambda c, ctx: rule_mutation(c, ctx, id, operation, values),
         201 if id is None else 200,
     )
 
 
-def delegation_write(context, id, values, key):
-    def run(c, ctx):
-        person = gw.actor(c, ctx, values["acting_person_id"])
-        if id:
-            current = gw.one(c, ctx, "delegation", id, True)
-            gw.check_version(current, values)
-            if current["delegator_person_id"] != person["id"]:
-                raise gw.conflict("WRONG_ACTOR")
-            if current["revoked_at"] is not None:
-                raise gw.conflict("DELEGATION_REVOKED")
-            gw.update(c, ctx, "delegation", id, {"revoked_at": gw.now(c)})
-        else:
-            delegate = gw.actor(c, ctx, values["delegate_person_id"])
-            if delegate["id"] == person["id"]:
-                raise gw.invalid("delegatePersonId", "자신에게 위임할 수 없습니다.")
-            start, end = values["starts_at"], values["ends_at"]
-            if end <= start:
-                raise gw.invalid("endsAt", "종료 시각은 시작 시각보다 늦어야 합니다.")
-            if c.execute(
-                text(
-                    f"SELECT 1 FROM gw.delegation WHERE {gw.S} AND revoked_at IS NULL AND starts_at<:end AND ends_at>:start AND (delegator_person_id=:delegate OR delegate_person_id=:owner OR delegator_person_id=:owner)"
-                ),
-                gw.params(
-                    ctx,
-                    owner=person["id"],
-                    delegate=delegate["id"],
-                    start=start,
-                    end=end,
-                ),
-            ).first():
-                raise gw.conflict("DELEGATION_OVERLAP_OR_CHAIN")
-            if (
-                values.get("max_amount") is not None
-                and Decimal(values["max_amount"]) <= 0
-            ):
-                raise gw.invalid("maxAmount", "한도는 0보다 커야 합니다.")
-            r = gw.reason(values, True)
-            id_created = gw.insert(
-                c,
-                ctx,
-                "delegation",
-                {
-                    "delegator_person_id": person["id"],
-                    "delegate_person_id": delegate["id"],
-                    "starts_at": start,
-                    "ends_at": end,
-                    "document_kind": values.get("document_kind"),
-                    "max_amount": values.get("max_amount"),
-                    "reason": r,
-                },
-            )
-            result = gw.wire(gw.one(c, ctx, "delegation", id_created))
-            gw.audit(c, ctx, "delegations", id_created, "create", result, "delegation")
-            return result, "gw.delegation", id_created
-        result = gw.wire(gw.one(c, ctx, "delegation", id))
-        gw.audit(c, ctx, "delegations", id, "revoke", result, "delegation")
-        return result, "gw.delegation", id
+def rule_mutation(c, ctx, id, operation, values):
+    current = master.fetch(c, AUTHORITY, ctx, id) if id else None
+    if id and current is None:
+        raise gw.ApiError(404, "NOT_FOUND", "전결 규칙을 찾을 수 없습니다.")
+    if operation == "delete":
+        if master.references(c, AUTHORITY, ctx, id):
+            raise gw.conflict("AUTHORITY_IN_USE")
+        c.execute(
+            text(f"DELETE FROM gw.authority_rule WHERE {gw.S} AND id=:id"),
+            gw.params(ctx, id=id),
+        )
+        gw.audit(c, ctx, "authority-rules", id, operation, current, "authority_rule")
+        return {}, "gw.authority_rule", id
+    data = {**(current or {}), **values}
+    rule_check(c, ctx, data, current, id)
+    stored = {k: data[k] for k in AUTHORITY.columns if k != "version"}
+    stored["amount_from"] = Decimal(stored["amount_from"])
+    stored["amount_to"] = (
+        Decimal(stored["amount_to"]) if stored["amount_to"] is not None else None
+    )
+    stored["version"] = current["version"] + 1 if current else 1
+    master.reject_duplicate(c, AUTHORITY, ctx, stored, id)
+    result = master.store(c, AUTHORITY, ctx, stored, id)
+    gw.audit(
+        c, ctx, "authority-rules", result["id"], operation, result, "authority_rule"
+    )
+    return result, "gw.authority_rule", result["id"]
 
+
+def delegation_write(context, id, values, key):
     return action(
         "gw",
         context,
         f"gw.delegations.{id or 'new'}",
         key,
         values,
-        run,
+        lambda c, ctx: delegation_mutation(c, ctx, id, values),
         201 if id is None else 200,
     )
+
+
+def delegation_mutation(c, ctx, id, values):
+    person = gw.actor(c, ctx, values["acting_person_id"])
+    if id:
+        current = gw.one(c, ctx, "delegation", id, True)
+        gw.check_version(current, values)
+        if current["delegator_person_id"] != person["id"]:
+            raise gw.conflict("WRONG_ACTOR")
+        if current["revoked_at"] is not None:
+            raise gw.conflict("DELEGATION_REVOKED")
+        gw.update(c, ctx, "delegation", id, {"revoked_at": gw.now(c)})
+    else:
+        delegate = gw.actor(c, ctx, values["delegate_person_id"])
+        if delegate["id"] == person["id"]:
+            raise gw.invalid("delegatePersonId", "자신에게 위임할 수 없습니다.")
+        start, end = values["starts_at"], values["ends_at"]
+        if end <= start:
+            raise gw.invalid("endsAt", "종료 시각은 시작 시각보다 늦어야 합니다.")
+        if c.execute(
+            text(
+                f"SELECT 1 FROM gw.delegation WHERE {gw.S} AND revoked_at IS NULL AND starts_at<:end AND ends_at>:start AND (delegator_person_id=:delegate OR delegate_person_id=:owner OR delegator_person_id=:owner)"
+            ),
+            gw.params(
+                ctx,
+                owner=person["id"],
+                delegate=delegate["id"],
+                start=start,
+                end=end,
+            ),
+        ).first():
+            raise gw.conflict("DELEGATION_OVERLAP_OR_CHAIN")
+        if values.get("max_amount") is not None and Decimal(values["max_amount"]) <= 0:
+            raise gw.invalid("maxAmount", "한도는 0보다 커야 합니다.")
+        r = gw.reason(values, True)
+        id_created = gw.insert(
+            c,
+            ctx,
+            "delegation",
+            {
+                "delegator_person_id": person["id"],
+                "delegate_person_id": delegate["id"],
+                "starts_at": start,
+                "ends_at": end,
+                "document_kind": values.get("document_kind"),
+                "max_amount": values.get("max_amount"),
+                "reason": r,
+            },
+        )
+        result = gw.wire(gw.one(c, ctx, "delegation", id_created))
+        gw.audit(c, ctx, "delegations", id_created, "create", result, "delegation")
+        return result, "gw.delegation", id_created
+    result = gw.wire(gw.one(c, ctx, "delegation", id))
+    gw.audit(c, ctx, "delegations", id, "revoke", result, "delegation")
+    return result, "gw.delegation", id
 
 
 def delegations(context, offset, limit):

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { CompanyPeople } from "./Company";
+import { GwLink as Link } from "./common";
 import { MasterScreen, type MasterSpec } from "../shared/master";
 import { ErrorNotice, Loading, PageTitle } from "../shared/components";
 import {
@@ -37,6 +38,10 @@ const hrLabels: Record<string, string> = {
   UNLINKED: "수동 등록",
 };
 export function People() {
+  const role = useRole();
+  return role.companyId !== undefined ? <CompanyPeople /> : <PersonalPeople />;
+}
+function PersonalPeople() {
   const [revision, setRevision] = useState(0);
   const role = useRole();
   const spec: MasterSpec<Row, Draft> = {
@@ -323,6 +328,7 @@ export function flattenTree(
   return result.length === rows.length ? result : null;
 }
 export function Organization() {
+  const role = useRole();
   const source = useGet<HrPreview>("/hr-preview");
   const [snapshot, setSnapshot] = useState(false);
   const d = source.data;
@@ -352,9 +358,8 @@ export function Organization() {
         }
       />
       <p>
-        현재 HR 부서 계층을 읽기 전용으로 조회합니다. GW 조직 반영은{" "}
-        <Link to="/gw/people">체험 담당자 → HR에서 가져오기</Link>에서
-        진행하세요.
+        {role.companyId !== undefined ? "회사 GW에 가져온 조직을 조회합니다. 조직 관리자는 현재 HR 조직과 대조할 수 있습니다." : "현재 HR 부서 계층을 읽기 전용으로 조회합니다."} GW 조직 반영은{" "}
+        <Link to="/gw/people">{role.companyId !== undefined ? "회사 직원·연결·권한" : "체험 담당자 → HR에서 가져오기"}</Link>에서 진행하세요.
       </p>
       <ErrorNotice error={source.error} retry={source.reload} />
       {!d && !source.error && <Loading />}
@@ -362,8 +367,7 @@ export function Organization() {
         <>
           {!d.available && (
             <p role="status">
-              HR 조회 불가. 마지막 가져온 GW 조직을 표시합니다. 현재 HR 정보와
-              일치하는지는 확인할 수 없습니다. <Link to="/hr">HR 열기</Link>
+              {role.companyId !== undefined ? "회사 GW에 가져온 조직입니다. 현재 HR과 대조·갱신은 GW 조직 관리자에게 문의하세요." : <>HR 조회 불가. 마지막 가져온 GW 조직을 표시합니다. 현재 HR 정보와 일치하는지는 확인할 수 없습니다. <Link to="/hr">HR 열기</Link></>}
             </p>
           )}
           {d.available && (

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { GwLink as Link } from "./common";
 import {
   ErrorNotice,
   Field,
@@ -7,7 +7,14 @@ import {
   useDiscardGuard,
   type DiscardGuard,
 } from "../shared/components";
-import { useGet, useRole, useSend, time, type HrPreview } from "./common";
+import {
+  useGet,
+  useRole,
+  useSend,
+  time,
+  SelectedPeople,
+  type HrPreview,
+} from "./common";
 import { NoRole, RoleBar } from "./ui";
 
 function GuardNotice({ guard }: { guard: DiscardGuard }) {
@@ -594,6 +601,12 @@ function CalendarSpace() {
                 />
                 <fieldset>
                   <legend>참석자</legend>
+                  <SelectedPeople
+                    ids={attendees}
+                    onRemove={(id) =>
+                      setAttendees((v) => v.filter((x) => x !== id))
+                    }
+                  />
                   {people
                     .filter((p) => p.isActive)
                     .map((p) => (
@@ -799,6 +812,12 @@ function ChatSpace() {
               </select>
               <fieldset disabled={req.pending}>
                 <legend>참여자 (나 포함)</legend>
+                <SelectedPeople
+                  ids={members}
+                  onRemove={(id) =>
+                    setMembers((v) => v.filter((x) => x !== id))
+                  }
+                />
                 {people
                   .filter((p) => p.isActive && p.id !== person)
                   .map((p) => (
@@ -998,6 +1017,7 @@ export function Audience({
   onChange: (v: string, o: string) => void;
 }) {
   const source = useGet<HrPreview>("/hr-preview");
+  const role = useRole();
   return (
     <>
       <label>
@@ -1007,7 +1027,7 @@ export function Audience({
           value={visibility}
           onChange={(e) => onChange(e.target.value, "")}
         >
-          <option value="WORKSPACE">전체 공간</option>
+          <option value="WORKSPACE">{role.companyId !== undefined ? "회사 전체" : "전체 공간"}</option>
           <option value="ORG">부서 공지</option>
         </select>
       </label>
@@ -1023,7 +1043,12 @@ export function Audience({
             >
               <option value="">선택하세요</option>
               {source.data?.organizations
-                .filter((o) => o.isActive)
+                .filter(
+                  (o) =>
+                    o.isActive &&
+                    (role.companyId === undefined ||
+                      o.id === role.organizationUnitId),
+                )
                 .map((o) => (
                   <option key={o.id} value={o.id}>
                     {o.name}

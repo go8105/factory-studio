@@ -8,8 +8,9 @@ from fs.common import master
 from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
 from fs.gw import collaboration, organization, policy, schema, service
+from fs.gw.company_http import CompanyRoute
 
-router = APIRouter()
+router = APIRouter(route_class=CompanyRoute)
 Auth = Annotated[AuthContext, Depends(resolve_auth)]
 Key = Annotated[str | None, Header(alias="Idempotency-Key")]
 Csrf = Annotated[str | None, Header(alias="X-CSRF-Token")]

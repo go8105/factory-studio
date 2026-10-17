@@ -198,3 +198,21 @@
     display: none;
   }
 }
+
+.gw-space-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 12px 0;
+}
+.gw-space-options a[aria-current="page"] {
+  font-weight: 700;
+  text-decoration-thickness: 2px;
+}
+.gw-role input {
+  max-width: 100%;
+}
+.gw-role label {
+  display: block;
+  margin: 8px 0;
+}

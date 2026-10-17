@@ -10,8 +10,9 @@ import {
   useDiscardGuard,
 } from "../shared/components";
 import {
-  documentKinds,
+  useDocumentKinds,
   labels,
+  SelectedPeople,
   time,
   useGet,
   useRole,
@@ -168,6 +169,7 @@ export function Delegations() {
   );
 }
 function GrantEditor({ close, done }: { close: () => void; done: () => void }) {
+  const kinds = useDocumentKinds();
   const role = useRole();
   const request = useSend();
   const guard = useDiscardGuard(true);
@@ -210,6 +212,7 @@ function GrantEditor({ close, done }: { close: () => void; done: () => void }) {
             onChange={(e) => setDelegate(e.target.value)}
           >
             <option value="">선택</option>
+            <SelectedPeople ids={[delegate]} />
             {role.people
               .filter((p) => p.isActive && p.id !== role.person)
               .map((p) => (
@@ -242,7 +245,7 @@ function GrantEditor({ close, done }: { close: () => void; done: () => void }) {
             onChange={(e) => setKind(e.target.value)}
           >
             <option value="">전체 종류</option>
-            {documentKinds.map((k) => (
+            {kinds.map((k) => (
               <option key={k} value={k}>
                 {labels[k]}
               </option>

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import { GwLink as Link } from "./common";
 import {
   DataTable,
   DetailPanel,
@@ -182,7 +183,8 @@ function PostEditor({
   close: () => void;
   done: (p: Post) => void;
 }) {
-  const { person } = useRole();
+  const role = useRole();
+  const { person } = role;
   const [kind, setKind] = useState(value?.boardKind ?? "FREE");
   const [title, setTitle] = useState(value?.title ?? "");
   const [body, setBody] = useState(value?.body ?? "");
@@ -231,7 +233,10 @@ function PostEditor({
               onChange={(e) => setKind(e.target.value)}
             >
               <option value="FREE">자유</option>
-              <option value="NOTICE">공지 (게시판 운영 담당자)</option>
+              {(role.companyId === undefined ||
+                role.roles?.includes("BOARD_PUBLISHER")) && (
+                <option value="NOTICE">공지 (공지 게시 권한)</option>
+              )}
             </select>
           </label>
         )}

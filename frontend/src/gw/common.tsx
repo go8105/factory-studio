@@ -1,6 +1,33 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { api, ApiError, MutationKeys } from "../shared/api";
 import { useSession } from "../app/session";
+import { Link, type LinkProps } from "react-router-dom";
+export const CompanyContext = createContext<{
+  companyId?: string;
+  epoch?: number;
+  invalidate?: (error: unknown) => void;
+}>({});
+export function companyPath(path: string, companyId?: string) {
+  if (
+    companyId === undefined ||
+    (path.startsWith("/api/") && !path.startsWith("/api/v1/gw/"))
+  )
+    return path;
+  const [base, query = ""] = path.split("?");
+  if (base === "/companies" || base.endsWith("/gw/companies")) return path;
+  const params = new URLSearchParams(query);
+  params.delete("personId");
+  params.set("companyId", companyId);
+  return base + "?" + params;
+}
+export function GwLink(props: LinkProps) {
+  const { companyId } = useContext(CompanyContext);
+  const to =
+    typeof props.to === "string" && props.to.startsWith("/gw")
+      ? companyPath(props.to, companyId)
+      : props.to;
+  return <Link {...props} to={to} />;
+}
 export const GW = "/api/v1/gw";
 export type Person = {
   id: string;
@@ -54,6 +81,9 @@ export const documentKinds = [
   "ERP_EXPENSE",
   "PLM_ECO",
 ];
+export function useDocumentKinds() {
+  return useRole().companyId !== undefined ? ["GENERAL"] : documentKinds;
+}
 export const sourceKinds: Record<string, string> = {
   ERP_PURCHASE: "PURCHASE_INVOICE",
   ERP_PO: "PURCHASE_ORDER",
@@ -246,29 +276,55 @@ export const RoleContext = createContext<{
   error?: unknown;
   busy?: boolean;
   setBusy?: (busy: boolean) => void;
+  companyId?: string;
+  personName?: string;
+  roles?: string[];
+  organizationUnitId?: string | null;
+  uncertain?: boolean;
+  setUncertain?: (value: boolean) => void;
+  peopleSearch?: string;
+  setPeopleSearch?: (value: string) => void;
 }>({ person: "", setPerson: () => {}, people: [], reload: () => {} });
 export const useRole = () => useContext(RoleContext);
-export function useGet<T>(path: string | null) {
+export function useGet<T>(
+  path: string | null,
+  retainDuringReload = false,
+  reportScopeFailure = true,
+) {
   const { session, fail } = useSession();
-  const scope = `${session?.workspaceId}:${session?.generationId}`;
+  const company = useContext(CompanyContext);
+  const scope = `${session?.workspaceId}:${session?.generationId}:${company.companyId ?? "personal"}:${company.epoch ?? 0}`;
+  const scopedPath =
+    path === null ? null : companyPath(path, company.companyId);
   const [state, setState] = useState<{
     key: string;
     data?: T;
     error?: unknown;
   }>({ key: "" });
   const [tick, setTick] = useState(0);
-  const key = scope + path;
+  const key = scope + scopedPath;
   useEffect(() => {
-    if (!path) return;
+    if (!scopedPath) return;
     const ac = new AbortController();
-    setState({ key });
-    api<T>(path.startsWith("/api/") ? path : GW + path, { signal: ac.signal })
+    setState((previous) =>
+      retainDuringReload && previous.key === key ? previous : { key },
+    );
+    api<T>(scopedPath.startsWith("/api/") ? scopedPath : GW + scopedPath, {
+      signal: ac.signal,
+    })
       .then((r) => {
         if (!ac.signal.aborted) setState({ key, data: r.data });
       })
       .catch((e) => {
         if (!ac.signal.aborted) {
           setState({ key, error: e });
+          if (
+            e instanceof ApiError &&
+            [403, 404].includes(e.status) &&
+            path !== "/me" &&
+            reportScopeFailure
+          )
+            company.invalidate?.(e);
           if (e instanceof ApiError && [401, 410].includes(e.status)) fail(e);
         }
       });
@@ -283,7 +339,16 @@ export function useGet<T>(path: string | null) {
 }
 export function useSend() {
   const role = useRole();
+  const company = useContext(CompanyContext);
   const { session, fail } = useSession();
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const uncertainOperation = useRef<string | undefined>(undefined);
   const keys = useRef(new MutationKeys());
   const busy = useRef(false);
   const [pending, setPending] = useState(false);
@@ -302,27 +367,58 @@ export function useSend() {
   async function send<T>(
     path: string,
     method: string,
-    body: unknown,
+    body?: unknown,
   ): Promise<T | undefined> {
     if (busy.current) return;
     busy.current = true;
     setPending(true);
     role.setBusy?.(true);
     setError(undefined);
-    const op = `${session?.workspaceId}/${session?.generationId}/${method}/${path}/${JSON.stringify(body)}`;
+    const scopedPath = companyPath(path, company.companyId);
+    const outgoing =
+      company.companyId !== undefined && body && typeof body === "object"
+        ? Object.fromEntries(
+            Object.entries(body).filter(([k]) => k !== "actingPersonId"),
+          )
+        : body;
+    const op = `${session?.workspaceId}/${session?.generationId}/${company.companyId ?? "personal"}/${company.epoch ?? 0}/${method}/${scopedPath}/${JSON.stringify(outgoing)}`;
+    if (uncertainOperation.current && uncertainOperation.current !== op) {
+      busy.current = false;
+      setPending(false);
+      role.setBusy?.(false);
+      setError(
+        new ApiError(0, {
+          code: "NETWORK_UNCERTAIN",
+          message: "응답이 불명확한 이전 요청을 같은 입력으로 다시 확인하세요.",
+        }),
+      );
+      return;
+    }
     try {
-      const r = await api<T>(GW + path, {
+      const r = await api<T>(GW + scopedPath, {
         method,
-        body,
+        body: outgoing,
         csrf: session?.csrfToken,
         key: keys.current.get(op),
       });
       keys.current.complete(op);
-      return r.data;
+      uncertainOperation.current = undefined;
+      role.setUncertain?.(false);
+      return mounted.current ? r.data : undefined;
     } catch (e) {
       if (e instanceof ApiError && e.status > 0 && e.status < 500)
         keys.current.complete(op);
+      if (!mounted.current) return undefined;
+      if (e instanceof ApiError && (e.status === 0 || e.status >= 500)) {
+        uncertainOperation.current = op;
+        role.setUncertain?.(true);
+      } else {
+        uncertainOperation.current = undefined;
+        role.setUncertain?.(false);
+      }
       setError(e);
+      if (e instanceof ApiError && [403, 404].includes(e.status))
+        company.invalidate?.(e);
       if (e instanceof ApiError && [401, 410].includes(e.status)) fail(e);
       return undefined;
     } finally {
@@ -332,4 +428,45 @@ export function useSend() {
     }
   }
   return { send, pending, error, setError };
+}
+
+// 검색 페이지 밖의 선택 ID는 허용된 최소 표시만 개별 조회한다.
+export function SelectedPeople({
+  ids,
+  onRemove,
+}: {
+  ids: string[];
+  onRemove?: (id: string) => void;
+}) {
+  const role = useRole();
+  if (role.companyId === undefined) return null;
+  return (
+    <>
+      {ids
+        .filter((id) => id && !role.people.some((p) => p.id === id))
+        .map((id) => (
+          <SelectedPeer key={id} id={id} onRemove={onRemove} />
+        ))}
+    </>
+  );
+}
+function SelectedPeer({
+  id,
+  onRemove,
+}: {
+  id: string;
+  onRemove?: (id: string) => void;
+}) {
+  const person = useGet<Person>(`/people/${id}`, false, false);
+  const name =
+    person.data?.name ??
+    `직원 ${id}${person.error ? " (비활성·미연결 또는 조회 불가)" : ""}`;
+  return onRemove ? (
+    <label className="inline-check">
+      <input type="checkbox" checked onChange={() => onRemove(id)} />
+      {name}
+    </label>
+  ) : (
+    <option value={id}>{name}</option>
+  );
 }

@@ -1,3 +1,7 @@
+## 2026-10-17 GW-COMPANY-04 WIP 기존 업무 API·회사 화면 연결
+
+사용자 다음진행 승인. 기존63경로에 회사 전용 입력/인증 분기(개인 계약 보존), 전결/위임·댓글/일정/알림/채팅의 동TX 내부함수·현재부모ACL/receipt전권한, 회사 선택/최초설정/본인동의/직원·역할 화면 연결중. HTTP회사5+선행16=21 통과, 프런트typecheck/린트통과·관련UI회귀진행. BUSINESS_READY=false 유지, 실제브라우저/최종회귀·도움말은진행중. WMS main9f6cf36/205표와GW198표의schema0.26/head분기확인,05통합전양쪽대조·새merge revision필요. 신규schema변경/공유DB·계정·main·원격/배포없음. 소유합성PG18/55437만검증용. 다음: UI보완/전수권한·화면검증/도움말/최종기록,미실행 검증은 완료로 표시하지 않음.
+
 ## 2026-10-17 GW-COMPANY-03 로컬 검증 완료 — 회사 업무 공개 전
 
 - 사용자 다음진행 승인, branch codex/gw-company-01 / factory-studio-gw-company. 기준824c4de, WIPe35eaa3, 최종gitlog. [결과](GW_직원연결_업무권한_GW-COMPANY-03.md).

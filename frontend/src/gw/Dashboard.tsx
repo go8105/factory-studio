@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { GwLink as Link } from "./common";
 import { ErrorNotice, Loading, PageTitle } from "../shared/components";
 import { useGet, useRole, type Document, type Post } from "./common";
 import { NoRole, RoleBar, Status } from "./ui";

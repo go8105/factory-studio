@@ -12,6 +12,7 @@ import {
 import { fieldErrors } from "../shared/hooks";
 import {
   labels,
+  SelectedPeople,
   useGet,
   useRole,
   useSend,
@@ -38,7 +39,14 @@ export function Masters({ kind }: { kind: "people" | "routes" }) {
         title={title}
         help={`gw/${person ? "g-07" : "g-06"}`}
         actions={
-          <button disabled={role.busy} onClick={() => setEdit(null)}>
+          <button
+            disabled={
+              role.busy ||
+              (role.companyId !== undefined &&
+                !role.roles?.includes("ROUTE_ADMIN"))
+            }
+            onClick={() => setEdit(null)}
+          >
             등록
           </button>
         }
@@ -227,6 +235,7 @@ function MasterEditor({
                     }
                   >
                     <option value="">담당자 선택</option>
+                    <SelectedPeople ids={[entry.personId]} />
                     {people
                       .filter((p) => p.isActive || p.id === entry.personId)
                       .map((p) => (

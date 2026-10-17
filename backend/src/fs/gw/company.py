@@ -21,6 +21,8 @@ from fs.core.company import (
 )
 from fs.hr.interface import work_identity
 
+BUSINESS_READY = False
+
 S = "workspace_id=:w AND generation_id=:g"
 ROLES = frozenset(
     {
@@ -57,7 +59,7 @@ def transaction(context, company_id, *, write=False):
 def identity(c, scoped):
     row = (
         c.execute(
-            text(f"""SELECT b.id AS binding_id,b.state,p.id,p.code,p.name,p.is_active
+            text(f"""SELECT b.id AS binding_id,b.state,p.id,p.code,p.name,p.is_active,p.organization_unit_id,p.job_role,p.version
       FROM gw.person_identity_binding b JOIN gw.person p
       ON (p.workspace_id,p.generation_id,p.id)=(b.workspace_id,b.generation_id,b.person_id)
       WHERE b.{S.replace(" AND ", " AND b.")} AND b.user_id=:u AND b.state<>'CANCELLED'"""),
@@ -136,6 +138,12 @@ def me(context, company_id):
                 "id": str(bound["id"]),
                 "code": bound["code"],
                 "name": bound["name"],
+                "jobRole": bound["job_role"],
+                "isActive": bound["is_active"],
+                "version": bound["version"],
+                "organizationUnitId": str(bound["organization_unit_id"])
+                if bound["organization_unit_id"]
+                else None,
             }
             if bound
             else None,
@@ -145,8 +153,10 @@ def me(context, company_id):
             "setupRequired": settings is None,
             "companyOwner": owner,
             "hrIdentityAvailable": work_identity(c, scoped, scoped.user_id) is not None,
-            "capabilities": [],
-            "businessReady": False,
+            "capabilities": ["GENERAL", "COLLABORATION"]
+            if BUSINESS_READY and active and settings
+            else [],
+            "businessReady": bool(BUSINESS_READY and active and settings),
         }
 
 

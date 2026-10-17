@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { GwLink as Link } from "./common";
 import {
   Badge,
   DataTable,
@@ -15,6 +15,32 @@ export function RoleBar({
   pending?: boolean;
 }) {
   const role = useRole();
+  if (role.companyId !== undefined)
+    return (
+      <div className="gw-role">
+        <p>
+          회사 GW · 로그인 연결 직원{" "}
+          {role.personName ??
+            role.people.find((p) => p.id === role.person)?.name ??
+            role.person}
+        </p>
+        <p className="muted">
+          본인 계정으로 처리합니다. 다른 직원의 역할로 전환할 수 없습니다.
+        </p>
+        {role.setPeopleSearch && (
+          <label>
+            참여자 찾기 (이름·사번, 최대 100명)
+            <input
+              aria-label="참여자 찾기"
+              value={role.peopleSearch ?? ""}
+              maxLength={100}
+              onChange={(e) => role.setPeopleSearch?.(e.target.value)}
+            />
+          </label>
+        )}
+        <ErrorNotice error={role.error} />
+      </div>
+    );
   return (
     <div className="gw-role">
       <ErrorNotice error={role.error} />

@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { NotFound } from "../shared/components";
 import { GwLayout } from "./GwLayout";
 import { Dashboard } from "./Dashboard";
@@ -11,11 +11,15 @@ import { People, Organization } from "./Organization";
 import { Calendar, Notifications, Chat } from "./Collaboration";
 import "./gw.css";
 import { LegacyFlowRedirect } from "../flow/LegacyFlowRedirect";
+function DefaultGw() {
+  const location = useLocation();
+  return <Navigate to={"dashboard" + location.search} replace />;
+}
 export default function GwRoutes() {
   return (
     <Routes>
       <Route element={<GwLayout />}>
-        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route index element={<DefaultGw />} />
         <Route path="projects" element={<LegacyFlowRedirect page="boards" />} />
         <Route
           path="my-tasks"

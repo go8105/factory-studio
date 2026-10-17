@@ -85,19 +85,63 @@ def detail(c, ctx, kind, id, p):
         f"SELECT * FROM gw.{'approval_event' if kind == 'documents' else 'board_event'} WHERE {gw.S} AND {'document_id' if kind == 'documents' else 'post_id'}=:id ORDER BY event_seq",
         gw.params(ctx, id=id),
     )
+    row["available_actions"] = []
+    owns = row["drafter_id" if kind == "documents" else "author_id"] == p["id"]
     if kind == "documents":
+        row["source_comparison"] = None
+        submission = next(
+            (e for e in row["events"] if e["event_type"] == "SUBMITTED"), None
+        )
+        row["authority_snapshot"] = (
+            (submission.get("details") or {}).get("authorityRule")
+            if submission
+            else None
+        )
         row["steps"] = gw.steps(c, ctx, id, company_mode=True)
         row["action_steps"] = [
             {
                 "step_id": x["step"]["id"],
                 "participant_role": x["step"]["participant_role"],
+                "person_name": gw.one(c, ctx, "person", x["step"]["person_id"])["name"],
+                "delegation_id": x["delegation"]["id"] if x["delegation"] else None,
             }
             for x in policy.eligible(c, ctx, row, p, company_mode=True)
         ]
+        for step in row["steps"]:
+            step["original_person_name"] = step["person_name"]
+            step["person_name"] = gw.one(c, ctx, "person", step["person_id"])["name"]
+        if owns:
+            if row["status"] == "DRAFT":
+                row["available_actions"] = ["edit", "select-route", "submit"]
+            elif row["status"] == "IN_REVIEW" and not any(
+                x["status"] == "APPROVED" and x["participant_role"] != "REFERENCE"
+                for x in row["steps"]
+            ):
+                row["available_actions"] = ["withdraw"]
+            elif row["status"] in {"REJECTED", "WITHDRAWN"} and not row["successor"]:
+                row["available_actions"] = ["resubmit"]
+        for step in row["action_steps"]:
+            row["available_actions"].extend(
+                {
+                    "APPROVER": ["approve", "reject"],
+                    "CONSENT": ["consent", "oppose"],
+                    "REFERENCE": ["reference"],
+                }[step["participant_role"]]
+            )
+        row["available_actions"] = list(dict.fromkeys(row["available_actions"]))
+    elif owns and (
+        row["board_kind"] == "FREE" or "BOARD_PUBLISHER" in company.principal(c, ctx)[1]
+    ):
+        row["available_actions"] = (
+            ["edit", "publish"]
+            if row["status"] == "DRAFT"
+            else (["withdraw"] if row["status"] == "PUBLISHED" else [])
+            + (["correct"] if not row["successor"] else [])
+        )
     return gw.wire(row)
 
 
-def read(context, company_id, kind, id=None, *, offset=0, limit=50, search=""):
+def read(context, company_id, kind, id=None, *, offset=0, limit=50, search="", **q):
     if (
         kind not in {"documents", "posts"}
         or offset < 0
@@ -120,15 +164,55 @@ def read(context, company_id, kind, id=None, *, offset=0, limit=50, search=""):
             offset=offset,
             limit=limit,
         )
+        for key, column in (
+            ("status", "status"),
+            ("document_kind", "kind"),
+            ("board_kind", "board_kind"),
+        ):
+            if q.get(key):
+                where += f" AND d.{column}=:{key}"
+                params[key] = q[key]
+        box = q.get("box", "all")
+        if kind == "documents" and box == "drafts":
+            where += " AND d.drafter_id=:person"
+        if kind == "documents" and box == "archive":
+            where += " AND d.status IN ('APPROVED','REJECTED','WITHDRAWN')"
+        if kind == "posts" and q.get("mine"):
+            where += " AND d.author_id=:person"
+        if kind == "documents" and box == "pending":
+            candidates = gw.rows(
+                c,
+                f"SELECT d.* FROM gw.approval_document d WHERE {where} AND d.status='IN_REVIEW' ORDER BY d.serial DESC,d.id DESC",
+                params,
+            )
+            found = [
+                r
+                for r in candidates
+                if policy.eligible(c, ctx, r, p, company_mode=True)
+            ]
+            data = gw.wire(found[offset : offset + limit])
+            return {
+                "items": data,
+                "rows": data,
+                "total": len(found),
+                "offset": offset,
+                "limit": limit,
+            }
         total = c.execute(
             text(f"SELECT count(*) FROM gw.{gw.TABLES[kind]} d WHERE {where}"), params
         ).scalar_one()
         data = gw.rows(
             c,
-            f"SELECT d.id,d.title,d.status,d.version FROM gw.{gw.TABLES[kind]} d WHERE {where} ORDER BY d.id DESC LIMIT :limit OFFSET :offset",
+            f"SELECT d.* FROM gw.{gw.TABLES[kind]} d WHERE {where} ORDER BY d.{q.get('sort', 'serial') if q.get('sort', 'serial') in {'serial', 'title', 'status'} else 'serial'} DESC,d.id DESC LIMIT :limit OFFSET :offset",
             params,
         )
-        return {"items": gw.wire(data), "total": total}
+        return {
+            "items": gw.wire(data),
+            "rows": gw.wire(data),
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+        }
 
 
 def mutate(context, company_id, kind, id, operation, values, key):
@@ -158,6 +242,11 @@ def mutate(context, company_id, kind, id, operation, values, key):
 
     def run(c, ctx, principal):
         p = person(c, ctx, principal["id"])
+        before = (
+            gw.one(c, ctx, gw.TABLES[kind], id)
+            if id and kind in {"documents", "posts"}
+            else None
+        )
         v = {**values, "acting_person_id": p["id"]}
         if kind == "routes":
             for step in v["steps"]:
@@ -213,6 +302,16 @@ def mutate(context, company_id, kind, id, operation, values, key):
                 v,
                 notice_allowed="BOARD_PUBLISHER" in company.principal(c, ctx)[1],
             )
+        from fs.gw.collaboration import business_notifications
+
+        business_notifications(
+            c,
+            ctx,
+            kind,
+            before,
+            gw.one(c, ctx, gw.TABLES[kind], saved),
+            company_mode=True,
+        )
         result = detail(c, ctx, kind, saved, p)
         gw.audit(c, ctx, kind, saved, operation, result)
         return result, "gw." + gw.TABLES[kind], saved

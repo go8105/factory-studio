@@ -75,6 +75,20 @@ export type MasterSpec<Row extends { id: number | string }, Draft> = {
   help: string;
   /** API 경로. 목록 GET, 등록 POST, 수정 PATCH/{id}, 삭제 DELETE/{id} */
   base: string;
+  requestQuery?: string;
+  readOnly?: boolean;
+  onLoadError?: (error: unknown) => void;
+  deleteBody?: (row: Row) => unknown;
+  transport?: {
+    send: <T = unknown>(
+      path: string,
+      method: string,
+      body?: unknown,
+    ) => Promise<T | undefined>;
+    pending: boolean;
+    error: unknown;
+    setError: (error: unknown) => void;
+  };
   limit?: number;
   allowDelete?: boolean;
   onSaved?: () => void;
@@ -161,15 +175,16 @@ export function MasterScreen<
   const [confirmDelete, setConfirmDelete] = useState<number | string>();
   const [done, setDone] = useState("");
   // 저장·삭제 요청(CSRF·멱등 키·응답 불확실 시 키 보존)은 공통 훅이 맡는다.
+  const fallback = useApiSend(spec.base, () => {
+    setReload((n) => n + 1);
+    spec.onSaved?.();
+  });
   const {
     send,
     pending,
     error: saveError,
     setError: setSaveError,
-  } = useApiSend(spec.base, () => {
-    setReload((n) => n + 1);
-    spec.onSaved?.();
-  });
+  } = spec.transport ?? fallback;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -177,9 +192,12 @@ export function MasterScreen<
     const query =
       (filtered && spec.filter ? `&${spec.filter.query}` : "") +
       (spec.search ? `&search=${encodeURIComponent(search)}` : "");
-    api<Row[]>(`${spec.base}?offset=${offset}&limit=${limit}${query}`, {
-      signal: controller.signal,
-    })
+    api<Row[]>(
+      `${spec.base}?offset=${offset}&limit=${limit}${query}${spec.requestQuery ? "&" + spec.requestQuery : ""}`,
+      {
+        signal: controller.signal,
+      },
+    )
       .then((reply) => {
         if (controller.signal.aborted) return;
         setRows(reply.data);
@@ -188,11 +206,12 @@ export function MasterScreen<
       .catch((error) => {
         if (controller.signal.aborted) return;
         setLoadError(error);
+        spec.onLoadError?.(error);
         if (error instanceof ApiError && [401, 410].includes(error.status))
           fail(error);
       });
     return () => controller.abort();
-  }, [offset, filtered, reload, search, spec.reloadKey]);
+  }, [offset, filtered, reload, search, spec.reloadKey, spec.requestQuery]);
 
   const dirty =
     !!panel &&
@@ -202,6 +221,7 @@ export function MasterScreen<
   const guard = useDiscardGuard(dirty);
 
   function openPanel(row: Row | null) {
+    if (spec.readOnly) return;
     const values = (row ? { ...row } : spec.blank) as unknown as Draft;
     setPanel({ row });
     setDraft(values);
@@ -216,7 +236,7 @@ export function MasterScreen<
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (pending) return;
+    if (pending || spec.readOnly) return;
     const body = editing
       ? Object.fromEntries(
           Object.entries(draft).filter(
@@ -237,16 +257,24 @@ export function MasterScreen<
     if (saved !== undefined) {
       closePanel();
       setDone(editing ? "수정했습니다." : "등록했습니다.");
+      if (spec.transport) {
+        setReload((n) => n + 1);
+        spec.onSaved?.();
+      }
     }
   }
 
   async function remove(row: Row) {
-    if (pending) return;
-    const removed = await send(`/${row.id}`, "DELETE");
+    if (pending || spec.readOnly) return;
+    const removed = await send(`/${row.id}`, "DELETE", spec.deleteBody?.(row));
     setConfirmDelete(undefined);
     if (removed !== undefined) {
       if (editing?.id === row.id) closePanel();
       setDone(spec.labels.deleted(row));
+      if (spec.transport) {
+        setReload((n) => n + 1);
+        spec.onSaved?.();
+      }
     }
   }
 
@@ -267,7 +295,7 @@ export function MasterScreen<
       key: "id" as keyof Row & string,
       label: "관리",
       render: (row: Row) =>
-        confirmDelete === row.id ? (
+        spec.readOnly ? null : confirmDelete === row.id ? (
           <span className="row-actions">
             <button
               className="secondary"
@@ -316,6 +344,7 @@ export function MasterScreen<
         actions={
           <button
             type="button"
+            disabled={spec.readOnly}
             aria-pressed={!!panel && !editing}
             onClick={() => guard.guard(() => openPanel(null))}
           >

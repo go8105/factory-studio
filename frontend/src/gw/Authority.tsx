@@ -1,5 +1,13 @@
 import { MasterScreen, CODE_PATTERN, type MasterSpec } from "../shared/master";
-import { documentKinds, labels } from "./common";
+import { useContext } from "react";
+import { ApiError } from "../shared/api";
+import {
+  CompanyContext,
+  documentKinds,
+  labels,
+  useRole,
+  useSend,
+} from "./common";
 type Rule = {
   id: number;
   code: string;
@@ -146,5 +154,32 @@ const spec: MasterSpec<Rule, Draft> = {
   },
 };
 export function Authority() {
-  return <MasterScreen spec={spec} />;
+  const role = useRole();
+  const scope = useContext(CompanyContext);
+  const req = useSend();
+  const companySpec: MasterSpec<Rule, Draft> = {
+    ...spec,
+    requestQuery: new URLSearchParams({
+      companyId: role.companyId ?? "",
+    }).toString(),
+    readOnly: !role.roles?.includes("POLICY_ADMIN"),
+    deleteBody: (row) => ({ expectedVersion: row.version }),
+    onLoadError: (e) => {
+      if (e instanceof ApiError && [403, 404].includes(e.status))
+        scope.invalidate?.(e);
+    },
+    transport: {
+      ...req,
+      send: <T,>(path: string, method: string, body?: unknown) =>
+        req.send<T>("/authority-rules" + path, method, body),
+    },
+    fields: spec.fields.map((f) =>
+      f.key === "documentKind" && f.kind === "select"
+        ? { ...f, options: { GENERAL: labels.GENERAL } }
+        : f,
+    ),
+  };
+  return (
+    <MasterScreen spec={role.companyId !== undefined ? companySpec : spec} />
+  );
 }

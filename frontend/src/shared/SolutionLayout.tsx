@@ -1,5 +1,5 @@
 // MES·ERP·FEMS 공통 솔루션 레이아웃: 좌측 사이드바(넓은 화면 접기, 좁은 화면 서랍) + 본문 (UI-01)
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useFavorites } from "./favorites";
 import { MenuIcon } from "./MenuIcon";
@@ -23,12 +23,18 @@ export function SolutionLayout({
   base,
   screens,
   others,
+  beforeContent,
+  content,
+  linkQuery,
 }: {
   name: string;
   title: string;
   base: string;
   screens: Screen[];
   others: { to: string; label: string }[];
+  beforeContent?: ReactNode;
+  content?: ReactNode;
+  linkQuery?: string;
 }) {
   const location = useLocation();
   const favorites = useFavorites();
@@ -47,7 +53,11 @@ export function SolutionLayout({
     return (
       <div className="sidebar-menu-row" key={screen.key}>
         <NavLink
-          to={screen.to}
+          to={
+            linkQuery && screen.to.startsWith(base + "/")
+              ? screen.to + "?" + linkQuery
+              : screen.to
+          }
           onClick={closeMenu}
           title={`${screen.solution} · ${screen.label}`}
           aria-label={`${screen.id} ${screen.label} · ${screen.solution}`}
@@ -278,7 +288,8 @@ export function SolutionLayout({
         </details>
       </aside>
       <div className="solution-content">
-        <Outlet />
+        {beforeContent}
+        {content ?? <Outlet />}
       </div>
     </div>
   );
