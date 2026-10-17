@@ -1,3 +1,9 @@
+## 2026-10-17 PWA-POLICY-01 회사 정책과 근무 화면 일치
+
+사용자 고도화 순서 UPGRADE-01 승인, 첫 ID 구현100%·로컬 검증 완료. 기준main eaa01eb / codex/pwa-policy-01. 회사 근무·휴게·일 근무 분·연차 기준 표시, 연차/반차 시각·잔여 일 환산·분 단위 시간 선택 보정. 반차는 휴게 제외 절반, 시간차 차감은60분 배수. 불일치 정책/비서울/야간 신청 차단, 홀수 근무 분 반차 차단. 개인 부여와 회사 연차 기준 구분. 정책관리/DB/실제계정·원장 변경 없음. [결과](agent/PWA_정책화면_일치_PWA-POLICY-01.md) · [후속순서](plan/시스템고도화_진행순서_UPGRADE-01.md).
+
+검증: 관련프런트31/31, 격리API12/12(기존경고2), type/lint/format/build 통과, 실제Chrome 합성API1440/390·4종JSON/pageerror0. 전체재검사597/604·Flow기존7실패(기준main에서도동일7실패); 첫전체ERP/MES일시실패3은기준main36/36 및재실행통과. 전체CI성공/실기기/운영검증으로표현하지않음. main병합/push/배포미실행. 다음: 첫ID결과확인, Flow기준실패별도점검·GW미확정공유인증설계를현HR회사구조와대조. AGENTS §1 ID별결과확인/§2전체설계확인준수.
+
 ## 2026-10-15 OPS-CAD-02 CAD·YC main 수동 운영 배포 완료
 
 사용자수동배포요청으로 운영3a6019f→main제품c0f118e 반영(12:00KST). backend/DB/시드차이0, 정확main frontend601·CAD154/type/lint/format/build/격리/dbvalidate통과. GitHub결제차단은수동검증으로대체하여 --skip-ci-check 명시사용(CI성공아님). 보호백업r2검증·회사/계정191표건수/hash보존·APIactive/공개원점200/DDL0/최근5xx0·시드유지·공개NC JS/CSS SHA동일/비로그인비누401. 공개운영실Chrome합성NC/STEP/에너지/모의음성→3카드/3번재생/정지/복귀/출력미리보기/변경무효화/390/pageerror0통과. 실마이크/실장비/실측/운영계정쓰기미검증. 초기backup fingerprint별칭오류는배포전중단/API복구후보정·r2재검증,원장변경없음. [배포기록](agent/main_수동운영배포_OPS-CAD-02.md). 다음사용자결과확인/실발화리허설,자동다음ID없음.

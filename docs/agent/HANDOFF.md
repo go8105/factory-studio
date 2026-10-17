@@ -1,3 +1,11 @@
+## 2026-10-17 PWA-POLICY-01 완료 · main/운영 미반영
+
+- 브랜치 `codex/pwa-policy-01`, 폴더 `/Users/hwang-kyoungho/projects/factory-studio-pwa-policy`, 기준main `eaa01eb`. 마지막 커밋은 `git log -1 --oneline`. 원본 `antigravity/w2b-1b` 및 main 보존.
+- 사용자 고도화 순서 승인. 첫 ID는 기존 승인 HR-TIME-01의 회사 정책 적용 보정: 요약/잔여 일 환산/연차·반차 제출/분 단위 선택. [검증](PWA_정책화면_일치_PWA-POLICY-01.md), [순서](../plan/시스템고도화_진행순서_UPGRADE-01.md). 시간대 Seoul·당일1휴게, 잘못된 정책/홀수 반차 차단. 새정책화면·DB·실제계정/정책/원장변경없음.
+- 검증 관련31/31·격리근무API12/12·type/lint/format/build·Chrome모의API1440/390/4종제출JSON/pageerror0. 전체597/604·Flow기존7실패. main에서도해당7동일실패, ERP/MES재검사통과. 전체성공아님. main/push/운영/실기기미실행. `work/` 로그·스크린샷은임시, 보고서에재현절차/실패근거기록.
+- 다음: AGENTS §1 ID별결과확인, 기존Flow회귀실패별도점검, GW-EXT-A는전체확인대기설계이고현재core.company와중복/차이있어최신대조먼저. 실제회사운영/실기기/장비조건을임의확정하지않음. 이전문서배포승인을새회사인증운영승인으로확대하지않음.
+- 재현 Node24: `npm --prefix frontend test -- src/hr/Work.test.tsx src/hr/workPolicy.test.ts src/hr/Users.test.tsx src/portal/content-pages.test.tsx`. 격리 `_test` DB를 새로 준비하고Python3.14로head적용후 `pytest backend/tests/test_hr_work.py -q`. `.env`/비밀번호/`work`/node_modules스테이징금지.
+
 ## 2026-10-15 OPS-CAD-02 CAD·YC main 수동 운영 배포 완료
 
 사용자수동배포요청으로 운영3a6019f→main제품c0f118e 반영(12:00KST). backend/DB/시드차이0, 정확main frontend601·CAD154/type/lint/format/build/격리/dbvalidate통과. GitHub결제차단은수동검증으로대체하여 --skip-ci-check 명시사용(CI성공아님). 보호백업r2검증·회사/계정191표건수/hash보존·APIactive/공개원점200/DDL0/최근5xx0·시드유지·공개NC JS/CSS SHA동일/비로그인비누401. 공개운영실Chrome합성NC/STEP/에너지/모의음성→3카드/3번재생/정지/복귀/출력미리보기/변경무효화/390/pageerror0통과. 실마이크/실장비/실측/운영계정쓰기미검증. 초기backup fingerprint별칭오류는배포전중단/API복구후보정·r2재검증,원장변경없음. [배포기록](main_수동운영배포_OPS-CAD-02.md). 다음사용자결과확인/실발화리허설,자동다음ID없음.

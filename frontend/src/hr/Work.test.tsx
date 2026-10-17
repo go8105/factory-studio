@@ -8,6 +8,7 @@ import {
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Work } from "./Work";
+import { examplePolicy } from "./workPolicy";
 const state = vi.hoisted(() => ({
   actor: "GUEST",
   setBusy: vi.fn(),
@@ -84,7 +85,7 @@ it("회원은 서버 회사 연결로 출근하고 오프라인 제출은 차단
     sessions: [],
     requests: [],
     events: [],
-    policy: { daily_minutes: 480, annual_days: 15 },
+    policy: examplePolicy,
     closed: false,
   };
   const fetch = vi.fn(
@@ -163,7 +164,7 @@ it("관리자 정정에서 원래 출퇴근의 초·밀리초를 보존한다", 
     ],
     requests: [],
     events: [],
-    policy: { daily_minutes: 480, annual_days: 15 },
+    policy: examplePolicy,
     closed: false,
   };
   const fetch = vi.fn(
@@ -199,4 +200,103 @@ it("관리자 정정에서 원래 출퇴근의 초·밀리초를 보존한다", 
       }),
     ),
   );
+});
+
+it("회사별 근무표를 표시하고 연차·반차·분 단위 시간차를 제출한다", async () => {
+  state.actor = "MEMBER";
+  const company = {
+    id: 4,
+    name: "합성 정책 회사",
+    isExample: true,
+    timezone: "Asia/Seoul",
+  };
+  const data = {
+    company,
+    person: { id: 2, name: "합성 직원", role: "STAFF" },
+    remainingMinutes: 6300,
+    activeSession: null,
+    sessions: [],
+    requests: [],
+    events: [],
+    closed: false,
+    policy: {
+      start_time: "08:30:00",
+      end_time: "16:30:00",
+      break_start: "11:30:00",
+      break_end: "12:30:00",
+      daily_minutes: 420,
+      annual_days: 20,
+    },
+  };
+  const fetch = vi.fn(
+    async (url: string) =>
+      new Response(
+        JSON.stringify({
+          data: url.endsWith("companies")
+            ? [company]
+            : url.includes("overview")
+              ? data
+              : { id: 1 },
+        }),
+        { status: 200 },
+      ),
+  );
+  vi.stubGlobal("fetch", fetch);
+  page();
+  expect(
+    await screen.findByText(/회사 기준 1일 7시간 · 연차 기준 20일/),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/08:30–16:30 · 휴게 11:30–12:30/),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/잔여 15일/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/오전 반차 08:30–13:00, 오후 반차 13:00–16:30/),
+  ).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("시작일"), {
+    target: { value: "2026-10-19" },
+  });
+  fireEvent.change(screen.getByLabelText("사유"), {
+    target: { value: "합성 정책 검증" },
+  });
+  for (const [kind, start, end] of [
+    ["ANNUAL", "08:30", "16:30"],
+    ["HALF_AM", "08:30", "13:00"],
+    ["HALF_PM", "13:00", "16:30"],
+    ["HOURLY", "08:30", "09:30"],
+  ]) {
+    fireEvent.change(screen.getByLabelText("종류"), {
+      target: { value: kind },
+    });
+    if (kind === "HOURLY") {
+      expect(screen.getByLabelText("시작 시간")).toHaveValue("08:30");
+      expect(screen.getByLabelText("종료 시간")).toHaveValue("09:30");
+      expect(screen.getByLabelText("시작 시간")).toHaveAttribute("step", "60");
+    }
+    fireEvent.click(screen.getByRole("button", { name: "신청하기" }));
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/v1/hr/work/requests?companyId=4",
+        expect.objectContaining({
+          body: JSON.stringify({
+            kind,
+            startsAt: `2026-10-19T${start}:00+09:00`,
+            endsAt: `2026-10-19T${end}:00+09:00`,
+            reason: "합성 정책 검증",
+            destination: null,
+          }),
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "신청하기" })).toBeEnabled(),
+    );
+  }
+  fireEvent.change(screen.getByLabelText("종료 시간"), {
+    target: { value: "09:00" },
+  });
+  const before = fetch.mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: "신청하기" }));
+  expect(screen.getByRole("status")).toHaveTextContent("1시간 단위");
+  expect(fetch.mock.calls).toHaveLength(before);
 });

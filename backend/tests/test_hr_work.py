@@ -5,12 +5,13 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
+
 from fs.common.db import reset_engine
 from fs.hr import work
 from fs.hr.work_setup import create_example_company
 from fs.main import create_app
 from seed.generate import create_template
-from sqlalchemy import text
 
 
 @pytest.fixture
@@ -306,3 +307,50 @@ def test_example_accounts_prepare_then_activate(clean_database, monkeypatch):
         )
         with pytest.raises(ValueError):
             activate_example_company(c, password, password)
+
+
+@pytest.mark.parametrize(
+    "start,end,break_start,break_end,daily,am_end,pm_start",
+    [
+        ("08:30", "16:30", "11:30", "12:30", 420, "13:00", "13:00"),
+        ("08:00", "17:00", "12:00", "13:00", 480, "12:00", "13:00"),
+    ],
+)
+def test_custom_policy_request_and_approved_balance(
+    company_env, start, end, break_start, break_end, daily, am_end, pm_start
+):
+    engine, company, admin, staff = company_env
+    with engine.begin() as c:
+        c.execute(
+            text("""UPDATE hr.work_policy SET start_time=CAST(:start AS time),
+              end_time=CAST(:end AS time),break_start=CAST(:bs AS time),
+              break_end=CAST(:be AS time),daily_minutes=:daily,annual_days=20
+              WHERE workspace_id=:w"""),
+            {
+                "start": start,
+                "end": end,
+                "bs": break_start,
+                "be": break_end,
+                "daily": daily,
+                "w": company["companyId"],
+            },
+        )
+    # Personal grants remain 15 days; policy annual_days is not a new grant.
+    before = overview(staff, company)
+    assert before["policy"]["daily_minutes"] == daily
+    assert before["policy"]["annual_days"] == 20
+    assert before["remainingMinutes"] == 15 * daily
+    for kind, a, b, day, minutes in [
+        ("ANNUAL", start, end, "2026-10-19", daily),
+        ("HALF_AM", start, am_end, "2026-10-20", daily // 2),
+        ("HALF_PM", pm_start, end, "2026-10-21", daily // 2),
+        ("HOURLY", start, "09:30" if start == "08:30" else "09:00", "2026-10-22", 60),
+    ]:
+        made = request(staff, company, kind, a, b, day)
+        assert made.status_code == 200, made.text
+        assert made.json()["data"]["minutes"] == minutes
+        approved = call(
+            admin, company, "requests/approve", {"id": made.json()["data"]["id"]}
+        )
+        assert approved.status_code == 200, approved.text
+    assert overview(staff, company)["remainingMinutes"] == 13 * daily - 60

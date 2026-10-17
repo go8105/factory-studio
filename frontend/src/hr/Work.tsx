@@ -4,6 +4,13 @@ import { useSession } from "../app/session";
 import { api, ApiError } from "../shared/api";
 import { ErrorNotice } from "../shared/components";
 import "./Work.css";
+import {
+  examplePolicy,
+  hours,
+  paidMinutes,
+  policySchedule,
+  type WorkPolicy,
+} from "./workPolicy";
 
 type Company = {
   id: number;
@@ -34,14 +41,7 @@ type Request = {
 type Overview = {
   company: Company;
   person: { id: number; name: string; role: string };
-  policy: {
-    daily_minutes: number;
-    annual_days: number;
-    start_time: string;
-    end_time: string;
-    break_start: string;
-    break_end: string;
-  };
+  policy: WorkPolicy;
   month: string;
   remainingMinutes: number;
   activeSession: Clock | null;
@@ -107,6 +107,20 @@ export function Work({ demo = false }: { demo?: boolean }) {
   );
   const alive = useRef(true);
   const base = `/api/v1/hr/work`;
+  const policy = demo ? examplePolicy : data?.policy;
+  const schedule = policy ? policySchedule(policy) : null;
+  const requestPolicyReady =
+    !!schedule && (demo || data?.company.timezone === "Asia/Seoul");
+  const policyKey = policy ? JSON.stringify(policy) : "";
+  useEffect(() => {
+    const next = policyKey
+      ? policySchedule(JSON.parse(policyKey) as WorkPolicy)
+      : null;
+    if (next) {
+      setFrom(next.start);
+      setTo(next.hourlyEnd);
+    }
+  }, [companyId, policyKey]);
   useEffect(() => {
     alive.current = true;
     const on = () => setOnline(navigator.onLine);
@@ -244,23 +258,39 @@ export function Work({ demo = false }: { demo?: boolean }) {
   }
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!requestPolicyReady || !schedule || !policy) return;
     let a = from,
       b = to,
       finish = day;
     if (kind === "ANNUAL") {
-      a = "09:00";
-      b = "18:00";
+      a = schedule.start;
+      b = schedule.end;
       finish = endDay;
     }
     if (kind === "HALF_AM") {
-      a = "09:00";
-      b = "14:00";
+      if (!schedule.halfAmEnd) return;
+      a = schedule.start;
+      b = schedule.halfAmEnd;
     }
     if (kind === "HALF_PM") {
-      a = "14:00";
-      b = "18:00";
+      if (!schedule.halfPmStart) return;
+      a = schedule.halfPmStart;
+      b = schedule.end;
     }
     if (kind === "TRIP") finish = endDay;
+    if (
+      kind === "HOURLY" &&
+      (a < schedule.start ||
+        b > schedule.end ||
+        a >= b ||
+        paidMinutes(a, b, policy) <= 0 ||
+        paidMinutes(a, b, policy) % 60 !== 0)
+    ) {
+      setNotice(
+        "시간차는 근무시간 안에서 휴게시간을 제외한 1시간 단위로 선택하세요.",
+      );
+      return;
+    }
     const body = {
       kind,
       startsAt: `${day}T${a}:00+09:00`,
@@ -469,12 +499,40 @@ export function Work({ demo = false }: { demo?: boolean }) {
                 ).toLocaleString()}
                 시간
               </h2>
-              <p>예제 기준 1일 8시간 · 연차 15일</p>
-              <p>09:00~18:00 · 휴게 12:00~13:00</p>
+              {policy && (
+                <p>
+                  {demo ? "예제 기준" : "회사 기준"} 1일{" "}
+                  {hours(policy.daily_minutes)}시간 · 연차 기준{" "}
+                  {policy.annual_days}일
+                </p>
+              )}
+              {schedule && (
+                <p>
+                  {schedule.start}–{schedule.end} · 휴게 {schedule.breakStart}–
+                  {schedule.breakEnd}
+                </p>
+              )}
+              {!demo && policy && (
+                <p>
+                  잔여{" "}
+                  {(
+                    data!.remainingMinutes / policy.daily_minutes
+                  ).toLocaleString("ko-KR", { maximumFractionDigits: 3 })}
+                  일 · 회사 시간대 {data!.company.timezone}. 개인 부여 내역과
+                  승인된 사용량으로 계산합니다.
+                </p>
+              )}
             </article>
           </div>
           <section className="work-card">
             <h2>휴가·시간차·출장 신청</h2>
+            {!requestPolicyReady && (
+              <p role="alert">
+                회사 근무 정책을 확인할 수 없거나 현재 신청 화면의 적용
+                범위(Asia/Seoul, 하루 안의 근무·휴게시간)와 다릅니다. 신청하지
+                말고 관리자에게 확인하세요.
+              </p>
+            )}
             <form onSubmit={submit} className="work-form">
               <label>
                 종류
@@ -526,7 +584,7 @@ export function Work({ demo = false }: { demo?: boolean }) {
                       type="time"
                       required
                       disabled={locked}
-                      step={3600}
+                      step={60}
                       value={from}
                       onChange={(e) => setFrom(e.target.value)}
                     />
@@ -537,7 +595,7 @@ export function Work({ demo = false }: { demo?: boolean }) {
                       type="time"
                       required
                       disabled={locked}
-                      step={3600}
+                      step={60}
                       value={to}
                       onChange={(e) => setTo(e.target.value)}
                     />
@@ -568,11 +626,27 @@ export function Work({ demo = false }: { demo?: boolean }) {
                 />
               </label>
               <p>
-                시간차는 휴게시간을 제외한 1시간 단위입니다. 오전 반차
-                09~14시(휴게 포함), 오후 반차 14~18시. 출장은 연차를 차감하지
-                않습니다.
+                시간차는 휴게시간을 제외한 1시간 단위입니다. 시작·종료 시각은 분
+                단위로 선택할 수 있습니다. 출장은 연차를 차감하지 않습니다.
               </p>
-              <button disabled={locked}>신청하기</button>
+              {schedule && (
+                <p>
+                  연차 {schedule.start}–{schedule.end}.{" "}
+                  {schedule.halfAmEnd && schedule.halfPmStart
+                    ? `오전 반차 ${schedule.start}–${schedule.halfAmEnd}, 오후 반차 ${schedule.halfPmStart}–${schedule.end} (각 ${hours(policy!.daily_minutes / 2)}시간 차감, 휴게시간 제외).`
+                    : "회사 하루 근무 분이 홀수이므로 분 단위 반차를 신청할 수 없습니다. 관리자에게 확인하세요."}
+                </p>
+              )}
+              <button
+                disabled={
+                  locked ||
+                  !requestPolicyReady ||
+                  ((kind === "HALF_AM" || kind === "HALF_PM") &&
+                    !schedule?.halfAmEnd)
+                }
+              >
+                신청하기
+              </button>
             </form>
           </section>
           <section className="work-card">
