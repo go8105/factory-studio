@@ -16,7 +16,7 @@
   - `npm run ci:local`: **1~5단계 전체 통과 (SUCCESS)**.
     - 1단계: DB 정적 검증(`npm run db:validate`, 0 errors), 격리 감사(`audit_schema_isolation.py`, R1~R6 0 errors), 도구 단위 테스트 (136 passed).
     - 2단계: 백엔드 ruff check & ruff format check (227 files, 0 errors).
-    - 3단계: 마이그레이션 적용 및 `verify_ddl_matches_schema.py` (0 errors), pytest (843+ passed, 1 perf passed).
+    - 3단계: 마이그레이션 적용 및 `verify_ddl_matches_schema.py` (0 errors), pytest (1,022 passed, 1 skipped, 1 perf passed).
     - 4단계: `clear_test_data.py` -> `downgrade base` -> `upgrade head` -> `verify_ddl_matches_schema.py` (0 errors, 완벽한 왕복).
     - 5단계: 프런트엔드 `typecheck`, `lint`, `format:check`, `build`, `test` (75 test files, 603 passed, 0 errors).
 - 다음 작업: 사용자 확인 후 B-3 (W-10 보류·해제 이력) 착수.
