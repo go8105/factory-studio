@@ -1,6 +1,6 @@
 # 문서 지도
 
-2026-10-17 [고도화 진행 순서](plan/시스템고도화_진행순서_UPGRADE-01.md) · [GW 회사 인증·권한 개정 설계](modules/gw/회사인증_권한_통합설계_GW-COMPANY-01.md)(검토 대상·미구현) · [63경로 감사표](agent/GW_회사인증_경로감사_GW-COMPANY-01.md).
+2026-10-17 [고도화 진행 순서](plan/시스템고도화_진행순서_UPGRADE-01.md) · [GW 회사 인증·권한 승인 설계](modules/gw/회사인증_권한_통합설계_GW-COMPANY-01.md) · [기반 구현·검증 GW-COMPANY-02](agent/GW_회사인증_기반검증_GW-COMPANY-02.md)(로컬 검증 완료·회사 업무/UI 후속) · [63경로 감사표](agent/GW_회사인증_경로감사_GW-COMPANY-01.md).
 
 2026-10-12 다섯 시스템의 [제품 도움말·구현/제한·검증·후속 순서 기준](agent/제품도움말_구현대조_HELP-01.md): CAD/CAM, GW, 독립 Factory Flow, 3D 공장, PWA 내 근무. 사용자 도움말은 `content/help/`의 정적 문서이며 개발 설계/시제품과 구분한다.
 

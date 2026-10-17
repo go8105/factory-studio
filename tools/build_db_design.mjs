@@ -34,7 +34,7 @@ const artifact=process.argv.includes('--artifact');let wb,SpreadsheetFile;
 if(artifact){const require=createRequire(path.join(root,'work/db-design/package.json'));({SpreadsheetFile}=require('@oai/artifact-tool'));wb=require('@oai/artifact-tool').Workbook.create();for(const s of specs)wb.worksheets.add(s.name)}else{const {default:ExcelJS}=await import('exceljs');wb=new ExcelJS.Workbook();for(const s of specs)wb.addWorksheet(s.name)}
 const subtitle=`v${d.version} / ${d.date} / ${d.task} 명세 · 환경별 적용 상태는 인계 문서 참조`;
 for(const [index,s] of specs.entries()){
- const sh=artifact?wb.worksheets.getItem(s.name):wb.getWorksheet(s.name),n=s.rows.length+5;
+ const sh=artifact?wb.worksheets.getItem(s.name):wb.getWorksheet(s.name),n=s.rows.length+5+(s.name==='00_목차'?6:0);
  const put=(r,c,value,formula=false)=>{if(artifact){const range=sh.getRangeByIndexes(r-1,c,1,1);if(formula)range.formulas=[[value]];else range.values=[[value]]}else{const cell=sh.getCell(r,c+1);cell.value=formula?{formula:value.slice(1)}:value}};
  put(2,0,s.title);put(3,0,subtitle);put(4,0,'전체 목차');
  const link=(r,c,sheet,cell,label)=>{if(artifact){put(r,c,label);sh.getRangeByIndexes(r-1,c,1,1).format.font={name:'Arial',size:11,color:'#315675'}}else sh.getCell(r,c+1).value={text:label,hyperlink:`#'${sheet}'!${cell}`}};
@@ -45,7 +45,7 @@ for(const [index,s] of specs.entries()){
   if(artifact){const rr=sh.getRangeByIndexes(i+5,0,1,s.heads.length);rr.format.wrapText=true;rr.format.rowHeight=height;rr.format.verticalAlignment='center';rr.format.fill=i%2?'#F7F7F6':'#FFFFFF'}else{const rr=sh.getRow(i+6);rr.height=height;rr.eachCell({includeEmpty:true},c=>{c.alignment={wrapText:true,vertical:'middle'};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:i%2?'FFF7F7F6':'FFFFFFFF'}}})}
  }
  for(const l of s.links)link(...l);
- if(s.name==='00_목차'){put(15,0,'전체 규모');put(15,1,d.tables.length);put(15,2,d.tables.reduce((n,t)=>n+t.columns.length,0));put(16,0,'외래키');put(16,1,d.relations.length);put(17,0,'기준');put(17,1,d.task);put(18,0,'다음 설계');put(18,1,'FS-010 API 계약 (사용자 확인 후)');}
+ if(s.name==='00_목차'){const r=s.rows.length+7;put(r,0,'전체 규모');put(r,1,d.tables.length);put(r,2,d.tables.reduce((n,t)=>n+t.columns.length,0));put(r+1,0,'외래키');put(r+1,1,d.relations.length);put(r+2,0,'기준');put(r+2,1,d.task);put(r+3,0,'적용 상태');put(r+3,1,'환경별 인계 문서 참조');}
 }
 if(artifact){wb.recalculate();console.log((await wb.inspect({kind:'match',searchTerm:'#REF!|#DIV/0!|#VALUE!|#NAME\\?|#NUM!|#SPILL!',options:{useRegex:true,maxResults:20},maxChars:1000})).ndjson);for(const s of specs){const end=String.fromCharCode(64+s.heads.length);const blob=await wb.render({sheetName:s.name,range:`A1:${end}${Math.min(9,s.rows.length+5)}`,scale:1,format:'png'});await fs.writeFile(path.join(pre,s.name+'.png'),new Uint8Array(await blob.arrayBuffer()))}await(await SpreadsheetFile.exportXlsx(wb)).save(out)}else await wb.xlsx.writeFile(out);
 await fs.writeFile(path.join(pre,'sheet-specs.json'),JSON.stringify(specs));

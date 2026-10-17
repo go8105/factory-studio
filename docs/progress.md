@@ -1,3 +1,7 @@
+## 2026-10-17 GW-COMPANY-02 회사 인증 기반 구현·검증 완료
+
+사용자 통합설계 확인·구현 승인, codex/gw-company-01의 기반단계02 완료100%. 보안5표/revision gw_company_identity·회사TX/세션/본인연결/명시역할/객체authorize전receipt기반, 회사업무63경로 미공개게이트. [검증](agent/GW_회사인증_기반검증_GW-COMPANY-02.md). 전용Postgres18 관련API131통과(기존경고6), 도구139 OK, 공식ruff230파일·정적/격리/DDL0, head↔flow_board_custom 왕복/198원장건수hash보존. 현재/목표Excel·ERD/명세동시반영, 목차겹침보정/재읽기QA. 공유테스트서버메모리오류는공용설정변경없이전용컨테이너재검증으로해결. 실제계정/DB·main/원격/배포변경없음. 다음03 본인연결·역할·결재/게시ACL,04 협업/화면,05실운영인수. 기존Flow프런트7실패미해결, 전체CI/회사실운영완료아님.
+
 ## 2026-10-17 GW-COMPANY-02 WIP 회사 인증 기반
 
 사용자 전체설계 확인·구현 승인. 보안5표/새revision gw_company_identity·core회사/HR최소조회·회사TX/receipt전권한/63업무경로미공개게이트/시드복사·초기화·이력downgrade방지 구현. schema0.26/198표2151컬럼488FK·현재/목표Excel/ERD 동시갱신. 정적/DDL0·공식ruff통과, 격리API회귀·왕복 진행중. 공유테스트컨테이너 잠금메모리오류로 최초회귀중단→전용Postgres18/55437에서 재검사. 공용설정/실제DB변경없음. [기록](agent/GW_회사인증_기반검증_GW-COMPANY-02.md). 03/04업무·UI미구현, main/원격/배포없음.

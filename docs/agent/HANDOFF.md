@@ -1,3 +1,11 @@
+## 2026-10-17 GW-COMPANY-02 기반 구현·로컬 검증 완료
+
+- branch codex/gw-company-01 / factory-studio-gw-company. 기준06e4a70, WIP35be30e, 최종커밋gitlog. 사용자전체설계/구현승인. main은PWA e02097d/기록0a45562 그대로, 원격/운영미반영.
+- 보안5표·새revision gw_company_identity(head flow_board_custom 뒤), schema0.26/198표2151컬럼488FK·현재/목표Excel/ERD. 회사잠금→계정잠금→세션행검증·principal/명시역할·receipt전authorize, HR읽기계약·관리회수재검증. /gw/companies,/me만상태조회·businessReady=false. 기존63업무회사요청은409,person가장400. 공개본인연결/역할/업무ACL/화면은03/04후속.
+- 전용Postgres18 관련API131/기존경고6·도구139·공식ruff230파일·정적/격리/DDL0. 왕복 head→flow_board_custom→head와198테스트원장건수/hash동일. 이력있는downgrade거부·복합FK·회수경합·receipt재노출차단·시드/초기화보호 확인. [결과/재현](GW_회사인증_기반검증_GW-COMPANY-02.md). 실브라우저/실휴대폰/회사실운영/전체CI미실행, 기존Flow프런트7실패유지.
+- 최초공유테스트컨테이너에서메모리부족으로중단한결과는성공아님. 별도컨테이너로131재검증완료. 검증전용컨테이너/임시자격증명은종료시제거,공용DB설정변경없음. 다음재현시새 `_test` DB/임시자격증명준비. work/env/node_modules스테이징금지.
+- 다음은ID별결과확인후03(bootstrap/본인연결동의/명시역할/결재·게시/읽기·재배정ACL). 현재게이트를부분해제하지말것. P0 MFA/계정복구/보존/RPO·RTO는별도실인수미정. 원격push/실서버배포금지.
+
 ## 2026-10-17 GW-COMPANY-02 WIP 기반 구현
 
 - 사용자 전체설계·구현 승인. branch codex/gw-company-01 / factory-studio-gw-company, 기준06e4a70, 마지막커밋gitlog. 실제DB/계정/원격/운영/main변경없음.
