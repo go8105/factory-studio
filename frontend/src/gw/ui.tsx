@@ -94,6 +94,7 @@ export function Status({ value }: { value: string }) {
   );
 }
 export function Events({ rows }: { rows: Event[] }) {
+  const role = useRole();
   return (
     <DataTable
       rows={rows}
@@ -110,7 +111,7 @@ export function Events({ rows }: { rows: Event[] }) {
         },
         {
           key: "personName",
-          label: "합성 담당자",
+          label: role.companyId !== undefined ? "처리 직원" : "합성 담당자",
           render: (r) =>
             r.onBehalfOfPersonId
               ? `${r.personName} (위임 · 원 담당자 ${r.details?.originalPersonName ?? r.onBehalfOfPersonId})`

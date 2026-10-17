@@ -74,6 +74,11 @@ function Layout({ content }: { content?: ReactNode }) {
       title="GW 그룹웨어"
       base="/gw"
       screens={gwScreens}
+      screenLabels={
+        role.companyId !== undefined
+          ? { "gw:people": "회사 직원·권한" }
+          : undefined
+      }
       linkQuery={
         role.companyId !== undefined
           ? new URLSearchParams({ companyId: role.companyId }).toString()
@@ -142,7 +147,8 @@ function CompanySpace({ issue, retry }: { issue: unknown; retry: () => void }) {
     };
   }, []);
   const [search, setSearch] = useState("");
-  const active = me.data?.bindingStatus === "ACTIVE";
+  const active =
+    me.data?.bindingStatus === "ACTIVE" && me.data.person?.isActive;
   const people = useGet<Person[]>(
     active && !issue && me.data?.businessReady
       ? `/people-options?limit=100&search=${encodeURIComponent(search)}`
@@ -233,7 +239,11 @@ export function GwLayout() {
   return params.has("companyId") ? (
     <CompanyRoot
       key={key + ":" + params.get("companyId")}
-      companyId={params.getAll("companyId").length === 1 ? params.get("companyId") ?? "" : ""}
+      companyId={
+        params.getAll("companyId").length === 1
+          ? (params.get("companyId") ?? "")
+          : ""
+      }
     />
   ) : (
     <PersonalSpace key={key} />

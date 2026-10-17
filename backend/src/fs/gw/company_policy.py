@@ -86,7 +86,7 @@ def mutate(context, company_id, kind, id, operation, values, key):
                 c, ctx, id, {**values, "acting_person_id": identity["id"]}
             )
         identities.bump(c, ctx)
-        return result
+        return (s.wire(result[0]), result[1], result[2])
 
     return company.action(
         context,

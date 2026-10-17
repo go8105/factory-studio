@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from fastapi.encoders import jsonable_encoder
 from fastapi.routing import APIRoute
-from pydantic import ValidationError, create_model
+from pydantic import Field, ValidationError, create_model
 from sqlalchemy import text
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse, Response
@@ -28,10 +28,25 @@ def invalid():
     )
 
 
+class CompanyPersonPatch(schema.PersonPatch):
+    reason: schema.Text = Field(min_length=2, max_length=500)
+
+
+class CompanyHrImport(schema.HrImport):
+    reason: schema.Text = Field(min_length=2, max_length=500)
+
+
 class CompanyRoute(APIRoute):
     def get_route_handler(self):
         personal = super().get_route_handler()
         model = self.body_field.field_info.annotation if self.body_field else None
+        if (
+            self.path.endswith("/people/{id}")
+            or self.path.endswith("/people-master/{id}")
+        ) and "PATCH" in self.methods:
+            model = CompanyPersonPatch
+        if self.path.endswith("/import-hr"):
+            model = CompanyHrImport
         company_model = (
             create_model(
                 "Company" + model.__name__,
@@ -113,7 +128,8 @@ class CompanyRoute(APIRoute):
             if errors:
                 invalid()
             q[field.name] = value
-            allowed.add(field.alias)
+            if field in self.dependant.query_params:
+                allowed.add(field.alias)
         if self.path.endswith("/people-options"):
             for name, default in (("limit", 50), ("offset", 0)):
                 try:
@@ -137,8 +153,21 @@ class CompanyRoute(APIRoute):
                 if request.method != "GET"
                 else {}
             )
-        except ValidationError:
-            invalid()
+        except ValidationError as error:
+            raise ApiError(
+                400,
+                "VALIDATION_FAILED",
+                "입력값을 확인해 주세요.",
+                {
+                    "fields": {
+                        "body."
+                        + ".".join(
+                            map(str, item["loc"])
+                        ): "필수 입력·형식·길이를 확인하세요."
+                        for item in error.errors(include_input=False)
+                    }
+                },
+            ) from error
         if request.method != "GET":
             key = mutation_key(
                 context,
@@ -147,7 +176,7 @@ class CompanyRoute(APIRoute):
             )
         else:
             key = None
-        if q.get("id") is not None and q["id"] <= 0:
+        if q.get("id") is not None and not 0 < q["id"] <= 9223372036854775807:
             invalid()
         path = self.path.removeprefix("/api/v1/gw")
         # include_router retains a prefixed path; the final three segments define resource/operation.
@@ -206,6 +235,14 @@ def dispatch(context, company_id, path, method, q, values, key):
         def run(c, ctx, p):
             result = organization.import_snapshot(c, ctx, values)
             company_identity.bump(c, ctx)
+            company_identity.audit(
+                c,
+                ctx,
+                "organization_unit",
+                ctx.workspace_id,
+                "import-hr",
+                values["reason"],
+            )
             return result
 
         return company.action(

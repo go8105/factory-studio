@@ -113,7 +113,10 @@ def test_company_scope_no_admin_bypass_and_no_guest_access(company_env):
         )
 
 
-def test_all_63_business_endpoints_fail_closed_without_seeding(company_env):
+def test_all_63_business_endpoints_fail_closed_without_seeding(
+    company_env, monkeypatch
+):
+    monkeypatch.setattr(company, "BUSINESS_READY", False)
     engine, co, _, staff = company_env
     count = 0
     for route in router.routes:
@@ -141,7 +144,8 @@ def test_all_63_business_endpoints_fail_closed_without_seeding(company_env):
         )
 
 
-def test_actor_forgery_and_invalid_company_never_fall_back(company_env):
+def test_actor_forgery_and_invalid_company_never_fall_back(company_env, monkeypatch):
+    monkeypatch.setattr(company, "BUSINESS_READY", False)
     _, co, _, staff = company_env
     for params, body in [
         ({"personId": "1"}, None),

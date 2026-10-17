@@ -79,6 +79,18 @@ export function docSections(docs: Docs): DocSection[] {
         reference.push((group = { solution: name, title: s.group, keys: [] }));
       group.keys.push(key);
     }
+  if (Object.hasOwn(docs, "gw/company")) {
+    const group = reference.find(
+      (g) => g.solution === "GW 그룹웨어" && g.keys.includes("gw/g-07"),
+    );
+    if (group) group.keys.unshift("gw/company");
+    else
+      reference.push({
+        solution: "GW 그룹웨어",
+        title: "회사 사용 안내",
+        keys: ["gw/company"],
+      });
+  }
   return [
     flat("design", "설계 문서", "무엇을 왜 이렇게 만들었나 — 결정·대안·한계"),
     flat("guide", "업무 따라하기", "게스트 데이터로 업무를 처음부터 끝까지"),

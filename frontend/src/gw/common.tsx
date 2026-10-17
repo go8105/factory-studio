@@ -191,6 +191,8 @@ export type Document = {
     participantRole?: ParticipantRole;
     personId: string;
     personName: string;
+    originalPersonName?: string;
+    originalPersonId?: string;
     organizationName?: string | null;
     status: string;
     decisionReason: string | null;
@@ -242,6 +244,9 @@ export const labels: Record<string, string> = {
   CONSENT: "합의",
   REFERENCE: "참고",
   CONSENTED: "합의 완료",
+  STEP_REASSIGNED: "결재 담당 재배정",
+  READER_GRANTED: "읽기 권한 부여",
+  READER_REVOKED: "읽기 권한 회수",
   OPPOSED: "합의 반대",
   consent: "합의",
   oppose: "합의 반대",
@@ -341,6 +346,9 @@ export function useSend() {
   const role = useRole();
   const company = useContext(CompanyContext);
   const { session, fail } = useSession();
+  const currentScope = `${session?.workspaceId}:${session?.generationId}:${company.companyId ?? "personal"}:${company.epoch ?? 0}`;
+  const liveScope = useRef(currentScope);
+  liveScope.current = currentScope;
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -369,7 +377,7 @@ export function useSend() {
     method: string,
     body?: unknown,
   ): Promise<T | undefined> {
-    if (busy.current) return;
+    if (busy.current || !mounted.current) return;
     busy.current = true;
     setPending(true);
     role.setBusy?.(true);
@@ -404,11 +412,14 @@ export function useSend() {
       keys.current.complete(op);
       uncertainOperation.current = undefined;
       role.setUncertain?.(false);
-      return mounted.current ? r.data : undefined;
+      return mounted.current && liveScope.current === currentScope
+        ? r.data
+        : undefined;
     } catch (e) {
       if (e instanceof ApiError && e.status > 0 && e.status < 500)
         keys.current.complete(op);
-      if (!mounted.current) return undefined;
+      if (!mounted.current || liveScope.current !== currentScope)
+        return undefined;
       if (e instanceof ApiError && (e.status === 0 || e.status >= 500)) {
         uncertainOperation.current = op;
         role.setUncertain?.(true);

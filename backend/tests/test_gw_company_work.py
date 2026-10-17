@@ -156,7 +156,7 @@ def test_setup_atomic_owner_hr_and_idempotency(company_env):
     assert ok(api(admin, co, "company-setup", body, key=key)) == first
     assert api(admin, co, "company-setup", body).status_code == 409
     me = ok(api(admin, co, "me", method="GET"))
-    assert me["bindingStatus"] == "ACTIVE" and me["businessReady"] is False
+    assert me["bindingStatus"] == "ACTIVE" and me["businessReady"] is True
     assert len(me["roles"]) == 5 and "AUDITOR" not in me["roles"]
     with engine.connect() as c:
         assert (

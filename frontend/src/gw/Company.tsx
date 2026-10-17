@@ -1,7 +1,16 @@
-import { useState } from "react";
-import { ErrorNotice, Field, PageTitle } from "../shared/components";
+import { useEffect, useState } from "react";
+import {
+  ErrorNotice,
+  Field,
+  FormPanel,
+  PageTitle,
+  useDiscardGuard,
+} from "../shared/components";
 import {
   useGet,
+  time,
+  labels,
+  SelectedPeople,
   useRole,
   useSend,
   type Person,
@@ -38,6 +47,31 @@ export const companyRoles = [
   "SECURITY_ADMIN",
   "AUDITOR",
 ];
+const bindingNames: Record<string, string> = {
+  PENDING: "본인 확인 대기",
+  ACTIVE: "연결 완료",
+  SUSPENDED: "연결 정지",
+  CANCELLED: "요청 취소",
+};
+function securityLabel(action: string) {
+  if (action.includes("company-setup")) return "GW 최초 설정";
+  if (action.includes("import-hr")) return "HR 직원 가져오기";
+  if (action.includes("roles.")) return "GW 역할 변경";
+  if (action.endsWith(".reader")) return "문서 읽기 권한 변경";
+  if (action.endsWith(".step-reassigned")) return "미처리 결재 재배정";
+  const operation = action.split(".").at(-1);
+  return (
+    (
+      {
+        request: "직원 연결 요청",
+        accept: "본인 연결 동의",
+        cancel: "미수락 요청 취소",
+        suspend: "직원 연결 정지",
+        resume: "동일 계정 복귀",
+      } as Record<string, string>
+    )[operation ?? ""] ?? "GW 보안 사건"
+  );
+}
 export const roleNames: Record<string, string> = {
   ORG_ADMIN: "조직 관리",
   ROUTE_ADMIN: "결재선 관리",
@@ -63,8 +97,16 @@ export function CompanyStart({
   const [reason, setReason] = useState("");
   const [consent, setConsent] = useState(false);
   const request = useSend();
+  const guard = useDiscardGuard(!!reason || consent);
   return (
     <section className="card">
+      {guard.pending && (
+        <div role="alert">
+          <p>저장하지 않은 입력이 있습니다.</p>
+          <button onClick={guard.discard}>변경 버리기</button>
+          <button onClick={guard.keep}>계속 편집</button>
+        </div>
+      )}
       <PageTitle
         id="G-07"
         title={`${me.company.name} · 직원 연결`}
@@ -150,9 +192,11 @@ export function CompanyStart({
         </>
       ) : (
         <p>
-          {me.bindingStatus === "SUSPENDED"
-            ? "GW 연결이 정지되어 있습니다. 회사 GW 보안 관리자에게 문의하세요."
-            : "GW 조직 관리자에게 직원 연결 요청을 문의하세요. 다른 직원의 연결은 대신 수락할 수 없습니다."}
+          {me.person && !me.person.isActive
+            ? "GW 직원이 비활성 상태입니다. 회사 GW 조직 관리자에게 문의하세요."
+            : me.bindingStatus === "SUSPENDED"
+              ? "GW 연결이 정지되어 있습니다. 회사 GW 보안 관리자에게 문의하세요."
+              : "GW 조직 관리자에게 직원 연결 요청을 문의하세요. 다른 직원의 연결은 대신 수락할 수 없습니다."}
         </p>
       )}
     </section>
@@ -164,7 +208,11 @@ export function CompanyPeople() {
   const orgAdmin = role.roles?.includes("ORG_ADMIN");
   const security = role.roles?.includes("SECURITY_ADMIN");
   const [search, setSearch] = useState("");
+  const [editingPerson, setEditingPerson] = useState<Person>();
   const [offset, setOffset] = useState(0);
+  const [bindingOffset, setBindingOffset] = useState(0);
+  const [eventOffset, setEventOffset] = useState(0);
+  const [candidateOffset, setCandidateOffset] = useState(0);
   const people = useGet<{ rows: Person[]; total: number }>(
     `/people?search=${encodeURIComponent(search)}&offset=${offset}&limit=20`,
   );
@@ -174,12 +222,12 @@ export function CompanyPeople() {
     total: number;
   }>(
     orgAdmin
-      ? `/identity-candidates?search=${encodeURIComponent(search)}&limit=50`
+      ? `/identity-candidates?search=${encodeURIComponent(search)}&limit=50&offset=${candidateOffset}`
       : null,
   );
   const bindings = useGet<{ items: Binding[]; total: number }>(
     orgAdmin || security
-      ? `/identity-bindings?limit=50&offset=${offset}`
+      ? `/identity-bindings?limit=50&offset=${bindingOffset}`
       : null,
   );
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
@@ -196,7 +244,7 @@ export function CompanyPeople() {
     total: number;
   }>(
     security || role.roles?.includes("AUDITOR")
-      ? `/security-events?offset=${offset}&limit=50`
+      ? `/security-events?offset=${eventOffset}&limit=50`
       : null,
   );
   const request = useSend();
@@ -208,10 +256,24 @@ export function CompanyPeople() {
     events.reload();
     role.reload();
   };
+  const guard = useDiscardGuard(
+    !!reason ||
+      !!personId ||
+      !!userId ||
+      selectedCodes.length > 0 ||
+      nextRoles !== null,
+  );
   const validReason = reason.trim().length >= 2;
   return (
     <section>
       <PageTitle id="G-07" title="회사 직원·연결·권한" help="gw/company" />
+      {guard.pending && (
+        <div role="alert">
+          <p>저장하지 않은 입력이 있습니다.</p>
+          <button onClick={guard.discard}>변경 버리기</button>
+          <button onClick={guard.keep}>계속 편집</button>
+        </div>
+      )}
       <p>
         직원 이름·조직은 HR에서 명시적으로 가져옵니다. 직무 표시는 GW 권한을
         부여하지 않습니다. 활성 연결의 계정 교체는 제공하지 않습니다.
@@ -235,7 +297,7 @@ export function CompanyPeople() {
           request.error
         }
       />
-      <div className="table-wrap">
+      <div className="table-scroll">
         <table>
           <caption>회사 GW 직원</caption>
           <thead>
@@ -243,7 +305,7 @@ export function CompanyPeople() {
               <th>사번</th>
               <th>직원</th>
               <th>활성</th>
-              <th>역할</th>
+              <th>관리</th>
             </tr>
           </thead>
           <tbody>
@@ -253,6 +315,11 @@ export function CompanyPeople() {
                 <td>{p.name}</td>
                 <td>{p.isActive ? "활성" : "비활성"}</td>
                 <td>
+                  {orgAdmin && (
+                    <button onClick={() => setEditingPerson(p)}>
+                      표시·활성 편집 · {p.name}
+                    </button>
+                  )}
                   {security && (
                     <button
                       onClick={() => {
@@ -333,6 +400,13 @@ export function CompanyPeople() {
           </button>
           <button onClick={preview.reload}>미리보기 다시 확인</button>
           <h2>본인 연결 요청</h2>
+          <Pages
+            name="회사 계정"
+            offset={candidateOffset}
+            total={candidates.data?.total ?? 0}
+            limit={50}
+            onChange={setCandidateOffset}
+          />
           <label>
             GW 직원
             <select
@@ -383,11 +457,18 @@ export function CompanyPeople() {
       {(orgAdmin || security) && (
         <section className="card">
           <h2>연결 상태</h2>
+          <Pages
+            name="연결 상태"
+            offset={bindingOffset}
+            total={bindings.data?.total ?? 0}
+            limit={50}
+            onChange={setBindingOffset}
+          />
           {bindings.data?.items.map((b) => (
             <div key={b.id}>
               <p>
-                직원 {b.personId} · 계정 {b.userId} · {b.state} · 버전{" "}
-                {b.version}
+                직원 {b.personId} · 계정 {b.userId} ·{" "}
+                {bindingNames[b.state] ?? "상태 확인 필요"} · 버전 {b.version}
               </p>
               {((b.state === "PENDING" && orgAdmin) ||
                 (b.state !== "PENDING" &&
@@ -425,7 +506,11 @@ export function CompanyPeople() {
       )}
       {security && rolePerson && grants.data && (
         <section className="card">
-          <h2>명시적 GW 역할</h2>
+          <h2>
+            명시적 GW 역할 ·{" "}
+            {people.data?.rows.find((p) => p.id === rolePerson)?.name ??
+              rolePerson}
+          </h2>
           {companyRoles.map((r) => (
             <label className="inline-check" key={r}>
               <input
@@ -464,21 +549,39 @@ export function CompanyPeople() {
       {events.data && (
         <section className="card">
           <h2>보안 사건</h2>
+          <Pages
+            name="보안 사건"
+            offset={eventOffset}
+            total={events.data.total}
+            limit={50}
+            onChange={setEventOffset}
+          />
           <p>본문과 금액을 포함하지 않는 최소 사건 기록입니다.</p>
           {events.data.items.map((e) => (
             <p key={e.id}>
-              {e.createdAt} · {e.action}
+              {time(e.createdAt)} · {securityLabel(e.action)}
             </p>
           ))}
         </section>
       )}
       <BlockedAssignments reason={reason} />
+      {editingPerson && (
+        <PersonEditor
+          person={editingPerson}
+          close={() => setEditingPerson(undefined)}
+          done={() => {
+            setEditingPerson(undefined);
+            refresh();
+          }}
+        />
+      )}
     </section>
   );
 }
 
 function BlockedAssignments({ reason }: { reason: string }) {
   const role = useRole();
+  const [offset, setOffset] = useState(0);
   const blocked = useGet<{
     items: {
       documentId: string;
@@ -490,7 +593,7 @@ function BlockedAssignments({ reason }: { reason: string }) {
     total: number;
   }>(
     role.roles?.includes("SECURITY_ADMIN")
-      ? "/blocked-assignments?limit=50"
+      ? `/blocked-assignments?limit=50&offset=${offset}`
       : null,
   );
   const [personId, setPersonId] = useState("");
@@ -499,6 +602,13 @@ function BlockedAssignments({ reason }: { reason: string }) {
   return (
     <section className="card">
       <h2>막힌 결재 재배정</h2>
+      <Pages
+        name="막힌 결재"
+        offset={offset}
+        total={blocked.data?.total ?? 0}
+        limit={50}
+        onChange={setOffset}
+      />
       <p>
         비활성 담당자의 미처리 단계만 변경합니다. 원 결재선과 처리 이력은
         보존하며, 본인·기안자·중복 참여자로 바꿀 수 없습니다.
@@ -545,5 +655,234 @@ function BlockedAssignments({ reason }: { reason: string }) {
         </p>
       ))}
     </section>
+  );
+}
+
+export function DocumentReaders({
+  documentId,
+  version,
+  onChanged,
+  onDirty,
+}: {
+  documentId: string;
+  version: number;
+  onChanged: () => void;
+  onDirty: (value: boolean) => void;
+}) {
+  const role = useRole();
+  const [offset, setOffset] = useState(0);
+  const readers = useGet<{
+    items: { personId: string; isActive: boolean }[];
+    total: number;
+  }>(`/documents/${documentId}/readers?limit=100&offset=${offset}`);
+  const [personId, setPersonId] = useState("");
+  const [reason, setReason] = useState("");
+  const req = useSend();
+  useEffect(() => {
+    onDirty(!!personId || !!reason);
+    return () => onDirty(false);
+  }, [personId, reason, onDirty]);
+  async function save(target: string, isActive: boolean) {
+    const saved = await req.send(
+      `/documents/${documentId}/readers/${target}`,
+      "PATCH",
+      { expectedVersion: version, isActive, reason },
+    );
+    if (saved) {
+      setReason("");
+      setPersonId("");
+      onChanged();
+      readers.reload();
+    }
+  }
+  return (
+    <section className="card">
+      <h3>문서 읽기 권한</h3>
+      <Pages
+        name="열람 직원"
+        offset={offset}
+        total={readers.data?.total ?? 0}
+        limit={100}
+        onChange={setOffset}
+      />
+      <p>
+        상신한 문서의 기안자가 열람만 허용합니다. 읽기 권한은 승인·합의 권한을
+        부여하지 않습니다.
+      </p>
+      <ErrorNotice error={readers.error ?? req.error} />
+      <Field
+        label="읽기 권한 변경 사유"
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        maxLength={500}
+      />
+      <label>
+        열람 직원
+        <select
+          aria-label="열람 직원"
+          value={personId}
+          onChange={(e) => setPersonId(e.target.value)}
+        >
+          <option value="">선택</option>
+          <SelectedPeople ids={[personId]} />
+          {role.people
+            .filter((p) => p.isActive)
+            .map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+        </select>
+      </label>
+      <button
+        disabled={!personId || reason.trim().length < 2 || req.pending}
+        onClick={async () => {
+          const saved = await req.send(
+            `/documents/${documentId}/readers`,
+            "POST",
+            { personId, expectedVersion: version, reason },
+          );
+          if (saved) {
+            setReason("");
+            setPersonId("");
+            onChanged();
+            readers.reload();
+          }
+        }}
+      >
+        읽기 권한 부여
+      </button>
+      {readers.data?.items
+        .filter((r) => r.isActive)
+        .map((r) => (
+          <p key={r.personId}>
+            직원 {r.personId} · 읽기 허용{" "}
+            <button
+              disabled={reason.trim().length < 2 || req.pending}
+              onClick={() => void save(r.personId, false)}
+            >
+              읽기 권한 회수
+            </button>
+          </p>
+        ))}
+    </section>
+  );
+}
+
+function Pages({
+  name,
+  offset,
+  total,
+  limit,
+  onChange,
+}: {
+  name: string;
+  offset: number;
+  total: number;
+  limit: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="gw-actions">
+      <button
+        disabled={!offset}
+        onClick={() => onChange(Math.max(0, offset - limit))}
+      >
+        {name} 이전
+      </button>
+      <span>
+        {total}건 · {Math.floor(offset / limit) + 1}쪽
+      </span>
+      <button
+        disabled={offset + limit >= total}
+        onClick={() => onChange(offset + limit)}
+      >
+        {name} 다음
+      </button>
+    </div>
+  );
+}
+
+function PersonEditor({
+  person,
+  close,
+  done,
+}: {
+  person: Person;
+  close: () => void;
+  done: () => void;
+}) {
+  const [job, setJob] = useState(person.jobRole);
+  const [active, setActive] = useState(person.isActive);
+  const [reason, setReason] = useState("");
+  const req = useSend();
+  const guard = useDiscardGuard(
+    job !== person.jobRole || active !== person.isActive || !!reason,
+  );
+  return (
+    <FormPanel
+      title={`${person.name} · 표시·활성 편집`}
+      guard={guard}
+      onClose={close}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (
+          await req.send(`/people-master/${person.id}`, "PATCH", {
+            expectedVersion: person.version,
+            jobRole: job,
+            isActive: active,
+            reason,
+          })
+        )
+          done();
+      }}
+      actions={
+        <button disabled={req.pending || reason.trim().length < 2}>
+          직원 상태 저장
+        </button>
+      }
+    >
+      <p>
+        {person.code} · {person.name}
+      </p>
+      <p>
+        직원 이름·부서는 HR 가져오기로 갱신합니다. 직무 표시는 회사 GW 권한을
+        부여하지 않습니다. 비활성 직원은 업무를 처리하지 못하며 마지막 활성 보안
+        관리자는 보호합니다.
+      </p>
+      <ErrorNotice error={req.error} />
+      <fieldset disabled={req.pending}>
+        <label>
+          직무 표시
+          <select
+            aria-label="GW 직무 표시"
+            value={job}
+            onChange={(e) => setJob(e.target.value)}
+          >
+            {["STAFF", "MANAGER", "EXECUTIVE", "BOARD_ADMIN"].map((k) => (
+              <option key={k} value={k}>
+                {labels[k]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="inline-check">
+          <input
+            type="checkbox"
+            checked={active}
+            onChange={(e) => setActive(e.target.checked)}
+          />
+          GW 직원 활성
+        </label>
+        <Field
+          label="직원 상태 변경 사유"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          minLength={2}
+          maxLength={500}
+          required
+        />
+      </fieldset>
+    </FormPanel>
   );
 }

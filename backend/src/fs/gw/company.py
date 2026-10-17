@@ -21,7 +21,7 @@ from fs.core.company import (
 )
 from fs.hr.interface import work_identity
 
-BUSINESS_READY = False
+BUSINESS_READY = True
 
 S = "workspace_id=:w AND generation_id=:g"
 ROLES = frozenset(

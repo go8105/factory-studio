@@ -154,7 +154,8 @@ def read(context, company_id, kind, id=None, *, offset=0, limit=50, search="", *
         p = person(c, ctx, principal["id"])
         if id is not None:
             return detail(c, ctx, kind, id, p)
-        where = f"d.workspace_id=:w AND d.generation_id=:g AND {acl(kind)} AND (strpos(lower(d.title),lower(:search))>0 OR strpos(lower(d.body),lower(:search))>0)"
+        number_column = "document_no" if kind == "documents" else "post_no"
+        where = f"d.workspace_id=:w AND d.generation_id=:g AND {acl(kind)} AND (strpos(lower(d.title),lower(:search))>0 OR strpos(lower(d.body),lower(:search))>0 OR strpos(lower(d.{number_column}),lower(:search))>0)"
         params = gw.params(
             ctx,
             person=p["id"],
@@ -459,6 +460,20 @@ def reassign(context, company_id, document_id, values, key):
             step=step["seq"],
             details={"stepId": str(step["id"]), "personId": str(target)},
         )
+        from fs.gw.collaboration import notify
+
+        if step["seq"] == doc["current_step"]:
+            notify(
+                c,
+                ctx,
+                [target],
+                "APPROVAL_ARRIVED",
+                "DOCUMENT",
+                document_id,
+                f"D:{document_id}:REASSIGN:{step['id']}:{seq}",
+                doc["title"],
+                company_mode=True,
+            )
         identities.bump(c, ctx)
         identities.audit(
             c,

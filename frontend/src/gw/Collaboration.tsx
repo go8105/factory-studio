@@ -1027,7 +1027,9 @@ export function Audience({
           value={visibility}
           onChange={(e) => onChange(e.target.value, "")}
         >
-          <option value="WORKSPACE">{role.companyId !== undefined ? "회사 전체" : "전체 공간"}</option>
+          <option value="WORKSPACE">
+            {role.companyId !== undefined ? "회사 전체" : "전체 공간"}
+          </option>
           <option value="ORG">부서 공지</option>
         </select>
       </label>

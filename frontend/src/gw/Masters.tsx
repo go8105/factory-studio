@@ -85,6 +85,10 @@ export function Masters({ kind }: { kind: "people" | "routes" }) {
                     render: (r) => (
                       <button
                         className="link-button"
+                        disabled={
+                          !!role.companyId &&
+                          !role.roles?.includes("ROUTE_ADMIN")
+                        }
                         onClick={() => setEdit(r)}
                       >
                         편집

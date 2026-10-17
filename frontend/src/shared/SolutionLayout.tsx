@@ -26,6 +26,7 @@ export function SolutionLayout({
   beforeContent,
   content,
   linkQuery,
+  screenLabels,
 }: {
   name: string;
   title: string;
@@ -35,6 +36,7 @@ export function SolutionLayout({
   beforeContent?: ReactNode;
   content?: ReactNode;
   linkQuery?: string;
+  screenLabels?: Record<string, string>;
 }) {
   const location = useLocation();
   const favorites = useFavorites();
@@ -49,6 +51,7 @@ export function SolutionLayout({
     : screens.map((screen) => menuByKey.get(`${moduleKey}:${screen.path}`)!);
   function menuRow(screen: Menu) {
     const key = screen.key;
+    const label = screenLabels?.[key] ?? screen.label;
     const pinned = selected.includes(key);
     return (
       <div className="sidebar-menu-row" key={screen.key}>
@@ -59,21 +62,21 @@ export function SolutionLayout({
               : screen.to
           }
           onClick={closeMenu}
-          title={`${screen.solution} · ${screen.label}`}
-          aria-label={`${screen.id} ${screen.label} · ${screen.solution}`}
+          title={`${screen.solution} · ${label}`}
+          aria-label={`${screen.id} ${label} · ${screen.solution}`}
         >
           <span className="sidebar-menu-icon">
             <MenuIcon menu={screen} />
           </span>
           <span className="sidebar-menu-label">
-            <span>{screen.id}</span> {screen.label}
+            <span>{screen.id}</span> {label}
             {favoriteMode && <small>{screen.solution}</small>}
           </span>
         </NavLink>
         {favorites.data && (
           <button
             className="favorite-icon-button"
-            aria-label={`${screen.solution} ${screen.label} 즐겨찾기 ${pinned ? "해제" : "등록"}`}
+            aria-label={`${screen.solution} ${label} 즐겨찾기 ${pinned ? "해제" : "등록"}`}
             aria-pressed={pinned}
             disabled={
               favorites.pending || favorites.loading || favorites.uncertain
@@ -124,7 +127,7 @@ export function SolutionLayout({
   }
 
   const summaryTitle = currentScreen
-    ? `${name} 메뉴 · ${currentScreen.id} ${currentScreen.label}`
+    ? `${name} 메뉴 · ${currentScreen.id} ${screenLabels?.[`${moduleKey}:${currentScreen.path}`] ?? currentScreen.label}`
     : `${name} 메뉴`;
 
   return (

@@ -1,3 +1,4 @@
+import { DocumentReaders } from "./Company";
 import { Comments } from "./Collaboration";
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -501,7 +502,8 @@ function DocumentDetail({
   close: () => void;
   changed: (d: Document) => void;
 }) {
-  const { person } = useRole();
+  const role = useRole();
+  const { person } = role;
   const query = useGet<Document>(
     `/documents/${id}${person ? "?personId=" + person : ""}`,
   );
@@ -512,7 +514,10 @@ function DocumentDetail({
   const [route, setRoute] = useState("");
   const [stepId, setStepId] = useState("");
   const [commentDirty, setCommentDirty] = useState(false);
-  const guard = useDiscardGuard(!!action || !!reason || commentDirty);
+  const [readerDirty, setReaderDirty] = useState(false);
+  const guard = useDiscardGuard(
+    !!action || !!reason || commentDirty || readerDirty,
+  );
   const routes = useGet<Page<Route>>(
     action === "select-route" ? "/routes?limit=100" : null,
   );
@@ -636,7 +641,19 @@ function DocumentDetail({
               rows={d.steps}
               columns={[
                 { key: "seq", label: "단계" },
-                { key: "personName", label: "담당자" },
+                {
+                  key: "personName",
+                  label: "담당자",
+                  render: (s) => (
+                    <span>
+                      {s.personName}
+                      {s.originalPersonId &&
+                        s.originalPersonId !== s.personId && (
+                          <small> · 상신 담당: {s.originalPersonName}</small>
+                        )}
+                    </span>
+                  ),
+                },
                 {
                   key: "organizationName",
                   label: "상신 조직",
@@ -824,8 +841,14 @@ function DocumentDetail({
               )}
             </div>
             <p>
-              결재 정책 v{d.policyVersion ?? 1} · 합성 담당자 체험 기록
-              (전자서명 아님)
+              {role.companyId !== undefined ? (
+                "회사 로그인 계정의 처리 기록 (전자서명 아님)"
+              ) : (
+                <>
+                  결재 정책 v{d.policyVersion ?? 1} · 합성 담당자 체험 기록
+                  (전자서명 아님)
+                </>
+              )}
             </p>
             {d.authoritySnapshot && (
               <p>
@@ -839,6 +862,16 @@ function DocumentDetail({
             <button className="gw-no-print" onClick={() => window.print()}>
               기록 인쇄 / PDF 저장
             </button>
+            {role.companyId !== undefined &&
+              d.drafterId === person &&
+              d.status !== "DRAFT" && (
+                <DocumentReaders
+                  documentId={d.id}
+                  version={d.version}
+                  onDirty={setReaderDirty}
+                  onChanged={query.reload}
+                />
+              )}
             <Events rows={d.events} />
             {d.status !== "DRAFT" && (
               <Comments kind="DOCUMENT" id={d.id} onDirty={setCommentDirty} />
