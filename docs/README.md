@@ -1,5 +1,7 @@
 # 문서 지도
 
+2026-10-17 **[GW-COMPANY-04 회사 화면·협업 권한](agent/GW_회사화면_협업권한_GW-COMPANY-04.md)**: 회사63경로·G-01~13·도움말 연결, 합성 Chrome 대표 업무와390px/연결회수 확인. 로컬 GW 브랜치 검증이며 main/WMS 통합·실운영 인수는05 후속, 원격/배포 없음. 아래03의 업무 미공개 안내는 당시 상태다.
+
 2026-10-17 [고도화 진행 순서](plan/시스템고도화_진행순서_UPGRADE-01.md) · [GW 회사 인증·권한 승인 설계](modules/gw/회사인증_권한_통합설계_GW-COMPANY-01.md) · [기반 구현·검증 GW-COMPANY-02](agent/GW_회사인증_기반검증_GW-COMPANY-02.md)(로컬 검증 완료·회사 업무/UI 후속) · [직원 연결·업무 권한 GW-COMPANY-03](agent/GW_직원연결_업무권한_GW-COMPANY-03.md)(관리 API/내부 서비스·회사 업무 공개 전) · [63경로 감사표](agent/GW_회사인증_경로감사_GW-COMPANY-01.md).
 
 2026-10-12 다섯 시스템의 [제품 도움말·구현/제한·검증·후속 순서 기준](agent/제품도움말_구현대조_HELP-01.md): CAD/CAM, GW, 독립 Factory Flow, 3D 공장, PWA 내 근무. 사용자 도움말은 `content/help/`의 정적 문서이며 개발 설계/시제품과 구분한다.
