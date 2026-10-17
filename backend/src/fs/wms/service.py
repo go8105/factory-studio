@@ -28,6 +28,7 @@ from fs.common.errors import ApiError
 from fs.common.scope import read_scope
 from fs.erp import interface as erp
 from fs.mes import interface as mes
+from fs.qms import interface as qms
 
 MODULE = "wms"
 SEOUL = ZoneInfo("Asia/Seoul")
@@ -1596,15 +1597,23 @@ WITH lot_stock AS (
     GROUP BY item_id, lot_no
 ),
 active_holds AS (
-    SELECT lot_id, reason AS current_hold_reason
+    SELECT DISTINCT ON (lot_id)
+           lot_id, id AS current_hold_id, source AS current_hold_source,
+           source_ref AS current_hold_source_ref, held_at AS current_held_at,
+           reason AS current_hold_reason
     FROM wms.lot_hold
     WHERE workspace_id=:w AND generation_id=:g AND released_at IS NULL
+    ORDER BY lot_id, held_at DESC, id DESC
 )
 SELECT l.id, l.item_id, i.item_code, i.name AS item_name, i.item_class, i.base_unit,
        l.lot_no, l.origin, l.received_on, l.expiry_date, l.supplier_lot_no,
        l.status, l.created_at,
        COALESCE(s.qty_on_hand, 0) AS qty_on_hand,
        CASE WHEN h.lot_id IS NOT NULL THEN 1 ELSE 0 END AS hold_count,
+       h.current_hold_id,
+       h.current_hold_source,
+       h.current_hold_source_ref,
+       h.current_held_at,
        h.current_hold_reason
 FROM wms.lot l
 JOIN wms.item i ON i.workspace_id=l.workspace_id AND i.generation_id=l.generation_id AND i.id=l.item_id
@@ -1618,13 +1627,31 @@ def _format_lot_row(row: dict[str, Any], today: date) -> dict[str, Any]:
     expiry = row.get("expiry_date")
     is_expired = expiry is not None and expiry < today
     hold_count = row.get("hold_count", 0)
+    is_held = hold_count > 0
     raw_status = row.get("status", "AVAILABLE")
-    if hold_count > 0:
+    if is_held:
         computed_status = "HOLD"
     elif is_expired:
         computed_status = "EXPIRED"
     else:
         computed_status = raw_status
+
+    held_at_val = row.get("current_held_at")
+    current_held_at_iso = (
+        held_at_val.isoformat()
+        if held_at_val and hasattr(held_at_val, "isoformat")
+        else (str(held_at_val) if held_at_val else None)
+    )
+
+    active_hold = None
+    if is_held and row.get("current_hold_id"):
+        active_hold = {
+            "id": row["current_hold_id"],
+            "source": row.get("current_hold_source"),
+            "sourceRef": row.get("current_hold_source_ref"),
+            "heldAt": current_held_at_iso,
+            "reason": row.get("current_hold_reason"),
+        }
 
     return {
         "id": row["id"],
@@ -1642,7 +1669,13 @@ def _format_lot_row(row: dict[str, Any], today: date) -> dict[str, Any]:
         "rawStatus": raw_status,
         "qtyOnHand": f"{Decimal(str(row['qty_on_hand'])):.3f}",
         "isExpired": is_expired,
+        "isHeld": is_held,
         "holdCount": hold_count,
+        "activeHold": active_hold,
+        "currentHoldId": row.get("current_hold_id"),
+        "currentHoldSource": row.get("current_hold_source"),
+        "currentHoldSourceRef": row.get("current_hold_source_ref"),
+        "currentHeldAt": current_held_at_iso,
         "currentHoldReason": row.get("current_hold_reason"),
         "createdAt": (
             row["created_at"].isoformat()
@@ -1733,7 +1766,14 @@ def list_lots(
             .all()
         )
 
-        formatted = [_format_lot_row(dict(r), today) for r in rows]
+        qms_held = qms.held_lot_nos(connection, scoped)
+        formatted = []
+        for r in rows:
+            lot_dict = _format_lot_row(dict(r), today)
+            lot_dict["qmsHold"] = (
+                None if qms_held is None else (lot_dict["lotNo"] in qms_held)
+            )
+            formatted.append(lot_dict)
         return formatted, total
 
 
@@ -1745,6 +1785,9 @@ def _lot_row(connection, scoped, row_id: int) -> dict[str, Any]:
         raise _not_found("LOT")
 
     lot_data = _format_lot_row(dict(row), today)
+
+    # QMS 활성 보류 조회 연동 (읽기 전용 인터페이스)
+    lot_data["qmsHold"] = qms.active_hold_details(connection, scoped, row["lot_no"])
 
     # 위치별 재고 분포 (stock_move 집계)
     loc_sql = """
@@ -1776,13 +1819,13 @@ def _lot_row(connection, scoped, row_id: int) -> dict[str, Any]:
     ]
     lot_data["locations"] = locations
 
-    # 보류 이력 (최신순 20건)
+    # 보류 이력 (최신순 50건)
     hold_sql = """
     SELECT id, source, source_ref, held_at, released_at, reason, created_at
     FROM wms.lot_hold
     WHERE workspace_id=:w AND generation_id=:g AND lot_id=:lot_id
     ORDER BY held_at DESC, id DESC
-    LIMIT 20
+    LIMIT 50
     """
     holds = [
         {
@@ -1801,6 +1844,7 @@ def _lot_row(connection, scoped, row_id: int) -> dict[str, Any]:
             ),
             "reason": h["reason"],
             "isActive": h["released_at"] is None,
+            "status": "HELD" if h["released_at"] is None else "RELEASED",
         }
         for h in connection.execute(
             text(hold_sql), {**_s(scoped), "lot_id": row_id}
@@ -1936,3 +1980,103 @@ def update_lot(
         return _lot_row(connection, scoped, row_id), "lot", str(row_id)
 
     return _action(context, f"wms.lot.update:{row_id}", key, values, fn)
+
+
+def hold_lot(
+    context: AuthContext, lot_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    def fn(connection, scoped):
+        lot = (
+            connection.execute(
+                text(f"SELECT id, lot_no, item_id FROM wms.lot WHERE {_S} AND id=:id"),
+                {**_s(scoped), "id": lot_id},
+            )
+            .mappings()
+            .first()
+        )
+        if not lot:
+            raise _not_found("LOT")
+
+        active = connection.execute(
+            text(
+                "SELECT id FROM wms.lot_hold "
+                f"WHERE {_S} AND lot_id=:lot_id AND released_at IS NULL"
+            ),
+            {**_s(scoped), "lot_id": lot_id},
+        ).first()
+        if active:
+            raise _conflict(
+                "이미 보류 중인 LOT입니다.", "LOT_ALREADY_HELD", lotId=lot_id
+            )
+
+        source = (values.get("source") or "MANUAL").strip().upper()
+        if source not in ("MANUAL", "QMS", "EXPIRY"):
+            raise _fields({"source": "출처는 MANUAL, QMS, EXPIRY 중 하나여야 합니다."})
+
+        source_ref = (values.get("source_ref") or "").strip() or None
+        if source == "QMS" and not source_ref:
+            raise _fields({"sourceRef": "QMS 보류 번호를 입력하세요."})
+
+        reason = (values.get("reason") or "").strip()
+        if len(reason) < 2:
+            raise _fields({"reason": "보류 사유를 2자 이상 입력하세요."})
+
+        connection.execute(
+            text(
+                "INSERT INTO wms.lot_hold (workspace_id, generation_id, lot_id, source, source_ref, held_at, released_at, reason) "
+                "VALUES (:w, :g, :lot_id, :source, :source_ref, clock_timestamp(), NULL, :reason)"
+            ),
+            {
+                **_s(scoped),
+                "lot_id": lot_id,
+                "source": source,
+                "source_ref": source_ref,
+                "reason": reason,
+            },
+        )
+        return _lot_row(connection, scoped, lot_id), "lot", str(lot_id)
+
+    return _action(context, f"wms.lot.hold:{lot_id}", key, values, fn, 201)
+
+
+def release_lot(context: AuthContext, lot_id: int, key: str) -> dict[str, Any]:
+    def fn(connection, scoped):
+        lot = (
+            connection.execute(
+                text(f"SELECT id, lot_no FROM wms.lot WHERE {_S} AND id=:id"),
+                {**_s(scoped), "id": lot_id},
+            )
+            .mappings()
+            .first()
+        )
+        if not lot:
+            raise _not_found("LOT")
+
+        active = (
+            connection.execute(
+                text(
+                    "SELECT id, held_at FROM wms.lot_hold "
+                    f"WHERE {_S} AND lot_id=:lot_id AND released_at IS NULL "
+                    "ORDER BY held_at DESC, id DESC LIMIT 1"
+                ),
+                {**_s(scoped), "lot_id": lot_id},
+            )
+            .mappings()
+            .first()
+        )
+        if not active:
+            raise _conflict(
+                "활성 보류 중인 상태가 아닙니다.", "LOT_NOT_HELD", lotId=lot_id
+            )
+
+        connection.execute(
+            text(
+                "UPDATE wms.lot_hold "
+                "SET released_at = clock_timestamp() "
+                f"WHERE {_S} AND id = :id AND released_at IS NULL"
+            ),
+            {**_s(scoped), "id": active["id"]},
+        )
+        return _lot_row(connection, scoped, lot_id), "lot", str(lot_id)
+
+    return _action(context, f"wms.lot.release:{lot_id}", key, {}, fn)

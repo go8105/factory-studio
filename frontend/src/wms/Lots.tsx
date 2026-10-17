@@ -64,7 +64,7 @@ const EMPTY_DRAFT: LotDraft = {
 const LIMIT = 50;
 
 export function Lots() {
-  const { fail } = useSession();
+  const { session, fail } = useSession();
   const { data: itemData, error: itemError } = useLists<[Item[]]>(["/items"]);
   const items = itemData?.[0] ?? [];
 
@@ -93,6 +93,17 @@ export function Lots() {
   const [detailLot, setDetailLot] = useState<LotRow>();
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<unknown>();
+
+  // 보류 설정 폼 및 처리 상태
+  const [holdFormOpen, setHoldFormOpen] = useState(false);
+  const [holdDraft, setHoldDraft] = useState<{
+    source: "MANUAL" | "QMS" | "EXPIRY";
+    sourceRef: string;
+    reason: string;
+  }>({ source: "MANUAL", sourceRef: "", reason: "" });
+  const [holdPending, setHoldPending] = useState(false);
+  const [holdError, setHoldError] = useState<unknown>();
+  const [detailReloadTrigger, setDetailReloadTrigger] = useState(0);
 
   // 등록 폼 상태
   const [draft, setDraft] = useState<LotDraft>(EMPTY_DRAFT);
@@ -156,6 +167,8 @@ export function Lots() {
   useEffect(() => {
     if (panel?.kind !== "detail") {
       setDetailLot(undefined);
+      setHoldFormOpen(false);
+      setHoldError(undefined);
       return;
     }
     const controller = new AbortController();
@@ -176,7 +189,86 @@ export function Lots() {
       });
 
     return () => controller.abort();
-  }, [panel, fail]);
+  }, [panel, detailReloadTrigger, fail]);
+
+  function openHoldForm(initial?: {
+    source: "MANUAL" | "QMS" | "EXPIRY";
+    sourceRef: string;
+    reason: string;
+  }) {
+    setHoldDraft(
+      initial ?? {
+        source: "MANUAL",
+        sourceRef: "",
+        reason: "",
+      },
+    );
+    setHoldError(undefined);
+    setHoldFormOpen(true);
+  }
+
+  async function submitHold(e: FormEvent) {
+    e.preventDefault();
+    if (!detailLot) return;
+    setHoldPending(true);
+    setHoldError(undefined);
+    try {
+      await api<LotRow>(`${WMS}/lots/${detailLot.id}/hold`, {
+        method: "POST",
+        csrf: session?.csrfToken,
+        key: crypto.randomUUID(),
+        body: {
+          source: holdDraft.source,
+          sourceRef: holdDraft.sourceRef.trim() || null,
+          reason: holdDraft.reason.trim(),
+        },
+      });
+      setHoldFormOpen(false);
+      setReloadTrigger((v) => v + 1);
+      setDetailReloadTrigger((v) => v + 1);
+    } catch (err) {
+      setHoldError(err);
+    } finally {
+      setHoldPending(false);
+    }
+  }
+
+  async function submitRelease() {
+    if (!detailLot) return;
+    setHoldPending(true);
+    setHoldError(undefined);
+    try {
+      await api<LotRow>(`${WMS}/lots/${detailLot.id}/release`, {
+        method: "POST",
+        csrf: session?.csrfToken,
+        key: crypto.randomUUID(),
+        body: {},
+      });
+      setReloadTrigger((v) => v + 1);
+      setDetailReloadTrigger((v) => v + 1);
+    } catch (err) {
+      setHoldError(err);
+    } finally {
+      setHoldPending(false);
+    }
+  }
+
+  function syncQmsHold() {
+    if (
+      detailLot?.qmsHold &&
+      typeof detailLot.qmsHold === "object" &&
+      detailLot.qmsHold.active
+    ) {
+      openHoldForm({
+        source: "QMS",
+        sourceRef:
+          detailLot.qmsHold.holdNo || detailLot.qmsHold.sourceRef || "",
+        reason:
+          detailLot.qmsHold.reason ||
+          `QMS 품질 보류 동기화 (${detailLot.qmsHold.holdNo || ""})`,
+      });
+    }
+  }
 
   if (moduleOff(itemError) || moduleOff(listError)) return <ModuleOff />;
 
@@ -254,7 +346,13 @@ export function Lots() {
       key: "status",
       label: "상태",
       render: (r) => (
-        <>
+        <span
+          style={{
+            display: "inline-flex",
+            gap: "0.25rem",
+            alignItems: "center",
+          }}
+        >
           {r.status === "AVAILABLE" && <Badge>가용</Badge>}
           {r.status === "HOLD" && (
             <span title={r.currentHoldReason || "보류 중"}>
@@ -262,7 +360,8 @@ export function Lots() {
             </span>
           )}
           {r.status === "EXPIRED" && <Badge tone="issue">만료</Badge>}
-        </>
+          {r.qmsHold === true && <Badge tone="issue">QMS 보류</Badge>}
+        </span>
       ),
     },
     {
@@ -692,13 +791,303 @@ export function Lots() {
                     )}
                   </section>
 
-                  <section className="section-block" aria-label="보류 이력">
-                    <h3>보류 상태 및 이력</h3>
+                  <section
+                    className="section-block"
+                    aria-label="보류 상태 및 관리"
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      <h3>보류 상태 및 관리</h3>
+                      {!detailLot.isHeld && !holdFormOpen && (
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => openHoldForm()}
+                        >
+                          보류 설정
+                        </button>
+                      )}
+                    </div>
+
+                    <ErrorNotice error={holdError} />
+
+                    {/* 현재 WMS 보류 상태 카드 */}
+                    <div
+                      style={{
+                        padding: "0.75rem 1rem",
+                        borderRadius: "4px",
+                        backgroundColor: detailLot.isHeld
+                          ? "#fff5f5"
+                          : "#f8f9fa",
+                        border: `1px solid ${
+                          detailLot.isHeld ? "#fed7d7" : "#e2e8f0"
+                        }`,
+                        marginBottom: "1rem",
+                      }}
+                    >
+                      {detailLot.isHeld ? (
+                        <div>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              flexWrap: "wrap",
+                              gap: "0.5rem",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "0.5rem",
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <Badge tone="issue">현재 보류 중</Badge>
+                              <strong>
+                                {detailLot.activeHold?.source === "QMS"
+                                  ? "QMS 품질 보류"
+                                  : detailLot.activeHold?.source === "EXPIRY"
+                                    ? "유효기간 만료"
+                                    : "수동 보류"}
+                              </strong>
+                              {detailLot.activeHold?.sourceRef && (
+                                <span className="muted">
+                                  ({detailLot.activeHold.sourceRef})
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              disabled={holdPending}
+                              aria-busy={holdPending}
+                              onClick={() => void submitRelease()}
+                            >
+                              보류 해제
+                            </button>
+                          </div>
+                          <p style={{ margin: "0.5rem 0 0.25rem 0" }}>
+                            <strong>사유:</strong>{" "}
+                            {detailLot.activeHold?.reason ||
+                              detailLot.currentHoldReason}
+                          </p>
+                          {detailLot.activeHold?.heldAt && (
+                            <p
+                              className="muted"
+                              style={{ margin: 0, fontSize: "0.85rem" }}
+                            >
+                              보류 시각: {time(detailLot.activeHold.heldAt)}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
+                          <span style={{ color: "#4a5568" }}>
+                            현재 활성 보류가 없는 <strong>가용 상태</strong>
+                            입니다.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* QMS 보류 연동 상태 */}
+                    <div
+                      style={{
+                        padding: "0.75rem 1rem",
+                        borderRadius: "4px",
+                        backgroundColor: "#edf2f7",
+                        marginBottom: "1rem",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <strong>QMS 품질 검사: </strong>
+                        {detailLot.qmsHold === null ? (
+                          <span className="muted">
+                            QMS를 사용하지 않습니다.
+                          </span>
+                        ) : typeof detailLot.qmsHold === "object" &&
+                          detailLot.qmsHold.active ? (
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              gap: "0.5rem",
+                              alignItems: "center",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <Badge tone="issue">
+                              QMS 품질 보류 (
+                              {detailLot.qmsHold.holdNo ||
+                                detailLot.qmsHold.sourceRef}
+                              )
+                            </Badge>
+                            {detailLot.qmsHold.reason && (
+                              <span
+                                style={{
+                                  fontSize: "0.85rem",
+                                  color: "#c53030",
+                                }}
+                              >
+                                {detailLot.qmsHold.reason}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <Badge>QMS 보류 없음 (정상)</Badge>
+                        )}
+                      </div>
+
+                      {/* QMS에서 보류 중인데 WMS엔 아직 보류 등록 안 된 경우 동기화 버튼 제공 */}
+                      {detailLot.qmsHold &&
+                        typeof detailLot.qmsHold === "object" &&
+                        detailLot.qmsHold.active &&
+                        !detailLot.isHeld && (
+                          <button
+                            type="button"
+                            className="secondary small"
+                            onClick={syncQmsHold}
+                          >
+                            QMS 보류 동기화
+                          </button>
+                        )}
+                    </div>
+
+                    {/* 보류 등록 폼 (인라인) */}
+                    {holdFormOpen && (
+                      <form
+                        onSubmit={(e) => void submitHold(e)}
+                        style={{
+                          padding: "1rem",
+                          border: "1px solid #cbd5e0",
+                          borderRadius: "4px",
+                          backgroundColor: "#fff",
+                          marginBottom: "1rem",
+                        }}
+                      >
+                        <h4 style={{ margin: "0 0 0.75rem 0" }}>보류 설정</h4>
+                        <div className="field-row">
+                          <div className="field">
+                            <label htmlFor="hold-source">출처</label>
+                            <select
+                              id="hold-source"
+                              value={holdDraft.source}
+                              onChange={(e) =>
+                                setHoldDraft((d) => ({
+                                  ...d,
+                                  source: e.target.value as
+                                    "MANUAL" | "QMS" | "EXPIRY",
+                                }))
+                              }
+                            >
+                              <option value="MANUAL">수동 (MANUAL)</option>
+                              <option value="QMS">품질 보류 (QMS)</option>
+                              <option value="EXPIRY">
+                                유효기간 만료 (EXPIRY)
+                              </option>
+                            </select>
+                          </div>
+                          <div className="field">
+                            <label htmlFor="hold-source-ref">
+                              원천 코드 / 문서번호
+                            </label>
+                            <input
+                              id="hold-source-ref"
+                              type="text"
+                              placeholder={
+                                holdDraft.source === "QMS"
+                                  ? "예: QH-20261017-001 (QMS 보류 필수)"
+                                  : "원천 참조 코드 (선택)"
+                              }
+                              value={holdDraft.sourceRef}
+                              onChange={(e) =>
+                                setHoldDraft((d) => ({
+                                  ...d,
+                                  sourceRef: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        <div className="field">
+                          <label htmlFor="hold-reason">
+                            보류 사유 (2자 이상)
+                          </label>
+                          <input
+                            id="hold-reason"
+                            type="text"
+                            required
+                            minLength={2}
+                            placeholder="보류 사유를 명확히 입력하세요"
+                            value={holdDraft.reason}
+                            onChange={(e) =>
+                              setHoldDraft((d) => ({
+                                ...d,
+                                reason: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "0.5rem",
+                            marginTop: "1rem",
+                          }}
+                        >
+                          <button
+                            type="submit"
+                            disabled={
+                              holdPending || holdDraft.reason.trim().length < 2
+                            }
+                            aria-busy={holdPending}
+                          >
+                            보류 확정
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => setHoldFormOpen(false)}
+                          >
+                            취소
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    <h4>보류 이력 ({detailLot.holds?.length ?? 0}건)</h4>
                     {detailLot.holds && detailLot.holds.length > 0 ? (
                       <table className="compact-table">
                         <thead>
                           <tr>
-                            <th scope="col">구분</th>
+                            <th scope="col">출처</th>
+                            <th scope="col">원천번호</th>
                             <th scope="col">보류일시</th>
                             <th scope="col">해제일시</th>
                             <th scope="col">사유</th>
@@ -708,12 +1097,19 @@ export function Lots() {
                         <tbody>
                           {detailLot.holds.map((h: LotHold) => (
                             <tr key={h.id}>
-                              <td>{h.source}</td>
+                              <td>
+                                {h.source === "QMS"
+                                  ? "품질(QMS)"
+                                  : h.source === "EXPIRY"
+                                    ? "만료"
+                                    : "수동"}
+                              </td>
+                              <td>{h.sourceRef || "—"}</td>
                               <td>{time(h.heldAt)}</td>
                               <td>{h.releasedAt ? time(h.releasedAt) : "—"}</td>
                               <td>{h.reason}</td>
                               <td>
-                                {h.isActive ? (
+                                {h.isActive || h.status === "HELD" ? (
                                   <Badge tone="issue">보류 중</Badge>
                                 ) : (
                                   <Badge>해제됨</Badge>
@@ -726,14 +1122,6 @@ export function Lots() {
                     ) : (
                       <p className="muted">보류 이력이 없습니다.</p>
                     )}
-
-                    <p
-                      className="notice"
-                      role="note"
-                      style={{ marginTop: "1rem" }}
-                    >
-                      보류 설정 및 해제 기능은 다음 단계(B-3)에서 제공됩니다.
-                    </p>
                   </section>
                 </div>
               )}

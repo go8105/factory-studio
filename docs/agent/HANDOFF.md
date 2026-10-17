@@ -1,3 +1,41 @@
+# 2026-10-17 W2b-1b B-3 W-10 LOT 보류·해제 이력 및 QMS 연동 완료 (W2b-1b 전체 완료)
+
+- **브랜치**: `antigravity/w2b-1b`
+- **끝난 것 (B-3 및 W2b-1b 전체)**:
+  - W-10 LOT 보류·해제 백엔드 (`backend/src/fs/wms/`, `backend/src/fs/qms/`):
+    - **DB 불변 및 이력 누적 원칙 준수**: `schema.json` 변경 없음. `wms.lot_hold`의 부분 고유 인덱스(`UNIQUE (workspace_id, generation_id, lot_id) WHERE (released_at IS NULL)`)를 기반으로, 보류 시 새 행 INSERT(`released_at=NULL`), 해제 시 UPDATE(`released_at=clock_timestamp()`), 재보류 시 새 행 INSERT로 다중 보류/해제 이력을 영구 보존.
+    - 엔드포인트: `POST /lots/{id}/hold`, `POST /lots/{id}/release`.
+    - 중복 및 유효성 방어: 보류 중인 LOT에 보류 시도 시 409 Conflict, 미보류 LOT 해제 시도 시 409 Conflict.
+    - QMS 보류 조회 연동: `fs.qms.interface`의 `is_enabled`, `active_hold_details(conn, scoped, lot_no)`를 통해 QMS 검사 및 보류 상태를 읽기 전용으로 안전하게 조회 (`qmsHold: { active, holdNo, reason }`).
+    - LOT 목록 및 상세 연동: `list_lots`에서 QMS 활성 보류 여부(`qmsHold: true/false`) 반환, `_lot_row`에서 활성 보류 정보, QMS 보류 상세, 최근 50건 보류 이력(`status: "HELD" | "RELEASED"`) 반환.
+  - W-10 LOT 보류 프런트엔드 (`frontend/src/wms/Lots.tsx`):
+    - 목록 테이블: LOT 상태 배지 옆에 QMS 보류 시 `<Badge tone="issue">QMS 보류</Badge>` 표시.
+    - 상세 패널 현재 보류 카드: 활성 보류 중일 때 보류 사유, 출처, 일시 표시 및 "보류 해제" 버튼 제공. 미보류 시 "보류 설정" 버튼 제공.
+    - 인라인 보류 등록 폼: 출처(MANUAL/QMS/EXPIRY), 원천코드, 보류 사유(2자 이상 필수) 입력 및 등록 처리.
+    - QMS 품질 검사 상태 카드: QMS 모듈 활성화 여부 및 활성 보류 상세 표시, "QMS 보류 동기화" 버튼 연동.
+    - 보류 이력 테이블: 최신 50건 상태(보류중/해제됨), 출처, 보류 사유, 보류일시, 해제일시, 해제사유 표시.
+    - 모바일 390px 반응형 뷰포트 최적화.
+  - 브라우저 실기동 자동화 검증 완료 (`frontend/scripts/verify-wms-hold-browser.mjs`):
+    - 게스트 세션 시작 → LOT 등록 → 1차 수동 보류(MANUAL) → 1차 해제 → 2차 QMS 재보류 → 2차 해제 전 과정 통과 및 이력 2건 영구 보존 확인.
+    - 스크린샷 5종 보존 (`wms-lots-initial.png`, `wms-lots-hold-active.png`, `wms-lots-hold-released.png`, `wms-lots-hold-second.png`, `wms-lots-mobile-390.png`).
+  - A-2 검증 지표 실측치:
+    - `verify_ddl_matches_schema.py` 오류 수: **0건** (205표, 2,246칼럼, PK 205, UK 425, CHECK 502, INDEX 165, UNIQUE_INDEX 46, FK 507 100% 일치).
+    - 왕복 결과: `downgrade base` -> `upgrade head` 후 다시 **오류 0건**.
+    - 적용 DB 목록: `factory_studio`, `factory_studio_test`, `factory_studio_ci_test` 모두 **`w2b1_wms (head)`** 상태.
+    - **백엔드 pytest 요약 줄 전문**:
+      - `1023 passed, 1 skipped, 47 warnings in 454.01s (0:07:34)` (not perf)
+      - `1 passed, 1024 deselected, 5 warnings in 26.56s` (perf)
+      - **총 1,024 passed, 1 skipped (실패 0건, 에러 0건, worker down 0건)**.
+    - 도구 단위 테스트: `Ran 136 tests in 16.184s - OK`.
+- **다음 할 일**: 사용자 확인 및 **W2b-1b 전체 승인** 대기 (승인 전 W2b-1c 임의 착수 금지).
+- **주의점**:
+  - `wms.lot`에 수량 및 만료 여부를 컬럼으로 저장하지 않는다 (원장 집계 및 실시간 판정 원칙).
+  - `wms.lot_hold`는 부분 인덱스를 활용해 활성 1건만 유지하되 과거 해제 이력을 삭제하지 않고 유지한다.
+- **재현 명령**:
+  - `backend/.venv/bin/pytest backend/tests/test_wms.py -v`
+  - `npm --prefix frontend test -- src/wms/wms.test.tsx`
+  - `npm run ci:local`
+
 # 2026-10-15 W2b-1b WMS-FIX 완료
 
 - **브랜치**: `antigravity/w2b-1b`

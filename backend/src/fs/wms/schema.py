@@ -143,3 +143,12 @@ class LotUpdate(ApiModel):
     expiry_date: date | None = Field(None, alias="expiryDate")
     supplier_lot_no: str | None = Field(None, alias="supplierLotNo", max_length=50)
     status: LotStatus | None = None
+
+
+HoldSource = Literal["MANUAL", "QMS", "EXPIRY"]
+
+
+class LotHoldCreate(ApiModel):
+    source: HoldSource = "MANUAL"
+    source_ref: str | None = Field(None, alias="sourceRef", max_length=60)
+    reason: str = Field(min_length=2, max_length=300)

@@ -6,6 +6,8 @@ QMS를 꺼 두었으면 None을 돌려주고, MES는 배지 없이 그대로 동
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import Connection, text
 
 from fs.common.auth import AuthContext
@@ -14,6 +16,11 @@ from fs.common.scope import module_available
 
 def _enabled(connection: Connection, scoped: AuthContext) -> bool:
     return module_available(connection, scoped.workspace_id, "qms")
+
+
+def is_enabled(connection: Connection, scoped: AuthContext) -> bool:
+    """QMS 솔루션 활성화 여부."""
+    return _enabled(connection, scoped)
 
 
 def held_lot_nos(connection: Connection, scoped: AuthContext) -> set[str] | None:
@@ -29,6 +36,38 @@ def held_lot_nos(connection: Connection, scoped: AuthContext) -> set[str] | None
             {"w": scoped.workspace_id, "g": scoped.generation_id},
         ).scalars()
     )
+
+
+def active_hold_details(
+    connection: Connection, scoped: AuthContext, lot_no: str
+) -> dict[str, Any] | None:
+    """특정 LOT의 활성 QMS 보류 상세. QMS가 꺼져 있으면 None, 보류가 없으면 {'active': False}."""
+    if not _enabled(connection, scoped):
+        return None
+    row = (
+        connection.execute(
+            text(
+                "SELECT hold_no, held_at, item_code FROM qms.quality_hold "
+                "WHERE workspace_id=:w AND generation_id=:g AND status='held' AND lot_no=:lot_no "
+                "ORDER BY held_at DESC, id DESC LIMIT 1"
+            ),
+            {"w": scoped.workspace_id, "g": scoped.generation_id, "lot_no": lot_no},
+        )
+        .mappings()
+        .first()
+    )
+    if not row:
+        return {"active": False, "holdNo": None, "heldAt": None}
+    return {
+        "active": True,
+        "holdNo": row["hold_no"],
+        "heldAt": (
+            row["held_at"].isoformat()
+            if hasattr(row["held_at"], "isoformat")
+            else str(row["held_at"])
+        ),
+        "itemCode": row["item_code"],
+    }
 
 
 def latest_results(

@@ -936,3 +936,182 @@ def test_lot_registration_and_stock_aggregation(blank):
     kw_res = client.get(f"{W}/lots", params={"keyword": "SUP-9999"}).json()
     assert kw_res["page"]["total"] == 1
     assert kw_res["data"][0]["lotNo"] == "LT-20261015-01"
+
+
+def test_lot_hold_and_release_cycle_and_qms(blank):
+    """W-10 B-3: LOT 보류 등록, 해제, 재보류, 이력 보존, QMS 보류 조회 연동 검증."""
+    client, created = blank
+
+    # 1. 기초 품목 및 LOT 등록
+    item = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/items",
+            {
+                "itemCode": "IT-HOLD-01",
+                "name": "보류 테스트 품목",
+                "baseUnit": "EA",
+                "itemClass": "RAW",
+                "lotTracked": True,
+            },
+        ),
+        201,
+    )
+    lot = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/lots",
+            {
+                "itemId": item["id"],
+                "lotNo": "LT-HOLD-999",
+                "receivedOn": "2026-10-15",
+                "origin": "RECEIPT",
+            },
+        ),
+        201,
+    )
+    lot_id = lot["id"]
+    assert lot["status"] == "AVAILABLE"
+    assert lot["isHeld"] is False
+    assert lot["holdCount"] == 0
+    assert lot["activeHold"] is None
+
+    # 2. 보류 입력값 유효성 검증
+    # 2-1. 사유 2자 미만 -> 400
+    res_short = _call(
+        client,
+        created,
+        "POST",
+        f"/lots/{lot_id}/hold",
+        {"source": "MANUAL", "reason": "a"},
+    )
+    assert res_short.status_code == 400
+    assert any("reason" in k for k in res_short.json()["error"]["details"]["fields"])
+
+    # 2-2. QMS 출처인데 sourceRef 누락 -> 400
+    res_qms_miss = _call(
+        client,
+        created,
+        "POST",
+        f"/lots/{lot_id}/hold",
+        {"source": "QMS", "reason": "품질 보류"},
+    )
+    assert res_qms_miss.status_code == 400
+    assert "sourceRef" in res_qms_miss.json()["error"]["details"]["fields"]
+
+    # 3. 1차 보류 등록 (MANUAL)
+    h1 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/lots/{lot_id}/hold",
+            {"source": "MANUAL", "reason": "1차 수입검사 불합격 의심"},
+        ),
+        201,
+    )
+    assert h1["status"] == "HOLD"
+    assert h1["isHeld"] is True
+    assert h1["holdCount"] == 1
+    assert h1["activeHold"] is not None
+    assert h1["activeHold"]["reason"] == "1차 수입검사 불합격 의심"
+    assert len(h1["holds"]) == 1
+    assert h1["holds"][0]["isActive"] is True
+    assert h1["holds"][0]["status"] == "HELD"
+    assert h1["holds"][0]["releasedAt"] is None
+
+    # 4. 이미 보류 중인 LOT 재보류 시도 -> 409 Conflict
+    res_double_hold = _call(
+        client,
+        created,
+        "POST",
+        f"/lots/{lot_id}/hold",
+        {"source": "MANUAL", "reason": "중복 보류 시도"},
+    )
+    assert res_double_hold.status_code == 409
+    assert res_double_hold.json()["error"]["details"]["reason"] == "LOT_ALREADY_HELD"
+
+    # 5. 1차 보류 해제
+    rel1 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/lots/{lot_id}/release",
+        )
+    )
+    assert rel1["status"] == "AVAILABLE"
+    assert rel1["isHeld"] is False
+    assert rel1["holdCount"] == 0
+    assert rel1["activeHold"] is None
+    # 이력은 여전히 1건 유지되며, releasedAt이 채워짐
+    assert len(rel1["holds"]) == 1
+    assert rel1["holds"][0]["isActive"] is False
+    assert rel1["holds"][0]["status"] == "RELEASED"
+    assert rel1["holds"][0]["releasedAt"] is not None
+
+    # 6. 보류 중이 아닌데 해제 시도 -> 409 Conflict
+    res_double_rel = _call(
+        client,
+        created,
+        "POST",
+        f"/lots/{lot_id}/release",
+    )
+    assert res_double_rel.status_code == 409
+    assert res_double_rel.json()["error"]["code"] == "PRECONDITION_NOT_MET"
+    assert res_double_rel.json()["error"]["details"]["reason"] == "LOT_NOT_HELD"
+
+    # 7. 2차 보류 등록 (QMS 연동 보류)
+    h2 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/lots/{lot_id}/hold",
+            {
+                "source": "QMS",
+                "sourceRef": "QH-20261017-001",
+                "reason": "QMS 불합격 품질 보류 동기화",
+            },
+        ),
+        201,
+    )
+    assert h2["status"] == "HOLD"
+    assert h2["isHeld"] is True
+    assert h2["activeHold"]["source"] == "QMS"
+    assert h2["activeHold"]["sourceRef"] == "QH-20261017-001"
+    # 이력은 이제 2건 (최신 보류 + 과거 해제 보류)
+    assert len(h2["holds"]) == 2
+    assert h2["holds"][0]["isActive"] is True
+    assert h2["holds"][0]["status"] == "HELD"
+    assert h2["holds"][1]["isActive"] is False
+    assert h2["holds"][1]["status"] == "RELEASED"
+
+    # 8. 2차 보류 해제
+    rel2 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/lots/{lot_id}/release",
+        )
+    )
+    assert rel2["status"] == "AVAILABLE"
+    assert rel2["isHeld"] is False
+    # 이력은 2건 모두 보존되며 둘 다 해제됨
+    assert len(rel2["holds"]) == 2
+    assert rel2["holds"][0]["isActive"] is False
+    assert rel2["holds"][0]["status"] == "RELEASED"
+    assert rel2["holds"][1]["isActive"] is False
+    assert rel2["holds"][1]["status"] == "RELEASED"
+
+    # 9. QMS 보류 조회 연동 필드 확인
+    detail = _ok(client.get(f"{W}/lots/{lot_id}"))
+    assert "qmsHold" in detail
+    if detail["qmsHold"] is not None:
+        assert isinstance(detail["qmsHold"], dict)
+        assert "active" in detail["qmsHold"]

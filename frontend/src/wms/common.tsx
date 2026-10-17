@@ -66,7 +66,16 @@ export type LotHold = {
   releasedAt: string | null;
   reason: string;
   isActive: boolean;
+  status?: "HELD" | "RELEASED";
 };
+
+export type QmsHoldInfo = {
+  active: boolean;
+  holdNo?: string;
+  sourceRef?: string;
+  reason?: string;
+  heldAt?: string;
+} | null;
 
 export type LotRow = {
   id: number;
@@ -84,11 +93,20 @@ export type LotRow = {
   rawStatus: LotStatus;
   qtyOnHand: string;
   isExpired: boolean;
+  isHeld?: boolean;
   holdCount: number;
   currentHoldReason: string | null;
   createdAt: string;
   locations?: LotLocation[];
   holds?: LotHold[];
+  activeHold?: {
+    id: number;
+    source: "MANUAL" | "QMS" | "EXPIRY";
+    sourceRef: string | null;
+    heldAt: string;
+    reason: string;
+  } | null;
+  qmsHold?: QmsHoldInfo | boolean | null;
 };
 
 export type PageInfo = {

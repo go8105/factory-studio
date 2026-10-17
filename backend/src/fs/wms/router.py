@@ -36,6 +36,7 @@ from fs.wms.schema import (
     LocationCreate,
     LocationUpdate,
     LotCreate,
+    LotHoldCreate,
     LotUpdate,
     ManualType,
     SourceKind,
@@ -319,6 +320,40 @@ def update_lot(
             context,
             row_id,
             _values(payload, nullable=service.NULLABLE_LOT_FIELDS),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/lots/{row_id}/hold", status_code=201)
+def hold_lot(
+    row_id: int,
+    payload: LotHoldCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.hold_lot(
+            context,
+            row_id,
+            payload.model_dump(),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/lots/{row_id}/release")
+def release_lot(
+    row_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.release_lot(
+            context,
+            row_id,
             _mutation(context, csrf, key),
         )
     )
