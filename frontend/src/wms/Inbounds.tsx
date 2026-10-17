@@ -385,87 +385,99 @@ function NoticeForm({
           도착 후에는 예정 내용을 바꿀 수 없습니다. 수량은 각 품목의 기본 단위로
           입력합니다.
         </p>
-        {lines.map((l, i) => (
-          <fieldset key={i} className="wms-operation-line">
-            <legend>입고 명세 {i + 1}</legend>
-            <label>
-              품목
-              <select
-                required
-                value={l.itemId}
-                onChange={(e) =>
-                  update(i, { itemId: e.target.value, lotNo: "" })
-                }
-              >
-                <option value="">선택</option>
-                {items
-                  .filter((x) => x.isActive && x.itemClass === wh?.purpose)
-                  .map((x) => (
-                    <option key={x.id} value={x.id}>
-                      {x.itemCode} · {x.baseUnit}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            {wh?.purpose === "FG" && (
+        {lines.map((l, i) => {
+          const selectedItem = items.find(
+            (x) => String(x.id) === String(l.itemId),
+          );
+          const isLotTracked = Boolean(selectedItem?.lotTracked);
+          return (
+            <fieldset key={i} className="wms-operation-line">
+              <legend>입고 명세 {i + 1}</legend>
+              <label>
+                품목
+                <select
+                  required
+                  value={l.itemId}
+                  onChange={(e) => {
+                    const newItem = items.find(
+                      (x) => String(x.id) === e.target.value,
+                    );
+                    update(i, {
+                      itemId: e.target.value,
+                      lotNo: newItem?.lotTracked ? l.lotNo : "",
+                    });
+                  }}
+                >
+                  <option value="">선택</option>
+                  {items
+                    .filter((x) => x.isActive && x.itemClass === wh?.purpose)
+                    .map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.itemCode} · {x.baseUnit}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {isLotTracked && (
+                <Field
+                  label="LOT"
+                  required
+                  value={l.lotNo}
+                  maxLength={50}
+                  onChange={(e) => update(i, { lotNo: e.target.value })}
+                />
+              )}
               <Field
-                label="LOT"
+                label="예정 수량"
                 required
-                value={l.lotNo}
-                maxLength={50}
-                onChange={(e) => update(i, { lotNo: e.target.value })}
+                inputMode="decimal"
+                value={l.expectedQty}
+                onChange={(e) => update(i, { expectedQty: e.target.value })}
               />
-            )}
-            <Field
-              label="예정 수량"
-              required
-              inputMode="decimal"
-              value={l.expectedQty}
-              onChange={(e) => update(i, { expectedQty: e.target.value })}
-            />
-            {(["normalLocationId", "quarantineLocationId"] as const).map(
-              (key) => (
-                <label key={key}>
-                  {key === "normalLocationId" ? "정상 위치" : "격리 위치"}
-                  <select
-                    required={key === "normalLocationId"}
-                    value={l[key]}
-                    onChange={(e) => update(i, { [key]: e.target.value })}
-                  >
-                    <option value="">
-                      {key === "normalLocationId" ? "선택" : "사용 안 함"}
-                    </option>
-                    {locations.data
-                      ?.filter(
-                        (x) =>
-                          x.isActive &&
-                          (x.locationType ?? "NORMAL") ===
-                            (key === "normalLocationId"
-                              ? "NORMAL"
-                              : "QUARANTINE"),
-                      )
-                      .map((x) => (
-                        <option key={x.id} value={x.id}>
-                          {x.code} {x.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-              ),
-            )}
-            <button
-              type="button"
-              className="link-button"
-              disabled={lines.length === 1}
-              onClick={() => {
-                setDirty(true);
-                setLines((xs) => xs.filter((_, j) => j !== i));
-              }}
-            >
-              명세 {i + 1} 삭제
-            </button>
-          </fieldset>
-        ))}
+              {(["normalLocationId", "quarantineLocationId"] as const).map(
+                (key) => (
+                  <label key={key}>
+                    {key === "normalLocationId" ? "정상 위치" : "격리 위치"}
+                    <select
+                      required={key === "normalLocationId"}
+                      value={l[key]}
+                      onChange={(e) => update(i, { [key]: e.target.value })}
+                    >
+                      <option value="">
+                        {key === "normalLocationId" ? "선택" : "사용 안 함"}
+                      </option>
+                      {locations.data
+                        ?.filter(
+                          (x) =>
+                            x.isActive &&
+                            (x.locationType ?? "NORMAL") ===
+                              (key === "normalLocationId"
+                                ? "NORMAL"
+                                : "QUARANTINE"),
+                        )
+                        .map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {x.code} {x.name}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                ),
+              )}
+              <button
+                type="button"
+                className="link-button"
+                disabled={lines.length === 1}
+                onClick={() => {
+                  setDirty(true);
+                  setLines((xs) => xs.filter((_, j) => j !== i));
+                }}
+              >
+                명세 {i + 1} 삭제
+              </button>
+            </fieldset>
+          );
+        })}
         <button
           type="button"
           className="secondary"

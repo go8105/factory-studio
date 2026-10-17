@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from datetime import timedelta
 from decimal import Decimal, localcontext
 
 from sqlalchemy import text
@@ -274,9 +275,10 @@ def _validate_lines(c, scoped, warehouse_id, lines):
             )
         lot = line.get("lot_no")
         lot = (lot.strip() or None) if lot else None
-        if bool(lot) != (item["itemClass"] == "FG"):
+        if bool(lot) != bool(item.get("lotTracked")):
             _fail(
-                path + ".lotNo", "완제품은 LOT 필수, 원자재는 LOT을 입력하지 않습니다."
+                path + ".lotNo",
+                "LOT 추적 품목은 LOT 필수, 추적하지 않는 품목은 LOT을 입력하지 않습니다.",
             )
         key = (item["id"], lot)
         if key in seen:
@@ -657,6 +659,44 @@ def inspect_notice(context, id, values, key):
                 id=line["id"],
                 **result,
             )
+            total_received = result["accepted_qty"] + result["quarantined_qty"]
+            if total_received > 0 and line.get("lot_no"):
+                lot_no = line["lot_no"].strip()
+                item = base._item(c, scoped, line["item_id"])
+                shelf_days = (
+                    int(item["shelfLifeDays"])
+                    if item and item.get("shelfLifeDays")
+                    else None
+                )
+                received_on = now.astimezone(base.SEOUL).date()
+                expiry_date = (
+                    received_on + timedelta(days=shelf_days)
+                    if shelf_days and shelf_days > 0
+                    else None
+                )
+                supplier_lot_no = (
+                    (row.get("partner_ref") or "").strip()[:50] or None
+                )
+                existing_lot = _query(
+                    c,
+                    scoped,
+                    f"SELECT id FROM wms.lot WHERE {S} AND item_id=:item_id AND lot_no=:lot_no",
+                    item_id=line["item_id"],
+                    lot_no=lot_no,
+                ).scalar_one_or_none()
+                if not existing_lot:
+                    _query(
+                        c,
+                        scoped,
+                        "INSERT INTO wms.lot(workspace_id, generation_id, item_id, lot_no, origin, received_on, expiry_date, supplier_lot_no, status, created_at) "
+                        "VALUES (:w, :g, :item_id, :lot_no, 'RECEIPT', :received_on, :expiry_date, :supplier_lot_no, 'AVAILABLE', :now)",
+                        item_id=line["item_id"],
+                        lot_no=lot_no,
+                        received_on=received_on,
+                        expiry_date=expiry_date,
+                        supplier_lot_no=supplier_lot_no,
+                        now=now,
+                    )
             for qty, loc in [
                 ("accepted_qty", "normal_location_id"),
                 ("quarantined_qty", "quarantine_location_id"),

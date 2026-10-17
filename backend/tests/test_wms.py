@@ -6,6 +6,7 @@ API 테스트는 `blank` fixture가 게스트의 WMS 시드(FS-024c)를 지운 �
 (PL-0001·0003·0005·0004), 매입 PI-0001~0004(확정)·PI-0006(확정 후 취소).
 """
 
+from datetime import timedelta
 from decimal import Decimal
 from itertools import count
 from uuid import uuid4
@@ -1251,3 +1252,203 @@ def test_inbound_notice_kind_rules(wms):
     )
     assert any(r["id"] == p3["id"] for r in listed["rows"])
     assert all(r["noticeKind"] == "SALES_RETURN" for r in listed["rows"])
+
+
+def test_inbound_lot_tracked_rules_and_lot_creation(wms, guest_space):
+    client, created, ids = wms
+    _, _, engine = guest_space
+    houses = _ok(client.get(f"{W}/warehouses"))
+    wh_id = next(w["id"] for w in houses if w["purpose"] == "RAW")
+    normal_loc = ids["R-A01"]
+    quarantine_loc = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/warehouses/{wh_id}/locations",
+            {"code": "R-Q01", "name": "원자재 격리", "locationType": "QUARANTINE"},
+        ),
+        201,
+    )["id"]
+    item_id = ids["RM-PBT"]
+
+    # 1. lot_tracked=False인 품목에 lot_no를 넣으면 400 거부
+    res_bad_lot = _call(
+        client,
+        created,
+        "POST",
+        "/inbound-notices",
+        {
+            "businessKey": uuid4().hex,
+            "warehouseId": wh_id,
+            "expectedOn": "2026-10-25",
+            "lines": [
+                {
+                    "itemId": item_id,
+                    "lotNo": "LOT-SHOULD-FAIL",
+                    "expectedQty": "100.000",
+                    "normalLocationId": normal_loc,
+                }
+            ],
+        },
+    )
+    assert res_bad_lot.status_code == 400
+    assert "LOT" in res_bad_lot.json()["error"]["message"] or "lotNo" in str(
+        res_bad_lot.json()
+    )
+
+    # 2. 품목을 lot_tracked=True, shelf_life_days=45로 갱신
+    _ok(
+        _call(
+            client,
+            created,
+            "PATCH",
+            f"/items/{item_id}",
+            {
+                "lotTracked": True,
+                "shelfLifeDays": 45,
+            },
+        )
+    )
+
+    # 3. lot_tracked=True 품목에 lot_no가 없으면 400 거부
+    res_missing_lot = _call(
+        client,
+        created,
+        "POST",
+        "/inbound-notices",
+        {
+            "businessKey": uuid4().hex,
+            "warehouseId": wh_id,
+            "expectedOn": "2026-10-25",
+            "lines": [
+                {
+                    "itemId": item_id,
+                    "expectedQty": "100.000",
+                    "normalLocationId": normal_loc,
+                }
+            ],
+        },
+    )
+    assert res_missing_lot.status_code == 400
+
+    # 4. lot_tracked=True 품목에 lot_no를 지정하여 입고 예정 등록 (201 성공)
+    notice = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/inbound-notices",
+            {
+                "businessKey": uuid4().hex,
+                "warehouseId": wh_id,
+                "partnerRef": "SUP-PO-20261025",
+                "expectedOn": "2026-10-25",
+                "lines": [
+                    {
+                        "itemId": item_id,
+                        "lotNo": "LOT-RAW-20261025-01",
+                        "expectedQty": "100.000",
+                        "normalLocationId": normal_loc,
+                        "quarantineLocationId": quarantine_loc,
+                    }
+                ],
+            },
+        ),
+        201,
+    )
+    notice_id = notice["id"]
+    line_id = notice["lines"][0]["id"]
+
+    # 5. 도착 처리
+    arrived = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/inbound-notices/{notice_id}/arrive",
+            {"expectedVersion": notice["version"]},
+        )
+    )
+    assert arrived["status"] == "ARRIVED"
+
+    # 6. 검수 확정 (합격 80, 격리 15, 부족 5)
+    inspected = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/inbound-notices/{notice_id}/inspect",
+            {
+                "expectedVersion": arrived["version"],
+                "lines": [
+                    {
+                        "lineId": line_id,
+                        "acceptedQty": "80.000",
+                        "quarantinedQty": "15.000",
+                        "shortageQty": "5.000",
+                        "reason": "원자재 입고 검수 차이",
+                    }
+                ],
+            },
+        )
+    )
+    assert inspected["status"] == "INSPECTED"
+
+    # 7. DB에서 wms.lot 생성 확인
+    with engine.connect() as c:
+        lot_row = (
+            c.execute(
+                text(
+                    "SELECT * FROM wms.lot WHERE workspace_id=:w AND generation_id=:g AND item_id=:item_id AND lot_no=:lot_no"
+                ),
+                {
+                    "w": created["workspaceId"],
+                    "g": created["generationId"],
+                    "item_id": item_id,
+                    "lot_no": "LOT-RAW-20261025-01",
+                },
+            )
+            .mappings()
+            .first()
+        )
+        assert lot_row is not None
+        assert lot_row["origin"] == "RECEIPT"
+        assert lot_row["status"] == "AVAILABLE"
+        assert lot_row["supplier_lot_no"] == "SUP-PO-20261025"
+        assert lot_row["expiry_date"] == lot_row["received_on"] + timedelta(days=45)
+
+    # 8. /wms/lots 엔드포인트 조회 시 현재고 95.000 집계 확인
+    lots = _ok(client.get(f"{W}/lots", params={"itemId": item_id}))
+    assert len(lots) >= 1
+    found_lot = next(
+        l for l in lots if l["lotNo"] == "LOT-RAW-20261025-01"
+    )
+    assert Decimal(found_lot["qtyOnHand"]) == Decimal("95.000")
+    assert found_lot["origin"] == "RECEIPT"
+    assert found_lot["status"] == "AVAILABLE"
+    assert found_lot["supplierLotNo"] == "SUP-PO-20261025"
+
+    # 9. 멱등성: 동일 inspect 재호출 시 기존 데이터 반환
+    re_inspected = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/inbound-notices/{notice_id}/inspect",
+            {
+                "expectedVersion": arrived["version"],
+                "lines": [
+                    {
+                        "lineId": line_id,
+                        "acceptedQty": "80.000",
+                        "quarantinedQty": "15.000",
+                        "shortageQty": "5.000",
+                        "reason": "원자재 입고 검수 차이",
+                    }
+                ],
+            },
+        )
+    )
+    assert re_inspected["id"] == notice_id
+

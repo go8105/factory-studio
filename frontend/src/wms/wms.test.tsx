@@ -825,3 +825,115 @@ it("W-08 입고 예정 목록과 상세에서 noticeKind 구분을 표시하고 
     expect(sentBody.businessKey).toBe("RET-20261017-99");
   });
 });
+
+it("W-08 품목 lotTracked 여부에 따른 LOT 입력 필드 노출 및 초기화", async () => {
+  const fetcher = mount("/wms/inbounds", {
+    [`GET ${W}/inbound-notices`]: ok({
+      rows: [],
+      total: 0,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 2,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      {
+        id: 10,
+        itemCode: "RM-NORMAL",
+        name: "일반 원자재",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: false,
+        isActive: true,
+      },
+      {
+        id: 20,
+        itemCode: "RM-LOT",
+        name: "LOT 원자재",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: true,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/warehouses/1/locations`]: ok(locations),
+    [`GET ${W}/sources`]: ok({ disabled: false, rows: [] }),
+    [`POST ${W}/inbound-notices`]: ok({
+      id: 201,
+      noticeNo: "IN-20261017-099",
+      version: 1,
+    }),
+  });
+
+  // 등록 패널 열기
+  fireEvent.click(
+    await screen.findByRole("button", { name: "입고 예정 등록" }),
+  );
+  const formPanel = await screen.findByRole("dialog", {
+    name: "입고 예정 등록",
+  });
+
+  // 초기 상태: LOT 입력 필드 없음
+  expect(within(formPanel).queryByLabelText("LOT")).toBeNull();
+
+  // 1. lotTracked=false 품목(10) 선택 -> LOT 필드 미노출
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "10" },
+  });
+  expect(within(formPanel).queryByLabelText("LOT")).toBeNull();
+
+  // 2. lotTracked=true 품목(20) 선택 -> LOT 필드 필수 노출
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "20" },
+  });
+  const lotField = within(formPanel).getByLabelText("LOT");
+  expect(lotField).toBeVisible();
+  expect(lotField).toBeRequired();
+
+  // LOT 값 입력
+  fireEvent.change(lotField, { target: { value: "LOT-TEMP-123" } });
+  expect(lotField).toHaveValue("LOT-TEMP-123");
+
+  // 3. 다시 lotTracked=false 품목(10)으로 변경 -> LOT 필드 사라짐
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "10" },
+  });
+  expect(within(formPanel).queryByLabelText("LOT")).toBeNull();
+
+  // 4. 다시 lotTracked=true 품목(20)으로 변경 -> 빈 값으로 노출
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "20" },
+  });
+  const newLotField = within(formPanel).getByLabelText("LOT");
+  expect(newLotField).toBeVisible();
+  expect(newLotField).toHaveValue("");
+
+  // 최종 입력 및 제출
+  fireEvent.change(within(formPanel).getByLabelText("업무 중복 방지 번호"), {
+    target: { value: "BIZ-LOT-01" },
+  });
+  fireEvent.change(newLotField, { target: { value: "LOT-FINAL-999" } });
+  fireEvent.change(within(formPanel).getByLabelText("예정 수량"), {
+    target: { value: "120" },
+  });
+  fireEvent.change(within(formPanel).getByLabelText("정상 위치"), {
+    target: { value: "11" },
+  });
+  fireEvent.click(within(formPanel).getByRole("button", { name: "예정 등록" }));
+
+  await waitFor(() => {
+    const postCalls = sent(fetcher, "POST", "/inbound-notices");
+    expect(postCalls).toHaveLength(1);
+    const sentBody = body(postCalls[0]);
+    expect(sentBody.lines[0].itemId).toBe(20);
+    expect(sentBody.lines[0].lotNo).toBe("LOT-FINAL-999");
+  });
+});

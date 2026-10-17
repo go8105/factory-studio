@@ -1,3 +1,25 @@
+# 2026-10-17 W2b-1c C-2 W-08 입고 LOT 부여 및 lot_tracked 전환 완료
+
+- 브랜치: `antigravity/w2b-1c`
+- 완료 내용:
+  - 백엔드 (`backend/src/fs/wms/`):
+    - `receiving.py`:
+      - `_validate_lines`: 낡은 완제품 전용 규칙(`bool(lot) != (item["itemClass"] == "FG")`)을 품목 마스터의 `lot_tracked` 플래그 기준(`bool(lot) != bool(item.get("lotTracked"))`)으로 전면 교체. LOT 추적 품목은 입고 예정 등록/수정/검수 시 LOT 필수, 비추적 품목은 LOT 입력 시 400 거부.
+      - `inspect_notice`: 검수 확정 시 명세에 `lot_no`가 존재하고 입고 수량(`accepted_qty + quarantined_qty > 0`)이 있는 경우 `wms.lot`에 `origin='RECEIPT'`, `status='AVAILABLE'`, `received_on=now(KST)`, `expiry_date=received_on + shelf_life_days`(품목 유효기간 일수 반영), `supplier_lot_no=partner_ref`로 행 자동 생성. 이미 존재하는 LOT은 사전 조회하여 중복 생성 방지.
+  - 프런트엔드 (`frontend/src/wms/`):
+    - `Inbounds.tsx`:
+      - `NoticeForm`: 기존 `wh?.purpose === "FG"` 조건 대신, 선택된 품목의 `lotTracked` 여부(`selectedItem?.lotTracked`)에 따라 LOT 입력 필드를 동적으로 노출하고 `required` 강제.
+      - 품목 변경 시 새 품목이 LOT 비추적 품목이면 `lotNo: ""`로 안전하게 초기화.
+  - 테스트 및 검증:
+    - 백엔드 WMS 테스트:
+      - `backend/tests/test_wms.py`: `test_inbound_lot_tracked_rules_and_lot_creation` 신규 추가 및 통과 (비추적 품목 LOT 거부, `PATCH /items/{id}`로 `lot_tracked=True` 변경 후 미입력 거부, 정상 LOT 등록/도착/검수 확정, `wms.lot` 칼럼 및 유효기간/공급처LOT 검증, `/wms/lots` 현재고 95.000 원장 합계 집계 검증, 멱등성 검증).
+      - 전체 백엔드 WMS 테스트 실행: `pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py` (43 passed, 0 failed in 101s).
+    - 프런트엔드 WMS 테스트:
+      - `frontend/src/wms/wms.test.tsx`: `W-08 품목 lotTracked 여부에 따른 LOT 입력 필드 노출 및 초기화` 신규 추가 및 통과 (15 passed in 2.5s).
+    - 정적 분석 및 린트: `ruff check` (0 errors), `npm run lint` (0 errors), `npm run typecheck` (0 errors), `npm run format:check` (0 errors).
+    - DB 및 도구 검증: `npm run db:validate` (205표, 2246칼럼, 507FK, errors 0), Python 3.14 venv 도구 테스트 `Ran 136 tests - OK`.
+- 다음 작업: 사용자 확인 후 C-3 (W-11 적치 작업 목록·추천 위치 백엔드+화면) 착수.
+
 # 2026-10-17 W2b-1c C-1 W-08 notice_kind 보강 완료
 
 - 브랜치: `antigravity/w2b-1c`

@@ -1,3 +1,28 @@
+# 2026-10-17 W2b-1c C-2 W-08 입고 LOT 부여 및 lot_tracked 전환 완료
+
+- **브랜치**: `antigravity/w2b-1c`
+- **끝난 것 (C-2)**:
+  - 입고 LOT 부여 및 `lot_tracked` 플래그 전환:
+    - 백엔드 (`receiving.py`):
+      - `_validate_lines`: `itemClass == "FG"` 검사를 `item.get("lotTracked")` 검사로 교체하여 LOT 추적 품목 필수, 비추적 품목 차단(400) 구현.
+      - `inspect_notice`: 검수 확정 시 명세에 `lot_no`가 있고 `accepted_qty + quarantined_qty > 0`인 경우 `wms.lot` 행 자동 생성(`origin='RECEIPT'`, `status='AVAILABLE'`, 유효기간 자동계산, `supplier_lot_no=partner_ref` 50자 안전 매핑, 중복 방어).
+    - 프런트엔드 (`Inbounds.tsx`):
+      - `NoticeForm`: 선택된 품목의 `lotTracked` 여부에 따라 LOT 입력 필드 동적 표시 및 필수(`required`) 처리, 품목 변경 시 비추적 품목이면 `lotNo: ""` 초기화.
+  - 검증 결과:
+    - 백엔드 WMS 테스트: `backend/tests/test_wms.py` 신규 테스트(`test_inbound_lot_tracked_rules_and_lot_creation`) 포함 WMS 전체 43개 테스트 통과 (`pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py` -> 43 passed, 0 failed in 101s).
+    - 프런트엔드 WMS 테스트: `npm --prefix frontend test -- src/wms/wms.test.tsx` 15개 테스트 통과 (`W-08 품목 lotTracked 여부에 따른 LOT 입력 필드 노출 및 초기화` 신규 검증 포함).
+    - 백엔드 정적 분석: `uv run --project backend ruff check --config backend/pyproject.toml backend` (0 errors).
+    - 프런트엔드 정적 분석: `npm run lint` (0 errors), `npm run typecheck` (0 errors), `npm run format:check` (0 errors).
+    - DB 및 도구 검증: `npm run db:validate` (205표, 2246칼럼, 507FK, errors 0), Python 3.14 도구 단위 테스트 136개 통과.
+- **다음 할 일**: 사용자 확인 후 **C-3 (W-11 적치 작업 목록·추천 위치 백엔드+화면)** 착수.
+- **주의점**:
+  - C-3/C-4에서 검수 확정 시 생성되는 적치 작업(`wms.putaway_task`)은 추천 위치(`suggested_location_id`)를 NULL로 생성하고 W-11 목록 조회 시 동적으로 계산(합의된 설계 원칙 준수).
+  - 격리품(`quarantined_qty > 0`) 및 부족품(`shortage_qty`)은 적치 대상 제외 (`accepted_qty > 0`인 명세만 적치 대상).
+  - DB 변경 없음 (`schema.json` 불변, 마이그레이션 변경 금지).
+- **재현 명령**:
+  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
+  - `npm --prefix frontend test -- src/wms/wms.test.tsx`
+
 # 2026-10-17 W2b-1c C-1 W-08 notice_kind 보강 완료
 
 - **브랜치**: `antigravity/w2b-1c`
