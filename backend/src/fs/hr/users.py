@@ -13,7 +13,7 @@ from fs.common.config import get_settings
 from fs.common.engine import action, read
 from fs.common.errors import ApiError
 from fs.common.security import hash_password
-from fs.core.company import companies, resolve_company
+from fs.core.company import companies, lock_accounts, require_session, resolve_company
 from fs.core.service import create_member_account
 from fs.hr.work import event, principal, scope
 
@@ -126,6 +126,9 @@ def mutate(ctx, company_id, operation, key, body):
         ).hexdigest()
 
     def authorize(c, scoped):
+        # Recheck after the company lock and before replaying any receipt.
+        lock_accounts(c, exclusive=True)
+        require_session(c, ctx)
         management_scope(c, ctx, scoped.workspace_id)
 
     def run(c, scoped):

@@ -16,6 +16,26 @@ from seed.common import SEED_VERSION, at
 
 
 SCHEMAS = BUSINESS_SCHEMAS  # 업무 스키마 목록은 fs.common.modules 한 곳
+COMPANY_GW_TABLES = frozenset(
+    {
+        "gw.collaboration_settings",
+        "gw.person_identity_binding",
+        "gw.role_grant",
+        "gw.document_reader",
+        "gw.step_assignment",
+    }
+)
+
+
+def _reject_company_copy(connection, *workspace_ids):
+    for workspace_id in workspace_ids:
+        if connection.execute(
+            text("SELECT workspace_kind='COMPANY' FROM core.workspace WHERE id=:w"),
+            {"w": workspace_id},
+        ).scalar():
+            raise RuntimeError("회사 공간은 체험 시드 복사/초기화 대상이 아닙니다.")
+
+
 MONTH_COLUMNS = {
     ("erp.partner_item_price", "effective_from"),
     ("erp.partner_item_price", "effective_to"),
@@ -45,6 +65,7 @@ def copy_template(
     W0-1 지연 복사: 서비스는 schemas=()로 core만 만들고, 솔루션 시드는 처음 열 때
     copy_module_seed가 복사한다(DSN-01 S2). 기본값(전체)은 도구·기존 호출용.
     """
+    _reject_company_copy(connection, source_workspace_id)
     metadata = _reflected(connection, ("core", *schemas))
     workspace = metadata.tables["core.workspace"]
     generation = metadata.tables["core.data_generation"]
@@ -114,6 +135,7 @@ def copy_template_generation(
     schemas: tuple[str, ...] = SCHEMAS,
 ) -> tuple[int, dict[str, int], float]:
     """기존 공간에 새 세대를 복사한다. 공간 설정은 유지한다. schemas=()이면 지연 복사(W0-1)."""
+    _reject_company_copy(connection, source_workspace_id, target_workspace_id)
     metadata = _reflected(connection, ("core", *schemas))
     workspace = metadata.tables["core.workspace"]
     generation = metadata.tables["core.data_generation"]
@@ -427,6 +449,7 @@ def copy_module_seed(
     호출자는 공간 잠금(WORKSPACE_LOCK_NAMESPACE)을 잡은 쓰기 트랜잭션에서 부른다.
     이미 복사됐으면 None. 세대의 원천 템플릿이 정리됐으면 같은 seed_version의 최신 템플릿을 쓴다.
     """
+    _reject_company_copy(connection, workspace_id)
     row = (
         connection.execute(
             text(
@@ -534,6 +557,8 @@ def _seeded_tables(
     tables: set[str] = set()
     catalog = _reflected(connection, schemas)
     for table_name in catalog.tables:
+        if table_name in COMPANY_GW_TABLES:
+            continue
         schema, table = table_name.split(".")
         if schema not in schemas:  # FK로 함께 반영된 core 표
             continue

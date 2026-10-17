@@ -5,6 +5,32 @@ from dataclasses import replace
 from sqlalchemy import text
 
 from fs.common.errors import ApiError
+from fs.common.security import token_hash
+
+
+def lock_accounts(connection, *, exclusive=False):
+    """회사 공간 잠금 다음에 획득한다. 전역 계정 관리와 회사 업무를 직렬화한다."""
+    fn = "pg_advisory_xact_lock" if exclusive else "pg_advisory_xact_lock_shared"
+    connection.execute(
+        text(f"SELECT {fn}(hashtextextended('fs.company.user-management',0))")
+    )
+
+
+def require_session(connection, context):
+    """업무 TX 안에서 현재 계정·세션을 재검증하고 로그아웃과 직렬화한다."""
+    if context.actor_kind != "MEMBER" or context.user_id is None:
+        raise ApiError(
+            403, "MEMBER_REQUIRED", "회사 업무는 로그인 회원만 사용할 수 있습니다."
+        )
+    valid = connection.execute(
+        text("""SELECT s.id FROM core.auth_session s JOIN core.app_user u ON u.id=s.user_id
+        WHERE s.token_hash=:token AND s.user_id=:user AND s.revoked_at IS NULL
+          AND s.expires_at>clock_timestamp() AND u.status='active' AND u.disabled_at IS NULL
+        FOR SHARE OF s"""),
+        {"token": token_hash(context.token), "user": context.user_id},
+    ).first()
+    if valid is None:
+        raise ApiError(401, "SESSION_EXPIRED", "세션이 없거나 만료되었습니다.")
 
 
 def companies(connection, context):

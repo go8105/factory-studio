@@ -39,9 +39,22 @@ class GwMigrationTests(unittest.TestCase):
         self.assertEqual(validate_gw_dsn31(self.current), [])
 
     def test_partial_scope_and_idempotency(self):
-        self.assertFalse(EXCLUDED & {t["name"] for t in self.current["tables"]})
+        implemented = {
+            t["name"]
+            for t in self.current["tables"]
+            if t.get("phase") == "GW-COMPANY-02"
+        }
         self.assertEqual(
-            sum(t["name"].startswith("gw.") and not t["name"].startswith("gw.work_") for t in self.current["tables"]), 19
+            EXCLUDED & {t["name"] for t in self.current["tables"]}, implemented
+        )
+        self.assertEqual(
+            sum(
+                t["name"].startswith("gw.")
+                and not t["name"].startswith("gw.work_")
+                and t["name"] not in implemented
+                for t in self.current["tables"]
+            ),
+            19,
         )
         self.assertFalse(apply(self.current, self.target))
         self.assertEqual(

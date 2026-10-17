@@ -23,6 +23,26 @@ def enabled(connection: Connection, scoped: AuthContext) -> bool:
     return module_available(connection, scoped.workspace_id, "hr")
 
 
+def work_identity(connection: Connection, scoped: AuthContext, user_id: int):
+    """검증된 회사 범위의 활성 근무 계정→사원 최소값. GW 바인딩 자동 생성은 하지 않는다."""
+    if not enabled(connection, scoped):
+        return None
+    row = (
+        connection.execute(
+            text("""SELECT e.employee_code AS "employeeCode",e.name,d.code AS "departmentCode"
+          FROM hr.work_account a JOIN hr.employee e
+            ON (e.workspace_id,e.generation_id,e.id)=(a.workspace_id,a.generation_id,a.employee_id)
+          JOIN hr.department d ON (d.workspace_id,d.generation_id,d.id)=(e.workspace_id,e.generation_id,e.department_id)
+          WHERE a.workspace_id=:w AND a.generation_id=:g AND a.user_id=:u
+            AND a.is_active AND e.status='ACTIVE' AND d.is_active"""),
+            {**_scope(scoped), "u": user_id},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    return dict(row) if row else None
+
+
 def employees(
     connection: Connection, scoped: AuthContext, status: str | None = "ACTIVE"
 ) -> list[dict[str, Any]] | None:

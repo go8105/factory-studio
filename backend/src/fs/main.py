@@ -13,6 +13,8 @@ from fs.erp.router import router as erp_router
 from fs.factory.router import router as factory_router
 from fs.fems.router import router as fems_router
 from fs.flow.router import router as flow_router
+from fs.gw.company import entry as gw_entry
+from fs.gw.company_router import router as gw_company_router
 from fs.gw.router import router as gw_router
 from fs.hr.router import router as hr_router
 from fs.hr.work_router import router as hr_work_router
@@ -34,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(flow_router, prefix="/api/v1/flow")
     app.include_router(flow_router, prefix="/api/v1/gw/projects")
     app.include_router(hr_work_router, prefix="/api/v1/hr/work")
+    app.include_router(gw_company_router, prefix="/api/v1/gw")
     app.include_router(review_router, prefix="/api/v1/core")
     app.include_router(
         fems_router, prefix="/api/v1/fems", dependencies=[Depends(seed_ready("fems"))]
@@ -56,9 +59,7 @@ def create_app() -> FastAPI:
     app.include_router(
         spc_router, prefix="/api/v1/spc", dependencies=[Depends(seed_ready("spc"))]
     )
-    app.include_router(
-        gw_router, prefix="/api/v1/gw", dependencies=[Depends(seed_ready("gw"))]
-    )
+    app.include_router(gw_router, prefix="/api/v1/gw", dependencies=[Depends(gw_entry)])
     app.include_router(
         hr_router, prefix="/api/v1/hr", dependencies=[Depends(seed_ready("hr"))]
     )

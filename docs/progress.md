@@ -1,3 +1,7 @@
+## 2026-10-17 GW-COMPANY-02 WIP 회사 인증 기반
+
+사용자 전체설계 확인·구현 승인. 보안5표/새revision gw_company_identity·core회사/HR최소조회·회사TX/receipt전권한/63업무경로미공개게이트/시드복사·초기화·이력downgrade방지 구현. schema0.26/198표2151컬럼488FK·현재/목표Excel/ERD 동시갱신. 정적/DDL0·공식ruff통과, 격리API회귀·왕복 진행중. 공유테스트컨테이너 잠금메모리오류로 최초회귀중단→전용Postgres18/55437에서 재검사. 공용설정/실제DB변경없음. [기록](agent/GW_회사인증_기반검증_GW-COMPANY-02.md). 03/04업무·UI미구현, main/원격/배포없음.
+
 ## 2026-10-17 GW-COMPANY-01 회사 인증·권한 설계 대조 완료
 
 사용자 “로컬 main만, 다음 GW” 지시. PWA제품e02097d/기록0a45562 로컬main완료·원격/배포없음. GW는 codex/gw-company-01에서 기존GW-EXT-A와현행HR/Flow/core회사구조대조. [통합설계](modules/gw/회사인증_권한_통합설계_GW-COMPANY-01.md): 회사·조직·스냅샷재사용, GW신규5표/명시역할/본인바인딩/객체ACL/잠금·receipt재확인/협업13화면·기존63경로 제안. [63경로감사표](agent/GW_회사인증_경로감사_GW-COMPANY-01.md). 코드AST63경로/메타데이터 재사용필드·상대링크·200줄·diff 정적검증. 제품/API/DB/화면검증미실행. schema/Excel/ERD/migration/실데이터변경없음. 설계대조100%·전체설계확인대상·제품구현0%. 다음02는사용자전체설계확인후 DB/게이트개발, 기존Flow7실패·P0실운영MFA/복구미정유지. 원격push/배포없음.

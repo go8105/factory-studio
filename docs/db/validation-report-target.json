@@ -26,9 +26,9 @@
     "wms": 23
   },
   "columns": 4350,
-  "foreign_keys": 925,
-  "constraints_and_policies": 2619,
-  "source_sha256": "91802af57afb1db93c4ed387c155cf70a966819bb23ba95cfca878910b954409",
+  "foreign_keys": 931,
+  "constraints_and_policies": 2629,
+  "source_sha256": "485cfaed50b7a38667c8c0f9a9e92dec371be1990291b878dc4cc454280c9999",
   "errors": [],
   "not_tested": [
     "실제 DDL 적용",

@@ -5,13 +5,12 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import text
-
 from fs.common.db import reset_engine
 from fs.hr import work
 from fs.hr.work_setup import create_example_company
 from fs.main import create_app
 from seed.generate import create_template
+from sqlalchemy import text
 
 
 @pytest.fixture

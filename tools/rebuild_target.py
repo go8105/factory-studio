@@ -3,6 +3,7 @@
 새 DSN 스크립트를 만들면 STEPS 끝에 붙인다. test_dsn*.py가 "재생성 결과 = 커밋된 목표 파일"을 검사한다.
 """
 
+import copy
 import json
 
 import apply_dsn00
@@ -50,9 +51,43 @@ STEPS = [
 
 
 def build():
-    d = apply_dsn00.base(json.loads(apply_dsn00.SOURCE.read_text(encoding="utf-8")))
+    current = json.loads(apply_dsn00.SOURCE.read_text(encoding="utf-8"))
+    d = apply_dsn00.base(current)
     for step in STEPS:
         step.apply(d)
+    # The approved company contract supersedes DSN-31's unimplemented UUID
+    # binding plan. Keep the other solutions' target design intact.
+    company_tables = {
+        t["name"] for t in current["tables"] if t.get("phase") == "GW-COMPANY-02"
+    }
+    if company_tables:
+        d["tables"] = [
+            t for t in d["tables"] if t["name"] not in company_tables
+        ] + copy.deepcopy([t for t in current["tables"] if t["name"] in company_tables])
+        for section, field in [("constraints", "table"), ("relations", "source")]:
+            d[section] = [
+                x for x in d[section] if x[field] not in company_tables
+            ] + copy.deepcopy(
+                [x for x in current[section] if x[field] in company_tables]
+            )
+        step_key = ["workspace_id", "generation_id", "document_id", "id"]
+        if not any(
+            x["table"] == "gw.approval_step"
+            and x["kind"] == "UK"
+            and x["columns"] == step_key
+            for x in d["constraints"]
+        ):
+            d["constraints"].extend(
+                copy.deepcopy(
+                    [
+                        x
+                        for x in current["constraints"]
+                        if x["table"] == "gw.approval_step"
+                        and x["kind"] == "UK"
+                        and x["columns"] == step_key
+                    ]
+                )
+            )
     return d
 
 

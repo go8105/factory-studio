@@ -1199,6 +1199,15 @@ erDiagram
     varchar client_key "클라이언트 키"
     timestamptz created_at "등록 시각"
   }
+  gw_collaboration_settings {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint generation_id FK "generation_id"
+    bigint authz_version "authz_version"
+    bigint initialized_by_user_id "initialized_by_user_id"
+    timestamptz initialized_at "initialized_at"
+    timestamptz created_at "created_at"
+  }
   gw_comment {
     bigint id PK "내부 식별자"
     bigint workspace_id FK "개인 체험 공간"
@@ -1238,6 +1247,18 @@ erDiagram
     timestamptz revoked_at "회수 시각 NULL"
     integer version "버전"
     timestamptz created_at "등록 시각"
+  }
+  gw_document_reader {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint generation_id FK "generation_id"
+    bigint document_id FK "document_id"
+    bigint person_id FK "person_id"
+    boolean is_active "is_active"
+    integer version "version"
+    bigint granted_by_user_id "granted_by_user_id"
+    varchar reason "reason"
+    timestamptz created_at "created_at"
   }
   gw_event_attendee {
     bigint id PK "내부 식별자"
@@ -1287,6 +1308,32 @@ erDiagram
     varchar hr_employee_code "HR 사원 코드 NULL"
     bigint organization_unit_id FK "현재 조직 NULL"
   }
+  gw_person_identity_binding {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint generation_id FK "generation_id"
+    bigint person_id FK "person_id"
+    bigint user_id "user_id"
+    varchar state "state"
+    integer version "version"
+    bigint requested_by_user_id "requested_by_user_id"
+    timestamptz activated_at "activated_at NULL"
+    timestamptz closed_at "closed_at NULL"
+    varchar reason "reason NULL"
+    timestamptz created_at "created_at"
+  }
+  gw_role_grant {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint generation_id FK "generation_id"
+    bigint person_id FK "person_id"
+    varchar role_key "role_key"
+    boolean is_active "is_active"
+    integer version "version"
+    bigint changed_by_user_id "changed_by_user_id"
+    varchar reason "reason"
+    timestamptz created_at "created_at"
+  }
   gw_route_step {
     bigint id PK "내부 식별자"
     bigint workspace_id FK "개인 체험 공간"
@@ -1296,6 +1343,18 @@ erDiagram
     bigint person_id FK "person_id"
     timestamptz created_at "등록 시각"
     varchar participant_role "참여 구분"
+  }
+  gw_step_assignment {
+    bigint id PK "id"
+    bigint workspace_id FK "workspace_id"
+    bigint generation_id FK "generation_id"
+    bigint document_id FK "document_id"
+    bigint step_id FK "step_id"
+    bigint person_id FK "person_id"
+    integer assignment_seq "assignment_seq"
+    varchar reason "reason"
+    bigint assigned_by_user_id "assigned_by_user_id"
+    timestamptz created_at "created_at"
   }
   hr_appointment {
     bigint id PK "내부 식별자"
@@ -2958,3 +3017,20 @@ erDiagram
   flow_work_board ||..o{ flow_work_column : "workspace_id,generation_id,board_id"
   flow_work_task ||..o{ flow_work_cell : "workspace_id,generation_id,board_id,task_id"
   flow_work_column ||..o{ flow_work_cell : "workspace_id,generation_id,board_id,column_id,kind"
+  core_workspace ||..o{ gw_collaboration_settings : "workspace_id"
+  core_data_generation ||..o| gw_collaboration_settings : "workspace_id,generation_id"
+  core_workspace ||..o{ gw_person_identity_binding : "workspace_id"
+  core_data_generation ||..o{ gw_person_identity_binding : "workspace_id,generation_id"
+  gw_person ||..o{ gw_person_identity_binding : "workspace_id,generation_id,person_id"
+  core_workspace ||..o{ gw_role_grant : "workspace_id"
+  core_data_generation ||..o{ gw_role_grant : "workspace_id,generation_id"
+  gw_person ||..o{ gw_role_grant : "workspace_id,generation_id,person_id"
+  core_workspace ||..o{ gw_document_reader : "workspace_id"
+  core_data_generation ||..o{ gw_document_reader : "workspace_id,generation_id"
+  gw_person ||..o{ gw_document_reader : "workspace_id,generation_id,person_id"
+  gw_approval_document ||..o{ gw_document_reader : "workspace_id,generation_id,document_id"
+  core_workspace ||..o{ gw_step_assignment : "workspace_id"
+  core_data_generation ||..o{ gw_step_assignment : "workspace_id,generation_id"
+  gw_person ||..o{ gw_step_assignment : "workspace_id,generation_id,person_id"
+  gw_approval_document ||..o{ gw_step_assignment : "workspace_id,generation_id,document_id"
+  gw_approval_step ||..o{ gw_step_assignment : "workspace_id,generation_id,document_id,step_id"

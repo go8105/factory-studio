@@ -1,3 +1,10 @@
+## 2026-10-17 GW-COMPANY-02 WIP 기반 구현
+
+- 사용자 전체설계·구현 승인. branch codex/gw-company-01 / factory-studio-gw-company, 기준06e4a70, 마지막커밋gitlog. 실제DB/계정/원격/운영/main변경없음.
+- 신규5표·revision gw_company_identity/명세198표2151컬럼488FK·현재/목표Excel/ERD. 회사TX/세션/권한/receipt기반, HR읽기계약, /gw/companies,/me 상태조회. 회사업무63경로는409로닫음(후속03/04), 본인대신person입력400. 시드복사/초기화·이력있는downgrade보호. [검증](GW_회사인증_기반검증_GW-COMPANY-02.md).
+- 정적/DDL0·공식ruff/ExcelQA완료. 관련API/최종도구/왕복진행중. 최초공유Postgres _test 회귀는 out-of-shared-memory로중단(30통과/오류1·중단). 다른작업의공용설정변경없이 **소유컨테이너 factory-studio-codex-gw-company-test:55437** 새로생성, factory_studio_gw_company_test에서 재검사. 임시자격증명work/gw-company/postgres.env(비공개), 테스트runner/log는work/gw-company. 실제DB URL인계금지. 컨테이너정리는검증완료후본인생성분만.
+- Node24/기존Python3.14 venv사용, repo임시.env는CI dry-run용합성주소(실제연결정보아님), work/db-design/node_modules는bundled artifact symlink. env/work/node_modules스테이징금지. 최종결과기록·커밋필수. 다음03은ID별결과확인후, P0인수·실기기·업무UI완료아님.
+
 ## 2026-10-17 GW-COMPANY-01 설계 대조 완료 · 제품 미착수
 
 - branch codex/gw-company-01, folder factory-studio-gw-company, 기준PWA제품e02097d+main기록0a45562, 마지막커밋gitlog. main에는PWA만반영, 원격/운영없음. 원본antigravity보존.

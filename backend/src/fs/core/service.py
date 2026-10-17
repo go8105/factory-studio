@@ -555,6 +555,15 @@ def reset_generation(
     idempotency_key: str,
 ) -> dict[str, Any]:
     _workspace_lock(connection, context.workspace_id)
+    if connection.execute(
+        text("SELECT workspace_kind='COMPANY' FROM core.workspace WHERE id=:w"),
+        {"w": context.workspace_id},
+    ).scalar():
+        raise ApiError(
+            409,
+            "WORKSPACE_KIND_UNSUPPORTED",
+            "회사 공간은 체험 초기화 대상이 아닙니다.",
+        )
     digest = request_digest({"targetDate": target_date.isoformat()})
     cached = find_receipt(
         connection, context, "workspace.generation.reset", idempotency_key, digest

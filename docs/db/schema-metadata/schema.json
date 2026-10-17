@@ -1,9 +1,9 @@
 {
-  "version": "0.25.0",
-  "task": "GW-FLOW-03",
-  "date": "2026-10-11",
+  "version": "0.26.0",
+  "task": "GW-COMPANY-02",
+  "date": "2026-10-17",
   "status": "구현 명세 / 환경별 적용 상태는 인계 참조",
-  "migration_revision": "flow_board_custom",
+  "migration_revision": "gw_company_identity",
   "tables": [
     {
       "name": "core.app_user",
@@ -18986,6 +18986,453 @@
       "note": "회사 공동 보드",
       "retention": "보관·휴지통, 영구삭제 UI 없음",
       "guest_cleanup": "자식부터 부모 순 정리"
+    },
+    {
+      "name": "gw.collaboration_settings",
+      "label": "collaboration_settings",
+      "scope": "workspace_generation",
+      "phase": "GW-COMPANY-02",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "authz_version",
+          "label": "authz_version",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "initialized_by_user_id",
+          "label": "initialized_by_user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "initialized_at",
+          "label": "initialized_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 GW 보안 원장. 인증 user_id는 검증된 식별자이며 core 업무 FK 없음",
+      "retention": "회사 운영 보존 정책에 따라 관리·물리 삭제 UI 없음",
+      "guest_cleanup": "공개 템플릿 0행·게스트 복사 금지"
+    },
+    {
+      "name": "gw.person_identity_binding",
+      "label": "person_identity_binding",
+      "scope": "workspace_generation",
+      "phase": "GW-COMPANY-02",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_id",
+          "label": "person_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "user_id",
+          "label": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "state",
+          "label": "state",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "requested_by_user_id",
+          "label": "requested_by_user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "activated_at",
+          "label": "activated_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "closed_at",
+          "label": "closed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "reason",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 GW 보안 원장. 인증 user_id는 검증된 식별자이며 core 업무 FK 없음",
+      "retention": "회사 운영 보존 정책에 따라 관리·물리 삭제 UI 없음",
+      "guest_cleanup": "공개 템플릿 0행·게스트 복사 금지"
+    },
+    {
+      "name": "gw.role_grant",
+      "label": "role_grant",
+      "scope": "workspace_generation",
+      "phase": "GW-COMPANY-02",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_id",
+          "label": "person_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "role_key",
+          "label": "role_key",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "is_active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "changed_by_user_id",
+          "label": "changed_by_user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "reason",
+          "type": "varchar(500)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 GW 보안 원장. 인증 user_id는 검증된 식별자이며 core 업무 FK 없음",
+      "retention": "회사 운영 보존 정책에 따라 관리·물리 삭제 UI 없음",
+      "guest_cleanup": "공개 템플릿 0행·게스트 복사 금지"
+    },
+    {
+      "name": "gw.document_reader",
+      "label": "document_reader",
+      "scope": "workspace_generation",
+      "phase": "GW-COMPANY-02",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "document_id",
+          "label": "document_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_id",
+          "label": "person_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "is_active",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": ""
+        },
+        {
+          "name": "granted_by_user_id",
+          "label": "granted_by_user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "reason",
+          "type": "varchar(500)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 GW 보안 원장. 인증 user_id는 검증된 식별자이며 core 업무 FK 없음",
+      "retention": "회사 운영 보존 정책에 따라 관리·물리 삭제 UI 없음",
+      "guest_cleanup": "공개 템플릿 0행·게스트 복사 금지"
+    },
+    {
+      "name": "gw.step_assignment",
+      "label": "step_assignment",
+      "scope": "workspace_generation",
+      "phase": "GW-COMPANY-02",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "document_id",
+          "label": "document_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "step_id",
+          "label": "step_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "person_id",
+          "label": "person_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "assignment_seq",
+          "label": "assignment_seq",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "reason",
+          "type": "varchar(500)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "assigned_by_user_id",
+          "label": "assigned_by_user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()",
+          "rule": ""
+        }
+      ],
+      "note": "회사 GW 보안 원장. 인증 user_id는 검증된 식별자이며 core 업무 FK 없음",
+      "retention": "회사 운영 보존 정책에 따라 관리·물리 삭제 UI 없음",
+      "guest_cleanup": "공개 템플릿 0행·게스트 복사 금지"
     }
   ],
   "relations": [
@@ -26589,6 +27036,267 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "회사 공간·세대·보드 격리"
+    },
+    {
+      "source": "gw.collaboration_settings",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.collaboration_settings",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.person_identity_binding",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.person_identity_binding",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.person_identity_binding",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "person_id"
+      ],
+      "target": "gw.person",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.role_grant",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.role_grant",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.role_grant",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "person_id"
+      ],
+      "target": "gw.person",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.document_reader",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.document_reader",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.document_reader",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "person_id"
+      ],
+      "target": "gw.person",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.document_reader",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id"
+      ],
+      "target": "gw.approval_document",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.step_assignment",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.step_assignment",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.step_assignment",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "person_id"
+      ],
+      "target": "gw.person",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.step_assignment",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id"
+      ],
+      "target": "gw.approval_document",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "gw.step_assignment",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id",
+        "step_id"
+      ],
+      "target": "gw.approval_step",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "회사 공간·세대 복합 참조"
     }
   ],
   "constraints": [
@@ -41129,6 +41837,349 @@
       ],
       "expression": "version>0 AND (value='null'::jsonb OR CASE kind WHEN 'TEXT' THEN jsonb_typeof(value)='string' AND length(value#>>'{}')<=4000 WHEN 'NUMBER' THEN jsonb_typeof(value)='number' WHEN 'DATE' THEN jsonb_typeof(value)='string' WHEN 'STATUS' THEN jsonb_typeof(value)='string' WHEN 'CHECKBOX' THEN jsonb_typeof(value)='boolean' WHEN 'TIMELINE' THEN jsonb_typeof(value)='object' AND value ?& ARRAY['start','end'] ELSE false END)",
       "reason": "FLOW-03 보드 무결성"
+    },
+    {
+      "table": "gw.collaboration_settings",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.collaboration_settings",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.collaboration_settings",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.person_identity_binding",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.person_identity_binding",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.person_identity_binding",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.person_identity_binding",
+      "kind": "CHECK",
+      "columns": [
+        "version"
+      ],
+      "expression": "version>0",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.role_grant",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.role_grant",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.role_grant",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.role_grant",
+      "kind": "CHECK",
+      "columns": [
+        "version"
+      ],
+      "expression": "version>0",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.role_grant",
+      "kind": "CHECK",
+      "columns": [
+        "reason"
+      ],
+      "expression": "char_length(btrim(reason)) BETWEEN 2 AND 500",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.document_reader",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.document_reader",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.document_reader",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.document_reader",
+      "kind": "CHECK",
+      "columns": [
+        "version"
+      ],
+      "expression": "version>0",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.document_reader",
+      "kind": "CHECK",
+      "columns": [
+        "reason"
+      ],
+      "expression": "char_length(btrim(reason)) BETWEEN 2 AND 500",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.step_assignment",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.step_assignment",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.step_assignment",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.step_assignment",
+      "kind": "CHECK",
+      "columns": [
+        "reason"
+      ],
+      "expression": "char_length(btrim(reason)) BETWEEN 2 AND 500",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.collaboration_settings",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.collaboration_settings",
+      "kind": "CHECK",
+      "columns": [
+        "authz_version"
+      ],
+      "expression": "authz_version>0",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.person_identity_binding",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "person_id"
+      ],
+      "expression": "UNIQUE WHERE state<>'CANCELLED'",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.person_identity_binding",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "user_id"
+      ],
+      "expression": "UNIQUE WHERE state<>'CANCELLED'",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.person_identity_binding",
+      "kind": "CHECK",
+      "columns": [
+        "state",
+        "activated_at",
+        "closed_at"
+      ],
+      "expression": "(state='PENDING' AND activated_at IS NULL AND closed_at IS NULL) OR (state='ACTIVE' AND activated_at IS NOT NULL AND closed_at IS NULL) OR (state='SUSPENDED' AND activated_at IS NOT NULL AND closed_at IS NOT NULL AND closed_at>=activated_at) OR (state='CANCELLED' AND activated_at IS NULL AND closed_at IS NOT NULL)",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.person_identity_binding",
+      "kind": "CHECK",
+      "columns": [
+        "reason"
+      ],
+      "expression": "reason IS NULL OR char_length(btrim(reason)) BETWEEN 2 AND 500",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.role_grant",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "person_id",
+        "role_key"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.role_grant",
+      "kind": "CHECK",
+      "columns": [
+        "role_key"
+      ],
+      "expression": "role_key IN ('ORG_ADMIN','ROUTE_ADMIN','POLICY_ADMIN','BOARD_PUBLISHER','SECURITY_ADMIN','AUDITOR')",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.document_reader",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id",
+        "person_id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.document_reader",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "person_id",
+        "is_active"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.approval_step",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.step_assignment",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "step_id",
+        "assignment_seq"
+      ],
+      "expression": "",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "gw.step_assignment",
+      "kind": "CHECK",
+      "columns": [
+        "assignment_seq"
+      ],
+      "expression": "assignment_seq>0",
+      "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
     }
   ],
   "states": [
@@ -42321,6 +43372,13 @@
       "date": "2026-10-11",
       "change": "自由 컬럼·셀 2표, 그룹 보관·삭제·복구, REVIEW 상태",
       "status": "구현·검증 진행"
+    },
+    {
+      "version": "0.26.0",
+      "task": "GW-COMPANY-02",
+      "date": "2026-10-17",
+      "change": "회사 GW 보안 5표·단계 복합 참조. 기존 회사/조직/사건 enum 재사용",
+      "status": "제품 업무 비공개·환경별 적용 상태는 인계 참조"
     }
   ]
 }
