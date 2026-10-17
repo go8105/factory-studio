@@ -1,3 +1,12 @@
+## 2026-10-17 GW-COMPANY-03 로컬 검증 완료 — 회사 업무 공개 전
+
+- 사용자 다음진행 승인, branch codex/gw-company-01 / factory-studio-gw-company. 기준824c4de, WIPe35eaa3, 최종gitlog. [결과](GW_직원연결_업무권한_GW-COMPANY-03.md).
+- company_identity.py/company_work.py/company_router.py: OWNER bootstrap/HR snapshot·PENDING본인동의/취소·같은쌍정지복귀·명시역할/CAS/마지막보안관리자/보안사건, GENERAL결재·게시ACL/SQL목록필터·읽기권한·재배정. 기존organization.import_snapshot를동일TX재사용, 기존정책/문서함수는명시company_mode인자(개인기본false)로유효배정/활성회사계정확인. 직무문자열을역할로임시변조하지않음.
+- 준비관리API만공개. 기존63개회사업무게이트/businessReady=false/capabilities=[] 유지. 실제HTTP는설정/연결/역할/관리 검증, 결재·게시전체흐름은DB내부서비스검증. UI/회사선택·협업전체ACL/도움말은04, 실운영P0/복구·MFA인수는05. 다음ID는결과확인후.
+- 전용Postgres18/55437 관련147통과(146묶음401.63초·기존경고6+회사병렬/합의/참조/전결1개6.14초), 최종3집중재검사16.89초통과. 도구139/공식ruff233·dbvalidate/R1R6/DDL0. 새시나리오16개. 스키마변경/새migration없음(schema0.26/headgw_company_identity 유지), Excel/ERD재생성없음. 전체backend/frontend/브라우저/실기기/실운영미검증·기존Flow프런트7실패미해결.
+- 테스트컨테이너 factory-studio-codex-gw-company-test 본인ID검증후종료·볼륨제거, 임시postgres.env/container-id/.env없음. 공유DB·실제계정·비밀번호·main·원격·운영변경없음. 표준재현명령은결과문서, work의비공개파일에의존하지말것.
+- **통합주의**: 병행main은다른작업에서9f6cf36으로전진(PWA포함·WMS205표/schema0.26/w2b1_wms). 이GW는198표/schema0.26/gw_company_identity. 양쪽head가flow_board_custom에서분기. 04/통합전양쪽schema버전·추가표·제약/기존자료보존·새merge revision을대조/재검증하고 적용migration수정금지. 이번147은최신WMS main과통합된검증아님. 원본다른작업자checkout보존. 원격push/배포없음.
+
 ## 2026-10-17 GW-COMPANY-03 WIP 직원 연결·업무 권한
 
 사용자 “다음 진행해줘” 승인. 회사 최초 설정/HR 명시적 스냅샷·PENDING 본인 동의/취소·동일쌍 정지복귀/명시 역할·마지막 보안관리자 보호, 일반 결재·게시 내부 ACL/읽기권한·재배정 구현중. 준비 관리 API만 추가하고 기존63개 업무 회사게이트/businessReady=false 유지. 최초9개 새 시나리오 통과 후 위임·조직·동시회수 및 기존회귀 진행중. schema/마이그레이션 변경없음. 전용 합성Postgres18/55437만 사용, 실제계정·공유DB·main·원격·운영변경없음. 다음: 현재 코드 전체회귀/기록 마무리, 04 UI/전체경로 통합은 이번ID 완료보고 뒤 확인.

@@ -1,6 +1,6 @@
 # GW 회사 인증·권한 통합 설계 · GW-COMPANY-01
 
-2026-10-17 사용자 전체 설계 확인·구현 승인. 현재 **GW-COMPANY-02 기반 구현·로컬 검증 완료**이며 [검증 기록](../../agent/GW_회사인증_기반검증_GW-COMPANY-02.md)을 따른다. 아래 ‘확인 대상/01만 수행’은 문서 최초 작성 시점의 이력이다. 후속03~05와 실운영 인수 완료를 뜻하지 않는다.
+2026-10-17 사용자 전체 설계 확인·구현 승인. **02 기반과 03 직원 연결·업무 권한의 로컬 구현·검증 완료**. [02 결과](../../agent/GW_회사인증_기반검증_GW-COMPANY-02.md)·[03 결과](../../agent/GW_직원연결_업무권한_GW-COMPANY-03.md)를 따른다. 아래 ‘설계 확인 대상/제품 미적용’은 최초 작성 이력이며 회사 업무 공개(04)·실운영 인수(05) 완료를 뜻하지 않는다.
 
 2026-10-17. **현재 코드 대조·설계 개정 완료, 전체 설계 확인 대상. 제품 구현·DB 적용·실운영 완료가 아니다.** 기준 로컬 main `e02097d`(PWA-POLICY-01 포함). 사용자 지시로 PWA를 로컬 main에만 반영하고 다음 GW 작업을 진행한다. 원격 push·배포는 하지 않는다.
 
@@ -67,7 +67,7 @@ AUDITOR는 보안 사건 최소값 열람 역할이다. 문서 본문은 별도�
 |---|---|
 | GET /companies, GET /me | 소속/본인 연결·역할·가능 기능 |
 | POST /company-setup | OWNER 최초 설정, 빈 GW+본인 HR 연결, 성공 재시도는 생성 중복0 |
-| GET/POST /identity-bindings | ORG_ADMIN 연결 요청·상태 목록. 후보 계정은 같은 회사 최소 이름/식별자만 |
+| GET/POST /identity-bindings | ORG_ADMIN 연결 요청, ORG_ADMIN/SECURITY_ADMIN 상태 목록(정지·복귀 대상 확인용 최소값). 후보 계정은 같은 회사 최소 이름/식별자만 |
 | POST /identity-bindings/{id}/cancel | 미수락 PENDING만, ORG_ADMIN |
 | POST /me/binding/accept | 대상 본인만, 버전 확인 |
 | POST /identity-bindings/{id}/suspend, /resume | SECURITY_ADMIN, 활성화된 동일 쌍만 |
@@ -99,7 +99,7 @@ AUDITOR는 보안 사건 최소값 열람 역할이다. 문서 본문은 별도�
 
 ## 6. 논리 DB 변경 제안
 
-**이 문서의 명세는 미적용 설계다. schema.json/Excel/실DB는 변경하지 않았다.** 신규5표만 제안하며 기존 조직/컬럼은 재사용한다. 공통 컬럼 id bigint identity PK, workspace_id/generation_id NOT NULL, UK(S,id), 범위 앵커 FK RESTRICT, created_at timestamptz 기본clock_timestamp. 업무 FK는 반드시 S를 포함한다.
+**01 작성 당시의 DB 제안이며 02에서 신규5표를 구현했다.** 실제 적용 명세/검증 환경은02 결과를 따른다. 기존 승인안은 신규5표만 추가하며 기존 조직/컬럼은 재사용한다. 공통 컬럼 id bigint identity PK, workspace_id/generation_id NOT NULL, UK(S,id), 범위 앵커 FK RESTRICT, created_at timestamptz 기본clock_timestamp. 업무 FK는 반드시 S를 포함한다.
 
 | 신규 GW 표 | 필수 필드·제약 |
 |---|---|

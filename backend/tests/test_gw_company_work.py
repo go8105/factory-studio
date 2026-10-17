@@ -297,6 +297,7 @@ def test_roles_last_security_admin_cas_and_revoked_receipt(company_env):
         == 403
     )
     assert api(admin, co, "security-events", method="GET").status_code == 403
+    assert ok(api(staff, co, "identity-bindings", method="GET"))["total"] == 2
     events = ok(api(staff, co, "security-events", method="GET"))
     assert events["total"] >= 5 and all("summary" not in r for r in events["items"])
 
@@ -617,6 +618,7 @@ def test_reassignment_preserves_original_step_and_removes_old_reader(
     blocked = ok(api(admin, co, "blocked-assignments", method="GET"))
     assert blocked["total"] == 1
     assert not {"title", "body", "amount"} & blocked["items"][0].keys()
+    assert blocked["items"][0]["documentVersion"] == doc["version"]
     new = ok(api(admin, co, f"documents/{doc['id']}/reassign-step", reassign))
     ok(
         api(
@@ -946,3 +948,326 @@ def test_org_post_current_membership_and_author_access(company_env):
     assert withdrawn["status"] == "WITHDRAWN"
     assert read_work(company_env, staff, "posts")["total"] == 0
     assert co["companyId"] > 0
+
+
+def test_setup_concurrent_retry_and_binding_validation(company_env):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from fs.gw import company_identity as identities
+
+    engine, co, admin, staff = company_env
+    ctx = context(engine, admin)
+    key = str(uuid4())
+    values = {"employee_code": "HUGH-001", "reason": "동시 합성 최초 설정"}
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [
+            pool.submit(identities.setup, ctx, co["companyId"], values, key)
+            for _ in range(2)
+        ]
+        assert futures[0].result(timeout=20) == futures[1].result(timeout=20)
+    with pytest.raises(ApiError) as e:
+        identities.setup(ctx, co["companyId"], {**values, "reason": "본문 변경"}, key)
+    assert e.value.status_code == 422
+    target, user = import_staff(company_env)
+    own = int(ok(api(admin, co, "me", method="GET"))["person"]["id"])
+    assert (
+        api(
+            admin,
+            co,
+            "identity-bindings",
+            {
+                "personId": str(own),
+                "userId": str(user),
+                "reason": "다른 사번 계정 거부",
+            },
+        ).status_code
+        == 400
+    )
+    assert (
+        api(
+            admin,
+            co,
+            "identity-bindings",
+            {
+                "personId": str(target + 100000),
+                "userId": str(user),
+                "reason": "범위 없는 직원 거부",
+            },
+        ).status_code
+        == 404
+    )
+    binding = ok(
+        api(
+            admin,
+            co,
+            "identity-bindings",
+            {"personId": str(target), "userId": str(user), "reason": "합성 확인 요청"},
+        )
+    )
+    assert (
+        api(
+            staff,
+            co,
+            "me/binding/accept",
+            {"bindingId": binding["id"], "expectedVersion": 2},
+        ).status_code
+        == 409
+    )
+    assert (
+        api(
+            admin,
+            co,
+            f"people/{target}/roles",
+            {
+                "expectedVersion": 1,
+                "roles": ["SECURITY_ADMIN"],
+                "reason": "미수락 역할 부여 거부",
+            },
+            method="PATCH",
+        ).status_code
+        == 400
+    )
+    assert (
+        api(
+            admin,
+            co,
+            f"people/{own}/roles",
+            {
+                "expectedVersion": 1,
+                "roles": ["BOARD_ADMIN"],
+                "reason": "알 수 없는 권한 거부",
+            },
+            method="PATCH",
+        ).status_code
+        == 400
+    )
+
+
+def test_waiting_read_rechecks_reader_revocation_after_lock(company_env, third):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from time import monotonic, sleep
+
+    from fs.gw import company
+
+    engine, co, admin, staff = company_env
+    initialize(company_env)
+    target, _ = connect_staff(company_env)
+    reader, _ = connect_third(company_env, third)
+    doc = document(company_env, target)
+    doc = call_work(
+        company_env,
+        admin,
+        "documents",
+        int(doc["id"]),
+        "submit",
+        {"expected_version": doc["version"]},
+    )
+    ok(
+        api(
+            admin,
+            co,
+            f"documents/{doc['id']}/readers",
+            {
+                "personId": str(reader),
+                "expectedVersion": doc["version"],
+                "reason": "합성 대기 전 열람",
+            },
+        )
+    )
+    third_ctx = context(engine, third)
+    admin_ctx = context(engine, admin)
+    started = Event()
+
+    def pending():
+        started.set()
+        try:
+            work.read(third_ctx, co["companyId"], "documents", int(doc["id"]))
+        except ApiError as error:
+            return error.status_code
+        return 200
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with company.transaction(admin_ctx, co["companyId"], write=True) as (c, ctx, _):
+            future = pool.submit(pending)
+            assert started.wait(timeout=10)
+            deadline = monotonic() + 10
+            while True:
+                with engine.connect() as probe:
+                    waiting = probe.execute(
+                        text(
+                            "SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND classid=16 AND objid=:company AND objsubid=2 AND NOT granted)"
+                        ),
+                        {"company": co["companyId"]},
+                    ).scalar_one()
+                if waiting:
+                    break
+                assert monotonic() < deadline, (
+                    "조회가 회사 잠금에서 대기하지 않았습니다."
+                )
+                sleep(0.01)
+            c.execute(
+                text(
+                    "UPDATE gw.document_reader SET is_active=false WHERE workspace_id=:w AND generation_id=:g AND document_id=:doc AND person_id=:person"
+                ),
+                {
+                    "w": ctx.workspace_id,
+                    "g": ctx.generation_id,
+                    "doc": int(doc["id"]),
+                    "person": reader,
+                },
+            )
+        assert future.result(timeout=20) == 404
+    assert staff is not None
+
+
+def test_company_parallel_consent_reference_and_authority(company_env, third):
+    from zoneinfo import ZoneInfo
+
+    from fs.gw import company
+    from fs.gw import service as gw
+
+    engine, co, admin, staff = company_env
+    initialize(company_env)
+    approver, _ = connect_staff(company_env)
+    other, _ = connect_third(company_env, third)
+    for role in ("CONSENT", "REFERENCE"):
+        route = call_work(
+            company_env,
+            admin,
+            "routes",
+            None,
+            "create",
+            {
+                "code": "CO-" + role,
+                "name": "합성 병렬 " + role,
+                "steps": [
+                    {"person_id": approver, "seq": 1, "participant_role": "APPROVER"},
+                    {"person_id": other, "seq": 1, "participant_role": role},
+                ],
+            },
+        )
+        draft = call_work(
+            company_env,
+            admin,
+            "documents",
+            None,
+            "create",
+            {
+                "route_id": int(route["id"]),
+                "kind": "GENERAL",
+                "title": "합성 병렬 " + role,
+                "body": "합성 본문",
+            },
+        )
+        doc = call_work(
+            company_env,
+            admin,
+            "documents",
+            int(draft["id"]),
+            "submit",
+            {"expected_version": draft["version"]},
+        )
+        # 참조는 먼저 확인하며, 합의는 승인 뒤에도 대기 상태를 유지한다.
+        first_client, first_action = (
+            (third, "reference") if role == "REFERENCE" else (staff, "approve")
+        )
+        second_client, second_action = (
+            (staff, "approve") if role == "REFERENCE" else (third, "consent")
+        )
+        decided = call_work(
+            company_env,
+            first_client,
+            "documents",
+            int(doc["id"]),
+            first_action,
+            {"expected_version": doc["version"], "reason": "합성 참여 처리"},
+        )
+        assert decided["status"] == "IN_REVIEW"
+        saved = call_work(
+            company_env,
+            second_client,
+            "documents",
+            int(doc["id"]),
+            second_action,
+            {"expected_version": decided["version"]},
+        )
+        assert saved["status"] == "APPROVED"
+        assert {
+            e["actingPersonId"]
+            for e in saved["events"]
+            if e["eventType"] in {"APPROVED", "CONSENTED"}
+        } == {str(approver), str(other)}
+    route = call_work(
+        company_env,
+        admin,
+        "routes",
+        None,
+        "create",
+        {
+            "code": "CO-AUTHORITY",
+            "name": "합성 전결",
+            "steps": [
+                {"person_id": approver, "seq": 1, "participant_role": "APPROVER"},
+                {"person_id": other, "seq": 2, "participant_role": "APPROVER"},
+            ],
+        },
+    )
+    with company.transaction(context(engine, admin), co["companyId"], write=True) as (
+        c,
+        ctx,
+        _,
+    ):
+        gw.insert(
+            c,
+            ctx,
+            "authority_rule",
+            {
+                "code": "CO-LIMIT",
+                "document_kind": "GENERAL",
+                "currency": "KRW",
+                "amount_from": 0,
+                "amount_to": 1000,
+                "final_seq": 1,
+                "effective_from": gw.now(c)
+                .astimezone(ZoneInfo("Asia/Seoul"))
+                .strftime("%Y-%m"),
+            },
+        )
+    draft = call_work(
+        company_env,
+        admin,
+        "documents",
+        None,
+        "create",
+        {
+            "route_id": int(route["id"]),
+            "kind": "GENERAL",
+            "title": "합성 전결 검증",
+            "body": "가정 금액",
+            "amount": "100",
+            "currency": "KRW",
+        },
+    )
+    doc = call_work(
+        company_env,
+        admin,
+        "documents",
+        int(draft["id"]),
+        "submit",
+        {"expected_version": draft["version"]},
+    )
+    assert doc["steps"][1]["status"] == "SKIPPED"
+    assert doc["authorityRuleId"] is not None
+    with pytest.raises(ApiError) as e:
+        read_work(company_env, third, "documents", int(doc["id"]))
+    assert e.value.status_code == 404
+    saved = call_work(
+        company_env,
+        staff,
+        "documents",
+        int(doc["id"]),
+        "approve",
+        {"expected_version": doc["version"]},
+    )
+    assert saved["status"] == "APPROVED"

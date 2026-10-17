@@ -366,7 +366,9 @@ def roles(context, company_id, person_id, values, key):
 
 def overview(context, company_id, *, offset=0, limit=50):
     with company.transaction(context, company_id) as (c, ctx, _):
-        company.principal(c, ctx, "ORG_ADMIN")
+        _, roles = company.principal(c, ctx)
+        if not roles & {"ORG_ADMIN", "SECURITY_ADMIN"}:
+            denied()
         rows = gw.rows(
             c,
             f"SELECT * FROM gw.person_identity_binding WHERE {gw.S} ORDER BY id LIMIT :limit OFFSET :offset",

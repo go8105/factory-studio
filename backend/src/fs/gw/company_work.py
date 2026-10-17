@@ -419,7 +419,7 @@ def blocked(context, company_id, *, offset=0, limit=50):
         # 담당 정보 외의 원문·제목·금액은 관리 응답에 포함하지 않는다.
         rows = gw.rows(
             c,
-            "SELECT s.document_id,s.id AS step_id,s.seq,s.participant_role,coalesce((SELECT a.person_id FROM gw.step_assignment a WHERE a.workspace_id=s.workspace_id AND a.generation_id=s.generation_id AND a.step_id=s.id ORDER BY a.assignment_seq DESC LIMIT 1),s.person_id) AS person_id FROM gw.approval_step s JOIN gw.approval_document d ON (d.workspace_id,d.generation_id,d.id)=(s.workspace_id,s.generation_id,s.document_id) WHERE s.workspace_id=:w AND s.generation_id=:g AND s.status='WAITING' AND d.status='IN_REVIEW' AND d.kind='GENERAL' ORDER BY s.document_id,s.seq,s.id",
+            "SELECT s.document_id,d.version AS document_version,s.id AS step_id,s.seq,s.participant_role,coalesce((SELECT a.person_id FROM gw.step_assignment a WHERE a.workspace_id=s.workspace_id AND a.generation_id=s.generation_id AND a.step_id=s.id ORDER BY a.assignment_seq DESC LIMIT 1),s.person_id) AS person_id FROM gw.approval_step s JOIN gw.approval_document d ON (d.workspace_id,d.generation_id,d.id)=(s.workspace_id,s.generation_id,s.document_id) WHERE s.workspace_id=:w AND s.generation_id=:g AND s.status='WAITING' AND d.status='IN_REVIEW' AND d.kind='GENERAL' ORDER BY s.document_id,s.seq,s.id",
             gw.params(ctx),
         )
         data = [r for r in rows if r["person_id"] not in active]
