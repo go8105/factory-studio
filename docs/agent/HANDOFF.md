@@ -1,4 +1,8 @@
-## 2026-10-17 PWA-POLICY-01 완료 · main/운영 미반영
+## 2026-10-17 PWA-POLICY-01 로컬 main 반영 · GW 설계 대조 시작
+
+사용자 지시로 PWA `e02097d`를 로컬 main에 ff 병합. 원격/실서버 변경 없음. main 폴더는 factory-studio-help-main, 새 GW 브랜치는 codex/gw-company-01 / factory-studio-gw-company. 다음은 기존 GW-EXT-A와 core.company/HR/Flow 인증·조직 재사용 대조이며 제품DB 적용 전 전체설계 확인 필요. 기존 Flow 회귀7실패 보존. 이전 아래 항목의 main 미반영 표시는 이 기록으로 갱신한다.
+
+## 2026-10-17 PWA-POLICY-01 완료 · 당시 main/운영 미반영
 
 - 브랜치 `codex/pwa-policy-01`, 폴더 `/Users/hwang-kyoungho/projects/factory-studio-pwa-policy`, 기준main `eaa01eb`. 마지막 커밋은 `git log -1 --oneline`. 원본 `antigravity/w2b-1b` 및 main 보존.
 - 사용자 고도화 순서 승인. 첫 ID는 기존 승인 HR-TIME-01의 회사 정책 적용 보정: 요약/잔여 일 환산/연차·반차 제출/분 단위 선택. [검증](PWA_정책화면_일치_PWA-POLICY-01.md), [순서](../plan/시스템고도화_진행순서_UPGRADE-01.md). 시간대 Seoul·당일1휴게, 잘못된 정책/홀수 반차 차단. 새정책화면·DB·실제계정/정책/원장변경없음.
