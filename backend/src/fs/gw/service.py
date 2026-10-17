@@ -314,12 +314,23 @@ def comparison(c, ctx, row):
     }
 
 
-def steps(c, ctx, id):
-    return rows(
+def steps(c, ctx, id, *, company_mode=False):
+    result = rows(
         c,
         f"SELECT * FROM gw.approval_step WHERE {S} AND document_id=:id ORDER BY seq,id",
         params(ctx, id=id),
     )
+    if company_mode:
+        assignments = rows(
+            c,
+            f"SELECT DISTINCT ON (step_id) step_id,person_id FROM gw.step_assignment WHERE {S} AND document_id=:id ORDER BY step_id,assignment_seq DESC",
+            params(ctx, id=id),
+        )
+        by_step = {a["step_id"]: a["person_id"] for a in assignments}
+        for step in result:
+            step["original_person_id"] = step["person_id"]
+            step["person_id"] = by_step.get(step["id"], step["person_id"])
+    return result
 
 
 def route_people(c, ctx, id, drafter=None, legacy=False):
@@ -765,7 +776,7 @@ def master(c, ctx, kind, id, v):
     return id
 
 
-def document(c, ctx, id, action, v):
+def document(c, ctx, id, action, v, *, company_mode=False):
     p = actor(c, ctx, v["acting_person_id"])
     table = "approval_document"
     if id is None:
@@ -839,7 +850,7 @@ def document(c, ctx, id, action, v):
                 raise conflict("ROUTE_INACTIVE")
             from fs.gw import policy
 
-            ss = steps(c, ctx, id)
+            ss = steps(c, ctx, id, company_mode=company_mode)
             pp = policy.participants(
                 c, ctx, ss, p["id"], legacy=row["policy_version"] == 1
             )
@@ -892,7 +903,7 @@ def document(c, ctx, id, action, v):
         if action == "withdraw":
             if any(
                 s["status"] == "APPROVED" and s["participant_role"] != "REFERENCE"
-                for s in steps(c, ctx, id)
+                for s in steps(c, ctx, id, company_mode=company_mode)
             ):
                 raise conflict("WITHDRAW_NOT_ALLOWED")
             r = reason(v, True)
@@ -901,13 +912,13 @@ def document(c, ctx, id, action, v):
             skipped = policy.skip(c, ctx, id)
         else:
             changes, evt, r, step, grant, event_details, skipped = policy.decision(
-                c, ctx, row, p, action, v
+                c, ctx, row, p, action, v, company_mode=company_mode
             )
             on_behalf = (
                 event_details
                 and next(
                     s["person_id"]
-                    for s in steps(c, ctx, id)
+                    for s in steps(c, ctx, id, company_mode=company_mode)
                     if str(s["id"]) == event_details["stepId"]
                 )
                 if grant
@@ -950,28 +961,36 @@ def document(c, ctx, id, action, v):
             round_no=row["round_no"] + 1,
         )
         new = insert(c, ctx, table, data)
-        for s in steps(c, ctx, id):
-            insert(
-                c,
-                ctx,
-                "approval_step",
-                {
-                    "document_id": new,
-                    **{
-                        k: s[k]
-                        for k in [
-                            "seq",
-                            "person_id",
-                            "person_code",
-                            "person_name",
-                            "person_job_role",
-                            "participant_role",
-                            "organization_code",
-                            "organization_name",
-                        ]
-                    },
-                },
+        if company_mode:
+            from fs.gw import policy
+
+            pp = policy.participants(
+                c, ctx, steps(c, ctx, id, company_mode=True), p["id"]
             )
+            write_steps(c, ctx, new, pp)
+        else:
+            for s in steps(c, ctx, id, company_mode=company_mode):
+                insert(
+                    c,
+                    ctx,
+                    "approval_step",
+                    {
+                        "document_id": new,
+                        **{
+                            k: s[k]
+                            for k in [
+                                "seq",
+                                "person_id",
+                                "person_code",
+                                "person_name",
+                                "person_job_role",
+                                "participant_role",
+                                "organization_code",
+                                "organization_name",
+                            ]
+                        },
+                    },
+                )
         event(c, ctx, table, one(c, ctx, table, new), p, "RESUBMISSION_CREATED")
         return new
     else:
@@ -1007,7 +1026,7 @@ def money(v):
     return {"amount": amount, "currency": currency}
 
 
-def post(c, ctx, id, action, v):
+def post(c, ctx, id, action, v, *, notice_allowed=None):
     p = actor(c, ctx, v["acting_person_id"])
     table = "board_post"
     row = one(c, ctx, table, id, True) if id else None
@@ -1015,7 +1034,11 @@ def post(c, ctx, id, action, v):
         check_version(row, v)
         authored(row, p, "author_id")
     board = row["board_kind"] if row else v["board_kind"]
-    if board == "NOTICE" and p["job_role"] != "BOARD_ADMIN":
+    if board == "NOTICE" and (
+        (p["job_role"] != "BOARD_ADMIN")
+        if notice_allowed is None
+        else not notice_allowed
+    ):
         raise conflict("WRONG_ACTOR")
     r = None
     visibility = v.get("visibility", row["visibility"] if row else "WORKSPACE")

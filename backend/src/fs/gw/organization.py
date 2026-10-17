@@ -94,127 +94,135 @@ def preview(context):
 
 
 def import_hr(context, values, key):
-    def run(c, ctx):
-        source = state(c, ctx)
-        if not source["available"]:
-            raise ApiError(
-                409,
-                "PRECONDITION_NOT_MET",
-                "HR이 꺼져 있거나 아직 열지 않아 가져올 수 없습니다.",
-                {"reason": "HR_UNAVAILABLE"},
-            )
-        if source["digest"] != values["preview_digest"]:
-            raise ApiError(
-                409,
-                "PRECONDITION_NOT_MET",
-                "HR 또는 GW 정보가 바뀌었습니다. 미리보기를 다시 확인하세요.",
-                {"reason": "HR_IMPORT_CHANGED"},
-            )
-        selected = values["employee_codes"]
-        active = {
-            e["employeeCode"]: e for e in source["employees"] if e["status"] == "ACTIVE"
+    return action(
+        "gw",
+        context,
+        "gw.import-hr",
+        key,
+        values,
+        lambda c, ctx: import_snapshot(c, ctx, values),
+    )
+
+
+def import_snapshot(c, ctx, values):
+    source = state(c, ctx)
+    if not source["available"]:
+        raise ApiError(
+            409,
+            "PRECONDITION_NOT_MET",
+            "HR이 꺼져 있거나 아직 열지 않아 가져올 수 없습니다.",
+            {"reason": "HR_UNAVAILABLE"},
+        )
+    if source["digest"] != values["preview_digest"]:
+        raise ApiError(
+            409,
+            "PRECONDITION_NOT_MET",
+            "HR 또는 GW 정보가 바뀌었습니다. 미리보기를 다시 확인하세요.",
+            {"reason": "HR_IMPORT_CHANGED"},
+        )
+    selected = values["employee_codes"]
+    active = {
+        e["employeeCode"]: e for e in source["employees"] if e["status"] == "ACTIVE"
+    }
+    if len(selected) != len(set(selected)) or any(
+        code not in active for code in selected
+    ):
+        raise gw.invalid("employeeCodes", "중복 없이 재직 사원을 선택하세요.")
+    units, people = local(c, ctx)
+    org = {d["code"]: d["id"] for d in units}
+    ids = {u["id"]: u["code"] for u in units}
+    current_codes = {d["code"] for d in source["departments"]}
+    combined = source["departments"] + [
+        {
+            "code": u["code"],
+            "name": u["name"],
+            "parentCode": ids.get(u["parent_id"]),
+            "isActive": u["is_active"],
         }
-        if len(selected) != len(set(selected)) or any(
-            code not in active for code in selected
-        ):
-            raise gw.invalid("employeeCodes", "중복 없이 재직 사원을 선택하세요.")
-        units, people = local(c, ctx)
-        org = {d["code"]: d["id"] for d in units}
-        ids = {u["id"]: u["code"] for u in units}
-        current_codes = {d["code"] for d in source["departments"]}
-        combined = source["departments"] + [
-            {
-                "code": u["code"],
-                "name": u["name"],
-                "parentCode": ids.get(u["parent_id"]),
-                "isActive": u["is_active"],
-            }
-            for u in units
-            if u["code"] not in current_codes
-        ]
-        validate(combined, [])
-        stamp = gw.now(c)
-        # 먼저 모든 부서 id를 확보한 뒤 부모를 연결한다. HR에서 없어진 부서는 참조를 보존한다.
-        for d in source["departments"]:
-            if d["code"] not in org:
-                org[d["code"]] = gw.insert(
-                    c,
-                    ctx,
-                    "organization_unit",
-                    {"code": d["code"], "name": d["name"], "is_active": d["isActive"]},
-                )
-        for d in source["departments"]:
-            gw.update(
+        for u in units
+        if u["code"] not in current_codes
+    ]
+    validate(combined, [])
+    stamp = gw.now(c)
+    # 먼저 모든 부서 id를 확보한 뒤 부모를 연결한다. HR에서 없어진 부서는 참조를 보존한다.
+    for d in source["departments"]:
+        if d["code"] not in org:
+            org[d["code"]] = gw.insert(
                 c,
                 ctx,
                 "organization_unit",
-                org[d["code"]],
-                {
-                    "name": d["name"],
-                    "is_active": d["isActive"],
-                    "parent_id": org.get(d["parentCode"]),
-                    "hr_synced_at": stamp,
-                },
+                {"code": d["code"], "name": d["name"], "is_active": d["isActive"]},
             )
-        by_hr = {p["hr_employee_code"]: p for p in people if p["hr_employee_code"]}
-        used_codes = {p["code"] for p in people}
-        created, updated = 0, 0
-        for code in selected:
-            e = active[code]
-            data = {"name": e["name"], "organization_unit_id": org[e["departmentCode"]]}
-            if code in by_hr:
-                # GW 직무·활성 상태는 로컬 소유: 가져오기로 권한 승격/재활성화하지 않는다.
-                gw.update(c, ctx, "person", by_hr[code]["id"], data)
-                updated += 1
-            else:
-                person_code = (
-                    code
-                    if re.fullmatch(r"[A-Z][A-Z0-9-]{1,29}", code)
-                    else "HR-" + hashlib.sha256(code.encode()).hexdigest()[:20].upper()
-                )
-                if person_code in used_codes:
-                    raise ApiError(
-                        409,
-                        "PRECONDITION_NOT_MET",
-                        "GW 코드가 이미 사용 중입니다. 기존 담당자를 자동 연결하지 않습니다.",
-                        {"reason": "HR_CODE_COLLISION", "employeeCode": code},
-                    )
-                gw.insert(
-                    c,
-                    ctx,
-                    "person",
-                    {
-                        "code": person_code,
-                        "hr_employee_code": code,
-                        "job_role": "STAFF",
-                        **data,
-                    },
-                )
-                used_codes.add(person_code)
-                created += 1
-        result = {
-            "created": created,
-            "updated": updated,
-            "departments": len(source["departments"]),
-            "syncedAt": stamp.isoformat(),
-        }
-        gw.audit(
+    for d in source["departments"]:
+        gw.update(
             c,
             ctx,
-            "people",
-            ctx.workspace_id,
-            "import-hr",
-            result,
-            entity_kind="core.workspace",
-            summary=result,
+            "organization_unit",
+            org[d["code"]],
+            {
+                "name": d["name"],
+                "is_active": d["isActive"],
+                "parent_id": org.get(d["parentCode"]),
+                "hr_synced_at": stamp,
+            },
         )
-        return (
-            result,
-            "gw.organization_unit",
-            next(iter(org.values()), ctx.workspace_id),
-        )
-
-    return action("gw", context, "gw.import-hr", key, values, run)
+    by_hr = {p["hr_employee_code"]: p for p in people if p["hr_employee_code"]}
+    used_codes = {p["code"] for p in people}
+    created, updated = 0, 0
+    for code in selected:
+        e = active[code]
+        data = {"name": e["name"], "organization_unit_id": org[e["departmentCode"]]}
+        if code in by_hr:
+            # GW 직무·활성 상태는 로컬 소유: 가져오기로 권한 승격/재활성화하지 않는다.
+            gw.update(c, ctx, "person", by_hr[code]["id"], data)
+            updated += 1
+        else:
+            person_code = (
+                code
+                if re.fullmatch(r"[A-Z][A-Z0-9-]{1,29}", code)
+                else "HR-" + hashlib.sha256(code.encode()).hexdigest()[:20].upper()
+            )
+            if person_code in used_codes:
+                raise ApiError(
+                    409,
+                    "PRECONDITION_NOT_MET",
+                    "GW 코드가 이미 사용 중입니다. 기존 담당자를 자동 연결하지 않습니다.",
+                    {"reason": "HR_CODE_COLLISION", "employeeCode": code},
+                )
+            gw.insert(
+                c,
+                ctx,
+                "person",
+                {
+                    "code": person_code,
+                    "hr_employee_code": code,
+                    "job_role": "STAFF",
+                    **data,
+                },
+            )
+            used_codes.add(person_code)
+            created += 1
+    result = {
+        "created": created,
+        "updated": updated,
+        "departments": len(source["departments"]),
+        "syncedAt": stamp.isoformat(),
+    }
+    gw.audit(
+        c,
+        ctx,
+        "people",
+        ctx.workspace_id,
+        "import-hr",
+        result,
+        entity_kind="core.workspace",
+        summary=result,
+    )
+    return (
+        result,
+        "gw.organization_unit",
+        next(iter(org.values()), ctx.workspace_id),
+    )
 
 
 def enrich_people(c, ctx, people):

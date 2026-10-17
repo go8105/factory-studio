@@ -107,22 +107,31 @@ def authority(c, ctx, row, t):
     return found[0] if found else None
 
 
-def eligible(c, ctx, row, person, ss=None, t=None):
+def eligible(c, ctx, row, person, ss=None, t=None, *, company_mode=False):
     if (
         row["status"] != "IN_REVIEW"
         or person["id"] == row["drafter_id"]
         or not person["is_active"]
     ):
         return []
-    ss = ss if ss is not None else gw.steps(c, ctx, row["id"])
+    ss = (
+        ss if ss is not None else gw.steps(c, ctx, row["id"], company_mode=company_mode)
+    )
     t = t if t is not None else gw.now(c)
+    active = None
+    if company_mode:
+        from fs.gw.company_identity import active_people
+
+        active = active_people(c, ctx)
     found = []
     for step in ss:
         if step["seq"] != row["current_step"] or step["status"] != "WAITING":
             continue
         # 기존 v1은 원 담당자의 순차 처리를 유지한다.
         assigned = gw.one(c, ctx, "person", step["person_id"])
-        if not assigned["is_active"]:
+        if not assigned["is_active"] or (
+            active is not None and step["person_id"] not in active
+        ):
             continue
         delegation = None
         if step["person_id"] != person["id"]:
@@ -157,10 +166,10 @@ def eligible(c, ctx, row, person, ss=None, t=None):
     return found
 
 
-def decision(c, ctx, row, person, action_name, values):
-    ss = gw.steps(c, ctx, row["id"])
+def decision(c, ctx, row, person, action_name, values, *, company_mode=False):
+    ss = gw.steps(c, ctx, row["id"], company_mode=company_mode)
     t = gw.now(c)
-    candidates = eligible(c, ctx, row, person, ss, t)
+    candidates = eligible(c, ctx, row, person, ss, t, company_mode=company_mode)
     expected_role = (
         "APPROVER"
         if action_name in {"approve", "reject"}
