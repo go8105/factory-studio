@@ -108,6 +108,8 @@ WMS_TABLES = (
     "inbound_notice",
     "stock_move",
     "stock_document",
+    "lot_hold",
+    "lot",
     "item_unit_conversion",
     "item",
     "storage_location",
@@ -663,3 +665,453 @@ def test_seed_demo_flow(guest_space):
     assert lt10 == {"F-A01": "1440.000", "F-A02": "500.000"}
     assert _sync(client, created, "ERP_SHIPMENT", "ERP:SHIPMENT:SH-0004")["synced"] == 1
     assert _stock(client, itemCode="FG-C200", lotNo="LT-0008") == []
+
+
+def test_item_extended_fields_and_rules(blank):
+    """W-07: 품목 확장 필드 등록·수정과 비즈니스 규칙(PLM 쌍, 최대재고>=안전재고) 검증."""
+    client, created = blank
+
+    # 1. 정상 등록 (확장 필드 포함)
+    item = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/items",
+            {
+                "itemCode": "TEST-ITEM-01",
+                "name": "테스트 품목",
+                "baseUnit": "EA",
+                "itemClass": "RAW",
+                "lotTracked": True,
+                "shelfLifeDays": 90,
+                "storageCondition": "상온 보관 (15~25도)",
+                "safetyStock": "50.000",
+                "maxStock": "200.000",
+                "abcClass": "A",
+                "plmPartNo": "PART-999",
+                "plmRevision": "R1",
+            },
+        ),
+        201,
+    )
+    assert item["lotTracked"] is True
+    assert item["shelfLifeDays"] == 90
+    assert item["safetyStock"] == "50.000"
+    assert item["maxStock"] == "200.000"
+    assert item["abcClass"] == "A"
+    assert item["plmPartNo"] == "PART-999"
+    assert item["plmRevision"] == "R1"
+
+    # 2. 수정 및 null 초기화
+    updated = _ok(
+        _call(
+            client,
+            created,
+            "PATCH",
+            f"/items/{item['id']}",
+            {
+                "name": "수정된 테스트 품목",
+                "safetyStock": "80.000",
+                "maxStock": "300.000",
+                "plmPartNo": None,
+                "plmRevision": None,
+            },
+        )
+    )
+    assert updated["name"] == "수정된 테스트 품목"
+    assert updated["safetyStock"] == "80.000"
+    assert updated["maxStock"] == "300.000"
+    assert updated["plmPartNo"] is None
+    assert updated["plmRevision"] is None
+
+    # 3. 규칙 위반: PLM 품번만 입력하고 리비전 누락
+    res_plm = _call(
+        client,
+        created,
+        "POST",
+        "/items",
+        {
+            "itemCode": "TEST-ITEM-02",
+            "name": "PLM 단독",
+            "baseUnit": "EA",
+            "itemClass": "RAW",
+            "plmPartNo": "PART-888",
+        },
+    )
+    assert res_plm.status_code == 400
+    assert "plmPartNo" in res_plm.json()["error"]["details"]["fields"]
+
+    # 4. 규칙 위반: 최대재고 < 안전재고
+    res_stock = _call(
+        client,
+        created,
+        "POST",
+        "/items",
+        {
+            "itemCode": "TEST-ITEM-03",
+            "name": "재고 역전",
+            "baseUnit": "EA",
+            "itemClass": "RAW",
+            "safetyStock": "500.000",
+            "maxStock": "100.000",
+        },
+    )
+    assert res_stock.status_code == 400
+    assert "maxStock" in res_stock.json()["error"]["details"]["fields"]
+
+
+def test_lot_registration_and_stock_aggregation(blank):
+    """W-10: LOT 등록, 유효성 검증, 페이징, 원장 합계 집계(수량 비저장), 만료일 계산."""
+    client, created = blank
+
+    # 1. 창고 및 위치, 품목 생성
+    wh = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/warehouses",
+            {"code": "WH-RAW", "name": "원자재 창고", "purpose": "RAW"},
+        ),
+        201,
+    )
+    loc = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/warehouses/{wh['id']}/locations",
+            {"code": "R-01", "name": "기본 위치"},
+        ),
+        201,
+    )
+    item = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/items",
+            {
+                "itemCode": "RAW-COIL",
+                "name": "코일 자재",
+                "baseUnit": "KG",
+                "itemClass": "RAW",
+                "lotTracked": True,
+                "shelfLifeDays": 30,
+            },
+        ),
+        201,
+    )
+
+    # 2. LOT 등록 유효성 검증
+    # 2-1. expiry_date < received_on 인 경우 에러
+    res_err1 = _call(
+        client,
+        created,
+        "POST",
+        "/lots",
+        {
+            "itemId": item["id"],
+            "lotNo": "LT-ERR-01",
+            "receivedOn": "2026-10-15",
+            "expiryDate": "2026-10-10",
+        },
+    )
+    assert res_err1.status_code == 400
+    assert "expiryDate" in res_err1.json()["error"]["details"]["fields"]
+
+    # 2-2. 정상 LOT 2건 등록 (LOT-001: 가용 / LOT-002: 과거 날짜 만료)
+    lot1 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/lots",
+            {
+                "itemId": item["id"],
+                "lotNo": "LT-20261015-01",
+                "receivedOn": "2026-10-15",
+                "expiryDate": "2026-11-15",
+                "supplierLotNo": "SUP-9999",
+                "origin": "RECEIPT",
+            },
+        ),
+        201,
+    )
+    assert lot1["lotNo"] == "LT-20261015-01"
+    assert lot1["status"] == "AVAILABLE"
+    assert lot1["isExpired"] is False
+    assert lot1["qtyOnHand"] == "0.000"
+
+    # 중복 lotNo 등록 시도 -> 400
+    res_dup = _call(
+        client,
+        created,
+        "POST",
+        "/lots",
+        {
+            "itemId": item["id"],
+            "lotNo": "LT-20261015-01",
+            "receivedOn": "2026-10-15",
+        },
+    )
+    assert res_dup.status_code == 400
+    assert "lotNo" in res_dup.json()["error"]["details"]["fields"]
+
+    # 만료된 LOT (expiryDate = 2026-01-01)
+    lot2 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/lots",
+            {
+                "itemId": item["id"],
+                "lotNo": "LT-OLD-002",
+                "receivedOn": "2025-12-01",
+                "expiryDate": "2026-01-01",
+                "origin": "OPENING",
+            },
+        ),
+        201,
+    )
+    assert lot2["isExpired"] is True
+    assert lot2["status"] == "EXPIRED"
+
+    # 3. 목록 조회 및 페이징 확인
+    res = client.get(f"{W}/lots")
+    assert res.status_code == 200
+    lots_body = res.json()
+    assert lots_body["page"] == {"offset": 0, "limit": 50, "total": 2}
+    assert len(lots_body["data"]) == 2
+
+    # 4. 원장 수량 연동 확인: 입고 전표 등록 및 확정 후 LOT 수량 자동 산출 검증
+    doc = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/documents",
+            {
+                "documentType": "OPENING",
+                "lines": [
+                    {
+                        "itemId": item["id"],
+                        "locationId": loc["id"],
+                        "lotNo": "LT-20261015-01",
+                        "qty": "250.000",
+                    }
+                ],
+            },
+        ),
+        201,
+    )
+    _ok(_call(client, created, "POST", f"/documents/{doc['id']}/post"))
+
+    # LOT 목록 다시 조회 -> LOT-001의 qtyOnHand가 250.000으로 집계됨
+    lots_after = client.get(f"{W}/lots").json()["data"]
+    lt1_after = next(l for l in lots_after if l["lotNo"] == "LT-20261015-01")
+    assert lt1_after["qtyOnHand"] == "250.000"
+
+    # LOT 상세 조회 -> locations 목록에 해당 위치와 수량이 분해되어 나옴
+    detail = _ok(client.get(f"{W}/lots/{lot1['id']}"))
+    assert detail["qtyOnHand"] == "250.000"
+    assert len(detail["locations"]) == 1
+    assert detail["locations"][0]["locationCode"] == "R-01"
+    assert detail["locations"][0]["qtyOnHand"] == "250.000"
+
+    # 5. 필터링 검증
+    # 5-1. status=EXPIRED 필터
+    expired_res = client.get(f"{W}/lots", params={"status": "EXPIRED"}).json()
+    assert expired_res["page"]["total"] == 1
+    assert expired_res["data"][0]["lotNo"] == "LT-OLD-002"
+
+    # 5-2. status=AVAILABLE 필터
+    avail_res = client.get(f"{W}/lots", params={"status": "AVAILABLE"}).json()
+    assert avail_res["page"]["total"] == 1
+    assert avail_res["data"][0]["lotNo"] == "LT-20261015-01"
+
+    # 5-3. keyword 필터
+    kw_res = client.get(f"{W}/lots", params={"keyword": "SUP-9999"}).json()
+    assert kw_res["page"]["total"] == 1
+    assert kw_res["data"][0]["lotNo"] == "LT-20261015-01"
+
+
+def test_lot_hold_and_release_cycle_and_qms(blank):
+    """W-10 B-3: LOT 보류 등록, 해제, 재보류, 이력 보존, QMS 보류 조회 연동 검증."""
+    client, created = blank
+
+    # 1. 기초 품목 및 LOT 등록
+    item = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/items",
+            {
+                "itemCode": "IT-HOLD-01",
+                "name": "보류 테스트 품목",
+                "baseUnit": "EA",
+                "itemClass": "RAW",
+                "lotTracked": True,
+            },
+        ),
+        201,
+    )
+    lot = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/lots",
+            {
+                "itemId": item["id"],
+                "lotNo": "LT-HOLD-999",
+                "receivedOn": "2026-10-15",
+                "origin": "RECEIPT",
+            },
+        ),
+        201,
+    )
+    lot_id = lot["id"]
+    assert lot["status"] == "AVAILABLE"
+    assert lot["isHeld"] is False
+    assert lot["holdCount"] == 0
+    assert lot["activeHold"] is None
+
+    # 2. 보류 입력값 유효성 검증
+    # 2-1. 사유 2자 미만 -> 400
+    res_short = _call(
+        client,
+        created,
+        "POST",
+        f"/lots/{lot_id}/hold",
+        {"source": "MANUAL", "reason": "a"},
+    )
+    assert res_short.status_code == 400
+    assert any("reason" in k for k in res_short.json()["error"]["details"]["fields"])
+
+    # 2-2. QMS 출처인데 sourceRef 누락 -> 400
+    res_qms_miss = _call(
+        client,
+        created,
+        "POST",
+        f"/lots/{lot_id}/hold",
+        {"source": "QMS", "reason": "품질 보류"},
+    )
+    assert res_qms_miss.status_code == 400
+    assert "sourceRef" in res_qms_miss.json()["error"]["details"]["fields"]
+
+    # 3. 1차 보류 등록 (MANUAL)
+    h1 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/lots/{lot_id}/hold",
+            {"source": "MANUAL", "reason": "1차 수입검사 불합격 의심"},
+        ),
+        201,
+    )
+    assert h1["status"] == "HOLD"
+    assert h1["isHeld"] is True
+    assert h1["holdCount"] == 1
+    assert h1["activeHold"] is not None
+    assert h1["activeHold"]["reason"] == "1차 수입검사 불합격 의심"
+    assert len(h1["holds"]) == 1
+    assert h1["holds"][0]["isActive"] is True
+    assert h1["holds"][0]["status"] == "HELD"
+    assert h1["holds"][0]["releasedAt"] is None
+
+    # 4. 이미 보류 중인 LOT 재보류 시도 -> 409 Conflict
+    res_double_hold = _call(
+        client,
+        created,
+        "POST",
+        f"/lots/{lot_id}/hold",
+        {"source": "MANUAL", "reason": "중복 보류 시도"},
+    )
+    assert res_double_hold.status_code == 409
+    assert res_double_hold.json()["error"]["details"]["reason"] == "LOT_ALREADY_HELD"
+
+    # 5. 1차 보류 해제
+    rel1 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/lots/{lot_id}/release",
+        )
+    )
+    assert rel1["status"] == "AVAILABLE"
+    assert rel1["isHeld"] is False
+    assert rel1["holdCount"] == 0
+    assert rel1["activeHold"] is None
+    # 이력은 여전히 1건 유지되며, releasedAt이 채워짐
+    assert len(rel1["holds"]) == 1
+    assert rel1["holds"][0]["isActive"] is False
+    assert rel1["holds"][0]["status"] == "RELEASED"
+    assert rel1["holds"][0]["releasedAt"] is not None
+
+    # 6. 보류 중이 아닌데 해제 시도 -> 409 Conflict
+    res_double_rel = _call(
+        client,
+        created,
+        "POST",
+        f"/lots/{lot_id}/release",
+    )
+    assert res_double_rel.status_code == 409
+    assert res_double_rel.json()["error"]["code"] == "PRECONDITION_NOT_MET"
+    assert res_double_rel.json()["error"]["details"]["reason"] == "LOT_NOT_HELD"
+
+    # 7. 2차 보류 등록 (QMS 연동 보류)
+    h2 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/lots/{lot_id}/hold",
+            {
+                "source": "QMS",
+                "sourceRef": "QH-20261017-001",
+                "reason": "QMS 불합격 품질 보류 동기화",
+            },
+        ),
+        201,
+    )
+    assert h2["status"] == "HOLD"
+    assert h2["isHeld"] is True
+    assert h2["activeHold"]["source"] == "QMS"
+    assert h2["activeHold"]["sourceRef"] == "QH-20261017-001"
+    # 이력은 이제 2건 (최신 보류 + 과거 해제 보류)
+    assert len(h2["holds"]) == 2
+    assert h2["holds"][0]["isActive"] is True
+    assert h2["holds"][0]["status"] == "HELD"
+    assert h2["holds"][1]["isActive"] is False
+    assert h2["holds"][1]["status"] == "RELEASED"
+
+    # 8. 2차 보류 해제
+    rel2 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/lots/{lot_id}/release",
+        )
+    )
+    assert rel2["status"] == "AVAILABLE"
+    assert rel2["isHeld"] is False
+    # 이력은 2건 모두 보존되며 둘 다 해제됨
+    assert len(rel2["holds"]) == 2
+    assert rel2["holds"][0]["isActive"] is False
+    assert rel2["holds"][0]["status"] == "RELEASED"
+    assert rel2["holds"][1]["isActive"] is False
+    assert rel2["holds"][1]["status"] == "RELEASED"
+
+    # 9. QMS 보류 조회 연동 필드 확인
+    detail = _ok(client.get(f"{W}/lots/{lot_id}"))
+    assert "qmsHold" in detail
+    if detail["qmsHold"] is not None:
+        assert isinstance(detail["qmsHold"], dict)
+        assert "active" in detail["qmsHold"]

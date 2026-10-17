@@ -1,6 +1,7 @@
-"""목표 DB(schema-target.json)를 schema.json에서 처음부터 다시 만든다: DSN-00 기준 복사 → DSN 스크립트를 순서대로.
+"""W2 이후에는 schema.json이 진화해 결과가 목표 파일과 달라진다. 설계 단계 재현용이다.
+목표 DB(schema-target.json)를 schema.json에서 처음부터 다시 만든다: DSN-00 기준 복사 → DSN 스크립트를 순서대로.
 
-새 DSN 스크립트를 만들면 STEPS 끝에 붙인다. test_dsn*.py가 "재생성 결과 = 커밋된 목표 파일"을 검사한다.
+새 DSN 스크립트를 만들면 STEPS 끝에 붙인다.
 """
 
 import json

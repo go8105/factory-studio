@@ -367,3 +367,329 @@ it.each([
   expect(within(table).getByText(label)).toBeVisible();
   expect(within(table).queryByRole("button", { name: "반영" })).toBeNull();
 });
+
+it("W-07 품목 등록 시 유효기간·안전재고·ABC·PLM 등 확장 필드를 전송한다", async () => {
+  const items = [
+    {
+      id: 1,
+      itemCode: "RAW-STEEL",
+      name: "강판",
+      baseUnit: "KG",
+      itemClass: "RAW",
+      lotTracked: true,
+      shelfLifeDays: 180,
+      storageCondition: "상온 건조",
+      safetyStock: "50.000",
+      maxStock: "200.000",
+      abcClass: "A",
+      plmPartNo: "PLM-ST-01",
+      plmRevision: "R1",
+      isActive: true,
+      moveCount: 0,
+      conversions: [],
+    },
+  ];
+  const fetcher = mount("/wms/items", {
+    [`GET ${W}/items`]: ok(items),
+    [`POST ${W}/items`]: ok({ id: 2 }),
+  });
+  expect(await screen.findByText("RAW-STEEL")).toBeVisible();
+  expect(screen.getByText("180일")).toBeVisible();
+  expect(screen.getByText("50 / 200")).toBeVisible();
+  expect(screen.getByText("A")).toBeVisible();
+
+  fireEvent.click(screen.getByRole("button", { name: "품목 등록" }));
+  const dialog = await screen.findByRole("dialog", { name: "품목 등록" });
+
+  fireEvent.change(within(dialog).getByLabelText("품목 코드"), {
+    target: { value: "FG-BOX" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("이름"), {
+    target: { value: "포장박스" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("유효기간 (일)"), {
+    target: { value: "365" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("안전재고"), {
+    target: { value: "100" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("최대재고"), {
+    target: { value: "500" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("ABC 등급"), {
+    target: { value: "B" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("PLM 품번"), {
+    target: { value: "PLM-BX-01" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("PLM 리비전"), {
+    target: { value: "A" },
+  });
+
+  fireEvent.click(within(dialog).getByRole("button", { name: "등록" }));
+  await waitFor(() => expect(sent(fetcher, "POST", "/items")).toHaveLength(1));
+  expect(body(sent(fetcher, "POST", "/items")[0])).toMatchObject({
+    itemCode: "FG-BOX",
+    name: "포장박스",
+    shelfLifeDays: 365,
+    safetyStock: "100",
+    maxStock: "500",
+    abcClass: "B",
+    plmPartNo: "PLM-BX-01",
+    plmRevision: "A",
+  });
+});
+
+it("W-10 LOT 목록 렌더링, 원장 재고 표시, 상세 패널, LOT 등록을 검증한다", async () => {
+  const items = [
+    {
+      id: 1,
+      itemCode: "FG-T300",
+      name: "T300 완제품",
+      baseUnit: "EA",
+      itemClass: "FG",
+      lotTracked: true,
+      shelfLifeDays: 90,
+      isActive: true,
+      moveCount: 0,
+      conversions: [],
+    },
+  ];
+  const lotRow = {
+    id: 101,
+    itemId: 1,
+    itemCode: "FG-T300",
+    itemName: "T300 완제품",
+    itemClass: "FG",
+    baseUnit: "EA",
+    lotNo: "LOT-20261015-001",
+    origin: "RECEIPT",
+    receivedOn: "2026-10-15",
+    expiryDate: "2027-01-13",
+    supplierLotNo: "SUP-999",
+    status: "AVAILABLE",
+    rawStatus: "AVAILABLE",
+    qtyOnHand: "1500.000",
+    isExpired: false,
+    holdCount: 0,
+    currentHoldReason: null,
+    createdAt: "2026-10-15T09:00:00Z",
+  };
+  const lotDetail = {
+    ...lotRow,
+    locations: [
+      {
+        locationId: 11,
+        locationCode: "F-A01",
+        locationName: "기본 보관",
+        warehouseId: 1,
+        warehouseCode: "WH-FG",
+        warehouseName: "완제품 창고",
+        qtyOnHand: "1500.000",
+      },
+    ],
+    holds: [],
+  };
+
+  const fetcher = mount("/wms/lots", {
+    [`GET ${W}/items`]: ok(items),
+    [`GET ${W}/lots`]: {
+      status: 200,
+      body: {
+        data: [lotRow],
+        page: { offset: 0, limit: 50, total: 1 },
+      },
+    },
+    [`GET ${W}/lots/101`]: ok(lotDetail),
+    [`POST ${W}/lots/101/hold`]: ok({
+      ...lotDetail,
+      status: "HOLD",
+      isHeld: true,
+      activeHold: {
+        id: 1,
+        source: "MANUAL",
+        sourceRef: null,
+        heldAt: "2026-10-17T09:00:00Z",
+        reason: "불량 의심",
+      },
+      holds: [
+        {
+          id: 1,
+          source: "MANUAL",
+          sourceRef: null,
+          heldAt: "2026-10-17T09:00:00Z",
+          releasedAt: null,
+          reason: "불량 의심",
+          isActive: true,
+        },
+      ],
+    }),
+    [`POST ${W}/lots/101/release`]: ok({
+      ...lotDetail,
+      status: "AVAILABLE",
+      isHeld: false,
+      activeHold: null,
+      holds: [
+        {
+          id: 1,
+          source: "MANUAL",
+          sourceRef: null,
+          heldAt: "2026-10-17T09:00:00Z",
+          releasedAt: "2026-10-17T09:30:00Z",
+          reason: "불량 의심",
+          isActive: false,
+        },
+      ],
+    }),
+    [`POST ${W}/lots`]: ok({ id: 102, lotNo: "LOT-20261015-002" }),
+  });
+
+  // 목록 렌더링 및 원장 합계 재고 표시 확인
+  expect(await screen.findByText("LOT-20261015-001")).toBeVisible();
+  expect(screen.getByText("1,500 EA")).toBeVisible();
+  expect(screen.getByText("SUP-999")).toBeVisible();
+  expect(within(screen.getByRole("table")).getByText("가용")).toBeVisible();
+
+  // 상세 패널 열기 및 확인
+  fireEvent.click(screen.getByRole("button", { name: "상세" }));
+  const detailPanel = await screen.findByRole("dialog", {
+    name: "LOT-20261015-001 상세",
+  });
+  expect(within(detailPanel).getByText("원장 집계 현재고")).toBeVisible();
+  expect(within(detailPanel).getByText("F-A01 (기본 보관)")).toBeVisible();
+  expect(within(detailPanel).getByText("보류 상태 및 관리")).toBeVisible();
+  expect(
+    within(detailPanel).getByRole("button", { name: "보류 설정" }),
+  ).toBeVisible();
+
+  // 보류 설정 열기 및 제출
+  fireEvent.click(
+    within(detailPanel).getByRole("button", { name: "보류 설정" }),
+  );
+  fireEvent.change(within(detailPanel).getByLabelText("보류 사유 (2자 이상)"), {
+    target: { value: "검사 불량 의심" },
+  });
+  fireEvent.click(
+    within(detailPanel).getByRole("button", { name: "보류 확정" }),
+  );
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/lots/101/hold")).toHaveLength(1),
+  );
+  expect(body(sent(fetcher, "POST", "/lots/101/hold")[0])).toMatchObject({
+    source: "MANUAL",
+    reason: "검사 불량 의심",
+  });
+
+  // 닫기
+  fireEvent.click(within(detailPanel).getByLabelText("패널 닫기"));
+
+  // LOT 등록 모달 열기 및 등록
+  fireEvent.click(screen.getByRole("button", { name: "LOT 등록" }));
+  const createDialog = await screen.findByRole("dialog", { name: "LOT 등록" });
+
+  fireEvent.change(within(createDialog).getByLabelText("품목"), {
+    target: { value: "1" },
+  });
+  fireEvent.change(within(createDialog).getByLabelText("LOT 번호"), {
+    target: { value: "LOT-20261015-002" },
+  });
+  fireEvent.change(within(createDialog).getByLabelText("공급처 LOT 번호"), {
+    target: { value: "SUP-002" },
+  });
+
+  fireEvent.click(within(createDialog).getByRole("button", { name: "등록" }));
+  await waitFor(() => expect(sent(fetcher, "POST", "/lots")).toHaveLength(1));
+  expect(body(sent(fetcher, "POST", "/lots")[0])).toMatchObject({
+    itemId: 1,
+    lotNo: "LOT-20261015-002",
+    supplierLotNo: "SUP-002",
+    origin: "RECEIPT",
+  });
+});
+
+it("W-10 LOT 보류 해제 및 QMS 보류 표시를 검증한다", async () => {
+  const heldLot = {
+    id: 201,
+    itemId: 1,
+    itemCode: "FG-T300",
+    itemName: "T300 완제품",
+    itemClass: "FG" as const,
+    baseUnit: "EA",
+    lotNo: "LT-HELD-001",
+    origin: "RECEIPT" as const,
+    receivedOn: "2026-10-15",
+    expiryDate: null,
+    supplierLotNo: null,
+    status: "HOLD" as const,
+    rawStatus: "HOLD" as const,
+    qtyOnHand: "500.000",
+    isExpired: false,
+    isHeld: true,
+    holdCount: 1,
+    currentHoldReason: "인장 강도 미달",
+    createdAt: "2026-10-15T09:00:00Z",
+    qmsHold: {
+      active: true,
+      holdNo: "QH-20261017-009",
+      reason: "인장 강도 미달",
+    },
+    activeHold: {
+      id: 10,
+      source: "QMS" as const,
+      sourceRef: "QH-20261017-009",
+      heldAt: "2026-10-17T09:00:00Z",
+      reason: "인장 강도 미달",
+    },
+    holds: [
+      {
+        id: 10,
+        source: "QMS" as const,
+        sourceRef: "QH-20261017-009",
+        heldAt: "2026-10-17T09:00:00Z",
+        releasedAt: null,
+        reason: "인장 강도 미달",
+        isActive: true,
+        status: "HELD" as const,
+      },
+    ],
+  };
+
+  const fetcher = mount("/wms/lots", {
+    [`GET ${W}/items`]: ok([]),
+    [`GET ${W}/lots`]: {
+      status: 200,
+      body: {
+        data: [{ ...heldLot, qmsHold: true }],
+        page: { offset: 0, limit: 50, total: 1 },
+      },
+    },
+    [`GET ${W}/lots/201`]: ok(heldLot),
+    [`POST ${W}/lots/201/release`]: ok({
+      ...heldLot,
+      status: "AVAILABLE",
+      isHeld: false,
+      activeHold: null,
+    }),
+  });
+
+  expect(await screen.findByText("LT-HELD-001")).toBeVisible();
+  expect(screen.getByText("QMS 보류")).toBeVisible();
+
+  // 상세 패널 열기
+  fireEvent.click(screen.getByRole("button", { name: "상세" }));
+  const detailPanel = await screen.findByRole("dialog", {
+    name: "LT-HELD-001 상세",
+  });
+  expect(within(detailPanel).getByText("현재 보류 중")).toBeVisible();
+  expect(
+    within(detailPanel).getByText("QMS 품질 보류 (QH-20261017-009)"),
+  ).toBeVisible();
+
+  // 보류 해제 클릭
+  fireEvent.click(
+    within(detailPanel).getByRole("button", { name: "보류 해제" }),
+  );
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/lots/201/release")).toHaveLength(1),
+  );
+});

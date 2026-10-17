@@ -32,6 +32,14 @@ type Draft = {
   name: string;
   baseUnit: string;
   itemClass: Purpose;
+  lotTracked: boolean;
+  shelfLifeDays: string;
+  storageCondition: string;
+  safetyStock: string;
+  maxStock: string;
+  abcClass: "A" | "B" | "C" | "";
+  plmPartNo: string;
+  plmRevision: string;
   isActive: boolean;
 };
 type Candidate = {
@@ -45,6 +53,14 @@ const EMPTY: Draft = {
   name: "",
   baseUnit: "EA",
   itemClass: "RAW",
+  lotTracked: false,
+  shelfLifeDays: "",
+  storageCondition: "",
+  safetyStock: "",
+  maxStock: "",
+  abcClass: "",
+  plmPartNo: "",
+  plmRevision: "",
   isActive: true,
 };
 
@@ -75,12 +91,21 @@ export function Items() {
     importError.error.details?.reason === "SOURCE_MODULE_DISABLED";
 
   function open(row: Item | null) {
-    const values = row
+    const values: Draft = row
       ? {
           itemCode: row.itemCode,
           name: row.name,
           baseUnit: row.baseUnit,
           itemClass: row.itemClass,
+          lotTracked: row.lotTracked ?? false,
+          shelfLifeDays:
+            row.shelfLifeDays != null ? String(row.shelfLifeDays) : "",
+          storageCondition: row.storageCondition ?? "",
+          safetyStock: row.safetyStock ?? "",
+          maxStock: row.maxStock ?? "",
+          abcClass: (row.abcClass ?? "") as "A" | "B" | "C" | "",
+          plmPartNo: row.plmPartNo ?? "",
+          plmRevision: row.plmRevision ?? "",
           isActive: row.isActive,
         }
       : EMPTY;
@@ -110,14 +135,27 @@ export function Items() {
         setPanel(null);
       return;
     }
+    const payload = {
+      name: draft.name,
+      lotTracked: draft.lotTracked,
+      shelfLifeDays: draft.shelfLifeDays.trim()
+        ? Number(draft.shelfLifeDays)
+        : null,
+      storageCondition: draft.storageCondition.trim() || null,
+      safetyStock: draft.safetyStock.trim() || null,
+      maxStock: draft.maxStock.trim() || null,
+      abcClass: draft.abcClass || null,
+      plmPartNo: draft.plmPartNo.trim() || null,
+      plmRevision: draft.plmRevision.trim() || null,
+    };
     const saved = editing
       ? await send(`/items/${editing.id}`, "PATCH", {
-          name: draft.name,
+          ...payload,
           isActive: draft.isActive,
         })
       : await send("/items", "POST", {
+          ...payload,
           itemCode: draft.itemCode.trim().toUpperCase(),
-          name: draft.name,
           baseUnit: draft.baseUnit.trim(),
           itemClass: draft.itemClass,
         });
@@ -151,6 +189,24 @@ export function Items() {
       key: "lotTracked",
       label: "LOT 추적",
       render: (r) => (r.lotTracked ? "추적" : "—"),
+    },
+    {
+      key: "shelfLifeDays",
+      label: "유효기간",
+      render: (r) => (r.shelfLifeDays != null ? `${r.shelfLifeDays}일` : "—"),
+    },
+    {
+      key: "safetyStock",
+      label: "안전/최대재고",
+      render: (r) =>
+        r.safetyStock != null || r.maxStock != null
+          ? `${r.safetyStock ? num(r.safetyStock) : "0"} / ${r.maxStock ? num(r.maxStock) : "∞"}`
+          : "—",
+    },
+    {
+      key: "abcClass",
+      label: "ABC",
+      render: (r) => r.abcClass ?? "—",
     },
     {
       key: "conversions",
@@ -345,12 +401,24 @@ export function Items() {
                   id="wms-item-class"
                   value={draft.itemClass}
                   disabled={!!editing}
-                  onChange={(e) =>
-                    setDraft({ ...draft, itemClass: e.target.value as Purpose })
-                  }
+                  onChange={(e) => {
+                    const nextClass = e.target.value as Purpose;
+                    setDraft({
+                      ...draft,
+                      itemClass: nextClass,
+                      lotTracked: editing
+                        ? draft.lotTracked
+                        : nextClass === "FG"
+                          ? true
+                          : draft.lotTracked,
+                    });
+                  }}
                 >
-                  <option value="RAW">원자재 (품목 수량)</option>
-                  <option value="FG">완제품 (LOT 추적)</option>
+                  <option value="RAW">원자재</option>
+                  <option value="SEMI">반제품</option>
+                  <option value="FG">완제품</option>
+                  <option value="MERCH">상품</option>
+                  <option value="SUPPLY">부자재</option>
                 </select>
               </div>
               <Field
@@ -364,6 +432,96 @@ export function Items() {
                   setDraft({ ...draft, baseUnit: e.target.value })
                 }
               />
+              <label className="inline-check">
+                <input
+                  type="checkbox"
+                  checked={draft.lotTracked}
+                  onChange={(e) =>
+                    setDraft({ ...draft, lotTracked: e.target.checked })
+                  }
+                />
+                LOT 추적
+              </label>
+              <div className="field-row">
+                <Field
+                  label="유효기간 (일)"
+                  type="number"
+                  min={1}
+                  value={draft.shelfLifeDays}
+                  error={errors.shelfLifeDays}
+                  onChange={(e) =>
+                    setDraft({ ...draft, shelfLifeDays: e.target.value })
+                  }
+                />
+                <div className="field">
+                  <label htmlFor="wms-abc-class">ABC 등급</label>
+                  <select
+                    id="wms-abc-class"
+                    value={draft.abcClass}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        abcClass: e.target.value as "A" | "B" | "C" | "",
+                      })
+                    }
+                  >
+                    <option value="">미지정</option>
+                    <option value="A">A (중점 관리)</option>
+                    <option value="B">B (일반 관리)</option>
+                    <option value="C">C (간이 관리)</option>
+                  </select>
+                </div>
+              </div>
+              <Field
+                label="보관조건"
+                value={draft.storageCondition}
+                maxLength={60}
+                error={errors.storageCondition}
+                placeholder="예: 상온 (15~25℃), 냉장 (2~8℃)"
+                onChange={(e) =>
+                  setDraft({ ...draft, storageCondition: e.target.value })
+                }
+              />
+              <div className="field-row">
+                <Field
+                  label="안전재고"
+                  inputMode="decimal"
+                  value={draft.safetyStock}
+                  error={errors.safetyStock}
+                  onChange={(e) =>
+                    setDraft({ ...draft, safetyStock: e.target.value })
+                  }
+                />
+                <Field
+                  label="최대재고"
+                  inputMode="decimal"
+                  value={draft.maxStock}
+                  error={errors.maxStock}
+                  onChange={(e) =>
+                    setDraft({ ...draft, maxStock: e.target.value })
+                  }
+                />
+              </div>
+              <div className="field-row">
+                <Field
+                  label="PLM 품번"
+                  value={draft.plmPartNo}
+                  maxLength={40}
+                  error={errors.plmPartNo}
+                  onChange={(e) =>
+                    setDraft({ ...draft, plmPartNo: e.target.value })
+                  }
+                />
+                <Field
+                  label="PLM 리비전"
+                  value={draft.plmRevision}
+                  maxLength={10}
+                  error={errors.plmRevision}
+                  onChange={(e) =>
+                    setDraft({ ...draft, plmRevision: e.target.value })
+                  }
+                />
+              </div>
               {editing && (
                 <label className="inline-check">
                   <input

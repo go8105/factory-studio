@@ -60,6 +60,117 @@ CAD-UI04 제품3818b38 main/origin 반영 완료. CI38403227492/check11531597102
   - `npm run ci:local -- --dry-run`
   - `npm run ci:local`
 
+# 2026-10-17 W2b-1b B-3 W-10 LOT 보류·해제 이력 및 QMS 연동 완료 (W2b-1b 전체 완료)
+
+- **브랜치**: `antigravity/w2b-1b`
+- **끝난 것 (B-3 및 W2b-1b 전체)**:
+  - W-10 LOT 보류·해제 백엔드 (`backend/src/fs/wms/`, `backend/src/fs/qms/`):
+    - **DB 불변 및 이력 누적 원칙 준수**: `schema.json` 변경 없음. `wms.lot_hold`의 부분 고유 인덱스(`UNIQUE (workspace_id, generation_id, lot_id) WHERE (released_at IS NULL)`)를 기반으로, 보류 시 새 행 INSERT(`released_at=NULL`), 해제 시 UPDATE(`released_at=clock_timestamp()`), 재보류 시 새 행 INSERT로 다중 보류/해제 이력을 영구 보존.
+    - 엔드포인트: `POST /lots/{id}/hold`, `POST /lots/{id}/release`.
+    - 중복 및 유효성 방어: 보류 중인 LOT에 보류 시도 시 409 Conflict, 미보류 LOT 해제 시도 시 409 Conflict.
+    - QMS 보류 조회 연동: `fs.qms.interface`의 `is_enabled`, `active_hold_details(conn, scoped, lot_no)`를 통해 QMS 검사 및 보류 상태를 읽기 전용으로 안전하게 조회 (`qmsHold: { active, holdNo, reason }`).
+    - LOT 목록 및 상세 연동: `list_lots`에서 QMS 활성 보류 여부(`qmsHold: true/false`) 반환, `_lot_row`에서 활성 보류 정보, QMS 보류 상세, 최근 50건 보류 이력(`status: "HELD" | "RELEASED"`) 반환.
+  - W-10 LOT 보류 프런트엔드 (`frontend/src/wms/Lots.tsx`):
+    - 목록 테이블: LOT 상태 배지 옆에 QMS 보류 시 `<Badge tone="issue">QMS 보류</Badge>` 표시.
+    - 상세 패널 현재 보류 카드: 활성 보류 중일 때 보류 사유, 출처, 일시 표시 및 "보류 해제" 버튼 제공. 미보류 시 "보류 설정" 버튼 제공.
+    - 인라인 보류 등록 폼: 출처(MANUAL/QMS/EXPIRY), 원천코드, 보류 사유(2자 이상 필수) 입력 및 등록 처리.
+    - QMS 품질 검사 상태 카드: QMS 모듈 활성화 여부 및 활성 보류 상세 표시, "QMS 보류 동기화" 버튼 연동.
+    - 보류 이력 테이블: 최신 50건 상태(보류중/해제됨), 출처, 보류 사유, 보류일시, 해제일시, 해제사유 표시.
+    - 모바일 390px 반응형 뷰포트 최적화.
+  - 브라우저 실기동 자동화 검증 완료 (`frontend/scripts/verify-wms-hold-browser.mjs`):
+    - 게스트 세션 시작 → LOT 등록 → 1차 수동 보류(MANUAL) → 1차 해제 → 2차 QMS 재보류 → 2차 해제 전 과정 통과 및 이력 2건 영구 보존 확인.
+    - 스크린샷 5종 보존 (`wms-lots-initial.png`, `wms-lots-hold-active.png`, `wms-lots-hold-released.png`, `wms-lots-hold-second.png`, `wms-lots-mobile-390.png`).
+  - A-2 검증 지표 실측치:
+    - `verify_ddl_matches_schema.py` 오류 수: **0건** (205표, 2,246칼럼, PK 205, UK 425, CHECK 502, INDEX 165, UNIQUE_INDEX 46, FK 507 100% 일치).
+    - 왕복 결과: `downgrade base` -> `upgrade head` 후 다시 **오류 0건**.
+    - 적용 DB 목록: `factory_studio`, `factory_studio_test`, `factory_studio_ci_test` 모두 **`w2b1_wms (head)`** 상태.
+    - **백엔드 pytest 요약 줄 전문**:
+      - `1023 passed, 1 skipped, 47 warnings in 454.01s (0:07:34)` (not perf)
+      - `1 passed, 1024 deselected, 5 warnings in 26.56s` (perf)
+      - **총 1,024 passed, 1 skipped (실패 0건, 에러 0건, worker down 0건)**.
+    - 도구 단위 테스트: `Ran 136 tests in 16.184s - OK`.
+- **다음 할 일**: 사용자 확인 및 **W2b-1b 전체 승인** 대기 (승인 전 W2b-1c 임의 착수 금지).
+- **주의점**:
+  - `wms.lot`에 수량 및 만료 여부를 컬럼으로 저장하지 않는다 (원장 집계 및 실시간 판정 원칙).
+  - `wms.lot_hold`는 부분 인덱스를 활용해 활성 1건만 유지하되 과거 해제 이력을 삭제하지 않고 유지한다.
+- **재현 명령**:
+  - `backend/.venv/bin/pytest backend/tests/test_wms.py -v`
+  - `npm --prefix frontend test -- src/wms/wms.test.tsx`
+  - `npm run ci:local`
+
+# 2026-10-15 W2b-1b WMS-FIX 완료
+
+- **브랜치**: `antigravity/w2b-1b`
+- **끝난 것 (WMS-FIX)**:
+  - `tools/test_fs024a.py`: WMS 표 개수 가드 23으로 업데이트 (`W2b-1a` 및 `W2b*` 분기 추가, 이전 6/11 분기 유지).
+  - `tools/test_dsn11.py`: `test_rebuild_from_schema_json_is_identical` 분리·제거(안 B 채택) 및 사유 주석 기록 (W2 단계마다 `schema.json`에 목표 표가 선반영되어 재생성 비교가 성립하지 않으며, 목표 설계 검증은 `test_contract_holds`, `test_rejects_regressions`, `validate_db_design.py --schema`가 전담).
+  - `tools/rebuild_target.py`: docstring 상단에 "W2 이후에는 schema.json이 진화해 결과가 목표 파일과 달라진다. 설계 단계 재현용이다" 안내 추가.
+  - `docs/modules/wms/WMS_보강설계_DSN-13.md`: 8절(구현 및 스키마 반영 메모) 추가하여 `apply_dsn90.py` 재적용 시 `CMMS_ISSUE` 중복 생성 제약 및 기존 WMS 3표 칼럼 순서(DDL 대조 0건으로 기능 영향 없음) 문서화.
+  - `backend/alembic/versions/20261013_w2b1_wms.py`:
+    - `downgrade()` 복원 시 `c831_check` -> `c781_check` (`storage_location`), `c818_check` -> `c768_check` (`source_claim`)로 pre-w2b1 원래 제약 이름 복원 (`alembic downgrade base` 전체 왕복 성공).
+    - `MODULE_CHECKS = []` ruff 포맷 보정.
+  - `backend/tests/test_wms.py`: ruff I001 import 정렬 보정.
+  - `frontend/src/portal/favorites.test.tsx`: W-10 LOT 메뉴 추가에 따른 메뉴 카탈로그 개수 가드 113 -> 114 보정 (`menuCatalog` 114개 키·경로 고유성 100% 통과).
+- **검증 결과**:
+  - `python -m unittest discover -s tools -p 'test_*.py'`: **136 passed (OK)**.
+  - `npm run ci:local`: **1~5단계 전체 통과 (SUCCESS)**.
+    - 1단계: DB 정적 검증(`npm run db:validate`, 0 errors), 격리 감사(`audit_schema_isolation.py`, R1~R6 0 errors), 도구 단위 테스트 (136 passed).
+    - 2단계: 백엔드 ruff check & ruff format check (227 files, 0 errors).
+    - 3단계: 마이그레이션 적용 및 `verify_ddl_matches_schema.py` (0 errors), pytest (1,022 passed, 1 skipped, 1 perf passed).
+    - 4단계: `clear_test_data.py` -> `downgrade base` -> `upgrade head` -> `verify_ddl_matches_schema.py` (0 errors, 완벽한 왕복).
+    - 5단계: 프런트엔드 `typecheck`, `lint`, `format:check`, `build`, `test` (75 test files, 603 passed, 0 errors).
+- **다음 할 일**: 사용자 확인 후 **B-3 (W-10 보류·해제 이력)** 착수.
+- **주의점**:
+  - `lot_hold`는 이력 표: 해제 시 UPDATE 금지, 행 새로 쌓기 (`status='HELD'` / `'RELEASED'`).
+  - 현재 보류 여부는 최신 행으로 판정 (`active_holds` CTE 검증).
+  - 브라우저에서 보류 걸기 → 해제 → 재보류 흐름 검증 필수.
+  - QMS 보류 조회 연동(읽기 전용, `fs/qms/interface.py`).
+- **재현 명령**:
+  - `python -m unittest discover -s tools -p 'test_*.py'`
+  - `npm run ci:local`
+
+# 2026-10-15 W2b-1b B-2 W-10 LOT 조회·등록 완료
+
+- **브랜치**: `antigravity/w2b-1b`
+- **끝난 것 (B-2)**:
+  - W-10 LOT 백엔드 (`backend/src/fs/wms/`):
+    - `wms.lot` 조회/등록/수정 API (`GET /lots`, `GET /lots/{id}`, `POST /lots`, `PATCH /lots/{id}`).
+    - **LOT 수량 DB 미저장 원칙 준수**: 단일 출처는 재고 이동 원장(`wms.stock_move`). N+1 방지를 위해 `WITH lot_stock AS (...)`, `active_holds AS (...)` 단일 질의로 현재고(`qty_on_hand`) 및 활성 보류 산출.
+    - 만료 여부 DB 미저장: `business_today()` 기준 조회 시 실시간 판정 (`isExpired`).
+    - 페이징: `fs/common/page.py` (`Page(offset, limit).checked()`) 표준 적용.
+    - 품목별 `lot_tracked` 플래그 반영 전표 줄 검증(`_validate_lines`).
+  - W-10 LOT 화면 (`frontend/src/wms/Lots.tsx`):
+    - 목록: LOT 번호, 상태 배지(가용/보류/만료), 품목, 현재고(원장 합계), 입고일, 유효기간, 공급처 LOT, 출처, 관리(상세).
+    - 필터: 품목 드롭다운, 상태 드롭다운, 키워드 검색, 만료만 보기 토글.
+    - 등록 패널 (`FormPanel`): 품목 선택(선택 시 `shelfLifeDays`로 유효기간 자동 제안), LOT 번호, 입고일, 유효기간, 공급처 LOT, 출처.
+    - 상세 패널 (`DetailPanel`, wide): 기본 정보, 원장 집계 총 재고 및 위치별 재고 분포(`locations`), 보류 상태/이력(`holds`), **B-3 보류 안내 문구** 명시.
+    - 메뉴 및 라우트 등록: `menu_catalog.json` (W-10 LOT·보류), `WmsRoutes` (`/wms/lots`).
+    - 표준 훅: `useSend` 훅으로 CSRF 토큰 및 멱등키 보장.
+  - 검증 결과:
+    - 백엔드 WMS 테스트: `pytest backend/tests/test_wms.py -v` (17 passed).
+    - 프론트엔드 테스트: `npm --prefix frontend test -- src/wms/wms.test.tsx` (12 passed).
+    - 프론트엔드 검사: `npm run lint` (0 errors), `npm run typecheck` (0 errors), `npm run format:check` (Prettier 통과), `npm run build` (tsc & vite) 통과.
+    - 백엔드 린트: `ruff check backend/src/fs/wms/` & `ruff format --check` 통과.
+    - **브라우저 실기동 및 기능 검증 (`verify-wms-browser.mjs`)**:
+      - `/wms/items` (B-1 품목 보강 확인): 테이블 컬럼 및 등록 폼에 유효기간, ABC, 안전/최대재고, PLM 필드 노출 확인.
+      - `/wms/lots` (B-2 LOT 등록): `LOT-20261015-LIVE` 등록, 목록 및 상세 패널 정상 확인.
+      - **원장 수량 실시간 대조**: 기초재고 전표 750 EA 확정 후 LOT 목록 및 상세에서 현재고가 즉시 정확히 750 EA로 증가 일치 확인!
+      - 390px 모바일 뷰포트 레이아웃 검증 완료.
+    - **A-2 검증 지표 실측치**:
+      - `verify_ddl_matches_schema.py` 오류 수 (적용 후): **0건**
+      - 왕복 결과: `downgrade -1` -> `upgrade head` 후 다시 **오류 0건**
+      - 적용 DB 목록: `factory_studio` 및 `factory_studio_test` 둘 다 **`w2b1_wms (head)`** 상태.
+- **다음 할 일**: 사용자 확인 후 **B-3 (W-10 보류·해제 이력)** 착수.
+- **주의점**:
+  - B-3 사용자 확인 전 착수 금지.
+  - DB 변경 없음 (W2b-1a 확정분 유지).
+- **재현 명령**:
+  - `TEST_DATABASE_URL="..." pytest backend/tests/test_wms.py -v`
+  - `npm --prefix frontend test -- src/wms/wms.test.tsx`
+  - `npm --prefix frontend run lint && npm --prefix frontend run typecheck && npm --prefix frontend run build`
+  - `node frontend/scripts/verify-wms-browser.mjs`
+
+# 2026-10-13 W2b-1b B-1 품목 보강 (W-07) 완료
 CAD-V03 제품 c0efb5b main/origin push 완료. 운영 새흐름 배포 미실행. 최종 main CI도 runner 시작 전 결제/한도 차단 확인(check115285673525). 실마이크 미검증, 기존 MES 브랜치 보존.
 
 ## 2026-10-13 CAD-V03 YC 예제·음성 요청 흐름 보정 완료

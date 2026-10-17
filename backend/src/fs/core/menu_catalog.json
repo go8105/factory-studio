@@ -348,6 +348,12 @@
           "group": "재고"
         },
         {
+          "path": "lots",
+          "id": "W-10",
+          "label": "LOT·보류",
+          "group": "재고"
+        },
+        {
           "path": "sources",
           "id": "W-03",
           "label": "원천 반영",
