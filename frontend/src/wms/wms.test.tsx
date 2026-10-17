@@ -693,3 +693,135 @@ it("W-10 LOT 보류 해제 및 QMS 보류 표시를 검증한다", async () => {
     expect(sent(fetcher, "POST", "/lots/201/release")).toHaveLength(1),
   );
 });
+
+it("W-08 입고 예정 목록과 상세에서 noticeKind 구분을 표시하고 등록 시 전송한다", async () => {
+  const inboundPo = {
+    id: 101,
+    noticeNo: "IN-20261017-001",
+    noticeKind: "PO" as const,
+    businessKey: "PO-20261017-01",
+    warehouseId: 1,
+    expectedOn: "2026-10-25",
+    vehicleNo: "서울12가3456",
+    partnerRef: "SUP-01",
+    status: "PLANNED" as const,
+    version: 1,
+    arrivedAt: null,
+    inspectedAt: null,
+    reason: null,
+    stockDocumentId: null,
+    lines: [
+      {
+        id: 1,
+        itemId: 10,
+        lotNo: null,
+        expectedQty: "100.000",
+        normalLocationId: 11,
+        quarantineLocationId: null,
+        acceptedQty: null,
+        quarantinedQty: null,
+        shortageQty: null,
+        reason: null,
+      },
+    ],
+    sourceClaim: null,
+    sourceState: "manual",
+  };
+
+  const fetcher = mount("/wms/inbounds", {
+    [`GET ${W}/inbound-notices`]: ok({
+      rows: [inboundPo],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 2,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      {
+        id: 10,
+        itemCode: "RM-TEST",
+        name: "테스트 원자재",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/inbound-notices/101`]: ok(inboundPo),
+    [`GET ${W}/warehouses/1/locations`]: ok(locations),
+    [`GET ${W}/sources`]: ok({ disabled: false, rows: [] }),
+    [`POST ${W}/inbound-notices`]: ok({
+      ...inboundPo,
+      id: 102,
+      noticeNo: "IN-20261017-002",
+      noticeKind: "SALES_RETURN",
+    }),
+  });
+
+  // 목록에 "발주" 배지와 번호 표시 확인
+  expect(await screen.findByText("IN-20261017-001")).toBeVisible();
+  const table = screen.getByRole("table");
+  expect(within(table).getByText("발주")).toBeVisible();
+
+  // 상세 패널 열기
+  fireEvent.click(screen.getByRole("button", { name: "상세" }));
+  const detailPanel = await screen.findByRole("dialog", {
+    name: "IN-20261017-001",
+  });
+  expect(within(detailPanel).getByText(/구분 발주/)).toBeVisible();
+
+  // 닫기
+  fireEvent.click(
+    within(detailPanel).getByRole("button", { name: "패널 닫기" }),
+  );
+
+  // 등록 패널 열기
+  fireEvent.click(screen.getByRole("button", { name: "입고 예정 등록" }));
+  const formPanel = await screen.findByRole("dialog", {
+    name: "입고 예정 등록",
+  });
+
+  // 업무 번호 입력
+  fireEvent.change(within(formPanel).getByLabelText("업무 중복 방지 번호"), {
+    target: { value: "RET-20261017-99" },
+  });
+
+  // 구분 선택: 판매 반품
+  fireEvent.change(within(formPanel).getByLabelText("입고 구분"), {
+    target: { value: "SALES_RETURN" },
+  });
+
+  // 품목 선택
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "10" },
+  });
+
+  // 예정 수량 입력
+  fireEvent.change(within(formPanel).getByLabelText("예정 수량"), {
+    target: { value: "25" },
+  });
+
+  // 정상 위치 선택
+  fireEvent.change(within(formPanel).getByLabelText("정상 위치"), {
+    target: { value: "11" },
+  });
+
+  // 등록 제출
+  fireEvent.click(within(formPanel).getByRole("button", { name: "예정 등록" }));
+
+  await waitFor(() => {
+    const postCalls = sent(fetcher, "POST", "/inbound-notices");
+    expect(postCalls).toHaveLength(1);
+    const sentBody = body(postCalls[0]);
+    expect(sentBody.noticeKind).toBe("SALES_RETURN");
+    expect(sentBody.businessKey).toBe("RET-20261017-99");
+  });
+});

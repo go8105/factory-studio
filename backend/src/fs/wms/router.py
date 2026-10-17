@@ -15,6 +15,7 @@ from fs.wms import receiving, reservations, service
 from fs.wms.receiving_schema import (
     InspectionInput,
     NoticeCreate,
+    NoticeKind,
     NoticeStatus,
     NoticeUpdate,
     ReasonInput,
@@ -508,6 +509,7 @@ def list_inbound_notices(
     context: Auth,
     status: NoticeStatus | None = None,
     warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+    notice_kind: Annotated[NoticeKind | None, Query(alias="noticeKind")] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
     expected_from: Annotated[date | None, Query(alias="expectedFrom")] = None,
@@ -515,7 +517,14 @@ def list_inbound_notices(
 ):
     return _data(
         receiving.list_notices(
-            context, status, warehouse_id, page, page_size, expected_from, expected_to
+            context,
+            status,
+            warehouse_id,
+            notice_kind,
+            page,
+            page_size,
+            expected_from,
+            expected_to,
         )
     )
 

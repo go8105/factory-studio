@@ -184,10 +184,14 @@ def get_notice(context, id):
         return _detail(c, read_scope(c, context, base.MODULE), id)
 
 
+NOTICE_KINDS = {"PURCHASE", "PO", "SALES_RETURN", "SUBCONTRACT"}
+
+
 def list_notices(
     context,
     status=None,
     warehouse_id=None,
+    notice_kind=None,
     page=1,
     page_size=50,
     expected_from=None,
@@ -203,6 +207,9 @@ def list_notices(
         if warehouse_id:
             where += " AND warehouse_id=:warehouse"
             params["warehouse"] = warehouse_id
+        if notice_kind:
+            where += " AND notice_kind=:notice_kind"
+            params["notice_kind"] = notice_kind
         if expected_from and expected_to and expected_from > expected_to:
             _fail("expectedTo", "예정일 끝은 시작 이후여야 합니다.")
         for key, value, op in [
@@ -327,14 +334,18 @@ def create_notice(context, values, key):
                 "이미 등록된 업무 번호입니다.", "BUSINESS_KEY_EXISTS", noticeId=old
             )
         lines = _validate_lines(c, scoped, values["warehouse_id"], values["lines"])
+        kind = values.get("notice_kind") or "PURCHASE"
+        if kind not in NOTICE_KINDS:
+            _fail("noticeKind", "유효한 입고 구분을 선택해 주세요.")
         now = _now(c)
         id = _query(
             c,
             scoped,
-            "INSERT INTO wms.inbound_notice(workspace_id,generation_id,notice_no,business_key,warehouse_id,expected_on,vehicle_no,partner_ref,created_at,updated_at) VALUES (:w,:g,:no,:business,:warehouse,:on,:vehicle,:partner,:now,:now) RETURNING id",
+            "INSERT INTO wms.inbound_notice(workspace_id,generation_id,notice_no,business_key,warehouse_id,notice_kind,expected_on,vehicle_no,partner_ref,created_at,updated_at) VALUES (:w,:g,:no,:business,:warehouse,:kind,:on,:vehicle,:partner,:now,:now) RETURNING id",
             no=_next_no(c, scoped, now),
             business=business,
             warehouse=values["warehouse_id"],
+            kind=kind,
             on=values["expected_on"],
             vehicle=values.get("vehicle_no"),
             partner=values.get("partner_ref"),
@@ -352,14 +363,18 @@ def update_notice(context, id, values, key):
         _version(row, values)
         _state(row, {"PLANNED"})
         lines = _validate_lines(c, scoped, values["warehouse_id"], values["lines"])
+        kind = values.get("notice_kind") or row["notice_kind"]
+        if kind not in NOTICE_KINDS:
+            _fail("noticeKind", "유효한 입고 구분을 선택해 주세요.")
         linked = claim(c, scoped, notice_id=id)
         if linked:
             _match_expected(c, scoped, lines, linked["source_snapshot"])
         _query(
             c,
             scoped,
-            f"UPDATE wms.inbound_notice SET warehouse_id=:warehouse,expected_on=:on,vehicle_no=:vehicle,partner_ref=:partner,updated_at=clock_timestamp(),version=version+1 WHERE {S} AND id=:id",
+            f"UPDATE wms.inbound_notice SET warehouse_id=:warehouse,notice_kind=:kind,expected_on=:on,vehicle_no=:vehicle,partner_ref=:partner,updated_at=clock_timestamp(),version=version+1 WHERE {S} AND id=:id",
             warehouse=values["warehouse_id"],
+            kind=kind,
             on=values["expected_on"],
             vehicle=values.get("vehicle_no"),
             partner=values.get("partner_ref"),

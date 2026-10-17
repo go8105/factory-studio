@@ -1,3 +1,28 @@
+# 2026-10-17 W2b-1c C-1 W-08 notice_kind 보강 완료
+
+- **브랜치**: `antigravity/w2b-1c`
+- **끝난 것 (C-1)**:
+  - `wms.inbound_notice.notice_kind` NOT NULL 기본값 및 4종 검증 지원:
+    - 백엔드: `NoticeKind` 리터럴 타입 및 `NoticeFields` 기본값(`"PURCHASE"`), `create_notice`/`update_notice` 4종 유효성 검사 및 SQL INSERT/UPDATE 반영, `list_notices` `noticeKind` 필터링 지원.
+    - 프런트엔드: `Inbounds.tsx` 필터 바 구분 셀렉트, 목록 `noticeKind` 컬럼 및 배지(`tone="issue"` for SALES_RETURN, `"normal"` for others), 등록 폼 `입고 구분` 선택 및 전송, 상세 패널 헤더 배지 및 정보 표시.
+  - DB 기존 행 실측:
+    - `factory_studio`: 총 60행 모두 `notice_kind='PURCHASE'` (누락 0건).
+    - `factory_studio_test`: 총 5행 모두 `notice_kind='PURCHASE'` (누락 0건).
+  - 검증 결과:
+    - 백엔드 WMS 테스트: `pytest backend/tests/test_wms.py -v` (19 passed).
+    - 프런트엔드 WMS 테스트: `npm --prefix frontend test -- src/wms/wms.test.tsx` (14 passed).
+    - 백엔드 정적 분석: `ruff check` (0 errors), `ruff format --check` (227 files formatted).
+    - 프런트엔드 정적 분석: `npm run lint` (0 errors), `npm run typecheck` (0 errors), `npm run format:check` (0 errors).
+    - 도구 단위 테스트: `Ran 136 tests in 16.210s - OK`.
+- **다음 할 일**: 사용자 확인 후 **C-2 (W-08 입고 LOT 부여 — 검수 시 `wms.lot` 생성)** 착수.
+- **주의점**:
+  - C-2에서 `receiving.py::_validate_lines`의 `itemClass == "FG"` 검사를 `lot_tracked` 기준으로 변경 (LOT 추적 품목 필수, 비추적 품목 제외).
+  - 검수 확정 시 적치 작업(`putaway_task`) 생성 시 `suggested_location_id`는 NULL로 두고 W-11 목록 조회 시 동적 계산.
+  - 격리품(`quarantined_qty > 0`) 및 부족품은 적치 작업 생성에서 제외 (`accepted_qty > 0`인 명세만 생성).
+- **재현 명령**:
+  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py -v`
+  - `npm --prefix frontend test -- src/wms/wms.test.tsx`
+
 ## 2026-10-17 PWA-POLICY-01 로컬 main 반영 · GW 설계 대조 시작
 
 사용자 지시로 PWA `e02097d`를 로컬 main에 ff 병합. 원격/실서버 변경 없음. main 폴더는 factory-studio-help-main, 새 GW 브랜치는 codex/gw-company-01 / factory-studio-gw-company. 다음은 기존 GW-EXT-A와 core.company/HR/Flow 인증·조직 재사용 대조이며 제품DB 적용 전 전체설계 확인 필요. 기존 Flow 회귀7실패 보존. 이전 아래 항목의 main 미반영 표시는 이 기록으로 갱신한다.

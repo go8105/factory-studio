@@ -8,6 +8,7 @@ from pydantic import Field
 from fs.wms.schema import QTY, ApiModel
 
 NoticeStatus = Literal["PLANNED", "ARRIVED", "INSPECTED", "CANCELLED"]
+NoticeKind = Literal["PURCHASE", "PO", "SALES_RETURN", "SUBCONTRACT"]
 
 
 class NoticeLine(ApiModel):
@@ -21,6 +22,7 @@ class NoticeLine(ApiModel):
 class NoticeFields(ApiModel):
     warehouse_id: int = Field(alias="warehouseId", gt=0)
     expected_on: date = Field(alias="expectedOn")
+    notice_kind: NoticeKind = Field("PURCHASE", alias="noticeKind")
     vehicle_no: str | None = Field(None, alias="vehicleNo", max_length=40)
     partner_ref: str | None = Field(None, alias="partnerRef", max_length=100)
     lines: list[NoticeLine] = Field(min_length=1, max_length=100)

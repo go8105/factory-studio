@@ -1115,3 +1115,139 @@ def test_lot_hold_and_release_cycle_and_qms(blank):
     if detail["qmsHold"] is not None:
         assert isinstance(detail["qmsHold"], dict)
         assert "active" in detail["qmsHold"]
+
+
+def test_inbound_notice_kind_rules(wms):
+    """W2b-1c C-1: notice_kind (PURCHASE, PO, SALES_RETURN, SUBCONTRACT) rules and filtering."""
+    client, created, ids = wms
+    houses = _ok(client.get(f"{W}/warehouses"))
+    wh_id = next(w["id"] for w in houses if w["purpose"] == "RAW")
+    item_id = ids["RM-PBT"]
+    normal_loc = ids["R-A01"]
+
+    # 1. notice_kind 생략 시 기본값 PURCHASE로 생성
+    p1 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/inbound-notices",
+            {
+                "businessKey": f"BIZ-KIND-DEFAULT-{uuid4().hex[:6]}",
+                "warehouseId": wh_id,
+                "expectedOn": "2026-10-20",
+                "lines": [
+                    {
+                        "itemId": item_id,
+                        "expectedQty": "100.000",
+                        "normalLocationId": normal_loc,
+                    }
+                ],
+            },
+        ),
+        201,
+    )
+    assert p1["noticeKind"] == "PURCHASE"
+
+    # 2. notice_kind="PO"로 명시적 등록
+    p2 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/inbound-notices",
+            {
+                "businessKey": f"BIZ-KIND-PO-{uuid4().hex[:6]}",
+                "warehouseId": wh_id,
+                "noticeKind": "PO",
+                "expectedOn": "2026-10-21",
+                "lines": [
+                    {
+                        "itemId": item_id,
+                        "expectedQty": "50.000",
+                        "normalLocationId": normal_loc,
+                    }
+                ],
+            },
+        ),
+        201,
+    )
+    assert p2["noticeKind"] == "PO"
+
+    # 3. SALES_RETURN 등록
+    p3 = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            "/inbound-notices",
+            {
+                "businessKey": f"BIZ-KIND-RETURN-{uuid4().hex[:6]}",
+                "warehouseId": wh_id,
+                "noticeKind": "SALES_RETURN",
+                "expectedOn": "2026-10-22",
+                "lines": [
+                    {
+                        "itemId": item_id,
+                        "expectedQty": "30.000",
+                        "normalLocationId": normal_loc,
+                    }
+                ],
+            },
+        ),
+        201,
+    )
+    assert p3["noticeKind"] == "SALES_RETURN"
+
+    # 4. 유효하지 않은 notice_kind 전송 시 400 거부
+    res_bad = _call(
+        client,
+        created,
+        "POST",
+        "/inbound-notices",
+        {
+            "businessKey": f"BIZ-KIND-BAD-{uuid4().hex[:6]}",
+            "warehouseId": wh_id,
+            "noticeKind": "INVALID_KIND",
+            "expectedOn": "2026-10-23",
+            "lines": [
+                {
+                    "itemId": item_id,
+                    "expectedQty": "10.000",
+                    "normalLocationId": normal_loc,
+                }
+            ],
+        },
+    )
+    assert res_bad.status_code == 400
+
+    # 5. PATCH로 notice_kind 수정 (PO -> SUBCONTRACT)
+    p2_updated = _ok(
+        _call(
+            client,
+            created,
+            "PATCH",
+            f"/inbound-notices/{p2['id']}",
+            {
+                "expectedVersion": p2["version"],
+                "warehouseId": wh_id,
+                "noticeKind": "SUBCONTRACT",
+                "expectedOn": "2026-10-21",
+                "lines": [
+                    {
+                        "itemId": item_id,
+                        "expectedQty": "50.000",
+                        "normalLocationId": normal_loc,
+                    }
+                ],
+            },
+        )
+    )
+    assert p2_updated["noticeKind"] == "SUBCONTRACT"
+
+    # 6. 필터링 조회 (noticeKind=SALES_RETURN)
+    listed = _ok(
+        client.get(f"{W}/inbound-notices", params={"noticeKind": "SALES_RETURN"})
+    )
+    assert any(r["id"] == p3["id"] for r in listed["rows"])
+    assert all(r["noticeKind"] == "SALES_RETURN" for r in listed["rows"])

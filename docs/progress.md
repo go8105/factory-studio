@@ -1,3 +1,31 @@
+# 2026-10-17 W2b-1c C-1 W-08 notice_kind 보강 완료
+
+- 브랜치: `antigravity/w2b-1c`
+- DB 기존 행 실측 결과:
+  - `factory_studio`: 총 60행 중 60행 모두 `notice_kind='PURCHASE'` (누락/NULL 0건 확인).
+  - `factory_studio_test`: 총 5행 중 5행 모두 `notice_kind='PURCHASE'` (누락/NULL 0건 확인).
+- 완료 내용:
+  - 백엔드 (`backend/src/fs/wms/`):
+    - `receiving_schema.py`: `NoticeKind = Literal["PURCHASE", "PO", "SALES_RETURN", "SUBCONTRACT"]` 정의 및 `NoticeFields`에 `notice_kind` (기본값 `"PURCHASE"`, alias `"noticeKind"`) 추가.
+    - `receiving.py`:
+      - `create_notice`: `notice_kind` 기본값 `PURCHASE`, 4종 외 입력 시 유효성 에러(`noticeKind`) 방어, INSERT 쿼리에 `notice_kind` 반영.
+      - `update_notice`: PLANNED 상태에서 `notice_kind` 수정 허용 및 4종 유효성 검증, UPDATE 쿼리에 반영.
+      - `list_notices`: `notice_kind` 선택적 필터링 쿼리 파라미터 지원.
+    - `router.py`: `GET /inbound-notices` 엔드포인트에 `noticeKind` Query 파라미터 매핑 및 연동.
+  - 프런트엔드 (`frontend/src/wms/`):
+    - `operations.tsx`: `NoticeKind` 타입 및 `noticeKinds` 라벨 매핑 ("매입", "발주", "판매 반품", "외주") 추가.
+    - `Inbounds.tsx`:
+      - 필터 바: "입고 구분" 셀렉트 추가 (`noticeKind` 쿼리 파라미터 연동).
+      - 목록 테이블: `noticeKind` 컬럼 추가 및 배지 (`tone="issue"` for SALES_RETURN, `"normal"` for others) 표시.
+      - 등록 폼 (`NoticeForm`): `입고 구분` 드롭다운 선택 및 `POST` 페이로드 전송.
+      - 상세 패널 (`NoticeDetail`): 헤더 배지 및 기본 정보 `구분 {noticeKinds[row.noticeKind]}` 표시.
+  - 테스트 및 검증:
+    - 백엔드 WMS 테스트: `pytest backend/tests/test_wms.py -v` (19 passed - `test_inbound_notice_kind_rules` 신규 추가 및 통과).
+    - 프런트엔드 WMS 테스트: `npm --prefix frontend test -- src/wms/wms.test.tsx` (14 passed - W-08 목록/상세/등록 noticeKind 신규 검증).
+    - 정적 분석 및 린트: `ruff check` (0 errors), `ruff format --check` (227 files, 0 errors), `npm run lint` (0 errors), `npm run typecheck` (0 errors), `npm run format:check` (0 errors).
+    - 도구 단위 테스트: `Ran 136 tests in 16.210s - OK`.
+- 다음 작업: 사용자 확인 후 C-2 (W-08 입고 LOT 부여 — 검수 시 `wms.lot` 생성) 착수.
+
 ## 2026-10-17 PWA-POLICY-01 로컬 main 반영
 
 사용자 “로컬 main에만” 지시로 `e02097d`를 main에 fast-forward 병합했다. 원격 push·CI 실행·실서버 배포 없음. 이전 기록의 main 미반영 상태는 이 항목으로 갱신한다. 다음 GW는 `codex/gw-company-01`에서 현재 회사 구조와 미확정 설계를 대조한다. 기존 Flow 테스트7실패는 그대로 남아 있으며 배포 전체검증 통과로 표시하지 않는다.

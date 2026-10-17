@@ -22,11 +22,13 @@ import {
 } from "./common";
 import {
   OperationError,
+  noticeKinds,
   remainder,
   states,
   useWmsCommand,
   useWmsQuery,
   type Inbound,
+  type NoticeKind,
   type Page,
 } from "./operations";
 import "./Operations.css";
@@ -79,6 +81,22 @@ export function Inbounds() {
       />
       <div className="filter-bar">
         <label>
+          구분
+          <select
+            value={params.get("noticeKind") ?? ""}
+            onChange={(e) => set("noticeKind", e.target.value)}
+          >
+            <option value="">전체</option>
+            {(["PURCHASE", "PO", "SALES_RETURN", "SUBCONTRACT"] as const).map(
+              (k) => (
+                <option key={k} value={k}>
+                  {noticeKinds[k]}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+        <label>
           상태
           <select
             value={params.get("status") ?? ""}
@@ -130,6 +148,17 @@ export function Inbounds() {
           rows={list.data.rows}
           columns={[
             { key: "noticeNo", label: "번호" },
+            {
+              key: "noticeKind",
+              label: "구분",
+              render: (r) => (
+                <Badge
+                  tone={r.noticeKind === "SALES_RETURN" ? "issue" : "normal"}
+                >
+                  {noticeKinds[r.noticeKind] ?? r.noticeKind}
+                </Badge>
+              ),
+            },
             { key: "expectedOn", label: "예정일" },
             { key: "vehicleNo", label: "차량" },
             {
@@ -202,6 +231,9 @@ function NoticeForm({
   onSaved: (row: Inbound) => void;
 }) {
   const [businessKey, setBusiness] = useState(row?.businessKey ?? "");
+  const [noticeKind, setNoticeKind] = useState<NoticeKind>(
+    row?.noticeKind ?? "PURCHASE",
+  );
   const [warehouseId, setWarehouse] = useState(
     String(
       row?.warehouseId ??
@@ -252,6 +284,7 @@ function NoticeForm({
             {
               ...(row ? { expectedVersion: row.version } : { businessKey }),
               warehouseId: Number(warehouseId),
+              noticeKind,
               expectedOn,
               vehicleNo: vehicleNo || null,
               partnerRef: partnerRef || null,
@@ -294,6 +327,22 @@ function NoticeForm({
           disabled={!!row}
           onChange={(e) => setBusiness(e.target.value)}
         />
+        <label>
+          입고 구분
+          <select
+            required
+            value={noticeKind}
+            onChange={(e) => setNoticeKind(e.target.value as NoticeKind)}
+          >
+            {(["PURCHASE", "PO", "SALES_RETURN", "SUBCONTRACT"] as const).map(
+              (k) => (
+                <option key={k} value={k}>
+                  {noticeKinds[k]}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
         <label>
           창고
           <select
@@ -503,9 +552,13 @@ function NoticeDetail({
   }));
   return (
     <DetailPanel title={row.noticeNo} wide guard={guard} onClose={close}>
-      <Badge>{states[row.status]}</Badge>
+      <Badge>{states[row.status]}</Badge>{" "}
+      <Badge tone={row.noticeKind === "SALES_RETURN" ? "issue" : "normal"}>
+        {noticeKinds[row.noticeKind] ?? row.noticeKind}
+      </Badge>
       <p>
-        예정 {row.expectedOn} · {row.vehicleNo || "차량 미지정"}
+        구분 {noticeKinds[row.noticeKind] ?? row.noticeKind} · 예정{" "}
+        {row.expectedOn} · {row.vehicleNo || "차량 미지정"}
       </p>
       <p>
         도착 {row.arrivedAt ? time(row.arrivedAt) : "—"} · 검수{" "}
@@ -680,7 +733,7 @@ function NoticeDetail({
               >
                 <option value="">선택</option>
                 {sources.data?.rows
-                  .filter((s) => s.state === "pending")
+                  ?.filter((s) => s.state === "pending")
                   .map((s) => (
                     <option key={s.sourceKey} value={s.sourceKey}>
                       {s.sourceRef} ·{" "}
