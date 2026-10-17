@@ -1,5 +1,7 @@
 # GW-EXT-A — CORE 공유 공간 상세 설계 r1
 
+2026-10-17 [회사 통합 개정안 GW-COMPANY-01](../gw/회사인증_권한_통합설계_GW-COMPANY-01.md): 기존 core.company/company_member를 재사용하는 제안이다. 아래 TEAM/초대/전역 세션전환의 신규 구현과 구분하며 미확정 구설계를 자동 적용하지 않는다. 현재 개정안 확인 대상/제품·DB 미적용.
+
 2026-10-05 · **전체 설계 확인 대상, 코드/DB 미적용**. 기준 40caa5e / schema0.17.0, headfs029b_cmms_module. 공식 FS/D/AC 번호는 구현 전 최신 main과 조율. [P0 운영](../../operations/GW_실운영준비_상세설계_GW-EXT-P0.md) · [GW 업무](../gw/GW_공유협업_상세설계_GW-EXT-A.md) · [화면](../../ui/화면설계_공유공간_GW-EXT-A.md).
 
 ## 1. 범위·소유권

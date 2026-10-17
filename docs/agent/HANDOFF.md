@@ -1,3 +1,10 @@
+## 2026-10-17 GW-COMPANY-01 설계 대조 완료 · 제품 미착수
+
+- branch codex/gw-company-01, folder factory-studio-gw-company, 기준PWA제품e02097d+main기록0a45562, 마지막커밋gitlog. main에는PWA만반영, 원격/운영없음. 원본antigravity보존.
+- [통합설계](../modules/gw/회사인증_권한_통합설계_GW-COMPANY-01.md)/[63경로](GW_회사인증_경로감사_GW-COMPANY-01.md): 회사/조직중복없음, 신규GW5표·6권한·본인연결·GENERAL결재/협업ACL·회사query/늦은응답/receipt·회수잠금제안. 구GW-EXT-A/화면/CORE에개정안연결. 전체설계확인대상·제품/DB미적용.
+- 정적검증: 기존router AST63경로와감사표63행일치, 재사용컬럼확인, 문서상대링크0오류·현황200줄·diff공백0.  제품테스트/브라우저/DB미실행. 기존PWA31/API12/전체597/604·Flow7baseline실패는이전검증이며GW검증으로재사용금지.
+- 다음사용자전체설계확인→GW-COMPANY-02(DB설계/마이그레이션/게이트). spec §7 잠금순서회사16→전역user관리→세션행과계정/세션회수전수검사, 63경로+신규경로ACL·개인체험보존필수. P0실운영MFA/복구/보존미정은회사지시없이채우지않음. 원격push/운영배포금지(이번사용자범위는로컬main만).
+
 ## 2026-10-17 PWA-POLICY-01 로컬 main 반영 · GW 설계 대조 시작
 
 사용자 지시로 PWA `e02097d`를 로컬 main에 ff 병합. 원격/실서버 변경 없음. main 폴더는 factory-studio-help-main, 새 GW 브랜치는 codex/gw-company-01 / factory-studio-gw-company. 다음은 기존 GW-EXT-A와 core.company/HR/Flow 인증·조직 재사용 대조이며 제품DB 적용 전 전체설계 확인 필요. 기존 Flow 회귀7실패 보존. 이전 아래 항목의 main 미반영 표시는 이 기록으로 갱신한다.

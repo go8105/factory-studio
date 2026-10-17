@@ -1,3 +1,7 @@
+## 2026-10-17 GW-COMPANY-01 회사 인증·권한 설계 대조 완료
+
+사용자 “로컬 main만, 다음 GW” 지시. PWA제품e02097d/기록0a45562 로컬main완료·원격/배포없음. GW는 codex/gw-company-01에서 기존GW-EXT-A와현행HR/Flow/core회사구조대조. [통합설계](modules/gw/회사인증_권한_통합설계_GW-COMPANY-01.md): 회사·조직·스냅샷재사용, GW신규5표/명시역할/본인바인딩/객체ACL/잠금·receipt재확인/협업13화면·기존63경로 제안. [63경로감사표](agent/GW_회사인증_경로감사_GW-COMPANY-01.md). 코드AST63경로/메타데이터 재사용필드·상대링크·200줄·diff 정적검증. 제품/API/DB/화면검증미실행. schema/Excel/ERD/migration/실데이터변경없음. 설계대조100%·전체설계확인대상·제품구현0%. 다음02는사용자전체설계확인후 DB/게이트개발, 기존Flow7실패·P0실운영MFA/복구미정유지. 원격push/배포없음.
+
 ## 2026-10-17 PWA-POLICY-01 로컬 main 반영
 
 사용자 “로컬 main에만” 지시로 `e02097d`를 main에 fast-forward 병합했다. 원격 push·CI 실행·실서버 배포 없음. 이전 기록의 main 미반영 상태는 이 항목으로 갱신한다. 다음 GW는 `codex/gw-company-01`에서 현재 회사 구조와 미확정 설계를 대조한다. 기존 Flow 테스트7실패는 그대로 남아 있으며 배포 전체검증 통과로 표시하지 않는다.

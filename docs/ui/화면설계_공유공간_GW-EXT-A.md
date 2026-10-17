@@ -1,5 +1,7 @@
 # GW-EXT-A — 공유 공간·실제 계정 화면 상세 설계 r1
 
+2026-10-17 [GW-COMPANY-01 화면 개정안 §8](../modules/gw/회사인증_권한_통합설계_GW-COMPANY-01.md): 기존 GW 안의 회사 선택·계정 연결을 제안한다. 아래 전역 공간 선택/초대 화면은 이번 회사 인증 범위에 포함하지 않는다. 개정안 확인 대상이며 제품 화면은 아직 변경하지 않았다.
+
 2026-10-05 · 설계 확인 대상, 화면 미구현. [CORE API](../modules/core/CORE_공유공간_상세설계_GW-EXT-A.md) · [GW API/ACL](../modules/gw/GW_공유협업_상세설계_GW-EXT-A.md) · [UI-02](공통UI규약_UI-02.md).
 
 공식 P/G 화면 번호는 main 충돌 확인 후 배정한다. 아래 UX-Axx는 설계 로컬 식별자다. 기존 G01~07 경로와 개인/게스트 체험은 유지. TEAM 신규 기능에 UI-02의 D/P 패턴·FormPanel·DetailPanel·DataTable·기존 확인영역 사용, 신규 시각 패턴 금지. GW 클래스는 gw-, core 신규는 core-team- 접두어.
