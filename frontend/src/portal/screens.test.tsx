@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { App } from "../app/App";
 const session = {
   actorKind: "GUEST",
@@ -15,6 +15,11 @@ const modules = ["core", "mes", "erp", "fems"].map((moduleKey) => ({
   enabled: true,
   updatedAt: null,
 }));
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-09-24T23:50:00+09:00"));
+});
+afterEach(() => vi.useRealTimers());
 function mockApi(overrides: Record<string, unknown> = {}) {
   return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const path = String(input).replace("/api/v1/core", "");
@@ -106,6 +111,7 @@ it("P-06 초기화는 확인 전 요청하지 않는다", async () => {
   fireEvent.click(
     await screen.findByRole("button", { name: "예시 데이터 초기화" }),
   );
+  expect(screen.getByText("남은 시간 10분")).toBeVisible();
   expect(
     fetcher.mock.calls.some(([url]) =>
       String(url).endsWith("/workspace/generations"),

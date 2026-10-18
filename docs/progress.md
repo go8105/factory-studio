@@ -1,3 +1,23 @@
+# 2026-10-18 FLOW-FIX-02 `portal/workspace-records.test.tsx` · `portal/screens.test.tsx` 시간 고정 및 남은 시간 검증 복원 완료
+
+- 브랜치: `antigravity/flow-fix-02` (기준 `main` `d0c79ae`)
+- 배경 및 원인:
+  - `frontend/src/portal/workspace-records.test.tsx`(`expiresAt: "2026-09-24T15:00:00Z"`)와 `frontend/src/portal/screens.test.tsx`(`expiresAt: "2026-09-25T00:00:00+09:00"`)는 `Workspace.tsx`가 `Date.now()`로 남은 분(`Math.max(0, Math.ceil((Date.parse(expiresAt) - now) / 60000))`)을 계산하는데, 만료 시각이 과거가 되어 `Date.now` spy가 있던 1건을 제외한 모든 `/workspace` 렌더링이 `"남은 시간 0분"`(만료 상태)으로만 그려지고 있었다.
+- 수정 내용:
+  - `frontend/src/portal/workspace-records.test.tsx`:
+    - `beforeEach`에 `vi.useFakeTimers({ toFake: ["Date"] })` 및 `vi.setSystemTime(new Date("2026-09-24T14:50:00Z"))` 추가 (기존 `afterEach(() => vi.useRealTimers())` 유지).
+    - `"남은 시간은 서버 만료 시각과 현재 시간의 차이다"` 테스트의 개별 `vi.spyOn(Date, "now").mockReturnValue(...)` 제거하고 파일 공통 고정 시각(`2026-09-24T14:50:00Z`, 만료 10분 전)으로 `"남은 시간 10분"` 검증 유지.
+  - `frontend/src/portal/screens.test.tsx`:
+    - `beforeEach`에 `vi.useFakeTimers({ toFake: ["Date"] })` 및 `vi.setSystemTime(new Date("2026-09-24T23:50:00+09:00"))` 추가, `afterEach(() => vi.useRealTimers())` 복원 추가.
+    - `"P-06 초기화는 확인 전 요청하지 않는다"` 테스트에서 `/workspace` 진입 시 `expect(screen.getByText("남은 시간 10분")).toBeVisible()` 단언 추가.
+  - 제품 코드(`Workspace.tsx` 등), 나머지 테스트 파일, DB/백엔드/시드 변경 없음.
+- 검증 결과:
+  - `npm --prefix frontend test -- src/portal/workspace-records.test.tsx`: **22 passed (22)**
+  - `npm --prefix frontend test -- src/portal/screens.test.tsx`: **12 passed (12)**
+  - `npm --prefix frontend test` 전체: **Test Files 77 passed (77), Tests 613 passed (613) — 실패 0건**
+  - `npm --prefix frontend run lint`, `npm --prefix frontend run format:check`, `npm --prefix frontend run typecheck`: 전부 통과
+- 다음 작업: 사용자 확인 후 `main` 병합 검토 및 `antigravity/w2b-1c`(`3f27c02`, C-4 완료 상태) 복귀.
+
 # 2026-10-18 FLOW-FIX-01 `frontend/src/flow/projects.test.tsx` 날짜 경과 실패 7건 수정 완료
 
 - 브랜치: `antigravity/flow-fix-01` (기준 `main` `2be292e`)
