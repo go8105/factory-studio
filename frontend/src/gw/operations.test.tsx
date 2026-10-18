@@ -1,3 +1,6 @@
+vi.mock("./RetentionReviews", () => ({
+  RetentionReviews: () => <div>보관 검토</div>,
+}));
 vi.mock("./OperatingEvidence", () => ({
   OperatingEvidence: () => <div>운영 실행 기록</div>,
 }));

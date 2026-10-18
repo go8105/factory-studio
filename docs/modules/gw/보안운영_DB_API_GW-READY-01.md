@@ -178,3 +178,7 @@
 ## GW-READY-02 운영 증거 등록 연결 (2026-10-18)
 
 GET/POST `gw/operating-evidence`를 기존 표에 연결했다. 현재 GW 역할·회사 범위·최근 MFA5분(등록)→멱등 응답→현재 정책/코드/DB/서명/시각/실측 계약→runId 중복 검사→불변 이력/감사 순이다. 서명 공개 키는 FS_GW_EVIDENCE_PUBLIC_KEYS, 제품 버전은 FS_CODE_REVISION, DB 버전은 alembic_version이다. PASS/FAIL/PARTIAL 목록에 이전 정책 여부를 표시한다. 자동백업·운영 ready 판정은 미연결이며 false 유지. [상세](../../operations/GW_운영증거등록_GW-READY-02.md).
+
+## GW-READY-02 보관 검토·보존 중지 연결 (2026-10-18)
+
+기존 표의 GET retention-reviews/retention-events, POST retention-reviews/refresh·{id}/transition·retention-company-hold, GET retention-reviews/{id}/source를 구현했다. 현재 회사·세대/역할/최근인증/원문ACL→receipt→CAS/전정책 보류 검사, 달력 월 기한·200건 분할·감사이력을 적용한다. 원문 제목/본문/이전후속 링크는 목록에서 반환하지 않는다. ARCHIVED는 입력받지 않으며 실제 보관본/삭제는 미구현이다. [상세 계약](../../operations/GW_보관검토_보존중지_GW-READY-02.md). 준비 상태는 계속false다.

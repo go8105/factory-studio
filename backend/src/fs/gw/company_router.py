@@ -1,6 +1,6 @@
 """회사 GW 준비·연결 관리 API. 전체 업무 공개는 04 통합 후다."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Path, Query, Request
 from pydantic import Field
@@ -472,3 +472,134 @@ def evidence_record(
     return command(
         context, csrf, key, record, context, company_id, payload.model_dump()
     )
+
+
+class RetentionRefresh(schema.Model):
+    expected_version: int = Field(alias="expectedVersion", ge=1, strict=True)
+    reason: Reason
+
+
+class CompanyHoldRequest(RetentionRefresh):
+    hold: bool = Field(strict=True)
+
+
+class RetentionTransition(RetentionRefresh):
+    state: Literal["DUE", "HELD", "ARCHIVE_PREPARED"]
+
+
+@router.get("/retention-reviews")
+def retention_history(
+    context: Auth,
+    company_id: CompanyId,
+    offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    state: Literal["DUE", "HELD", "ARCHIVE_PREPARED", "ARCHIVED"] | None = None,
+    source_id: Annotated[
+        int | None, Query(alias="sourceId", gt=0, le=9223372036854775807)
+    ] = None,
+):
+    from fs.gw.retention import history
+
+    return {
+        "data": history(
+            context,
+            company_id,
+            offset=offset,
+            limit=limit,
+            state=state,
+            source_id=source_id,
+        )
+    }
+
+
+@router.post("/retention-reviews/refresh")
+def retention_refresh(
+    context: Auth,
+    company_id: CompanyId,
+    payload: RetentionRefresh,
+    request: Request,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    from fs.core.security.router import require_origin
+    from fs.gw.retention import refresh
+
+    require_origin(request)
+    return command(
+        context,
+        csrf,
+        key,
+        refresh,
+        context,
+        company_id,
+        payload.model_dump(by_alias=True),
+    )
+
+
+@router.post("/retention-company-hold")
+def retention_hold(
+    context: Auth,
+    company_id: CompanyId,
+    payload: CompanyHoldRequest,
+    request: Request,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    from fs.core.security.router import require_origin
+    from fs.gw.retention import company_hold
+
+    require_origin(request)
+    return command(
+        context,
+        csrf,
+        key,
+        company_hold,
+        context,
+        company_id,
+        payload.model_dump(by_alias=True),
+    )
+
+
+@router.post("/retention-reviews/{review_id}/transition")
+def retention_transition(
+    context: Auth,
+    company_id: CompanyId,
+    review_id: schema.Id,
+    payload: RetentionTransition,
+    request: Request,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    from fs.core.security.router import require_origin
+    from fs.gw.retention import transition
+
+    require_origin(request)
+    return command(
+        context,
+        csrf,
+        key,
+        transition,
+        context,
+        company_id,
+        review_id,
+        payload.model_dump(by_alias=True),
+    )
+
+
+@router.get("/retention-reviews/{review_id}/source")
+def retention_source(context: Auth, company_id: CompanyId, review_id: schema.Id):
+    from fs.gw.retention import source
+
+    return {"data": source(context, company_id, review_id)}
+
+
+@router.get("/retention-events")
+def retention_events(
+    context: Auth,
+    company_id: CompanyId,
+    offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    from fs.gw.retention import events
+
+    return {"data": events(context, company_id, offset=offset, limit=limit)}
