@@ -1,11 +1,16 @@
-# 2026-10-17 W2b-1c C-2 W-08 입고 LOT 부여 및 lot_tracked 전환 완료
+# 2026-10-18 W2b-1c C-2 W-08 입고 LOT 부여 및 lot_tracked 전환 완료
 
 - **브랜치**: `antigravity/w2b-1c`
 - **끝난 것 (C-2)**:
+  - 기존 데이터 감사 (`factory_studio` 및 `factory_studio_test` 전수 확인):
+    - `wms.item` 중 `lot_tracked = true AND item_class <> 'FG'`: **0건**.
+    - `wms.item` 중 `lot_tracked = false AND item_class = 'FG'`: **0건**.
+    - `wms.inbound_notice_line` 중 `lot_tracked = false`인데 `lot_no` 존재: **0건**.
+    - `wms.inbound_notice_line` 중 `lot_tracked = true`인데 `lot_no` 비어 있음: **0건** (기존 60행 전건 무결).
   - 입고 LOT 부여 및 `lot_tracked` 플래그 전환:
     - 백엔드 (`receiving.py`):
       - `_validate_lines`: `itemClass == "FG"` 검사를 `item.get("lotTracked")` 검사로 교체하여 LOT 추적 품목 필수, 비추적 품목 차단(400) 구현.
-      - `inspect_notice`: 검수 확정 시 명세에 `lot_no`가 있고 `accepted_qty + quarantined_qty > 0`인 경우 `wms.lot` 행 자동 생성(`origin='RECEIPT'`, `status='AVAILABLE'`, 유효기간 자동계산, `supplier_lot_no=partner_ref` 50자 안전 매핑, 중복 방어).
+      - `inspect_notice`: 검수 확정 시 명세에 `lot_no`가 있고 `accepted_qty + quarantined_qty > 0`인 경우 `wms.lot` 행 자동 생성(`origin='RECEIPT'`, `status='AVAILABLE'`, 유효기간 자동계산, `supplier_lot_no=None`으로 비워 둠, 중복 방어).
     - 프런트엔드 (`Inbounds.tsx`):
       - `NoticeForm`: 선택된 품목의 `lotTracked` 여부에 따라 LOT 입력 필드 동적 표시 및 필수(`required`) 처리, 품목 변경 시 비추적 품목이면 `lotNo: ""` 초기화.
   - 검증 결과:

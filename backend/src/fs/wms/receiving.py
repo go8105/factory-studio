@@ -674,9 +674,7 @@ def inspect_notice(context, id, values, key):
                     if shelf_days and shelf_days > 0
                     else None
                 )
-                supplier_lot_no = (
-                    (row.get("partner_ref") or "").strip()[:50] or None
-                )
+                supplier_lot_no = None
                 existing_lot = _query(
                     c,
                     scoped,

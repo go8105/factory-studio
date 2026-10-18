@@ -1415,7 +1415,7 @@ def test_inbound_lot_tracked_rules_and_lot_creation(wms, guest_space):
         assert lot_row is not None
         assert lot_row["origin"] == "RECEIPT"
         assert lot_row["status"] == "AVAILABLE"
-        assert lot_row["supplier_lot_no"] == "SUP-PO-20261025"
+        assert lot_row["supplier_lot_no"] is None
         assert lot_row["expiry_date"] == lot_row["received_on"] + timedelta(days=45)
 
     # 8. /wms/lots 엔드포인트 조회 시 현재고 95.000 집계 확인
@@ -1427,7 +1427,7 @@ def test_inbound_lot_tracked_rules_and_lot_creation(wms, guest_space):
     assert Decimal(found_lot["qtyOnHand"]) == Decimal("95.000")
     assert found_lot["origin"] == "RECEIPT"
     assert found_lot["status"] == "AVAILABLE"
-    assert found_lot["supplierLotNo"] == "SUP-PO-20261025"
+    assert found_lot["supplierLotNo"] is None
 
     # 9. 멱등성: 동일 inspect 재호출 시 기존 데이터 반환
     re_inspected = _ok(
