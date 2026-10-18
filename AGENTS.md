@@ -86,8 +86,13 @@
 > 프롬프트 틀과 폴더 지도: [antigravity 개발 인계](docs/agent/ANTIGRAVITY_인계.md).
 > Codex의 기존 배정(GW)은 그대로 둔다.
 
-- **Claude Code:** 설계·기획·리뷰·다음 진행 결정·antigravity 프롬프트 작성. **코드를 직접 고치지 않는다.**
-- **antigravity:** 개발 전부(D84). 별도 브랜치에서 수행하고 사용자 리뷰 후 main에 병합한다.
+> **2026-10-18 사용자 결정(D85): D84를 되돌린다. 남은 WMS부터는 Claude Code가 직접 개발한다.**
+> W2b-1d까지는 antigravity가 하고 Claude Code가 리뷰·병합했다. W2b-1e부터는
+> **Claude Code가 설계·개발·검증·병합을 모두 맡는다.** antigravity 프롬프트는 만들지 않는다.
+> Codex의 기존 배정(GW)은 그대로 둔다.
+
+- **Claude Code:** 설계·기획·개발·검증·병합. D84의 "코드를 고치지 않는다"는 D85로 해제됐다.
+- **antigravity:** 지금은 배정 없음. 필요하면 사용자가 다시 지정한다.
 - **Codex:** 이미 맡은 GW 범위.
 - 원격 push는 사용자 확인 후 실행한다. 로컬 reflog에 옛 객체가 남아 있으므로 **`git push --mirror`는 금지**한다.
 
