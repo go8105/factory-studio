@@ -1,3 +1,11 @@
+## 2026-10-18 GW-READY-02 7차 회사 업무 기록·DB 반영 대조
+
+branch codex/gw-company-01 / factory-studio-gw-company, 기준1ce2a27·최종gitlog. 회사identity.execute에이어company.action도별도환경설정시암호화기록, gw.backup.capture(scope=(w,g)) 추가로회사별ACL상태/지문만수집(전역백업기본보존). v2봉투지문을동TX core.audit_event(action gw.security.journal-confirmation/entity gw.security_journal/summary generationId+operation)에저장. 새표/HTTP/UI없음. CLI --check-database는RR읽기전용으로지문/공간/세대/작업종류대조, 전체비어있지않은v2일치만 commitsConfirmed=true/0, 구형v1/빈/미확인3, DB/체인오류1. 원문/복호화payload출력없음. DBrollback후파일만남음→미확인이며실패/회수완료로단정안함. completenessfalse/restorePARTIAL/readyfalse유지, 전체경로/복원완료판정아님.
+
+관련38통과218.04초·최종집중11통과12.91초(겹침)·도움말18/Ruff/포맷·정적DB/격리오류0. 회사작성/상신/승인·수집scope·DB표식일치/다른세대미확인·rollback의도잔존·CLI0/3·구형/빈기록확인. 초기추가테스트회사ID형비교수정후재통과, 기존Starlette/httpx경고2. 전체CI/새브라우저/실회사/기기/외부보관/전원차단미검증. 소유PG fs-gw-ready02-journal-test/55438 ID+label factory-studio.owner=gw-ready-02-journal 확인후컨테이너/볼륨삭제·work/gw-readiness-02-journal postgres.env/server.env/container-id제거. 앱/웹/스케줄없음·실계정/공유DB/다른checkout수정없음. 별도main843036f읽기확인/이번GW미통합·원격배포없음. docs/agent/GW_실사용구현_GW-READY-02.md에누적완료/남은일표·docs/operations/GW_직원연결_역할변경기록_GW-READY-02.md에DB대조의미/제약/절차. 다음공통인증/HR수집→미확인후속대조/백업복원연결→외부최신지문/보관·운영게이트→선택SSO→전체회귀/10인·실기기/실환경인수/main. 전체02승인유효·내부재승인반복없음.
+
+재현: Python3.14/uv·새소유PostgreSQL18의 *_test DB·alembic head 후 TEST_DATABASE_URL, GW_BACKUP_TEST_CONTAINER 설정. uv run --project backend pytest backend/tests/test_gw_identity_journal.py backend/tests/test_gw_company_work.py backend/tests/test_gw_company_http.py backend/tests/test_gw_backup.py backend/tests/test_security_journal.py backend/tests/test_backup_crypto.py -q --tb=short (최종추가검사포함시개수는과거38과다름). 임시비밀을출력/커밋하지말고 work자격증명에의존하지말것.
+
 ## 2026-10-18 GW-READY-02 6차 직원 연결·역할 변경 의도 기록
 
 branch codex/gw-company-01 / factory-studio-gw-company, 기준 c83aaf1·최종gitlog. 사용자 잘못 올린 WMS 내용 철회→GW 재개, WMS checkout변경없음. identity.execute 이후 암호화 의도 snapshot(그회사/세대 직원·연결·역할) before-commit/fsync·기록실패503/DB·영수증 rollback·멱등 중복없음. core/security/journal.py AESGCM/연속번호·이전지문/flock·기존체인검사·파일4MiB/폴더10,000 제한. tools/gw_identity_journal.py --expected-head 필수, 환경 FS_GW_IDENTITY_JOURNAL_DIR/KEY_FILE 둘다없으면 미수집·하나만있으면 거부. 키별도0600·폴더0700; 실제서버설정없음. 의도 저장후DB확정실패는 파일만잔존·완료사실아님. CLI는 commitsConfirmed/completenessConfirmed=false, restore재생미연결·PARTIAL/readyfalse유지. 전경로/DB확정·외부최신지문·외부보관/복원연결/게이트·SSO/전체인수/main남음.

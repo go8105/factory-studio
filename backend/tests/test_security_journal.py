@@ -120,6 +120,7 @@ def test_identity_transaction_rolls_back_on_storage_failure(journal, monkeypatch
     for name in ("require_recent_auth", "bump", "audit", "save_receipt"):
         monkeypatch.setattr(company_identity, name, lambda *args: None)
     monkeypatch.setattr(company_identity, "find_receipt", lambda *args: None)
+    monkeypatch.setattr(security_journal, "confirmation", lambda *args: None)
 
     def run(c, ctx):
         c.execute(text("UPDATE gw.person SET is_active=0 WHERE id=1"))
@@ -206,3 +207,41 @@ def test_cli_checks_independent_pin_without_revealing_payload(journal):
     )
     assert failed.returncode == 1 and not failed.stdout
     assert "Traceback" not in failed.stderr
+
+
+def test_database_confirmation_is_scoped_and_legacy_is_unknown():
+    records = [
+        {
+            "digest": "a" * 64,
+            "payload": {
+                "coverage": "gw.company.intent.v2",
+                "workspaceId": 10,
+                "generationId": 20,
+                "operation": "synthetic",
+                "snapshot": {},
+            },
+        }
+    ]
+
+    def connection(workspace=10, summary=None):
+        rows = [{"workspace_id": workspace, "entity_key": "a" * 64, "summary": summary}]
+        return SimpleNamespace(
+            execute=lambda *a: SimpleNamespace(mappings=lambda: rows)
+        )
+
+    exact = {"generationId": "20", "operation": "synthetic"}
+    assert security_journal.confirm_records(connection(summary=exact), records)[
+        "commitsConfirmed"
+    ]
+    for c in (
+        connection(workspace=99, summary=exact),
+        connection(),
+        connection(summary=[]),
+        connection(summary={"generationId": "21", "operation": "synthetic"}),
+    ):
+        assert not security_journal.confirm_records(c, records)["commitsConfirmed"]
+    legacy = [{"digest": "a" * 64, "payload": payload()}]
+    result = security_journal.confirm_records(connection(summary=exact), legacy)
+    assert result["legacyRecords"] == 1 and result["unconfirmedRecords"] == 1
+    assert not result["commitsConfirmed"] and not result["completenessConfirmed"]
+    assert not security_journal.confirm_records(None, [])["commitsConfirmed"]

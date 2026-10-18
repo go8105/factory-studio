@@ -1,3 +1,9 @@
+## 2026-10-18 GW-READY-02 7차 회사 업무 기록·DB 반영 대조
+
+회사 company.action에 암호화 기록 연결, 직원/조직·문서/열람자·결재권한/전결/위임·게시글/댓글·채팅/일정·운영/보관 경로의 현재 상태/지문을 회사·세대 SQL조건으로 수집. gw.backup.capture의선택scope추가/전역기본보존. 새의도v2 봉투SHA256을 기존core.audit_event에같은TX로기록, 파일/DB표식/업무/영수증의미분리. --check-database CLI가 읽기전용RR에서 지문/공간/세대/작업일치검사, 비어있지않은전체v2일치만 commitsConfirmed=true/종료0; 구형/빈/미확인종료3; DB/체인오류1. 전체회수/현재권한/복원완료아님→completenessfalse/PARTIAL/readyfalse 유지. 새DB표/마이그레이션/UI/웹API없음.
+
+관련회사/HTTP/실제백업복원/암호화38통과218.04초, 보강최종집중11통과12.91초(겹침): 일반기안작성/상신/승인·회사범위·DB세대불일치·rollback의도잔존·CLI0/3·구형/빈기록미확인. 테스트회사ID형비교보정후재통과. 도움말18통과2.75초·Ruff/포맷·정적DB/격리오류0. 기존Starlette/httpx경고2, 전체CI/새브라우저/실회사/실기기/외부보관/전원차단미실행. 도움말/운영절차/API계약/문서지도·현황·누적완료/남은일표/HANDOFF갱신. schema219/2409/543불변. branch codex/gw-company-01·별도main843036f읽기확인/이번GW미통합·원격push/배포없음. 소유PG ID+label확인후컨테이너/볼륨삭제·work env/ID제거·앱/웹/스케줄미실행. 다음공통인증/HR수집→미확인후속대조/복원연결→외부보관/운영게이트→선택SSO→전체회귀/10인·실기기/실환경인수/main. [구현/남은일](agent/GW_실사용구현_GW-READY-02.md), [절차](operations/GW_직원연결_역할변경기록_GW-READY-02.md). 기준1ce2a27/최종gitlog.
+
 ## 2026-10-18 GW-READY-02 6차 직원 연결·역할 변경 의도 기록
 
 사용자 이전 GW 작업 재개 요청, 잘못 올린 WMS 자료 철회/해당 checkout 변경없음. company_identity.execute의 최초설정·연결요청/수락/취소/정지/재개·역할변경에 별도 환경 설정 시 암호화 의도 기록 연결. DB 확정 전 AES256-GCM/fsync·연속번호/이전SHA256/flock/0600·0700, 누락/변조/부분파일/저장실패503 시 DB·영수증 rollback. 기존 요청 재조회 중복없음. CLI 별도 최신지문 대조, 폴더전체 rollback 독자탐지/외부지문 자동보관/DB확정증명·나머지보안경로·복원재생 미완료. 의도만남는 확정실패를 성공으로 보지 않음→PARTIAL/전체회수확인false/readyfalse 유지. 상세 [운영절차](operations/GW_직원연결_역할변경기록_GW-READY-02.md)/[구현](agent/GW_실사용구현_GW-READY-02.md).

@@ -190,3 +190,10 @@ GET/POST `gw/operating-evidence`를 기존 표에 연결했다. 현재 GW 역할
 복원은 자동 이름의 새 접속 제한 DB만 만들며 원본 덮어쓰기/운영 개방 옵션은 없다. 별도 암호화 권한 대조 파일과 독립 확인 최신 지문을 요구한다. 기존 세션/중간인증·코드소비/OTP step·계정/멤버십/직원연결/역할/열람자/HR 계정 제한을 복원에 재적용한다. 모호한 GW ACL/보존 변경은 범위 격리/보존 중지다. 별도 기록 자동 연속성은 미완료이므로 proof는 RESTORE PARTIAL, revocationsReapplied=false/twoAccountChecks=false다. BACKUP PASS는 로컬 암호화 파일 자체검증 범위다. 전체 운영 ready는 false 유지.
 
 같은 표를 사용하며 스키마 변경 없음. [자세한 서버 절차·현재 제한](../../operations/GW_암호화백업_격리복원_GW-READY-02.md). 30분 systemd 템플릿은 제공만 하고 설치/활성화하지 않았다.
+
+
+## GW-READY-02 7차: 회사 업무 기록과 DB 대조
+
+회사 `company.action`/`company_identity.execute`에서 별도 환경이 설정된 경우 암호화 의도를 DB 확정 전에 저장하고 같은 트랜잭션에 기존 core.audit_event를 기록한다. action=`gw.security.journal-confirmation`, entity_kind=`gw.security_journal`, entity_key=암호화 봉투SHA256, summary에는 generationId/operation만 저장한다. 업무 원문·비밀은 넣지 않으며 새 테이블/FK/HTTP 경로를 추가하지 않는다. 저장 또는 대조용 감사 INSERT 실패는 DB 변경·멱등 영수증을 함께 취소한다. 파일만 남은 의도는 자동 재생하지 않는다.
+
+서버 CLI의 `--check-database`는 REPEATABLE READ 읽기 전용 조회에서 지문/공간/세대/작업 종류를 대조한다. 모든 비어 있지 않은 v2 기록 일치일 때만 commitsConfirmed=true/종료0, 미확인·v1·빈 체인은 종료3, 체인/DB 오류는 종료1. 전체 수집/외부최신지문/복원완료는 판정하지 않으며 completenessConfirmed=false/운영ready=false를 유지한다. [서버 절차](../../operations/GW_직원연결_역할변경기록_GW-READY-02.md).

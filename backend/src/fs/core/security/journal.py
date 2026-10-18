@@ -33,11 +33,12 @@ def locked(directory):
         os.close(fd)
 
 
-def _verify(directory, key, expected_head=None):
+def _verify(directory, key, expected_head=None, records=None):
     names = sorted(p.name for p in directory.iterdir() if p.name != ".lock")
     if len(names) > MAX_RECORDS:
         raise BackupError("기록 보관 한도를 확인하세요.")
     previous = ZERO
+    coverages = set()
     for sequence, name in enumerate(names, 1):
         if name != f"{sequence:010d}.json":
             raise BackupError(
@@ -58,11 +59,27 @@ def _verify(directory, key, expected_head=None):
                 canonical(header),
             )
             payload = json.loads(plain)
-            if payload["coverage"] != "gw.company_identity.intent.v1":
+            if payload["coverage"] not in {
+                "gw.company_identity.intent.v1",
+                "gw.company.intent.v2",
+            }:
+                raise ValueError()
+            if payload["coverage"] == "gw.company.intent.v2" and (
+                any(
+                    type(payload[k]) is not int or payload[k] <= 0
+                    for k in ("workspaceId", "generationId")
+                )
+                or not isinstance(payload["operation"], str)
+                or not 1 <= len(payload["operation"]) <= 200
+                or not isinstance(payload["snapshot"], dict)
+            ):
                 raise ValueError()
         except InvalidTag, ValueError, KeyError, TypeError:
             raise BackupError("보안 변경 기록 인증에 실패했습니다.") from None
+        coverages.add(payload["coverage"])
         previous = hashlib.sha256(raw).hexdigest()
+        if records is not None:
+            records.append({"digest": previous, "payload": payload})
     if expected_head is not None and (
         not re.fullmatch(r"[0-9a-f]{64}", expected_head) or expected_head != previous
     ):
@@ -70,7 +87,11 @@ def _verify(directory, key, expected_head=None):
     return {
         "records": len(names),
         "head": previous,
-        "coverage": "gw.company_identity.intent.v1",
+        "coverage": next(iter(coverages))
+        if len(coverages) == 1
+        else "mixed"
+        if coverages
+        else "empty",
         "completenessConfirmed": False,
         "commitsConfirmed": False,
     }
@@ -79,6 +100,14 @@ def _verify(directory, key, expected_head=None):
 def verify(path, key, expected_head=None):
     with locked(path) as directory:
         return _verify(directory, key, expected_head)
+
+
+def verified_records(path, key, expected_head):
+    """Operator-only internal interface; never print decrypted payloads."""
+    with locked(path) as directory:
+        records = []
+        state = _verify(directory, key, expected_head, records)
+        return state, records
 
 
 def append(path, key, payload):

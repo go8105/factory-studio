@@ -29,7 +29,9 @@ def policy_snapshot(c, company_id):
     }
 
 
-def capture(c):
+def capture(c, *, scope=None):
+    where = " WHERE workspace_id=:w AND generation_id=:g" if scope else ""
+    params = {"w": scope[0], "g": scope[1]} if scope else {}
     queries = {
         "people": "SELECT id,workspace_id,generation_id,is_active,organization_unit_id FROM gw.person",
         "bindings": "SELECT id,workspace_id,generation_id,person_id,user_id,state FROM gw.person_identity_binding",
@@ -37,7 +39,7 @@ def capture(c):
         "readers": "SELECT id,workspace_id,generation_id,document_id,person_id,is_active FROM gw.document_reader",
     }
     result = {
-        kind: [dict(r) for r in c.execute(text(query)).mappings()]
+        kind: [dict(r) for r in c.execute(text(query + where), params).mappings()]
         for kind, query in queries.items()
     }
     # Changes that cannot be replayed without guessing conservatively quarantine the scope.
@@ -58,16 +60,18 @@ def capture(c):
     for table in guard_tables:
         rows = c.execute(
             text(
-                f"SELECT workspace_id,generation_id,encode(sha256(convert_to(coalesce(string_agg(encode(sha256(convert_to(to_jsonb(t)::text,'UTF8')),'hex'),'' ORDER BY id),''),'UTF8')),'hex') AS hash FROM gw.{table} t GROUP BY workspace_id,generation_id"
-            )
+                f"SELECT workspace_id,generation_id,encode(sha256(convert_to(coalesce(string_agg(encode(sha256(convert_to(to_jsonb(t)::text,'UTF8')),'hex'),'' ORDER BY id),''),'UTF8')),'hex') AS hash FROM gw.{table} t{where} GROUP BY workspace_id,generation_id"
+            ),
+            params,
         ).mappings()
         result["guards"][table] = {
             f"{r['workspace_id']}/{r['generation_id']}": r["hash"] for r in rows
         }
     rows = c.execute(
         text(
-            "SELECT workspace_id,generation_id,encode(sha256(convert_to(coalesce(string_agg(id::text||':'||visibility||':'||coalesce(audience_org_id::text,'')||':'||status||':'||author_id::text,';' ORDER BY id),''),'UTF8')),'hex') AS hash FROM gw.board_post GROUP BY workspace_id,generation_id"
-        )
+            f"SELECT workspace_id,generation_id,encode(sha256(convert_to(coalesce(string_agg(id::text||':'||visibility||':'||coalesce(audience_org_id::text,'')||':'||status||':'||author_id::text,';' ORDER BY id),''),'UTF8')),'hex') AS hash FROM gw.board_post{where} GROUP BY workspace_id,generation_id"
+        ),
+        params,
     ).mappings()
     result["guards"]["post_visibility"] = {
         f"{r['workspace_id']}/{r['generation_id']}": r["hash"] for r in rows

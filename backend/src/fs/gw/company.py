@@ -117,6 +117,9 @@ def action(context, company_id, operation, key, body, fn, *, authorize):
             return cached
         result, entity, entity_id = fn(c, scoped, person)
         save_receipt(c, scoped, operation, key, digest, entity, entity_id, result)
+        from fs.gw.security_journal import record
+
+        record(c, scoped, operation, include_acl=True)
         return result
 
 
