@@ -170,3 +170,15 @@ def required_keys(c):
             )
         ).scalars()
     )
+
+
+def restrict_journal_users(c, user_ids):
+    """Historical or unconfirmed changes require manual review; never re-enable."""
+    if not user_ids:
+        return 0
+    return c.execute(
+        text(
+            "UPDATE core.app_user SET status='disabled',disabled_at=coalesce(disabled_at,clock_timestamp()),security_version=security_version+1 WHERE id=ANY(:ids)"
+        ),
+        {"ids": user_ids},
+    ).rowcount

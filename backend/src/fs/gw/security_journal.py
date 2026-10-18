@@ -80,12 +80,12 @@ def record(c, ctx, operation, *, include_acl=False):
         ) from None
 
 
-def confirm_records(c, records):
+def confirmed_digests(c, records):
     """Read-only exact digest matching. No grants or restore readiness decision."""
-    from fs.core.security.recording import KINDS, confirmed_count
+    from fs.core.security.recording import KINDS
+    from fs.core.security.recording import confirmed_digests as core_confirmed
 
     additional = [r for r in records if r["payload"]["coverage"] in KINDS]
-    all_records = records
     records = [r for r in records if r["payload"]["coverage"] not in KINDS]
     digests = [r["digest"] for r in records]
     matches = set()
@@ -108,12 +108,10 @@ def confirm_records(c, records):
                     row["summary"].get("operation"),
                 )
             )
-    legacy = 0
-    matched = confirmed_count(c, additional)
+    matched = core_confirmed(c, additional)
     for record in records:
         payload = record["payload"]
         if payload["coverage"] != "gw.company.intent.v2":
-            legacy += 1
             continue
         if (
             str(payload["workspaceId"]),
@@ -121,11 +119,19 @@ def confirm_records(c, records):
             str(payload["generationId"]),
             payload["operation"],
         ) in matches:
-            matched += 1
+            matched.add(record["digest"])
+    return matched
+
+
+def confirm_records(c, records):
+    matched = len(confirmed_digests(c, records))
+    legacy = sum(
+        r["payload"]["coverage"] == "gw.company_identity.intent.v1" for r in records
+    )
     return {
         "matchedRecords": matched,
         "legacyRecords": legacy,
-        "unconfirmedRecords": len(all_records) - matched,
-        "commitsConfirmed": bool(all_records) and matched == len(all_records),
+        "unconfirmedRecords": len(records) - matched,
+        "commitsConfirmed": bool(records) and matched == len(records),
         "completenessConfirmed": False,
     }

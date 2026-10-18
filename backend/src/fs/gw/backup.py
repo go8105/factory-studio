@@ -175,3 +175,28 @@ def replay(c, checkpoint):
         "quarantinedScopes": len(quarantine),
         "revocationsReapplied": True,
     }
+
+
+def restrict_journal_scopes(c, scopes):
+    applied = 0
+    for w, g in scopes:
+        p = {"w": w, "g": g}
+        c.execute(
+            text(
+                "UPDATE gw.person_identity_binding SET state=CASE WHEN activated_at IS NULL THEN 'CANCELLED' ELSE 'SUSPENDED' END,closed_at=coalesce(closed_at,clock_timestamp()),version=version+1,reason='변경 기록에 따른 격리 복원 후 재확인' WHERE workspace_id=:w AND generation_id=:g AND state<>'CANCELLED'"
+            ),
+            p,
+        )
+        c.execute(
+            text(
+                "UPDATE gw.operating_settings SET company_hold=true,hold_reason='변경 기록의 권한·보존 재확인 필요',version=version+1,updated_at=clock_timestamp() WHERE workspace_id=:w AND generation_id=:g"
+            ),
+            p,
+        )
+        applied += c.execute(
+            text(
+                "UPDATE gw.collaboration_settings SET authz_version=authz_version+1 WHERE workspace_id=:w AND generation_id=:g"
+            ),
+            p,
+        ).rowcount
+    return applied

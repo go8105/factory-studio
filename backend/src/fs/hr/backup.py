@@ -38,3 +38,12 @@ def replay(c, checkpoint):
             )
             restricted += 1
     return {"hrRestrictions": restricted}
+
+
+def restrict_journal_users(c, user_ids):
+    if not user_ids:
+        return 0
+    return c.execute(
+        text("UPDATE hr.work_account SET is_active=false WHERE user_id=ANY(:ids)"),
+        {"ids": user_ids},
+    ).rowcount

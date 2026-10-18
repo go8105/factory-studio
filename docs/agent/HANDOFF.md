@@ -1,3 +1,9 @@
+## 2026-10-18 GW-READY-02 9차 WIP 변경 기록·백업/복원 연결
+
+branch codex/gw-company-01 기준d9b40aa. backup_journal 모듈이 원본DB스냅샷 전에 독립최신지문(FS_GW_JOURNAL_EXPECTED_HEAD)과암호화체인을확인하고, 백업DB에반영된지문목록을서명/암호화명세에저장한다. checkpoint는기준체인연속성을대조하고백업기준미확인/이후기록의계정·회사제한대상만저장, restore는독립최신지문재대조후core계정/HR계정중지·GW연결/보존중지재적용. 권한허용/복원완료선언없고PARTIAL/readyfalse유지. 새DB표/마이그레이션없음. 확인된지문set조회공용화, 메타데이터만수집하여스냅샷복호화내용을불필요하게보관하지않음.
+
+집중14통과11.16초: 실제PG덤프/복원에서회수후재개·역할왕복·백업이전미확인기록도제한, 원본활성/직원역할불변. 첫추가테스트가요약반환값에서세부필드를찾던문제를보고파일대조로보정후통과. 마지막실제미확정DB트랜잭션을백업후확정하는경합검사와관련백업/인증회귀진행중,최종결과미선언. 소유PG fs-gw-ready02-journal-test/55438(label factory-studio.owner=gw-ready-02-journal)만사용. work/gw-readiness-02-journal의server.env/postgres.env/container-id비밀스테이징금지, 종료시ID/label대조컨테이너/볼륨삭제·env/ID제거필수. 첫실패테스트의폐쇄복원DB도본인컨테이너안이며외부접속없음,컨테이너최종정리에포함. API/웹/스케줄설치없음·공유/실계정/main/원격/배포변경없음. 다음운영/도움말·현황/진행최종갱신,최종검사결과확인/자원정리/커밋. 전체02승인유효.
+
 ## 2026-10-18 GW-READY-02 8차 공통 인증·HR 변경 기록
 
 branch codex/gw-company-01 / factory-studio-gw-company, 기준fe47e1b·최종gitlog. core.security.recording(인증상태만)/hr.security_journal(회사계정+인증소유조회)추가. service.audit/MFA대기시작/record_failure(실패·발급counter)/정상·제한복구logout/emergency.system_audit/HR users회사·직원생성/비밀번호·아이디·역할·중지연결. 기존FS_GW_IDENTITY_JOURNAL_DIR/KEY_FILE둘다없으면기존동작/미수집, 일부설정·키/파일/체인실패503/해당TX취소. 실제서버설정없음. 새coverage core.security.intent.v1/hr.users.intent.v1·같은TX의기존core.audit_event(action security.journal.confirmation/entity security_journal/봉투지문/summary.subject 허용metadata). GW confirm_records가새종류를core confirmed_count로대조하여혼합체인확인. 암호화snapshot에비밀번호/해시·TOTP비밀/암호문·코드/토큰/해시·아이디/IP·원문/사유없음. 전체완전성/restore/ready자동승인없음(PARTIAL/false유지), 미수집감사/미확인대조·백업복원연결·보관교체/외부지문·운영게이트/선택SSO/전체회귀/10인실환경인수/main남음.

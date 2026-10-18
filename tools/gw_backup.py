@@ -43,6 +43,7 @@ from fs.core.backup import (
 from fs.core.security import backup as core_checkpoint
 from fs.core.security.config import security_settings
 from fs.gw import backup as gw_checkpoint
+from fs.gw import backup_journal
 from fs.gw.operating_contract import canonical, timestamp
 from fs.hr import backup as hr_checkpoint
 from sqlalchemy import create_engine, text
@@ -236,6 +237,11 @@ def backup(*, url, company_id, output, evidence, config):
     if any(
         Path(path).resolve().is_relative_to(output.parent.resolve())
         for path in config.get("secretPaths", [])
+        + (
+            [os.environ["FS_GW_IDENTITY_JOURNAL_KEY_FILE"]]
+            if os.environ.get("FS_GW_IDENTITY_JOURNAL_KEY_FILE")
+            else []
+        )
     ):
         raise BackupError("백업 파일과 키 파일은 다른 보관 경로를 사용하세요.")
     engine = create_engine(url)
@@ -244,6 +250,7 @@ def backup(*, url, company_id, output, evidence, config):
             prefix=".fs-backup-", dir=private_directory(output.parent)
         ) as folder:
             temp = Path(folder)
+            observed_journal = backup_journal.source_records()
             with engine.connect() as c, c.begin():
                 started = snapshot(c)
                 scope = gw_checkpoint.policy_snapshot(c, company_id)
@@ -260,6 +267,7 @@ def backup(*, url, company_id, output, evidence, config):
                 manifest = {
                     "version": 1,
                     "kind": "BACKUP",
+                    "journal": backup_journal.anchor(c, observed_journal),
                     "runId": str(uuid4()),
                     "sourceIdentity": database_identity(c),
                     "scope": scope,
@@ -345,6 +353,7 @@ def checkpoint(*, url, artifact, output, head, config):
         ) as folder:
             temp = Path(folder)
             original = unpack(artifact, temp, config, kind="BACKUP")
+            observed_journal = backup_journal.source_records()
             with engine.connect() as c, c.begin():
                 started = snapshot(c)
                 if database_identity(c) != original["sourceIdentity"]:
@@ -354,6 +363,9 @@ def checkpoint(*, url, artifact, output, head, config):
                 manifest = {
                     "version": 1,
                     "kind": "CHECKPOINT",
+                    "journal": backup_journal.plan(
+                        c, original.get("journal"), observed_journal
+                    ),
                     "runId": str(uuid4()),
                     "backupRunId": original["runId"],
                     "backupManifestDigest": __import__("hashlib")
@@ -443,6 +455,9 @@ def restore(
                 or latest.get("capturedAt") != changes["capturedAt"]
             ):
                 raise BackupError("백업과 권한 대조 기록의 연결이 맞지 않습니다.")
+            backup_journal.validate_restore(
+                manifest.get("journal"), changes.get("journal")
+            )
             age = (datetime.now(UTC) - timestamp(changes["capturedAt"])).total_seconds()
             if (
                 age < -30
@@ -516,6 +531,29 @@ def restore(
                 core_result = core_checkpoint.replay(c, changes["coreSecurity"])
                 gw_result = gw_checkpoint.replay(c, changes["gwSecurity"])
                 hr_result = hr_checkpoint.replay(c, changes["hrSecurity"])
+                journal = changes.get("journal")
+                journal_result = {
+                    "journalRestrictionsApplied": journal is not None,
+                    "journalCandidateIntents": 0,
+                    "journalUnconfirmedIntents": 0,
+                    "journalCounterIntents": 0,
+                    "journalDisabledAccounts": 0,
+                    "journalQuarantinedScopes": 0,
+                }
+                if journal is not None:
+                    journal_result.update(
+                        journalCandidateIntents=journal["candidates"],
+                        journalUnconfirmedIntents=journal["unconfirmed"],
+                        journalCounterIntents=journal["counterIntents"],
+                        journalDisabledAccounts=core_checkpoint.restrict_journal_users(
+                            c, journal["users"]
+                        ),
+                        journalQuarantinedScopes=gw_checkpoint.restrict_journal_scopes(
+                            c, journal["scopes"]
+                        ),
+                    )
+                    hr_checkpoint.restrict_journal_users(c, journal["users"])
+
                 # Security replay may only restrict restored permissions; originals remain untouched.
                 if not core_result["sessionsInvalidated"]:
                     raise BackupError("기존 인증 세션을 무효화하지 못했습니다.")
@@ -541,6 +579,7 @@ def restore(
                 **core_result,
                 **gw_result,
                 **hr_result,
+                **journal_result,
                 "checkpointRestrictionsApplied": True,
                 "checkpointCompletenessConfirmed": False,
                 "revocationsReapplied": False,

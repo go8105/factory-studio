@@ -33,7 +33,7 @@ def locked(directory):
         os.close(fd)
 
 
-def _verify(directory, key, expected_head=None, records=None):
+def _verify(directory, key, expected_head=None, records=None, metadata_only=False):
     names = sorted(p.name for p in directory.iterdir() if p.name != ".lock")
     if len(names) > MAX_RECORDS:
         raise BackupError("기록 보관 한도를 확인하세요.")
@@ -101,6 +101,19 @@ def _verify(directory, key, expected_head=None, records=None):
         coverages.add(payload["coverage"])
         previous = hashlib.sha256(raw).hexdigest()
         if records is not None:
+            if metadata_only:
+                payload = {
+                    k: v
+                    for k, v in payload.items()
+                    if k
+                    in {
+                        "coverage",
+                        "operation",
+                        "userId",
+                        "workspaceId",
+                        "generationId",
+                    }
+                }
             records.append({"digest": previous, "payload": payload})
     if expected_head is not None and (
         not re.fullmatch(r"[0-9a-f]{64}", expected_head) or expected_head != previous
@@ -124,11 +137,11 @@ def verify(path, key, expected_head=None):
         return _verify(directory, key, expected_head)
 
 
-def verified_records(path, key, expected_head):
+def verified_records(path, key, expected_head, *, metadata_only=False):
     """Operator-only internal interface; never print decrypted payloads."""
     with locked(path) as directory:
         records = []
-        state = _verify(directory, key, expected_head, records)
+        state = _verify(directory, key, expected_head, records, metadata_only)
         return state, records
 
 

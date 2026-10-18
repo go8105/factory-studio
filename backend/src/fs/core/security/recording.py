@@ -121,9 +121,9 @@ def record_throttles(c, ids):
     )
 
 
-def confirmed_count(c, records):
+def confirmed_digests(c, records):
     if not records:
-        return 0
+        return set()
     rows = c.execute(
         text(
             "SELECT entity_key,summary FROM core.audit_event WHERE action='security.journal.confirmation' AND entity_kind='security_journal' AND entity_key=ANY(:digests)"
@@ -136,4 +136,12 @@ def confirmed_count(c, records):
             matches.setdefault(row["entity_key"], []).append(
                 row["summary"].get("subject")
             )
-    return sum(subject(r["payload"]) in matches.get(r["digest"], []) for r in records)
+    return {
+        r["digest"]
+        for r in records
+        if subject(r["payload"]) in matches.get(r["digest"], [])
+    }
+
+
+def confirmed_count(c, records):
+    return len(confirmed_digests(c, records))
