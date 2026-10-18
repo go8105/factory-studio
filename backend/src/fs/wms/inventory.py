@@ -57,7 +57,11 @@ def rows(c, scoped, filters=None):
         text(SQL + where + " ORDER BY h.code,l.code,i.item_code,b.lot_no NULLS FIRST"),
         {**base._s(scoped), **params},
     ).mappings():
-        normal = row["on_hand"] if row["location_type"] == "NORMAL" else Decimal(0)
+        normal = (
+            row["on_hand"]
+            if row["location_type"] in ("NORMAL", "SHIPPING")
+            else Decimal(0)
+        )
         held = row["on_hand"] - normal
         available = normal - row["reserved_qty"]
         result.append(

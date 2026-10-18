@@ -17,7 +17,6 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from fs.common.db import reset_engine
 from fs.hr.work_setup import create_example_company
-from seed.generate import create_template
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import make_url
 
@@ -86,14 +85,37 @@ def test_merge_both_existing_branches_preserves_original_data(isolated_database,
     cfg = Config("backend/alembic.ini")
     command.upgrade(cfg, first)
     with engine.begin() as c:
-        create_template(c, date(2026, 10, 18))
+        tw = c.execute(
+            text(
+                "INSERT INTO core.workspace(workspace_kind) VALUES ('TEMPLATE') RETURNING id"
+            )
+        ).scalar_one()
+        tg = c.execute(
+            text(
+                "INSERT INTO core.data_generation(workspace_id,seed_version,seed_date,status,activated_at) VALUES (:w,'merge-test-1',:d,'active',now()) RETURNING id"
+            ),
+            {"w": tw, "d": date(2026, 10, 18)},
+        ).scalar_one()
+        c.execute(
+            text("UPDATE core.workspace SET active_generation_id=:g WHERE id=:w"),
+            {"w": tw, "g": tg},
+        )
         co = create_example_company(
             c, "Synthetic-" + uuid4().hex, "Synthetic-" + uuid4().hex
         )
         # New branch data must survive too, not only old/common tables.
         if first == "w2b1_wms":
-            c.exec_driver_sql(
-                "INSERT INTO wms.lot(workspace_id,generation_id,item_id,lot_no,origin,received_on) SELECT workspace_id,generation_id,id,'MERGE-WITNESS','RECEIPT',CURRENT_DATE FROM wms.item ORDER BY id LIMIT 1"
+            item_id = c.execute(
+                text(
+                    "INSERT INTO wms.item(workspace_id,generation_id,item_code,name,item_class,base_unit,lot_tracked) VALUES (:w,:g,'MERGE-ITEM','병합검증품목','RAW','EA',true) RETURNING id"
+                ),
+                {"w": tw, "g": tg},
+            ).scalar_one()
+            c.execute(
+                text(
+                    "INSERT INTO wms.lot(workspace_id,generation_id,item_id,lot_no,origin,received_on) VALUES (:w,:g,:item,'MERGE-WITNESS','RECEIPT',CURRENT_DATE)"
+                ),
+                {"w": tw, "g": tg, "item": item_id},
             )
         if first == "gw_company_identity":
             # Direct fixture creates security history; it grants no production access.
