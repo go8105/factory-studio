@@ -1,12 +1,11 @@
-// W-12 피킹 — 출고 예약 기반 피킹 지시 목록·동선(sequenceNo) 명세·LOT 대체 사유 및 도착 위치 선택 (DSN-13 F22·F23·F27).
-// 명세는 위치 코드 순(sequenceNo ASC)으로 표시하며, 예약 LOT이 보류·만료·수량 부족으로 대체된 경우 사유(lotSubstitutions)를 안내한다.
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../shared/api";
 import {
   Badge,
   DataTable,
   DetailPanel,
+  ErrorNotice,
   Loading,
   PageTitle,
   type Column,
@@ -19,6 +18,7 @@ import {
   PICK_SUBSTITUTION_REASON_LABEL,
   time,
   useLists,
+  useSend,
   WMS,
   type Item,
   type Location,
@@ -81,6 +81,18 @@ export function Picks() {
     null,
   );
   const [toLocationId, setToLocationId] = useState<string>("");
+  const [pickedQtys, setPickedQtys] = useState<Record<number, string>>({});
+  const [cancelReason, setCancelReason] = useState("");
+
+  const {
+    send,
+    pending,
+    error: actionError,
+    setError: setActionError,
+  } = useSend(() => {
+    reload();
+    reloadMeta();
+  });
 
   const orders = orderPage?.rows ?? [];
   const total = orderPage?.total ?? 0;
@@ -92,6 +104,11 @@ export function Picks() {
     const found = orders.find((o) => o.id === targetId);
     if (found) {
       setSelectedOrder(found);
+      const qtys: Record<number, string> = {};
+      for (const l of found.lines ?? []) {
+        qtys[l.id] = l.pickedQty ?? l.qty;
+      }
+      setPickedQtys(qtys);
       return;
     }
     const controller = new AbortController();
@@ -105,6 +122,11 @@ export function Picks() {
           Array.isArray(res.data.lines)
         ) {
           setSelectedOrder(res.data);
+          const qtys: Record<number, string> = {};
+          for (const l of res.data.lines ?? []) {
+            qtys[l.id] = l.pickedQty ?? l.qty;
+          }
+          setPickedQtys(qtys);
         }
       })
       .catch(() => {});
@@ -150,13 +172,55 @@ export function Picks() {
 
   const openOrder = (order: PickOrder) => {
     setSelectedOrder(order);
+    setActionError(undefined);
+    setCancelReason("");
+    const qtys: Record<number, string> = {};
+    for (const l of order.lines ?? []) {
+      qtys[l.id] = l.pickedQty ?? l.qty;
+    }
+    setPickedQtys(qtys);
     setParam("open", String(order.id));
   };
 
   const closeOrder = () => {
     setSelectedOrder(null);
+    setActionError(undefined);
+    setCancelReason("");
     setParam("open", "");
   };
+
+  async function handleConfirm(e: FormEvent) {
+    e.preventDefault();
+    if (!selectedOrder || !toLocationId) return;
+    const linesPayload = (selectedOrder.lines ?? []).map((l) => ({
+      lineId: l.id,
+      pickedQty: pickedQtys[l.id] ?? l.qty,
+    }));
+    const res = await send<PickOrder>(
+      `/pick-orders/${selectedOrder.id}/confirm`,
+      "POST",
+      {
+        toLocationId: Number(toLocationId),
+        lines: linesPayload,
+      },
+    );
+    if (res && res.id) {
+      setSelectedOrder(res);
+    }
+  }
+
+  async function handleCancel() {
+    if (!selectedOrder || !cancelReason.trim()) return;
+    const res = await send<PickOrder>(
+      `/pick-orders/${selectedOrder.id}/cancel`,
+      "POST",
+      { cancelReason: cancelReason.trim() },
+    );
+    if (res && res.id) {
+      setSelectedOrder(res);
+      setCancelReason("");
+    }
+  }
 
   if (moduleOff(metaError ?? listError)) return <ModuleOff />;
   if (!meta || !orderPage) return <Loading />;
@@ -417,6 +481,16 @@ export function Picks() {
                 {selectedOrder.cancelReason}
               </div>
             )}
+            {selectedOrder.status === "PICKED" &&
+              selectedOrder.toLocationCode && (
+                <div>
+                  <strong>도착 위치: </strong>
+                  {selectedOrder.toLocationCode}
+                  {selectedOrder.toLocationName
+                    ? ` · ${selectedOrder.toLocationName}`
+                    : ""}
+                </div>
+              )}
             {selectedOrder.stockDocumentId && (
               <div>
                 <strong>재고 전표: </strong>
@@ -482,6 +556,9 @@ export function Picks() {
                       <th>품목</th>
                       <th>LOT · 유효기간</th>
                       <th className="num">지시 수량</th>
+                      {selectedOrder.status === "OPEN" && (
+                        <th className="num">피킹 수량</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -516,6 +593,25 @@ export function Picks() {
                             </span>
                           )}
                         </td>
+                        {selectedOrder.status === "OPEN" && (
+                          <td className="num">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              aria-label={`명세 #${line.sequenceNo} 피킹 수량`}
+                              value={pickedQtys[line.id] ?? line.qty}
+                              style={{ width: "5.5rem", textAlign: "right" }}
+                              disabled={pending}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setPickedQtys((prev) => ({
+                                  ...prev,
+                                  [line.id]: v,
+                                }));
+                              }}
+                            />
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -524,7 +620,8 @@ export function Picks() {
             </section>
 
             {selectedOrder.status === "OPEN" && (
-              <section
+              <form
+                onSubmit={handleConfirm}
                 style={{
                   marginTop: "0.5rem",
                   paddingTop: "0.75rem",
@@ -545,6 +642,7 @@ export function Picks() {
                     id="pick-to-location"
                     aria-label="도착 위치 선택"
                     value={toLocationId}
+                    disabled={pending}
                     onChange={(e) => setToLocationId(e.target.value)}
                   >
                     <option value="">위치를 선택하세요</option>
@@ -558,8 +656,73 @@ export function Picks() {
                     ))}
                   </select>
                 </div>
-              </section>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "0.5rem",
+                    marginTop: "0.25rem",
+                  }}
+                >
+                  <button
+                    type="submit"
+                    disabled={
+                      pending ||
+                      !toLocationId ||
+                      candidateLocations.length === 0
+                    }
+                  >
+                    피킹 확정
+                  </button>
+                </div>
+              </form>
             )}
+
+            {selectedOrder.status === "OPEN" && (
+              <div
+                style={{
+                  marginTop: "0.5rem",
+                  paddingTop: "0.75rem",
+                  borderTop: "1px solid var(--border)",
+                }}
+              >
+                <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
+                  피킹 지시 취소
+                </h4>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "0.5rem",
+                    flexWrap: "wrap",
+                    alignItems: "flex-end",
+                  }}
+                >
+                  <label
+                    style={{ flex: 1, minWidth: "12rem", marginBottom: 0 }}
+                  >
+                    취소 사유
+                    <input
+                      type="text"
+                      maxLength={300}
+                      aria-label="취소 사유"
+                      placeholder="취소 사유를 입력하세요"
+                      value={cancelReason}
+                      disabled={pending}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="issue"
+                    disabled={pending || !cancelReason.trim()}
+                    onClick={handleCancel}
+                  >
+                    피킹 취소
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <ErrorNotice error={actionError} />
           </div>
         </DetailPanel>
       )}

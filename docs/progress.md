@@ -1,3 +1,43 @@
+# 2026-10-18 W2b-1d D-3 피킹 확정·취소 API 및 화면 연계 + 유효 현재 위치 도출 완료
+
+- 작업 폴더 / 브랜치: `/Users/hwang-kyoungho/projects/factory-studio-ag` / `antigravity/w2b-1d-work`
+- 구현 내용:
+  - `backend/src/fs/wms/pick_schema.py`: `PickLineConfirm`, `PickOrderConfirm(toLocationId, lines)` 스키마 추가.
+  - `backend/src/fs/wms/picks.py`:
+    - `confirm_pick_order`: 한 트랜잭션에서 `wms.pick_line.picked_qty` 기록, `PICK` 재고 이동 전표(`status='posted'`, `source_key=NULL`, `source_ref=pick_no`, 출발 칸 -picked / 도착 칸 +picked) 생성, `pick_order.status='PICKED'`, `picked_at=now`, `stock_document_id=doc_id` 갱신. 부분 피킹 지원(`picked_qty = 0`이면 전표 미생성, 1개 이상 양수 필수).
+    - `cancel_pick_order`: `cancel_reason`(1~300자) 검증, `status='CANCELLED'`, `picked_at=NULL`, `stock_document_id=NULL`, `cancel_reason` 기록. 취소 후 동일 예약에서 재요청 시 `OPEN`으로 재개(c1482) 지원.
+    - `_pick_order_header`, `PICK_ORDER_SELECT`, `_enrich_orders`에 `toLocationId`, `toLocationCode`, `toLocationName` 추가.
+  - `backend/src/fs/wms/router.py`: `POST /pick-orders/{id}/confirm`, `POST /pick-orders/{id}/cancel` 엔드포인트 등록.
+  - `backend/src/fs/wms/inventory.py`: amounts CTE의 `reserved_qty` 집계 시, 피킹 전(미지시/OPEN/CANCELLED)에는 `stock_reservation_line`의 원래 `(location_id, lot_no, qty)`, 피킹 후(PICKED)에는 PICK 전표 도착 줄 `(to_location_id, lot_no, picked_qty)` + 미피킹 잔량 `(location_id, lot_no, qty - picked_qty)`을 유효 현재 위치로 도출하여 보관 칸 음수 재고 방지.
+  - `backend/src/fs/wms/reservations.py`: `_effective_lines` 도출 함수 구현. `_detail`, `list_reservations`, `consume`, `shipment_preview`에 적용하여 ERP 출하 소진 시 도착 위치에서 차감(보관 칸 이중 차감 방지) 및 확정 후 W-09 예약 목록에 거짓 부족 경보(reservationShortage) 방지.
+  - `frontend/src/wms/common.tsx`: `PickOrder` 타입에 `toLocationId`, `toLocationCode`, `toLocationName` 추가.
+  - `frontend/src/wms/Picks.tsx`:
+    - OPEN 상세: 명세별 피킹 수량 입력 필드 제공(기본값 지시 수량), 도착 위치 선택, "피킹 확정" 및 "피킹 취소"(사유 필수) 폼 연계.
+    - PICKED 상세: 실제 도착 위치(`toLocationCode · toLocationName`), 확정 시각, 생성된 PICK 전표 링크, 명세별 확정 수량 노출.
+    - CANCELLED 상세: 취소 사유 노출.
+  - `frontend/src/wms/wms.test.tsx`: 피킹 확정 및 취소 액션 폼/버튼 렌더링 검증.
+- 검증 결과:
+  - 브라우저 Playwright E2E 검증 (`scratch/verify_d3_picks.mjs`):
+    - 게스트 세션 생성 -> 창고 및 F-SHIP 출고장 확인 -> 기초 재고 입고(40, 60 EA) -> 출고 예약 1(30, 20 EA) -> 피킹 지시 1(OPEN) 생성.
+    - W-12 화면 진입 -> OPEN 상세 및 명세별 수량(30, 20), 도착 위치(F-SHIP) 확인 (`wms-picks-d3-open.png`).
+    - "피킹 확정" 클릭 -> 상태 PICKED, 확정 일시, 도착 위치(`F-SHIP · 출하 대기장`), 재고 전표 링크(`WD-...`), 확정 수량 표시 확인 (`wms-picks-d3-picked.png`).
+    - 재고 원장 대조: 보관 칸 locA(40 -> 10 EA), locB(60 -> 40 EA) 차감, F-SHIP(30 + 20 EA) 입고, LOT 총량(40, 60 EA) 불변.
+    - 출고 예약 목록 및 상세 대조: 유효 현재 위치가 F-SHIP으로 계산되어 `shortage = "0"` 및 모든 명세의 `reservationShortage = "0"` (거짓 부족 경보 0건!).
+    - 피킹 지시 2 취소 흐름: 사유 입력 -> "피킹 취소" 클릭 -> 상태 CANCELLED, 취소 사유("오더 변경으로 취소") 표시 (`wms-picks-d3-cancelled.png`).
+    - 동일 예약 피킹 지시 재개(c1482 재개): 동일 예약으로 다시 피킹 지시 생성 시 기존 행이 `OPEN`으로 재개됨 확인.
+    - 모바일 390px 뷰포트: `scrollWidth = 390, clientWidth = 390` (가로 오버플로 0건) 확인 (`wms-picks-d3-mobile-390.png`).
+    - `ALL D-3 BROWSER VERIFICATIONS PASSED!`
+  - `tools/ci_local.sh` 1~5단계 전체 통과:
+    - 1단계 (DB 검증·도구): 통과 (`tables: 210, errors: []`, 도구 138건 통과)
+    - 2단계 (백엔드 ruff): 통과 (`All checks passed! 247 files clean`)
+    - 3단계 (백엔드 pytest): 통과 (`1083 passed, 2 skipped, 59 warnings in 505.28s`, `pytest -m perf`: 1 passed, xdist 작업자 탈락 0건)
+    - 4단계 (DB 초기화·마이그레이션 왕복): 통과 (`downgrade base` -> `upgrade head`, DDL 0건 차이)
+    - 5단계 (프런트엔드): 통과 (`typecheck`, `lint`, `format:check`, `build`, **`Test Files 77 passed (77), Tests 618 passed (618)`**)
+- 제약 및 특이사항:
+  - DB 스키마/마이그레이션 변경 없음 (기존 W2b-1a DDL 100% 충족).
+  - W-09 화면 피킹 연계 및 완제품 출고 예약 보강은 D-4 범위.
+- 다음 작업: 사용자 확인 후 **D-4 (W-09 화면 피킹 연계 및 완제품 출고 예약 보강)** 착수.
+
 # 2026-10-18 W2b-1d D-2 W-12 피킹 목록·상세 화면 및 동선 명세 완료
 
 - 작업 폴더 / 브랜치: `/Users/hwang-kyoungho/projects/factory-studio-ag` / `antigravity/w2b-1d-work`

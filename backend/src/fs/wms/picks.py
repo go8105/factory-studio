@@ -46,6 +46,23 @@ def _reservation_header(c, scoped, res_id: int, lock: bool = False) -> dict[str,
     return dict(row)
 
 
+def _pick_order_header(c, scoped, pick_id: int, lock: bool = False) -> dict[str, Any]:
+    row = (
+        q(
+            c,
+            scoped,
+            f"SELECT * FROM wms.pick_order WHERE {S} AND id=:id"
+            + (" FOR UPDATE" if lock else ""),
+            id=pick_id,
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        raise base._not_found("피킹 지시")
+    return dict(row)
+
+
 def _reservation_lines(c, scoped, res_id: int) -> list[dict[str, Any]]:
     sql = f"""
     SELECT rl.id, rl.reservation_id, rl.line_no, rl.item_id, rl.location_id, rl.lot_no, rl.quantity,
@@ -644,6 +661,9 @@ def _enrich_orders(
                 "pickedAt": r["picked_at"].isoformat() if r.get("picked_at") else None,
                 "stockDocumentId": r.get("stock_document_id"),
                 "stockDocumentNo": r.get("stock_document_no"),
+                "toLocationId": r.get("to_location_id"),
+                "toLocationCode": r.get("to_location_code"),
+                "toLocationName": r.get("to_location_name"),
                 "cancelReason": r.get("cancel_reason"),
                 "createdAt": (
                     r["created_at"].isoformat()
@@ -667,7 +687,8 @@ SELECT po.id, po.pick_no, po.reservation_id, po.status, po.picked_at,
        po.stock_document_id, po.cancel_reason, po.created_at,
        r.reservation_no, r.status AS reservation_status, r.shipment_order_ref,
        d.document_no AS stock_document_no,
-       wh.warehouse_id, wh.warehouse_code, wh.warehouse_name
+       wh.warehouse_id, wh.warehouse_code, wh.warehouse_name,
+       to_loc.to_location_id, to_loc.to_location_code, to_loc.to_location_name
 FROM wms.pick_order po
 JOIN wms.stock_reservation r
   ON r.workspace_id=po.workspace_id AND r.generation_id=po.generation_id AND r.id=po.reservation_id
@@ -686,6 +707,17 @@ LEFT JOIN LATERAL (
     ORDER BY rl.line_no
     LIMIT 1
 ) wh ON TRUE
+LEFT JOIN LATERAL (
+    SELECT sm.location_id AS to_location_id,
+           loc.code AS to_location_code,
+           loc.name AS to_location_name
+    FROM wms.stock_move sm
+    JOIN wms.storage_location loc
+      ON loc.workspace_id=sm.workspace_id AND loc.generation_id=sm.generation_id AND loc.id=sm.location_id
+    WHERE sm.workspace_id=po.workspace_id AND sm.generation_id=po.generation_id AND sm.document_id=po.stock_document_id
+      AND sm.qty_delta > 0
+    LIMIT 1
+) to_loc ON TRUE
 WHERE po.{S.replace(" AND ", " AND po.")}
 """
 
@@ -880,6 +912,179 @@ def create_pick_order(
         return _detail(c, scoped, pick_order_id), "pick_order", pick_order_id
 
     return base._action(context, f"wms.pick.create:{res_id}", key, values, fn, 201)
+
+
+def confirm_pick_order(
+    context: base.AuthContext, id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    def fn(c, scoped):
+        row = _pick_order_header(c, scoped, id, lock=True)
+        if row["status"] != "OPEN":
+            raise base._conflict("이미 처리된 피킹 지시입니다.", "INVALID_STATE")
+
+        to_location_id = values["to_location_id"]
+        to_loc = base._location(c, scoped, to_location_id)
+        if (
+            to_loc is None
+            or not to_loc["isActive"]
+            or to_loc["locationType"] not in ("SHIPPING", "NORMAL")
+        ):
+            rec._fail(
+                "toLocationId",
+                "출고(SHIPPING) 또는 일반(NORMAL) 유형의 활성 보관 위치를 선택해 주세요.",
+            )
+
+        pls = [
+            dict(r)
+            for r in q(
+                c,
+                scoped,
+                f"SELECT * FROM wms.pick_line WHERE {S} AND pick_order_id=:id ORDER BY line_no",
+                id=id,
+            ).mappings()
+        ]
+        if not pls:
+            raise base._conflict("피킹 지시 명세가 없습니다.", "INVALID_STATE")
+
+        dep_wh_ids = {
+            q(
+                c,
+                scoped,
+                f"SELECT warehouse_id FROM wms.storage_location WHERE {S} AND id=:loc_id",
+                loc_id=pl["location_id"],
+            ).scalar_one()
+            for pl in pls
+        }
+        if to_loc["warehouseId"] not in dep_wh_ids:
+            rec._fail(
+                "toLocationId",
+                "피킹 대상 창고와 동일한 창고의 위치를 선택해 주세요.",
+            )
+
+        lines_input = values.get("lines")
+        input_map = (
+            {item["line_id"]: Decimal(str(item["picked_qty"])) for item in lines_input}
+            if lines_input is not None
+            else None
+        )
+
+        moves = []
+        has_any_picked = False
+        for pl in pls:
+            pl_id = pl["id"]
+            ordered_qty = Decimal(str(pl["qty"]))
+            if input_map is not None:
+                if pl_id not in input_map:
+                    rec._fail(
+                        "lines", f"명세 #{pl['line_no']}의 피킹 수량이 누락되었습니다."
+                    )
+                picked_qty = input_map[pl_id]
+            else:
+                picked_qty = ordered_qty
+
+            if picked_qty < Decimal(0) or picked_qty > ordered_qty:
+                rec._fail(
+                    "lines",
+                    f"피킹 수량은 0 이상, 지시 수량({ordered_qty}) 이하여야 합니다.",
+                )
+
+            q(
+                c,
+                scoped,
+                f"UPDATE wms.pick_line SET picked_qty=:picked_qty WHERE {S} AND id=:id",
+                picked_qty=picked_qty,
+                id=pl_id,
+            )
+
+            if picked_qty > Decimal(0):
+                has_any_picked = True
+                if pl["location_id"] == to_location_id:
+                    rec._fail(
+                        "toLocationId",
+                        "출발 위치와 다른 도착 위치를 선택해 주세요.",
+                    )
+                moves.append(
+                    {
+                        "item_id": pl["item_id"],
+                        "location_id": pl["location_id"],
+                        "lot_no": pl["lot_no"],
+                        "qty_delta": -picked_qty,
+                        "source_qty": None,
+                        "source_unit": None,
+                    }
+                )
+                moves.append(
+                    {
+                        "item_id": pl["item_id"],
+                        "location_id": to_location_id,
+                        "lot_no": pl["lot_no"],
+                        "qty_delta": picked_qty,
+                        "source_qty": None,
+                        "source_unit": None,
+                    }
+                )
+
+        if not has_any_picked:
+            rec._fail("lines", "최소 1개 이상의 명세를 피킹해야 합니다.")
+
+        now = rec._now(c)
+        doc_id = base._insert_document(
+            c,
+            scoped,
+            {
+                "document_type": "PICK",
+                "status": "posted",
+                "source_key": None,
+                "source_ref": row["pick_no"],
+                "document_on": now.astimezone(base.SEOUL).date(),
+                "posted_at": now,
+            },
+            moves,
+            now.isoformat(),
+        )
+
+        q(
+            c,
+            scoped,
+            f"UPDATE wms.pick_order "
+            f"SET status='PICKED', picked_at=:now, stock_document_id=:doc_id, cancel_reason=NULL "
+            f"WHERE {S} AND id=:id",
+            now=now,
+            doc_id=doc_id,
+            id=id,
+        )
+
+        return _detail(c, scoped, id), "pick_order", id
+
+    return base._action(context, f"wms.pick.confirm:{id}", key, values, fn)
+
+
+def cancel_pick_order(
+    context: base.AuthContext, id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    def fn(c, scoped):
+        row = _pick_order_header(c, scoped, id, lock=True)
+        if row["status"] != "OPEN":
+            raise base._conflict("이미 처리된 피킹 지시입니다.", "INVALID_STATE")
+
+        reason = values.get("cancel_reason", "").strip()
+        if not reason:
+            rec._fail("cancelReason", "취소 사유를 입력해 주세요.")
+        if len(reason) > 300:
+            rec._fail("cancelReason", "취소 사유는 300자 이하로 입력해 주세요.")
+
+        q(
+            c,
+            scoped,
+            f"UPDATE wms.pick_order "
+            f"SET status='CANCELLED', picked_at=NULL, stock_document_id=NULL, cancel_reason=:reason "
+            f"WHERE {S} AND id=:id",
+            reason=reason,
+            id=id,
+        )
+        return _detail(c, scoped, id), "pick_order", id
+
+    return base._action(context, f"wms.pick.cancel:{id}", key, values, fn)
 
 
 def guard_master(c, scoped, kind: str, id: int, all_history: bool = False) -> None:
