@@ -60,3 +60,7 @@ class InspectionLine(ApiModel):
 
 class InspectionInput(VersionInput):
     lines: list[InspectionLine] = Field(min_length=1, max_length=100)
+
+
+class PutawayComplete(ApiModel):
+    to_location_id: int = Field(alias="toLocationId", gt=0)

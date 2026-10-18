@@ -1049,3 +1049,235 @@ def test_putaway_task_recommendation_algorithm_and_filters(receiving_env):
     assert task["suggestedLocationId"] is None
     assert task["suggestedLocationCode"] is None
     assert task["suggestedLocationName"] is None
+
+
+def test_putaway_complete_and_cancel_full_flow(receiving_env):
+    """C-4: 적치 완료(PUTAWAY 전표 + 원장 입고장 차감/목적지 증가 + LOT 총량 유지), 멱등/409 방어, 취소 검증."""
+    env = receiving_env
+    client, auth, _engine, ids = env
+
+    def _err(r, status, code):
+        assert r.status_code == status, r.text
+        err = r.json()["error"]
+        assert err["code"] == code or err.get("details", {}).get("reason") == code
+
+    rec_loc = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-REC-C4", "name": "C4 입고장", "locationType": "RECEIVING"},
+        ),
+        201,
+    )
+    rack_loc = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-RACK-C4", "name": "C4 보관랙", "locationType": "NORMAL"},
+        ),
+        201,
+    )
+    _ok(_call(client, auth, "PATCH", f"/items/{ids['RM-PBT']}", {"lotTracked": True}))
+
+    # 2줄 입고 예정: 1번 줄은 완료 테스트용, 2번 줄은 취소 테스트용
+    n = notice(
+        env,
+        lines=[
+            {
+                "itemId": ids["RM-PBT"],
+                "lotNo": "LOT-C4-001",
+                "expectedQty": "80",
+                "normalLocationId": rec_loc["id"],
+            },
+            {
+                "itemId": ids["RM-PIN"],
+                "expectedQty": "40",
+                "normalLocationId": rec_loc["id"],
+            },
+        ],
+    )
+    n = _ok(act(env, n, "arrive"))
+    n = _ok(
+        act(
+            env,
+            n,
+            "inspect",
+            expectedVersion=n["version"],
+            lines=[
+                {
+                    "lineId": n["lines"][0]["id"],
+                    "acceptedQty": "80",
+                    "quarantinedQty": "0",
+                    "shortageQty": "0",
+                },
+                {
+                    "lineId": n["lines"][1]["id"],
+                    "acceptedQty": "40",
+                    "quarantinedQty": "0",
+                    "shortageQty": "0",
+                },
+            ],
+        )
+    )
+
+    tasks = _ok(_call(client, auth, "GET", "/putaway-tasks?status=OPEN"))["rows"]
+    t_lot = next(t for t in tasks if t["itemId"] == ids["RM-PBT"])
+    t_cancel = next(t for t in tasks if t["itemId"] == ids["RM-PIN"])
+
+    # 적치 전 재고 현황: 입고장(R-REC-C4)에 LOT-C4-001 80개가 있어야 함
+    stock_before = _ok(_call(client, auth, "GET", "/stock?lotNo=LOT-C4-001"))["rows"]
+    assert len(stock_before) == 1
+    assert stock_before[0]["locationId"] == rec_loc["id"]
+    assert stock_before[0]["onHand"] == "80.000"
+
+    # 적치 전 LOT 현재고: 총량 80.000
+    lots_before = _ok(_call(client, auth, "GET", "/lots?lotNo=LOT-C4-001"))
+    assert lots_before[0]["qtyOnHand"] == "80.000"
+
+    # 비정상 목적지(출발 위치 동일 또는 QUARANTINE) 거부 (400)
+    _err(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_lot['id']}/complete",
+            {"toLocationId": rec_loc["id"]},
+        ),
+        400,
+        "VALIDATION_FAILED",
+    )
+    _err(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_lot['id']}/complete",
+            {"toLocationId": ids["quarantine"]},
+        ),
+        400,
+        "VALIDATION_FAILED",
+    )
+
+    # 적치 완료 요청 (동일 Idempotency-Key 재전송 테스트 포함)
+    idem_key = "idem-putaway-complete-c4-1"
+    done_task = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_lot['id']}/complete",
+            {"toLocationId": rack_loc["id"]},
+            key=idem_key,
+        )
+    )
+    assert done_task["status"] == "DONE"
+    assert done_task["toLocationId"] == rack_loc["id"]
+    assert done_task["toLocationCode"] == "R-RACK-C4"
+    assert done_task["doneAt"] is not None
+    assert done_task["stockDocumentId"] is not None
+    doc_id = done_task["stockDocumentId"]
+
+    # 같은 Idempotency-Key로 두 번째 요청 시 동일 전표 반환 (멱등)
+    done_again_same_key = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_lot['id']}/complete",
+            {"toLocationId": rack_loc["id"]},
+            key=idem_key,
+        )
+    )
+    assert done_again_same_key["stockDocumentId"] == doc_id
+
+    # 다른 Idempotency-Key로 이미 완료된 작업을 다시 완료 요청 시 409 Conflict 방어
+    _err(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_lot['id']}/complete",
+            {"toLocationId": rack_loc["id"]},
+            key="idem-putaway-complete-c4-2",
+        ),
+        409,
+        "INVALID_STATE",
+    )
+    # 이미 완료된 작업을 취소 요청 시 409 Conflict 방어
+    _err(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_lot['id']}/cancel",
+        ),
+        409,
+        "INVALID_STATE",
+    )
+
+    # 생성된 PUTAWAY 전표 및 원장(W-05) 검증: 전표는 딱 1장만 생겼고, 출발 -80 / 도착 +80
+    putaway_docs = _ok(_call(client, auth, "GET", "/documents?type=PUTAWAY"))
+    matching_docs = [d for d in putaway_docs if d["sourceRef"] == t_lot["taskNo"]]
+    assert len(matching_docs) == 1
+    assert matching_docs[0]["id"] == doc_id
+
+    moves = _ok(_call(client, auth, "GET", "/moves?type=PUTAWAY&lotNo=LOT-C4-001"))
+    assert len(moves) == 2
+    move_by_loc = {m["locationId"]: m["qtyDelta"] for m in moves}
+    assert move_by_loc[rec_loc["id"]] == "-80.000"
+    assert move_by_loc[rack_loc["id"]] == "80.000"
+
+    # 적치 후 재고 현황(W-02): 입고장 수량은 사라지고 보관랙(R-RACK-C4) 수량이 80.000으로 증가
+    stock_after = _ok(_call(client, auth, "GET", "/stock?lotNo=LOT-C4-001"))["rows"]
+    assert len(stock_after) == 1
+    assert stock_after[0]["locationId"] == rack_loc["id"]
+    assert stock_after[0]["onHand"] == "80.000"
+
+    # 적치 후 LOT(W-10): LOT 총 현재고는 80.000으로 동일하게 유지되고, 위치는 R-RACK-C4로 이동
+    lots_after = _ok(_call(client, auth, "GET", "/lots?lotNo=LOT-C4-001"))
+    assert lots_after[0]["qtyOnHand"] == "80.000"
+    lot_detail = _ok(_call(client, auth, "GET", f"/lots/{lots_after[0]['id']}"))
+    assert len(lot_detail["locations"]) == 1
+    assert lot_detail["locations"][0]["locationId"] == rack_loc["id"]
+    assert lot_detail["locations"][0]["qtyOnHand"] == "80.000"
+
+    # 취소 흐름 검증: 두 번째 적치 작업(t_cancel) 취소
+    cancelled_task = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_cancel['id']}/cancel",
+        )
+    )
+    assert cancelled_task["status"] == "CANCELLED"
+    assert cancelled_task["toLocationId"] is None
+    assert cancelled_task["doneAt"] is None
+    assert cancelled_task["stockDocumentId"] is None
+
+    # 취소된 작업을 다시 취소하거나 완료하려고 하면 409 Conflict로 차단
+    _err(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_cancel['id']}/cancel",
+        ),
+        409,
+        "INVALID_STATE",
+    )
+    _err(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_cancel['id']}/complete",
+            {"toLocationId": rack_loc["id"]},
+        ),
+        409,
+        "INVALID_STATE",
+    )

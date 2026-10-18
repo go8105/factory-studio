@@ -1048,7 +1048,7 @@ it("W-08 입고 예정 등록 시 RECEIVING 위치가 있으면 기본 선택되
   });
 });
 
-it("W-11 적치 목록 렌더링, 상태 배지, 추천 위치 표시 및 상세 패널 검증", async () => {
+it("W-11 적치 목록 렌더링, 추천 위치 기본 선택·변경 적치 완료 및 취소 검증", async () => {
   const tasks = [
     {
       id: 1,
@@ -1106,7 +1106,43 @@ it("W-11 적치 목록 렌더링, 상태 배지, 추천 위치 표시 및 상세
     },
   ];
 
-  mount("/wms/putaways", {
+  const whLocations = [
+    {
+      id: 11,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-B01",
+      name: "기본 랙",
+      isDefault: true,
+      isActive: true,
+      moveCount: 0,
+      locationType: "NORMAL",
+    },
+    {
+      id: 12,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-B02",
+      name: "보조 랙",
+      isDefault: false,
+      isActive: true,
+      moveCount: 0,
+      locationType: "NORMAL",
+    },
+    {
+      id: 15,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-REC",
+      name: "원자재 입고장",
+      isDefault: false,
+      isActive: true,
+      moveCount: 1,
+      locationType: "RECEIVING",
+    },
+  ];
+
+  const fetcher = mount("/wms/putaways", {
     [`GET ${W}/warehouses`]: ok([
       {
         id: 1,
@@ -1114,7 +1150,7 @@ it("W-11 적치 목록 렌더링, 상태 배지, 추천 위치 표시 및 상세
         name: "원자재 창고",
         purpose: "RAW",
         isActive: true,
-        locationCount: 2,
+        locationCount: 3,
       },
     ]),
     [`GET ${W}/items`]: ok([
@@ -1143,6 +1179,20 @@ it("W-11 적치 목록 렌더링, 상태 배지, 추천 위치 표시 및 상세
       page: 1,
       pageSize: 50,
     }),
+    [`GET ${W}/warehouses/1/locations`]: ok(whLocations),
+    [`POST ${W}/putaway-tasks/1/complete`]: ok({
+      ...tasks[0],
+      toLocationId: 12,
+      toLocationCode: "R-B02",
+      toLocationName: "보조 랙",
+      status: "DONE",
+      doneAt: "2026-10-18T10:15:00+09:00",
+      stockDocumentId: 501,
+    }),
+    [`POST ${W}/putaway-tasks/2/cancel`]: ok({
+      ...tasks[1],
+      status: "CANCELLED",
+    }),
   });
 
   expect(
@@ -1152,20 +1202,61 @@ it("W-11 적치 목록 렌더링, 상태 배지, 추천 위치 표시 및 상세
   const table = screen.getByRole("table", { name: "적치 작업 목록" });
   expect(within(table).getByText("PT-20261018-001")).toBeVisible();
   expect(within(table).getByText("PT-20261018-002")).toBeVisible();
-
   expect(within(table).getAllByText("대기")).toHaveLength(2);
-
   expect(within(table).getByText(/R-B01/)).toBeVisible();
   expect(within(table).getByText("추천 없음")).toBeVisible();
 
+  // 1. 첫 번째 적치 작업(추천 위치 있음) 상세 열기 -> 추천 위치(11)가 기본 선택됨
   const detailButtons = within(table).getAllByRole("button", { name: "상세" });
   fireEvent.click(detailButtons[0]);
 
   const detailPanel = await screen.findByRole("dialog", {
     name: "PT-20261018-001",
   });
-  expect(within(detailPanel).getByText(/R-B01 기본 랙/)).toBeVisible();
+  const locSelect = (await within(detailPanel).findByLabelText(
+    "적치 위치 선택",
+  )) as HTMLSelectElement;
+  expect(locSelect.value).toBe("11");
+
+  // 다른 NORMAL 위치(12: R-B02 보조 랙)로 수동 변경 후 적치 완료 제출
+  await waitFor(() => {
+    expect(
+      within(locSelect).getByRole("option", { name: "R-B02 보조 랙" }),
+    ).toBeInTheDocument();
+  });
+  fireEvent.change(locSelect, { target: { value: "12" } });
+  fireEvent.click(
+    within(detailPanel).getByRole("button", { name: "적치 완료" }),
+  );
+
+  await waitFor(() => {
+    const calls = sent(fetcher, "POST", "/putaway-tasks/1/complete");
+    expect(calls).toHaveLength(1);
+    expect(body(calls[0])).toEqual({ toLocationId: 12 });
+  });
+
+  // 패널 닫고 두 번째 적치 작업(추천 위치 없음) 열기 -> 비어 있고 적치 취소 실행
+  fireEvent.click(
+    within(detailPanel).getByRole("button", { name: "패널 닫기" }),
+  );
+  fireEvent.click(detailButtons[1]);
+
+  const detailPanel2 = await screen.findByRole("dialog", {
+    name: "PT-20261018-002",
+  });
+  const locSelect2 = (await within(detailPanel2).findByLabelText(
+    "적치 위치 선택",
+  )) as HTMLSelectElement;
+  expect(locSelect2.value).toBe("");
   expect(
-    within(detailPanel).getByText(/C-4 단계에서 지원됩니다/),
-  ).toBeVisible();
+    within(detailPanel2).getByRole("button", { name: "적치 완료" }),
+  ).toBeDisabled();
+
+  fireEvent.click(
+    within(detailPanel2).getByRole("button", { name: "적치 취소" }),
+  );
+  await waitFor(() => {
+    const cancelCalls = sent(fetcher, "POST", "/putaway-tasks/2/cancel");
+    expect(cancelCalls).toHaveLength(1);
+  });
 });

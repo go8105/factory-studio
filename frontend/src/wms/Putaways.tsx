@@ -1,22 +1,28 @@
-// W-11 적치 — 입고 완료 물품의 적치 작업 목록과 추천 위치 조회 (DSN-13 F14).
+// W-11 적치 — 입고 완료 물품의 적치 작업 목록·실시간 추천 위치·적치 완료 및 취소 (DSN-13 F14).
 // 추천 위치는 목록 조회 시 현재 재고·위치 용량·혼적 규칙에 따라 실시간 산출된다.
-// 완료(PUTAWAY 이동 전표 생성) 및 취소 처리는 C-4 단계에서 지원된다.
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+// 적치 완료 시 추천 위치를 기본 선택하되 사용자가 변경할 수 있으며, 확정 시 PUTAWAY 재고 전표가 생성된다.
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useSession } from "../app/session";
+import { api } from "../shared/api";
 import {
   Badge,
   DataTable,
   DetailPanel,
+  ErrorNotice,
   Loading,
   PageTitle,
   type Column,
 } from "../shared/components";
 import {
+  fieldErrors,
   num,
   PUTAWAY_STATUS_LABEL,
   time,
   useLists,
+  WMS,
   type Item,
+  type Location,
   type PutawayStatus,
   type PutawayTask,
   type Warehouse,
@@ -25,6 +31,7 @@ import {
 const LIMIT = 50;
 
 export function Putaways() {
+  const { session } = useSession();
   const [params, setParams] = useSearchParams();
   const page = Number(params.get("page") ?? "1");
   const statusFilter = (params.get("status") as PutawayStatus | null) ?? "";
@@ -59,12 +66,123 @@ export function Putaways() {
   >([`/putaway-tasks?${query.toString()}`]);
 
   const [selectedTask, setSelectedTask] = useState<PutawayTask | null>(null);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [toLocationId, setToLocationId] = useState<string>("");
+  const [pending, setPending] = useState(false);
+  const [actionError, setActionError] = useState<unknown>();
+
+  const openTask = (task: PutawayTask) => {
+    setSelectedTask(task);
+    setActionError(undefined);
+    setToLocationId(
+      task.suggestedLocationId ? String(task.suggestedLocationId) : "",
+    );
+  };
+
+  useEffect(() => {
+    if (!selectedTask || selectedTask.status !== "OPEN") {
+      setLocations([]);
+      return;
+    }
+    const controller = new AbortController();
+    api<Location[]>(`${WMS}/warehouses/${selectedTask.warehouseId}/locations`, {
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!controller.signal.aborted) {
+          setLocations(res.data ?? []);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setLocations([]);
+        }
+      });
+    return () => controller.abort();
+  }, [selectedTask?.id, selectedTask?.warehouseId, selectedTask?.status]);
 
   if (!meta || !taskEnvelope) return <Loading />;
 
   const taskData = taskEnvelope[0];
   const tasks = taskData?.rows ?? [];
   const total = taskData?.total ?? 0;
+
+  const candidateLocations = (() => {
+    if (!selectedTask) return [];
+    const normals = locations.filter(
+      (l) =>
+        l.isActive &&
+        l.locationType === "NORMAL" &&
+        l.id !== selectedTask.fromLocationId,
+    );
+    if (
+      selectedTask.suggestedLocationId &&
+      selectedTask.suggestedLocationCode &&
+      !normals.some((l) => l.id === selectedTask.suggestedLocationId)
+    ) {
+      normals.unshift({
+        id: selectedTask.suggestedLocationId,
+        warehouseId: selectedTask.warehouseId,
+        warehouseCode: selectedTask.warehouseCode,
+        code: selectedTask.suggestedLocationCode,
+        name: selectedTask.suggestedLocationName ?? "",
+        isDefault: false,
+        isActive: true,
+        moveCount: 0,
+        locationType: "NORMAL",
+      });
+    }
+    return normals;
+  })();
+
+  const errors = fieldErrors(actionError);
+
+  async function handleComplete(e: FormEvent) {
+    e.preventDefault();
+    if (!selectedTask || !toLocationId) return;
+    setPending(true);
+    setActionError(undefined);
+    try {
+      const res = await api<PutawayTask>(
+        `${WMS}/putaway-tasks/${selectedTask.id}/complete`,
+        {
+          method: "POST",
+          csrf: session?.csrfToken,
+          key: crypto.randomUUID(),
+          body: { toLocationId: Number(toLocationId) },
+        },
+      );
+      setSelectedTask(res.data);
+      reload();
+    } catch (err) {
+      setActionError(err);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleCancel() {
+    if (!selectedTask) return;
+    setPending(true);
+    setActionError(undefined);
+    try {
+      const res = await api<PutawayTask>(
+        `${WMS}/putaway-tasks/${selectedTask.id}/cancel`,
+        {
+          method: "POST",
+          csrf: session?.csrfToken,
+          key: crypto.randomUUID(),
+          body: {},
+        },
+      );
+      setSelectedTask(res.data);
+      reload();
+    } catch (err) {
+      setActionError(err);
+    } finally {
+      setPending(false);
+    }
+  }
 
   const columns: Column<PutawayTask>[] = [
     {
@@ -148,7 +266,7 @@ export function Putaways() {
         <button
           type="button"
           className="link-button"
-          onClick={() => setSelectedTask(r)}
+          onClick={() => openTask(r)}
         >
           상세
         </button>
@@ -161,7 +279,7 @@ export function Putaways() {
       <PageTitle
         id="W-11"
         title="W-11 적치"
-        subtitle="입고 완료된 물품의 적치 작업 목록과 실시간 추천 위치를 확인합니다."
+        subtitle="입고 완료된 물품의 적치 작업 목록과 실시간 추천 위치를 확인하고 적치를 완료합니다."
       />
 
       <div
@@ -245,6 +363,7 @@ export function Putaways() {
             className="detail-grid"
             style={{ display: "grid", gap: "0.75rem" }}
           >
+            <ErrorNotice error={actionError} />
             <div>
               <strong>상태: </strong>
               <Badge
@@ -305,19 +424,68 @@ export function Putaways() {
                 {time(selectedTask.doneAt)}
               </div>
             )}
-            <div
-              style={{
-                marginTop: "1rem",
-                padding: "0.75rem",
-                background: "#f3f4f6",
-                borderRadius: "4px",
-                fontSize: "0.875rem",
-                color: "#4b5563",
-              }}
-            >
-              적치 완료(PUTAWAY 이동 전표 발행) 및 취소 처리는 C-4 단계에서
-              지원됩니다.
-            </div>
+            {selectedTask.stockDocumentId && (
+              <div>
+                <strong>재고 전표: </strong>
+                <Link
+                  className="link-button"
+                  to={`/wms/documents?open=${selectedTask.stockDocumentId}`}
+                >
+                  전표 #{selectedTask.stockDocumentId} 보기
+                </Link>
+              </div>
+            )}
+
+            {selectedTask.status === "OPEN" && (
+              <form
+                onSubmit={handleComplete}
+                style={{
+                  marginTop: "0.75rem",
+                  paddingTop: "0.75rem",
+                  borderTop: "1px solid #e5e7eb",
+                  display: "grid",
+                  gap: "0.75rem",
+                }}
+              >
+                <div className="field">
+                  <label htmlFor="putaway-to-location">적치 위치 선택</label>
+                  <select
+                    id="putaway-to-location"
+                    aria-label="적치 위치 선택"
+                    value={toLocationId}
+                    onChange={(e) => setToLocationId(e.target.value)}
+                    required
+                  >
+                    <option value="">위치를 선택하세요</option>
+                    {candidateLocations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.code} {loc.name}
+                        {loc.id === selectedTask.suggestedLocationId
+                          ? " (추천)"
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.toLocationId && <small>{errors.toLocationId}</small>}
+                </div>
+                <div
+                  className="button-row"
+                  style={{ display: "flex", gap: "0.5rem" }}
+                >
+                  <button type="submit" disabled={pending || !toLocationId}>
+                    적치 완료
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={pending}
+                    onClick={handleCancel}
+                  >
+                    적치 취소
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </DetailPanel>
       )}

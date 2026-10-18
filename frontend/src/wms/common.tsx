@@ -172,7 +172,7 @@ export type StockRow = StockQuantities & {
   unit: string;
   locationId: number;
   locationCode: string;
-  locationType: "NORMAL" | "QUARANTINE";
+  locationType: LocationType;
   warehouseId: number;
   warehouseCode: string;
   lotNo: string | null;
@@ -189,7 +189,7 @@ export type SourceKind =
   "MES_RECEIPT" | "MES_ISSUE" | "ERP_SHIPMENT" | "ERP_PURCHASE";
 export type ManualType = "OPENING" | "ADJUSTMENT" | "TRANSFER";
 export type DocumentType =
-  SourceKind | ManualType | "REVERSAL" | "WMS_INSPECTION";
+  SourceKind | ManualType | "REVERSAL" | "WMS_INSPECTION" | "PUTAWAY";
 export type Move = {
   id: number;
   documentId: number;
@@ -200,7 +200,7 @@ export type Move = {
   itemClass: Purpose;
   locationId: number;
   locationCode: string;
-  locationType?: "NORMAL" | "QUARANTINE";
+  locationType?: LocationType;
   warehouseCode: string;
   lotNo: string | null;
   qtyDelta: string;
@@ -276,6 +276,7 @@ export const TYPE_LABEL: Record<DocumentType, string> = {
   TRANSFER: "창고 간 이동",
   REVERSAL: "되돌림",
   WMS_INSPECTION: "입고 검수",
+  PUTAWAY: "적치 이동",
 };
 export const REASON_LABEL: Record<Reason, string> = {
   RETURN: "반품 입고",

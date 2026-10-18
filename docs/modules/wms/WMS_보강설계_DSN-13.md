@@ -259,5 +259,9 @@
   - 후보 위치 필터: 동일 창고 · `is_active` · `location_type = 'NORMAL'` · `level_kind = 'BIN'` (출발 칸 제외).
   - 제외 조건: 용량 초과(`현재고 + 적치수량 > capacity_qty`), 다른 품목 혼적 불가(`mix_items = false`), 다른 LOT 혼적 불가(`mix_lots = false`).
   - 우선순위: 1순위(동일 품목+동일 LOT) → 2순위(동일 품목) → 3순위(빈 칸) → 4순위(혼적 허용 칸) → 없으면 추천 없음(NULL).
-  - 화면: W-11 적치 목록 화면(`frontend/src/wms/Putaways.tsx`) 신규 연결, 상태 배지(대기/완료/취소) 및 상세 패널 표시. 적치 완료(전표 생성)는 C-4 단계로 유보.
+  - 화면: W-11 적치 목록 화면(`frontend/src/wms/Putaways.tsx`) 신규 연결, 상태 배지(대기/완료/취소) 및 상세 패널 표시.
+- **적치 완료·취소 및 `PUTAWAY` 전표 반영 (W2b-1c / C-4)**:
+  - 적치 완료(`POST /api/v1/wms/putaway-tasks/{id}/complete`): `FOR UPDATE` 행 잠금 후 `status != 'OPEN'`이면 409(`INVALID_STATE`)로 차단한다. 목적지 위치가 같은 창고의 활성 `NORMAL` 칸(출발 칸 제외)인지 검증(위반 시 400)한 뒤, 단일 트랜잭션(`base._action`) 안에서 `PUTAWAY` 재고 전표(`wms.stock_document`, `status = 'posted'`, `source_key = NULL`[`c624_check`], `source_ref = task_no`)와 이동 2줄(`from_location_id` `-qty`, `to_location_id` `+qty`)을 생성하고, `c1480_check`(`(status = 'DONE') = (done_at IS NOT NULL AND to_location_id IS NOT NULL)`)를 만족하도록 한 `UPDATE` 문에서 `status = 'DONE'`, `to_location_id`, `done_at`, `stock_document_id`를 갱신한다.
+  - 적치 취소(`POST /api/v1/wms/putaway-tasks/{id}/cancel`): `FOR UPDATE` 잠금 후 `status != 'OPEN'`이면 409로 차단하고, 한 `UPDATE` 문에서 `status = 'CANCELLED'`, `to_location_id = NULL`, `done_at = NULL`, `stock_document_id = NULL`로 갱신한다(재고 전표 미생성).
+  - 대시보드 집계(`service.py::dashboard`): 월별 입출고 흐름 집계에서 내부 위치 이동인 `'PUTAWAY'`를 `'TRANSFER'`와 함께 제외(`d.document_type NOT IN ('TRANSFER', 'PUTAWAY')`)한다.
 

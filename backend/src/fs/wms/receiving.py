@@ -817,6 +817,187 @@ def guard_master(c, scoped, kind, id, all_history=False):
             "입고 예정",
             count,
         )
+    pt_condition = {
+        "warehouse": "fl.warehouse_id=:id",
+        "item": "t.item_id=:id",
+        "location": "(t.from_location_id=:id OR t.suggested_location_id=:id OR t.to_location_id=:id)",
+    }[kind]
+    pt_status = "" if all_history else " AND t.status = 'OPEN'"
+    pt_count = _query(
+        c,
+        scoped,
+        "SELECT count(DISTINCT t.id) FROM wms.putaway_task t "
+        "JOIN wms.storage_location fl ON fl.workspace_id=t.workspace_id "
+        "AND fl.generation_id=t.generation_id AND fl.id=t.from_location_id "
+        "WHERE t.workspace_id=:w AND t.generation_id=:g AND "
+        + pt_condition
+        + pt_status,
+        id=id,
+    ).scalar_one()
+    if pt_count:
+        raise base._referenced(
+            "적치 작업이 참조하고 있습니다. 적치 완료 또는 취소 처리를 먼저 해 주세요.",
+            "적치 작업",
+            pt_count,
+        )
+
+
+def _putaway_rows(
+    c, scoped, filter_sql: str, params: dict[str, Any]
+) -> tuple[list[dict[str, Any]], int]:
+    query = f"""
+    WITH filtered_tasks AS (
+        SELECT t.id, t.task_no, t.source_document_id, t.item_id, t.lot_no, t.qty,
+               t.from_location_id, t.suggested_location_id, t.to_location_id,
+               t.status, t.done_at, t.stock_document_id, t.created_at,
+               fl.warehouse_id,
+               w.code AS warehouse_code, w.name AS warehouse_name,
+               fl.code AS from_location_code, fl.name AS from_location_name,
+               i.item_code, i.name AS item_name, i.base_unit,
+               COUNT(*) OVER() AS full_count
+        FROM wms.putaway_task t
+        JOIN wms.storage_location fl ON fl.workspace_id = t.workspace_id 
+                                    AND fl.generation_id = t.generation_id 
+                                    AND fl.id = t.from_location_id
+        JOIN wms.warehouse w ON w.workspace_id = fl.workspace_id 
+                             AND w.generation_id = fl.generation_id 
+                             AND w.id = fl.warehouse_id
+        JOIN wms.item i ON i.workspace_id = t.workspace_id 
+                        AND i.generation_id = t.generation_id 
+                        AND i.id = t.item_id
+        WHERE t.workspace_id = :w AND t.generation_id = :g
+          {filter_sql}
+        ORDER BY t.created_at DESC, t.id DESC
+        LIMIT :limit OFFSET :offset
+    ),
+    candidate_locations AS (
+        SELECT sl.id, sl.warehouse_id, sl.code, sl.name, sl.capacity_qty, sl.mix_items, sl.mix_lots
+        FROM wms.storage_location sl
+        WHERE sl.workspace_id = :w AND sl.generation_id = :g
+          AND sl.is_active = TRUE
+          AND sl.location_type = 'NORMAL'
+          AND sl.level_kind = 'BIN'
+          AND sl.warehouse_id IN (SELECT DISTINCT warehouse_id FROM filtered_tasks)
+    ),
+    loc_stock AS (
+        SELECT sm.location_id,
+               sm.item_id,
+               sm.lot_no,
+               SUM(sm.qty_delta) AS on_hand
+        FROM wms.stock_move sm
+        WHERE sm.workspace_id = :w AND sm.generation_id = :g
+          AND sm.location_id IN (SELECT id FROM candidate_locations)
+        GROUP BY sm.location_id, sm.item_id, sm.lot_no
+        HAVING SUM(sm.qty_delta) > 0
+    ),
+    loc_totals AS (
+        SELECT location_id,
+               SUM(on_hand) AS total_on_hand
+        FROM loc_stock
+        GROUP BY location_id
+    )
+    SELECT ft.*,
+           sugg.suggested_location_id AS computed_suggested_location_id,
+           sugg.suggested_location_code AS computed_suggested_location_code,
+           sugg.suggested_location_name AS computed_suggested_location_name,
+           tl.code AS to_location_code,
+           tl.name AS to_location_name
+    FROM filtered_tasks ft
+    LEFT JOIN wms.storage_location tl ON tl.workspace_id = :w AND tl.generation_id = :g AND tl.id = ft.to_location_id
+    LEFT JOIN LATERAL (
+        SELECT c.id AS suggested_location_id,
+               c.code AS suggested_location_code,
+               c.name AS suggested_location_name
+        FROM candidate_locations c
+        LEFT JOIN loc_totals lt ON lt.location_id = c.id
+        WHERE c.warehouse_id = ft.warehouse_id
+          AND c.id <> ft.from_location_id
+          -- 1. 용량 필터
+          AND (c.capacity_qty IS NULL OR (COALESCE(lt.total_on_hand, 0) + ft.qty <= c.capacity_qty))
+          -- 2. 품목 혼적 필터 (다른 품목이 있으면 mix_items=true 여야 함)
+          AND (c.mix_items = TRUE OR NOT EXISTS (
+              SELECT 1 FROM loc_stock ls 
+              WHERE ls.location_id = c.id AND ls.item_id <> ft.item_id
+          ))
+          -- 3. LOT 혼적 필터 (같은 품목의 다른 LOT이 있으면 mix_lots=true 여야 함)
+          AND (c.mix_lots = TRUE OR NOT EXISTS (
+              SELECT 1 FROM loc_stock ls 
+              WHERE ls.location_id = c.id AND ls.item_id = ft.item_id 
+                AND COALESCE(ls.lot_no, '') <> COALESCE(ft.lot_no, '')
+          ))
+        ORDER BY 
+          CASE 
+            WHEN EXISTS (SELECT 1 FROM loc_stock ls WHERE ls.location_id = c.id AND ls.item_id = ft.item_id AND COALESCE(ls.lot_no, '') = COALESCE(ft.lot_no, '')) THEN 1
+            WHEN EXISTS (SELECT 1 FROM loc_stock ls WHERE ls.location_id = c.id AND ls.item_id = ft.item_id) THEN 2
+            WHEN COALESCE(lt.total_on_hand, 0) <= 0 THEN 3
+            ELSE 4
+          END ASC,
+          c.code ASC,
+          c.id ASC
+        LIMIT 1
+    ) sugg ON TRUE
+    ORDER BY ft.created_at DESC, ft.id DESC
+    """
+    result = c.execute(text(query), params).mappings().all()
+    total = int(result[0]["full_count"]) if result else 0
+    rows = [
+        {
+            "id": r["id"],
+            "taskNo": r["task_no"],
+            "sourceDocumentId": r["source_document_id"],
+            "warehouseId": r["warehouse_id"],
+            "warehouseCode": r["warehouse_code"],
+            "warehouseName": r["warehouse_name"],
+            "itemId": r["item_id"],
+            "itemCode": r["item_code"],
+            "itemName": r["item_name"],
+            "baseUnit": r["base_unit"],
+            "lotNo": r["lot_no"],
+            "qty": str(r["qty"]),
+            "fromLocationId": r["from_location_id"],
+            "fromLocationCode": r["from_location_code"],
+            "fromLocationName": r["from_location_name"],
+            "suggestedLocationId": r["computed_suggested_location_id"],
+            "suggestedLocationCode": r["computed_suggested_location_code"],
+            "suggestedLocationName": r["computed_suggested_location_name"],
+            "toLocationId": r["to_location_id"],
+            "toLocationCode": r["to_location_code"],
+            "toLocationName": r["to_location_name"],
+            "status": r["status"],
+            "doneAt": r["done_at"].isoformat() if r["done_at"] else None,
+            "stockDocumentId": r["stock_document_id"],
+            "createdAt": r["created_at"].isoformat() if r["created_at"] else None,
+        }
+        for r in result
+    ]
+    return rows, total
+
+
+def _putaway_detail(c, scoped, task_id: int) -> dict[str, Any]:
+    rows, _ = _putaway_rows(
+        c,
+        scoped,
+        " AND t.id = :task_id",
+        {**base._s(scoped), "task_id": task_id, "limit": 1, "offset": 0},
+    )
+    if not rows:
+        raise base._not_found("적치 작업")
+    return rows[0]
+
+
+def _putaway_header(c, scoped, id: int, lock: bool = False) -> dict[str, Any]:
+    sql = (
+        "SELECT t.*, fl.warehouse_id "
+        "FROM wms.putaway_task t "
+        "JOIN wms.storage_location fl ON fl.workspace_id = t.workspace_id "
+        "AND fl.generation_id = t.generation_id AND fl.id = t.from_location_id "
+        "WHERE t.workspace_id = :w AND t.generation_id = :g AND t.id = :id"
+        + (" FOR UPDATE OF t" if lock else "")
+    )
+    found = _query(c, scoped, sql, id=id).mappings().first()
+    if found is None:
+        raise base._not_found("적치 작업")
+    return dict(found)
 
 
 def list_putaway_tasks(
@@ -846,137 +1027,98 @@ def list_putaway_tasks(
             params["item_id"] = item_id
 
         filter_sql = (" AND " + " AND ".join(filters)) if filters else ""
-
-        query = f"""
-        WITH filtered_tasks AS (
-            SELECT t.id, t.task_no, t.source_document_id, t.item_id, t.lot_no, t.qty,
-                   t.from_location_id, t.suggested_location_id, t.to_location_id,
-                   t.status, t.done_at, t.stock_document_id, t.created_at,
-                   fl.warehouse_id,
-                   w.code AS warehouse_code, w.name AS warehouse_name,
-                   fl.code AS from_location_code, fl.name AS from_location_name,
-                   i.item_code, i.name AS item_name, i.base_unit,
-                   COUNT(*) OVER() AS full_count
-            FROM wms.putaway_task t
-            JOIN wms.storage_location fl ON fl.workspace_id = t.workspace_id 
-                                        AND fl.generation_id = t.generation_id 
-                                        AND fl.id = t.from_location_id
-            JOIN wms.warehouse w ON w.workspace_id = fl.workspace_id 
-                                 AND w.generation_id = fl.generation_id 
-                                 AND w.id = fl.warehouse_id
-            JOIN wms.item i ON i.workspace_id = t.workspace_id 
-                            AND i.generation_id = t.generation_id 
-                            AND i.id = t.item_id
-            WHERE t.workspace_id = :w AND t.generation_id = :g
-              {filter_sql}
-            ORDER BY t.created_at DESC, t.id DESC
-            LIMIT :limit OFFSET :offset
-        ),
-        candidate_locations AS (
-            SELECT sl.id, sl.warehouse_id, sl.code, sl.name, sl.capacity_qty, sl.mix_items, sl.mix_lots
-            FROM wms.storage_location sl
-            WHERE sl.workspace_id = :w AND sl.generation_id = :g
-              AND sl.is_active = TRUE
-              AND sl.location_type = 'NORMAL'
-              AND sl.level_kind = 'BIN'
-              AND sl.warehouse_id IN (SELECT DISTINCT warehouse_id FROM filtered_tasks)
-        ),
-        loc_stock AS (
-            SELECT sm.location_id,
-                   sm.item_id,
-                   sm.lot_no,
-                   SUM(sm.qty_delta) AS on_hand
-            FROM wms.stock_move sm
-            WHERE sm.workspace_id = :w AND sm.generation_id = :g
-              AND sm.location_id IN (SELECT id FROM candidate_locations)
-            GROUP BY sm.location_id, sm.item_id, sm.lot_no
-            HAVING SUM(sm.qty_delta) > 0
-        ),
-        loc_totals AS (
-            SELECT location_id,
-                   SUM(on_hand) AS total_on_hand
-            FROM loc_stock
-            GROUP BY location_id
-        )
-        SELECT ft.*,
-               sugg.suggested_location_id AS computed_suggested_location_id,
-               sugg.suggested_location_code AS computed_suggested_location_code,
-               sugg.suggested_location_name AS computed_suggested_location_name,
-               tl.code AS to_location_code,
-               tl.name AS to_location_name
-        FROM filtered_tasks ft
-        LEFT JOIN wms.storage_location tl ON tl.workspace_id = :w AND tl.generation_id = :g AND tl.id = ft.to_location_id
-        LEFT JOIN LATERAL (
-            SELECT c.id AS suggested_location_id,
-                   c.code AS suggested_location_code,
-                   c.name AS suggested_location_name
-            FROM candidate_locations c
-            LEFT JOIN loc_totals lt ON lt.location_id = c.id
-            WHERE c.warehouse_id = ft.warehouse_id
-              AND c.id <> ft.from_location_id
-              -- 1. 용량 필터
-              AND (c.capacity_qty IS NULL OR (COALESCE(lt.total_on_hand, 0) + ft.qty <= c.capacity_qty))
-              -- 2. 품목 혼적 필터 (다른 품목이 있으면 mix_items=true 여야 함)
-              AND (c.mix_items = TRUE OR NOT EXISTS (
-                  SELECT 1 FROM loc_stock ls 
-                  WHERE ls.location_id = c.id AND ls.item_id <> ft.item_id
-              ))
-              -- 3. LOT 혼적 필터 (같은 품목의 다른 LOT이 있으면 mix_lots=true 여야 함)
-              AND (c.mix_lots = TRUE OR NOT EXISTS (
-                  SELECT 1 FROM loc_stock ls 
-                  WHERE ls.location_id = c.id AND ls.item_id = ft.item_id 
-                    AND COALESCE(ls.lot_no, '') <> COALESCE(ft.lot_no, '')
-              ))
-            ORDER BY 
-              CASE 
-                WHEN EXISTS (SELECT 1 FROM loc_stock ls WHERE ls.location_id = c.id AND ls.item_id = ft.item_id AND COALESCE(ls.lot_no, '') = COALESCE(ft.lot_no, '')) THEN 1
-                WHEN EXISTS (SELECT 1 FROM loc_stock ls WHERE ls.location_id = c.id AND ls.item_id = ft.item_id) THEN 2
-                WHEN COALESCE(lt.total_on_hand, 0) <= 0 THEN 3
-                ELSE 4
-              END ASC,
-              c.code ASC,
-              c.id ASC
-            LIMIT 1
-        ) sugg ON TRUE
-        ORDER BY ft.created_at DESC, ft.id DESC
-        """
-
-        result = c.execute(text(query), params).mappings().all()
-        total = int(result[0]["full_count"]) if result else 0
-
-        rows = [
-            {
-                "id": r["id"],
-                "taskNo": r["task_no"],
-                "sourceDocumentId": r["source_document_id"],
-                "warehouseId": r["warehouse_id"],
-                "warehouseCode": r["warehouse_code"],
-                "warehouseName": r["warehouse_name"],
-                "itemId": r["item_id"],
-                "itemCode": r["item_code"],
-                "itemName": r["item_name"],
-                "baseUnit": r["base_unit"],
-                "lotNo": r["lot_no"],
-                "qty": str(r["qty"]),
-                "fromLocationId": r["from_location_id"],
-                "fromLocationCode": r["from_location_code"],
-                "fromLocationName": r["from_location_name"],
-                "suggestedLocationId": r["computed_suggested_location_id"],
-                "suggestedLocationCode": r["computed_suggested_location_code"],
-                "suggestedLocationName": r["computed_suggested_location_name"],
-                "toLocationId": r["to_location_id"],
-                "toLocationCode": r["to_location_code"],
-                "toLocationName": r["to_location_name"],
-                "status": r["status"],
-                "doneAt": r["done_at"].isoformat() if r["done_at"] else None,
-                "stockDocumentId": r["stock_document_id"],
-                "createdAt": r["created_at"].isoformat() if r["created_at"] else None,
-            }
-            for r in result
-        ]
+        rows, total = _putaway_rows(c, scoped, filter_sql, params)
         return {
             "rows": rows,
             "total": total,
             "page": page,
             "pageSize": page_size,
         }
+
+
+def complete_putaway_task(
+    context: base.AuthContext, id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    def fn(c, scoped):
+        row = _putaway_header(c, scoped, id, lock=True)
+        if row["status"] != "OPEN":
+            raise base._conflict("이미 처리된 적치 작업입니다.", "INVALID_STATE")
+        to_location_id = values["to_location_id"]
+        if to_location_id == row["from_location_id"]:
+            _fail("toLocationId", "출발 위치와 다른 보관 위치를 선택해 주세요.")
+        loc = base._location(c, scoped, to_location_id)
+        if (
+            loc is None
+            or not loc["isActive"]
+            or loc["warehouseId"] != row["warehouse_id"]
+            or loc["locationType"] != "NORMAL"
+        ):
+            _fail(
+                "toLocationId",
+                "같은 창고의 활성 일반(NORMAL) 보관 위치를 선택해 주세요.",
+            )
+        now = _now(c)
+        moves = [
+            {
+                "item_id": row["item_id"],
+                "location_id": row["from_location_id"],
+                "lot_no": row["lot_no"],
+                "qty_delta": -row["qty"],
+                "source_qty": None,
+                "source_unit": None,
+            },
+            {
+                "item_id": row["item_id"],
+                "location_id": to_location_id,
+                "lot_no": row["lot_no"],
+                "qty_delta": row["qty"],
+                "source_qty": None,
+                "source_unit": None,
+            },
+        ]
+        doc_id = base._insert_document(
+            c,
+            scoped,
+            {
+                "document_type": "PUTAWAY",
+                "status": "posted",
+                "source_key": None,
+                "source_ref": row["task_no"],
+                "document_on": now.astimezone(base.SEOUL).date(),
+                "posted_at": now,
+            },
+            moves,
+            now.isoformat(),
+        )
+        _query(
+            c,
+            scoped,
+            f"UPDATE wms.putaway_task "
+            f"SET status = 'DONE', to_location_id = :to_loc, done_at = :now, stock_document_id = :doc_id "
+            f"WHERE {S} AND id = :id",
+            to_loc=to_location_id,
+            now=now,
+            doc_id=doc_id,
+            id=id,
+        )
+        return _putaway_detail(c, scoped, id), "putaway_task", id
+
+    return base._action(context, f"wms.putaway.complete:{id}", key, values, fn)
+
+
+def cancel_putaway_task(context: base.AuthContext, id: int, key: str) -> dict[str, Any]:
+    def fn(c, scoped):
+        row = _putaway_header(c, scoped, id, lock=True)
+        if row["status"] != "OPEN":
+            raise base._conflict("이미 처리된 적치 작업입니다.", "INVALID_STATE")
+        _query(
+            c,
+            scoped,
+            f"UPDATE wms.putaway_task "
+            f"SET status = 'CANCELLED', to_location_id = NULL, done_at = NULL, stock_document_id = NULL "
+            f"WHERE {S} AND id = :id",
+            id=id,
+        )
+        return _putaway_detail(c, scoped, id), "putaway_task", id
+
+    return base._action(context, f"wms.putaway.cancel:{id}", key, {}, fn)

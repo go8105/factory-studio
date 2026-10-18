@@ -1,3 +1,40 @@
+# 2026-10-18 W2b-1c C-4 W-11 적치 완료·취소 및 PUTAWAY 전표 반영 완료 (W2b-1c 전체 완료)
+
+- **브랜치**: `antigravity/w2b-1c`
+- **마지막 커밋**: `git log -1 --oneline` 참조
+- **끝난 것 (C-4 및 W2b-1c 전체)**:
+  - W-11 적치 완료·취소 백엔드 (`backend/src/fs/wms/`):
+    - `receiving_schema.py`: `PutawayComplete` (`toLocationId`) 정의.
+    - `receiving.py`:
+      - `complete_putaway_task`: `FOR UPDATE OF t` 잠금, `status != 'OPEN'`이면 409 Conflict(`INVALID_STATE`), 목적지가 동일 창고의 활성 `NORMAL` 위치(출발 칸 제외)인지 검증(위반 시 400). 단일 트랜잭션(`base._action`) 안에서 `PUTAWAY` 재고 전표(`wms.stock_document`, `status = 'posted'`, `source_key = None`[`c624_check`], `source_ref = task_no`)와 `wms.stock_move` 2줄(출발지 `-qty`, 도착지 `+qty`) 생성 후 `c1480_check` 준수를 위해 단일 `UPDATE`로 `status = 'DONE'`, `to_location_id`, `done_at`, `stock_document_id` 동시 반영.
+      - `cancel_putaway_task`: `FOR UPDATE OF t` 잠금, `status != 'OPEN'`이면 409 Conflict(`INVALID_STATE`), 단일 `UPDATE`로 `status = 'CANCELLED'`, `to_location_id = NULL`, `done_at = NULL`, `stock_document_id = NULL` 반영(재고 전표 미생성).
+      - `guard_master`: `wms.putaway_task` 참조 시 창고·위치·품목 비활성화/변경 보호.
+    - `router.py`: `POST /api/v1/wms/putaway-tasks/{row_id}/complete`, `POST /api/v1/wms/putaway-tasks/{row_id}/cancel` 추가 및 `DocumentType`에 `"PUTAWAY"` 추가, `/stock`의 `locationType`을 6종으로 확대.
+    - `service.py`: `dashboard()` 월별 입출고 흐름 집계에서 내부 이동인 `'PUTAWAY'`를 `'TRANSFER'`와 함께 제외.
+  - W-11 적치 완료·취소 프런트엔드 (`frontend/src/wms/`):
+    - `common.tsx`: `DocumentType`에 `"PUTAWAY"`, `TYPE_LABEL`에 `PUTAWAY: "적치 이동"` 추가, `StockRow`·`Move`의 `locationType` 6종 확대.
+    - `Moves.tsx`: `locationType === "RECEIVING"`일 때 `"입고장"`으로 표시.
+    - `Putaways.tsx`: `OPEN` 상태 상세 패널에 적치 위치 선택 드롭다운(추천 위치가 있으면 기본 선택, 없으면 빈 값으로 직접 선택 강제; 동일 창고 활성 `NORMAL` 칸 목록) 및 `적치 완료` / `적치 취소` 버튼(`X-CSRF-Token`, `Idempotency-Key` 포함) 구현. `DONE` 상태에서 생성된 재고 전표 링크(`/wms/documents?open=${stockDocumentId}`) 표시.
+  - 검증 결과:
+    - 백엔드 WMS 테스트: `backend/tests/test_wms_receiving.py`의 `test_putaway_complete_and_cancel_full_flow` 포함 `pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py` -> `47 passed, 5 warnings in 103.55s`.
+    - 프런트엔드 WMS 및 포털 테스트: `npm --prefix frontend test -- src/wms/wms.test.tsx src/portal/favorites.test.tsx` -> `26 passed in 2.27s`.
+    - 브라우저 실기동 E2E 및 390px 모바일 폭 검증 (Playwright Chromium): 입고장(`R-REC`) 입고 예정 → 도착 → 검수 확정 → 적치 전 입고장 현재고 `60.000` / LOT 총량 `60.000` 확인 → W-11 추천 위치(`R-A01`) 기본 선택 및 적치 완료(`DONE`, `PUTAWAY` 전표 `WD-20261018-002`) → 재완료 시 409 차단 및 전표 1장 유지 → 취소(`CANCELLED`) → W-05 원장(`+60 R-REC 입고장`, `-60 R-REC 입고장`, `+60 R-A01 정상`) 및 W-04 재고 현황 / W-10 LOT 현재고(`60.000` 유지, 위치 `R-A01` 이동) 대조 → 390px 모바일 폭 확인.
+    - 로컬 CI (`tools/ci_local.sh`) 1~5단계:
+      - 1단계: `npm run db:validate` (`errors: []`), `audit_schema_isolation.py` (`errors: []`), `unittest discover -s tools` (`Ran 136 tests in 15.857s, OK`).
+      - 2단계: `ruff check` (`All checks passed!`), `ruff format --check` (`227 files already formatted`).
+      - 3단계: `alembic upgrade head` & `verify_ddl_matches_schema.py` (`errors: []`), `pytest backend/tests -q -n auto -m "not perf"` (`1031 passed, 1 skipped, 50 warnings in 466.16s (0:07:46)`, xdist 작업자 탈락 0건), `pytest backend/tests -q -m perf` (`1 passed, 1032 deselected, 5 warnings in 33.87s`).
+      - 4단계: `clear_test_data.py` → `alembic downgrade base` → `alembic upgrade head` → `verify_ddl_matches_schema.py` (`errors: []`).
+      - 5단계: 프런트엔드 `typecheck`, `lint`, `format:check`, `build` 통과. `vitest`: `Test Files 1 failed | 75 passed (76)`, `Tests 7 failed | 604 passed (611)` — 실패 파일: `frontend/src/flow/projects.test.tsx` (7건 실패, `main` 브랜치 `2be292e`에서도 동일하게 7건 실패하는 기존 Flow 이슈).
+- **다음 할 일**: 사용자 확인 및 **W2b-1c 전체 승인** 대기 (승인 후 main 병합 또는 W2b-1d 착수).
+- **주의점**:
+  - 사용자 확인 전까지 **W2b-1d 착수 금지** (작업 ID 하나씩 수행 후 확인 대기 규칙).
+  - 원격 push 금지 (로컬 커밋만 유지).
+  - 프런트엔드 전체 테스트 실행 시 기존 실패(`frontend/src/flow/projects.test.tsx`, 7 failed, `main` `2be292e`에서도 동일 실패)는 파일 이름·건수·main 동일 여부를 항상 명시한다.
+- **재현 명령**:
+  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
+  - `npm --prefix frontend test -- src/wms/wms.test.tsx src/portal/favorites.test.tsx`
+  - `npm run ci:local`
+
 # 2026-10-18 W2b-1c C-3 W-11 적치 작업 자동 생성·목록 및 실시간 추천 위치 산출 완료
 
 - **브랜치**: `antigravity/w2b-1c`

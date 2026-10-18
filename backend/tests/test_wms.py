@@ -20,14 +20,14 @@ W = "/api/v1/wms"
 _keys = count()
 
 
-def _call(client, created, method: str, path: str, body=None):
+def _call(client, created, method: str, path: str, body=None, key: str | None = None):
     return client.request(
         method,
         path if path.startswith("/api") else f"{W}{path}",
         json=body,
         headers={
             "X-CSRF-Token": created["csrfToken"],
-            "Idempotency-Key": f"w{next(_keys)}",
+            "Idempotency-Key": key or f"w{next(_keys)}",
         },
     )
 

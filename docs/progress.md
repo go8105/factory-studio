@@ -1,3 +1,41 @@
+# 2026-10-18 W2b-1c C-4 W-11 적치 완료·취소 및 PUTAWAY 전표 반영 완료 (W2b-1c 전체 완료)
+
+- 브랜치: `antigravity/w2b-1c`
+- 완료 내용:
+  - 백엔드 (`backend/src/fs/wms/`):
+    - `receiving_schema.py`: `PutawayComplete(ApiModel)` (`to_location_id: int = Field(alias="toLocationId", gt=0)`) 추가.
+    - `receiving.py`:
+      - `_putaway_rows`, `_putaway_detail`, `_putaway_header` 추출 및 `guard_master`에 `wms.putaway_task` 참조 보호 추가.
+      - `complete_putaway_task`: `FOR UPDATE OF t` 행 잠금 후 `status != 'OPEN'`이면 409 Conflict(`INVALID_STATE`)로 차단. 도착지(`to_location_id`)가 같은 창고의 활성 `NORMAL` 칸(출발지 `from_location_id` 제외)인지 검증(위반 시 400). 단일 트랜잭션(`base._action`) 안에서 `PUTAWAY` 재고 전표(`wms.stock_document`, `status = 'posted'`, `source_key = None`[`c624_check`], `source_ref = task_no`)와 `wms.stock_move` 2줄(출발지 `-qty`, 도착지 `+qty`) 생성 후, `c1480_check`(`(status = 'DONE') = (done_at IS NOT NULL AND to_location_id IS NOT NULL)`)를 만족하도록 한 `UPDATE` 문에서 `status = 'DONE'`, `to_location_id`, `done_at`, `stock_document_id` 동시 갱신.
+      - `cancel_putaway_task`: `FOR UPDATE OF t` 행 잠금 후 `status != 'OPEN'`이면 409 Conflict(`INVALID_STATE`)로 차단. 재고 전표를 생성하지 않고 한 `UPDATE` 문에서 `status = 'CANCELLED'`, `to_location_id = NULL`, `done_at = NULL`, `stock_document_id = NULL`로 갱신.
+    - `router.py`:
+      - `DocumentType`에 `"PUTAWAY"` 추가, `/stock`의 `locationType`을 `LocationType` 6종으로 확대.
+      - `POST /api/v1/wms/putaway-tasks/{row_id}/complete` 및 `POST /api/v1/wms/putaway-tasks/{row_id}/cancel` 엔드포인트 추가.
+    - `service.py`:
+      - `dashboard()` 월별 입출고 흐름 집계에서 내부 이동인 `'PUTAWAY'`를 `'TRANSFER'`와 함께 제외(`d.document_type NOT IN ('TRANSFER', 'PUTAWAY')`).
+  - 프런트엔드 (`frontend/src/wms/`):
+    - `common.tsx`: `DocumentType`에 `"PUTAWAY"`, `TYPE_LABEL`에 `PUTAWAY: "적치 이동"` 추가, `StockRow` 및 `Move`의 `locationType`을 `LocationType` 6종으로 확대.
+    - `Moves.tsx`: W-05 재고 원장에서 `locationType === "RECEIVING"`일 때 `"입고장"`으로 표시.
+    - `Putaways.tsx`: 상세 패널에서 `status === "OPEN"`일 때 적치 위치 드롭다운(추천 위치가 있으면 기본 선택, 추천 위치가 없으면 빈 값으로 직접 선택 강제; 동일 창고 활성 `NORMAL` 칸 목록 표시) 및 `적치 완료` / `적치 취소` 액션 버튼 연결(`X-CSRF-Token`, `Idempotency-Key` 전송). 완료(`DONE`) 시 생성된 재고 전표 링크(`/wms/documents?open=${stockDocumentId}`) 표시.
+  - 테스트 및 검증:
+    - 백엔드 WMS 테스트:
+      - `backend/tests/test_wms_receiving.py`: `test_putaway_complete_and_cancel_full_flow` 신규 추가 및 통과 (입고장 `RECEIVING` 입고 예정 → 도착 → 검수 확정 → 적치 완료 → `PUTAWAY` 전표 1장 및 원장 `-80/+80` 검증 → 재고 현황 입고장 차감·보관랙 증가 대조 → LOT 총 현재고 `80.000` 유지 및 상세 위치 이동 대조 → 동일 `Idempotency-Key` 멱등 응답 및 다른 키 재요청 시 409 차단 → 취소 및 재취소/완료 시 409 차단).
+      - WMS 테스트 전체: `pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py` -> `47 passed, 5 warnings in 103.55s`.
+    - 프런트엔드 WMS/포털 테스트:
+      - `src/wms/wms.test.tsx` (17 passed), `src/portal/favorites.test.tsx` (9 passed) -> `26 passed in 2.27s`.
+    - 브라우저 실기동 E2E 및 390px 모바일 뷰포트 검증 (Playwright Chromium):
+      - 새 게스트 공간 생성 → W-08 입고 예정 등록 시 `R-REC` 입고장 기본 선택 확인 → 도착 → 검수 확정(`IN-20261018-006`) → 적치 전 입고장(`R-REC`) 현재고 `60.000` 및 LOT(`LOT-C4-E2E-01`) 총량 `60.000` 확인 → W-11(`/wms/putaways`)에서 추천 위치(`R-A01`) 기본 선택 확인 후 적치 완료(`PT-20261018-001` → `DONE`, 전표 `WD-20261018-002`) → 두 번째 완료 요청 시 `409 INVALID_STATE` 차단 및 `PUTAWAY` 전표 1장만 존재 확인 → 두 번째 적치 작업(`PT-20261018-002`) 취소(`CANCELLED`) 확인 → W-05(`/wms/moves`)에서 `입고 검수 +60 (R-REC · 입고장)` 후 `적치 이동 −60 (R-REC · 입고장)` / `적치 이동 +60 (R-A01 · 정상)` 원장 대조 → 적치 후 `/wms/stock`에서 `R-A01` `NORMAL` `60.000` 및 `/wms/lots`에서 LOT 총 현재고 `60.000` 유지 대조 → 390px 모바일 뷰포트 확인.
+    - 로컬 CI (`tools/ci_local.sh`) 1~5단계 검증 결과:
+      - 1단계 (DB 검증 · 격리 감사 · 도구 단위 테스트): `npm run db:validate` (205표, 2246칼럼, 507FK, `errors: []`), `audit_schema_isolation.py` (R1~R6 `errors: []`), `unittest discover -s tools` (`Ran 136 tests in 15.857s, OK`).
+      - 2단계 (백엔드 ruff 검사): `ruff check` (`All checks passed!`), `ruff format --check` (`227 files already formatted`).
+      - 3단계 (백엔드 마이그레이션 · DDL 대조 · pytest):
+        - `alembic upgrade head` & `verify_ddl_matches_schema.py`: `expected == actual`, `errors: []`.
+        - `pytest backend/tests -q -n auto -m "not perf"` 요약 줄 전문: `1031 passed, 1 skipped, 50 warnings in 466.16s (0:07:46)` (xdist 작업자 10개 `gw0`~`gw9` 탈락 0건).
+        - `pytest backend/tests -q -m perf` 요약 줄 전문: `1 passed, 1032 deselected, 5 warnings in 33.87s`.
+      - 4단계 (DB 초기화 및 마이그레이션 왕복): `clear_test_data.py` → `alembic downgrade base` → `alembic upgrade head` → `verify_ddl_matches_schema.py` (`errors: []`).
+      - 5단계 (프런트엔드 검증 · 빌드 · 테스트): `typecheck`, `lint`, `format:check`, `build` 전부 통과. `vitest`: `Test Files 1 failed | 75 passed (76)`, `Tests 7 failed | 604 passed (611)` — 실패 파일: `frontend/src/flow/projects.test.tsx` (7건 실패, `main` 브랜치 `2be292e`에서도 동일하게 7건 실패하는 기존 Flow 이슈; WMS `src/wms/wms.test.tsx` 17건 및 `src/portal/favorites.test.tsx` 9건은 전건 통과).
+- 다음 작업: 사용자 확인 및 W2b-1c 전체 승인 대기 (승인 전 W2b-1d 착수 금지).
+
 # 2026-10-18 W2b-1c C-3 W-11 적치 작업 자동 생성·목록 및 실시간 추천 위치 산출 완료
 
 - 브랜치: `antigravity/w2b-1c`
@@ -40,7 +78,7 @@
       - 2단계(백엔드 ruff 검사): 통과.
       - 3단계(백엔드 마이그레이션·pytest): 1015 passed 통과.
       - 4단계(DB 초기화 및 마이그레이션 왕복): downgrade base → upgrade head 통과.
-      - 5단계(프런트엔드 빌드·검증·테스트): build/lint/typecheck 통과, 76개 테스트 파일 중 75개 통과 (기존 flow 미구현 1건 외 WMS 전건 통과).
+      - 5단계(프런트엔드 빌드·검증·테스트): build/lint/typecheck 통과, `vitest`: `Test Files 1 failed | 75 passed (76)`, `Tests 7 failed | 604 passed (611)` — 실패 파일: `frontend/src/flow/projects.test.tsx` (7건 실패, `main` 브랜치 `2be292e`에서도 동일하게 7건 실패하는 기존 Flow 이슈; WMS 전건 통과).
 - 다음 작업: 사용자 확인 후 C-4 (W-11 적치 완료·취소 백엔드+화면) 착수.
 
 # 2026-10-18 W2b-1c C-3a 입고장 경유 위치 흐름 검증 완화 및 시드/화면 반영 완료
