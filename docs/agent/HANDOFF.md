@@ -1,9 +1,13 @@
-# 2026-10-18 W2b-1d D-1 피킹 지시 생성 · FEFO/FIFO LOT 배정 완료 (D-2 대기)
+# 2026-10-18 WMS-FIX-02 `test_gw_wms_merge.py` 회귀 수정 및 W2b-1d D-1 완료 (D-2 대기)
 
 - **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio-ag` / `antigravity/w2b-1d-work` (기준 `main` `843036f`)
 - **마지막 커밋**: `git log -1 --oneline` 참조
-- **끝난 것 (W2b-1d D-1)**:
-  - `backend/src/fs/wms/pick_schema.py` & `backend/src/fs/wms/picks.py`:
+- **끝난 것 (WMS-FIX-02 및 W2b-1d D-1)**:
+  - `backend/tests/test_gw_wms_merge.py` (WMS-FIX-02):
+    - 과거 리비전(`gw_company_identity`, `flow_board_custom` — `c781_check`가 `'NORMAL'`, `'QUARANTINE'`만 허용)과 진화하는 `create_template()` 시드(`RECEIVING` 위치 포함)의 결합을 제거하고, 세 파라미터(`w2b1_wms`, `gw_company_identity`, `flow_board_custom`) 모두 최소 활성 `TEMPLATE` 공간·세대 행 직접 `INSERT` + `create_example_company()` + 브랜치별 직접 `INSERT`(`w2b1_wms`: `wms.item` + `wms.lot`; `gw_company_identity`: `gw.collaboration_settings`)로 통일.
+    - 병합 전후 `fingerprint` 보존, `20261018_gw_wms_merge.py`의 `downgrade()`·`upgrade()` 역변환 `fingerprint` 보존, `verify_ddl_matches_schema.py` 0 단언 그대로 유지.
+    - `pytest backend/tests/test_gw_wms_merge.py` 3건 전건 통과 및 `npm run ci:local` 1~5단계 **실패 0건(`1079 passed, 2 skipped`)** 확인.
+  - `backend/src/fs/wms/pick_schema.py` & `backend/src/fs/wms/picks.py` (D-1):
     - `POST /api/v1/wms/pick-orders`, `GET /api/v1/wms/pick-orders`, `GET /api/v1/wms/pick-orders/{row_id}` 구현.
     - `wms.stock_move` 잔량 집계에 `wms.lot`을 `LEFT JOIN`하여 마스터 행이 없는 시드 LOT(`LT-0001`~`LT-0012`) 포함, `wms.lot_hold`(`released_at IS NULL`)·`qms.held_lot_nos()`·`wms.lot.status IN ('HOLD','EXPIRED')`·`expiry_date < business_today()` 제외.
     - 예약 줄 지정 LOT이 가용하면 우선 존중하고, 보류·만료·수량 부족 시에만 `expiry_date ASC NULLS LAST → received_on ASC NULLS LAST → lot_no ASC NULLS LAST → loc.code ASC`(FEFO→FIFO)로 대체 배정하며 `lotSubstitutions` 반환.
@@ -12,7 +16,7 @@
   - `backend/src/fs/wms/service.py`: 대시보드 월별 입출고 집계에서 `'PICK'` 제외.
   - `backend/tests/test_wms_picks.py`: D-1 핵심 시나리오 5건 추가 및 전체 통과.
 - **다음 할 일**:
-  - 사용자 확인 후 **D-2 (W-12 피킹 목록·상세 화면)** → **D-3 (피킹 확정 → `PICK` 전표, 취소)** → **D-4 (W-09 출고 예약에 피킹 상태 연결 및 `lot_tracked`·보류/만료 예약 차단)** 순차 진행.
+  - 사용자 확인 후 **D-2 (W-12 피킹 목록·상세 화면)** → **D-3 (피킹 확정 → `PICK` 전표, 취소, 예약 유효 현재 위치 연동)** → **D-4 (W-09 출고 예약에 피킹 상태 연결 및 `lot_tracked`·보류/만료 예약 차단)** 순차 진행.
 - **주의점**:
   - 모든 작업은 `/Users/hwang-kyoungho/projects/factory-studio-ag` (`antigravity/w2b-1d-work`)에서 수행한다 (`/Users/hwang-kyoungho/projects/factory-studio`는 `main` 전용).
   - `main`을 끌어오거나 원격 push 하지 않는다.

@@ -1,3 +1,29 @@
+# 2026-10-18 WMS-FIX-02 `test_gw_wms_merge.py` 과거 마이그레이션 리비전과 `create_template()` 결합 제거 완료
+
+- 작업 폴더 / 브랜치: `/Users/hwang-kyoungho/projects/factory-studio-ag` / `antigravity/w2b-1d-work`
+- 원인 및 배경:
+  - `backend/tests/test_gw_wms_merge.py`는 빈 DB를 세 리비전(`w2b1_wms`, `gw_company_identity`, `flow_board_custom`) 중 하나로 업그레이드한 뒤 현재 시드 생성기(`create_template()`)를 호출했다.
+  - `gw_company_identity`·`flow_board_custom` 리비전은 `w2b1_wms` 이전 지점이라 `wms.storage_location`의 `c781_check`가 `'NORMAL'`, `'QUARANTINE'`만 허용하는데, W2b-1c(C-3a)에서 `backend/seed/wms_extension.py`에 `'RECEIVING'` 위치(`R-REC`, `F-REC`)가 추가되면서 `main`(`843036f`) 병합 후 두 파라미터가 `CheckViolation`으로 실패했다.
+- 수정 내용 (`backend/tests/test_gw_wms_merge.py`):
+  - 시드 생성기(`backend/seed/`)나 마이그레이션을 조건부로 건드리지 않고, 얼어붙은 마이그레이션 지점에 진화하는 `create_template()`을 묶어 둔 결합을 끊었다.
+  - 세 파라미터(`w2b1_wms`, `gw_company_identity`, `flow_board_custom`) 모두 동일한 방식으로:
+    1. `create_example_company()` 내부의 `create_member_account(..., schemas=())`가 요구하는 최소 활성 `TEMPLATE` 공간(`core.workspace`) 및 세대(`core.data_generation`) 행만 직접 `INSERT`.
+    2. `create_example_company()`로 회사 공간(`core.workspace`, `core.company`, `core.company_member`, `core.app_user`, `core.workspace_module`, `hr.department`, `hr.title`, `hr.work_pattern`, `hr.work_policy`, `hr.employee`, `hr.work_account`, `hr.leave_balance`) 생성.
+    3. 브랜치별 고유 테이블 증인 행 직접 `INSERT`:
+       - `w2b1_wms`: `wms.item`(`MERGE-ITEM`) 및 신규 테이블 `wms.lot`(`MERGE-WITNESS`) 직접 `INSERT`
+       - `gw_company_identity`: 신규 보안 테이블 `gw.collaboration_settings` 직접 `INSERT`
+  - 테스트의 세 핵심 단언(`command.upgrade(cfg, "head")` 전후 `fingerprint` 일치, `20261018_gw_wms_merge.py`의 `downgrade()`·`upgrade()` 이름 정규화 역변환 전후 `all_columns` `fingerprint` 일치, `verify_ddl_matches_schema.py` 0 및 `alembic_version == ["gw_wms_merge"]`)은 한 줄도 약화시키지 않고 그대로 유지했다.
+- 검증 결과 (`npm run ci:local` 1~5단계):
+  - 단독 실행 (`pytest backend/tests/test_gw_wms_merge.py -v`): **`3 passed, 8 warnings in 51.39s`**
+  - 1단계 (DB 정적·격리 R1~R6·도구 138건): 통과 (`tables: 210, errors: []`, `Ran 138 tests in 16.952s — OK`)
+  - 2단계 (`ruff check` · `ruff format --check`): 통과 (`All checks passed! 245 files already formatted`)
+  - 3단계 (백엔드 마이그레이션 · DDL 대조 · pytest):
+    - `pytest backend/tests -q -n auto -m "not perf"`: **`1079 passed, 2 skipped, 59 warnings in 516.42s (0:08:36)`** (실패 **0건**, 작업자 탈락 **0건**)
+    - `pytest backend/tests -q -m perf`: **`1 passed, 1081 deselected, 5 warnings in 31.48s`**
+  - 4단계 (`clear_test_data.py` → `downgrade base` → `upgrade head` → `verify_ddl_matches_schema.py`): 통과 (`tables: 210, columns: 2295, PK: 210, UK: 435, CHECK: 513, INDEX: 171, UNIQUE_INDEX: 48, FK: 524, errors: []`)
+  - 5단계 (프런트 `typecheck` · `lint` · `format:check` · `build` · `test`): 통과 (**`Test Files 77 passed (77), Tests 617 passed (617)`**, 실패 **0건**)
+- 다음 작업: 사용자 확인 후 **D-2 (W-12 피킹 목록·상세 화면)** 착수.
+
 # 2026-10-18 W2b-1d D-1 피킹 지시 생성 · FEFO/FIFO LOT 배정 · 보류/만료 제외 완료
 
 - 작업 폴더 / 브랜치: `/Users/hwang-kyoungho/projects/factory-studio-ag` / `antigravity/w2b-1d-work` (기준 `main` `843036f`)
