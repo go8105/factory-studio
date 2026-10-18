@@ -1,3 +1,22 @@
+# 2026-10-18 FLOW-FIX-01 `frontend/src/flow/projects.test.tsx` 날짜 경과 실패 7건 수정 완료
+
+- 브랜치: `antigravity/flow-fix-01` (기준 `main` `2be292e`)
+- 원인 분석:
+  - `frontend/src/flow/projects.test.tsx` 픽스처의 `starts_on: "2026-10-12"`, `ends_on: "2026-10-15"`가 고정되어 있는 반면, `frontend/src/flow/Projects.tsx`는 `new Date()`로 오늘 날짜(`today`)와 현재 월(`month`)을 구한다.
+  - 2026-10-16 이후부터 `ends_on < today`가 참이 되어 `late(t)`가 `<button className="project-task-title">` 안에 `<small> · 지연</small>`을 렌더링하면서 버튼 접근성 이름이 `"합성 업무 · 지연"`으로 바뀌었고, `findByRole("button", { name: "합성 업무" })`를 호출하는 7개 테스트가 실패했다(월이 바뀌면 `month` 비교까지 어긋난다).
+- 수정 내용:
+  - `frontend/src/flow/projects.test.tsx`:
+    - `beforeEach`에 `vi.useFakeTimers({ toFake: ["Date"] })` 및 `vi.setSystemTime(new Date("2026-10-13T09:00:00+09:00"))` 추가 (타이머는 그대로 두고 `Date`만 고정).
+    - `afterEach`에 `vi.useRealTimers()` 추가하여 다른 테스트로 새지 않도록 복원.
+    - 제품 코드(`Projects.tsx`), 픽스처, 다른 테스트 파일, DB/백엔드/시드 변경 없음.
+- 검증 결과:
+  - `npm --prefix frontend test -- src/flow/projects.test.tsx`: **11 passed (11)**
+  - `npm --prefix frontend test` 전체: **Test Files 77 passed (77), Tests 613 passed (613) — 실패 0건**
+  - `npm --prefix frontend run lint`, `npm --prefix frontend run format:check`, `npm --prefix frontend run typecheck`: 전부 통과
+- 교훈:
+  - "오늘 날짜에 의존하는 컴포넌트를 그리는 테스트는 고정 날짜 픽스처를 쓰지 말고 vi.setSystemTime 으로 시간을 고정한다. 안 그러면 며칠 뒤 조용히 깨진다."
+- 다음 작업: 사용자 확인 후 `main` 병합 검토 및 `antigravity/w2b-1c` 복귀.
+
 ## 2026-10-18 GW-COMPANY-05 WMS 통합·10인 합성 기술 검증 완료 / 실운영 인수 미완료
 
 - 사용자05 승인·추가요청 회사1/부서1/총10명 최소 구성(창업 전 준비). GW7b41850+로컬main9f6cf36을 codex/gw-company-01에서 통합, 완료분 로컬main만반영·원격push/배포없음. [결과](agent/GW_WMS통합_인수검증_GW-COMPANY-05.md), 운영 준비는결과연결문서. 최종commit은gitlog.
