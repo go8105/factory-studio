@@ -105,6 +105,171 @@
 - 정적검증: 기존router AST63경로와감사표63행일치, 재사용컬럼확인, 문서상대링크0오류·현황200줄·diff공백0.  제품테스트/브라우저/DB미실행. 기존PWA31/API12/전체597/604·Flow7baseline실패는이전검증이며GW검증으로재사용금지.
 - 다음사용자전체설계확인→GW-COMPANY-02(DB설계/마이그레이션/게이트). spec §7 잠금순서회사16→전역user관리→세션행과계정/세션회수전수검사, 63경로+신규경로ACL·개인체험보존필수. P0실운영MFA/복구/보존미정은회사지시없이채우지않음. 원격push/운영배포금지(이번사용자범위는로컬main만).
 
+# 2026-10-18 W2b-1c C-4 W-11 적치 완료·취소 및 PUTAWAY 전표 반영 완료 (W2b-1c 전체 완료)
+
+- **브랜치**: `antigravity/w2b-1c`
+- **마지막 커밋**: `git log -1 --oneline` 참조
+- **끝난 것 (C-4 및 W2b-1c 전체)**:
+  - W-11 적치 완료·취소 백엔드 (`backend/src/fs/wms/`):
+    - `receiving_schema.py`: `PutawayComplete` (`toLocationId`) 정의.
+    - `receiving.py`:
+      - `complete_putaway_task`: `FOR UPDATE OF t` 잠금, `status != 'OPEN'`이면 409 Conflict(`INVALID_STATE`), 목적지가 동일 창고의 활성 `NORMAL` 위치(출발 칸 제외)인지 검증(위반 시 400). 단일 트랜잭션(`base._action`) 안에서 `PUTAWAY` 재고 전표(`wms.stock_document`, `status = 'posted'`, `source_key = None`[`c624_check`], `source_ref = task_no`)와 `wms.stock_move` 2줄(출발지 `-qty`, 도착지 `+qty`) 생성 후 `c1480_check` 준수를 위해 단일 `UPDATE`로 `status = 'DONE'`, `to_location_id`, `done_at`, `stock_document_id` 동시 반영.
+      - `cancel_putaway_task`: `FOR UPDATE OF t` 잠금, `status != 'OPEN'`이면 409 Conflict(`INVALID_STATE`), 단일 `UPDATE`로 `status = 'CANCELLED'`, `to_location_id = NULL`, `done_at = NULL`, `stock_document_id = NULL` 반영(재고 전표 미생성).
+      - `guard_master`: `wms.putaway_task` 참조 시 창고·위치·품목 비활성화/변경 보호.
+    - `router.py`: `POST /api/v1/wms/putaway-tasks/{row_id}/complete`, `POST /api/v1/wms/putaway-tasks/{row_id}/cancel` 추가 및 `DocumentType`에 `"PUTAWAY"` 추가, `/stock`의 `locationType`을 6종으로 확대.
+    - `service.py`: `dashboard()` 월별 입출고 흐름 집계에서 내부 이동인 `'PUTAWAY'`를 `'TRANSFER'`와 함께 제외.
+  - W-11 적치 완료·취소 프런트엔드 (`frontend/src/wms/`):
+    - `common.tsx`: `DocumentType`에 `"PUTAWAY"`, `TYPE_LABEL`에 `PUTAWAY: "적치 이동"` 추가, `StockRow`·`Move`의 `locationType` 6종 확대.
+    - `Moves.tsx`: `locationType === "RECEIVING"`일 때 `"입고장"`으로 표시.
+    - `Putaways.tsx`: `OPEN` 상태 상세 패널에 적치 위치 선택 드롭다운(추천 위치가 있으면 기본 선택, 없으면 빈 값으로 직접 선택 강제; 동일 창고 활성 `NORMAL` 칸 목록) 및 `적치 완료` / `적치 취소` 버튼(`X-CSRF-Token`, `Idempotency-Key` 포함) 구현. `DONE` 상태에서 생성된 재고 전표 링크(`/wms/documents?open=${stockDocumentId}`) 표시.
+  - 검증 결과:
+    - 백엔드 WMS 테스트: `backend/tests/test_wms_receiving.py`의 `test_putaway_complete_and_cancel_full_flow` 포함 `pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py` -> `47 passed, 5 warnings in 103.55s`.
+    - 프런트엔드 WMS 및 포털 테스트: `npm --prefix frontend test -- src/wms/wms.test.tsx src/portal/favorites.test.tsx` -> `26 passed in 2.27s`.
+    - 브라우저 실기동 E2E 및 390px 모바일 폭 검증 (Playwright Chromium): 입고장(`R-REC`) 입고 예정 → 도착 → 검수 확정 → 적치 전 입고장 현재고 `60.000` / LOT 총량 `60.000` 확인 → W-11 추천 위치(`R-A01`) 기본 선택 및 적치 완료(`DONE`, `PUTAWAY` 전표 `WD-20261018-002`) → 재완료 시 409 차단 및 전표 1장 유지 → 취소(`CANCELLED`) → W-05 원장(`+60 R-REC 입고장`, `-60 R-REC 입고장`, `+60 R-A01 정상`) 및 W-04 재고 현황 / W-10 LOT 현재고(`60.000` 유지, 위치 `R-A01` 이동) 대조 → 390px 모바일 폭 확인.
+    - 로컬 CI (`tools/ci_local.sh`) 1~5단계:
+      - 1단계: `npm run db:validate` (`errors: []`), `audit_schema_isolation.py` (`errors: []`), `unittest discover -s tools` (`Ran 136 tests in 15.857s, OK`).
+      - 2단계: `ruff check` (`All checks passed!`), `ruff format --check` (`227 files already formatted`).
+      - 3단계: `alembic upgrade head` & `verify_ddl_matches_schema.py` (`errors: []`), `pytest backend/tests -q -n auto -m "not perf"` (`1031 passed, 1 skipped, 50 warnings in 466.16s (0:07:46)`, xdist 작업자 탈락 0건), `pytest backend/tests -q -m perf` (`1 passed, 1032 deselected, 5 warnings in 33.87s`).
+      - 4단계: `clear_test_data.py` → `alembic downgrade base` → `alembic upgrade head` → `verify_ddl_matches_schema.py` (`errors: []`).
+      - 5단계: 프런트엔드 `typecheck`, `lint`, `format:check`, `build` 통과. `vitest`: `Test Files 1 failed | 75 passed (76)`, `Tests 7 failed | 604 passed (611)` — 실패 파일: `frontend/src/flow/projects.test.tsx` (7건 실패, `main` 브랜치 `2be292e`에서도 동일하게 7건 실패하는 기존 Flow 이슈).
+- **다음 할 일**: 사용자 확인 및 **W2b-1c 전체 승인** 대기 (승인 후 main 병합 또는 W2b-1d 착수).
+- **주의점**:
+  - 사용자 확인 전까지 **W2b-1d 착수 금지** (작업 ID 하나씩 수행 후 확인 대기 규칙).
+  - 원격 push 금지 (로컬 커밋만 유지).
+  - 프런트엔드 전체 테스트 실행 시 기존 실패(`frontend/src/flow/projects.test.tsx`, 7 failed, `main` `2be292e`에서도 동일 실패)는 파일 이름·건수·main 동일 여부를 항상 명시한다.
+- **재현 명령**:
+  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
+  - `npm --prefix frontend test -- src/wms/wms.test.tsx src/portal/favorites.test.tsx`
+  - `npm run ci:local`
+
+# 2026-10-18 W2b-1c C-3 W-11 적치 작업 자동 생성·목록 및 실시간 추천 위치 산출 완료
+
+- **브랜치**: `antigravity/w2b-1c`
+- **끝난 것 (C-3)**:
+  - 검수 확정 시 합격분 적치 작업(`wms.putaway_task`) 자동 생성:
+    - `receiving.py`: `inspect_notice`에서 `accepted_qty > 0`인 명세마다 발번 `PT-YYYYMMDD-NNN`, `status='OPEN'`, `suggested_location_id=NULL`(검수 트랜잭션 경량화 및 실시간 계산 원칙), `from_location_id=normal_location_id`로 자동 생성. 격리/부족분 배제 및 멱등성 보장.
+  - 단일 CTE 쿼리를 통한 실시간 추천 위치 동적 산출:
+    - `receiving.py`: `list_putaway_tasks`에서 CTE(`filtered_tasks`, `candidate_locations`, `loc_stock`, `loc_totals` + `LEFT JOIN LATERAL`)로 N+1 없는 실시간 추천 위치 산출.
+    - 후보 위치: 동일 창고 · `is_active` · `location_type = 'NORMAL'` · `level_kind = 'BIN'` (출발 칸 제외).
+    - 제외 조건: 용량 초과(`현재고 + 적치수량 > capacity_qty`), 다른 품목 혼적 불가(`mix_items = false`), 다른 LOT 혼적 불가(`mix_lots = false`).
+    - 우선순위: 1순위(동일 품목+동일 LOT) → 2순위(동일 품목) → 3순위(빈 칸) → 4순위(혼적 허용) → 없으면 NULL.
+  - API 엔드포인트:
+    - `router.py`: `GET /api/v1/wms/putaway-tasks` 연결 (페이징, 상태/창고/품목 필터).
+  - W-11 적치 목록 화면:
+    - `frontend/src/wms/Putaways.tsx`: 적치 작업 테이블, 상태 배지(대기/완료/취소), 필터 바, 실시간 추천 위치 코드/이름 표시, 상세 패널 표시.
+    - `index.tsx`: 라우트 등록.
+    - `backend/src/fs/core/menu_catalog.json`: WMS screens에 W-11 적치 등록.
+  - 검증 결과:
+    - 백엔드 WMS 테스트: `backend/tests/test_wms_receiving.py` 신규 테스트(`test_putaway_task_creation_and_idempotency_on_inspection`, `test_putaway_task_recommendation_algorithm_and_filters`) 포함 WMS 전체 46개 테스트 통과 (`pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py` -> 46 passed, 5 warnings in 100.62s).
+    - 프런트엔드 WMS 및 메뉴 테스트: `npm --prefix frontend test -- src/wms/wms.test.tsx src/portal/favorites.test.tsx` 26개 테스트 통과.
+    - 백엔드 정적 분석: `uv run ruff check` 및 `uv run ruff format --check` 통과 (226 files formatted).
+    - 프런트엔드 정적 분석: `npm run lint`, `npm run format:check`, `npm run typecheck` 통과.
+    - DB 및 도구 검증: `npm run db:validate` (205표, 2246칼럼, 507FK, errors 0), Python 3.14 도구 단위 테스트 136개 통과.
+- **다음 할 일**: 사용자 확인 후 **C-4 (W-11 적치 완료·취소 백엔드+화면)** 착수.
+- **주의점**:
+  - 사용자 확인 전까지 **C-4 착수 금지** (작업 ID 하나씩 수행 후 확인 대기 규칙).
+  - C-4 적치 완료 처리 시:
+    - `status = 'DONE'`, `to_location_id` 저장, `done_at = now(KST)`.
+    - `PUTAWAY` 전표(`wms.stock_document`, `document_type = 'PUTAWAY'`, `status = 'posted'`) 및 `wms.stock_move` 생성하여 재고 원장에 출발지(`from_location_id`)에서 목적지(`to_location_id`)로 이동 반영.
+    - 취소(`CANCELLED`) 처리 지원.
+  - 스키마 불변 (`schema.json`, 마이그레이션 변경 금지).
+  - 원격 push 금지 (로컬 커밋만 유지).
+- **재현 명령**:
+  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
+  - `npm --prefix frontend test -- src/wms/wms.test.tsx src/portal/favorites.test.tsx`
+  - `npm --prefix frontend run lint && npm --prefix frontend run format:check && npm --prefix frontend run typecheck`
+
+# 2026-10-18 W2b-1c C-3a 입고장 경유 위치 흐름 검증 완화 및 시드/화면 반영 완료
+
+- **브랜치**: `antigravity/w2b-1c`
+- **끝난 것 (C-3a)**:
+  - F14 적치 흐름 지원을 위한 위치 유형 완화:
+    - 백엔드 (`receiving.py`): `_validate_lines`에서 `normal_location_id`의 검증을 `location_type in ("NORMAL", "RECEIVING")`으로 완화. 기존 `NORMAL`도 계속 통과하고 신규 `RECEIVING`도 허용.
+    - 백엔드 스키마 (`schema.py`): `LocationType` 6종 리터럴 타입 정의 및 `LocationCreate`, `LocationUpdate`에 적용.
+    - 시드 (`seed/`):
+      - `common.py`: `SEED_VERSION = "sv-20261018-wms1"`
+      - `wms_extension.py`: 창고별 입고장 위치 2개 추가: `("WH-RAW", "R-REC", "원자재 입고장", "RECEIVING")`, `("WH-FG", "F-REC", "완제품 입고장", "RECEIVING")` (`is_default=False`, `is_active=True`).
+      - `validate.py`: `"wms.storage_location": 8` 갱신.
+    - 프런트엔드 (`Inbounds.tsx`, `Warehouses.tsx`, `common.tsx`):
+      - `common.tsx`: `LocationType` 6종 export 및 `Location.locationType` 적용.
+      - `Inbounds.tsx`: 새 입고 예정 등록 시 창고의 `RECEIVING` 위치를 `normalLocationId` 기본값으로 자동 설정 (없으면 `NORMAL` 기본값 유지). `normalLocationId` select 옵션에서 `NORMAL` 및 `RECEIVING` 모두 허용 및 ` [입고장]` 꼬리표 표시.
+      - `Warehouses.tsx`: 위치 등록/수정 폼에서 6종 위치 유형 선택 지원, `isDefault` 비활성화 조건을 DB CHECK 제약에 맞춰 `draft.locationType !== "NORMAL"`로 통일.
+  - 검증 결과:
+    - 백엔드 WMS 테스트: `backend/tests/test_wms_receiving.py`에 `test_receiving_location_allowed_as_normal_location` 신규 추가 포함 WMS 전체 44개 테스트 통과 (`pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py` -> 44 passed, 0 failed in 103s).
+    - 프런트엔드 WMS 테스트: `npm --prefix frontend test -- src/wms/wms.test.tsx` 16개 테스트 통과 (`W-08 입고 예정 등록 시 RECEIVING 위치가 있으면 기본 선택되고 목록에 [입고장]이 표시된다` 신규 검증 포함).
+    - 백엔드 정적 분석: `uv run --project backend ruff check --config backend/pyproject.toml backend` (0 errors).
+    - 프런트엔드 정적 분석: `npm run lint` (0 errors), `npm run typecheck` (0 errors), `npm run format:check` (0 errors).
+    - DB 및 도구 검증: `npm run db:validate` (205표, 2246칼럼, 507FK, errors 0), Python 3.14 도구 단위 테스트 136개 통과.
+- **다음 할 일**: 사용자 확인 후 **C-3 (W-11 적치 작업 목록·추천 위치 백엔드+화면)** 착수.
+- **주의점**:
+  - 사용자 확인 전까지 **C-3 착수 금지** (작업 ID 하나씩 수행 후 확인 대기 규칙).
+  - C-3 적치 작업 목록 및 추천 위치 계산 시:
+    - 검수 확정 시 `wms.putaway_task`는 `suggested_location_id = NULL`로 생성(검수 트랜잭션 무거움 방지).
+    - 추천 위치는 W-11 목록 조회 시 동적으로 계산.
+    - 추천 기준은 실제 칼럼(`storage_location.level_kind = 'BIN'`, `mix_items`, `mix_lots`, `capacity_qty`) 활용.
+    - 시험 시 `mix_items=false`, `capacity_qty`, `mix_lots=false` 세 갈래의 필터링 방어 테스트 필수.
+  - 스키마 불변 (`schema.json`, 마이그레이션 변경 금지).
+  - 원격 push 금지 (로컬 커밋만 유지).
+- **재현 명령**:
+  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
+  - `npm --prefix frontend test -- src/wms/wms.test.tsx`
+  - `npm --prefix frontend run lint && npm --prefix frontend run format:check && npm --prefix frontend run typecheck`
+
+# 2026-10-18 W2b-1c C-2 W-08 입고 LOT 부여 및 lot_tracked 전환 완료
+
+- **브랜치**: `antigravity/w2b-1c`
+- **끝난 것 (C-2)**:
+  - 기존 데이터 감사 (`factory_studio` 및 `factory_studio_test` 전수 확인):
+    - `wms.item` 중 `lot_tracked = true AND item_class <> 'FG'`: **0건**.
+    - `wms.item` 중 `lot_tracked = false AND item_class = 'FG'`: **0건**.
+    - `wms.inbound_notice_line` 중 `lot_tracked = false`인데 `lot_no` 존재: **0건**.
+    - `wms.inbound_notice_line` 중 `lot_tracked = true`인데 `lot_no` 비어 있음: **0건** (기존 60행 전건 무결).
+  - 입고 LOT 부여 및 `lot_tracked` 플래그 전환:
+    - 백엔드 (`receiving.py`):
+      - `_validate_lines`: `itemClass == "FG"` 검사를 `item.get("lotTracked")` 검사로 교체하여 LOT 추적 품목 필수, 비추적 품목 차단(400) 구현.
+      - `inspect_notice`: 검수 확정 시 명세에 `lot_no`가 있고 `accepted_qty + quarantined_qty > 0`인 경우 `wms.lot` 행 자동 생성(`origin='RECEIPT'`, `status='AVAILABLE'`, 유효기간 자동계산, `supplier_lot_no=None`으로 비워 둠, 중복 방어).
+    - 프런트엔드 (`Inbounds.tsx`):
+      - `NoticeForm`: 선택된 품목의 `lotTracked` 여부에 따라 LOT 입력 필드 동적 표시 및 필수(`required`) 처리, 품목 변경 시 비추적 품목이면 `lotNo: ""` 초기화.
+  - 검증 결과:
+    - 백엔드 WMS 테스트: `backend/tests/test_wms.py` 신규 테스트(`test_inbound_lot_tracked_rules_and_lot_creation`) 포함 WMS 전체 43개 테스트 통과 (`pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py` -> 43 passed, 0 failed in 101s).
+    - 프런트엔드 WMS 테스트: `npm --prefix frontend test -- src/wms/wms.test.tsx` 15개 테스트 통과 (`W-08 품목 lotTracked 여부에 따른 LOT 입력 필드 노출 및 초기화` 신규 검증 포함).
+    - 백엔드 정적 분석: `uv run --project backend ruff check --config backend/pyproject.toml backend` (0 errors).
+    - 프런트엔드 정적 분석: `npm run lint` (0 errors), `npm run typecheck` (0 errors), `npm run format:check` (0 errors).
+    - DB 및 도구 검증: `npm run db:validate` (205표, 2246칼럼, 507FK, errors 0), Python 3.14 도구 단위 테스트 136개 통과.
+- **다음 할 일**: 사용자 확인 후 **C-3 (W-11 적치 작업 목록·추천 위치 백엔드+화면)** 착수.
+- **주의점**:
+  - C-3/C-4에서 검수 확정 시 생성되는 적치 작업(`wms.putaway_task`)은 추천 위치(`suggested_location_id`)를 NULL로 생성하고 W-11 목록 조회 시 동적으로 계산(합의된 설계 원칙 준수).
+  - 격리품(`quarantined_qty > 0`) 및 부족품(`shortage_qty`)은 적치 대상 제외 (`accepted_qty > 0`인 명세만 적치 대상).
+  - DB 변경 없음 (`schema.json` 불변, 마이그레이션 변경 금지).
+- **재현 명령**:
+  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
+  - `npm --prefix frontend test -- src/wms/wms.test.tsx`
+
+# 2026-10-17 W2b-1c C-1 W-08 notice_kind 보강 완료
+
+- **브랜치**: `antigravity/w2b-1c`
+- **끝난 것 (C-1)**:
+  - `wms.inbound_notice.notice_kind` NOT NULL 기본값 및 4종 검증 지원:
+    - 백엔드: `NoticeKind` 리터럴 타입 및 `NoticeFields` 기본값(`"PURCHASE"`), `create_notice`/`update_notice` 4종 유효성 검사 및 SQL INSERT/UPDATE 반영, `list_notices` `noticeKind` 필터링 지원.
+    - 프런트엔드: `Inbounds.tsx` 필터 바 구분 셀렉트, 목록 `noticeKind` 컬럼 및 배지(`tone="issue"` for SALES_RETURN, `"normal"` for others), 등록 폼 `입고 구분` 선택 및 전송, 상세 패널 헤더 배지 및 정보 표시.
+  - DB 기존 행 실측:
+    - `factory_studio`: 총 60행 모두 `notice_kind='PURCHASE'` (누락 0건).
+    - `factory_studio_test`: 총 5행 모두 `notice_kind='PURCHASE'` (누락 0건).
+  - 검증 결과:
+    - 백엔드 WMS 테스트: `pytest backend/tests/test_wms.py -v` (19 passed).
+    - 프런트엔드 WMS 테스트: `npm --prefix frontend test -- src/wms/wms.test.tsx` (14 passed).
+    - 백엔드 정적 분석: `ruff check` (0 errors), `ruff format --check` (227 files formatted).
+    - 프런트엔드 정적 분석: `npm run lint` (0 errors), `npm run typecheck` (0 errors), `npm run format:check` (0 errors).
+    - 도구 단위 테스트: `Ran 136 tests in 16.210s - OK`.
+- **다음 할 일**: 사용자 확인 후 **C-2 (W-08 입고 LOT 부여 — 검수 시 `wms.lot` 생성)** 착수.
+- **주의점**:
+  - C-2에서 `receiving.py::_validate_lines`의 `itemClass == "FG"` 검사를 `lot_tracked` 기준으로 변경 (LOT 추적 품목 필수, 비추적 품목 제외).
+  - 검수 확정 시 적치 작업(`putaway_task`) 생성 시 `suggested_location_id`는 NULL로 두고 W-11 목록 조회 시 동적 계산.
+  - 격리품(`quarantined_qty > 0`) 및 부족품은 적치 작업 생성에서 제외 (`accepted_qty > 0`인 명세만 생성).
+- **재현 명령**:
+  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py -v`
+  - `npm --prefix frontend test -- src/wms/wms.test.tsx`
+
 ## 2026-10-17 PWA-POLICY-01 로컬 main 반영 · GW 설계 대조 시작
 
 사용자 지시로 PWA `e02097d`를 로컬 main에 ff 병합. 원격/실서버 변경 없음. main 폴더는 factory-studio-help-main, 새 GW 브랜치는 codex/gw-company-01 / factory-studio-gw-company. 다음은 기존 GW-EXT-A와 core.company/HR/Flow 인증·조직 재사용 대조이며 제품DB 적용 전 전체설계 확인 필요. 기존 Flow 회귀7실패 보존. 이전 아래 항목의 main 미반영 표시는 이 기록으로 갱신한다.
@@ -820,7 +985,6 @@ schema0.24.0/headgw_projects: 실제191표2074열464FK, 목표379표918FK. migra
 - 보호 자료 backend/private-assets는 빌드 생성물. 공개 정적 경로로 노출 금지, 운영 배포시 오래된 public soap 파일도 교체. 원격 push·배포 없음.
 - main의 backend/pyproject.toml·seed/copy.py·tests/conftest.py·uv.lock은 다른 작업자의 진행 중 변경으로 보존. 다음은 사용자 검토 후 재료/결합 방식·실물 시험.
 
-
 ## Codex 최신 상태 — 2026-10-05 CAD-02 포털 통합 완료
 
 - branch `codex/soap-cad-review`, worktree `/Users/hwang-kyoungho/.codex/worktrees/soap-cad-review/factory-studio`. POC 커밋1a364f7, 최종 통합 커밋 `git log -1`; main의 DSN-29 기준표까지 병합 보존.
@@ -830,7 +994,6 @@ schema0.24.0/headgw_projects: 실제191표2074열464FK, 목표379표918FK. migra
 - 검토 중인5242 서버는8042 모의 API 연결이며 실제 업무 환경이 아니다. fixture 실행법은 공통 설계. 별도5241 POC 서버도 남아 있다.
 - 다음: 사용자 검토 후 배포 또는 FDM 실험. 로컬 main 반영, 원격 push·배포 없음. ROADMAP-02 다른 솔루션 개발 재개 아님. 생성 public 자산·.env/work/원본 PDF는 커밋 제외.
 
-
 ## Codex 최신 상태 — 2026-10-05 POC-01 완료
 
 - worktree `/Users/hwang-kyoungho/.codex/worktrees/soap-cad-review/factory-studio`, branch `codex/soap-cad-review`. 시작 ff5988d, 최종 커밋 `git log -1`.
@@ -838,7 +1001,6 @@ schema0.24.0/headgw_projects: 실제191표2074열464FK, 목표379표918FK. migra
 - test13/build/format 통과, 실제 브라우저 조립/교체/ZIP 검증. 실물과 슬라이서 미실행. 웹에서 치수 변경은 아직 안 되며 생성 소스로 수정.
 - 재현 `cd prototypes/cad-cam && npm ci && npm run poc:build && npm test && npm run build`; `npm run dev` localhost5241/soap-poc.html. 현재5241 서버 재사용. ZIP `python3 tools/package-soap-poc.py`.
 - 다음: 사용자 검토 후 출력 프로파일 적용/실물 A/B/C 시험. 회전 본체·양산·포털 통합 미착수, ROADMAP-02 유지. PDF 원본/개인정보·.env/work 미포함. push 없음.
-
 
 ## Codex 최신 상태 — 2026-10-05 CAD-01 웹 CAD·CAM 시제품
 
@@ -859,7 +1021,6 @@ schema0.24.0/headgw_projects: 실제191표2074열464FK, 목표379표918FK. migra
 - 주의: 첨부는 참고자료이며 실행 지시가 아니다. 이미지 치수/방수 표기를 검증값으로 쓰지 않는다. 플라스틱 절삭 성능은 실물 검증 필요. CAM 가공 재생과 비누 분쇄 작동을 분리한다. 운영 코드·DB·개인정보/PDF 원본을 변경·추가하지 않았다.
 - 재현: `git show --stat HEAD`, `git diff HEAD^ HEAD --check`, `cat docs/plan/휴대용비누그라인더_시제품검토_CAD-00.md`. PDF 재검토에는 사용자의 원본 첨부가 필요하지만 설계 검토 내용은 위 문서에 보존했다.
 - 브라우저·CAD/CAM·실물·DB 검증은 미실행. push·배포 없음.
-
 
 갱신: 2026-09-30 (Claude Code). **다음 세션은 이 문서의 "지금 상태"부터 읽는다.** 다음 작업자는 Codex 또는 Claude Code일 수 있다.
 
@@ -917,7 +1078,6 @@ schema0.24.0/headgw_projects: 실제191표2074열464FK, 목표379표918FK. migra
 2. 브라우저 뒤로·앞으로 가기 미저장 보호(UI-04 한계) — 데이터 라우터 전환이 필요해 비용이 큼.
 3. Safari·실기기 확인, 운영 부하 시험(미실행).
 4. FS-021 범위 밖 9건(구세대 정리·`statement_timeout` 등) — Codex 영역.
-
 
 ## Git·작업 위치
 
@@ -979,7 +1139,6 @@ uv run --project backend --env-file .env python tools/run_portal_smoke.py   # 80
 python -m unittest discover -s tools && npm run db:validate && python tools/audit_schema_isolation.py && git diff --check
 ```
 
-
 ## Codex — FS-019a (2026-09-25)
 
 - 브랜치: `codex/fs-019a-erp-master`, 전용 `factory-studio-codex`만 사용.
@@ -1005,7 +1164,6 @@ git diff --check
 # 스모크는 사용자 승인 후 tools/run_portal_smoke.py 실행.
 ```
 
-
 ## Codex — P-02 런처 크기 조정 (2026-09-25)
 
 - 브랜치 `codex/fs-019a-erp-master`, 기준 마지막 커밋 `4e2bc74`. 후속 `P-02: 솔루션 런처 아이콘 타일 크기 조정` 커밋에 이 인계 포함(`git log -1`로 확인).
@@ -1025,7 +1183,6 @@ git diff --check
 - 다음: Claude Code가 새 main 통합 뒤 전체 스모크·360px 실행. 사용자는 Codex의 공용 스모크 실행을 금지했으므로 실행하지 않는다. 통합 시 ERP(4e2bc74)·런처(f9eb879)·3D(WIP+후속)의 범위를 구분한다. 수정 요청 대기.
 - 메인 폴더·antigravity 미사용. push/main 병합 없음. .env·work/·node_modules 제외. 별도 테스트 서버는 종료한다.
 
-
 ## 2026-09-26 Blender 비전검사 설비 (Codex)
 
 - 사용자 "참고자료 없이 바로 진행" 승인. `codex/factory-vision-blender`에서 기존 공장의 비전검사 1대를 Blender 원본/GLB로 교체.
@@ -1034,7 +1191,6 @@ git diff --check
 - DB/API 변경·새 의존성 없음. backend/DB/공용 통합 스모크 미실행. main 병합·push 없음.
 - 원본 `assets/blender/vision-cell.blend`, 재생성 `tools/blender/build_vision.py`, 상세 보고 `docs/agent/3D공장_Blender_비전검사.md`.
 - 다음: 시각 피드백·통합 담당자 main 통합. MES 실제 레코드 연결 및 FEMS는 후속 설계.
-
 
 ## 2026-09-26 3D 공장 공간 고도화 (Codex, 완료)
 
@@ -1188,7 +1344,6 @@ git diff --check
   - 주의: 새 공간의 `qms` 모듈 행 생성·게스트 세대 복사/정리 순서에 qms 추가는 FS-023b·c. 현재 qms 테이블은 비어 있어 기존 복사·회수에 영향 없음(pytest로 확인).
   - 다음: FS-023b — `fs/mes/interface.py`·`fs/qms/interface.py`, `/api/v1/qms` API(TX-Q1~Q3), Q-01~06 화면, MES 배지.
 
-
 ## 2026-09-27 비전검사 AI 설명·세 시나리오 (FS-3D-AI01, 로컬 구현)
 
 - 브랜치 `codex/vision-ai`, 기준 `origin/main 8851772`. 기존 `codex/home-ui-polish` 작업은 보존하고 통합된 1인칭 코드에서 시작했다.
@@ -1200,7 +1355,6 @@ git diff --check
 - 남은 통합 작업: 커밋 반영 검토 → 공식 스모크 → 백엔드 재시작·프런트 재빌드. 실제 AI를 활성화할 경우 서버 비밀 설정에 키를 추가하고 세 시나리오 응답 확인. 운영 반영 여부와 무관하게 키 없이 데모 체험 가능.
 - 설계 `docs/modules/factory/README.md`, 상세 인계·재현 명령 `docs/agent/3D공장_AI설명_FS-3D-AI01.md`. 이번 범위 구현 완료, 운영 통합과 실제 모델 검증은 남음.
 
-
 ### 최종 검증 (FS-3D-AI01)
 
 - Node 24 typecheck/lint/format:check/build 통과, Vitest **420 passed / 46 files**.
@@ -1209,7 +1363,6 @@ git diff --check
 - 1440×900 1인칭 설명 화면과 390px 모바일 패널 캡처 직접 확인. 모바일 가로 넘침 없음. 빌드의 기존 3D 청크 크기 경고와 THREE.Clock 사용 중단 예정 경고는 남아 있다.
 - 실제 모델 요청과 공용 DB 스모크는 실행하지 않았다. 작업 폴더 `factory-studio-codex`, 브랜치 `codex/vision-ai`. 결과물은 이번 완료 커밋에 포함되며 원격 push/배포는 하지 않았다.
 
-
 ## 2026-09-27 합성 이미지 검사실 (FS-VISION-LAB01)
 
 - 사용자 승인 범위 구현: 정상/이물/조명 변화 샘플, 전체/중앙 ROI, 임계값·최소 연결 면적 조절, 원본/이진화 화면과 검출 영역, OK/NG 및 오검출·미검출·영역 밖 결함 픽셀 수. 레시피·결과 JSON 다운로드.
@@ -1217,7 +1370,6 @@ git diff --check
 - `codex/vision-ai`, 기준 `0f16bb6`에 후속 구현. 프런트 425 tests / 47 files 통과, typecheck/lint/format/build 통과. 모의 API·5186에서 신규 Chromium 진입/조건 변경/JSON 다운로드/모바일 가로 넘침 검사 통과. 공용 DB 스모크·실장비·Safari 미검증.
 - 상세 설계·후속 연결 계약·재현 명령: `docs/agent/합성이미지검사실_FS-VISION-LAB01.md`. 이번 합성 범위 완료. 다음은 통합 검토와 사용자 체험이며 C++/C# 엔진은 별도 후속 범위. 원격 push·운영 배포 없음.
 - 통합·배포(2026-09-27, Claude Code): main에 FS-023b + UI-03 B2(`d194cb9`) + Codex 비전검사 AI 설명(`0f16bb6`)·합성 이미지 검사실(`da2f02a`) 병합(`2ef0578`). 검증: ruff·격리 R1~R6 0, vitest 435, 백엔드 설명 테스트 13, 공식 스모크 **187 passed**(11.8분). push `8851772..2ef0578`, 서버 pull·`alembic upgrade head`(→ `fs023b_qms_module`)·API 재시작, 프런트 빌드·rsync(번들 `index-aVsvqfGf.js` 일치). 운영 게스트 확인: QMS Q-01~06·MES 패킹·E-02 견적 패널·`/factory/vision-lab` 열림, 페이지 오류 0·5xx 0. OPENAI_API_KEY 미설정 → AI 설명은 데모 응답.
-
 
 ## 2026-09-27 P-02 홈 UI 정돈 (Codex)
 
@@ -1228,7 +1380,6 @@ git diff --check
 - 새 의존성 없음. package.json은 검증 스크립트만 추가. 공통 CSS·업무/3D·스키마 변경 없음. .env/work/node_modules 제외.
 - 다음: 사용자 시각 검토 후 통합 담당자가 main에 반영·운영 확인. Codex는 push/main 병합/배포 없이 멈춘다.
 
-
 ## 2026-09-27 연속 검사 모드 (FS-VISION-RUN01 완료)
 
 - 사용자 확인한 연속 검사 범위 구현. `codex/vision-ai`, 기준 `da2f02a`. 기존 3종 20회 반복, 500/200ms, 시작/일시정지/재개/종료, 시작 시 레시피 고정.
@@ -1238,7 +1389,6 @@ git diff --check
 - 실장비·PLC·C++/C#·backend/DB 스모크·Safari 미검증. 기존 3D 청크·Clock 경고 유지. push/운영 배포 없음.
 - 다음: 사용자 체험·통합 검토, 이후 별도 작업으로 가상 PLC 상태 머신. 설계 `docs/modules/factory/README.md`, 상세 계약·재현 `docs/agent/연속검사모드_FS-VISION-RUN01.md`.
 
-
 ## 2026-09-27 가상 PLC 핸드셰이크 (FS-VISION-PLC01 완료)
 
 - 사용자 후속 진행 승인. `codex/vision-ai`, 기준 `74a4ec2`. 연속 검사에 선택형 PLC 모드 추가, Ready/Trigger/Busy/Done/OK·NG/Interlock 신호, 요청 ID별 이벤트 로그.
@@ -1247,7 +1397,6 @@ git diff --check
 - Node 24 최종 typecheck(빌드 포함)/lint/format/build 통과. Vitest **443 tests / 49 files**. Chromium 관련 5개 통과, 로그 ID·알람 표시 보정 후 신규 PLC 2개 재실행 통과. 1440·390 캡처 직접 확인, 모바일 가로 넘침 없음.
 - 브라우저 모의 프로토콜. Ready_Req ON 고정, Recipe_ID=RUN_SNAPSHOT. 실제 PLC·통신 SDK·C++/C#·MES·backend/DB 스모크·Safari 미검증. 기존 3D 청크/Clock 경고 유지. push·운영 배포 없음.
 - 다음: 사용자 체험/통합 검토 후 C++ OpenCV 코어 분리 및 동일 입력의 결과 비교. 상세 `docs/agent/가상PLC_FS-VISION-PLC01.md`, 공통 설계 `docs/modules/factory/README.md`.
-
 
 ## 2026-09-27 C++ OpenCV 검사 코어 (FS-VISION-CORE01 완료)
 
@@ -1260,7 +1409,6 @@ git diff --check
 - 재현: `cmake -S native/inspection_core -B work/inspection-core -DINSPECTION_FETCH_DEPS=ON -DCMAKE_BUILD_TYPE=Release -DNODE_EXECUTABLE=/opt/homebrew/opt/node@24/bin/node`; `cmake --build work/inspection-core --parallel 4`; `ctest --test-dir work/inspection-core --output-on-failure`.
 - 상세: `native/inspection_core/README.md`, `docs/agent/C++검사코어_FS-VISION-CORE01.md`.
 
-
 ## 2026-09-27 C++ 웹 호출·사용자 참고 문서 (FS-VISION-CONNECT01 완료)
 
 - 사용자 요청한 C++ 호출 연결과 도움말 반영 완료. `codex/vision-ai`, 기준 `848778b`. 운영 배포는 사용자가 직접 진행하며 이번에 push·main 통합·운영 접속/재시작/배포 없음.
@@ -1271,7 +1419,6 @@ git diff --check
 - Chromium 관련6개 최종 단일 실행 통과(1.3분). 모의 인증·실제 API·실제 C++ 바이너리로 단건/20회/PLC20회 및 JSON·도움말 확인. 기존 모의 API 회귀 포함. 실제 화면 캡처 확인, 도움말390px 가로 넘침 없음.
 - 공용 DB/운영인증/운영배포·Windows/Linux·실장비 미검증. 기존 3D 청크/Clock 경고와 Python 테스트 클라이언트 사용중단 경고 유지.
 - 배포 인계: `docs/agent/C++웹연결_FS-VISION-CONNECT01.md`. 서버 OS에서 바이너리 빌드/검증 → 서비스 환경 VISION_CORE_EXECUTABLE 절대경로 설정 → 백엔드 반영·재시작 → 프런트 재빌드·반영 → 게스트C++/PLC/도움말 확인. tests/factory_native_preview.py는 모의 인증이므로 운영 사용 금지.
-
 
 ## 2026-09-29 Codex FS-026b1 진행 중 (main 내용 유지 후 추가)
 
@@ -1286,7 +1433,6 @@ git diff --check
 - 기존 W-03 새 상태 및 검수 전표 이름의 최소 표시 호환 추가. WMS 프런트10개·typecheck·변경 ESLint 통과. 입고 전용 화면은 미구현.
 - 전체 백엔드 pytest 재실행 중. ruff check/format134파일 통과, R1~R6 감사 오류0, db:validate 오류0. 최종 전체 결과 전에는 완료로 인계하지 않는다.
 
-
 ## 2026-09-29 FS-026b1 최종 완료 — 다음은 사용자 확인 후 b2
 
 - 위 중간 WIP 상태를 이 항목으로 대체한다. 브랜치 codex/vision-ai, 기준 main6508599, 마지막 구현 a832fa8(16045ae 포함), 마지막 보고커밋은 git log -1. main 본문은 보존했다.
@@ -1296,7 +1442,6 @@ git diff --check
 - b2 예약·소진·가용 조회(TX-W8~W9/AC151~158)는 **사용자 b1 확인 전 시작하지 않는다**. AC141의 예약가능95 조회도 b2에 남는다. 이후 입고 화면/3D 트럭/시드·도움말·브라우저 검증. 신규 입고 화면은 아직 없으며 프로젝트 전체 완료가 아니다.
 - 상세 및 재현 명령: docs/agent/WMS확장_API_FS-026b1.md. 테스트에 필요한 전용 *_test DB 환경만 주입하면 표준 pytest 명령으로 재현되며 work 임시 도구에 의존하지 않는다.
 
-
 ## 2026-09-30 FS-026b2 WIP — 예약·소진·가용
 
 - 사용자가 다음 진행 방향 1번(b2)을 승인했다. 브랜치 codex/vision-ai, 기준 3f5039c/main6508599. TX-W8~W9, AC151~158 구현. 예약 생성/해제, ERP 확정 출하 전량 소진, 원장·예약 경합 직렬화, 격리 제외/위치별 부족 보존, ERP off 가용 계산.
@@ -1304,7 +1449,6 @@ git diff --check
 - 현재 관련 API60개(신규22 포함), WMS 프런트10개/typecheck/변경 ESLint 통과. CI ruff138파일, R1~R6 감사0, db:validate0. 전체 pytest 전용 factory_studio_codex_fs026b2_final_test에서 실행 중. 최종 결과 전 완료 아님.
 - migration/schema/Excel/ERD 변경 없음. 템플릿11,910 유지. .env/work 스테이징 금지, push·배포 없음. b2 최종 보고 후 사용자 확인을 기다린다.
 - 재현: 전용 *_test DB의 DATABASE_URL/TEST_DATABASE_URL을 환경으로 제공한 뒤 backend/.venv/bin/pytest backend/tests -q --tb=short. Ruff는 backend/pyproject.toml 명시(CI 명령). 상세 docs/agent/WMS확장_API_FS-026b2.md.
-
 
 ## 2026-09-30 FS-026b2 완료 — 다음은 사용자 확인 후 화면
 
@@ -1315,7 +1459,6 @@ git diff --check
 - 전용 factory_studio_codex_fs026b2_final_test에서 실행. migration head fs026a_wms_receiving_reservation 유지; schema/Excel/ERD·시드 기준11,910/복사11,908 및 seed/validate.py·test_seed/test_common 변경 없음. 공유 개발/운영DB 변경·push·배포 없음, .env/work 스테이징 없음.
 - 다음: **사용자 b2 확인 후** W-08 입고 예정/도착/검수와 W-09 예약 화면 및 브라우저 흐름 검증. 이후 3D 트럭 도착·체험 시드·종합 사용자 도움말·통합 점검. 신규 화면/브라우저/운영 검증은 이번에 하지 않았다.
 - 상세 API/AC 근거 및 비밀값 없는 표준 재현 명령: docs/agent/WMS확장_API_FS-026b2.md. 전용 *_test DB 환경을 주입하고 pytest backend/tests 실행, Ruff는 backend/pyproject.toml 명시. main HANDOFF 본문은 보존했다.
-
 
 ## 2026-09-30 FS-026 후속 UI·트럭·시드·도움말 통합 WIP
 

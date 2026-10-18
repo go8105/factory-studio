@@ -24,6 +24,7 @@ import {
   useSend,
   WMS,
   type Location,
+  type LocationType,
   type Purpose,
   type Warehouse,
 } from "./common";
@@ -38,7 +39,7 @@ type Draft = {
   purpose: Purpose;
   isActive: boolean;
   isDefault: boolean;
-  locationType: "NORMAL" | "QUARANTINE";
+  locationType: LocationType;
 };
 const EMPTY: Draft = {
   code: "",
@@ -412,19 +413,22 @@ export function Warehouses() {
                   위치 유형
                   <select
                     value={draft.locationType}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const nextType = e.target.value as LocationType;
                       setDraft({
                         ...draft,
-                        locationType: e.target.value as "NORMAL" | "QUARANTINE",
+                        locationType: nextType,
                         isDefault:
-                          e.target.value === "QUARANTINE"
-                            ? false
-                            : draft.isDefault,
-                      })
-                    }
+                          nextType === "NORMAL" ? draft.isDefault : false,
+                      });
+                    }}
                   >
                     <option value="NORMAL">정상</option>
+                    <option value="RECEIVING">입고장</option>
+                    <option value="SHIPPING">출고장</option>
+                    <option value="LINE">라인</option>
                     <option value="QUARANTINE">격리</option>
+                    <option value="RETURN">반품</option>
                   </select>
                 </label>
               )}
@@ -434,8 +438,7 @@ export function Warehouses() {
                     type="checkbox"
                     checked={draft.isDefault}
                     disabled={
-                      !!panel.row?.isDefault ||
-                      draft.locationType === "QUARANTINE"
+                      !!panel.row?.isDefault || draft.locationType !== "NORMAL"
                     }
                     onChange={(e) =>
                       setDraft({ ...draft, isDefault: e.target.checked })

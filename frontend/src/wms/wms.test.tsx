@@ -693,3 +693,570 @@ it("W-10 LOT 보류 해제 및 QMS 보류 표시를 검증한다", async () => {
     expect(sent(fetcher, "POST", "/lots/201/release")).toHaveLength(1),
   );
 });
+
+it("W-08 입고 예정 목록과 상세에서 noticeKind 구분을 표시하고 등록 시 전송한다", async () => {
+  const inboundPo = {
+    id: 101,
+    noticeNo: "IN-20261017-001",
+    noticeKind: "PO" as const,
+    businessKey: "PO-20261017-01",
+    warehouseId: 1,
+    expectedOn: "2026-10-25",
+    vehicleNo: "서울12가3456",
+    partnerRef: "SUP-01",
+    status: "PLANNED" as const,
+    version: 1,
+    arrivedAt: null,
+    inspectedAt: null,
+    reason: null,
+    stockDocumentId: null,
+    lines: [
+      {
+        id: 1,
+        itemId: 10,
+        lotNo: null,
+        expectedQty: "100.000",
+        normalLocationId: 11,
+        quarantineLocationId: null,
+        acceptedQty: null,
+        quarantinedQty: null,
+        shortageQty: null,
+        reason: null,
+      },
+    ],
+    sourceClaim: null,
+    sourceState: "manual",
+  };
+
+  const fetcher = mount("/wms/inbounds", {
+    [`GET ${W}/inbound-notices`]: ok({
+      rows: [inboundPo],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 2,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      {
+        id: 10,
+        itemCode: "RM-TEST",
+        name: "테스트 원자재",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/inbound-notices/101`]: ok(inboundPo),
+    [`GET ${W}/warehouses/1/locations`]: ok(locations),
+    [`GET ${W}/sources`]: ok({ disabled: false, rows: [] }),
+    [`POST ${W}/inbound-notices`]: ok({
+      ...inboundPo,
+      id: 102,
+      noticeNo: "IN-20261017-002",
+      noticeKind: "SALES_RETURN",
+    }),
+  });
+
+  // 목록에 "발주" 배지와 번호 표시 확인
+  expect(await screen.findByText("IN-20261017-001")).toBeVisible();
+  const table = screen.getByRole("table");
+  expect(within(table).getByText("발주")).toBeVisible();
+
+  // 상세 패널 열기
+  fireEvent.click(screen.getByRole("button", { name: "상세" }));
+  const detailPanel = await screen.findByRole("dialog", {
+    name: "IN-20261017-001",
+  });
+  expect(within(detailPanel).getByText(/구분 발주/)).toBeVisible();
+
+  // 닫기
+  fireEvent.click(
+    within(detailPanel).getByRole("button", { name: "패널 닫기" }),
+  );
+
+  // 등록 패널 열기
+  fireEvent.click(screen.getByRole("button", { name: "입고 예정 등록" }));
+  const formPanel = await screen.findByRole("dialog", {
+    name: "입고 예정 등록",
+  });
+
+  // 업무 번호 입력
+  fireEvent.change(within(formPanel).getByLabelText("업무 중복 방지 번호"), {
+    target: { value: "RET-20261017-99" },
+  });
+
+  // 구분 선택: 판매 반품
+  fireEvent.change(within(formPanel).getByLabelText("입고 구분"), {
+    target: { value: "SALES_RETURN" },
+  });
+
+  // 품목 선택
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "10" },
+  });
+
+  // 예정 수량 입력
+  fireEvent.change(within(formPanel).getByLabelText("예정 수량"), {
+    target: { value: "25" },
+  });
+
+  // 정상 위치 선택
+  fireEvent.change(within(formPanel).getByLabelText("정상 위치"), {
+    target: { value: "11" },
+  });
+
+  // 등록 제출
+  fireEvent.click(within(formPanel).getByRole("button", { name: "예정 등록" }));
+
+  await waitFor(() => {
+    const postCalls = sent(fetcher, "POST", "/inbound-notices");
+    expect(postCalls).toHaveLength(1);
+    const sentBody = body(postCalls[0]);
+    expect(sentBody.noticeKind).toBe("SALES_RETURN");
+    expect(sentBody.businessKey).toBe("RET-20261017-99");
+  });
+});
+
+it("W-08 품목 lotTracked 여부에 따른 LOT 입력 필드 노출 및 초기화", async () => {
+  const fetcher = mount("/wms/inbounds", {
+    [`GET ${W}/inbound-notices`]: ok({
+      rows: [],
+      total: 0,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 2,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      {
+        id: 10,
+        itemCode: "RM-NORMAL",
+        name: "일반 원자재",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: false,
+        isActive: true,
+      },
+      {
+        id: 20,
+        itemCode: "RM-LOT",
+        name: "LOT 원자재",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: true,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/warehouses/1/locations`]: ok(locations),
+    [`GET ${W}/sources`]: ok({ disabled: false, rows: [] }),
+    [`POST ${W}/inbound-notices`]: ok({
+      id: 201,
+      noticeNo: "IN-20261017-099",
+      version: 1,
+    }),
+  });
+
+  // 등록 패널 열기
+  fireEvent.click(
+    await screen.findByRole("button", { name: "입고 예정 등록" }),
+  );
+  const formPanel = await screen.findByRole("dialog", {
+    name: "입고 예정 등록",
+  });
+
+  // 초기 상태: LOT 입력 필드 없음
+  expect(within(formPanel).queryByLabelText("LOT")).toBeNull();
+
+  // 1. lotTracked=false 품목(10) 선택 -> LOT 필드 미노출
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "10" },
+  });
+  expect(within(formPanel).queryByLabelText("LOT")).toBeNull();
+
+  // 2. lotTracked=true 품목(20) 선택 -> LOT 필드 필수 노출
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "20" },
+  });
+  const lotField = within(formPanel).getByLabelText("LOT");
+  expect(lotField).toBeVisible();
+  expect(lotField).toBeRequired();
+
+  // LOT 값 입력
+  fireEvent.change(lotField, { target: { value: "LOT-TEMP-123" } });
+  expect(lotField).toHaveValue("LOT-TEMP-123");
+
+  // 3. 다시 lotTracked=false 품목(10)으로 변경 -> LOT 필드 사라짐
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "10" },
+  });
+  expect(within(formPanel).queryByLabelText("LOT")).toBeNull();
+
+  // 4. 다시 lotTracked=true 품목(20)으로 변경 -> 빈 값으로 노출
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "20" },
+  });
+  const newLotField = within(formPanel).getByLabelText("LOT");
+  expect(newLotField).toBeVisible();
+  expect(newLotField).toHaveValue("");
+
+  // 최종 입력 및 제출
+  fireEvent.change(within(formPanel).getByLabelText("업무 중복 방지 번호"), {
+    target: { value: "BIZ-LOT-01" },
+  });
+  fireEvent.change(newLotField, { target: { value: "LOT-FINAL-999" } });
+  fireEvent.change(within(formPanel).getByLabelText("예정 수량"), {
+    target: { value: "120" },
+  });
+  fireEvent.change(within(formPanel).getByLabelText("정상 위치"), {
+    target: { value: "11" },
+  });
+  fireEvent.click(within(formPanel).getByRole("button", { name: "예정 등록" }));
+
+  await waitFor(() => {
+    const postCalls = sent(fetcher, "POST", "/inbound-notices");
+    expect(postCalls).toHaveLength(1);
+    const sentBody = body(postCalls[0]);
+    expect(sentBody.lines[0].itemId).toBe(20);
+    expect(sentBody.lines[0].lotNo).toBe("LOT-FINAL-999");
+  });
+});
+
+it("W-08 입고 예정 등록 시 RECEIVING 위치가 있으면 기본 선택되고 목록에 [입고장]이 표시된다", async () => {
+  const receivingLocations = [
+    {
+      id: 11,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-A01",
+      name: "일반 랙",
+      locationType: "NORMAL",
+      isDefault: true,
+      isActive: true,
+      moveCount: 0,
+    },
+    {
+      id: 15,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-REC",
+      name: "원자재 입고장",
+      locationType: "RECEIVING",
+      isDefault: false,
+      isActive: true,
+      moveCount: 0,
+    },
+  ];
+
+  const fetcher = mount("/wms/inbounds", {
+    [`GET ${W}/inbound-notices`]: ok({
+      rows: [],
+      total: 0,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 2,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      {
+        id: 10,
+        itemCode: "RM-RAW01",
+        name: "원자재 품목",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: false,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/warehouses/1/locations`]: ok(receivingLocations),
+    [`GET ${W}/sources`]: ok({ disabled: false, rows: [] }),
+    [`POST ${W}/inbound-notices`]: ok({
+      id: 301,
+      noticeNo: "IN-20261018-001",
+      version: 1,
+    }),
+  });
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "입고 예정 등록" }),
+  );
+  const formPanel = await screen.findByRole("dialog", {
+    name: "입고 예정 등록",
+  });
+
+  // RECEIVING 위치가 우선 기본값으로 선택되는지 확인
+  const normalSelect = (await within(formPanel).findByLabelText(
+    "정상 위치",
+  )) as HTMLSelectElement;
+  await waitFor(() => {
+    expect(normalSelect.value).toBe("15");
+  });
+
+  // 드롭다운에 RECEIVING과 NORMAL이 모두 표시되고, RECEIVING에는 [입고장] 꼬리표가 붙음
+  expect(
+    within(normalSelect).getByRole("option", {
+      name: "R-REC 원자재 입고장 [입고장]",
+    }),
+  ).toBeInTheDocument();
+  expect(
+    within(normalSelect).getByRole("option", {
+      name: "R-A01 일반 랙",
+    }),
+  ).toBeInTheDocument();
+
+  // 제출 시 normalLocationId로 15가 전송되는지 확인
+  fireEvent.change(within(formPanel).getByLabelText("업무 중복 방지 번호"), {
+    target: { value: "PO-REC-01" },
+  });
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "10" },
+  });
+  fireEvent.change(within(formPanel).getByLabelText("예정 수량"), {
+    target: { value: "50" },
+  });
+  fireEvent.click(within(formPanel).getByRole("button", { name: "예정 등록" }));
+
+  await waitFor(() => {
+    const postCalls = sent(fetcher, "POST", "/inbound-notices");
+    expect(postCalls).toHaveLength(1);
+    const sentBody = body(postCalls[0]);
+    expect(sentBody.lines[0].normalLocationId).toBe(15);
+  });
+});
+
+it("W-11 적치 목록 렌더링, 추천 위치 기본 선택·변경 적치 완료 및 취소 검증", async () => {
+  const tasks = [
+    {
+      id: 1,
+      taskNo: "PT-20261018-001",
+      sourceDocumentId: 101,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      warehouseName: "원자재 창고",
+      itemId: 10,
+      itemCode: "RM-RAW01",
+      itemName: "원자재 품목",
+      baseUnit: "KG",
+      lotNo: "LOT-100",
+      qty: "70.000",
+      fromLocationId: 15,
+      fromLocationCode: "R-REC",
+      fromLocationName: "원자재 입고장",
+      suggestedLocationId: 11,
+      suggestedLocationCode: "R-B01",
+      suggestedLocationName: "기본 랙",
+      toLocationId: null,
+      toLocationCode: null,
+      toLocationName: null,
+      status: "OPEN",
+      doneAt: null,
+      stockDocumentId: null,
+      createdAt: "2026-10-18T10:00:00+09:00",
+    },
+    {
+      id: 2,
+      taskNo: "PT-20261018-002",
+      sourceDocumentId: 102,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      warehouseName: "원자재 창고",
+      itemId: 20,
+      itemCode: "RM-RAW02",
+      itemName: "원자재 품목2",
+      baseUnit: "EA",
+      lotNo: null,
+      qty: "50.000",
+      fromLocationId: 15,
+      fromLocationCode: "R-REC",
+      fromLocationName: "원자재 입고장",
+      suggestedLocationId: null,
+      suggestedLocationCode: null,
+      suggestedLocationName: null,
+      toLocationId: null,
+      toLocationCode: null,
+      toLocationName: null,
+      status: "OPEN",
+      doneAt: null,
+      stockDocumentId: null,
+      createdAt: "2026-10-18T10:05:00+09:00",
+    },
+  ];
+
+  const whLocations = [
+    {
+      id: 11,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-B01",
+      name: "기본 랙",
+      isDefault: true,
+      isActive: true,
+      moveCount: 0,
+      locationType: "NORMAL",
+    },
+    {
+      id: 12,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-B02",
+      name: "보조 랙",
+      isDefault: false,
+      isActive: true,
+      moveCount: 0,
+      locationType: "NORMAL",
+    },
+    {
+      id: 15,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-REC",
+      name: "원자재 입고장",
+      isDefault: false,
+      isActive: true,
+      moveCount: 1,
+      locationType: "RECEIVING",
+    },
+  ];
+
+  const fetcher = mount("/wms/putaways", {
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 3,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      {
+        id: 10,
+        itemCode: "RM-RAW01",
+        name: "원자재 품목",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: true,
+        isActive: true,
+      },
+      {
+        id: 20,
+        itemCode: "RM-RAW02",
+        name: "원자재 품목2",
+        baseUnit: "EA",
+        itemClass: "RAW",
+        lotTracked: false,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/putaway-tasks`]: ok({
+      rows: tasks,
+      total: 2,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses/1/locations`]: ok(whLocations),
+    [`POST ${W}/putaway-tasks/1/complete`]: ok({
+      ...tasks[0],
+      toLocationId: 12,
+      toLocationCode: "R-B02",
+      toLocationName: "보조 랙",
+      status: "DONE",
+      doneAt: "2026-10-18T10:15:00+09:00",
+      stockDocumentId: 501,
+    }),
+    [`POST ${W}/putaway-tasks/2/cancel`]: ok({
+      ...tasks[1],
+      status: "CANCELLED",
+    }),
+  });
+
+  expect(
+    await screen.findByRole("heading", { name: "W-11 적치" }),
+  ).toBeVisible();
+
+  const table = screen.getByRole("table", { name: "적치 작업 목록" });
+  expect(within(table).getByText("PT-20261018-001")).toBeVisible();
+  expect(within(table).getByText("PT-20261018-002")).toBeVisible();
+  expect(within(table).getAllByText("대기")).toHaveLength(2);
+  expect(within(table).getByText(/R-B01/)).toBeVisible();
+  expect(within(table).getByText("추천 없음")).toBeVisible();
+
+  // 1. 첫 번째 적치 작업(추천 위치 있음) 상세 열기 -> 추천 위치(11)가 기본 선택됨
+  const detailButtons = within(table).getAllByRole("button", { name: "상세" });
+  fireEvent.click(detailButtons[0]);
+
+  const detailPanel = await screen.findByRole("dialog", {
+    name: "PT-20261018-001",
+  });
+  const locSelect = (await within(detailPanel).findByLabelText(
+    "적치 위치 선택",
+  )) as HTMLSelectElement;
+  expect(locSelect.value).toBe("11");
+
+  // 다른 NORMAL 위치(12: R-B02 보조 랙)로 수동 변경 후 적치 완료 제출
+  await waitFor(() => {
+    expect(
+      within(locSelect).getByRole("option", { name: "R-B02 보조 랙" }),
+    ).toBeInTheDocument();
+  });
+  fireEvent.change(locSelect, { target: { value: "12" } });
+  fireEvent.click(
+    within(detailPanel).getByRole("button", { name: "적치 완료" }),
+  );
+
+  await waitFor(() => {
+    const calls = sent(fetcher, "POST", "/putaway-tasks/1/complete");
+    expect(calls).toHaveLength(1);
+    expect(body(calls[0])).toEqual({ toLocationId: 12 });
+  });
+
+  // 패널 닫고 두 번째 적치 작업(추천 위치 없음) 열기 -> 비어 있고 적치 취소 실행
+  fireEvent.click(
+    within(detailPanel).getByRole("button", { name: "패널 닫기" }),
+  );
+  fireEvent.click(detailButtons[1]);
+
+  const detailPanel2 = await screen.findByRole("dialog", {
+    name: "PT-20261018-002",
+  });
+  const locSelect2 = (await within(detailPanel2).findByLabelText(
+    "적치 위치 선택",
+  )) as HTMLSelectElement;
+  expect(locSelect2.value).toBe("");
+  expect(
+    within(detailPanel2).getByRole("button", { name: "적치 완료" }),
+  ).toBeDisabled();
+
+  fireEvent.click(
+    within(detailPanel2).getByRole("button", { name: "적치 취소" }),
+  );
+  await waitFor(() => {
+    const cancelCalls = sent(fetcher, "POST", "/putaway-tasks/2/cancel");
+    expect(cancelCalls).toHaveLength(1);
+  });
+});

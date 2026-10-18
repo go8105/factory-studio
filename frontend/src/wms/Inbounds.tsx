@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Badge,
@@ -22,11 +22,13 @@ import {
 } from "./common";
 import {
   OperationError,
+  noticeKinds,
   remainder,
   states,
   useWmsCommand,
   useWmsQuery,
   type Inbound,
+  type NoticeKind,
   type Page,
 } from "./operations";
 import "./Operations.css";
@@ -79,6 +81,22 @@ export function Inbounds() {
       />
       <div className="filter-bar">
         <label>
+          구분
+          <select
+            value={params.get("noticeKind") ?? ""}
+            onChange={(e) => set("noticeKind", e.target.value)}
+          >
+            <option value="">전체</option>
+            {(["PURCHASE", "PO", "SALES_RETURN", "SUBCONTRACT"] as const).map(
+              (k) => (
+                <option key={k} value={k}>
+                  {noticeKinds[k]}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+        <label>
           상태
           <select
             value={params.get("status") ?? ""}
@@ -130,6 +148,17 @@ export function Inbounds() {
           rows={list.data.rows}
           columns={[
             { key: "noticeNo", label: "번호" },
+            {
+              key: "noticeKind",
+              label: "구분",
+              render: (r) => (
+                <Badge
+                  tone={r.noticeKind === "SALES_RETURN" ? "issue" : "normal"}
+                >
+                  {noticeKinds[r.noticeKind] ?? r.noticeKind}
+                </Badge>
+              ),
+            },
             { key: "expectedOn", label: "예정일" },
             { key: "vehicleNo", label: "차량" },
             {
@@ -202,6 +231,9 @@ function NoticeForm({
   onSaved: (row: Inbound) => void;
 }) {
   const [businessKey, setBusiness] = useState(row?.businessKey ?? "");
+  const [noticeKind, setNoticeKind] = useState<NoticeKind>(
+    row?.noticeKind ?? "PURCHASE",
+  );
   const [warehouseId, setWarehouse] = useState(
     String(
       row?.warehouseId ??
@@ -234,6 +266,29 @@ function NoticeForm({
   );
   const command = useWmsCommand();
   const wh = houses.find((h) => h.id === Number(warehouseId));
+  useEffect(() => {
+    if (row || !locations.data || locations.data.length === 0) return;
+    const receivingLoc = locations.data.find(
+      (x) => x.isActive && x.locationType === "RECEIVING",
+    );
+    const defaultLoc =
+      receivingLoc ??
+      locations.data.find(
+        (x) => x.isActive && x.isDefault && x.locationType === "NORMAL",
+      ) ??
+      locations.data.find((x) => x.isActive && x.locationType === "NORMAL");
+    if (!defaultLoc) return;
+    setLines((xs) =>
+      xs.map((l) => {
+        const valid = locations.data?.some(
+          (loc) => String(loc.id) === l.normalLocationId,
+        );
+        return valid && l.normalLocationId
+          ? l
+          : { ...l, normalLocationId: String(defaultLoc.id) };
+      }),
+    );
+  }, [locations.data, row]);
   const update = (i: number, patch: Partial<DraftLine>) => {
     setDirty(true);
     setLines((xs) => xs.map((x, j) => (i === j ? { ...x, ...patch } : x)));
@@ -252,6 +307,7 @@ function NoticeForm({
             {
               ...(row ? { expectedVersion: row.version } : { businessKey }),
               warehouseId: Number(warehouseId),
+              noticeKind,
               expectedOn,
               vehicleNo: vehicleNo || null,
               partnerRef: partnerRef || null,
@@ -295,6 +351,22 @@ function NoticeForm({
           onChange={(e) => setBusiness(e.target.value)}
         />
         <label>
+          입고 구분
+          <select
+            required
+            value={noticeKind}
+            onChange={(e) => setNoticeKind(e.target.value as NoticeKind)}
+          >
+            {(["PURCHASE", "PO", "SALES_RETURN", "SUBCONTRACT"] as const).map(
+              (k) => (
+                <option key={k} value={k}>
+                  {noticeKinds[k]}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+        <label>
           창고
           <select
             required
@@ -336,87 +408,100 @@ function NoticeForm({
           도착 후에는 예정 내용을 바꿀 수 없습니다. 수량은 각 품목의 기본 단위로
           입력합니다.
         </p>
-        {lines.map((l, i) => (
-          <fieldset key={i} className="wms-operation-line">
-            <legend>입고 명세 {i + 1}</legend>
-            <label>
-              품목
-              <select
-                required
-                value={l.itemId}
-                onChange={(e) =>
-                  update(i, { itemId: e.target.value, lotNo: "" })
-                }
-              >
-                <option value="">선택</option>
-                {items
-                  .filter((x) => x.isActive && x.itemClass === wh?.purpose)
-                  .map((x) => (
-                    <option key={x.id} value={x.id}>
-                      {x.itemCode} · {x.baseUnit}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            {wh?.purpose === "FG" && (
+        {lines.map((l, i) => {
+          const selectedItem = items.find(
+            (x) => String(x.id) === String(l.itemId),
+          );
+          const isLotTracked = Boolean(selectedItem?.lotTracked);
+          return (
+            <fieldset key={i} className="wms-operation-line">
+              <legend>입고 명세 {i + 1}</legend>
+              <label>
+                품목
+                <select
+                  required
+                  value={l.itemId}
+                  onChange={(e) => {
+                    const newItem = items.find(
+                      (x) => String(x.id) === e.target.value,
+                    );
+                    update(i, {
+                      itemId: e.target.value,
+                      lotNo: newItem?.lotTracked ? l.lotNo : "",
+                    });
+                  }}
+                >
+                  <option value="">선택</option>
+                  {items
+                    .filter((x) => x.isActive && x.itemClass === wh?.purpose)
+                    .map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.itemCode} · {x.baseUnit}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {isLotTracked && (
+                <Field
+                  label="LOT"
+                  required
+                  value={l.lotNo}
+                  maxLength={50}
+                  onChange={(e) => update(i, { lotNo: e.target.value })}
+                />
+              )}
               <Field
-                label="LOT"
+                label="예정 수량"
                 required
-                value={l.lotNo}
-                maxLength={50}
-                onChange={(e) => update(i, { lotNo: e.target.value })}
+                inputMode="decimal"
+                value={l.expectedQty}
+                onChange={(e) => update(i, { expectedQty: e.target.value })}
               />
-            )}
-            <Field
-              label="예정 수량"
-              required
-              inputMode="decimal"
-              value={l.expectedQty}
-              onChange={(e) => update(i, { expectedQty: e.target.value })}
-            />
-            {(["normalLocationId", "quarantineLocationId"] as const).map(
-              (key) => (
-                <label key={key}>
-                  {key === "normalLocationId" ? "정상 위치" : "격리 위치"}
-                  <select
-                    required={key === "normalLocationId"}
-                    value={l[key]}
-                    onChange={(e) => update(i, { [key]: e.target.value })}
-                  >
-                    <option value="">
-                      {key === "normalLocationId" ? "선택" : "사용 안 함"}
-                    </option>
-                    {locations.data
-                      ?.filter(
-                        (x) =>
-                          x.isActive &&
-                          (x.locationType ?? "NORMAL") ===
+              {(["normalLocationId", "quarantineLocationId"] as const).map(
+                (key) => (
+                  <label key={key}>
+                    {key === "normalLocationId" ? "정상 위치" : "격리 위치"}
+                    <select
+                      required={key === "normalLocationId"}
+                      value={l[key]}
+                      onChange={(e) => update(i, { [key]: e.target.value })}
+                    >
+                      <option value="">
+                        {key === "normalLocationId" ? "선택" : "사용 안 함"}
+                      </option>
+                      {locations.data
+                        ?.filter(
+                          (x) =>
+                            x.isActive &&
                             (key === "normalLocationId"
-                              ? "NORMAL"
-                              : "QUARANTINE"),
-                      )
-                      .map((x) => (
-                        <option key={x.id} value={x.id}>
-                          {x.code} {x.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-              ),
-            )}
-            <button
-              type="button"
-              className="link-button"
-              disabled={lines.length === 1}
-              onClick={() => {
-                setDirty(true);
-                setLines((xs) => xs.filter((_, j) => j !== i));
-              }}
-            >
-              명세 {i + 1} 삭제
-            </button>
-          </fieldset>
-        ))}
+                              ? (x.locationType ?? "NORMAL") === "NORMAL" ||
+                                x.locationType === "RECEIVING"
+                              : (x.locationType ?? "NORMAL") === "QUARANTINE"),
+                        )
+                        .map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {x.code} {x.name}
+                            {x.locationType === "RECEIVING" ? " [입고장]" : ""}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                ),
+              )}
+              <button
+                type="button"
+                className="link-button"
+                disabled={lines.length === 1}
+                onClick={() => {
+                  setDirty(true);
+                  setLines((xs) => xs.filter((_, j) => j !== i));
+                }}
+              >
+                명세 {i + 1} 삭제
+              </button>
+            </fieldset>
+          );
+        })}
         <button
           type="button"
           className="secondary"
@@ -503,9 +588,13 @@ function NoticeDetail({
   }));
   return (
     <DetailPanel title={row.noticeNo} wide guard={guard} onClose={close}>
-      <Badge>{states[row.status]}</Badge>
+      <Badge>{states[row.status]}</Badge>{" "}
+      <Badge tone={row.noticeKind === "SALES_RETURN" ? "issue" : "normal"}>
+        {noticeKinds[row.noticeKind] ?? row.noticeKind}
+      </Badge>
       <p>
-        예정 {row.expectedOn} · {row.vehicleNo || "차량 미지정"}
+        구분 {noticeKinds[row.noticeKind] ?? row.noticeKind} · 예정{" "}
+        {row.expectedOn} · {row.vehicleNo || "차량 미지정"}
       </p>
       <p>
         도착 {row.arrivedAt ? time(row.arrivedAt) : "—"} · 검수{" "}
@@ -680,7 +769,7 @@ function NoticeDetail({
               >
                 <option value="">선택</option>
                 {sources.data?.rows
-                  .filter((s) => s.state === "pending")
+                  ?.filter((s) => s.state === "pending")
                   .map((s) => (
                     <option key={s.sourceKey} value={s.sourceKey}>
                       {s.sourceRef} ·{" "}

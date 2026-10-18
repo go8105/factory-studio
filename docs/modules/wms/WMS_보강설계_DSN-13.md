@@ -252,3 +252,16 @@
 
 - **설계 재현 스크립트(`apply_dsn90.py`) 재적용 제약**: `apply_dsn90.py`는 재적용하면 `CMMS_ISSUE`가 중복된다(문자열 치환이 멱등하지 않다). 설계 단계 스크립트라 지금은 영향이 없지만, 다시 돌릴 일이 생기면 먼저 고친다.
 - **기존 WMS 3표 칼럼 순서**: `apply_w2b1.py` 적용 시 기존 WMS 3표(`wms.warehouse`, `wms.item`, `wms.inbound_notice`)의 확장 칼럼이 `created_at` 뒤에 추가되어 `schema-target.json`과 칼럼 배열 순서 차이가 있으나, DDL 대조 0건이므로 기능 및 스키마 무결성에 영향이 없다.
+- **적치 위치 흐름 및 검증 완화 (W2b-1c / C-3a)**: 설계는 입고장 경유((a) 입고 예정 정상 위치 = 입고장 `RECEIVING` → 검수 확정 → 적치 작업 `PUTAWAY` → 보관 위치 `NORMAL`)이나, 기존 데이터(60건) 및 테스트를 보호하기 위해 `_validate_lines` 검증을 교체하지 않고 `location_type IN ('NORMAL', 'RECEIVING')`으로 완화했다. 기존 60건은 `NORMAL` 직입고로 남으며, 신규 등록 시 창고의 `RECEIVING` 입고장 위치가 기본 선택된다.
+- **적치 작업 생성 및 동적 위치 추천 (W2b-1c / C-3)**:
+  - 검수 확정 시 합격 수량(`accepted_qty > 0`)이 있는 명세마다 `wms.putaway_task`를 `status = 'OPEN'`, `suggested_location_id = NULL`로 자동 생성한다(검수 트랜잭션의 무거운 용량·혼적 계산 방지 및 멱등성 유지).
+  - 추천 위치는 W-11 적치 목록 조회 시(`GET /api/v1/wms/putaway-tasks`) CTE 쿼리를 통해 실시간 동적으로 산출한다.
+  - 후보 위치 필터: 동일 창고 · `is_active` · `location_type = 'NORMAL'` · `level_kind = 'BIN'` (출발 칸 제외).
+  - 제외 조건: 용량 초과(`현재고 + 적치수량 > capacity_qty`), 다른 품목 혼적 불가(`mix_items = false`), 다른 LOT 혼적 불가(`mix_lots = false`).
+  - 우선순위: 1순위(동일 품목+동일 LOT) → 2순위(동일 품목) → 3순위(빈 칸) → 4순위(혼적 허용 칸) → 없으면 추천 없음(NULL).
+  - 화면: W-11 적치 목록 화면(`frontend/src/wms/Putaways.tsx`) 신규 연결, 상태 배지(대기/완료/취소) 및 상세 패널 표시.
+- **적치 완료·취소 및 `PUTAWAY` 전표 반영 (W2b-1c / C-4)**:
+  - 적치 완료(`POST /api/v1/wms/putaway-tasks/{id}/complete`): `FOR UPDATE` 행 잠금 후 `status != 'OPEN'`이면 409(`INVALID_STATE`)로 차단한다. 목적지 위치가 같은 창고의 활성 `NORMAL` 칸(출발 칸 제외)인지 검증(위반 시 400)한 뒤, 단일 트랜잭션(`base._action`) 안에서 `PUTAWAY` 재고 전표(`wms.stock_document`, `status = 'posted'`, `source_key = NULL`[`c624_check`], `source_ref = task_no`)와 이동 2줄(`from_location_id` `-qty`, `to_location_id` `+qty`)을 생성하고, `c1480_check`(`(status = 'DONE') = (done_at IS NOT NULL AND to_location_id IS NOT NULL)`)를 만족하도록 한 `UPDATE` 문에서 `status = 'DONE'`, `to_location_id`, `done_at`, `stock_document_id`를 갱신한다.
+  - 적치 취소(`POST /api/v1/wms/putaway-tasks/{id}/cancel`): `FOR UPDATE` 잠금 후 `status != 'OPEN'`이면 409로 차단하고, 한 `UPDATE` 문에서 `status = 'CANCELLED'`, `to_location_id = NULL`, `done_at = NULL`, `stock_document_id = NULL`로 갱신한다(재고 전표 미생성).
+  - 대시보드 집계(`service.py::dashboard`): 월별 입출고 흐름 집계에서 내부 위치 이동인 `'PUTAWAY'`를 `'TRANSFER'`와 함께 제외(`d.document_type NOT IN ('TRANSFER', 'PUTAWAY')`)한다.
+

@@ -22,9 +22,11 @@ export type InboundLine = {
   shortageQty: string | null;
   reason: string | null;
 };
+export type NoticeKind = "PURCHASE" | "PO" | "SALES_RETURN" | "SUBCONTRACT";
 export type Inbound = {
   id: number;
   noticeNo: string;
+  noticeKind: NoticeKind;
   businessKey: string;
   warehouseId: number;
   expectedOn: string;
@@ -94,6 +96,12 @@ export const states: Record<string, string> = {
   ACTIVE: "활성",
   RELEASED: "해제",
   CONSUMED: "소진",
+};
+export const noticeKinds: Record<NoticeKind, string> = {
+  PURCHASE: "매입",
+  PO: "발주",
+  SALES_RETURN: "판매 반품",
+  SUBCONTRACT: "외주",
 };
 export const comparison: Record<string, string> = {
   match: "수량 일치",

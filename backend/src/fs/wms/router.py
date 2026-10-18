@@ -15,8 +15,10 @@ from fs.wms import receiving, reservations, service
 from fs.wms.receiving_schema import (
     InspectionInput,
     NoticeCreate,
+    NoticeKind,
     NoticeStatus,
     NoticeUpdate,
+    PutawayComplete,
     ReasonInput,
     SourceLink,
     VersionInput,
@@ -34,6 +36,7 @@ from fs.wms.schema import (
     ItemImport,
     ItemUpdate,
     LocationCreate,
+    LocationType,
     LocationUpdate,
     LotCreate,
     LotHoldCreate,
@@ -50,7 +53,7 @@ Auth = Annotated[AuthContext, Depends(resolve_auth)]
 IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
 CsrfToken = Annotated[str | None, Header(alias="X-CSRF-Token")]
 MONTH = r"^[0-9]{4}-(0[1-9]|1[0-2])$"
-DocumentType = ManualType | SourceKind | Literal["WMS_INSPECTION"] | None
+DocumentType = ManualType | SourceKind | Literal["WMS_INSPECTION", "PUTAWAY"] | None
 
 
 # 공통 엔진: CSRF·멱등 키 확인
@@ -367,9 +370,7 @@ def get_stock(
     warehouse_id: Annotated[int | None, Query(alias="warehouseId")] = None,
     lot_no: Annotated[str | None, Query(alias="lotNo", max_length=50)] = None,
     location_id: Annotated[int | None, Query(alias="locationId", gt=0)] = None,
-    location_type: Annotated[
-        Literal["NORMAL", "QUARANTINE"] | None, Query(alias="locationType")
-    ] = None,
+    location_type: Annotated[LocationType | None, Query(alias="locationType")] = None,
     negative_only: Annotated[bool, Query(alias="negativeOnly")] = False,
     unassigned_only: Annotated[bool, Query(alias="unassignedOnly")] = False,
 ):
@@ -508,6 +509,7 @@ def list_inbound_notices(
     context: Auth,
     status: NoticeStatus | None = None,
     warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+    notice_kind: Annotated[NoticeKind | None, Query(alias="noticeKind")] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
     expected_from: Annotated[date | None, Query(alias="expectedFrom")] = None,
@@ -515,7 +517,14 @@ def list_inbound_notices(
 ):
     return _data(
         receiving.list_notices(
-            context, status, warehouse_id, page, page_size, expected_from, expected_to
+            context,
+            status,
+            warehouse_id,
+            notice_kind,
+            page,
+            page_size,
+            expected_from,
+            expected_to,
         )
     )
 
@@ -733,3 +742,57 @@ def reservation_preview(
     ],
 ):
     return _data(reservations.shipment_preview(context, row_id, source_key))
+
+
+# ---- 적치 작업 (W-11) ----
+PutawayTaskStatus = Literal["OPEN", "DONE", "CANCELLED"]
+
+
+@router.get("/putaway-tasks")
+def list_putaway_tasks(
+    context: Auth,
+    status: PutawayTaskStatus | None = None,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId")] = None,
+    item_id: Annotated[int | None, Query(alias="itemId")] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+):
+    return _data(
+        receiving.list_putaway_tasks(
+            context, status, warehouse_id, item_id, page, page_size
+        )
+    )
+
+
+@router.post("/putaway-tasks/{row_id}/complete")
+def complete_putaway_task(
+    row_id: int,
+    payload: PutawayComplete,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        receiving.complete_putaway_task(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/putaway-tasks/{row_id}/cancel")
+def cancel_putaway_task(
+    row_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        receiving.cancel_putaway_task(
+            context,
+            row_id,
+            _mutation(context, csrf, key),
+        )
+    )

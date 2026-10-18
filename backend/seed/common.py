@@ -8,7 +8,9 @@ from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-SEED_VERSION = "sv-20261009-gw1"  # GW-e: HR 코드 기반 GW 결재·협업 체험 추가
+SEED_VERSION = (
+    "sv-20261018-wms1"  # W2b-1c C-3a: WMS 창고별 RECEIVING 입고장 칸(R-REC, F-REC) 추가
+)
 SEOUL = ZoneInfo("Asia/Seoul")
 CODEBOOK_PATH = Path(__file__).with_name("codebook.json")
 

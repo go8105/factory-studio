@@ -366,6 +366,12 @@
           "group": "입출고"
         },
         {
+          "path": "putaways",
+          "id": "W-11",
+          "label": "적치",
+          "group": "입출고"
+        },
+        {
           "path": "reservations",
           "id": "W-09",
           "label": "출고 예약",

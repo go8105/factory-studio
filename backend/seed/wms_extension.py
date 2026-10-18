@@ -20,11 +20,13 @@ def append_examples(writer, houses, locations, items):
                 "name": name,
                 "is_default": False,
                 "is_active": True,
-                "location_type": "QUARANTINE",
+                "location_type": ltype,
             }
-            for h, code, name in [
-                ("WH-RAW", "R-Q01", "원자재 격리"),
-                ("WH-FG", "F-Q01", "완제품 격리"),
+            for h, code, name, ltype in [
+                ("WH-RAW", "R-Q01", "원자재 격리", "QUARANTINE"),
+                ("WH-FG", "F-Q01", "완제품 격리", "QUARANTINE"),
+                ("WH-RAW", "R-REC", "원자재 입고장", "RECEIVING"),
+                ("WH-FG", "F-REC", "완제품 입고장", "RECEIVING"),
             ]
         ],
         "code",

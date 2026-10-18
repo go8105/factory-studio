@@ -98,7 +98,7 @@ export function Moves() {
       key: "locationCode",
       label: "위치",
       render: (r) =>
-        `${r.warehouseCode} ${r.locationCode} · ${r.locationType === "QUARANTINE" ? "격리" : "정상"}`,
+        `${r.warehouseCode} ${r.locationCode} · ${r.locationType === "QUARANTINE" ? "격리" : r.locationType === "RECEIVING" ? "입고장" : "정상"}`,
     },
     {
       key: "lotNo",
