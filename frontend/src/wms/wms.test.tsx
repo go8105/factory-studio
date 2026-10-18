@@ -1602,10 +1602,13 @@ it("W-12 피킹 지시 목록·필터·동선(sequenceNo) 명세·LOT 대체 사
     }),
   ).toBeInTheDocument();
 
-  // D-2 범위에서는 확정·취소 버튼이 없어야 함
-  expect(
-    within(panel1).queryByRole("button", { name: /피킹 확정|피킹 완료|취소/ }),
-  ).toBeNull();
+  // D-3 범위: 피킹 확정 및 피킹 취소 버튼 노출
+  const confirmBtn1 = within(panel1).getByRole("button", { name: "피킹 확정" });
+  const cancelBtn1 = within(panel1).getByRole("button", { name: "피킹 취소" });
+  expect(confirmBtn1).toBeInTheDocument();
+  expect(confirmBtn1).toBeEnabled();
+  expect(cancelBtn1).toBeInTheDocument();
+  expect(cancelBtn1).toBeDisabled(); // 취소 사유 입력 전에는 비활성화
 
   // 2. 두 번째 지시(SHIPPING 칸 없음) 상세 열기 -> 빈 선택 + 안내 문구 노출
   fireEvent.click(within(panel1).getByRole("button", { name: "패널 닫기" }));

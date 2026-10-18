@@ -13,6 +13,8 @@ from fs.common.errors import ApiError
 from fs.common.page import Page
 from fs.wms import picks, receiving, reservations, service
 from fs.wms.pick_schema import (
+    PickOrderCancel,
+    PickOrderConfirm,
     PickOrderCreate,
     PickOrderStatus,
 )
@@ -843,6 +845,42 @@ def create_pick_order(
     return _data(
         picks.create_pick_order(
             context,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/pick-orders/{row_id}/confirm")
+def confirm_pick_order(
+    row_id: int,
+    payload: PickOrderConfirm,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        picks.confirm_pick_order(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/pick-orders/{row_id}/cancel")
+def cancel_pick_order(
+    row_id: int,
+    payload: PickOrderCancel,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        picks.cancel_pick_order(
+            context,
+            row_id,
             payload.model_dump(mode="json"),
             _mutation(context, csrf, key),
         )

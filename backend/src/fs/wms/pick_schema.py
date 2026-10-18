@@ -20,7 +20,7 @@ class PickLineConfirm(ApiModel):
 
 class PickOrderConfirm(ApiModel):
     to_location_id: int = Field(alias="toLocationId", gt=0)
-    lines: list[PickLineConfirm] = Field(min_length=1, max_length=100)
+    lines: list[PickLineConfirm] | None = Field(default=None, max_length=100)
 
 
 class PickOrderCancel(ApiModel):

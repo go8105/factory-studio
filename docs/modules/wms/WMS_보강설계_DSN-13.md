@@ -278,6 +278,13 @@
     - 피킹 동선 명세: `sequenceNo` 오름차순(위치 코드 순) 정렬하여 동선 순서(`#1`, `#2`), 위치 코드·이름, 품목, LOT·유효기간, 지시 수량을 `.table-scroll` 테이블에 렌더링(390px 모바일 화면 가로 오버플로 없음).
     - LOT 대체 안내: `lotSubstitutions`가 있을 때 대체 사유(`HOLD`, `QMS_HOLD`, `EXPIRED`, `SHORTAGE`), 요청 LOT 및 위치, 배정된 대체 LOT 목록과 사유 메시지 표시.
     - 도착 위치 선택(W-11 패턴): 상세 진입 시 해당 창고의 위치를 1회 조회하여 `SHIPPING`(출고장)과 `NORMAL`(보관) 칸으로 분리. `SHIPPING` 칸이 있으면 첫 번째 출고장 칸을 기본 선택(`toLocationId`)하고, 없으면 빈 선택값과 함께 `"출고장 칸이 없어 보관 칸으로 이동합니다. W-06에서 출고장을 만들 수 있습니다."` 안내 문구 표시.
-  - D-2 단계에서는 확정·취소 버튼을 노출하지 않으며(D-3 예약), 백엔드 API 계약 변경 없이 프런트엔드 연계를 완료했다.
+- **W-12 피킹 확정·취소 API 및 유효 현재 위치 도출 (W2b-1d / D-3)**:
+  - 피킹 확정 API (`POST /api/v1/wms/pick-orders/{id}/confirm`): `toLocationId` 및 명세별 `pickedQty`(기본값 지시 수량)를 받아 한 트랜잭션에서 `wms.pick_line.picked_qty` 기록, `PICK` 재고 이동 전표(`status='posted'`, `source_key=NULL`, `source_ref=pick_no`, 출발 -picked / 도착 +picked) 생성, `pick_order.status='PICKED'`, `picked_at=now`, `stock_document_id=doc_id` 갱신. 부분 피킹 허용(`picked_qty = 0`이면 전표 미생성, 1개 이상 양수 필수).
+  - 피킹 취소 API (`POST /api/v1/wms/pick-orders/{id}/cancel`): `cancelReason`(1~300자) 입력 필수. `status='CANCELLED'`, `picked_at=NULL`, `stock_document_id=NULL`, `cancel_reason` 기록. 취소 후 동일 예약에서 재요청 시 `OPEN`으로 재개(c1482) 지원.
+  - 유효 현재 위치 도출: `wms.stock_reservation_line`은 변경하지 않고, 피킹 전(미지시/OPEN/CANCELLED)에는 원래 `(location_id, lot_no, qty)`, 피킹 후(PICKED)에는 도착 칸 `(to_location_id, lot_no, picked_qty)` + 미피킹 잔량 `(location_id, lot_no, qty - picked_qty)`을 유효 현재 위치로 도출.
+    - `inventory.py`: amounts CTE의 `reserved_qty` 집계에 적용하여 보관 칸 음수 재고 방지.
+    - `reservations.py`: `consume`, `shipment_preview`, `_detail`, `list_reservations`에 적용하여 ERP 출하 소진 시 출고장 칸에서 차감(보관 칸 이중 차감 방지) 및 확정 후 W-09 예약 목록에 거짓 부족 경보(reservationShortage) 방지.
+  - 화면 연계 (`frontend/src/wms/Picks.tsx`): OPEN 상세에서 명세별 피킹 수량 입력 필드 제공, 피킹 확정 및 피킹 취소(사유 필수) 폼 연계. PICKED 상세에서 도착 위치(`toLocationCode · toLocationName`), 확정 시각, 생성된 PICK 전표 링크 노출. CANCELLED 상세에서 취소 사유 노출. 390px 반응형 검증 통과.
+
 
 

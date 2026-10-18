@@ -227,6 +227,9 @@ export type PickOrder = {
   pickedAt: string | null;
   stockDocumentId: number | null;
   stockDocumentNo: string | null;
+  toLocationId?: number | null;
+  toLocationCode?: string | null;
+  toLocationName?: string | null;
   cancelReason: string | null;
   createdAt: string;
   lineCount: number;

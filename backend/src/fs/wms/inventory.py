@@ -18,8 +18,31 @@ WITH amounts AS (
  SELECT l.item_id,l.location_id,l.lot_no,0::numeric,sum(l.quantity)
  FROM wms.stock_reservation_line l JOIN wms.stock_reservation r
  ON r.workspace_id=l.workspace_id AND r.generation_id=l.generation_id AND r.id=l.reservation_id
+ LEFT JOIN wms.pick_order po
+ ON po.workspace_id=r.workspace_id AND po.generation_id=r.generation_id AND po.reservation_id=r.id
  WHERE l.workspace_id=:w AND l.generation_id=:g AND r.status='ACTIVE'
+   AND (po.id IS NULL OR po.status <> 'PICKED')
  GROUP BY l.item_id,l.location_id,l.lot_no
+ UNION ALL
+ SELECT m.item_id,m.location_id,m.lot_no,0::numeric,sum(m.qty_delta)
+ FROM wms.stock_move m
+ JOIN wms.pick_order po
+ ON po.workspace_id=m.workspace_id AND po.generation_id=m.generation_id AND po.stock_document_id=m.document_id
+ JOIN wms.stock_reservation r
+ ON r.workspace_id=po.workspace_id AND r.generation_id=po.generation_id AND r.id=po.reservation_id
+ WHERE m.workspace_id=:w AND m.generation_id=:g AND r.status='ACTIVE'
+   AND po.status='PICKED' AND m.qty_delta > 0
+ GROUP BY m.item_id,m.location_id,m.lot_no
+ UNION ALL
+ SELECT pl.item_id,pl.location_id,pl.lot_no,0::numeric,sum(pl.qty - pl.picked_qty)
+ FROM wms.pick_line pl
+ JOIN wms.pick_order po
+ ON po.workspace_id=pl.workspace_id AND po.generation_id=pl.generation_id AND po.id=pl.pick_order_id
+ JOIN wms.stock_reservation r
+ ON r.workspace_id=po.workspace_id AND r.generation_id=po.generation_id AND r.id=po.reservation_id
+ WHERE pl.workspace_id=:w AND pl.generation_id=:g AND r.status='ACTIVE'
+   AND po.status='PICKED' AND (pl.qty - pl.picked_qty) > 0
+ GROUP BY pl.item_id,pl.location_id,pl.lot_no
 ), balances AS (
  SELECT item_id,location_id,lot_no,sum(on_hand) on_hand,sum(reserved_qty) reserved_qty
  FROM amounts GROUP BY item_id,location_id,lot_no
