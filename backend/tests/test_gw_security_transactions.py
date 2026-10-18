@@ -269,8 +269,10 @@ def test_recovery_code_race_restricts_session_and_reenrollment(identity):
     with engine.begin() as c:
         _, error = service.session(c, recovery)
         assert error.code == "RECOVERY_ONLY"
-        _, error = service.login_gate(c, login, password, "synthetic-network-" + login)
-        assert error.code == "RECOVERY_REQUIRED"
+        again, error = service.login_gate(c, login, password, "synthetic-network-" + login)
+        assert error is None and again["mfaRequired"] is True
+        denied, error = service.verify_login(c, again["challengeToken"], confirmed["recoveryCodes"][1])
+        assert denied is None and error.status_code == 401
         pending, error = service.start_enrollment(c, recovery, "", recovery=True)
         assert error is None
     with engine.begin() as c:

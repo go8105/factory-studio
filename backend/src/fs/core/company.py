@@ -97,3 +97,24 @@ def members(connection, context):
             {"w": scoped.workspace_id},
         ).mappings()
     ]
+
+
+def require_recent_auth(connection, context, *, always=False):
+    """Use DB time and shared session lock; never acquire a user advisory here."""
+    from fs.core.security.config import security_settings
+
+    if not always and security_settings().mode != "COMPANY":
+        return
+    row = connection.execute(
+        text("""SELECT s.id FROM core.auth_session s JOIN core.app_user u ON u.id=s.user_id
+        WHERE s.user_id=:u AND s.token_hash=:t AND s.revoked_at IS NULL AND s.assurance='MFA'
+        AND u.status='active' AND u.disabled_at IS NULL AND s.security_version=u.security_version
+        AND s.expires_at>clock_timestamp() AND (s.absolute_expires_at IS NULL OR s.absolute_expires_at>clock_timestamp())
+        AND s.verified_at BETWEEN clock_timestamp()-interval '5 minutes' AND clock_timestamp()
+        FOR SHARE OF s"""),
+        {"u": context.user_id, "t": token_hash(context.token)},
+    ).first()
+    if row is None:
+        raise ApiError(
+            403, "STEP_UP_REQUIRED", "내 계정 보안에서 본인을 다시 확인해 주세요."
+        )

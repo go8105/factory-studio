@@ -17,6 +17,8 @@ export function Entry() {
   const [challenge, setChallenge] = useState<string>();
   const [code, setCode] = useState("");
   const [recoveryCode, setRecoveryCode] = useState(false);
+  const [emergency, setEmergency] = useState(false);
+  const fileVersion = useRef(0);
   const [nickname, setNickname] = useState("");
   const keys = useRef(new MutationKeys());
   const lastAttempt = useRef(false);
@@ -63,10 +65,10 @@ export function Entry() {
     try {
       const result = await api<
         Session | { recoveryOnly: true; csrfToken: string }
-      >("/security/login/verify", {
+      >(emergency ? "/security/login/emergency" : "/security/login/verify", {
         method: "POST",
         csrf: challenge,
-        body: { code },
+        body: emergency ? { grantToken: code } : { code },
       });
       setCode("");
       setChallenge(undefined);
@@ -176,22 +178,64 @@ export function Entry() {
             >
               <h2>본인 확인</h2>
               <p>
-                {recoveryCode
-                  ? "보관한 미사용 복구 코드를 입력하세요."
-                  : "인증 앱에 표시된 6자리 번호를 입력하세요."}
+                {emergency
+                  ? "별도 보관한 긴급 복구 문서로 서버 운영자의 승인을 받은 뒤 승인 파일을 선택하세요. 승인 파일만으로는 업무에 접근할 수 없습니다."
+                  : recoveryCode
+                    ? "보관한 미사용 복구 코드를 입력하세요."
+                    : "인증 앱에 표시된 6자리 번호를 입력하세요."}
               </p>
               <Field
-                label={recoveryCode ? "복구 코드" : "인증 앱 번호"}
+                label={
+                  emergency
+                    ? "운영자 승인 번호"
+                    : recoveryCode
+                      ? "복구 코드"
+                      : "인증 앱 번호"
+                }
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                autoComplete="one-time-code"
-                inputMode={recoveryCode ? "text" : "numeric"}
+                type={emergency ? "password" : "text"}
+                autoComplete={emergency ? "off" : "one-time-code"}
+                inputMode={recoveryCode || emergency ? "text" : "numeric"}
                 required
-                minLength={recoveryCode ? 32 : 6}
-                maxLength={recoveryCode ? 32 : 6}
+                minLength={emergency ? 43 : recoveryCode ? 32 : 6}
+                maxLength={emergency ? 43 : recoveryCode ? 32 : 6}
                 disabled={busy}
                 autoFocus
               />
+              {emergency && (
+                <label>
+                  운영자 승인 파일 선택
+                  <input
+                    type="file"
+                    accept="application/json,.json"
+                    disabled={busy}
+                    onChange={async (e) => {
+                      const version = ++fileVersion.current;
+                      const file = e.target.files?.[0];
+                      setCode("");
+                      setError(undefined);
+                      if (!file) return;
+                      try {
+                        if (file.size > 8192)
+                          throw new Error("승인 파일 크기를 확인하세요.");
+                        const data = JSON.parse(await file.text());
+                        if (
+                          typeof data.grantToken !== "string" ||
+                          !/^[-_A-Za-z0-9]{43}$/.test(data.grantToken)
+                        )
+                          throw new Error(
+                            "서버 운영자가 발급한 승인 파일을 선택하세요.",
+                          );
+                        if (version === fileVersion.current)
+                          setCode(data.grantToken);
+                      } catch (error) {
+                        if (version === fileVersion.current) setError(error);
+                      }
+                    }}
+                  />
+                </label>
+              )}
               <button type="submit" disabled={busy}>
                 확인하고 계속
               </button>
@@ -200,6 +244,8 @@ export function Entry() {
                 disabled={busy}
                 onClick={() => {
                   setRecoveryCode(!recoveryCode);
+                  setEmergency(false);
+                  fileVersion.current++;
                   setCode("");
                   setError(undefined);
                 }}
@@ -213,11 +259,28 @@ export function Entry() {
                 disabled={busy}
                 onClick={() => {
                   setChallenge(undefined);
+                  setEmergency(false);
+                  fileVersion.current++;
                   setCode("");
                   setError(undefined);
                 }}
               >
                 로그인부터 다시 시작
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setEmergency(!emergency);
+                  setRecoveryCode(false);
+                  setCode("");
+                  setError(undefined);
+                  fileVersion.current++;
+                }}
+              >
+                {emergency
+                  ? "인증 앱 번호로 돌아가기"
+                  : "인증 앱과 복구 코드를 모두 잃었어요"}
               </button>
               <Link to="/help/portal/account-security">인증·복구 도움말</Link>
             </form>

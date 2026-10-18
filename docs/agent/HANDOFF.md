@@ -1,3 +1,7 @@
+## 2026-10-18 GW-READY-02 WIP 2차 긴급 관리자 복구·발급량·관리 추가 인증
+
+사용자 다음구현+현재/남은범위설명요청. 같은02안에서 긴급문서(365일/보안버전연동/원문1회)→서버운영자CLI(UID/별도문서/DB키 접근,15분승인파일0600)→기존비밀번호LOGINchallenge+CSRF→현재GW보안관리자재검사→제한재등록 구조 구현중. 계정로그인발급20/10분·등록3/10분·긴급문서3/10분, COMPANY GW연결·역할/HR사용자관리 최근MFA확대. core는인증토큰/GW는현재권한소유, 새DB표없음219유지. 화면·API·회귀작성중이며통과미선언. 등록직후최근인증 판정에호스트/DB시각혼용발견해DB시각으로통일검사중. branch codex/gw-company-01/main2be292e보존·원격/배포없음. 소유PG fs-gw-ready02-next-test/55438(labelfactory-studio.owner=gw-ready-02-next)·ID/env는work/gw-readiness-02-next, 종료때ID/label대조삭제·임시비밀제거필수. 긴급복구 검증뒤운영증거/보관·백업/복원·선택SSO·전체인수남음·재승인질문없음.
+
 ## 2026-10-18 GW-READY-02 1차 구현·검증 기록 / 같은 ID 계속
 
 전체설계승인유효·A~E완료아님·재승인질문없음. MFA/제한복구/재발급/세션관리·회사운영정책/API/화면·정적도움말 구현. 관련39통과+최종보안30통과(겹침), 제품Chrome등록/앱로그인/복구/정책새버전/포커스/390/도움말오류0, 프런트최종614통과/기존Flow7실패(621)·집중28·타입/린트/포맷/빌드통과. 시드부모created_at가정·도움말고아·PWA MFA후이동 수정. schema0.28/219표2409컬럼543FK 격리DDL0·현재목표Excel/ERD·이력downgrade차단확인. 실제휴대폰/실회사·SSO/긴급복구·증거/보관·백업/복원·전체인수미완료. branch codex/gw-company-01/WIP53b54c5,최종gitlog,main2be292e청결유지·원격/배포없음. 소유API8362/웹5362종료·PG55438 ID/label대조컨테이너/볼륨삭제·work임시비밀JSON/env/ID제거. 공유DB/다른checkout/실계정변경없음. 결과 docs/agent/GW_실사용구현_GW-READY-02.md·환경 docs/operations/GW_보안설정_개발검증_GW-READY-02.md·재현표준명령은결과참조. 다음은 결과의P0긴급복구/발급량제한/관리최근인증·운영증거/보관·백업/폐쇄복원·선택SSO·전체회귀,이미승인범위계속.

@@ -82,6 +82,9 @@ def register_company(ctx, key, body):
     ).hexdigest()
 
     def authorize(c, scoped):
+        from fs.core.company import require_recent_auth
+
+        require_recent_auth(c, scoped)
         if not platform_admin(c, scoped):
             raise ApiError(403, "FORBIDDEN", "총 관리자만 회사를 등록할 수 있습니다.")
 
@@ -126,6 +129,9 @@ def mutate(ctx, company_id, operation, key, body):
         ).hexdigest()
 
     def authorize(c, scoped):
+        from fs.core.company import require_recent_auth
+
+        require_recent_auth(c, scoped)
         # Recheck after the company lock and before replaying any receipt.
         lock_accounts(c, exclusive=True)
         require_session(c, ctx)

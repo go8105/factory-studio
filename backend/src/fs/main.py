@@ -16,6 +16,7 @@ from fs.fems.router import router as fems_router
 from fs.flow.router import router as flow_router
 from fs.gw.company import entry as gw_entry
 from fs.gw.company_router import router as gw_company_router
+from fs.gw.emergency_router import router as emergency_router
 from fs.gw.router import router as gw_router
 from fs.hr.router import router as hr_router
 from fs.hr.work_router import router as hr_work_router
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(cad_cam_router, prefix="/api/v1/cad")
     app.include_router(core_router, prefix="/api/v1/core")
     app.include_router(security_router, prefix="/api/v1/core/security")
+    app.include_router(emergency_router, prefix="/api/v1/core/security/login")
     app.include_router(flow_router, prefix="/api/v1/flow")
     app.include_router(flow_router, prefix="/api/v1/gw/projects")
     app.include_router(hr_work_router, prefix="/api/v1/hr/work")

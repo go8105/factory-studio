@@ -4,7 +4,7 @@ from sqlalchemy import text
 
 from fs.common.errors import ApiError
 from fs.common.idempotency import find_receipt, request_digest, save_receipt
-from fs.core.company import members
+from fs.core.company import members, require_recent_auth
 from fs.gw import company, organization
 from fs.gw import service as gw
 from fs.hr.interface import work_identity
@@ -88,6 +88,7 @@ def execute(context, company_id, operation, key, values, authorize, run):
     """미연결 본인의 동의/최초 설정도 현재 권한을 receipt 앞에서 검사한다."""
     with company.transaction(context, company_id, write=True) as (c, ctx, _):
         authorize(c, ctx)
+        require_recent_auth(c, ctx)
         digest = request_digest(values)
         saved = find_receipt(c, ctx, operation, key, digest)
         if saved is not None:

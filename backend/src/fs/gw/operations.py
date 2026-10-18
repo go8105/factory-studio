@@ -1,11 +1,10 @@
 """GW-READY-02 company operating policies. Current role and scope before receipt."""
 
-from datetime import UTC, datetime, timedelta
-
 from sqlalchemy import text
 
 from fs.common.errors import ApiError
-from fs.common.security import token_hash
+from fs.core.company import require_recent_auth
+from fs.core.security.emergency import summary as emergency_summary
 from fs.gw import company
 from fs.gw.company_identity import audit, require_active
 from fs.gw.operating_contract import OperatingPolicy
@@ -92,6 +91,7 @@ def read(context, company_id):
             "mfaPeople": counts["enrolled"],
             "policy": policy.model_dump(by_alias=True) if policy else None,
             "revisionNo": row["revision_no"] if row else None,
+            "emergencyKit": emergency_summary(c, ctx.user_id, ctx.workspace_id),
             "ready": False,
             "blockers": blockers,
         }
@@ -102,22 +102,7 @@ def apply_policy(context, company_id, payload, key):
 
     def authorize(c, ctx, _person):
         company.principal(c, ctx, "SECURITY_ADMIN")
-        current_session = c.execute(
-            text("""SELECT s.verified_at FROM core.auth_session s JOIN core.app_user u ON u.id=s.user_id
-            WHERE s.user_id=:u AND s.token_hash=:t AND s.revoked_at IS NULL AND s.assurance='MFA'
-            AND s.security_version=u.security_version AND s.expires_at>clock_timestamp()
-            AND (s.absolute_expires_at IS NULL OR s.absolute_expires_at>clock_timestamp())
-            FOR SHARE OF s"""),
-            {"u": ctx.user_id, "t": token_hash(context.token)},
-        ).first()
-        if (
-            current_session is None
-            or current_session[0] is None
-            or datetime.now(UTC) - current_session[0] > timedelta(minutes=5)
-        ):
-            raise ApiError(
-                403, "STEP_UP_REQUIRED", "내 계정 보안에서 본인을 다시 확인해 주세요."
-            )
+        require_recent_auth(c, ctx, always=True)
         require_active(c, ctx, int(policy.responsible_person_id))
 
     def run(c, ctx, _person):

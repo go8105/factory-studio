@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { EmergencyKit } from "./EmergencyKit";
 import { Link } from "react-router-dom";
 import {
   ErrorNotice,
@@ -33,6 +34,7 @@ type State = {
   ready: boolean;
   blockers: string[];
   nextAction?: string;
+  emergencyKit?: { prepared: boolean; expiresAt: string | null };
 };
 const fields: [
   keyof Omit<Policy, "reason" | "responsiblePersonId">,
@@ -88,6 +90,9 @@ export function Operations() {
               <li key={message}>{message}</li>
             ))}
           </ul>
+          {data.canEdit && (
+            <EmergencyKit status={data.emergencyKit} reload={state.reload} />
+          )}
           <h2>
             보관·복구 기준{" "}
             {data.revisionNo ? `· ${data.revisionNo}번째 버전` : "· 미적용"}

@@ -49,6 +49,14 @@ def require_origin(request):
         raise ApiError(403, "FORBIDDEN", "현재 제품 화면에서 다시 시도하세요.")
 
 
+def require_challenge(challenge, csrf):
+    expected = member_csrf_token(
+        get_settings().session_secret, "challenge:" + (challenge or "")
+    )
+    if not challenge or not csrf or not hmac.compare_digest(expected, csrf):
+        raise ApiError(403, "FORBIDDEN", "로그인 화면에서 다시 시작하세요.")
+
+
 def challenge_cookie(response, token):
     response.set_cookie(
         "fs_auth_challenge",
@@ -137,11 +145,7 @@ def verify_login(
     csrf: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ):
     require_origin(request)
-    expected = member_csrf_token(
-        get_settings().session_secret, "challenge:" + (challenge or "")
-    )
-    if not challenge or not csrf or not hmac.compare_digest(expected, csrf):
-        raise ApiError(403, "FORBIDDEN", "로그인 화면에서 다시 시작하세요.")
+    require_challenge(challenge, csrf)
     with get_engine().begin() as c:
         result = service.verify_login(c, challenge, payload.code)
     if result[1]:

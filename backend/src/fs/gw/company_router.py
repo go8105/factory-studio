@@ -416,3 +416,24 @@ def operating_apply(
         "policy": payload.policy.model_dump(by_alias=True),
     }
     return command(context, csrf, key, apply_policy, context, company_id, body)
+
+
+class EmergencyKitRequest(schema.Model):
+    reason: Reason
+
+
+@router.post("/emergency-kit")
+def emergency_kit(
+    context: Auth,
+    company_id: CompanyId,
+    payload: EmergencyKitRequest,
+    request: Request,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    from fs.core.security.router import require_origin
+    from fs.gw.emergency import issue
+
+    require_origin(request)
+    mutation_key(context, csrf, key)
+    return {"data": issue(context, company_id, payload.reason, key)}
