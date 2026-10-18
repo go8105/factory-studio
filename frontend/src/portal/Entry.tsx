@@ -75,7 +75,11 @@ export function Entry() {
         return;
       }
       setSession(result.data);
-      navigate("/home");
+      navigate(
+        window.matchMedia?.("(display-mode: standalone)").matches
+          ? "/hr/work"
+          : "/home",
+      );
     } catch (e) {
       setError(e);
     } finally {

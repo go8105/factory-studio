@@ -189,6 +189,9 @@ def test_failed_otp_persists_and_new_challenge_does_not_reset_limit(identity):
         with engine.begin() as c:
             _, error = service.verify_login(c, first, wrong)
         assert error.status_code == 401
+    with engine.begin() as c:
+        _, error = service.verify_login(c, first, wrong)
+    assert error.status_code == 429
     second = gate()
     with engine.begin() as c:
         _, error = service.verify_login(c, second, wrong)

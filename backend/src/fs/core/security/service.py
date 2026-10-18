@@ -369,6 +369,12 @@ def verify_login(c, challenge_token, code):
         .mappings()
         .one()
     )
+    if active_user(user) and challenge["state"] == "LOCKED":
+        return None, ApiError(
+            429,
+            "AUTHENTICATION_THROTTLED",
+            "잠시 기다린 뒤 로그인부터 다시 시작하세요.",
+        )
     if (
         not active_user(user)
         or challenge["state"] != "PENDING"

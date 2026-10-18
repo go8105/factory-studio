@@ -88,17 +88,15 @@ it("비밀번호 오류 뒤 입력을 유지하고 인증 앱 단계로 넘기�
   expect(screen.queryByLabelText("인증 앱 설정 키")).not.toBeInTheDocument();
 });
 it("복구 화면은 현재 비밀번호 대신 제한 세션의 CSRF로 시작한다", async () => {
-  const fetch = vi
-    .spyOn(globalThis, "fetch")
-    .mockImplementation(async (url) =>
-      String(url).endsWith("/status")
-        ? response({ csrfToken: "restricted-csrf" })
-        : response({
-            factorId: "12",
-            setupKey: "SYNTHETIC-RECOVERY",
-            expiresInSeconds: 600,
-          }),
-    );
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async (url) =>
+    String(url).endsWith("/status")
+      ? response({ csrfToken: "restricted-csrf" })
+      : response({
+          factorId: "12",
+          setupKey: "SYNTHETIC-RECOVERY",
+          expiresInSeconds: 600,
+        }),
+  );
   render(
     <MemoryRouter>
       <AccountSecurity recovery />

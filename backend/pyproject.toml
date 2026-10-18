@@ -9,7 +9,6 @@ dependencies = [
     "psycopg[binary]",
     "pyotp==2.9.0",
     "cryptography>=46,<49",
-    "authlib>=1.6,<2",
 ]
 
 [dependency-groups]

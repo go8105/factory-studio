@@ -91,6 +91,32 @@ try {
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   );
+  if (credentials.company) {
+    await page.goto(base + "/gw/operations?companyId=" + credentials.company);
+    await page
+      .getByRole("heading", { name: "운영 준비", exact: true })
+      .waitFor();
+    await page.getByRole("button", { name: "운영 기준 검토·적용" }).click();
+    const reason = page.getByLabel("적용 사유");
+    await reason.fill("합성 회사 운영 기준 검토");
+    await reason.press("Escape");
+    await page.getByRole("button", { name: "계속 편집" }).click();
+    assert(await reason.evaluate((el) => el === document.activeElement));
+    await page.getByLabel("변경 내용과 영향을 검토했습니다").check();
+    await page.getByRole("button", { name: "새 버전으로 적용" }).click();
+    await page
+      .getByRole("heading", { name: "보관·복구 기준 · 1번째 버전" })
+      .waitFor();
+    await page.screenshot({
+      path: path.join(out, "operations-policy-mobile.png"),
+      fullPage: true,
+    });
+    assert(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+  }
   await page.getByRole("button", { name: "나가기", exact: true }).click();
   // Existing logout may ask for confirmation only if there are unsaved changes.
   await login();
@@ -134,6 +160,9 @@ try {
       "recovery limited session",
       "re-enrollment",
       "product help",
+      ...(credentials.company
+        ? ["company policy revision", "continue-edit focus"]
+        : []),
     ],
   };
   await fs.writeFile(

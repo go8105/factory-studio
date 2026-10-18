@@ -2,7 +2,7 @@
 
 설계 schema.json 0.28.0(GW-READY-02)에서 tools/build_migration.py로 생성했다. 실행할 때 JSON을 읽지 않는다.
 c·r 번호는 schema.json의 constraints·relations 순번이다. SERVICE/DB_POLICY는 서비스가 지키는 규칙이라 DB 제약이 아니다.
-Source SHA256: 60785144afdbe26aef34c7e67be3564311c8157e186b39d7bb3b2ebd798bf727
+Source SHA256: f69110e2b57708d69eda1d5aee512d522a5ce9b31d6e52938efaaecf3e67242f
 """
 
 from alembic import op
@@ -231,9 +231,7 @@ DROPS = [
     "DROP TABLE core.mfa_factor",
 ]
 # 모듈 키: (표, 제약 이름, 옛 식, 새 식)
-MODULE_CHECKS = [
-
-]
+MODULE_CHECKS = []
 
 
 def upgrade() -> None:
@@ -247,10 +245,25 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Security/operating history must never be discarded by automatic downgrade.
     from sqlalchemy import text
+
     connection = op.get_bind()
-    for table in ("core.mfa_factor", "core.authentication_challenge", "core.recovery_code", "core.sso_identity", "core.authentication_throttle", "gw.operating_settings", "gw.operating_policy_revision", "gw.operating_evidence", "gw.retention_review"):
-        if connection.execute(text(f"SELECT EXISTS(SELECT 1 FROM {table})")).scalar_one():
-            raise RuntimeError("GW-READY-02 history exists; use forward fix or isolated restore")
+    for table in (
+        "core.mfa_factor",
+        "core.authentication_challenge",
+        "core.recovery_code",
+        "core.sso_identity",
+        "core.authentication_throttle",
+        "gw.operating_settings",
+        "gw.operating_policy_revision",
+        "gw.operating_evidence",
+        "gw.retention_review",
+    ):
+        if connection.execute(
+            text(f"SELECT EXISTS(SELECT 1 FROM {table})")
+        ).scalar_one():
+            raise RuntimeError(
+                "GW-READY-02 history exists; use forward fix or isolated restore"
+            )
     # 모듈 행·평가가 남아 있으면 옛 CHECK 복원이 실패한다. CASCADE 없이 멈추는 쪽이 안전하다.
     for table, name, old, _new in MODULE_CHECKS:
         op.execute(f"ALTER TABLE {table} DROP CONSTRAINT {name}")

@@ -79,16 +79,19 @@ export function docSections(docs: Docs): DocSection[] {
         reference.push((group = { solution: name, title: s.group, keys: [] }));
       group.keys.push(key);
     }
-  if (Object.hasOwn(docs, "gw/company")) {
+  const companyGuides = ["gw/company", "gw/operations"].filter((key) =>
+    Object.hasOwn(docs, key),
+  );
+  if (companyGuides.length) {
     const group = reference.find(
       (g) => g.solution === "GW 그룹웨어" && g.keys.includes("gw/g-07"),
     );
-    if (group) group.keys.unshift("gw/company");
+    if (group) group.keys.unshift(...companyGuides);
     else
       reference.push({
         solution: "GW 그룹웨어",
         title: "회사 사용 안내",
-        keys: ["gw/company"],
+        keys: companyGuides,
       });
   }
   return [

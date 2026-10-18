@@ -12,9 +12,9 @@
 
 격리 PostgreSQL18.6 신규 migration 적용·219표2409컬럼543FK 카탈로그 대조 오류0. 현재/목표 metadata·Excel2종·ERD를 갱신했다. 업무 데이터/인증 상태를 migration으로 임의 변경하지 않았다. 이력이 있으면 downgrade를 거부한다.
 
-초기 보안/트랜잭션/HTTP/정책·서명 커널29건 통과. 동일 OTP/복구 코드 경합·실패 commit·제한 세션 업무 거부·만료/보안버전·재발급/다른 세션 회수 포함. 최신 관련 회귀 결과는 계속 기록한다. 첫 넓은 회귀에서 새 정책 부모에 created_at이 없는데 합성 시드 생성기가 그 열을 가정한 문제를 발견, 기존 시드 검사기처럼 부모 열이 있을 때만 시각 보정하도록 수정 후 재검사 중이다.
+초기 보안/트랜잭션/HTTP/정책·서명 커널29건 통과. 동일 OTP/복구 코드 경합·실패 commit·제한 세션 업무 거부·만료/보안버전·재발급/다른 세션 회수 포함. 관련 인증/포털/HR 사용자/운영 정책39건 통과, 마지막 보안 집중30건 통과(서로 겹치는 검사). COMPANY HTTP·위조 Forwarded 헤더 거부도 포함했다. 첫 넓은 회귀에서 새 정책 부모에 created_at이 없는데 합성 시드 생성기가 그 열을 가정한 문제를 발견, 기존 시드 검사기처럼 부모 열이 있을 때만 시각 보정하도록 수정 후 관련39건 재검사에 통과했다.
 
-Chrome 실제 제품에서 합성 계정의 등록→앱 로그인→코드 복구→재등록→도움말, 390px 가로 넘침0·페이지오류0 확인. 실제 휴대폰/IdP/실회사 검증이 아니다. 코드 재발급/운영 화면은 추가 변경 후 브라우저 재검사 대상이다. 프런트 전체610통과/기존Flow7실패(617), 새 보안/로그인11통과·타입/린트/빌드 통과(기존chunk 경고). 후속 변경 후 필요한 집중 검사를 반복한다. 전체CI성공이 아니다.
+Chrome 실제 제품에서 합성 계정의 등록→앱 로그인→코드 복구→재등록→도움말, 390px 가로 넘침0·페이지오류0 확인. 실제 휴대폰/IdP/실회사 검증이 아니다. 추가된 운영 화면도 실제 제품에서 정책1번째 버전 저장·계속 편집 포커스 복원·390px를 재검사했다. 코드 재발급/다른 세션 UI의 최종 브라우저 조작은 후속이며 해당 API는 경합/버전 검사로 확인했다. 초기 프런트 전체610통과/기존Flow7실패(617). 이후 전체 검사에서 운영 도움말 고아1건을 발견해 문서 트리에 연결했고 최종 전체614통과/기존Flow7실패(621)로 확인했다. 최신 집중28건은 문서 트리·보안·운영 입력·공통 패널·설치 PWA 로그인 이동을 포함해 통과했다. 타입/린트/포맷/빌드 통과(기존chunk 경고). 후속 변경 후 필요한 집중 검사를 반복한다. 전체CI성공이 아니다.
 
 ## 도움말
 
@@ -26,6 +26,16 @@ Chrome 실제 제품에서 합성 계정의 등록→앱 로그인→코드 복�
 
 ## 다음과 환경
 
-branch codex/gw-company-01 / 기준main2be292e. 실제 계정·공유DB·다른checkout·브라우저확장 변경 없음. 소유 격리PG 컨테이너 fs-gw-ready02-test, loopback55438; 정리 시 work/gw-readiness-02/container-id와 label factory-studio.owner=gw-ready-02 대조 후 이 컨테이너/익명볼륨만 삭제한다. 검토API8362/웹5362는 종료했다. 환경 비밀은 work만 사용하며 Git 제외. 최종 결과 전 실제 COMPANY 준비 완료/main 반영을 선언하지 않는다.
+branch codex/gw-company-01 / 기준main2be292e. 실제 계정·공유DB·다른checkout·브라우저확장 변경 없음. 검증에는 소유 격리PG 컨테이너 fs-gw-ready02-test, loopback55438을 사용했다. 검토API8362/웹5362는 종료했고 소유PG의 ID/label 대조 후 컨테이너·익명볼륨을 삭제했다. 환경 비밀은 work만 사용했고 임시 JSON/env와 컨테이너 ID 파일을 제거했다. 최종 결과 전 실제 COMPANY 준비 완료/main 반영을 선언하지 않는다. [개발 환경과 운영 경계](../operations/GW_보안설정_개발검증_GW-READY-02.md)를 참고한다. WIP53b54c5 이후 검증 보강, 최종 커밋은 git log를 따른다.
 
 재현: Python3.14/uv, Node24. 새 *_test PostgreSQL18 DB에 alembic upgrade head 후 TEST_DATABASE_URL 설정. `uv run --project backend pytest backend/tests/test_gw_security_crypto.py backend/tests/test_gw_security_transactions.py backend/tests/test_gw_security_http.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_operations.py -q`. 브라우저 재현은 frontend/e2e/gw-security-browser.mjs(합성 계정 JSON 경로·로컬 origin을 환경으로 제공; 비밀을 문서에 쓰지 않음). DB 정적검사/Excel/ERD는 저장소 표준 도구를 사용한다.
+
+
+## 다음 구현 우선순위
+
+1. P0: 유일 관리자 긴급 복구·서버 운영자 증명과 감사, 로그인/challenge 발급량 상한·공통 관리 명령의 최근 인증 확대, 보안 응답 유실의 현재 상태 확인. 현재의 기본 복구 코드 경로와 별개다.
+2. P0: 운영 증거 등록/새 기준 판정·보관 검토/보존 중지·실제 원문 ACL, 암호화 백업·폐쇄 복원·독립 권한 회수 기록 재적용. 아직 준비 완료를 허용하지 않는다.
+3. P1: 선택형 OIDC subject 명시 연결·공급자 장애/nonce/state/PKCE 검증, 모의 공급자와 실제 공급자를 구분. 기본 로컬 MFA는 유지한다.
+4. P0 출시 전: 전체 공통 인증/회사 업무 회귀·10인 HTTP·코드 재발급/다른 세션 UI·실휴대폰/실환경 인수·문서 최종 대조와 로컬 main 반영. 실제 기기/사업 환경 미확인을 합성 검사로 대체하지 않는다.
+
+위 항목은 이미 승인한 GW-READY-02 범위의 남은 구현이며 새 승인 질문을 요구하지 않는다. 다음 ID나 별도 시스템 고도화로 넘어가지 않는다.

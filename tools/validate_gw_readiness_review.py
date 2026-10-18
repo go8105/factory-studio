@@ -26,6 +26,22 @@ def validate():
             errors.append("현재 기준 표 수와 제안 기준 불일치")
     elif not all(t["name"] in old for t in proposed):
         errors.append("승인 후 명세에 제안 표가 일부 누락되어 재대조 필요")
+    if current["version"] != data["current_schema"]:
+        applied = {
+            t["name"]: {c["name"]: c for c in t["columns"]} for t in current["tables"]
+        }
+        for table in proposed:
+            for column in table["columns"]:
+                actual = applied.get(table["name"], {}).get(column["name"])
+                if actual is None or any(
+                    actual[key] != column[key] for key in ("type", "nullable")
+                ):
+                    errors.append(
+                        table["name"]
+                        + "."
+                        + column["name"]
+                        + ": 승인 명세와 적용 명세 불일치"
+                    )
     columns = {name: set(names) for name, names in old.items()}
     for table in proposed:
         name = table["name"]

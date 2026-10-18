@@ -133,3 +133,38 @@ def test_login_enroll_otp_recovery_http(identity, monkeypatch):
             assert "no-store" in verified.headers["Cache-Control"]
     finally:
         reset_engine()
+
+
+def test_company_http_and_forged_forwarded_header_cannot_bypass_tls(
+    identity, monkeypatch
+):
+    engine, _context, password, login = identity
+    monkeypatch.setenv("DATABASE_URL", engine.url.render_as_string(hide_password=False))
+    monkeypatch.setenv("FS_SECURITY_MODE", "COMPANY")
+    monkeypatch.setenv("COOKIE_SECURE", "true")
+    monkeypatch.setenv("FS_PUBLIC_ORIGIN", "https://gw.example.invalid")
+    reset_engine()
+    try:
+        with TestClient(create_app(), base_url="http://gw.example.invalid") as client:
+            r = client.post(
+                "/api/v1/core/sessions",
+                json={"loginId": login, "password": password},
+                headers={
+                    "Idempotency-Key": str(uuid4()),
+                    "Origin": "https://gw.example.invalid",
+                    "X-Forwarded-Proto": "https",
+                },
+            )
+            assert r.status_code == 503
+        with TestClient(create_app(), base_url="https://gw.example.invalid") as client:
+            r = client.post(
+                "/api/v1/core/sessions",
+                json={"loginId": login, "password": password},
+                headers={
+                    "Idempotency-Key": str(uuid4()),
+                    "Origin": "https://attacker.invalid",
+                },
+            )
+            assert r.status_code == 403
+    finally:
+        reset_engine()
