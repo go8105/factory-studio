@@ -11,7 +11,13 @@ from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
 from fs.common.errors import ApiError
 from fs.common.page import Page
-from fs.wms import picks, receiving, reservations, service
+from fs.wms import issues, picks, receiving, reservations, service
+from fs.wms.issue_schema import (
+    IssueRequestCancel,
+    IssueRequestConfirm,
+    IssueRequestCreate,
+    IssueRequestStatus,
+)
 from fs.wms.pick_schema import (
     PickOrderCancel,
     PickOrderConfirm,
@@ -60,7 +66,10 @@ IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
 CsrfToken = Annotated[str | None, Header(alias="X-CSRF-Token")]
 MONTH = r"^[0-9]{4}-(0[1-9]|1[0-2])$"
 DocumentType = (
-    ManualType | SourceKind | Literal["WMS_INSPECTION", "PUTAWAY", "PICK"] | None
+    ManualType
+    | SourceKind
+    | Literal["WMS_INSPECTION", "PUTAWAY", "PICK", "PRODUCTION_ISSUE"]
+    | None
 )
 
 
@@ -879,6 +888,80 @@ def cancel_pick_order(
 ):
     return _data(
         picks.cancel_pick_order(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+# ---- 생산 불출 (W-13) ----
+@router.get("/issue-requests")
+def list_issue_requests(
+    context: Auth,
+    status: IssueRequestStatus | None = None,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+    work_order_no: Annotated[
+        str | None, Query(alias="workOrderNo", max_length=40)
+    ] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+):
+    return _data(
+        issues.list_issue_requests(
+            context, status, warehouse_id, work_order_no, page, page_size
+        )
+    )
+
+
+@router.get("/issue-requests/{row_id}")
+def get_issue_request(row_id: int, context: Auth):
+    return _data(issues.get_issue_request(context, row_id))
+
+
+@router.post("/issue-requests", status_code=201)
+def create_issue_request(
+    payload: IssueRequestCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        issues.create_issue_request(
+            context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.post("/issue-requests/{row_id}/confirm")
+def confirm_issue_request(
+    row_id: int,
+    payload: IssueRequestConfirm,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        issues.confirm_issue_request(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/issue-requests/{row_id}/cancel")
+def cancel_issue_request(
+    row_id: int,
+    payload: IssueRequestCancel,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        issues.cancel_issue_request(
             context,
             row_id,
             payload.model_dump(mode="json"),

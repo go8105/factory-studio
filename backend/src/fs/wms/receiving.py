@@ -840,9 +840,11 @@ def guard_master(c, scoped, kind, id, all_history=False):
             "적치 작업",
             pt_count,
         )
+    from fs.wms.issues import guard_master as guard_issues
     from fs.wms.picks import guard_master as guard_picks
 
     guard_picks(c, scoped, kind, id, all_history)
+    guard_issues(c, scoped, kind, id, all_history)
 
 
 def _putaway_rows(

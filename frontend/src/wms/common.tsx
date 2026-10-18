@@ -281,7 +281,13 @@ export type SourceKind =
   "MES_RECEIPT" | "MES_ISSUE" | "ERP_SHIPMENT" | "ERP_PURCHASE";
 export type ManualType = "OPENING" | "ADJUSTMENT" | "TRANSFER";
 export type DocumentType =
-  SourceKind | ManualType | "REVERSAL" | "WMS_INSPECTION" | "PUTAWAY" | "PICK";
+  | SourceKind
+  | ManualType
+  | "REVERSAL"
+  | "WMS_INSPECTION"
+  | "PUTAWAY"
+  | "PICK"
+  | "PRODUCTION_ISSUE";
 export type Move = {
   id: number;
   documentId: number;
@@ -370,6 +376,7 @@ export const TYPE_LABEL: Record<DocumentType, string> = {
   WMS_INSPECTION: "입고 검수",
   PUTAWAY: "적치 이동",
   PICK: "피킹 이동",
+  PRODUCTION_ISSUE: "생산 불출",
 };
 export const REASON_LABEL: Record<Reason, string> = {
   RETURN: "반품 입고",
@@ -442,6 +449,65 @@ export function StockBadges({ row }: { row: StockRow }) {
     </>
   );
 }
+
+/** W-13 생산 불출 (DSN-13 F25). 위치·LOT 배정은 저장하지 않고 불출 시점에 계산한다. */
+export type IssueRequestStatus = "OPEN" | "ISSUED" | "CANCELLED";
+export const ISSUE_STATUS_LABEL: Record<IssueRequestStatus, string> = {
+  OPEN: "대기",
+  ISSUED: "불출 완료",
+  CANCELLED: "취소",
+};
+
+export type IssueLine = {
+  id: number;
+  lineNo: number;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  baseUnit: string;
+  qty: string;
+  issuedQty: string | null;
+};
+
+export type IssueAllocation = {
+  itemId: number;
+  locationId: number;
+  locationCode: string;
+  locationName: string;
+  lotNo: string | null;
+  qty: string;
+};
+
+export type IssueShortage = {
+  itemId: number;
+  requestedQty: string;
+  availableQty: string;
+  shortageQty: string;
+};
+
+export type IssueRequest = {
+  id: number;
+  requestNo: string;
+  workOrderNo: string | null;
+  lineLocationId: number;
+  lineLocationCode: string;
+  lineLocationName: string;
+  lineLocationType: LocationType;
+  warehouseId: number;
+  warehouseCode: string;
+  warehouseName: string;
+  status: IssueRequestStatus;
+  neededAt: string | null;
+  issuedAt: string | null;
+  stockDocumentId: number | null;
+  stockDocumentNo: string | null;
+  cancelReason: string | null;
+  createdAt: string;
+  lineCount: number;
+  lines: IssueLine[];
+  allocationPreview: IssueAllocation[];
+  shortages: IssueShortage[];
+};
 
 export const useLists = <T extends unknown[]>(paths: string[]) =>
   useApiLists<T>(WMS, paths);

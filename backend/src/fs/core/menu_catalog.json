@@ -384,6 +384,12 @@
           "group": "입출고"
         },
         {
+          "path": "issues",
+          "id": "W-13",
+          "label": "생산 불출",
+          "group": "입출고"
+        },
+        {
           "path": "documents",
           "id": "W-04",
           "label": "재고 전표",
