@@ -285,6 +285,20 @@
     - `inventory.py`: amounts CTE의 `reserved_qty` 집계에 적용하여 보관 칸 음수 재고 방지.
     - `reservations.py`: `consume`, `shipment_preview`, `_detail`, `list_reservations`에 적용하여 ERP 출하 소진 시 출고장 칸에서 차감(보관 칸 이중 차감 방지) 및 확정 후 W-09 예약 목록에 거짓 부족 경보(reservationShortage) 방지.
   - 화면 연계 (`frontend/src/wms/Picks.tsx`): OPEN 상세에서 명세별 피킹 수량 입력 필드 제공, 피킹 확정 및 피킹 취소(사유 필수) 폼 연계. PICKED 상세에서 도착 위치(`toLocationCode · toLocationName`), 확정 시각, 생성된 PICK 전표 링크 노출. CANCELLED 상세에서 취소 사유 노출. 390px 반응형 검증 통과.
+- **W-09 출고 예약 피킹 상태 연계 및 완제품 예약 규칙 정규화 (W2b-1d / D-4)**:
+  - **피킹 상태 연계 및 목록 N+1 방지**:
+    - 예약 목록 조회(`GET /api/v1/wms/reservations`) 시 `wms.pick_order`를 `LEFT JOIN`하여 단일 쿼리로 `pickOrderId`, `pickOrderNo`, `pickOrderStatus`(`OPEN`='대기', `PICKED`='피킹 완료', `CANCELLED`='취소', 미지시=null)를 묶음 반환. N+1 쿼리 없음.
+    - 예약 상세(`_detail`)에서도 해당 예약에 바인딩된 최신 피킹 지시 정보를 조회하여 반환.
+  - **예약 상세에서 피킹 지시 생성 및 오류 상세 안내**:
+    - `ACTIVE` 상태이면서 피킹 지시가 없거나(`미지시`) 취소(`CANCELLED`)된 예약 상세 화면에서 "피킹 지시 생성" 버튼 노출.
+    - 이미 `OPEN` 또는 `PICKED` 상태인 피킹 지시가 존재하면 중복 지시 생성 버튼 숨김.
+    - 지시 생성 성공 시 알림 및 W-12 화면 링크(`/wms/picks?open={id}`) 제공.
+    - 피킹 지시 생성 실패(`409 INSUFFICIENT_AVAILABLE`) 시, 제외된 LOT(`excludedLots`: LOT 번호, 위치, 보류/만료 사유)과 부족 품목(`insufficientItems`: 품목 코드/명, 부족 수량)을 상세 패널 상단 알림(`role="alert"`)으로 명확히 안내.
+  - **예약 등록 규칙 정규화 (C-2 일관성)**:
+    - `backend/src/fs/wms/reservations.py`의 예약 생성 시 LOT 필수 여부 검증을 `bool(lot) != (item["itemClass"] == "FG")`에서 C-2(입고 검수)와 동일한 `bool(lot) != bool(item.get("lotTracked"))`로 수정하여 품목 마스터의 `lot_tracked` 플래그를 일관되게 적용.
+  - **HOLD·EXPIRED LOT 예약 차단**:
+    - 신규 예약 등록 시 `picks._lot_metadata` 및 `picks._lot_block_reason`, `qms.held_lot_nos`를 활용하여 WMS 활성 보류(`LOT_HOLD`), QMS 품질 보류(`LOT_QMS_HOLD`), 유효기간 만료(`LOT_EXPIRED`) 상태의 LOT 지정을 `409 Conflict`로 즉시 차단.
+
 
 
 

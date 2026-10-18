@@ -4,10 +4,12 @@ from collections import defaultdict
 from decimal import Decimal, localcontext
 from typing import Any
 
+from fs.common.clock import business_today
 from fs.common.errors import ApiError
 from fs.common.scope import read_scope
 from fs.erp import interface as erp
-from fs.wms import inventory
+from fs.qms import interface as qms
+from fs.wms import inventory, picks
 from fs.wms import receiving as rec
 from fs.wms import service as base
 
@@ -158,6 +160,19 @@ def _detail(c, scoped, id):
         )
     )
     result["shipmentOrderComparison"] = _compare_order(c, scoped, row, lines, orders)
+    po = (
+        q(
+            c,
+            scoped,
+            f"SELECT id, pick_no, status FROM wms.pick_order WHERE {S} AND reservation_id=:id",
+            id=id,
+        )
+        .mappings()
+        .first()
+    )
+    result["pickOrderId"] = po["id"] if po else None
+    result["pickOrderNo"] = po["pick_no"] if po else None
+    result["pickOrderStatus"] = po["status"] if po else None
     return result
 
 
@@ -269,14 +284,25 @@ def list_reservations(
             "SELECT count(*) FROM wms.stock_reservation r WHERE " + where,
             **params,
         ).scalar_one()
+        rows_sql = f"""
+            SELECT r.*,
+                   po.id AS pick_order_id,
+                   po.pick_no AS pick_order_no,
+                   po.status AS pick_order_status
+            FROM wms.stock_reservation r
+            LEFT JOIN wms.pick_order po
+              ON po.workspace_id=r.workspace_id
+             AND po.generation_id=r.generation_id
+             AND po.reservation_id=r.id
+            WHERE {where}
+            ORDER BY r.id DESC LIMIT :limit OFFSET :offset
+        """
         values = [
             base._row(row)
             for row in q(
                 c,
                 scoped,
-                "SELECT r.* FROM wms.stock_reservation r WHERE "
-                + where
-                + " ORDER BY r.id DESC LIMIT :limit OFFSET :offset",
+                rows_sql,
                 **params,
                 limit=page_size,
                 offset=(page - 1) * page_size,
@@ -284,6 +310,9 @@ def list_reservations(
         ]
         for row in values:
             row["shortage"] = "1" if row["id"] in shortage_ids else "0"
+            row["pickOrderId"] = row.get("pickOrderId")
+            row["pickOrderNo"] = row.get("pickOrderNo")
+            row["pickOrderStatus"] = row.get("pickOrderStatus")
         return {"rows": values, "total": total, "page": page, "pageSize": page_size}
 
 
@@ -312,6 +341,10 @@ def create_reservation(context, values, key):
         balances = _balances(c, scoped)
         seen = set()
         lines = []
+        item_ids = [line["item_id"] for line in values["lines"]]
+        lot_map = picks._lot_metadata(c, scoped, item_ids)
+        qms_held = set(qms.held_lot_nos(c, scoped) or ())
+        today = business_today()
         for i, line in enumerate(values["lines"]):
             path = f"lines.{i}"
             item = base._item(c, scoped, line["item_id"])
@@ -336,10 +369,25 @@ def create_reservation(context, values, key):
                     lineIndex=i,
                 )
             lot = (line.get("lot_no") or "").strip() or None
-            if bool(lot) != (item["itemClass"] == "FG"):
+            if bool(lot) != bool(item.get("lotTracked")):
                 rec._fail(
-                    path + ".lotNo", "완제품 LOT 필수, 원자재 LOT은 지정하지 않습니다."
+                    path + ".lotNo",
+                    "LOT 추적 품목은 LOT 필수, 추적하지 않는 품목은 LOT을 입력하지 않습니다.",
                 )
+            if lot:
+                block = picks._lot_block_reason(
+                    item["id"], lot, lot_map, qms_held, today
+                )
+                if block:
+                    code, label = block
+                    raise base._conflict(
+                        f"LOT '{lot}'은(는) {label}이므로 예약할 수 없습니다.",
+                        f"LOT_{code}",
+                        lotNo=lot,
+                        reasonCode=code,
+                        reasonLabel=label,
+                        lineIndex=i,
+                    )
             qty = rec._quantity(line["quantity"], path + ".quantity", True)
             normalized = {**line, "lot_no": lot, "quantity": qty}
             k = _key(normalized)
