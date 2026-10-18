@@ -1,5 +1,7 @@
 # 문서 지도
 
+2026-10-18 **[GW-COMPANY-05 WMS 통합·10인 인수 검증](agent/GW_WMS통합_인수검증_GW-COMPANY-05.md)**: schema0.27/210표·merge head·데이터 보존/폐쇄 복원·10인 HTTP·전체 회귀 확인. 로컬 main 반영, 원격/배포 없음. 실제 회사 인수는 MFA·복구/보존·담당자/환경 조건 미충족으로 미완료. 아래04의 WMS 미통합 안내는 당시 이력이다.
+
 2026-10-17 **[GW-COMPANY-04 회사 화면·협업 권한](agent/GW_회사화면_협업권한_GW-COMPANY-04.md)**: 회사63경로·G-01~13·도움말 연결, 합성 Chrome 대표 업무와390px/연결회수 확인. 로컬 GW 브랜치 검증이며 main/WMS 통합·실운영 인수는05 후속, 원격/배포 없음. 아래03의 업무 미공개 안내는 당시 상태다.
 
 2026-10-17 [고도화 진행 순서](plan/시스템고도화_진행순서_UPGRADE-01.md) · [GW 회사 인증·권한 승인 설계](modules/gw/회사인증_권한_통합설계_GW-COMPANY-01.md) · [기반 구현·검증 GW-COMPANY-02](agent/GW_회사인증_기반검증_GW-COMPANY-02.md)(로컬 검증 완료·회사 업무/UI 후속) · [직원 연결·업무 권한 GW-COMPANY-03](agent/GW_직원연결_업무권한_GW-COMPANY-03.md)(관리 API/내부 서비스·회사 업무 공개 전) · [63경로 감사표](agent/GW_회사인증_경로감사_GW-COMPANY-01.md).

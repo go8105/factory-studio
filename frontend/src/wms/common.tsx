@@ -5,7 +5,7 @@ export { fieldErrors, moduleOff } from "../shared/hooks";
 
 export const WMS = "/api/v1/wms";
 
-export type Purpose = "RAW" | "FG";
+export type Purpose = "RAW" | "SEMI" | "FG" | "MERCH" | "SUPPLY";
 export type Warehouse = {
   id: number;
   code: string;
@@ -33,9 +33,91 @@ export type Item = {
   baseUnit: string;
   itemClass: Purpose;
   lotTracked: boolean;
+  shelfLifeDays?: number | null;
+  storageCondition?: string | null;
+  safetyStock?: string | null;
+  maxStock?: string | null;
+  abcClass?: "A" | "B" | "C" | null;
+  plmPartNo?: string | null;
+  plmRevision?: string | null;
   isActive: boolean;
   moveCount: number;
   conversions: Conversion[];
+};
+
+export type LotOrigin = "RECEIPT" | "MES" | "RETURN" | "OPENING";
+export type LotStatus = "AVAILABLE" | "HOLD" | "EXPIRED";
+
+export type LotLocation = {
+  locationId: number;
+  locationCode: string;
+  locationName: string;
+  warehouseId: number;
+  warehouseCode: string;
+  warehouseName: string;
+  qtyOnHand: string;
+};
+
+export type LotHold = {
+  id: number;
+  source: "MANUAL" | "QMS" | "EXPIRY";
+  sourceRef: string | null;
+  heldAt: string;
+  releasedAt: string | null;
+  reason: string;
+  isActive: boolean;
+  status?: "HELD" | "RELEASED";
+};
+
+export type QmsHoldInfo = {
+  active: boolean;
+  holdNo?: string;
+  sourceRef?: string;
+  reason?: string;
+  heldAt?: string;
+} | null;
+
+export type LotRow = {
+  id: number;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  itemClass: Purpose;
+  baseUnit: string;
+  lotNo: string;
+  origin: LotOrigin;
+  receivedOn: string;
+  expiryDate: string | null;
+  supplierLotNo: string | null;
+  status: LotStatus;
+  rawStatus: LotStatus;
+  qtyOnHand: string;
+  isExpired: boolean;
+  isHeld?: boolean;
+  holdCount: number;
+  currentHoldReason: string | null;
+  createdAt: string;
+  locations?: LotLocation[];
+  holds?: LotHold[];
+  activeHold?: {
+    id: number;
+    source: "MANUAL" | "QMS" | "EXPIRY";
+    sourceRef: string | null;
+    heldAt: string;
+    reason: string;
+  } | null;
+  qmsHold?: QmsHoldInfo | boolean | null;
+};
+
+export type PageInfo = {
+  offset: number;
+  limit: number;
+  total: number;
+};
+
+export type Paged<T> = {
+  data: T[];
+  page: PageInfo;
 };
 export type StockQuantities = {
   normalOnHand: string;
@@ -165,7 +247,21 @@ export const REASON_LABEL: Record<Reason, string> = {
 };
 export const PURPOSE_LABEL: Record<Purpose, string> = {
   RAW: "원자재",
+  SEMI: "반제품",
   FG: "완제품",
+  MERCH: "상품",
+  SUPPLY: "부자재",
+};
+export const LOT_STATUS_LABEL: Record<LotStatus, string> = {
+  AVAILABLE: "가용",
+  HOLD: "보류",
+  EXPIRED: "만료",
+};
+export const LOT_ORIGIN_LABEL: Record<LotOrigin, string> = {
+  RECEIPT: "입고",
+  MES: "생산",
+  RETURN: "반품",
+  OPENING: "기초",
 };
 export const BLOCK_LABEL: Record<string, string> = {
   ITEM_NOT_REGISTERED: "품목 미등록",
