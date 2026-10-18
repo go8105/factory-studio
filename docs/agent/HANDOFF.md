@@ -1,3 +1,25 @@
+# 2026-10-18 FLOW-FIX-01 `frontend/src/flow/projects.test.tsx` 날짜 경과 실패 7건 수정 완료
+
+- **브랜치**: `antigravity/flow-fix-01` (기준 `main` `2be292e`; 병행 `antigravity/w2b-1c` `3f27c02`는 그대로 보존)
+- **마지막 커밋**: `git log -1 --oneline` 참조
+- **끝난 것 (FLOW-FIX-01)**:
+  - `frontend/src/flow/projects.test.tsx`:
+    - `beforeEach`에 `vi.useFakeTimers({ toFake: ["Date"] })` 및 `vi.setSystemTime(new Date("2026-10-13T09:00:00+09:00"))` 설정, `afterEach`에 `vi.useRealTimers()` 복원 추가.
+    - `Projects.tsx` 등 제품 코드, 픽스처, 다른 테스트 파일 변경 없음.
+  - 검증 결과:
+    - `npm --prefix frontend test -- src/flow/projects.test.tsx`: **11 passed (11)**
+    - `npm --prefix frontend test`: **Test Files 77 passed (77), Tests 613 passed (613) — 실패 0건**
+    - `npm --prefix frontend run lint`, `npm --prefix frontend run format:check`, `npm --prefix frontend run typecheck`: 모두 통과 (0 errors)
+  - 날짜가 박힌 다른 테스트 파일(51개) 및 `new Date()`/`Date.now()` 의존 컴포넌트 렌더링 테스트 목록 조사 완료(수정은 하지 않고 보고).
+- **다음 할 일**: 사용자 확인 후 `antigravity/flow-fix-01` 병합 여부 결정 및 `antigravity/w2b-1c`(`3f27c02`)로 복귀.
+- **주의점**:
+  - 오늘 날짜(`new Date()`, `Date.now()`)에 의존하는 컴포넌트를 그리는 테스트는 고정 날짜 픽스처만 두지 말고 `vi.setSystemTime`으로 시간을 고정하고 `afterEach`에서 복원한다.
+  - 원격 push 금지 (로컬 커밋만 유지).
+- **재현 명령**:
+  - `PATH="/opt/homebrew/opt/node@24/bin:$PATH" npm --prefix frontend test -- src/flow/projects.test.tsx`
+  - `PATH="/opt/homebrew/opt/node@24/bin:$PATH" npm --prefix frontend test`
+  - `PATH="/opt/homebrew/opt/node@24/bin:$PATH" npm --prefix frontend run lint && PATH="/opt/homebrew/opt/node@24/bin:$PATH" npm --prefix frontend run format:check && PATH="/opt/homebrew/opt/node@24/bin:$PATH" npm --prefix frontend run typecheck`
+
 ## 2026-10-18 GW-COMPANY-05 WMS 통합·10인 합성 기술 검증 완료 / 실운영 인수 미완료
 
 - 사용자05 승인·추가요청 회사1/부서1/총10명 최소 구성(창업 전 준비). GW7b41850+로컬main9f6cf36을 codex/gw-company-01에서 통합, 완료분 로컬main만반영·원격push/배포없음. [결과](GW_WMS통합_인수검증_GW-COMPANY-05.md), 운영 준비는결과연결문서. 최종commit은gitlog.
