@@ -1,3 +1,27 @@
+# 2026-10-18 FLOW-FIX-02 `portal/workspace-records.test.tsx` · `portal/screens.test.tsx` 시간 고정 완료
+
+- **브랜치**: `antigravity/flow-fix-02` (기준 `main` `d0c79ae`; 병행 `antigravity/w2b-1c` `3f27c02`는 C-4까지 100% 완료된 상태로 보존)
+- **마지막 커밋**: `git log -1 --oneline` 참조
+- **끝난 것 (FLOW-FIX-02)**:
+  - `frontend/src/portal/workspace-records.test.tsx`:
+    - `beforeEach`에 `vi.useFakeTimers({ toFake: ["Date"] })` + `vi.setSystemTime(new Date("2026-09-24T14:50:00Z"))` 설정 및 기존 `afterEach(() => vi.useRealTimers())` 유지.
+    - `"남은 시간은 서버 만료 시각과 현재 시간의 차이다"` 테스트의 중복 `vi.spyOn(Date, "now")`를 걷어내고 공통 고정 시각으로 `"남은 시간 10분"` 검증.
+  - `frontend/src/portal/screens.test.tsx`:
+    - `beforeEach`에 `vi.useFakeTimers({ toFake: ["Date"] })` + `vi.setSystemTime(new Date("2026-09-24T23:50:00+09:00"))` 설정 및 `afterEach(() => vi.useRealTimers())` 복원 추가.
+    - `"P-06 초기화는 확인 전 요청하지 않는다"` 테스트에 `expect(screen.getByText("남은 시간 10분")).toBeVisible()` 단언 추가.
+  - 검증 결과:
+    - `npm --prefix frontend test -- src/portal/workspace-records.test.tsx`: **22 passed (22)**
+    - `npm --prefix frontend test -- src/portal/screens.test.tsx`: **12 passed (12)**
+    - `npm --prefix frontend test`: **Test Files 77 passed (77), Tests 613 passed (613) — 실패 0건**
+    - `npm --prefix frontend run lint`, `npm --prefix frontend run format:check`, `npm --prefix frontend run typecheck`: 모두 통과 (0 errors)
+- **다음 할 일**: 사용자 확인 후 `antigravity/flow-fix-02` 병합 및 `antigravity/w2b-1c`(`3f27c02`, C-4 완료 커밋) 리뷰/마무리.
+- **주의점**:
+  - 원격 push 금지 (로컬 커밋만 유지).
+- **재현 명령**:
+  - `PATH="/opt/homebrew/opt/node@24/bin:$PATH" npm --prefix frontend test -- src/portal/workspace-records.test.tsx src/portal/screens.test.tsx`
+  - `PATH="/opt/homebrew/opt/node@24/bin:$PATH" npm --prefix frontend test`
+  - `PATH="/opt/homebrew/opt/node@24/bin:$PATH" npm --prefix frontend run lint && PATH="/opt/homebrew/opt/node@24/bin:$PATH" npm --prefix frontend run format:check && PATH="/opt/homebrew/opt/node@24/bin:$PATH" npm --prefix frontend run typecheck`
+
 # 2026-10-18 FLOW-FIX-01 `frontend/src/flow/projects.test.tsx` 날짜 경과 실패 7건 수정 완료
 
 - **브랜치**: `antigravity/flow-fix-01` (기준 `main` `2be292e`; 병행 `antigravity/w2b-1c` `3f27c02`는 그대로 보존)
