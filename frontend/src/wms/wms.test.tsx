@@ -1260,3 +1260,385 @@ it("W-11 적치 목록 렌더링, 추천 위치 기본 선택·변경 적치 완
     expect(cancelCalls).toHaveLength(1);
   });
 });
+
+it("W-12 피킹 지시 목록·필터·동선(sequenceNo) 명세·LOT 대체 사유·도착 위치 기본값 및 안내 검증", async () => {
+  const pickOrders = [
+    {
+      id: 101,
+      pickNo: "PK-20261018-001",
+      reservationId: 10,
+      reservationNo: "RV-20261018-001",
+      reservationStatus: "ACTIVE",
+      shipmentOrderRef: "SO-20261018-01",
+      warehouseId: 1,
+      warehouseCode: "WH-FG",
+      warehouseName: "완제품 창고",
+      status: "OPEN",
+      pickedAt: null,
+      stockDocumentId: null,
+      stockDocumentNo: null,
+      cancelReason: null,
+      createdAt: "2026-10-18T11:00:00+09:00",
+      lineCount: 2,
+      totalQty: "50.000",
+      totalPickedQty: null,
+      lotSubstitutions: [
+        {
+          lineNo: 1,
+          itemId: 21,
+          itemCode: "FG-C100",
+          requestedLotNo: "LOT-HELD-01",
+          requestedLocationCode: "F-A01",
+          requestedQty: "30.000",
+          keptQty: "0.000",
+          reason: "HOLD",
+          reasonLabel: "보류(HOLD) 상태",
+          allocatedLots: [
+            {
+              lotNo: "LOT-FEFO-02",
+              locationCode: "F-B02",
+              qty: "30.000",
+            },
+          ],
+          message:
+            "예약 LOT LOT-HELD-01이(가) 보류(HOLD) 상태여서 FEFO/FIFO 기준으로 LOT-FEFO-02(F-B02 · 30.000)을(를) 배정했습니다.",
+        },
+      ],
+      // 의도적으로 역순(sequenceNo 2 -> 1)으로 넣어 화면에서 sequenceNo 오름차순 정렬되는지 검증
+      lines: [
+        {
+          id: 1002,
+          pickOrderId: 101,
+          lineNo: 2,
+          sequenceNo: 2,
+          itemId: 21,
+          itemCode: "FG-C100",
+          itemName: "커넥터 C100",
+          itemClass: "FG",
+          baseUnit: "EA",
+          lotTracked: true,
+          locationId: 12,
+          locationCode: "F-B02",
+          locationName: "보조 랙",
+          warehouseId: 1,
+          warehouseCode: "WH-FG",
+          warehouseName: "완제품 창고",
+          lotNo: "LOT-FEFO-02",
+          expiryDate: "2026-11-30",
+          receivedOn: "2026-09-01",
+          qty: "30.000",
+          pickedQty: null,
+          createdAt: "2026-10-18T11:00:00+09:00",
+        },
+        {
+          id: 1001,
+          pickOrderId: 101,
+          lineNo: 1,
+          sequenceNo: 1,
+          itemId: 21,
+          itemCode: "FG-C100",
+          itemName: "커넥터 C100",
+          itemClass: "FG",
+          baseUnit: "EA",
+          lotTracked: true,
+          locationId: 11,
+          locationCode: "F-A01",
+          locationName: "기본 보관",
+          warehouseId: 1,
+          warehouseCode: "WH-FG",
+          warehouseName: "완제품 창고",
+          lotNo: "LOT-FEFO-01",
+          expiryDate: "2026-10-31",
+          receivedOn: "2026-08-15",
+          qty: "20.000",
+          pickedQty: null,
+          createdAt: "2026-10-18T11:00:00+09:00",
+        },
+      ],
+    },
+    {
+      id: 102,
+      pickNo: "PK-20261018-002",
+      reservationId: 11,
+      reservationNo: "RV-20261018-002",
+      reservationStatus: "ACTIVE",
+      shipmentOrderRef: null,
+      warehouseId: 2,
+      warehouseCode: "WH-RAW",
+      warehouseName: "원자재 창고",
+      status: "OPEN",
+      pickedAt: null,
+      stockDocumentId: null,
+      stockDocumentNo: null,
+      cancelReason: null,
+      createdAt: "2026-10-18T11:10:00+09:00",
+      lineCount: 1,
+      totalQty: "15.000",
+      totalPickedQty: null,
+      lotSubstitutions: [],
+      lines: [
+        {
+          id: 1003,
+          pickOrderId: 102,
+          lineNo: 1,
+          sequenceNo: 1,
+          itemId: 31,
+          itemCode: "RM-AL01",
+          itemName: "알루미늄 바",
+          itemClass: "RAW",
+          baseUnit: "KG",
+          lotTracked: false,
+          locationId: 21,
+          locationCode: "R-A01",
+          locationName: "원자재 랙1",
+          warehouseId: 2,
+          warehouseCode: "WH-RAW",
+          warehouseName: "원자재 창고",
+          lotNo: null,
+          expiryDate: null,
+          receivedOn: "2026-09-10",
+          qty: "15.000",
+          pickedQty: null,
+          createdAt: "2026-10-18T11:10:00+09:00",
+        },
+      ],
+    },
+  ];
+
+  // WH-FG(id=1): SHIPPING 위치(F-SHIP, id=19) 있음
+  const wh1Locations = [
+    {
+      id: 11,
+      warehouseId: 1,
+      warehouseCode: "WH-FG",
+      code: "F-A01",
+      name: "기본 보관",
+      isDefault: true,
+      isActive: true,
+      moveCount: 2,
+      locationType: "NORMAL",
+    },
+    {
+      id: 12,
+      warehouseId: 1,
+      warehouseCode: "WH-FG",
+      code: "F-B02",
+      name: "보조 랙",
+      isDefault: false,
+      isActive: true,
+      moveCount: 1,
+      locationType: "NORMAL",
+    },
+    {
+      id: 13,
+      warehouseId: 1,
+      warehouseCode: "WH-FG",
+      code: "F-C03",
+      name: "여유 랙",
+      isDefault: false,
+      isActive: true,
+      moveCount: 0,
+      locationType: "NORMAL",
+    },
+    {
+      id: 19,
+      warehouseId: 1,
+      warehouseCode: "WH-FG",
+      code: "F-SHIP",
+      name: "완제품 출고장",
+      isDefault: false,
+      isActive: true,
+      moveCount: 0,
+      locationType: "SHIPPING",
+    },
+  ];
+
+  // WH-RAW(id=2): SHIPPING 위치 없음 (NORMAL 위치만 존재)
+  const wh2Locations = [
+    {
+      id: 21,
+      warehouseId: 2,
+      warehouseCode: "WH-RAW",
+      code: "R-A01",
+      name: "원자재 랙1",
+      isDefault: true,
+      isActive: true,
+      moveCount: 1,
+      locationType: "NORMAL",
+    },
+    {
+      id: 22,
+      warehouseId: 2,
+      warehouseCode: "WH-RAW",
+      code: "R-A02",
+      name: "원자재 랙2",
+      isDefault: false,
+      isActive: true,
+      moveCount: 0,
+      locationType: "NORMAL",
+    },
+  ];
+
+  const fetcher = mount("/wms/picks", {
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-FG",
+        name: "완제품 창고",
+        purpose: "FG",
+        isActive: true,
+        locationCount: 4,
+      },
+      {
+        id: 2,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 2,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      ...items,
+      {
+        id: 31,
+        itemCode: "RM-AL01",
+        name: "알루미늄 바",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: false,
+        isActive: true,
+        moveCount: 1,
+        conversions: [],
+      },
+    ]),
+    [`GET ${W}/reservations`]: ok({
+      rows: [
+        {
+          id: 10,
+          reservationNo: "RV-20261018-001",
+          shipmentOrderRef: "SO-20261018-01",
+          status: "ACTIVE",
+        },
+        {
+          id: 11,
+          reservationNo: "RV-20261018-002",
+          shipmentOrderRef: null,
+          status: "ACTIVE",
+        },
+      ],
+      total: 2,
+    }),
+    [`GET ${W}/pick-orders`]: ok({
+      rows: pickOrders,
+      total: 2,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses/1/locations`]: ok(wh1Locations),
+    [`GET ${W}/warehouses/2/locations`]: ok(wh2Locations),
+  });
+
+  expect(
+    await screen.findByRole("heading", { name: "W-12 피킹" }),
+  ).toBeVisible();
+
+  const listTable = screen.getByRole("table", { name: "피킹 지시 목록" });
+  expect(within(listTable).getByText("PK-20261018-001")).toBeVisible();
+  expect(within(listTable).getByText("PK-20261018-002")).toBeVisible();
+  expect(within(listTable).getByText("LOT 대체 1건")).toBeVisible();
+
+  // 1. 첫 번째 지시(SHIPPING 칸 존재 + LOT 대체 1건) 상세 열기
+  const detailBtns = within(listTable).getAllByRole("button", { name: "상세" });
+  fireEvent.click(detailBtns[0]);
+
+  const panel1 = await screen.findByRole("dialog", {
+    name: "PK-20261018-001",
+  });
+
+  // LOT 대체 사유 안내 검증
+  const subNote = within(panel1).getByRole("note", {
+    name: "예약 LOT 대체 배정 안내",
+  });
+  expect(within(subNote).getByText("보류(HOLD)")).toBeVisible();
+  expect(within(subNote).getByText("LOT-HELD-01")).toBeVisible();
+  expect(within(subNote).getByText(/LOT-FEFO-02 \(F-B02 · 30\)/)).toBeVisible();
+
+  // 피킹 동선 명세가 sequenceNo 오름차순(#1 F-A01 -> #2 F-B02)으로 표시되는지 확인
+  const routeTable = within(panel1).getByRole("table", {
+    name: "피킹 동선 명세",
+  });
+  const bodyRows = within(routeTable).getAllByRole("row").slice(1);
+  expect(bodyRows).toHaveLength(2);
+  expect(bodyRows[0]).toHaveTextContent("#1");
+  expect(bodyRows[0]).toHaveTextContent("F-A01");
+  expect(bodyRows[0]).toHaveTextContent("LOT-FEFO-01");
+  expect(bodyRows[1]).toHaveTextContent("#2");
+  expect(bodyRows[1]).toHaveTextContent("F-B02");
+  expect(bodyRows[1]).toHaveTextContent("LOT-FEFO-02");
+
+  // SHIPPING 칸(19: F-SHIP)이 기본 선택되고, 출고장 부재 안내 문구가 없어야 함
+  const toLocSelect1 = (await within(panel1).findByLabelText(
+    "도착 위치 선택",
+  )) as HTMLSelectElement;
+  await waitFor(() => {
+    expect(toLocSelect1.value).toBe("19");
+  });
+  expect(
+    within(panel1).queryByText(/출고장 칸이 없어 보관 칸으로 이동합니다/),
+  ).toBeNull();
+  // 출발 칸(11: F-A01, 12: F-B02)은 도착 위치 후보에서 제외되고 F-SHIP(19), F-C03(13)만 노출
+  expect(
+    within(toLocSelect1).queryByRole("option", { name: /F-A01/ }),
+  ).toBeNull();
+  expect(
+    within(toLocSelect1).getByRole("option", {
+      name: "F-SHIP 완제품 출고장 [출고장]",
+    }),
+  ).toBeInTheDocument();
+  expect(
+    within(toLocSelect1).getByRole("option", {
+      name: "F-C03 여유 랙 [보관]",
+    }),
+  ).toBeInTheDocument();
+
+  // D-2 범위에서는 확정·취소 버튼이 없어야 함
+  expect(
+    within(panel1).queryByRole("button", { name: /피킹 확정|피킹 완료|취소/ }),
+  ).toBeNull();
+
+  // 2. 두 번째 지시(SHIPPING 칸 없음) 상세 열기 -> 빈 선택 + 안내 문구 노출
+  fireEvent.click(within(panel1).getByRole("button", { name: "패널 닫기" }));
+  fireEvent.click(detailBtns[1]);
+
+  const panel2 = await screen.findByRole("dialog", {
+    name: "PK-20261018-002",
+  });
+  expect(
+    await within(panel2).findByText(
+      "출고장 칸이 없어 보관 칸으로 이동합니다. W-06에서 출고장을 만들 수 있습니다.",
+    ),
+  ).toBeVisible();
+  const toLocSelect2 = within(panel2).getByLabelText(
+    "도착 위치 선택",
+  ) as HTMLSelectElement;
+  expect(toLocSelect2.value).toBe("");
+  expect(
+    within(toLocSelect2).getByRole("option", {
+      name: "R-A02 원자재 랙2 [보관]",
+    }),
+  ).toBeInTheDocument();
+
+  // 3. 서버 필터 변경 시 쿼리 파라미터 반영 검증
+  fireEvent.change(screen.getByLabelText("상태 필터"), {
+    target: { value: "OPEN" },
+  });
+  await waitFor(() => {
+    const pickCalls = fetcher.mock.calls.filter(([u]) =>
+      String(u).includes("/pick-orders?"),
+    );
+    expect(pickCalls.some(([u]) => String(u).includes("status=OPEN"))).toBe(
+      true,
+    );
+  });
+});
