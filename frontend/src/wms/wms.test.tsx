@@ -1877,3 +1877,180 @@ it("W-09 출고 예약에서 피킹 지시 생성 실패 시 제외된 LOT과 �
     within(panel).getByText("LOT-HELD-001: 보류(HOLD) 상태"),
   ).toBeVisible();
 });
+
+it("W-13 생산 불출 목록·배정 미리보기·부족 안내·확정과 취소를 지원한다", async () => {
+  const base = {
+    id: 1,
+    requestNo: "IR-20261018-001",
+    workOrderNo: "WO-2026-001",
+    lineLocationId: 30,
+    lineLocationCode: "R-LINE",
+    lineLocationName: "생산 라인",
+    lineLocationType: "LINE" as const,
+    warehouseId: 1,
+    warehouseCode: "WH-RAW",
+    warehouseName: "원자재 창고",
+    status: "OPEN" as const,
+    neededAt: null,
+    issuedAt: null,
+    stockDocumentId: null,
+    stockDocumentNo: null,
+    cancelReason: null,
+    createdAt: "2026-10-18T10:00:00+09:00",
+    lineCount: 1,
+    lines: [
+      {
+        id: 11,
+        lineNo: 1,
+        itemId: 10,
+        itemCode: "RM-RAW01",
+        itemName: "원자재 품목",
+        baseUnit: "KG",
+        qty: "50.000",
+        issuedQty: null,
+      },
+    ],
+    allocationPreview: [
+      {
+        itemId: 10,
+        locationId: 21,
+        locationCode: "R-A01",
+        locationName: "원자재 랙",
+        lotNo: "LOT-OLD",
+        qty: "40.000",
+      },
+      {
+        itemId: 10,
+        locationId: 21,
+        locationCode: "R-A01",
+        locationName: "원자재 랙",
+        lotNo: "LOT-NEW",
+        qty: "10.000",
+      },
+    ],
+    shortages: [] as unknown[],
+  };
+  const shortRow = {
+    ...base,
+    id: 2,
+    requestNo: "IR-20261018-002",
+    allocationPreview: [],
+    shortages: [
+      {
+        itemId: 10,
+        requestedQty: "25.000",
+        availableQty: "20.000",
+        shortageQty: "5.000",
+      },
+    ],
+  };
+
+  const fetcher = mount("/wms/issues", {
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 3,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      {
+        id: 10,
+        itemCode: "RM-RAW01",
+        name: "원자재 품목",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: true,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/locations`]: ok([
+      {
+        id: 30,
+        warehouseId: 1,
+        warehouseCode: "WH-RAW",
+        code: "R-LINE",
+        name: "생산 라인",
+        isDefault: false,
+        isActive: true,
+        moveCount: 0,
+        locationType: "LINE",
+      },
+      {
+        id: 21,
+        warehouseId: 1,
+        warehouseCode: "WH-RAW",
+        code: "R-A01",
+        name: "원자재 랙",
+        isDefault: true,
+        isActive: true,
+        moveCount: 2,
+        locationType: "NORMAL",
+      },
+    ]),
+    [`GET ${W}/issue-requests`]: ok({
+      rows: [base, shortRow],
+      total: 2,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`POST ${W}/issue-requests/1/confirm`]: ok({
+      ...base,
+      status: "ISSUED",
+      issuedAt: "2026-10-18T10:20:00+09:00",
+      stockDocumentId: 777,
+      stockDocumentNo: "WD-20261018-007",
+      lines: [{ ...base.lines[0], issuedQty: "50.000" }],
+      allocationPreview: [],
+    }),
+    [`POST ${W}/issue-requests/2/cancel`]: ok({
+      ...shortRow,
+      status: "CANCELLED",
+      cancelReason: "작업지시 취소",
+    }),
+  });
+
+  expect(
+    await screen.findByRole("heading", { name: "W-13 생산 불출" }),
+  ).toBeVisible();
+  expect(await screen.findByText("IR-20261018-001")).toBeVisible();
+  // 부족이 있는 요청은 목록에서 배지로 먼저 알린다.
+  expect(screen.getByText("부족 1건")).toBeVisible();
+
+  // 상세: 유효기간이 빠른 LOT부터 배정한 미리보기를 보여 준다.
+  fireEvent.click(screen.getAllByRole("button", { name: "상세" })[0]);
+  expect(await screen.findByText(/배정 미리보기/)).toBeVisible();
+  expect(screen.getByText(/LOT-OLD/)).toBeVisible();
+  expect(screen.getByText(/LOT-NEW/)).toBeVisible();
+
+  // 확정은 명세별 불출 수량을 함께 보낸다.
+  fireEvent.click(screen.getByRole("button", { name: "불출 확정" }));
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/issue-requests/1/confirm")).toHaveLength(1),
+  );
+  expect(body(sent(fetcher, "POST", "/issue-requests/1/confirm")[0])).toEqual({
+    lines: [{ lineId: 11, issuedQty: "50.000" }],
+  });
+  expect(await screen.findByText("WD-20261018-007")).toBeVisible();
+
+  // 부족한 요청은 어느 품목이 얼마나 모자라는지 풀어서 보여 준다.
+  fireEvent.click(screen.getByRole("button", { name: "패널 닫기" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "상세" })[1]);
+  expect(await screen.findByText(/가용 재고가 모자랍니다/)).toBeVisible();
+  expect(screen.getByText(/부족 5/)).toBeVisible();
+
+  // 취소는 사유를 적어야 눌린다.
+  const cancel = screen.getByRole("button", { name: "불출 취소" });
+  expect(cancel).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("취소 사유"), {
+    target: { value: "작업지시 취소" },
+  });
+  fireEvent.click(cancel);
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/issue-requests/2/cancel")).toHaveLength(1),
+  );
+  expect(await screen.findByText("작업지시 취소")).toBeVisible();
+});

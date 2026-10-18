@@ -299,6 +299,10 @@
   - **HOLD·EXPIRED LOT 예약 차단**:
     - 신규 예약 등록 시 `picks._lot_metadata` 및 `picks._lot_block_reason`, `qms.held_lot_nos`를 활용하여 WMS 활성 보류(`LOT_HOLD`), QMS 품질 보류(`LOT_QMS_HOLD`), 유효기간 만료(`LOT_EXPIRED`) 상태의 LOT 지정을 `409 Conflict`로 즉시 차단.
 
+### W2b-1e 생산 불출(W-13) 구현 메모
 
-
-
+- `wms.issue_request_line`에 위치·LOT 칸이 없다. 그래서 LOT 배정을 저장하지 않고 **불출 시점에 계산**한다. 목록·상세는 같은 함수로 미리보기만 돌려준다(적치 추천 위치와 같은 방식).
+- 배정 규칙은 피킹(W-12)과 같다. `picks._candidate_buckets`에 예약 id 대신 `-1`을 넘기면 "모든 예약·피킹 선점을 뺀 가용 재고"가 나온다. 기존 코드를 고치지 않고 보류·만료 제외와 FEFO → FIFO를 그대로 쓴다.
+- 설계상 도착 위치는 `location_type = 'LINE'`이나 시드에 LINE 칸이 없다. 피킹의 SHIPPING과 같이 `NORMAL`도 허용하고 화면에서 안내한다. 시드는 바꾸지 않았다(`SEED_VERSION` 재상승 회피).
+- `PRODUCTION_ISSUE` 전표는 `status='posted'`, `source_key=NULL`(c625), `source_ref=request_no`. 같은 창고 안의 내부 이동이라 대시보드 입출고 집계에서 `TRANSFER`·`PUTAWAY`·`PICK`과 함께 제외한다.
+- MES 자재 투입(`MES_ISSUE`)이 라인 재고에서 차감하는 흐름은 MES 소유이며 이번 범위가 아니다.

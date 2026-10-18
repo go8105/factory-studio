@@ -1,3 +1,18 @@
+# 2026-10-18 W2b-1e 생산 불출(W-13) 구현 완료
+
+Claude Code가 직접 구현했다(D85로 D84 해제). 브랜치 `w2b-1e`.
+
+- 신규: `backend/src/fs/wms/issues.py`·`issue_schema.py`, `frontend/src/wms/Issues.tsx`, `backend/tests/test_wms_issues.py`. 라우트 4개(`/issue-requests` 목록·상세·confirm·cancel), 메뉴 W-13(`/wms/issues`), 메뉴 수 가드 116→117.
+- **배정은 저장하지 않는다.** `wms.issue_request_line`에 위치·LOT 칸이 없어 설계상 불출 시점 계산이다. 목록·상세는 같은 함수로 미리보기만 돌려준다.
+- **피킹 배정 규칙을 그대로 재사용했다.** `picks._candidate_buckets`에 예약 id 대신 `-1`을 넘기면 모든 예약·피킹 선점을 뺀 가용 재고가 나온다. 기존 코드 무변경으로 보류(활성 `lot_hold`·QMS 보류·`status='HOLD'`)·만료 제외와 FEFO → FIFO를 그대로 쓴다.
+- **LINE 칸이 시드에 없다.** 피킹의 SHIPPING과 같이 `LINE` 우선·`NORMAL` 허용 + 화면 안내로 처리했다. 시드 무변경(`SEED_VERSION` 재상승 회피).
+- `PRODUCTION_ISSUE` 전표는 `posted`·`source_key=NULL`·`source_ref=request_no`. 내부 이동이라 대시보드 입출고 집계에서 제외했다(`TRANSFER`·`PUTAWAY`·`PICK`과 동일). **설계 명시가 아니라 판단이다.**
+- 검증: 수동 CI 백엔드 **1,088 passed/2 skipped**·perf 1·작업자 탈락 0, DDL 0, 마이그레이션 왕복 0, 프런트 **621 passed/77 files**, ruff·format·typecheck·build 통과. DB·마이그레이션·시드 변경 없음.
+- 브라우저 실동작: 새 게스트 공간 → 라인 칸(`R-LINE`)·LOT 추적 자재 생성 → LOT-OLD(만료 2099-01-01) 40·LOT-NEW(2099-12-01) 40 입고 → 50 요청 시 **미리보기가 LOT-OLD 40 + LOT-NEW 10**으로 FEFO 정렬 → 확정 → 전표 `WD-20261018-003`(`PRODUCTION_ISSUE`·posted) 1장 → 원장 `R-A01 LOT-NEW 30` / `R-LINE LOT-OLD 40` + `LOT-NEW 10`, **총량 80 불변** → 재확정 409 `INVALID_STATE`, 전표 추가 없음 → 390px 가로 넘침 0.
+- 고친 것 하나: 처음에 `GET /wms/locations`를 불렀으나 그 엔드포인트가 없다(404). 위치는 `/warehouses/{id}/locations`로만 조회된다. 요청 폼에 창고 선택을 두고 그 창고의 칸을 불러오도록 바꿨다.
+- 함정 재확인: 단일 프런트 테스트는 `npm --prefix frontend test -- <파일>`. `npx --prefix frontend vitest run`은 설정을 못 읽어 전부 실패한 것처럼 보인다(내가 또 걸렸다).
+- 다음: W2b-1f 실사(W-14)·마감(W-15).
+
 # 2026-10-18 WMS·GW 회사인증 수동 운영 배포 완료 (a7c78d0)
 
 제품 `a7c78d0` 로컬main/origin/실서버 반영(19:53 KST). 서버 `c0f118e` → `a7c78d0`, 36초. 39커밋·154파일(+37,664/−15,733).
