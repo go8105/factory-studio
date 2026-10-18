@@ -610,3 +610,143 @@ def test_notice_date_and_reservation_shortage_filters(receiving_env):
     assert page["total"] == 1 and page["rows"][0]["id"] == r["id"]
     held = stock(env, locationType="QUARANTINE")["rows"]
     assert len(held) == 1 and held[0]["quarantinedOnHand"] == "3.000"
+
+
+def test_reservation_lot_tracked_validation_and_hold_expired_blocking(
+    receiving_env, monkeypatch
+):
+    """W2b-1d D-4: 완제품/원자재 대신 lotTracked 기준 검증 및 HOLD/EXPIRED LOT 예약 차단."""
+    from fs.wms import reservations as rsv_mod
+
+    env = receiving_env
+    loc_fg = env[3]["F-A01"]
+    loc_rm = env[3]["R-A01"]
+
+    # 1. lot_tracked=True 품목(FG-C100)에 lotNo 누락 -> 400
+    res_no_lot = reserve(env, qty="10", item="FG-C100", location=loc_fg, lot=None)
+    assert res_no_lot.status_code == 400
+    assert (
+        "LOT 추적 품목은 LOT 필수"
+        in res_no_lot.json()["error"]["details"]["fields"]["lines.0.lotNo"]
+    )
+
+    # 2. lot_tracked=False 품목(RM-PBT)에 lotNo 지정 -> 400
+    res_extra_lot = reserve(
+        env, qty="10", item="RM-PBT", location=loc_rm, lot="LOT-ILLEGAL"
+    )
+    assert res_extra_lot.status_code == 400
+    assert (
+        "LOT 추적 품목은 LOT 필수"
+        in res_extra_lot.json()["error"]["details"]["fields"]["lines.0.lotNo"]
+    )
+
+    # 3. 보류/만료 LOT 등록
+    lot_hold_body = {
+        "itemId": env[3]["FG-C100"],
+        "lotNo": "LOT-RSV-HOLD",
+        "origin": "MES",
+        "receivedOn": "2026-09-01",
+        "status": "AVAILABLE",
+    }
+    lot_hold_res = _ok(_call(env[0], env[1], "POST", "/lots", lot_hold_body), 201)
+    _ok(
+        _call(
+            env[0],
+            env[1],
+            "POST",
+            f"/lots/{lot_hold_res['id']}/hold",
+            {"source": "MANUAL", "reason": "품질 조사 보류"},
+        ),
+        201,
+    )
+    post(env, "50", item="FG-C100", lot="LOT-RSV-HOLD", loc=loc_fg)
+
+    lot_exp_body = {
+        "itemId": env[3]["FG-C100"],
+        "lotNo": "LOT-RSV-EXPIRED",
+        "origin": "MES",
+        "receivedOn": "2026-01-01",
+        "expiryDate": "2026-01-10",
+        "status": "AVAILABLE",
+    }
+    _ok(_call(env[0], env[1], "POST", "/lots", lot_exp_body), 201)
+    post(env, "50", item="FG-C100", lot="LOT-RSV-EXPIRED", loc=loc_fg)
+
+    lot_qms_body = {
+        "itemId": env[3]["FG-C100"],
+        "lotNo": "LOT-RSV-QMS",
+        "origin": "MES",
+        "receivedOn": "2026-09-01",
+        "expiryDate": "2099-12-31",
+        "status": "AVAILABLE",
+    }
+    _ok(_call(env[0], env[1], "POST", "/lots", lot_qms_body), 201)
+    post(env, "50", item="FG-C100", lot="LOT-RSV-QMS", loc=loc_fg)
+
+    lot_normal_body = {
+        "itemId": env[3]["FG-C100"],
+        "lotNo": "LOT-RSV-OK",
+        "origin": "MES",
+        "receivedOn": "2026-09-01",
+        "expiryDate": "2099-12-31",
+        "status": "AVAILABLE",
+    }
+    _ok(_call(env[0], env[1], "POST", "/lots", lot_normal_body), 201)
+    post(env, "50", item="FG-C100", lot="LOT-RSV-OK", loc=loc_fg)
+
+    # 4. WMS 활성 보류 LOT 예약 차단 -> 409 LOT_HOLD
+    r_hold = reserve(env, qty="10", item="FG-C100", location=loc_fg, lot="LOT-RSV-HOLD")
+    assert r_hold.status_code == 409 and _reason(r_hold) == "LOT_HOLD"
+
+    # 5. 유효기간 만료 LOT 예약 차단 -> 409 LOT_EXPIRED
+    r_exp = reserve(
+        env, qty="10", item="FG-C100", location=loc_fg, lot="LOT-RSV-EXPIRED"
+    )
+    assert r_exp.status_code == 409 and _reason(r_exp) == "LOT_EXPIRED"
+
+    # 6. QMS 보류 LOT 예약 차단 -> 409 LOT_QMS_HOLD
+    monkeypatch.setattr(rsv_mod.qms, "held_lot_nos", lambda *_: {"LOT-RSV-QMS"})
+    r_qms = reserve(env, qty="10", item="FG-C100", location=loc_fg, lot="LOT-RSV-QMS")
+    assert r_qms.status_code == 409 and _reason(r_qms) == "LOT_QMS_HOLD"
+
+    # 7. 정상 LOT은 예약 성공 및 피킹 지시 연결 필드 검증
+    r_ok = _ok(
+        reserve(env, qty="20", item="FG-C100", location=loc_fg, lot="LOT-RSV-OK"), 201
+    )
+    assert r_ok["status"] == "ACTIVE"
+
+    # 목록 및 상세에서 피킹 필드 기본값(None) 확인
+    detail = _ok(env[0].get(f"{W}/reservations/{r_ok['id']}"))
+    assert detail["pickOrderId"] is None
+    assert detail["pickOrderNo"] is None
+    assert detail["pickOrderStatus"] is None
+
+    res_list = _ok(env[0].get(f"{W}/reservations"))
+    row_in_list = next(x for x in res_list["rows"] if x["id"] == r_ok["id"])
+    assert row_in_list["pickOrderId"] is None
+    assert row_in_list["pickOrderStatus"] is None
+
+    # 피킹 지시 생성
+    pick = _ok(
+        _call(
+            env[0],
+            env[1],
+            "POST",
+            "/pick-orders",
+            {"reservationId": r_ok["id"]},
+        ),
+        201,
+    )
+    assert pick["status"] == "OPEN"
+
+    # 상세 및 목록에서 피킹 지시 필드 연계 확인
+    detail2 = _ok(env[0].get(f"{W}/reservations/{r_ok['id']}"))
+    assert detail2["pickOrderId"] == pick["id"]
+    assert detail2["pickOrderNo"] == pick["pickNo"]
+    assert detail2["pickOrderStatus"] == "OPEN"
+
+    res_list2 = _ok(env[0].get(f"{W}/reservations"))
+    row_in_list2 = next(x for x in res_list2["rows"] if x["id"] == r_ok["id"])
+    assert row_in_list2["pickOrderId"] == pick["id"]
+    assert row_in_list2["pickOrderNo"] == pick["pickNo"]
+    assert row_in_list2["pickOrderStatus"] == "OPEN"

@@ -1645,3 +1645,235 @@ it("W-12 피킹 지시 목록·필터·동선(sequenceNo) 명세·LOT 대체 사
     );
   });
 });
+
+it("W-09 출고 예약 목록 및 상세에서 피킹 상태 연계와 피킹 지시 생성을 지원한다", async () => {
+  const reservationRow = {
+    id: 101,
+    reservationNo: "RSV-20261018-001",
+    businessKey: "BK-RSV-001",
+    status: "ACTIVE",
+    version: 1,
+    shipmentOrderRef: "SO-101",
+    shipmentSourceKey: null,
+    stockDocumentId: null,
+    reason: null,
+    shortage: "0",
+    pickOrderId: null,
+    pickOrderNo: null,
+    pickOrderStatus: null,
+    lines: [
+      {
+        id: 201,
+        itemId: 1,
+        locationId: 10,
+        lotNo: "LOT-FG-001",
+        quantity: "50",
+        onHand: "100",
+        normalOnHand: "100",
+        reservedQty: "50",
+        available: "50",
+        reservationShortage: "0",
+      },
+    ],
+    shipmentOrderState: "match",
+    shipmentOrderComparison: {
+      state: "match",
+      lines: [
+        {
+          itemCode: "FG-C100",
+          unit: "EA",
+          reservedQty: "50",
+          orderQty: "50",
+        },
+      ],
+    },
+  };
+
+  const fetcher = mount("/wms/reservations", {
+    [`GET ${W}/items`]: ok([
+      {
+        id: 1,
+        itemCode: "FG-C100",
+        itemName: "완제품 C100",
+        itemClass: "FG",
+        baseUnit: "EA",
+        lotTracked: true,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/reservations`]: ok({
+      rows: [reservationRow],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/reservations/101`]: ok(reservationRow),
+    [`GET ${W}/reservation-sources`]: ok({
+      enabled: false,
+      orders: [],
+      shipments: [],
+    }),
+    [`POST ${W}/pick-orders`]: ok({
+      id: 501,
+      pickNo: "PK-20261018-501",
+      status: "OPEN",
+    }),
+  });
+
+  expect(
+    await screen.findByRole("heading", { name: "출고 예약" }),
+  ).toBeVisible();
+
+  // 1. 목록에 피킹 상태 컬럼 및 "미지시" 배지 확인
+  const table = await screen.findByRole("table", { name: "출고 예약" });
+  expect(within(table).getByText("피킹 상태")).toBeInTheDocument();
+  expect(within(table).getByText("미지시")).toBeInTheDocument();
+
+  // 2. 상세 열기
+  fireEvent.click(within(table).getByRole("button", { name: "상세" }));
+  const panel = await screen.findByRole("dialog", {
+    name: "RSV-20261018-001",
+  });
+  expect(within(panel).getByText("피킹: 미지시")).toBeVisible();
+  expect(
+    within(panel).getByText("아직 발행된 피킹 지시가 없습니다."),
+  ).toBeVisible();
+
+  // 3. 피킹 지시 생성 버튼 확인 및 클릭
+  const createBtn = within(panel).getByRole("button", {
+    name: "피킹 지시 생성",
+  });
+  expect(createBtn).toBeEnabled();
+  fireEvent.click(createBtn);
+
+  // 4. 생성 성공 알림 및 피킹 지시 이동 링크 확인
+  expect(
+    await within(panel).findByText(
+      "피킹 지시가 생성되었습니다 (PK-20261018-501).",
+    ),
+  ).toBeVisible();
+  expect(
+    within(panel).getByRole("link", { name: "피킹 지시로 이동" }),
+  ).toHaveAttribute("href", "/wms/picks?open=501");
+
+  // POST 요청 body 검증
+  const postCalls = fetcher.mock.calls.filter(([u]) =>
+    String(u).endsWith("/pick-orders"),
+  );
+  expect(postCalls.length).toBe(1);
+  const sentBody = JSON.parse(String(postCalls[0][1]?.body));
+  expect(sentBody).toEqual({ reservationId: 101 });
+});
+
+it("W-09 출고 예약에서 피킹 지시 생성 실패 시 제외된 LOT과 부족 품목을 상세하게 안내한다", async () => {
+  const reservationRow = {
+    id: 102,
+    reservationNo: "RSV-20261018-002",
+    businessKey: "BK-RSV-002",
+    status: "ACTIVE",
+    version: 1,
+    shipmentOrderRef: null,
+    shipmentSourceKey: null,
+    stockDocumentId: null,
+    reason: null,
+    shortage: "0",
+    pickOrderId: null,
+    pickOrderNo: null,
+    pickOrderStatus: null,
+    lines: [
+      {
+        id: 202,
+        itemId: 1,
+        locationId: 10,
+        lotNo: "LOT-HELD-001",
+        quantity: "40",
+        onHand: "40",
+        normalOnHand: "40",
+        reservedQty: "40",
+        available: "40",
+        reservationShortage: "0",
+      },
+    ],
+    shipmentOrderState: "unlinked",
+    shipmentOrderComparison: { state: "unlinked", lines: [] },
+  };
+
+  mount("/wms/reservations", {
+    [`GET ${W}/items`]: ok([
+      {
+        id: 1,
+        itemCode: "FG-C100",
+        itemName: "완제품 C100",
+        itemClass: "FG",
+        baseUnit: "EA",
+        lotTracked: true,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/reservations`]: ok({
+      rows: [reservationRow],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/reservations/102`]: ok(reservationRow),
+    [`GET ${W}/reservation-sources`]: ok({
+      enabled: false,
+      orders: [],
+      shipments: [],
+    }),
+    [`POST ${W}/pick-orders`]: {
+      status: 409,
+      body: {
+        error: {
+          code: "INSUFFICIENT_AVAILABLE",
+          message:
+            "가용 재고가 부족하여 피킹 지시를 생성할 수 없습니다. (제외된 LOT: LOT-HELD-001(보류(HOLD) 상태))",
+          details: {
+            reason: "INSUFFICIENT_AVAILABLE",
+            insufficientItems: [
+              {
+                itemId: 1,
+                itemCode: "FG-C100",
+                requested: "40",
+                available: "0",
+              },
+            ],
+            excludedLots: [
+              {
+                itemId: 1,
+                lotNo: "LOT-HELD-001",
+                reason: "HOLD",
+                reasonLabel: "보류(HOLD) 상태",
+              },
+            ],
+          },
+        },
+      },
+    },
+  });
+
+  const table = await screen.findByRole("table", { name: "출고 예약" });
+  fireEvent.click(within(table).getByRole("button", { name: "상세" }));
+  const panel = await screen.findByRole("dialog", {
+    name: "RSV-20261018-002",
+  });
+
+  const createBtn = within(panel).getByRole("button", {
+    name: "피킹 지시 생성",
+  });
+  fireEvent.click(createBtn);
+
+  // 에러 메시지 및 상세 부족 안내 노출 검증
+  expect(
+    await within(panel).findByText(
+      "가용 재고가 부족하여 피킹 지시를 생성할 수 없습니다. (제외된 LOT: LOT-HELD-001(보류(HOLD) 상태))",
+    ),
+  ).toBeVisible();
+  expect(within(panel).getByText("부족 품목:")).toBeVisible();
+  expect(within(panel).getByText("FG-C100: 요청 40 / 가용 0")).toBeVisible();
+  expect(within(panel).getByText("제외된 LOT (보류·만료):")).toBeVisible();
+  expect(
+    within(panel).getByText("LOT-HELD-001: 보류(HOLD) 상태"),
+  ).toBeVisible();
+});

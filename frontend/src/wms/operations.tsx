@@ -53,6 +53,9 @@ export type Reservation = {
   stockDocumentId: number | null;
   reason: string | null;
   shortage?: string;
+  pickOrderId?: number | null;
+  pickOrderNo?: string | null;
+  pickOrderStatus?: "OPEN" | "PICKED" | "CANCELLED" | null;
   lines: (StockQuantities & {
     id: number;
     itemId: number;

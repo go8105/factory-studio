@@ -1,4 +1,53 @@
+# 2026-10-18 W2b-1d D-4 W-09 출고 예약 피킹 상태 연계 및 완제품 출고 예약 보강 완료 (W2b-1d 전체 완료)
+
+- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio-ag` / `antigravity/w2b-1d-work`
+- **마지막 커밋**: `git log -1 --oneline` 참조
+- **끝난 것 (W2b-1d D-4 & W2b-1d 전체 완료)**:
+  - 기존 데이터 감사: `lot_tracked = false & lot_no IS NOT NULL` (0건), `lot_tracked = true & lot_no IS NULL` (0건) 확인 완료.
+  - `backend/src/fs/wms/reservations.py`:
+    - `list_reservations`: `wms.pick_order`를 `LEFT JOIN`하여 단일 쿼리로 `pickOrderId`, `pickOrderNo`, `pickOrderStatus`(`OPEN`, `PICKED`, `CANCELLED`, 미지시 null) 반환 (N+1 방지).
+    - `_detail`: `wms.pick_order` 조회 연계하여 최신 피킹 지시 정보(`pickOrderId`, `pickOrderNo`, `pickOrderStatus`) 반환.
+    - 예약 등록 규칙 정규화 (C-2 일관성): 품목 LOT 필수 여부 검증을 `bool(lot) != (item["itemClass"] == "FG")`에서 C-2와 동일한 `bool(lot) != bool(item.get("lotTracked"))`로 수정.
+    - HOLD·EXPIRED LOT 예약 차단: 신규 예약 등록 시 `picks._lot_metadata`, `picks._lot_block_reason`, `qms.held_lot_nos`를 활용하여 WMS 활성 보류(`LOT_HOLD`), QMS 품질 보류(`LOT_QMS_HOLD`), 만료(`LOT_EXPIRED`) 상태의 LOT 지정을 `409 Conflict`로 즉시 차단.
+  - `backend/tests/test_wms_reservations.py`:
+    - `test_reservation_lot_tracked_validation_and_hold_expired_blocking` 신규 추가 (lotTracked 불일치 400 거절, WMS 보류 409, 유효기간 만료 409, QMS 보류 409 차단, 피킹 지시 생성 전후 상세/목록 연계 검증).
+  - `frontend/src/wms/operations.tsx`: `Reservation` 타입에 `pickOrderId?: number | null`, `pickOrderNo?: string | null`, `pickOrderStatus?: PickOrderStatus | null` 추가.
+  - `frontend/src/wms/Reservations.tsx`:
+    - 예약 목록 테이블에 "피킹 상태" 컬럼 추가 (`미지시` neutral, `대기` warning, `피킹 완료` normal, `취소` issue 배지).
+    - 예약 상세 패널에 피킹 상태 배지 표시 및 "피킹 지시" 섹션 연계:
+      - 지시 번호, 상태, W-12 화면 링크(`/wms/picks?open={id}`) 제공.
+      - `ACTIVE` 상태이면서 미지시 또는 취소 상태일 때 "피킹 지시 생성" 버튼 노출 (OPEN/PICKED 존재 시 숨김).
+      - 피킹 지시 생성 성공 시 알림 및 이동 링크 제공.
+      - 피킹 지시 생성 실패(`409 INSUFFICIENT_AVAILABLE`) 시, 제외된 LOT(`excludedLots`: LOT 번호, 사유 레이블)과 부족 품목(`insufficientItems`: 품목 코드, 요청/가용 수량)을 상세 패널 상단 알림(`role="alert"`)으로 명확히 안내.
+  - `frontend/src/wms/wms.test.tsx`:
+    - W-09 출고 예약 목록 및 상세에서 피킹 상태 연계와 피킹 지시 생성 테스트 추가.
+    - W-09 출고 예약에서 피킹 지시 생성 실패 시 제외된 LOT과 부족 품목 상세 안내 테스트 추가.
+- **검증 결과**:
+  - 브라우저 Playwright E2E 검증 (`scratch/verify_d4_reservations.mjs`):
+    - 게스트 공간 생성 -> 기초 재고 입고 -> W-09 예약 등록 -> 목록에서 피킹 상태 "미지시" 확인 (`wms-reservations-d4-list.png`).
+    - W-09 상세 진입 -> 피킹 미지시 배지 및 "피킹 지시 생성" 버튼 확인 (`wms-reservations-d4-detail-unassigned.png`).
+    - "피킹 지시 생성" 클릭 -> 피킹 지시 생성 완료 알림 및 링크 확인.
+    - W-12 피킹 화면 이동 -> 생성된 피킹 지시(OPEN) 확인 -> F-SHIP 도착 칸 선택 후 "피킹 확정" 클릭 (`wms-reservations-d4-linked-pick.png`).
+    - W-09 출고 예약 화면 복귀 -> 목록에서 피킹 상태 "피킹 완료" 갱신 확인 (`wms-reservations-d4-picked-list.png`).
+    - 상세 패널 재진입 -> 상단 "피킹: 피킹 완료" 배지 표시, 지시 번호 및 상태, W-12 링크 확인, 중복 "피킹 지시 생성" 버튼 숨김 확인 (`wms-reservations-d4-picked-detail.png`).
+    - 모바일 390px 뷰포트: `scrollWidth = 390, clientWidth = 390` (가로 오버플로 0건) 확인 (`wms-reservations-d4-mobile-390.png`).
+    - `ALL D-4 BROWSER VERIFICATIONS PASSED!`
+  - `tools/ci_local.sh` 1~5단계 전체 통과:
+    - 1단계 (DB 검증·도구): 통과 (`tables: 210, errors: []`, 도구 138건 통과)
+    - 2단계 (백엔드 ruff): 통과 (`All checks passed! 247 files clean`)
+    - 3단계 (백엔드 pytest): 통과 (`1084 passed, 2 skipped, 58 warnings in 487.10s`, `pytest -m perf`: 1 passed, xdist 작업자 탈락 0건)
+    - 4단계 (DB 초기화·마이그레이션 왕복): 통과 (`downgrade base` -> `upgrade head`, DDL 0건 차이)
+    - 5단계 (프런트엔드): 통과 (`typecheck`, `lint`, `format:check`, `build`, `Test Files 77 passed (77), Tests 620 passed (620)`)
+- **다음 할 일**:
+  - 사용자 확인 후 **W2b-1e (출하 검사 W-10 · ERP 출하 연계 E-07)** 착수.
+- **주의점**:
+  - 모든 작업은 `/Users/hwang-kyoungho/projects/factory-studio-ag` (`antigravity/w2b-1d-work`)에서 수행한다 (`/Users/hwang-kyoungho/projects/factory-studio`는 `main` 전용).
+  - `main`을 끌어오거나 원격 push 하지 않는다.
+- **재현 명령**:
+  - `cd /Users/hwang-kyoungho/projects/factory-studio-ag && npm run ci:local`
+
 # 2026-10-18 W2b-1d D-3 피킹 확정·취소 API 및 화면 연계 + 유효 현재 위치 도출 완료 (D-4 대기)
+
 
 - **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio-ag` / `antigravity/w2b-1d-work` (기준 `main` `843036f` + D-1 `cc8cfaf` + WMS-FIX-02 `4b32578` + D-2 `bf2f69e`)
 - **마지막 커밋**: `git log -1 --oneline` 참조
