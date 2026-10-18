@@ -389,6 +389,14 @@ def normalize_created_at(
                     "hr",
                 }:
                     continue
+                parent_columns = {
+                    column["name"]
+                    for column in inspector.get_columns(
+                        parent_table, schema=parent_schema
+                    )
+                }
+                if "created_at" not in parent_columns:
+                    continue
                 join = " AND ".join(
                     f'c."{local}"=p."{remote}"'
                     for local, remote in zip(

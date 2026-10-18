@@ -1,3 +1,7 @@
+## 2026-10-18 GW-READY-02 WIP 전체 설계 승인·제품 구현 진행
+
+사용자 전체설계승인+도움말문서화 요청. 같은 ID A~E 계속 진행·재승인 반복 없음. A MFA/단계인증/암호화키/DB시도제한/세션버전·기본복구/재등록/코드재발급/다른세션 API·화면, C일부 정책/서명커널/새버전 API·운영기준 UI·정적 도움말. 신규9표/기존2확장·schema0.28/219표2409컬럼543FK·현재목표Excel/ERD·소유PG18DDL오류0. 초기보안29통과·실제품Chrome390/등록·로그인·복구·도움말 오류0·프런트610통과/기존Flow7실패. 시드의부모created_at가정발견수정후관련회귀중. 긴급복구/SSO·증거/보관·백업/복원·전체인수/main반영미완료. 결과문서 GW_실사용구현_GW-READY-02.md 참조. branch codex/gw-company-01, 최종커밋gitlog·main2be292e 유지·원격/배포없음. 검토8362/5362종료, 소유PG fs-gw-ready02-test/55438만사용·종료시ID/label대조삭제 및work비밀제거필수. Python3.14/Node24사용(시스템python ast는3.14문법미지원). 다음ID착수없음·현재02계속.
+
 ## 2026-10-18 GW-READY-01 설계·검토 시제품 완료 / 전체 설계 확인 대기
 
 신규 인증·복구·운영 범위는 AGENTS§2 전체 설계 확인 대상. 회사1/부서1/10인 기본안, GitHub EGroupware/Frappe/authentik/Nextcloud 등 비교·제안9표/기존2확장/FK19·DB/API/ERD/Excel9시트·정적 시제품 완료. Chrome11desktop/6mobile·입력 유지/포커스/키보드·오류0/외부요청0, 정적 도구 검사 통과. 실제 인증·복구·백업·정책 저장 미구현, 현재DB210표/main2be292e 불변. branch codex/gw-company-01, WIP32033db, 최종커밋gitlog 참조. 결과: [결과](agent/GW_실사용설계_UI검토_GW-READY-01.md). 다음은 전체설계확인후 GW-READY-02 A~E 일괄 구현, 내부 단계 승인 반복 없음. 원격push/배포없음. 정적 서버8371은 검증 후 종료; 재현은 prototypes/gw-readiness/README.md. 임시 work 자료·자격증명 불필요. 실제계정/비밀번호/공유환경/다른checkout 변경없음.

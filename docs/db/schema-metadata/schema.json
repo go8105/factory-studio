@@ -1,9 +1,9 @@
 {
-  "version": "0.27.0",
-  "task": "GW-COMPANY-05",
+  "version": "0.28.0",
+  "task": "GW-READY-02",
   "date": "2026-10-18",
-  "status": "구현 명세 / 환경별 적용 상태는 인계 참조",
-  "migration_revision": "gw_wms_merge",
+  "status": "구현 중 / 로컬 검증 전",
+  "migration_revision": "gw_readiness",
   "tables": [
     {
       "name": "core.app_user",
@@ -66,6 +66,14 @@
           "nullable": false,
           "default": "'active'",
           "rule": "active / disabled"
+        },
+        {
+          "name": "security_version",
+          "label": "security_version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": "기존 컬럼 유지·제안 필드만 표시"
         }
       ],
       "note": "",
@@ -134,6 +142,46 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "assurance",
+          "label": "assurance",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": "'PASSWORD'",
+          "rule": "기존 컬럼 유지·제안 필드만 표시"
+        },
+        {
+          "name": "verified_at",
+          "label": "verified_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "기존 컬럼 유지·제안 필드만 표시"
+        },
+        {
+          "name": "security_version",
+          "label": "security_version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": "기존 컬럼 유지·제안 필드만 표시"
+        },
+        {
+          "name": "auth_method",
+          "label": "auth_method",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": "'PASSWORD'",
+          "rule": "기존 컬럼 유지·제안 필드만 표시"
+        },
+        {
+          "name": "absolute_expires_at",
+          "label": "absolute_expires_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "기존 컬럼 유지·제안 필드만 표시"
         }
       ],
       "note": "만료 세션 정리; 실습 초기화와 무관",
@@ -20717,6 +20765,969 @@
       "note": "회사 GW 보안 원장. 인증 user_id는 검증된 식별자이며 core 업무 FK 없음",
       "retention": "회사 운영 보존 정책에 따라 관리·물리 삭제 UI 없음",
       "guest_cleanup": "공개 템플릿 0행·게스트 복사 금지"
+    },
+    {
+      "name": "core.mfa_factor",
+      "label": "인증 앱 수단",
+      "scope": "global",
+      "phase": "GW-READY-02",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": "id bigint PK"
+        },
+        {
+          "name": "user_id",
+          "label": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "user_id bigint NOT NULL FK core.app_user"
+        },
+        {
+          "name": "kind",
+          "label": "kind",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": "kind varchar(20) NOT NULL"
+        },
+        {
+          "name": "state",
+          "label": "state",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "state varchar(12) NOT NULL"
+        },
+        {
+          "name": "secret_ciphertext",
+          "label": "secret_ciphertext",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "rule": "secret_ciphertext text NOT NULL"
+        },
+        {
+          "name": "encryption_key_id",
+          "label": "encryption_key_id",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": "encryption_key_id varchar(60) NOT NULL"
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": "version integer NOT NULL default1"
+        },
+        {
+          "name": "last_used_step",
+          "label": "last_used_step",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "last_used_step bigint NULL"
+        },
+        {
+          "name": "pending_expires_at",
+          "label": "pending_expires_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "pending_expires_at timestamptz NULL"
+        },
+        {
+          "name": "confirmed_at",
+          "label": "confirmed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "confirmed_at timestamptz NULL"
+        },
+        {
+          "name": "revoked_at",
+          "label": "revoked_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "revoked_at timestamptz NULL"
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "created_at timestamptz NOT NULL"
+        }
+      ],
+      "note": "실사용 보안·운영 기반",
+      "retention": "명시 운영 보관 정책·원본 자동 삭제 없음",
+      "guest_cleanup": "회사 전용 0행·게스트 복사 금지"
+    },
+    {
+      "name": "core.authentication_challenge",
+      "label": "단계 인증 요청",
+      "scope": "global",
+      "phase": "GW-READY-02",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": "id bigint PK"
+        },
+        {
+          "name": "user_id",
+          "label": "user_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "user_id bigint NULL FK core.app_user"
+        },
+        {
+          "name": "session_id",
+          "label": "session_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "session_id bigint NULL"
+        },
+        {
+          "name": "purpose",
+          "label": "purpose",
+          "type": "varchar(24)",
+          "nullable": false,
+          "default": null,
+          "rule": "purpose varchar(24) NOT NULL"
+        },
+        {
+          "name": "token_hash",
+          "label": "token_hash",
+          "type": "varchar(64)",
+          "nullable": false,
+          "default": null,
+          "rule": "token_hash varchar(64) NOT NULL UK"
+        },
+        {
+          "name": "state",
+          "label": "state",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "state varchar(12) NOT NULL"
+        },
+        {
+          "name": "security_version",
+          "label": "security_version",
+          "type": "integer",
+          "nullable": true,
+          "default": null,
+          "rule": "security_version integer NULL"
+        },
+        {
+          "name": "provider_key",
+          "label": "provider_key",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": null,
+          "rule": "provider_key varchar(60) NULL"
+        },
+        {
+          "name": "protected_payload",
+          "label": "protected_payload",
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "rule": "protected_payload text NULL"
+        },
+        {
+          "name": "encryption_key_id",
+          "label": "encryption_key_id",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": null,
+          "rule": "encryption_key_id varchar(60) NULL"
+        },
+        {
+          "name": "attempt_count",
+          "label": "attempt_count",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "rule": "attempt_count integer NOT NULL default0"
+        },
+        {
+          "name": "expires_at",
+          "label": "expires_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "expires_at timestamptz NOT NULL"
+        },
+        {
+          "name": "consumed_at",
+          "label": "consumed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "consumed_at timestamptz NULL"
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "created_at timestamptz NOT NULL"
+        }
+      ],
+      "note": "실사용 보안·운영 기반",
+      "retention": "명시 운영 보관 정책·원본 자동 삭제 없음",
+      "guest_cleanup": "회사 전용 0행·게스트 복사 금지"
+    },
+    {
+      "name": "core.recovery_code",
+      "label": "일회용 복구 코드",
+      "scope": "global",
+      "phase": "GW-READY-02",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": "id bigint PK"
+        },
+        {
+          "name": "user_id",
+          "label": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "user_id bigint NOT NULL"
+        },
+        {
+          "name": "factor_id",
+          "label": "factor_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "factor_id bigint NOT NULL"
+        },
+        {
+          "name": "factor_version",
+          "label": "factor_version",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "factor_version integer NOT NULL"
+        },
+        {
+          "name": "code_hash",
+          "label": "code_hash",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "rule": "code_hash text NOT NULL"
+        },
+        {
+          "name": "used_at",
+          "label": "used_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "used_at timestamptz NULL"
+        },
+        {
+          "name": "revoked_at",
+          "label": "revoked_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "revoked_at timestamptz NULL"
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "created_at timestamptz NOT NULL"
+        }
+      ],
+      "note": "실사용 보안·운영 기반",
+      "retention": "명시 운영 보관 정책·원본 자동 삭제 없음",
+      "guest_cleanup": "회사 전용 0행·게스트 복사 금지"
+    },
+    {
+      "name": "core.sso_identity",
+      "label": "SSO 본인 연결",
+      "scope": "global",
+      "phase": "GW-READY-02",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": "id bigint PK"
+        },
+        {
+          "name": "user_id",
+          "label": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "user_id bigint NOT NULL FK core.app_user"
+        },
+        {
+          "name": "provider_key",
+          "label": "provider_key",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": "provider_key varchar(60) NOT NULL"
+        },
+        {
+          "name": "issuer",
+          "label": "issuer",
+          "type": "varchar(500)",
+          "nullable": false,
+          "default": null,
+          "rule": "issuer varchar(500) NOT NULL"
+        },
+        {
+          "name": "subject",
+          "label": "subject",
+          "type": "varchar(255)",
+          "nullable": false,
+          "default": null,
+          "rule": "subject varchar(255) NOT NULL"
+        },
+        {
+          "name": "state",
+          "label": "state",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "state varchar(12) NOT NULL"
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": "version integer NOT NULL default1"
+        },
+        {
+          "name": "linked_at",
+          "label": "linked_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "linked_at timestamptz NOT NULL"
+        },
+        {
+          "name": "revoked_at",
+          "label": "revoked_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "revoked_at timestamptz NULL"
+        }
+      ],
+      "note": "실사용 보안·운영 기반",
+      "retention": "명시 운영 보관 정책·원본 자동 삭제 없음",
+      "guest_cleanup": "회사 전용 0행·게스트 복사 금지"
+    },
+    {
+      "name": "core.authentication_throttle",
+      "label": "인증 시도 제한",
+      "scope": "global",
+      "phase": "GW-READY-02",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": "id bigint PK"
+        },
+        {
+          "name": "bucket_hash",
+          "label": "bucket_hash",
+          "type": "varchar(64)",
+          "nullable": false,
+          "default": null,
+          "rule": "bucket_hash varchar(64) NOT NULL"
+        },
+        {
+          "name": "window_started_at",
+          "label": "window_started_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "window_started_at timestamptz NOT NULL"
+        },
+        {
+          "name": "fail_count",
+          "label": "fail_count",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "rule": "fail_count integer NOT NULL default0"
+        },
+        {
+          "name": "locked_until",
+          "label": "locked_until",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "locked_until timestamptz NULL"
+        },
+        {
+          "name": "updated_at",
+          "label": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "updated_at timestamptz NOT NULL"
+        }
+      ],
+      "note": "실사용 보안·운영 기반",
+      "retention": "명시 운영 보관 정책·원본 자동 삭제 없음",
+      "guest_cleanup": "회사 전용 0행·게스트 복사 금지"
+    },
+    {
+      "name": "gw.operating_settings",
+      "label": "회사 운영 상태",
+      "scope": "workspace_generation",
+      "phase": "GW-READY-02",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": "PK"
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "S 범위 앵커"
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "S 범위 앵커"
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": "version integer NOT NULL default1"
+        },
+        {
+          "name": "current_policy_revision_id",
+          "label": "current_policy_revision_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "current_policy_revision_id bigint NULL"
+        },
+        {
+          "name": "rollout_state",
+          "label": "rollout_state",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "rollout_state varchar(12) NOT NULL"
+        },
+        {
+          "name": "company_hold",
+          "label": "company_hold",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "rule": "company_hold boolean NOT NULL defaultfalse"
+        },
+        {
+          "name": "hold_reason",
+          "label": "hold_reason",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": "hold_reason varchar(500) NULL"
+        },
+        {
+          "name": "updated_by_user_id",
+          "label": "updated_by_user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "updated_by_user_id bigint NOT NULL"
+        },
+        {
+          "name": "updated_at",
+          "label": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "updated_at timestamptz NOT NULL"
+        }
+      ],
+      "note": "실사용 보안·운영 기반",
+      "retention": "명시 운영 보관 정책·원본 자동 삭제 없음",
+      "guest_cleanup": "회사 전용 0행·게스트 복사 금지"
+    },
+    {
+      "name": "gw.operating_policy_revision",
+      "label": "운영 기준 버전",
+      "scope": "workspace_generation",
+      "phase": "GW-READY-02",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": "PK"
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "S 범위 앵커"
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "S 범위 앵커"
+        },
+        {
+          "name": "revision_no",
+          "label": "revision_no",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "revision_no integer NOT NULL"
+        },
+        {
+          "name": "expected_people",
+          "label": "expected_people",
+          "type": "integer",
+          "nullable": false,
+          "default": "10",
+          "rule": "expected_people integer NOT NULL default10"
+        },
+        {
+          "name": "expected_departments",
+          "label": "expected_departments",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": "expected_departments integer NOT NULL default1"
+        },
+        {
+          "name": "responsible_person_id",
+          "label": "responsible_person_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "responsible_person_id bigint NOT NULL"
+        },
+        {
+          "name": "backup_interval_minutes",
+          "label": "backup_interval_minutes",
+          "type": "integer",
+          "nullable": false,
+          "default": "30",
+          "rule": "backup_interval_minutes integer NOT NULL default30"
+        },
+        {
+          "name": "rpo_minutes",
+          "label": "rpo_minutes",
+          "type": "integer",
+          "nullable": false,
+          "default": "60",
+          "rule": "rpo_minutes integer NOT NULL default60"
+        },
+        {
+          "name": "rto_minutes",
+          "label": "rto_minutes",
+          "type": "integer",
+          "nullable": false,
+          "default": "240",
+          "rule": "rto_minutes integer NOT NULL default240"
+        },
+        {
+          "name": "document_review_months",
+          "label": "document_review_months",
+          "type": "integer",
+          "nullable": false,
+          "default": "36",
+          "rule": "document_review_months integer NOT NULL default36"
+        },
+        {
+          "name": "audit_review_months",
+          "label": "audit_review_months",
+          "type": "integer",
+          "nullable": false,
+          "default": "12",
+          "rule": "audit_review_months integer NOT NULL default12"
+        },
+        {
+          "name": "backup_keep_days",
+          "label": "backup_keep_days",
+          "type": "integer",
+          "nullable": false,
+          "default": "30",
+          "rule": "backup_keep_days integer NOT NULL default30"
+        },
+        {
+          "name": "reason",
+          "label": "reason",
+          "type": "varchar(500)",
+          "nullable": false,
+          "default": null,
+          "rule": "reason varchar(500) NOT NULL"
+        },
+        {
+          "name": "confirmed_by_user_id",
+          "label": "confirmed_by_user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "confirmed_by_user_id bigint NOT NULL"
+        },
+        {
+          "name": "confirmed_at",
+          "label": "confirmed_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "confirmed_at timestamptz NOT NULL"
+        },
+        {
+          "name": "policy_digest",
+          "label": "policy_digest",
+          "type": "varchar(64)",
+          "nullable": false,
+          "default": null,
+          "rule": "policy_digest varchar(64) NOT NULL"
+        }
+      ],
+      "note": "실사용 보안·운영 기반",
+      "retention": "명시 운영 보관 정책·원본 자동 삭제 없음",
+      "guest_cleanup": "회사 전용 0행·게스트 복사 금지"
+    },
+    {
+      "name": "gw.operating_evidence",
+      "label": "운영 실행 증거",
+      "scope": "workspace_generation",
+      "phase": "GW-READY-02",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": "PK"
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "S 범위 앵커"
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "S 범위 앵커"
+        },
+        {
+          "name": "run_id",
+          "label": "run_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "rule": "run_id uuid NOT NULL"
+        },
+        {
+          "name": "kind",
+          "label": "kind",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": "kind varchar(20) NOT NULL"
+        },
+        {
+          "name": "started_at",
+          "label": "started_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "started_at/finished_at timestamptz NOT NULL"
+        },
+        {
+          "name": "finished_at",
+          "label": "finished_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "started_at/finished_at timestamptz NOT NULL"
+        },
+        {
+          "name": "policy_revision_id",
+          "label": "policy_revision_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "policy_revision_id bigint NOT NULL"
+        },
+        {
+          "name": "code_revision",
+          "label": "code_revision",
+          "type": "varchar(64)",
+          "nullable": false,
+          "default": null,
+          "rule": "code_revision varchar(64) NOT NULL"
+        },
+        {
+          "name": "db_revision",
+          "label": "db_revision",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": "db_revision varchar(100) NOT NULL"
+        },
+        {
+          "name": "manifest_digest",
+          "label": "manifest_digest",
+          "type": "varchar(64)",
+          "nullable": false,
+          "default": null,
+          "rule": "manifest_digest varchar(64) NOT NULL"
+        },
+        {
+          "name": "result",
+          "label": "result",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "result varchar(12) NOT NULL"
+        },
+        {
+          "name": "metrics",
+          "label": "metrics",
+          "type": "jsonb",
+          "nullable": false,
+          "default": null,
+          "rule": "metrics jsonb NOT NULL"
+        },
+        {
+          "name": "signer_key_id",
+          "label": "signer_key_id",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": "signer_key_id varchar(60) NOT NULL"
+        },
+        {
+          "name": "signature",
+          "label": "signature",
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "rule": "signature text NOT NULL"
+        },
+        {
+          "name": "recorded_by_user_id",
+          "label": "recorded_by_user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "recorded_by_user_id bigint NOT NULL"
+        },
+        {
+          "name": "recorded_at",
+          "label": "recorded_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "recorded_at timestamptz NOT NULL"
+        }
+      ],
+      "note": "실사용 보안·운영 기반",
+      "retention": "명시 운영 보관 정책·원본 자동 삭제 없음",
+      "guest_cleanup": "회사 전용 0행·게스트 복사 금지"
+    },
+    {
+      "name": "gw.retention_review",
+      "label": "보관 검토",
+      "scope": "workspace_generation",
+      "phase": "GW-READY-02",
+      "columns": [
+        {
+          "name": "id",
+          "label": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": "PK"
+        },
+        {
+          "name": "workspace_id",
+          "label": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "S 범위 앵커"
+        },
+        {
+          "name": "generation_id",
+          "label": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "S 범위 앵커"
+        },
+        {
+          "name": "document_id",
+          "label": "document_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "document_id bigint NULL"
+        },
+        {
+          "name": "post_id",
+          "label": "post_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "post_id bigint NULL"
+        },
+        {
+          "name": "policy_revision_id",
+          "label": "policy_revision_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": "policy_revision_id bigint NOT NULL"
+        },
+        {
+          "name": "review_due_on",
+          "label": "review_due_on",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": "review_due_on date NOT NULL"
+        },
+        {
+          "name": "state",
+          "label": "state",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": "state varchar(20) NOT NULL"
+        },
+        {
+          "name": "archive_digest",
+          "label": "archive_digest",
+          "type": "varchar(64)",
+          "nullable": true,
+          "default": null,
+          "rule": "archive_digest varchar(64) NULL"
+        },
+        {
+          "name": "archive_reference",
+          "label": "archive_reference",
+          "type": "varchar(200)",
+          "nullable": true,
+          "default": null,
+          "rule": "archive_reference varchar(200) NULL"
+        },
+        {
+          "name": "reason",
+          "label": "reason",
+          "type": "varchar(500)",
+          "nullable": false,
+          "default": null,
+          "rule": "reason varchar(500) NOT NULL"
+        },
+        {
+          "name": "version",
+          "label": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "rule": "version integer NOT NULL default1"
+        },
+        {
+          "name": "reviewed_by_user_id",
+          "label": "reviewed_by_user_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "reviewed_by_user_id bigint NULL"
+        },
+        {
+          "name": "reviewed_at",
+          "label": "reviewed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "reviewed_at timestamptz NULL"
+        },
+        {
+          "name": "created_at",
+          "label": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": "created_at timestamptz NOT NULL"
+        }
+      ],
+      "note": "실사용 보안·운영 기반",
+      "retention": "명시 운영 보관 정책·원본 자동 삭제 없음",
+      "guest_cleanup": "회사 전용 0행·게스트 복사 금지"
     }
   ],
   "relations": [
@@ -29169,6 +30180,289 @@
       "on_delete": "RESTRICT",
       "on_update": "RESTRICT",
       "note": "회사 공간·세대 복합 참조"
+    },
+    {
+      "source": "core.mfa_factor",
+      "columns": [
+        "user_id"
+      ],
+      "target": "core.app_user",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "core.authentication_challenge",
+      "columns": [
+        "user_id"
+      ],
+      "target": "core.app_user",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "core.sso_identity",
+      "columns": [
+        "user_id"
+      ],
+      "target": "core.app_user",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "core.authentication_challenge",
+      "columns": [
+        "user_id",
+        "session_id"
+      ],
+      "target": "core.auth_session",
+      "target_columns": [
+        "user_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "core.recovery_code",
+      "columns": [
+        "user_id",
+        "factor_id"
+      ],
+      "target": "core.mfa_factor",
+      "target_columns": [
+        "user_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "gw.operating_settings",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "gw.operating_settings",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "gw.operating_policy_revision",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "gw.operating_policy_revision",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "gw.operating_evidence",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "gw.operating_evidence",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "gw.retention_review",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "gw.retention_review",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "gw.operating_settings",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "current_policy_revision_id"
+      ],
+      "target": "gw.operating_policy_revision",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "gw.operating_policy_revision",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "responsible_person_id"
+      ],
+      "target": "gw.person",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "gw.operating_evidence",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "policy_revision_id"
+      ],
+      "target": "gw.operating_policy_revision",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "gw.retention_review",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "policy_revision_id"
+      ],
+      "target": "gw.operating_policy_revision",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "gw.retention_review",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id"
+      ],
+      "target": "gw.approval_document",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
+    },
+    {
+      "source": "gw.retention_review",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "post_id"
+      ],
+      "target": "gw.board_post",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "GW-READY-02 승인 설계"
     }
   ],
   "constraints": [
@@ -44822,6 +46116,711 @@
       ],
       "expression": "assignment_seq>0",
       "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
+    },
+    {
+      "table": "core.mfa_factor",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.authentication_challenge",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.recovery_code",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.sso_identity",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.authentication_throttle",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_settings",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_settings",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_settings",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_evidence",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_evidence",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_evidence",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.retention_review",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.retention_review",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.retention_review",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.app_user",
+      "kind": "CHECK",
+      "columns": [
+        "security_version"
+      ],
+      "expression": "security_version>0",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.auth_session",
+      "kind": "UK",
+      "columns": [
+        "user_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.auth_session",
+      "kind": "CHECK",
+      "columns": [
+        "security_version"
+      ],
+      "expression": "security_version>0",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.auth_session",
+      "kind": "CHECK",
+      "columns": [
+        "assurance"
+      ],
+      "expression": "assurance IN ('PASSWORD','MFA','RECOVERY_LIMITED','OIDC')",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.auth_session",
+      "kind": "CHECK",
+      "columns": [
+        "auth_method"
+      ],
+      "expression": "auth_method IN ('PASSWORD','TOTP','RECOVERY','OIDC')",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.mfa_factor",
+      "kind": "UK",
+      "columns": [
+        "user_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.mfa_factor",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "user_id",
+        "kind"
+      ],
+      "expression": "UNIQUE WHERE state='ACTIVE'",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.mfa_factor",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "user_id",
+        "kind"
+      ],
+      "expression": "UNIQUE WHERE state='PENDING'",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.mfa_factor",
+      "kind": "CHECK",
+      "columns": [
+        "kind"
+      ],
+      "expression": "kind='TOTP'",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.mfa_factor",
+      "kind": "CHECK",
+      "columns": [
+        "version"
+      ],
+      "expression": "version>0",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.mfa_factor",
+      "kind": "CHECK",
+      "columns": [
+        "state",
+        "pending_expires_at",
+        "confirmed_at",
+        "revoked_at"
+      ],
+      "expression": "(state='PENDING' AND pending_expires_at IS NOT NULL AND revoked_at IS NULL) OR (state='ACTIVE' AND confirmed_at IS NOT NULL AND revoked_at IS NULL) OR (state='REVOKED' AND revoked_at IS NOT NULL)",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.authentication_challenge",
+      "kind": "UK",
+      "columns": [
+        "token_hash"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.authentication_challenge",
+      "kind": "CHECK",
+      "columns": [
+        "state"
+      ],
+      "expression": "state IN ('PENDING','CONSUMED','EXPIRED','LOCKED')",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.authentication_challenge",
+      "kind": "CHECK",
+      "columns": [
+        "purpose"
+      ],
+      "expression": "purpose IN ('LOGIN_MFA','STEP_UP','ENROLL','OIDC_LOGIN','OIDC_LINK','RECOVERY')",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.authentication_challenge",
+      "kind": "CHECK",
+      "columns": [
+        "attempt_count"
+      ],
+      "expression": "attempt_count>=0",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.authentication_challenge",
+      "kind": "CHECK",
+      "columns": [
+        "expires_at",
+        "created_at"
+      ],
+      "expression": "expires_at>created_at",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.authentication_challenge",
+      "kind": "CHECK",
+      "columns": [
+        "state",
+        "consumed_at"
+      ],
+      "expression": "state<>'CONSUMED' OR consumed_at IS NOT NULL",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.authentication_challenge",
+      "kind": "CHECK",
+      "columns": [
+        "purpose",
+        "user_id",
+        "session_id"
+      ],
+      "expression": "(purpose='OIDC_LOGIN' OR user_id IS NOT NULL) AND (purpose NOT IN ('STEP_UP','OIDC_LINK') OR session_id IS NOT NULL)",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.authentication_challenge",
+      "kind": "CHECK",
+      "columns": [
+        "protected_payload",
+        "encryption_key_id"
+      ],
+      "expression": "(protected_payload IS NULL)=(encryption_key_id IS NULL)",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.authentication_challenge",
+      "kind": "INDEX",
+      "columns": [
+        "expires_at"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.recovery_code",
+      "kind": "UK",
+      "columns": [
+        "user_id",
+        "code_hash"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.recovery_code",
+      "kind": "CHECK",
+      "columns": [
+        "factor_version"
+      ],
+      "expression": "factor_version>0",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.sso_identity",
+      "kind": "UK",
+      "columns": [
+        "issuer",
+        "subject"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.sso_identity",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "user_id",
+        "provider_key"
+      ],
+      "expression": "UNIQUE WHERE state='ACTIVE'",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.sso_identity",
+      "kind": "CHECK",
+      "columns": [
+        "state",
+        "revoked_at"
+      ],
+      "expression": "(state='ACTIVE' AND revoked_at IS NULL) OR (state='REVOKED' AND revoked_at IS NOT NULL)",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.sso_identity",
+      "kind": "CHECK",
+      "columns": [
+        "version"
+      ],
+      "expression": "version>0",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.authentication_throttle",
+      "kind": "UK",
+      "columns": [
+        "bucket_hash",
+        "window_started_at"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.authentication_throttle",
+      "kind": "CHECK",
+      "columns": [
+        "fail_count"
+      ],
+      "expression": "fail_count>=0",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "core.authentication_throttle",
+      "kind": "INDEX",
+      "columns": [
+        "locked_until"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_settings",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_settings",
+      "kind": "CHECK",
+      "columns": [
+        "version"
+      ],
+      "expression": "version>0",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_settings",
+      "kind": "CHECK",
+      "columns": [
+        "rollout_state"
+      ],
+      "expression": "rollout_state IN ('DRAFT','PILOT','ACTIVE','PAUSED')",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_settings",
+      "kind": "CHECK",
+      "columns": [
+        "company_hold",
+        "hold_reason"
+      ],
+      "expression": "NOT company_hold OR (hold_reason IS NOT NULL AND char_length(btrim(hold_reason)) BETWEEN 2 AND 500)",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "revision_no"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "CHECK",
+      "columns": [
+        "expected_people"
+      ],
+      "expression": "expected_people BETWEEN 1 AND 10000",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "CHECK",
+      "columns": [
+        "expected_departments"
+      ],
+      "expression": "expected_departments BETWEEN 1 AND 1000",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "CHECK",
+      "columns": [
+        "backup_interval_minutes"
+      ],
+      "expression": "backup_interval_minutes BETWEEN 5 AND 1440",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "CHECK",
+      "columns": [
+        "rpo_minutes"
+      ],
+      "expression": "rpo_minutes BETWEEN 1 AND 1440",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "CHECK",
+      "columns": [
+        "rto_minutes"
+      ],
+      "expression": "rto_minutes BETWEEN 15 AND 10080",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "CHECK",
+      "columns": [
+        "document_review_months"
+      ],
+      "expression": "document_review_months BETWEEN 1 AND 120",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "CHECK",
+      "columns": [
+        "audit_review_months"
+      ],
+      "expression": "audit_review_months BETWEEN 1 AND 120",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "CHECK",
+      "columns": [
+        "backup_keep_days"
+      ],
+      "expression": "backup_keep_days BETWEEN 7 AND 365",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "CHECK",
+      "columns": [
+        "backup_interval_minutes",
+        "rpo_minutes"
+      ],
+      "expression": "backup_interval_minutes<rpo_minutes",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "CHECK",
+      "columns": [
+        "revision_no"
+      ],
+      "expression": "revision_no>0",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_policy_revision",
+      "kind": "CHECK",
+      "columns": [
+        "reason"
+      ],
+      "expression": "char_length(btrim(reason)) BETWEEN 2 AND 500",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_evidence",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "run_id"
+      ],
+      "expression": "",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_evidence",
+      "kind": "CHECK",
+      "columns": [
+        "kind"
+      ],
+      "expression": "kind IN ('BACKUP','RESTORE','ACCEPTANCE','INCIDENT')",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_evidence",
+      "kind": "CHECK",
+      "columns": [
+        "result"
+      ],
+      "expression": "result IN ('PASS','FAIL','PARTIAL')",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.operating_evidence",
+      "kind": "CHECK",
+      "columns": [
+        "finished_at",
+        "started_at"
+      ],
+      "expression": "finished_at>=started_at",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.retention_review",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id",
+        "policy_revision_id"
+      ],
+      "expression": "UNIQUE WHERE document_id IS NOT NULL",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.retention_review",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "post_id",
+        "policy_revision_id"
+      ],
+      "expression": "UNIQUE WHERE post_id IS NOT NULL",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.retention_review",
+      "kind": "CHECK",
+      "columns": [
+        "document_id",
+        "post_id"
+      ],
+      "expression": "(document_id IS NULL)<>(post_id IS NULL)",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.retention_review",
+      "kind": "CHECK",
+      "columns": [
+        "state"
+      ],
+      "expression": "state IN ('DUE','HELD','ARCHIVE_PREPARED','ARCHIVED')",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.retention_review",
+      "kind": "CHECK",
+      "columns": [
+        "version"
+      ],
+      "expression": "version>0",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.retention_review",
+      "kind": "CHECK",
+      "columns": [
+        "reason"
+      ],
+      "expression": "char_length(btrim(reason)) BETWEEN 2 AND 500",
+      "reason": "GW-READY-02 인증·운영 무결성"
+    },
+    {
+      "table": "gw.retention_review",
+      "kind": "CHECK",
+      "columns": [
+        "state",
+        "archive_digest",
+        "archive_reference",
+        "reviewed_by_user_id",
+        "reviewed_at"
+      ],
+      "expression": "state<>'ARCHIVED' OR (archive_digest IS NOT NULL AND archive_reference IS NOT NULL AND reviewed_by_user_id IS NOT NULL AND reviewed_at IS NOT NULL)",
+      "reason": "GW-READY-02 인증·운영 무결성"
     }
   ],
   "states": [
@@ -46035,6 +48034,13 @@
       "date": "2026-10-18",
       "change": "WMS 보강과 회사 GW 보안 5표 통합. 기존 migration 보존·GW 추가 제약 이름 정규화",
       "status": "로컬 통합 검증 대상·실회사 인수 미완료"
+    },
+    {
+      "version": "0.28.0",
+      "task": "GW-READY-02",
+      "date": "2026-10-18",
+      "change": "승인된 보안·운영 신규9표/기존2확장. 인증 앱·제한 복구 구현 중; 실제 운영 인수 미완료",
+      "status": "격리 PostgreSQL18 DDL 대조 오류0 / 전체 제품 통합 진행 중"
     }
   ]
 }

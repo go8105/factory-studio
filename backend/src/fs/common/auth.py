@@ -54,13 +54,15 @@ def _resolve_guest(connection: Connection, token: str) -> AuthContext:
     )
 
 
-def _resolve_member(connection: Connection, token: str) -> AuthContext:
+def _resolve_member(
+    connection: Connection, token: str, *, allow_recovery=False
+) -> AuthContext:
     row = (
         connection.execute(
             text(
                 """
             SELECT s.id session_id, u.id user_id, w.id workspace_id,
-                   w.active_generation_id, s.expires_at,
+                   w.active_generation_id, s.expires_at, s.assurance,
                    array_remove(array_agg(r.role_key), NULL) roles
             FROM core.auth_session s
             JOIN core.app_user u ON u.id=s.user_id
@@ -69,6 +71,8 @@ def _resolve_member(connection: Connection, token: str) -> AuthContext:
             LEFT JOIN core.role r ON r.id=ur.role_id
             WHERE s.token_hash=:token_hash AND s.revoked_at IS NULL
               AND u.status='active' AND u.disabled_at IS NULL
+              AND s.security_version=u.security_version
+              AND (s.absolute_expires_at IS NULL OR s.absolute_expires_at>clock_timestamp())
             GROUP BY s.id,u.id,w.id,w.active_generation_id,s.expires_at
             """
             ),
@@ -79,8 +83,14 @@ def _resolve_member(connection: Connection, token: str) -> AuthContext:
     )
     if row is None or row["expires_at"] <= datetime.now(UTC):
         raise ApiError(401, "SESSION_EXPIRED", "세션이 없거나 만료되었습니다.")
+    if row["assurance"] == "RECOVERY_LIMITED" and not allow_recovery:
+        raise ApiError(
+            403, "RECOVERY_ONLY", "인증 앱을 다시 등록한 뒤 로그인해 주세요."
+        )
     connection.execute(
-        text("UPDATE core.auth_session SET expires_at=:expires WHERE id=:id"),
+        text(
+            "UPDATE core.auth_session SET expires_at=LEAST(:expires,coalesce(absolute_expires_at,:expires)) WHERE id=:id"
+        ),
         {
             "expires": datetime.now(UTC)
             + timedelta(minutes=get_settings().session_idle_minutes),
@@ -107,11 +117,13 @@ def resolve_auth(
         return resolve_token(connection, fs_session)
 
 
-def resolve_token(connection: Connection, token: str) -> AuthContext:
+def resolve_token(
+    connection: Connection, token: str, *, allow_recovery=False
+) -> AuthContext:
     if token.startswith("g_"):
         return _resolve_guest(connection, token)
     if token.startswith("m_"):
-        return _resolve_member(connection, token)
+        return _resolve_member(connection, token, allow_recovery=allow_recovery)
     raise ApiError(401, "SESSION_EXPIRED", "알 수 없는 세션 종류입니다.")
 
 

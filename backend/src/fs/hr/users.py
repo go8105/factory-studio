@@ -260,7 +260,7 @@ def mutate(ctx, company_id, operation, key, body):
             if operation == "password":
                 c.execute(
                     text(
-                        "UPDATE core.app_user SET password_hash=:hash,status='active',disabled_at=NULL WHERE id=:u"
+                        "UPDATE core.app_user SET password_hash=:hash,status='active',disabled_at=NULL,security_version=security_version+1 WHERE id=:u"
                     ),
                     {"hash": hash_password(body["password"]), "u": uid},
                 )

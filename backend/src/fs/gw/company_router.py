@@ -11,6 +11,7 @@ from fs.common.errors import ApiError
 from fs.core.company import members
 from fs.gw import company, company_work, organization, schema
 from fs.gw import company_identity as identities
+from fs.gw.operating_contract import OperatingPolicy
 from fs.hr.interface import work_identity
 
 
@@ -383,3 +384,35 @@ def security_events(
             context, company_id, offset=offset, limit=limit
         )
     }
+
+
+class OperatingPolicyApply(schema.Model):
+    expected_version: int = Field(alias="expectedVersion", ge=0, strict=True)
+    policy: OperatingPolicy
+
+
+@router.get("/operations")
+def operating_read(context: Auth, company_id: CompanyId):
+    from fs.gw.operations import read
+
+    return {"data": read(context, company_id)}
+
+
+@router.post("/operating-policies")
+def operating_apply(
+    context: Auth,
+    company_id: CompanyId,
+    payload: OperatingPolicyApply,
+    request: Request,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    from fs.core.security.router import require_origin
+    from fs.gw.operations import apply_policy
+
+    require_origin(request)
+    body = {
+        "expectedVersion": payload.expected_version,
+        "policy": payload.policy.model_dump(by_alias=True),
+    }
+    return command(context, csrf, key, apply_policy, context, company_id, body)

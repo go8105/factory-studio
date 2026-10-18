@@ -14,6 +14,9 @@ export function Entry() {
   const [error, setError] = useState<unknown>();
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
+  const [challenge, setChallenge] = useState<string>();
+  const [code, setCode] = useState("");
+  const [recoveryCode, setRecoveryCode] = useState(false);
   const [nickname, setNickname] = useState("");
   const keys = useRef(new MutationKeys());
   const lastAttempt = useRef(false);
@@ -27,15 +30,19 @@ export function Entry() {
       member ? { loginId, password } : { nickname: nickname.trim() },
     );
     try {
-      const response = await api<Session>(
-        member ? "/sessions" : "/guest-sessions",
-        {
-          method: "POST",
-          key: keys.current.get(operation),
-          body: member ? { loginId, password } : { nickname: nickname.trim() },
-        },
-      );
+      const response = await api<
+        Session | { mfaRequired: true; challengeCsrfToken: string }
+      >(member ? "/sessions" : "/guest-sessions", {
+        method: "POST",
+        key: keys.current.get(operation),
+        body: member ? { loginId, password } : { nickname: nickname.trim() },
+      });
       keys.current.complete(operation);
+      if ("mfaRequired" in response.data) {
+        setChallenge(response.data.challengeCsrfToken);
+        setPassword("");
+        return;
+      }
       setSession({ ...response.data, roles: response.data.roles ?? ["GUEST"] });
       setPassword("");
       navigate(
@@ -43,6 +50,32 @@ export function Entry() {
           ? "/hr/work"
           : "/home",
       );
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function verify() {
+    if (!challenge) return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      const result = await api<
+        Session | { recoveryOnly: true; csrfToken: string }
+      >("/security/login/verify", {
+        method: "POST",
+        csrf: challenge,
+        body: { code },
+      });
+      setCode("");
+      setChallenge(undefined);
+      if ("recoveryOnly" in result.data) {
+        navigate("/account/recovery");
+        return;
+      }
+      setSession(result.data);
+      navigate("/home");
     } catch (e) {
       setError(e);
     } finally {
@@ -115,7 +148,11 @@ export function Entry() {
           )}
           <ErrorNotice
             error={nicknameError ? undefined : error}
-            retry={!busy ? () => void enter(lastAttempt.current) : undefined}
+            retry={
+              !busy
+                ? () => void (challenge ? verify() : enter(lastAttempt.current))
+                : undefined
+            }
           />
           <button
             className="link-button"
@@ -125,7 +162,63 @@ export function Entry() {
           >
             계정이 있다면 로그인
           </button>
-          {login && (
+          {challenge && (
+            <form
+              className="login-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void verify();
+              }}
+            >
+              <h2>본인 확인</h2>
+              <p>
+                {recoveryCode
+                  ? "보관한 미사용 복구 코드를 입력하세요."
+                  : "인증 앱에 표시된 6자리 번호를 입력하세요."}
+              </p>
+              <Field
+                label={recoveryCode ? "복구 코드" : "인증 앱 번호"}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                autoComplete="one-time-code"
+                inputMode={recoveryCode ? "text" : "numeric"}
+                required
+                minLength={recoveryCode ? 32 : 6}
+                maxLength={recoveryCode ? 32 : 6}
+                disabled={busy}
+                autoFocus
+              />
+              <button type="submit" disabled={busy}>
+                확인하고 계속
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setRecoveryCode(!recoveryCode);
+                  setCode("");
+                  setError(undefined);
+                }}
+              >
+                {recoveryCode
+                  ? "인증 앱 번호 사용"
+                  : "휴대폰을 사용할 수 없어요"}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setChallenge(undefined);
+                  setCode("");
+                  setError(undefined);
+                }}
+              >
+                로그인부터 다시 시작
+              </button>
+              <Link to="/help/portal/account-security">인증·복구 도움말</Link>
+            </form>
+          )}
+          {login && !challenge && (
             <form onSubmit={submit} className="login-form">
               <Field
                 label="아이디"

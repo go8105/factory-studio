@@ -55,8 +55,8 @@ erDiagram
     bigint stock_document_id FK "검수 전표 NULL"
     varchar reason "사유 NULL"
     timestamptz updated_at "변경 시각"
-    varchar notice_kind "입고 종류"
     timestamptz created_at "등록 시각"
+    varchar notice_kind "입고 종류"
   }
   wms_inbound_notice_line {
     bigint id PK "내부 식별자"
@@ -110,6 +110,7 @@ erDiagram
     varchar item_class "분류"
     boolean lot_tracked "LOT 추적"
     boolean is_active "사용 여부"
+    timestamptz created_at "등록 시각"
     integer shelf_life_days "유효기간(일) NULL"
     varchar storage_condition "보관 조건 NULL"
     numeric safety_stock "안전 재고 NULL"
@@ -117,7 +118,6 @@ erDiagram
     varchar abc_class "ABC 등급 NULL"
     varchar plm_part_no "PLM 부품 번호 NULL"
     varchar plm_revision "PLM 리비전 NULL"
-    timestamptz created_at "등록 시각"
   }
   wms_item_unit_conversion {
     bigint id PK "내부 식별자"
@@ -328,8 +328,8 @@ erDiagram
     varchar name "창고명"
     varchar purpose "용도"
     boolean is_active "사용 여부"
-    boolean is_default "용도별 기본 창고"
     timestamptz created_at "등록 시각"
+    boolean is_default "용도별 기본 창고"
   }
   core_data_generation ||..o{ wms_warehouse : "workspace_id,generation_id"
   core_data_generation ||..o{ wms_storage_location : "workspace_id,generation_id"

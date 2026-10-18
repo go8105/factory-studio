@@ -64,6 +64,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (active) setSession(r.data);
       })
       .catch((e) => {
+        if (e instanceof ApiError && e.error.code === "RECOVERY_ONLY") return;
         if (
           active &&
           (!(e instanceof ApiError) ||
@@ -86,7 +87,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       </main>
     );
   const isPublic =
-    location.pathname === "/" || location.pathname.startsWith("/help");
+    location.pathname === "/" ||
+    location.pathname === "/account/recovery" ||
+    location.pathname.startsWith("/help");
   return (
     <SessionContext.Provider
       value={{

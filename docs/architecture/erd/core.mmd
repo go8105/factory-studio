@@ -18,6 +18,7 @@ erDiagram
     timestamptz disabled_at "이용 중지 시각 NULL"
     timestamptz created_at "등록 시각"
     varchar status "상태"
+    integer security_version "security_version"
   }
   core_audit_event {
     bigint id PK "내부 식별자"
@@ -43,6 +44,35 @@ erDiagram
     timestamptz expires_at "만료 시각"
     timestamptz revoked_at "취소 시각 NULL"
     timestamptz created_at "등록 시각"
+    varchar assurance "assurance"
+    timestamptz verified_at "verified_at NULL"
+    integer security_version "security_version"
+    varchar auth_method "auth_method"
+    timestamptz absolute_expires_at "absolute_expires_at NULL"
+  }
+  core_authentication_challenge {
+    bigint id PK "id"
+    bigint user_id FK "user_id NULL"
+    bigint session_id FK "session_id NULL"
+    varchar purpose "purpose"
+    varchar token_hash "token_hash"
+    varchar state "state"
+    integer security_version "security_version NULL"
+    varchar provider_key "provider_key NULL"
+    text protected_payload "protected_payload NULL"
+    varchar encryption_key_id "encryption_key_id NULL"
+    integer attempt_count "attempt_count"
+    timestamptz expires_at "expires_at"
+    timestamptz consumed_at "consumed_at NULL"
+    timestamptz created_at "created_at"
+  }
+  core_authentication_throttle {
+    bigint id PK "id"
+    varchar bucket_hash "bucket_hash"
+    timestamptz window_started_at "window_started_at"
+    integer fail_count "fail_count"
+    timestamptz locked_until "locked_until NULL"
+    timestamptz updated_at "updated_at"
   }
   core_company {
     bigint id PK "id"
@@ -104,6 +134,30 @@ erDiagram
     bigint workspace_snapshot_id "회수된 공간 식별 스냅샷 NULL"
     bigint generation_snapshot_id "회수된 세대 식별 스냅샷 NULL"
   }
+  core_mfa_factor {
+    bigint id PK "id"
+    bigint user_id FK "user_id"
+    varchar kind "kind"
+    varchar state "state"
+    text secret_ciphertext "secret_ciphertext"
+    varchar encryption_key_id "encryption_key_id"
+    integer version "version"
+    bigint last_used_step "last_used_step NULL"
+    timestamptz pending_expires_at "pending_expires_at NULL"
+    timestamptz confirmed_at "confirmed_at NULL"
+    timestamptz revoked_at "revoked_at NULL"
+    timestamptz created_at "created_at"
+  }
+  core_recovery_code {
+    bigint id PK "id"
+    bigint user_id FK "user_id"
+    bigint factor_id FK "factor_id"
+    integer factor_version "factor_version"
+    text code_hash "code_hash"
+    timestamptz used_at "used_at NULL"
+    timestamptz revoked_at "revoked_at NULL"
+    timestamptz created_at "created_at"
+  }
   core_request_receipt {
     bigint id PK "내부 식별자"
     bigint workspace_id FK "개인 체험 공간"
@@ -126,6 +180,17 @@ erDiagram
     varchar role_key "역할 키"
     varchar description "역할 설명"
     timestamptz created_at "등록 시각"
+  }
+  core_sso_identity {
+    bigint id PK "id"
+    bigint user_id FK "user_id"
+    varchar provider_key "provider_key"
+    varchar issuer "issuer"
+    varchar subject "subject"
+    varchar state "state"
+    integer version "version"
+    timestamptz linked_at "linked_at"
+    timestamptz revoked_at "revoked_at NULL"
   }
   core_user_role {
     bigint id PK "내부 식별자"
@@ -175,3 +240,8 @@ erDiagram
   core_workspace ||..o| core_company : "workspace_id"
   core_company ||..o{ core_company_member : "workspace_id"
   core_app_user ||..o{ core_company_member : "user_id"
+  core_app_user ||..o{ core_mfa_factor : "user_id"
+  core_app_user |o..o{ core_authentication_challenge : "user_id"
+  core_app_user ||..o{ core_sso_identity : "user_id"
+  core_auth_session |o..o{ core_authentication_challenge : "user_id,session_id"
+  core_mfa_factor ||..o{ core_recovery_code : "user_id,factor_id"

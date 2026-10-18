@@ -84,7 +84,32 @@ function Layout({ content }: { content?: ReactNode }) {
           ? new URLSearchParams({ companyId: role.companyId }).toString()
           : undefined
       }
-      beforeContent={<SpaceChoice />}
+      beforeContent={
+        <>
+          <SpaceChoice />
+          {role.companyId !== undefined && (
+            <nav aria-label="회사 운영 안내">
+              <Link to="/account/security">내 계정 보안</Link>
+              {role.roles?.some(
+                (r) => r === "SECURITY_ADMIN" || r === "AUDITOR",
+              ) && (
+                <>
+                  {" "}
+                  ·{" "}
+                  <Link
+                    to={
+                      "/gw/operations?companyId=" +
+                      encodeURIComponent(role.companyId)
+                    }
+                  >
+                    운영 준비
+                  </Link>
+                </>
+              )}
+            </nav>
+          )}
+        </>
+      }
       content={content}
       others={["mes", "erp", "fems", "qms", "wms", "bems", "spc", "hr"]
         .map((k) => ({ to: "/" + k, label: k.toUpperCase() }))

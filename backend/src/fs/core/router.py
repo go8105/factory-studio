@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Depends, Header, Response
+from fastapi import APIRouter, Cookie, Depends, Header, Request, Response
 
 from fs.common.auth import AuthContext, require_csrf, resolve_auth, resolve_token
 from fs.common.clock import business_today
@@ -83,6 +83,7 @@ def guest_session(
 
 @router.post("/sessions", status_code=201)
 def member_session(
+    request: Request,
     payload: LoginRequest,
     response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
@@ -115,10 +116,30 @@ def member_session(
                 get_settings().session_secret, fs_session
             )
         return {"data": cached}
+    from fs.core.security.router import challenge_cookie, require_origin
+    from fs.core.security.service import login_gate
+
+    require_origin(request)
     with get_engine().begin() as connection:
-        data, token = login_member(
-            connection, payload.login_id, payload.password, idempotency_key
+        gate, error = login_gate(
+            connection,
+            payload.login_id,
+            payload.password,
+            request.client.host if request.client else "unknown",
         )
+        if error is None and not gate["mfaRequired"]:
+            data, token = login_member(
+                connection, payload.login_id, payload.password, idempotency_key
+            )
+    if error:
+        if error.code == "AUTHENTICATION_FAILED":
+            error = ApiError(
+                401, "INVALID_CREDENTIALS", "아이디 또는 비밀번호가 올바르지 않습니다."
+            )
+        raise error
+    if gate["mfaRequired"]:
+        response.status_code = 202
+        return {"data": challenge_cookie(response, gate["challengeToken"])}
     _set_cookie(response, token)
     return {"data": data}
 

@@ -9,6 +9,7 @@ from fs.common.request_logging import RequestLogMiddleware
 from fs.common.scope import seed_ready
 from fs.core.review import router as review_router
 from fs.core.router import router as core_router
+from fs.core.security.router import router as security_router
 from fs.erp.router import router as erp_router
 from fs.factory.router import router as factory_router
 from fs.fems.router import router as fems_router
@@ -25,6 +26,9 @@ from fs.wms.router import router as wms_router
 
 
 def create_app() -> FastAPI:
+    from fs.core.security.config import security_settings
+
+    security_settings()
     app = FastAPI(
         title="Factory Studio", docs_url=None, redoc_url=None, openapi_url=None
     )
@@ -33,6 +37,7 @@ def create_app() -> FastAPI:
     app.include_router(factory_router, prefix="/api/v1/factory")
     app.include_router(cad_cam_router, prefix="/api/v1/cad")
     app.include_router(core_router, prefix="/api/v1/core")
+    app.include_router(security_router, prefix="/api/v1/core/security")
     app.include_router(flow_router, prefix="/api/v1/flow")
     app.include_router(flow_router, prefix="/api/v1/gw/projects")
     app.include_router(hr_work_router, prefix="/api/v1/hr/work")

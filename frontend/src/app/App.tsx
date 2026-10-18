@@ -1,3 +1,4 @@
+import { AccountSecurity } from "../portal/AccountSecurity";
 import {
   Link,
   NavLink,
@@ -88,6 +89,9 @@ function Layout() {
               <NavLink to="/factory">3D 공장</NavLink>
               <NavLink to="/flow">전체 흐름</NavLink>
               <NavLink to="/workspace">내 공간</NavLink>
+              {session.actorKind === "MEMBER" && (
+                <NavLink to="/account/security">내 계정 보안</NavLink>
+              )}
             </>
           )}
           <NavLink to="/help">도움말</NavLink>
@@ -171,8 +175,13 @@ function PortalRoutes() {
         <Route path="/" element={<Entry />} />
         <Route element={<Layout />}>
           <Route path="/help/*" element={<Help />} />
+          <Route
+            path="/account/recovery"
+            element={<AccountSecurity recovery />}
+          />
           <Route element={<Private />}>
             <Route path="/home" element={<Home />} />
+            <Route path="/account/security" element={<AccountSecurity />} />
             <Route path="/cad-cam" element={<CadCam />} />
             <Route path="/factory" element={<Factory />} />
             <Route path="/factory/vision-lab" element={<VisionLab />} />

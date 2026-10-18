@@ -428,7 +428,11 @@ export function useSend() {
         role.setUncertain?.(false);
       }
       setError(e);
-      if (e instanceof ApiError && [403, 404].includes(e.status))
+      if (
+        e instanceof ApiError &&
+        [403, 404].includes(e.status) &&
+        e.error.code !== "STEP_UP_REQUIRED"
+      )
         company.invalidate?.(e);
       if (e instanceof ApiError && [401, 410].includes(e.status)) fail(e);
       return undefined;

@@ -46,6 +46,9 @@ def target_names():
     if project.exists():
         names |= set(re.findall(r'^\| `(gw\.work_[a-z_]+)` \|', project.read_text(), re.M))
     names |= {"flow.work_column", "flow.work_cell"}
+    readiness = ROOT/"docs/modules/gw/보안운영_DB_API_GW-READY-01.md"
+    if readiness.exists():
+        names |= set(re.findall(r'^\| `((?:core|gw)\.[a-z_]+)` \|', readiness.read_text(), re.M))
     return {n.replace("gw.work_", "flow.work_") for n in names}
 
 

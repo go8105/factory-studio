@@ -608,6 +608,8 @@ function SidePanel({
 }) {
   const id = useId();
   const ref = useRef<HTMLElement>(null);
+  const lastEditor = useRef<HTMLElement | null>(null);
+  const wasPending = useRef(false);
   const query = wide ? OVERLAY_WIDE : OVERLAY;
   const [overlay] = useState(() => window.matchMedia?.(query).matches ?? false);
   useEffect(() => {
@@ -627,8 +629,17 @@ function SidePanel({
     };
   }, []);
   useEffect(() => {
-    if (guard.pending)
+    if (guard.pending) {
       ref.current?.querySelector<HTMLElement>("[data-keep]")?.focus();
+    } else if (wasPending.current) {
+      const back = lastEditor.current?.isConnected
+        ? lastEditor.current
+        : ref.current?.querySelector<HTMLElement>(
+            ".form-panel-body input, .form-panel-body select, .form-panel-body textarea",
+          );
+      back?.focus();
+    }
+    wasPending.current = guard.pending;
   }, [guard.pending]);
   const requestClose = () => guard.guard(onClose);
   function onKeyDown(e: KeyboardEvent) {
@@ -689,6 +700,13 @@ function SidePanel({
         role="dialog"
         aria-modal={overlay || undefined}
         aria-labelledby={id}
+        onFocusCapture={(event) => {
+          if (
+            event.target instanceof HTMLElement &&
+            event.target.matches("input,select,textarea")
+          )
+            lastEditor.current = event.target;
+        }}
         onKeyDown={onKeyDown}
       >
         <div className="form-panel-head">

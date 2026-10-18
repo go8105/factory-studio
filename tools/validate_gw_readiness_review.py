@@ -14,17 +14,18 @@ def validate():
     errors = []
     proposed = data["tables"]
     old = {t["name"]: {c["name"] for c in t["columns"]} for t in current["tables"]}
-    new = [t for t in proposed if t["name"] not in old]
-    extended = [t for t in proposed if t["name"] in old]
+    extension_names = {"core.app_user", "core.auth_session"}
+    new = [t for t in proposed if t["name"] not in extension_names]
+    extended = [t for t in proposed if t["name"] in extension_names]
     if len(new) != 9 or len(extended) != 2:
         errors.append("신규9표/기존2표 확장 기준과 다릅니다.")
     if len({t["name"] for t in proposed}) != len(proposed):
         errors.append("제안 표 이름 중복")
-    if (
-        current["version"] != data["current_schema"]
-        or len(current["tables"]) != data["current_tables"]
-    ):
-        errors.append("현재 명세가 달라져 제안 기준 재대조가 필요합니다.")
+    if current["version"] == data["current_schema"]:
+        if len(current["tables"]) != data["current_tables"]:
+            errors.append("현재 기준 표 수와 제안 기준 불일치")
+    elif not all(t["name"] in old for t in proposed):
+        errors.append("승인 후 명세에 제안 표가 일부 누락되어 재대조 필요")
     columns = {name: set(names) for name, names in old.items()}
     for table in proposed:
         name = table["name"]

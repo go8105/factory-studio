@@ -1,6 +1,6 @@
 # 보안·운영 DB/API 계약 · GW-READY-01
 
-2026-10-18 · **설계 제안, 현재 DB·schema.json·schema-target.json에 미적용**. 상위 기준은 [통합 설계](실사용_보안운영_UI_통합설계_GW-READY-01.md). 새9표와 기존 core2표 확장을 제안한다. 승인 후 새 revision에서 명세/Excel/ERD와 함께 반영하며 현재210표를 새 표가 적용된 것으로 세지 않는다.
+2026-10-18 · **전체 설계 승인 후 GW-READY-02 구현 진행 중**. schema0.28/219표·새 revision gw_readiness를 격리 DB에 적용해 DDL 대조 오류0을 확인했다. 운영 DB·main에는 미적용이며 실제 서비스 연결 상태는 [구현 기록](../../agent/GW_실사용구현_GW-READY-02.md)을 따른다. 아래는 승인한 계약 원문이다. 상위 기준은 [통합 설계](실사용_보안운영_UI_통합설계_GW-READY-01.md). 새9표와 기존 core2표 확장을 제안한다. 승인 후 새 revision에서 명세/Excel/ERD와 함께 반영하며 현재210표를 새 표가 적용된 것으로 세지 않는다.
 
 ## 1. 공통 규칙
 
@@ -142,3 +142,21 @@
 | 실제 키/어댑터/저장소 사용 불가 | 503 SECURITY_CONFIGURATION_UNAVAILABLE, 성공/우회 표시 없음 |
 
 백업의 RPO 나이는 ‘백업 완료’가 아닌 보수적인 스냅샷 시작 기준으로 계산하고 저장소 반영 지연을 포함한다. 실제 손실 구간을 단정할 자료가 없으면 범위/미확인으로 기록한다.
+
+## 승인된 표 목록
+
+2026-10-18 사용자 전체 설계 승인. 아래는 GW-READY-02 구현 명세의 추가 대상이며 적용·검증 상태는 최신 인계 기록을 따른다.
+
+| 표 | 소유 |
+|---|---|
+| `core.mfa_factor` | core |
+| `core.authentication_challenge` | core |
+| `core.recovery_code` | core |
+| `core.sso_identity` | core |
+| `core.authentication_throttle` | core |
+| `gw.operating_settings` | gw |
+| `gw.operating_policy_revision` | gw |
+| `gw.operating_evidence` | gw |
+| `gw.retention_review` | gw |
+| `core.app_user` | core |
+| `core.auth_session` | core |

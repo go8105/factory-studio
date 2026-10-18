@@ -23,14 +23,24 @@ def require_session(connection, context):
             403, "MEMBER_REQUIRED", "회사 업무는 로그인 회원만 사용할 수 있습니다."
         )
     valid = connection.execute(
-        text("""SELECT s.id FROM core.auth_session s JOIN core.app_user u ON u.id=s.user_id
+        text("""SELECT s.id,s.assurance FROM core.auth_session s JOIN core.app_user u ON u.id=s.user_id
         WHERE s.token_hash=:token AND s.user_id=:user AND s.revoked_at IS NULL
           AND s.expires_at>clock_timestamp() AND u.status='active' AND u.disabled_at IS NULL
+          AND s.security_version=u.security_version
+          AND (s.absolute_expires_at IS NULL OR s.absolute_expires_at>clock_timestamp())
         FOR SHARE OF s"""),
         {"token": token_hash(context.token), "user": context.user_id},
     ).first()
     if valid is None:
         raise ApiError(401, "SESSION_EXPIRED", "세션이 없거나 만료되었습니다.")
+    from fs.core.security.config import security_settings
+
+    if valid[1] == "RECOVERY_LIMITED":
+        raise ApiError(403, "RECOVERY_ONLY", "인증 앱을 다시 등록해 주세요.")
+    if security_settings().mode == "COMPANY" and valid[1] != "MFA":
+        raise ApiError(
+            403, "MFA_REQUIRED", "내 계정 보안에서 인증 앱을 등록한 뒤 로그인해 주세요."
+        )
 
 
 def companies(connection, context):

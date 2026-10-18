@@ -1,3 +1,4 @@
+import { Operations } from "./Operations";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { NotFound } from "../shared/components";
 import { GwLayout } from "./GwLayout";
@@ -26,6 +27,7 @@ export default function GwRoutes() {
           element={<LegacyFlowRedirect page="my-tasks" />}
         />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="operations" element={<Operations />} />
         <Route path="drafts" element={<Documents box="drafts" />} />
         <Route path="pending" element={<Documents box="pending" />} />
         <Route path="documents" element={<Documents box="archive" />} />
