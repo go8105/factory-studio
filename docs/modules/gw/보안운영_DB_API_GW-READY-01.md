@@ -204,3 +204,10 @@ GET/POST `gw/operating-evidence`를 기존 표에 연결했다. 현재 GW 역할
 core.security.recording은 인증 소유 사용자 상태/버전·역할/멤버십·MFA/복구코드/세션/중간인증/SSO 상태와 변경된 제한 카운터의 ID·상태만 수집한다. 비밀번호/해시·TOTP 비밀/암호문·코드/해시·토큰/해시·아이디/IP는 제외한다. HR은 자기 회사/세대 계정 상태를 소유 함수에서 수집하고 인증 소유 함수의 결과를 합친다. 업무 간 FK/직접 조회를 추가하지 않으며 새DB표·마이그레이션·HTTP API가 없다.
 
 기존 GW 기록 설정을 공통 사용한다. 형식 core.security.intent.v1/hr.users.intent.v1, 같은TX의 기존core.audit_event에 action security.journal.confirmation/entity_kind security_journal/entity_key 봉투지문/summary.subject(형식·작업·대상 계정·해당 시공간/세대)를 저장한다. 인증 제한 카운터/시스템감사는 SYSTEM, 사용자 감사는 MEMBER로표시한다. 키/체인/파일 오류는503/해당TX rollback, 기록후DB실패는 의도만남아미확인이다. 기존점검CLI가 GW와새형식을함께대조하며 전체완전성/ready는false다. [수집경로·제약](../../operations/GW_직원연결_역할변경기록_GW-READY-02.md).
+
+
+## GW-READY-02 9차: 백업 기준과 의도 기록 연결
+
+서버 전용 backup_journal이 독립 FS_GW_JOURNAL_EXPECTED_HEAD와 검증된 체인 메타데이터를 DB 스냅샷 전에 읽고, 백업 DB에 반영된 지문집합/체인 기준을 암호화 서명 명세에 저장한다. checkpoint는 기준 앞부분·기준 확인 집합을 대조하여 기준 미확인/후속 의도의 사용자·GW범위 제한대상과 건수만 저장한다. record별 추가 SQL 대신 core/GW 감사 지문을 묶어조회한다. snapshot 원문은 중복보관하지 않는다.
+
+restore는 백업/대조파일 연결과 독립최신기록지문을 대상생성전에대조하고, 기존 현재상태재적용뒤 core계정사용중지/HR비활성·GW연결정지/보존중지로추가제한한다. core/HR/GW는각소유모듈이자기표만수정한다. 새로운권한부여·사용자생성·운영개방없음. 보고의 journalRestrictionsApplied/candidate/unconfirmed/counter/disabledAccounts/quarantinedScopes는진단범위이며기존증거는PARTIAL/전체revocationsReapplied=false/readyfalse다. 기존기록미설정백업은이전부분경로유지·연결인정없음. 새DB표/HTTPAPI/마이그레이션없다. [프로토콜·운영제약](../../operations/GW_암호화백업_격리복원_GW-READY-02.md).

@@ -1,3 +1,11 @@
+## 2026-10-18 GW-READY-02 9차 완료분: 변경 기록·백업/격리 제한 연결
+
+branch codex/gw-company-01 / factory-studio-gw-company, 기준d9b40aa/WIP e01435f·최종gitlog. fs.gw.backup_journal이원본DBsnapshot전에독립 FS_GW_JOURNAL_EXPECTED_HEAD/체인검증, 같은백업DBsnapshot에확인된감사지문집합/체인기준을명세에저장. checkpoint는앞부분연속성검사·기준전미확인/이후의도를현재DB와대조해제한할계정/회사범위+건수만서명암호화. restore는독립최신기록지문을대상생성전에대조, 기존checkpoint재적용뒤core/HR계정중지·GW연결정지/보존중지/권한버전갱신. 취소연결재활성/새사용자생성/원본변경/운영개방없음. metadata-only와core/GW묶음지문조회, 새키백업폴더분리검사. report journalRestrictionsApplied/candidate/unconfirmed/counter/disabledAccounts/quarantinedScopes진단추가·콘솔기존요약유지/서명증거PARTIAL·완전성false/전체회수false/readyfalse. 과거미설정경로는부분검증유지/새설정은새백업부터. 새DB표/마이그레이션/UI/API없음219불변.
+
+최종관련30통과84.90초/집중14와겹침, 도움말18/Ruff/포맷·정적DB/격리오류0. 실제PG18 TX미확정상태백업후확정·기준전미확인1·회수후재개/HR역할왕복→복원후후보6/미확인1/계정1/범위1제한·원본active/연결ACTIVE/STAFF불변·잘못된독립지문거부. 초기요약반환값에서상세필드찾던테스트를보고파일대조로보정후재통과. 경고4 Starlette/httpx/anyio/Pydantic. 전체CI/새브라우저/실기기/회사/외부저장소/전원차단미검증. 본인PG fs-gw-ready02-journal-test/55438 ID+label factory-studio.owner=gw-ready-02-journal 확인후컨테이너/내부폐쇄복원DB/익명볼륨삭제, work/gw-readiness-02-journal server.env/postgres.env/container-id제거. 앱/웹/스케줄설치없음·공유/실계정/다른checkout변경없음. 별도main843036f읽기확인/이번GW미통합·원격push/배포없음.
+
+다음같은02: 미확인최종판정·안전한제한해제/보관묶음교체·독립지문자동전달/외부보관→전경로완전성·운영전환게이트→선택SSO→전체회귀/10인·실환경인수/main. 지문은현재수동제공, 기존30분템플릿만으로자동갱신안됨. docs/operations/GW_암호화백업_격리복원_GW-READY-02.md9차·GW_직원연결_역할변경기록_GW-READY-02.md연결. 전체02승인유효/내부재승인반복없음. 재현: 새소유PG18 *_test에alembic head 후TEST_DATABASE_URL/GW_BACKUP_TEST_CONTAINER비공개설정, uv run --project backend pytest backend/tests/test_backup_journal_restore.py backend/tests/test_backup_journal.py backend/tests/test_gw_backup.py backend/tests/test_security_checkpoint.py backend/tests/test_security_journal.py backend/tests/test_account_security_journal.py -q --tb=short (30). 비밀출력/임시env커밋금지.
+
 ## 2026-10-18 GW-READY-02 9차 WIP 변경 기록·백업/복원 연결
 
 branch codex/gw-company-01 기준d9b40aa. backup_journal 모듈이 원본DB스냅샷 전에 독립최신지문(FS_GW_JOURNAL_EXPECTED_HEAD)과암호화체인을확인하고, 백업DB에반영된지문목록을서명/암호화명세에저장한다. checkpoint는기준체인연속성을대조하고백업기준미확인/이후기록의계정·회사제한대상만저장, restore는독립최신지문재대조후core계정/HR계정중지·GW연결/보존중지재적용. 권한허용/복원완료선언없고PARTIAL/readyfalse유지. 새DB표/마이그레이션없음. 확인된지문set조회공용화, 메타데이터만수집하여스냅샷복호화내용을불필요하게보관하지않음.
