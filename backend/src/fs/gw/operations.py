@@ -78,7 +78,7 @@ def read(context, company_id):
         # These adapters must be completed and measured before release. Never green by checkbox.
         blockers.extend(
             [
-                "암호화 백업·폐쇄 복원과 권한 회수 재적용 검증이 아직 연결되지 않았습니다.",
+                "백업·복원 증거의 운영 준비 판정과 실제 저장소 인수가 아직 연결되지 않았습니다.",
                 "실제 환경·대표 업무 인수 검증이 필요합니다.",
             ]
         )

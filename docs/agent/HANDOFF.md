@@ -1,3 +1,7 @@
+## 2026-10-18 GW-READY-02 5차 WIP 암호화 백업·격리 복원
+
+사용자 다음진행 승인·같은02 범위. 암호화 AES256-GCM 묶음(DBdump+서명명세)·동일스냅샷 전표지문·서명증거·별도 암호화 권한대조/최신지문·새DB복원/행/FK/세션무효화/제한재적용 구현중. 실제PG18 왕복/2계정허용거부·변조/OTP소비/옛비밀번호/보존중지/HR역할제한8통과, 마지막실패경로·상태/문서/전체회귀추가중. 복원은PARTIAL/접속제한 유지, 독립기록자동수집/완전성·실환경인수/운영게이트·SSO남음. 스케줄템플릿만추가·실제설치없음. 소유PG fs-gw-ready02-backup-test/55438(label factory-studio.owner=gw-ready-02-backup), work/gw-readiness-02-backup의env/ID비밀은스테이징금지·종료시ID/label대조삭제. 제품API/웹미실행. PG16시스템도구대신소유PG18컨테이너도구사용. 재현: TEST_DATABASE_URL 및 GW_BACKUP_TEST_CONTAINER 설정 후 uv run --project backend pytest backend/tests/test_gw_backup.py backend/tests/test_security_checkpoint.py backend/tests/test_backup_crypto.py -q. main2be292e유지·원격/배포없음. WIP커밋이후검증계속.
+
 ## 2026-10-18 GW-READY-02 4차 보관 검토·보존 중지
 
 현재 정책의 기한대상200건 갱신/상태·ID검색/페이지·준비/개별보류·회사중지/해제·세대별 사유이력 API/화면 구현. 달력월/한국날짜·과거정책보류유지·원문ACL 매번검사/비공개제목본문미반환·감사조회만·최근MFA/CAS/권한회수 후 receipt거부. 원본불변·보관본생성/보관완료/삭제미구현·ready=false. 관련backend23·최종프런트29통과(집중6과겹침)·lint/build통과. Chrome갱신/회사중지해제/준비/개별보류해제/이력/원문·중지변경후정책연속적용·390넘침0/pageerror0. schema219불변·도움말/운영계약갱신. 같은02 다음백업/폐쇄복원/회수재적용→운영게이트/선택SSO→전체회귀/10인·실환경인수/main반영. main2be292e유지·원격/배포없음. 상세 GW_실사용구현_GW-READY-02.md,최종커밋gitlog. Ruff/포맷·R1~R6오류0,소유API/웹종료·PG ID/label대조삭제·임시env/계정JSON/ID제거.

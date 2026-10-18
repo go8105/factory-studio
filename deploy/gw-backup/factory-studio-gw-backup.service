@@ -1,0 +1,16 @@
+[Unit]
+Description=Factory Studio encrypted database backup (operator-installed template)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=factory-backup
+Group=factory-backup
+WorkingDirectory=/srv/factory-studio
+EnvironmentFile=/etc/factory-studio/backup.env
+ExecStart=/bin/bash /srv/factory-studio/tools/run_gw_backup.sh
+UMask=0077
+PrivateTmp=yes
+NoNewPrivileges=yes
+TimeoutStartSec=1800
