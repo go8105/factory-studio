@@ -1,3 +1,9 @@
+## 2026-10-18 GW-READY-02 8차 공통 인증·HR 계정 변경 기록
+
+core.security.recording/hr.security_journal 추가. 기존GW 기록환경을공통사용해 MFA대기/확정·번호로그인/복구코드소비·추가인증·재발급·다른세션회수·정상/제한로그아웃·긴급시스템감사·시도/발급카운터, HR회사/직원생성·비밀번호/아이디·역할·중지상태/버전을기록. core는인증만소유/HR은자기범위+인증소유함수호출, 비밀번호/해시·TOTP비밀/암호문·코드/토큰/해시·아이디/IP·원문/사유제외. 새형식core.security.intent.v1/hr.users.intent.v1과같은TX의기존감사표식, 기존CLI가GW와혼합대조. 파일오류503/변경취소·멱등중복없음. 미확인후속대조/복원연결·미수집감사·보관교체/외부최신지문·운영게이트/실환경인수남음→PARTIAL/완전성false/readyfalse유지. 새DB표/마이그레이션/UI/API없음.
+
+관련인증/HR/긴급/GW기록37통과138.68초, 보강계정/회사생성·로그아웃·실제백업/격리복원·제한재적용포함최종25통과119.28초(겹침/경고4: Starlette/httpx·anyio·Pydantic). 첫긴급접두어검사조건을실제security.emergency_kit명칭에맞게보정후재통과. 비밀미포함·복구경합/재등록·세션회수·저장실패rollback/같은키재시도·DB대조확인. 도움말18·Ruff/포맷·정적DB/격리오류0, 전체CI/새브라우저/실기기/실회사/외부보관/전원차단미검증. 도움말GW/계정보안·운영/API계약·README/현황/HANDOFF갱신. schema219/2409/543불변·branch codex/gw-company-01/별도main843036f읽기만/미통합·원격push/배포없음. 본인PG ID/label대조후컨테이너/볼륨삭제·work env/ID제거·API/웹/스케줄미실행. [구현](agent/GW_실사용구현_GW-READY-02.md)/[수집경로와제약](operations/GW_직원연결_역할변경기록_GW-READY-02.md). 기준fe47e1b/최종gitlog.
+
 ## 2026-10-18 GW-READY-02 7차 회사 업무 기록·DB 반영 대조
 
 회사 company.action에 암호화 기록 연결, 직원/조직·문서/열람자·결재권한/전결/위임·게시글/댓글·채팅/일정·운영/보관 경로의 현재 상태/지문을 회사·세대 SQL조건으로 수집. gw.backup.capture의선택scope추가/전역기본보존. 새의도v2 봉투SHA256을 기존core.audit_event에같은TX로기록, 파일/DB표식/업무/영수증의미분리. --check-database CLI가 읽기전용RR에서 지문/공간/세대/작업일치검사, 비어있지않은전체v2일치만 commitsConfirmed=true/종료0; 구형/빈/미확인종료3; DB/체인오류1. 전체회수/현재권한/복원완료아님→completenessfalse/PARTIAL/readyfalse 유지. 새DB표/마이그레이션/UI/웹API없음.

@@ -82,6 +82,11 @@ def record(c, ctx, operation, *, include_acl=False):
 
 def confirm_records(c, records):
     """Read-only exact digest matching. No grants or restore readiness decision."""
+    from fs.core.security.recording import KINDS, confirmed_count
+
+    additional = [r for r in records if r["payload"]["coverage"] in KINDS]
+    all_records = records
+    records = [r for r in records if r["payload"]["coverage"] not in KINDS]
     digests = [r["digest"] for r in records]
     matches = set()
     if digests:
@@ -103,7 +108,8 @@ def confirm_records(c, records):
                     row["summary"].get("operation"),
                 )
             )
-    legacy = matched = 0
+    legacy = 0
+    matched = confirmed_count(c, additional)
     for record in records:
         payload = record["payload"]
         if payload["coverage"] != "gw.company.intent.v2":
@@ -119,7 +125,7 @@ def confirm_records(c, records):
     return {
         "matchedRecords": matched,
         "legacyRecords": legacy,
-        "unconfirmedRecords": len(records) - matched,
-        "commitsConfirmed": bool(records) and matched == len(records),
+        "unconfirmedRecords": len(all_records) - matched,
+        "commitsConfirmed": bool(all_records) and matched == len(all_records),
         "completenessConfirmed": False,
     }

@@ -62,12 +62,34 @@ def _verify(directory, key, expected_head=None, records=None):
             if payload["coverage"] not in {
                 "gw.company_identity.intent.v1",
                 "gw.company.intent.v2",
+                "core.security.intent.v1",
+                "hr.users.intent.v1",
             }:
                 raise ValueError()
-            if payload["coverage"] == "gw.company.intent.v2" and (
+            if payload["coverage"] in {
+                "gw.company.intent.v2",
+                "hr.users.intent.v1",
+            } and (
                 any(
                     type(payload[k]) is not int or payload[k] <= 0
                     for k in ("workspaceId", "generationId")
+                )
+                or not isinstance(payload["operation"], str)
+                or not 1 <= len(payload["operation"]) <= 200
+                or not isinstance(payload["snapshot"], dict)
+            ):
+                raise ValueError()
+            if payload["coverage"] in {
+                "core.security.intent.v1",
+                "hr.users.intent.v1",
+            } and (
+                (
+                    payload["userId"] is not None
+                    and (type(payload["userId"]) is not int or payload["userId"] <= 0)
+                )
+                or (
+                    payload["coverage"] == "hr.users.intent.v1"
+                    and payload["userId"] is None
                 )
                 or not isinstance(payload["operation"], str)
                 or not 1 <= len(payload["operation"]) <= 200

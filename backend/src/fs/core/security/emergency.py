@@ -56,6 +56,9 @@ def system_audit(c, user_id, action, summary, *, operator_uid=None):
             "actor": actor,
         },
     )
+    from fs.core.security.recording import record_user
+
+    record_user(c, user_id, action, system=True)
 
 
 def kit_marker(company_id, operation_key=None):

@@ -390,6 +390,10 @@ def logout(connection: Connection, context: AuthContext) -> None:
         "workspace",
         str(context.workspace_id),
     )
+    if context.actor_kind == "MEMBER":
+        from fs.core.security.recording import record_user
+
+        record_user(connection, context.user_id, "security.session.logout")
 
 
 def workspace_info(connection: Connection, context: AuthContext) -> dict[str, Any]:

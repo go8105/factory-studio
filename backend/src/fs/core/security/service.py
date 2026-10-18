@@ -35,6 +35,9 @@ def audit(c, user_id, action):
        VALUES(:u,:a,'app_user',:key,'{}'::jsonb,'MEMBER',:key,'GLOBAL')"""),
         {"u": user_id, "a": action, "key": str(user_id)},
     )
+    from fs.core.security.recording import record_user
+
+    record_user(c, user_id, action)
 
 
 def database_now(c):
@@ -140,6 +143,9 @@ def record_failure(c, ids):
             ),
             {"id": id},
         )
+    from fs.core.security.recording import record_throttles
+
+    record_throttles(c, ids)
 
 
 def issuance_quota(c, user_id, kind, *, limit=20, seconds=600):
@@ -269,6 +275,7 @@ def start_enrollment(c, context, password, *, recovery=False):
         VALUES(:u,'TOTP','PENDING',:s,:k,1,clock_timestamp()+interval '10 minutes',clock_timestamp()) RETURNING id"""),
         {"u": context.user_id, "s": ciphertext, "k": key_id},
     ).scalar_one()
+    audit(c, context.user_id, "security.mfa.enrollment.started")
     return {
         "factorId": str(factor_id),
         "setupKey": secret,

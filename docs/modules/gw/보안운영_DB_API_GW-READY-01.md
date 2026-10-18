@@ -197,3 +197,10 @@ GET/POST `gw/operating-evidence`를 기존 표에 연결했다. 현재 GW 역할
 회사 `company.action`/`company_identity.execute`에서 별도 환경이 설정된 경우 암호화 의도를 DB 확정 전에 저장하고 같은 트랜잭션에 기존 core.audit_event를 기록한다. action=`gw.security.journal-confirmation`, entity_kind=`gw.security_journal`, entity_key=암호화 봉투SHA256, summary에는 generationId/operation만 저장한다. 업무 원문·비밀은 넣지 않으며 새 테이블/FK/HTTP 경로를 추가하지 않는다. 저장 또는 대조용 감사 INSERT 실패는 DB 변경·멱등 영수증을 함께 취소한다. 파일만 남은 의도는 자동 재생하지 않는다.
 
 서버 CLI의 `--check-database`는 REPEATABLE READ 읽기 전용 조회에서 지문/공간/세대/작업 종류를 대조한다. 모든 비어 있지 않은 v2 기록 일치일 때만 commitsConfirmed=true/종료0, 미확인·v1·빈 체인은 종료3, 체인/DB 오류는 종료1. 전체 수집/외부최신지문/복원완료는 판정하지 않으며 completenessConfirmed=false/운영ready=false를 유지한다. [서버 절차](../../operations/GW_직원연결_역할변경기록_GW-READY-02.md).
+
+
+## GW-READY-02 8차: 인증/HR 변경 수집
+
+core.security.recording은 인증 소유 사용자 상태/버전·역할/멤버십·MFA/복구코드/세션/중간인증/SSO 상태와 변경된 제한 카운터의 ID·상태만 수집한다. 비밀번호/해시·TOTP 비밀/암호문·코드/해시·토큰/해시·아이디/IP는 제외한다. HR은 자기 회사/세대 계정 상태를 소유 함수에서 수집하고 인증 소유 함수의 결과를 합친다. 업무 간 FK/직접 조회를 추가하지 않으며 새DB표·마이그레이션·HTTP API가 없다.
+
+기존 GW 기록 설정을 공통 사용한다. 형식 core.security.intent.v1/hr.users.intent.v1, 같은TX의 기존core.audit_event에 action security.journal.confirmation/entity_kind security_journal/entity_key 봉투지문/summary.subject(형식·작업·대상 계정·해당 시공간/세대)를 저장한다. 인증 제한 카운터/시스템감사는 SYSTEM, 사용자 감사는 MEMBER로표시한다. 키/체인/파일 오류는503/해당TX rollback, 기록후DB실패는 의도만남아미확인이다. 기존점검CLI가 GW와새형식을함께대조하며 전체완전성/ready는false다. [수집경로·제약](../../operations/GW_직원연결_역할변경기록_GW-READY-02.md).

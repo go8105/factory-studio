@@ -248,6 +248,7 @@ def recovery_logout(
             ),
             {"u": context.user_id, "t": token_hash(context.token)},
         )
+        service.audit(c, context.user_id, "security.recovery.logout")
     response.delete_cookie(get_settings().session_cookie, path="/")
 
 

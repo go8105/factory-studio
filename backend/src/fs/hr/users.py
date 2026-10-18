@@ -97,6 +97,18 @@ def register_company(ctx, key, body):
             raise ApiError(
                 409, "DUPLICATE_ACCOUNT", "이미 사용 중인 아이디 또는 사원 코드입니다."
             ) from exc
+        from fs.hr.security_journal import record
+
+        generation = c.execute(
+            text("SELECT active_generation_id FROM core.workspace WHERE id=:w"),
+            {"w": result["companyId"]},
+        ).scalar_one()
+        record(
+            c,
+            replace(scoped, workspace_id=result["companyId"], generation_id=generation),
+            result["userId"],
+            "hr.users.company-create",
+        )
         return result, "core.company", result["companyId"]
 
     return action(
@@ -326,6 +338,9 @@ def mutate(ctx, company_id, operation, key, body):
         result = {"userId": uid}
         audit = {k: v for k, v in safe.items() if k != "credentialFingerprint"}
         event(c, scoped, employee, "user-" + operation, uid, audit)
+        from fs.hr.security_journal import record
+
+        record(c, scoped, uid, "hr.users." + operation)
         return result, "hr.work_account", uid
 
     try:
