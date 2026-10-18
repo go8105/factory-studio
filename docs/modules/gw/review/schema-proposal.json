@@ -1,0 +1,1201 @@
+{
+  "task": "GW-READY-01",
+  "status": "설계 제안 · DB/제품 미적용",
+  "date": "2026-10-18",
+  "base_revision": "2be292e",
+  "current_schema": "0.27.0",
+  "current_tables": 210,
+  "proposed_new_tables": 9,
+  "proposed_extensions": 2,
+  "tables": [
+    {
+      "name": "core.mfa_factor",
+      "label": "인증 앱 수단",
+      "status": "신규 제안 · 미적용",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "IDENTITY",
+          "note": "id bigint PK"
+        },
+        {
+          "name": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "user_id bigint NOT NULL FK core.app_user"
+        },
+        {
+          "name": "kind",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": "",
+          "note": "kind varchar(20) NOT NULL"
+        },
+        {
+          "name": "state",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "",
+          "note": "state varchar(12) NOT NULL"
+        },
+        {
+          "name": "secret_ciphertext",
+          "type": "text",
+          "nullable": false,
+          "default": "",
+          "note": "secret_ciphertext text NOT NULL"
+        },
+        {
+          "name": "encryption_key_id",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": "",
+          "note": "encryption_key_id varchar(60) NOT NULL"
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "note": "version integer NOT NULL default1"
+        },
+        {
+          "name": "last_used_step",
+          "type": "bigint",
+          "nullable": true,
+          "default": "",
+          "note": "last_used_step bigint NULL"
+        },
+        {
+          "name": "pending_expires_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "",
+          "note": "pending_expires_at timestamptz NULL"
+        },
+        {
+          "name": "confirmed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "",
+          "note": "confirmed_at timestamptz NULL"
+        },
+        {
+          "name": "revoked_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "",
+          "note": "revoked_at timestamptz NULL"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "",
+          "note": "created_at timestamptz NOT NULL"
+        }
+      ],
+      "rules": [
+        "UK(user_id,id); partial UK(user_id,kind) WHERE state=ACTIVE와 PENDING을 각각 둔다. version>0. PENDING은 만료, ACTIVE는 확인 시각, REVOKED는 회수 시각 필수.",
+        "last_used_step은 사용한 구간보다 큰 값으로만 진행한다. 인증 확인과 갱신을 동일 잠금/TX에서 수행한다.",
+        "활성 TOTP 비밀 조회 API는 두지 않는다. 등록 QR/설정 키는 PENDING 발급 시에만 반환한다."
+      ]
+    },
+    {
+      "name": "core.authentication_challenge",
+      "label": "단계 인증 요청",
+      "status": "신규 제안 · 미적용",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "IDENTITY",
+          "note": "id bigint PK"
+        },
+        {
+          "name": "user_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": "",
+          "note": "user_id bigint NULL FK core.app_user"
+        },
+        {
+          "name": "session_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": "",
+          "note": "session_id bigint NULL"
+        },
+        {
+          "name": "purpose",
+          "type": "varchar(24)",
+          "nullable": false,
+          "default": "",
+          "note": "purpose varchar(24) NOT NULL"
+        },
+        {
+          "name": "token_hash",
+          "type": "varchar(64)",
+          "nullable": false,
+          "default": "",
+          "note": "token_hash varchar(64) NOT NULL UK"
+        },
+        {
+          "name": "state",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "",
+          "note": "state varchar(12) NOT NULL"
+        },
+        {
+          "name": "security_version",
+          "type": "integer",
+          "nullable": true,
+          "default": "",
+          "note": "security_version integer NULL"
+        },
+        {
+          "name": "provider_key",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": "",
+          "note": "provider_key varchar(60) NULL"
+        },
+        {
+          "name": "protected_payload",
+          "type": "text",
+          "nullable": true,
+          "default": "",
+          "note": "protected_payload text NULL"
+        },
+        {
+          "name": "encryption_key_id",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": "",
+          "note": "encryption_key_id varchar(60) NULL"
+        },
+        {
+          "name": "attempt_count",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "note": "attempt_count integer NOT NULL default0"
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "",
+          "note": "expires_at timestamptz NOT NULL"
+        },
+        {
+          "name": "consumed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "",
+          "note": "consumed_at timestamptz NULL"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "",
+          "note": "created_at timestamptz NOT NULL"
+        }
+      ],
+      "rules": [
+        "FK(user_id,session_id)→core.auth_session(user_id,id), 기존 session에 UK(user_id,id)를 추가한다. purpose별 필수값 CHECK. 로그인 전 OIDC는 user_id NULL 허용, STEP_UP은 user/session 필수, OIDC_LINK는 현재 사용자/세션과 최근 추가 인증 결합. payload는 nonce/PKCE 등 필요한 임시값만 암호화. 비밀번호를 넣지 않음.",
+        "attempt_count>=0, expires_at>created_at, CONSUMED면 소비 시각 필수. 토큰은 고엔트로피 opaque 값, hash만 저장. 종류별 수명5분, ENROLL10분·운영 복구 요청15분 초기값.",
+        "사용/실패 증가/만료/회수는 원자적. 이미 사용한 challenge로 새 세션을 다시 발급하지 않음. 단순 로그인 재시도에 업무 권한이 붙지 않음."
+      ]
+    },
+    {
+      "name": "core.recovery_code",
+      "label": "일회용 복구 코드",
+      "status": "신규 제안 · 미적용",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "IDENTITY",
+          "note": "id bigint PK"
+        },
+        {
+          "name": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "user_id bigint NOT NULL"
+        },
+        {
+          "name": "factor_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "factor_id bigint NOT NULL"
+        },
+        {
+          "name": "factor_version",
+          "type": "integer",
+          "nullable": false,
+          "default": "",
+          "note": "factor_version integer NOT NULL"
+        },
+        {
+          "name": "code_hash",
+          "type": "text",
+          "nullable": false,
+          "default": "",
+          "note": "code_hash text NOT NULL"
+        },
+        {
+          "name": "used_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "",
+          "note": "used_at timestamptz NULL"
+        },
+        {
+          "name": "revoked_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "",
+          "note": "revoked_at timestamptz NULL"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "",
+          "note": "created_at timestamptz NOT NULL"
+        }
+      ],
+      "rules": [
+        "FK(user_id,factor_id)→core.mfa_factor(user_id,id); version>0; UK(user_id,code_hash). 서버의 안전한 난수8개, 코드당 충분한 엔트로피, 기존 scrypt/검증 라이브러리로 hash. 응답/로그/DB에는 평문 재조회 없음.",
+        "검증과 used_at 갱신은 동일 TX로1회만 성공. 새 발급은 이전 미사용 코드를 모두 회수하고 security_version을 올려 관련 세션을 무효화. 실패/재발급 경합 검증.",
+        "관리자 긴급 복구의 별도 수단은 이 직원용 코드와 구분해 오프라인 보관/만료형 challenge 발급 절차로 다룸. 플랫폼 관리자의 본문/계정 가장 권한을 추가하지 않음."
+      ]
+    },
+    {
+      "name": "core.sso_identity",
+      "label": "SSO 본인 연결",
+      "status": "신규 제안 · 미적용",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "IDENTITY",
+          "note": "id bigint PK"
+        },
+        {
+          "name": "user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "user_id bigint NOT NULL FK core.app_user"
+        },
+        {
+          "name": "provider_key",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": "",
+          "note": "provider_key varchar(60) NOT NULL"
+        },
+        {
+          "name": "issuer",
+          "type": "varchar(500)",
+          "nullable": false,
+          "default": "",
+          "note": "issuer varchar(500) NOT NULL"
+        },
+        {
+          "name": "subject",
+          "type": "varchar(255)",
+          "nullable": false,
+          "default": "",
+          "note": "subject varchar(255) NOT NULL"
+        },
+        {
+          "name": "state",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "",
+          "note": "state varchar(12) NOT NULL"
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "note": "version integer NOT NULL default1"
+        },
+        {
+          "name": "linked_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "",
+          "note": "linked_at timestamptz NOT NULL"
+        },
+        {
+          "name": "revoked_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "",
+          "note": "revoked_at timestamptz NULL"
+        }
+      ],
+      "rules": [
+        "UK(issuer,subject), partial UK(user_id,provider_key) WHERE state=ACTIVE, version>0. 메일·표시명 변경으로 subject를 바꾸거나 다른 직원에게 이관하지 않음.",
+        "access/refresh token 영구 보관 없음. 명시 연결은 현재 본인의 최근 추가 인증+OIDC subject 검증을 함께 요구. 정지된 로컬 계정·회사 소속을 IdP 로그인으로 되살리지 않음."
+      ]
+    },
+    {
+      "name": "core.authentication_throttle",
+      "label": "인증 시도 제한",
+      "status": "신규 제안 · 미적용",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "IDENTITY",
+          "note": "id bigint PK"
+        },
+        {
+          "name": "bucket_hash",
+          "type": "varchar(64)",
+          "nullable": false,
+          "default": "",
+          "note": "bucket_hash varchar(64) NOT NULL"
+        },
+        {
+          "name": "window_started_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "",
+          "note": "window_started_at timestamptz NOT NULL"
+        },
+        {
+          "name": "fail_count",
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "note": "fail_count integer NOT NULL default0"
+        },
+        {
+          "name": "locked_until",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "",
+          "note": "locked_until timestamptz NULL"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "",
+          "note": "updated_at timestamptz NOT NULL"
+        }
+      ],
+      "rules": [
+        "UK(bucket_hash,window_started_at), fail_count>=0, 만료/잠금 조회 인덱스. 정규화 로그인 식별자와 관측한 네트워크 식별자는 HMAC bucket으로 구분해 원문 IP/로그인 실패 비밀번호를 보관하지 않음. 위조 가능한 Forwarded 헤더를 그대로 신뢰하지 않음.",
+        "로그인 식별자 실패10회/10분, 네트워크100회/10분, OTP challenge5회/5분 초기안. 존재하지 않는 계정도 같은 제한/메시지. 제한은 설정 범위 내 조정 가능하나 COMPANY에서0/무제한 불가. 정상10명 같은 사무실의 로그인은 계정당과 네트워크 제한을 구분해 검사."
+      ]
+    },
+    {
+      "name": "gw.operating_settings",
+      "label": "회사 운영 상태",
+      "status": "신규 제안 · 미적용",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "IDENTITY",
+          "note": "PK"
+        },
+        {
+          "name": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "S 범위 앵커"
+        },
+        {
+          "name": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "S 범위 앵커"
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "note": "version integer NOT NULL default1"
+        },
+        {
+          "name": "current_policy_revision_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": "",
+          "note": "current_policy_revision_id bigint NULL"
+        },
+        {
+          "name": "rollout_state",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "",
+          "note": "rollout_state varchar(12) NOT NULL"
+        },
+        {
+          "name": "company_hold",
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "note": "company_hold boolean NOT NULL defaultfalse"
+        },
+        {
+          "name": "hold_reason",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": "",
+          "note": "hold_reason varchar(500) NULL"
+        },
+        {
+          "name": "updated_by_user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "updated_by_user_id bigint NOT NULL"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "",
+          "note": "updated_at timestamptz NOT NULL"
+        }
+      ],
+      "rules": [
+        "UK(S), FK(S,current_policy_revision_id)→gw.operating_policy_revision(S,id); version>0; hold=true면 사유2~500자. 설정은 CAS로 변경하고 기존 GW 보안 감사 기록에 변경 원인/주체/버전을 남김.",
+        "READY는 UI 입력 상태가 아니라 서버가 계산한 준비 조건. ACTIVE 저장 시 현재 증거/연결/MFA/역할/회사 모드 검증을 같은 잠금 안에서 재검사한다. 준비 실패 시 자동 성공·관리자 우회 플래그 없음."
+      ]
+    },
+    {
+      "name": "gw.operating_policy_revision",
+      "label": "운영 기준 버전",
+      "status": "신규 제안 · 미적용",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "IDENTITY",
+          "note": "PK"
+        },
+        {
+          "name": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "S 범위 앵커"
+        },
+        {
+          "name": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "S 범위 앵커"
+        },
+        {
+          "name": "revision_no",
+          "type": "integer",
+          "nullable": false,
+          "default": "",
+          "note": "revision_no integer NOT NULL"
+        },
+        {
+          "name": "expected_people",
+          "type": "integer",
+          "nullable": false,
+          "default": "10",
+          "note": "expected_people integer NOT NULL default10"
+        },
+        {
+          "name": "expected_departments",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "note": "expected_departments integer NOT NULL default1"
+        },
+        {
+          "name": "responsible_person_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "responsible_person_id bigint NOT NULL"
+        },
+        {
+          "name": "backup_interval_minutes",
+          "type": "integer",
+          "nullable": false,
+          "default": "30",
+          "note": "backup_interval_minutes integer NOT NULL default30"
+        },
+        {
+          "name": "rpo_minutes",
+          "type": "integer",
+          "nullable": false,
+          "default": "60",
+          "note": "rpo_minutes integer NOT NULL default60"
+        },
+        {
+          "name": "rto_minutes",
+          "type": "integer",
+          "nullable": false,
+          "default": "240",
+          "note": "rto_minutes integer NOT NULL default240"
+        },
+        {
+          "name": "document_review_months",
+          "type": "integer",
+          "nullable": false,
+          "default": "36",
+          "note": "document_review_months integer NOT NULL default36"
+        },
+        {
+          "name": "audit_review_months",
+          "type": "integer",
+          "nullable": false,
+          "default": "12",
+          "note": "audit_review_months integer NOT NULL default12"
+        },
+        {
+          "name": "backup_keep_days",
+          "type": "integer",
+          "nullable": false,
+          "default": "30",
+          "note": "backup_keep_days integer NOT NULL default30"
+        },
+        {
+          "name": "reason",
+          "type": "varchar(500)",
+          "nullable": false,
+          "default": "",
+          "note": "reason varchar(500) NOT NULL"
+        },
+        {
+          "name": "confirmed_by_user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "confirmed_by_user_id bigint NOT NULL"
+        },
+        {
+          "name": "confirmed_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "",
+          "note": "confirmed_at timestamptz NOT NULL"
+        },
+        {
+          "name": "policy_digest",
+          "type": "varchar(64)",
+          "nullable": false,
+          "default": "",
+          "note": "policy_digest varchar(64) NOT NULL"
+        }
+      ],
+      "rules": [
+        "UK(S,revision_no), FK(S,responsible_person_id)→gw.person(S,id). 책임자가 현재 활성 연결인지 서비스에서 확인. 실제 인원과 expected_people은 배포/용량 한도와 구분.",
+        "UI 초기 범위: 인원1~10000, 부서1~1000, 백업 간격5~1440분·RPO1~1440분·RTO15~10080분, 문서/감사1~120개월·백업7~365일. 양의 정수·백업 간격<RPO, 정책 사유2~500자 CHECK. 저장 기간을 짧게 바꿔 기존 원본을 즉시 삭제하지 않음.",
+        "확정 revision은 불변. 현재 설정 버전(expectedVersion)과 최종값/영향 동의 후 append하고 current pointer 변경. 승인 기록을 덮어쓰지 않음."
+      ]
+    },
+    {
+      "name": "gw.operating_evidence",
+      "label": "운영 실행 증거",
+      "status": "신규 제안 · 미적용",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "IDENTITY",
+          "note": "PK"
+        },
+        {
+          "name": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "S 범위 앵커"
+        },
+        {
+          "name": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "S 범위 앵커"
+        },
+        {
+          "name": "run_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "",
+          "note": "run_id uuid NOT NULL"
+        },
+        {
+          "name": "kind",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": "",
+          "note": "kind varchar(20) NOT NULL"
+        },
+        {
+          "name": "started_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "",
+          "note": "started_at/finished_at timestamptz NOT NULL"
+        },
+        {
+          "name": "finished_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "",
+          "note": "started_at/finished_at timestamptz NOT NULL"
+        },
+        {
+          "name": "policy_revision_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "policy_revision_id bigint NOT NULL"
+        },
+        {
+          "name": "code_revision",
+          "type": "varchar(64)",
+          "nullable": false,
+          "default": "",
+          "note": "code_revision varchar(64) NOT NULL"
+        },
+        {
+          "name": "db_revision",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": "",
+          "note": "db_revision varchar(100) NOT NULL"
+        },
+        {
+          "name": "manifest_digest",
+          "type": "varchar(64)",
+          "nullable": false,
+          "default": "",
+          "note": "manifest_digest varchar(64) NOT NULL"
+        },
+        {
+          "name": "result",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "",
+          "note": "result varchar(12) NOT NULL"
+        },
+        {
+          "name": "metrics",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "",
+          "note": "metrics jsonb NOT NULL"
+        },
+        {
+          "name": "signer_key_id",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": "",
+          "note": "signer_key_id varchar(60) NOT NULL"
+        },
+        {
+          "name": "signature",
+          "type": "text",
+          "nullable": false,
+          "default": "",
+          "note": "signature text NOT NULL"
+        },
+        {
+          "name": "recorded_by_user_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "recorded_by_user_id bigint NOT NULL"
+        },
+        {
+          "name": "recorded_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "",
+          "note": "recorded_at timestamptz NOT NULL"
+        }
+      ],
+      "rules": [
+        "UK(S,run_id), FK(S,policy_revision_id)는 같은 S의 policy를 참조한다. 시각 순서·필수 metrics 키/타입/범위를 확인한다. 본문·이름·비밀번호·비밀 키·DB URL을 metrics에 넣지 않는다.",
+        "운영 실행 측 Ed25519 비밀 키와 앱 측 검증 공개 키를 분리한다. 서명/범위/head/실행ID/기한/시계 차이를 확인한다. 브라우저는 PASS를 지정할 수 없다. 실패 증거를 지우고 마지막 성공만 보여 주지 않는다. 서명은 실행 주체와 변조 여부를 확인하는 수단이며 실행자/키 자체의 침해를 해결하지는 않는다. 실제 검사 도구가 판정해 발행하고 운영 담당자가 환경/manifest와 대조한다.",
+        "RESTORE는 행 수/hash/FK/세션 무효화/회수 재적용/2계정/손실 구간/실측 시간이 모두 있어야 PASS를 판정한다. 증거가 오래됐거나 현재 policy와 다르면 준비 조건을 만족하지 않는다."
+      ]
+    },
+    {
+      "name": "gw.retention_review",
+      "label": "보관 검토",
+      "status": "신규 제안 · 미적용",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "IDENTITY",
+          "note": "PK"
+        },
+        {
+          "name": "workspace_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "S 범위 앵커"
+        },
+        {
+          "name": "generation_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "S 범위 앵커"
+        },
+        {
+          "name": "document_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": "",
+          "note": "document_id bigint NULL"
+        },
+        {
+          "name": "post_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": "",
+          "note": "post_id bigint NULL"
+        },
+        {
+          "name": "policy_revision_id",
+          "type": "bigint",
+          "nullable": false,
+          "default": "",
+          "note": "policy_revision_id bigint NOT NULL"
+        },
+        {
+          "name": "review_due_on",
+          "type": "date",
+          "nullable": false,
+          "default": "",
+          "note": "review_due_on date NOT NULL"
+        },
+        {
+          "name": "state",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": "",
+          "note": "state varchar(20) NOT NULL"
+        },
+        {
+          "name": "archive_digest",
+          "type": "varchar(64)",
+          "nullable": true,
+          "default": "",
+          "note": "archive_digest varchar(64) NULL"
+        },
+        {
+          "name": "archive_reference",
+          "type": "varchar(200)",
+          "nullable": true,
+          "default": "",
+          "note": "archive_reference varchar(200) NULL"
+        },
+        {
+          "name": "reason",
+          "type": "varchar(500)",
+          "nullable": false,
+          "default": "",
+          "note": "reason varchar(500) NOT NULL"
+        },
+        {
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "note": "version integer NOT NULL default1"
+        },
+        {
+          "name": "reviewed_by_user_id",
+          "type": "bigint",
+          "nullable": true,
+          "default": "",
+          "note": "reviewed_by_user_id bigint NULL"
+        },
+        {
+          "name": "reviewed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "",
+          "note": "reviewed_at timestamptz NULL"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "",
+          "note": "created_at timestamptz NOT NULL"
+        }
+      ],
+      "rules": [
+        "document/post 중 하나만 NOT NULL. 각 FK는 S 복합 참조, policy도 같은 범위. UK_PARTIAL(S,document_id,policy_revision_id), post도 동일. version>0, reason2~500자.",
+        "ARCHIVED는 검증된 보관본 digest/reference/담당자/시각이 필요하다. 참조는 비밀이 붙은 URL 대신 보관소 식별자를 쓴다. HELD와 회사 hold는 처리를 멈추며 해제는 새 감사 이력을 남긴다.",
+        "행 생성·상태 변경은 원문 삭제/편집을 뜻하지 않는다. 열람 ACL은 원래 document/post에 매번 적용한다. 건수/검색/페이지/CSV/이전후속 링크에서도 비공개 본문을 추측하지 못하게 한다."
+      ]
+    },
+    {
+      "name": "core.app_user",
+      "label": "기존 인증 표 확장",
+      "status": "기존 표의 추가 컬럼 제안 · 미적용",
+      "columns": [
+        {
+          "name": "security_version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "note": "기존 컬럼 유지·제안 필드만 표시"
+        }
+      ],
+      "rules": [
+        "security_version>0. 비밀번호/MFA/복구 변경 시 증가. 기존 비밀번호·상태·역할 자동 변경 없음."
+      ]
+    },
+    {
+      "name": "core.auth_session",
+      "label": "기존 인증 표 확장",
+      "status": "기존 표의 추가 컬럼 제안 · 미적용",
+      "columns": [
+        {
+          "name": "assurance",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": "'PASSWORD'",
+          "note": "기존 컬럼 유지·제안 필드만 표시"
+        },
+        {
+          "name": "verified_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "",
+          "note": "기존 컬럼 유지·제안 필드만 표시"
+        },
+        {
+          "name": "security_version",
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "note": "기존 컬럼 유지·제안 필드만 표시"
+        },
+        {
+          "name": "auth_method",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": "'PASSWORD'",
+          "note": "기존 컬럼 유지·제안 필드만 표시"
+        },
+        {
+          "name": "absolute_expires_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": "",
+          "note": "기존 컬럼 유지·제안 필드만 표시"
+        }
+      ],
+      "rules": [
+        "UK(user_id,id) 추가. 제한 복구 세션은 업무 사용 불가. COMPANY 신규 세션 절대8시간/idle30분 초기안."
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "source": "core.mfa_factor",
+      "columns": [
+        "user_id"
+      ],
+      "target": "core.app_user",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "core.authentication_challenge",
+      "columns": [
+        "user_id"
+      ],
+      "target": "core.app_user",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "core.sso_identity",
+      "columns": [
+        "user_id"
+      ],
+      "target": "core.app_user",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "core.authentication_challenge",
+      "columns": [
+        "user_id",
+        "session_id"
+      ],
+      "target": "core.auth_session",
+      "target_columns": [
+        "user_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "core.recovery_code",
+      "columns": [
+        "user_id",
+        "factor_id"
+      ],
+      "target": "core.mfa_factor",
+      "target_columns": [
+        "user_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "gw.operating_settings",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "gw.operating_settings",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "gw.operating_policy_revision",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "gw.operating_policy_revision",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "gw.operating_evidence",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "gw.operating_evidence",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "gw.retention_review",
+      "columns": [
+        "workspace_id"
+      ],
+      "target": "core.workspace",
+      "target_columns": [
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "gw.retention_review",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "gw.operating_settings",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "current_policy_revision_id"
+      ],
+      "target": "gw.operating_policy_revision",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "gw.operating_policy_revision",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "responsible_person_id"
+      ],
+      "target": "gw.person",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "gw.operating_evidence",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "policy_revision_id"
+      ],
+      "target": "gw.operating_policy_revision",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "gw.retention_review",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "policy_revision_id"
+      ],
+      "target": "gw.operating_policy_revision",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "gw.retention_review",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id"
+      ],
+      "target": "gw.approval_document",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    },
+    {
+      "source": "gw.retention_review",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "post_id"
+      ],
+      "target": "gw.board_post",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT"
+    }
+  ]
+}

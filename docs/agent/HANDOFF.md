@@ -1,3 +1,7 @@
+## 2026-10-18 GW-READY-01 WIP 실사용 보안·운영·UI 설계 검토
+
+사용자 GW-COMPANY-05 미완료를 GitHub GW기본으로 설계·제작, UI직관성/유효성/학습성/유연성 필수 요청. 기존01에서제외한신규인증/복구 범위라AGENTS§2전체설계확인대상. Frappe/authentik/Nextcloud/PyOTP/Authlib1차자료·commit핀대조, 10인기본안(TOTP/코드8/SSO선택·RPO60/RTO240/백업30분·문서36개월/감사12개월/백업30일)과신규9표/기존2표확장/제안FK19·DB/API/ERD/제안Excel9시트·독립시제품작성. Chrome시제품11desktop/6mobile·입력오류유지/닫기포커스/키보드/권한별검토메뉴/가로넘침0/pageerror0/외부요청0. 실제MFA/DB/운영기능미구현·현재schema210/main2be292e보존. 최종패키지·결과기록마무리중. 정적검토서버127.0.0.1:8371(소유)만실행, 실제계정/비밀번호/DB/설정/원격/배포변경없음.
+
 ## 2026-10-18 GW-COMPANY-05 WMS 통합·10인 합성 기술 검증 완료 / 실운영 인수 미완료
 
 - 사용자05 승인·추가요청 회사1/부서1/총10명 최소 구성(창업 전 준비). GW7b41850+로컬main9f6cf36을 codex/gw-company-01에서 통합, 완료분 로컬main만반영·원격push/배포없음. [결과](GW_WMS통합_인수검증_GW-COMPANY-05.md), 운영 준비는결과연결문서. 최종commit은gitlog.

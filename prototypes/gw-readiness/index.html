@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>GW 운영 준비 · 설계 검토용</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">본문으로 이동</a>
+    <div class="review">
+      <strong>설계 검토용 시제품</strong
+      ><span>실제 로그인·인증·저장·백업을 수행하지 않습니다.</span>
+    </div>
+    <header>
+      <a href="#home" class="brand">Factory Studio <span>GW</span></a>
+      <div class="review-role">
+        <label for="role">검토할 화면</label
+        ><select id="role">
+          <option value="admin">관리자 화면</option>
+          <option value="staff">직원 화면</option>
+        </select>
+      </div>
+    </header>
+    <div class="shell">
+      <aside>
+        <button
+          id="menu-toggle"
+          aria-expanded="false"
+          aria-controls="navigation"
+        >
+          GW 메뉴 열기
+        </button>
+        <nav id="navigation" aria-label="GW 메뉴"></nav>
+        <p class="aside-note">회사 1개 · 부서 1개<br />관리자 1명 + 직원 9명</p>
+      </aside>
+      <main id="main" tabindex="-1"></main>
+    </div>
+    <dialog id="dialog" aria-labelledby="dialog-title">
+      <div class="dialog-title">
+        <h2 id="dialog-title"></h2>
+        <button type="button" id="close-dialog" aria-label="대화상자 닫기">
+          닫기
+        </button>
+      </div>
+      <div id="dialog-body"></div>
+    </dialog>
+    <p id="status" class="toast" role="status" aria-live="polite"></p>
+    <script src="app.js"></script>
+  </body>
+</html>
