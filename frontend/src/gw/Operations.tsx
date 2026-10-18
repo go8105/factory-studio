@@ -1,3 +1,4 @@
+import { OperatingEvidence } from "./OperatingEvidence";
 import { useState } from "react";
 import { EmergencyKit } from "./EmergencyKit";
 import { Link } from "react-router-dom";
@@ -126,6 +127,10 @@ export function Operations() {
               운영 기준 검토·적용
             </button>
           )}
+          <OperatingEvidence
+            canEdit={data.canEdit}
+            disabled={editing || kitPending}
+          />
           {editing && (
             <PolicyEdit
               state={data}

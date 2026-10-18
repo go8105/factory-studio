@@ -103,3 +103,5 @@ npm run db:validate                        # 검증기 경로 확인
 - 공개 사용자 안내는 `content/help/portal/{cad-cam,part-design,nc-review,hugh-d,factory}.md`에 있다. 관리자 비공개 POC 설계를 공개 도움말에 싣지 않는다.
 
 - GW-READY-02 [관리자 긴급 복구 운영 절차](operations/GW_긴급관리자복구_GW-READY-02.md): 개발 구현·합성 검사 기준, 실환경 인수 미완료.
+
+- GW-READY-02 [운영 증거 등록·서버 설정](operations/GW_운영증거등록_GW-READY-02.md): 서명 기록 등록/조회 구현, 백업 실행기·실환경 인수 미완료.

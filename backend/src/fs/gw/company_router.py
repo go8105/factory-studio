@@ -437,3 +437,38 @@ def emergency_kit(
     require_origin(request)
     mutation_key(context, csrf, key)
     return {"data": issue(context, company_id, payload.reason, key)}
+
+
+class OperatingEvidenceRequest(schema.Model):
+    envelope: dict
+    signature: str = Field(min_length=1, max_length=100)
+
+
+@router.get("/operating-evidence")
+def evidence_history(
+    context: Auth,
+    company_id: CompanyId,
+    offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    from fs.gw.operating_evidence import history
+
+    return {"data": history(context, company_id, offset=offset, limit=limit)}
+
+
+@router.post("/operating-evidence")
+def evidence_record(
+    context: Auth,
+    company_id: CompanyId,
+    payload: OperatingEvidenceRequest,
+    request: Request,
+    csrf: Csrf = None,
+    key: Key = None,
+):
+    from fs.core.security.router import require_origin
+    from fs.gw.operating_evidence import record
+
+    require_origin(request)
+    return command(
+        context, csrf, key, record, context, company_id, payload.model_dump()
+    )

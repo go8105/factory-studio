@@ -1,3 +1,6 @@
+vi.mock("./OperatingEvidence", () => ({
+  OperatingEvidence: () => <div>운영 실행 기록</div>,
+}));
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";

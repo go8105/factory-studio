@@ -174,3 +174,7 @@
 - COMPANY 회사/HR 관리 변경은 권한 검사 후 최근 인증을 확인하고 기존 receipt를 조회한다. 권한/인증이 만료된 재전송으로 과거 성공 결과를 재사용하지 않는다.
 
 [운영자 절차](../../operations/GW_긴급관리자복구_GW-READY-02.md). 실회사 인수·SSO·백업/보관 실행은 미완료다.
+
+## GW-READY-02 운영 증거 등록 연결 (2026-10-18)
+
+GET/POST `gw/operating-evidence`를 기존 표에 연결했다. 현재 GW 역할·회사 범위·최근 MFA5분(등록)→멱등 응답→현재 정책/코드/DB/서명/시각/실측 계약→runId 중복 검사→불변 이력/감사 순이다. 서명 공개 키는 FS_GW_EVIDENCE_PUBLIC_KEYS, 제품 버전은 FS_CODE_REVISION, DB 버전은 alembic_version이다. PASS/FAIL/PARTIAL 목록에 이전 정책 여부를 표시한다. 자동백업·운영 ready 판정은 미연결이며 false 유지. [상세](../../operations/GW_운영증거등록_GW-READY-02.md).
