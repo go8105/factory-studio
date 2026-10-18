@@ -742,3 +742,23 @@ def reservation_preview(
     ],
 ):
     return _data(reservations.shipment_preview(context, row_id, source_key))
+
+
+# ---- 적치 작업 (W-11) ----
+PutawayTaskStatus = Literal["OPEN", "DONE", "CANCELLED"]
+
+
+@router.get("/putaway-tasks")
+def list_putaway_tasks(
+    context: Auth,
+    status: PutawayTaskStatus | None = None,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId")] = None,
+    item_id: Annotated[int | None, Query(alias="itemId")] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+):
+    return _data(
+        receiving.list_putaway_tasks(
+            context, status, warehouse_id, item_id, page, page_size
+        )
+    )

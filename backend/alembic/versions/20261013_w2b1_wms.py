@@ -304,6 +304,7 @@ DROPS = [
     "DROP TABLE wms.putaway_task",
     "DROP TABLE wms.lot_hold",
     "DROP TABLE wms.lot",
+    "DELETE FROM wms.storage_location WHERE location_type NOT IN ('NORMAL','QUARANTINE')",
     "ALTER TABLE wms.storage_location ADD CONSTRAINT c781_check CHECK (location_type IN ('NORMAL','QUARANTINE'))",
     "ALTER TABLE wms.source_claim ADD CONSTRAINT c768_check CHECK (source_key ~ '^ERP:PURCHASE:.+$')",
     "ALTER TABLE wms.stock_document ADD CONSTRAINT c624_check CHECK ((document_type IN ('MES_RECEIPT', 'MES_ISSUE', 'ERP_SHIPMENT', 'ERP_PURCHASE', 'WMS_INSPECTION', 'REVERSAL')) = (source_key IS NOT NULL))",

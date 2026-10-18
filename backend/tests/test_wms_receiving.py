@@ -783,3 +783,269 @@ def test_receiving_location_allowed_as_normal_location(receiving_env):
     assert r.status_code == 400
     assert "lines.0.normalLocationId" in r.json()["error"]["details"]["fields"]
 
+
+def test_putaway_task_creation_and_idempotency_on_inspection(receiving_env):
+    env = receiving_env
+    client, auth, engine, ids = env
+    rec_loc = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-REC-PT", "name": "입고장", "locationType": "RECEIVING"},
+        ),
+        201,
+    )
+    n = notice(
+        env,
+        qty="100",
+        lines=[
+            {
+                "itemId": ids["RM-PBT"],
+                "expectedQty": "100",
+                "normalLocationId": rec_loc["id"],
+                "quarantineLocationId": ids["quarantine"],
+            },
+            {
+                "itemId": ids["RM-PIN"],
+                "expectedQty": "50",
+                "normalLocationId": rec_loc["id"],
+                "quarantineLocationId": ids["quarantine"],
+            },
+        ],
+    )
+    n = _ok(act(env, n, "arrive"))
+    insp_body = {
+        "lines": [
+            {
+                "lineId": n["lines"][0]["id"],
+                "acceptedQty": "70",
+                "quarantinedQty": "20",
+                "shortageQty": "10",
+                "reason": "검수",
+            },
+            {
+                "lineId": n["lines"][1]["id"],
+                "acceptedQty": "0",
+                "quarantinedQty": "50",
+                "shortageQty": "0",
+                "reason": "불량 전량 격리",
+            },
+        ]
+    }
+    n = _ok(act(env, n, "inspect", **insp_body))
+    assert n["status"] == "INSPECTED"
+
+    res = _ok(_call(client, auth, "GET", "/putaway-tasks"))
+    assert res["total"] == 1
+    task = res["rows"][0]
+    assert task["taskNo"].startswith("PT-")
+    assert Decimal(task["qty"]) == Decimal(70)
+    assert task["itemId"] == ids["RM-PBT"]
+    assert task["fromLocationId"] == rec_loc["id"]
+    assert task["status"] == "OPEN"
+    assert task["toLocationId"] is None
+
+    with engine.connect() as c:
+        row = (
+            c.execute(
+                text(
+                    "SELECT suggested_location_id, to_location_id, status FROM wms.putaway_task WHERE id=:id"
+                ),
+                {"id": task["id"]},
+            )
+            .mappings()
+            .one()
+        )
+        assert row["suggested_location_id"] is None
+        assert row["to_location_id"] is None
+        assert row["status"] == "OPEN"
+
+    act(env, n, "inspect", **insp_body)
+    res_after = _ok(_call(client, auth, "GET", "/putaway-tasks"))
+    assert res_after["total"] == 1
+
+
+def test_putaway_task_recommendation_algorithm_and_filters(receiving_env):
+    env = receiving_env
+    client, auth, engine, ids = env
+
+    loc_same_lot = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-B01", "name": "1순위 후보", "locationType": "NORMAL"},
+        ),
+        201,
+    )
+    loc_same_item = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-B02", "name": "2순위 후보", "locationType": "NORMAL"},
+        ),
+        201,
+    )
+    loc_empty = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-B03", "name": "3순위 후보", "locationType": "NORMAL"},
+        ),
+        201,
+    )
+    loc_mix = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-B04", "name": "4순위 후보", "locationType": "NORMAL"},
+        ),
+        201,
+    )
+    rec_loc = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-REC-AL", "name": "입고장", "locationType": "RECEIVING"},
+        ),
+        201,
+    )
+
+    with engine.connect() as c:
+        c.execute(
+            text(
+                "UPDATE wms.storage_location SET capacity_qty=1 "
+                "WHERE workspace_id=:w AND generation_id=:g AND id NOT IN (:loc1, :loc2, :loc3, :loc4, :rec, :q)"
+            ),
+            {
+                "w": auth["workspaceId"],
+                "g": auth["generationId"],
+                "loc1": loc_same_lot["id"],
+                "loc2": loc_same_item["id"],
+                "loc3": loc_empty["id"],
+                "loc4": loc_mix["id"],
+                "rec": rec_loc["id"],
+                "q": ids["quarantine"],
+            },
+        )
+        c.commit()
+
+    _ok(_call(client, auth, "PATCH", f"/items/{ids['RM-PBT']}", {"lotTracked": True}))
+
+    opening = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            "/documents",
+            {
+                "documentType": "OPENING",
+                "documentOn": "2026-10-18",
+                "lines": [
+                    {
+                        "itemId": ids["RM-PBT"],
+                        "locationId": loc_same_lot["id"],
+                        "qty": "20",
+                        "lotNo": "LOT-100",
+                    },
+                    {
+                        "itemId": ids["RM-PBT"],
+                        "locationId": loc_same_item["id"],
+                        "qty": "20",
+                        "lotNo": "LOT-200",
+                    },
+                    {
+                        "itemId": ids["RM-PIN"],
+                        "locationId": loc_mix["id"],
+                        "qty": "20",
+                    },
+                ],
+            },
+        ),
+        201,
+    )
+    _ok(_call(client, auth, "POST", f"/documents/{opening['id']}/post"))
+
+    n = notice(
+        env,
+        qty="30",
+        lines=[
+            {
+                "itemId": ids["RM-PBT"],
+                "lotNo": "LOT-100",
+                "expectedQty": "30",
+                "normalLocationId": rec_loc["id"],
+            }
+        ],
+    )
+    n = _ok(act(env, n, "arrive"))
+    n = _ok(
+        act(env, n, "inspect", **inspect_body(n, accepted="30", held="0", short="0"))
+    )
+
+    # 1. 1순위: 같은 품목 + 같은 LOT이 있는 loc_same_lot (R-B01) 추천
+    res = _ok(_call(client, auth, "GET", "/putaway-tasks"))
+    task = res["rows"][0]
+    assert task["suggestedLocationId"] == loc_same_lot["id"]
+    assert task["suggestedLocationCode"] == "R-B01"
+
+    # 2. 용량 초과 및 LOT 혼적 차단 방어 테스트:
+    # loc_same_lot: 용량 20으로 설정 -> 현재고 20 + 30 = 50 > 20 이므로 탈락!
+    # loc_same_item: mix_lots = false 로 설정 -> 다른 LOT이므로 탈락!
+    # loc_empty: 빈 칸 -> 3순위로 추천되어야 함!
+    with engine.connect() as c:
+        c.execute(
+            text("UPDATE wms.storage_location SET capacity_qty=20 WHERE id=:id"),
+            {"id": loc_same_lot["id"]},
+        )
+        c.execute(
+            text("UPDATE wms.storage_location SET mix_lots=false WHERE id=:id"),
+            {"id": loc_same_item["id"]},
+        )
+        c.commit()
+
+    res = _ok(_call(client, auth, "GET", "/putaway-tasks"))
+    task = res["rows"][0]
+    assert task["suggestedLocationId"] == loc_empty["id"]
+    assert task["suggestedLocationCode"] == "R-B03"
+
+    # 3. 품목 혼적 차단 방어 테스트:
+    # loc_empty: 용량 10으로 설정 -> 적치 수량 30 > 10 이므로 탈락!
+    # loc_mix: 다른 품목(RM-PIN) 재고 있음, mix_items=true -> 4순위 추천!
+    with engine.connect() as c:
+        c.execute(
+            text("UPDATE wms.storage_location SET capacity_qty=10 WHERE id=:id"),
+            {"id": loc_empty["id"]},
+        )
+        c.commit()
+
+    res = _ok(_call(client, auth, "GET", "/putaway-tasks"))
+    task = res["rows"][0]
+    assert task["suggestedLocationId"] == loc_mix["id"]
+    assert task["suggestedLocationCode"] == "R-B04"
+
+    # loc_mix: mix_items = false 로 설정 -> 다른 품목 혼적 불가로 탈락!
+    # 모든 칸 탈락 -> "추천 없음"(None)
+    with engine.connect() as c:
+        c.execute(
+            text("UPDATE wms.storage_location SET mix_items=false WHERE id=:id"),
+            {"id": loc_mix["id"]},
+        )
+        c.commit()
+
+    res = _ok(_call(client, auth, "GET", "/putaway-tasks"))
+    task = res["rows"][0]
+    assert task["suggestedLocationId"] is None
+    assert task["suggestedLocationCode"] is None
+    assert task["suggestedLocationName"] is None

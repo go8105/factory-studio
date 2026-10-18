@@ -1421,9 +1421,7 @@ def test_inbound_lot_tracked_rules_and_lot_creation(wms, guest_space):
     # 8. /wms/lots 엔드포인트 조회 시 현재고 95.000 집계 확인
     lots = _ok(client.get(f"{W}/lots", params={"itemId": item_id}))
     assert len(lots) >= 1
-    found_lot = next(
-        l for l in lots if l["lotNo"] == "LOT-RAW-20261025-01"
-    )
+    found_lot = next(l for l in lots if l["lotNo"] == "LOT-RAW-20261025-01")
     assert Decimal(found_lot["qtyOnHand"]) == Decimal("95.000")
     assert found_lot["origin"] == "RECEIPT"
     assert found_lot["status"] == "AVAILABLE"
@@ -1451,4 +1449,3 @@ def test_inbound_lot_tracked_rules_and_lot_creation(wms, guest_space):
         )
     )
     assert re_inspected["id"] == notice_id
-

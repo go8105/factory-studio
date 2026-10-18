@@ -1,3 +1,40 @@
+# 2026-10-18 W2b-1c C-3 W-11 적치 작업 자동 생성·목록 및 실시간 추천 위치 산출 완료
+
+- **브랜치**: `antigravity/w2b-1c`
+- **끝난 것 (C-3)**:
+  - 검수 확정 시 합격분 적치 작업(`wms.putaway_task`) 자동 생성:
+    - `receiving.py`: `inspect_notice`에서 `accepted_qty > 0`인 명세마다 발번 `PT-YYYYMMDD-NNN`, `status='OPEN'`, `suggested_location_id=NULL`(검수 트랜잭션 경량화 및 실시간 계산 원칙), `from_location_id=normal_location_id`로 자동 생성. 격리/부족분 배제 및 멱등성 보장.
+  - 단일 CTE 쿼리를 통한 실시간 추천 위치 동적 산출:
+    - `receiving.py`: `list_putaway_tasks`에서 CTE(`filtered_tasks`, `candidate_locations`, `loc_stock`, `loc_totals` + `LEFT JOIN LATERAL`)로 N+1 없는 실시간 추천 위치 산출.
+    - 후보 위치: 동일 창고 · `is_active` · `location_type = 'NORMAL'` · `level_kind = 'BIN'` (출발 칸 제외).
+    - 제외 조건: 용량 초과(`현재고 + 적치수량 > capacity_qty`), 다른 품목 혼적 불가(`mix_items = false`), 다른 LOT 혼적 불가(`mix_lots = false`).
+    - 우선순위: 1순위(동일 품목+동일 LOT) → 2순위(동일 품목) → 3순위(빈 칸) → 4순위(혼적 허용) → 없으면 NULL.
+  - API 엔드포인트:
+    - `router.py`: `GET /api/v1/wms/putaway-tasks` 연결 (페이징, 상태/창고/품목 필터).
+  - W-11 적치 목록 화면:
+    - `frontend/src/wms/Putaways.tsx`: 적치 작업 테이블, 상태 배지(대기/완료/취소), 필터 바, 실시간 추천 위치 코드/이름 표시, 상세 패널 표시.
+    - `index.tsx`: 라우트 등록.
+    - `backend/src/fs/core/menu_catalog.json`: WMS screens에 W-11 적치 등록.
+  - 검증 결과:
+    - 백엔드 WMS 테스트: `backend/tests/test_wms_receiving.py` 신규 테스트(`test_putaway_task_creation_and_idempotency_on_inspection`, `test_putaway_task_recommendation_algorithm_and_filters`) 포함 WMS 전체 46개 테스트 통과 (`pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py` -> 46 passed, 5 warnings in 100.62s).
+    - 프런트엔드 WMS 및 메뉴 테스트: `npm --prefix frontend test -- src/wms/wms.test.tsx src/portal/favorites.test.tsx` 26개 테스트 통과.
+    - 백엔드 정적 분석: `uv run ruff check` 및 `uv run ruff format --check` 통과 (226 files formatted).
+    - 프런트엔드 정적 분석: `npm run lint`, `npm run format:check`, `npm run typecheck` 통과.
+    - DB 및 도구 검증: `npm run db:validate` (205표, 2246칼럼, 507FK, errors 0), Python 3.14 도구 단위 테스트 136개 통과.
+- **다음 할 일**: 사용자 확인 후 **C-4 (W-11 적치 완료·취소 백엔드+화면)** 착수.
+- **주의점**:
+  - 사용자 확인 전까지 **C-4 착수 금지** (작업 ID 하나씩 수행 후 확인 대기 규칙).
+  - C-4 적치 완료 처리 시:
+    - `status = 'DONE'`, `to_location_id` 저장, `done_at = now(KST)`.
+    - `PUTAWAY` 전표(`wms.stock_document`, `document_type = 'PUTAWAY'`, `status = 'posted'`) 및 `wms.stock_move` 생성하여 재고 원장에 출발지(`from_location_id`)에서 목적지(`to_location_id`)로 이동 반영.
+    - 취소(`CANCELLED`) 처리 지원.
+  - 스키마 불변 (`schema.json`, 마이그레이션 변경 금지).
+  - 원격 push 금지 (로컬 커밋만 유지).
+- **재현 명령**:
+  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
+  - `npm --prefix frontend test -- src/wms/wms.test.tsx src/portal/favorites.test.tsx`
+  - `npm --prefix frontend run lint && npm --prefix frontend run format:check && npm --prefix frontend run typecheck`
+
 # 2026-10-18 W2b-1c C-3a 입고장 경유 위치 흐름 검증 완화 및 시드/화면 반영 완료
 
 - **브랜치**: `antigravity/w2b-1c`

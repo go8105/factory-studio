@@ -1047,3 +1047,125 @@ it("W-08 입고 예정 등록 시 RECEIVING 위치가 있으면 기본 선택되
     expect(sentBody.lines[0].normalLocationId).toBe(15);
   });
 });
+
+it("W-11 적치 목록 렌더링, 상태 배지, 추천 위치 표시 및 상세 패널 검증", async () => {
+  const tasks = [
+    {
+      id: 1,
+      taskNo: "PT-20261018-001",
+      sourceDocumentId: 101,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      warehouseName: "원자재 창고",
+      itemId: 10,
+      itemCode: "RM-RAW01",
+      itemName: "원자재 품목",
+      baseUnit: "KG",
+      lotNo: "LOT-100",
+      qty: "70.000",
+      fromLocationId: 15,
+      fromLocationCode: "R-REC",
+      fromLocationName: "원자재 입고장",
+      suggestedLocationId: 11,
+      suggestedLocationCode: "R-B01",
+      suggestedLocationName: "기본 랙",
+      toLocationId: null,
+      toLocationCode: null,
+      toLocationName: null,
+      status: "OPEN",
+      doneAt: null,
+      stockDocumentId: null,
+      createdAt: "2026-10-18T10:00:00+09:00",
+    },
+    {
+      id: 2,
+      taskNo: "PT-20261018-002",
+      sourceDocumentId: 102,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      warehouseName: "원자재 창고",
+      itemId: 20,
+      itemCode: "RM-RAW02",
+      itemName: "원자재 품목2",
+      baseUnit: "EA",
+      lotNo: null,
+      qty: "50.000",
+      fromLocationId: 15,
+      fromLocationCode: "R-REC",
+      fromLocationName: "원자재 입고장",
+      suggestedLocationId: null,
+      suggestedLocationCode: null,
+      suggestedLocationName: null,
+      toLocationId: null,
+      toLocationCode: null,
+      toLocationName: null,
+      status: "OPEN",
+      doneAt: null,
+      stockDocumentId: null,
+      createdAt: "2026-10-18T10:05:00+09:00",
+    },
+  ];
+
+  mount("/wms/putaways", {
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 2,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      {
+        id: 10,
+        itemCode: "RM-RAW01",
+        name: "원자재 품목",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: true,
+        isActive: true,
+      },
+      {
+        id: 20,
+        itemCode: "RM-RAW02",
+        name: "원자재 품목2",
+        baseUnit: "EA",
+        itemClass: "RAW",
+        lotTracked: false,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/putaway-tasks`]: ok({
+      rows: tasks,
+      total: 2,
+      page: 1,
+      pageSize: 50,
+    }),
+  });
+
+  expect(
+    await screen.findByRole("heading", { name: "W-11 적치" }),
+  ).toBeVisible();
+
+  const table = screen.getByRole("table", { name: "적치 작업 목록" });
+  expect(within(table).getByText("PT-20261018-001")).toBeVisible();
+  expect(within(table).getByText("PT-20261018-002")).toBeVisible();
+
+  expect(within(table).getAllByText("대기")).toHaveLength(2);
+
+  expect(within(table).getByText(/R-B01/)).toBeVisible();
+  expect(within(table).getByText("추천 없음")).toBeVisible();
+
+  const detailButtons = within(table).getAllByRole("button", { name: "상세" });
+  fireEvent.click(detailButtons[0]);
+
+  const detailPanel = await screen.findByRole("dialog", {
+    name: "PT-20261018-001",
+  });
+  expect(within(detailPanel).getByText(/R-B01 기본 랙/)).toBeVisible();
+  expect(
+    within(detailPanel).getByText(/C-4 단계에서 지원됩니다/),
+  ).toBeVisible();
+});

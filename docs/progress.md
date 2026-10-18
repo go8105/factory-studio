@@ -1,3 +1,48 @@
+# 2026-10-18 W2b-1c C-3 W-11 적치 작업 자동 생성·목록 및 실시간 추천 위치 산출 완료
+
+- 브랜치: `antigravity/w2b-1c`
+- 완료 내용:
+  - 백엔드 (`backend/src/fs/wms/`):
+    - `receiving.py`:
+      - `inspect_notice`: 검수 확정 시 합격 수량(`accepted_qty > 0`)이 있는 명세마다 `wms.putaway_task`를 `status = 'OPEN'`, `suggested_location_id = NULL`(검수 트랜잭션 경량화 및 실시간 계산 원칙 준수), `from_location_id = normal_location_id`, 발번 `PT-YYYYMMDD-NNN`으로 자동 생성. 격리/부족품은 제외. `status == 'INSPECTED'` 조기 반환으로 멱등성 보장.
+      - `list_putaway_tasks`: 단일 CTE(`filtered_tasks`, `candidate_locations`, `loc_stock`, `loc_totals` + `LEFT JOIN LATERAL`)로 N+1 없는 실시간 추천 위치 산출 구현.
+        - 후보: 동일 창고 · `is_active` · `location_type = 'NORMAL'` · `level_kind = 'BIN'` (출발 칸 제외).
+        - 필터: 용량(`capacity_qty IS NULL` 또는 `현재고 + 적치수량 <= capacity_qty`), 품목 혼적(`mix_items = true`), LOT 혼적(`mix_lots = true`).
+        - 우선순위: 1순위(동일 품목+동일 LOT) → 2순위(동일 품목) → 3순위(빈 칸) → 4순위(혼적 허용) → 없으면 NULL.
+    - `router.py`:
+      - `GET /api/v1/wms/putaway-tasks`: 페이징 및 필터(`status`, `warehouseId`, `itemId`) 지원 엔드포인트 연결.
+  - 마이그레이션 및 시드 보정 (`backend/`):
+    - `alembic/versions/20261013_w2b1_wms.py`: downgrade 시 `storage_location`의 `location_type NOT IN ('NORMAL','QUARANTINE')` 행을 삭제한 후 `c781_check`를 복원하도록 보정하여 마이그레이션 왕복 무결성 확보.
+    - `seed/validate.py`, `tests/test_common.py`, `tests/test_seed.py`: C-3a에서 추가된 `RECEIVING` 위치 2개에 따른 시드 총 행 수 기대치(`14784` → `14786`, `14675` → `14677`, `14800` → `14802`, `14798` → `14800`) 정합성 갱신.
+  - 메뉴 카탈로그 및 포털:
+    - `backend/src/fs/core/menu_catalog.json`: WMS screens에 `path: "putaways", id: "W-11", label: "적치", group: "입출고"` 등록.
+    - `frontend/src/portal/favorites.test.tsx`: 메뉴 수 가드 114 → 115 갱신.
+  - 프런트엔드 (`frontend/src/wms/`):
+    - `common.tsx`: `PutawayStatus`, `PUTAWAY_STATUS_LABEL`, `PutawayTask` 타입 정의.
+    - `Putaways.tsx`: W-11 적치 목록 화면 신규 구현. 필터 바(창고·품목·상태), 상태 배지(대기/완료/취소), 실시간 추천 위치 코드/이름 표시, 상세 패널(`PT-` 번호, 출발 칸, 추천 칸, 적치 수량, 상태, C-4 안내).
+    - `index.tsx`: `<Route path="putaways" element={<Putaways />} />` 라우트 등록.
+  - 테스트 및 검증:
+    - 백엔드 WMS 테스트:
+      - `test_putaway_task_creation_and_idempotency_on_inspection`: 검수 확정 시 합격분 자동 생성, 격리분 배제, 재확정 차단 멱등성 검증.
+      - `test_putaway_task_recommendation_algorithm_and_filters`: 4순위(동일 품목+동일 LOT → 빈 칸 → 혼적 허용 → 추천 없음) 및 3대 필터(용량 초과 배제, `mix_lots=false` 배제, `mix_items=false` 배제) 실제 DB 조작 검증.
+      - 전체 백엔드 WMS 테스트: `pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py` -> `46 passed, 5 warnings in 100.62s`.
+    - 프런트엔드 WMS/포털 테스트:
+      - `src/wms/wms.test.tsx` (17 passed), `src/portal/favorites.test.tsx` (9 passed) -> `26 passed in 2.54s`.
+    - 도구 및 DB 검증:
+      - `python -m unittest discover -s tools` -> `Ran 136 tests in 16.161s, OK`.
+      - `npm run db:validate` -> 205표, 2246칼럼, 507FK, errors 0.
+      - `npm run db:build`, `python3 tools/build_erd.py` -> 성공.
+    - 정적 분석 및 린트:
+      - `uv run ruff check` 및 `ruff format --check` -> All checks passed, 226 files formatted.
+      - `npm run lint`, `npm run format:check`, `npm run typecheck` -> All passed.
+    - 로컬 CI (`tools/ci_local.sh`):
+      - 1단계(DB 검증·도구 테스트): 통과.
+      - 2단계(백엔드 ruff 검사): 통과.
+      - 3단계(백엔드 마이그레이션·pytest): 1015 passed 통과.
+      - 4단계(DB 초기화 및 마이그레이션 왕복): downgrade base → upgrade head 통과.
+      - 5단계(프런트엔드 빌드·검증·테스트): build/lint/typecheck 통과, 76개 테스트 파일 중 75개 통과 (기존 flow 미구현 1건 외 WMS 전건 통과).
+- 다음 작업: 사용자 확인 후 C-4 (W-11 적치 완료·취소 백엔드+화면) 착수.
+
 # 2026-10-18 W2b-1c C-3a 입고장 경유 위치 흐름 검증 완화 및 시드/화면 반영 완료
 
 - 브랜치: `antigravity/w2b-1c`

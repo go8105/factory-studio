@@ -111,6 +111,42 @@ export type LotRow = {
   qmsHold?: QmsHoldInfo | boolean | null;
 };
 
+export type PutawayStatus = "OPEN" | "DONE" | "CANCELLED";
+
+export const PUTAWAY_STATUS_LABEL: Record<PutawayStatus, string> = {
+  OPEN: "대기",
+  DONE: "완료",
+  CANCELLED: "취소",
+};
+
+export type PutawayTask = {
+  id: number;
+  taskNo: string;
+  sourceDocumentId: number;
+  warehouseId: number;
+  warehouseCode: string;
+  warehouseName: string;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  baseUnit: string;
+  lotNo: string | null;
+  qty: string;
+  fromLocationId: number;
+  fromLocationCode: string;
+  fromLocationName: string;
+  suggestedLocationId: number | null;
+  suggestedLocationCode: string | null;
+  suggestedLocationName: string | null;
+  toLocationId: number | null;
+  toLocationCode: string | null;
+  toLocationName: string | null;
+  status: PutawayStatus;
+  doneAt: string | null;
+  stockDocumentId: number | null;
+  createdAt: string;
+};
+
 export type PageInfo = {
   offset: number;
   limit: number;
