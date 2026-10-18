@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useSession } from "../app/session";
 import { ErrorNotice, Field } from "../shared/components";
 import { useSend } from "./common";
@@ -15,9 +16,13 @@ type Issued = { kit: EmergencyDocument; expiresAt: string };
 export function EmergencyKit({
   status,
   reload,
+  disabled = false,
+  onPendingChange,
 }: {
   status?: { prepared: boolean; expiresAt: string | null };
   reload: () => void;
+  disabled?: boolean;
+  onPendingChange?: (value: boolean) => void;
 }) {
   const { setNavigationBlocked } = useSession();
   const [issued, setIssued] = useState<Issued>();
@@ -26,6 +31,11 @@ export function EmergencyKit({
   const [downloaded, setDownloaded] = useState(false);
   const [stored, setStored] = useState(false);
   const request = useSend();
+  useEffect(() => {
+    onPendingChange?.(Boolean(issued) || request.pending);
+    return () => onPendingChange?.(false);
+  }, [issued, request.pending, onPendingChange]);
+
   useEffect(() => {
     if (!issued) return;
     setNavigationBlocked(true);
@@ -48,11 +58,12 @@ export function EmergencyKit({
     );
     const link = document.createElement("a");
     link.href = url;
-    link.download = "factory-studio-emergency-kit.json";
+    link.download = `factory-studio-emergency-${issued.kit.companyId}-${issued.kit.kitId}.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const revoke = URL.revokeObjectURL.bind(URL);
+    setTimeout(() => revoke(url), 1000);
     setDownloaded(true);
   }
   if (issued)
@@ -118,10 +129,14 @@ export function EmergencyKit({
         먼저 내 계정 보안에서 본인 확인을 마치세요. 문서 재발급은 10분에
         3번까지입니다.
       </p>
+      <Link to="/account/security" target="_blank" rel="noopener noreferrer">
+        새 탭에서 본인 확인
+      </Link>
       <ErrorNotice error={request.error} />
       <form
         onSubmit={async (e) => {
           e.preventDefault();
+          if (disabled) return;
           const result = await request.send<Issued>("/emergency-kit", "POST", {
             reason,
           });
@@ -139,18 +154,21 @@ export function EmergencyKit({
           maxLength={500}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          disabled={request.pending}
+          disabled={request.pending || disabled}
         />
         <label>
           <input
             type="checkbox"
             checked={consent}
-            disabled={request.pending}
+            disabled={request.pending || disabled}
             onChange={(e) => setConsent(e.target.checked)}
           />
           이전 문서·미사용 승인 파일 회수와 별도 보관 필요를 확인했습니다
         </label>
-        <button disabled={request.pending || !consent} type="submit">
+        <button
+          disabled={request.pending || disabled || !consent}
+          type="submit"
+        >
           본인 긴급 복구 문서 새로 발급
         </button>
       </form>

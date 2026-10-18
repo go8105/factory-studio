@@ -2,7 +2,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useSession } from "../app/session";
-import { api, MutationKeys, type Session } from "../shared/api";
+import { api, ApiError, MutationKeys, type Session } from "../shared/api";
 import { ErrorNotice, Field, Loading } from "../shared/components";
 import { fieldErrors } from "../shared/hooks";
 import "./Entry.css";
@@ -218,19 +218,33 @@ export function Entry() {
                       if (!file) return;
                       try {
                         if (file.size > 8192)
-                          throw new Error("승인 파일 크기를 확인하세요.");
+                          throw new ApiError(400, {
+                            code: "VALIDATION_FAILED",
+                            message: "승인 파일은 8KB 이하이어야 합니다.",
+                          });
                         const data = JSON.parse(await file.text());
                         if (
                           typeof data.grantToken !== "string" ||
                           !/^[-_A-Za-z0-9]{43}$/.test(data.grantToken)
                         )
-                          throw new Error(
-                            "서버 운영자가 발급한 승인 파일을 선택하세요.",
-                          );
+                          throw new ApiError(400, {
+                            code: "VALIDATION_FAILED",
+                            message:
+                              "서버 운영자가 발급한 승인 파일을 선택하세요.",
+                          });
                         if (version === fileVersion.current)
                           setCode(data.grantToken);
                       } catch (error) {
-                        if (version === fileVersion.current) setError(error);
+                        if (version === fileVersion.current)
+                          setError(
+                            error instanceof ApiError
+                              ? error
+                              : new ApiError(400, {
+                                  code: "VALIDATION_FAILED",
+                                  message:
+                                    "승인 파일을 읽지 못했습니다. 서버 운영자가 발급한 JSON 파일을 선택하세요.",
+                                }),
+                          );
                       }
                     }}
                   />

@@ -28,7 +28,9 @@ class EmergencyKit(BaseModel):
     generation_id: str = Field(alias="generationId", pattern=ID)
     person_id: str = Field(alias="personId", pattern=ID)
     kit_id: str = Field(alias="kitId", pattern=ID)
-    kit_secret: str = Field(alias="kitSecret", pattern=r"^[A-Za-z0-9_-]{43}$")
+    kit_secret: str = Field(
+        alias="kitSecret", pattern=r"^[A-Za-z0-9_-]{43}$", repr=False
+    )
 
     @field_validator("user_id", "company_id", "generation_id", "person_id", "kit_id")
     @classmethod
@@ -183,7 +185,7 @@ def summary(c, user_id, company_id):
 
 
 def approve(c, kit: EmergencyKit, operator_uid: int, reason: str):
-    """Caller holds company lock + exclusive account-management lock and current GW role."""
+    """Caller holds company/account/per-user locks and current GW role."""
     user = (
         c.execute(
             text("SELECT * FROM core.app_user WHERE id=:u FOR UPDATE"),
@@ -339,8 +341,54 @@ def fail_login(c, challenge_id):
     return None, service.failed()
 
 
-def redeem(c, login_token, grant_token):
-    """Caller rechecks current GW eligibility under company/exclusive account locks."""
+def login_owner(c, login_token):
+    return c.execute(
+        text(
+            "SELECT user_id FROM core.authentication_challenge WHERE token_hash=:t AND purpose='LOGIN_MFA'"
+        ),
+        {"t": token_hash(login_token)},
+    ).scalar_one_or_none()
+
+
+def reject_login(c, login_token):
+    user_id = c.execute(
+        text(
+            "SELECT user_id FROM core.authentication_challenge WHERE token_hash=:t AND purpose='LOGIN_MFA'"
+        ),
+        {"t": token_hash(login_token)},
+    ).scalar_one_or_none()
+    if user_id is None:
+        return None, service.failed()
+    user = service.user_lock(c, user_id)
+    row = (
+        c.execute(
+            text(
+                "SELECT * FROM core.authentication_challenge WHERE token_hash=:t FOR UPDATE"
+            ),
+            {"t": token_hash(login_token)},
+        )
+        .mappings()
+        .one()
+    )
+    if row["state"] == "LOCKED":
+        return None, ApiError(
+            429,
+            "AUTHENTICATION_THROTTLED",
+            "잠시 기다린 뒤 로그인부터 다시 시작하세요.",
+        )
+    if (
+        not service.active_user(user)
+        or row["state"] != "PENDING"
+        or row["expires_at"] <= service.database_now(c)
+        or row["security_version"] != user["security_version"]
+    ):
+        return None, service.failed()
+    error = service.issuance_quota(c, user_id, "emergency-redeem", limit=5, seconds=300)
+    return (None, error) if error else fail_login(c, row["id"])
+
+
+def redeem(c, login_token, grant_token, *, user_id):
+    """Caller rechecks current GW eligibility under company/account/per-user locks."""
     login = (
         c.execute(
             text(
@@ -353,6 +401,7 @@ def redeem(c, login_token, grant_token):
     )
     if (
         login is None
+        or login["user_id"] != user_id
         or login["purpose"] != "LOGIN_MFA"
         or login["state"] != "PENDING"
         or login["expires_at"] <= service.database_now(c)

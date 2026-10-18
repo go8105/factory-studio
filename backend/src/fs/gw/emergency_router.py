@@ -14,7 +14,9 @@ router = APIRouter()
 
 class EmergencyInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    grant_token: str = Field(alias="grantToken", pattern=r"^[A-Za-z0-9_-]{43}$")
+    grant_token: str = Field(
+        alias="grantToken", pattern=r"^[A-Za-z0-9_-]{43}$", repr=False
+    )
 
 
 @router.post("/emergency", status_code=201)

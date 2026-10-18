@@ -5,20 +5,20 @@ from sqlalchemy import text
 from fs.common.db import get_engine
 from fs.common.errors import ApiError
 from fs.common.scope import WORKSPACE_LOCK_NAMESPACE
-from fs.common.security import token_hash
-from fs.core.company import lock_accounts, require_recent_auth
+from fs.core.company import require_recent_auth
 from fs.core.security import emergency as credentials
+from fs.core.security import service
 from fs.gw import company
 
 
-def lock_scope(c, company_id):
+def lock_scope(c, company_id, user_id):
     c.execute(
         text("SELECT pg_advisory_xact_lock(:ns,:w)"),
         {"ns": WORKSPACE_LOCK_NAMESPACE, "w": int(company_id)},
     )
-    # Exclusive account lock is the server-operator recovery boundary. No session
-    # is required or created here; it serializes live grants/account revocation.
-    lock_accounts(c, exclusive=True)
+    # No session lock is held yet. Company -> account shared -> user advisory ->
+    # user/challenge rows; HR account revocation takes the account lock exclusive.
+    service.user_lock(c, int(user_id))
 
 
 def eligible(c, *, user_id, company_id, generation_id, person_id):
@@ -56,7 +56,7 @@ def issue(context, company_id, reason, operation_key):
 
 
 def approve(c, kit, operator_uid, reason):
-    lock_scope(c, kit.company_id)
+    lock_scope(c, kit.company_id, kit.user_id)
     if not eligible(
         c,
         user_id=kit.user_id,
@@ -64,6 +64,13 @@ def approve(c, kit, operator_uid, reason):
         generation_id=kit.generation_id,
         person_id=kit.person_id,
     ):
+        credentials.system_audit(
+            c,
+            int(kit.user_id),
+            "security.emergency.approval_denied",
+            {"companyId": kit.company_id, "kitId": kit.kit_id, "reason": reason},
+            operator_uid=operator_uid,
+        )
         return None, ApiError(
             403,
             "EMERGENCY_RECOVERY_DENIED",
@@ -75,21 +82,15 @@ def approve(c, kit, operator_uid, reason):
 def redeem(login_token, grant_token):
     with get_engine().execution_options(isolation_level="READ COMMITTED").begin() as c:
         located = credentials.peek_grant(c, grant_token)
-        if located is None or located.get("kind") != "EMERGENCY_GRANT":
-            lock_accounts(c, exclusive=True)
-            login = c.execute(
-                text(
-                    "SELECT id FROM core.authentication_challenge WHERE token_hash=:t AND purpose='LOGIN_MFA' FOR UPDATE"
-                ),
-                {"t": token_hash(login_token)},
-            ).first()
-            result = (
-                credentials.fail_login(c, login[0])
-                if login
-                else (None, credentials.service.failed())
-            )
+        login_user = credentials.login_owner(c, login_token)
+        if (
+            located is None
+            or located.get("kind") != "EMERGENCY_GRANT"
+            or located["userId"] != login_user
+        ):
+            result = credentials.reject_login(c, login_token)
         else:
-            lock_scope(c, located["companyId"])
+            lock_scope(c, located["companyId"], located["userId"])
             if not eligible(
                 c,
                 user_id=located["userId"],
@@ -106,5 +107,7 @@ def redeem(login_token, grant_token):
                     ),
                 )
             else:
-                result = credentials.redeem(c, login_token, grant_token)
+                result = credentials.redeem(
+                    c, login_token, grant_token, user_id=located["userId"]
+                )
     return result

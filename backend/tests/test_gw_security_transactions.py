@@ -269,9 +269,13 @@ def test_recovery_code_race_restricts_session_and_reenrollment(identity):
     with engine.begin() as c:
         _, error = service.session(c, recovery)
         assert error.code == "RECOVERY_ONLY"
-        again, error = service.login_gate(c, login, password, "synthetic-network-" + login)
+        again, error = service.login_gate(
+            c, login, password, "synthetic-network-" + login
+        )
         assert error is None and again["mfaRequired"] is True
-        denied, error = service.verify_login(c, again["challengeToken"], confirmed["recoveryCodes"][1])
+        denied, error = service.verify_login(
+            c, again["challengeToken"], confirmed["recoveryCodes"][1]
+        )
         assert denied is None and error.status_code == 401
         pending, error = service.start_enrollment(c, recovery, "", recovery=True)
         assert error is None
@@ -354,3 +358,40 @@ def test_recent_auth_rotation_and_other_session_revocation(identity):
     with engine.begin() as c:
         _, error = service.list_sessions(c, current)
         assert error.status_code == 401
+
+
+def test_valid_password_issuance_budget_persists_and_serializes_last_slot(identity):
+    engine, _context, password, login = identity
+    # Use a fixed DB clock only for the bucket to avoid a ten-minute boundary race.
+    from unittest.mock import patch
+
+    fixed = datetime(2026, 10, 18, 0, 1, tzinfo=UTC)
+    with patch.object(service, "database_now", return_value=fixed):
+        for _ in range(19):
+            with engine.begin() as c:
+                value, error = service.login_gate(
+                    c, login, password, "synthetic-network-" + login
+                )
+            assert error is None and value["mfaRequired"] is False
+
+        def issue(_):
+            with engine.begin() as c:
+                return service.login_gate(
+                    c, login, password, "synthetic-network-" + login
+                )
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(issue, range(2)))
+    assert sum(error is None for _, error in results) == 1
+    assert next(error for _, error in results if error is not None).status_code == 429
+
+
+def test_new_enrollment_keys_are_bounded_without_requiring_failed_password(identity):
+    engine, context, password, _login = identity
+    for _ in range(3):
+        with engine.begin() as c:
+            value, error = service.start_enrollment(c, context, password)
+        assert error is None and value["setupKey"]
+    with engine.begin() as c:
+        value, error = service.start_enrollment(c, context, password)
+    assert value is None and error.status_code == 429

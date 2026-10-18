@@ -16,6 +16,7 @@ from fs.core.company import (
     companies,
     lock_accounts,
     members,
+    require_recent_auth,
     require_session,
     resolve_company,
 )
@@ -97,6 +98,19 @@ def action(context, company_id, operation, key, body, fn, *, authorize):
     with transaction(context, company_id, write=True) as (c, scoped, _):
         person, _ = principal(c, scoped)
         authorize(c, scoped, person)
+        if operation.startswith(
+            (
+                "company.people.",
+                "company.routes.",
+                "company.authority-rules.",
+                "company.delegations.",
+                "company.import-hr",
+                "company-hr-import",
+                "reader.",
+                "reassign.",
+            )
+        ):
+            require_recent_auth(c, scoped)
         digest = request_digest(body)
         cached = find_receipt(c, scoped, operation, key, digest)
         if cached is not None:

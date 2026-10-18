@@ -4,7 +4,7 @@ import json
 import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -86,9 +86,9 @@ def emergency_env(clean_database, monkeypatch):
     assert enrolled.status_code == 200
     challenge = login()
     assert challenge.status_code == 202
-    next_code = pyotp.TOTP(start["setupKey"]).at(
-        datetime.now(UTC) + timedelta(seconds=30)
-    )
+    with engine.connect() as c:
+        db_now = c.execute(text("SELECT clock_timestamp()")).scalar_one()
+    next_code = pyotp.TOTP(start["setupKey"]).at(db_now + timedelta(seconds=30))
     full = client.post(
         "/api/v1/core/security/login/verify",
         json={"code": next_code},
@@ -284,12 +284,16 @@ def test_wrong_kit_attempts_persist_and_operator_file_is_private(
     output = tmp_path / "synthetic-grant.json"
     result = subprocess.run(
         [
-            str(Path("backend/.venv/bin/python").resolve()),
+            str(Path("backend/.venv/bin/python").absolute()),
             "tools/gw_emergency_recovery.py",
             "--kit-file",
             str(kitfile),
             "--output",
             str(output),
+            "--company-id",
+            kit["companyId"],
+            "--user-id",
+            kit["userId"],
             "--reason",
             "합성 운영자 승인",
         ],
@@ -310,12 +314,16 @@ def test_wrong_kit_attempts_persist_and_operator_file_is_private(
     kitfile.write_text(json.dumps(other))
     again = subprocess.run(
         [
-            str(Path("backend/.venv/bin/python").resolve()),
+            str(Path("backend/.venv/bin/python").absolute()),
             "tools/gw_emergency_recovery.py",
             "--kit-file",
             str(kitfile),
             "--output",
             str(output),
+            "--company-id",
+            other["companyId"],
+            "--user-id",
+            other["userId"],
             "--reason",
             "합성 중복 경로",
         ],
@@ -324,3 +332,128 @@ def test_wrong_kit_attempts_persist_and_operator_file_is_private(
         check=False,
     )
     assert again.returncode != 0 and json.loads(output.read_text()) == grant
+
+
+def test_company_management_requires_recent_auth_before_replaying_receipt(
+    emergency_env, monkeypatch
+):
+    engine, co, client, _login = emergency_env
+    with engine.connect() as c:
+        person = (
+            c.execute(
+                text(
+                    "SELECT id,version FROM gw.person WHERE workspace_id=:w AND hr_employee_code='SYN-EMERGENCY'"
+                ),
+                {"w": co["companyId"]},
+            )
+            .mappings()
+            .one()
+        )
+    path = f"/api/v1/gw/people/{person['id']}/roles"
+    body = {
+        "expectedVersion": person["version"],
+        "roles": ["SECURITY_ADMIN", "ORG_ADMIN"],
+        "reason": "합성 최근 인증 역할 검증",
+    }
+    key = str(uuid4())
+    headers = {"X-CSRF-Token": client.csrf, "Idempotency-Key": key}
+    monkeypatch.setenv("COOKIE_SECURE", "true")
+    monkeypatch.setenv("FS_PUBLIC_ORIGIN", "https://testserver")
+    monkeypatch.setenv("FS_SECURITY_MODE", "COMPANY")
+    # Existing synthetic cookie; this test concentrates on current authorization.
+    with TestClient(create_app(), base_url="https://testserver") as secure:
+        secure.cookies.update(client.cookies)
+        first = secure.patch(
+            path, params={"companyId": co["companyId"]}, json=body, headers=headers
+        )
+        assert first.status_code == 200, first.text
+        with engine.begin() as c:
+            c.execute(
+                text(
+                    "UPDATE core.auth_session SET verified_at=clock_timestamp()-interval '6 minutes' WHERE revoked_at IS NULL"
+                )
+            )
+        denied = secure.patch(
+            path, params={"companyId": co["companyId"]}, json=body, headers=headers
+        )
+        assert (
+            denied.status_code == 403
+            and denied.json()["error"]["code"] == "STEP_UP_REQUIRED"
+        )
+        # This is the same completed command/key; freshness must precede receipt replay.
+        with engine.begin() as c:
+            c.execute(
+                text(
+                    "UPDATE core.auth_session SET verified_at=clock_timestamp() WHERE revoked_at IS NULL"
+                )
+            )
+        replay = secure.patch(
+            path, params={"companyId": co["companyId"]}, json=body, headers=headers
+        )
+        assert replay.status_code == 200 and replay.json() == first.json()
+
+
+def test_new_kit_invalidates_pending_operator_approval(emergency_env):
+    engine, _co, client, login = emergency_env
+    kit = credentials.EmergencyKit.model_validate(
+        issue(emergency_env).json()["data"]["kit"]
+    )
+    with engine.begin() as c:
+        grant, error = approve(c, kit, 501, "합성 승인 후 교체")
+    assert error is None
+    assert issue(emergency_env).status_code == 200
+    client.cookies.clear()
+    challenge = login()
+    r = client.post(
+        "/api/v1/core/security/login/emergency",
+        json={"grantToken": grant["grantToken"]},
+        headers={"X-CSRF-Token": challenge.json()["data"]["challengeCsrfToken"]},
+    )
+    assert r.status_code == 401
+
+
+def test_cli_keeps_written_grant_when_commit_result_is_uncertain(
+    emergency_env, tmp_path, monkeypatch
+):
+    import importlib.util
+    from contextlib import contextmanager
+
+    from sqlalchemy.exc import OperationalError
+
+    kit = issue(emergency_env).json()["data"]["kit"]
+    kit_path = tmp_path / "kit.json"
+    kit_path.write_text(json.dumps(kit))
+    kit_path.chmod(0o600)
+    output = tmp_path / "approval.json"
+    spec = importlib.util.spec_from_file_location(
+        "emergency_cli", Path(__file__).parents[2] / "tools/gw_emergency_recovery.py"
+    )
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+
+    class UncertainEngine:
+        @contextmanager
+        def begin(self):
+            yield object()
+            raise OperationalError("commit", {}, Exception("synthetic disconnect"))
+
+        def dispose(self):
+            pass
+
+    monkeypatch.setattr(cli, "create_engine", lambda _: UncertainEngine())
+    grant = "a" * 43
+    monkeypatch.setattr(
+        cli,
+        "approve",
+        lambda *args: ({"grantToken": grant, "expiresAt": "synthetic"}, None),
+    )
+    with pytest.raises(OperationalError):
+        cli.run(
+            kit_path,
+            output,
+            "合成 commit不明",
+            company_id=kit["companyId"],
+            user_id=kit["userId"],
+        )
+    assert json.loads(output.read_text())["grantToken"] == grant
+    assert output.stat().st_mode & 0o777 == 0o600

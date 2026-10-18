@@ -160,3 +160,17 @@
 | `gw.retention_review` | gw |
 | `core.app_user` | core |
 | `core.auth_session` | core |
+
+
+## GW-READY-02 긴급 복구 구현 계약 (2026-10-18)
+
+스키마 변경 없이 `authentication_challenge.purpose=RECOVERY`를 재사용한다. 긴급 문서는 `provider_key=gw-kit:<companyId>:<operationKey SHA256 앞32자>`, 암호화 문맥 `emergency-kit`, subtype EMERGENCY_KIT이며 회사·세대·직원·사용자·보안 버전과 전체 operation hash를 결합한다. 365일·원문 1회 응답, 새 문서는 이전 문서/미사용 승인을 만료시킨다. 비밀은 해시 및 암호화 payload로만 보관한다.
+
+서버 CLI의 승인은 `gw-grant:<companyId>`/암호화 문맥 `emergency-grant`이며 15분·일회성이다. 실제 OS UID와 사유를 감사에 남긴다. 승인 시점과 사용 시점에 GW가 현재 회사/세대/직원 연결/SECURITY_ADMIN 역할을 검사한다. core는 자격증명 검증/소비·계정 보안 버전·제한 세션을 소유하며 GW 업무 FK를 추가하지 않는다.
+
+- POST `/api/v1/gw/emergency-kit?companyId=...`: 본인 활성 GW 보안 관리자, 최근 MFA5분, CSRF/Origin/멱등키, 사유2~500자. 같은 발급 요청 원문 재응답은409 ONE_TIME_RESPONSE_UNAVAILABLE.
+- POST `/api/v1/core/security/login/emergency`: 비밀번호 검증된 LOGIN_MFA 쿠키+challenge CSRF와 grantToken. GW 조합 라우터를 main에서 연결하며 core→GW import는 없다. 같은 사용자 요청만 소비하고 RECOVERY_LIMITED 세션을 발급한다.
+- 정상 비밀번호 로그인 발급20/10분, 등록 seed3/10분, 긴급 문서3/10분. 잘못된 문서5회 잠금·승인 사용 실패5/5분. DB 영속 throttle, DB 시계로 만료/최근 인증을 판정한다.
+- COMPANY 회사/HR 관리 변경은 권한 검사 후 최근 인증을 확인하고 기존 receipt를 조회한다. 권한/인증이 만료된 재전송으로 과거 성공 결과를 재사용하지 않는다.
+
+[운영자 절차](../../operations/GW_긴급관리자복구_GW-READY-02.md). 실회사 인수·SSO·백업/보관 실행은 미완료다.

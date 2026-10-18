@@ -55,6 +55,7 @@ export function Operations() {
   const role = useRole();
   const state = useGet<State>(role.companyId ? "/operations" : null);
   const [editing, setEditing] = useState(false);
+  const [kitPending, setKitPending] = useState(false);
   if (!role.companyId)
     return (
       <section>
@@ -91,7 +92,12 @@ export function Operations() {
             ))}
           </ul>
           {data.canEdit && (
-            <EmergencyKit status={data.emergencyKit} reload={state.reload} />
+            <EmergencyKit
+              status={data.emergencyKit}
+              reload={state.reload}
+              disabled={editing}
+              onPendingChange={setKitPending}
+            />
           )}
           <h2>
             보관·복구 기준{" "}
@@ -116,7 +122,7 @@ export function Operations() {
             보관 기한은 검토 시점입니다. 원본 문서를 자동 삭제하지 않습니다.
           </p>
           {data.canEdit && (
-            <button onClick={() => setEditing(true)}>
+            <button disabled={kitPending} onClick={() => setEditing(true)}>
               운영 기준 검토·적용
             </button>
           )}

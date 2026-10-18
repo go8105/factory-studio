@@ -84,9 +84,11 @@ def register_company(ctx, key, body):
     def authorize(c, scoped):
         from fs.core.company import require_recent_auth
 
-        require_recent_auth(c, scoped)
+        lock_accounts(c, exclusive=True)
+        require_session(c, ctx)
         if not platform_admin(c, scoped):
             raise ApiError(403, "FORBIDDEN", "총 관리자만 회사를 등록할 수 있습니다.")
+        require_recent_auth(c, scoped)
 
     def run(c, scoped):
         try:
@@ -131,11 +133,11 @@ def mutate(ctx, company_id, operation, key, body):
     def authorize(c, scoped):
         from fs.core.company import require_recent_auth
 
-        require_recent_auth(c, scoped)
         # Recheck after the company lock and before replaying any receipt.
         lock_accounts(c, exclusive=True)
         require_session(c, ctx)
         management_scope(c, ctx, scoped.workspace_id)
+        require_recent_auth(c, scoped)
 
     def run(c, scoped):
         # 계정 ID/비밀번호는 회사 밖에서도 유일하므로 다른 회사의 동시 쓰기도 직렬화한다.
