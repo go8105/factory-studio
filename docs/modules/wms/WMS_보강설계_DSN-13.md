@@ -252,3 +252,5 @@
 
 - **설계 재현 스크립트(`apply_dsn90.py`) 재적용 제약**: `apply_dsn90.py`는 재적용하면 `CMMS_ISSUE`가 중복된다(문자열 치환이 멱등하지 않다). 설계 단계 스크립트라 지금은 영향이 없지만, 다시 돌릴 일이 생기면 먼저 고친다.
 - **기존 WMS 3표 칼럼 순서**: `apply_w2b1.py` 적용 시 기존 WMS 3표(`wms.warehouse`, `wms.item`, `wms.inbound_notice`)의 확장 칼럼이 `created_at` 뒤에 추가되어 `schema-target.json`과 칼럼 배열 순서 차이가 있으나, DDL 대조 0건이므로 기능 및 스키마 무결성에 영향이 없다.
+- **적치 위치 흐름 및 검증 완화 (W2b-1c / C-3a)**: 설계는 입고장 경유((a) 입고 예정 정상 위치 = 입고장 `RECEIVING` → 검수 확정 → 적치 작업 `PUTAWAY` → 보관 위치 `NORMAL`)이나, 기존 데이터(60건) 및 테스트를 보호하기 위해 `_validate_lines` 검증을 교체하지 않고 `location_type IN ('NORMAL', 'RECEIVING')`으로 완화했다. 기존 60건은 `NORMAL` 직입고로 남으며, 신규 등록 시 창고의 `RECEIVING` 입고장 위치가 기본 선택된다.
+

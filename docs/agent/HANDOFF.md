@@ -1,3 +1,39 @@
+# 2026-10-18 W2b-1c C-3a 입고장 경유 위치 흐름 검증 완화 및 시드/화면 반영 완료
+
+- **브랜치**: `antigravity/w2b-1c`
+- **끝난 것 (C-3a)**:
+  - F14 적치 흐름 지원을 위한 위치 유형 완화:
+    - 백엔드 (`receiving.py`): `_validate_lines`에서 `normal_location_id`의 검증을 `location_type in ("NORMAL", "RECEIVING")`으로 완화. 기존 `NORMAL`도 계속 통과하고 신규 `RECEIVING`도 허용.
+    - 백엔드 스키마 (`schema.py`): `LocationType` 6종 리터럴 타입 정의 및 `LocationCreate`, `LocationUpdate`에 적용.
+    - 시드 (`seed/`):
+      - `common.py`: `SEED_VERSION = "sv-20261018-wms1"`
+      - `wms_extension.py`: 창고별 입고장 위치 2개 추가: `("WH-RAW", "R-REC", "원자재 입고장", "RECEIVING")`, `("WH-FG", "F-REC", "완제품 입고장", "RECEIVING")` (`is_default=False`, `is_active=True`).
+      - `validate.py`: `"wms.storage_location": 8` 갱신.
+    - 프런트엔드 (`Inbounds.tsx`, `Warehouses.tsx`, `common.tsx`):
+      - `common.tsx`: `LocationType` 6종 export 및 `Location.locationType` 적용.
+      - `Inbounds.tsx`: 새 입고 예정 등록 시 창고의 `RECEIVING` 위치를 `normalLocationId` 기본값으로 자동 설정 (없으면 `NORMAL` 기본값 유지). `normalLocationId` select 옵션에서 `NORMAL` 및 `RECEIVING` 모두 허용 및 ` [입고장]` 꼬리표 표시.
+      - `Warehouses.tsx`: 위치 등록/수정 폼에서 6종 위치 유형 선택 지원, `isDefault` 비활성화 조건을 DB CHECK 제약에 맞춰 `draft.locationType !== "NORMAL"`로 통일.
+  - 검증 결과:
+    - 백엔드 WMS 테스트: `backend/tests/test_wms_receiving.py`에 `test_receiving_location_allowed_as_normal_location` 신규 추가 포함 WMS 전체 44개 테스트 통과 (`pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py` -> 44 passed, 0 failed in 103s).
+    - 프런트엔드 WMS 테스트: `npm --prefix frontend test -- src/wms/wms.test.tsx` 16개 테스트 통과 (`W-08 입고 예정 등록 시 RECEIVING 위치가 있으면 기본 선택되고 목록에 [입고장]이 표시된다` 신규 검증 포함).
+    - 백엔드 정적 분석: `uv run --project backend ruff check --config backend/pyproject.toml backend` (0 errors).
+    - 프런트엔드 정적 분석: `npm run lint` (0 errors), `npm run typecheck` (0 errors), `npm run format:check` (0 errors).
+    - DB 및 도구 검증: `npm run db:validate` (205표, 2246칼럼, 507FK, errors 0), Python 3.14 도구 단위 테스트 136개 통과.
+- **다음 할 일**: 사용자 확인 후 **C-3 (W-11 적치 작업 목록·추천 위치 백엔드+화면)** 착수.
+- **주의점**:
+  - 사용자 확인 전까지 **C-3 착수 금지** (작업 ID 하나씩 수행 후 확인 대기 규칙).
+  - C-3 적치 작업 목록 및 추천 위치 계산 시:
+    - 검수 확정 시 `wms.putaway_task`는 `suggested_location_id = NULL`로 생성(검수 트랜잭션 무거움 방지).
+    - 추천 위치는 W-11 목록 조회 시 동적으로 계산.
+    - 추천 기준은 실제 칼럼(`storage_location.level_kind = 'BIN'`, `mix_items`, `mix_lots`, `capacity_qty`) 활용.
+    - 시험 시 `mix_items=false`, `capacity_qty`, `mix_lots=false` 세 갈래의 필터링 방어 테스트 필수.
+  - 스키마 불변 (`schema.json`, 마이그레이션 변경 금지).
+  - 원격 push 금지 (로컬 커밋만 유지).
+- **재현 명령**:
+  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
+  - `npm --prefix frontend test -- src/wms/wms.test.tsx`
+  - `npm --prefix frontend run lint && npm --prefix frontend run format:check && npm --prefix frontend run typecheck`
+
 # 2026-10-18 W2b-1c C-2 W-08 입고 LOT 부여 및 lot_tracked 전환 완료
 
 - **브랜치**: `antigravity/w2b-1c`

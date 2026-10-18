@@ -14,6 +14,8 @@ export type Warehouse = {
   isActive: boolean;
   locationCount: number;
 };
+export type LocationType =
+  "NORMAL" | "QUARANTINE" | "LINE" | "RECEIVING" | "SHIPPING" | "RETURN";
 export type Location = {
   id: number;
   warehouseId: number;
@@ -23,7 +25,7 @@ export type Location = {
   isDefault: boolean;
   isActive: boolean;
   moveCount: number;
-  locationType: "NORMAL" | "QUARANTINE";
+  locationType: LocationType;
 };
 export type Conversion = { id: number; fromUnit: string; factor: string };
 export type Item = {

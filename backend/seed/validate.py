@@ -85,7 +85,7 @@ EXPECTED_COUNTS = {
     "qms.inspection_value": 68,
     "qms.quality_hold": 2,
     "wms.warehouse": 2,
-    "wms.storage_location": 6,
+    "wms.storage_location": 8,
     "wms.item": 5,
     "wms.item_unit_conversion": 1,
     "wms.stock_document": 41,

@@ -295,14 +295,21 @@ def _validate_lines(c, scoped, warehouse_id, lines):
             loc = base._location(c, scoped, id)
             if loc is None:
                 raise base._not_found("위치")
+            allowed = (
+                ("NORMAL", "RECEIVING")
+                if field == "normal_location_id"
+                else ("QUARANTINE",)
+            )
             if (
                 loc["warehouseId"] != warehouse_id
                 or not loc["isActive"]
-                or loc["locationType"] != kind
+                or loc["locationType"] not in allowed
             ):
                 _fail(
                     path + "." + base._camel(field),
-                    "같은 창고의 사용 중인 " + kind + " 위치를 선택해 주세요.",
+                    "같은 창고의 사용 중인 "
+                    + ("NORMAL 또는 RECEIVING" if field == "normal_location_id" else kind)
+                    + " 위치를 선택해 주세요.",
                 )
         normalized.append({**line, "lot_no": lot, "expected_qty": qty})
     return normalized

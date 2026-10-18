@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Badge,
@@ -266,6 +266,29 @@ function NoticeForm({
   );
   const command = useWmsCommand();
   const wh = houses.find((h) => h.id === Number(warehouseId));
+  useEffect(() => {
+    if (row || !locations.data || locations.data.length === 0) return;
+    const receivingLoc = locations.data.find(
+      (x) => x.isActive && x.locationType === "RECEIVING",
+    );
+    const defaultLoc =
+      receivingLoc ??
+      locations.data.find(
+        (x) => x.isActive && x.isDefault && x.locationType === "NORMAL",
+      ) ??
+      locations.data.find((x) => x.isActive && x.locationType === "NORMAL");
+    if (!defaultLoc) return;
+    setLines((xs) =>
+      xs.map((l) => {
+        const valid = locations.data?.some(
+          (loc) => String(loc.id) === l.normalLocationId,
+        );
+        return valid && l.normalLocationId
+          ? l
+          : { ...l, normalLocationId: String(defaultLoc.id) };
+      }),
+    );
+  }, [locations.data, row]);
   const update = (i: number, patch: Partial<DraftLine>) => {
     setDirty(true);
     setLines((xs) => xs.map((x, j) => (i === j ? { ...x, ...patch } : x)));
@@ -450,14 +473,15 @@ function NoticeForm({
                         ?.filter(
                           (x) =>
                             x.isActive &&
-                            (x.locationType ?? "NORMAL") ===
-                              (key === "normalLocationId"
-                                ? "NORMAL"
-                                : "QUARANTINE"),
+                            (key === "normalLocationId"
+                              ? (x.locationType ?? "NORMAL") === "NORMAL" ||
+                                x.locationType === "RECEIVING"
+                              : (x.locationType ?? "NORMAL") === "QUARANTINE"),
                         )
                         .map((x) => (
                           <option key={x.id} value={x.id}>
                             {x.code} {x.name}
+                            {x.locationType === "RECEIVING" ? " [입고장]" : ""}
                           </option>
                         ))}
                     </select>

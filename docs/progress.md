@@ -1,3 +1,40 @@
+# 2026-10-18 W2b-1c C-3a 입고장 경유 위치 흐름 검증 완화 및 시드/화면 반영 완료
+
+- 브랜치: `antigravity/w2b-1c`
+- 설계 결정 반영:
+  - F14 적치 흐름은 입고장 경유((a) 입고 예정 정상 위치 = 입고장 `RECEIVING` → 검수 확정 → 적치 작업 `PUTAWAY` → 보관 위치 `NORMAL`).
+  - 단, 기존 데이터(60건) 및 테스트를 보호하기 위해 교체가 아닌 **완화(확대)** 방식으로 진행: 기존 `NORMAL`도 계속 허용하고 신규 `RECEIVING`도 허용.
+- 완료 내용:
+  - 백엔드 (`backend/`):
+    - `fs/wms/receiving.py`:
+      - `_validate_lines`: `normal_location_id`의 위치 유형 검증을 `location_type in ("NORMAL", "RECEIVING")`으로 완화. 기존 `NORMAL` 지정 시에도 오류 없이 통과하며 `RECEIVING` 위치도 정상 통과.
+    - `fs/wms/schema.py`:
+      - `LocationType = Literal["NORMAL", "QUARANTINE", "LINE", "RECEIVING", "SHIPPING", "RETURN"]` 6종 리터럴 타입 정의 및 `LocationCreate`, `LocationUpdate`에 적용.
+    - `seed/`:
+      - `common.py`: `SEED_VERSION = "sv-20261018-wms1"`로 버전업.
+      - `wms_extension.py`: 창고별 입고장 위치 2개 추가: `("WH-RAW", "R-REC", "원자재 입고장", "RECEIVING")`, `("WH-FG", "F-REC", "완제품 입고장", "RECEIVING")` (`is_default=False`, `is_active=True`).
+      - `validate.py`: `"wms.storage_location": 6` → `"wms.storage_location": 8`로 기댓값 갱신.
+  - 프런트엔드 (`frontend/src/wms/`):
+    - `common.tsx`:
+      - `LocationType` 6종 export 및 `Location.locationType`에 적용.
+    - `Inbounds.tsx`:
+      - `NoticeForm`: 신규 등록 시 창고 위치 중 `locationType === 'RECEIVING'`인 위치를 `normalLocationId`의 기본값으로 자동 설정하는 effect 추가 (없으면 `NORMAL` 기본값 유지).
+      - `normalLocationId` 드롭다운 옵션 필터를 `x.locationType === "NORMAL" || x.locationType === "RECEIVING"`으로 완화하고, 입고장 위치에는 ` [입고장]` 꼬리표 표시.
+    - `Warehouses.tsx`:
+      - 위치 등록/수정 폼의 위치 유형 선택을 6종(`NORMAL`, `RECEIVING`, `SHIPPING`, `LINE`, `QUARANTINE`, `RETURN`)으로 확장.
+      - `isDefault` 비활성화 조건을 DB CHECK 제약에 맞춰 `draft.locationType !== "NORMAL"`로 통일.
+  - 문서:
+    - `docs/modules/wms/WMS_보강설계_DSN-13.md`: §8에 적치 위치 흐름 및 검증 완화 결정 기록 추가.
+  - 테스트 및 검증:
+    - 백엔드 WMS 테스트:
+      - `backend/tests/test_wms_receiving.py`: `test_receiving_location_allowed_as_normal_location` 신규 추가 및 통과 (`RECEIVING` 위치로 입고 예정 생성, 도착, 검수 확정 전 흐름 통과, `QUARANTINE` 위치 지정 시 400 거부 확인).
+      - 전체 백엔드 WMS 테스트 실행: `pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py` (44 passed, 0 failed in 103s).
+    - 프런트엔드 WMS 테스트:
+      - `frontend/src/wms/wms.test.tsx`: `W-08 입고 예정 등록 시 RECEIVING 위치가 있으면 기본 선택되고 목록에 [입고장]이 표시된다` 신규 추가 및 통과 (16 passed in 2.1s).
+    - 정적 분석 및 린트: `uv run ruff check` (0 errors), `npm run lint` (0 errors), `npm run typecheck` (0 errors), `npm run format:check` (0 errors).
+    - DB 및 도구 검증: `npm run db:validate` (205표, 2246칼럼, 507FK, errors 0), Python 3.14 venv 도구 테스트 `Ran 136 tests - OK`.
+- 다음 작업: 사용자 확인 후 C-3 (W-11 적치 작업 목록·추천 위치 백엔드+화면) 착수.
+
 # 2026-10-18 W2b-1c C-2 W-08 입고 LOT 부여 및 lot_tracked 전환 완료
 
 - 브랜치: `antigravity/w2b-1c`

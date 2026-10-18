@@ -937,3 +937,113 @@ it("W-08 품목 lotTracked 여부에 따른 LOT 입력 필드 노출 및 초기�
     expect(sentBody.lines[0].lotNo).toBe("LOT-FINAL-999");
   });
 });
+
+it("W-08 입고 예정 등록 시 RECEIVING 위치가 있으면 기본 선택되고 목록에 [입고장]이 표시된다", async () => {
+  const receivingLocations = [
+    {
+      id: 11,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-A01",
+      name: "일반 랙",
+      locationType: "NORMAL",
+      isDefault: true,
+      isActive: true,
+      moveCount: 0,
+    },
+    {
+      id: 15,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-REC",
+      name: "원자재 입고장",
+      locationType: "RECEIVING",
+      isDefault: false,
+      isActive: true,
+      moveCount: 0,
+    },
+  ];
+
+  const fetcher = mount("/wms/inbounds", {
+    [`GET ${W}/inbound-notices`]: ok({
+      rows: [],
+      total: 0,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 2,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      {
+        id: 10,
+        itemCode: "RM-RAW01",
+        name: "원자재 품목",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: false,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/warehouses/1/locations`]: ok(receivingLocations),
+    [`GET ${W}/sources`]: ok({ disabled: false, rows: [] }),
+    [`POST ${W}/inbound-notices`]: ok({
+      id: 301,
+      noticeNo: "IN-20261018-001",
+      version: 1,
+    }),
+  });
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "입고 예정 등록" }),
+  );
+  const formPanel = await screen.findByRole("dialog", {
+    name: "입고 예정 등록",
+  });
+
+  // RECEIVING 위치가 우선 기본값으로 선택되는지 확인
+  const normalSelect = (await within(formPanel).findByLabelText(
+    "정상 위치",
+  )) as HTMLSelectElement;
+  await waitFor(() => {
+    expect(normalSelect.value).toBe("15");
+  });
+
+  // 드롭다운에 RECEIVING과 NORMAL이 모두 표시되고, RECEIVING에는 [입고장] 꼬리표가 붙음
+  expect(
+    within(normalSelect).getByRole("option", {
+      name: "R-REC 원자재 입고장 [입고장]",
+    }),
+  ).toBeInTheDocument();
+  expect(
+    within(normalSelect).getByRole("option", {
+      name: "R-A01 일반 랙",
+    }),
+  ).toBeInTheDocument();
+
+  // 제출 시 normalLocationId로 15가 전송되는지 확인
+  fireEvent.change(within(formPanel).getByLabelText("업무 중복 방지 번호"), {
+    target: { value: "PO-REC-01" },
+  });
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "10" },
+  });
+  fireEvent.change(within(formPanel).getByLabelText("예정 수량"), {
+    target: { value: "50" },
+  });
+  fireEvent.click(within(formPanel).getByRole("button", { name: "예정 등록" }));
+
+  await waitFor(() => {
+    const postCalls = sent(fetcher, "POST", "/inbound-notices");
+    expect(postCalls).toHaveLength(1);
+    const sentBody = body(postCalls[0]);
+    expect(sentBody.lines[0].normalLocationId).toBe(15);
+  });
+});

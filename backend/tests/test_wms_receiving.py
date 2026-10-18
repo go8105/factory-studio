@@ -733,3 +733,53 @@ def test_inspection_document_number_survives_deleted_draft_gap(
     doc = _ok(env[0].get(f"{W}/documents/{n['stockDocumentId']}"))
     assert int(doc["documentNo"][12:]) == int(b["documentNo"][12:]) + 1
     assert date.fromisoformat(doc["documentOn"]) == day
+
+
+def test_receiving_location_allowed_as_normal_location(receiving_env):
+    env = receiving_env
+    client, auth, _, ids = env
+    rec_loc = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-REC-T", "name": "입고장 시험", "locationType": "RECEIVING"},
+        ),
+        201,
+    )
+    n = notice(
+        env,
+        qty="50",
+        lines=[
+            {
+                "itemId": ids["RM-PBT"],
+                "expectedQty": "50",
+                "normalLocationId": rec_loc["id"],
+            }
+        ],
+    )
+    assert n["lines"][0]["normalLocationId"] == rec_loc["id"]
+
+    n = _ok(act(env, n, "arrive"))
+    n = _ok(
+        act(env, n, "inspect", **inspect_body(n, accepted="50", held="0", short="0"))
+    )
+    assert n["status"] == "INSPECTED"
+
+    bad_body = {
+        "businessKey": uuid4().hex,
+        "warehouseId": ids["warehouse"],
+        "expectedOn": "2026-09-24",
+        "lines": [
+            {
+                "itemId": ids["RM-PBT"],
+                "expectedQty": "10",
+                "normalLocationId": ids["quarantine"],
+            }
+        ],
+    }
+    r = _call(client, auth, "POST", "/inbound-notices", bad_body)
+    assert r.status_code == 400
+    assert "lines.0.normalLocationId" in r.json()["error"]["details"]["fields"]
+
