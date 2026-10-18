@@ -24,6 +24,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
 )
+from fs.common.errors import ApiError
 from fs.core.backup import (
     BackupError,
     create_private,
@@ -37,6 +38,7 @@ from fs.core.backup import (
     require_tool_version,
     run_pg,
     sha256_file,
+    tool_database_identity,
 )
 from fs.core.security import backup as core_checkpoint
 from fs.core.security.config import security_settings
@@ -78,10 +80,15 @@ def settings():
         re.fullmatch(r"[A-Za-z0-9_-]{1,60}", v) for v in [signer_id, key_id]
     ) or not re.fullmatch(r"[0-9a-f]{7,64}", revision):
         raise BackupError("키 식별자·제품 버전을 확인하세요.")
+    configured = json.loads(os.environ["FS_GW_EVIDENCE_PUBLIC_KEYS"])
+    if not isinstance(configured, dict) or not 1 <= len(configured) <= 20:
+        raise BackupError("검증 공개 키 설정을 확인하세요.")
     public = {
         name: base64.b64decode(value, validate=True)
-        for name, value in json.loads(os.environ["FS_GW_EVIDENCE_PUBLIC_KEYS"]).items()
+        for name, value in configured.items()
     }
+    if any(len(value) != 32 for value in public.values()):
+        raise BackupError("검증 공개 키 크기를 확인하세요.")
     if public.get(signer_id) != signer.public_key().public_bytes_raw():
         raise BackupError("실행자 서명 키와 서버 검증 공개 키가 다릅니다.")
     return {
@@ -118,6 +125,8 @@ def verified_document(value, config):
             base64.b64decode(value["signature"], validate=True),
             CONTEXT + canonical(value["payload"]),
         )
+        if not isinstance(value["payload"], dict):
+            raise TypeError()
         return value["payload"]
     except (ValueError, KeyError, TypeError, InvalidSignature):
         raise BackupError("운영 명세의 서명 검증에 실패했습니다.") from None
@@ -243,6 +252,10 @@ def backup(*, url, company_id, output, evidence, config):
                     // 10000
                 )
                 require_tool_version("pg_dump", url, major)
+                if not core_checkpoint.required_keys(c).issubset(
+                    config["authenticationKeyIds"]
+                ):
+                    raise BackupError("활성 인증 앱의 암호화 키가 누락되었습니다.")
                 exported = c.execute(text("SELECT pg_export_snapshot()")).scalar_one()
                 manifest = {
                     "version": 1,
@@ -263,6 +276,8 @@ def backup(*, url, company_id, output, evidence, config):
                     "gwSecurity": gw_checkpoint.capture(c),
                     "hrSecurity": hr_checkpoint.capture(c),
                 }
+                if tool_database_identity(url) != manifest["sourceIdentity"]:
+                    raise BackupError("DB 도구가 다른 원본을 가리킵니다.")
                 dump = temp / "database.dump"
                 with create_private(dump) as out:
                     run_pg(
@@ -430,7 +445,7 @@ def restore(
                 raise BackupError("백업과 권한 대조 기록의 연결이 맞지 않습니다.")
             age = (datetime.now(UTC) - timestamp(changes["capturedAt"])).total_seconds()
             if (
-                age < 0
+                age < -30
                 or age > manifest["scope"]["policy"]["rpoMinutes"] * 60
                 or timestamp(changes["capturedAt"]) < timestamp(manifest["startedAt"])
             ):
@@ -463,6 +478,12 @@ def restore(
                 .set(database=target_name)
                 .render_as_string(hide_password=False)
             )
+            target = create_engine(target_url)
+            with target.connect() as c:
+                if tool_database_identity(
+                    target_url, restore=True
+                ) != database_identity(c):
+                    raise BackupError("DB 도구가 다른 복원 대상을 가리킵니다.")
             with open(temp / "database.dump", "rb") as src:
                 run_pg(
                     "pg_restore",
@@ -476,7 +497,6 @@ def restore(
                     input_file=src,
                     restore=True,
                 )
-            target = create_engine(target_url)
             with target.connect() as c, c.begin():
                 snapshot(c)
                 row_match = inventory(c) == manifest["inventory"]
@@ -507,6 +527,7 @@ def restore(
                     (
                         timestamp(finished) - timestamp(manifest["startedAt"])
                     ).total_seconds()
+                    + 30
                 ),
             )
             # No human/business probes or off-host durability assertions are inferred from row hashes.
@@ -520,8 +541,12 @@ def restore(
                 **core_result,
                 **gw_result,
                 **hr_result,
+                "checkpointRestrictionsApplied": True,
+                "checkpointCompletenessConfirmed": False,
+                "revocationsReapplied": False,
                 "twoAccountChecks": False,
-                "checkpointAgeSeconds": math.ceil(age),
+                "checkpointAgeSeconds": max(0, math.ceil(age)),
+                "clockToleranceSeconds": 30,
                 "lossWindowSeconds": loss,
                 "elapsedSeconds": elapsed,
                 "remaining": [
@@ -559,11 +584,22 @@ def restore(
             )
             return {"result": "PARTIAL", "database": target_name, "closed": True}
     except BaseException:
+        frozen = False
+        if target_created:
+            try:
+                with admin.connect() as c:
+                    c.execute(
+                        text(f'ALTER DATABASE "{target_name}" ALLOW_CONNECTIONS false')
+                    )
+                frozen = True
+            except SQLAlchemyError:
+                pass
         if target_created and not report.exists():
             write_json(
                 report,
                 {
                     "result": "FAIL",
+                    "connectionsDisabled": frozen,
                     "database": target_name,
                     "closed": True,
                     "remaining": [
@@ -684,6 +720,7 @@ def main():
             )
     except (
         BackupError,
+        ApiError,
         SQLAlchemyError,
         OSError,
         ValueError,

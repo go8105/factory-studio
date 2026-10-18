@@ -148,7 +148,7 @@ def pg_environment(url, *, restore=False):
 
 def pg_command(tool, url, *, restore=False):
     environment, container = pg_environment(url, restore=restore)
-    if tool not in {"pg_dump", "pg_restore"}:
+    if tool not in {"pg_dump", "pg_restore", "psql"}:
         raise BackupError("지원하지 않는 DB 도구입니다.")
     if container:
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", container):
@@ -252,3 +252,24 @@ def fk_valid(c):
             "SELECT count(*) FROM pg_constraint WHERE contype='f' AND NOT convalidated"
         )
     ).scalar_one()
+
+
+def tool_database_identity(url, *, restore=False):
+    """Ensure container/CLI routing points at the same physical source/target DB."""
+    command, environment = pg_command("psql", url, restore=restore)
+    query = "SELECT json_build_array((SELECT system_identifier::text FROM pg_control_system()),current_database(),(SELECT oid::bigint FROM pg_database WHERE datname=current_database()))"
+    try:
+        result = subprocess.run(
+            command + ["-X", "--no-password", "-At", "--command=" + query],
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=15,
+            check=True,
+        )
+        value = json.loads(result.stdout)
+        return hashlib.sha256(json.dumps(value).encode()).hexdigest()
+    except OSError, ValueError, TypeError, subprocess.SubprocessError:
+        raise BackupError(
+            "PostgreSQL 도구와 DB 연결 대상 대조에 실패했습니다."
+        ) from None

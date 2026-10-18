@@ -160,3 +160,13 @@ def replay(c, checkpoint):
         "coreRestrictions": changed,
         "disabledAccounts": len(disabled),
     }
+
+
+def required_keys(c):
+    return set(
+        c.execute(
+            text(
+                "SELECT DISTINCT encryption_key_id FROM core.mfa_factor WHERE state='ACTIVE'"
+            )
+        ).scalars()
+    )

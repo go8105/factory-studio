@@ -182,3 +182,11 @@ GET/POST `gw/operating-evidence`를 기존 표에 연결했다. 현재 GW 역할
 ## GW-READY-02 보관 검토·보존 중지 연결 (2026-10-18)
 
 기존 표의 GET retention-reviews/retention-events, POST retention-reviews/refresh·{id}/transition·retention-company-hold, GET retention-reviews/{id}/source를 구현했다. 현재 회사·세대/역할/최근인증/원문ACL→receipt→CAS/전정책 보류 검사, 달력 월 기한·200건 분할·감사이력을 적용한다. 원문 제목/본문/이전후속 링크는 목록에서 반환하지 않는다. ARCHIVED는 입력받지 않으며 실제 보관본/삭제는 미구현이다. [상세 계약](../../operations/GW_보관검토_보존중지_GW-READY-02.md). 준비 상태는 계속false다.
+
+## GW-READY-02 암호화 백업·격리 복원 도구 연결 (2026-10-18)
+
+별도 서버 CLI `tools/gw_backup.py`에 backup/check/checkpoint/restore를 구현했다. 같은 스냅샷의 전체 DBdump·행지문·서명명세를 AES256-GCM으로 암호화하고 저장 후 인증/서명/지문을 재확인한다. 명시한 회사의 정책을 증거 범위로 사용하되 백업은 DB 전체이며 업무 원문 내보내기 API가 아니다. 서명 증거는 기존 운영 기록 API로 등록한다.
+
+복원은 자동 이름의 새 접속 제한 DB만 만들며 원본 덮어쓰기/운영 개방 옵션은 없다. 별도 암호화 권한 대조 파일과 독립 확인 최신 지문을 요구한다. 기존 세션/중간인증·코드소비/OTP step·계정/멤버십/직원연결/역할/열람자/HR 계정 제한을 복원에 재적용한다. 모호한 GW ACL/보존 변경은 범위 격리/보존 중지다. 별도 기록 자동 연속성은 미완료이므로 proof는 RESTORE PARTIAL, revocationsReapplied=false/twoAccountChecks=false다. BACKUP PASS는 로컬 암호화 파일 자체검증 범위다. 전체 운영 ready는 false 유지.
+
+같은 표를 사용하며 스키마 변경 없음. [자세한 서버 절차·현재 제한](../../operations/GW_암호화백업_격리복원_GW-READY-02.md). 30분 systemd 템플릿은 제공만 하고 설치/활성화하지 않았다.

@@ -185,8 +185,10 @@ def test_actual_backup_replay_restore_and_business_denial(
         details["rowHashesMatch"]
         and details["foreignKeysValid"]
         and details["sessionsInvalidated"]
-        and details["revocationsReapplied"]
+        and details["checkpointRestrictionsApplied"]
     )
+    assert details["revocationsReapplied"] is False
+    assert details["checkpointCompletenessConfirmed"] is False
     assert details["twoAccountChecks"] is False and details["quarantinedScopes"] == 0
     assert (
         ok(api(admin, co, "operating-evidence", json.loads(restore_proof.read_text())))[
@@ -366,6 +368,7 @@ def test_failed_restore_keeps_new_database_closed_and_preserves_report(
         )
     result = json.loads(report.read_text())
     assert result["result"] == "FAIL" and result["closed"] is True
+    assert result["connectionsDisabled"] is True
     assert not (folders["reports"] / "proof.json").exists()
     cleanup = create_engine(admin_url, isolation_level="AUTOCOMMIT")
     with cleanup.connect() as c:

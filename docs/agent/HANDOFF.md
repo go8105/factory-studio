@@ -1,3 +1,7 @@
+## 2026-10-18 GW-READY-02 5차 암호화 백업·격리 복원
+
+서버CLI backup/check/checkpoint/restore·동일snapshot PGdump/행지문·서명명세 AES256-GCM·자체검사·별도권한대조/최신지문·자동새DB복원/접속제한/실패동결·세션회수/확인된제한재적용 구현. 실제PG18왕복·관리자200/정지직원403/옛세션401·변조/현재성/실패보고·OTP/코드소비/옛비밀번호/HR역할/보존중지검사. 관련backend28/최신집중9통과(겹침), 프런트23·lint/build통과. 자동회수기록 연속성/완전성·외부보관·실환경인수미완료→복원PARTIAL/전체회수확인false/readyfalse.30분템플릿만제공·설치없음. 도움말/서버절차/API계약갱신·schema219불변·main2be292e유지/원격배포없음. 상세 GW_실사용구현_GW-READY-02.md·서버절차 GW_암호화백업_격리복원_GW-READY-02.md. 다음자동기록/누락검증→실저장소/운영게이트→SSO/전체인수/main. WIP e2d5290,최종커밋gitlog. 최종집중9/왕복1·도움말18재검사통과(겹침),Ruff/포맷·격리0·bash통과. 소유PG ID/label대조삭제·work env/ID제거·API/웹미실행.
+
 ## 2026-10-18 GW-READY-02 5차 WIP 암호화 백업·격리 복원
 
 사용자 다음진행 승인·같은02 범위. 암호화 AES256-GCM 묶음(DBdump+서명명세)·동일스냅샷 전표지문·서명증거·별도 암호화 권한대조/최신지문·새DB복원/행/FK/세션무효화/제한재적용 구현중. 실제PG18 왕복/2계정허용거부·변조/OTP소비/옛비밀번호/보존중지/HR역할제한8통과, 마지막실패경로·상태/문서/전체회귀추가중. 복원은PARTIAL/접속제한 유지, 독립기록자동수집/완전성·실환경인수/운영게이트·SSO남음. 스케줄템플릿만추가·실제설치없음. 소유PG fs-gw-ready02-backup-test/55438(label factory-studio.owner=gw-ready-02-backup), work/gw-readiness-02-backup의env/ID비밀은스테이징금지·종료시ID/label대조삭제. 제품API/웹미실행. PG16시스템도구대신소유PG18컨테이너도구사용. 재현: TEST_DATABASE_URL 및 GW_BACKUP_TEST_CONTAINER 설정 후 uv run --project backend pytest backend/tests/test_gw_backup.py backend/tests/test_security_checkpoint.py backend/tests/test_backup_crypto.py -q. main2be292e유지·원격/배포없음. WIP커밋이후검증계속.
