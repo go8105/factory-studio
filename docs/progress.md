@@ -1,3 +1,36 @@
+# 2026-10-18 W2b-1d D-1 피킹 지시 생성 · FEFO/FIFO LOT 배정 · 보류/만료 제외 완료
+
+- 작업 폴더 / 브랜치: `/Users/hwang-kyoungho/projects/factory-studio-ag` / `antigravity/w2b-1d-work` (기준 `main` `843036f`)
+- 구현 내용:
+  - `backend/src/fs/wms/pick_schema.py`: `PickOrderStatus`, `PickOrderCreate`, `PickLineConfirm`, `PickOrderConfirm`, `PickOrderCancel` 요청 모델 추가.
+  - `backend/src/fs/wms/picks.py`:
+    - `create_pick_order` (`POST /api/v1/wms/pick-orders`, 201): `ACTIVE` 상태 출고 예약(`wms.stock_reservation`)을 잠그고(`FOR UPDATE`) 피킹 지시(`wms.pick_order`, `PK-YYYYMMDD-NNN`) 및 피킹 명세(`wms.pick_line`)를 생성.
+    - `c1482`(`UNIQUE (workspace_id, generation_id, reservation_id)`) 대응: 이미 `OPEN` 또는 `PICKED` 지시가 있으면 `409 PICK_ORDER_EXISTS`로 차단하고, `CANCELLED` 지시가 있으면 새 행 `INSERT` 대신 기존 행을 `OPEN`으로 재개(`picked_at=NULL, stock_document_id=NULL, cancel_reason=NULL`)하고 명세를 재구성.
+    - 보류·만료 제외(#1) 및 `wms.lot` `LEFT JOIN`(#3): `wms.stock_move` 확정 잔량에 `wms.lot`을 `LEFT JOIN`하여 마스터 행이 없는 시드 LOT(`LT-0001`~`LT-0012`)도 누락 없이 포함하고, `wms.lot_hold`(`released_at IS NULL`), `qms.held_lot_nos()`, `wms.lot.status IN ('HOLD','EXPIRED')`, `expiry_date < business_today()`인 LOT을 제외.
+    - 예약 지정 LOT 존중 및 FEFO → FIFO 대체 배정(#2·#3): 예약 줄에 지정된 LOT이 가용하면 우선 배정하고, 보류·만료 또는 수량 부족으로 대체·분할 배정이 일어난 경우 `expiry_date ASC NULLS LAST → received_on ASC NULLS LAST → lot_no ASC NULLS LAST → loc.code ASC` 순으로 채우며 `lotSubstitutions`(대체 사유·요청/유지 수량·대체 LOT 목록)를 생성·조회 응답에 포함.
+    - 가용 부족 차단(#4): 보류·만료 및 타 활성 예약 선점분을 제외한 가용 재고 합계가 부족하면 `409 INSUFFICIENT_AVAILABLE`(`itemCode`, `requested`, `available`, `excludedLots`)로 거절.
+    - 피킹 동선(`sequence_no`): 배정된 명세를 위치 코드(`storage_location.code ASC`) 순으로 정렬해 `sequence_no = 1..N`, `line_no = 1..N` 부여.
+    - `list_pick_orders` (`GET /api/v1/wms/pick-orders`), `get_pick_order` (`GET /api/v1/wms/pick-orders/{row_id}`), `guard_master`(활성 `OPEN` 지시 참조 시 창고·품목·위치 비활성화 및 위치 삭제/유형 변경 차단) 구현.
+  - `backend/src/fs/wms/router.py`: `DocumentType`에 `"PICK"` 추가, `/pick-orders` 조회·상세·생성 라우트 등록.
+  - `backend/src/fs/wms/receiving.py`: `guard_master`에서 `picks.guard_master` 호출 연결.
+  - `backend/src/fs/wms/inventory.py`: `(가)` `location_type IN ('NORMAL', 'SHIPPING')`을 `normalOnHand`로 인정(출고장 재고가 격리로 분류되던 버그 수정).
+  - `backend/src/fs/wms/service.py`: `#7` 대시보드 월별 입출고 집계에서 `'PICK'` 제외(`NOT IN ('TRANSFER', 'PUTAWAY', 'PICK')`).
+  - `backend/tests/test_wms_picks.py`: 예약 LOT 존중·중복/비활성 차단, `HOLD`·`QMS_HOLD`·`EXPIRED` 제외 및 FEFO→FIFO 배정·`sequence_no` 정렬·`lotSubstitutions` 반환, `expiry_date IS NULL` FIFO(`NULLS LAST`) 및 `wms.lot` 미보유 시드 LOT(`LEFT JOIN`) 배정, 가용 부족 `409 INSUFFICIENT_AVAILABLE`·보류 해제 후 복구·`CANCELLED` 재개(`c1482`)·`guard_master`, 부분 부족 분할 배정 및 `SHIPPING` 위치 정상 재고 인정 테스트 5건 추가.
+- 검증 결과 (`npm run ci:local` 1~5단계):
+  - 1단계 (DB 정적·격리 R1~R6·도구 138건): 통과 (`tables: 210, errors: []`, 138 tests OK)
+  - 2단계 (`ruff check` · `ruff format --check`): 통과 (247 files clean)
+  - 3단계 (백엔드 pytest · DDL 대조 · perf):
+    - `pytest backend/tests/test_wms_picks.py`: **`5 passed, 2 warnings in 17.87s`**
+    - `pytest backend/tests/test_wms_picks.py backend/tests/test_wms_reservations.py backend/tests/test_wms_receiving.py`: **`55 passed, 8 warnings in 121.47s`**
+    - 전체 병렬 `pytest backend/tests -q -n auto -m "not perf"`: 작업자(worker) 탈락 0건. D-1 추가 5건 포함 1,077건 통과, 2 skipped. 단, `main`(`843036f`)에서 GW 병합(`test_gw_wms_merge.py`)과 C-3a 시드(`wms_extension.py`의 `RECEIVING` 위치)가 처음 만나면서 `test_gw_wms_merge.py`의 과거 리비전(`gw_company_identity`, `flow_board_custom` — `w2b1_wms` 이전이라 `c781_check`가 `NORMAL`/`QUARANTINE`만 허용) 단독 업그레이드 시드 생성 2건이 기존 실패함(원인 및 위치 보고).
+    - `pytest backend/tests -q -m perf`: **`1 passed, 1081 deselected, 5 warnings in 30.01s`**
+  - 4단계 (`clear_test_data.py` → `downgrade base` → `upgrade head` → `verify_ddl_matches_schema.py`): 통과 (`tables: 210, columns: 2295, PK: 210, UK: 435, CHECK: 513, INDEX: 171, UNIQUE_INDEX: 48, FK: 524, errors: []`)
+  - 5단계 (프런트 `typecheck` · `lint` · `format:check` · `build` · `test`): 통과 (**`Test Files 77 passed (77), Tests 617 passed (617)`**, 실패 0건)
+- 제약 및 발견 사항:
+  - `reservations.py:249`의 `bool(lot) != (item["itemClass"] == "FG")`는 C-2에서 전환한 `item["lotTracked"]` 규칙과 어긋나 있으며, 사용자 지시에 따라 W-09 예약 등록 보강(`lot_tracked` 전환 및 `HOLD`·`EXPIRED` 차단)은 **D-4**에서 처리한다.
+  - `(나)` 출하 소진(`consume`) 현재 위치 차감 및 `(다)` 피킹 후 예약 부족 경보(`reservationShortage`) 영향 범위 분석 완료(D-3·D-4 연계 보고).
+- 다음 작업: 사용자 확인 후 **D-2 (W-12 피킹 목록·상세 화면)** 착수.
+
 # 2026-10-18 FLOW-FIX-02 `portal/workspace-records.test.tsx` · `portal/screens.test.tsx` 시간 고정 및 남은 시간 검증 복원 완료
 
 - 브랜치: `antigravity/flow-fix-02` (기준 `main` `d0c79ae`)

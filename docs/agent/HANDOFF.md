@@ -1,3 +1,25 @@
+# 2026-10-18 W2b-1d D-1 피킹 지시 생성 · FEFO/FIFO LOT 배정 완료 (D-2 대기)
+
+- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio-ag` / `antigravity/w2b-1d-work` (기준 `main` `843036f`)
+- **마지막 커밋**: `git log -1 --oneline` 참조
+- **끝난 것 (W2b-1d D-1)**:
+  - `backend/src/fs/wms/pick_schema.py` & `backend/src/fs/wms/picks.py`:
+    - `POST /api/v1/wms/pick-orders`, `GET /api/v1/wms/pick-orders`, `GET /api/v1/wms/pick-orders/{row_id}` 구현.
+    - `wms.stock_move` 잔량 집계에 `wms.lot`을 `LEFT JOIN`하여 마스터 행이 없는 시드 LOT(`LT-0001`~`LT-0012`) 포함, `wms.lot_hold`(`released_at IS NULL`)·`qms.held_lot_nos()`·`wms.lot.status IN ('HOLD','EXPIRED')`·`expiry_date < business_today()` 제외.
+    - 예약 줄 지정 LOT이 가용하면 우선 존중하고, 보류·만료·수량 부족 시에만 `expiry_date ASC NULLS LAST → received_on ASC NULLS LAST → lot_no ASC NULLS LAST → loc.code ASC`(FEFO→FIFO)로 대체 배정하며 `lotSubstitutions` 반환.
+    - 가용 재고 부족 시 `409 INSUFFICIENT_AVAILABLE` 거절, `CANCELLED` 피킹 지시 재생성 시 `c1482` UNIQUE 위반 없이 기존 행 `OPEN` 재개, 위치 코드 순 `sequence_no = 1..N` 부여, `guard_master` 연동.
+  - `backend/src/fs/wms/inventory.py`: `location_type IN ('NORMAL', 'SHIPPING')`을 `normalOnHand`로 인정.
+  - `backend/src/fs/wms/service.py`: 대시보드 월별 입출고 집계에서 `'PICK'` 제외.
+  - `backend/tests/test_wms_picks.py`: D-1 핵심 시나리오 5건 추가 및 전체 통과.
+- **다음 할 일**:
+  - 사용자 확인 후 **D-2 (W-12 피킹 목록·상세 화면)** → **D-3 (피킹 확정 → `PICK` 전표, 취소)** → **D-4 (W-09 출고 예약에 피킹 상태 연결 및 `lot_tracked`·보류/만료 예약 차단)** 순차 진행.
+- **주의점**:
+  - 모든 작업은 `/Users/hwang-kyoungho/projects/factory-studio-ag` (`antigravity/w2b-1d-work`)에서 수행한다 (`/Users/hwang-kyoungho/projects/factory-studio`는 `main` 전용).
+  - `main`을 끌어오거나 원격 push 하지 않는다.
+  - `reservations.py:249`의 `item["itemClass"] == "FG"` 규칙 불일치 수정과 `HOLD`/`EXPIRED` 예약 차단은 D-4에서 수행한다.
+- **재현 명령**:
+  - `cd /Users/hwang-kyoungho/projects/factory-studio-ag && npm run ci:local`
+
 # 2026-10-18 FLOW-FIX-02 `portal/workspace-records.test.tsx` · `portal/screens.test.tsx` 시간 고정 완료
 
 - **브랜치**: `antigravity/flow-fix-02` (기준 `main` `d0c79ae`; 병행 `antigravity/w2b-1c` `3f27c02`는 C-4까지 100% 완료된 상태로 보존)

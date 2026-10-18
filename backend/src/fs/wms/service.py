@@ -1549,7 +1549,7 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
                     "sum(CASE WHEN m.qty_delta<0 THEN -m.qty_delta ELSE 0 END) outbound, i.base_unit unit "
                     "FROM wms.stock_move m JOIN wms.stock_document d ON d.workspace_id=m.workspace_id "
                     "AND d.generation_id=m.generation_id AND d.id=m.document_id AND d.status='posted' "
-                    "AND d.document_type NOT IN ('TRANSFER', 'PUTAWAY') "
+                    "AND d.document_type NOT IN ('TRANSFER', 'PUTAWAY', 'PICK') "
                     "JOIN wms.item i ON i.workspace_id=m.workspace_id AND i.generation_id=m.generation_id AND i.id=m.item_id "
                     "WHERE m.workspace_id=:w AND m.generation_id=:g AND d.document_month=:month "
                     "GROUP BY i.item_code, i.base_unit ORDER BY i.item_code"

@@ -11,7 +11,11 @@ from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
 from fs.common.errors import ApiError
 from fs.common.page import Page
-from fs.wms import receiving, reservations, service
+from fs.wms import picks, receiving, reservations, service
+from fs.wms.pick_schema import (
+    PickOrderCreate,
+    PickOrderStatus,
+)
 from fs.wms.receiving_schema import (
     InspectionInput,
     NoticeCreate,
@@ -53,7 +57,9 @@ Auth = Annotated[AuthContext, Depends(resolve_auth)]
 IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
 CsrfToken = Annotated[str | None, Header(alias="X-CSRF-Token")]
 MONTH = r"^[0-9]{4}-(0[1-9]|1[0-2])$"
-DocumentType = ManualType | SourceKind | Literal["WMS_INSPECTION", "PUTAWAY"] | None
+DocumentType = (
+    ManualType | SourceKind | Literal["WMS_INSPECTION", "PUTAWAY", "PICK"] | None
+)
 
 
 # 공통 엔진: CSRF·멱등 키 확인
@@ -793,6 +799,51 @@ def cancel_putaway_task(
         receiving.cancel_putaway_task(
             context,
             row_id,
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+# ---- 피킹 지시 (W-12) ----
+@router.get("/pick-orders")
+def list_pick_orders(
+    context: Auth,
+    status: PickOrderStatus | None = None,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+    reservation_id: Annotated[int | None, Query(alias="reservationId", gt=0)] = None,
+    item_code: Annotated[str | None, Query(alias="itemCode", max_length=40)] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+):
+    return _data(
+        picks.list_pick_orders(
+            context,
+            status,
+            warehouse_id,
+            reservation_id,
+            item_code,
+            page,
+            page_size,
+        )
+    )
+
+
+@router.get("/pick-orders/{row_id}")
+def get_pick_order(row_id: int, context: Auth):
+    return _data(picks.get_pick_order(context, row_id))
+
+
+@router.post("/pick-orders", status_code=201)
+def create_pick_order(
+    payload: PickOrderCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        picks.create_pick_order(
+            context,
+            payload.model_dump(mode="json"),
             _mutation(context, csrf, key),
         )
     )
