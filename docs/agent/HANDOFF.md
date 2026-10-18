@@ -1,3 +1,7 @@
+## 2026-10-18 GW-READY-01 설계·검토 시제품 완료 / 전체 설계 확인 대기
+
+신규 인증·복구·운영 범위는 AGENTS§2 전체 설계 확인 대상. 회사1/부서1/10인 기본안, GitHub EGroupware/Frappe/authentik/Nextcloud 등 비교·제안9표/기존2확장/FK19·DB/API/ERD/Excel9시트·정적 시제품 완료. Chrome11desktop/6mobile·입력 유지/포커스/키보드·오류0/외부요청0, 정적 도구 검사 통과. 실제 인증·복구·백업·정책 저장 미구현, 현재DB210표/main2be292e 불변. branch codex/gw-company-01, WIP32033db, 최종커밋gitlog 참조. 결과: [결과](GW_실사용설계_UI검토_GW-READY-01.md). 다음은 전체설계확인후 GW-READY-02 A~E 일괄 구현, 내부 단계 승인 반복 없음. 원격push/배포없음. 정적 서버8371은 검증 후 종료; 재현은 prototypes/gw-readiness/README.md. 임시 work 자료·자격증명 불필요. 실제계정/비밀번호/공유환경/다른checkout 변경없음.
+
 ## 2026-10-18 GW-READY-01 WIP 실사용 보안·운영·UI 설계 검토
 
 사용자 GW-COMPANY-05 미완료를 GitHub GW기본으로 설계·제작, UI직관성/유효성/학습성/유연성 필수 요청. 기존01에서제외한신규인증/복구 범위라AGENTS§2전체설계확인대상. Frappe/authentik/Nextcloud/PyOTP/Authlib1차자료·commit핀대조, 10인기본안(TOTP/코드8/SSO선택·RPO60/RTO240/백업30분·문서36개월/감사12개월/백업30일)과신규9표/기존2표확장/제안FK19·DB/API/ERD/제안Excel9시트·독립시제품작성. Chrome시제품11desktop/6mobile·입력오류유지/닫기포커스/키보드/권한별검토메뉴/가로넘침0/pageerror0/외부요청0. 실제MFA/DB/운영기능미구현·현재schema210/main2be292e보존. 최종패키지·결과기록마무리중. 정적검토서버127.0.0.1:8371(소유)만실행, 실제계정/비밀번호/DB/설정/원격/배포변경없음.

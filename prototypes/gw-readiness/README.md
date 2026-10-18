@@ -21,6 +21,6 @@ python3 -m http.server 8371 --bind 127.0.0.1 --directory prototypes/gw-readiness
 3. 백업 코드 확인란 선택 전/후의 버튼. 코드는 `DEMO-ONLY` 표시이며 사용할 수 없음.
 4. 보관·복구 기준의 범위 오류·백업 간격≥RPO 오류·사유 누락→검토값 반영. 새로고침하면 초기화되며 실제 저장 아님.
 5. 직원 검토 화면에서는 관리 메뉴가 없고 관리 hash로 직접 들어가도 안내만 표시. 이는 서버 권한 검증의 대체가 아님.
-   6.390px에서 메뉴 열고 닫기, Tab/Enter/Escape, 읽을 수 있는 레이블/오류와 가로 넘침 확인.
+6. 390px에서 메뉴 열고 닫기, Tab/Enter/Escape, 읽을 수 있는 레이블/오류와 가로 넘침 확인.
 
 검토용 브라우저 검사: 서버를 위 포트로 열어둔 뒤 `node prototypes/gw-readiness/verify.mjs`. 현재 저장소의 frontend Playwright·설치된 Chrome을 사용한다. 모든 결과는 시제품 UI 검사로만 기록한다. 제품 서버·실휴대폰·실제 인증 앱/SSO 검증이 아니다.

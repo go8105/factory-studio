@@ -4,6 +4,8 @@
 
 | 원본과 확인 위치 | 관찰 | 이번 적용 판단 |
 |---|---|---|
+| [EGroupware InfoLog](https://github.com/EGroupware/egroupware/blob/cfc7e9b8676e893105159ee3916316cfcafcb6cd/doc/REST-CalDAV-CardDAV/Infolog.md) | 소유자·담당·참조자와 읽기/쓰기 항목을 구분 | 역할별 행동과 편집 가능 항목을 화면에 명시. 업무 관리 자체는 독립 Flow에 두며 InfoLog를 GW에 이식하지 않음 |
+| [Frappe HRMS 휴가 신청](https://github.com/frappe/hrms/blob/44e80d64686ae07297095930e5102aadaf034bc8/hrms/hr/doctype/leave_application/leave_application.py) | 신청자와 승인자 검증을 업무 처리에 포함 | 본인 업무와 관리자 처리를 분리하고 서버에서 확인. 이번 설계로 HR/PWA 휴가 정책을 변경하지 않음 |
 | [Frappe workflow](https://github.com/frappe/frappe/blob/f22f9316eb2f6a0f7d619adc4f64f069a66c2fcc/frappe/model/workflow.py) | 상태 전환과 승인 접근을 서버에서 판단 | 버튼을 숨기는 것만으로 권한 처리하지 않음. 기존 GW 현재 주체/배정/버전 검증을 보존 |
 | [authentik 기본 인증 흐름](https://github.com/goauthentik/authentik/blob/0bf3eb26917c7fdbee26b48ea8cc0145f3bdc9d5/blueprints/default/flow-default-authentication-flow.yaml) | 식별/비밀번호/MFA 검증 등을 단계로 구성 | 사용자에게는 다음 행동을 한 단계씩 제시. 비밀번호만 통과한 중간 상태와 업무 세션을 분리 |
 | [Nextcloud 백업 코드 저장·사용](https://github.com/nextcloud/server/blob/5563121bd20fb1676185f5a237056110625b8c8c/apps/twofactor_backupcodes/lib/Service/BackupCodeStorage.php) | 무작위 코드 hash 저장, 재발급 시 이전 코드 교체, 미사용 상태를 원자적으로 소비 | 코드8개1회 표시·원문 재조회 없음·동시 사용1건 성공을 자체 계약으로 설계. PHP/AGPL 코드를 제품에 복사하지 않음 |
