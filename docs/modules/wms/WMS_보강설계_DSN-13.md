@@ -270,5 +270,14 @@
   - LOT 배정(`c1486`): `wms.stock_move` 잔량 집계에 `wms.lot`을 `LEFT JOIN`하여 마스터 행이 없는 시드 LOT(`LT-0001`~`LT-0012`)도 누락 없이 포함하고, 보류(`wms.lot_hold` 활성·`qms.held_lot_nos`·`wms.lot.status = 'HOLD'`) 및 만료(`expiry_date < business_today()`·`status = 'EXPIRED'`) LOT을 배정에서 제외한다.
   - 예약 줄(`wms.stock_reservation_line`)에 LOT이 지정되어 있고 가용하면 그대로 존중하며, 보류·만료로 사용할 수 없거나 가용 수량이 부족할 때만 `expiry_date ASC NULLS LAST → received_on ASC NULLS LAST → lot_no ASC NULLS LAST → loc.code ASC`(FEFO → FIFO) 순으로 배정하고 대체 사유(`lotSubstitutions`)를 반환한다. 가용 재고 합계가 부족하면 `409 INSUFFICIENT_AVAILABLE`로 거절한다.
   - 배정된 명세는 위치 코드(`storage_location.code ASC`) 순으로 `sequence_no = 1..N`을 부여하며, `inventory.py`에서 `SHIPPING`(출고장) 위치 재고도 `normalOnHand`로 인정한다.
+- **W-12 피킹 목록·상세 화면 및 동선 명세 (W2b-1d / D-2)**:
+  - 화면: W-12 피킹 화면(`frontend/src/wms/Picks.tsx`) 신규 생성 및 WMS 라우트(`picks`) 연결.
+  - 메뉴: `backend/src/fs/core/menu_catalog.json`에 `W-12` 피킹 등록(`group: "입출고"`, 전체 메뉴 116개).
+  - 목록: 서버 필터(`status`, `warehouseId`, `reservationId`, `itemCode`) 및 페이지네이션(`pageSize = 50`), 상태 배지(`대기`, `피킹 완료`, `취소`), `LOT 대체 N건` 배지 표시.
+  - 상세 패널:
+    - 피킹 동선 명세: `sequenceNo` 오름차순(위치 코드 순) 정렬하여 동선 순서(`#1`, `#2`), 위치 코드·이름, 품목, LOT·유효기간, 지시 수량을 `.table-scroll` 테이블에 렌더링(390px 모바일 화면 가로 오버플로 없음).
+    - LOT 대체 안내: `lotSubstitutions`가 있을 때 대체 사유(`HOLD`, `QMS_HOLD`, `EXPIRED`, `SHORTAGE`), 요청 LOT 및 위치, 배정된 대체 LOT 목록과 사유 메시지 표시.
+    - 도착 위치 선택(W-11 패턴): 상세 진입 시 해당 창고의 위치를 1회 조회하여 `SHIPPING`(출고장)과 `NORMAL`(보관) 칸으로 분리. `SHIPPING` 칸이 있으면 첫 번째 출고장 칸을 기본 선택(`toLocationId`)하고, 없으면 빈 선택값과 함께 `"출고장 칸이 없어 보관 칸으로 이동합니다. W-06에서 출고장을 만들 수 있습니다."` 안내 문구 표시.
+  - D-2 단계에서는 확정·취소 버튼을 노출하지 않으며(D-3 예약), 백엔드 API 계약 변경 없이 프런트엔드 연계를 완료했다.
 
 

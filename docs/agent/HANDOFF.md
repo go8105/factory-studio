@@ -1,3 +1,48 @@
+# 2026-10-18 W2b-1d D-2 W-12 피킹 목록·상세 화면 완료 (D-3 대기)
+
+- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio-ag` / `antigravity/w2b-1d-work` (기준 `main` `843036f` + D-1 `cc8cfaf` + WMS-FIX-02 `4b32578`)
+- **마지막 커밋**: `git log -1 --oneline` 참조
+- **끝난 것 (W2b-1d D-2)**:
+  - `backend/src/fs/core/menu_catalog.json`: `W-12` 피킹 메뉴 등록 (`group: "입출고"`, 전체 메뉴 116개).
+  - `frontend/src/portal/favorites.test.tsx`: 메뉴 카탈로그 개수 검증 가드 115 -> 116 갱신.
+  - `frontend/src/wms/common.tsx`:
+    - `PickOrderStatus`, `PICK_STATUS_LABEL` (`OPEN: "대기"`, `PICKED: "피킹 완료"`, `CANCELLED: "취소"`).
+    - `PickSubstitutionReason`, `PICK_SUBSTITUTION_REASON_LABEL` (`HOLD: "보류(HOLD)"`, `QMS_HOLD: "QMS 품질 보류"`, `EXPIRED: "유효기간 만료"`, `SHORTAGE: "가용 수량 부족"`).
+    - `PickAllocatedLot`, `LotSubstitution`, `PickLine`, `PickOrder` 타입 정의 (백엔드 `picks.py` 계약과 일치).
+    - `DocumentType` 및 `TYPE_LABEL`에 `"PICK"` (`PICK: "피킹 이동"`) 추가.
+  - `frontend/src/wms/Picks.tsx`:
+    - W-12 피킹 화면 신규 구현.
+    - 서버 필터 (`status`, `warehouseId`, `reservationId`, `itemCode`) 및 `useWmsQuery` 기반 페이지네이션 (`pageSize = 50`).
+    - 목록 테이블: `pickNo`, `reservationNo`, `warehouseCode · warehouseName`, `status` 배지, `lineCount`, `LOT 대체 N건` 배지, `createdAt`, `상세` 버튼.
+    - 상세 패널 (`DetailPanel wide`):
+      - 피킹 동선 명세 테이블: `sequenceNo` 오름차순(위치 코드 순) 정렬하여 동선 순서 (`#1`, `#2`), 위치 코드·이름, 품목, LOT·유효기간, 지시 수량을 `.table-scroll` 테이블에 렌더링.
+      - LOT 대체 안내 섹션 (`role="note"`): `lotSubstitutions`가 있을 때 대체 사유 배지, 요청 LOT 및 요청 위치, 배정된 대체 LOT 목록과 메시지 표시.
+      - 도착 위치 선택 (W-11 패턴): 상세 진입 시 해당 창고 위치(`GET /api/v1/wms/warehouses/{whId}/locations`)를 1회 조회해 `SHIPPING` 칸과 `NORMAL` 칸으로 분리. `SHIPPING` 칸이 있으면 첫 번째 출고장 칸을 기본 선택(`toLocationId`), 없으면 빈 선택값과 함께 `"출고장 칸이 없어 보관 칸으로 이동합니다. W-06에서 출고장을 만들 수 있습니다."` 안내 표시.
+      - 확정·취소 버튼은 D-2에서 노출하지 않음(D-3 예약).
+  - `frontend/src/wms/index.tsx`: `<Route path="picks" element={<Picks />} />` 라우트 등록.
+  - `frontend/src/wms/wms.test.tsx`: W-12 피킹 지시 목록, 서버 필터 변경 쿼리 파라미터 반영, `sequenceNo` 순서 동선 명세, `lotSubstitutions` 대체 사유 표시, `SHIPPING` 기본 선택 vs 부재 안내 문구 검증 테스트 추가.
+- **검증 결과**:
+  - 브라우저 Playwright E2E 검증 (`verify_d2_picks.mjs`):
+    - 게스트 공간 생성 후 기초재고 전표 및 출고 예약 생성, 예약 LOT에 보류(HOLD) 설정 후 피킹 지시 생성.
+    - `/wms/picks` 진입하여 목록 및 LOT 대체 1건 배지 확인 (`wms-picks-list.png`).
+    - 상세 패널에서 `#1 F-A01` -> `#2 F-A02` 동선 정렬 및 `보류(HOLD)` 사유 표시 확인.
+    - 출고장 부재 시 안내 문구 및 빈 선택값 확인 (`wms-picks-detail-no-shipping.png`).
+    - W-06에서 `F-SHIP` 출고장 추가 후 상세 재진입 시 출고장 자동 기본 선택 및 안내 문구 제거 확인 (`wms-picks-detail-with-shipping.png`).
+    - `390px` 뷰포트에서 `scrollWidth = 390`, `clientWidth = 390` (가로 오버플로 0건) 확인 (`wms-picks-mobile-390.png`).
+  - `npm run ci:local` 1~5단계 전체 통과:
+    - 1단계 (DB 검증·도구): 통과 (tables 210, errors 0, tools 138 passed)
+    - 2단계 (백엔드 ruff): 통과 (All checks passed! 247 files clean)
+    - 3단계 (백엔드 pytest): 통과 (`1079 passed, 2 skipped, 59 warnings`, `pytest -m perf`: 1 passed)
+    - 4단계 (DB 초기화·마이그레이션 왕복): 통과 (`downgrade base` -> `upgrade head`, DDL 0건 차이)
+    - 5단계 (프런트엔드): 통과 (`typecheck`, `lint`, `format:check`, `build`, **`Test Files 77 passed (77), Tests 618 passed (618)`**, 실패 0건)
+- **다음 할 일**:
+  - 사용자 확인 후 **D-3 (피킹 확정 → `PICK` 전표, 취소, 예약 유효 현재 위치 연동)** → **D-4 (W-09 출고 예약에 피킹 상태 연결 및 `lot_tracked`·보류/만료 예약 차단)** 순차 진행.
+- **주의점**:
+  - 모든 작업은 `/Users/hwang-kyoungho/projects/factory-studio-ag` (`antigravity/w2b-1d-work`)에서 수행한다 (`/Users/hwang-kyoungho/projects/factory-studio`는 `main` 전용).
+  - `main`을 끌어오거나 원격 push 하지 않는다.
+- **재현 명령**:
+  - `cd /Users/hwang-kyoungho/projects/factory-studio-ag && npm run ci:local`
+
 # 2026-10-18 WMS-FIX-02 `test_gw_wms_merge.py` 회귀 수정 및 W2b-1d D-1 완료 (D-2 대기)
 
 - **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio-ag` / `antigravity/w2b-1d-work` (기준 `main` `843036f`)

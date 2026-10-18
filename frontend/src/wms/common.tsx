@@ -147,6 +147,95 @@ export type PutawayTask = {
   createdAt: string;
 };
 
+export type PickOrderStatus = "OPEN" | "PICKED" | "CANCELLED";
+
+export const PICK_STATUS_LABEL: Record<PickOrderStatus, string> = {
+  OPEN: "대기",
+  PICKED: "피킹 완료",
+  CANCELLED: "취소",
+};
+
+export type PickSubstitutionReason =
+  "HOLD" | "QMS_HOLD" | "EXPIRED" | "SHORTAGE";
+
+export const PICK_SUBSTITUTION_REASON_LABEL: Record<
+  PickSubstitutionReason,
+  string
+> = {
+  HOLD: "보류(HOLD)",
+  QMS_HOLD: "QMS 품질 보류",
+  EXPIRED: "유효기간 만료",
+  SHORTAGE: "가용 수량 부족",
+};
+
+export type PickAllocatedLot = {
+  lotNo: string | null;
+  locationCode: string;
+  qty: string;
+};
+
+export type LotSubstitution = {
+  lineNo: number;
+  itemId: number;
+  itemCode: string;
+  requestedLotNo: string;
+  requestedLocationCode: string;
+  requestedQty: string;
+  keptQty: string;
+  reason: PickSubstitutionReason;
+  reasonLabel: string;
+  allocatedLots: PickAllocatedLot[];
+  message: string;
+};
+
+export type PickLine = {
+  id: number;
+  pickOrderId: number;
+  lineNo: number;
+  sequenceNo: number;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  itemClass: Purpose;
+  baseUnit: string;
+  lotTracked: boolean;
+  locationId: number;
+  locationCode: string;
+  locationName: string;
+  warehouseId: number;
+  warehouseCode: string;
+  warehouseName: string;
+  lotNo: string | null;
+  expiryDate: string | null;
+  receivedOn: string | null;
+  qty: string;
+  pickedQty: string | null;
+  createdAt: string;
+};
+
+export type PickOrder = {
+  id: number;
+  pickNo: string;
+  reservationId: number;
+  reservationNo: string;
+  reservationStatus: "ACTIVE" | "RELEASED" | "CONSUMED";
+  shipmentOrderRef: string | null;
+  warehouseId: number | null;
+  warehouseCode: string | null;
+  warehouseName: string | null;
+  status: PickOrderStatus;
+  pickedAt: string | null;
+  stockDocumentId: number | null;
+  stockDocumentNo: string | null;
+  cancelReason: string | null;
+  createdAt: string;
+  lineCount: number;
+  totalQty: string;
+  totalPickedQty: string | null;
+  lotSubstitutions: LotSubstitution[];
+  lines: PickLine[];
+};
+
 export type PageInfo = {
   offset: number;
   limit: number;
@@ -189,7 +278,7 @@ export type SourceKind =
   "MES_RECEIPT" | "MES_ISSUE" | "ERP_SHIPMENT" | "ERP_PURCHASE";
 export type ManualType = "OPENING" | "ADJUSTMENT" | "TRANSFER";
 export type DocumentType =
-  SourceKind | ManualType | "REVERSAL" | "WMS_INSPECTION" | "PUTAWAY";
+  SourceKind | ManualType | "REVERSAL" | "WMS_INSPECTION" | "PUTAWAY" | "PICK";
 export type Move = {
   id: number;
   documentId: number;
@@ -277,6 +366,7 @@ export const TYPE_LABEL: Record<DocumentType, string> = {
   REVERSAL: "되돌림",
   WMS_INSPECTION: "입고 검수",
   PUTAWAY: "적치 이동",
+  PICK: "피킹 이동",
 };
 export const REASON_LABEL: Record<Reason, string> = {
   RETURN: "반품 입고",
