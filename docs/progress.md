@@ -1,3 +1,9 @@
+## 2026-10-18 GW-READY-02 6차 직원 연결·역할 변경 의도 기록
+
+사용자 이전 GW 작업 재개 요청, 잘못 올린 WMS 자료 철회/해당 checkout 변경없음. company_identity.execute의 최초설정·연결요청/수락/취소/정지/재개·역할변경에 별도 환경 설정 시 암호화 의도 기록 연결. DB 확정 전 AES256-GCM/fsync·연속번호/이전SHA256/flock/0600·0700, 누락/변조/부분파일/저장실패503 시 DB·영수증 rollback. 기존 요청 재조회 중복없음. CLI 별도 최신지문 대조, 폴더전체 rollback 독자탐지/외부지문 자동보관/DB확정증명·나머지보안경로·복원재생 미완료. 의도만남는 확정실패를 성공으로 보지 않음→PARTIAL/전체회수확인false/readyfalse 유지. 상세 [운영절차](operations/GW_직원연결_역할변경기록_GW-READY-02.md)/[구현](agent/GW_실사용구현_GW-READY-02.md).
+
+소유PG18 합성HTTP 최초설정→직원요청/수락→정지/저장실패 상태·버전 보존→같은키 재시도/중복방지, 관련24통과98.45초. 보강 최종집중8통과0.39초(겹침): 체인·20동시쓰기·CLI지문/비노출·SQLite rollback/확정실패 의도잔존/다른회사 제외. 프런트 도움말18통과2.12초·Ruff/포맷·정적DB/격리 R1~R6 오류0. 최초 프런트 실행위치 오류(document undefined)는 frontend 작업위치로 수정 후 통과, 초기 테스트의 wire ID형/린트 보정 후 재검사. 전체CI/새 실제브라우저·실회사/실기기/외부저장소/전원차단 미실행. schema219/2409/543 불변. 도움말·문서지도·서버절차·현황/HANDOFF 갱신. branch codex/gw-company-01/별도main843036f(WMS병합) 확인·이번GW미반영·원격push/배포없음. 소유PG ID/label 대조 삭제/볼륨정리·work 임시env/ID제거, API/웹/일정 설치 없음. 다음: 나머지 경로 수집·DB확정/누락 대조·백업/복원 연결→운영게이트/SSO/최종인수/main. 최종커밋gitlog.
+
 ## 2026-10-18 GW-READY-02 5차 암호화 백업·격리 복원
 
 서버CLI backup/check/checkpoint/restore·동일snapshot PGdump/행지문·서명명세 AES256-GCM·자체검사·별도권한대조/최신지문·자동새DB복원/접속제한/실패동결·세션회수/확인된제한재적용 구현. 실제PG18왕복·관리자200/정지직원403/옛세션401·변조/현재성/실패보고·OTP/코드소비/옛비밀번호/HR역할/보존중지검사. 관련backend28/최신집중9통과(겹침), 프런트23·lint/build통과. 자동회수기록 연속성/완전성·외부보관·실환경인수미완료→복원PARTIAL/전체회수확인false/readyfalse.30분템플릿만제공·설치없음. 도움말/서버절차/API계약갱신·schema219불변·main2be292e유지/원격배포없음. 상세 GW_실사용구현_GW-READY-02.md·서버절차 GW_암호화백업_격리복원_GW-READY-02.md. 다음자동기록/누락검증→실저장소/운영게이트→SSO/전체인수/main. WIP e2d5290,최종커밋gitlog. 최종집중9/왕복1·도움말18재검사통과(겹침),Ruff/포맷·격리0·bash통과. 소유PG ID/label대조삭제·work env/ID제거·API/웹미실행.

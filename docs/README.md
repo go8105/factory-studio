@@ -109,3 +109,4 @@ npm run db:validate                        # 검증기 경로 확인
 - GW-READY-02 [보관 검토·보존 중지 계약](operations/GW_보관검토_보존중지_GW-READY-02.md): 원본 삭제/보관 완료 없이 검토·보류·원문 ACL·변경 이력 구현.
 
 - GW-READY-02 [암호화 백업·격리 복원 서버 절차](operations/GW_암호화백업_격리복원_GW-READY-02.md): 로컬 실제PG 왕복·부분복원, 스케줄은 미설치 템플릿.
+- GW-READY-02 [직원 연결·역할 변경 기록](operations/GW_직원연결_역할변경기록_GW-READY-02.md): 설정 환경의 암호화 의도 기록·체인/최신 지문 검사. 전체 회수 기록·DB 확정 증명·복원 재생은 미완료.

@@ -5,7 +5,7 @@ from sqlalchemy import text
 from fs.common.errors import ApiError
 from fs.common.idempotency import find_receipt, request_digest, save_receipt
 from fs.core.company import members, require_recent_auth
-from fs.gw import company, organization
+from fs.gw import company, organization, security_journal
 from fs.gw import service as gw
 from fs.hr.interface import work_identity
 
@@ -100,6 +100,7 @@ def execute(context, company_id, operation, key, values, authorize, run):
         )
         result = gw.wire(result)
         save_receipt(c, ctx, operation, key, digest, "gw." + table, id, result)
+        security_journal.record(c, ctx, operation)
         return result
 
 
