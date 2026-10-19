@@ -218,3 +218,11 @@ restore는 기존 백업/대조 파일/독립 대조 지문에 더해 `FS_GW_JOU
 ## 19차 인증 판별까지 연결한 회수 검사
 
 [운영 경로 v1·격리 복원 시나리오](GW_보안변경_수집경로검증_GW-READY-02.md)의19차를 따른다. DB 상태 대조에 더해 실제 인증 판별 함수에서 옛 관리자/직원 토큰·미완료 로그인 요청이 거부되는지 검사한다. 테스트 소유 superuser만 접속 제한 DB 내부를 점검하며 직원 접속은 열지 않는다. 원본 관리자 HTTP 업무와 원본 직원의 기존 회수 상태가 유지되는지도 구분한다. 합성 검사와 실제 외부 장애/10인 인수는 다르며 결과 PARTIAL/ready=false를 유지한다.
+
+## 20차 구조화된 최종 조건 판정
+
+운영 준비 응답의 launchGate v1은12조건을 CONFIRMED/BLOCKED/UNVERIFIED로 나눈다. 운영 기준, 현재 활성 책임자 연결, 활성 조직 수, 예정 직원 연결, 전원MFA, 원본 서명 재검증 BACKUP/RESTORE/ACCEPTANCE 통과는 현재 DB·검증 결과로 판정한다. 미정의 ACCEPTANCE PASS를 새로 허용하지 않는다.
+
+EXTERNAL_STORAGE/JOURNAL_COVERAGE/LIVE_COMPANY/FINAL_RELEASE는 인수 어댑터가 아직 연결되지 않았으므로 UNVERIFIED다. 서명된 로컬 백업 PASS·전달 확인 기록·합성 회수 검사로 대체하지 않는다. launchGate.ready는 모든 조건이 CONFIRMED일 때만 true이며 이번 버전은 미확인4조건 때문에 false를 유지한다. 수동 체크/임의 ready입력은 없다. 기존 blockers는 미충족 조건의 설명/다음 조치에서 생성한다.
+
+책임자 판정은 GW person/binding과 core 계정/회사 멤버십의 현재 활성 상태를 하나의 조회로 확인한다. 다른회사/세대는 포함하지 않는다. 조직 조건은 활성 조직 건수이며 인원별 조직 배치의 전체 인수가 아니다. 이 조건 화면은 직원 DB 연결을 열거나 배포/실서비스 전환을 수행하지 않는다.

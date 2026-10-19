@@ -672,3 +672,7 @@ HTTP/DB 변경 없음. 기존 선택 암호화 기록에 security.password_sessi
 ## GW-READY-02 초기 설정 계정 기록 (2026-10-19)
 
 HTTP/DB 변경 없음. security.member_account.created, hr.setup.company.created/example.created|disabled|activated 작업을 기존 core 계정 상태 수집 형식으로 추가한다. 운영자 도구 행위자는 SYSTEM이며 비밀/업무 원문은 제외한다. 저장 실패 시 해당 트랜잭션 취소. 세션 유휴 만료 연장은 복원 시 세션 전부 회수 정책에 따라 허용 상태 재생에서 제외하며 매요청 의도 기록을 추가하지 않는다. [판정 근거](../operations/GW_보안변경_수집경로검증_GW-READY-02.md).
+
+## GW-READY-02 launchGate v1 (2026-10-19)
+
+회사 operations 관리자/감사 응답에 launchGate(version/ready/confirmedCount/blockedCount/unverifiedCount/checks)를 추가한다. checks는 code/label/state/detail/nextAction이며 상태는 CONFIRMED/BLOCKED/UNVERIFIED다. 코드12종: POLICY/RESPONSIBLE/DEPARTMENTS/PEOPLE/MFA/BACKUP/RESTORE/ACCEPTANCE/EXTERNAL_STORAGE/JOURNAL_COVERAGE/LIVE_COMPANY/FINAL_RELEASE. 증거 조건은 RECORDED_PASS와 signatureVerified=true를 모두 요구한다. 미연결4종은 UNVERIFIED, 전체ready는모두CONFIRMED일때만true다. 현버전ready=false. blockers는미충족조건으로생성·직원제한응답유지. 새쓰기경로/테이블/승인입력없음.

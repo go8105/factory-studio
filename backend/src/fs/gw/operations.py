@@ -8,6 +8,7 @@ from fs.core.security.emergency import summary as emergency_summary
 from fs.core.security.service import database_now
 from fs.gw import company
 from fs.gw.company_identity import audit, require_active
+from fs.gw.launch_gate import build as build_launch_gate
 from fs.gw.operating_contract import OperatingPolicy
 from fs.gw.readiness import assess
 
@@ -70,13 +71,6 @@ def read(context, company_id):
             .mappings()
             .one()
         )
-        blockers = []
-        if policy is None:
-            blockers.append("운영 기준과 책임자를 확인해 적용하세요.")
-        elif counts["connected"] < policy.expected_people:
-            blockers.append("예정 인원만큼 직원 본인 연결을 마치세요.")
-        if counts["enrolled"] < counts["connected"]:
-            blockers.append("연결된 모든 직원의 인증 앱 등록을 마치세요.")
         from fs.gw.operating_evidence import verifier_config
 
         try:
@@ -117,20 +111,35 @@ def read(context, company_id):
                     ("ACCEPTANCE", "실환경 업무 인수"),
                 )
             ]
-        blockers.extend(
-            f"{check['label']}: {check['detail']}"
-            for check in evidence_checks
-            if check["state"] != "RECORDED_PASS"
+        scope_checks = (
+            c.execute(
+                text(f"""SELECT
+            (SELECT count(*) FROM gw.organization_unit WHERE {S} AND is_active) AS departments,
+            EXISTS(SELECT 1 FROM gw.person p
+                JOIN gw.person_identity_binding b ON (b.workspace_id,b.generation_id,b.person_id)=(p.workspace_id,p.generation_id,p.id)
+                JOIN core.app_user u ON u.id=b.user_id
+                JOIN core.company_member m ON m.workspace_id=p.workspace_id AND m.user_id=u.id
+                WHERE p.{S.replace(" AND ", " AND p.")} AND p.id=:person
+                AND p.is_active AND b.state='ACTIVE' AND m.is_active
+                AND u.status='active' AND u.disabled_at IS NULL) AS responsible_active"""),
+                p | {"person": int(policy.responsible_person_id) if policy else None},
+            )
+            .mappings()
+            .one()
         )
-        # These adapters must be completed and measured before release. Never green by checkbox.
-        blockers.extend(
-            [
-                "실제 외부 저장소의 장애·복구 인수가 필요합니다.",
-                "모든 보안 변경 경로의 수집 완전성과 복원 후 전체 회수 검증이 필요합니다.",
-                "운영 전환 최종 승인과 실제 접속 전환은 아직 연결되지 않았습니다.",
-                "실제 환경·대표 업무 인수 검증이 필요합니다.",
-            ]
+        launch_gate = build_launch_gate(
+            policy=policy,
+            connected=counts["connected"],
+            enrolled=counts["enrolled"],
+            departments=scope_checks["departments"],
+            responsible_active=scope_checks["responsible_active"],
+            evidence=evidence_checks,
         )
+        blockers = [
+            f"{check['label']}: {check['detail']} {check['nextAction']}"
+            for check in launch_gate["checks"]
+            if check["state"] != "CONFIRMED"
+        ]
         return {
             "administrator": True,
             "canEdit": "SECURITY_ADMIN" in roles,
@@ -145,7 +154,8 @@ def read(context, company_id):
             "evidenceIntegrityReverified": all(
                 check["signatureVerified"] for check in evidence_checks
             ),
-            "ready": False,
+            "launchGate": launch_gate,
+            "ready": launch_gate["ready"],
             "blockers": blockers,
         }
 

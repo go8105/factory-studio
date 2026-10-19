@@ -86,7 +86,63 @@ def test_operating_policy_requires_current_role_fresh_auth_and_version(company_e
         and latest["ready"] is False
     )
     assert latest["blockers"]
+    assert latest["launchGate"]["ready"] is False
+    assert latest["launchGate"]["unverifiedCount"] == 4
+    assert len(latest["launchGate"]["checks"]) == 12
     assert (
         api(staff, co, "operations", method="GET").json()["data"]["administrator"]
         is False
     )
+
+
+def test_launch_condition_rechecks_responsible_staff_connection(
+    company_env, monkeypatch
+):
+    from test_gw_evidence import prepare
+
+    prepare(company_env, monkeypatch)
+    engine, co, admin, _staff = company_env
+    with engine.connect() as c:
+        binding = (
+            c.execute(
+                text(
+                    "SELECT b.id,b.version,b.person_id FROM gw.person_identity_binding b JOIN hr.work_account a ON a.user_id=b.user_id AND a.workspace_id=b.workspace_id WHERE b.workspace_id=:w AND a.work_role='STAFF'"
+                ),
+                {"w": co["companyId"]},
+            )
+            .mappings()
+            .one()
+        )
+    current = api(admin, co, "operations", method="GET").json()["data"]
+    policy = current["policy"] | {
+        "responsiblePersonId": str(binding["person_id"]),
+        "expectedPeople": 2,
+        "reason": "합성 담당자 연결 점검",
+    }
+    assert (
+        api(
+            admin, co, "operating-policies", {"expectedVersion": 1, "policy": policy}
+        ).status_code
+        == 200
+    )
+
+    def responsible_state():
+        data = api(admin, co, "operations", method="GET").json()["data"]
+        assert not data["ready"]
+        return next(
+            c["state"]
+            for c in data["launchGate"]["checks"]
+            if c["code"] == "RESPONSIBLE"
+        )
+
+    assert responsible_state() == "CONFIRMED"
+    assert (
+        api(
+            admin,
+            co,
+            f"identity-bindings/{binding['id']}/suspend",
+            {"expectedVersion": binding["version"], "reason": "합성 담당자 연결 회수"},
+        ).status_code
+        == 200
+    )
+    assert responsible_state() == "BLOCKED"

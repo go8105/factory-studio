@@ -35,6 +35,19 @@ type State = {
   revisionNo: number | null;
   ready: boolean;
   blockers: string[];
+  launchGate?: {
+    ready: boolean;
+    confirmedCount: number;
+    blockedCount: number;
+    unverifiedCount: number;
+    checks: {
+      code: string;
+      label: string;
+      state: "CONFIRMED" | "BLOCKED" | "UNVERIFIED";
+      detail: string;
+      nextAction: string;
+    }[];
+  };
   evidenceChecks?: {
     kind: string;
     label: string;
@@ -95,11 +108,42 @@ export function Operations() {
           <p>
             본인 연결 {data.connectedPeople}명 · 인증 앱 등록 {data.mfaPeople}명
           </p>
-          <ul>
-            {data.blockers.map((message) => (
-              <li key={message}>{message}</li>
-            ))}
-          </ul>
+          {data.launchGate ? (
+            <>
+              <h3>운영 전환 조건</h3>
+              <p>
+                확인됨 {data.launchGate.confirmedCount}개 · 조치 필요{" "}
+                {data.launchGate.blockedCount}개 · 미확인{" "}
+                {data.launchGate.unverifiedCount}개
+              </p>
+              <dl>
+                {data.launchGate.checks.map((check) => (
+                  <div key={check.code}>
+                    <dt>
+                      {check.label} ·{" "}
+                      {
+                        {
+                          CONFIRMED: "확인됨",
+                          BLOCKED: "조치 필요",
+                          UNVERIFIED: "미확인",
+                        }[check.state]
+                      }
+                    </dt>
+                    <dd>
+                      {check.detail}
+                      {check.nextAction && <p>{check.nextAction}</p>}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </>
+          ) : (
+            <ul>
+              {data.blockers.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          )}
           {data.evidenceChecks && (
             <>
               <h3>실행 증거 확인</h3>

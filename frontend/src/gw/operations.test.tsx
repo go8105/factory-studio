@@ -149,3 +149,51 @@ it("실행 증거별 결과를 표시해도 운영 준비 완료로 바꾸지 �
     screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),
   ).toBeVisible();
 });
+it("운영 전환 조건의 확인·조치·미확인과 다음 행동을 구분한다", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    response({
+      ...initial,
+      launchGate: {
+        ready: false,
+        confirmedCount: 1,
+        blockedCount: 1,
+        unverifiedCount: 1,
+        checks: [
+          {
+            code: "POLICY",
+            label: "운영 기준",
+            state: "CONFIRMED",
+            detail: "기준이 적용됐습니다.",
+            nextAction: "",
+          },
+          {
+            code: "MFA",
+            label: "직원 인증 앱",
+            state: "BLOCKED",
+            detail: "등록이 필요합니다.",
+            nextAction: "직원의 인증 앱 등록을 확인하세요.",
+          },
+          {
+            code: "EXTERNAL_STORAGE",
+            label: "외부 저장소 장애·복구",
+            state: "UNVERIFIED",
+            detail: "인수 근거가 없습니다.",
+            nextAction: "외부 사본 복구를 인수하세요.",
+          },
+        ],
+      },
+    }),
+  );
+  show();
+  expect(
+    await screen.findByRole("heading", { name: "운영 전환 조건" }),
+  ).toBeVisible();
+  expect(screen.getByText("운영 기준 · 확인됨")).toBeVisible();
+  expect(screen.getByText("직원 인증 앱 · 조치 필요")).toBeVisible();
+  expect(screen.getByText("외부 저장소 장애·복구 · 미확인")).toBeVisible();
+  expect(screen.getByText("외부 사본 복구를 인수하세요.")).toBeVisible();
+  expect(screen.queryByText("실제 복원 검증이 필요합니다.")).toBeNull();
+  expect(
+    screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),
+  ).toBeVisible();
+});

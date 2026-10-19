@@ -1,3 +1,11 @@
+## 2026-10-19 GW-READY-02 20차 최종 조건·미확인 증거 구조화
+
+기준2e38dd3/branch codex/gw-company-01. gw.launch_gate v1이 운영기준/현재담당자활성연결/조직/직원/MFA/서명증거3종과 외부저장소/전체수집회수/실회사/최종전환 총12조건을 CONFIRMED/BLOCKED/UNVERIFIED로분리. 운영준비응답 launchGate/집계/각설명·다음조치 추가, blockers는미충족조건에서생성. 책임자활성계정·회사멤버십·직원연결/활성조직은S범위묶음조회. 증거는RECORDED_PASS+signatureVerified=true필수. 미연결4조건은UNVERIFIED고정·ready는모두CONFIRMED일때만true로계산하여현버전false. 직원제한응답유지·새쓰기/승인입력/스키마/DB개방없음. UI운영전환조건에한국어상태/조치표시, 기존응답fallback유지.
+
+실제소유PG18 회사HTTP·책임자회수후재판정/증거·진단 포함backend36 통과29.43초(기존경고2), 화면/도움말26 통과2.62초. 로컬8조건충족해도미확인4로차단·무정책/0인/인원·MFA·조직부족·중복/누락/서명미확인·부분증거거부. 타입검사/수정ESLint·Prettier/Ruff/포맷/diff·정적DB219/2409/543·격리R1–R6 오류0. 새실브라우저/실기기/실회사/외부저장소/전체CI미실행. 실제계정/비밀번호/서버/예약설정변경없음·main/원격push/배포/다른checkout변경없음. 소유PG fs-gw-ready02-journal-test/55438 ID+owner label대조후컨테이너/볼륨·임시env/ID제거. 도움말/운영/API/현황/진행/HANDOFF갱신.
+
+다음 같은02: 미연결조건의서명증거계약·책임경계/최종인수계획 → 실제외부저장소장애복구/전경로완전성·전체회수/장기성능·선택SSO/전체회귀·10인실환경인수/main. 체크리스트확인과외부실증을구분·임의완료입력금지. 기존전체02승인유효. 재현: 새소유PG18 *_test/alembic head·비공개 TEST_DATABASE_URL 후 uv run --project backend pytest backend/tests/test_gw_launch_gate.py backend/tests/test_gw_operations.py backend/tests/test_gw_evidence.py backend/tests/test_gw_readiness.py -q --tb=short (36). Node24 frontend npm test -- --run src/gw/operations.test.tsx src/gw/operating-evidence.test.tsx src/portal/content-pages.test.tsx (26). 비밀/work/전체로그 스테이징금지.
+
 ## 2026-10-19 GW-READY-02 19차 운영 경로v1·복원 인증 거부
 
 기준af4ecce/branch codex/gw-company-01. 운영 경로 검증 문서에 core세션/MFA·복구·긴급/GW·HR권한/초기설정/백업·기록도구 범위v1과 제외·별도인수 경계를 고정했다. 기존 실제PG dump/restore 테스트 두경로(수동지문/폴더교체+전달확인자동지문)에 관리자/직원옛토큰 _resolve_member401·합성미완료요청 EXPIRED/verify_login401·미회수세션0·검사후datconnlimit0 검사를추가. 원본관리자토큰/운영준비HTTP200·직원역할변경에따른원래세션회수401/원본요청PENDING·계정/직원역할유지 확인. DB개방/새계정/제품코드/권한정책/스키마변경없음. 전체무누락·전체회수서명증거/readyfalse 유지, 실제외부/10인실환경인수와구분.
