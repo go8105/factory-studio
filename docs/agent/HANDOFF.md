@@ -1,3 +1,11 @@
+## 2026-10-19 GW-READY-02 12차 암호화 기록 사본·오프라인 인증
+
+기준ee588ac/branch codex/gw-company-01. core.security.journal_bundle와 tools/gw_journal_bundle.py export|verify 추가. 독립 expected-head 대조 후 원본 flock 유지 상태에서 새 0700폴더/0600암호화파일 복사·fsync, 복사본 재인증 뒤 manifest를 마지막 기록한다. 기존경로/심볼릭링크 덮어쓰기 없음·실패폴더 보존/재사용거부·원본안쪽 경로거부. verify는 원본DB/폴더 없이 키+독립지문으로 인증. 출력은 건수/지문/기존완전성false와 bundleVerified/sourceRotatedfalse/externalDurabilityConfirmedfalse/releaseAuthorizedfalse. 복호화·키 출력없음. 기존 체인/백업 연속성을 보존하므로 원본삭제/한도초기화/새체인 교체 없음. 이번은 사본 생성/인증 기반까지이며 실제 다중묶음 교체·독립지문 자동전달/네트워크전송·외부내구성은 미완료다.
+
+관련backend23 통과0.44초(초기21과 겹침/기존Starlette경고2), 도움말18 통과2.51초. 실제 암호화파일 export와 DB없는 CLI verify, 이후원본append/옛사본고정·최신지문거부, 동시append직렬화·누락/변조/오키/명세불일치/미완료/기존파일거부·빈묶음/권한 검사. Ruff/포맷/diff·정적DB219/2409/543/격리R1–R6 오류0. 새표/마이그레이션/HTTP/UI없음. DB/앱/스케줄 실행·실제계정/운영설정 변경없음. 전체CI/새브라우저/실기기/실회사/외부저장소/전원차단 미검증. 이번은 pytest 임시 합성파일만 사용, DB컨테이너 생성없음. main통합/원격push/배포없음.
+
+다음 같은02: 다중묶음 체인·백업/복원 연결을 유지하는 실제 보관 교체 → 독립 최신지문 전달/외부보관 인수 → 전경로 완전성·운영전환 게이트 → 선택SSO/전체회귀·10인 실환경인수/main. 기존 전체02 승인 유효. 재현: uv run --project backend pytest backend/tests/test_journal_bundle.py backend/tests/test_journal_review.py backend/tests/test_backup_journal.py -q --tb=short (DB 불필요). 환경키·work·전체로그 스테이징 금지. 실제 외부 저장 장소가 없으므로 로컬 사본을 외부 복구 인수로 표시하지 않는다.
+
 ## 2026-10-19 GW-READY-02 11차 과거 미확인 기록 인수 진단
 
 기준81162b3/branch codex/gw-company-01. CLI --review-report가 거래 분류를 함께 수행해 지정 최신지문·조회시각·기록 봉투지문별 6종 판정/한국어 조치·운영자 점검 목록을 새 비공개 JSON에 저장한다. core.security.journal_review는 payload/계정/원본DB지문/거래ID를 내보내지 않고 0700부모/0600신규파일·덮어쓰기/심볼릭링크거부·fsync를 적용한다. 보고는 진단 전용, 서명증거/checkpoint 입력/권한승인 아님. releaseAuthorized/checkpointInput/completenessConfirmed=false, 수동 ACCEPTED/미확인 제외 경로 없음. UNKNOWN은 확인 불가/제한 유지, PENDING 재조회, 원본/감사누락 조사·소급기록 금지·새 checkpoint/격리 복원과 별도 운영 인수 기준을 문서화. 새DB표/마이그레이션/UI/HTTP/권한허용 없음. PARTIAL/readyfalse 유지.

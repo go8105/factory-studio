@@ -644,3 +644,7 @@ HTTP API·DB 스키마 변경 없음. 운영 CLI의 선택 `--classify-transacti
 ## GW-READY-02 미확인 인수 진단 (2026-10-19)
 
 HTTP/DB 변경 없음. `gw_identity_journal.py --review-report`는 거래 분류를 함께 실행하고 지정 지문/시각·봉투 지문별 판정·후속 점검을 새 비공개 JSON에 저장한다. 파일은 진단 전용이며 서명 증거/checkpoint 입력/권한 승인으로 소비하지 않는다. 수동 ACCEPTED 상태나 권한 해제 API를 추가하지 않았다. [운영 절차 11차](../operations/GW_직원연결_역할변경기록_GW-READY-02.md).
+
+## GW-READY-02 암호화 기록 묶음 (2026-10-19)
+
+HTTP/DB 변경 없음. `tools/gw_journal_bundle.py export|verify --expected-head --bundle`는 새 암호화 기록 사본 생성/독립 지문 인증만 제공한다. 0700/0600·신규 경로·완료 명세 마지막 쓰기, 원본 잠금·복사본 재인증을 적용한다. 성공0/오류1, bundleVerified와 sourceRotated/externalDurabilityConfirmed/releaseAuthorized=false를 구분한다. 키·복호화 내용을 출력하지 않는다. 원본 초기화·다중 체인 교체·독립 지문 자동 전달은 미구현이다. [운영 12차](../operations/GW_직원연결_역할변경기록_GW-READY-02.md).
