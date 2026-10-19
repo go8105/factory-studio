@@ -1434,3 +1434,11 @@ git diff --check
 - GW 서비스/읽기 interface/ERP 조회계약, G01~07·ERP 배지·런처 연결 구현 중. 순차 결재·반려/재상신·회수·게시정정·역할 검사·멱등·스냅샷 불변. ERP 코드 조회만, 교차쓰기 없음.
 - 첫 관련 API11개 통과 후 경합/ERP 배지/원문변경 등을 확장 검사 중. typecheck 통과. 전체pytest·frontend·실제브라우저는 아직 완료 아님. 전용 factory_studio_codex_fs030b_test만 사용.
 - 다음: 추가 회귀·브라우저 검증/오류 보정·문서/최종보고. c업무69행/도움말은 사용자 b 확인 뒤. push·배포 없음. .env/work 스테이징 금지.
+## 2026-10-19 GW-READY-02 13차 완료
+
+branch codex/gw-company-01, 구현 커밋 1e595d5. 기존 ciphertext/지문/전역번호를 유지한 .history 보존 접두와 활성 접미를 연결했다. rollover는 새 폴더 준비만 수행하고 원본을 유지한다. check-switch는 원본/새 폴더 동일 지문 점검이며 실제 설정 전환은 하지 않는다. 운영자는 모든 작성 경로를 멈추고 동일 키/새 버전으로 일괄 전환해야 한다. 새 기록 후 과거 원본 재활성 금지. 활성10,000/전체100,000건 한도, 전체 체인 인증 비용과 복사 용량/잠금 시간 제약 유지. 기존 백업 기준과 교체 후 checkpoint/격리 복원 연결, 교체 후 사본 export/verify도 구현. 새 DB표/HTTP/UI 없음, PARTIAL/ready=false 유지.
+
+실제 소유 PG18 백업/교체 후 GW회수·재개/HR역할 변경/격리 복원 포함 관련37 통과36.83초, 최종 별도 교체25 통과0.97초(겹침), 도움말18 통과2.69초. Ruff/포맷/diff·정적DB219/2409/543·격리R1–R6 오류0. 누락/변조/번호누락/링크/중간복사실패/원본진행 차단과 축소한도 반복교체 검증. 전체CI/새브라우저/실기기/실회사/외부보관/대량성능/전원차단 미검증. 본인 PG fs-gw-ready02-journal-test/55438 ID+owner label 대조 후 컨테이너/복원DB/볼륨·임시env/ID 제거. 실환경설정/실계정/스케줄/다른checkout/main/원격/배포 변경없음. 최종 기록 갱신 스크립트의 stdin 인코딩 오류로 문서 반영이 빠져 별도 문서 커밋으로 보정했다.
+
+다음 같은02: 독립 최신지문 자동전달/외부보관·장기성능/장애인수 → 전경로 완전성/운영전환 게이트 → 선택SSO/전체회귀·10인 실환경인수/main. 기존 전체02 승인 유효. DB 불필요 재현: uv run --project backend pytest backend/tests/test_journal_rollover.py backend/tests/test_journal_bundle.py backend/tests/test_backup_journal.py -q --tb=short (25). PG 재현은 새 소유 *_test에 alembic head 및 비공개 TEST_DATABASE_URL/GW_BACKUP_TEST_CONTAINER 후 test_backup_journal_restore/test_aborted_journal_rebuild/test_journal_transaction_proof/test_security_journal와 위 단위 검사 실행. 비밀/work/전체로그 스테이징 금지.
+
