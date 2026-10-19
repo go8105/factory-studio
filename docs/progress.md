@@ -1,3 +1,11 @@
+## 2026-10-19 GW-READY-02 14차 전달 확인 기록·자동 지문 입력
+
+기준81fc3d9/branch codex/gw-company-01. core.security.journal_witness와 gw_journal_delivery.py publish/check 추가. 원본/사본/확인 경로 분리·기록키와 다른32바이트 키로 HMAC/순번/이전지문 확인 기록을 인증하며 새 사본 재인증 뒤에만 작성한다. 첫 독립지문 bootstrap 필수, 이후 --advance는 확인된 접두에서 이어지는 원본만 전달한다. backup_journal의 backup/checkpoint/restore 지문 입력을 선택 WITNESS DIR/KEY_FILE의 최신 인증 확인 기록과 연결. MAX_AGE_SECONDS 기본1800(1~86400)/MIN_SEQUENCE 기본1·미래시각/인증/최소순번/수동지문 충돌/원본진행 불일치 거부. 실행 템플릿 run_gw_journal_delivery.sh만 추가·스케줄 미설치. 새표/HTTP/UI/권한허용 없음. PARTIAL/readyfalse/외부내구성false 유지.
+
+실제 소유PG18 전달확인지문만으로 backup→기록폴더교체→회수후재개/역할변경→재전달→checkpoint→격리restore와 수동경로 포함 관련37 통과55.97초. 이후 --advance/초기무지문거부/실제CLI를 포함 최종단위35 통과1.82초(겹침), 도움말18 통과3.17초. 전달실패시확인지문불변·사본/확인저장실패·분기체인/후속폴더·오래됨/미래시각/최소순번/인증변조거부. Ruff/포맷/bash문법/diff·정적DB219/2409/543·격리R1–R6 오류0. 실외부저장소/네트워크단절/전원차단/대량성능/실기기/실회사/전체CI/새브라우저 미검증. HMAC키보유자재작성·허용시간내저장소전체복귀는 자체완전탐지 못함, 독립 최소순번/실저장소변경방지 인수필요. 확인기록10,000개한도·실패사본남음/새사본부모로재시도·부분확인기록은조사대상. 실제외부자격증명/서버설정/스케줄변경없음. 소유PG fs-gw-ready02-journal-test/55438 ID+owner label대조 후 컨테이너/복원DB/볼륨·임시env/ID제거. main/다른checkout/원격push/배포변경없음.
+
+다음 같은02: 외부저장소·독립최소순번/장애복구/장기성능 인수 → 전경로 완전성·운영전환게이트 → 선택SSO/전체회귀·10인실환경인수/main. 외부설정이없는동안 구현할 다음대상은 운영전환게이트의 검증근거/차단조건이다. 기존 전체02 승인 유효. DB없는재현: uv run --project backend pytest backend/tests/test_journal_witness.py backend/tests/test_journal_rollover.py backend/tests/test_journal_bundle.py backend/tests/test_backup_journal.py -q --tb=short (35). PG는새소유 *_test/alembic head/비공개 TEST_DATABASE_URL/GW_BACKUP_TEST_CONTAINER 후 test_backup_journal_restore/test_aborted_journal_rebuild와 위검사(추가advance전37). 비밀/work/전체로그 스테이징금지.
+
 ## 2026-10-19 GW-READY-02 13차 보존 기록 교체
 
 구현 1e595d5: 전역번호/ciphertext/지문을 보존한 후속 폴더 rollover와 원본/후속 check-switch, 기존 백업 기준과 교체 후 권한 대조/격리 복원 연결을 완료했다. 원본 삭제·실제 설정 전환 없음. 활성10,000/전체100,000건 한도와 전체 체인 검증 비용 유지. 실제 PG18 백업/교체 후 변경/격리 복원 포함 backend37 통과36.83초·별도 최종 교체25 통과0.97초(겹침), 도움말18 통과2.69초. Ruff/포맷/정적DB·격리 오류0. 소유 테스트 PG/볼륨·임시 인증 파일 정리. 새표/HTTP/UI 없음. 실환경/외부보관/대량성능/전원차단 미검증, PARTIAL/ready=false. GW 브랜치만 커밋·main/원격/배포 변경없음. 다음은 독립지문 자동전달/외부보관·장기성능 → 완전성/운영게이트 → SSO/전체·10인 실인수. 인계 문서에 재현/제약 기록. 최종 현황 갱신 stdin 인코딩 오류는 별도 문서 커밋으로 보정.

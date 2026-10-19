@@ -1,10 +1,10 @@
 """Offline journal boundary planning. No permission grants and no source DB writes."""
 
-import os
 import re
 
 from fs.core.backup import BackupError
 from fs.core.security.journal import MAX_TOTAL_RECORDS, ZERO, verified_records
+from fs.core.security.journal_witness import expected_head
 from fs.core.security.recording import configured
 from fs.core.security.transaction_proof import classify
 from fs.gw.security_journal import confirmed_digests
@@ -14,7 +14,7 @@ def source_records():
     config = configured()
     if config is None:
         return None
-    expected = os.environ.get("FS_GW_JOURNAL_EXPECTED_HEAD", "")
+    expected = expected_head()
     if not re.fullmatch(r"[0-9a-f]{64}", expected):
         raise BackupError("별도 보관한 최신 변경 기록 지문이 필요합니다.")
     return verified_records(config[0], config[1], expected, metadata_only=True)
@@ -98,7 +98,7 @@ def validate_restore(baseline, restrictions):
         or restrictions.get("version") != 1
         or restrictions.get("baseHead") != baseline["head"]
         or restrictions.get("baseRecords") != baseline["records"]
-        or restrictions.get("head") != os.environ.get("FS_GW_JOURNAL_EXPECTED_HEAD")
+        or restrictions.get("head") != expected_head()
         or not re.fullmatch(r"[0-9a-f]{64}", restrictions.get("head", ""))
     ):
         raise BackupError("별도 최신 변경 기록 지문과 권한 대조 파일이 다릅니다.")

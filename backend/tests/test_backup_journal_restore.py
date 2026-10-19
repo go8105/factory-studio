@@ -17,6 +17,7 @@ from test_security_journal import journal  # noqa: F401
 from fs.core.backup import BackupError
 from fs.core.security.journal import ZERO, append, verify
 from fs.core.security.journal_bundle import export
+from fs.core.security.journal_witness import publish
 from fs.core.security.recording import record_user
 
 
@@ -27,6 +28,16 @@ def test_actual_history_bound_restore_restricts_without_changing_source(
     engine, co, admin, staff = company_env
     module, config, folders, _ = backup_env
     directory, key = journal
+    if rollover:
+        copies = directory.parent / "delivery-copies"
+        receipts = directory.parent / "delivery-witness"
+        for folder in (copies, receipts):
+            folder.mkdir(mode=0o700)
+        witness_key = directory.parent / "delivery-key"
+        witness_key.write_bytes(b"w" * 32)
+        witness_key.chmod(0o600)
+        monkeypatch.setenv("FS_GW_JOURNAL_WITNESS_DIR", str(receipts))
+        monkeypatch.setenv("FS_GW_JOURNAL_WITNESS_KEY_FILE", str(witness_key))
     admin_id = context(engine, admin).user_id
     staff_id = context(engine, staff).user_id
     with engine.begin() as c:
@@ -50,6 +61,16 @@ def test_actual_history_bound_restore_restricts_without_changing_source(
         monkeypatch.setenv(
             "FS_GW_JOURNAL_EXPECTED_HEAD", verify(directory, key)["head"]
         )
+        if rollover:
+            publish(
+                directory,
+                key,
+                verify(directory, key)["head"],
+                copies,
+                receipts,
+                b"w" * 32,
+            )
+            monkeypatch.delenv("FS_GW_JOURNAL_EXPECTED_HEAD")
         module.backup(
             url=source,
             company_id=co["companyId"],
@@ -87,6 +108,9 @@ def test_actual_history_bound_restore_restricts_without_changing_source(
         )
     latest_pin = verify(directory, key)["head"]
     monkeypatch.setenv("FS_GW_JOURNAL_EXPECTED_HEAD", latest_pin)
+    if rollover:
+        publish(directory, key, latest_pin, copies, receipts, b"w" * 32)
+        monkeypatch.delenv("FS_GW_JOURNAL_EXPECTED_HEAD")
     changes = folders["checkpoints"] / "history.fsbackup"
     head = folders["checkpoints"] / "history-head.json"
     captured = module.checkpoint(

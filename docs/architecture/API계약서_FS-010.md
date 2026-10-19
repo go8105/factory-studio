@@ -652,3 +652,7 @@ HTTP/DB 변경 없음. `tools/gw_journal_bundle.py export|verify --expected-head
 ## GW-READY-02 보존 접두 기록 교체 (2026-10-19)
 
 HTTP/DB 변경 없음. 기록 reader/writer가 `.history/`+`.history.json` 보존 접두와 평면 활성 접미를 하나의 전역 번호/해시 체인으로 인증한다. 기존 ciphertext/digest/backup 기준은 유지한다. 활성10,000·전체100,000건 한도. CLI rollover는 새 보존 폴더 준비, check-switch는 원본/후속 동일지문 점검만 수행하며 환경 설정을 변경하지 않는다. 기존 백업 계획 건수 검증은 전체 한도로 확장한다. [운영 13차](../operations/GW_직원연결_역할변경기록_GW-READY-02.md).
+
+## GW-READY-02 전달 확인 기록 (2026-10-19)
+
+HTTP/DB 변경 없음. gw_journal_delivery.py publish/check와 bootstrap 이후 --advance를 추가했다. 재인증 사본 생성 뒤에만 별도키 HMAC/연속 순번 확인 기록을 저장한다. 선택 WITNESS 환경으로 backup/checkpoint/restore 지문을 자동 입력하며 수동 지문 충돌·오래됨·인증 실패를 거부한다. run_gw_journal_delivery.sh는 미설치 템플릿이다. 외부 내구성/운영 승인false와 전체 저장소 rollback 탐지 한계를 유지한다. [운영14차](../operations/GW_직원연결_역할변경기록_GW-READY-02.md).

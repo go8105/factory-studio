@@ -1,3 +1,11 @@
+## 2026-10-19 GW-READY-02 14차 전달 확인 기록·자동 지문 입력
+
+기준81fc3d9/branch codex/gw-company-01. core.security.journal_witness와 gw_journal_delivery.py publish/check 추가. 원본/사본/확인 경로 분리·기록키와 다른32바이트 키로 HMAC/순번/이전지문 확인 기록을 인증하며 새 사본 재인증 뒤에만 작성한다. 첫 독립지문 bootstrap 필수, 이후 --advance는 확인된 접두에서 이어지는 원본만 전달한다. backup_journal의 backup/checkpoint/restore 지문 입력을 선택 WITNESS DIR/KEY_FILE의 최신 인증 확인 기록과 연결. MAX_AGE_SECONDS 기본1800(1~86400)/MIN_SEQUENCE 기본1·미래시각/인증/최소순번/수동지문 충돌/원본진행 불일치 거부. 실행 템플릿 run_gw_journal_delivery.sh만 추가·스케줄 미설치. 새표/HTTP/UI/권한허용 없음. PARTIAL/readyfalse/외부내구성false 유지.
+
+실제 소유PG18 전달확인지문만으로 backup→기록폴더교체→회수후재개/역할변경→재전달→checkpoint→격리restore와 수동경로 포함 관련37 통과55.97초. 이후 --advance/초기무지문거부/실제CLI를 포함 최종단위35 통과1.82초(겹침), 도움말18 통과3.17초. 전달실패시확인지문불변·사본/확인저장실패·분기체인/후속폴더·오래됨/미래시각/최소순번/인증변조거부. Ruff/포맷/bash문법/diff·정적DB219/2409/543·격리R1–R6 오류0. 실외부저장소/네트워크단절/전원차단/대량성능/실기기/실회사/전체CI/새브라우저 미검증. HMAC키보유자재작성·허용시간내저장소전체복귀는 자체완전탐지 못함, 독립 최소순번/실저장소변경방지 인수필요. 확인기록10,000개한도·실패사본남음/새사본부모로재시도·부분확인기록은조사대상. 실제외부자격증명/서버설정/스케줄변경없음. 소유PG fs-gw-ready02-journal-test/55438 ID+owner label대조 후 컨테이너/복원DB/볼륨·임시env/ID제거. main/다른checkout/원격push/배포변경없음.
+
+다음 같은02: 외부저장소·독립최소순번/장애복구/장기성능 인수 → 전경로 완전성·운영전환게이트 → 선택SSO/전체회귀·10인실환경인수/main. 외부설정이없는동안 구현할 다음대상은 운영전환게이트의 검증근거/차단조건이다. 기존 전체02 승인 유효. DB없는재현: uv run --project backend pytest backend/tests/test_journal_witness.py backend/tests/test_journal_rollover.py backend/tests/test_journal_bundle.py backend/tests/test_backup_journal.py -q --tb=short (35). PG는새소유 *_test/alembic head/비공개 TEST_DATABASE_URL/GW_BACKUP_TEST_CONTAINER 후 test_backup_journal_restore/test_aborted_journal_rebuild와 위검사(추가advance전37). 비밀/work/전체로그 스테이징금지.
+
 ## 2026-10-19 GW-READY-02 13차 완료
 
 branch codex/gw-company-01, 구현 커밋 1e595d5. 기존 ciphertext/지문/전역번호를 유지한 .history 보존 접두와 활성 접미를 연결했다. rollover는 새 폴더 준비만 수행하고 원본을 유지한다. check-switch는 원본/새 폴더 동일 지문 점검이며 실제 설정 전환은 하지 않는다. 운영자는 모든 작성 경로를 멈추고 동일 키/새 버전으로 일괄 전환해야 한다. 새 기록 후 과거 원본 재활성 금지. 활성10,000/전체100,000건 한도, 전체 체인 인증 비용과 복사 용량/잠금 시간 제약 유지. 기존 백업 기준과 교체 후 checkpoint/격리 복원 연결, 교체 후 사본 export/verify도 구현. 새 DB표/HTTP/UI 없음, PARTIAL/ready=false 유지.
