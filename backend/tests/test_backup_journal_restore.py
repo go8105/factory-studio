@@ -14,11 +14,15 @@ from test_hr_users import manage
 from test_hr_work import company_env  # noqa: F401
 from test_security_journal import journal  # noqa: F401
 
+from fs.common.auth import _resolve_member
+from fs.common.errors import ApiError
 from fs.core.backup import BackupError
+from fs.core.security.crypto import opaque_token
 from fs.core.security.journal import ZERO, append, verify
 from fs.core.security.journal_bundle import export
 from fs.core.security.journal_witness import publish
 from fs.core.security.recording import record_user
+from fs.core.security.service import verify_login
 
 
 @pytest.mark.parametrize("rollover", [False, True])
@@ -38,8 +42,21 @@ def test_actual_history_bound_restore_restricts_without_changing_source(
         witness_key.chmod(0o600)
         monkeypatch.setenv("FS_GW_JOURNAL_WITNESS_DIR", str(receipts))
         monkeypatch.setenv("FS_GW_JOURNAL_WITNESS_KEY_FILE", str(witness_key))
-    admin_id = context(engine, admin).user_id
-    staff_id = context(engine, staff).user_id
+    admin_context = context(engine, admin)
+    staff_context = context(engine, staff)
+    admin_id = admin_context.user_id
+    staff_id = staff_context.user_id
+    pending_token, pending_hash = opaque_token()
+    # Synthetic unfinished login request belongs to the pre-backup fixture.
+    with engine.begin() as c:
+        pending_id = c.execute(
+            text("""INSERT INTO core.authentication_challenge
+            (user_id,purpose,token_hash,state,security_version,attempt_count,expires_at,created_at)
+            SELECT id,'LOGIN_MFA',:t,'PENDING',security_version,0,
+                clock_timestamp()+interval '5 minutes',clock_timestamp()
+            FROM core.app_user WHERE id=:u RETURNING id"""),
+            {"u": admin_id, "t": pending_hash},
+        ).scalar_one()
     with engine.begin() as c:
         record_user(c, admin_id, "synthetic.baseline")
     # File survives an absent/rolled-back DB confirmation before the backup snapshot.
@@ -199,7 +216,55 @@ def test_actual_history_bound_restore_restricts_without_changing_source(
                 )
                 == 0
             )
+        # Use the product authentication resolvers against the closed target.
+        # The test owner is a superuser; employee DB connections stay disabled.
+        for old_context in (admin_context, staff_context):
+            with pytest.raises(ApiError) as error, target.begin() as c:
+                _resolve_member(c, old_context.token)
+            assert error.value.status_code == 401
+        with target.begin() as c:
+            assert (
+                c.scalar(
+                    text(
+                        "SELECT state FROM core.authentication_challenge WHERE id=:id"
+                    ),
+                    {"id": pending_id},
+                )
+                == "EXPIRED"
+            )
+            _, denied = verify_login(c, pending_token, "000000")
+            assert denied.status_code == 401
+            assert (
+                c.scalar(
+                    text(
+                        "SELECT count(*) FROM core.auth_session WHERE revoked_at IS NULL"
+                    )
+                )
+                == 0
+            )
+            assert (
+                c.scalar(
+                    text(
+                        "SELECT datconnlimit FROM pg_database WHERE datname=current_database()"
+                    )
+                )
+                == 0
+            )
         with engine.connect() as c:
+            assert (
+                c.scalar(
+                    text(
+                        "SELECT state FROM core.authentication_challenge WHERE id=:id"
+                    ),
+                    {"id": pending_id},
+                )
+                == "PENDING"
+            )
+            assert _resolve_member(c, admin_context.token).user_id == admin_id
+            # HR role changes already revoke the staff session in the source.
+            with pytest.raises(ApiError) as source_denied:
+                _resolve_member(c, staff_context.token)
+            assert source_denied.value.status_code == 401
             assert (
                 c.scalar(
                     text("SELECT status FROM core.app_user WHERE id=:u"),
@@ -221,6 +286,7 @@ def test_actual_history_bound_restore_restricts_without_changing_source(
                 )
                 == "STAFF"
             )
+        assert api(admin, co, "operations", method="GET").status_code == 200
     finally:
         target.dispose()
         cleanup = create_engine(admin_url, isolation_level="AUTOCOMMIT")

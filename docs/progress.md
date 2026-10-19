@@ -1,3 +1,11 @@
+## 2026-10-19 GW-READY-02 19차 운영 경로v1·복원 인증 거부
+
+기준af4ecce/branch codex/gw-company-01. 운영 경로 검증 문서에 core세션/MFA·복구·긴급/GW·HR권한/초기설정/백업·기록도구 범위v1과 제외·별도인수 경계를 고정했다. 기존 실제PG dump/restore 테스트 두경로(수동지문/폴더교체+전달확인자동지문)에 관리자/직원옛토큰 _resolve_member401·합성미완료요청 EXPIRED/verify_login401·미회수세션0·검사후datconnlimit0 검사를추가. 원본관리자토큰/운영준비HTTP200·직원역할변경에따른원래세션회수401/원본요청PENDING·계정/직원역할유지 확인. DB개방/새계정/제품코드/권한정책/스키마변경없음. 전체무누락·전체회수서명증거/readyfalse 유지, 실제외부/10인실환경인수와구분.
+
+최종실제PG관련7 통과52.12초(기존경고2): 두dump/restore+OTP/복구소비·암호변경·HR하향·불확실ACL checkpoint4·취소후새격리복원1. 도움말18 통과2.84초·Ruff/포맷/diff·정적DB219/2409/543·격리R1–R6 오류0. 최초2실패는 원본직원토큰이HR역할변경때이미회수된정상동작을테스트에서유효하다고기대한문제로, source직원401/admin유효로보정후재통과(제품수정없음). 복원DB는테스트소유superuser로내부함수검증, 직원DB연결/대상HTTP개방안함. 새브라우저/전체CI/실기기/실회사/실외부저장소·10인인수미실행. 소유PG fs-gw-ready02-journal-test/55438 ID+owner label대조후컨테이너/복원DB/볼륨·임시env/ID제거. 실제계정/비밀번호/서버설정/스케줄/다른checkout변경없음·main미통합/원격push/배포없음. 도움말/운영/현황/진행/HANDOFF갱신.
+
+다음 같은02: 최종운영조건의기계검증/미확인항목과증거계약정리 → 전체운영인수/실제외부저장소장애복구·장기성능/선택SSO·전체회귀/10인실환경/main. 코드목록고정/합성거부검사를전체완전성/운영승인으로올리지않음. 기존전체02승인유효. 재현: 새소유PG18 *_test/alembic head·비공개 TEST_DATABASE_URL/GW_BACKUP_TEST_CONTAINER 후 uv run --project backend pytest backend/tests/test_backup_journal_restore.py backend/tests/test_security_checkpoint.py backend/tests/test_aborted_journal_rebuild.py -q --tb=short (7). Node24 frontend npm test -- --run src/portal/content-pages.test.tsx (18). 비밀/work/전체로그 스테이징금지.
+
 ## 2026-10-19 GW-READY-02 18차 초기 설정 도구 기록·세션 제외 판정
 
 기준89acf6a/branch codex/gw-company-01. core.create_member_account 완료후 security.member_account.created 시스템기록, HR초기회사/예제최종연결·중지준비·비밀번호설정활성 뒤 hr.setup.company.created/example.created|disabled|activated를 core계정/역할/회사멤버십 상태로 수집. 기존선택환경/같은TX실패취소 규칙유지·비밀번호/이름원문제외. HR평상시사용자관리 스냅샷과 구분. common.auth 유휴만료연장은 복원시전체세션회수 대상으로판정해 허용재생/매요청암호화기록에서제외. 절대만료상한/제한재적용후이전토큰거부를실제로검사. throttle 초기0/updated_at는거부횟수변경과구분하고전체카운터의미/부하는남김. 새표/HTTP/UI/권한정책변경없음·전체완전성/회수/readyfalse 유지.
