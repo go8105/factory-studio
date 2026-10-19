@@ -390,6 +390,12 @@
           "group": "입출고"
         },
         {
+          "path": "counts",
+          "id": "W-14",
+          "label": "재고 실사·마감",
+          "group": "재고"
+        },
+        {
           "path": "documents",
           "id": "W-04",
           "label": "재고 전표",

@@ -11,7 +11,13 @@ from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
 from fs.common.errors import ApiError
 from fs.common.page import Page
-from fs.wms import issues, picks, receiving, reservations, service
+from fs.wms import counts, issues, picks, receiving, reservations, service
+from fs.wms.count_schema import (
+    CountOrderCount,
+    CountOrderCreate,
+    CountStatus,
+    PeriodClose,
+)
 from fs.wms.issue_schema import (
     IssueRequestCancel,
     IssueRequestConfirm,
@@ -68,7 +74,7 @@ MONTH = r"^[0-9]{4}-(0[1-9]|1[0-2])$"
 DocumentType = (
     ManualType
     | SourceKind
-    | Literal["WMS_INSPECTION", "PUTAWAY", "PICK", "PRODUCTION_ISSUE"]
+    | Literal["WMS_INSPECTION", "PUTAWAY", "PICK", "PRODUCTION_ISSUE", "CYCLE_COUNT"]
     | None
 )
 
@@ -966,5 +972,107 @@ def cancel_issue_request(
             row_id,
             payload.model_dump(mode="json"),
             _mutation(context, csrf, key),
+        )
+    )
+
+
+# ---- 재고 실사 (W-14) · 재고 마감 (W-15) ----
+@router.get("/count-orders")
+def list_count_orders(
+    context: Auth,
+    status: CountStatus | None = None,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+):
+    return _data(
+        counts.list_count_orders(context, status, warehouse_id, page, page_size)
+    )
+
+
+@router.get("/count-orders/{row_id}")
+def get_count_order(row_id: int, context: Auth):
+    return _data(counts.get_count_order(context, row_id))
+
+
+@router.post("/count-orders", status_code=201)
+def create_count_order(
+    payload: CountOrderCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        counts.create_count_order(
+            context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.post("/count-orders/{row_id}/count")
+def count_lines(
+    row_id: int,
+    payload: CountOrderCount,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        counts.count_lines(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/count-orders/{row_id}/adjust")
+def adjust_count_order(
+    row_id: int, context: Auth, csrf: CsrfToken = None, key: IdempotencyKey = None
+):
+    return _data(
+        counts.adjust_count_order(context, row_id, {}, _mutation(context, csrf, key))
+    )
+
+
+@router.post("/count-orders/{row_id}/cancel")
+def cancel_count_order(
+    row_id: int, context: Auth, csrf: CsrfToken = None, key: IdempotencyKey = None
+):
+    return _data(
+        counts.cancel_count_order(context, row_id, {}, _mutation(context, csrf, key))
+    )
+
+
+@router.get("/stock-periods")
+def list_periods(context: Auth):
+    return _data(counts.list_periods(context))
+
+
+@router.post("/stock-periods/close")
+def close_period(
+    payload: PeriodClose,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        counts.close_period(
+            context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.post("/stock-periods/reopen")
+def reopen_period(
+    payload: PeriodClose,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        counts.reopen_period(
+            context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
         )
     )

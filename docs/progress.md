@@ -1,3 +1,16 @@
+# 2026-10-19 W2b-1f 재고 실사(W-14)·재고 마감(W-15) 구현 완료
+
+Claude Code 직접 구현(D85). 브랜치 `w2b-1f`.
+
+- 신규: `backend/src/fs/wms/counts.py`·`count_schema.py`, `frontend/src/wms/Counts.tsx`, `backend/tests/test_wms_counts.py`. 라우트 8개(실사 5·마감 3), 메뉴 W-14(`/wms/counts`), 메뉴 수 가드 117→118.
+- **핵심은 두 SERVICE 정책을 한 길목에서 막은 것이다.** 설계의 "실사 잠금"(F35)과 "마감 월 전표 금지"(F39·Q6)는 기능이 아니라 금지다. 전표 쓰기 경로가 `service._insert_document`(생성+확정)와 `service.post_document`(초안→확정) 둘뿐이라, `_guard_stock_writable` 하나를 만들어 그 두 곳에서만 부른다. 기능마다 흩뿌리지 않았다.
+- 실사: 시작 시 원장 합계를 `count_line.book_qty`로 스냅샷. **차이는 저장하지 않고 조회 때 계산한다**(F35). 차이가 있는 줄만 `CYCLE_COUNT` 전표로 조정하고, 차이가 없으면 전표 없이 `ADJUSTED`. 같은 창고에 OPEN 실사는 1건만.
+- 마감: 전표가 있는 달과 마감 기록을 합쳐 보여 준다. 마감 전에 진행 중 실사와 미확정 전표를 막는다(`COUNT_IN_PROGRESS`·`DRAFT_DOCUMENTS`).
+- 검증: 수동 CI 전 단계 통과 — 백엔드 **1,094 passed/2 skipped**·perf 1, DDL 0, 마이그레이션 왕복 0, 프런트 **622 passed/77 files**. DB·마이그레이션·시드 변경 없음.
+- 브라우저 실동작(시드 재고 있는 완제품 창고): 전수 실사 시작 → 장부 스냅샷 4줄(LOT별 1,920·1,940·1,921·1,921) → **실사 잠금 409 COUNT_IN_PROGRESS** → 실사 1,918 입력 → 진행 4/4·차이 1건(−2만, 나머지 0) → 조정 확정 → 전표 `WD-20261019-002`, 재고 1,920 → 1,918 → 마감 시도 **409 DRAFT_DOCUMENTS**(잠금 시험으로 남은 초안 2건) → 초안 확정 후 마감 200 → **마감 후 확정 409 PERIOD_CLOSED** → 해제 200 → 확정 200 → 390px 넘침 0.
+- 안 한 것: 순환 실사(`kind='CYCLE'`·위치 일부)는 API는 `locationIds`를 받지만 화면은 전수만 뒀다(설계에 순환 UI가 없다). 도움말 `w-14.md` 없음. 마감 해제에 권한 제한을 두지 않았다(설계에 규칙 없음, 체험용).
+- **다음 단계 제약 발견**: `wms.pop_import`의 SERVICE 정책이 `fs.pop.interface.confirmed_entries()`를 전제하는데 **POP 솔루션이 아직 없다(0표)**. W2b-1g의 W-16은 가져올 원본이 없으므로 **라벨(W-17)만 먼저 하고 W-16은 POP 구현 뒤로 미룬다.**
+
 # 2026-10-18 W2b-1e 생산 불출(W-13) 구현 완료
 
 Claude Code가 직접 구현했다(D85로 D84 해제). 브랜치 `w2b-1e`.

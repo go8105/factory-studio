@@ -2054,3 +2054,131 @@ it("W-13 생산 불출 목록·배정 미리보기·부족 안내·확정과 취
   );
   expect(await screen.findByText("작업지시 취소")).toBeVisible();
 });
+
+it("W-14 실사는 장부·실사·차이를 보여 주고 W-15 마감은 달 상태를 바꾼다", async () => {
+  const order = {
+    id: 1,
+    countNo: "CT-20261019-001",
+    kind: "FULL" as const,
+    warehouseId: 1,
+    warehouseCode: "WH-RAW",
+    warehouseName: "원자재 창고",
+    status: "COUNTED" as const,
+    snapshotAt: "2026-10-19T09:00:00+09:00",
+    adjustedAt: null,
+    stockDocumentId: null,
+    stockDocumentNo: null,
+    createdAt: "2026-10-19T09:00:00+09:00",
+    lineCount: 2,
+    countedCount: 2,
+    diffCount: 1,
+    lines: [
+      {
+        id: 11,
+        locationId: 21,
+        locationCode: "R-A01",
+        locationName: "원자재 랙",
+        itemId: 10,
+        itemCode: "RM-RAW01",
+        itemName: "원자재 품목",
+        baseUnit: "KG",
+        lotNo: null,
+        bookQty: "30.000",
+        countedQty: "28.000",
+        diffQty: "-2.000",
+        countedAt: "2026-10-19T09:30:00+09:00",
+      },
+      {
+        id: 12,
+        locationId: 21,
+        locationCode: "R-A01",
+        locationName: "원자재 랙",
+        itemId: 20,
+        itemCode: "RM-RAW02",
+        itemName: "원자재 품목2",
+        baseUnit: "EA",
+        lotNo: null,
+        bookQty: "20.000",
+        countedQty: "20.000",
+        diffQty: "0.000",
+        countedAt: "2026-10-19T09:30:00+09:00",
+      },
+    ],
+  };
+
+  const fetcher = mount("/wms/counts", {
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 2,
+      },
+    ]),
+    [`GET ${W}/count-orders`]: ok({
+      rows: [order],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/stock-periods`]: ok([
+      {
+        periodMonth: "2026-10",
+        status: "open",
+        closedAt: null,
+        documentCount: 7,
+      },
+      {
+        periodMonth: "2026-09",
+        status: "closed",
+        closedAt: "2026-10-01T00:00:00+09:00",
+        documentCount: 12,
+      },
+    ]),
+    [`POST ${W}/count-orders/1/adjust`]: ok({
+      ...order,
+      status: "ADJUSTED",
+      adjustedAt: "2026-10-19T10:00:00+09:00",
+      stockDocumentId: 900,
+      stockDocumentNo: "WD-20261019-009",
+    }),
+    [`POST ${W}/stock-periods/close`]: ok({
+      periodMonth: "2026-10",
+      status: "closed",
+    }),
+  });
+
+  expect(
+    await screen.findByRole("heading", {
+      name: "W-14 재고 실사 · W-15 재고 마감",
+    }),
+  ).toBeVisible();
+  expect(await screen.findByText("CT-20261019-001")).toBeVisible();
+  // 차이가 있는 줄만 센다.
+  expect(screen.getByText("1건")).toBeVisible();
+
+  // 상세: 장부·실사·차이가 한 줄에 보인다. 차이 0은 배지로 강조하지 않는다.
+  fireEvent.click(screen.getByRole("button", { name: "상세" }));
+  expect(await screen.findByRole("table", { name: "실사 명세" })).toBeVisible();
+  expect(screen.getByText("-2")).toBeVisible();
+
+  fireEvent.click(screen.getByRole("button", { name: "차이 조정 확정" }));
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/count-orders/1/adjust")).toHaveLength(1),
+  );
+  expect(await screen.findByText("WD-20261019-009")).toBeVisible();
+
+  // 마감: 열린 달은 마감, 마감된 달은 해제 버튼을 둔다.
+  fireEvent.click(screen.getByRole("button", { name: "패널 닫기" }));
+  const months = await screen.findByRole("table", { name: "재고 월 마감" });
+  expect(within(months).getByText("2026-09")).toBeVisible();
+  fireEvent.click(within(months).getAllByRole("button", { name: "마감" })[0]);
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/stock-periods/close")).toHaveLength(1),
+  );
+  expect(body(sent(fetcher, "POST", "/stock-periods/close")[0])).toEqual({
+    periodMonth: "2026-10",
+  });
+});
