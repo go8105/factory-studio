@@ -11,7 +11,7 @@ from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
 from fs.common.errors import ApiError
 from fs.common.page import Page
-from fs.wms import counts, issues, picks, receiving, reservations, service
+from fs.wms import counts, issues, labels, picks, receiving, reservations, service
 from fs.wms.count_schema import (
     CountOrderCount,
     CountOrderCreate,
@@ -24,6 +24,7 @@ from fs.wms.issue_schema import (
     IssueRequestCreate,
     IssueRequestStatus,
 )
+from fs.wms.label_schema import LabelKind, LabelPrint, LabelStatus
 from fs.wms.pick_schema import (
     PickOrderCancel,
     PickOrderConfirm,
@@ -1073,6 +1074,32 @@ def reopen_period(
 ):
     return _data(
         counts.reopen_period(
+            context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
+        )
+    )
+
+
+# ---- 라벨 출력 (W-17) ----
+@router.get("/labels")
+def list_labels(
+    context: Auth,
+    label_kind: Annotated[LabelKind | None, Query(alias="labelKind")] = None,
+    status: LabelStatus | None = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+):
+    return _data(labels.list_labels(context, label_kind, status, page, page_size))
+
+
+@router.post("/labels", status_code=201)
+def print_label(
+    payload: LabelPrint,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        labels.print_label(
             context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
         )
     )

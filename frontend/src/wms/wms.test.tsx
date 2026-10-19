@@ -2182,3 +2182,94 @@ it("W-14 실사는 장부·실사·차이를 보여 주고 W-15 마감은 달 �
     periodMonth: "2026-10",
   });
 });
+
+it("W-17 라벨은 창고의 위치를 고르고 재발행하면 이전 라벨이 무효로 보인다", async () => {
+  const first = {
+    id: 1,
+    labelKind: "LOCATION" as const,
+    barcodeValue: "R-A01",
+    copies: 2,
+    status: "VOID" as const,
+    printedAt: "2026-10-19T09:00:00+09:00",
+    reprintOfId: null,
+    reprintOfValue: null,
+    reprintReason: null,
+    createdAt: "2026-10-19T09:00:00+09:00",
+  };
+  const second = {
+    ...first,
+    id: 2,
+    status: "VALID" as const,
+    copies: 1,
+    reprintOfId: 1,
+    reprintOfValue: "R-A01",
+    reprintReason: "라벨 훼손",
+    printedAt: "2026-10-19T10:00:00+09:00",
+  };
+
+  const fetcher = mount("/wms/labels", {
+    [`GET ${W}/labels`]: ok({
+      rows: [second, first],
+      total: 2,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 1,
+      },
+    ]),
+    [`GET ${W}/lots`]: ok([]),
+    [`GET ${W}/warehouses/1/locations`]: ok([
+      {
+        id: 21,
+        warehouseId: 1,
+        warehouseCode: "WH-RAW",
+        code: "R-A01",
+        name: "원자재 랙",
+        isDefault: true,
+        isActive: true,
+        moveCount: 1,
+        locationType: "NORMAL",
+      },
+    ]),
+    [`POST ${W}/labels`]: { status: 201, body: { data: second } },
+  });
+
+  expect(
+    await screen.findByRole("heading", { name: "W-17 라벨 출력" }),
+  ).toBeVisible();
+  // 이전 라벨은 무효로, 재발행본은 유효로 보인다.
+  expect(await screen.findByText("무효")).toBeVisible();
+  expect(screen.getByText("유효")).toBeVisible();
+  expect(screen.getByText("라벨 훼손")).toBeVisible();
+
+  // 위치 라벨은 창고를 먼저 고른 뒤에 대상이 채워진다.
+  fireEvent.change(screen.getByLabelText("창고"), { target: { value: "1" } });
+  await waitFor(() =>
+    expect(screen.getByLabelText("대상")).toHaveTextContent("R-A01"),
+  );
+  fireEvent.change(screen.getByLabelText("대상"), {
+    target: { value: "R-A01" },
+  });
+  fireEvent.change(screen.getByLabelText("재발행 사유"), {
+    target: { value: "라벨 훼손" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "라벨 발행" }));
+  await waitFor(() => expect(sent(fetcher, "POST", "/labels")).toHaveLength(1));
+  expect(body(sent(fetcher, "POST", "/labels")[0])).toEqual({
+    labelKind: "LOCATION",
+    barcodeValue: "R-A01",
+    copies: 1,
+    reprintReason: "라벨 훼손",
+  });
+  // 발행하면 인쇄 미리보기가 뜬다.
+  expect(
+    await screen.findByRole("heading", { name: "인쇄 미리보기" }),
+  ).toBeVisible();
+});
