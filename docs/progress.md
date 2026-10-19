@@ -1,3 +1,11 @@
+## 2026-10-19 GW-READY-02 17차 로그인 요청·거부 기록 누락 보완
+
+기준7e82882/branch codex/gw-company-01. 실제 보안 쓰기를 대조해 core.service.login_member 세션발급, security.login_gate 요청생성/verify_login 실패·만료, emergency.fail_login 실제갱신/approve 문서만료 직후 계정 암호화기록/동TX감사 연결. 작업명 password_session.issued/login_challenge.issued|denied|expired/emergency_login.denied/emergency_kit.expired. 요청snapshot에 attempt_count/expires시각만추가·토큰/코드/비밀번호제외. 저장실패시DB변경취소, 이미LOCKED/미존재로UPDATE안된긴급요청은기록중복없음. 새표/HTTP/UI/권한허용/로그인정책변경없음. 별도 GW_보안변경_수집경로검증_GW-READY-02.md에 확인범위와 초기설정도구/common.auth 유휴만료연장/throttle 새창·직접SQL 등 미인수범위를구분, 전체완전성/회수/readyfalse 유지.
+
+실제소유PG18 최종관련27 통과59.04초(초기24/26과겹침, 기존경고4), 도움말18 통과2.28초. 실패1~5회LOCKED/만료/긴급문서만료·DB지문일치, issued/denied/expired/emergency 4경로 저장실패rollback, 기본비밀번호세션 발급기록/비밀미포함·저장실패취소, 긴급거부5회기록·잠금후중복없음·기존MFA경합/회수/HR/긴급/로그아웃 회귀. Ruff/포맷/diff·정적DB219/2409/543·격리R1–R6 오류0. 전체CI/새브라우저/실기기/실회사/외부보관미검증. 소유PG fs-gw-ready02-journal-test/55438 ID+owner label대조후컨테이너/볼륨·임시env/ID제거. 실계정/실환경설정/스케줄/다른checkout변경없음·main미통합/원격push/배포없음. 도움말/운영/API/현황/진행/HANDOFF갱신.
+
+다음 같은02: 남은 쓰기 경로의 수집 필요성/초기설정·운영도구 인수 → 전경로 회수·최종운영게이트 → 실제외부저장소 장애복구/장기성능·선택SSO/전체회귀·10인실환경인수/main. 경로검색만으로전체누락없음선언금지. 기존전체02승인유효. 재현: 새소유PG18 *_test/alembic head·비공개 TEST_DATABASE_URL 후 uv run --project backend pytest backend/tests/test_challenge_security_journal.py backend/tests/test_account_security_journal.py backend/tests/test_gw_security_transactions.py -q --tb=short (27). Node24 frontend npm test -- --run src/portal/content-pages.test.tsx (18). 비밀/work/전체로그 스테이징금지.
+
 ## 2026-10-19 GW-READY-02 16차 원본 증거 보존·서명 재검증
 
 기준94b4d11/branch codex/gw-company-01. 새 증거 등록 시 엄격 허용목록/서명 검증을 통과한 원본 envelope 값을 기존 metrics JSONB 내부 예약필드 _signedEnvelope에 보존한다. signature/정규화검사값 열 유지, 새표/열/마이그레이션 없음. 운영준비 조회는 현재키로 원본서명을 재검증하고 S/정책/버전/runId/종류/시간/manifest/결과/실행자/검사값을 DB행과 대조. timestamptz는 동일시점 비교. 과거 원본없는행은 수정/추정하지않고 LEGACY_UNVERIFIED, 변조/불일치는INVALID. 각 evidenceChecks.signatureVerified, 3종모두재검증시 evidenceIntegrityReverified=true. 서명확인과 PASS/전체운영준비는 별개로 ready=false 유지. 새증거 원본을 history응답에 노출하지 않음. 도움말/운영/API/현황/진행/HANDOFF갱신.

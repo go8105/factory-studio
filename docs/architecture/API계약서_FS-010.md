@@ -664,3 +664,7 @@ GET 회사 operations의 기존 관리자/감사 응답에 evidenceChecks(kind/l
 ## GW-READY-02 원본 증거 재검증 (2026-10-19)
 
 새 operating-evidence 등록은 허용목록/서명을 검증한 envelope를 metrics JSONB 내부 `_signedEnvelope`에 보존한다. 외부 EvidenceMetrics 입력에는 이 예약 필드를 허용하지 않는다. 조회에서 원본 서명·DB 행 필드를 재대조하고 evidenceChecks.signatureVerified 및 LEGACY_UNVERIFIED 상태를 추가했다. evidenceIntegrityReverified는3종 모두 재검증됐을 때만true이며 ready는false를 유지한다. 원본/서명/검사값은 기존 history 응답에 노출하지 않는다. 과거행 소급수정/새 DB구조/새 경로 없음. [운영16차](../operations/GW_암호화백업_격리복원_GW-READY-02.md).
+
+## GW-READY-02 로그인 요청 수집 보완 (2026-10-19)
+
+HTTP/DB 변경 없음. 기존 선택 암호화 기록에 security.password_session.issued/login_challenge.issued|denied|expired/emergency_login.denied/emergency_kit.expired 작업을 추가했다. 계정 요청 snapshot에 attempt_count/expires 시각만 추가한다. 저장 실패는 기존 SECURITY_JOURNAL_UNAVAILABLE/503과 트랜잭션 취소 규칙을 따른다. 기록 없는 설정은 기존 동작을 유지하며 전체 수집을 인정하지 않는다. [검증 범위](../operations/GW_보안변경_수집경로검증_GW-READY-02.md).

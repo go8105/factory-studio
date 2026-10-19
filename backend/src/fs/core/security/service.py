@@ -223,6 +223,7 @@ def login_gate(c, login_id, password, network):
         VALUES(:u,'LOGIN_MFA',:t,'PENDING',:v,0,clock_timestamp()+interval '5 minutes',clock_timestamp())"""),
         {"u": user["id"], "t": hashed, "v": user["security_version"]},
     )
+    audit(c, user["id"], "security.login_challenge.issued")
     return {"mfaRequired": True, "challengeToken": raw}, None
 
 
@@ -416,6 +417,7 @@ def verify_login(c, challenge_token, code):
             ),
             {"id": challenge["id"]},
         )
+        audit(c, lookup, "security.login_challenge.expired")
         return None, failed()
     if challenge["attempt_count"] >= 5:
         return None, ApiError(
@@ -474,6 +476,7 @@ def verify_login(c, challenge_token, code):
             ),
             {"id": challenge["id"]},
         )
+        audit(c, lookup, "security.login_challenge.denied")
         return None, failed()
     c.execute(
         text(

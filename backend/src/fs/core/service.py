@@ -205,6 +205,9 @@ def login_member(
         "app_user",
         str(row["id"]),
     )
+    from fs.core.security.recording import record_user
+
+    record_user(connection, row["id"], "security.password_session.issued")
     data = {
         "actorKind": "MEMBER",
         "workspaceId": row["workspace_id"],

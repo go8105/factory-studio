@@ -113,3 +113,5 @@ npm run db:validate                        # 검증기 경로 확인
 
 
 GW-READY-02 10차: [거래 취소 판정과 제한 유지 조건](operations/GW_직원연결_역할변경기록_GW-READY-02.md), [새 격리 복원 절차](operations/GW_암호화백업_격리복원_GW-READY-02.md). 실운영 준비 완료를 뜻하지 않는다.
+
+[GW 보안 변경 수집 경로 검증](operations/GW_보안변경_수집경로검증_GW-READY-02.md): 로그인 요청·거부 누락 보완과 전체 회수 인수의 남은 범위.

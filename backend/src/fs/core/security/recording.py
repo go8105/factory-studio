@@ -76,7 +76,7 @@ def capture_user(c, user_id):
         "factors": "SELECT id,state,version,last_used_step FROM core.mfa_factor WHERE user_id=:u ORDER BY id",
         "codes": "SELECT id,factor_id,used_at IS NOT NULL AS used,revoked_at IS NOT NULL AS revoked FROM core.recovery_code WHERE user_id=:u ORDER BY id",
         "sessions": "SELECT id,assurance,security_version,revoked_at IS NOT NULL AS revoked FROM core.auth_session WHERE user_id=:u ORDER BY id",
-        "challenges": "SELECT id,purpose,state,security_version FROM core.authentication_challenge WHERE user_id=:u ORDER BY id",
+        "challenges": "SELECT id,purpose,state,security_version,attempt_count,expires_at::text AS expires FROM core.authentication_challenge WHERE user_id=:u ORDER BY id",
         "sso": "SELECT id,state,version FROM core.sso_identity WHERE user_id=:u ORDER BY id",
     }
     return {

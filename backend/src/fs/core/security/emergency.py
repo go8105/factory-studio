@@ -225,6 +225,13 @@ def approve(c, kit: EmergencyKit, operator_uid: int, reason: str):
             ),
             {"id": row["id"]},
         )
+        system_audit(
+            c,
+            int(kit.user_id),
+            "security.emergency_kit.expired",
+            {"kitId": kit.kit_id},
+            operator_uid=operator_uid,
+        )
         return None, service.failed()
     if not hmac.compare_digest(row["token_hash"], token_hash(kit.kit_secret)):
         c.execute(
@@ -335,12 +342,14 @@ def peek_grant(c, raw):
 
 
 def fail_login(c, challenge_id):
-    c.execute(
+    user_id = c.execute(
         text(
-            "UPDATE core.authentication_challenge SET attempt_count=attempt_count+1,state=CASE WHEN attempt_count>=4 THEN 'LOCKED' ELSE state END WHERE id=:id AND state='PENDING'"
+            "UPDATE core.authentication_challenge SET attempt_count=attempt_count+1,state=CASE WHEN attempt_count>=4 THEN 'LOCKED' ELSE state END WHERE id=:id AND state='PENDING' RETURNING user_id"
         ),
         {"id": challenge_id},
-    )
+    ).scalar_one_or_none()
+    if user_id is not None:
+        service.audit(c, user_id, "security.emergency_login.denied")
     return None, service.failed()
 
 
