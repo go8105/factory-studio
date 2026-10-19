@@ -830,6 +830,51 @@ def _document_by_source(connection, scoped, source_key: str, reversal: bool = Fa
     )
 
 
+def _guard_stock_writable(connection, scoped, on, moves) -> None:
+    """마감 월 전표 금지(F39·Q6)와 실사 잠금(F35)을 전표 쓰기 길목에서 한 번만 막는다."""
+    closed = connection.execute(
+        text(
+            f"SELECT 1 FROM wms.stock_period WHERE {_S} AND period_month=:m AND status='closed'"
+        ),
+        {**_s(scoped), "m": f"{on:%Y-%m}"},
+    ).first()
+    if closed:
+        raise _conflict(
+            f"{on:%Y-%m}은 재고 마감된 달이라 전표를 만들 수 없습니다. 다음 달에 조정하세요.",
+            "PERIOD_CLOSED",
+            periodMonth=f"{on:%Y-%m}",
+        )
+    location_ids = sorted({m["location_id"] for m in moves if m.get("location_id")})
+    if not location_ids:
+        return
+    locked = (
+        connection.execute(
+            text(
+                """
+            SELECT co.count_no, cl.location_id
+            FROM wms.count_line cl
+            JOIN wms.count_order co
+              ON co.workspace_id=cl.workspace_id AND co.generation_id=cl.generation_id
+             AND co.id=cl.count_order_id
+            WHERE cl.workspace_id=:w AND cl.generation_id=:g
+              AND co.status='OPEN' AND cl.location_id = ANY(:ids)
+            LIMIT 1
+            """
+            ),
+            {**_s(scoped), "ids": location_ids},
+        )
+        .mappings()
+        .first()
+    )
+    if locked:
+        raise _conflict(
+            f"실사({locked['count_no']}) 중인 위치는 재고를 옮길 수 없습니다. 실사를 끝내고 다시 시도하세요.",
+            "COUNT_IN_PROGRESS",
+            countNo=locked["count_no"],
+            locationId=locked["location_id"],
+        )
+
+
 def _insert_document(
     connection,
     scoped,
@@ -838,6 +883,8 @@ def _insert_document(
     moved_at: str | None,
 ) -> int:
     on = header["document_on"]
+    if header["status"] == "posted":
+        _guard_stock_writable(connection, scoped, on, moves)
     doc_id = connection.execute(
         text(
             "INSERT INTO wms.stock_document(workspace_id,generation_id,document_no,document_type,status,"
@@ -1383,6 +1430,12 @@ def post_document(context: AuthContext, doc_id: int, key: str) -> dict[str, Any]
                 raise _conflict(
                     "이동 전표는 품목·LOT별 합이 0이어야 합니다.", "TRANSFER_UNBALANCED"
                 )
+        _guard_stock_writable(
+            connection,
+            scoped,
+            date.fromisoformat(doc["documentOn"]),
+            [{"location_id": m["locationId"]} for m in doc["moves"]],
+        )
         connection.execute(
             text(
                 f"UPDATE wms.stock_document SET status='posted', posted_at=clock_timestamp() WHERE {_S} AND id=:id"

@@ -287,7 +287,8 @@ export type DocumentType =
   | "WMS_INSPECTION"
   | "PUTAWAY"
   | "PICK"
-  | "PRODUCTION_ISSUE";
+  | "PRODUCTION_ISSUE"
+  | "CYCLE_COUNT";
 export type Move = {
   id: number;
   documentId: number;
@@ -377,6 +378,7 @@ export const TYPE_LABEL: Record<DocumentType, string> = {
   PUTAWAY: "적치 이동",
   PICK: "피킹 이동",
   PRODUCTION_ISSUE: "생산 불출",
+  CYCLE_COUNT: "실사 조정",
 };
 export const REASON_LABEL: Record<Reason, string> = {
   RETURN: "반품 입고",
@@ -507,6 +509,57 @@ export type IssueRequest = {
   lines: IssueLine[];
   allocationPreview: IssueAllocation[];
   shortages: IssueShortage[];
+};
+
+/** W-14 재고 실사 · W-15 재고 마감 (DSN-13 F35·F39, Q6). 차이는 저장하지 않고 조회 때 계산한다. */
+export type CountStatus = "OPEN" | "COUNTED" | "ADJUSTED" | "CANCELLED";
+export const COUNT_STATUS_LABEL: Record<CountStatus, string> = {
+  OPEN: "실사 중",
+  COUNTED: "실사 완료",
+  ADJUSTED: "조정 완료",
+  CANCELLED: "취소",
+};
+
+export type CountLine = {
+  id: number;
+  locationId: number;
+  locationCode: string;
+  locationName: string;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  baseUnit: string;
+  lotNo: string | null;
+  bookQty: string;
+  countedQty: string | null;
+  diffQty: string | null;
+  countedAt: string | null;
+};
+
+export type CountOrder = {
+  id: number;
+  countNo: string;
+  kind: "FULL" | "CYCLE";
+  warehouseId: number;
+  warehouseCode: string;
+  warehouseName: string;
+  status: CountStatus;
+  snapshotAt: string;
+  adjustedAt: string | null;
+  stockDocumentId: number | null;
+  stockDocumentNo: string | null;
+  createdAt: string;
+  lineCount: number;
+  countedCount: number;
+  diffCount: number;
+  lines: CountLine[];
+};
+
+export type StockPeriod = {
+  periodMonth: string;
+  status: "open" | "closed";
+  closedAt: string | null;
+  documentCount: number;
 };
 
 export const useLists = <T extends unknown[]>(paths: string[]) =>
