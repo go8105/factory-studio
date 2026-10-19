@@ -1,3 +1,11 @@
+## 2026-10-19 GW-READY-02 16차 원본 증거 보존·서명 재검증
+
+기준94b4d11/branch codex/gw-company-01. 새 증거 등록 시 엄격 허용목록/서명 검증을 통과한 원본 envelope 값을 기존 metrics JSONB 내부 예약필드 _signedEnvelope에 보존한다. signature/정규화검사값 열 유지, 새표/열/마이그레이션 없음. 운영준비 조회는 현재키로 원본서명을 재검증하고 S/정책/버전/runId/종류/시간/manifest/결과/실행자/검사값을 DB행과 대조. timestamptz는 동일시점 비교. 과거 원본없는행은 수정/추정하지않고 LEGACY_UNVERIFIED, 변조/불일치는INVALID. 각 evidenceChecks.signatureVerified, 3종모두재검증시 evidenceIntegrityReverified=true. 서명확인과 PASS/전체운영준비는 별개로 ready=false 유지. 새증거 원본을 history응답에 노출하지 않음. 도움말/운영/API/현황/진행/HANDOFF갱신.
+
+실제소유PG18 등록원본보존/조회재검증·원본/정규화검사값 변조/과거형식·정책/권한/계약 포함 최종backend38 통과28.30초(초기37·단위26과겹침, 기존Starlette경고2). 화면/도움말25 통과2.49초. 키동일ID교체/서명·범위·runId불일치/시간대표현/서명확인된PARTIAL상태유지 검사. Ruff/포맷/diff·정적DB219/2409/543·격리R1–R6 오류0. 새브라우저/실기기/실회사/외부보관/전체CI 미검증. 실제계정/운영설정/스케줄/다른checkout변경없음, main통합/원격push/배포없음. 본인PG fs-gw-ready02-journal-test/55438 ID+owner label대조후컨테이너/볼륨·임시env/ID제거. 신뢰실행기정확성/DB소유자재작성방지/전경로회수·외부복구인수는별도.
+
+다음 같은02: 전경로 수집 완전성·권한회수 인수/최종운영게이트 → 실제외부저장소 장애복구/장기성능·선택SSO/전체회귀·10인실환경인수/main. 기존전체02승인유효. 재현: 새소유PG18 *_test/alembic head·비공개 TEST_DATABASE_URL 후 uv run --project backend pytest backend/tests/test_gw_readiness.py backend/tests/test_gw_operations.py backend/tests/test_gw_evidence.py backend/tests/test_gw_operating_contract.py -q --tb=short (38). Node24 frontend npm test -- --run src/gw/operations.test.tsx src/gw/operating-evidence.test.tsx src/portal/content-pages.test.tsx (25). 비밀/work/전체로그 스테이징금지.
+
 ## 2026-10-19 GW-READY-02 15차 운영 준비 증거별 진단
 
 기준ba6eade/branch codex/gw-company-01. gw.readiness가 현재 정책/제품/DB 버전·신뢰 실행자 키·필수 검사·시각과 BACKUP RPO를 대조한다. operations 조회는 S 범위 종류별 최신 recorded_at/id 한 건을 묶음조회, 최근실패/부분을 과거PASS로 대체하지 않는다. CONFIG_REQUIRED/POLICY_REQUIRED/MISSING/STALE/INVALID/FAILED/PARTIAL/RECORDED_PASS 진단을 evidenceChecks에추가. 관리자/감사만조회·직원제한유지, UI 실행증거확인/한국어조치·등록성공후상위재조회 연결. 기존DB는정규화metrics를저장하므로 원본JSON표현/서명재검증은 주장하지않고 evidenceIntegrityReverified=false/ready=false 유지. 외부장애복구·전경로완전성/전체회수·원본서명재검증/최종운영승인 차단근거표시. 새표/마이그레이션/권한부여/운영개방없음.

@@ -108,6 +108,7 @@ def test_signed_evidence_records_failures_and_rejects_replay_or_forgery(
     assert api(_staff, co, "operating-evidence", method="GET").status_code == 403
     state = api(admin, co, "operations", method="GET").json()["data"]
     assert state["evidenceChecks"][0]["state"] == "RECORDED_PASS"
+    assert state["evidenceChecks"][0]["signatureVerified"]
     assert state["evidenceChecks"][1]["state"] == "MISSING"
     assert not state["ready"]
 
@@ -212,3 +213,42 @@ def test_evidence_current_policy_keys_and_fresh_auth_before_receipt(
         ).status_code
         == 503
     )
+
+
+def test_retained_original_and_row_tamper_are_rechecked(company_env, monkeypatch):
+    import json
+
+    from fs.gw.readiness import SOURCE_FIELD
+
+    body, signed = prepare(company_env, monkeypatch)
+    engine, co, admin, _staff = company_env
+    assert api(admin, co, "operating-evidence", signed(body)).status_code == 200
+    with engine.connect() as c:
+        stored = c.execute(
+            text("SELECT metrics FROM gw.operating_evidence WHERE workspace_id=:w"),
+            {"w": co["companyId"]},
+        ).scalar_one()
+    assert stored[SOURCE_FIELD] == body
+    original = json.loads(json.dumps(stored))
+    for mode in ("source", "normalized", "legacy"):
+        changed = json.loads(json.dumps(original))
+        if mode == "source":
+            changed[SOURCE_FIELD]["manifestDigest"] = "f" * 64
+        elif mode == "normalized":
+            changed["artifactDigest"] = "f" * 64
+        else:
+            changed.pop(SOURCE_FIELD)
+        with engine.begin() as c:
+            c.execute(
+                text(
+                    "UPDATE gw.operating_evidence SET metrics=cast(:m AS jsonb) WHERE workspace_id=:w"
+                ),
+                {"w": co["companyId"], "m": json.dumps(changed)},
+            )
+        state = api(admin, co, "operations", method="GET").json()["data"]
+        assert state["evidenceChecks"][0]["state"] == (
+            "LEGACY_UNVERIFIED" if mode == "legacy" else "INVALID"
+        )
+        assert (
+            not state["evidenceChecks"][0]["signatureVerified"] and not state["ready"]
+        )

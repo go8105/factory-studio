@@ -660,3 +660,7 @@ HTTP/DB 변경 없음. gw_journal_delivery.py publish/check와 bootstrap 이후 
 ## GW-READY-02 운영 준비 진단 보완 (2026-10-19)
 
 GET 회사 operations의 기존 관리자/감사 응답에 evidenceChecks(kind/label/state/detail), evidenceIntegrityReverified=false를 추가한다. state는 CONFIG_REQUIRED/POLICY_REQUIRED/MISSING/STALE/INVALID/FAILED/PARTIAL/RECORDED_PASS다. 일반 직원 제한 응답은 유지한다. DB에서 S 범위 종류별 최신 recorded_at/id를 한 번에 조회하고 과거 통과로 fallback하지 않는다. ready=false를 유지한다. 원본 서명 재검증은 미완료이며 등록된 PASS와 운영 전환 승인을 구분한다. 새 API/테이블/마이그레이션 없음.
+
+## GW-READY-02 원본 증거 재검증 (2026-10-19)
+
+새 operating-evidence 등록은 허용목록/서명을 검증한 envelope를 metrics JSONB 내부 `_signedEnvelope`에 보존한다. 외부 EvidenceMetrics 입력에는 이 예약 필드를 허용하지 않는다. 조회에서 원본 서명·DB 행 필드를 재대조하고 evidenceChecks.signatureVerified 및 LEGACY_UNVERIFIED 상태를 추가했다. evidenceIntegrityReverified는3종 모두 재검증됐을 때만true이며 ready는false를 유지한다. 원본/서명/검사값은 기존 history 응답에 노출하지 않는다. 과거행 소급수정/새 DB구조/새 경로 없음. [운영16차](../operations/GW_암호화백업_격리복원_GW-READY-02.md).

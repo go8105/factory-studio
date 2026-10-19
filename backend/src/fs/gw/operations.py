@@ -77,8 +77,6 @@ def read(context, company_id):
             blockers.append("예정 인원만큼 직원 본인 연결을 마치세요.")
         if counts["enrolled"] < counts["connected"]:
             blockers.append("연결된 모든 직원의 인증 앱 등록을 마치세요.")
-        # Evidence registration validates signatures. Stored normalized metrics cannot
-        # reconstruct the original signed envelope, so this is not signature re-verification.
         from fs.gw.operating_evidence import verifier_config
 
         try:
@@ -99,7 +97,7 @@ def read(context, company_id):
                 policy_id=current["current_policy_revision_id"] if current else None,
                 code_revision=code_revision,
                 db_revision=db_revision,
-                signer_ids=set(keys),
+                public_keys=keys,
                 now=database_now(c),
             )
         except ApiError as error:
@@ -110,6 +108,7 @@ def read(context, company_id):
                     "kind": kind,
                     "label": label,
                     "state": "CONFIG_REQUIRED",
+                    "signatureVerified": False,
                     "detail": "서버의 실행 증거 검증 키와 버전을 설정해야 합니다.",
                 }
                 for kind, label in (
@@ -128,7 +127,7 @@ def read(context, company_id):
             [
                 "실제 외부 저장소의 장애·복구 인수가 필요합니다.",
                 "모든 보안 변경 경로의 수집 완전성과 복원 후 전체 회수 검증이 필요합니다.",
-                "등록 기록의 원본 서명 재검증과 운영 전환 최종 승인은 아직 연결되지 않았습니다.",
+                "운영 전환 최종 승인과 실제 접속 전환은 아직 연결되지 않았습니다.",
                 "실제 환경·대표 업무 인수 검증이 필요합니다.",
             ]
         )
@@ -143,7 +142,9 @@ def read(context, company_id):
             "revisionNo": row["revision_no"] if row else None,
             "emergencyKit": emergency_summary(c, ctx.user_id, ctx.workspace_id),
             "evidenceChecks": evidence_checks,
-            "evidenceIntegrityReverified": False,
+            "evidenceIntegrityReverified": all(
+                check["signatureVerified"] for check in evidence_checks
+            ),
             "ready": False,
             "blockers": blockers,
         }

@@ -14,6 +14,7 @@ from fs.gw import company
 from fs.gw.company_identity import audit
 from fs.gw.operating_contract import verify_evidence
 from fs.gw.operations import policy_from_row, settings
+from fs.gw.readiness import SOURCE_FIELD
 
 S = company.S
 
@@ -100,7 +101,12 @@ def record(context, company_id, payload, key):
                 "policy": row["id"],
                 "u": ctx.user_id,
                 "signature": payload["signature"],
-                "metrics": json.dumps(data.metrics.model_dump(by_alias=True)),
+                "metrics": json.dumps(
+                    {
+                        **data.metrics.model_dump(by_alias=True),
+                        SOURCE_FIELD: payload["envelope"],
+                    }
+                ),
             }
         )
         id = c.execute(

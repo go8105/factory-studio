@@ -1,15 +1,13 @@
-"""Current registered evidence diagnostics; never authorizes deployment or access."""
+"""Reverify retained signed evidence; never authorizes deployment or access."""
 
 from datetime import timedelta
-
-from pydantic import ValidationError
 
 from fs.common.errors import ApiError
 from fs.gw.operating_contract import (
     EvidenceEnvelope,
-    _validate_pass,
     backup_is_current,
     timestamp,
+    verify_evidence,
 )
 
 LABELS = {
@@ -17,25 +15,33 @@ LABELS = {
     "RESTORE": "복원 실행",
     "ACCEPTANCE": "실환경 업무 인수",
 }
+SOURCE_FIELD = "_signedEnvelope"
 
 
-def assess(rows, *, policy, policy_id, code_revision, db_revision, signer_ids, now):
-    """Rows are newest registration per kind, scoped by the DB adapter."""
+def assess(rows, *, policy, policy_id, code_revision, db_revision, public_keys, now):
     checks = []
     for kind, label in LABELS.items():
         row = next((r for r in rows if r["kind"] == kind), None)
-        state, detail = "MISSING", "등록된 실행 기록이 없습니다."
+        state, detail, verified = "MISSING", "등록된 실행 기록이 없습니다.", False
         if policy is None:
             state, detail = "POLICY_REQUIRED", "현재 운영 기준을 먼저 적용하세요."
         elif row is not None:
-            state, detail = evaluate(
-                row, policy, policy_id, code_revision, db_revision, signer_ids, now
+            state, detail, verified = evaluate(
+                row, policy, policy_id, code_revision, db_revision, public_keys, now
             )
-        checks.append({"kind": kind, "label": label, "state": state, "detail": detail})
+        checks.append(
+            {
+                "kind": kind,
+                "label": label,
+                "state": state,
+                "detail": detail,
+                "signatureVerified": verified,
+            }
+        )
     return checks
 
 
-def evaluate(row, policy, policy_id, code_revision, db_revision, signer_ids, now):
+def evaluate(row, policy, policy_id, code_revision, db_revision, public_keys, now):
     if (
         row["policy_revision_id"] != policy_id
         or row["code_revision"] != code_revision
@@ -44,14 +50,37 @@ def evaluate(row, policy, policy_id, code_revision, db_revision, signer_ids, now
         return (
             "STALE",
             "현재 운영 기준·제품·DB 버전과 다릅니다. 새 기준으로 다시 검증하세요.",
+            False,
         )
-    if row["signer_key_id"] not in signer_ids:
+    if row["finished_at"] > now + timedelta(seconds=30) or now - row[
+        "finished_at"
+    ] > timedelta(days=30):
+        return "STALE", "실행 시각이 미래이거나 확인 기한30일이 지났습니다.", False
+    if row["signer_key_id"] not in public_keys:
         return (
             "INVALID",
             "현재 신뢰하는 실행자 키가 아닙니다. 운영 담당자가 확인하세요.",
+            False,
+        )
+    if not isinstance(row["metrics"], dict) or SOURCE_FIELD not in row["metrics"]:
+        return (
+            "LEGACY_UNVERIFIED",
+            "원본 서명 대상 내용이 없어 재검증할 수 없습니다. 새 실행 증거를 등록하세요.",
+            False,
         )
     try:
-        data = EvidenceEnvelope.model_validate(
+        data = verify_evidence(
+            row["metrics"][SOURCE_FIELD],
+            row["signature"],
+            public_keys=public_keys,
+            workspace_id=row["workspace_id"],
+            generation_id=row["generation_id"],
+            policy=policy,
+            code_revision=code_revision,
+            db_revision=db_revision,
+            now=now,
+        )
+        stored = EvidenceEnvelope.model_validate(
             {
                 "version": 1,
                 "runId": str(row["run_id"]),
@@ -66,29 +95,43 @@ def evaluate(row, policy, policy_id, code_revision, db_revision, signer_ids, now
                 "manifestDigest": row["manifest_digest"],
                 "result": row["result"],
                 "signerKeyId": row["signer_key_id"],
-                "metrics": row["metrics"],
+                "metrics": {
+                    k: v for k, v in row["metrics"].items() if k != SOURCE_FIELD
+                },
             }
         )
-        if timestamp(data.finished_at) > now or now - timestamp(
-            data.finished_at
-        ) > timedelta(days=30):
-            return "STALE", "실행 시각이 미래이거나 확인 기한30일이 지났습니다."
-        if data.result == "FAIL":
-            return (
-                "FAILED",
-                "가장 최근 등록한 실행이 미통과입니다. 이전 통과로 대신하지 않습니다.",
-            )
-        if data.result == "PARTIAL":
-            return "PARTIAL", "일부 확인 상태입니다. 남은 검증을 마치세요."
-        _validate_pass(data, policy)
-        if data.kind == "BACKUP" and not backup_is_current(data, policy, now):
-            return (
-                "STALE",
-                "백업 시점이 허용 손실 시간을 벗어났습니다. 새 백업을 확인하세요.",
-            )
-    except ValidationError, ValueError, TypeError, KeyError, ApiError, OverflowError:
-        return "INVALID", "등록된 실행 결과와 검사 항목을 확인할 수 없습니다."
+        # PostgreSQL timestamps normalize offsets; compare instants, then all other values.
+        source = data.model_dump()
+        target = stored.model_dump()
+        for field in ("started_at", "finished_at"):
+            if timestamp(source.pop(field)) != timestamp(target.pop(field)):
+                raise ValueError()
+        if source != target:
+            raise ValueError()
+    except ValueError, TypeError, KeyError, ApiError, OverflowError:
+        return (
+            "INVALID",
+            "원본 서명·현재성 또는 등록 결과 대조에 실패했습니다. 운영 담당자가 확인하세요.",
+            False,
+        )
+    if timestamp(data.finished_at) > now:
+        return "STALE", "실행 시각이 미래입니다. 현재 시각을 확인하세요.", True
+    if data.result == "FAIL":
+        return (
+            "FAILED",
+            "가장 최근 등록한 실행이 미통과입니다. 이전 통과로 대신하지 않습니다.",
+            True,
+        )
+    if data.result == "PARTIAL":
+        return "PARTIAL", "일부 확인 상태입니다. 남은 검증을 마치세요.", True
+    if data.kind == "BACKUP" and not backup_is_current(data, policy, now):
+        return (
+            "STALE",
+            "백업 시점이 허용 손실 시간을 벗어났습니다. 새 백업을 확인하세요.",
+            True,
+        )
     return (
         "RECORDED_PASS",
-        "현재 기준의 등록된 통과입니다. 외부 보관·전체 회수·실환경 인수는 별도입니다.",
+        "현재 신뢰 키로 원본 서명과 등록 결과를 재검증했습니다. 외부 보관·전체 회수·실환경 인수는 별도입니다.",
+        True,
     )
