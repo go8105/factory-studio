@@ -17,6 +17,9 @@ export type Warehouse = {
 export type LocationType =
   "NORMAL" | "QUARANTINE" | "LINE" | "RECEIVING" | "SHIPPING" | "RETURN";
 export type Location = {
+  capacityQty?: string | null;
+  mixItems?: boolean;
+  mixLots?: boolean;
   id: number;
   warehouseId: number;
   warehouseCode: string;
@@ -580,6 +583,60 @@ export type LabelPrint = {
   reprintOfValue: string | null;
   reprintReason: string | null;
   createdAt: string;
+};
+
+/** W-18 수불부 · W-19 분석 · W-20 점유 (DSN-13 F52·F54·F55·F37). 표 없이 조회 때 집계한다. */
+export type LedgerRow = {
+  id: string;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  baseUnit: string;
+  warehouseId: number;
+  warehouseCode: string;
+  warehouseName: string;
+  opening: string;
+  inbound: string;
+  outbound: string;
+  closing: string;
+};
+
+export type AnalysisRow = {
+  id: number;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  baseUnit: string;
+  abcClass: string | null;
+  onHand: string;
+  safetyStock: string | null;
+  maxStock: string | null;
+  belowSafety: boolean;
+  aboveMax: boolean;
+  outRecent: string;
+  turnover: string | null;
+  lastOutOn: string | null;
+  staleDays: number | null;
+  stale: boolean;
+};
+
+export type OccupancyRow = {
+  id: number;
+  locationId: number;
+  locationCode: string;
+  locationName: string;
+  locationType: LocationType;
+  warehouseCode: string;
+  warehouseName: string;
+  isActive: boolean;
+  capacityQty: string | null;
+  onHand: string;
+  usagePercent: string | null;
+  over: boolean;
+  itemCount: number;
+  lotCount: number;
+  mixItems: boolean;
+  mixLots: boolean;
 };
 
 export const useLists = <T extends unknown[]>(paths: string[]) =>

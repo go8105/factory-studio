@@ -1,5 +1,6 @@
 // FS-024b WMS 화면. 검증 항목별로 테스트를 나눈다.
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -2272,4 +2273,135 @@ it("W-17 라벨은 창고의 위치를 고르고 재발행하면 이전 라벨�
   expect(
     await screen.findByRole("heading", { name: "인쇄 미리보기" }),
   ).toBeVisible();
+});
+
+it("W-18·19·20 조회 화면은 수불·경고·점유율을 보여 준다", async () => {
+  const warehouses = ok([
+    {
+      id: 1,
+      code: "WH-RAW",
+      name: "원자재 창고",
+      purpose: "RAW",
+      isActive: true,
+      locationCount: 1,
+    },
+  ]);
+
+  // W-18 수불부: 기초·입고·출고·기말
+  mount("/wms/ledger", {
+    [`GET ${W}/warehouses`]: warehouses,
+    [`GET ${W}/ledger`]: ok({
+      month: "2026-10",
+      rows: [
+        {
+          id: "1-10",
+          itemId: 10,
+          itemCode: "RM-RAW01",
+          itemName: "원자재 품목",
+          baseUnit: "KG",
+          warehouseId: 1,
+          warehouseCode: "WH-RAW",
+          warehouseName: "원자재 창고",
+          opening: "0.000",
+          inbound: "100.000",
+          outbound: "30.000",
+          closing: "70.000",
+        },
+      ],
+    }),
+  });
+  expect(
+    await screen.findByRole("heading", { name: "W-18 재고 수불부" }),
+  ).toBeVisible();
+  const ledger = await screen.findByRole("table", {
+    name: /2026-10 재고 수불부/,
+  });
+  expect(within(ledger).getByText("100")).toBeVisible();
+  expect(within(ledger).getByText("70 KG")).toBeVisible();
+  cleanup();
+
+  // W-19 분석: 안전재고 부족과 출고 없음을 알린다
+  mount("/wms/analysis", {
+    [`GET ${W}/warehouses`]: warehouses,
+    [`GET ${W}/analysis`]: ok({
+      staleDays: 90,
+      rows: [
+        {
+          id: 10,
+          itemId: 10,
+          itemCode: "RM-RAW01",
+          itemName: "원자재 품목",
+          baseUnit: "KG",
+          abcClass: "A",
+          onHand: "5.000",
+          safetyStock: "10.000",
+          maxStock: "100.000",
+          belowSafety: true,
+          aboveMax: false,
+          outRecent: "0.000",
+          turnover: "0.00",
+          lastOutOn: null,
+          staleDays: null,
+          stale: true,
+        },
+      ],
+    }),
+  });
+  expect(
+    await screen.findByRole("heading", { name: "W-19 재고 분석" }),
+  ).toBeVisible();
+  expect(await screen.findByText("안전재고 부족")).toBeVisible();
+  expect(screen.getByText("출고 없음")).toBeVisible();
+  cleanup();
+
+  // W-20 점유: 용량이 있는 칸만 점유율을 낸다
+  mount("/wms/occupancy", {
+    [`GET ${W}/warehouses`]: warehouses,
+    [`GET ${W}/occupancy`]: ok({
+      rows: [
+        {
+          id: 21,
+          locationId: 21,
+          locationCode: "R-A01",
+          locationName: "원자재 랙",
+          locationType: "NORMAL",
+          warehouseCode: "WH-RAW",
+          warehouseName: "원자재 창고",
+          isActive: true,
+          capacityQty: "50.000",
+          onHand: "40.000",
+          usagePercent: "80.0",
+          over: false,
+          itemCount: 1,
+          lotCount: 0,
+          mixItems: true,
+          mixLots: false,
+        },
+        {
+          id: 22,
+          locationId: 22,
+          locationCode: "R-A02",
+          locationName: "예비",
+          locationType: "NORMAL",
+          warehouseCode: "WH-RAW",
+          warehouseName: "원자재 창고",
+          isActive: true,
+          capacityQty: null,
+          onHand: "0.000",
+          usagePercent: null,
+          over: false,
+          itemCount: 0,
+          lotCount: 0,
+          mixItems: true,
+          mixLots: true,
+        },
+      ],
+    }),
+  });
+  expect(
+    await screen.findByRole("heading", { name: "W-20 위치 점유" }),
+  ).toBeVisible();
+  expect(await screen.findByText("80.0%")).toBeVisible();
+  expect(screen.getByText("제한 없음")).toBeVisible();
+  expect(screen.getByText(/품목 허용 · LOT 금지/)).toBeVisible();
 });

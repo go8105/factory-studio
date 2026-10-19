@@ -11,7 +11,16 @@ from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
 from fs.common.errors import ApiError
 from fs.common.page import Page
-from fs.wms import counts, issues, labels, picks, receiving, reservations, service
+from fs.wms import (
+    analytics,
+    counts,
+    issues,
+    labels,
+    picks,
+    receiving,
+    reservations,
+    service,
+)
 from fs.wms.count_schema import (
     CountOrderCount,
     CountOrderCreate,
@@ -1103,3 +1112,30 @@ def print_label(
             context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
         )
     )
+
+
+# ---- 재고 수불부 (W-18) · 재고 분석 (W-19) · 위치 점유 (W-20) ----
+@router.get("/ledger")
+def stock_ledger(
+    context: Auth,
+    month: Annotated[str | None, Query(pattern=MONTH)] = None,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+    item_id: Annotated[int | None, Query(alias="itemId", gt=0)] = None,
+):
+    return _data(analytics.ledger(context, month, warehouse_id, item_id))
+
+
+@router.get("/analysis")
+def stock_analysis(
+    context: Auth,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+):
+    return _data(analytics.analysis(context, warehouse_id))
+
+
+@router.get("/occupancy")
+def location_occupancy(
+    context: Auth,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+):
+    return _data(analytics.occupancy(context, warehouse_id))
