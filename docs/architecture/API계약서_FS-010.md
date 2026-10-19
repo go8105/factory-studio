@@ -668,3 +668,7 @@ GET 회사 operations의 기존 관리자/감사 응답에 evidenceChecks(kind/l
 ## GW-READY-02 로그인 요청 수집 보완 (2026-10-19)
 
 HTTP/DB 변경 없음. 기존 선택 암호화 기록에 security.password_session.issued/login_challenge.issued|denied|expired/emergency_login.denied/emergency_kit.expired 작업을 추가했다. 계정 요청 snapshot에 attempt_count/expires 시각만 추가한다. 저장 실패는 기존 SECURITY_JOURNAL_UNAVAILABLE/503과 트랜잭션 취소 규칙을 따른다. 기록 없는 설정은 기존 동작을 유지하며 전체 수집을 인정하지 않는다. [검증 범위](../operations/GW_보안변경_수집경로검증_GW-READY-02.md).
+
+## GW-READY-02 초기 설정 계정 기록 (2026-10-19)
+
+HTTP/DB 변경 없음. security.member_account.created, hr.setup.company.created/example.created|disabled|activated 작업을 기존 core 계정 상태 수집 형식으로 추가한다. 운영자 도구 행위자는 SYSTEM이며 비밀/업무 원문은 제외한다. 저장 실패 시 해당 트랜잭션 취소. 세션 유휴 만료 연장은 복원 시 세션 전부 회수 정책에 따라 허용 상태 재생에서 제외하며 매요청 의도 기록을 추가하지 않는다. [판정 근거](../operations/GW_보안변경_수집경로검증_GW-READY-02.md).

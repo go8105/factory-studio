@@ -1,3 +1,11 @@
+## 2026-10-19 GW-READY-02 18차 초기 설정 도구 기록·세션 제외 판정
+
+기준89acf6a/branch codex/gw-company-01. core.create_member_account 완료후 security.member_account.created 시스템기록, HR초기회사/예제최종연결·중지준비·비밀번호설정활성 뒤 hr.setup.company.created/example.created|disabled|activated를 core계정/역할/회사멤버십 상태로 수집. 기존선택환경/같은TX실패취소 규칙유지·비밀번호/이름원문제외. HR평상시사용자관리 스냅샷과 구분. common.auth 유휴만료연장은 복원시전체세션회수 대상으로판정해 허용재생/매요청암호화기록에서제외. 절대만료상한/제한재적용후이전토큰거부를실제로검사. throttle 초기0/updated_at는거부횟수변경과구분하고전체카운터의미/부하는남김. 새표/HTTP/UI/권한정책변경없음·전체완전성/회수/readyfalse 유지.
+
+실제소유PG18 관련backend18 통과96.59초(기존경고4), 도움말18 통과2.91초. 운영자계정역할/기록·비밀미포함/저장실패생성취소, 초기예제두계정중지/활성기록·저장실패전체생성취소/활성화취소, 세션연장상한·복원제한후토큰거부, 기존HR/인증/긴급/운영자회원회귀. Ruff/포맷/diff·정적DB219/2409/543·격리R1–R6 오류0. 실제CLI대화/실계정/실비밀번호설정/서버/스케줄변경없음. 새브라우저/실기기/실회사/외부저장소/전체CI 미검증. 소유PG fs-gw-ready02-journal-test/55438 ID+owner label대조후컨테이너/볼륨·임시env/ID제거. main/원격push/배포/다른checkout변경없음. 도움말/경로검증/운영/API/현황/진행/HANDOFF갱신.
+
+다음 같은02: 지원할 운영경로 목록 확정·나머지 도구/직접SQL 경계 → 전체 권한회수 종단시나리오/운영전환 최종조건 → 실제외부저장소 장애복구/장기성능·선택SSO/전체회귀·10인실환경인수/main. 경로판정과실환경인수를혼동하지않음. 기존전체02승인유효. 재현: 새소유PG18 *_test/alembic head·비공개 TEST_DATABASE_URL 후 uv run --project backend pytest backend/tests/test_setup_security_journal.py backend/tests/test_account_security_journal.py backend/tests/test_member_account.py -q --tb=short (18). Node24 frontend npm test -- --run src/portal/content-pages.test.tsx (18). 비밀/work/전체로그 스테이징금지.
+
 ## 2026-10-19 GW-READY-02 17차 로그인 요청·거부 기록 누락 보완
 
 기준7e82882/branch codex/gw-company-01. 실제 보안 쓰기를 대조해 core.service.login_member 세션발급, security.login_gate 요청생성/verify_login 실패·만료, emergency.fail_login 실제갱신/approve 문서만료 직후 계정 암호화기록/동TX감사 연결. 작업명 password_session.issued/login_challenge.issued|denied|expired/emergency_login.denied/emergency_kit.expired. 요청snapshot에 attempt_count/expires시각만추가·토큰/코드/비밀번호제외. 저장실패시DB변경취소, 이미LOCKED/미존재로UPDATE안된긴급요청은기록중복없음. 새표/HTTP/UI/권한허용/로그인정책변경없음. 별도 GW_보안변경_수집경로검증_GW-READY-02.md에 확인범위와 초기설정도구/common.auth 유휴만료연장/throttle 새창·직접SQL 등 미인수범위를구분, 전체완전성/회수/readyfalse 유지.

@@ -111,6 +111,9 @@ def create_company(c, body):
             "days": body["annualDays"],
         },
     )
+    from fs.core.security.recording import record_user
+
+    record_user(c, user["userId"], "hr.setup.company.created", system=True)
     return {"companyId": w, "company": name, "userId": user["userId"]}
 
 
@@ -230,6 +233,10 @@ def create_example_company(c, admin_password, staff_password):
             ),
             {**params, "e": employee, "year": str(real_today().year)},
         )
+    from fs.core.security.recording import record_user
+
+    for user in users:
+        record_user(c, user["userId"], "hr.setup.example.created", system=True)
     return {
         "companyId": w,
         "company": "hugh-D Company",
@@ -245,11 +252,19 @@ def prepare_example_company(c):
     result = create_example_company(
         c, secrets.token_urlsafe(48), secrets.token_urlsafe(48)
     )
-    c.execute(
-        text(
-            "UPDATE core.app_user SET status='disabled',disabled_at=now() WHERE login_id IN ('hugh-admin','hugh-staff')"
+    changed = (
+        c.execute(
+            text(
+                "UPDATE core.app_user SET status='disabled',disabled_at=now() WHERE login_id IN ('hugh-admin','hugh-staff') RETURNING id"
+            )
         )
+        .scalars()
+        .all()
     )
+    from fs.core.security.recording import record_user
+
+    for user_id in changed:
+        record_user(c, user_id, "hr.setup.example.disabled", system=True)
     return result
 
 
@@ -292,4 +307,7 @@ def activate_example_company(c, admin_password, staff_password):
             ),
             {"hash": hash_password(password), "id": row["id"]},
         )
+        from fs.core.security.recording import record_user
+
+        record_user(c, row["id"], "hr.setup.example.activated", system=True)
     return {"company": "hugh-D Company", "companyId": rows[0]["workspace_id"]}

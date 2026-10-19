@@ -325,6 +325,9 @@ def create_member_account(
         target_date,
         schemas=(),  # W0-1 지연 복사
     )
+    from fs.core.security.recording import record_user
+
+    record_user(connection, user_id, "security.member_account.created", system=True)
     return {
         "userId": user_id,
         "loginId": login_id,
