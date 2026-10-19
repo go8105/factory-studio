@@ -179,6 +179,8 @@ it("운영 전환 조건의 확인·조치·미확인과 다음 행동을 구분
             state: "UNVERIFIED",
             detail: "인수 근거가 없습니다.",
             nextAction: "외부 사본 복구를 인수하세요.",
+            acceptanceScope: "실제 외부 저장소에서 확인합니다.",
+            requiredEvidence: ["원본 없이 외부 사본을 읽고 복구한 결과"],
           },
         ],
       },
@@ -192,6 +194,18 @@ it("운영 전환 조건의 확인·조치·미확인과 다음 행동을 구분
   expect(screen.getByText("직원 인증 앱 · 조치 필요")).toBeVisible();
   expect(screen.getByText("외부 저장소 장애·복구 · 미확인")).toBeVisible();
   expect(screen.getByText("외부 사본 복구를 인수하세요.")).toBeVisible();
+  expect(
+    screen.getByText("원본 없이 외부 사본을 읽고 복구한 결과"),
+  ).not.toBeVisible();
+  fireEvent.click(screen.getByText("필요한 인수 근거"));
+  await waitFor(() =>
+    expect(
+      screen.getByText("원본 없이 외부 사본을 읽고 복구한 결과"),
+    ).toBeVisible(),
+  );
+  expect(
+    screen.getByText("이 안내는 제출된 증거나 완료 승인이 아닙니다."),
+  ).toBeVisible();
   expect(screen.queryByText("실제 복원 검증이 필요합니다.")).toBeNull();
   expect(
     screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),

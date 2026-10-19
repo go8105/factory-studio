@@ -89,3 +89,17 @@ def test_missing_and_duplicate_evidence_are_not_satisfied():
     args = inputs()
     args["evidence"].append(args["evidence"][0])
     assert build(**args)["blockedCount"] == 1
+
+
+def test_unverified_conditions_include_criteria_without_changing_gate_state():
+    gate = build(**inputs())
+    pending = [c for c in gate["checks"] if c["state"] == "UNVERIFIED"]
+    assert all(c["requiredEvidence"] and c["acceptanceScope"] for c in pending)
+    assert all(len(c["requiredEvidence"]) >= 3 for c in pending)
+    live = next(c for c in pending if c["code"] == "LIVE_COMPANY")
+    assert "10명" in live["requiredEvidence"][0]
+    args = inputs()
+    args["policy"] = args["policy"].model_copy(update={"expected_people": 3})
+    smaller = next(c for c in build(**args)["checks"] if c["code"] == "LIVE_COMPANY")
+    assert "3명" in smaller["requiredEvidence"][0]
+    assert not gate["ready"] and gate["unverifiedCount"] == 4

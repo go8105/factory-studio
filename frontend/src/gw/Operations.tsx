@@ -46,6 +46,8 @@ type State = {
       state: "CONFIRMED" | "BLOCKED" | "UNVERIFIED";
       detail: string;
       nextAction: string;
+      acceptanceScope?: string;
+      requiredEvidence?: string[];
     }[];
   };
   evidenceChecks?: {
@@ -132,6 +134,18 @@ export function Operations() {
                     <dd>
                       {check.detail}
                       {check.nextAction && <p>{check.nextAction}</p>}
+                      {!!check.requiredEvidence?.length && (
+                        <details>
+                          <summary>필요한 인수 근거</summary>
+                          <p>{check.acceptanceScope}</p>
+                          <ul>
+                            {check.requiredEvidence.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                          <p>이 안내는 제출된 증거나 완료 승인이 아닙니다.</p>
+                        </details>
+                      )}
                     </dd>
                   </div>
                 ))}

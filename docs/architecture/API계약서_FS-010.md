@@ -676,3 +676,7 @@ HTTP/DB 변경 없음. security.member_account.created, hr.setup.company.created
 ## GW-READY-02 launchGate v1 (2026-10-19)
 
 회사 operations 관리자/감사 응답에 launchGate(version/ready/confirmedCount/blockedCount/unverifiedCount/checks)를 추가한다. checks는 code/label/state/detail/nextAction이며 상태는 CONFIRMED/BLOCKED/UNVERIFIED다. 코드12종: POLICY/RESPONSIBLE/DEPARTMENTS/PEOPLE/MFA/BACKUP/RESTORE/ACCEPTANCE/EXTERNAL_STORAGE/JOURNAL_COVERAGE/LIVE_COMPANY/FINAL_RELEASE. 증거 조건은 RECORDED_PASS와 signatureVerified=true를 모두 요구한다. 미연결4종은 UNVERIFIED, 전체ready는모두CONFIRMED일때만true다. 현버전ready=false. blockers는미충족조건으로생성·직원제한응답유지. 새쓰기경로/테이블/승인입력없음.
+
+## GW-READY-02 인수 근거 안내 (2026-10-19)
+
+launchGate의 미확인4조건에 acceptanceScope(검증 환경 안내)와 requiredEvidence(한국어 근거 항목 배열)를 추가한다. LIVE_COMPANY 인원은 현재 정책 expectedPeople에 맞춘다. 이는 정적 인수 기준이며 제출된 증거/완료값이 아니다. state/ready 계산을 바꾸거나 승인/업로드 경로를 추가하지 않는다. 기존 응답의 새 필드가 없어도 UI는 동작한다. [10인 인수 절차](../operations/GW_실회사_인수절차_10인_GW-READY-02.md).

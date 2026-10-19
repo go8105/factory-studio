@@ -1,5 +1,7 @@
 """Explicit evidence boundaries; no checkbox or caller-supplied release override."""
 
+from fs.gw.acceptance_requirements import for_condition
+
 
 def build(*, policy, connected, enrolled, departments, responsible_active, evidence):
     checks = []
@@ -104,6 +106,7 @@ def build(*, policy, connected, enrolled, departments, responsible_active, evide
                 "state": "UNVERIFIED",
                 "detail": "현재 제품에 인수 완료를 판정할 근거가 연결되지 않았습니다.",
                 "nextAction": action,
+                **for_condition(code, policy.expected_people if policy else 10),
             }
         )
     return {

@@ -1,3 +1,11 @@
+## 2026-10-19 GW-READY-02 21차 인수 근거 안내·현재/남은 작업
+
+기준ddb7d78/branch codex/gw-company-01. acceptance_requirements의 정적 근거목록을 launchGate 미확인4조건에 acceptanceScope/requiredEvidence로 연결. 제품 운영전환조건에서 필요한인수근거를펼쳐검증환경·자료목록확인, 예정직원수는정책expectedPeople에따라안내. 이필드는증거/승인값아니며state/ready계산불변·업로드/수동완료/DB스키마없음. 10인실회사인수절차문서에1회사/1부서/관리자1+직원9 기본안·현재구현/합성검증·증거어댑터/최신main회귀/실외부/10인인수/최종전환 남은범위 명시. 총관리자admin과회사관리자구분·실계정/비밀미기록.
+
+이번집중backend14 통과0.02초(정적기준/판정·인원안내/상태불변), 화면/도움말26 통과2.85초(펼침/접힘·안내가증거아님/기존응답호환), TypeScript/수정ESLint·Prettier/Ruff/정적DB219/2409/543·격리R1–R6/diff 오류0. 이번새PG/실브라우저/실기기/실회사/외부저장소/전체CI미실행,20차PG36은이력과구분. DB/앱/예약설치·실계정/비밀번호/외부저장소/서버설정변경없음·다른checkout/main/원격push/배포변경없음. 합성파일검사만사용·정리할신규서비스/인증파일없음. 도움말/API/현황/진행/HANDOFF/문서지도갱신.
+
+현재: 회사인증/권한·MFA/제한/긴급복구·서명증거·암호화백업/격리복원·변경기록/교체/전달·원본재검증·12조건과인수안내구현. 남은개발: 미확인4조건/ACCEPTANCE PASS 증거계약·수집/검증어댑터·전체무누락/최종전환 연결. 남은통합: 최신main대조/전체회귀·CI/10인부하/장기성능. 남은실인수: 실제독립저장소장애·복구/COMPANY·TLS·기기·10인업무/담당자·최종전환. 선택SSO사용시실IdP인수별도. 아직사업운영인수완료아님/readyfalse. 다음같은02는증거계약/어댑터부터, 기존전체02승인유효. 재현: uv run --project backend pytest backend/tests/test_gw_launch_gate.py -q --tb=short (14, DB불필요). Node24 frontend npm test -- --run src/gw/operations.test.tsx src/gw/operating-evidence.test.tsx src/portal/content-pages.test.tsx (26). 비밀/work/전체로그스테이징금지.
+
 ## 2026-10-19 GW-READY-02 20차 최종 조건·미확인 증거 구조화
 
 기준2e38dd3/branch codex/gw-company-01. gw.launch_gate v1이 운영기준/현재담당자활성연결/조직/직원/MFA/서명증거3종과 외부저장소/전체수집회수/실회사/최종전환 총12조건을 CONFIRMED/BLOCKED/UNVERIFIED로분리. 운영준비응답 launchGate/집계/각설명·다음조치 추가, blockers는미충족조건에서생성. 책임자활성계정·회사멤버십·직원연결/활성조직은S범위묶음조회. 증거는RECORDED_PASS+signatureVerified=true필수. 미연결4조건은UNVERIFIED고정·ready는모두CONFIRMED일때만true로계산하여현버전false. 직원제한응답유지·새쓰기/승인입력/스키마/DB개방없음. UI운영전환조건에한국어상태/조치표시, 기존응답fallback유지.
