@@ -40,6 +40,9 @@ type Draft = {
   isActive: boolean;
   isDefault: boolean;
   locationType: LocationType;
+  capacityQty: string;
+  mixItems: boolean;
+  mixLots: boolean;
 };
 const EMPTY: Draft = {
   code: "",
@@ -48,6 +51,9 @@ const EMPTY: Draft = {
   isActive: true,
   isDefault: false,
   locationType: "NORMAL",
+  capacityQty: "",
+  mixItems: true,
+  mixLots: true,
 };
 
 export function Warehouses() {
@@ -113,6 +119,9 @@ export function Warehouses() {
             name: draft.name,
             isActive: draft.isActive,
             locationType: draft.locationType,
+            capacityQty: draft.capacityQty.trim() || null,
+            mixItems: draft.mixItems,
+            mixLots: draft.mixLots,
             ...(draft.isDefault && !panel.row.isDefault
               ? { isDefault: true }
               : {}),
@@ -122,6 +131,9 @@ export function Warehouses() {
             name: draft.name,
             isDefault: draft.isDefault,
             locationType: draft.locationType,
+            capacityQty: draft.capacityQty.trim() || null,
+            mixItems: draft.mixItems,
+            mixLots: draft.mixLots,
           });
       if (saved) setPanel({ kind: "locations", warehouse: panel.warehouse });
     }
@@ -296,6 +308,9 @@ export function Warehouses() {
                                       isActive: l.isActive,
                                       isDefault: l.isDefault,
                                       locationType: l.locationType ?? "NORMAL",
+                                      capacityQty: l.capacityQty ?? "",
+                                      mixItems: l.mixItems ?? true,
+                                      mixLots: l.mixLots ?? true,
                                     },
                                   )
                                 }
@@ -431,6 +446,41 @@ export function Warehouses() {
                     <option value="RETURN">반품</option>
                   </select>
                 </label>
+              )}
+              {panel.kind === "location" && (
+                <>
+                  <label>
+                    용량 (비우면 제한 없음)
+                    <input
+                      value={draft.capacityQty}
+                      inputMode="decimal"
+                      onChange={(e) =>
+                        setDraft({ ...draft, capacityQty: e.target.value })
+                      }
+                    />
+                    {errors.capacityQty && <small>{errors.capacityQty}</small>}
+                  </label>
+                  <label className="inline-check">
+                    <input
+                      type="checkbox"
+                      checked={draft.mixItems}
+                      onChange={(e) =>
+                        setDraft({ ...draft, mixItems: e.target.checked })
+                      }
+                    />
+                    다른 품목 혼적 허용
+                  </label>
+                  <label className="inline-check">
+                    <input
+                      type="checkbox"
+                      checked={draft.mixLots}
+                      onChange={(e) =>
+                        setDraft({ ...draft, mixLots: e.target.checked })
+                      }
+                    />
+                    다른 LOT 혼적 허용
+                  </label>
+                </>
               )}
               {panel.kind === "location" && (
                 <label className="inline-check">

@@ -133,6 +133,7 @@ FROM wms.warehouse h WHERE h.{_S.replace(" AND ", " AND h.")}
 """
 LOCATION_SQL = """
 SELECT l.id, l.warehouse_id, h.code warehouse_code, l.code, l.name, l.is_default, l.is_active, l.location_type,
+       l.capacity_qty, l.mix_items, l.mix_lots,
        (SELECT count(*) FROM wms.stock_move m
          WHERE m.workspace_id=l.workspace_id AND m.generation_id=l.generation_id AND m.location_id=l.id) move_count
 FROM wms.storage_location l
@@ -296,8 +297,9 @@ def create_location(
             _clear_default(connection, scoped, warehouse_id)
         row_id = connection.execute(
             text(
-                "INSERT INTO wms.storage_location(workspace_id,generation_id,warehouse_id,code,name,is_default,location_type) "
-                "VALUES (:w,:g,:h,:code,:name,:d,:lt) RETURNING id"
+                "INSERT INTO wms.storage_location(workspace_id,generation_id,warehouse_id,code,name,is_default,"
+                "location_type,capacity_qty,mix_items,mix_lots) "
+                "VALUES (:w,:g,:h,:code,:name,:d,:lt,:cap,:mi,:ml) RETURNING id"
             ),
             {
                 **_s(scoped),
@@ -306,6 +308,9 @@ def create_location(
                 "name": values["name"],
                 "d": default,
                 "lt": location_type,
+                "cap": values.get("capacity_qty"),
+                "mi": values.get("mix_items", True),
+                "ml": values.get("mix_lots", True),
             },
         ).scalar_one()
         return _location(connection, scoped, row_id), "storage_location", row_id

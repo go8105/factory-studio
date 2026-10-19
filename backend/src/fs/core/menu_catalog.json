@@ -402,6 +402,24 @@
           "group": "기준정보"
         },
         {
+          "path": "ledger",
+          "id": "W-18",
+          "label": "재고 수불부",
+          "group": "현황"
+        },
+        {
+          "path": "analysis",
+          "id": "W-19",
+          "label": "재고 분석",
+          "group": "현황"
+        },
+        {
+          "path": "occupancy",
+          "id": "W-20",
+          "label": "위치 점유",
+          "group": "현황"
+        },
+        {
           "path": "documents",
           "id": "W-04",
           "label": "재고 전표",
