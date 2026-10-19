@@ -5,9 +5,11 @@ from sqlalchemy import text
 from fs.common.errors import ApiError
 from fs.core.company import require_recent_auth
 from fs.core.security.emergency import summary as emergency_summary
+from fs.core.security.service import database_now
 from fs.gw import company
 from fs.gw.company_identity import audit, require_active
 from fs.gw.operating_contract import OperatingPolicy
+from fs.gw.readiness import assess
 
 S = company.S
 
@@ -75,10 +77,58 @@ def read(context, company_id):
             blockers.append("예정 인원만큼 직원 본인 연결을 마치세요.")
         if counts["enrolled"] < counts["connected"]:
             blockers.append("연결된 모든 직원의 인증 앱 등록을 마치세요.")
+        # Evidence registration validates signatures. Stored normalized metrics cannot
+        # reconstruct the original signed envelope, so this is not signature re-verification.
+        from fs.gw.operating_evidence import verifier_config
+
+        try:
+            keys, code_revision, db_revision = verifier_config(c)
+            evidence_rows = (
+                c.execute(
+                    text(f"""SELECT DISTINCT ON (kind) *
+                FROM gw.operating_evidence WHERE {S}
+                ORDER BY kind,recorded_at DESC,id DESC"""),
+                    p,
+                )
+                .mappings()
+                .all()
+            )
+            evidence_checks = assess(
+                evidence_rows,
+                policy=policy,
+                policy_id=current["current_policy_revision_id"] if current else None,
+                code_revision=code_revision,
+                db_revision=db_revision,
+                signer_ids=set(keys),
+                now=database_now(c),
+            )
+        except ApiError as error:
+            if error.code != "SECURITY_CONFIGURATION_UNAVAILABLE":
+                raise
+            evidence_checks = [
+                {
+                    "kind": kind,
+                    "label": label,
+                    "state": "CONFIG_REQUIRED",
+                    "detail": "서버의 실행 증거 검증 키와 버전을 설정해야 합니다.",
+                }
+                for kind, label in (
+                    ("BACKUP", "백업 실행"),
+                    ("RESTORE", "복원 실행"),
+                    ("ACCEPTANCE", "실환경 업무 인수"),
+                )
+            ]
+        blockers.extend(
+            f"{check['label']}: {check['detail']}"
+            for check in evidence_checks
+            if check["state"] != "RECORDED_PASS"
+        )
         # These adapters must be completed and measured before release. Never green by checkbox.
         blockers.extend(
             [
-                "백업·복원 증거의 운영 준비 판정과 실제 저장소 인수가 아직 연결되지 않았습니다.",
+                "실제 외부 저장소의 장애·복구 인수가 필요합니다.",
+                "모든 보안 변경 경로의 수집 완전성과 복원 후 전체 회수 검증이 필요합니다.",
+                "등록 기록의 원본 서명 재검증과 운영 전환 최종 승인은 아직 연결되지 않았습니다.",
                 "실제 환경·대표 업무 인수 검증이 필요합니다.",
             ]
         )
@@ -92,6 +142,8 @@ def read(context, company_id):
             "policy": policy.model_dump(by_alias=True) if policy else None,
             "revisionNo": row["revision_no"] if row else None,
             "emergencyKit": emergency_summary(c, ctx.user_id, ctx.workspace_id),
+            "evidenceChecks": evidence_checks,
+            "evidenceIntegrityReverified": False,
             "ready": False,
             "blockers": blockers,
         }

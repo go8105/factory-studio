@@ -35,6 +35,12 @@ type State = {
   revisionNo: number | null;
   ready: boolean;
   blockers: string[];
+  evidenceChecks?: {
+    kind: string;
+    label: string;
+    state: string;
+    detail: string;
+  }[];
   nextAction?: string;
   emergencyKit?: { prepared: boolean; expiresAt: string | null };
 };
@@ -94,6 +100,23 @@ export function Operations() {
               <li key={message}>{message}</li>
             ))}
           </ul>
+          {data.evidenceChecks && (
+            <>
+              <h3>실행 증거 확인</h3>
+              <p>
+                각 종류의 최근 등록 결과입니다. 등록된 통과만으로 운영을
+                시작하지 않습니다.
+              </p>
+              <dl>
+                {data.evidenceChecks.map((check) => (
+                  <div key={check.kind}>
+                    <dt>{check.label}</dt>
+                    <dd>{check.detail}</dd>
+                  </div>
+                ))}
+              </dl>
+            </>
+          )}
           {data.canEdit && (
             <EmergencyKit
               status={data.emergencyKit}
@@ -133,6 +156,7 @@ export function Operations() {
             </button>
           )}
           <OperatingEvidence
+            onRecorded={state.reload}
             canEdit={data.canEdit}
             disabled={editing || kitPending || retentionEditing}
           />

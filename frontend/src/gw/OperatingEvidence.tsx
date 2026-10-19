@@ -15,9 +15,11 @@ type Entry = {
 export function OperatingEvidence({
   canEdit,
   disabled,
+  onRecorded,
 }: {
   canEdit: boolean;
   disabled: boolean;
+  onRecorded?: () => void;
 }) {
   const [offset, setOffset] = useState(0);
   const history = useGet<{ total: number; items: Entry[] }>(
@@ -53,6 +55,7 @@ export function OperatingEvidence({
       setFile(null);
       setMessage("실행 기록을 등록했습니다. 운영 준비 완료를 뜻하지 않습니다.");
       history.reload();
+      onRecorded?.();
     } catch (e) {
       setError(e);
     } finally {

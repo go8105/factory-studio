@@ -13,7 +13,7 @@ const response = (data: unknown, status = 200) =>
   new Response(JSON.stringify(status < 400 ? { data } : { error: data }), {
     status,
   });
-function show(canEdit = true) {
+function show(canEdit = true, onRecorded?: () => void) {
   return render(
     <MemoryRouter>
       <CompanyContext.Provider value={{ companyId: "10" }}>
@@ -27,7 +27,11 @@ function show(canEdit = true) {
             roles: ["SECURITY_ADMIN"],
           }}
         >
-          <OperatingEvidence canEdit={canEdit} disabled={false} />
+          <OperatingEvidence
+            canEdit={canEdit}
+            disabled={false}
+            onRecorded={onRecorded}
+          />
         </RoleContext.Provider>
       </CompanyContext.Provider>
     </MemoryRouter>,
@@ -90,4 +94,25 @@ it("잘못된 파일은 보내지 않고 최근 인증 오류에 파일 선택�
   expect(
     fetch.mock.calls.filter(([, init]) => init?.method === "POST"),
   ).toHaveLength(1);
+});
+it("실행 증거를 등록한 뒤 상위 준비 판정을 갱신한다", async () => {
+  const onRecorded = vi.fn();
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) =>
+    init?.method === "POST"
+      ? response({ id: "1" })
+      : response({ total: 0, items: [] }),
+  );
+  show(true, onRecorded);
+  const file = new File(["{}"], "synthetic-proof.json");
+  Object.defineProperty(file, "text", { value: async () => "{}" });
+  fireEvent.change(screen.getByLabelText("서명된 실행 증거 파일"), {
+    target: { files: [file] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "실행 증거 확인·등록" }));
+  await waitFor(() => expect(onRecorded).toHaveBeenCalledTimes(1));
+  expect(
+    await screen.findByText(
+      "실행 기록을 등록했습니다. 운영 준비 완료를 뜻하지 않습니다.",
+    ),
+  ).toBeVisible();
 });

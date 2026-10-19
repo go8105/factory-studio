@@ -16,6 +16,10 @@ def test_operating_policy_requires_current_role_fresh_auth_and_version(company_e
     initial = api(admin, co, "operations", method="GET")
     assert initial.status_code == 200
     assert initial.json()["data"]["ready"] is False
+    assert all(
+        check["state"] == "CONFIG_REQUIRED"
+        for check in initial.json()["data"]["evidenceChecks"]
+    )
     body = {
         "expectedVersion": 0,
         "policy": {"responsiblePersonId": str(person), "reason": "합성 최초 운영 기준"},

@@ -1,3 +1,11 @@
+## 2026-10-19 GW-READY-02 15차 운영 준비 증거별 진단
+
+기준ba6eade/branch codex/gw-company-01. gw.readiness가 현재 정책/제품/DB 버전·신뢰 실행자 키·필수 검사·시각과 BACKUP RPO를 대조한다. operations 조회는 S 범위 종류별 최신 recorded_at/id 한 건을 묶음조회, 최근실패/부분을 과거PASS로 대체하지 않는다. CONFIG_REQUIRED/POLICY_REQUIRED/MISSING/STALE/INVALID/FAILED/PARTIAL/RECORDED_PASS 진단을 evidenceChecks에추가. 관리자/감사만조회·직원제한유지, UI 실행증거확인/한국어조치·등록성공후상위재조회 연결. 기존DB는정규화metrics를저장하므로 원본JSON표현/서명재검증은 주장하지않고 evidenceIntegrityReverified=false/ready=false 유지. 외부장애복구·전경로완전성/전체회수·원본서명재검증/최종운영승인 차단근거표시. 새표/마이그레이션/권한부여/운영개방없음.
+
+실제소유PG18 회사HTTP·서명등록→운영준비조회/최신실패·설정미비·권한과 계약/진단 관련backend29 통과18.81초(기존경고2). 화면/등록후갱신·도움말25 통과2.48초, TypeScript/수정파일ESLint·Prettier/Ruff·정적DB219/2409/543·격리R1–R6/diff 오류0. 새실브라우저/실기기/실회사/외부보관/전체CI 미검증. 본인PG fs-gw-ready02-journal-test/55438 ID+owner label대조후컨테이너/볼륨·임시env/ID제거. 실계정/실환경설정/스케줄/다른checkout변경없음·main통합/원격push/배포없음. 도움말/API/현황/진행/HANDOFF갱신.
+
+다음 같은02: 원본 서명 증거 보존·재검증 계약/구현 → 전경로 수집 완전성·회수 인수/최종운영게이트 → 실제외부저장소 장애복구/장기성능·선택SSO/전체회귀·10인실환경인수/main. 등록된통과는현재조건진단일뿐운영승인아님. 기존전체02승인유효. 재현: 새소유PG18 *_test/alembic head·비공개 TEST_DATABASE_URL 후 uv run --project backend pytest backend/tests/test_gw_readiness.py backend/tests/test_gw_operations.py backend/tests/test_gw_evidence.py backend/tests/test_gw_operating_contract.py -q --tb=short (29). Node24 frontend npm test -- --run src/gw/operations.test.tsx src/gw/operating-evidence.test.tsx src/portal/content-pages.test.tsx (25). 비밀/work/전체로그 스테이징금지.
+
 ## 2026-10-19 GW-READY-02 14차 전달 확인 기록·자동 지문 입력
 
 기준81fc3d9/branch codex/gw-company-01. core.security.journal_witness와 gw_journal_delivery.py publish/check 추가. 원본/사본/확인 경로 분리·기록키와 다른32바이트 키로 HMAC/순번/이전지문 확인 기록을 인증하며 새 사본 재인증 뒤에만 작성한다. 첫 독립지문 bootstrap 필수, 이후 --advance는 확인된 접두에서 이어지는 원본만 전달한다. backup_journal의 backup/checkpoint/restore 지문 입력을 선택 WITNESS DIR/KEY_FILE의 최신 인증 확인 기록과 연결. MAX_AGE_SECONDS 기본1800(1~86400)/MIN_SEQUENCE 기본1·미래시각/인증/최소순번/수동지문 충돌/원본진행 불일치 거부. 실행 템플릿 run_gw_journal_delivery.sh만 추가·스케줄 미설치. 새표/HTTP/UI/권한허용 없음. PARTIAL/readyfalse/외부내구성false 유지.

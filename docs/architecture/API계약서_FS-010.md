@@ -656,3 +656,7 @@ HTTP/DB 변경 없음. 기록 reader/writer가 `.history/`+`.history.json` 보�
 ## GW-READY-02 전달 확인 기록 (2026-10-19)
 
 HTTP/DB 변경 없음. gw_journal_delivery.py publish/check와 bootstrap 이후 --advance를 추가했다. 재인증 사본 생성 뒤에만 별도키 HMAC/연속 순번 확인 기록을 저장한다. 선택 WITNESS 환경으로 backup/checkpoint/restore 지문을 자동 입력하며 수동 지문 충돌·오래됨·인증 실패를 거부한다. run_gw_journal_delivery.sh는 미설치 템플릿이다. 외부 내구성/운영 승인false와 전체 저장소 rollback 탐지 한계를 유지한다. [운영14차](../operations/GW_직원연결_역할변경기록_GW-READY-02.md).
+
+## GW-READY-02 운영 준비 진단 보완 (2026-10-19)
+
+GET 회사 operations의 기존 관리자/감사 응답에 evidenceChecks(kind/label/state/detail), evidenceIntegrityReverified=false를 추가한다. state는 CONFIG_REQUIRED/POLICY_REQUIRED/MISSING/STALE/INVALID/FAILED/PARTIAL/RECORDED_PASS다. 일반 직원 제한 응답은 유지한다. DB에서 S 범위 종류별 최신 recorded_at/id를 한 번에 조회하고 과거 통과로 fallback하지 않는다. ready=false를 유지한다. 원본 서명 재검증은 미완료이며 등록된 PASS와 운영 전환 승인을 구분한다. 새 API/테이블/마이그레이션 없음.

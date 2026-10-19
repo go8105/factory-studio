@@ -106,6 +106,11 @@ def test_signed_evidence_records_failures_and_rejects_replay_or_forgery(
     assert api(admin, co, "operating-evidence", signed(body)).status_code == 409
     assert api(_staff, co, "operating-evidence", signed(body)).status_code == 403
     assert api(_staff, co, "operating-evidence", method="GET").status_code == 403
+    state = api(admin, co, "operations", method="GET").json()["data"]
+    assert state["evidenceChecks"][0]["state"] == "RECORDED_PASS"
+    assert state["evidenceChecks"][1]["state"] == "MISSING"
+    assert not state["ready"]
+
     tampered = signed(body)
     tampered["envelope"] = body | {"runId": str(uuid4())}
     assert api(admin, co, "operating-evidence", tampered).status_code == 400
@@ -134,6 +139,9 @@ def test_signed_evidence_records_failures_and_rejects_replay_or_forgery(
         ).status_code
         == 200
     )
+    state = api(admin, co, "operations", method="GET").json()["data"]
+    assert state["evidenceChecks"][0]["state"] == "FAILED"
+    assert not state["evidenceIntegrityReverified"] and not state["ready"]
     history = api(admin, co, "operating-evidence", method="GET").json()["data"]
     assert history["total"] == 2
     assert [r["result"] for r in history["items"]] == ["FAIL", "PASS"]

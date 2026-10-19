@@ -117,3 +117,35 @@ it("추가 인증 오류 뒤 패널과 입력을 유지한다", async () => {
   expect(reason).toHaveValue("합성 사유 유지");
   expect(fetch).toHaveBeenCalledTimes(2);
 });
+it("실행 증거별 결과를 표시해도 운영 준비 완료로 바꾸지 않는다", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    response({
+      ...initial,
+      evidenceChecks: [
+        {
+          kind: "BACKUP",
+          label: "백업 실행",
+          state: "RECORDED_PASS",
+          detail: "현재 기준의 등록된 통과입니다.",
+        },
+        {
+          kind: "RESTORE",
+          label: "복원 실행",
+          state: "PARTIAL",
+          detail: "일부 확인 상태입니다. 남은 검증을 마치세요.",
+        },
+      ],
+    }),
+  );
+  show();
+  expect(
+    await screen.findByRole("heading", { name: "실행 증거 확인" }),
+  ).toBeVisible();
+  expect(screen.getByText("현재 기준의 등록된 통과입니다.")).toBeVisible();
+  expect(
+    screen.getByText("일부 확인 상태입니다. 남은 검증을 마치세요."),
+  ).toBeVisible();
+  expect(
+    screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),
+  ).toBeVisible();
+});
