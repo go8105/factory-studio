@@ -117,3 +117,19 @@ PYTHONPATH=backend/src uv run --project backend python tools/gw_identity_journal
 [PostgreSQL 18 공식 거래 정보 문서](https://www.postgresql.org/docs/18/functions-info.html)에 따라 최상위 거래 상태만 판정한다. 감사 행이 없다는 사실만으로 취소로 간주하지 않는다. 저장점 취소는 최상위 거래 취소와 구분한다. 오래된 거래 상태가 폐기되면 UNKNOWN으로 남는다.
 
 분류 모드 종료값 0은 비어 있지 않은 기록이 AUDIT_CONFIRMED/ABORT_CONFIRMED로 모두 판정됐다는 뜻이다. 취소 건이 있으면 `commitsConfirmed=false`인 채로 0일 수 있다. 미판정은 3, 오류는 1이다. 기존 `--check-database`의 DB 반영 확인 의미는 유지한다. `allTransactionsSettled`와 전체 누락 없음은 다르며 `completenessConfirmed=false`·복원 PARTIAL·운영 ready=false를 유지한다.
+
+## 11차 미확인 기록 인수 보고 (2026-10-19)
+
+운영자는 기존 점검 명령에 `--review-report <새_비공개_JSON_경로>`를 추가한다. 이 옵션은 `--classify-transactions`를 함께 수행하며 종료값 의미도 동일하다. 부모 폴더는 운영자 소유 0700이어야 하고 새 파일은 0600으로 생성한다. 기존 파일·심볼릭 링크는 덮어쓰지 않는다. 기록 키/파일/지문 또는 DB 조회 실패 시 정상 보고를 인정하지 않는다.
+
+보고에는 지정한 최신 지문·조회 시각·기록별 암호화 봉투 지문·6종 판정·한국어 후속 확인과 운영자 점검 목록만 담는다. 계정 식별자·원본 DB 지문·거래 ID·복호화 스냅샷은 넣지 않는다. 콘솔에는 기존 집계만 출력한다. 이 파일은 서명된 실행 증거나 checkpoint 입력이 아닌 진단 문서다. `releaseAuthorized=false`, `checkpointInput=false`, `completenessConfirmed=false`이며 수동 승인 판정을 입력받지 않는다. 이후 변경이 생기면 최신 지문으로 새 보고를 만든다.
+
+과거 미확인 기록의 인수 기준:
+
+1. 담당자는 조회 지문·시각과 근거의 보관 위치를 운영 기록에 남긴다. 실제 비밀번호·개인정보는 첨부하지 않는다.
+2. UNKNOWN·SOURCE_MISMATCH·COMMITTED_WITHOUT_AUDIT는 확인 불가/추가 조사로 기록한다. 검토를 마쳤다는 사실을 DB 반영이나 전체 거래 취소로 바꾸지 않는다. 관련 계정·회사 제한을 유지한다.
+3. PENDING은 원본 거래 종료 후 재조회한다. 저장점 취소는 전체 거래 취소로 간주하지 않는다.
+4. 원본 감사·복구 이력·누락 경로를 조사한다. 수집 누락을 고치더라도 과거 암호화 기록을 수정하거나 새 근거를 소급 작성하지 않는다.
+5. 새 checkpoint·새 격리 복원 결과, 관리자/직원 업무·회수 계정 거부, 외부 사본·복구 조건을 별도로 인수한다. 미확인 해소 근거가 없으면 운영 전환을 완료로 기록하지 않는다.
+
+현재 구현은 조사와 차단 기준을 제공한다. 과거 근거를 되살리거나 운영자 확인만으로 제한을 해제하는 기능은 없다. 전체 회수 경로 완전성·외부 보관·운영 전환 게이트는 후속이다.

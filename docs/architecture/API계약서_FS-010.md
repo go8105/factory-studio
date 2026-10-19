@@ -640,3 +640,7 @@ A-1만 스키마와 관련이 있고 나머지는 구현 방침이다. **A-1을 
 ## GW-READY-02 거래 판정 보완 (2026-10-19)
 
 HTTP API·DB 스키마 변경 없음. 운영 CLI의 선택 `--classify-transactions`는 거래 상태별 집계와 `allTransactionsSettled`를 반환하며 전체 완전성을 인정하지 않는다. 비공개 격리 복원 보고에 `journalAbortedIntents`를 추가했다. 취소로 확인된 건만 새 계획에서 제외하고 기존 복원본을 변경하지 않는다. [운영 계약](../operations/GW_직원연결_역할변경기록_GW-READY-02.md).
+
+## GW-READY-02 미확인 인수 진단 (2026-10-19)
+
+HTTP/DB 변경 없음. `gw_identity_journal.py --review-report`는 거래 분류를 함께 실행하고 지정 지문/시각·봉투 지문별 판정·후속 점검을 새 비공개 JSON에 저장한다. 파일은 진단 전용이며 서명 증거/checkpoint 입력/권한 승인으로 소비하지 않는다. 수동 ACCEPTED 상태나 권한 해제 API를 추가하지 않았다. [운영 절차 11차](../operations/GW_직원연결_역할변경기록_GW-READY-02.md).

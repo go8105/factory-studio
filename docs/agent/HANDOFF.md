@@ -1,3 +1,11 @@
+## 2026-10-19 GW-READY-02 11차 과거 미확인 기록 인수 진단
+
+기준81162b3/branch codex/gw-company-01. CLI --review-report가 거래 분류를 함께 수행해 지정 최신지문·조회시각·기록 봉투지문별 6종 판정/한국어 조치·운영자 점검 목록을 새 비공개 JSON에 저장한다. core.security.journal_review는 payload/계정/원본DB지문/거래ID를 내보내지 않고 0700부모/0600신규파일·덮어쓰기/심볼릭링크거부·fsync를 적용한다. 보고는 진단 전용, 서명증거/checkpoint 입력/권한승인 아님. releaseAuthorized/checkpointInput/completenessConfirmed=false, 수동 ACCEPTED/미확인 제외 경로 없음. UNKNOWN은 확인 불가/제한 유지, PENDING 재조회, 원본/감사누락 조사·소급기록 금지·새 checkpoint/격리 복원과 별도 운영 인수 기준을 문서화. 새DB표/마이그레이션/UI/HTTP/권한허용 없음. PARTIAL/readyfalse 유지.
+
+관련 backend22 통과2.62초(초기21과 겹침/기존Starlette경고2), 도움말18 통과3.19초. 실제 소유 PG18 CLI에서 근거 있는 취소는0/근거없는 과거 취소는3을 유지하면서 비공개 보고 생성 확인. 단위검사에서 6종/빈기록/수동판정·범위누락거부/비밀미포함/파일권한/기존파일·링크덮어쓰기거부 확인. Ruff/포맷/diff·정적DB219/2409/543/격리R1–R6 오류0. 스키마 불변. 전체CI/새브라우저/실기기/실회사/외부보관/실환경인수 미실행. 본인 PG fs-gw-ready02-journal-test/55438 ID+factory-studio.owner label대조 후 컨테이너/볼륨·work의임시env/ID제거. 실제계정/역할권한/운영설정/스케줄/다른checkout 변경없음. main통합/원격push/배포없음.
+
+다음 같은02: 보관 묶음 교체·독립 최신지문 전달/외부보관 → 전경로 완전성·운영 전환 게이트 → 선택SSO → 전체회귀/10인 실환경 인수/main. 과거 근거를 되살리거나 검토 완료만으로 제한을 푸는 기능은 제공하지 않는다. 기존 전체02 승인 유효. 재현: 소유 PG18 *_test에 alembic head 후 비공개 TEST_DATABASE_URL 설정, uv run --project backend pytest backend/tests/test_journal_review.py backend/tests/test_journal_transaction_proof.py backend/tests/test_backup_journal.py backend/tests/test_security_journal.py -q --tb=short. 임시비밀/전체로그 스테이징·출력 금지.
+
 ## 2026-10-19 GW-READY-02 10차 거래 취소 판정·새 격리 복원
 
 선택 FS_GW_JOURNAL_TX_PROOF(기본false)가 암호화 의도에 원본DB/타임라인/최상위거래 근거를 남긴다. 같은 원본의 전체 취소만 ABORT_CONFIRMED로 새 checkpoint 후보에서 제외하고, 진행 중/저장점 취소/감사 누락/원본 불일치/과거 불명은 제한 유지. CLI --classify-transactions는 6종 집계·allTransactionsSettled만 추가, 완전성false 유지. journalAbortedIntents 보고 추가. 기존 제한 복원본은 그대로 두고 새 접속 제한 DB로 다시 복원한다. 원본 변경/권한 부여/운영 개방/새 표·마이그레이션/UI 변경 없음. PARTIAL/전체회수false/readyfalse 유지.

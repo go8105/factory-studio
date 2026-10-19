@@ -32,7 +32,7 @@ def dispositions(engine, records):
 
 
 def test_actual_abort_pending_savepoint_and_source_mismatch(
-    identity, journal, monkeypatch
+    identity, journal, monkeypatch, tmp_path
 ):
     engine, ctx, _, _ = identity
     monkeypatch.setenv("FS_GW_JOURNAL_TX_PROOF", "true")
@@ -103,11 +103,12 @@ def test_actual_abort_pending_savepoint_and_source_mismatch(
         )
 
 
+@pytest.mark.parametrize("proof", [True, False])
 def test_cli_settled_abort_is_not_committed_or_release_approval(
-    identity, journal, monkeypatch
+    identity, journal, monkeypatch, tmp_path, proof
 ):
     engine, ctx, _, _ = identity
-    monkeypatch.setenv("FS_GW_JOURNAL_TX_PROOF", "true")
+    monkeypatch.setenv("FS_GW_JOURNAL_TX_PROOF", "true" if proof else "false")
     with pytest.raises(RuntimeError), engine.begin() as c:
         record_user(c, ctx.user_id, "synthetic.aborted")
         raise RuntimeError("synthetic rollback")
@@ -120,6 +121,9 @@ def test_cli_settled_abort_is_not_committed_or_release_approval(
         verify(directory, key)["head"],
         "--classify-transactions",
     ]
+    report = tmp_path / "review.json"
+    tmp_path.chmod(0o700)
+    command += ["--review-report", str(report)]
     result = subprocess.run(
         command,
         env={
@@ -131,12 +135,20 @@ def test_cli_settled_abort_is_not_committed_or_release_approval(
         text=True,
         check=False,
     )
-    assert result.returncode == 0
+    assert result.returncode == (0 if proof else 3)
     output = json.loads(result.stdout)
-    assert output["allTransactionsSettled"] and output["settledRecords"] == 1
+    assert output["allTransactionsSettled"] == proof
+    assert output["settledRecords"] == int(proof)
     assert not output["commitsConfirmed"] and not output["completenessConfirmed"]
-    assert output["transactionDispositionCounts"]["ABORT_CONFIRMED"] == 1
+    disposition = "ABORT_CONFIRMED" if proof else "UNKNOWN"
+    assert output["transactionDispositionCounts"][disposition] == 1
     assert (
         "synthetic.aborted" not in result.stdout
         and "sourceIdentity" not in result.stdout
     )
+
+    review = json.loads(report.read_text())
+    assert review["allTransactionsSettled"] == proof
+    assert not review["releaseAuthorized"] and not review["checkpointInput"]
+    assert review["items"][0]["disposition"] == disposition
+    assert "sourceIdentity" not in report.read_text()
