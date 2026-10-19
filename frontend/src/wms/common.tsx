@@ -562,6 +562,26 @@ export type StockPeriod = {
   documentCount: number;
 };
 
+/** W-17 라벨 출력 (DSN-13 F07·F13). 대상당 유효 라벨은 1건이고, 재발행하면 이전 것이 무효가 된다. */
+export type LabelKind = "LOCATION" | "MATERIAL_LOT";
+export const LABEL_KIND_LABEL: Record<LabelKind, string> = {
+  LOCATION: "위치 라벨",
+  MATERIAL_LOT: "자재 LOT 라벨",
+};
+
+export type LabelPrint = {
+  id: number;
+  labelKind: LabelKind;
+  barcodeValue: string;
+  copies: number;
+  status: "VALID" | "VOID";
+  printedAt: string;
+  reprintOfId: number | null;
+  reprintOfValue: string | null;
+  reprintReason: string | null;
+  createdAt: string;
+};
+
 export const useLists = <T extends unknown[]>(paths: string[]) =>
   useApiLists<T>(WMS, paths);
 export const useSend = (onDone: () => void) => useApiSend(WMS, onDone);

@@ -396,6 +396,12 @@
           "group": "재고"
         },
         {
+          "path": "labels",
+          "id": "W-17",
+          "label": "라벨 출력",
+          "group": "기준정보"
+        },
+        {
           "path": "documents",
           "id": "W-04",
           "label": "재고 전표",

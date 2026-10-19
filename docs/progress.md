@@ -1,3 +1,16 @@
+# 2026-10-19 W2b-1g 라벨 출력(W-17) 구현 완료 · W-16은 보류
+
+Claude Code 직접 구현(D85). 브랜치 `w2b-1g`.
+
+- 신규: `backend/src/fs/wms/labels.py`·`label_schema.py`, `frontend/src/wms/Labels.tsx`, `backend/tests/test_wms_labels.py`. 라우트 2개(`/labels` 목록·발행), 메뉴 W-17(`/wms/labels`), 메뉴 수 가드 118→119.
+- **핵심은 `UK_PARTIAL`(종류·바코드당 VALID 1건)이다.** 같은 대상을 다시 찍으면 사유를 받고 **이전 라벨을 VOID로 바꾼 뒤** 새 행이 `reprint_of_id`로 그것을 가리킨다. 사유 없이 재발행하면 409 `LABEL_EXISTS`, 처음 발행인데 사유를 적으면 400.
+- 대상은 실제로 있는 것만 받는다: `LOCATION`은 활성 `storage_location.code`, `MATERIAL_LOT`은 등록된 `wms.lot.lot_no`.
+- 검증: 수동 CI 전 단계 통과 — 백엔드 **1,097 passed/2 skipped**·perf 1, DDL 0, 마이그레이션 왕복 0, 프런트 **623 passed/77 files**. DB·마이그레이션·시드 변경 없음.
+- 브라우저 실동작: 첫 발행 201(VALID 3장) → 사유 없이 재발행 **409 LABEL_EXISTS** → 사유 있는 재발행 201(`reprintOfId` 연결, 이전 행 VOID) → 목록에 유효 1건·무효 1건 → 390px 넘침 0.
+- **W-16 POP 가져오기는 보류한다.** `wms.pop_import`의 SERVICE 정책이 `fs.pop.interface.confirmed_entries()`를 전제하는데 **POP 솔루션이 아직 0표**다. 가져올 원본이 없다. POP 구현 뒤에 붙인다.
+- 안 한 것: 실제 Code128 바코드 이미지를 그리지 않았다(값과 "Code128" 표기만). 설계가 "브라우저 인쇄"까지만 정해 바코드 렌더링 의존성을 새로 넣지 않았다. 실제 스캐너로 읽으려면 필요하다. 도움말 `w-17.md` 없음.
+- 다음: W2b-1h 조회 3종(W-18 수불부·W-19 분석·W-20 점유)과 W-01·02·03·06 보강, 그다음 1i 도움말(w-10~14·17).
+
 # 2026-10-19 W2b-1f 재고 실사(W-14)·재고 마감(W-15) 구현 완료
 
 Claude Code 직접 구현(D85). 브랜치 `w2b-1f`.
