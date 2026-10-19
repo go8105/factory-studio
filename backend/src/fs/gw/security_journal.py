@@ -60,6 +60,8 @@ def record(c, ctx, operation, *, include_acl=False):
         }
         if include_acl:
             snapshot["acl"] = acl_snapshot(c, ctx)
+        from fs.core.security.transaction_proof import capture
+
         digest = append(
             directory,
             key,
@@ -69,6 +71,7 @@ def record(c, ctx, operation, *, include_acl=False):
                 "generationId": ctx.generation_id,
                 "operation": operation,
                 "snapshot": snapshot,
+                **capture(c),
             },
         )
         confirmation(c, ctx, digest, operation)

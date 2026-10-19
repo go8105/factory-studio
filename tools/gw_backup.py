@@ -537,6 +537,7 @@ def restore(
                     "journalCandidateIntents": 0,
                     "journalUnconfirmedIntents": 0,
                     "journalCounterIntents": 0,
+                    "journalAbortedIntents": 0,
                     "journalDisabledAccounts": 0,
                     "journalQuarantinedScopes": 0,
                 }
@@ -545,6 +546,7 @@ def restore(
                         journalCandidateIntents=journal["candidates"],
                         journalUnconfirmedIntents=journal["unconfirmed"],
                         journalCounterIntents=journal["counterIntents"],
+                        journalAbortedIntents=journal.get("abortedIntents", 0),
                         journalDisabledAccounts=core_checkpoint.restrict_journal_users(
                             c, journal["users"]
                         ),

@@ -636,3 +636,7 @@ A-1만 스키마와 관련이 있고 나머지는 구현 방침이다. **A-1을 
 목록 `{data:{rows,total,offset,limit}}`, limit 기본50/최대100. 모든 성공 `{data}`, 생성201/기존 대상 작업200(재상신·정정의 새 초안 반환도200). 400 VALIDATION_FAILED(details.fields), 역할·버전·상태409 PRECONDITION_NOT_MET, 422는 IDEMPOTENCY_CONFLICT 전용. 동일 성공 요청 재시도는 저장된 결과를 반환하고 이벤트를 추가하지 않는다. 업무 시각은 DB clock_timestamp; FS_TODAY를 상태 비교에 쓰지 않는다.
 
 추가 조회 계약: `fs.erp.interface.approval_documents/approval_document/approval_source_digest`, `fs.gw.interface.enabled/approvals`. ERP→GW provider는 GW 값만 읽으며 ERP를 재호출하지 않는다. 원문 digest는 display 날짜/상태를 제외한 의미 값만 포함한다. GW가 ERP를 수정하는 경로는 없다.
+
+## GW-READY-02 거래 판정 보완 (2026-10-19)
+
+HTTP API·DB 스키마 변경 없음. 운영 CLI의 선택 `--classify-transactions`는 거래 상태별 집계와 `allTransactionsSettled`를 반환하며 전체 완전성을 인정하지 않는다. 비공개 격리 복원 보고에 `journalAbortedIntents`를 추가했다. 취소로 확인된 건만 새 계획에서 제외하고 기존 복원본을 변경하지 않는다. [운영 계약](../operations/GW_직원연결_역할변경기록_GW-READY-02.md).

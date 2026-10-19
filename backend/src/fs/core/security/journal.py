@@ -59,6 +59,20 @@ def _verify(directory, key, expected_head=None, records=None, metadata_only=Fals
                 canonical(header),
             )
             payload = json.loads(plain)
+            if "transactionProof" in payload:
+                proof = payload["transactionProof"]
+                if (
+                    not isinstance(proof, dict)
+                    or proof.get("version") != 1
+                    or not isinstance(proof.get("sourceIdentity"), str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", proof["sourceIdentity"])
+                    or not isinstance(proof.get("timeline"), str)
+                    or not re.fullmatch(r"[0-9A-F]{8}", proof["timeline"])
+                    or not isinstance(proof.get("transactionId"), str)
+                    or not re.fullmatch(r"[1-9][0-9]{0,19}", proof["transactionId"])
+                    or int(proof["transactionId"]) >= 2**64
+                ):
+                    raise ValueError()
             if payload["coverage"] not in {
                 "gw.company_identity.intent.v1",
                 "gw.company.intent.v2",
@@ -112,6 +126,7 @@ def _verify(directory, key, expected_head=None, records=None, metadata_only=Fals
                         "userId",
                         "workspaceId",
                         "generationId",
+                        "transactionProof",
                     }
                 }
             records.append({"digest": previous, "payload": payload})

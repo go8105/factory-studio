@@ -1,3 +1,11 @@
+## 2026-10-19 GW-READY-02 10차 거래 취소 판정·새 격리 복원
+
+선택 FS_GW_JOURNAL_TX_PROOF(기본false)가 암호화 의도에 원본DB/타임라인/최상위거래 근거를 남긴다. 같은 원본의 전체 취소만 ABORT_CONFIRMED로 새 checkpoint 후보에서 제외하고, 진행 중/저장점 취소/감사 누락/원본 불일치/과거 불명은 제한 유지. CLI --classify-transactions는 6종 집계·allTransactionsSettled만 추가, 완전성false 유지. journalAbortedIntents 보고 추가. 기존 제한 복원본은 그대로 두고 새 접속 제한 DB로 다시 복원한다. 원본 변경/권한 부여/운영 개방/새 표·마이그레이션/UI 변경 없음. PARTIAL/전체회수false/readyfalse 유지.
+
+관련 backend29 통과127.98초(집중15와 겹침/기존 경고4), 도움말18 통과2.96초. 실제 합성 PG18 전체취소·저장점취소·미확정·원본/타임라인불일치·미래ID와 이전 제한 복원본 유지/새 복원본 취소 제외 검증. 최초 pending 검사가 snapshot xmax로 UNKNOWN을 반환해 읽기전용 조회 거래 ID 상한으로 수정한 뒤 재통과. Ruff/포맷·정적DB219/2409/543·격리R1–R6 오류0. 시스템 python의 구버전 문법 분석 실패는 프로젝트 Python3.14로 재실행해 통과. 전체CI/새 브라우저/실기기/실회사/외부보관/전원차단 미검증. 본인 PG ID+owner label 확인 후 컨테이너/폐쇄복원DB/볼륨·임시env/ID 제거. 실제 역할 권한·운영환경 설정·스케줄 변경 없음. codex/gw-company-01만 변경, main 통합/원격push/배포 없음.
+
+다음: 과거 미확인 수동 인수 기준·보관 묶음 교체/독립 지문 자동 전달/외부 보관 → 전경로 완전성·운영 전환 게이트 → 선택SSO → 전체 회귀/10인 실환경 인수/main. 기존 전체02 승인 유효. 재현은 새 소유 PG18 *_test에 alembic head 및 비공개 TEST_DATABASE_URL/GW_BACKUP_TEST_CONTAINER 설정 후 test_aborted_journal_rebuild/test_journal_transaction_proof/test_backup_journal_restore/test_backup_journal/test_gw_backup/test_security_journal/test_account_security_journal 실행. 비밀 파일/로그 전체 출력·스테이징 금지.
+
 ## 2026-10-18 GW-READY-02 9차 완료분: 변경 기록·백업/격리 제한 연결
 
 branch codex/gw-company-01 / factory-studio-gw-company, 기준d9b40aa/WIP e01435f·최종gitlog. fs.gw.backup_journal이원본DBsnapshot전에독립 FS_GW_JOURNAL_EXPECTED_HEAD/체인검증, 같은백업DBsnapshot에확인된감사지문집합/체인기준을명세에저장. checkpoint는앞부분연속성검사·기준전미확인/이후의도를현재DB와대조해제한할계정/회사범위+건수만서명암호화. restore는독립최신기록지문을대상생성전에대조, 기존checkpoint재적용뒤core/HR계정중지·GW연결정지/보존중지/권한버전갱신. 취소연결재활성/새사용자생성/원본변경/운영개방없음. metadata-only와core/GW묶음지문조회, 새키백업폴더분리검사. report journalRestrictionsApplied/candidate/unconfirmed/counter/disabledAccounts/quarantinedScopes진단추가·콘솔기존요약유지/서명증거PARTIAL·완전성false/전체회수false/readyfalse. 과거미설정경로는부분검증유지/새설정은새백업부터. 새DB표/마이그레이션/UI/API없음219불변.

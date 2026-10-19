@@ -6,6 +6,7 @@ import re
 from fs.core.backup import BackupError
 from fs.core.security.journal import ZERO, verified_records
 from fs.core.security.recording import configured
+from fs.core.security.transaction_proof import classify
 from fs.gw.security_journal import confirmed_digests
 
 
@@ -50,6 +51,11 @@ def plan(c, baseline, observed):
     # Includes intents written before the backup snapshot but not visible in that DB snapshot.
     candidates = [r for r in records if r["digest"] not in baseline_confirmed]
     current_confirmed = confirmed_digests(c, records)
+    dispositions = classify(c, candidates, current_confirmed)
+    aborted = sum(v == "ABORT_CONFIRMED" for v in dispositions.values())
+    candidates = [
+        r for r in candidates if dispositions[r["digest"]] != "ABORT_CONFIRMED"
+    ]
     users, scopes = set(), set()
     counters = 0
     for record in candidates:
@@ -75,6 +81,7 @@ def plan(c, baseline, observed):
         "candidates": len(candidates),
         "unconfirmed": sum(r["digest"] not in current_confirmed for r in candidates),
         "counterIntents": counters,
+        "abortedIntents": aborted,
         "users": sorted(users),
         "scopes": [list(s) for s in sorted(scopes)],
         "completenessConfirmed": False,
@@ -107,6 +114,11 @@ def validate_restore(baseline, restrictions):
             or not 0 <= restrictions[key] <= 10000
         ):
             raise BackupError("변경 기록 대조 건수가 잘못되었습니다.")
+    if (
+        type(restrictions.get("abortedIntents", 0)) is not int
+        or not 0 <= restrictions.get("abortedIntents", 0) <= restrictions["records"]
+    ):
+        raise BackupError("롤백 판정 건수가 잘못되었습니다.")
     if (
         restrictions["baseRecords"] > restrictions["records"]
         or restrictions["candidates"] > restrictions["records"]

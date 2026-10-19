@@ -110,3 +110,6 @@ npm run db:validate                        # 검증기 경로 확인
 
 - GW-READY-02 [암호화 백업·격리 복원 서버 절차](operations/GW_암호화백업_격리복원_GW-READY-02.md): 로컬 실제PG 왕복·부분복원, 스케줄은 미설치 템플릿.
 - GW-READY-02 [직원 연결·역할 변경 기록](operations/GW_직원연결_역할변경기록_GW-READY-02.md): 설정 환경의 GW·공통 인증/HR 변경 의도 기록·체인/최신 지문·DB 감사 지문 대조. 백업 기준/미확인 이력의 제한 연결 구현, 전체 완전성/실인수는 미완료.
+
+
+GW-READY-02 10차: [거래 취소 판정과 제한 유지 조건](operations/GW_직원연결_역할변경기록_GW-READY-02.md), [새 격리 복원 절차](operations/GW_암호화백업_격리복원_GW-READY-02.md). 실운영 준비 완료를 뜻하지 않는다.

@@ -98,3 +98,22 @@ PYTHONPATH=backend/src uv run --project backend python tools/gw_identity_journal
 ## 9차 백업 기준·격리 복원 연결
 
 [백업/복원 절차의 9차](GW_암호화백업_격리복원_GW-READY-02.md)를 따른다. 백업 DB에 반영된 지문 목록을 기준으로 미확인/이후 기록을 묶어 대조하고, 서명·암호화 대조 파일의 제한 대상만 격리 복원 DB에 적용한다. 미확인 의도는 자동 제외/성공 처리하지 않는다. `FS_GW_JOURNAL_EXPECTED_HEAD`를 새 백업·checkpoint·restore 때 독립 위치에서 제공하며, 잘못된 지문/끊긴 기준/설정 변경은 거부한다. core/HR 사용 중지·GW 회사 연결 정지/보존 중지를 적용할 수 있으나 원본을 변경하거나 권한을 부여하지 않는다. 전체 완전성·미확인 최종 판정·외부 최신성/보관·운영 준비는 여전히 미완료다.
+
+## 10차 거래 취소 근거 대조 (2026-10-19)
+
+선택 설정 `FS_GW_JOURNAL_TX_PROOF=true`는 새 암호화 기록에 원본 DB 식별 지문·WAL 타임라인·최상위 거래 ID를 함께 남긴다. 기본값은 `false`이며 과거 기록에 근거를 소급하지 않는다. PostgreSQL 원본 primary에서 사용하며 `pg_control_system()` 조회 권한을 사전 확인해야 한다. 권한 부여나 실서버 설정은 이번 작업에서 수행하지 않았다. 설정 오류·근거 저장 실패는 해당 변경을 취소한다.
+
+`uv run --project backend python tools/gw_identity_journal.py --expected-head <독립_최신지문> --classify-transactions`로 집계만 확인한다. 기존 기록 경로·키 환경 설정도 필요하다. 개별 거래 ID·계정·복호화 내용은 출력하지 않는다. 조회는 읽기 전용 거래이지만 대조 상한을 확보하기 위해 조회 거래 자신의 ID 한 개를 할당한다. 업무 행을 변경하지 않으며 standby에서 수행하는 절차가 아니다.
+
+| 판정 | 의미와 처리 |
+|---|---|
+| AUDIT_CONFIRMED | 같은 거래의 감사 표식이 일치 |
+| ABORT_CONFIRMED | 같은 원본·타임라인의 전체 거래 취소가 DB에서 확인됨. 새 checkpoint의 제한 후보에서만 제외 |
+| PENDING | 아직 처리 중. 제한 유지 |
+| COMMITTED_WITHOUT_AUDIT | 거래는 확정됐지만 표식 없음. 저장점 취소도 이 상태일 수 있으므로 제한 유지 |
+| SOURCE_MISMATCH | 다른 DB 또는 타임라인. 제한 유지 |
+| UNKNOWN | 과거 기록·조회 기간 경과·미래 ID 등 근거 부족. 제한 유지 |
+
+[PostgreSQL 18 공식 거래 정보 문서](https://www.postgresql.org/docs/18/functions-info.html)에 따라 최상위 거래 상태만 판정한다. 감사 행이 없다는 사실만으로 취소로 간주하지 않는다. 저장점 취소는 최상위 거래 취소와 구분한다. 오래된 거래 상태가 폐기되면 UNKNOWN으로 남는다.
+
+분류 모드 종료값 0은 비어 있지 않은 기록이 AUDIT_CONFIRMED/ABORT_CONFIRMED로 모두 판정됐다는 뜻이다. 취소 건이 있으면 `commitsConfirmed=false`인 채로 0일 수 있다. 미판정은 3, 오류는 1이다. 기존 `--check-database`의 DB 반영 확인 의미는 유지한다. `allTransactionsSettled`와 전체 누락 없음은 다르며 `completenessConfirmed=false`·복원 PARTIAL·운영 ready=false를 유지한다.

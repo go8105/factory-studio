@@ -47,6 +47,9 @@ def persist(c, payload, *, actor_id=None, config=None):
     if config is None:
         return
     try:
+        from fs.core.security.transaction_proof import capture
+
+        payload = {**payload, **capture(c)}
         digest = append(config[0], config[1], payload)
         c.execute(
             text(
