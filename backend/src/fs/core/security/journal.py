@@ -14,6 +14,7 @@ from fs.core.backup import BackupError, create_private, private_directory, priva
 
 ZERO = "0" * 64
 MAX_RECORDS = 10000
+MAX_TOTAL_RECORDS = 100000
 MAX_RECORD_BYTES = 4 * 1024 * 1024
 
 
@@ -33,18 +34,55 @@ def locked(directory):
         os.close(fd)
 
 
-def _verify(directory, key, expected_head=None, records=None, metadata_only=False):
-    names = sorted(p.name for p in directory.iterdir() if p.name != ".lock")
-    if len(names) > MAX_RECORDS:
+def record_paths(directory):
+    """Flatten a preserved prefix and its active suffix without renumbering."""
+    names = {p.name for p in directory.iterdir()} - {".lock"}
+    base = 0
+    archived = []
+    prefix_head = ZERO
+    if ".history.json" in names or ".history" in names:
+        if not {".history.json", ".history"} <= names:
+            raise BackupError("보존 기록 연결이 누락되었습니다.")
+        manifest = private_file(directory / ".history.json")
+        if manifest.stat().st_size > 4096:
+            raise BackupError("보존 기록 명세 크기를 확인하세요.")
+        try:
+            value = json.loads(manifest.read_bytes())
+            base = value["records"]
+            prefix_head = value["head"]
+            if (
+                set(value) != {"kind", "version", "records", "head"}
+                or value["kind"] != "GW_JOURNAL_PRESERVED_PREFIX"
+                or type(value["version"]) is not int
+                or value["version"] != 1
+                or type(base) is not int
+                or not 1 <= base <= MAX_TOTAL_RECORDS
+                or not isinstance(prefix_head, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", prefix_head)
+            ):
+                raise ValueError()
+        except ValueError, KeyError, TypeError:
+            raise BackupError("보존 기록 명세를 확인하세요.") from None
+        history = private_directory(directory / ".history")
+        history_names = sorted(p.name for p in history.iterdir())
+        if history_names != [f"{n:010d}.json" for n in range(1, base + 1)]:
+            raise BackupError("보존 기록이 누락되었거나 알 수 없는 파일이 있습니다.")
+        archived = [history / name for name in history_names]
+        names -= {".history.json", ".history"}
+    active = sorted(names)
+    if len(active) > MAX_RECORDS or base + len(active) > MAX_TOTAL_RECORDS:
         raise BackupError("기록 보관 한도를 확인하세요.")
+    if active != [f"{n:010d}.json" for n in range(base + 1, base + len(active) + 1)]:
+        raise BackupError("보안 변경 기록이 누락되었거나 알 수 없는 파일이 있습니다.")
+    return archived + [directory / name for name in active], base, prefix_head
+
+
+def _verify(directory, key, expected_head=None, records=None, metadata_only=False):
+    paths, base, prefix_head = record_paths(directory)
     previous = ZERO
     coverages = set()
-    for sequence, name in enumerate(names, 1):
-        if name != f"{sequence:010d}.json":
-            raise BackupError(
-                "보안 변경 기록이 누락되었거나 알 수 없는 파일이 있습니다."
-            )
-        path = private_file(directory / name)
+    for sequence, path in enumerate(paths, 1):
+        path = private_file(path)
         if path.stat().st_size > MAX_RECORD_BYTES:
             raise BackupError("보안 변경 기록 크기를 확인하세요.")
         raw = path.read_bytes()
@@ -114,6 +152,8 @@ def _verify(directory, key, expected_head=None, records=None, metadata_only=Fals
             raise BackupError("보안 변경 기록 인증에 실패했습니다.") from None
         coverages.add(payload["coverage"])
         previous = hashlib.sha256(raw).hexdigest()
+        if sequence == base and previous != prefix_head:
+            raise BackupError("보존 기록의 끝 지문이 다릅니다.")
         if records is not None:
             if metadata_only:
                 payload = {
@@ -135,7 +175,7 @@ def _verify(directory, key, expected_head=None, records=None, metadata_only=Fals
     ):
         raise BackupError("별도로 보관한 최신 지문과 일치하지 않습니다.")
     return {
-        "records": len(names),
+        "records": len(paths),
         "head": previous,
         "coverage": next(iter(coverages))
         if len(coverages) == 1
@@ -163,7 +203,11 @@ def verified_records(path, key, expected_head, *, metadata_only=False):
 def append(path, key, payload):
     with locked(path) as directory:
         state = _verify(directory, key)
-        if state["records"] >= MAX_RECORDS:
+        _, base, _ = record_paths(directory)
+        if (
+            state["records"] - base >= MAX_RECORDS
+            or state["records"] >= MAX_TOTAL_RECORDS
+        ):
             raise BackupError("보안 변경 기록 보관 한도에 도달했습니다.")
         header = {
             "version": 1,

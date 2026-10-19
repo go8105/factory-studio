@@ -16,11 +16,13 @@ from test_security_journal import journal  # noqa: F401
 
 from fs.core.backup import BackupError
 from fs.core.security.journal import ZERO, append, verify
+from fs.core.security.journal_bundle import export
 from fs.core.security.recording import record_user
 
 
+@pytest.mark.parametrize("rollover", [False, True])
 def test_actual_history_bound_restore_restricts_without_changing_source(
-    company_env, backup_env, journal, monkeypatch
+    company_env, backup_env, journal, monkeypatch, rollover
 ):
     engine, co, admin, staff = company_env
     module, config, folders, _ = backup_env
@@ -55,6 +57,11 @@ def test_actual_history_bound_restore_restricts_without_changing_source(
             evidence=folders["backups"] / "history.json",
             config=config,
         )
+    if rollover:
+        successor = directory.parent / "successor"
+        export(directory, key, verify(directory, key)["head"], successor, rollover=True)
+        monkeypatch.setenv("FS_GW_IDENTITY_JOURNAL_DIR", str(successor))
+        directory = successor
     binding = ok(api(staff, co, "me/binding", method="GET"))
     suspended = ok(
         api(

@@ -5,7 +5,15 @@ import os
 from pathlib import Path
 
 from fs.core.backup import BackupError, create_private, private_directory, private_file
-from fs.core.security.journal import _verify, canonical, locked, verify
+from fs.core.security.journal import (
+    MAX_RECORDS,
+    MAX_TOTAL_RECORDS,
+    _verify,
+    canonical,
+    locked,
+    record_paths,
+    verify,
+)
 
 
 def sync_directory(path):
@@ -23,7 +31,7 @@ def write(path, data):
         os.fsync(out.fileno())
 
 
-def export(source, key, expected_head, destination):
+def export(source, key, expected_head, destination, *, rollover=False):
     destination = Path(destination)
     private_directory(destination.parent)
     source = Path(source)
@@ -31,18 +39,56 @@ def export(source, key, expected_head, destination):
         raise BackupError("보관 묶음은 원본 기록 폴더 밖에 만드세요.")
     with locked(source) as directory:
         state = _verify(directory, key, expected_head)
+        if rollover and not 0 < state["records"] < MAX_TOTAL_RECORDS:
+            raise BackupError("교체할 기록 건수와 전체 보관 한도를 확인하세요.")
         # A partial destination is retained on failure and cannot be overwritten.
         destination.mkdir(mode=0o700)
         sync_directory(destination.parent)
-        records = destination / "records"
+        records = destination / (".history" if rollover else "records")
         records.mkdir(mode=0o700)
-        for number in range(1, state["records"] + 1):
-            name = f"{number:010d}.json"
-            write(records / name, private_file(directory / name).read_bytes())
+        for path in record_paths(directory)[0]:
+            write(records / path.name, private_file(path).read_bytes())
         sync_directory(records)
-        copied = verify(records, key, expected_head)
+        if not rollover and state["records"] > MAX_RECORDS:
+            history = records / ".history"
+            history.mkdir(mode=0o700)
+            for path in list(records.iterdir()):
+                if path.is_file():
+                    path.rename(history / path.name)
+            sync_directory(history)
+            write(
+                records / ".history.json",
+                canonical(
+                    {
+                        "kind": "GW_JOURNAL_PRESERVED_PREFIX",
+                        "version": 1,
+                        "head": state["head"],
+                        "records": state["records"],
+                    }
+                )
+                + b"\n",
+            )
+            sync_directory(records)
+        if rollover:
+            write(
+                destination / ".history.json",
+                canonical(
+                    {
+                        "kind": "GW_JOURNAL_PRESERVED_PREFIX",
+                        "version": 1,
+                        "head": state["head"],
+                        "records": state["records"],
+                    }
+                )
+                + b"\n",
+            )
+        copied = verify(destination if rollover else records, key, expected_head)
         if copied != state:
             raise BackupError("복사한 기록 묶음의 대조 결과가 다릅니다.")
+        if rollover:
+            sync_directory(destination)
+            sync_directory(destination.parent)
+            return state
         manifest = {
             "kind": "GW_ENCRYPTED_JOURNAL_BUNDLE",
             "version": 1,

@@ -4,7 +4,7 @@ import os
 import re
 
 from fs.core.backup import BackupError
-from fs.core.security.journal import ZERO, verified_records
+from fs.core.security.journal import MAX_TOTAL_RECORDS, ZERO, verified_records
 from fs.core.security.recording import configured
 from fs.core.security.transaction_proof import classify
 from fs.gw.security_journal import confirmed_digests
@@ -111,7 +111,7 @@ def validate_restore(baseline, restrictions):
     ):
         if (
             type(restrictions.get(key)) is not int
-            or not 0 <= restrictions[key] <= 10000
+            or not 0 <= restrictions[key] <= MAX_TOTAL_RECORDS
         ):
             raise BackupError("변경 기록 대조 건수가 잘못되었습니다.")
     if (
