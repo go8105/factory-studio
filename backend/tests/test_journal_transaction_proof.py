@@ -8,14 +8,13 @@ import sys
 from pathlib import Path
 
 import pytest
-from sqlalchemy import text
-from test_gw_security_transactions import identity  # noqa: F401
-from test_security_journal import journal  # noqa: F401
-
 from fs.core.security.journal import append, verified_records, verify
 from fs.core.security.recording import record_user
 from fs.core.security.transaction_proof import classify, summary
 from fs.gw.security_journal import confirmed_digests
+from sqlalchemy import text
+from test_gw_security_transactions import identity  # noqa: F401
+from test_security_journal import journal  # noqa: F401
 
 
 def read(journal):
@@ -148,6 +147,16 @@ def test_cli_settled_abort_is_not_committed_or_release_approval(
     )
 
     review = json.loads(report.read_text())
+    families = output["recordingFamilies"]
+    assert review["recordingFamilies"] == families
+    assert families["result"] == "BLOCKED"
+    assert families["records"] == 1 and families["unsupportedRecords"] == 0
+    assert families["families"][0]["state"] == ("SETTLED" if proof else "UNSETTLED")
+    assert families["families"][0]["transactionDispositionCounts"][disposition] == 1
+    assert all(group["state"] == "MISSING" for group in families["families"][1:])
+    assert not families["completenessConfirmed"]
+    assert not families["revocationsReapplied"] and not families["releaseAuthorized"]
+
     assert review["allTransactionsSettled"] == proof
     assert not review["releaseAuthorized"] and not review["checkpointInput"]
     assert review["items"][0]["disposition"] == disposition

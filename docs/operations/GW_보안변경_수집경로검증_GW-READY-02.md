@@ -76,3 +76,12 @@ throttle의 새 창 초기0과 updated_at 갱신은 실패/발급 횟수 증가�
 7. 원본의 관리자 토큰/운영 준비 HTTP 조회는 계속 사용 가능하고, 역할 변경으로 회수된 직원 토큰은 거부되며 계정 자체는 활성/직원 역할을 유지하는지 확인한다. 원본 미완료 요청도 임의로 만료시키지 않는다.
 
 기존 checkpoint 검사는 OTP/복구코드 소비, 암호 변경, HR 역할 하향, 불확실 ACL/보존 중지를 각각 다룬다. 두 경로를 조합했더라도 모든 운영 쓰기의 무누락·실회사 장애/부하·운영 개방 승인을 의미하지 않는다. 서명 증거의 전체 revocationsReapplied/checkpointCompletenessConfirmed와 ready는 계속 false다.
+
+
+## 29차 관측 기록계열 진단 · 개별 경로 완전성과 구분
+
+기존 `tools/gw_identity_journal.py --expected-head <별도확인한지문> --classify-transactions --review-report <0700폴더의새파일>`은 검증한 기록/DB 감사/거래판정을 `recordingFamilies`로도 집계한다. 인증(core.security.intent.v1)·HR(hr.users.intent.v1)·GW(gw.company.intent.v2) 각각 MISSING(기록없음)/SETTLED(관측거래정리)/UNSETTLED(미확인포함)와6종 거래상태 건수를 제공한다. 계정·본문·operation원문은 출력하지 않는다.
+
+하나라도 기록없음/미확인 또는 과거v1·미지원계열이 있으면 계열결과 BLOCKED다. 모두정리돼도 PARTIAL이며 모든 개별경로 실행·기록저장실패시롤백·최신지문/전체회수/원본유지·직접SQL/운영자경계는 별도 검증한다. 같은계열의 다른operation 기록을 특정경로의 실행근거로 인정하지 않는다. 없는계열을 과거형식으로 채우지 않는다.
+
+기존CLI 종료코드는 거래상태 기준이다. 따라서 취소가확인된 인증기록1건만 있으면 exit0이어도 HR/GW는 MISSING·계열결과BLOCKED일수있다. exit0을 수집완전성이나 운영승인으로 사용하지 않는다. completenessConfirmed/revocationsReapplied/releaseAuthorized=false 유지. unsigned검토보고서는 제품 ACCEPTANCE 등록이나 checkpoint입력으로 쓰지 않는다.

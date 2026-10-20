@@ -236,3 +236,15 @@ codex/gw-company-01, 시작2b11be2·작업트리깨끗함 확인. 실제 백업 
 전체02진행중. 다음: 전체 변경 수집/권한회수의 경로별 증거계약·실행어댑터와 미확인 처리 → 최종 ACCEPTANCE/운영게이트 연결 → 기존GW UI 맥락·긴정보/다음조치/모바일 보완 → 최신main/전체회귀·10인인수. 실제외부저장소/시간동기·회사인수는 별도 실환경 검증. 현재 readyfalse/미확인4 유지.
 
 재현: 별도 소유PG18 *_test에 alembic head 적용·TEST_DATABASE_URL/GW_BACKUP_TEST_CONTAINER 주입 후 `uv run --project backend pytest backend/tests/test_gw_backup.py::test_actual_backup_replay_restore_and_business_denial backend/tests/test_backup_journal_restore.py -q --tb=short` (3). 단위는27차 명령에 같은파일 그대로(95). 미리보기DB를 TEST_DATABASE_URL로 사용하지 않는다. 마지막커밋 git log -1.
+
+## 2026-10-20 GW-READY-02 29차 관측 기록계열 진단
+
+codex/gw-company-01, 시작b494178·작업트리깨끗함. gw.journal_coverage 추가: 이미 암호화 체인/별도head·DB 감사·거래상태로 검증한 기록을 core.security.intent.v1/hr.users.intent.v1/gw.company.intent.v2 계열별 MISSING/SETTLED/UNSETTLED와6종 거래판정 건수로 집계한다. 과거v1/알수없는계열은 unsupportedRecords로 차단·계열대체없음. 누락/추가/중복지문/임의APPROVED 판정 거부. 모든계열 거래정리도 PARTIAL일뿐 completeness/revocations/release=false·경로실행/롤백·독립최신head·복원거부/원본유지/운영자경계5범위는 별도다. 기존 gw_identity_journal --classify-transactions 및 --review-report에 recordingFamilies 연결. snapshot/계정/operation원문 출력없음. 기존CLI 종료코드는 거래판정 기준을 유지하므로 exit0과 계열BLOCKED가 함께 있을수있다. 이 진단을 ACCEPTANCE/운영완료/전체경로계약으로 사용하지 않는다. 제품API/UI·DB스키마/권한변경 없음.
+
+검증: 관련단위110통과0.18초(기존경고2). 소유preview컨테이너ID/라벨/55439 대조·새UUID *_test/alembic head에서 실제PG 거래취소/진행/저장점/다른원본 판정 및 CLI 두경로3통과1.52초(기존경고2). 취소확인exit0이어도 HR/GW MISSING·계열BLOCKED, 근거없는UNKNOWN exit3·보고/표준출력일치·비밀미노출 확인. 시험DB정리/previewDB·서비스 유지. Ruff check/format·CLI help·정적DB219/2409/543·R1–R6/diff 오류0. 전체CI/실외부/사본복원/브라우저/UI/10인실인수 이번미실행. schema불변·Excel/ERD재생성없음. 비밀/work/전체로그 스테이징없음·다른checkout/main/원격push/배포변경없음.
+
+다음: 개별 변경 경로별 예상실행/롤백·회수 검증 근거를 현재범위/버전에 묶는 계약·실행어댑터(이번계열집계와 구분) → 최종 ACCEPTANCE/게이트 → 기존GW UI 보완 → main/전체회귀·10인실인수. readyfalse/미확인4 유지·전체02진행중.
+
+사용자추가지침: 매작업 종료시 완료내용/검증/제약/다음작업을 한국어로 알리고 다음작업 난이도에 따라 모델·추론수준 추천. 모델변경은 사용자가 선택하며 자동변경하지 않는다. 다음 개별경로/권한회수 연결은 높음: 현재앱 선택지 기준 GPT-6.1 Sol + High 추천, 최종 무누락/경계감사는 GPT-6 Astra + High 대안. 공식 OpenAI reasoning 가이드는 복잡성에 따른 effort 선택의 일반근거이며 이프로젝트 추천은 작업판단이다(https://developers.openai.com/api/docs/guides/reasoning).
+
+재현: `uv run --project backend pytest backend/tests/test_gw_journal_coverage.py backend/tests/test_journal_review.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short` (110). 별도소유PG18 *_test/alembic head·TEST_DATABASE_URL 후 `uv run --project backend pytest backend/tests/test_journal_transaction_proof.py -q --tb=short` (3). 마지막커밋 git log -1.

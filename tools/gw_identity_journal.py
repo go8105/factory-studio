@@ -8,6 +8,7 @@ from fs.core.backup import BackupError, private_file
 from fs.core.security import journal_review
 from fs.core.security.journal import verified_records, verify
 from fs.core.security.transaction_proof import classify, summary
+from fs.gw.journal_coverage import build as family_coverage
 from fs.gw.security_journal import confirm_records, confirmed_digests
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -43,16 +44,20 @@ def main():
                             c, records, confirmed_digests(c, records)
                         )
                         result.update(summary(dispositions))
+                        result["recordingFamilies"] = family_coverage(
+                            records, dispositions
+                        )
                         if args.review_report:
                             journal_review.write(
                                 args.review_report,
-                                journal_review.build(result, records, dispositions),
+                                journal_review.build(result, records, dispositions)
+                                | {"recordingFamilies": result["recordingFamilies"]},
                             )
             finally:
                 engine.dispose()
         else:
             result = verify(directory, key, args.expected_head)
-    except (BackupError, OSError, KeyError, ValueError, TypeError, SQLAlchemyError):
+    except BackupError, OSError, KeyError, ValueError, TypeError, SQLAlchemyError:
         parser.exit(
             1, "기록을 확인하지 못했습니다. 설정·키·파일·별도 최신 지문을 확인하세요.\n"
         )
