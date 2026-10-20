@@ -4,13 +4,19 @@ import { NotFound } from "../shared/components";
 import { CmmsLayout } from "./CmmsLayout";
 import { Assets } from "./Assets";
 import { FailureCodes } from "./FailureCodes";
+import { Signals } from "./Signals";
+import { Technicians } from "./Technicians";
+import { WorkOrders } from "./WorkOrders";
 
 export default function CmmsRoutes() {
   return (
     <Routes>
       <Route element={<CmmsLayout />}>
-        <Route index element={<Navigate to="assets" replace />} />
+        <Route index element={<Navigate to="work-orders" replace />} />
+        <Route path="signals" element={<Signals />} />
+        <Route path="work-orders" element={<WorkOrders />} />
         <Route path="assets" element={<Assets />} />
+        <Route path="technicians" element={<Technicians />} />
         <Route path="failure-codes" element={<FailureCodes />} />
         <Route path="*" element={<NotFound />} />
       </Route>
