@@ -52,6 +52,22 @@ PROBES = {
         "backend/tests/test_backup_journal_restore.py",
         "test_actual_history_bound_restore_restricts_without_changing_source[False]",
     ),
+    "BINDING_CANCEL_STORAGE_ROLLBACK_AND_DENIAL": (
+        "backend/tests/test_gw_identity_route_probes.py",
+        "test_binding_transition_storage_rollback_and_access[cancel]",
+    ),
+    "BINDING_RESUME_STORAGE_ROLLBACK_AND_ACCESS": (
+        "backend/tests/test_gw_identity_route_probes.py",
+        "test_binding_transition_storage_rollback_and_access[resume]",
+    ),
+    "ROLE_GRANT_STORAGE_ROLLBACK_AND_ACCESS": (
+        "backend/tests/test_gw_identity_route_probes.py",
+        "test_role_transition_storage_rollback_and_access[grant]",
+    ),
+    "ROLE_REVOKE_STORAGE_ROLLBACK_AND_DENIAL": (
+        "backend/tests/test_gw_identity_route_probes.py",
+        "test_role_transition_storage_rollback_and_access[revoke]",
+    ),
 }
 
 
@@ -65,6 +81,7 @@ def source_identity():
     # Include this new runner and probes even before their first commit.
     paths = {Path(os.fsdecode(p)) for p in files if p}
     paths.add(Path(__file__).relative_to(ROOT))
+    paths.update(Path(path) for path, _name in PROBES.values())
     digest = hashlib.sha256()
     for path in sorted(paths):
         digest.update(os.fsencode(path) + b"\0")
@@ -158,7 +175,7 @@ def run(*, admin_url, output):
     report = {
         "version": 1,
         "kind": "SYNTHETIC_GW_ROUTE_EXECUTION",
-        "catalogVersion": "GW_SYNTHETIC_ROUTE_PROBES_V2",
+        "catalogVersion": "GW_SYNTHETIC_ROUTE_PROBES_V3",
         "runId": run_id,
         "startedAt": datetime.now(UTC).isoformat(),
         "executionScope": "NEW_OWNED_SYNTHETIC_DATABASE",

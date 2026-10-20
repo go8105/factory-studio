@@ -282,3 +282,15 @@ GW_BACKUP_TEST_CONTAINER 설정시 FS_GW_ROUTE_VERIFY_OWNER와 docker inspect �
 전체02진행중·readyfalse/미확인4유지. 다음: GW연결취소/재개/역할변경의저장실패롤백·허용/거부실행시나리오를추가해7경로진단과대조, 인증실패/복구·HR/ACL나머지분기확대 → 최종서명ACCEPTANCE/게이트 → 기존GW UI구성보완 → main/전체회귀/10인실인수. 다음난이도높음·GPT-6.1 Sol + High 추천(상태전이·권한·DB회귀), 최종경계감사GPT-6 Astra + High 대안. 모델자동변경없음.
 
 재현:31차단위명령그대로(139). 소유확인로컬PG postgres관리연결을FS_GW_ROUTE_VERIFY_ADMIN_URL, 컨테이너를GW_BACKUP_TEST_CONTAINER, 소유라벨값을FS_GW_ROUTE_VERIFY_OWNER에비공개주입후 `uv run --project backend python tools/gw_route_verify.py --report <0700폴더의새파일.json>` (고정8실행). 복원컨테이너/DB연결일치와생성자원정리필수·preview를초기화하지않는다. 마지막커밋git log -1.
+
+## 2026-10-20 GW-READY-02 33차 연결 취소·재개·역할 부여/회수 롤백 검증
+
+codex/gw-company-01, 시작b74d593·작업트리깨끗함. test_gw_identity_route_probes 실제PG/HTTP4시나리오추가·수집카탈로그GW_SYNTHETIC_ROUTE_PROBES_V3 8→12. 연결취소(PENDING→CANCELLED)/재개(SUSPENDED→ACTIVE), SECURITY_ADMIN부여/회수를분리. journal저장503에서 S범위연결상태/버전·person버전/역할행·authz_version·core.request_receipt불변/기록수불변·기존업무접근유지 확인. 같은request key 재시도성공→기록정확히1증가→중복요청결과/DB/기록수불변, 새key/옛버전409불변 확인. 비권한직원변경403, 취소뒤수락403/업무403·재개뒤업무200, 역할부여뒤보안이력200/회수뒤403와재변경403, 마지막보안관리자제거409불변. 새기록과원본감사확정대조. 전체회수/인수완료로승격하지않음.
+
+source_identity가고정검증파일을git ls-files외에도명시포함하도록보강해 새미추적probe도실코드지문에포함한다. 미추적고정probe수정시커밋이같아도지문변경 단위검사추가. 실행버전/카탈로그/원본범위와합성구분유지·readyfalse/미확인4그대로.
+
+검증: 관련단위140통과0.22초(기존경고2). 소유preview컨테이너ID/owner/55439대조·새소유DB의실수집CLI12PASSED·PARTIAL/exit0·sourceUnchanged/databaseCleaned=true·합성복원거부통과. 새4시나리오와기존인증HR/ACL·실dump복원포함. 종료후collectorDB0/closedRestoreDB0확인·preview/서비스유지. Ruffcheck/format·정적DB219/2409/543·R1–R6/diff오류0. 전체CI/브라우저/UI/실외부/실회사·기기/10인인수 미실행. DB스키마불변·Excel/ERD재생성없음. 비밀/work/전체로그 스테이징없음·다른checkout/main/원격push/배포변경없음.
+
+전체02진행중. 다음: 인증실패/만료/긴급복구·코드복구/세션회수 분기의고정실행수집확대와미검증경계대조 → 최종서명ACCEPTANCE/게이트연결 → 기존GW UI구성보완 → 최신main/전체회귀·10인실인수. 실제저장소/현재회사인수·전체수집무누락은여전히미확인. 다음난이도높음·GPT-6.1 Sol + High 추천(인증상태·일회성/세션·거래실패경계), 최종감사GPT-6 Astra + High 대안. 모델자동변경없음.
+
+재현:32차단위명령그대로(140). 소유로컬PG postgres관리연결FS_GW_ROUTE_VERIFY_ADMIN_URL·GW_BACKUP_TEST_CONTAINER·FS_GW_ROUTE_VERIFY_OWNER 주입후 `uv run --project backend python tools/gw_route_verify.py --report <0700폴더의새파일.json>` (고정12). 새DB만생성/정리·preview초기화금지. 마지막커밋git log -1.

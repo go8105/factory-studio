@@ -117,3 +117,10 @@ uv run --project backend python tools/gw_route_verify.py \
 실복원검사를위해 기존관리연결외에 `GW_BACKUP_TEST_CONTAINER`와 `FS_GW_ROUTE_VERIFY_OWNER`(컨테이너factory-studio.owner라벨값)를설정한다. 수집기는컨테이너실행상태/라벨/PG포트매핑이관리URL의동일loopback대상인지확인한다. 컨테이너미설정은복원SKIPPED/BLOCKED, 불일치는실행전거부다. 실제운영컨테이너를지정하지않는다. 새원본시험DB와격리복원DB만사용하며기존preview/운영DB는초기화하지않는다.
 
 전체8개PASSED/정상종료·소스불변시에만 `restoredAccessDenial=SYNTHETIC_SCENARIO_PASSED`를기록한다. 실패·건너뜀·코드변경에는UNVERIFIED를유지한다. 이는합성복원시나리오범위의통과이며전체revocationsReapplied/completenessConfirmed/ready=false와실회사인수미완료는그대로다. unsigned보고서는제품ACCEPTANCE등록용이아니다. 첫실패보고서도덮어쓰지않고새실행으로기록한다.
+
+
+## 33차 고정 실행 시나리오 V3 · 12개
+
+카탈로그 GW_SYNTHETIC_ROUTE_PROBES_V3는V2의8개에 연결취소·재개·역할부여·회수4개를더한다. 실패주입503때 S범위연결/직원버전·역할·권한버전/멱등영수증과기록수가유지되는지, 같은요청재시도후1회만기록되는지, 중복재시도가변경을늘리지않는지확인한다. 옛버전409·비권한403도원본불변을대조한다.
+
+취소후본인수락/업무거부·재개후업무허용, 보안역할부여후보안이력허용/회수후거부·추가권한변경거부와마지막보안관리자보호를확인한다. 고정probe파일은미추적상태여도실코드지문에포함한다. 이번12개통과는지정합성시나리오의실행결과이며인증/HR/ACL전체분기·무누락/실회사인수가아니다. 기존PARTIAL/ready=false와실환경미확인4조건을유지한다. 수집기실행/비공개환경/소유컨테이너·DB정리규칙은32차와동일하다.

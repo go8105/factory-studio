@@ -121,3 +121,28 @@ def test_restore_container_requires_matching_owned_loopback_target(monkeypatch, 
     else:
         with pytest.raises(module.BackupError):
             module.validate_restore_container(url, "synthetic-container", owner)
+
+
+def test_source_fingerprint_includes_untracked_fixed_probe(tmp_path, monkeypatch):
+    module = runner()
+    script = tmp_path / "tools/gw_route_verify.py"
+    probe = tmp_path / "backend/tests/untracked_probe.py"
+    script.parent.mkdir(parents=True)
+    probe.parent.mkdir(parents=True)
+    script.write_text("runner")
+    probe.write_text("first probe")
+    monkeypatch.setattr(module, "ROOT", tmp_path)
+    monkeypatch.setattr(module, "__file__", str(script))
+    monkeypatch.setattr(
+        module, "PROBES", {"FIXED": ("backend/tests/untracked_probe.py", "test_fixed")}
+    )
+    monkeypatch.setattr(
+        module.subprocess,
+        "check_output",
+        lambda command, **_kw: b"a" * 40 if command[1] == "rev-parse" else b"",
+    )
+    before = module.source_identity()
+    probe.write_text("changed probe")
+    after = module.source_identity()
+    assert before["commit"] == after["commit"]
+    assert before["sourceDigest"] != after["sourceDigest"]
