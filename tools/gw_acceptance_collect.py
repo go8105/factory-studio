@@ -6,7 +6,9 @@ import json
 import os
 from datetime import UTC, datetime
 
+from fs.common.errors import ApiError
 from fs.core.backup import BackupError, create_private, private_file
+from fs.gw.acceptance_artifact import inspect_copy
 from fs.gw.acceptance_collection import collect
 from fs.gw.operating_contract import OperatingPolicy, canonical
 from pydantic import ValidationError
@@ -29,6 +31,7 @@ def main():
     parser.add_argument("--backup", required=True, help="기존 백업 도구의 서명 증거")
     parser.add_argument("--restore", required=True, help="기존 복원 도구의 서명 증거")
     parser.add_argument("--output", required=True, help="0700 폴더 안의 새 결과 파일")
+    parser.add_argument("--storage-copy", help="외부 보관에서 가져온0600 암호화 사본")
     args = parser.parse_args()
     try:
         context = load(args.context)
@@ -49,21 +52,36 @@ def main():
         public = {k: base64.b64decode(v, validate=True) for k, v in keys.items()}
         if any(len(value) != 32 for value in public.values()):
             raise ValueError()
-        report = collect(
-            {"BACKUP": load(args.backup), "RESTORE": load(args.restore)},
-            public_keys=public,
-            workspace_id=context["workspaceId"],
-            generation_id=context["generationId"],
-            policy=OperatingPolicy.model_validate(context["policy"]),
-            code_revision=context["codeRevision"],
-            db_revision=context["dbRevision"],
-            now=datetime.now(UTC),
-        )
+        documents = {"BACKUP": load(args.backup), "RESTORE": load(args.restore)}
+        trusted = {
+            "public_keys": public,
+            "workspace_id": context["workspaceId"],
+            "generation_id": context["generationId"],
+            "policy": OperatingPolicy.model_validate(context["policy"]),
+            "code_revision": context["codeRevision"],
+            "db_revision": context["dbRevision"],
+            "now": datetime.now(UTC),
+        }
+        report = collect(documents, **trusted)
+        if args.storage_copy:
+            report["storageCopy"] = inspect_copy(
+                args.storage_copy, documents["BACKUP"], **trusted
+            )
+            if report["storageCopy"]["state"] != "MATCH":
+                report["result"] = "BLOCKED"
         with create_private(args.output) as output:
             output.write(canonical(report))
         print(json.dumps({"result": report["result"], "ready": False}))
-        return 0 if report["backupRestorePairVerified"] else 2
-    except (OSError, BackupError, ValueError, TypeError, KeyError, ValidationError):
+        return 0 if report["result"] == "PARTIAL" else 2
+    except (
+        ApiError,
+        OSError,
+        BackupError,
+        ValueError,
+        TypeError,
+        KeyError,
+        ValidationError,
+    ):
         print(
             "인수 자료·현재 기준·공개 키·파일 권한을 확인하세요. 기존 결과는 덮어쓰지 않습니다."
         )

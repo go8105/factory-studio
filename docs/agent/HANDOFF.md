@@ -1,3 +1,13 @@
+## 2026-10-20 GW-READY-02 26차 암호화 사본 전체 읽기 어댑터
+
+브랜치 codex/gw-company-01, 시작 커밋7ac3914. 작업 트리 깨끗함 확인 후 진행. acceptance_artifact.inspect_copy와 기존 수집기 --storage-copy를 추가했다. 현재 회사/세대·정책·코드/DB·서명·기한·RPO를 통과한 BACKUP PASS의 artifactDigest를 실제 사본 전체 SHA256과 대조한다. 열린 descriptor의 소유자/비공개 권한/일반파일/1GiB 한도·전후 크기/mtime/ctime을 검사하며 최종 심볼릭 링크·빈 파일·읽는 중 변경을 거부한다. 원본 백업 경로/복호화키/DB 연결 없이 지정 사본만 읽는다. 결과는 경로·원문 없이 지문/읽은 크기/백업실행 번호와 MATCH/MISMATCH. MISMATCH는 기존 쌍 일치에도 BLOCKED/exit2. 입력/서명 오류exit1·새0600 출력만 허용. MATCH는 저장소 독립성·내구성·복호화·복원 증거가 아니며 미확인4/ready=false 유지. 기존 파일쌍 모드 호환, 제품 API/UI·스키마 변경 없음.
+
+검증: 관련 단위86 통과0.16초(기존 경고2). 실제 임시 파일 읽기/변조/권한/링크/빈파일·서명/옛버전 및 CLI 사본불일치/종료2/출력0600/readyfalse 확인. Ruff check/format 통과, db:validate219표2409컬럼543FK 오류0, Python3.14 R1–R6 오류0. 기본 python3 감사는 기존 최신 구문 파싱 오류로 실패해 uv Python으로 재실행 통과했다. 전체CI/실외부 저장소/PG 복원/브라우저/10인 인수는 이번 미실행. DB스키마 불변으로 Excel/ERD 재생성 미실행.
+
+API94777:8362/Vite89508:5362 포트와 PG fs-gw-ready02-preview 소유라벨 대조, 서비스/미리보기DB 변경 없음. 비밀/work 스테이징 없음·다른checkout/main/원격push/배포 변경 없음. 전체02 진행 중. 다음: 외부 사본의 실제 장애영역/복호화·격리복원 연결, 전체 변경 수집/권한회수 계약과 실행 어댑터, 최종 ACCEPTANCE 계약/게이트, 기존GW UI 구성 보완, 최신main/전체회귀·10인 실인수. 전체 권한회수와 UI 보완은 이번 미구현.
+
+재현: `uv run --project backend pytest backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short` (86). `npm run db:validate`; `uv run --project backend python tools/audit_schema_isolation.py`. 마지막 커밋은 git log -1 참조.
+
 ## 2026-10-20 GW-READY-02 25차 실제 복원 부분 진단 전달
 
 기준90e4889/branch codex/gw-company-01. 실제 복원 도구가 PARTIAL인 동안 세부 검사값을 수집기가 전달하지 않던 한계를 보완했다. metrics.restoreDiagnostics v1에 격리/DB버전/권한제한/완전성·변경대상/미확인/격리범위 건수만 서명한다. 복원 전용 엄격한 타입·허용필드/건수 범위·미확인<=대상 수를 검사하고 미확인 진단과 모순되는 PASS는 거부한다. 원본·저장행 재검증을 통과한 최근 PASS/PARTIAL 복원만 restoreMeasurements로 전달한다. 실패/옛정책/원본없음/변조는 숨기고 이전 성공 fallback없음. PARTIAL을 쌍 통과로 올리지 않으며 readyfalse/미확인4 유지. 실제 외부저장소·전체권한회수·회사 인수 완료 아님.
