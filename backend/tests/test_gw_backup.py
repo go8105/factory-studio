@@ -196,6 +196,15 @@ def test_actual_backup_replay_restore_and_business_denial(
         ]
         == "PARTIAL"
     )
+    operating = ok(api(admin, co, "operations", method="GET"))
+    measurements = operating["backupRestoreCollection"]["restoreMeasurements"]
+    assert measurements["rowHashesMatch"] is True
+    assert measurements["revocationsReapplied"] is False
+    assert measurements["restoreDiagnostics"]["databaseClosed"] is True
+    assert (
+        measurements["restoreDiagnostics"]["checkpointCompletenessConfirmed"] is False
+    )
+    assert operating["ready"] is False
     target_url = (
         make_url(source_url)
         .set(database=restored["database"])

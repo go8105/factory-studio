@@ -249,3 +249,35 @@ def test_latest_registration_never_falls_back_to_older_success(change):
     assert report["result"] == "BLOCKED"
     assert report["registrations"][1]["state"] != "RECORDED_PASS"
     assert not report["backupRestorePairVerified"]
+
+
+def test_partial_measurements_are_visible_only_after_original_signature_and_row_match():
+    from test_gw_operating_contract import diagnostic
+
+    from fs.gw.acceptance_collection import collect_registered
+    from fs.gw.operating_contract import EvidenceEnvelope
+    from fs.gw.readiness import SOURCE_FIELD
+
+    key, rows, ctx = registered_fixture()
+    restore = rows[1]
+    payload = deepcopy(restore["metrics"][SOURCE_FIELD])
+    payload["result"] = "PARTIAL"
+    payload["metrics"]["revocationsReapplied"] = False
+    payload["metrics"]["restoreDiagnostics"] = diagnostic()
+    restore.update(
+        result="PARTIAL",
+        signature=base64.b64encode(key.sign(canonical(payload))).decode(),
+    )
+    restore["metrics"] = EvidenceEnvelope.model_validate(payload).metrics.model_dump(
+        by_alias=True
+    ) | {SOURCE_FIELD: payload}
+    report = collect_registered(rows, policy_id=1, **ctx)
+    assert report["result"] == "BLOCKED" and not report["ready"]
+    assert report["restoreMeasurements"]["rowHashesMatch"] is True
+    assert report["restoreMeasurements"]["revocationsReapplied"] is False
+    assert (
+        report["restoreMeasurements"]["restoreDiagnostics"]["journalUnconfirmedIntents"]
+        == 1
+    )
+    restore["metrics"]["restoreDiagnostics"]["journalUnconfirmedIntents"] = 0
+    assert collect_registered(rows, policy_id=1, **ctx)["restoreMeasurements"] is None

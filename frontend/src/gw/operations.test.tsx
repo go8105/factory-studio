@@ -244,3 +244,47 @@ it.each([true, false])(
     ).toBeInTheDocument();
   },
 );
+
+it("일부 복원 검사의 확인·미충족·기록 없음을 구분하고 완료 처리하지 않는다", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    response({
+      ...initial,
+      backupRestoreCollection: {
+        result: "BLOCKED",
+        source: "LATEST_REGISTRATIONS",
+        backupRestorePairVerified: false,
+        restoreMeasurements: {
+          rowHashesMatch: true,
+          foreignKeysValid: true,
+          sessionsInvalidated: true,
+          revocationsReapplied: false,
+          twoAccountChecks: null,
+          lossWindowSeconds: 60,
+          elapsedSeconds: 120,
+          restoreDiagnostics: {
+            databaseClosed: true,
+            dbRevisionMatches: true,
+            checkpointRestrictionsApplied: true,
+            checkpointCompletenessConfirmed: false,
+            journalCandidateIntents: 6,
+            journalUnconfirmedIntents: 1,
+            journalQuarantinedScopes: 1,
+          },
+        },
+      },
+    }),
+  );
+  show();
+  const summary = await screen.findByText("최근 복원 검사 내용");
+  fireEvent.click(summary);
+  expect(
+    screen.getByText("전체 권한 회수 확인").parentElement,
+  ).toHaveTextContent("미충족");
+  expect(
+    screen.getByText("관리자·직원 업무 확인").parentElement,
+  ).toHaveTextContent("기록 없음");
+  expect(screen.getByText(/미확인 변경 기록 1건/)).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),
+  ).toBeInTheDocument();
+});

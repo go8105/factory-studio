@@ -1,3 +1,15 @@
+## 2026-10-20 GW-READY-02 25차 실제 복원 부분 진단 전달
+
+기준90e4889/branch codex/gw-company-01. 실제 복원 도구가 PARTIAL인 동안 세부 검사값을 수집기가 전달하지 않던 한계를 보완했다. metrics.restoreDiagnostics v1에 격리/DB버전/권한제한/완전성·변경대상/미확인/격리범위 건수만 서명한다. 복원 전용 엄격한 타입·허용필드/건수 범위·미확인<=대상 수를 검사하고 미확인 진단과 모순되는 PASS는 거부한다. 원본·저장행 재검증을 통과한 최근 PASS/PARTIAL 복원만 restoreMeasurements로 전달한다. 실패/옛정책/원본없음/변조는 숨기고 이전 성공 fallback없음. PARTIAL을 쌍 통과로 올리지 않으며 readyfalse/미확인4 유지. 실제 외부저장소·전체권한회수·회사 인수 완료 아님.
+
+기존 GW 연결 점검에 기본 접힘 ‘최근 복원 검사 내용’ 추가. 지문/참조/이전세션과 전체권한회수/관리자·직원업무의 확인·미충족·기록없음을 구분하고 격리·완전성·미확인 건수를 안내한다. 이전 형식의 진단 누락과 현재검사없음도 구분. 기존 증거 호환/JSON저장 유지·DB스키마 변경없음. UI 전체 재설계는 후속이다. 도움말·인수절차 갱신.
+
+검증: 최종 단위77 통과0.15초, 소유 임시PG에서 실제 dump/암호화/격리복원·원본권한회수/재등록/서명진단/API 전달·journal 복원2경로 총3 통과55.37초(각기존경고2). 소유preview 컨테이너 라벨·55439 대조 후 별도 UUID *_test 생성/alembic head·시험복원DB/시험DB 정리, preview DB유지. 화면/도움말29 통과3.58초, 도움말 수정후18 재검사3.17초(중복합산금지). 타입/수정ESLint/Prettier/Ruff·정적DB219/2409/543/R1–R6/diff 오류0. 실제 브라우저 회사3 기존세션/operations200·펼침/확인기록없음 표시와 캡처 outputs/gw-implementation-20261020/실제제품_복원검사펼침.jpg 확인. 합성 미리보기에 가짜 성공 증거를 넣지 않음. 전체CI/실회사/외부저장소/실기기/10인 부하 미실행.
+
+API94063 명령대조후종료·8362에 PID94777/세션22876로재실행. Vite5362/세션3065 및 fs-gw-ready02-preview/55439 유지, 기존22차 소유ID/라벨/명령대조 정리원칙 유지. 비밀/work/전체로그 스테이징금지. 사용자계정·비밀번호/실서버/예약설정/main/다른checkout/원격push/배포변경없음.
+
+다음 같은02: 실제외부저장소 검증·전체수집/회수/실회사/최종전환 증거계약/어댑터, 기존GW UI 보완, 최신main/전체회귀·10인인수. 현재 부분 검증을 운영 인수 완료로 표현하지 않는다. 재현: uv run --project backend pytest backend/tests/test_gw_operating_contract.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short (77). 별도 소유PG/alembic·TEST_DATABASE_URL/GW_BACKUP_TEST_CONTAINER 후 test_gw_backup.py::test_actual_backup_replay_restore_and_business_denial 및 test_backup_journal_restore.py (3).
+
 ## 2026-10-20 GW-READY-02 24차 최신 등록 증거와 수집기 연결
 
 기준88d9e5b/branch codex/gw-company-01. 기존 operations 회사트랜잭션/종류별최근조회와 acceptance_collection을 연결했다. 최신행을 recorded_at/id로 선택해 현재policy revision/키/코드/DB·시각·원본서명/등록행 전체 대조 후 BACKUP/RESTORE쌍을 수집. 더최근FAIL/PARTIAL/변조/원본없음/옛정책/타범위가있으면 과거성공 fallback없음. API backupRestoreCollection과 기존운영화면의 읽기전용 ‘백업·복원 연결 점검’ 안내 추가, 일반직원응답엔미노출. 별도추가쿼리/쓰기/완료입력/스키마없음. 쌍일치여도PARTIAL/readyfalse·미확인4유지. 서버가 실제백업을 복호화/복원하거나 외부저장소/전체권한회수/실회사인수를 실행한 것은 아니다.

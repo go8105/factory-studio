@@ -164,3 +164,87 @@ def test_restore_pass_requires_every_measurement_and_target():
     failed["result"] = "FAIL"
     failed["metrics"]["rowHashesMatch"] = False
     assert verify(failed).result == "FAIL"
+
+
+def diagnostic():
+    return {
+        "version": 1,
+        "databaseClosed": True,
+        "dbRevisionMatches": True,
+        "checkpointRestrictionsApplied": True,
+        "checkpointCompletenessConfirmed": False,
+        "journalCandidateIntents": 2,
+        "journalUnconfirmedIntents": 1,
+        "journalQuarantinedScopes": 1,
+    }
+
+
+def test_signed_partial_restore_carries_measurements_without_pass_promotion():
+    data = envelope() | {
+        "kind": "RESTORE",
+        "result": "PARTIAL",
+        "metrics": {"restoreDiagnostics": diagnostic()},
+    }
+    result = verify(data)
+    assert result.result == "PARTIAL"
+    assert result.metrics.restore_diagnostics.journal_unconfirmed_intents == 1
+    with pytest.raises(ApiError):
+        verify(data | {"kind": "BACKUP"})
+    data["result"] = "PASS"
+    with pytest.raises(ApiError):
+        verify(data)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("journalUnconfirmedIntents", -1),
+        ("journalUnconfirmedIntents", 3),
+        ("journalCandidateIntents", "2"),
+        ("databaseClosed", 1),
+        ("database", "private-location"),
+    ],
+)
+def test_restore_diagnostic_fields_are_closed_typed_and_consistent(field, value):
+    data = envelope() | {
+        "kind": "RESTORE",
+        "result": "PARTIAL",
+        "metrics": {"restoreDiagnostics": diagnostic() | {field: value}},
+    }
+    with pytest.raises(ApiError):
+        verify(data)
+
+
+def test_restore_pass_rejects_contradictory_diagnostics_even_with_valid_measurements():
+    details = diagnostic() | {
+        "checkpointCompletenessConfirmed": True,
+        "journalUnconfirmedIntents": 0,
+        "journalQuarantinedScopes": 0,
+    }
+    payload = envelope() | {
+        "kind": "RESTORE",
+        "startedAt": (NOW - timedelta(seconds=120)).isoformat(),
+        "metrics": {
+            "rowHashesMatch": True,
+            "foreignKeysValid": True,
+            "sessionsInvalidated": True,
+            "revocationsReapplied": True,
+            "twoAccountChecks": True,
+            "lossWindowSeconds": 60,
+            "elapsedSeconds": 120,
+            "restoreDiagnostics": details,
+        },
+    }
+    assert verify(payload).result == "PASS"
+    for field, value in (
+        ("databaseClosed", False),
+        ("dbRevisionMatches", False),
+        ("checkpointRestrictionsApplied", False),
+        ("checkpointCompletenessConfirmed", False),
+        ("journalUnconfirmedIntents", 1),
+        ("journalQuarantinedScopes", 1),
+    ):
+        changed = deepcopy(payload)
+        changed["metrics"]["restoreDiagnostics"][field] = value
+        with pytest.raises(ApiError):
+            verify(changed)

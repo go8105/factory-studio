@@ -54,6 +54,24 @@ type State = {
     result: "PARTIAL" | "BLOCKED";
     source: "LATEST_REGISTRATIONS";
     backupRestorePairVerified: boolean;
+    restoreMeasurements?: {
+      rowHashesMatch: boolean | null;
+      foreignKeysValid: boolean | null;
+      sessionsInvalidated: boolean | null;
+      revocationsReapplied: boolean | null;
+      twoAccountChecks: boolean | null;
+      lossWindowSeconds: number | null;
+      elapsedSeconds: number | null;
+      restoreDiagnostics: {
+        databaseClosed: boolean;
+        dbRevisionMatches: boolean;
+        checkpointRestrictionsApplied: boolean;
+        checkpointCompletenessConfirmed: boolean;
+        journalCandidateIntents: number;
+        journalUnconfirmedIntents: number;
+        journalQuarantinedScopes: number;
+      } | null;
+    } | null;
   };
   evidenceChecks?: {
     kind: string;
@@ -189,6 +207,74 @@ export function Operations() {
                   : "최근 등록한 백업·복원 증거의 연결을 확인하지 못했습니다. 위 실행 증거 결과와 등록한 파일 쌍을 확인하세요."}
               </p>
               <p>더 최근 미통과 기록을 과거 성공 기록으로 대신하지 않습니다.</p>
+              <details>
+                <summary>최근 복원 검사 내용</summary>
+                {data.backupRestoreCollection.restoreMeasurements ? (
+                  <>
+                    <p>
+                      최근 복원 실행의 서명된 검사 결과입니다. 전체 권한 회수와
+                      회사 업무 인수는 별도로 확인합니다.
+                    </p>
+                    <dl>
+                      {(
+                        [
+                          ["rowHashesMatch", "데이터 지문 일치"],
+                          ["foreignKeysValid", "참조 관계 검사"],
+                          ["sessionsInvalidated", "이전 세션 무효화"],
+                          ["revocationsReapplied", "전체 권한 회수 확인"],
+                          ["twoAccountChecks", "관리자·직원 업무 확인"],
+                        ] as const
+                      ).map(([field, label]) => (
+                        <div key={field}>
+                          <dt>{label}</dt>
+                          <dd>
+                            {data.backupRestoreCollection
+                              ?.restoreMeasurements?.[field] === true
+                              ? "확인"
+                              : data.backupRestoreCollection
+                                    ?.restoreMeasurements?.[field] === false
+                                ? "미충족"
+                                : "기록 없음"}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                    {data.backupRestoreCollection.restoreMeasurements
+                      .restoreDiagnostics ? (
+                      <p>
+                        복원 DB 격리:{" "}
+                        {data.backupRestoreCollection.restoreMeasurements
+                          .restoreDiagnostics.databaseClosed
+                          ? "확인"
+                          : "미충족"}{" "}
+                        · 권한 대조 완전성:{" "}
+                        {data.backupRestoreCollection.restoreMeasurements
+                          .restoreDiagnostics.checkpointCompletenessConfirmed
+                          ? "확인"
+                          : "미확인"}{" "}
+                        · 미확인 변경 기록{" "}
+                        {
+                          data.backupRestoreCollection.restoreMeasurements
+                            .restoreDiagnostics.journalUnconfirmedIntents
+                        }
+                        건 · 격리 범위{" "}
+                        {
+                          data.backupRestoreCollection.restoreMeasurements
+                            .restoreDiagnostics.journalQuarantinedScopes
+                        }
+                        개
+                      </p>
+                    ) : (
+                      <p>세부 격리·변경 기록 진단이 없는 이전 형식입니다.</p>
+                    )}
+                  </>
+                ) : (
+                  <p>
+                    현재 기준으로 원본 서명과 등록 내용을 확인한 복원 검사
+                    기록이 없습니다.
+                  </p>
+                )}
+              </details>
             </section>
           )}
           {data.canEdit && (

@@ -620,7 +620,24 @@ def restore(
                             "elapsedSeconds",
                         ]
                     }
-                    | {"failedCheckCount": 1},
+                    | {
+                        "failedCheckCount": 1,
+                        "restoreDiagnostics": {
+                            "version": 1,
+                            "databaseClosed": result["closed"],
+                            **{
+                                k: result[k]
+                                for k in (
+                                    "dbRevisionMatches",
+                                    "checkpointRestrictionsApplied",
+                                    "checkpointCompletenessConfirmed",
+                                    "journalCandidateIntents",
+                                    "journalUnconfirmedIntents",
+                                    "journalQuarantinedScopes",
+                                )
+                            },
+                        },
+                    },
                 ),
             )
             return {"result": "PARTIAL", "database": target_name, "closed": True}

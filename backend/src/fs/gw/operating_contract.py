@@ -75,7 +75,35 @@ def canonical(value: dict) -> bytes:
     ).encode()
 
 
+class RestoreDiagnostics(StrictModel):
+    version: Literal[1]
+    database_closed: bool = Field(alias="databaseClosed")
+    db_revision_matches: bool = Field(alias="dbRevisionMatches")
+    checkpoint_restrictions_applied: bool = Field(alias="checkpointRestrictionsApplied")
+    checkpoint_completeness_confirmed: bool = Field(
+        alias="checkpointCompletenessConfirmed"
+    )
+    journal_candidate_intents: int = Field(
+        alias="journalCandidateIntents", ge=0, le=10000000
+    )
+    journal_unconfirmed_intents: int = Field(
+        alias="journalUnconfirmedIntents", ge=0, le=10000000
+    )
+    journal_quarantined_scopes: int = Field(
+        alias="journalQuarantinedScopes", ge=0, le=10000000
+    )
+
+    @model_validator(mode="after")
+    def consistent_counts(self):
+        if self.journal_unconfirmed_intents > self.journal_candidate_intents:
+            raise ValueError("미확인 기록 수가 대조 대상 수보다 많습니다.")
+        return self
+
+
 class EvidenceMetrics(StrictModel):
+    restore_diagnostics: RestoreDiagnostics | None = Field(
+        None, alias="restoreDiagnostics"
+    )
     # Closed allowlist deliberately excludes URLs, document contents and identities.
     snapshot_started_at: str | None = Field(None, alias="snapshotStartedAt")
     storage_confirmed_at: str | None = Field(None, alias="storageConfirmedAt")
@@ -120,6 +148,8 @@ class EvidenceEnvelope(StrictModel):
 
     @model_validator(mode="after")
     def chronological(self):
+        if self.metrics.restore_diagnostics is not None and self.kind != "RESTORE":
+            raise ValueError("복원 진단은 복원 증거에만 포함할 수 있습니다.")
         if timestamp(self.started_at) > timestamp(self.finished_at):
             raise ValueError("실행 시작과 종료 시각을 확인하세요.")
         return self
@@ -210,6 +240,16 @@ def _validate_pass(data: EvidenceEnvelope, policy: OperatingPolicy):
         ):
             raise ValueError("backup chronology")
     elif data.kind == "RESTORE":
+        diagnostic = m.restore_diagnostics
+        if diagnostic is not None and (
+            not diagnostic.database_closed
+            or not diagnostic.db_revision_matches
+            or not diagnostic.checkpoint_restrictions_applied
+            or not diagnostic.checkpoint_completeness_confirmed
+            or diagnostic.journal_unconfirmed_intents
+            or diagnostic.journal_quarantined_scopes
+        ):
+            raise ValueError("미확인 복원 진단을 통과로 처리할 수 없습니다.")
         checks = (
             m.row_hashes_match,
             m.foreign_keys_valid,

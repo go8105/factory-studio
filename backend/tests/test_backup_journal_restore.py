@@ -167,6 +167,12 @@ def test_actual_history_bound_restore_restricts_without_changing_source(
         assert restored["journalCandidateIntents"] == 6
         assert restored["journalDisabledAccounts"] == 1
         assert restored["journalQuarantinedScopes"] == 1
+        proof = json.loads((folders["reports"] / "history-evidence.json").read_text())
+        diagnostic = proof["envelope"]["metrics"]["restoreDiagnostics"]
+        assert diagnostic["journalUnconfirmedIntents"] == 1
+        assert diagnostic["journalCandidateIntents"] == 6
+        assert diagnostic["journalQuarantinedScopes"] == 1
+        assert diagnostic["databaseClosed"] is True
         assert (
             not restored["checkpointCompletenessConfirmed"]
             and not restored["revocationsReapplied"]

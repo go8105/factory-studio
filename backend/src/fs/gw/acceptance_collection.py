@@ -19,6 +19,7 @@ def collect(documents, **context):
     """
     checks = []
     verified = {}
+    restore_measurements = None
     for kind in ("BACKUP", "RESTORE"):
         document = documents.get(kind)
         state = "MISSING"
@@ -34,6 +35,20 @@ def collect(documents, **context):
                     raise ValueError()
                 source_digest = hashlib.sha256(canonical(document)).hexdigest()
                 state = data.result
+                if kind == "RESTORE" and state in {"PASS", "PARTIAL"}:
+                    restore_measurements = {
+                        name: data.metrics.model_dump(by_alias=True)[name]
+                        for name in (
+                            "rowHashesMatch",
+                            "foreignKeysValid",
+                            "sessionsInvalidated",
+                            "revocationsReapplied",
+                            "twoAccountChecks",
+                            "lossWindowSeconds",
+                            "elapsedSeconds",
+                            "restoreDiagnostics",
+                        )
+                    }
                 if (
                     kind == "BACKUP"
                     and state == "PASS"
@@ -58,6 +73,7 @@ def collect(documents, **context):
         "kind": "ACCEPTANCE_COLLECTION",
         "result": "PARTIAL" if paired else "BLOCKED",
         "ready": False,
+        "restoreMeasurements": restore_measurements,
         "workspaceId": str(context["workspace_id"]),
         "generationId": str(context["generation_id"]),
         "policyDigest": context["policy"].digest(),
@@ -108,7 +124,7 @@ def collect_registered(rows, *, policy_id, **context):
                 or row["generation_id"] != context["generation_id"]
             ):
                 state = "INVALID"
-            if state == "RECORDED_PASS":
+            if state in {"RECORDED_PASS", "PARTIAL"}:
                 documents[kind] = {
                     "envelope": row["metrics"][SOURCE_FIELD],
                     "signature": row["signature"],
