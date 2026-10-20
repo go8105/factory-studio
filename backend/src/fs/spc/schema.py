@@ -61,6 +61,35 @@ class SubgroupCreate(ApiModel):
     note: str | None = Field(None, max_length=300)
 
 
+class OcapItemCreate(ApiModel):
+    characteristic_id: int | None = Field(None, alias="characteristicId")
+    rule_no: int | None = Field(None, alias="ruleNo", ge=1, le=8)
+    seq: int = Field(ge=1, le=99)
+    check_text: str = Field(alias="checkText", min_length=2, max_length=300)
+    cause_category: Cause | None = Field(None, alias="causeCategory")
+
+
+class OcapItemUpdate(ApiModel):
+    characteristic_id: int | None = Field(None, alias="characteristicId")
+    rule_no: int | None = Field(None, alias="ruleNo", ge=1, le=8)
+    seq: int | None = Field(None, ge=1, le=99)
+    check_text: str | None = Field(
+        None, alias="checkText", min_length=2, max_length=300
+    )
+    cause_category: Cause | None = Field(None, alias="causeCategory")
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+class OcapCheckEntry(ApiModel):
+    ocap_item_id: int = Field(alias="ocapItemId")
+    result: Literal["OK", "NG", "NA"]
+    note: str | None = Field(None, max_length=300)
+
+
+class OcapChecks(ApiModel):
+    checks: list[OcapCheckEntry] = Field(min_length=1, max_length=50)
+
+
 class VoidBody(ApiModel):
     reason: str = Field(min_length=2, max_length=200)
 

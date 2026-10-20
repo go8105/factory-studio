@@ -2584,6 +2584,29 @@ th[aria-sort="none"] button span {
 .spc-publish h3 {
   font-size: var(--fs);
 }
+/* S-05 이상 대응 절차 점검표 */
+.spc-ocap {
+  margin-top: var(--s4);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--border);
+}
+.spc-ocap h3 {
+  font-size: var(--fs);
+}
+.spc-ocap ol {
+  display: grid;
+  gap: var(--s3);
+  margin: var(--s3) 0;
+  padding: 0;
+  list-style: none;
+}
+.spc-ocap li {
+  display: grid;
+  gap: var(--s1);
+}
+.spc-ocap li p {
+  margin: 0;
+}
 @media (max-width: 540px) {
   .spc-values {
     grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -1,5 +1,5 @@
 {
-  "task": "SPC-1a",
+  "task": "SPC-1c",
   "validation": "정적 메타데이터 검증 + FS-013 R1~R6",
   "database_applied": false,
   "tables": 215,
@@ -20,7 +20,7 @@
   "columns": 2360,
   "foreign_keys": 536,
   "constraints_and_policies": 1583,
-  "source_sha256": "05084eeafbcbb1d476f5846416f6a12cc57d1ee7112f2308739fc0bb391e2485",
+  "source_sha256": "a5d408b77c2786735e62247b02c8cd57c0052f51ed07abaa42f34265af4e7849",
   "errors": [],
   "not_tested": [
     "실제 DDL 적용",

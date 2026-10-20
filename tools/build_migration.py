@@ -124,12 +124,25 @@ def build(
             f"CREATE TABLE {t['name']} ({', '.join(column_sql(c) for c in t['columns'])})"
         )
     added: list[tuple[str, str]] = []
+    widened: list[tuple[str, str]] = []
     for t in tables:
         if t["name"] not in kept:
             continue
-        existing = {c["name"] for c in old_tables[t["name"]]["columns"]}
+        before = {c["name"]: c for c in old_tables[t["name"]]["columns"]}
         for c in t["columns"]:
-            if c["name"] in existing:
+            was = before.get(c["name"])
+            if was is not None:
+                # NOT NULL을 푸는 것만 자동으로 만든다. 조이는 쪽은 기존 행을 봐야 한다.
+                if was["nullable"] == c["nullable"]:
+                    continue
+                if not c["nullable"]:
+                    raise SystemExit(
+                        f"{t['name']}.{c['name']}: NOT NULL로 조이는 변경은 손으로 쓴다"
+                    )
+                up.append(
+                    f"ALTER TABLE {t['name']} ALTER COLUMN {c['name']} DROP NOT NULL"
+                )
+                widened.append((t["name"], c["name"]))
                 continue
             if not c["nullable"] and not c.get("default"):
                 raise SystemExit(
@@ -180,6 +193,9 @@ def build(
         if statement:
             down.append(statement)
     down.extend(f"ALTER TABLE {t} DROP COLUMN {c}" for t, c in reversed(added))
+    down.extend(
+        f"ALTER TABLE {t} ALTER COLUMN {c} SET NOT NULL" for t, c in reversed(widened)
+    )
     down.extend(f"DROP TABLE {t['name']}" for t in reversed(fresh))
     down.extend(f"DROP SCHEMA {s}" for s in schemas)
     for i in reversed(replaced):

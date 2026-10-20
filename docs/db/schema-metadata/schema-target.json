@@ -1,7 +1,7 @@
 {
   "version": "target-0.20.0",
   "task": "DSN-90",
-  "base_task": "SPC-1a",
+  "base_task": "SPC-1c",
   "target": true,
   "date": "2026-10-05",
   "status": "목표 설계(ROADMAP-02 D78) — 실제 DB 아님. 개발 때 schema.json과의 차이를 마이그레이션으로 옮긴다",
