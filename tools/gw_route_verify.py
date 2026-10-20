@@ -28,6 +28,30 @@ PROBES = {
         "backend/tests/test_journal_transaction_proof.py",
         "test_actual_abort_pending_savepoint_and_source_mismatch",
     ),
+    "MFA_ENROLLMENT_STORAGE_ROLLBACK": (
+        "backend/tests/test_account_security_journal.py",
+        "test_storage_failure_rolls_back_pending_factor",
+    ),
+    "LOGIN_CHALLENGE_STORAGE_ROLLBACK": (
+        "backend/tests/test_challenge_security_journal.py",
+        "test_record_failure_rolls_back_challenge_change[issued]",
+    ),
+    "PASSWORD_SESSION_STORAGE_ROLLBACK": (
+        "backend/tests/test_challenge_security_journal.py",
+        "test_password_session_record_failure_rolls_back_issuance",
+    ),
+    "HR_PASSWORD_ROLE_DISABLE_AND_RETRY": (
+        "backend/tests/test_account_security_journal.py",
+        "test_hr_password_role_disable_and_retry",
+    ),
+    "DOCUMENT_ACL_STORAGE_ROLLBACK_AND_RECORDS": (
+        "backend/tests/test_gw_identity_journal.py",
+        "test_company_document_actions_and_uncommitted_intent",
+    ),
+    "RESTORED_SESSION_CHALLENGE_AND_AUTHORITY_DENIAL": (
+        "backend/tests/test_backup_journal_restore.py",
+        "test_actual_history_bound_restore_restricts_without_changing_source[False]",
+    ),
 }
 
 
@@ -82,6 +106,33 @@ def probe_results(xml_path):
     return results, unexpected
 
 
+def validate_restore_container(url, container, owner):
+    if not owner:
+        raise BackupError("복원 검사 컨테이너 소유 라벨이 필요합니다.")
+    template = '{"owner":{{json (index .Config.Labels "factory-studio.owner")}},"ports":{{json .NetworkSettings.Ports}},"running":{{json .State.Running}}}'
+    result = subprocess.run(
+        ["docker", "inspect", "--format", template, container],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    if result.returncode:
+        raise BackupError("소유 복원 검사 컨테이너를 확인하세요.")
+    info = json.loads(result.stdout)
+    bindings = info.get("ports", {}).get("5432/tcp") or []
+    if (
+        info.get("owner") != owner
+        or info.get("running") is not True
+        or not any(
+            binding.get("HostIp") == url.host
+            and binding.get("HostPort") == str(url.port)
+            for binding in bindings
+        )
+    ):
+        raise BackupError("복원 검사 컨테이너의 소유권·연결 범위가 다릅니다.")
+
+
 def run(*, admin_url, output):
     output = Path(output)
     private_directory(output.parent)
@@ -94,6 +145,11 @@ def run(*, admin_url, output):
         or url.host not in {"127.0.0.1", "localhost", "::1"}
     ):
         raise BackupError("소유 테스트 PostgreSQL의 postgres 관리 연결을 사용하세요.")
+    container = os.environ.get("GW_BACKUP_TEST_CONTAINER")
+    if container:
+        validate_restore_container(
+            url, container, os.environ.get("FS_GW_ROUTE_VERIFY_OWNER")
+        )
     identity = source_identity()
     run_id = str(uuid4())
     database = "gw_route_verify_" + uuid4().hex + "_test"
@@ -102,6 +158,7 @@ def run(*, admin_url, output):
     report = {
         "version": 1,
         "kind": "SYNTHETIC_GW_ROUTE_EXECUTION",
+        "catalogVersion": "GW_SYNTHETIC_ROUTE_PROBES_V2",
         "runId": run_id,
         "startedAt": datetime.now(UTC).isoformat(),
         "executionScope": "NEW_OWNED_SYNTHETIC_DATABASE",
@@ -195,6 +252,12 @@ def run(*, admin_url, output):
         report["sourceUnchanged"] = source_identity() == identity
         if not report["sourceUnchanged"]:
             report["result"] = "BLOCKED"
+        if report["result"] == "PARTIAL" and any(
+            p["probe"] == "RESTORED_SESSION_CHALLENGE_AND_AUTHORITY_DENIAL"
+            and p["state"] == "PASSED"
+            for p in report["probes"]
+        ):
+            report["restoredAccessDenial"] = "SYNTHETIC_SCENARIO_PASSED"
     finally:
         try:
             if created:

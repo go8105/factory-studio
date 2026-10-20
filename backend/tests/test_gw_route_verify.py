@@ -79,3 +79,45 @@ def test_reject_nonlocal_or_preview_database_target(tmp_path, url):
     tmp_path.chmod(0o700)
     with pytest.raises(module.BackupError):
         module.run(admin_url=url, output=tmp_path / "report")
+
+
+@pytest.mark.parametrize(
+    "change",
+    ["none", "owner", "port", "host", "stopped", "missing-owner", "inspect-error"],
+)
+def test_restore_container_requires_matching_owned_loopback_target(monkeypatch, change):
+    import json
+    from types import SimpleNamespace
+
+    from sqlalchemy.engine import make_url
+
+    module = runner()
+    info = {
+        "owner": "synthetic-owner",
+        "running": True,
+        "ports": {"5432/tcp": [{"HostIp": "127.0.0.1", "HostPort": "55439"}]},
+    }
+    owner = "synthetic-owner"
+    if change == "owner":
+        info["owner"] = "someone-else"
+    elif change == "port":
+        info["ports"]["5432/tcp"][0]["HostPort"] = "5432"
+    elif change == "host":
+        info["ports"]["5432/tcp"][0]["HostIp"] = "0.0.0.0"
+    elif change == "stopped":
+        info["running"] = False
+    elif change == "missing-owner":
+        owner = None
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *_a, **_kw: SimpleNamespace(
+            returncode=1 if change == "inspect-error" else 0, stdout=json.dumps(info)
+        ),
+    )
+    url = make_url("postgresql+psycopg://127.0.0.1:55439/postgres")
+    if change == "none":
+        module.validate_restore_container(url, "synthetic-container", owner)
+    else:
+        with pytest.raises(module.BackupError):
+            module.validate_restore_container(url, "synthetic-container", owner)

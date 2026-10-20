@@ -109,6 +109,32 @@ def test_company_document_actions_and_uncommitted_intent(company_env, journal): 
     engine, co, admin, staff = company_env
     directory, key = journal
     _, _, doc = create_doc(company_env)
+
+    def document_state():
+        with engine.connect() as c:
+            return c.execute(
+                text(
+                    "SELECT status,version FROM gw.approval_document WHERE workspace_id=:w AND generation_id=(SELECT active_generation_id FROM core.workspace WHERE id=:w) AND id=:id"
+                ),
+                {"w": co["companyId"], "id": int(doc["id"])},
+            ).one()
+
+    before = document_state()
+    before_count = verify(directory, key)["records"]
+    directory.chmod(0o755)
+    try:
+        failed = api(
+            admin,
+            co,
+            f"documents/{doc['id']}/submit",
+            {"expectedVersion": doc["version"]},
+        )
+        assert failed.status_code == 503
+        assert failed.json()["error"]["code"] == "SECURITY_JOURNAL_UNAVAILABLE"
+        assert document_state() == before
+    finally:
+        directory.chmod(0o700)
+    assert verify(directory, key)["records"] == before_count
     submitted = api(
         admin, co, f"documents/{doc['id']}/submit", {"expectedVersion": doc["version"]}
     )

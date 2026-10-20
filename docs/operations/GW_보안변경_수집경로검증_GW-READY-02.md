@@ -108,3 +108,12 @@ uv run --project backend python tools/gw_route_verify.py \
 현재 고정 검증은 직원연결중지 기록저장실패503/상태·버전불변→재시도200/직원업무403/현재정책진단과 거래취소/진행/저장점/다른원본 판정2개다. 임의명령·외부JUnit·수동PASS 입력을 받지 않는다. 실행번호/기준커밋과 backend/tools 실제소스지문/DB버전/시각/각시나리오결과를0600에 기록한다. 실행전후소스가 바뀌면BLOCKED다. 실패/건너뜀/누락/중복/비정상종료를 성공으로 바꾸지 않는다. 로그·JUnit은비공개임시폴더에서처리후정리하며 공개보고에원문/접속정보/계정/경로를넣지않는다.
 
 성공도 합성 PARTIAL/exit0이며 ready=false다. 실패결과는BLOCKED/exit2, 환경/실행예외는exit1이고 예외시보고서가항상생성되지는않는다. 초기JUnit모듈명대조실패보고도보존했다. 기존파일덮어쓰기없음. 실제회사/기기의실행이나현재회사정책인수, 전체권한회수·누락없음·복원후거부검증이아니다. 보고서는unsigned이며제품ACCEPTANCE등록에사용하지않는다. 나머지경로/복원거부어댑터는후속이다.
+
+
+## 32차 고정 실행 시나리오 V2 · 8개
+
+31차수집기의 카탈로그 GW_SYNTHETIC_ROUTE_PROBES_V2는 기존2개에 MFA등록롤백·로그인요청발급롤백·비밀번호세션발급롤백·HR계정/권한변경·문서ACL롤백/기록·실격리복원후거부를더한8개다. 전체경로나모든권한조합의인수를뜻하지않는다. 문서제출은기록저장503시원문상태/버전/기록수불변→재시도제출/승인까지검사한다.
+
+실복원검사를위해 기존관리연결외에 `GW_BACKUP_TEST_CONTAINER`와 `FS_GW_ROUTE_VERIFY_OWNER`(컨테이너factory-studio.owner라벨값)를설정한다. 수집기는컨테이너실행상태/라벨/PG포트매핑이관리URL의동일loopback대상인지확인한다. 컨테이너미설정은복원SKIPPED/BLOCKED, 불일치는실행전거부다. 실제운영컨테이너를지정하지않는다. 새원본시험DB와격리복원DB만사용하며기존preview/운영DB는초기화하지않는다.
+
+전체8개PASSED/정상종료·소스불변시에만 `restoredAccessDenial=SYNTHETIC_SCENARIO_PASSED`를기록한다. 실패·건너뜀·코드변경에는UNVERIFIED를유지한다. 이는합성복원시나리오범위의통과이며전체revocationsReapplied/completenessConfirmed/ready=false와실회사인수미완료는그대로다. unsigned보고서는제품ACCEPTANCE등록용이아니다. 첫실패보고서도덮어쓰지않고새실행으로기록한다.

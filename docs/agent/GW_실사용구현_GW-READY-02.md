@@ -270,3 +270,15 @@ codex/gw-company-01, 시작e396c1c·작업트리깨끗함. tools/gw_route_verify
 전체02진행중·readyfalse/미확인4 유지. 다음: 고정실행시나리오를 인증·HR·ACL 및나머지GW경로의저장실패롤백/거부로확대하고 복원후검사와연결 → 최종서명 ACCEPTANCE/게이트 → GW UI보완 → main/전체회귀/10인실인수. 다음난이도높음·GPT-6.1 Sol + High 추천, 최종경계감사GPT-6 Astra + High 대안. 모델자동변경없음.
 
 재현:30차단위명령에 backend/tests/test_gw_route_verify.py 추가(132). 소유로확인한로컬PG postgres 관리연결을FS_GW_ROUTE_VERIFY_ADMIN_URL에비공개주입후 `uv run --project backend python tools/gw_route_verify.py --report <0700폴더의새파일.json>` (고정2실행). 기존TEST_DATABASE_URL을초기화하지않으며새DB만소유/정리한다. 마지막커밋git log -1.
+
+## 2026-10-20 GW-READY-02 32차 인증·HR·ACL/실복원 실행수집 확대
+
+codex/gw-company-01, 시작95f7e48·작업트리깨끗함. 고정수집카탈로그 GW_SYNTHETIC_ROUTE_PROBES_V2를2→8시나리오로확대: 기존GW중지롤백/403·거래판정에 MFA등록실패롤백·로그인요청issued실패롤백·비밀번호세션발급실패롤백·HR비밀번호/역할/로그인ID/중지/재시도·문서ACL저장실패롤백/기록·실제PG격리복원후옛세션/미완료인증/회수권한거부/원본유지를추가. 문서submit의journal503시 approval_document 상태/버전·기록수불변과 재시도submit/approve를 실제검사하도록보강(S회사/활성세대제한). 전체인증/HR/ACL경로수집완전성이아니라지정시나리오범위다.
+
+GW_BACKUP_TEST_CONTAINER 설정시 FS_GW_ROUTE_VERIFY_OWNER와 docker inspect 소유라벨/실행상태/PG5432→관리URL의동일loopback포트매핑을사전대조·불일치거부. 미설정복원검사는SKIPPED→BLOCKED이며자동생략통과없음. 정확parametrized JUnit이름포함 고정검사. 전체8PASSED/정상종료/소스불변시에만 restoredAccessDenial=SYNTHETIC_SCENARIO_PASSED. 실제회사/전체revocations/completeness/ready는false·서명ACCEPTANCE아님. 복원도구/DB접속제한PARTIAL은그대로다.
+
+검증: 단위139통과0.22초(기존경고2). 소유컨테이너ID/라벨/55439확인후 새소유DB의실수집CLI 최종8PASSED·PARTIAL/exit0·sourceUnchanged/databaseCleaned=true·합성복원거부통과. 첫실행은새문서조회테이블명오류로ACL FAILED·실행중수정sourceUnchanged=false→BLOCKED/exit2·복원거부UNVERIFIED를유지했다. approval_document와활성세대로수정후소스고정재실행통과·첫보고서보존. 최종소유PG읽기조회 collectorDB0/closedRestoreDB0/preview존재true확인. Ruffcheck/format·정적DB219/2409/543·R1–R6/diff오류0. 전체CI/브라우저/UI/실외부·실회사/기기/10인인수 미실행. 스키마불변·Excel/ERD재생성없음. previewDB/서비스유지·비밀/work/전체로그 스테이징없음·다른checkout/main/원격push/배포변경없음.
+
+전체02진행중·readyfalse/미확인4유지. 다음: GW연결취소/재개/역할변경의저장실패롤백·허용/거부실행시나리오를추가해7경로진단과대조, 인증실패/복구·HR/ACL나머지분기확대 → 최종서명ACCEPTANCE/게이트 → 기존GW UI구성보완 → main/전체회귀/10인실인수. 다음난이도높음·GPT-6.1 Sol + High 추천(상태전이·권한·DB회귀), 최종경계감사GPT-6 Astra + High 대안. 모델자동변경없음.
+
+재현:31차단위명령그대로(139). 소유확인로컬PG postgres관리연결을FS_GW_ROUTE_VERIFY_ADMIN_URL, 컨테이너를GW_BACKUP_TEST_CONTAINER, 소유라벨값을FS_GW_ROUTE_VERIFY_OWNER에비공개주입후 `uv run --project backend python tools/gw_route_verify.py --report <0700폴더의새파일.json>` (고정8실행). 복원컨테이너/DB연결일치와생성자원정리필수·preview를초기화하지않는다. 마지막커밋git log -1.
