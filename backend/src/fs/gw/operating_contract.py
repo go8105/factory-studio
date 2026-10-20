@@ -124,10 +124,17 @@ class AcceptanceDiagnostics(StrictModel):
     final_release: Literal["UNVERIFIED"] = Field(alias="finalRelease")
 
 
+class RegisteredAcceptanceDiagnostics(AcceptanceDiagnostics):
+    version: Literal[2]
+    scope: Literal["CURRENT_REGISTERED_SOURCES"]
+    observed_at: str = Field(alias="observedAt")
+    context_digest: str = Field(alias="contextDigest", pattern=r"^[0-9a-f]{64}$")
+
+
 class EvidenceMetrics(StrictModel):
-    acceptance_diagnostics: AcceptanceDiagnostics | None = Field(
-        None, alias="acceptanceDiagnostics"
-    )
+    acceptance_diagnostics: (
+        AcceptanceDiagnostics | RegisteredAcceptanceDiagnostics | None
+    ) = Field(None, alias="acceptanceDiagnostics")
     restore_diagnostics: RestoreDiagnostics | None = Field(
         None, alias="restoreDiagnostics"
     )
@@ -177,6 +184,10 @@ class EvidenceEnvelope(StrictModel):
     def chronological(self):
         acceptance = self.metrics.acceptance_diagnostics
         if acceptance is not None:
+            if isinstance(acceptance, RegisteredAcceptanceDiagnostics) and timestamp(
+                acceptance.observed_at
+            ) != timestamp(self.started_at):
+                raise ValueError("DB 관측 시각과 인수 실행 시작이 다릅니다.")
             if self.kind != "ACCEPTANCE" or self.result != "PARTIAL":
                 raise ValueError("원본 대조 진단은 인수 일부 확인에만 허용합니다.")
             if self.metrics.failed_check_count or set(
@@ -207,6 +218,22 @@ def timestamp(value: str) -> datetime:
     if parsed.tzinfo is None:
         raise ValueError("timezone required")
     return parsed.astimezone(UTC)
+
+
+def acceptance_context_digest(
+    *, workspace_id, generation_id, policy, code_revision, db_revision
+):
+    return hashlib.sha256(
+        canonical(
+            {
+                "workspaceId": workspace_id,
+                "generationId": generation_id,
+                "policy": policy.model_dump(by_alias=True),
+                "codeRevision": code_revision,
+                "dbRevision": db_revision,
+            }
+        )
+    ).hexdigest()
 
 
 def evidence_error() -> ApiError:
@@ -252,6 +279,17 @@ def verify_evidence(
             or now - timestamp(data.finished_at) > timedelta(days=30)
         ):
             raise ValueError("scope, version or time mismatch")
+        diagnostic = data.metrics.acceptance_diagnostics
+        if isinstance(
+            diagnostic, RegisteredAcceptanceDiagnostics
+        ) and diagnostic.context_digest != acceptance_context_digest(
+            workspace_id=workspace_id,
+            generation_id=generation_id,
+            policy=policy,
+            code_revision=code_revision,
+            db_revision=db_revision,
+        ):
+            raise ValueError("current database snapshot context mismatch")
         if data.result == "PASS":
             _validate_pass(data, policy)
         return data

@@ -174,3 +174,25 @@ uv run --project backend python tools/gw_acceptance_preflight.py \
 전체 고정24검사 정상 종료·현재 관측·실행 전후 소스 지문 일치일 때만 결과 PARTIAL/종료0이다. 새 검사가 성공해도 기존 검사 실패/생략·복원 미확인·관측 부재나 변조는 BLOCKED/종료2다. 소스가 바뀌면 관측도 제외한다. 기존 보고서를 읽어 성공으로 대체하지 않는다. 기존 재현 명령과 비공개 관리 환경 `FS_GW_ROUTE_VERIFY_ADMIN_URL`·`GW_BACKUP_TEST_CONTAINER`·`FS_GW_ROUTE_VERIFY_OWNER`를 사용하고 소유 컨테이너 라벨/loopback 포트를 먼저 대조한다. 새 출력 파일만 허용하고 시험 DB만 정리한다.
 
 `businessObservationState=SYNTHETIC_SCENARIO_PASSED`는 위 한정 시나리오를 뜻한다. ready/liveCompanyAcceptance=false, 실기기/네트워크/실회사 대표 업무 UNVERIFIED를 유지한다. 제품 운영 실행 기록에 등록하지 않는다. 실제 복원 PARTIAL·최종4조건 미확인·ACCEPTANCE PASS 거부도 그대로다. 외부 저장소 선정/실행·실환경 역할별 업무/회수·인수 책임자 검토와 최종 PASS 계약은 남아 있다.
+
+
+## 13. 현재 DB의 최신 등록 원본에서 서명 일부 확인 수집 (39차)
+
+기존 수집기에 파일 선택 없이 현재 회사 DB에서 원본을 읽는 경로를 추가했다. 기존 파일 방식/진단v1은 유지한다. 서버 운영자가 전용 비공개 `FS_GW_PREFLIGHT_DATABASE_URL`·현재 환경 `FS_CODE_REVISION`·신뢰 공개키와 실행자 개인키/키ID를 준비한다. 권한·키 보관은 §10·11을 따른다. 가능한 한 읽기 DB 계정을 사용하고 URL/비밀번호/키는 명령행에 쓰지 않는다.
+
+```sh
+uv run --project backend python tools/gw_acceptance_collect.py \
+  --current-company-id <회사ID> \
+  --signed-reconciliation \
+  --output work/acceptance/current-registered-partial.json
+```
+
+이 경로는 `--context`·`--backup`·`--restore`·`--storage-copy`와 함께 사용할 수 없다. 일반 DATABASE_URL을 자동 사용하지 않는다. 기본 `--admin-login admin`은 사전점검 조회 조건이며 계정 생성/이름 변경·역할 부여나 실행자 본인 인증이 아니다. 현재 관리자 조회·인원/MFA 집계가 부족해도 백업/복원의 제한된 대조를 서명할 수 있다. 이를 관리자 자격·10인 사전조건 통과·실회사 인수로 해석하지 않는다.
+
+단일 PostgreSQL REPEATABLE READ/READ ONLY 거래에서 DB 관측 시각·현재 회사/활성 GW 세대·정책 원본/지문·DB head를 확인한다. 같은 스냅샷에서 BACKUP/RESTORE를 `recorded_at DESC,id DESC`로 선택하며 성공·현 정책/버전 필터로 옛 원본을 찾지 않는다. 원본 서명/등록행·실행 번호·현재 정책/제품/DB·시각·백업 현재성과 같은 복원 명세를 대조한다. BACKUP은 현재 PASS가 필요하며 RESTORE PARTIAL은 그대로 PARTIAL로만 참조한다. 최신 실패/원본 없음/변조/옛 정책·버전/미래·만료는 오류/종료1이며 이전 성공을 대신 사용하지 않는다.
+
+출력은 기존 `{envelope,signature}`의 ACCEPTANCE PARTIAL이며 `acceptanceDiagnostics`만 v2/CURRENT_REGISTERED_SOURCES로 확장한다. 원본별 runId/sourceDigest, DB observedAt, 현재5필드 기준의 contextDigest와 네 조건 UNVERIFIED를 서명에 묶는다. 정책 원문/담당자·DB URL·계정·원본 파일·키는 출력하지 않는다. observedAt는 실행 시작과 같아야 하고 현재 범위의 기준 지문을 재검증한다. 진단v1과 v2를 섞거나 최종 PASS로 바꾸면 거부한다. 성공은 PARTIAL/종료0이며 새0600 파일만 생성하고 기존 파일/심볼릭 링크를 덮어쓰지 않는다. 원본/정책/세션/운영 기록을 DB에 쓰지 않는다.
+
+등록은 기존 보안 관리자·최근 본인 확인·회사 범위 절차를 사용한다. 서버가 같은 회사 기준 잠금 안에서 최신 원본을 다시 선택하고 관측 전에 실제로 등록된 원본인지도 확인한다. 운영 준비 조회에서도 재대조한다. 관측 도중 또는 이후 새 실패가 확정됐으면 읽기 스냅샷이 일관돼도 그 결과를 등록할 수 없고, 기존 대조 기록도 무효가 된다. 새 PARTIAL/PASS 원본 역시 실행 번호가 다르면 옛 대조를 무효화하며 새 원본으로 다시 수집해야 한다.
+
+서명은 실행자 식별/무결성 근거이며, DB 관측이 독립 감사 서명이나 배포 소스 검증을 뜻하지 않는다. 침해된 실행자의 주장은 보증하지 않으며 현재 코드 버전도 운영자가 제공한다. 실제 외부 저장소·전체 수집/회수·실회사/기기·전환 자료의 출처/신뢰 분리와 최종 PASS 계약은 남아 있다. ready=false·실제 복원 PARTIAL·최종4조건 미확인·ACCEPTANCE PASS 거부를 유지한다.

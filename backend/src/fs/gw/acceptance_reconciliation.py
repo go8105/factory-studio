@@ -6,6 +6,8 @@ from uuid import uuid4
 
 from fs.gw.operating_contract import (
     AcceptanceDiagnostics,
+    RegisteredAcceptanceDiagnostics,
+    acceptance_context_digest,
     backup_is_current,
     canonical,
     evidence_error,
@@ -55,8 +57,42 @@ def reconcile(documents, **context):
     )
 
 
-def sign_reconciliation(documents, *, signer, signer_id, **context):
-    diagnostics = reconcile(documents, **context).model_dump(by_alias=True)
+def registered_diagnostics(diagnostics, *, observed_at, **context):
+    if timestamp(observed_at) > context["now"]:
+        raise evidence_error()
+    return RegisteredAcceptanceDiagnostics.model_validate(
+        diagnostics.model_dump(by_alias=True)
+        | {
+            "version": 2,
+            "scope": "CURRENT_REGISTERED_SOURCES",
+            "observedAt": observed_at,
+            "contextDigest": acceptance_context_digest(
+                **{
+                    k: context[k]
+                    for k in (
+                        "workspace_id",
+                        "generation_id",
+                        "policy",
+                        "code_revision",
+                        "db_revision",
+                    )
+                }
+            ),
+        }
+    )
+
+
+def sign_reconciliation(
+    documents, *, signer, signer_id, database_observed_at=None, **context
+):
+    diagnostics = reconcile(documents, **context)
+    if database_observed_at is not None:
+        if timestamp(database_observed_at) != context["now"]:
+            raise evidence_error()
+        diagnostics = registered_diagnostics(
+            diagnostics, observed_at=database_observed_at, **context
+        )
+    diagnostics = diagnostics.model_dump(by_alias=True)
     payload = {
         "version": 1,
         "runId": str(uuid4()),
@@ -115,5 +151,17 @@ def verify_registered_sources(data, rows, *, policy_id, **context):
             "signature": row["signature"],
         }
     expected = reconcile(documents, **context)
-    if data.metrics.acceptance_diagnostics != expected:
+    diagnostic = data.metrics.acceptance_diagnostics
+    if isinstance(diagnostic, RegisteredAcceptanceDiagnostics):
+        observed = timestamp(diagnostic.observed_at)
+        if observed != timestamp(data.started_at) or any(
+            row["recorded_at"] > observed
+            for row in rows
+            if row["kind"] in {"BACKUP", "RESTORE"}
+        ):
+            raise evidence_error()
+        expected = registered_diagnostics(
+            expected, observed_at=diagnostic.observed_at, **context
+        )
+    if diagnostic != expected:
         raise evidence_error()

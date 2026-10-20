@@ -383,3 +383,22 @@ uv run --project backend pytest backend/tests/test_gw_business_observation.py ba
 uv run --project backend python tools/gw_route_verify.py --report <0700폴더의새파일.json>
 ```
 기존 gw_preview_test를 시험 초기화하지 않는다. 수집기 새DB와10인 fixture의 새 gw_merge_*_test만 생성/정리한다. 실제 계정/비밀번호/OTP/키/전체로그/work를 Git에 넣지 않는다. 상세 실행 범위: `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §12. 마지막 커밋은 `git log -1`.
+
+## 2026-10-20 GW-READY-02 39차 현재 DB 최신 원본 선택·서명 대조 계약v2
+
+- 시작 `1cf68ee`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 사용자 다음 진행 승인 범위에서 현재 DB 원본 선택 어댑터를 구현했다. 최종 PASS/실환경 인수 완료를 구현했다고 표현하지 않는다.
+- `acceptance_preflight`의 입력 검증/REPEATABLE READ·READ ONLY 거래를 재사용해 `acceptance_sources.sign_current`에서 같은 스냅샷의 현재 회사/세대·정책 원본·DB head와 최신 BACKUP/RESTORE 등록행을 조회한다. 최신순은 recorded_at/id이며 결과/정책/버전 성공 필터와 과거 성공 fallback이 없다. 원본 서명/등록행·현재성·동일 manifest를 대조한다. 최신 RESTORE PARTIAL을 PARTIAL로 참조하고 BACKUP PARTIAL/실패/원본 없는 행·변조/옛 기준은 거부한다.
+- 기존 CLI에 `--current-company-id --signed-reconciliation` 경로와 전용 비공개 FS_GW_PREFLIGHT_DATABASE_URL·FS_CODE_REVISION 연결을 추가했다. 파일 선택/사본 옵션과 혼용·unsigned 현재DB 출력을 금지하고 기존 파일 방식을 유지한다. 출력 전 기존 파일/링크를 거부하며 키/URL/SQL 오류 세부를 출력하지 않는다. DB 변경·증거 자동등록 없음. 기본 admin은 읽기 조회 이름일 뿐 본인 확인/역할·10인 준비 통과를 뜻하지 않는다.
+- ACCEPTANCE PARTIAL 진단v2/CURRENT_REGISTERED_SOURCES에 DB 관측 시각·현재 기준 contextDigest와 최신 원본 참조를 서명한다. 기존 진단v1 계약/지문을 유지한다. 원본 등록이 관측보다 늦거나 실행 시작과 관측 불일치·현재 기준 지문/회사/정책/버전 불일치·알 수 없는 필드·PASS/다른 종류 승격을 거부한다. 등록/준비 조회에서 실제 최신 원본 재대조. UI는 기존 일부 확인 설명에 DB 관측 대조임을 표시하며 도움말을 갱신했다. 화면 전체 구성 완성을 주장하지 않는다.
+- 새 실패가 수집 도중 확정되는 경합은 읽기 스냅샷에서 과거 관측이 일관돼도 서버 등록/기존 기록 재조회에서 거부해야 한다. 출처는 신뢰하는 실행자/읽기 DB/서버 최신 원본 경계이며 DB 독립 감사 서명·배포 소스/실회사 증명은 아니다. ready=false·실제 복원 PARTIAL·최종4조건 UNVERIFIED·ACCEPTANCE PASS 거부를 유지한다.
+- 검증: 관련 단위258통과(기존 경고2)·도움말18통과·정적DB219/2409/543·R1–R6 오류0. 별도 새 소유 PostgreSQL/HTTP/실CLI 최종26통과139.84초(기존 경고2). 최신 실패/새PARTIAL/새PASS·원본 없음/변조·정책/버전·실CLI 새0600 출력/덮어쓰기 거부·PostgreSQL 자체 쓰기 거부와 기존v1/사전점검 회귀를 확인했다. 수집 도중 다른 거래가 실패 원본을 확정하면 기존 읽기 스냅샷은 일관되지만 실제 등록400·기존 대조INVALID·새 수집 거부가 됨을 확인했다. 처음25통과 뒤 경합 검사와 관측 시각/기준 지문 검증을 보완한 최종26을 재실행했다. source의 서명 입력은 합성 주장으로 실제 백업/복원·실회사 검증을 대신하지 않는다. 생성한 시험DB 정리·남은 sources 시험DB0/preview DB존재를 읽기 확인했고 미리보기 초기화/실계정·비밀번호·정책 변경 없음. DB스키마/마이그레이션/Excel/ERD 변경 없음. 전체CI/전체회귀·고정24실수집 재실행·브라우저·실외부 저장소·실회사/기기/10인 실인수 미실행.
+- 다음: 최종 실환경 인수 자료의 유형별 실행 어댑터/관측 출처·서명자 신뢰 분리와 최종 PASS 계약을 이어간다. 외부 저장소 공급자는 미정이며 선정 뒤 연결/장애복구 검증. 이후 최신main 통합/전체회귀·실회사10인/최종전환. 난이도 매우 높음·GPT-6 Astra + High 추천, 모델 자동변경 없음. 다른 checkout/main/원격push/배포 변경 없음.
+
+재현(저장소 루트):
+```sh
+uv run --project backend pytest backend/tests/test_gw_acceptance_sources.py backend/tests/test_gw_business_observation.py backend/tests/test_gw_acceptance_preflight.py backend/tests/test_gw_acceptance_reconciliation.py backend/tests/test_gw_route_verify.py backend/tests/test_gw_journal_routes.py backend/tests/test_gw_journal_coverage.py backend/tests/test_journal_review.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short
+# 소유 컨테이너ID/owner/loopback 포트 대조·새 *_test DB 생성/동일 DATABASE_URL·TEST_DATABASE_URL 비공개 주입:
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_acceptance_sources_db.py backend/tests/test_gw_acceptance_evidence.py backend/tests/test_gw_acceptance_preflight_db.py -q --tb=short
+```
+시험 뒤 생성한 DB만 정리하며 gw_preview_test를 초기화하지 않는다. 운영자 실행은 `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §13. 비밀번호/OTP/키/전체로그/work를 Git에 포함하지 않는다. 마지막 커밋은 `git log -1`.

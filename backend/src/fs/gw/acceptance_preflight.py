@@ -5,6 +5,7 @@ No account/session mutation, grants, evidence registration, or acceptance approv
 
 import hashlib
 import re
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -17,7 +18,7 @@ from fs.gw.operating_contract import canonical
 REMAINING = ["EXTERNAL_STORAGE", "JOURNAL_COVERAGE", "LIVE_COMPANY", "FINAL_RELEASE"]
 
 
-def collect(engine, *, company_id, code_revision, admin_login="admin"):
+def validate_request(*, company_id, code_revision, admin_login):
     if (
         type(company_id) is not int
         or not 0 < company_id <= 9223372036854775807
@@ -29,6 +30,10 @@ def collect(engine, *, company_id, code_revision, admin_login="admin"):
         or any(ord(c) < 32 for c in admin_login)
     ):
         raise BackupError("회사·제품 버전·점검할 관리자 식별자를 확인하세요.")
+
+
+@contextmanager
+def read_transaction(engine):
     with (
         engine.connect().execution_options(isolation_level="REPEATABLE READ") as c,
         c.begin(),
@@ -36,6 +41,14 @@ def collect(engine, *, company_id, code_revision, admin_login="admin"):
         c.execute(text("SET TRANSACTION READ ONLY"))
         c.execute(text("SET LOCAL statement_timeout='15s'"))
         c.execute(text("SET LOCAL lock_timeout='3s'"))
+        yield c
+
+
+def collect(engine, *, company_id, code_revision, admin_login="admin"):
+    validate_request(
+        company_id=company_id, code_revision=code_revision, admin_login=admin_login
+    )
+    with read_transaction(engine) as c:
         return snapshot(
             c,
             company_id=company_id,

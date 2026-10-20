@@ -5,6 +5,7 @@ from datetime import timedelta
 from fs.common.errors import ApiError
 from fs.gw.operating_contract import (
     EvidenceEnvelope,
+    RegisteredAcceptanceDiagnostics,
     backup_is_current,
     timestamp,
     verify_evidence,
@@ -52,6 +53,12 @@ def assess(rows, *, policy, policy_id, code_revision, db_revision, public_keys, 
                         generation_id=row["generation_id"],
                     )
                     detail = "최신 백업·복원 원본과 서명 인수 점검 기록이 일치합니다. 외부 보관·전체 회수·실회사·최종 전환은 미확인입니다."
+                    if isinstance(
+                        data.metrics.acceptance_diagnostics,
+                        RegisteredAcceptanceDiagnostics,
+                    ):
+                        detail = "DB 관측의 현재 기준과 최신 백업·복원 등록 원본을 재검증했습니다. 외부 보관·전체 회수·실회사·최종 전환은 미확인입니다."
+
                 except ApiError, ValueError, TypeError, KeyError:
                     state, verified = "INVALID", False
                     detail = "참조한 백업·복원 원본이 현재 최신 등록과 다르거나 재검증에 실패했습니다. 최신 원본으로 다시 점검하세요."
