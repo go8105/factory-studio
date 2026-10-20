@@ -108,3 +108,135 @@ export const CAUSE_LABEL: Record<Cause, string> = {
   EXTERNAL: "외부 요인",
   OTHER: "기타",
 };
+
+export type WoKind = "BM" | "PM";
+export type WoStatus = "REQUESTED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+export type WoSource =
+  "MANUAL" | "BEMS_ALARM" | "SPC_SIGNAL" | "PM_PLAN" | "RWS_REQUEST";
+export type Skill = "MECHANICAL" | "ELECTRICAL" | "UTILITY" | "GENERAL";
+
+export type WorkLog = {
+  id: number;
+  loggedAt: string;
+  minutes: number;
+  note: string | null;
+  technicianId: number | null;
+  technicianName: string | null;
+};
+export type WorkOrder = {
+  id: number;
+  woNo: string;
+  assetId: number;
+  assetCode: string;
+  assetName: string;
+  assetType: AssetType;
+  kind: WoKind;
+  source: WoSource;
+  sourceRef: string | null;
+  sourceSummary: string | null;
+  dueOn: string | null;
+  title: string;
+  description: string | null;
+  status: WoStatus;
+  requestedAt: string;
+  failureAt: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  restoredAt: string | null;
+  causeCategory: Cause | null;
+  action: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  technicianId: number | null;
+  technicianName: string | null;
+  vendorId: number | null;
+  vendorName: string | null;
+  externalCost: string | null;
+  symptomCodeId: number | null;
+  symptomCode: string | null;
+  symptomName: string | null;
+  actionCodeId: number | null;
+  actionCode: string | null;
+  actionName: string | null;
+  logs?: WorkLog[];
+};
+export type PendingSignal = {
+  id: string;
+  source: "BEMS_ALARM" | "SPC_SIGNAL";
+  sourceRef: string;
+  summary: string;
+  severity: string | null;
+  detectedAt: string;
+  suggestedAssetId: number | null;
+  suggestedAssetCode: string | null;
+};
+export type SignalBoard = {
+  sources: { bems: boolean; spc: boolean };
+  signals: PendingSignal[];
+};
+export type Technician = {
+  id: number;
+  code: string;
+  name: string;
+  skill: Skill;
+  hourlyRate: string;
+  currency: string;
+  hrEmployeeCode: string | null;
+  isActive: boolean;
+};
+export type Vendor = {
+  id: number;
+  code: string;
+  name: string;
+  erpPartnerCode: string | null;
+  phone: string | null;
+  isActive: boolean;
+};
+
+export const WO_STATUS_LABEL: Record<WoStatus, string> = {
+  REQUESTED: "접수",
+  IN_PROGRESS: "진행",
+  COMPLETED: "완료",
+  CANCELLED: "취소",
+};
+export const WO_STATUS_TONE: Record<WoStatus, "normal" | "warning" | "issue"> =
+  {
+    REQUESTED: "issue",
+    IN_PROGRESS: "warning",
+    COMPLETED: "normal",
+    CANCELLED: "normal",
+  };
+export const WO_KIND_LABEL: Record<WoKind, string> = {
+  BM: "고장",
+  PM: "예방",
+};
+export const WO_SOURCE_LABEL: Record<WoSource, string> = {
+  MANUAL: "직접 접수",
+  BEMS_ALARM: "BEMS 경보",
+  SPC_SIGNAL: "SPC 이상",
+  PM_PLAN: "보전 계획",
+  RWS_REQUEST: "RWS 요청",
+};
+export const SKILL_LABEL: Record<Skill, string> = {
+  MECHANICAL: "기계",
+  ELECTRICAL: "전기",
+  UTILITY: "유틸리티",
+  GENERAL: "일반",
+};
+
+export const time = (value: string) =>
+  new Date(value).toLocaleString("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+export const money = (value: string | null) =>
+  value == null ? "—" : `${Number(value).toLocaleString("ko-KR")}원`;
+/** 작업 기록 분 합계를 "1시간 20분"으로. 인건비의 근거가 되는 값이다. */
+export const duration = (minutes: number) =>
+  minutes >= 60
+    ? `${Math.floor(minutes / 60)}시간${minutes % 60 ? ` ${minutes % 60}분` : ""}`
+    : `${minutes}분`;

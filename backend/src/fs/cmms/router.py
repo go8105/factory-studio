@@ -11,8 +11,18 @@ from fs.cmms.schema import (
     AssetCreate,
     AssetImport,
     AssetUpdate,
+    CancelBody,
     FailureCodeCreate,
     FailureCodeUpdate,
+    SignalConvert,
+    TechnicianCreate,
+    TechnicianUpdate,
+    VendorCreate,
+    VendorUpdate,
+    WorkLogCreate,
+    WorkOrderComplete,
+    WorkOrderCreate,
+    WorkOrderStart,
 )
 from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
@@ -234,3 +244,286 @@ def delete_failure_code(
 ):
     service.delete_failure_code(context, code_id, _mutation(context, csrf, key))
     return Response(status_code=204)
+
+
+# ── 작업지시 (C-03) ─────────────────────────────────────────────────────────
+
+
+@router.get("/work-orders")
+def list_work_orders(
+    context: Auth,
+    status: str | None = None,
+    kind: str | None = None,
+    asset_id: Annotated[int | None, Query(alias="assetId")] = None,
+):
+    return {"data": service.work_orders(context, status, kind, asset_id)}
+
+
+@router.get("/work-orders/{order_id}")
+def get_work_order(order_id: int, context: Auth):
+    return {"data": service.work_order(context, order_id)}
+
+
+@router.post("/work-orders", status_code=201)
+def post_work_order(
+    payload: WorkOrderCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.create_work_order(
+            context,
+            _values(
+                payload,
+                frozenset(
+                    {"description", "failure_at", "technician_id", "symptom_code_id"}
+                ),
+            ),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+@router.post("/work-orders/{order_id}/start")
+def post_work_order_start(
+    order_id: int,
+    payload: WorkOrderStart,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.start_work_order(
+            context,
+            order_id,
+            payload.model_dump(exclude_unset=True),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+@router.post("/work-orders/{order_id}/logs", status_code=201)
+def post_work_log(
+    order_id: int,
+    payload: WorkLogCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.add_work_log(
+            context,
+            order_id,
+            _values(payload, frozenset({"note", "technician_id"})),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+@router.post("/work-orders/{order_id}/complete")
+def post_work_order_complete(
+    order_id: int,
+    payload: WorkOrderComplete,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.complete_work_order(
+            context,
+            order_id,
+            _values(
+                payload,
+                frozenset(
+                    {"action_code_id", "restored_at", "vendor_id", "external_cost"}
+                ),
+            ),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+@router.post("/work-orders/{order_id}/cancel")
+def post_work_order_cancel(
+    order_id: int,
+    payload: CancelBody,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.cancel_work_order(
+            context, order_id, payload.reason, _mutation(context, csrf, key)
+        )
+    }
+
+
+# ── 전환 대기 신호 (C-02) ───────────────────────────────────────────────────
+
+
+@router.get("/signals")
+def get_pending_signals(context: Auth):
+    return {"data": service.pending_signals(context)}
+
+
+@router.post("/signals/convert", status_code=201)
+def post_signal_convert(
+    payload: SignalConvert,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.convert_signal(
+            context,
+            _values(payload, frozenset({"title", "detected_at"})),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+# ── 정비원·외주 업체 (C-08) ─────────────────────────────────────────────────
+
+
+@router.get("/technicians")
+def list_technicians(
+    context: Auth,
+    offset: int = 0,
+    limit: int = 50,
+    sort: str | None = None,
+    skill: str | None = None,
+    active: bool | None = None,
+):
+    page = Page(offset, limit).checked()
+    return _page(
+        service.technicians(
+            context,
+            filters={"skill": skill, "active": active},
+            sort=sort,
+            offset=page.offset,
+            limit=page.limit,
+        ),
+        page,
+    )
+
+
+@router.post("/technicians", status_code=201)
+def post_technician(
+    payload: TechnicianCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.create_technician(
+            context,
+            _values(payload, frozenset({"hr_employee_code"})),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+@router.patch("/technicians/{row_id}")
+def patch_technician(
+    row_id: int,
+    payload: TechnicianUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.update_technician(
+            context,
+            row_id,
+            _values(payload, frozenset({"hr_employee_code"})),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+@router.delete("/technicians/{row_id}", status_code=204)
+def delete_technician(
+    row_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    service.delete_technician(context, row_id, _mutation(context, csrf, key))
+    return Response(status_code=204)
+
+
+@router.get("/vendors")
+def list_vendors(
+    context: Auth,
+    offset: int = 0,
+    limit: int = 50,
+    sort: str | None = None,
+    active: bool | None = None,
+):
+    page = Page(offset, limit).checked()
+    return _page(
+        service.vendors(
+            context,
+            filters={"active": active},
+            sort=sort,
+            offset=page.offset,
+            limit=page.limit,
+        ),
+        page,
+    )
+
+
+@router.post("/vendors", status_code=201)
+def post_vendor(
+    payload: VendorCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.create_vendor(
+            context,
+            _values(payload, frozenset({"erp_partner_code", "phone"})),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+@router.patch("/vendors/{row_id}")
+def patch_vendor(
+    row_id: int,
+    payload: VendorUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.update_vendor(
+            context,
+            row_id,
+            _values(payload, frozenset({"erp_partner_code", "phone"})),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+@router.delete("/vendors/{row_id}", status_code=204)
+def delete_vendor(
+    row_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    service.delete_vendor(context, row_id, _mutation(context, csrf, key))
+    return Response(status_code=204)
+
+
+@router.get("/lookups/hr-employees")
+def lookup_hr_employees(context: Auth):
+    return {"data": service.hr_employees(context)}
+
+
+@router.get("/lookups/erp-partners")
+def lookup_erp_partners(context: Auth):
+    return {"data": service.erp_partners(context)}

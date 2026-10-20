@@ -707,9 +707,27 @@
       "title": "설비보전",
       "screens": [
         {
+          "path": "signals",
+          "id": "C-02",
+          "label": "전환 대기 신호",
+          "group": "보전 현황"
+        },
+        {
+          "path": "work-orders",
+          "id": "C-03",
+          "label": "작업지시",
+          "group": "보전 현황"
+        },
+        {
           "path": "assets",
           "id": "C-05",
           "label": "설비 대장",
+          "group": "기준정보"
+        },
+        {
+          "path": "technicians",
+          "id": "C-08",
+          "label": "정비원·외주 업체",
           "group": "기준정보"
         },
         {

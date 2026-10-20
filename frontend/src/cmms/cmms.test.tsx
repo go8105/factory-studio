@@ -222,3 +222,191 @@ it("C-09 고장 코드: 구분과 원인 분류를 함께 보낸다", async () =
   expect(saved.kind).toBe("CAUSE");
   expect(saved.causeCategory).toBe("SETTING");
 });
+
+const order = (extra: Record<string, unknown> = {}) => ({
+  id: 7,
+  woNo: "WO-0001",
+  assetId: 1,
+  assetCode: "PRESS-01",
+  assetName: "프레스 1호",
+  assetType: "OTHER",
+  kind: "BM",
+  source: "MANUAL",
+  sourceRef: null,
+  sourceSummary: null,
+  dueOn: null,
+  title: "이상 소음",
+  description: null,
+  status: "IN_PROGRESS",
+  requestedAt: "2026-10-20T09:00:00+09:00",
+  failureAt: "2026-10-20T08:50:00+09:00",
+  startedAt: "2026-10-20T09:10:00+09:00",
+  completedAt: null,
+  restoredAt: null,
+  causeCategory: null,
+  action: null,
+  cancelledAt: null,
+  cancelReason: null,
+  technicianId: 3,
+  technicianName: "김보전",
+  vendorId: null,
+  vendorName: null,
+  externalCost: null,
+  symptomCodeId: null,
+  symptomCode: null,
+  symptomName: null,
+  actionCodeId: null,
+  actionCode: null,
+  actionName: null,
+  ...extra,
+});
+
+it("C-03 작업지시: 진행 중에는 작업 기록과 완료 폼이 함께 보이고 합계를 알려 준다", async () => {
+  const fetcher = mount("/cmms/work-orders", {
+    [`GET ${C}/work-orders`]: ok([order()]),
+    [`GET ${C}/work-orders/7`]: ok({
+      ...order(),
+      logs: [
+        {
+          id: 1,
+          loggedAt: "2026-10-20T09:20:00+09:00",
+          minutes: 40,
+          note: "호스 교체",
+          technicianId: 3,
+          technicianName: "김보전",
+        },
+        {
+          id: 2,
+          loggedAt: "2026-10-20T10:00:00+09:00",
+          minutes: 35,
+          note: null,
+          technicianId: 3,
+          technicianName: "김보전",
+        },
+      ],
+    }),
+    [`GET ${C}/assets/tree`]: ok([]),
+    [`POST ${C}/work-orders/7/complete`]: ok(order({ status: "COMPLETED" })),
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "상세" }));
+  // 40 + 35 = 75분 → 1시간 15분
+  expect(await screen.findByText(/합계 1시간 15분/)).toBeVisible();
+  fireEvent.change(screen.getByLabelText("원인 분류"), {
+    target: { value: "LUBRICATION" },
+  });
+  fireEvent.change(screen.getByLabelText("조치 내용"), {
+    target: { value: "그리스 주입" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "완료 처리" }));
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/work-orders/7/complete")).toHaveLength(1),
+  );
+  const saved = body(sent(fetcher, "POST", "/work-orders/7/complete")[0]);
+  expect(saved.causeCategory).toBe("LUBRICATION");
+  expect(saved.action).toBe("그리스 주입");
+  expect(saved.vendorId).toBeNull();
+});
+
+it("C-03 외주 비용 칸은 업체를 고를 때만 나온다", async () => {
+  mount("/cmms/work-orders", {
+    [`GET ${C}/work-orders`]: ok([order()]),
+    [`GET ${C}/work-orders/7`]: ok({ ...order(), logs: [] }),
+    [`GET ${C}/assets/tree`]: ok([]),
+    [`GET ${C}/vendors`]: ok([
+      {
+        id: 5,
+        code: "V-01",
+        name: "한빛정비",
+        erpPartnerCode: null,
+        phone: null,
+        isActive: true,
+      },
+    ]),
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "상세" }));
+  expect(await screen.findByLabelText("조치 내용")).toBeVisible();
+  expect(screen.queryByLabelText("외주 비용")).toBeNull();
+  fireEvent.change(await screen.findByLabelText("외주 업체(선택)"), {
+    target: { value: "5" },
+  });
+  expect(screen.getByLabelText("외주 비용")).toBeVisible();
+});
+
+it("C-02 전환 대기 신호: 추천 설비를 기본값으로 두고 원천을 바꾸지 않는다고 알린다", async () => {
+  const fetcher = mount("/cmms/signals", {
+    [`GET ${C}/signals`]: ok({
+      sources: { bems: true, spc: false },
+      signals: [
+        {
+          id: "BEMS_ALARM:11",
+          source: "BEMS_ALARM",
+          sourceRef: "11",
+          summary: "사무동 TEMP 상한 28 초과(최고 31.2)",
+          severity: "CRITICAL",
+          detectedAt: "2026-10-20T08:00:00+09:00",
+          suggestedAssetId: 4,
+          suggestedAssetCode: "AHU-OFF",
+        },
+      ],
+    }),
+    [`GET ${C}/assets/tree`]: ok([
+      node(2, "PRESS-01", 0),
+      node(4, "AHU-OFF", 0, { assetType: "HVAC", source: "BEMS" }),
+    ]),
+    [`POST ${C}/signals/convert`]: ok(
+      order({ id: 9, woNo: "WO-0009", source: "BEMS_ALARM" }),
+      201,
+    ),
+  });
+  expect(await screen.findByText(/원천 상태는 바뀌지 않습니다/)).toBeVisible();
+  // SPC를 꺼 두면 그 줄만 빠진다고 알린다(조회가 끝나야 안다).
+  expect(await screen.findByText(/SPC를 사용하지 않도록 설정해/)).toBeVisible();
+  expect(screen.getByText("심각")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "작업지시로" }));
+  // 경보 구역의 공조기가 기본으로 잡힌다.
+  expect(await screen.findByLabelText("작업할 설비")).toHaveValue("4");
+  fireEvent.click(screen.getByRole("button", { name: "전환" }));
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/signals/convert")).toHaveLength(1),
+  );
+  expect(body(sent(fetcher, "POST", "/signals/convert")[0])).toMatchObject({
+    source: "BEMS_ALARM",
+    sourceRef: "11",
+    assetId: 4,
+  });
+  expect(
+    await screen.findByText(/WO-0009 작업지시를 만들었습니다/),
+  ).toBeVisible();
+});
+
+it("C-08 정비원·외주 업체는 탭으로 나뉜다", async () => {
+  mount("/cmms/technicians", {
+    [`GET ${C}/technicians`]: ok([
+      {
+        id: 3,
+        code: "T-01",
+        name: "김보전",
+        skill: "MECHANICAL",
+        hourlyRate: "30000.00",
+        currency: "KRW",
+        hrEmployeeCode: null,
+        isActive: true,
+      },
+    ]),
+    [`GET ${C}/vendors`]: ok([
+      {
+        id: 5,
+        code: "V-01",
+        name: "한빛정비",
+        erpPartnerCode: null,
+        phone: "02-000-0000",
+        isActive: true,
+      },
+    ]),
+  });
+  expect(await screen.findByText("김보전")).toBeVisible();
+  expect(screen.getByText("30,000원")).toBeVisible();
+  expect(screen.getByText("기계")).toBeVisible();
+  fireEvent.click(screen.getByRole("tab", { name: "외주 업체" }));
+  expect(await screen.findByText("한빛정비")).toBeVisible();
+});
