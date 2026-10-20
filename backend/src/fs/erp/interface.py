@@ -309,3 +309,31 @@ def approval_document(connection, scoped, kind, document_no):
         "digest": approval_source_digest(snapshot),
         "status": head["status"],
     }
+
+
+def partners(
+    connection: Connection, scoped: AuthContext, partner_kind: str | None = None
+) -> list[dict[str, Any]] | None:
+    """사용 중인 거래처 `[{partnerCode, partnerName, partnerKind}]`. ERP가 꺼져 있으면 None.
+
+    CMMS가 외주 업체를 ERP 거래처에 이어 붙일 때 고르는 목록이다(DSN-21 Q5, SUPPLIER).
+    비용 회계는 ERP 직접 매입으로 따로 처리하고, CMMS는 코드만 스냅샷으로 들고 있는다.
+    """
+    if not enabled(connection, scoped):
+        return None
+    rows = connection.execute(
+        text(
+            "SELECT partner_code, partner_name, partner_kind FROM erp.partner "
+            "WHERE workspace_id=:w AND generation_id=:g AND is_active "
+            "AND (CAST(:kind AS text) IS NULL OR partner_kind=:kind) ORDER BY partner_code"
+        ),
+        {**_s(scoped), "kind": partner_kind},
+    ).mappings()
+    return [
+        {
+            "partnerCode": row["partner_code"],
+            "partnerName": row["partner_name"],
+            "partnerKind": row["partner_kind"],
+        }
+        for row in rows
+    ]
