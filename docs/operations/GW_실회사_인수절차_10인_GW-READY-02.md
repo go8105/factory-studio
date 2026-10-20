@@ -103,4 +103,11 @@ uv run --project backend python tools/gw_backup.py verify-copy \
 
 새0700 임시폴더에 사본을 제한 복사한 뒤 현재 서명 증거/지문을 확인하고 같은 사본을 복호화한다. 내부 명세 서명과 dump지문, 증거의 manifestDigest/runId까지 대조한다. 성공·실패 모두 임시 암호문/평문을 제거한다. 새0600 보고서는 지문/버전/검사값만 담으며 경로·원문·키는 제외한다. 성공은 PARTIAL/종료0, 오류는 종료1이다. 기존 보고서를 덮어쓰지 않는다.
 
-`decryptionConfirmed=true`/`dumpDigestVerified=true`는 파일 무결성 범위다. `databaseRestoreConfirmed=false`와 저장소 독립성 미확인은 유지한다. 실제 PostgreSQL 복원/권한회수·실회사 인수와 구분하며 이 unsigned 보고서는 제품 실행 증거에 등록하지 않는다. 최신 실패 여부는 기존 제품 등록조회에서 별도 확인해야 한다. 이번 검사는 합성 dump 바이트로 실행했으며 실제 pg_dump 사본과의 통합 회귀는 다음 작업이다.
+`decryptionConfirmed=true`/`dumpDigestVerified=true`는 파일 무결성 범위다. `databaseRestoreConfirmed=false`와 저장소 독립성 미확인은 유지한다. 실제 PostgreSQL 복원/권한회수·실회사 인수와 구분하며 이 unsigned 보고서는 제품 실행 증거에 등록하지 않는다. 최신 실패 여부는 기존 제품 등록조회에서 별도 확인해야 한다. 27차는 합성 dump 바이트 검사였고,28차에서 실제 pg_dump 사본의 오프라인검사→원본 백업 파일 제거→같은 사본의 접속제한PG 복원→manifest 증거 대조를 검증했다. 실제 외부 장애영역/운영 인수 검증은 아니다.
+
+
+## 28차 실제PG 사본 회귀와 시각 제약
+
+별도 소유 테스트DB에서 실제 사본 검사/격리복원과 기존 journal 두 경로 총3건 최종 통과했다. 사본 파일검사 보고서와 복원 증거는 별개이며 동일 manifestDigest를 대조한다. 기존 PARTIAL·전체회수 미확인·ready=false는 유지한다. 실제 저장소 자격 증명/다운로드나 운영DB 접속은 이번에 추가하지 않았다.
+
+호스트/DB 종료시각 차이에 대해 파일검사는 기존 서명검증과 동일한30초 허용을 사용한다. 백업 시작시각/RPO 현재성 조건은 유지한다. 검증 도중 DB시각 역전으로 기존 CHECK/증거 등록 실패도 관찰했고 최종 재실행은 통과했다. 시간동기 설정을 임의 변경하지 않았으며 장기 안정성이나 운영 시간동기 인수 완료로 해석하지 않는다. 운영 도입 전 실제 서버·DB 시간동기와 시각 역전 대응을 별도로 검증한다.

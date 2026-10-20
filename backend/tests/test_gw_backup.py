@@ -5,6 +5,7 @@ import base64
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -14,17 +15,16 @@ import pytest
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
+from fs.common.db import reset_engine
+from fs.common.security import hash_password
+from fs.core.backup import BackupError
+from fs.main import create_app
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from test_gw_company import context
 from test_gw_company_work import api, ok
 from test_gw_evidence import prepare
 from test_hr_work import company_env
-
-from fs.common.db import reset_engine
-from fs.common.security import hash_password
-from fs.core.backup import BackupError
-from fs.main import create_app
 
 
 def runner():
@@ -138,6 +138,82 @@ def test_actual_backup_replay_restore_and_business_denial(
         ]
         == "PASS"
     )
+    # Stage a separate local copy of a real pg_dump artifact. This is not an
+    # independent external storage domain; exercise the offline CLI honestly.
+    copy_folder = folders["reports"] / "staged-copy"
+    copy_folder.mkdir(mode=0o700)
+    storage_copy = copy_folder / "copied.fsbackup"
+    shutil.copyfile(artifact, storage_copy)
+    storage_copy.chmod(0o600)
+    operating_policy = ok(api(admin, co, "operations", method="GET"))["policy"]
+    backup_document = json.loads(backup_proof.read_text())
+    envelope = backup_document["envelope"]
+    current = {
+        "workspaceId": int(envelope["workspaceId"]),
+        "generationId": int(envelope["generationId"]),
+        "policy": operating_policy,
+        "codeRevision": envelope["codeRevision"],
+        "dbRevision": envelope["dbRevision"],
+    }
+    current_file = copy_folder / "context.json"
+    current_file.write_text(json.dumps(current))
+    current_file.chmod(0o600)
+    offline_env = os.environ.copy()
+    for name in (
+        "DATABASE_URL",
+        "TEST_DATABASE_URL",
+        "FS_GW_RESTORE_ADMIN_URL",
+        "FS_GW_RUNNER_KEY_FILE",
+        "FS_GW_RUNNER_KEY_ID",
+        "FS_SECURITY_KEYS",
+        "FS_SECURITY_KEY_ID",
+        "FS_SECURITY_MODE",
+        "FS_GW_PG_CONTAINER",
+        "FS_GW_RESTORE_PG_CONTAINER",
+    ):
+        offline_env.pop(name, None)
+    copy_report = copy_folder / "copy-check.json"
+    checked_copy = subprocess.run(
+        [
+            str(Path(sys.executable).absolute()),
+            str(Path(__file__).parents[2] / "tools/gw_backup.py"),
+            "verify-copy",
+            "--backup",
+            str(storage_copy),
+            "--backup-evidence",
+            str(backup_proof),
+            "--context",
+            str(current_file),
+            "--report",
+            str(copy_report),
+        ],
+        env=offline_env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if checked_copy.returncode:
+        from datetime import UTC, datetime
+
+        from fs.gw.operating_contract import OperatingPolicy, timestamp
+
+        diagnostic = {
+            "policyMatches": OperatingPolicy.model_validate(operating_policy).digest()
+            == envelope["policyDigest"],
+            "futureSeconds": (
+                timestamp(envelope["finishedAt"]) - datetime.now(UTC)
+            ).total_seconds(),
+        }
+        pytest.fail("offline copy rejected: " + json.dumps(diagnostic))
+    copy_details = json.loads(copy_report.read_text())
+    assert copy_details["result"] == "PARTIAL" and copy_details["ready"] is False
+    assert copy_details["storageCopy"]["decryptionConfirmed"] is True
+    assert copy_details["storageCopy"]["storageIndependenceConfirmed"] is False
+    assert copy_details["databaseRestoreConfirmed"] is False
+    assert copy_details["manifestDigest"] == envelope["manifestDigest"]
+    assert copy_details["dumpDigestVerified"] is True
+    assert not list(copy_folder.glob(".fs-storage-copy-*"))
+    assert copy_report.stat().st_mode & 0o777 == 0o600
     with engine.connect() as c:
         staff_person = c.execute(
             text(
@@ -169,9 +245,12 @@ def test_actual_backup_replay_restore_and_business_denial(
         .set(database="postgres")
         .render_as_string(hide_password=False)
     )
+    # The original artifact is now absent: restore must read the staged copy.
+    artifact.unlink()
+    assert not artifact.exists()
     restored = module.restore(
         admin_url=admin_url,
-        artifact=artifact,
+        artifact=storage_copy,
         checkpoint_file=checkpoint,
         head=head,
         expected_checkpoint_digest=captured["checkpointDigest"],
@@ -180,6 +259,11 @@ def test_actual_backup_replay_restore_and_business_denial(
         config=config,
     )
     assert restored["result"] == "PARTIAL" and restored["closed"] is True
+    assert (
+        json.loads(restore_proof.read_text())["envelope"]["manifestDigest"]
+        == copy_details["manifestDigest"]
+    )
+    assert not artifact.exists() and storage_copy.exists()
     details = json.loads(report.read_text())
     assert (
         details["rowHashesMatch"]

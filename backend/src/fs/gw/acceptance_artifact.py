@@ -3,6 +3,7 @@
 import hashlib
 import os
 import stat
+from datetime import timedelta
 
 from fs.gw.operating_contract import backup_is_current, timestamp, verify_evidence
 
@@ -21,7 +22,7 @@ def inspect_copy(path, document, **context):
     if (
         proof.kind != "BACKUP"
         or proof.result != "PASS"
-        or timestamp(proof.finished_at) > context["now"]
+        or timestamp(proof.finished_at) > context["now"] + timedelta(seconds=30)
         or not backup_is_current(proof, context["policy"], context["now"])
     ):
         raise ValueError("current backup required")

@@ -224,3 +224,15 @@ codex/gw-company-01, 시작b1ed206. 기존 gw_backup.py에 verify-copy 명령/ve
 전체GW-READY-02 진행 중. 다음: 이번 사본 검사와 실제 격리PG복원 증거의 연결·실제dump 기반 회귀 → 전체 변경 수집/권한회수 계약/어댑터 → 최종 ACCEPTANCE 계약·운영게이트 → 기존GW UI 구성 보완 → 최신main/전체회귀·10인실인수. 실제저장소/회사인수는 사용자 실환경에서 별도 확인하며 현재 readyfalse/미확인4 유지.
 
 재현: `uv run --project backend pytest backend/tests/test_gw_storage_copy.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short` (93). `npm run db:validate`; `uv run --project backend python tools/audit_schema_isolation.py`. 마지막커밋 git log -1.
+
+## 2026-10-20 GW-READY-02 28차 실제PG 사본 검사·격리복원 연결
+
+codex/gw-company-01, 시작2b11be2·작업트리깨끗함 확인. 실제 백업 회귀를 보강했다. 실제 pg_dump/암호화 결과를 별도 로컬 비공개 사본으로 복사 → DB/인증키/서명개인키/PG컨테이너 환경을 제거한 subprocess의 verify-copy → 내부서명/dump/manifest 연결 확인 → checkpoint 뒤 테스트 원본 백업파일 제거 → 같은 사본으로 새 접속제한PG 복원 → 서명복원 증거와 사본검사 manifestDigest 대조/API전달·행/FK·세션회수·직원403·관리자200/원본 상태 유지까지 검사. 실제 다른 저장소 장애영역을 준비한 것은 아니다. 사본보고서 PARTIAL/databaseRestoreConfirmed=false는 파일검사 범위를 유지하며 별도 복원 증거도 PARTIAL/readyfalse다. 수동 합성업무 검사를 도구의 twoAccountChecks=true로 올리지 않았다.
+
+실통합에서 DB 종료시각이 호스트보다 약1.6초 앞서 사본 검사가 실패했다. 사본 finishedAt 허용을 기존 verify_evidence와 같은30초로 정렬했다. snapshot/RPO 현재성 규칙은 변경없음·31초초과 거부 검사 추가. 이후 기존 권한회수 CHECK에 DB시각역전1회, 별도 재실행의 기존 백업증거 등록400도 관찰했다. 시계/호스트/컨테이너 설정은 변경하지 않았다. 첫3실행은 각각1실패2통과·2실패1통과·1실패2통과이며 성공으로 세지 않는다. 최종 새 소유DB에서3통과44.35초(기존 경고2). 시각역전 원인·장기안정성/실운영 시간동기 인수는 미확인으로 남긴다.
+
+검증: 단위95통과0.20초(기존 경고2), 위 실제PG3통과, Ruff check/format·diff·정적DB219/2409/543·R1–R6 오류0. 소유preview컨테이너ID/owner라벨/loopback55439 대조 후 매실행 UUID *_test 생성/alembic head·시험DB정리; preview DB/서비스 유지. 이번브라우저/UI/전체CI/실외부/실기기/10인인수 미실행. schema불변·Excel/ERD재생성 없음. 비밀/work/전체로그 스테이징없음·다른checkout/main/원격push/배포 변경없음.
+
+전체02진행중. 다음: 전체 변경 수집/권한회수의 경로별 증거계약·실행어댑터와 미확인 처리 → 최종 ACCEPTANCE/운영게이트 연결 → 기존GW UI 맥락·긴정보/다음조치/모바일 보완 → 최신main/전체회귀·10인인수. 실제외부저장소/시간동기·회사인수는 별도 실환경 검증. 현재 readyfalse/미확인4 유지.
+
+재현: 별도 소유PG18 *_test에 alembic head 적용·TEST_DATABASE_URL/GW_BACKUP_TEST_CONTAINER 주입 후 `uv run --project backend pytest backend/tests/test_gw_backup.py::test_actual_backup_replay_restore_and_business_denial backend/tests/test_backup_journal_restore.py -q --tb=short` (3). 단위는27차 명령에 같은파일 그대로(95). 미리보기DB를 TEST_DATABASE_URL로 사용하지 않는다. 마지막커밋 git log -1.

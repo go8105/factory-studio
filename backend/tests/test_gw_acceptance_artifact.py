@@ -123,3 +123,30 @@ def test_cli_storage_mismatch_blocks_otherwise_matching_pair(
     assert output.stat().st_mode & 0o777 == 0o600
     assert str(copy) not in output.read_text()
     assert "BLOCKED" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("ahead,accepted", [(10, True), (31, False)])
+def test_copy_finished_time_uses_existing_signature_clock_tolerance(
+    tmp_path, ahead, accepted
+):
+    from datetime import timedelta
+
+    from fs.common.errors import ApiError
+    from test_gw_operating_contract import NOW
+
+    key, payloads, context = fixture()
+    path = tmp_path / "copy"
+    path.write_bytes(b"synthetic")
+    path.chmod(0o600)
+    payloads["BACKUP"]["metrics"]["artifactDigest"] = hashlib.sha256(
+        path.read_bytes()
+    ).hexdigest()
+    finish = (NOW + timedelta(seconds=ahead)).isoformat()
+    payloads["BACKUP"]["finishedAt"] = finish
+    payloads["BACKUP"]["metrics"]["storageConfirmedAt"] = finish
+    document = signed(payloads, key)["BACKUP"]
+    if accepted:
+        assert inspect_copy(path, document, **context)["state"] == "MATCH"
+    else:
+        with pytest.raises((ApiError, ValueError)):
+            inspect_copy(path, document, **context)
