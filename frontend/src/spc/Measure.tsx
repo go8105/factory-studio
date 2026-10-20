@@ -1,4 +1,5 @@
-// S-04 측정 입력 — MES 공정 실행 선택 → 부분군 5값 입력(TX-S1) (UI-02 V 패턴 + FormPanel).
+// S-04 측정 입력 — MES 공정 실행 선택 → 부분군 값 입력(TX-S1) (UI-02 V 패턴 + FormPanel).
+// 입력 칸 수는 특성의 부분군 크기다(1~10). I-MR(n=1)은 R 대신 직전 값과의 차이(MR)가 서버에서 붙는다.
 // MES 교차 조회 시연 화면: 공정 실행 목록은 MES에서 읽고, SPC는 MES 데이터를 바꾸지 않는다.
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
@@ -20,7 +21,9 @@ import {
   ModuleOff,
   moduleOff,
   num,
+  CHART_LABEL,
   RULE_LABEL,
+  SIDE_LABEL,
   spec,
   time,
   toIso,
@@ -29,6 +32,8 @@ import {
   useGet,
   useSend,
   type Characteristic,
+  type ChartKey,
+  type RuleNo,
 } from "./common";
 
 type Run = {
@@ -44,20 +49,23 @@ type Run = {
 type Recorded = {
   xbar: string;
   r: string;
-  signals: { chart: "XBAR" | "R"; rule: 1 | 2 | 3; value: string }[];
+  signals: { chart: ChartKey; rule: RuleNo; value: string }[];
+  specViolations: { seq: number; value: string; side: "LOW" | "HIGH" }[];
 };
 
 const sourceOff = (e: unknown) =>
   e instanceof ApiError && e.error.details?.reason === "SOURCE_MODULE_DISABLED";
 
+/** 입력하는 동안 보여 줄 X̄·R. n=1은 직전 값을 모르니 MR은 서버가 계산한다. */
 function stats(values: string[]) {
   const nums = values.filter((v) => v.trim() !== "").map(Number);
-  if (nums.length !== 5 || nums.some(Number.isNaN)) return null;
+  if (nums.length !== values.length || nums.some(Number.isNaN)) return null;
   return {
-    xbar: nums.reduce((a, b) => a + b, 0) / 5,
-    r: Math.max(...nums) - Math.min(...nums),
+    xbar: nums.reduce((a, b) => a + b, 0) / nums.length,
+    r: nums.length === 1 ? null : Math.max(...nums) - Math.min(...nums),
   };
 }
+const blankValues = (size: number) => Array.from({ length: size }, () => "");
 
 export function Measure() {
   const list = useGet<Characteristic[]>("/characteristics");
@@ -67,7 +75,7 @@ export function Measure() {
   );
   const [run, setRun] = useState<Run | null>(null);
   const [at, setAt] = useState("");
-  const [values, setValues] = useState(["", "", "", "", ""]);
+  const [values, setValues] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [result, setResult] = useState<Recorded>();
   const { send, pending, error, setError } = useSend(() => runs.reload());
@@ -83,7 +91,7 @@ export function Measure() {
       const upper = r.endedAt ? Date.parse(r.endedAt) : Date.now();
       setRun(r);
       setAt(toLocal(new Date(Math.min(upper, Date.now())).toISOString()));
-      setValues(["", "", "", "", ""]);
+      setValues(blankValues(current?.subgroupSize ?? 5));
       setNote("");
       setError(undefined);
     });
@@ -100,7 +108,7 @@ export function Measure() {
     });
     if (r) {
       setResult(r);
-      setValues(["", "", "", "", ""]);
+      setValues(blankValues(c.subgroupSize));
       setRun(null);
     }
   }
@@ -142,7 +150,7 @@ export function Measure() {
       <PageTitle
         id="S-04"
         title="측정 입력"
-        subtitle="공정 실행 한 건을 골라 한 시각에 연속 측정한 값 5개를 기록합니다"
+        subtitle="공정 실행 한 건을 골라 한 시각에 연속 측정한 값을 기록합니다"
         help="spc/s-04"
       />
       <p role="note" className="muted">
@@ -154,24 +162,39 @@ export function Measure() {
         retry={() => runs.reload()}
       />
       <p role="status">
-        {result &&
-          (result.signals.length ? (
-            <>
-              부분군을 기록했습니다. X̄ {num(result.xbar, 4)} —{" "}
-              {result.signals
-                .map(
-                  (s) => `${s.chart === "R" ? "R " : ""}${RULE_LABEL[s.rule]}`,
-                )
-                .join(", ")}{" "}
-              이상이 생겼습니다.{" "}
-              <Link to={`/spc/signals${query}`}>이상·조치 →</Link>
-            </>
-          ) : (
-            <>
-              부분군을 기록했습니다. X̄ {num(result.xbar, 4)} — 이상 없음.{" "}
-              <Link to={`/spc/chart${query}`}>관리도 →</Link>
-            </>
-          ))}
+        {result && (
+          <>
+            부분군을 기록했습니다. {num(result.xbar, 4)}
+            {result.signals.length ? (
+              <>
+                {" — "}
+                {result.signals
+                  .map(
+                    (s) =>
+                      `${s.chart === "R" || s.chart === "MR" ? `${CHART_LABEL[s.chart]} ` : ""}${RULE_LABEL[s.rule]}`,
+                  )
+                  .join(", ")}{" "}
+                이상이 생겼습니다.{" "}
+                <Link to={`/spc/signals${query}`}>이상·조치 →</Link>
+              </>
+            ) : (
+              <>
+                {" — 이상 없음. "}
+                <Link to={`/spc/chart${query}`}>관리도 →</Link>
+              </>
+            )}
+            {result.specViolations.length > 0 && (
+              <>
+                {" "}
+                규격 이탈{" "}
+                {result.specViolations
+                  .map((v) => `${v.seq}번째 ${SIDE_LABEL[v.side]}`)
+                  .join(", ")}
+                . <Link to="/spc/violations">규격 이탈 →</Link>
+              </>
+            )}
+          </>
+        )}
       </p>
       {!list.data ? (
         !list.error && <Loading />
@@ -270,7 +293,9 @@ export function Measure() {
                     )}
                   </div>
                   <fieldset className="spc-values">
-                    <legend>측정값 5개 ({c.unit})</legend>
+                    <legend>
+                      측정값 {c.subgroupSize}개 ({c.unit})
+                    </legend>
                     {values.map((v, i) => (
                       <label key={i}>
                         값 {i + 1}
@@ -299,9 +324,11 @@ export function Measure() {
                     ))}
                   </fieldset>
                   <p className="muted" aria-live="polite">
-                    {live
-                      ? `X̄ ${num(live.xbar, 4)} · R ${num(live.r, 4)}`
-                      : "값 5개를 모두 넣으면 X̄·R을 계산합니다."}
+                    {!live
+                      ? `값 ${c.subgroupSize}개를 모두 넣으면 계산합니다.`
+                      : live.r === null
+                        ? `I ${num(live.xbar, 4)} · MR은 직전 값과 비교해 저장할 때 계산합니다.`
+                        : `X̄ ${num(live.xbar, 4)} · R ${num(live.r, 4)}`}
                   </p>
                   <div className="field">
                     <label htmlFor="spc-note">메모(선택)</label>

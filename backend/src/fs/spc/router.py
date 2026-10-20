@@ -193,6 +193,16 @@ def post_void(
     )
 
 
+@router.get("/spec-violations")
+def list_spec_violations(
+    context: Auth,
+    characteristic_id: Annotated[int | None, Query(alias="characteristicId")] = None,
+    lot_no: Annotated[str | None, Query(alias="lotNo")] = None,
+    status: Literal["open", "void"] | None = None,
+):
+    return _data(service.spec_violations(context, characteristic_id, lot_no, status))
+
+
 @router.get("/signals")
 def list_signals(
     context: Auth,

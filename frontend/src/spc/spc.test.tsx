@@ -71,6 +71,9 @@ const ch = {
   subgroupSize: 5,
   decimals: 3,
   isActive: true,
+  chartType: "XBAR_R" as const,
+  defectSource: null,
+  rules: [] as number[],
   subgroupCount: 30,
   limitVersion: 2,
   openSignals: 1,
@@ -351,4 +354,84 @@ it("QMS 검사 대기: SPC 이상 배지는 true일 때만, null(꺼짐)이면 �
   });
   expect(await screen.findByText("LT-0017")).toBeVisible();
   expect(screen.getAllByText("SPC 이상")).toHaveLength(1);
+});
+
+const violation = (id: number, side: "LOW" | "HIGH", extra = {}) => ({
+  id,
+  subgroupId: id,
+  characteristicId: 7,
+  characteristicCode: ch.code,
+  characteristicName: ch.name,
+  itemCode: ch.itemCode,
+  itemName: ch.itemName,
+  processCode: ch.processCode,
+  unit: "mm",
+  seq: 1,
+  lotNo: "LT-0023",
+  equipmentCode: "INJ-02",
+  value: side === "HIGH" ? "12.150000" : "11.880000",
+  side,
+  limitValue: side === "HIGH" ? "12.100000" : "11.900000",
+  detectedAt: "2026-09-11T06:00:00+09:00",
+  voidedAt: null,
+  status: "open",
+  ...extra,
+});
+
+it("S-08 규격 이탈: 방향·한계를 보여 주고 처음에는 유효한 것만 조회한다", async () => {
+  const fetcher = mount("/spc/violations", {
+    [`GET ${P}/characteristics`]: ok([ch]),
+    [`GET ${P}/spec-violations`]: ok([
+      violation(1, "HIGH"),
+      violation(2, "LOW"),
+    ]),
+  });
+  expect(await screen.findByText("상한 초과")).toBeVisible();
+  expect(screen.getByText("하한 미만")).toBeVisible();
+  expect(screen.getAllByText("12.1500 mm")).toHaveLength(1);
+  const [first] = sent(fetcher, "GET", "/spec-violations");
+  expect(String(first[0])).toContain("status=open");
+});
+
+it("S-07 관리 특성: I-MR을 고르면 부분군 크기 칸이 사라지고 1로 저장된다", async () => {
+  const fetcher = mount("/spc/characteristics", {
+    [`GET ${P}/characteristics`]: ok([{ ...ch, subgroupCount: 0 }]),
+    [`GET ${P}/lookups/items`]: ok([{ itemCode: "FG-C200", name: "커넥터" }]),
+    [`PATCH ${P}/characteristics/7`]: ok({ ...ch, chartType: "I_MR" }),
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "수정" }));
+  expect(screen.getByLabelText("부분군 크기(2~10)")).toHaveValue(5);
+  fireEvent.change(screen.getByLabelText("관리도 종류"), {
+    target: { value: "I_MR" },
+  });
+  expect(screen.queryByLabelText("부분군 크기(2~10)")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "저장" }));
+  await waitFor(() =>
+    expect(sent(fetcher, "PATCH", "/characteristics/7")).toHaveLength(1),
+  );
+  const saved = body(sent(fetcher, "PATCH", "/characteristics/7")[0]);
+  expect(saved.chartType).toBe("I_MR");
+  expect(saved.subgroupSize).toBe(1);
+});
+
+it("S-07 판정 규칙: 규칙 1은 끌 수 없고 고른 규칙만 보낸다", async () => {
+  const fetcher = mount("/spc/characteristics", {
+    [`GET ${P}/characteristics`]: ok([ch]),
+    [`GET ${P}/lookups/items`]: ok([{ itemCode: "FG-C200", name: "커넥터" }]),
+    [`PATCH ${P}/characteristics/7`]: ok(ch),
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "수정" }));
+  // rules가 비어 있으면 기본 1~3이 켜진 채로 보인다.
+  expect(screen.getByLabelText(/규칙 1/)).toBeChecked();
+  expect(screen.getByLabelText(/규칙 1/)).toBeDisabled();
+  expect(screen.getByLabelText(/규칙 5/)).not.toBeChecked();
+  fireEvent.click(screen.getByLabelText(/규칙 5/));
+  fireEvent.click(screen.getByLabelText(/규칙 3/));
+  fireEvent.click(screen.getByRole("button", { name: "저장" }));
+  await waitFor(() =>
+    expect(sent(fetcher, "PATCH", "/characteristics/7")).toHaveLength(1),
+  );
+  expect(body(sent(fetcher, "PATCH", "/characteristics/7")[0]).rules).toEqual([
+    1, 2, 5,
+  ]);
 });

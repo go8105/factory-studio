@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 CODE = r"^[A-Z][A-Z0-9-]{1,19}$"
 NUMBER = r"^-?\d{1,8}(\.\d{1,4})?$"  # numeric(12,4)
 Cause = Literal["MACHINE", "MATERIAL", "MAN", "METHOD", "MEASUREMENT", "ENVIRONMENT"]
+ChartType = Literal["XBAR_R", "I_MR"]  # 계수형(P·NP·C·U)은 MES 실적 계약이 선행한다
+Rules = list[Annotated[int, Field(ge=1, le=8)]]  # Nelson 판정 규칙 번호
 
 
 class ApiModel(BaseModel):
@@ -26,6 +28,9 @@ class CharacteristicCreate(ApiModel):
     usl: str | None = Field(None, pattern=NUMBER)
     target: str | None = Field(None, pattern=NUMBER)
     decimals: int = Field(3, ge=0, le=4)
+    chart_type: ChartType = Field("XBAR_R", alias="chartType")
+    subgroup_size: int = Field(5, alias="subgroupSize", ge=1, le=10)
+    rules: Rules | None = Field(None, max_length=8)
 
 
 class CharacteristicUpdate(ApiModel):
@@ -36,6 +41,9 @@ class CharacteristicUpdate(ApiModel):
     target: str | None = Field(None, pattern=NUMBER)
     decimals: int | None = Field(None, ge=0, le=4)
     is_active: bool | None = Field(None, alias="isActive")
+    chart_type: ChartType | None = Field(None, alias="chartType")
+    subgroup_size: int | None = Field(None, alias="subgroupSize", ge=1, le=10)
+    rules: Rules | None = Field(None, max_length=8)
 
 
 class LimitPublish(ApiModel):
@@ -48,7 +56,8 @@ class SubgroupCreate(ApiModel):
     characteristic_id: int = Field(alias="characteristicId")
     lot_no: str = Field(alias="lotNo", min_length=1, max_length=50)
     measured_at: datetime = Field(alias="measuredAt")
-    values: list[str] = Field(min_length=5, max_length=5)
+    # 개수는 특성의 부분군 크기와 같아야 한다(서비스가 확인한다).
+    values: list[str] = Field(min_length=1, max_length=10)
     note: str | None = Field(None, max_length=300)
 
 

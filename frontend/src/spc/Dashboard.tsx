@@ -26,6 +26,7 @@ type DashboardData = {
   openSignalCharacteristics: number;
   capability: Record<Judgement, number>;
   weekSubgroups: number;
+  weekSpecViolations: number;
   cards: Card[];
 };
 
@@ -55,7 +56,7 @@ export function Dashboard() {
       <PageTitle
         id="S-01"
         title="SPC 대시보드"
-        subtitle="관리 특성별 최근 추이·미조치 이상·공정능력"
+        subtitle="관리 특성별 최근 추이·미조치 이상·공정능력·규격 이탈"
         help="spc/s-01"
       />
       <ErrorNotice error={error} retry={() => reload()} />
@@ -83,6 +84,11 @@ export function Dashboard() {
               label="최근 7일 부분군"
               value={String(data.weekSubgroups)}
               note="유효 부분군"
+            />
+            <Tile
+              label="최근 7일 규격 이탈"
+              value={`${data.weekSpecViolations}건`}
+              note="관리 이탈과 별개(개별 측정값)"
             />
           </div>
           <div className="spc-cards">
