@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -88,6 +88,17 @@ class OcapCheckEntry(ApiModel):
 
 class OcapChecks(ApiModel):
     checks: list[OcapCheckEntry] = Field(min_length=1, max_length=50)
+
+
+class ReportCreate(ApiModel):
+    characteristic_id: int = Field(alias="characteristicId")
+    report_start_on: date = Field(alias="reportStartOn")
+    report_end_on: date = Field(alias="reportEndOn")
+    comment: str | None = Field(None, max_length=1000)
+
+
+class ReportConfirm(ApiModel):
+    comment: str | None = Field(None, max_length=1000)
 
 
 class VoidBody(ApiModel):

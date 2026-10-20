@@ -18,6 +18,8 @@ from fs.spc.schema import (
     OcapChecks,
     OcapItemCreate,
     OcapItemUpdate,
+    ReportConfirm,
+    ReportCreate,
     Resolve,
     SubgroupCreate,
     VoidBody,
@@ -192,6 +194,54 @@ def post_void(
     return _data(
         service.void_subgroup(
             context, subgroup_id, payload.reason, _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.get("/capability-reports")
+def list_capability_reports(
+    context: Auth,
+    characteristic_id: Annotated[int | None, Query(alias="characteristicId")] = None,
+    status: Literal["draft", "confirmed", "superseded"] | None = None,
+):
+    return _data(service.capability_reports(context, characteristic_id, status))
+
+
+@router.post("/capability-reports", status_code=201)
+def post_capability_report(
+    payload: ReportCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_capability_report(
+            context,
+            _values(payload, frozenset({"comment"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.get("/capability-reports/{report_id}")
+def get_capability_report(report_id: int, context: Auth):
+    return _data(service.capability_report(context, report_id))
+
+
+@router.post("/capability-reports/{report_id}/confirm")
+def post_capability_report_confirm(
+    report_id: int,
+    payload: ReportConfirm,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.confirm_capability_report(
+            context,
+            report_id,
+            payload.model_dump(exclude_unset=True),
+            _mutation(context, csrf, key),
         )
     )
 

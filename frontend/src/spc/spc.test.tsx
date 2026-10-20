@@ -562,3 +562,104 @@ it("S-05 점검표: 남은 점검을 알리고 NG는 메모 칸이 열린다", a
     expect(screen.getByLabelText("원인 분류")).toHaveValue("MEASUREMENT"),
   );
 });
+
+const report = (id: number, extra = {}) => ({
+  id,
+  characteristicId: 7,
+  characteristicCode: ch.code,
+  characteristicName: ch.name,
+  itemCode: ch.itemCode,
+  itemName: ch.itemName,
+  processCode: ch.processCode,
+  unit: "mm",
+  lsl: ch.lsl,
+  usl: ch.usl,
+  target: ch.target,
+  decimals: 3,
+  chartType: "XBAR_R" as const,
+  reportStartOn: "2026-09-01",
+  reportEndOn: "2026-09-30",
+  version: 1,
+  status: "draft" as const,
+  subgroupCount: 24,
+  mean: "12.000000",
+  sigmaWithin: "0.020000",
+  sigmaOverall: "0.035000",
+  cp: "1.666667",
+  cpk: "1.600000",
+  pp: "0.952381",
+  ppk: "0.914286",
+  skewness: "0.120000",
+  kurtosis: "-0.400000",
+  comment: null,
+  confirmedAt: null,
+  createdAt: "2026-10-01T09:00:00+09:00",
+  ...extra,
+});
+
+it("S-11 공정능력 보고서: 군내·전체 σ를 나란히 보여 주고 확정하면 읽기 전용이 된다", async () => {
+  const fetcher = mount("/spc/reports", {
+    [`GET ${P}/characteristics`]: ok([ch]),
+    [`GET ${P}/capability-reports`]: ok([report(5)]),
+    [`POST ${P}/capability-reports/5/confirm`]: ok(
+      report(5, {
+        status: "confirmed",
+        confirmedAt: "2026-10-02T09:00:00+09:00",
+      }),
+    ),
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "상세 · 확정" }));
+  // Cpk는 좋은데 Ppk가 나쁘다 — 기간 중에 공정이 옮겨 갔다는 뜻이다.
+  expect(screen.getByLabelText("Cpk")).toHaveTextContent("1.60");
+  expect(screen.getByLabelText("Ppk")).toHaveTextContent("0.91");
+  const figures = screen.getByText("군내 σ (R̄/d2)").parentElement!;
+  expect(figures).toHaveTextContent("0.02000"); // 군내 σ
+  expect(figures).toHaveTextContent("0.03500"); // 전체 σ가 더 크다
+  fireEvent.click(screen.getByRole("button", { name: "확정" }));
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/capability-reports/5/confirm")).toHaveLength(
+      1,
+    ),
+  );
+  expect(await screen.findByText(/확정된 보고서입니다/)).toBeVisible();
+  expect(screen.queryByRole("button", { name: "확정" })).toBeNull();
+});
+
+it("S-03 공정능력: Ppk·정규성·월별 추이를 함께 보여 준다", async () => {
+  mount("/spc/capability?c=7", {
+    [`GET ${P}/characteristics`]: ok([ch]),
+    [`GET ${P}/characteristics/7/capability`]: ok({
+      characteristic: ch,
+      subgroupCount: 24,
+      minimum: 20,
+      openSignals: 0,
+      insufficient: false,
+      mu: "12.000000",
+      sigma: "0.020000",
+      cp: "1.666667",
+      cpk: "1.600000",
+      judgement: "CAPABLE",
+      sigmaOverall: "0.035000",
+      pp: "0.952381",
+      ppk: "0.914286",
+      skewness: "0.120000",
+      kurtosis: "-0.400000",
+      histogram: [{ from: "11.950000", to: "12.050000", count: 24 }],
+      trend: [
+        { month: "2026-08", subgroupCount: 4, cpk: null, judgement: null },
+        {
+          month: "2026-09",
+          subgroupCount: 20,
+          cpk: "1.600000",
+          judgement: "CAPABLE",
+        },
+      ],
+    }),
+  });
+  expect(await screen.findByLabelText("Ppk")).toHaveTextContent("0.91");
+  expect(screen.getByLabelText("정규성")).toHaveTextContent("0.12 · -0.40");
+  expect(screen.getByText("2026-08")).toBeVisible();
+  // 부분군이 기준에 못 미치는 달은 계산하지 않고 수만 센다.
+  expect(screen.getByText("부분군 4개")).toBeVisible();
+  expect(screen.getByText("2026-09").parentElement).toHaveTextContent("1.60");
+});

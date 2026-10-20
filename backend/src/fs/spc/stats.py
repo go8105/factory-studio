@@ -207,6 +207,54 @@ def capability(
     }
 
 
+def _moments(values: Sequence[Decimal]) -> tuple[Decimal, Decimal]:
+    """(평균, 표본 표준편차). 전체 σ는 개별 측정값에서 바로 구한다 — 군내 σ̂(R̄/d2)와 다르다."""
+    n = len(values)
+    mu = mean(values)
+    if n < 2:
+        return mu, Decimal(0)
+    variance = sum((v - mu) ** 2 for v in values) / (n - 1)
+    return mu, variance.sqrt()
+
+
+def performance(
+    values: Sequence[Decimal], lsl: Decimal | None, usl: Decimal | None
+) -> dict[str, Decimal | None]:
+    """Pp·Ppk와 정규성 지표(DSN-17 Q6, F42·F43).
+
+    Cp·Cpk는 군내 산포(R̄/d2)만 보지만 Pp·Ppk는 **기간 전체의 흩어짐**을 본다.
+    공정이 기간 중에 옮겨 갔다면 Ppk가 Cpk보다 작게 나오고, 그 차이가 '관리되지 않은 변동'이다.
+    왜도 0·첨도 0이 정규분포다(첨도는 3을 뺀 초과 첨도).
+    """
+    mu, sigma = _moments(values)
+    result: dict[str, Decimal | None] = {
+        "mean": q(mu),
+        "sigma_overall": q(sigma),
+        "pp": None,
+        "ppk": None,
+        "skewness": None,
+        "kurtosis": None,
+    }
+    if sigma == 0:
+        return result
+    if lsl is not None and usl is not None:
+        result["pp"] = q((usl - lsl) / (6 * sigma))
+    sides = []
+    if usl is not None:
+        sides.append((usl - mu) / (3 * sigma))
+    if lsl is not None:
+        sides.append((mu - lsl) / (3 * sigma))
+    result["ppk"] = q(min(sides))
+    n = len(values)
+    if n >= 3:
+        third = sum((v - mu) ** 3 for v in values) / n
+        result["skewness"] = q(third / sigma**3)
+    if n >= 4:
+        fourth = sum((v - mu) ** 4 for v in values) / n
+        result["kurtosis"] = q(fourth / sigma**4 - 3)
+    return result
+
+
 def histogram(
     values: Sequence[Decimal], bins: int = 10
 ) -> list[dict[str, Decimal | int]]:

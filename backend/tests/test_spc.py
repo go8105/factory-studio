@@ -56,6 +56,7 @@ def _module(client, created, key: str, enabled: bool) -> None:
 
 
 SPC_TABLES = (
+    "capability_report",
     "ocap_check",
     "ocap_item",
     "signal",
@@ -999,3 +1000,106 @@ def test_ocap_item_scope_is_locked_once_checked(spc):
     checklist = _ok(client.get(f"{P}/signals/{signal['id']}/ocap"))
     assert [i["id"] for i in checklist["items"]] == [item["id"]]
     assert checklist["missing"] == []
+
+
+def test_performance_separates_within_and_overall_spread():
+    """Q6 F42: 기간 중에 공정이 옮겨 가면 Pp·Ppk가 Cp·Cpk보다 작게 나온다 — 그 차이가 관리되지 않은 변동이다."""
+    shifted = [Decimal(10)] * 10 + [Decimal(12)] * 10
+    got = stats.performance(shifted, Decimal(8), Decimal(14))
+    assert got["mean"] == Decimal("11.000000")
+    assert got["sigma_overall"] == Decimal(
+        "1.025978"
+    )  # 군내 σ̂은 0이다(부분군 안은 같은 값)
+    assert got["pp"] == got["ppk"] == Decimal("0.974679")
+    assert got["skewness"] == Decimal("0.000000")  # 대칭
+    one_sided = stats.performance(shifted, None, Decimal(14))
+    assert one_sided["pp"] is None and one_sided["ppk"] is not None
+    flat = stats.performance([Decimal(10)] * 20, Decimal(8), Decimal(14))
+    assert flat["sigma_overall"] == 0 and flat["pp"] is None
+
+
+def test_capability_adds_overall_and_trend(spc):
+    """S-03 보강: Pp·Ppk·정규성·월별 추이가 함께 온다. 기준에 못 미치는 달은 수만 센다."""
+    client, created, _, ch = spc
+    _basis(client, created, ch)
+    data = _ok(client.get(f"{P}/characteristics/{ch['id']}/capability"))
+    assert data["insufficient"] is False
+    assert data["cpk"] and data["ppk"] and data["sigmaOverall"]
+    assert data["skewness"] is not None and data["kurtosis"] is not None
+    months = {t["month"]: t for t in data["trend"]}
+    assert sum(t["subgroupCount"] for t in data["trend"]) == 20
+    # 부분군 20개가 한 달에 다 들어가면 그 달만 계산된다.
+    assert any(t["cpk"] for t in data["trend"]) == any(
+        t["subgroupCount"] >= 20 for t in data["trend"]
+    )
+    assert all(m["cpk"] is None for m in months.values() if m["subgroupCount"] < 20)
+
+
+def _report(client, created, ch, start="2026-09-01", end="2026-12-31", key=None):
+    return _call(
+        client,
+        created,
+        "POST",
+        "/capability-reports",
+        {
+            "characteristicId": ch["id"],
+            "reportStartOn": start,
+            "reportEndOn": end,
+        },
+        key,
+    )
+
+
+def test_capability_report_is_a_snapshot_and_confirm_supersedes(spc):
+    """Q6 F46: 만들 때 계산해 굳히고, 확정은 기간당 1건이다. 재작성은 새 버전이 된다."""
+    client, created, _, ch = spc
+    short = _report(client, created, ch)
+    assert (
+        short.status_code == 400
+        and "reportStartOn" in short.json()["error"]["details"]["fields"]
+    )
+    _basis(client, created, ch)
+    backwards = _report(client, created, ch, start="2026-12-31", end="2026-09-01")
+    assert backwards.status_code == 400
+
+    first = _ok(_report(client, created, ch), 201)
+    assert first["status"] == "draft" and first["version"] == 1
+    assert first["subgroupCount"] == 20 and first["confirmedAt"] is None
+    assert first["cpk"] and first["ppk"]
+
+    # 스냅샷이다 — 뒤에 부분군이 늘어도 이미 만든 보고서는 그대로다.
+    _ok(_later(client, created, ch, 21, _around("2.700")), 201)
+    assert (
+        _ok(client.get(f"{P}/capability-reports/{first['id']}"))["subgroupCount"] == 20
+    )
+    second = _ok(_report(client, created, ch), 201)
+    assert second["version"] == 2 and second["subgroupCount"] == 21
+
+    confirmed = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/capability-reports/{first['id']}/confirm",
+            {"comment": "9~12월 초기 능력"},
+        )
+    )
+    assert confirmed["status"] == "confirmed" and confirmed["confirmedAt"]
+    again = _call(
+        client, created, "POST", f"/capability-reports/{first['id']}/confirm", {}
+    )
+    assert again.status_code == 409 and _reason(again) == "NOT_DRAFT"
+
+    # 같은 기간의 새 확정본이 나오면 옛것은 대체됨으로 밀린다.
+    _ok(
+        _call(
+            client, created, "POST", f"/capability-reports/{second['id']}/confirm", {}
+        )
+    )
+    rows = {
+        r["id"]: r["status"]
+        for r in _ok(
+            client.get(f"{P}/capability-reports", params={"characteristicId": ch["id"]})
+        )
+    }
+    assert rows == {first["id"]: "superseded", second["id"]: "confirmed"}

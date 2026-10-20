@@ -976,14 +976,61 @@ def capability(
             ).scalars()
         )
         lsl, usl = _number(found["lsl"], "lsl"), _number(found["usl"], "usl")
+        size = int(found["subgroupSize"])
         computed = stats.capability(
-            [r.xbar for r in rows], [r.r for r in rows], lsl, usl
+            [r.xbar for r in rows], [r.r for r in rows], lsl, usl, size
         )
         result.update({k: _value(v) for k, v in computed.items()})
+        result.update(
+            {
+                _camel(k): _value(v)
+                for k, v in stats.performance(values, lsl, usl).items()
+            }
+        )
         result["histogram"] = [
             {k: _value(v) for k, v in b.items()} for b in stats.histogram(values)
         ]
+        result["trend"] = _monthly_cpk(connection, scoped, found, start, end)
         return result
+
+
+def _monthly_cpk(connection, scoped, characteristic, start, end):
+    """월별 Cpk 추이(F44). 부분군이 기준에 못 미치는 달은 수만 보여 주고 계산하지 않는다."""
+    rows = connection.execute(
+        text(
+            f"SELECT to_char(measured_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') AS month, xbar, r "
+            f"FROM spc.subgroup WHERE {_S} AND characteristic_id=:c AND status='valid' "
+            "AND measured_at>=:a AND measured_at<:b ORDER BY measured_at"
+        ),
+        {
+            **_s(scoped),
+            "c": characteristic["id"],
+            "a": start,
+            "b": end,
+        },
+    ).all()
+    lsl = _number(characteristic["lsl"], "lsl")
+    usl = _number(characteristic["usl"], "usl")
+    size = int(characteristic["subgroupSize"])
+    months: dict[str, list] = {}
+    for row in rows:
+        months.setdefault(row.month, []).append(row)
+    trend = []
+    for month, group in months.items():
+        entry: dict[str, Any] = {
+            "month": month,
+            "subgroupCount": len(group),
+            "cpk": None,
+            "judgement": None,
+        }
+        if len(group) >= stats.MIN_BASIS:
+            computed = stats.capability(
+                [g.xbar for g in group], [g.r for g in group], lsl, usl, size
+            )
+            entry["cpk"] = _value(computed["cpk"])
+            entry["judgement"] = computed["judgement"]
+        trend.append(entry)
+    return trend
 
 
 # ---------- 이상·조치 (S-05, TX-S3) ----------
@@ -1067,6 +1114,195 @@ def resolve_signal(
         )
 
     return _action(context, f"spc.signal.resolve:{signal_id}", key, values, fn)
+
+
+# ---------- 공정능력 보고서 (S-11, DSN-17 Q6 F46) ----------
+
+REPORT_SQL = f"""
+SELECT p.id, p.characteristic_id, c.code characteristic_code, c.name characteristic_name,
+       c.item_code, c.item_name, c.process_code, c.unit, c.lsl, c.usl, c.target, c.decimals,
+       c.chart_type, p.report_start_on, p.report_end_on, p.version, p.status, p.subgroup_count,
+       p.mean, p.sigma_within, p.sigma_overall, p.cp, p.cpk, p.pp, p.ppk, p.skewness, p.kurtosis,
+       p.comment, p.confirmed_at, p.created_at
+FROM spc.capability_report p
+JOIN spc.characteristic c ON c.workspace_id=p.workspace_id AND c.generation_id=p.generation_id
+     AND c.id=p.characteristic_id
+WHERE p.{_S.replace(" AND ", " AND p.")}
+"""
+
+
+def _report(connection, scoped, report_id: int) -> dict[str, Any]:
+    found = _one(
+        connection, REPORT_SQL + " AND p.id=:id", {**_s(scoped), "id": report_id}
+    )
+    if found is None:
+        raise _not_found("공정능력 보고서")
+    return found
+
+
+def capability_reports(
+    context: AuthContext, characteristic_id: int | None, status: str | None
+) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return _all(
+            connection,
+            REPORT_SQL + " AND (CAST(:c AS bigint) IS NULL OR p.characteristic_id=:c)"
+            " AND (CAST(:st AS text) IS NULL OR p.status=:st)"
+            " ORDER BY p.report_end_on DESC, p.characteristic_id, p.version DESC LIMIT 200",
+            {**_s(scoped), "c": characteristic_id, "st": status},
+        )
+
+
+def capability_report(context: AuthContext, report_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return _report(connection, scoped, report_id)
+
+
+def create_capability_report(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """기간의 능력 지표를 **그때 계산해 스냅샷으로** 만든다(초안). 뒤에 부분군이 바뀌어도 값은 그대로다."""
+    start_on, end_on = values["report_start_on"], values["report_end_on"]
+    if start_on > end_on:
+        raise _fields({"reportEndOn": "기간 끝은 시작보다 늦어야 합니다."})
+
+    def fn(connection, scoped):
+        found = _lock(connection, scoped, values["characteristic_id"])
+        start = datetime.combine(start_on, time(), SEOUL)
+        end = datetime.combine(end_on + timedelta(days=1), time(), SEOUL)
+        params = {
+            **_s(scoped),
+            "c": values["characteristic_id"],
+            "a": start,
+            "b": end,
+        }
+        rows = connection.execute(
+            text(
+                f"SELECT xbar, r FROM spc.subgroup WHERE {_S} AND characteristic_id=:c "
+                "AND status='valid' AND measured_at>=:a AND measured_at<:b"
+            ),
+            params,
+        ).all()
+        if len(rows) < stats.MIN_BASIS:
+            raise _fields(
+                {
+                    "reportStartOn": f"유효 부분군이 {stats.MIN_BASIS}개 이상이어야 합니다(현재 {len(rows)}개)."
+                }
+            )
+        measurements = list(
+            connection.execute(
+                text(
+                    "SELECT m.value FROM spc.measurement m JOIN spc.subgroup s "
+                    "ON s.workspace_id=m.workspace_id AND s.generation_id=m.generation_id AND s.id=m.subgroup_id "
+                    "WHERE m.workspace_id=:w AND m.generation_id=:g AND s.characteristic_id=:c "
+                    "AND s.status='valid' AND s.measured_at>=:a AND s.measured_at<:b"
+                ),
+                params,
+            ).scalars()
+        )
+        lsl = _number(found["lsl"], "lsl")
+        usl = _number(found["usl"], "usl")
+        within = stats.capability(
+            [r.xbar for r in rows],
+            [r.r for r in rows],
+            lsl,
+            usl,
+            int(found["subgroupSize"]),
+        )
+        overall = stats.performance(measurements, lsl, usl)
+        version = connection.execute(
+            text(
+                f"SELECT COALESCE(max(version),0)+1 FROM spc.capability_report WHERE {_S} "
+                "AND characteristic_id=:c AND report_start_on=:a AND report_end_on=:b"
+            ),
+            {
+                **_s(scoped),
+                "c": values["characteristic_id"],
+                "a": start_on,
+                "b": end_on,
+            },
+        ).scalar_one()
+        new_id = connection.execute(
+            text(
+                "INSERT INTO spc.capability_report(workspace_id,generation_id,characteristic_id,"
+                "report_start_on,report_end_on,version,subgroup_count,mean,sigma_within,sigma_overall,"
+                "cp,cpk,pp,ppk,skewness,kurtosis,comment) VALUES "
+                "(:w,:g,:c,:a,:b,:v,:n,:mean,:within,:overall,:cp,:cpk,:pp,:ppk,:skew,:kurt,:comment) RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "c": values["characteristic_id"],
+                "a": start_on,
+                "b": end_on,
+                "v": version,
+                "n": len(rows),
+                "mean": overall["mean"],
+                "within": within["sigma"],
+                "overall": overall["sigma_overall"],
+                "cp": within["cp"],
+                "cpk": within["cpk"],
+                "pp": overall["pp"],
+                "ppk": overall["ppk"],
+                "skew": overall["skewness"],
+                "kurt": overall["kurtosis"],
+                "comment": (values.get("comment") or "").strip() or None,
+            },
+        ).scalar_one()
+        return _report(connection, scoped, new_id), "capability_report", new_id
+
+    body = {
+        **values,
+        "report_start_on": start_on.isoformat(),
+        "report_end_on": end_on.isoformat(),
+    }
+    return _action(context, "spc.capability_report.create", key, body, fn, 201)
+
+
+def confirm_capability_report(
+    context: AuthContext, report_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """확정하면 불변이다. 같은 기간의 옛 확정본은 '대체됨'으로 밀린다(기간당 확정 1건)."""
+
+    def fn(connection, scoped):
+        found = _one(
+            connection,
+            REPORT_SQL + " AND p.id=:id FOR UPDATE OF p",
+            {**_s(scoped), "id": report_id},
+        )
+        if found is None:
+            raise _not_found("공정능력 보고서")
+        if found["status"] != "draft":
+            raise _conflict(
+                "초안만 확정할 수 있습니다.", "NOT_DRAFT", status=found["status"]
+            )
+        connection.execute(
+            text(
+                f"UPDATE spc.capability_report SET status='superseded' WHERE {_S} "
+                "AND characteristic_id=:c AND report_start_on=:a AND report_end_on=:b "
+                "AND status='confirmed'"
+            ),
+            {
+                **_s(scoped),
+                "c": found["characteristicId"],
+                "a": found["reportStartOn"],
+                "b": found["reportEndOn"],
+            },
+        )
+        comment = (values.get("comment") or "").strip() or None
+        connection.execute(
+            text(
+                "UPDATE spc.capability_report SET status='confirmed', confirmed_at=clock_timestamp(), "
+                f"comment=COALESCE(:comment, comment) WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "comment": comment, "id": report_id},
+        )
+        return _report(connection, scoped, report_id), "capability_report", report_id
+
+    return _action(
+        context, f"spc.capability_report.confirm:{report_id}", key, values, fn
+    )
 
 
 # ---------- 이상 대응 절차 OCAP (S-09, DSN-17 Q5) ----------

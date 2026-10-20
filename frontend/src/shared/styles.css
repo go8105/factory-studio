@@ -2584,6 +2584,39 @@ th[aria-sort="none"] button span {
 .spc-publish h3 {
   font-size: var(--fs);
 }
+/* S-03 월별 Cpk · S-11 보고서 수치 */
+.spc-trend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin: var(--s2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.spc-trend li {
+  display: grid;
+  gap: 2px;
+  min-width: 96px;
+  padding: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+}
+.spc-trend strong {
+  font-size: var(--fs-s);
+  color: var(--muted);
+}
+.spc-figures {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s1) var(--s3);
+  margin: var(--s3) 0;
+}
+.spc-figures dt {
+  color: var(--muted);
+}
+.spc-figures dd {
+  margin: 0;
+}
 /* S-05 이상 대응 절차 점검표 */
 .spc-ocap {
   margin-top: var(--s4);
