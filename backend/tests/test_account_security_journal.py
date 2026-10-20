@@ -5,10 +5,20 @@ import json
 from uuid import uuid4
 
 import pytest
+from fs.common.errors import ApiError
+from fs.core.security import service
+from fs.core.security.journal import verified_records, verify
+from fs.gw.security_journal import confirm_records
 from sqlalchemy import text
 from test_gw_emergency import emergency_env  # noqa: F401
 from test_gw_emergency import (
+    test_current_role_and_expired_approval_are_rechecked as emergency_recheck_flow,
+)
+from test_gw_emergency import (
     test_kit_once_response_replaces_previous_and_no_credentials_in_audit as kit_flow,
+)
+from test_gw_emergency import (
+    test_operator_approval_race_and_http_recovery_never_issues_business_session as emergency_recovery_flow,
 )
 from test_gw_security_transactions import enroll, identity  # noqa: F401
 from test_gw_security_transactions import (
@@ -26,11 +36,6 @@ from test_hr_users import (
 )
 from test_hr_work import company_env  # noqa: F401
 from test_security_journal import journal  # noqa: F401
-
-from fs.common.errors import ApiError
-from fs.core.security import service
-from fs.core.security.journal import verified_records, verify
-from fs.gw.security_journal import confirm_records
 
 
 def records_for(journal):
@@ -210,3 +215,26 @@ def test_normal_logout_with_journal(company_env, journal):
     assert admin.get("/api/v1/core/sessions/current").status_code == 401
     records = checked(engine, journal)
     assert records[-1]["payload"]["operation"] == "security.session.logout"
+
+
+def test_emergency_http_recovery_with_journal_confirmation(emergency_env, journal):
+    emergency_recovery_flow(emergency_env)
+    records = checked(emergency_env[0], journal)
+    operations = {r["payload"]["operation"] for r in records}
+    assert {"security.emergency.approved", "security.emergency.redeemed"} <= operations
+    serialized = json.dumps(records)
+    assert all(
+        field not in serialized
+        for field in ("grantToken", "kitSecret", "secret_ciphertext", "password_hash")
+    )
+
+
+def test_emergency_role_expiry_recheck_with_journal_confirmation(
+    emergency_env, journal
+):
+    emergency_recheck_flow(emergency_env)
+    records = checked(emergency_env[0], journal)
+    assert "security.emergency.approved" in {r["payload"]["operation"] for r in records}
+    assert not any(
+        r["payload"]["operation"] == "security.emergency.redeemed" for r in records
+    )

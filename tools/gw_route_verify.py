@@ -68,6 +68,50 @@ PROBES = {
         "backend/tests/test_gw_identity_route_probes.py",
         "test_role_transition_storage_rollback_and_access[revoke]",
     ),
+    "OTP_FAILURE_LIMIT_AND_JOURNAL": (
+        "backend/tests/test_challenge_security_journal.py",
+        "test_failed_attempts_and_lock_are_recorded",
+    ),
+    "EXPIRED_CHALLENGE_AND_JOURNAL": (
+        "backend/tests/test_challenge_security_journal.py",
+        "test_expired_request_is_recorded",
+    ),
+    "OTP_DENIAL_STORAGE_ROLLBACK": (
+        "backend/tests/test_challenge_security_journal.py",
+        "test_record_failure_rolls_back_challenge_change[denied]",
+    ),
+    "CHALLENGE_EXPIRY_STORAGE_ROLLBACK": (
+        "backend/tests/test_challenge_security_journal.py",
+        "test_record_failure_rolls_back_challenge_change[expired]",
+    ),
+    "EMERGENCY_DENIAL_STORAGE_ROLLBACK": (
+        "backend/tests/test_challenge_security_journal.py",
+        "test_record_failure_rolls_back_challenge_change[emergency]",
+    ),
+    "RECOVERY_CODE_RACE_REENROLL_AND_JOURNAL": (
+        "backend/tests/test_account_security_journal.py",
+        "test_security_workflows_keep_confirmation[recovery-race-reenroll]",
+    ),
+    "SESSION_REVOCATION_CODE_ROTATION_AND_JOURNAL": (
+        "backend/tests/test_account_security_journal.py",
+        "test_security_workflows_keep_confirmation[rotate-and-revoke]",
+    ),
+    "EMERGENCY_KIT_EXPIRY_AND_JOURNAL": (
+        "backend/tests/test_challenge_security_journal.py",
+        "test_expired_emergency_kit_is_recorded",
+    ),
+    "EMERGENCY_HTTP_RECOVERY_AND_JOURNAL": (
+        "backend/tests/test_account_security_journal.py",
+        "test_emergency_http_recovery_with_journal_confirmation",
+    ),
+    "EMERGENCY_ROLE_EXPIRY_DENIAL_AND_JOURNAL": (
+        "backend/tests/test_account_security_journal.py",
+        "test_emergency_role_expiry_recheck_with_journal_confirmation",
+    ),
+    "LOGOUT_DENIAL_AND_JOURNAL": (
+        "backend/tests/test_account_security_journal.py",
+        "test_normal_logout_with_journal",
+    ),
 }
 
 
@@ -175,7 +219,7 @@ def run(*, admin_url, output):
     report = {
         "version": 1,
         "kind": "SYNTHETIC_GW_ROUTE_EXECUTION",
-        "catalogVersion": "GW_SYNTHETIC_ROUTE_PROBES_V3",
+        "catalogVersion": "GW_SYNTHETIC_ROUTE_PROBES_V4",
         "runId": run_id,
         "startedAt": datetime.now(UTC).isoformat(),
         "executionScope": "NEW_OWNED_SYNTHETIC_DATABASE",

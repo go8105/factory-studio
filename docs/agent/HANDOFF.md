@@ -1,3 +1,15 @@
+## 2026-10-20 GW-READY-02 34차 인증 실패·만료·긴급/코드 복구 실행수집
+
+codex/gw-company-01, 시작6bd67f0·작업트리깨끗함. 고정카탈로그 GW_SYNTHETIC_ROUTE_PROBES_V4 12→23. 기존실검사에서 OTP5회실패/잠금·새요청제한유지/기록, 요청만료/인증버전변경거부/기록, denied·expired·emergency3분기기록실패롤백, 복구코드경합/제한세션/재등록/옛코드거부, 타세션회수/코드재발급·옛세션거부, 긴급문서만료/기록, 로그아웃401/기록을연결했다. 긴급HTTP복구와역할/만료재확인에journal wrapper2개를추가해 실제승인경합/CSRF·Origin거부/업무접속차단/recoveryOnly/재등록/승인재사용401·현재권한403/만료401과DB감사확정/암호화기록을대조한다. 승인/재사용거부에필요한새기록존재·복구미실행시redeemed없음·비밀필드없음확인. 직접SQL로만든만료/역할회수준비는테스트주입일뿐자동전체수집/실인수근거가아니다.
+
+파라미터명이달라진실행결과는해당검사를채우지못하도록JUnit wrong-param 거부단위추가. 성공도합성PARTIAL/readyfalse·실회사인수/전체revocations/completeness=false. unsigned보고서는제품ACCEPTANCE등록용아님. 실행범위/소스지문/DB버전/소유자원/실행기신뢰경계는이전과동일하다.
+
+검증: 단위141통과0.32초(기존경고2). 소유컨테이너ID/owner/55439대조후새소유DB의실수집CLI23PASSED·PARTIAL/exit0·sourceUnchanged/databaseCleaned=true·합성복원거부통과. collectorDB0/closedRestoreDB0확인·previewDB/서비스유지. Ruffcheck/format·정적DB219/2409/543·R1–R6/diff오류0. 전체CI/브라우저/UI/실외부/실회사·기기/10인인수 미실행. schema불변·Excel/ERD재생성없음. 비밀/work/전체로그 스테이징없음·다른checkout/main/원격push/배포변경없음.
+
+전체02진행중·readyfalse/미확인4유지. 다음: 최종서명인수증거계약/현재회사·세대·정책·제품/DB·실행번호/최신원본대조를연결하되 합성보고서를실회사PASS로승격하지않는경계구현 → 기존GW UI구성보완 → 최신main/전체회귀·10인실인수/실외부저장소·최종전환. 나머지HR/ACL조합·직접SQL/운영자통제·장기성능/시간동기/전경로무누락은여전히미확인. 다음난이도매우높음·GPT-6 Astra + High 추천(서명/최신성/인수범위·완료판정의신뢰경계), GPT-6.1 Sol + High 대안. 모델자동변경없음.
+
+재현:33차단위명령그대로(141). 소유로컬PG postgres관리연결FS_GW_ROUTE_VERIFY_ADMIN_URL·GW_BACKUP_TEST_CONTAINER·FS_GW_ROUTE_VERIFY_OWNER 주입후 `uv run --project backend python tools/gw_route_verify.py --report <0700폴더의새파일.json>` (고정23). 새DB만생성/정리·preview초기화금지. 마지막커밋git log -1.
+
 ## 2026-10-20 GW-READY-02 33차 연결 취소·재개·역할 부여/회수 롤백 검증
 
 codex/gw-company-01, 시작b74d593·작업트리깨끗함. test_gw_identity_route_probes 실제PG/HTTP4시나리오추가·수집카탈로그GW_SYNTHETIC_ROUTE_PROBES_V3 8→12. 연결취소(PENDING→CANCELLED)/재개(SUSPENDED→ACTIVE), SECURITY_ADMIN부여/회수를분리. journal저장503에서 S범위연결상태/버전·person버전/역할행·authz_version·core.request_receipt불변/기록수불변·기존업무접근유지 확인. 같은request key 재시도성공→기록정확히1증가→중복요청결과/DB/기록수불변, 새key/옛버전409불변 확인. 비권한직원변경403, 취소뒤수락403/업무403·재개뒤업무200, 역할부여뒤보안이력200/회수뒤403와재변경403, 마지막보안관리자제거409불변. 새기록과원본감사확정대조. 전체회수/인수완료로승격하지않음.

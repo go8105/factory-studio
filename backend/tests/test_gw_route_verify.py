@@ -22,6 +22,7 @@ def runner():
         "missing",
         "duplicate",
         "wrong-class",
+        "wrong-param",
         "extra",
     ],
 )
@@ -43,6 +44,9 @@ def test_junit_probe_selection_never_promotes_failures_or_skips(tmp_path, change
         ET.SubElement(suite, "testcase", **first.attrib)
     elif change == "wrong-class":
         first.set("classname", "untrusted")
+    elif change == "wrong-param":
+        case = next(case for case in suite if "[" in case.get("name", ""))
+        case.set("name", case.get("name").split("[")[0] + "[unexecuted]")
     elif change == "extra":
         ET.SubElement(suite, "testcase", name="other", classname="other")
     path = tmp_path / "junit.xml"
