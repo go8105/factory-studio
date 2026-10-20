@@ -719,9 +719,21 @@
           "group": "보전 현황"
         },
         {
+          "path": "pm-plans",
+          "id": "C-04",
+          "label": "예방보전 계획",
+          "group": "보전 현황"
+        },
+        {
           "path": "assets",
           "id": "C-05",
           "label": "설비 대장",
+          "group": "기준정보"
+        },
+        {
+          "path": "spare-parts",
+          "id": "C-06",
+          "label": "예비품",
           "group": "기준정보"
         },
         {

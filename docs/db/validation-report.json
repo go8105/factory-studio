@@ -1,5 +1,5 @@
 {
-  "task": "CMMS-1a",
+  "task": "CMMS-1e",
   "validation": "정적 메타데이터 검증 + FS-013 R1~R6",
   "database_applied": false,
   "tables": 221,
@@ -20,7 +20,7 @@
   "columns": 2439,
   "foreign_keys": 553,
   "constraints_and_policies": 1620,
-  "source_sha256": "c8ecaeb3ed9c76ec10f2edfdc2bf4cd4209c7a3db69613600b2b6e1e4cab2ead",
+  "source_sha256": "bac97d2f9b0698e2711e9822a4f54b28a0727fcfe60b621a6d340ddd52b09e54",
   "errors": [],
   "not_tested": [
     "실제 DDL 적용",

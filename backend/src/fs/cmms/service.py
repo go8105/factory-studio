@@ -10,7 +10,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, timedelta
+from decimal import Decimal
 from functools import partial
 from typing import Any
 
@@ -19,6 +20,7 @@ from sqlalchemy import text
 from fs.bems import interface as bems
 from fs.common import master
 from fs.common.auth import AuthContext
+from fs.common.clock import business_today
 from fs.common.engine import action, read
 from fs.common.errors import ApiError
 from fs.common.scope import read_scope
@@ -26,8 +28,12 @@ from fs.erp import interface as erp
 from fs.hr import interface as hr
 from fs.mes import interface as mes
 from fs.spc import interface as spc
+from fs.wms import interface as wms
 
 MODULE = "cmms"
+RUN_WINDOW_DAYS = (
+    365  # 운전 시간 합산 구간. 그보다 오래된 실행은 MES가 들고 있어도 세지 않는다
+)
 _S = "workspace_id=:w AND generation_id=:g"
 # 가져오기 출처 → (설비 종류, 사람이 읽을 이름). 종류가 고정이라 CHECK와 어긋나지 않는다.
 IMPORTS = {
@@ -62,6 +68,10 @@ def _one(connection, sql: str, params: dict[str, Any]) -> dict[str, Any] | None:
 
 def _all(connection, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
     return [master.present(r) for r in connection.execute(text(sql), params).mappings()]
+
+
+def _value(number: Decimal | None) -> str | None:
+    return None if number is None else str(number)
 
 
 def _now(connection) -> datetime:
@@ -345,11 +355,325 @@ def import_assets(
     )
 
 
+# ---------- 예방보전 계획 (C-04, FS-029 D49 · DSN-21 Q2·Q3) ----------
+
+PLAN_SQL = f"""
+SELECT p.id, p.asset_id, a.code asset_code, a.name asset_name, a.source asset_source,
+       a.source_code asset_source_code, p.code, p.title, p.checklist, p.trigger_kind,
+       p.interval_days, p.interval_usage, p.start_on, p.last_done_on, p.last_done_usage,
+       p.is_active
+FROM cmms.pm_plan p
+JOIN cmms.asset a ON a.workspace_id=p.workspace_id AND a.generation_id=p.generation_id
+     AND a.id=p.asset_id
+WHERE p.{_S.replace(" AND ", " AND p.")}
+"""
+TRIGGER_UNIT = {"CALENDAR": "일", "RUN_HOURS": "시간", "SHOTS": "타"}
+
+
+def _plan(connection, scoped, plan_id: int, lock: bool = False) -> dict[str, Any]:
+    found = _one(
+        connection,
+        PLAN_SQL + " AND p.id=:id" + (" FOR UPDATE OF p" if lock else ""),
+        {**_s(scoped), "id": plan_id},
+    )
+    if found is None:
+        raise _not_found("예방보전 계획")
+    return found
+
+
+def _checklist(connection, scoped, plan_id: int) -> list[dict[str, Any]]:
+    return _all(
+        connection,
+        "SELECT id, seq, name, method, standard_text, lower_limit, upper_limit, unit, is_active "
+        f"FROM cmms.checklist_item WHERE {_S} AND pm_plan_id=:id ORDER BY seq",
+        {**_s(scoped), "id": plan_id},
+    )
+
+
+def _usage_now(connection, scoped, plan: dict[str, Any]) -> Decimal | None:
+    """사용량 기준 PM의 '지금까지'. MES가 꺼져 있거나 원천이 없으면 None — 도래를 판정하지 못한다.
+
+    운전 시간은 MES 공정 실행 시간의 합, 타수는 금형 누적 타수다. 둘 다 CMMS가 저장하지 않는다.
+    """
+    kind = plan["triggerKind"]
+    if kind == "CALENDAR":
+        return None
+    if kind == "SHOTS":
+        molds = mes.molds(connection, scoped)
+        if molds is None:
+            return None
+        found = next(
+            (m for m in molds if m["moldCode"] == plan["assetSourceCode"]), None
+        )
+        return None if found is None else Decimal(found["shots"])
+    today = business_today()
+    runs = mes.operation_runs(
+        connection, scoped, today - timedelta(days=RUN_WINDOW_DAYS), today
+    )
+    if runs is None:
+        return None
+    total = Decimal(0)
+    for run in runs:
+        if run["equipmentCode"] != plan["assetSourceCode"] or not run["endedAt"]:
+            continue
+        started = datetime.fromisoformat(run["startedAt"])
+        ended = datetime.fromisoformat(run["endedAt"])
+        total += Decimal((ended - started).total_seconds()) / 3600
+    return total.quantize(Decimal("0.01"))
+
+
+def _due(plan: dict[str, Any], usage: Decimal | None) -> dict[str, Any]:
+    """도래 여부. 일 주기는 날짜로, 사용량 기준은 '지금까지 − 마지막 수행 ≥ 주기'로 본다."""
+    if plan["triggerKind"] == "CALENDAR":
+        base = date.fromisoformat(plan["lastDoneOn"] or plan["startOn"])
+        due_on = base + timedelta(days=int(plan["intervalDays"]))
+        return {
+            "dueOn": due_on.isoformat(),
+            "isDue": business_today() >= due_on,
+            "usageNow": None,
+            "usageSinceLast": None,
+            "unknown": False,
+        }
+    if usage is None:
+        # MES가 꺼졌거나 원천 코드가 대장에 없다. 모른다고 말하고 멈춘다.
+        return {
+            "dueOn": None,
+            "isDue": False,
+            "usageNow": None,
+            "usageSinceLast": None,
+            "unknown": True,
+        }
+    done = Decimal(plan["lastDoneUsage"] or 0)
+    since = usage - done
+    return {
+        "dueOn": None,
+        "isDue": since >= Decimal(plan["intervalUsage"]),
+        "usageNow": _value(usage),
+        "usageSinceLast": _value(since),
+        "unknown": False,
+    }
+
+
+def pm_plans(context: AuthContext, asset_id: int | None) -> list[dict[str, Any]]:
+    with read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        rows = _all(
+            connection,
+            PLAN_SQL + " AND (CAST(:asset AS bigint) IS NULL OR p.asset_id=:asset)"
+            " ORDER BY p.code",
+            {**_s(scoped), "asset": asset_id},
+        )
+        return [{**r, **_due(r, _usage_now(connection, scoped, r))} for r in rows]
+
+
+def pm_plan(context: AuthContext, plan_id: int) -> dict[str, Any]:
+    with read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = _plan(connection, scoped, plan_id)
+        return {
+            **found,
+            **_due(found, _usage_now(connection, scoped, found)),
+            "items": _checklist(connection, scoped, plan_id),
+        }
+
+
+def _check_plan_trigger(values: dict[str, Any]) -> None:
+    """기준과 주기는 짝이다 — 일 주기면 일수만, 사용량 기준이면 사용량만(DB CHECK와 같은 규칙)."""
+    kind = values.get("trigger_kind", "CALENDAR")
+    if kind == "CALENDAR":
+        if not values.get("interval_days"):
+            raise _fields({"intervalDays": "일 주기를 적어 주세요."})
+        values["interval_usage"] = None
+    else:
+        if not values.get("interval_usage"):
+            unit = TRIGGER_UNIT[kind]
+            raise _fields({"intervalUsage": f"{unit} 주기를 적어 주세요."})
+        values["interval_days"] = None
+
+
+def create_pm_plan(context: AuthContext, values: dict[str, Any], key: str):
+    def fn(connection, scoped):
+        asset = _lock_asset(connection, scoped, values["asset_id"])
+        _check_plan_trigger(values)
+        kind = values.get("trigger_kind", "CALENDAR")
+        if kind != "CALENDAR" and asset["sourceCode"] is None:
+            raise _fields(
+                {
+                    "triggerKind": "사용량 기준은 MES에서 가져온 설비·금형에만 쓸 수 있습니다."
+                }
+            )
+        duplicate = connection.execute(
+            text(f"SELECT 1 FROM cmms.pm_plan WHERE {_S} AND code=:code"),
+            {**_s(scoped), "code": values["code"]},
+        ).scalar()
+        if duplicate:
+            raise _fields({"code": "이미 사용 중인 계획 코드입니다."})
+        new_id = connection.execute(
+            text(
+                "INSERT INTO cmms.pm_plan(workspace_id,generation_id,asset_id,code,title,"
+                "checklist,trigger_kind,interval_days,interval_usage,start_on) "
+                "VALUES (:w,:g,:asset,:code,:title,:checklist,:kind,:days,:usage,:start) RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "asset": values["asset_id"],
+                "code": values["code"],
+                "title": values["title"],
+                "checklist": values.get("checklist") or "",
+                "kind": kind,
+                "days": values.get("interval_days"),
+                "usage": values.get("interval_usage"),
+                "start": values["start_on"],
+            },
+        ).scalar_one()
+        return _plan(connection, scoped, new_id), "pm_plan", new_id
+
+    body = {**values, "start_on": values["start_on"].isoformat()}
+    return _action(context, "cmms.pm_plan.create", key, body, fn, 201)
+
+
+def update_pm_plan(context: AuthContext, plan_id: int, values: dict, key: str):
+    def fn(connection, scoped):
+        current = _plan(connection, scoped, plan_id, lock=True)
+        merged = {
+            "trigger_kind": values.get("trigger_kind", current["triggerKind"]),
+            "interval_days": values.get("interval_days", current["intervalDays"]),
+            "interval_usage": values.get("interval_usage", current["intervalUsage"]),
+        }
+        changes = dict(values)
+        if any(k in values for k in merged):
+            _check_plan_trigger(merged)
+            changes.update(merged)
+        sets = {k: v for k, v in changes.items() if k != "asset_id"}
+        if sets:
+            assignments = ", ".join(f"{k}=:{k}" for k in sets)
+            connection.execute(
+                text(f"UPDATE cmms.pm_plan SET {assignments} WHERE {_S} AND id=:id"),
+                {**_s(scoped), **sets, "id": plan_id},
+            )
+        return _plan(connection, scoped, plan_id), "pm_plan", plan_id
+
+    return _action(context, f"cmms.pm_plan.update:{plan_id}", key, values, fn)
+
+
+def save_checklist_item(context: AuthContext, plan_id: int, values: dict, key: str):
+    """점검 항목 추가·수정. 범위 판정은 상·하한 중 하나 이상과 단위가 있어야 한다."""
+
+    def fn(connection, scoped):
+        _plan(connection, scoped, plan_id, lock=True)
+        item_id = values.get("id")
+        if values.get("method") == "RANGE" and not (
+            values.get("lower_limit") is not None
+            or values.get("upper_limit") is not None
+        ):
+            raise _fields({"lowerLimit": "상한·하한 중 하나 이상을 적어 주세요."})
+        if item_id is None:
+            seq = connection.execute(
+                text(
+                    f"SELECT COALESCE(max(seq),0)+1 FROM cmms.checklist_item WHERE {_S} "
+                    "AND pm_plan_id=:id"
+                ),
+                {**_s(scoped), "id": plan_id},
+            ).scalar_one()
+            connection.execute(
+                text(
+                    "INSERT INTO cmms.checklist_item(workspace_id,generation_id,pm_plan_id,"
+                    "seq,name,method,standard_text,lower_limit,upper_limit,unit) "
+                    "VALUES (:w,:g,:plan,:seq,:name,:method,:std,:low,:high,:unit)"
+                ),
+                {
+                    **_s(scoped),
+                    "plan": plan_id,
+                    "seq": seq,
+                    "name": values["name"],
+                    "method": values["method"],
+                    "std": values.get("standard_text"),
+                    "low": values.get("lower_limit"),
+                    "high": values.get("upper_limit"),
+                    "unit": values.get("unit"),
+                },
+            )
+        else:
+            sets = {k: v for k, v in values.items() if k != "id"}
+            assignments = ", ".join(f"{k}=:{k}" for k in sets)
+            connection.execute(
+                text(
+                    f"UPDATE cmms.checklist_item SET {assignments} WHERE {_S} "
+                    "AND id=:id AND pm_plan_id=:plan"
+                ),
+                {**_s(scoped), **sets, "id": item_id, "plan": plan_id},
+            )
+        return (
+            {"items": _checklist(connection, scoped, plan_id)},
+            "pm_plan",
+            plan_id,
+        )
+
+    return _action(context, f"cmms.checklist.save:{plan_id}", key, values, fn)
+
+
+def create_pm_work_order(context: AuthContext, plan_id: int, key: str):
+    """도래한 계획에서 PM 작업지시를 만든다. **자동 생성은 없다**(D49) — 사람이 누른다.
+
+    계획·예정일당 취소되지 않은 작업지시는 1건이다(UK_PARTIAL).
+    """
+
+    def fn(connection, scoped):
+        plan = _plan(connection, scoped, plan_id, lock=True)
+        if not plan["isActive"]:
+            raise _conflict("사용하지 않는 계획입니다.", "PLAN_INACTIVE")
+        _lock_asset(connection, scoped, plan["assetId"])
+        usage = _usage_now(connection, scoped, plan)
+        due = _due(plan, usage)
+        if due["unknown"]:
+            raise _conflict(
+                "MES를 사용하지 않도록 설정해 사용량을 읽을 수 없습니다. 도래를 판정할 수 없습니다.",
+                "USAGE_UNKNOWN",
+            )
+        if not due["isDue"]:
+            raise _conflict("아직 주기가 되지 않았습니다.", "NOT_DUE", **due)
+        due_on = due["dueOn"] or business_today().isoformat()
+        open_one = connection.execute(
+            text(
+                f"SELECT wo_no FROM cmms.work_order WHERE {_S} AND pm_plan_id=:plan "
+                "AND due_on=:due AND status <> 'CANCELLED'"
+            ),
+            {**_s(scoped), "plan": plan_id, "due": due_on},
+        ).scalar()
+        if open_one is not None:
+            raise _conflict(
+                f"이 예정일의 작업지시({open_one})가 이미 있습니다.",
+                "ALREADY_CREATED",
+                woNo=open_one,
+            )
+        new_id = connection.execute(
+            text(
+                "INSERT INTO cmms.work_order(workspace_id,generation_id,wo_no,asset_id,kind,"
+                "source,pm_plan_id,due_on,title,status,requested_at,usage_at_due) "
+                "VALUES (:w,:g,:no,:asset,'PM','PM_PLAN',:plan,:due,:title,'REQUESTED',"
+                "clock_timestamp(),:usage) RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "no": _next_wo_no(connection, scoped),
+                "asset": plan["assetId"],
+                "plan": plan_id,
+                "due": due_on,
+                "title": plan["title"],
+                "usage": usage,
+            },
+        ).scalar_one()
+        return _work_order(connection, scoped, new_id), "work_order", new_id
+
+    return _action(context, f"cmms.pm_plan.order:{plan_id}", key, {}, fn, 201)
+
+
 # ---------- 작업지시 (C-03, FS-029 D47 · TX-C1~C5) ----------
 
 WO_SQL = f"""
 SELECT o.id, o.wo_no, o.asset_id, a.code asset_code, a.name asset_name, a.asset_type,
        o.kind, o.source, o.source_ref, o.source_summary, o.pm_plan_id, o.due_on,
+       o.usage_at_due, pp.code pm_plan_code, pp.trigger_kind,
        o.title, o.description, o.status, o.requested_at, o.failure_at, o.started_at,
        o.completed_at, o.restored_at, o.cause_category, o.action, o.cancelled_at,
        o.cancel_reason, o.technician_id, t.name technician_name, o.vendor_id,
@@ -366,6 +690,8 @@ LEFT JOIN cmms.failure_code sc ON sc.workspace_id=o.workspace_id
      AND sc.generation_id=o.generation_id AND sc.id=o.symptom_code_id
 LEFT JOIN cmms.failure_code ac ON ac.workspace_id=o.workspace_id
      AND ac.generation_id=o.generation_id AND ac.id=o.action_code_id
+LEFT JOIN cmms.pm_plan pp ON pp.workspace_id=o.workspace_id
+     AND pp.generation_id=o.generation_id AND pp.id=o.pm_plan_id
 WHERE o.{_S.replace(" AND ", " AND o.")}
 """
 OPEN_STATUSES = ("REQUESTED", "IN_PROGRESS")
@@ -413,11 +739,47 @@ def work_orders(
         )
 
 
+def _check_rows(connection, scoped, order: dict[str, Any]) -> list[dict[str, Any]]:
+    """PM 작업지시의 점검표 — 계획의 사용 항목과 이미 기록한 결과. 고장(BM)에는 없다."""
+    if order["kind"] != "PM" or order["pmPlanId"] is None:
+        return []
+    return _all(
+        connection,
+        "SELECT i.id, i.seq, i.name, i.method, i.standard_text, i.lower_limit, "
+        " i.upper_limit, i.unit, i.is_active, r.result, r.measured_value, r.note, r.checked_at "
+        "FROM cmms.checklist_item i "
+        "LEFT JOIN cmms.checklist_result r ON r.workspace_id=i.workspace_id "
+        " AND r.generation_id=i.generation_id AND r.checklist_item_id=i.id "
+        "   AND r.work_order_id=:order "
+        f"WHERE i.{_S.replace(' AND ', ' AND i.')} AND i.pm_plan_id=:plan "
+        "  AND (i.is_active OR r.id IS NOT NULL) ORDER BY i.seq",
+        {**_s(scoped), "plan": order["pmPlanId"], "order": order["id"]},
+    )
+
+
+def _part_rows(connection, scoped, order_id: int) -> list[dict[str, Any]]:
+    return _all(
+        connection,
+        "SELECT u.id, u.spare_part_id, s.code part_code, s.name part_name, s.unit, "
+        " u.qty, u.unit_cost, u.used_at "
+        "FROM cmms.part_usage u JOIN cmms.spare_part s ON s.workspace_id=u.workspace_id "
+        " AND s.generation_id=u.generation_id AND s.id=u.spare_part_id "
+        f"WHERE u.{_S.replace(' AND ', ' AND u.')} AND u.work_order_id=:id "
+        "ORDER BY u.used_at, u.id",
+        {**_s(scoped), "id": order_id},
+    )
+
+
 def work_order(context: AuthContext, order_id: int) -> dict[str, Any]:
     with read() as connection:
         scoped = read_scope(connection, context, MODULE)
         found = _work_order(connection, scoped, order_id)
-        return {**found, "logs": _logs(connection, scoped, order_id)}
+        return {
+            **found,
+            "logs": _logs(connection, scoped, order_id),
+            "checks": _check_rows(connection, scoped, found),
+            "parts": _part_rows(connection, scoped, order_id),
+        }
 
 
 def _next_wo_no(connection, scoped) -> str:
@@ -431,7 +793,8 @@ def _next_wo_no(connection, scoped) -> str:
 def _lock_asset(connection, scoped, asset_id: int) -> dict[str, Any]:
     found = _one(
         connection,
-        f"SELECT id, code, name, is_active FROM cmms.asset WHERE {_S} AND id=:id FOR UPDATE",
+        f"SELECT id, code, name, source, source_code, is_active FROM cmms.asset "
+        f"WHERE {_S} AND id=:id FOR UPDATE",
         {**_s(scoped), "id": asset_id},
     )
     if found is None:
@@ -570,6 +933,18 @@ def complete_work_order(context: AuthContext, order_id: int, values: dict, key: 
         _code_of(
             connection, scoped, values.get("action_code_id"), "ACTION", "actionCodeId"
         )
+        # PM은 계획의 사용 항목을 모두 기록해야 닫힌다(Q3). 안 본 항목이 있으면 점검이 아니다.
+        missing = [
+            int(row["id"])
+            for row in _check_rows(connection, scoped, found)
+            if row["isActive"] and row["result"] is None
+        ]
+        if missing:
+            raise _conflict(
+                f"점검 항목 {len(missing)}개를 아직 기록하지 않았습니다.",
+                "CHECKLIST_INCOMPLETE",
+                missing=missing,
+            )
         restored_at = values.get("restored_at")
         if found["kind"] == "BM":
             restored_at = restored_at or _now(connection)
@@ -601,6 +976,20 @@ def complete_work_order(context: AuthContext, order_id: int, values: dict, key: 
                 "id": order_id,
             },
         )
+        if found["kind"] == "PM" and found["pmPlanId"]:
+            # 마지막 수행일·사용량은 완료로만 바뀐다. 다음 예정일이 여기서부터 다시 센다.
+            connection.execute(
+                text(
+                    "UPDATE cmms.pm_plan SET last_done_on=(clock_timestamp() AT TIME ZONE 'Asia/Seoul')::date, "
+                    "last_done_usage=COALESCE(:usage, last_done_usage) "
+                    f"WHERE {_S} AND id=:plan"
+                ),
+                {
+                    **_s(scoped),
+                    "usage": found["usageAtDue"],
+                    "plan": found["pmPlanId"],
+                },
+            )
         return _work_order(connection, scoped, order_id), "work_order", order_id
 
     body = {**values}
@@ -632,6 +1021,184 @@ def cancel_work_order(context: AuthContext, order_id: int, reason: str, key: str
     return _action(
         context, f"cmms.work_order.cancel:{order_id}", key, {"reason": reason}, fn
     )
+
+
+def save_checks(context: AuthContext, order_id: int, values: dict, key: str):
+    """PM 점검 결과를 한 번에 저장한다. 범위 항목은 **값으로 서버가 판정**한다(Q3)."""
+
+    def fn(connection, scoped):
+        found = _work_order(connection, scoped, order_id, lock=True)
+        if found["status"] != "IN_PROGRESS":
+            raise _conflict(
+                "진행 중인 작업지시에만 점검을 기록할 수 있습니다.",
+                "NOT_IN_PROGRESS",
+                status=found["status"],
+            )
+        allowed = {int(r["id"]): r for r in _check_rows(connection, scoped, found)}
+        for entry in values["checks"]:
+            item = allowed.get(int(entry["checklist_item_id"]))
+            if item is None:
+                raise _fields({"checks": "이 계획에 없는 점검 항목이 있습니다."})
+            measured = entry.get("measured_value")
+            if item["method"] == "RANGE":
+                if measured is None:
+                    raise _fields({f"checks.{item['id']}": "측정값을 적어 주세요."})
+                value = Decimal(measured)
+                low = item["lowerLimit"]
+                high = item["upperLimit"]
+                inside = (low is None or value >= Decimal(low)) and (
+                    high is None or value <= Decimal(high)
+                )
+                result = "OK" if inside else "NG"
+            else:
+                result = entry["result"]
+                measured = None
+            note = (entry.get("note") or "").strip()
+            # DB CHECK는 note가 NULL이면 통과한다(NULL은 거짓이 아니다). 여기서 막는다.
+            if result == "NG" and len(note) < 2:
+                raise _fields(
+                    {f"checks.{item['id']}": "NG는 무엇이 문제였는지 적어 주세요."}
+                )
+            connection.execute(
+                text(
+                    "INSERT INTO cmms.checklist_result(workspace_id,generation_id,work_order_id,"
+                    "checklist_item_id,result,measured_value,note,checked_at) "
+                    "VALUES (:w,:g,:o,:i,:r,:v,:note,clock_timestamp()) "
+                    "ON CONFLICT (workspace_id,generation_id,work_order_id,checklist_item_id) "
+                    "DO UPDATE SET result=EXCLUDED.result, measured_value=EXCLUDED.measured_value, "
+                    "note=EXCLUDED.note, checked_at=EXCLUDED.checked_at"
+                ),
+                {
+                    **_s(scoped),
+                    "o": order_id,
+                    "i": item["id"],
+                    "r": result,
+                    "v": measured,
+                    "note": note or None,
+                },
+            )
+        rows = _check_rows(connection, scoped, found)
+        return (
+            {
+                "checks": rows,
+                "hasNg": any(r["result"] == "NG" for r in rows),
+            },
+            "work_order",
+            order_id,
+        )
+
+    return _action(context, f"cmms.work_order.checks:{order_id}", key, values, fn)
+
+
+def add_part_usage(context: AuthContext, order_id: int, values: dict, key: str):
+    """부품 사용 기록. **재고를 움직이지 않는다**(D50) — WMS가 읽어 출고로 반영한다.
+
+    단가는 쓸 때의 표준 단가를 스냅샷으로 남긴다. 나중에 단가가 바뀌어도 지난 비용은 그대로다.
+    """
+
+    def fn(connection, scoped):
+        found = _work_order(connection, scoped, order_id, lock=True)
+        if found["status"] != "IN_PROGRESS":
+            raise _conflict(
+                "진행 중인 작업지시에만 부품을 기록할 수 있습니다.",
+                "NOT_IN_PROGRESS",
+                status=found["status"],
+            )
+        part = _one(
+            connection,
+            f"SELECT id, unit_cost, is_active FROM cmms.spare_part WHERE {_S} AND id=:id",
+            {**_s(scoped), "id": values["spare_part_id"]},
+        )
+        if part is None:
+            raise _fields({"sparePartId": "예비품을 찾을 수 없습니다."})
+        if not part["isActive"]:
+            raise _conflict("사용하지 않는 예비품입니다.", "PART_INACTIVE")
+        connection.execute(
+            text(
+                "INSERT INTO cmms.part_usage(workspace_id,generation_id,work_order_id,"
+                "spare_part_id,qty,used_at,unit_cost) "
+                "VALUES (:w,:g,:o,:p,:qty,clock_timestamp(),:cost)"
+            ),
+            {
+                **_s(scoped),
+                "o": order_id,
+                "p": values["spare_part_id"],
+                "qty": values["qty"],
+                "cost": values.get("unit_cost") or part["unitCost"],
+            },
+        )
+        return (
+            {"parts": _part_rows(connection, scoped, order_id)},
+            "work_order",
+            order_id,
+        )
+
+    return _action(context, f"cmms.work_order.part:{order_id}", key, values, fn, 201)
+
+
+# ---------- 예비품 (C-06, DSN-21 Q6) ----------
+
+SPARE_PART = master.Master(
+    module=MODULE,
+    table="cmms.spare_part",
+    columns=(
+        "code",
+        "name",
+        "unit",
+        "safety_stock",
+        "item_code",
+        "unit_cost",
+        "is_active",
+    ),
+    sort={"code": "code", "name": "name"},
+    default_sort="code ASC",
+    unique=("code",),
+    filters={"active": "is_active"},
+    references=(
+        master.Reference("cmms.part_usage", "spare_part_id", "부품 사용 기록"),
+        master.Reference("cmms.asset_part", "spare_part_id", "설비별 예비품"),
+    ),
+    not_found="예비품을 찾을 수 없습니다.",
+    duplicate_field="code",
+    duplicate_message="이미 사용 중인 예비품 코드입니다.",
+    referenced_message=(
+        "사용 기록이 있어 삭제할 수 없습니다. 사용 안 함으로 바꿔 주세요."
+    ),
+)
+
+
+def spare_parts(context: AuthContext, **kwargs) -> tuple[list[dict[str, Any]], int]:
+    """예비품 목록에 **WMS 재고를 얹어** 돌려준다. CMMS는 수량을 저장하지 않는다(D50)."""
+    rows, total = master.listing(SPARE_PART, context, **kwargs)
+    codes = [r["itemCode"] for r in rows if r["itemCode"]]
+    with read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        stock = wms.stock_on_hand(connection, scoped, codes)
+    for row in rows:
+        found = (stock or {}).get(row["itemCode"]) if row["itemCode"] else None
+        row["stock"] = found
+        # WMS가 꺼졌거나 품목을 잇지 않았으면 '모름'이다 — 0이 아니다.
+        row["stockKnown"] = found is not None
+    return rows, total
+
+
+def create_spare_part(context: AuthContext, values: dict[str, Any], key: str):
+    return master.create(SPARE_PART, context, values, key)
+
+
+def update_spare_part(context: AuthContext, row_id: int, values: dict, key: str):
+    return master.update(SPARE_PART, context, row_id, values, key)
+
+
+def delete_spare_part(context: AuthContext, row_id: int, key: str) -> None:
+    master.delete(SPARE_PART, context, row_id, key)
+
+
+def supply_items(context: AuthContext) -> list[dict[str, Any]]:
+    """예비품에 이어 붙일 WMS 소모품 목록. WMS가 꺼져 있으면 빈 목록."""
+    with read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return wms.supply_items(connection, scoped) or []
 
 
 # ---------- 전환 대기 신호 (C-02, FS-029 D48) ----------

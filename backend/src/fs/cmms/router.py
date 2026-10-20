@@ -12,9 +12,16 @@ from fs.cmms.schema import (
     AssetImport,
     AssetUpdate,
     CancelBody,
+    ChecklistItemBody,
+    ChecksBody,
     FailureCodeCreate,
     FailureCodeUpdate,
+    PartUsageCreate,
+    PmPlanCreate,
+    PmPlanUpdate,
     SignalConvert,
+    SparePartCreate,
+    SparePartUpdate,
     TechnicianCreate,
     TechnicianUpdate,
     VendorCreate,
@@ -527,3 +534,204 @@ def lookup_hr_employees(context: Auth):
 @router.get("/lookups/erp-partners")
 def lookup_erp_partners(context: Auth):
     return {"data": service.erp_partners(context)}
+
+
+# ── 예방보전 계획 (C-04) ────────────────────────────────────────────────────
+
+
+@router.get("/pm-plans")
+def list_pm_plans(
+    context: Auth,
+    asset_id: Annotated[int | None, Query(alias="assetId")] = None,
+):
+    return {"data": service.pm_plans(context, asset_id)}
+
+
+@router.get("/pm-plans/{plan_id}")
+def get_pm_plan(plan_id: int, context: Auth):
+    return {"data": service.pm_plan(context, plan_id)}
+
+
+@router.post("/pm-plans", status_code=201)
+def post_pm_plan(
+    payload: PmPlanCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.create_pm_plan(
+            context,
+            _values(
+                payload, frozenset({"checklist", "interval_days", "interval_usage"})
+            ),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+@router.patch("/pm-plans/{plan_id}")
+def patch_pm_plan(
+    plan_id: int,
+    payload: PmPlanUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.update_pm_plan(
+            context,
+            plan_id,
+            _values(
+                payload, frozenset({"checklist", "interval_days", "interval_usage"})
+            ),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+@router.post("/pm-plans/{plan_id}/items")
+def post_checklist_item(
+    plan_id: int,
+    payload: ChecklistItemBody,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.save_checklist_item(
+            context,
+            plan_id,
+            _values(
+                payload,
+                frozenset(
+                    {"id", "standard_text", "lower_limit", "upper_limit", "unit"}
+                ),
+            ),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+@router.post("/pm-plans/{plan_id}/work-order", status_code=201)
+def post_pm_work_order(
+    plan_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.create_pm_work_order(
+            context, plan_id, _mutation(context, csrf, key)
+        )
+    }
+
+
+@router.post("/work-orders/{order_id}/checks")
+def post_checks(
+    order_id: int,
+    payload: ChecksBody,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.save_checks(
+            context,
+            order_id,
+            payload.model_dump(exclude_unset=True),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+@router.post("/work-orders/{order_id}/parts", status_code=201)
+def post_part_usage(
+    order_id: int,
+    payload: PartUsageCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.add_part_usage(
+            context,
+            order_id,
+            _values(payload, frozenset({"unit_cost"})),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+# ── 예비품 (C-06) ───────────────────────────────────────────────────────────
+
+
+@router.get("/spare-parts")
+def list_spare_parts(
+    context: Auth,
+    offset: int = 0,
+    limit: int = 50,
+    sort: str | None = None,
+    active: bool | None = None,
+):
+    page = Page(offset, limit).checked()
+    return _page(
+        service.spare_parts(
+            context,
+            filters={"active": active},
+            sort=sort,
+            offset=page.offset,
+            limit=page.limit,
+        ),
+        page,
+    )
+
+
+@router.post("/spare-parts", status_code=201)
+def post_spare_part(
+    payload: SparePartCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.create_spare_part(
+            context,
+            _values(payload, frozenset({"item_code", "unit_cost"})),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+@router.patch("/spare-parts/{row_id}")
+def patch_spare_part(
+    row_id: int,
+    payload: SparePartUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return {
+        "data": service.update_spare_part(
+            context,
+            row_id,
+            _values(payload, frozenset({"item_code", "unit_cost"})),
+            _mutation(context, csrf, key),
+        )
+    }
+
+
+@router.delete("/spare-parts/{row_id}", status_code=204)
+def delete_spare_part(
+    row_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    service.delete_spare_part(context, row_id, _mutation(context, csrf, key))
+    return Response(status_code=204)
+
+
+@router.get("/lookups/supply-items")
+def lookup_supply_items(context: Auth):
+    return {"data": service.supply_items(context)}

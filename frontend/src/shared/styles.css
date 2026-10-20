@@ -2617,6 +2617,21 @@ th[aria-sort="none"] button span {
 .spc-figures dd {
   margin: 0;
 }
+/* C-03 PM 점검표 — S-05 OCAP과 같은 모양 */
+.spc-ocap-list {
+  display: grid;
+  gap: var(--s3);
+  margin: var(--s3) 0;
+  padding: 0;
+  list-style: none;
+}
+.spc-ocap-list li {
+  display: grid;
+  gap: var(--s1);
+}
+.spc-ocap-list li p {
+  margin: 0;
+}
 /* S-05 이상 대응 절차 점검표 */
 .spc-ocap {
   margin-top: var(--s4);

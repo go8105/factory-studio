@@ -159,6 +159,11 @@ export type WorkOrder = {
   actionCode: string | null;
   actionName: string | null;
   logs?: WorkLog[];
+  checks?: CheckRow[];
+  parts?: PartUsage[];
+  pmPlanId?: number | null;
+  pmPlanCode?: string | null;
+  usageAtDue?: string | null;
 };
 export type PendingSignal = {
   id: string;
@@ -240,3 +245,112 @@ export const duration = (minutes: number) =>
   minutes >= 60
     ? `${Math.floor(minutes / 60)}시간${minutes % 60 ? ` ${minutes % 60}분` : ""}`
     : `${minutes}분`;
+
+export type TriggerKind = "CALENDAR" | "RUN_HOURS" | "SHOTS";
+export type CheckMethod = "OK_NG" | "RANGE";
+
+export type PmPlan = {
+  id: number;
+  assetId: number;
+  assetCode: string;
+  assetName: string;
+  assetSource: AssetSource;
+  assetSourceCode: string | null;
+  code: string;
+  title: string;
+  checklist: string | null;
+  triggerKind: TriggerKind;
+  intervalDays: number | null;
+  intervalUsage: string | null;
+  startOn: string;
+  lastDoneOn: string | null;
+  lastDoneUsage: string | null;
+  isActive: boolean;
+  dueOn: string | null;
+  isDue: boolean;
+  usageNow: string | null;
+  usageSinceLast: string | null;
+  unknown: boolean;
+  items?: ChecklistItem[];
+};
+export type ChecklistItem = {
+  id: number;
+  seq: number;
+  name: string;
+  method: CheckMethod;
+  standardText: string | null;
+  lowerLimit: string | null;
+  upperLimit: string | null;
+  unit: string | null;
+  isActive: boolean;
+};
+export type CheckRow = ChecklistItem & {
+  result: "OK" | "NG" | null;
+  measuredValue: string | null;
+  note: string | null;
+  checkedAt: string | null;
+};
+export type PartUsage = {
+  id: number;
+  sparePartId: number;
+  partCode: string;
+  partName: string;
+  unit: string;
+  qty: string;
+  unitCost: string | null;
+  usedAt: string;
+};
+export type Stock = {
+  qtyOnHand: string;
+  unit: string;
+  safetyStock: string | null;
+  isShort: boolean;
+};
+export type SparePart = {
+  id: number;
+  code: string;
+  name: string;
+  unit: string;
+  safetyStock: string;
+  itemCode: string | null;
+  unitCost: string | null;
+  isActive: boolean;
+  stock: Stock | null;
+  stockKnown: boolean;
+};
+export type SupplyItem = {
+  itemCode: string;
+  name: string;
+  baseUnit: string;
+  safetyStock: string | null;
+};
+
+export const TRIGGER_LABEL: Record<TriggerKind, string> = {
+  CALENDAR: "일 주기",
+  RUN_HOURS: "운전 시간",
+  SHOTS: "금형 타수",
+};
+export const TRIGGER_UNIT: Record<TriggerKind, string> = {
+  CALENDAR: "일",
+  RUN_HOURS: "시간",
+  SHOTS: "타",
+};
+export const METHOD_LABEL: Record<CheckMethod, string> = {
+  OK_NG: "양호·불량",
+  RANGE: "측정값 범위",
+};
+/** 점검 항목의 판정 기준을 한 줄로. 범위는 상·하한 중 있는 쪽만 보여 준다. */
+export const standardOf = (item: ChecklistItem) => {
+  if (item.method === "OK_NG") return item.standardText ?? "양호·불량";
+  const low = item.lowerLimit != null ? Number(item.lowerLimit) : null;
+  const high = item.upperLimit != null ? Number(item.upperLimit) : null;
+  const range =
+    low != null && high != null
+      ? `${low}~${high}`
+      : high != null
+        ? `≤ ${high}`
+        : `≥ ${low}`;
+  return `${range} ${item.unit ?? ""}`.trim();
+};
+export const qty = (value: string | null | undefined) =>
+  value == null ? "—" : String(Number(value));
