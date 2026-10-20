@@ -1,3 +1,15 @@
+## 2026-10-20 GW-READY-02 31차 합성 경로검증 실행 수집기
+
+codex/gw-company-01, 시작e396c1c·작업트리깨끗함. tools/gw_route_verify.py 추가: 로컬 소유PG의 postgres 관리연결(FS_GW_ROUTE_VERIFY_ADMIN_URL)로 UUID 새 *_test DB만 생성→alembic head→고정된 실제HTTP직원연결중지 저장실패롤백/직원403 및 거래취소/진행/저장점/원본불일치2시나리오를 pytest로 직접실행→JUnit 정확모듈/이름·종료코드/누락/중복/실패/건너뜀검사→생성DB만정리→새0600 보고서. 외부 XML/체크값/임의명령 입력없음. runId/시작종료시각/DBhead·기준커밋+backend/tools실코드지문·전후동일여부와시나리오결과 기록. 지문은커밋되지않은코드도포함하며 기준커밋과실코드를혼동하지않는다. DB URL/계정/본문/로그/임시경로는보고서/표준출력미포함. private임시로그/JUnit폴더정리, 기존보고서덮어쓰기금지·미리보기DB직접대상/비로컬관리연결거부. migration120초/검증300초제한.
+
+성공도 SYNTHETIC_GW_ROUTE_EXECUTION/PARTIAL·readyfalse·실회사인수/전체권한회수/완전성false·복원권한거부UNVERIFIED. 실패/누락/건너뜀/소스변경은BLOCKED/exit2; 환경/예외는exit1·실행오류보고서가항상생성되는것은아님. unsigned합성보고서를 ACCEPTANCE/현재회사운영증거로등록하지않는다. 회사/정책은테스트내생성범위이며 미리보기회사3의인수근거아님.
+
+검증: 관련단위132통과0.20초(기존경고2). 소유preview컨테이너ID/owner/55439대조후 수집기 실제CLI 실행: 새DB마이그레이션/고정2시나리오PASSED·PARTIAL/exit0·sourceUnchanged/databaseCleaned=true·잔여수집DB0 확인. 첫실행은JUnit모듈명이tests.접두인것을짧은이름만비교해MISSING/BLOCKED/exit2, DB정리는성공. 모듈명정확허용2형식으로보정후재실행통과, 첫보고서는보존/덮어쓰지않음. Ruffcheck/format·정적DB219/2409/543·R1–R6/diff오류0. UI/브라우저/전체CI/실외부/복원/10인실인수 이번미실행. 스키마불변·Excel/ERD재생성없음. 소유시험DB정리·previewDB/서비스유지, 비밀/work/전체로그 스테이징없음·다른checkout/main/원격push/배포변경없음.
+
+전체02진행중·readyfalse/미확인4 유지. 다음: 고정실행시나리오를 인증·HR·ACL 및나머지GW경로의저장실패롤백/거부로확대하고 복원후검사와연결 → 최종서명 ACCEPTANCE/게이트 → GW UI보완 → main/전체회귀/10인실인수. 다음난이도높음·GPT-6.1 Sol + High 추천, 최종경계감사GPT-6 Astra + High 대안. 모델자동변경없음.
+
+재현:30차단위명령에 backend/tests/test_gw_route_verify.py 추가(132). 소유로확인한로컬PG postgres 관리연결을FS_GW_ROUTE_VERIFY_ADMIN_URL에비공개주입후 `uv run --project backend python tools/gw_route_verify.py --report <0700폴더의새파일.json>` (고정2실행). 기존TEST_DATABASE_URL을초기화하지않으며새DB만소유/정리한다. 마지막커밋git log -1.
+
 ## 2026-10-20 GW-READY-02 30차 GW 연결·역할 7경로 진단
 
 codex/gw-company-01, 시작1b1c4b3·작업트리깨끗함. journal_routes/GW_IDENTITY_ROUTES_V1 및 기존CLI --company-id 추가. 현재 활성회사정책/세대·FS_CODE_REVISION·DBhead/별도확인head에 진단을 묶는다. 최초설정·연결요청/수락/취소/중지/재개·역할변경7개를 정확operation 패턴으로 분리한다. 다른회사/세대/bool범위 제외, 과거형식/잘못된ID/알수없는operation은 해당범위미지원 처리. 같은계열 다른operation으로 채우지 않는다. 모든기록 집계로 이후미확인에 과거성공 fallback없음. MISSING/ABORT_ONLY/UNSETTLED/COMMIT_OBSERVED 및 거래6종건수. 과거기록에 실행코드버전이 없으므로 assessment버전만 기록·executionRevisionVerified=false. 저장실패롤백/복원거부UNVERIFIED·모두관측도PARTIAL/전체회수·완전성·전환승인false 유지. 계정/대상ID/원문operation 출력없음. CLI exit0과경로BLOCKED 공존가능. 인증/HR/문서ACL 전체계약은후속이다.

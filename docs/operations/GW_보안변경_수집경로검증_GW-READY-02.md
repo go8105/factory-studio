@@ -94,3 +94,17 @@ throttle의 새 창 초기0과 updated_at 갱신은 실패/발급 횟수 증가�
 다른회사/세대기록 제외·정확operation만 분류·대상ID미출력. MISSING은기록없음, ABORT_ONLY는전체거래취소만관측, UNSETTLED는미확인포함, COMMIT_OBSERVED는미확인없이감사확정을관측한것이다. 다른operation/과거형식으로 채우지않으며 이후미확인에 과거성공대체없음.
 
 현재정책/제품/DB는 assessment기준이다. 과거기록에 실행코드버전이없어 executionRevisionVerified=false이며 현재버전실행증거로 쓰지않는다. 저장실패롤백/복원거부는UNVERIFIED다. 이번합성실HTTP는 중지경로503시상태/버전유지→재시도200·직원403을확인했으나 unsigned관측보고에소급입력하지않는다. 모두관측도PARTIAL·전체회수/완전성/전환승인false. CLI exit0은경로/운영인수통과가아니다.
+
+
+## 31차 합성 경로 검증 실행 수집기
+
+`tools/gw_route_verify.py`는 새 소유 테스트DB에서 고정 시나리오를 직접 실행한다. 소유권을 확인한 로컬PG의 postgres 관리연결을 `FS_GW_ROUTE_VERIFY_ADMIN_URL` 환경에 비공개 주입한다. 기존 DB를 초기화하지 않고 새UUID *_test만 생성/마이그레이션/정리한다. 보고서 폴더는0700이어야 한다.
+
+```sh
+uv run --project backend python tools/gw_route_verify.py \
+  --report work/route-verification/new-execution.json
+```
+
+현재 고정 검증은 직원연결중지 기록저장실패503/상태·버전불변→재시도200/직원업무403/현재정책진단과 거래취소/진행/저장점/다른원본 판정2개다. 임의명령·외부JUnit·수동PASS 입력을 받지 않는다. 실행번호/기준커밋과 backend/tools 실제소스지문/DB버전/시각/각시나리오결과를0600에 기록한다. 실행전후소스가 바뀌면BLOCKED다. 실패/건너뜀/누락/중복/비정상종료를 성공으로 바꾸지 않는다. 로그·JUnit은비공개임시폴더에서처리후정리하며 공개보고에원문/접속정보/계정/경로를넣지않는다.
+
+성공도 합성 PARTIAL/exit0이며 ready=false다. 실패결과는BLOCKED/exit2, 환경/실행예외는exit1이고 예외시보고서가항상생성되지는않는다. 초기JUnit모듈명대조실패보고도보존했다. 기존파일덮어쓰기없음. 실제회사/기기의실행이나현재회사정책인수, 전체권한회수·누락없음·복원후거부검증이아니다. 보고서는unsigned이며제품ACCEPTANCE등록에사용하지않는다. 나머지경로/복원거부어댑터는후속이다.
