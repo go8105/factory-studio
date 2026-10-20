@@ -1,6 +1,6 @@
 {
-  "version": "0.30.0",
-  "task": "CMMS-1a",
+  "version": "0.31.0",
+  "task": "CMMS-1e",
   "date": "2026-10-20",
   "status": "구현 명세 / 환경별 적용 상태는 인계 참조",
   "migration_revision": "gw_wms_merge",
@@ -11912,7 +11912,7 @@
           "name": "interval_days",
           "label": "주기(일)",
           "type": "integer",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": "1~365"
         },
@@ -48547,6 +48547,13 @@
       "date": "2026-10-20",
       "change": "CMMS 보강: 새 표 6개(점검 항목·결과, 정비원, 외주 업체, 고장 코드, 설비별 예비품)와 기존 6표 칼럼 추가(설비 계층·상세, PM 사용량 기준, 작업지시 정비원·외주·고장 코드, 작업 기록 정비원, 예비품 WMS 품목·단가, 부품 사용 단가). 목표 설계 DSN-21에서 그대로 옮김",
       "status": "마이그레이션 cmms1 적용 대상"
+    },
+    {
+      "version": "0.31.0",
+      "task": "CMMS-1e",
+      "date": "2026-10-20",
+      "change": "CMMS-1a 보완: 기존 칼럼의 NULL 허용을 목표 설계와 맞춤 (cmms.pm_plan.interval_days). 운전 시간·타수 기준 PM 계획은 일 주기가 없어야 해서 지금 구조로는 넣을 수 없었다",
+      "status": "마이그레이션 cmms2 적용 대상"
     }
   ]
 }

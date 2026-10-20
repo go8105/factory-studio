@@ -410,3 +410,145 @@ it("C-08 정비원·외주 업체는 탭으로 나뉜다", async () => {
   fireEvent.click(screen.getByRole("tab", { name: "외주 업체" }));
   expect(await screen.findByText("한빛정비")).toBeVisible();
 });
+
+const plan = (extra: Record<string, unknown> = {}) => ({
+  id: 3,
+  assetId: 1,
+  assetCode: "PRESS-01",
+  assetName: "프레스 1호",
+  assetSource: "CMMS",
+  assetSourceCode: null,
+  code: "PM-01",
+  title: "월간 점검",
+  checklist: "",
+  triggerKind: "CALENDAR",
+  intervalDays: 30,
+  intervalUsage: null,
+  startOn: "2026-08-01",
+  lastDoneOn: null,
+  lastDoneUsage: null,
+  isActive: true,
+  dueOn: "2026-08-31",
+  isDue: true,
+  usageNow: null,
+  usageSinceLast: null,
+  unknown: false,
+  ...extra,
+});
+
+it("C-04 계획: 사용량 기준은 MES를 끄면 '모름'이라 작업지시를 만들 수 없다", async () => {
+  mount("/cmms/pm-plans", {
+    [`GET ${C}/pm-plans`]: ok([
+      plan(),
+      plan({
+        id: 4,
+        code: "PM-RH",
+        triggerKind: "RUN_HOURS",
+        intervalDays: null,
+        intervalUsage: "100.00",
+        dueOn: null,
+        isDue: false,
+        unknown: true,
+        assetSourceCode: "INJ-01",
+      }),
+    ]),
+    [`GET ${C}/assets/tree`]: ok([node(1, "PRESS-01", 0)]),
+    [`GET ${C}/pm-plans/4`]: ok(
+      plan({
+        id: 4,
+        code: "PM-RH",
+        triggerKind: "RUN_HOURS",
+        intervalDays: null,
+        intervalUsage: "100.00",
+        dueOn: null,
+        isDue: false,
+        unknown: true,
+        items: [],
+      }),
+    ),
+  });
+  expect(await screen.findByText("모름(MES 꺼짐)")).toBeVisible();
+  const rows = screen.getAllByRole("row");
+  expect(rows.find((r) => r.textContent?.includes("PM-01"))).toHaveTextContent(
+    "도래",
+  );
+  fireEvent.click(screen.getAllByRole("button", { name: "상세" })[1]);
+  expect(await screen.findByText(/사용량을 읽을 수 없습니다/)).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "PM 작업지시 만들기" }),
+  ).toBeNull();
+});
+
+it("C-04 점검 항목: 측정값 범위를 고르면 상·하한과 단위를 받는다", async () => {
+  const fetcher = mount("/cmms/pm-plans", {
+    [`GET ${C}/pm-plans`]: ok([plan()]),
+    [`GET ${C}/assets/tree`]: ok([node(1, "PRESS-01", 0)]),
+    [`GET ${C}/pm-plans/3`]: ok(plan({ items: [] })),
+    [`POST ${C}/pm-plans/3/items`]: ok({ items: [] }),
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "상세" }));
+  expect(await screen.findByLabelText("항목 이름")).toBeVisible();
+  expect(screen.getByLabelText("기준(선택)")).toBeVisible();
+  fireEvent.change(screen.getByLabelText("판정 방법"), {
+    target: { value: "RANGE" },
+  });
+  expect(screen.queryByLabelText("기준(선택)")).toBeNull();
+  fireEvent.change(screen.getByLabelText("항목 이름"), {
+    target: { value: "유압" },
+  });
+  fireEvent.change(screen.getByLabelText("하한(선택)"), {
+    target: { value: "80" },
+  });
+  fireEvent.change(screen.getByLabelText("단위"), { target: { value: "bar" } });
+  fireEvent.click(screen.getByRole("button", { name: "항목 추가" }));
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/pm-plans/3/items")).toHaveLength(1),
+  );
+  expect(body(sent(fetcher, "POST", "/pm-plans/3/items")[0])).toMatchObject({
+    name: "유압",
+    method: "RANGE",
+    lowerLimit: "80",
+    unit: "bar",
+  });
+});
+
+it("C-06 예비품: WMS를 잇지 않으면 재고가 0이 아니라 '모름'이다", async () => {
+  mount("/cmms/spare-parts", {
+    [`GET ${C}/spare-parts`]: ok([
+      {
+        id: 1,
+        code: "SP-01",
+        name: "오링",
+        unit: "EA",
+        safetyStock: "5.000",
+        itemCode: null,
+        unitCost: null,
+        isActive: true,
+        stock: null,
+        stockKnown: false,
+      },
+      {
+        id: 2,
+        code: "SP-02",
+        name: "필터",
+        unit: "EA",
+        safetyStock: "0.000",
+        itemCode: "SUP-100",
+        unitCost: "1200.0000",
+        isActive: true,
+        stock: {
+          qtyOnHand: "3.000",
+          unit: "EA",
+          safetyStock: "10.000",
+          isShort: true,
+        },
+        stockKnown: true,
+      },
+    ]),
+  });
+  expect(await screen.findByText("오링")).toBeVisible();
+  expect(screen.getByText("모름")).toBeVisible();
+  expect(screen.getByText("연결 안 됨")).toBeVisible();
+  expect(screen.getByText("부족")).toBeVisible();
+  expect(screen.getByText("1,200원")).toBeVisible();
+});

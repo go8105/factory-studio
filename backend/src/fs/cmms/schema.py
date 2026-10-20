@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 CODE = r"^[A-Z][A-Z0-9-]{1,19}$"
 MONEY = r"^\d{1,16}(\.\d{1,2})?$"
+NUMBER = r"^-?\d{1,11}(\.\d{1,4})?$"
 AssetType = Literal[
     "INJECTION",
     "ASSEMBLY",
@@ -150,3 +151,74 @@ class SignalConvert(ApiModel):
     asset_id: int = Field(alias="assetId")
     title: str | None = Field(None, max_length=200)
     detected_at: datetime | None = Field(None, alias="detectedAt")
+
+
+QTY = r"^\d{1,9}(\.\d{1,3})?$"
+TriggerKind = Literal["CALENDAR", "RUN_HOURS", "SHOTS"]
+CheckMethod = Literal["OK_NG", "RANGE"]
+
+
+class PmPlanCreate(ApiModel):
+    asset_id: int = Field(alias="assetId")
+    code: str = Field(pattern=CODE)
+    title: str = Field(min_length=1, max_length=200)
+    checklist: str | None = Field(None, max_length=1000)
+    trigger_kind: TriggerKind = Field("CALENDAR", alias="triggerKind")
+    interval_days: int | None = Field(None, alias="intervalDays", ge=1, le=365)
+    interval_usage: str | None = Field(None, alias="intervalUsage", pattern=QTY)
+    start_on: date = Field(alias="startOn")
+
+
+class PmPlanUpdate(ApiModel):
+    title: str | None = Field(None, min_length=1, max_length=200)
+    checklist: str | None = Field(None, max_length=1000)
+    trigger_kind: TriggerKind | None = Field(None, alias="triggerKind")
+    interval_days: int | None = Field(None, alias="intervalDays", ge=1, le=365)
+    interval_usage: str | None = Field(None, alias="intervalUsage", pattern=QTY)
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+class ChecklistItemBody(ApiModel):
+    id: int | None = None
+    name: str = Field(min_length=1, max_length=100)
+    method: CheckMethod
+    standard_text: str | None = Field(None, alias="standardText", max_length=200)
+    lower_limit: str | None = Field(None, alias="lowerLimit", pattern=NUMBER)
+    upper_limit: str | None = Field(None, alias="upperLimit", pattern=NUMBER)
+    unit: str | None = Field(None, max_length=10)
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+class CheckEntry(ApiModel):
+    checklist_item_id: int = Field(alias="checklistItemId")
+    result: Literal["OK", "NG"] | None = None
+    measured_value: str | None = Field(None, alias="measuredValue", pattern=NUMBER)
+    note: str | None = Field(None, max_length=300)
+
+
+class ChecksBody(ApiModel):
+    checks: list[CheckEntry] = Field(min_length=1, max_length=50)
+
+
+class PartUsageCreate(ApiModel):
+    spare_part_id: int = Field(alias="sparePartId")
+    qty: str = Field(pattern=QTY)
+    unit_cost: str | None = Field(None, alias="unitCost", pattern=MONEY)
+
+
+class SparePartCreate(ApiModel):
+    code: str = Field(pattern=CODE)
+    name: str = Field(min_length=1, max_length=100)
+    unit: str = Field(min_length=1, max_length=10)
+    safety_stock: str = Field("0", alias="safetyStock", pattern=QTY)
+    item_code: str | None = Field(None, alias="itemCode", max_length=40)
+    unit_cost: str | None = Field(None, alias="unitCost", pattern=MONEY)
+
+
+class SparePartUpdate(ApiModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    unit: str | None = Field(None, min_length=1, max_length=10)
+    safety_stock: str | None = Field(None, alias="safetyStock", pattern=QTY)
+    item_code: str | None = Field(None, alias="itemCode", max_length=40)
+    unit_cost: str | None = Field(None, alias="unitCost", pattern=MONEY)
+    is_active: bool | None = Field(None, alias="isActive")

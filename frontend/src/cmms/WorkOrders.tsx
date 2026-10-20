@@ -29,10 +29,13 @@ import {
   type AssetNode,
   type Cause,
   type FailureCode,
+  type CheckRow,
+  type SparePart,
   type Technician,
   type Vendor,
   type WorkOrder,
 } from "./common";
+import { METHOD_LABEL, qty, standardOf } from "./common";
 
 function OrderDetail({
   order,
@@ -55,6 +58,12 @@ function OrderDetail({
   const [vendorId, setVendorId] = useState("");
   const [externalCost, setExternalCost] = useState("");
   const [reason, setReason] = useState("");
+  const [checks, setChecks] = useState<
+    Record<number, { result: "OK" | "NG"; measuredValue: string; note: string }>
+  >({});
+  const [partId, setPartId] = useState("");
+  const [partQty, setPartQty] = useState("1");
+  const parts = useGet<SparePart[]>("/spare-parts?active=true");
   const { send, pending, error } = useApiSend(CMMS, () => {
     detail.reload();
     onChanged();
@@ -64,6 +73,9 @@ function OrderDetail({
     return detail.error ? <ErrorNotice error={detail.error} /> : <Loading />;
   const row = detail.data;
   const logs = row.logs ?? [];
+  const checkRows: CheckRow[] = row.checks ?? [];
+  const usedParts = row.parts ?? [];
+  const missing = checkRows.filter((c) => c.isActive && c.result === null);
   const totalMinutes = logs.reduce((sum, l) => sum + l.minutes, 0);
   const open = row.status === "REQUESTED" || row.status === "IN_PROGRESS";
   const send1 = (path: string, body: unknown) => () =>
@@ -145,6 +157,122 @@ function OrderDetail({
           <p className="muted">작업 기록이 없습니다.</p>
         )}
       </section>
+      {usedParts.length > 0 && (
+        <section>
+          <h3>쓴 부품</h3>
+          <ul className="spc-trend">
+            {usedParts.map((p) => (
+              <li key={p.id}>
+                <strong>{p.partName}</strong>
+                <span>
+                  {qty(p.qty)} {p.unit}
+                </span>
+                <small className="muted">{money(p.unitCost)}/개</small>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {checkRows.length > 0 && (
+        <section>
+          <h3>점검표</h3>
+          {row.status === "IN_PROGRESS" && missing.length > 0 && (
+            <p role="note" className="muted">
+              남은 점검 {missing.length}개를 모두 기록해야 완료할 수 있습니다.
+            </p>
+          )}
+          <ol className="spc-ocap-list">
+            {checkRows.map((c) => {
+              const draft = checks[c.id] ?? {
+                result: c.result ?? "OK",
+                measuredValue: c.measuredValue ?? "",
+                note: c.note ?? "",
+              };
+              const set = (patch: Partial<typeof draft>) =>
+                setChecks({ ...checks, [c.id]: { ...draft, ...patch } });
+              return (
+                <li key={c.id}>
+                  <p>
+                    {c.seq}. {c.name}{" "}
+                    <span className="muted">
+                      · {standardOf(c)} · {METHOD_LABEL[c.method]}
+                    </span>
+                  </p>
+                  {row.status === "IN_PROGRESS" ? (
+                    <>
+                      {c.method === "RANGE" ? (
+                        <Field
+                          label={`측정값 (${c.unit ?? ""})`}
+                          value={draft.measuredValue}
+                          inputMode="decimal"
+                          error={errors[`checks.${c.id}`]}
+                          onChange={(e) =>
+                            set({ measuredValue: e.target.value })
+                          }
+                        />
+                      ) : (
+                        <div className="field">
+                          <label htmlFor={`chk-${c.id}`}>결과</label>
+                          <select
+                            id={`chk-${c.id}`}
+                            value={draft.result}
+                            onChange={(e) =>
+                              set({ result: e.target.value as "OK" | "NG" })
+                            }
+                          >
+                            <option value="OK">양호</option>
+                            <option value="NG">불량</option>
+                          </select>
+                        </div>
+                      )}
+                      {(draft.result === "NG" || c.method === "RANGE") && (
+                        <Field
+                          label="메모(불량이면 필수)"
+                          value={draft.note}
+                          maxLength={300}
+                          error={errors[`checks.${c.id}`]}
+                          onChange={(e) => set({ note: e.target.value })}
+                        />
+                      )}
+                      {c.result && (
+                        <small className="muted">
+                          기록 {c.result === "OK" ? "양호" : "불량"}
+                          {c.measuredValue && ` · ${qty(c.measuredValue)}`}
+                        </small>
+                      )}
+                    </>
+                  ) : (
+                    <p className="muted">
+                      {c.result
+                        ? `${c.result === "OK" ? "양호" : "불량"}${c.measuredValue ? ` · ${qty(c.measuredValue)}` : ""}${c.note ? ` · ${c.note}` : ""}`
+                        : "기록 없음"}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+          {row.status === "IN_PROGRESS" && (
+            <button
+              type="button"
+              disabled={pending || !Object.keys(checks).length}
+              aria-busy={pending}
+              onClick={() =>
+                void send(`/work-orders/${row.id}/checks`, "POST", {
+                  checks: Object.entries(checks).map(([id, v]) => ({
+                    checklistItemId: Number(id),
+                    result: v.result,
+                    measuredValue: v.measuredValue || undefined,
+                    note: v.note || undefined,
+                  })),
+                }).then(() => setChecks({}))
+              }
+            >
+              점검 저장
+            </button>
+          )}
+        </section>
+      )}
       <ErrorNotice error={Object.keys(errors).length ? undefined : error} />
       {row.status === "REQUESTED" && (
         <form
@@ -209,6 +337,51 @@ function OrderDetail({
             />
             <button type="submit" disabled={pending} aria-busy={pending}>
               기록 추가
+            </button>
+          </form>
+          <form
+            className="spc-resolve"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!partId) return;
+              void send(`/work-orders/${row.id}/parts`, "POST", {
+                sparePartId: Number(partId),
+                qty: partQty,
+              }).then(() => setPartQty("1"));
+            }}
+          >
+            <h3>부품 사용</h3>
+            <p role="note" className="muted">
+              재고를 움직이지 않습니다 — WMS가 이 기록을 읽어 출고로 반영합니다.
+            </p>
+            <div className="field">
+              <label htmlFor="wo-part">예비품</label>
+              <select
+                id="wo-part"
+                value={partId}
+                onChange={(e) => setPartId(e.target.value)}
+              >
+                <option value="">고르지 않음</option>
+                {parts.data?.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code} {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Field
+              label="수량"
+              value={partQty}
+              inputMode="decimal"
+              error={errors.qty}
+              onChange={(e) => setPartQty(e.target.value)}
+            />
+            <button
+              type="submit"
+              disabled={pending || !partId}
+              aria-busy={pending}
+            >
+              부품 기록
             </button>
           </form>
           <form
