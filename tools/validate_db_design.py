@@ -27,9 +27,14 @@ CMMS_DESIGN = ROOT/'docs/modules/cmms/CMMS_모듈설계_FS-029.md'
 REVIEW_DESIGN = ROOT/'docs/plan/런처평가_한줄평_FS-040.md'
 
 
+def is_build_task(task):
+    """일괄 개발 단계(W…, GW-…, SPC-1a 등 모듈 단계). 설계 작업(FS-…·DSN-…)만 당시 기준에 묶인다."""
+    return not task.startswith(('FS-', 'DSN-'))
+
+
 def at_least(task, gate):
-    """일괄 개발(W…) 단계는 그 앞의 모든 검사를 켠다. 새 작업 ID를 집합마다 더하지 않는다."""
-    return task.startswith(('W', 'GW-')) or task in gate
+    """일괄 개발 단계는 그 앞의 모든 검사를 켠다. 새 작업 ID를 집합마다 더하지 않는다."""
+    return is_build_task(task) or task in gate
 
 
 def gate_task(d):
@@ -93,7 +98,7 @@ def expected_names(d):
     task = gate_task(d)
     project = ROOT/"docs/modules/gw/GW_프로젝트업무보드_설계초안_GW-PROJECT-01.md"
     extra = set(re.findall(r"^\| `?(gw\.work_[a-z_]+)`? \|", project.read_text(), re.M)) if project.exists() else set()
-    return {n.replace("gw.work_", "flow.work_") for n in (extra | design_names(task) | (target_names() if d.get('target') or task.startswith(('W', 'GW-')) else set()))}
+    return {n.replace("gw.work_", "flow.work_") for n in (extra | design_names(task) | (target_names() if d.get('target') or is_build_task(task) else set()))}
 
 
 def validate(d, expected=None, isolation=True):
@@ -105,7 +110,7 @@ def validate(d, expected=None, isolation=True):
     tables = {t['name']: t for t in d['tables']}
     require(len(tables) == len(d['tables']), 'Duplicate table')
     if expected is not None:
-        if task.startswith(('W', 'GW-')) and not d.get('target'):
+        if is_build_task(task) and not d.get('target'):
             # 일괄 개발: 제품 DB는 단계마다 자란다. 설계에 없는 표만 막는다.
             require(set(tables) <= expected, f'Design inventory mismatch: extra={sorted(set(tables)-expected)}')
         else:
@@ -675,7 +680,7 @@ def validate_spc(d):
     require(unique('spc.signal', ['subgroup_id', 'chart', 'rule']), 'one signal per subgroup, chart and rule')
     require(unique('spc.control_limit', ['characteristic_id', 'version']), 'one limit per characteristic version')
     # DSN-17 Q1(목표 설계): n=1(I-MR)·2~10(X̄-R).
-    require(any(c['table'] == 'spc.characteristic' and c['kind'] == 'CHECK' and c['expression'] in ('subgroup_size = 5', 'subgroup_size BETWEEN 1 AND 10') for c in cs), 'subgroup size fixed to 5 (13장 1)')
+    require(any(c['table'] == 'spc.characteristic' and c['kind'] == 'CHECK' and c['expression'] in ('subgroup_size = 5', 'subgroup_size BETWEEN 1 AND 10') for c in cs), 'subgroup size 1~10 (13장 1)')
     require(not any(n.startswith('mes.') and 'measure' in n for n in ts), 'measurements are owned by SPC, not MES (D38)')
     require(not any(r['source'].startswith('spc.') and r['target'].split('.')[0] not in {'spc', 'core'} for r in d['relations']), 'no FK from spc to other business schemas')
     require(any(c['table'] == 'core.workspace_module' and c['kind'] == 'CHECK' and "'spc'" in c['expression'] for c in cs), 'module key spc')

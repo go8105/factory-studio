@@ -197,8 +197,10 @@ def build(
                 and c["kind"] == "CHECK"
                 and "module_key IN" in c["expression"]
             )
-            old = new.rstrip(")")[: -len(f", '{module_key}'")] + ")"
-            module.append((table, f"c{index}_check", old, new))
+            tail = f", '{module_key}')"
+            if not new.endswith(tail):
+                continue  # 이미 목록에 있는 모듈 키다. CHECK를 바꿀 것이 없다.
+            module.append((table, f"c{index}_check", new[: -len(tail)] + ")", new))
     return up, down, module
 
 
@@ -206,9 +208,11 @@ def render(args, up: list[str], down: list[str], module: list, digest: str) -> s
     # 비어 있을 수 있으니 줄마다 쉼표를 붙인다 — join은 빈 목록에서 쉼표만 남긴다.
     quoted = "".join(f'    "{s}",\n' for s in up).rstrip("\n")
     down_quoted = "".join(f'    "{s}",\n' for s in down).rstrip("\n")
+    # 빈 목록은 ruff format이 한 줄로 줄인다. 처음부터 한 줄로 만든다.
     module_rows = "".join(
         f'    ("{t}", "{n}", "{o}", "{w}"),\n' for t, n, o, w in module
     ).rstrip("\n")
+    module_block = f"[\n{module_rows}\n]" if module else "[]"
     return f'''"""{args.title}.
 
 설계 schema.json {args.version}({args.task})에서 tools/build_migration.py로 생성했다. 실행할 때 JSON을 읽지 않는다.
@@ -230,9 +234,7 @@ DROPS = [
 {down_quoted}
 ]
 # 모듈 키: (표, 제약 이름, 옛 식, 새 식)
-MODULE_CHECKS = [
-{module_rows}
-]
+MODULE_CHECKS = {module_block}
 
 
 def upgrade() -> None:

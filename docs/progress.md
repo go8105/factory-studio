@@ -1,3 +1,18 @@
+# 2026-10-19 SPC-1a — SPC 5표 신설·기존 5표 보강 (DB)
+
+Claude Code 직접 개발(D85). 브랜치 `spc-1a`. 기존 솔루션 보강 순서 1번.
+
+- SPC가 목표 설계 10표 중 5표만 있었다. 나머지 5표를 만들었다: `spc.characteristic_rule`(특성별 적용 규칙), `spc.spec_violation`(규격 이탈), `spc.ocap_item`·`spc.ocap_check`(이상 대응 절차와 점검 기록), `spc.capability_report`(공정능력 보고서). **spc 5표 → 10표, 전체 210 → 215표.**
+- 기존 5표에 칼럼을 더했다. `characteristic`에 `chart_type`·`defect_source`, `control_limit`에 `attr_center`, `subgroup`에 `inspected_qty`·`defect_count`·`gauge_code`. **계수형 관리도(P·NP·C·U)와 부분군 크기 1~10(I-MR·X̄-R)을 받기 위한 것**으로, 지금까지는 X̄-R·n=5만 가능했다.
+- 바뀐 CHECK 7건(c739·741·756·760·763·764·765)은 모두 **제자리 교체**다. `schema.json`의 제약 이름이 배열 순번이라 중간에 끼워 넣으면 뒤 번호가 전부 밀린다. 끼워 넣지 않았음을 적용 전후 순번 비교로 확인했다(제약 1,549 → 1,583, 밀린 번호 0건).
+- `tools/apply_spc1.py` 신설(멱등). 마이그레이션 `backend/alembic/versions/20261019_spc1.py`(revision `spc1`, down `gw_wms_merge`, 65문).
+- **도구 3개를 고쳤다.** ① `validate_db_design.py`의 단계 판정이 `W`·`GW-`로 시작하는 작업 ID만 "일괄 개발"로 봐서 `SPC-1a`가 설계 검사에서 떨어졌다. **설계 작업(`FS-`·`DSN-`)이 아니면 개발 단계**로 뒤집었다(`is_build_task`). 모듈마다 접두사를 더하지 않아도 된다. ② `build_migration.py --module-key`가 모듈 키를 목록 끝에서 글자 수만큼 잘라내 `spc`처럼 중간에 있는 키에서 `'hr',)` 같은 깨진 CHECK를 만들었다. 끝에 없으면 건너뛴다. ③ SPC 계약 검사 문구를 `subgroup size fixed to 5` → `subgroup size 1~10`으로 바꾸고, 이를 고정값으로 박아 둔 `test_fs028a`·`test_fs030a`를 갱신했다.
+- 검증: `db:validate` 오류 0(215표/2,360칼럼/536FK), 격리 감사 R1~R6 0, **마이그레이션 왕복**(spc1 → gw_wms_merge → spc1) 통과, `verify_ddl_matches_schema.py` 0, `db:build`(51시트)·`build_erd.py` 재생성. 수동 CI 1~5단계 통과(백엔드 **1,100 passed/2 skipped**·perf 1, 마이그레이션 왕복 0, 프런트 **624 passed/77 files**).
+- **아직 없는 것: API·화면·시드·도움말.** 새 5표는 빈 표다. SPC 화면은 S-01~07 그대로이고 S-08~S-11은 다음 단계다.
+- **CI에서 테스트 4건을 고쳤다.** `test_gw_wms_merge.py`가 head 리비전을 `"gw_wms_merge"` 문자열로 박아 둬서 `spc1`이 붙자 3건이 깨졌다. 검사 의도는 "손으로 부른 `downgrade()`가 버전 행을 건드리지 않는다"이므로 `ScriptDirectory.get_current_head()`와 비교하게 바꿨다 — 다음 마이그레이션에서 또 깨지지 않는다.
+- **날짜 경계 실패를 다시 만났다.** 22:50에 시작한 CI가 자정을 넘기면서 `test_lazy_seed`·`test_mes_master`·`test_integration_ac` 3건이 깨졌다. `guest_expires_at()`이 만료를 **KST 자정**으로 잡아 테스트 도중 게스트 공간이 죽는다. 자정 이후 재실행하면 통과한다. 코드 결함이 아니라 **자정 직전에 CI를 시작하면 재현되는 문제**다(지난 flow 7건과 같은 종류).
+- 다음: **SPC-1b** S-07 규칙 설정·S-08 규격 이탈.
+
 # 2026-10-19 WMS 운영 배포 완료 (6df6e71) — 화면 19/20·도움말 18편
 
 제품 `6df6e71` 로컬main/origin/실서버 반영(22:25 KST). 서버 `a7c78d0` → `6df6e71`, 40초. 18커밋·49파일(+8,144/−31).

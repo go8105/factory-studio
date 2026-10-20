@@ -6,7 +6,7 @@ from pathlib import Path
 
 import apply_fs024a
 from audit_schema_isolation import audit
-from validate_db_design import at_least, validate_wms
+from validate_db_design import at_least, is_build_task, validate_wms
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -20,7 +20,7 @@ class ApplyTest(unittest.TestCase):
         self.assertFalse(apply_fs024a.apply(again))
         self.assertEqual(again, self.current)
         task = self.current.get('task', '')
-        expected = 23 if (task in {'W2b-1a', 'GW-COMPANY-05'} or task.startswith('W2b')) else (11 if at_least(task, {'FS-026a', 'FS-040', 'FS-030a', 'FS-029a'}) else 6)
+        expected = 23 if is_build_task(task) else (11 if at_least(task, {'FS-026a', 'FS-040', 'FS-030a', 'FS-029a'}) else 6)
         self.assertEqual(sum(t['name'].startswith('wms.') for t in self.current['tables']), expected)
         self.assertEqual(audit(self.current), [])
         self.assertEqual(validate_wms(self.current), [])

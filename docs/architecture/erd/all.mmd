@@ -2308,6 +2308,29 @@ erDiagram
     timestamptz released_at "해제 시각 NULL"
     timestamptz created_at "등록 시각"
   }
+  spc_capability_report {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    bigint characteristic_id FK "관리 특성"
+    date report_start_on "기간 시작"
+    date report_end_on "기간 끝"
+    integer version "버전"
+    varchar status "상태"
+    integer subgroup_count "부분군 수"
+    numeric mean "평균"
+    numeric sigma_within "군내 σ(R̄/d2)"
+    numeric sigma_overall "전체 σ"
+    numeric cp "Cp NULL"
+    numeric cpk "Cpk NULL"
+    numeric pp "Pp NULL"
+    numeric ppk "Ppk NULL"
+    numeric skewness "왜도 NULL"
+    numeric kurtosis "첨도 NULL"
+    varchar comment "의견 NULL"
+    timestamptz confirmed_at "확정 시각 NULL"
+    timestamptz created_at "등록 시각"
+  }
   spc_characteristic {
     bigint id PK "내부 식별자"
     bigint workspace_id FK "개인 체험 공간"
@@ -2324,6 +2347,16 @@ erDiagram
     smallint subgroup_size "부분군 크기"
     smallint decimals "표시 소수 자릿수"
     boolean is_active "사용 여부"
+    timestamptz created_at "등록 시각"
+    varchar chart_type "관리도 종류"
+    varchar defect_source "불량 수 출처 NULL"
+  }
+  spc_characteristic_rule {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    bigint characteristic_id FK "관리 특성"
+    integer rule_no "규칙 번호"
     timestamptz created_at "등록 시각"
   }
   spc_control_limit {
@@ -2344,6 +2377,7 @@ erDiagram
     numeric r_lcl "R 관리 하한"
     varchar reason "게시 사유"
     timestamptz created_at "등록 시각"
+    numeric attr_center "계수형 중심값 NULL"
   }
   spc_measurement {
     bigint id PK "내부 식별자"
@@ -2352,6 +2386,29 @@ erDiagram
     bigint subgroup_id FK "부분군"
     smallint seq "순서"
     numeric value "측정값"
+    timestamptz created_at "등록 시각"
+  }
+  spc_ocap_check {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    bigint signal_id FK "이상 기록"
+    bigint ocap_item_id FK "점검 항목"
+    varchar result "결과"
+    varchar note "메모 NULL"
+    timestamptz checked_at "점검 시각"
+    timestamptz created_at "등록 시각"
+  }
+  spc_ocap_item {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    bigint characteristic_id FK "관리 특성 NULL"
+    integer rule_no "규칙 번호 NULL"
+    integer seq "순서"
+    varchar check_text "점검 내용"
+    varchar cause_category "해당 원인 NULL"
+    boolean is_active "사용 여부"
     timestamptz created_at "등록 시각"
   }
   spc_signal {
@@ -2370,6 +2427,21 @@ erDiagram
     varchar cause_category "원인 분류 NULL"
     varchar action "조치 내용 NULL"
     timestamptz resolved_at "조치 시각 NULL"
+    timestamptz voided_at "무효 시각 NULL"
+    timestamptz created_at "등록 시각"
+  }
+  spc_spec_violation {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    bigint subgroup_id FK "부분군"
+    bigint characteristic_id FK "관리 특성"
+    integer seq "측정 순번"
+    varchar lot_no "LOT 번호"
+    numeric value "측정값"
+    varchar side "이탈 방향"
+    numeric limit_value "규격 한계"
+    timestamptz detected_at "탐지 시각"
     timestamptz voided_at "무효 시각 NULL"
     timestamptz created_at "등록 시각"
   }
@@ -2393,6 +2465,9 @@ erDiagram
     varchar source "출처"
     varchar note "메모 NULL"
     timestamptz created_at "등록 시각"
+    numeric inspected_qty "검사 수(n) NULL"
+    numeric defect_count "불량·결점 수 NULL"
+    varchar gauge_code "계측기 번호 NULL"
   }
   wms_count_line {
     bigint id PK "내부 식별자"
@@ -3238,3 +3313,15 @@ erDiagram
   gw_person ||..o{ gw_step_assignment : "workspace_id,generation_id,person_id"
   gw_approval_document ||..o{ gw_step_assignment : "workspace_id,generation_id,document_id"
   gw_approval_step ||..o{ gw_step_assignment : "workspace_id,generation_id,document_id,step_id"
+  core_data_generation ||..o{ spc_characteristic_rule : "workspace_id,generation_id"
+  core_data_generation ||..o{ spc_spec_violation : "workspace_id,generation_id"
+  core_data_generation ||..o{ spc_ocap_item : "workspace_id,generation_id"
+  core_data_generation ||..o{ spc_ocap_check : "workspace_id,generation_id"
+  core_data_generation ||..o{ spc_capability_report : "workspace_id,generation_id"
+  spc_characteristic ||..o{ spc_characteristic_rule : "workspace_id,generation_id,characteristic_id"
+  spc_subgroup ||..o{ spc_spec_violation : "workspace_id,generation_id,subgroup_id"
+  spc_characteristic ||..o{ spc_spec_violation : "workspace_id,generation_id,characteristic_id"
+  spc_characteristic |o..o{ spc_ocap_item : "workspace_id,generation_id,characteristic_id"
+  spc_signal ||..o{ spc_ocap_check : "workspace_id,generation_id,signal_id"
+  spc_ocap_item ||..o{ spc_ocap_check : "workspace_id,generation_id,ocap_item_id"
+  spc_characteristic ||..o{ spc_capability_report : "workspace_id,generation_id,characteristic_id"
