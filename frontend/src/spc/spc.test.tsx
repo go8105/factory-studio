@@ -663,3 +663,45 @@ it("S-03 공정능력: Ppk·정규성·월별 추이를 함께 보여 준다", a
   expect(screen.getByText("부분군 4개")).toBeVisible();
   expect(screen.getByText("2026-09").parentElement).toHaveTextContent("1.60");
 });
+
+it("S-10 층별 비교: 설비별로 갈라 보여 주고 부분군이 적은 그룹은 Cpk를 계산하지 않는다", async () => {
+  const fetcher = mount("/spc/strata?c=7", {
+    [`GET ${P}/characteristics`]: ok([ch]),
+    [`GET ${P}/characteristics/7/strata`]: ok({
+      characteristic: ch,
+      by: "equipment",
+      minimum: 20,
+      overallMean: "12.000000",
+      groups: [
+        {
+          id: "INJ-01",
+          group: "INJ-01",
+          subgroupCount: 30,
+          mean: "11.990000",
+          shift: "-0.010000",
+          cpk: "1.500000",
+          judgement: "CAPABLE",
+        },
+        {
+          id: "INJ-02",
+          group: "INJ-02",
+          subgroupCount: 6,
+          mean: "12.060000",
+          shift: "0.060000",
+          cpk: null,
+          judgement: null,
+        },
+      ],
+    }),
+  });
+  expect(await screen.findByText("INJ-01")).toBeVisible();
+  expect(screen.getByText("+0.0600")).toBeVisible();
+  expect(screen.getByText(/부분군 20개 미만 — 계산 안 함/)).toBeVisible();
+  fireEvent.change(screen.getByLabelText("기준"), { target: { value: "lot" } });
+  fireEvent.click(screen.getByRole("button", { name: "조회" }));
+  await waitFor(() =>
+    expect(
+      fetcher.mock.calls.some(([url]) => String(url).includes("by=lot")),
+    ).toBe(true),
+  );
+});

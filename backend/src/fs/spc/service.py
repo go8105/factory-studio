@@ -1116,6 +1116,71 @@ def resolve_signal(
     return _action(context, f"spc.signal.resolve:{signal_id}", key, values, fn)
 
 
+# ---------- 층별 비교 (S-10, DSN-17 Q6 F45) ----------
+
+STRATA = {"equipment": "equipment_code", "lot": "lot_no"}
+
+
+def strata(
+    context: AuthContext,
+    characteristic_id: int,
+    by: str,
+    date_from: date | None,
+    date_to: date | None,
+) -> dict[str, Any]:
+    """설비·LOT별로 부분군을 갈라 평균과 능력을 견준다. 읽기 전용, 저장하지 않는다.
+
+    부분군에 스냅샷으로 남은 설비·LOT만 축이 된다. MES에 작업자 정보가 없어 작업자 축은 없다.
+    Cpk는 그룹의 유효 부분군이 MIN_BASIS 이상일 때만 계산한다 — LOT처럼 부분군이 적은 그룹은 평균만 본다.
+    """
+    column = STRATA[by]
+    start, end = _period(date_from, date_to)
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = _characteristic(connection, scoped, characteristic_id)
+        rows = connection.execute(
+            text(
+                f"SELECT {column} AS grp, xbar, r FROM spc.subgroup WHERE {_S} "
+                "AND characteristic_id=:c AND status='valid' AND measured_at>=:a AND measured_at<:b "
+                "ORDER BY measured_at"
+            ),
+            {**_s(scoped), "c": characteristic_id, "a": start, "b": end},
+        ).all()
+        lsl = _number(found["lsl"], "lsl")
+        usl = _number(found["usl"], "usl")
+        size = int(found["subgroupSize"])
+        overall = stats.mean([r.xbar for r in rows]) if rows else None
+        groups: dict[str, list] = {}
+        for row in rows:
+            groups.setdefault(row.grp, []).append(row)
+        out = []
+        for name, members in sorted(groups.items()):
+            mu = stats.mean([m.xbar for m in members])
+            entry: dict[str, Any] = {
+                "id": name,
+                "group": name,
+                "subgroupCount": len(members),
+                "mean": _value(stats.q(mu)),
+                "shift": None if overall is None else _value(stats.q(mu - overall)),
+                "cpk": None,
+                "judgement": None,
+            }
+            if len(members) >= stats.MIN_BASIS:
+                computed = stats.capability(
+                    [m.xbar for m in members], [m.r for m in members], lsl, usl, size
+                )
+                entry["cpk"] = _value(computed["cpk"])
+                entry["judgement"] = computed["judgement"]
+            out.append(entry)
+        return {
+            "characteristic": found,
+            "by": by,
+            "minimum": stats.MIN_BASIS,
+            "overallMean": None if overall is None else _value(stats.q(overall)),
+            "groups": out,
+        }
+
+
 # ---------- 공정능력 보고서 (S-11, DSN-17 Q6 F46) ----------
 
 REPORT_SQL = f"""

@@ -1103,3 +1103,56 @@ def test_capability_report_is_a_snapshot_and_confirm_supersedes(spc):
         )
     }
     assert rows == {first["id"]: "superseded", second["id"]: "confirmed"}
+
+
+def test_strata_by_lot_and_equipment(spc):
+    """Q6 F45: 설비·LOT별로 평균을 견준다. 부분군이 20개 미만인 그룹은 평균만 보고 Cpk는 계산하지 않는다."""
+    client, created, _, ch = spc
+    _basis(client, created, ch)  # LT-0023 한 LOT·한 설비에 20개
+    by_lot = _ok(
+        client.get(f"{P}/characteristics/{ch['id']}/strata", params={"by": "lot"})
+    )
+    assert by_lot["by"] == "lot" and by_lot["minimum"] == 20
+    assert [(g["group"], g["subgroupCount"]) for g in by_lot["groups"]] == [
+        ("LT-0023", 20)
+    ]
+    only = by_lot["groups"][0]
+    assert only["shift"] == "0.000000"  # 그룹이 하나면 전체 평균과 같다
+    assert only["cpk"] is not None and only["judgement"] is not None
+
+    by_equipment = _ok(
+        client.get(f"{P}/characteristics/{ch['id']}/strata", params={"by": "equipment"})
+    )
+    assert [g["subgroupCount"] for g in by_equipment["groups"]] == [20]
+    assert (
+        by_equipment["groups"][0]["group"]
+        == _ok(client.get(f"{P}/subgroups", params={"characteristicId": ch["id"]}))[0][
+            "equipmentCode"
+        ]
+    )
+
+    # 무효 부분군은 층별 계산에서도 빠진다.
+    sub = _ok(client.get(f"{P}/subgroups", params={"characteristicId": ch["id"]}))[0]
+    _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/subgroups/{sub['id']}/void",
+            {"reason": "오측정"},
+        )
+    )
+    after = _ok(
+        client.get(f"{P}/characteristics/{ch['id']}/strata", params={"by": "lot"})
+    )
+    assert after["groups"][0]["subgroupCount"] == 19
+    assert after["groups"][0]["cpk"] is None  # 19개 — 기준 미달
+
+    bad = client.get(f"{P}/characteristics/{ch['id']}/strata", params={"by": "worker"})
+    assert bad.status_code == 400  # 작업자 축은 MES에 정보가 없어 두지 않는다
+
+
+def test_strata_empty_period_has_no_groups(spc):
+    client, _, _, ch = spc
+    data = _ok(client.get(f"{P}/characteristics/{ch['id']}/strata"))
+    assert data["groups"] == [] and data["overallMean"] is None

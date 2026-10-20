@@ -209,6 +209,16 @@ export const REPORT_STATUS_TONE: Record<
   ReportStatus,
   "normal" | "warning" | "issue"
 > = { draft: "warning", confirmed: "normal", superseded: "normal" };
+export type StratumBy = "equipment" | "lot";
+export type Stratum = {
+  id: string;
+  group: string;
+  subgroupCount: number;
+  mean: string;
+  shift: string | null;
+  cpk: string | null;
+  judgement: Judgement | null;
+};
 export type TrendPoint = {
   month: string;
   subgroupCount: number;
