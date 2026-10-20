@@ -15,6 +15,9 @@ from fs.spc.schema import (
     CharacteristicCreate,
     CharacteristicUpdate,
     LimitPublish,
+    OcapChecks,
+    OcapItemCreate,
+    OcapItemUpdate,
     Resolve,
     SubgroupCreate,
     VoidBody,
@@ -189,6 +192,75 @@ def post_void(
     return _data(
         service.void_subgroup(
             context, subgroup_id, payload.reason, _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.get("/ocap-items")
+def list_ocap_items(
+    context: Auth,
+    characteristic_id: Annotated[int | None, Query(alias="characteristicId")] = None,
+):
+    return _data(service.ocap_items(context, characteristic_id))
+
+
+@router.post("/ocap-items", status_code=201)
+def post_ocap_item(
+    payload: OcapItemCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_ocap_item(
+            context,
+            _values(
+                payload, frozenset({"characteristic_id", "rule_no", "cause_category"})
+            ),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.patch("/ocap-items/{item_id}")
+def patch_ocap_item(
+    item_id: int,
+    payload: OcapItemUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_ocap_item(
+            context,
+            item_id,
+            _values(
+                payload, frozenset({"characteristic_id", "rule_no", "cause_category"})
+            ),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.get("/signals/{signal_id}/ocap")
+def get_ocap_checks(signal_id: int, context: Auth):
+    return _data(service.ocap_checks(context, signal_id))
+
+
+@router.post("/signals/{signal_id}/ocap")
+def post_ocap_checks(
+    signal_id: int,
+    payload: OcapChecks,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.record_ocap_checks(
+            context,
+            signal_id,
+            payload.model_dump(exclude_unset=True),
+            _mutation(context, csrf, key),
         )
     )
 

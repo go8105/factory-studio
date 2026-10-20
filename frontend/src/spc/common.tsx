@@ -138,6 +138,45 @@ export type SpecViolation = {
   status: "open" | "void";
 };
 export const SIDE_LABEL = { LOW: "하한 미만", HIGH: "상한 초과" } as const;
+export type OcapItem = {
+  id: number;
+  characteristicId: number | null;
+  characteristicCode: string | null;
+  characteristicName: string | null;
+  itemCode: string | null;
+  processCode: string | null;
+  ruleNo: RuleNo | null;
+  seq: number;
+  checkText: string;
+  causeCategory: Cause | null;
+  isActive: boolean;
+  checkCount: number;
+};
+export type OcapResult = "OK" | "NG" | "NA";
+export type OcapCheck = {
+  id: number;
+  signalId: number;
+  ocapItemId: number;
+  result: OcapResult;
+  note: string | null;
+  checkedAt: string;
+};
+export type Checklist = {
+  signalId: number;
+  status: SignalStatus;
+  items: (OcapItem & { check: OcapCheck | null })[];
+  missing: number[];
+};
+export const RESULT_LABEL: Record<OcapResult, string> = {
+  OK: "이상 없음",
+  NG: "문제 있음",
+  NA: "해당 없음",
+};
+/** 점검 항목의 적용 범위를 한 줄로. 비면 '모든 …'이다. */
+export const ocapScope = (i: OcapItem) =>
+  `${i.characteristicId ? `${i.itemCode} · ${i.processCode} · ${i.characteristicName}` : "모든 특성"} · ${
+    i.ruleNo ? `규칙 ${i.ruleNo}` : "모든 규칙"
+  }`;
 
 export const CHART_LABEL = { XBAR: "X̄", R: "R", I: "I", MR: "MR" } as const;
 export const CHART_TYPE_LABEL: Record<ChartType, string> = {

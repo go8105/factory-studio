@@ -1,7 +1,7 @@
 {
-  "version": "0.28.0",
-  "task": "SPC-1a",
-  "date": "2026-10-19",
+  "version": "0.29.0",
+  "task": "SPC-1c",
+  "date": "2026-10-20",
   "status": "구현 명세 / 환경별 적용 상태는 인계 참조",
   "migration_revision": "gw_wms_merge",
   "tables": [
@@ -9382,7 +9382,7 @@
           "name": "xbar_cl",
           "label": "X̄ 중심선",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9390,7 +9390,7 @@
           "name": "xbar_ucl",
           "label": "X̄ 관리 상한",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9398,7 +9398,7 @@
           "name": "xbar_lcl",
           "label": "X̄ 관리 하한",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9406,7 +9406,7 @@
           "name": "r_cl",
           "label": "R 중심선",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9414,7 +9414,7 @@
           "name": "r_ucl",
           "label": "R 관리 상한",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9422,7 +9422,7 @@
           "name": "r_lcl",
           "label": "R 관리 하한",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9553,7 +9553,7 @@
           "name": "xbar",
           "label": "평균 X̄",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": "측정값 5개 평균(기록 때 계산)"
         },
@@ -9561,7 +9561,7 @@
           "name": "r",
           "label": "범위 R",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": "최대 − 최소"
         },
@@ -47176,6 +47176,13 @@
       "date": "2026-10-19",
       "change": "SPC 보강: 새 표 5개(특성별 판정 규칙, 규격 이탈, 이상 대응 점검 항목·결과, 공정능력 보고서)와 기존 3표 칼럼 6개(특성 관리도 종류·불량 출처, 관리 한계 계수형 중심선, 부분군 검사 수량·불량 수·계측기) 및 제약 교체 7건(부분군 크기 1~10, 측정 순번 10, 관리도 8종, Nelson 규칙 1~8, 계수형 규격 한계 허용, 부분군 출처 4종). 목표 설계 DSN-17에서 그대로 옮김",
       "status": "마이그레이션 spc1 적용 대상"
+    },
+    {
+      "version": "0.29.0",
+      "task": "SPC-1c",
+      "date": "2026-10-20",
+      "change": "SPC-1a 보완: 기존 칼럼의 NULL 허용을 목표 설계와 맞춤 (spc.subgroup.xbar·r, spc.control_limit.xbar_cl·xbar_ucl·xbar_lcl·r_cl·r_ucl·r_lcl). 계수형 관리도(P·NP·C·U) 부분군은 이 칸이 비어야 해서 지금 구조로는 넣을 수 없었다",
+      "status": "마이그레이션 spc2 적용 대상"
     }
   ]
 }

@@ -56,6 +56,8 @@ def _module(client, created, key: str, enabled: bool) -> None:
 
 
 SPC_TABLES = (
+    "ocap_check",
+    "ocap_item",
     "signal",
     "spec_violation",
     "measurement",
@@ -815,3 +817,185 @@ def test_other_workspace_cannot_see_spc(spc):
     assert ch["id"] not in {
         c["id"] for c in other.get(f"{P}/characteristics").json()["data"]
     }
+
+
+def _ocap(client, created, body, key=None):
+    return _call(client, created, "POST", "/ocap-items", body, key)
+
+
+def test_ocap_items_scope_and_duplicate(spc):
+    """Q5: 특성·규칙이 비면 '모든 것'. DB UK가 NULL을 못 잡으므로 서비스가 같은 순서를 막는다."""
+    client, created, _, ch = spc
+    # 화면은 '모든 것'을 null로 보낸다. 키를 빼고 보내는 것과 같아야 한다.
+    common = _ok(
+        _ocap(
+            client,
+            created,
+            {
+                "seq": 1,
+                "checkText": "설비 공기압 확인",
+                "characteristicId": None,
+                "ruleNo": None,
+                "causeCategory": None,
+            },
+        ),
+        201,
+    )
+    assert common["characteristicId"] is None and common["ruleNo"] is None
+    same = _ocap(client, created, {"seq": 1, "checkText": "다른 내용"})
+    assert same.status_code == 409 and _reason(same) == "DUPLICATE"
+    # 적용 범위가 다르면 같은 순서를 쓸 수 있다.
+    scoped = _ok(
+        _ocap(
+            client,
+            created,
+            {
+                "seq": 1,
+                "checkText": "금형 핀 마모 확인",
+                "characteristicId": ch["id"],
+                "ruleNo": 1,
+                "causeCategory": "MACHINE",
+            },
+        ),
+        201,
+    )
+    assert scoped["causeCategory"] == "MACHINE"
+    assert [i["id"] for i in _ok(client.get(f"{P}/ocap-items"))] == [
+        common["id"],
+        scoped["id"],
+    ]
+
+
+def test_ocap_must_be_recorded_before_resolving(spc):
+    """Q5: 해당 점검 항목을 모두 기록해야 조치를 닫을 수 있다. NG는 메모가 필요하다."""
+    client, created, _, ch = spc
+    common = _ok(
+        _ocap(client, created, {"seq": 1, "checkText": "설비 공기압 확인"}), 201
+    )
+    rule_one = _ok(
+        _ocap(
+            client,
+            created,
+            {
+                "seq": 1,
+                "checkText": "측정기 영점 확인",
+                "ruleNo": 1,
+                "causeCategory": "MEASUREMENT",
+            },
+        ),
+        201,
+    )
+    other_rule = _ok(
+        _ocap(client, created, {"seq": 2, "checkText": "규칙 2 전용", "ruleNo": 2}), 201
+    )
+    _basis(client, created, ch)
+    _ok(_publish(client, created, ch), 201)
+    out = _ok(_later(client, created, ch, 21, _around("2.700")), 201)
+    signal = _ok(client.get(f"{P}/signals", params={"status": "open"}))[0]
+    assert signal["rule"] == 1 and out["signals"]
+
+    checklist = _ok(client.get(f"{P}/signals/{signal['id']}/ocap"))
+    assert [i["id"] for i in checklist["items"]] == [common["id"], rule_one["id"]]
+    assert other_rule["id"] not in [i["id"] for i in checklist["items"]]
+    assert checklist["missing"] == [common["id"], rule_one["id"]]
+
+    blocked = _call(
+        client,
+        created,
+        "POST",
+        f"/signals/{signal['id']}/resolve",
+        {"causeCategory": "MACHINE", "action": "지그 재조정"},
+    )
+    assert blocked.status_code == 409 and _reason(blocked) == "OCAP_INCOMPLETE"
+
+    no_note = _call(
+        client,
+        created,
+        "POST",
+        f"/signals/{signal['id']}/ocap",
+        {"checks": [{"ocapItemId": common["id"], "result": "NG"}]},
+    )
+    assert no_note.status_code == 400
+
+    recorded = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/signals/{signal['id']}/ocap",
+            {
+                "checks": [
+                    {"ocapItemId": common["id"], "result": "OK"},
+                    {
+                        "ocapItemId": rule_one["id"],
+                        "result": "NG",
+                        "note": "영점이 0.01 밀려 있었다",
+                    },
+                ]
+            },
+        )
+    )
+    assert recorded["missing"] == []
+    assert [i["check"]["result"] for i in recorded["items"]] == ["OK", "NG"]
+
+    resolved = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/signals/{signal['id']}/resolve",
+            {"causeCategory": "MEASUREMENT", "action": "영점 재조정"},
+        )
+    )
+    assert resolved["status"] == "resolved"
+    late = _call(
+        client,
+        created,
+        "POST",
+        f"/signals/{signal['id']}/ocap",
+        {"checks": [{"ocapItemId": common["id"], "result": "NA"}]},
+    )
+    assert late.status_code == 409 and _reason(late) == "NOT_OPEN"
+
+
+def test_ocap_item_scope_is_locked_once_checked(spc):
+    """기록이 생긴 항목의 적용 범위는 바꿀 수 없다. 내용·순서·사용 여부는 바꿀 수 있다."""
+    client, created, _, ch = spc
+    item = _ok(_ocap(client, created, {"seq": 1, "checkText": "설비 공기압 확인"}), 201)
+    _basis(client, created, ch)
+    _ok(_publish(client, created, ch), 201)
+    _ok(_later(client, created, ch, 21, _around("2.700")), 201)
+    signal = _ok(client.get(f"{P}/signals", params={"status": "open"}))[0]
+    _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/signals/{signal['id']}/ocap",
+            {"checks": [{"ocapItemId": item["id"], "result": "OK"}]},
+        )
+    )
+    locked = _call(
+        client,
+        created,
+        "PATCH",
+        f"/ocap-items/{item['id']}",
+        {"ruleNo": 2},
+    )
+    assert locked.status_code == 409 and _reason(locked) == "OCAP_ITEM_IN_USE"
+    edited = _ok(
+        _call(
+            client,
+            created,
+            "PATCH",
+            f"/ocap-items/{item['id']}",
+            {"checkText": "설비 공기압 6bar 확인", "isActive": False},
+        )
+    )
+    assert (
+        edited["checkText"] == "설비 공기압 6bar 확인" and edited["isActive"] is False
+    )
+    # 사용을 꺼도 이미 기록한 항목은 그 이상의 점검표에 남는다.
+    checklist = _ok(client.get(f"{P}/signals/{signal['id']}/ocap"))
+    assert [i["id"] for i in checklist["items"]] == [item["id"]]
+    assert checklist["missing"] == []

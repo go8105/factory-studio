@@ -281,6 +281,13 @@ it("S-05 이상·조치: 규칙 설명과 원인·조치를 보내 조치 완료
   const f = mount("/spc/signals?signal=41", {
     [`GET ${P}/signals`]: ok([signal]),
     [`GET ${P}/characteristics/7/chart`]: ok(chart),
+    // 점검 항목이 없으면 점검표가 뜨지 않고 지금까지처럼 바로 조치할 수 있다.
+    [`GET ${P}/signals/41/ocap`]: ok({
+      signalId: 41,
+      status: "open",
+      items: [],
+      missing: [],
+    }),
     [`POST ${P}/signals/41/resolve`]: ok({
       ...signal,
       status: "resolved",
@@ -434,4 +441,124 @@ it("S-07 판정 규칙: 규칙 1은 끌 수 없고 고른 규칙만 보낸다", 
   expect(body(sent(fetcher, "PATCH", "/characteristics/7")[0]).rules).toEqual([
     1, 2, 5,
   ]);
+});
+
+const openSignal = {
+  id: 41,
+  subgroupId: 4,
+  characteristicId: 7,
+  characteristicCode: ch.code,
+  itemCode: ch.itemCode,
+  processCode: ch.processCode,
+  characteristicName: ch.name,
+  lotNo: "LT-0023",
+  equipmentCode: "INJ-02",
+  chart: "XBAR" as const,
+  rule: 1 as const,
+  value: "12.052000",
+  detectedAt: "2026-09-11T06:00:00+09:00",
+  status: "open" as const,
+  causeCategory: null,
+  action: null,
+  resolvedAt: null,
+  voidedAt: null,
+  limitVersion: 2,
+};
+const ocapItem = (id: number, extra = {}) => ({
+  id,
+  characteristicId: null,
+  characteristicCode: null,
+  characteristicName: null,
+  itemCode: null,
+  processCode: null,
+  ruleNo: null,
+  seq: id,
+  checkText: `점검 ${id}`,
+  causeCategory: null,
+  isActive: true,
+  checkCount: 0,
+  check: null,
+  ...extra,
+});
+
+it("S-09 이상 대응 절차: 적용 범위를 비우면 '모든 것'으로 보낸다", async () => {
+  const fetcher = mount("/spc/ocap", {
+    [`GET ${P}/ocap-items`]: ok([
+      ocapItem(1, { causeCategory: "MACHINE" }),
+      ocapItem(2, {
+        characteristicId: 7,
+        characteristicName: ch.name,
+        itemCode: ch.itemCode,
+        processCode: ch.processCode,
+        ruleNo: 1,
+      }),
+    ]),
+    [`GET ${P}/characteristics`]: ok([ch]),
+    [`POST ${P}/ocap-items`]: ok(ocapItem(3), 201),
+  });
+  expect(await screen.findByText("모든 특성 · 모든 규칙")).toBeVisible();
+  expect(
+    screen.getByText("FG-C200 · INJ · 하우징 높이 · 규칙 1"),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "항목 등록" }));
+  fireEvent.change(screen.getByLabelText("점검 내용"), {
+    target: { value: "설비 공기압 확인" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "등록" }));
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/ocap-items")).toHaveLength(1),
+  );
+  const saved = body(sent(fetcher, "POST", "/ocap-items")[0]);
+  expect(saved.characteristicId).toBeNull();
+  expect(saved.ruleNo).toBeNull();
+});
+
+it("S-05 점검표: 남은 점검을 알리고 NG는 메모 칸이 열린다", async () => {
+  const fetcher = mount("/spc/signals?signal=41", {
+    [`GET ${P}/signals`]: ok([openSignal]),
+    [`GET ${P}/characteristics/7/chart`]: ok(chart),
+    [`GET ${P}/signals/41/ocap`]: ok({
+      signalId: 41,
+      status: "open",
+      items: [ocapItem(1, { causeCategory: "MEASUREMENT" })],
+      missing: [1],
+    }),
+    [`POST ${P}/signals/41/ocap`]: ok({
+      signalId: 41,
+      status: "open",
+      items: [
+        ocapItem(1, {
+          causeCategory: "MEASUREMENT",
+          check: {
+            id: 9,
+            signalId: 41,
+            ocapItemId: 1,
+            result: "NG",
+            note: "영점이 밀려 있었다",
+            checkedAt: "2026-09-11T07:00:00+09:00",
+          },
+        }),
+      ],
+      missing: [],
+    }),
+  });
+  expect(
+    await screen.findByText(/남은 점검 1개를 모두 기록해야/),
+  ).toBeVisible();
+  expect(screen.queryByLabelText("무엇이 문제였나요")).toBeNull();
+  fireEvent.change(screen.getByLabelText("결과"), { target: { value: "NG" } });
+  fireEvent.change(screen.getByLabelText("무엇이 문제였나요"), {
+    target: { value: "영점이 밀려 있었다" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "점검 저장" }));
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/signals/41/ocap")).toHaveLength(1),
+  );
+  expect(body(sent(fetcher, "POST", "/signals/41/ocap")[0]).checks).toEqual([
+    { ocapItemId: 1, result: "NG", note: "영점이 밀려 있었다" },
+  ]);
+  // NG 항목의 해당 원인이 조치 원인으로 제안된다.
+  await waitFor(() =>
+    expect(screen.getByLabelText("원인 분류")).toHaveValue("MEASUREMENT"),
+  );
 });

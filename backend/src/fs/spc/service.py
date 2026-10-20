@@ -1019,16 +1019,30 @@ def resolve_signal(
     context: AuthContext, signal_id: int, values: dict[str, Any], key: str
 ) -> dict[str, Any]:
     def fn(connection, scoped):
-        found = _one(
-            connection,
-            SIGNAL_SQL + " AND x.id=:id FOR UPDATE OF x",
-            {**_s(scoped), "id": signal_id},
-        )
-        if found is None:
-            raise _not_found("이상 기록")
+        found = _signal_row(connection, scoped, signal_id, lock=True)
         if found["status"] != "open":
             raise _conflict(
                 "미조치 이상만 조치할 수 있습니다.", "NOT_OPEN", status=found["status"]
+            )
+        # 이상 대응 절차(Q5): 해당 점검 항목을 모두 기록해야 조치를 닫을 수 있다.
+        recorded = set(
+            connection.execute(
+                text(
+                    f"SELECT ocap_item_id FROM spc.ocap_check WHERE {_S} AND signal_id=:id"
+                ),
+                {**_s(scoped), "id": signal_id},
+            ).scalars()
+        )
+        missing = [
+            int(i["id"])
+            for i in _checklist(connection, scoped, found)
+            if i["isActive"] and int(i["id"]) not in recorded
+        ]
+        if missing:
+            raise _conflict(
+                f"점검 항목 {len(missing)}개를 아직 기록하지 않았습니다.",
+                "OCAP_INCOMPLETE",
+                missing=missing,
             )
         connection.execute(
             text(
@@ -1053,6 +1067,248 @@ def resolve_signal(
         )
 
     return _action(context, f"spc.signal.resolve:{signal_id}", key, values, fn)
+
+
+# ---------- 이상 대응 절차 OCAP (S-09, DSN-17 Q5) ----------
+
+OCAP_SQL = f"""
+SELECT o.id, o.characteristic_id, c.code characteristic_code, c.name characteristic_name,
+       c.item_code, c.process_code, o.rule_no, o.seq, o.check_text, o.cause_category, o.is_active,
+       (SELECT count(*) FROM spc.ocap_check k WHERE k.workspace_id=o.workspace_id
+          AND k.generation_id=o.generation_id AND k.ocap_item_id=o.id) check_count
+FROM spc.ocap_item o
+LEFT JOIN spc.characteristic c ON c.workspace_id=o.workspace_id AND c.generation_id=o.generation_id
+     AND c.id=o.characteristic_id
+WHERE o.{_S.replace(" AND ", " AND o.")}
+"""
+# 어떤 이상에 해당하는 항목인가: 특성이 비면 모든 특성, 규칙이 비면 모든 규칙(4장 ocap_item).
+APPLIES = (
+    "(o.characteristic_id IS NULL OR o.characteristic_id=:c) "
+    "AND (o.rule_no IS NULL OR o.rule_no=:rule)"
+)
+OCAP_ORDER = " ORDER BY o.characteristic_id NULLS FIRST, o.rule_no NULLS FIRST, o.seq"
+
+
+def _ocap_item(connection, scoped, item_id: int) -> dict[str, Any]:
+    found = _one(connection, OCAP_SQL + " AND o.id=:id", {**_s(scoped), "id": item_id})
+    if found is None:
+        raise _not_found("점검 항목")
+    return found
+
+
+def ocap_items(
+    context: AuthContext, characteristic_id: int | None
+) -> list[dict[str, Any]]:
+    """점검 항목. characteristicId를 주면 그 특성에 해당하는 것(공통 포함)만."""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        where = (
+            " AND (o.characteristic_id IS NULL OR o.characteristic_id=:c)"
+            if characteristic_id
+            else ""
+        )
+        return _all(
+            connection,
+            OCAP_SQL + where + OCAP_ORDER,
+            {**_s(scoped), "c": characteristic_id},
+        )
+
+
+def _duplicate_ocap(connection, scoped, values, exclude: int | None) -> None:
+    """같은 적용 범위(특성·규칙)에 같은 순서가 또 있으면 막는다.
+
+    DB UK는 NULL을 서로 다른 값으로 보기 때문에 '모든 특성'·'모든 규칙' 항목을 잡지 못한다.
+    """
+    found = connection.execute(
+        text(
+            f"SELECT id FROM spc.ocap_item WHERE {_S} AND seq=:seq "
+            "AND characteristic_id IS NOT DISTINCT FROM :c "
+            "AND rule_no IS NOT DISTINCT FROM :rule AND id IS DISTINCT FROM :exclude"
+        ),
+        {
+            **_s(scoped),
+            "seq": values["seq"],
+            "c": values.get("characteristic_id"),
+            "rule": values.get("rule_no"),
+            "exclude": exclude,
+        },
+    ).scalar()
+    if found is not None:
+        raise _conflict(
+            "같은 적용 범위에 같은 순서의 점검 항목이 이미 있습니다.",
+            "DUPLICATE",
+            id=found,
+        )
+
+
+def create_ocap_item(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    def fn(connection, scoped):
+        if values.get("characteristic_id"):
+            _characteristic(connection, scoped, values["characteristic_id"])
+        _duplicate_ocap(connection, scoped, values, None)
+        new_id = connection.execute(
+            text(
+                "INSERT INTO spc.ocap_item(workspace_id,generation_id,characteristic_id,rule_no,"
+                "seq,check_text,cause_category) VALUES (:w,:g,:c,:rule,:seq,:body,:cause) RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "c": values.get("characteristic_id"),
+                "rule": values.get("rule_no"),
+                "seq": values["seq"],
+                "body": values["check_text"].strip(),
+                "cause": values.get("cause_category"),
+            },
+        ).scalar_one()
+        return _ocap_item(connection, scoped, new_id), "ocap_item", new_id
+
+    return _action(context, "spc.ocap.create", key, values, fn, 201)
+
+
+SCOPE_FIELDS = ("characteristic_id", "rule_no")
+
+
+def update_ocap_item(
+    context: AuthContext, item_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    def fn(connection, scoped):
+        current = _ocap_item(connection, scoped, item_id)
+        if int(current["checkCount"]) > 0 and any(k in values for k in SCOPE_FIELDS):
+            raise _conflict(
+                "점검 기록이 있는 항목의 적용 범위는 바꿀 수 없습니다. 사용을 끄고 새 항목을 만들어 주세요.",
+                "OCAP_ITEM_IN_USE",
+                checkCount=current["checkCount"],
+            )
+        merged = {
+            "seq": values.get("seq", current["seq"]),
+            "characteristic_id": values.get(
+                "characteristic_id", current["characteristicId"]
+            ),
+            "rule_no": values.get("rule_no", current["ruleNo"]),
+        }
+        _duplicate_ocap(connection, scoped, merged, item_id)
+        sets = dict(values)
+        if "check_text" in sets:
+            sets["check_text"] = sets["check_text"].strip()
+        if sets:
+            assignments = ", ".join(f"{k}=:{k}" for k in sets)
+            connection.execute(
+                text(f"UPDATE spc.ocap_item SET {assignments} WHERE {_S} AND id=:id"),
+                {**_s(scoped), **sets, "id": item_id},
+            )
+        return _ocap_item(connection, scoped, item_id), "ocap_item", item_id
+
+    return _action(context, f"spc.ocap.update:{item_id}", key, values, fn)
+
+
+def _signal_row(
+    connection, scoped, signal_id: int, lock: bool = False
+) -> dict[str, Any]:
+    found = _one(
+        connection,
+        SIGNAL_SQL + " AND x.id=:id" + (" FOR UPDATE OF x" if lock else ""),
+        {**_s(scoped), "id": signal_id},
+    )
+    if found is None:
+        raise _not_found("이상 기록")
+    return found
+
+
+def _checklist(connection, scoped, signal: dict[str, Any]) -> list[dict[str, Any]]:
+    """이 이상에 해당하는 점검 항목. 이미 기록한 항목은 사용을 꺼도 계속 보인다."""
+    return _all(
+        connection,
+        OCAP_SQL + f" AND ({APPLIES}) AND (o.is_active OR EXISTS ("
+        "SELECT 1 FROM spc.ocap_check k WHERE k.workspace_id=o.workspace_id "
+        "AND k.generation_id=o.generation_id AND k.ocap_item_id=o.id AND k.signal_id=:signal))"
+        + OCAP_ORDER,
+        {
+            **_s(scoped),
+            "c": signal["characteristicId"],
+            "rule": signal["rule"],
+            "signal": signal["id"],
+        },
+    )
+
+
+CHECK_SQL = f"""
+SELECT k.id, k.signal_id, k.ocap_item_id, k.result, k.note, k.checked_at
+FROM spc.ocap_check k WHERE k.{_S.replace(" AND ", " AND k.")}
+"""
+
+
+def ocap_checks(context: AuthContext, signal_id: int) -> dict[str, Any]:
+    """S-05 이상 상세의 점검표: 해당 항목과 이미 기록한 결과."""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        signal = _signal_row(connection, scoped, signal_id)
+        items = _checklist(connection, scoped, signal)
+        results = {
+            int(r["ocapItemId"]): r
+            for r in _all(
+                connection,
+                CHECK_SQL + " AND k.signal_id=:id",
+                {**_s(scoped), "id": signal_id},
+            )
+        }
+        rows = [{**i, "check": results.get(int(i["id"]))} for i in items]
+        return {
+            "signalId": signal_id,
+            "status": signal["status"],
+            "items": rows,
+            "missing": [
+                int(r["id"]) for r in rows if r["check"] is None and r["isActive"]
+            ],
+        }
+
+
+def record_ocap_checks(
+    context: AuthContext, signal_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """점검 결과를 한 번에 저장한다. 조치 완료 전에만, 같은 항목은 덮어쓴다."""
+
+    def fn(connection, scoped):
+        signal = _signal_row(connection, scoped, signal_id, lock=True)
+        if signal["status"] != "open":
+            raise _conflict(
+                "미조치 이상만 점검을 기록할 수 있습니다.",
+                "NOT_OPEN",
+                status=signal["status"],
+            )
+        allowed = {int(i["id"]) for i in _checklist(connection, scoped, signal)}
+        for entry in values["checks"]:
+            item_id = int(entry["ocap_item_id"])
+            if item_id not in allowed:
+                raise _fields(
+                    {"checks": "이 이상에 해당하지 않는 점검 항목이 있습니다."}
+                )
+            note = (entry.get("note") or "").strip()
+            # DB CHECK는 note가 NULL이면 통과한다(NULL은 거짓이 아니다). 여기서 막는다.
+            if entry["result"] == "NG" and len(note) < 2:
+                raise _fields(
+                    {f"checks.{item_id}": "NG는 무엇이 문제였는지 적어 주세요."}
+                )
+            connection.execute(
+                text(
+                    "INSERT INTO spc.ocap_check(workspace_id,generation_id,signal_id,ocap_item_id,"
+                    "result,note,checked_at) VALUES (:w,:g,:s,:i,:r,:note,clock_timestamp()) "
+                    "ON CONFLICT (workspace_id,generation_id,signal_id,ocap_item_id) DO UPDATE "
+                    "SET result=EXCLUDED.result, note=EXCLUDED.note, checked_at=EXCLUDED.checked_at"
+                ),
+                {
+                    **_s(scoped),
+                    "s": signal_id,
+                    "i": item_id,
+                    "r": entry["result"],
+                    "note": note or None,
+                },
+            )
+        return None, "signal", signal_id
+
+    _action(context, f"spc.ocap.check:{signal_id}", key, values, fn)
+    return ocap_checks(context, signal_id)
 
 
 # ---------- 규격 이탈 (S-08) ----------
