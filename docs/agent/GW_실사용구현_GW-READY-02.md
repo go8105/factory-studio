@@ -248,3 +248,13 @@ codex/gw-company-01, 시작b494178·작업트리깨끗함. gw.journal_coverage �
 사용자추가지침: 매작업 종료시 완료내용/검증/제약/다음작업을 한국어로 알리고 다음작업 난이도에 따라 모델·추론수준 추천. 모델변경은 사용자가 선택하며 자동변경하지 않는다. 다음 개별경로/권한회수 연결은 높음: 현재앱 선택지 기준 GPT-6.1 Sol + High 추천, 최종 무누락/경계감사는 GPT-6 Astra + High 대안. 공식 OpenAI reasoning 가이드는 복잡성에 따른 effort 선택의 일반근거이며 이프로젝트 추천은 작업판단이다(https://developers.openai.com/api/docs/guides/reasoning).
 
 재현: `uv run --project backend pytest backend/tests/test_gw_journal_coverage.py backend/tests/test_journal_review.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short` (110). 별도소유PG18 *_test/alembic head·TEST_DATABASE_URL 후 `uv run --project backend pytest backend/tests/test_journal_transaction_proof.py -q --tb=short` (3). 마지막커밋 git log -1.
+
+## 2026-10-20 GW-READY-02 30차 GW 연결·역할 7경로 진단
+
+codex/gw-company-01, 시작1b1c4b3·작업트리깨끗함. journal_routes/GW_IDENTITY_ROUTES_V1 및 기존CLI --company-id 추가. 현재 활성회사정책/세대·FS_CODE_REVISION·DBhead/별도확인head에 진단을 묶는다. 최초설정·연결요청/수락/취소/중지/재개·역할변경7개를 정확operation 패턴으로 분리한다. 다른회사/세대/bool범위 제외, 과거형식/잘못된ID/알수없는operation은 해당범위미지원 처리. 같은계열 다른operation으로 채우지 않는다. 모든기록 집계로 이후미확인에 과거성공 fallback없음. MISSING/ABORT_ONLY/UNSETTLED/COMMIT_OBSERVED 및 거래6종건수. 과거기록에 실행코드버전이 없으므로 assessment버전만 기록·executionRevisionVerified=false. 저장실패롤백/복원거부UNVERIFIED·모두관측도PARTIAL/전체회수·완전성·전환승인false 유지. 계정/대상ID/원문operation 출력없음. CLI exit0과경로BLOCKED 공존가능. 인증/HR/문서ACL 전체계약은후속이다.
+
+검증: 단위121통과0.22초(기존경고2). 소유preview컨테이너ID/owner라벨/55439 대조·별도UUID *_test/alembic head에서 GW변경3+거래판정3 총6통과24.64초(기존경고2). 새실HTTP저장실패503→연결ACTIVE/버전불변→재시도중지200/직원posts403, 실제CLI 현재정책지문/head/제품버전·표준출력/보고일치·suspend관측1/cancel·resume미기록BLOCKED/readyfalse 확인. 이전ACL/미확인의도·감사범위변조 및 거래취소/진행/저장점/원본불일치 재검증. 테스트DB정리·previewDB/서비스유지. Ruffcheck/format·정적DB219/2409/543·R1–R6/diff오류0. 전체CI/실외부/사본복원/브라우저/UI/10인실인수 미실행. schema불변·Excel/ERD재생성없음. 비밀/work/전체로그 스테이징없음·다른checkout/main/원격push/배포변경없음.
+
+전체02진행중·readyfalse/미확인4. 다음: 실행버전/실행번호·경로별저장실패롤백/권한회수 결과를묶는실제수집어댑터, 인증/HR/ACL경로목록 확대·실검증 → ACCEPTANCE/게이트 → GW UI보완 → main/전체회귀/10인인수. 다음난이도높음·GPT-6.1 Sol + High 추천, 최종경계감사는GPT-6 Astra + High 대안. 사용자선택전모델자동변경없음.
+
+재현:29차단위명령에 backend/tests/test_gw_journal_routes.py 추가(121). 별도소유PG18 *_test/alembic head·TEST_DATABASE_URL 후 `uv run --project backend pytest backend/tests/test_gw_identity_journal.py backend/tests/test_journal_transaction_proof.py -q --tb=short` (6). 마지막커밋git log -1.

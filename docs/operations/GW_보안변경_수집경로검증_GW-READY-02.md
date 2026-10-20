@@ -85,3 +85,12 @@ throttle의 새 창 초기0과 updated_at 갱신은 실패/발급 횟수 증가�
 하나라도 기록없음/미확인 또는 과거v1·미지원계열이 있으면 계열결과 BLOCKED다. 모두정리돼도 PARTIAL이며 모든 개별경로 실행·기록저장실패시롤백·최신지문/전체회수/원본유지·직접SQL/운영자경계는 별도 검증한다. 같은계열의 다른operation 기록을 특정경로의 실행근거로 인정하지 않는다. 없는계열을 과거형식으로 채우지 않는다.
 
 기존CLI 종료코드는 거래상태 기준이다. 따라서 취소가확인된 인증기록1건만 있으면 exit0이어도 HR/GW는 MISSING·계열결과BLOCKED일수있다. exit0을 수집완전성이나 운영승인으로 사용하지 않는다. completenessConfirmed/revocationsReapplied/releaseAuthorized=false 유지. unsigned검토보고서는 제품 ACCEPTANCE 등록이나 checkpoint입력으로 쓰지 않는다.
+
+
+## 30차 회사 범위 GW 연결·역할 7경로 진단
+
+기존 기록CLI의 `--company-id <양의회사번호>`를 `--classify-transactions` 또는 `--review-report`와 함께 지정한다. `FS_CODE_REVISION`이 필요하다. 같은 읽기전용 REPEATABLE READ 거래에서 활성회사 현재정책/세대·DBhead를 읽어 `identityRoutes`를 출력/보고에 연결한다. GW_IDENTITY_ROUTES_V1은 최초설정·연결요청/수락/취소/중지/재개·역할변경7개다. 인증/HR/문서ACL 전체목록은후속이다.
+
+다른회사/세대기록 제외·정확operation만 분류·대상ID미출력. MISSING은기록없음, ABORT_ONLY는전체거래취소만관측, UNSETTLED는미확인포함, COMMIT_OBSERVED는미확인없이감사확정을관측한것이다. 다른operation/과거형식으로 채우지않으며 이후미확인에 과거성공대체없음.
+
+현재정책/제품/DB는 assessment기준이다. 과거기록에 실행코드버전이없어 executionRevisionVerified=false이며 현재버전실행증거로 쓰지않는다. 저장실패롤백/복원거부는UNVERIFIED다. 이번합성실HTTP는 중지경로503시상태/버전유지→재시도200·직원403을확인했으나 unsigned관측보고에소급입력하지않는다. 모두관측도PARTIAL·전체회수/완전성/전환승인false. CLI exit0은경로/운영인수통과가아니다.

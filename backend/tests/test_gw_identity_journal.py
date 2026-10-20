@@ -8,16 +8,15 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from fs.core.security.journal import verified_records, verify
+from fs.gw import company
+from fs.gw.security_journal import confirm_records, record
 from sqlalchemy import text
 from test_gw_company import context
 from test_gw_company_http import create_doc
 from test_gw_company_work import api, connect_staff, initialize
 from test_hr_work import company_env  # noqa: F401
 from test_security_journal import journal  # noqa: F401
-
-from fs.core.security.journal import verified_records, verify
-from fs.gw import company
-from fs.gw.security_journal import confirm_records, record
 
 
 def inspect_cli(head):
@@ -153,3 +152,73 @@ def test_company_document_actions_and_uncommitted_intent(company_env, journal): 
     cli = inspect_cli(state["head"])
     assert cli.returncode == 3
     assert "synthetic.rollback" not in cli.stdout
+
+
+def test_company_route_cli_binds_current_policy_and_actual_suspend(
+    company_env,  # noqa: F811
+    journal,  # noqa: F811
+    monkeypatch,
+    tmp_path,
+):
+    from test_gw_company_work import ok
+    from test_gw_evidence import prepare
+
+    prepare(company_env, monkeypatch)
+    _engine, co, admin, staff = company_env
+    binding = ok(api(staff, co, "me/binding", method="GET"))
+    directory, key = journal
+    directory.chmod(0o755)
+    values = {"expectedVersion": binding["version"], "reason": "합성 저장 실패 롤백"}
+    assert (
+        api(admin, co, f"identity-bindings/{binding['id']}/suspend", values).status_code
+        == 503
+    )
+    directory.chmod(0o700)
+    unchanged = ok(api(staff, co, "me/binding", method="GET"))
+    assert unchanged["state"] == "ACTIVE" and unchanged["version"] == binding["version"]
+    assert (
+        api(admin, co, f"identity-bindings/{binding['id']}/suspend", values).status_code
+        == 200
+    )
+    assert api(staff, co, "posts", method="GET").status_code == 403
+    state = verify(directory, key)
+    tmp_path.chmod(0o700)
+    output_file = tmp_path / "routes.json"
+    root = Path(__file__).resolve().parents[2]
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(root / "tools/gw_identity_journal.py"),
+            "--expected-head",
+            state["head"],
+            "--company-id",
+            str(co["companyId"]),
+            "--review-report",
+            str(output_file),
+        ],
+        env={**os.environ, "PYTHONPATH": str(root / "backend/src")},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    output = json.loads(result.stdout)
+    routes = output["identityRoutes"]
+    assert routes == json.loads(output_file.read_text())["identityRoutes"]
+    current = ok(api(admin, co, "operations", method="GET"))
+    from fs.gw.operating_contract import OperatingPolicy
+
+    assert (
+        routes["assessmentPolicyDigest"]
+        == OperatingPolicy.model_validate(current["policy"]).digest()
+    )
+    assert routes["workspaceId"] == str(co["companyId"])
+    assert routes["assessmentCodeRevision"] == "abcdef012345"
+    assert routes["head"] == state["head"]
+    states = {r["route"]: r for r in routes["routes"]}
+    assert states["BINDING_SUSPEND"]["state"] == "COMMIT_OBSERVED"
+    assert states["BINDING_SUSPEND"]["records"] == 1
+    assert states["BINDING_CANCEL"]["state"] == "MISSING"
+    assert states["BINDING_RESUME"]["state"] == "MISSING"
+    assert routes["result"] == "BLOCKED" and not routes["executionRevisionVerified"]
+    assert not routes["revocationsReapplied"] and current["ready"] is False

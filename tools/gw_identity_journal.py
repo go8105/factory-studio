@@ -8,9 +8,11 @@ from fs.core.backup import BackupError, private_file
 from fs.core.security import journal_review
 from fs.core.security.journal import verified_records, verify
 from fs.core.security.transaction_proof import classify, summary
+from fs.gw.backup import policy_snapshot
 from fs.gw.journal_coverage import build as family_coverage
+from fs.gw.journal_routes import build as route_coverage
 from fs.gw.security_journal import confirm_records, confirmed_digests
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 
@@ -22,7 +24,16 @@ def main():
     parser.add_argument(
         "--review-report", help="비공개 새 진단 JSON 파일. 거래 분류를 함께 수행합니다."
     )
+    parser.add_argument(
+        "--company-id", type=int, help="현재 정책 회사의 GW 연결 7경로 진단"
+    )
     args = parser.parse_args()
+    if args.company_id is not None and (
+        args.company_id <= 0 or not (args.classify_transactions or args.review_report)
+    ):
+        parser.error(
+            "--company-id는 거래 분류/검토 보고와 함께 양의 정수로 지정하세요."
+        )
     classify_transactions = args.classify_transactions or bool(args.review_report)
     try:
         directory = os.environ["FS_GW_IDENTITY_JOURNAL_DIR"]
@@ -47,11 +58,27 @@ def main():
                         result["recordingFamilies"] = family_coverage(
                             records, dispositions
                         )
+                        if args.company_id is not None:
+                            result["identityRoutes"] = route_coverage(
+                                records,
+                                dispositions,
+                                scope=policy_snapshot(c, args.company_id),
+                                code_revision=os.environ["FS_CODE_REVISION"],
+                                db_revision=c.execute(
+                                    text("SELECT version_num FROM alembic_version")
+                                ).scalar_one(),
+                                head=result["head"],
+                            )
                         if args.review_report:
                             journal_review.write(
                                 args.review_report,
                                 journal_review.build(result, records, dispositions)
-                                | {"recordingFamilies": result["recordingFamilies"]},
+                                | {"recordingFamilies": result["recordingFamilies"]}
+                                | (
+                                    {"identityRoutes": result["identityRoutes"]}
+                                    if "identityRoutes" in result
+                                    else {}
+                                ),
                             )
             finally:
                 engine.dispose()
