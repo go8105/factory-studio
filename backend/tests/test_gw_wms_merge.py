@@ -15,6 +15,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
+from alembic.script import ScriptDirectory
 from fs.common.db import reset_engine
 from fs.hr.work_setup import create_example_company
 from sqlalchemy import create_engine, inspect, text
@@ -160,6 +161,7 @@ def test_merge_both_existing_branches_preserves_original_data(isolated_database,
         == 0
     )
     with engine.connect() as c:
+        # 손으로 부른 downgrade()는 버전 행을 건드리지 않는다 — head 그대로여야 한다.
         assert c.exec_driver_sql(
             "SELECT version_num FROM alembic_version"
-        ).scalars().all() == ["gw_wms_merge"]
+        ).scalars().all() == [ScriptDirectory.from_config(cfg).get_current_head()]

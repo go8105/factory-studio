@@ -19,7 +19,7 @@ class ApplyTest(unittest.TestCase):
         again = copy.deepcopy(self.current)
         self.assertFalse(apply_fs028a.apply(again))
         self.assertEqual(again, self.current)
-        self.assertEqual(sum(t['name'].startswith('spc.') for t in self.current['tables']), 5)
+        self.assertEqual(sum(t['name'].startswith('spc.') for t in self.current['tables']), 10)
         self.assertEqual(audit(self.current), [])
         self.assertEqual(validate(self.current, expected_names(self.current)), [])
 
@@ -35,10 +35,10 @@ class ApplyTest(unittest.TestCase):
         broken = copy.deepcopy(self.current)
         broken['constraints'] = [c for c in broken['constraints']
                                  if not (c['table'] == 'spc.subgroup' and c['kind'] == 'UK' and 'measured_at' in c['columns'])
-                                 and c['expression'] != 'subgroup_size = 5']
+                                 and c['expression'] not in ('subgroup_size = 5', 'subgroup_size BETWEEN 1 AND 10')]
         errors = validate_spc(broken)
         self.assertTrue(any('one subgroup per characteristic' in e for e in errors))
-        self.assertTrue(any('subgroup size fixed to 5' in e for e in errors))
+        self.assertTrue(any('subgroup size' in e for e in errors))
 
     def test_measurements_are_not_owned_by_mes(self):
         broken = copy.deepcopy(self.current)
