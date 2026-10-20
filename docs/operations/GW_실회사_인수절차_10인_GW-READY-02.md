@@ -111,3 +111,24 @@ uv run --project backend python tools/gw_backup.py verify-copy \
 별도 소유 테스트DB에서 실제 사본 검사/격리복원과 기존 journal 두 경로 총3건 최종 통과했다. 사본 파일검사 보고서와 복원 증거는 별개이며 동일 manifestDigest를 대조한다. 기존 PARTIAL·전체회수 미확인·ready=false는 유지한다. 실제 저장소 자격 증명/다운로드나 운영DB 접속은 이번에 추가하지 않았다.
 
 호스트/DB 종료시각 차이에 대해 파일검사는 기존 서명검증과 동일한30초 허용을 사용한다. 백업 시작시각/RPO 현재성 조건은 유지한다. 검증 도중 DB시각 역전으로 기존 CHECK/증거 등록 실패도 관찰했고 최종 재실행은 통과했다. 시간동기 설정을 임의 변경하지 않았으며 장기 안정성이나 운영 시간동기 인수 완료로 해석하지 않는다. 운영 도입 전 실제 서버·DB 시간동기와 시각 역전 대응을 별도로 검증한다.
+
+## 10. 서명된 인수 일부 확인과 최신 원본 대조 (35차)
+
+최종 ACCEPTANCE PASS 전에 사용하는 제한된 계약이다. 기존 백업·복원의 원본 서명, 현재 회사/세대·정책·제품/DB·기한, 동일 백업 명세와 실행 순서를 대조한 결과만 서명한다. **실회사 인수나 최종 전환 승인이 아니다.** 복원 PARTIAL을 그대로 참조하며 기존 백업·복원 연결 점검의 PASS 조건은 바꾸지 않는다. 합성 경로 수집 보고서와 사본 검사 보고서는 입력 원본으로 받지 않는다.
+
+§2-1의 비공개 현재 기준 파일·BACKUP/RESTORE 원본과 공개 키에 더해, 서명 발급 시에만 기존 실행자 키 설정 `FS_GW_RUNNER_KEY_FILE`(0600,32바이트 Ed25519 개인 키)과 `FS_GW_RUNNER_KEY_ID`를 비공개 환경에 제공한다. 개인 키와 현재 공개 키가 일치해야 한다. DB 접속·인증/복호화 키는 이 도구에 필요하지 않다.
+
+```sh
+uv run --project backend python tools/gw_acceptance_collect.py \
+  --context work/acceptance/context.json \
+  --backup work/acceptance/backup-evidence.json \
+  --restore work/acceptance/restore-evidence.json \
+  --signed-reconciliation \
+  --output work/acceptance/acceptance-partial.json
+```
+
+출력은 `{envelope, signature}`이며 `metrics.acceptanceDiagnostics`에 원본별 runId/sourceDigest와 네 조건의 UNVERIFIED를 담는다. manifestDigest는 이 대조 명세의 지문이다. 백업 파일의 지문을 인수 명세 지문으로 오해하지 않는다. PARTIAL/종료0만 발급하며 입력 불일치/실패/권한/기존 출력 오류는 종료1이다. 기존 unsigned 명령의 BLOCKED/종료2 동작은 그대로다. `--storage-copy`는 서명 옵션과 함께 사용할 수 없으며 별도 보고서로 검사한다. 기본 unsigned 명령에는 서명 개인 키를 제공하지 않는다.
+
+원본 BACKUP/RESTORE를 먼저 제품에 등록한 뒤 새 일부 확인 파일을 기존 **운영 실행 기록**에서 등록한다. 서버는 현재 운영 기준 잠금 안에서 `recorded_at DESC,id DESC` 최신 원본을 선택해 서명·등록행·참조 실행/지문까지 대조한다. CLI가 선택한 파일만으로 최신성을 주장하지 않는다. 최신 원본이 다르면 등록400이며, 이미 등록한 일부 확인도 다음 운영 준비 조회에서 INVALID가 된다. 최신 실패·새 PARTIAL/성공·원본 없는 기록·변조·옛 정책/버전·RPO 만료를 이전 원본으로 대신할 수 없다. 회사/세대·실행 시각도 일치해야 한다.
+
+출력/등록 성공은 네 미확인 조건을 해제하지 않는다. `ready=false`, 실제 복원 PARTIAL, 최종 ACCEPTANCE PASS 거부를 유지한다. 실행자의 서명은 실행자 식별/무결성 근거이며 침해된 실행자의 주장 자체를 보증하지 않는다. 실환경 실행 어댑터·서명자 신뢰 분리·현재 운영 원본과 최종 인수 계약은 후속이다. 기존 진단 없는 일부 확인/실패 기록도 인수 완료로 해석하지 않는다.

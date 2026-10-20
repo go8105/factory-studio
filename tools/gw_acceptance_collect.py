@@ -1,4 +1,4 @@
-"""Collect private proof files without DB access, credentials or PASS issuance."""
+"""Collect private proofs; optional signed PARTIAL reconciliation, never PASS."""
 
 import argparse
 import base64
@@ -6,10 +6,12 @@ import json
 import os
 from datetime import UTC, datetime
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fs.common.errors import ApiError
 from fs.core.backup import BackupError, create_private, private_file
 from fs.gw.acceptance_artifact import inspect_copy
 from fs.gw.acceptance_collection import collect
+from fs.gw.acceptance_reconciliation import sign_reconciliation
 from fs.gw.operating_contract import OperatingPolicy, canonical
 from pydantic import ValidationError
 
@@ -32,8 +34,15 @@ def main():
     parser.add_argument("--restore", required=True, help="기존 복원 도구의 서명 증거")
     parser.add_argument("--output", required=True, help="0700 폴더 안의 새 결과 파일")
     parser.add_argument("--storage-copy", help="외부 보관에서 가져온0600 암호화 사본")
+    parser.add_argument(
+        "--signed-reconciliation",
+        action="store_true",
+        help="원본 참조를 서명한 ACCEPTANCE PARTIAL 출력 (실환경 인수 아님)",
+    )
     args = parser.parse_args()
     try:
+        if args.signed_reconciliation and args.storage_copy:
+            raise ValueError("사본 검사는 별도 보고서로 실행하세요.")
         context = load(args.context)
         if set(context) != {
             "workspaceId",
@@ -62,7 +71,18 @@ def main():
             "db_revision": context["dbRevision"],
             "now": datetime.now(UTC),
         }
-        report = collect(documents, **trusted)
+        if args.signed_reconciliation:
+            signer = Ed25519PrivateKey.from_private_bytes(
+                private_file(os.environ["FS_GW_RUNNER_KEY_FILE"], size=32).read_bytes()
+            )
+            report = sign_reconciliation(
+                documents,
+                signer=signer,
+                signer_id=os.environ["FS_GW_RUNNER_KEY_ID"],
+                **trusted,
+            )
+        else:
+            report = collect(documents, **trusted)
         if args.storage_copy:
             report["storageCopy"] = inspect_copy(
                 args.storage_copy, documents["BACKUP"], **trusted
@@ -71,8 +91,13 @@ def main():
                 report["result"] = "BLOCKED"
         with create_private(args.output) as output:
             output.write(canonical(report))
-        print(json.dumps({"result": report["result"], "ready": False}))
-        return 0 if report["result"] == "PARTIAL" else 2
+        result = (
+            report["envelope"]["result"]
+            if args.signed_reconciliation
+            else report["result"]
+        )
+        print(json.dumps({"result": result, "ready": False}))
+        return 0 if result == "PARTIAL" else 2
     except (
         ApiError,
         OSError,

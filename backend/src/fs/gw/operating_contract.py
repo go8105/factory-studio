@@ -100,7 +100,34 @@ class RestoreDiagnostics(StrictModel):
         return self
 
 
+class EvidenceReference(StrictModel):
+    run_id: str = Field(alias="runId")
+    source_digest: str = Field(alias="sourceDigest", pattern=r"^[0-9a-f]{64}$")
+
+    @field_validator("run_id")
+    @classmethod
+    def uuid_run(cls, value):
+        parsed = UUID(value)
+        if parsed.version != 4 or str(parsed) != value:
+            raise ValueError("runId must be canonical UUID4")
+        return value
+
+
+class AcceptanceDiagnostics(StrictModel):
+    version: Literal[1]
+    scope: Literal["BACKUP_RESTORE_RECONCILIATION"]
+    backup: EvidenceReference
+    restore: EvidenceReference
+    external_storage: Literal["UNVERIFIED"] = Field(alias="externalStorage")
+    journal_coverage: Literal["UNVERIFIED"] = Field(alias="journalCoverage")
+    live_company: Literal["UNVERIFIED"] = Field(alias="liveCompany")
+    final_release: Literal["UNVERIFIED"] = Field(alias="finalRelease")
+
+
 class EvidenceMetrics(StrictModel):
+    acceptance_diagnostics: AcceptanceDiagnostics | None = Field(
+        None, alias="acceptanceDiagnostics"
+    )
     restore_diagnostics: RestoreDiagnostics | None = Field(
         None, alias="restoreDiagnostics"
     )
@@ -148,6 +175,26 @@ class EvidenceEnvelope(StrictModel):
 
     @model_validator(mode="after")
     def chronological(self):
+        acceptance = self.metrics.acceptance_diagnostics
+        if acceptance is not None:
+            if self.kind != "ACCEPTANCE" or self.result != "PARTIAL":
+                raise ValueError("원본 대조 진단은 인수 일부 확인에만 허용합니다.")
+            if self.metrics.failed_check_count or set(
+                self.metrics.model_dump(exclude_none=True)
+            ) != {"acceptance_diagnostics", "failed_check_count"}:
+                raise ValueError("인수 원본 대조에 다른 검사 결과를 섞을 수 없습니다.")
+            if (
+                len({self.run_id, acceptance.backup.run_id, acceptance.restore.run_id})
+                != 3
+            ):
+                raise ValueError("실행 번호를 재사용할 수 없습니다.")
+            if (
+                self.manifest_digest
+                != hashlib.sha256(
+                    canonical(acceptance.model_dump(by_alias=True))
+                ).hexdigest()
+            ):
+                raise ValueError("인수 대조 명세 지문이 다릅니다.")
         if self.metrics.restore_diagnostics is not None and self.kind != "RESTORE":
             raise ValueError("복원 진단은 복원 증거에만 포함할 수 있습니다.")
         if timestamp(self.started_at) > timestamp(self.finished_at):

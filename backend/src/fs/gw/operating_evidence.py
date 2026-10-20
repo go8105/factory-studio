@@ -11,6 +11,7 @@ from fs.common.errors import ApiError
 from fs.core.company import require_recent_auth
 from fs.core.security.service import database_now
 from fs.gw import company
+from fs.gw.acceptance_reconciliation import verify_registered_sources
 from fs.gw.company_identity import audit
 from fs.gw.operating_contract import verify_evidence
 from fs.gw.operations import policy_from_row, settings
@@ -84,6 +85,29 @@ def record(context, company_id, payload, key):
             code_revision=revision,
             now=database_now(c),
         )
+        if data.metrics.acceptance_diagnostics is not None:
+            sources = (
+                c.execute(
+                    text(f"""SELECT DISTINCT ON (kind) *
+                FROM gw.operating_evidence WHERE {S} AND kind IN ('BACKUP','RESTORE')
+                ORDER BY kind,recorded_at DESC,id DESC"""),
+                    p,
+                )
+                .mappings()
+                .all()
+            )
+            verify_registered_sources(
+                data,
+                sources,
+                policy_id=row["id"],
+                public_keys=keys,
+                workspace_id=ctx.workspace_id,
+                generation_id=ctx.generation_id,
+                policy=policy_from_row(row),
+                db_revision=db_revision,
+                code_revision=revision,
+                now=database_now(c),
+            )
         exists = c.execute(
             text(
                 f"SELECT id FROM gw.operating_evidence WHERE {S} AND run_id=cast(:run AS uuid)"
