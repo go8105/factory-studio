@@ -365,3 +365,21 @@ uv run --project backend alembic -c backend/alembic.ini upgrade head
 uv run --project backend pytest backend/tests/test_gw_acceptance_preflight_db.py backend/tests/test_gw_evidence.py backend/tests/test_gw_operations.py -q --tb=short
 ```
 기존 `gw_preview_test`를 테스트 초기화에 사용하지 않는다. 소유 컨테이너ID/owner/127.0.0.1:55439를 대조한 새 `gw_preflight_*_test`만 생성/정리한다. 인수 도구의 실행/권한/출력 절차는 `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §11. 실제 계정이름·비밀번호/OTP·원문/전체로그 출력 금지. 마지막 커밋은 `git log -1`.
+
+## 2026-10-20 GW-READY-02 38차 사전점검·합성10인 MFA/대표 업무 실행 연결
+
+- 시작 `bbd7fbf`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 사용자 다음 진행 승인에 따라 기존 수집기에 합성10인 실행 어댑터를 추가했다. 외부 저장소 미정은 유지한다. 실제 인수 PASS를 만들지 않는다.
+- 기존 ten_people/새 소유 시험DB 준비를 재사용한 `test_gw_business_probe` 추가. 새 합성 관리자만 admin으로 맞춘다. 실제 등록/확인 API로10명 TOTP 등록·옛 세션401·비밀번호202 도전/다음 미사용 OTP201·정상 업무 연결·GW 보안관리자1/직원9를 확인한다. 키/계정/세션/시계 검증을 모의 통과시키지 않았다. 실제/미리보기 계정 변경 없음.
+- 현재 사전점검 PARTIAL 뒤 직원9명 기안→관리자 승인·게시/다른 직원 조회·댓글·일정 참석·알림 읽음,10명 채팅/같은 키 재시도, 직원 관리기록403/타직원 초안404를 실행한다. 최종 사전점검 PARTIAL과 현재 기준 전후 지문 일치·제품 ready=false 확인. 실제 PostgreSQL과 in-process ASGI API이며 네트워크/TLS·브라우저/기기/실회사 사용·동시 부하 검증이 아니다.
+- `SyntheticBusinessObservation`는 합성 범위·현재 runId·회사/세대/정책/contextDigest·코드/DB·실행 시각·고정 수를 제한한다. bool과 int/float를 같은 값으로 허용하지 않는다. 수집 카탈로그V5 고정24검사에 연결하고, 전체 성공 JUnit의 정확한 검사/속성1개만 읽는다. 누락/중복/실패/생략·옛 실행/버전·미래/역전/무시간대·모르는 필드·완료 표지 위조를 거부한다. 전후 소스 변경 시 관측 제외/BLOCKED. 기존 결과 재사용/덮어쓰기 없음. 새 계약 파일도 미추적 상태부터 실행 소스 지문에 포함한다.
+- unsigned 합성 관측이며 제품 ACCEPTANCE 등록/서명 인수 자료가 아니다. 실제 복원 PARTIAL·ready/liveCompanyAcceptance=false·외부/전체수집/실회사/최종전환4조건 미확인·최종PASS 거부는 유지한다. 최종 실환경 어댑터/PASS 계약 개발은 아직 남는다.
+- 검증: 관련 단위232통과(기존 경고2), 별도 새 소유DB의10인 MFA/업무 직접 실행1통과26.45초. 첫 실행은 생성 응답201을200만 기대해1실패 후 테스트 계약 보정. 관측 단위 첫 실행은 bool을정수1로 인정한1실패를 발견해 엄격 형식을 추가한 뒤 통과했다. 최종 고정24실수집 전부PASSED·PARTIAL/exit0·118.10초, sourceUnchanged/databaseCleaned=true·합성 복원 거부 통과. 현재 실행/커밋/DB와 합성10인 관측의 동일성·기준 전후 지문·정해진 작업 수를 결과 파일에서 다시 대조했다. 종료 후 collector/폐쇄복원/10인자식DB0·preview DB존재를 읽기 확인했다. 시험DB만 정리했으며 preview 초기화/실계정 변경 없음. 단독 실행의4경고와 단위의 기존2경고는 통과 수와 구분한다. Ruff check/format·정적DB219/2409/543·R1–R6 오류0. UI/도움말 변경·스키마/마이그레이션/Excel/ERD 변경 없음. 전체CI/전체회귀·실외부/실회사/기기/10인 실인수 미실행.
+- 다음: 실제 인수 자료의 신뢰하는 실행/관측 출처·회사/세대/정책/제품/DB·최신 원본 연결과 최종 PASS 계약을 이어간다. 공급자 어댑터는 저장소 선정 뒤 진행. 이후 최신main 통합/전체회귀·실회사10인/최종전환. 난이도 매우 높음, GPT-6 Astra + High 추천(인수 판정·최신 실패 우선·합성/실환경 경계). 모델 자동 변경 없음. 다른 checkout/main/원격push/배포 변경 없음.
+
+재현(저장소 루트):
+```sh
+uv run --project backend pytest backend/tests/test_gw_business_observation.py backend/tests/test_gw_acceptance_preflight.py backend/tests/test_gw_acceptance_reconciliation.py backend/tests/test_gw_route_verify.py backend/tests/test_gw_journal_routes.py backend/tests/test_gw_journal_coverage.py backend/tests/test_journal_review.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short
+# 소유 컨테이너ID/owner/loopback 포트 대조 후 비공개 환경 주입, 새 보고서만 지정:
+uv run --project backend python tools/gw_route_verify.py --report <0700폴더의새파일.json>
+```
+기존 gw_preview_test를 시험 초기화하지 않는다. 수집기 새DB와10인 fixture의 새 gw_merge_*_test만 생성/정리한다. 실제 계정/비밀번호/OTP/키/전체로그/work를 Git에 넣지 않는다. 상세 실행 범위: `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §12. 마지막 커밋은 `git log -1`.

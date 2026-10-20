@@ -13,13 +13,19 @@ from uuid import uuid4
 from xml.etree import ElementTree
 
 from fs.core.backup import BackupError, create_private, private_directory
-from fs.gw.operating_contract import canonical
+from fs.gw.acceptance_business import PROBE, PROPERTY, SyntheticBusinessObservation
+from fs.gw.operating_contract import canonical, timestamp
+from pydantic import ValidationError
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import SQLAlchemyError
 
 ROOT = Path(__file__).resolve().parents[1]
 PROBES = {
+    PROBE: (
+        "backend/tests/test_gw_business_probe.py",
+        "test_ten_person_mfa_preflight_and_representative_business",
+    ),
     "BINDING_SUSPEND_ROLLBACK_AND_DENIAL": (
         "backend/tests/test_gw_identity_journal.py",
         "test_company_route_cli_binds_current_policy_and_actual_suspend",
@@ -125,6 +131,7 @@ def source_identity():
     # Include this new runner and probes even before their first commit.
     paths = {Path(os.fsdecode(p)) for p in files if p}
     paths.add(Path(__file__).relative_to(ROOT))
+    paths.add(Path("backend/src/fs/gw/acceptance_business.py"))
     paths.update(Path(path) for path, _name in PROBES.values())
     digest = hashlib.sha256()
     for path in sorted(paths):
@@ -165,6 +172,47 @@ def probe_results(xml_path):
         case.get("name") not in {name for _, name in PROBES.values()} for case in cases
     )
     return results, unexpected
+
+
+def business_observation(
+    xml_path, *, run_id, code_revision, db_revision, started_at, now
+):
+    """Accept one bounded current-run observation from the exact passed probe only.
+
+    Pytest/runner source is the trust boundary, not a detached JSON document. This
+    does not attest deployed code, real devices, or a production company.
+    """
+    path, name = PROBES[PROBE]
+    matches = [
+        case
+        for case in ElementTree.parse(xml_path).getroot().iter("testcase")
+        if case.get("name") == name
+        and case.get("classname") in {Path(path).stem, "tests." + Path(path).stem}
+    ]
+    if len(matches) != 1:
+        return "MISSING" if not matches else "INVALID", None
+    case = matches[0]
+    if any(case.find(tag) is not None for tag in ("failure", "error", "skipped")):
+        return "FAILED", None
+    properties = list(case.findall("./properties/property"))
+    if len(properties) != 1 or properties[0].get("name") != PROPERTY:
+        return "INVALID", None
+    raw = properties[0].get("value", "")
+    if len(raw.encode()) > 4096:
+        return "INVALID", None
+    try:
+        data = SyntheticBusinessObservation.model_validate(json.loads(raw))
+        if (
+            data.run_id != run_id
+            or data.code_revision != code_revision
+            or data.db_revision != db_revision
+            or timestamp(data.started_at) < timestamp(started_at)
+            or timestamp(data.finished_at) > now
+        ):
+            raise ValueError()
+    except (ValidationError, ValueError, TypeError, KeyError):
+        return "INVALID", None
+    return "SYNTHETIC_SCENARIO_PASSED", data.model_dump(by_alias=True)
 
 
 def validate_restore_container(url, container, owner):
@@ -219,7 +267,7 @@ def run(*, admin_url, output):
     report = {
         "version": 1,
         "kind": "SYNTHETIC_GW_ROUTE_EXECUTION",
-        "catalogVersion": "GW_SYNTHETIC_ROUTE_PROBES_V4",
+        "catalogVersion": "GW_SYNTHETIC_ROUTE_PROBES_V5",
         "runId": run_id,
         "startedAt": datetime.now(UTC).isoformat(),
         "executionScope": "NEW_OWNED_SYNTHETIC_DATABASE",
@@ -232,6 +280,8 @@ def run(*, admin_url, output):
         "restoredAccessDenial": "UNVERIFIED",
         "databaseCleaned": False,
         "probes": [],
+        "businessObservationState": "UNVERIFIED",
+        "syntheticBusinessObservation": None,
     }
     try:
         with admin.connect() as c:
@@ -239,7 +289,12 @@ def run(*, admin_url, output):
         created = True
         env = os.environ.copy()
         test_url = url.set(database=database).render_as_string(hide_password=False)
-        env.update(DATABASE_URL=test_url, TEST_DATABASE_URL=test_url)
+        env.update(
+            DATABASE_URL=test_url,
+            TEST_DATABASE_URL=test_url,
+            FS_GW_SYNTHETIC_RUN_ID=run_id,
+            FS_GW_SYNTHETIC_CODE_REVISION=identity["commit"],
+        )
         for key in (
             "FS_GW_IDENTITY_JOURNAL_DIR",
             "FS_GW_IDENTITY_JOURNAL_KEY_FILE",
@@ -307,12 +362,26 @@ def run(*, admin_url, output):
                             and not unexpected
                             and all(p["state"] == "PASSED" for p in report["probes"])
                         ):
-                            report["result"] = "PARTIAL"
+                            report["businessObservationState"], observation = (
+                                business_observation(
+                                    junit,
+                                    run_id=run_id,
+                                    code_revision=identity["commit"],
+                                    db_revision=report["dbRevision"],
+                                    started_at=report["startedAt"],
+                                    now=datetime.now(UTC),
+                                )
+                            )
+                            if observation is not None:
+                                report["syntheticBusinessObservation"] = observation
+                                report["result"] = "PARTIAL"
                     else:
                         report["failureStage"] = "EXECUTION"
         report["sourceUnchanged"] = source_identity() == identity
         if not report["sourceUnchanged"]:
             report["result"] = "BLOCKED"
+            report["businessObservationState"] = "INVALID_SOURCE_CHANGED"
+            report["syntheticBusinessObservation"] = None
         if report["result"] == "PARTIAL" and any(
             p["probe"] == "RESTORED_SESSION_CHALLENGE_AND_AUTHORITY_DENIAL"
             and p["state"] == "PASSED"
