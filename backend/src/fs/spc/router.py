@@ -118,6 +118,17 @@ def get_capability(
     return _data(service.capability(context, characteristic_id, date_from, date_to))
 
 
+@router.get("/characteristics/{characteristic_id}/strata")
+def get_strata(
+    characteristic_id: int,
+    context: Auth,
+    by: Literal["equipment", "lot"] = "equipment",
+    date_from: From = None,
+    date_to: To = None,
+):
+    return _data(service.strata(context, characteristic_id, by, date_from, date_to))
+
+
 @router.get("/characteristics/{characteristic_id}/limits")
 def list_limits(characteristic_id: int, context: Auth):
     return _data(service.limits(context, characteristic_id))

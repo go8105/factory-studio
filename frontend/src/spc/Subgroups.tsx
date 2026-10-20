@@ -26,6 +26,13 @@ import {
   type Subgroup,
 } from "./common";
 
+const SOURCE_LABEL: Record<Subgroup["source"], string> = {
+  SEED: "시드",
+  MANUAL: "입력",
+  MES: "MES",
+  FILE: "파일",
+};
+
 export function Subgroups() {
   const chars = useGet<Characteristic[]>("/characteristics");
   const [characteristic, setCharacteristic] = useState("");
@@ -100,15 +107,23 @@ export function Subgroups() {
     { key: "equipmentCode", label: "설비" },
     {
       key: "measurements",
-      label: "값 5개",
+      label: "측정값",
       render: (s) => s.measurements.map((v) => num(v, 4)).join(" · "),
     },
-    { key: "xbar", label: "X̄", render: (s) => num(s.xbar, 4) },
-    { key: "r", label: "R", render: (s) => num(s.r, 4) },
+    {
+      key: "xbar",
+      label: "X̄ · I",
+      render: (s) => num(s.xbar, 4),
+    },
+    {
+      key: "r",
+      label: "R · MR",
+      render: (s) => num(s.r, 4),
+    },
     {
       key: "source",
       label: "출처",
-      render: (s) => (s.source === "SEED" ? "시드" : "입력"),
+      render: (s) => SOURCE_LABEL[s.source],
     },
     {
       key: "status",
