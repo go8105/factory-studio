@@ -1,3 +1,24 @@
+## 2026-10-20 GW-READY-02 36차 기존 GW 운영 준비 UI 구성 보완
+
+- 브랜치 `codex/gw-company-01`, 시작 `6908c0f`, 시작 작업 트리 깨끗함. `factory-impeccable` 지침을 적용해 기존 GW 레이아웃 안에서 구성했다. 별도 GW/새 권한/DB를 만들지 않았다. 회사명·연결 직원은 기존 `/me` 응답에서 RoleContext로 전달하고 공간 선택은 펼침으로 표시한다. 회사 운영 안내의 현재 메뉴를 표시한다.
+- 운영 준비 상단에 연결/예정 인원·MFA·관리/감사 역할과 첫 조치 항목을 두고, 회사 ID를 유지한 업무 복귀/결재함을 연결했다. 조건→실행 증거→보관·복구 기준→보관 검토→계정 복구 구획과 초점 가능한 바로가기를 추가했다. 조치 필요와 미확인을 먼저 표시하고 확인된 조건은 접어 둔다. 원본/부분 복원 진단·파일 등록·보관·정책 편집 기능을 유지한다. 긴급 복구는 필요할 때 펼치며 요청 거부 후에도 펼침/입력/오류를 유지하도록 보완했다. 감사는 조회 전용 안내·변경/복구 숨김을 유지한다.
+- 직관성: 회사·GW 업무 복귀와 우선 조치. 유효성: 서버 조건/원본 판정과 기존 변경 보호 유지. 학습성: 긴 인수 근거/정적 도움말·실행 결과 설명. 유연성: 항목 이동·펼침·모바일 세로 구성을 적용했다. 백자/먹색/쪽빛 토큰·텍스트 상태를 사용하며 주요 링크/펼침44px, 본문 색 대비 최소5.56:1을 정적 계산했다.
+- 검증: GW/정적 도움말 Vitest64건(10파일) 통과, 타입·수정 ESLint/Prettier·제품 빌드 통과(기존 CAD node:module 외부화/대형 chunk 경고 유지). 처음 집중 실행은 중복 안내 텍스트와 확인 조건 접힘에 대한 옛 기대값2건이 실패했으며 안내 중복 제거/펼침 기대 갱신 후 통과했다. 회사 범위 링크/이동 대상·감사 표시·복구 거부 후 오류/입력 유지 검사를 추가했다. 전체 CI·백엔드 회귀/DB 검사·전체 솔루션 브라우저 검사는 이번 미실행이다.
+- 브라우저: 실제 제품 React를 쓰는 별도 읽기 전용 합성 API 응답 서버에서 1440/390 구성·가로 넘침0·부분 복원 확인/미충족/기록 없음·항목 이동을 확인했다. 이후 실제 로컬 API와 합성 계정의 기존 비밀번호/MFA 로그인으로 회사3 운영 준비를 확인했다. 실제 API에서 정책 패널 입력→취소→계속 편집의 값/초점 유지→변경 버리기, 회사 ID를 유지한 업무 현황 복귀, Enter로 확인 조건 펼침을 확인했다. 실제 API 모바일390의 본문 폭375/scrollWidth375로 넘침0, 최종 실제 화면 캡처를 보관했다. 실기기/실회사/10인 사용 검증은 아니다. 화면 의견의 최종 사용자 확인도 남아 있다.
+- 환경: 세션 시작 때 이전 API94777/Vite89508은 종료돼 있었다. 기존 PG컨테이너ID/소유라벨/실행/55439 매핑을 대조하고 기존 비공개 server.env로 API `127.0.0.1:8362` PID20713·Vite `localhost:5362` PID20714를 재실행했다. 기존 합성 로그인만 사용했고 비밀번호/MFA 설정/회사 정책·업무 데이터를 변경하지 않았다. preview DB 초기화/스키마·마이그레이션·Excel/ERD 변경 없음. 실제 API의 증거 검증 키/버전 설정 미준비·예정10/연결1·ready=false/미확인4를 유지했다. 실제 외부 저장소·최종 인수·전체회귀·main 반영은 미완료, 원격 push/배포 없음.
+- 다음: 실환경 인수 실행 어댑터와 최종 ACCEPTANCE PASS 계약의 남은 범위를 구현/검증한다. 독립 저장소·전체 변경/권한 회수·실회사·최종 전환의 실제 근거를 합성 결과/수동 체크로 대신하지 않는다. 이후 최신 main 통합·전체 회귀·실회사10인 인수/최종 전환. 다음 난이도 매우 높음, GPT-6 Astra + High 추천(실행자 신뢰/현재성/증거 범위와 완료 판정); UI 후속은 GPT-6.1 Sol + High. 자동 모델 변경 없음.
+
+재현:
+```sh
+cd frontend
+npm test -- src/gw src/portal/content-pages.test.tsx --maxWorkers=2
+npm run typecheck
+npx eslint src/gw/Operations.tsx src/gw/GwLayout.tsx src/gw/common.tsx src/gw/operations.test.tsx
+npx prettier --check src/gw/Operations.tsx src/gw/Operations.css src/gw/GwLayout.tsx src/gw/common.tsx src/gw/gw.css src/gw/operations.test.tsx
+npm run build
+```
+Node24 사용. 실제 미리보기 `http://localhost:5362/gw/operations?companyId=3`, 시제품 HTML과 구분한다. 계정/OTP/키/전체 로그는 출력·Git 포함 금지. 재현은 회사3의 기존 합성 계정으로 로그인하고 위 읽기/미저장 취소 동작만 수행한다. 실제 캡처는 무시되는 `work/gw-readiness-02-preview/screens-36/desktop-live.jpg`, `mobile-live.jpg`이며 문서/제품 소스가 구현 기준이다. 임시 합성 API 응답 서버5363은 검증 뒤 종료했다. 마지막 커밋 `git log -1`.
+
 ## 2026-10-20 GW-READY-02 35차 서명 인수 일부 확인·최신 원본 대조
 
 - 브랜치 `codex/gw-company-01`, 시작 커밋 `21ff888`, 시작 작업 트리 깨끗함. 최종 인수 계약의 기반으로 `acceptanceDiagnostics` v1을 추가했다. 범위는 `BACKUP_RESTORE_RECONCILIATION`이며 백업·복원의 실행 번호와 원본 서명 문서 지문을 묶는다. 명세 지문도 대조하며 결과는 PARTIAL만 허용한다. 외부 저장소·전체 수집/회수·실회사·최종 전환은 UNVERIFIED 고정이다. 다른 검사값·임의 필드·PASS·합성 수집 보고서 대입을 거부한다.

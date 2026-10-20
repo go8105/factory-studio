@@ -283,6 +283,7 @@ export const RoleContext = createContext<{
   setBusy?: (busy: boolean) => void;
   companyId?: string;
   personName?: string;
+  companyName?: string;
   roles?: string[];
   organizationUnitId?: string | null;
   uncertain?: boolean;

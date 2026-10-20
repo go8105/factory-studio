@@ -4,7 +4,13 @@ vi.mock("./RetentionReviews", () => ({
 vi.mock("./OperatingEvidence", () => ({
   OperatingEvidence: () => <div>운영 실행 기록</div>,
 }));
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import { Operations } from "./Operations";
@@ -51,6 +57,7 @@ function show() {
             ],
             reload: () => {},
             companyId: "10",
+            companyName: "합성 검증 회사",
             roles: ["SECURITY_ADMIN"],
           }}
         >
@@ -190,6 +197,8 @@ it("운영 전환 조건의 확인·조치·미확인과 다음 행동을 구분
   expect(
     await screen.findByRole("heading", { name: "운영 전환 조건" }),
   ).toBeVisible();
+  expect(screen.getByText("운영 기준 · 확인됨")).not.toBeVisible();
+  fireEvent.click(screen.getByText("확인된 조건 1개 보기"));
   expect(screen.getByText("운영 기준 · 확인됨")).toBeVisible();
   expect(screen.getByText("직원 인증 앱 · 조치 필요")).toBeVisible();
   expect(screen.getByText("외부 저장소 장애·복구 · 미확인")).toBeVisible();
@@ -287,4 +296,80 @@ it("일부 복원 검사의 확인·미충족·기록 없음을 구분하고 완
   expect(
     screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),
   ).toBeInTheDocument();
+});
+
+it("현재 회사와 업무 복귀 경로를 유지하고 섹션 이동 대상을 연결한다", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(response(initial));
+  show();
+  await screen.findByRole("heading", { name: "아직 운영 준비 중입니다" });
+  expect(screen.getByText("합성 검증 회사 · 보안 관리자")).toBeVisible();
+  expect(
+    screen.getByRole("link", { name: "GW 업무로 돌아가기" }),
+  ).toHaveAttribute("href", "/gw/dashboard?companyId=10");
+  expect(screen.getByRole("link", { name: "내 결재함" })).toHaveAttribute(
+    "href",
+    "/gw/pending?companyId=10",
+  );
+  const navigation = screen.getByRole("navigation", {
+    name: "운영 준비 항목 바로가기",
+  });
+  for (const link of within(navigation).getAllByRole("link")) {
+    const id = link.getAttribute("href")!.slice(1);
+    expect(document.getElementById(id)).not.toBeNull();
+  }
+  expect(screen.getByLabelText("긴급 복구 문서 발급 사유")).not.toBeVisible();
+  fireEvent.click(screen.getByText("본인 긴급 복구 문서 관리"));
+  expect(screen.getByLabelText("긴급 복구 문서 발급 사유")).toBeVisible();
+});
+
+it("감사 역할은 조회 전용 안내와 업무 복귀만 제공하고 변경·복구 입력을 숨긴다", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    response({ ...initial, canEdit: false }),
+  );
+  show();
+  expect(
+    await screen.findByText("합성 검증 회사 · 감사 · 조회 전용"),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "운영 기준 검토·적용" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByText("본인 긴급 복구 문서 관리"),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByText(
+      "현재는 조회 권한입니다. 기준 변경은 GW 보안 관리자에게 요청하세요.",
+    ),
+  ).toBeVisible();
+});
+
+it("긴급 복구 요청이 거부되어도 펼친 영역과 오류·입력을 유지한다", async () => {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (url) =>
+    String(url).includes("/emergency-kit")
+      ? response(
+          {
+            code: "STEP_UP_REQUIRED",
+            message: "복구 문서 발급 전에 본인 확인이 필요합니다.",
+          },
+          403,
+        )
+      : response(initial),
+  );
+  show();
+  fireEvent.click(await screen.findByText("본인 긴급 복구 문서 관리"));
+  const reason = screen.getByLabelText("긴급 복구 문서 발급 사유");
+  fireEvent.change(reason, { target: { value: "합성 오류 표시 확인" } });
+  fireEvent.click(
+    screen.getByLabelText(
+      "이전 문서·미사용 승인 파일 회수와 별도 보관 필요를 확인했습니다",
+    ),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "본인 긴급 복구 문서 새로 발급" }),
+  );
+  expect(
+    await screen.findByText("복구 문서 발급 전에 본인 확인이 필요합니다."),
+  ).toBeVisible();
+  expect(reason).toBeVisible();
+  expect(reason).toHaveValue("합성 오류 표시 확인");
 });

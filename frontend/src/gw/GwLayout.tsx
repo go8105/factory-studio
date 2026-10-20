@@ -29,32 +29,40 @@ function SpaceChoice() {
   );
   return (
     <section className="gw-role" aria-label="GW 사용 공간">
-      <strong>사용 공간</strong>
-      <nav
-        className="gw-space-options"
-        onClick={(e) => {
-          if (role.busy || role.uncertain) {
-            e.preventDefault();
-            e.stopPropagation();
-          }
-        }}
-      >
-        <Link
-          to="/gw/dashboard"
-          aria-current={role.companyId === undefined ? "page" : undefined}
+      <strong>
+        {role.companyId ? (role.companyName ?? "회사 공간") : "개인 체험"}
+      </strong>
+      {role.companyId && <p>{role.personName ?? "연결된 직원"} · 회사 GW</p>}
+      <details>
+        <summary>사용 공간 선택</summary>
+        <nav
+          className="gw-space-options"
+          onClick={(e) => {
+            if (role.busy || role.uncertain) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          }}
         >
-          개인 체험
-        </Link>
-        {companies.data?.map((c) => (
           <Link
-            key={c.id}
-            to={`/gw/dashboard?companyId=${c.id}`}
-            aria-current={String(c.id) === role.companyId ? "page" : undefined}
+            to="/gw/dashboard"
+            aria-current={role.companyId === undefined ? "page" : undefined}
           >
-            {c.name}
+            개인 체험
           </Link>
-        ))}
-      </nav>
+          {companies.data?.map((c) => (
+            <Link
+              key={c.id}
+              to={`/gw/dashboard?companyId=${c.id}`}
+              aria-current={
+                String(c.id) === role.companyId ? "page" : undefined
+              }
+            >
+              {c.name}
+            </Link>
+          ))}
+        </nav>
+      </details>
       <ErrorNotice error={companies.error} />
       {role.uncertain && (
         <p role="alert">
@@ -68,6 +76,7 @@ function SpaceChoice() {
 
 function Layout({ content }: { content?: ReactNode }) {
   const role = useRole();
+  const location = useLocation();
   return (
     <SolutionLayout
       name="GW"
@@ -88,7 +97,7 @@ function Layout({ content }: { content?: ReactNode }) {
         <>
           <SpaceChoice />
           {role.companyId !== undefined && (
-            <nav aria-label="회사 운영 안내">
+            <nav className="gw-company-navigation" aria-label="회사 운영 안내">
               <Link to="/account/security">내 계정 보안</Link>
               {role.roles?.some(
                 (r) => r === "SECURITY_ADMIN" || r === "AUDITOR",
@@ -97,6 +106,11 @@ function Layout({ content }: { content?: ReactNode }) {
                   {" "}
                   ·{" "}
                   <Link
+                    aria-current={
+                      location.pathname === "/gw/operations"
+                        ? "page"
+                        : undefined
+                    }
                     to={
                       "/gw/operations?companyId=" +
                       encodeURIComponent(role.companyId)
@@ -216,6 +230,7 @@ function CompanySpace({ issue, retry }: { issue: unknown; retry: () => void }) {
           people.reload();
         },
         companyId: scope.companyId,
+        companyName: me.data?.company.name,
         personName: p?.name,
         organizationUnitId: p?.organizationUnitId,
         roles: me.data?.roles ?? [],
