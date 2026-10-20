@@ -134,3 +134,28 @@ uv run --project backend python tools/gw_acceptance_collect.py \
 원본 BACKUP/RESTORE를 먼저 제품에 등록한 뒤 새 일부 확인 파일을 기존 **운영 실행 기록**에서 등록한다. 서버는 현재 운영 기준 잠금 안에서 `recorded_at DESC,id DESC` 최신 원본을 선택해 서명·등록행·참조 실행/지문까지 대조한다. CLI가 선택한 파일만으로 최신성을 주장하지 않는다. 최신 원본이 다르면 등록400이며, 이미 등록한 일부 확인도 다음 운영 준비 조회에서 INVALID가 된다. 최신 실패·새 PARTIAL/성공·원본 없는 기록·변조·옛 정책/버전·RPO 만료를 이전 원본으로 대신할 수 없다. 회사/세대·실행 시각도 일치해야 한다.
 
 출력/등록 성공은 네 미확인 조건을 해제하지 않는다. `ready=false`, 실제 복원 PARTIAL, 최종 ACCEPTANCE PASS 거부를 유지한다. 실행자의 서명은 실행자 식별/무결성 근거이며 침해된 실행자의 주장 자체를 보증하지 않는다. 실환경 실행 어댑터·서명자 신뢰 분리·현재 운영 원본과 최종 인수 계약은 후속이다. 기존 진단 없는 일부 확인/실패 기록도 인수 완료로 해석하지 않는다.
+
+## 11. 외부 저장소 선정 전 공통 사전점검 (37차)
+
+2026-10-20 사용자 결정: 외부 저장소는 아직 미정이며 공급자 연결에 앞서 공통 사전점검을 진행한다. 개발자 관리자 로그인 아이디는 `admin`을 기준으로 한다. 이는 기존 실제 계정을 생성/이름 변경하거나 플랫폼 관리자에게 GW 권한을 자동 부여하라는 뜻이 아니다.
+
+`tools/gw_acceptance_preflight.py`는 서버 운영자가 현재 회사의 인수 기준과 연결 상태를 **읽기 전용으로** 수집하는 도구다. PostgreSQL `REPEATABLE READ`와 `READ ONLY` 거래를 강제하고 현재 회사/세대·GW 활성/초기화/세대 준비·현재 정책 원본 지문·실제 DB head를 읽는다. 제품 버전은 운영자가 신뢰하는 서버 환경의 `FS_CODE_REVISION`을 제공한다. 이 값만으로 실행 코드/배포 버전 검증이 끝나지는 않으므로 보고서에는 `codeRevisionSource=OPERATOR_ENVIRONMENT`, `executionRevisionVerified=false`를 표시한다.
+
+DB 연결은 전용 비공개 `FS_GW_PREFLIGHT_DATABASE_URL`에 제공한다. 일반 DATABASE_URL을 자동으로 사용하지 않으며 명시한 PostgreSQL 연결만 허용한다. 가능한 한 읽기 계정을 사용한다. 비밀번호·OTP·인증/백업/서명 키는 필요하지 않다. 연결 URL이나 비밀을 명령행에 적지 않는다. 출력은 운영자 소유0700 폴더의 서로 다른 새 파일2개로 지정한다.
+
+```sh
+uv run --project backend python tools/gw_acceptance_preflight.py \
+  --company-id <회사ID> \
+  --context-output work/acceptance/current-context.json \
+  --report work/acceptance/preflight-report.json
+```
+
+기본 관리자 식별자는 `admin`이다. 별도 합성 미리보기 계정을 대조할 때만 `--admin-login <합성계정>`을 명시하며 실제 계정은 변경하지 않는다. 이름은 조회 조건일 뿐 권한 부여 조건이 아니다. 계정 존재/활성·플랫폼 관리자·현재 회사 소속/직원 연결·GW 보안 관리자/감사·MFA 등록과 메뉴 역할 자격을 분리한다. `menuRoleEligible`는 등록 상태에 대한 자격이며 실제 업무 세션과 최근 본인 확인은 `NOT_CHECKED`다. 등록된 역할만 보고 현재 업무 접근이나 변경 가능 여부를 확정하지 않는다.
+
+예정10명/1부서·활성 소속/직원/연결10명·현재 부서 배정·MFA 전원 등록·활성 보안 관리자1명/그 외9명·현재 책임자 연결·지정 관리자 보안 역할/MFA를 점검한다. `NON_EXAMPLE_MARKER`는 DB의 예제 표지만 확인한다. 이 표지가 false여도 합성 회사일 수 있으므로 실제 회사임을 증명하지 않는다. 데이터베이스 등록값은 앱/기기 소유·로그인·업무 성공을 검증하지 않는다.
+
+조건 부족은 `BLOCKED`/종료2, 모든 사전조건 일치는 `PARTIAL`/종료0이다. 오류·현재 기준 부재/변조·파일 권한·기존 출력은 종료1이며 입력 자료를 그대로 성공으로 재활용하지 않는다. 모든 결과에서 ready/liveCompanyAcceptance/releaseAuthorized=false, 대표 업무·기기 검사와 네 최종 조건은 미확인이다. 보고서는 unsigned이고 제품 운영 증거로 등록할 수 없다. 이름·계정ID·비밀번호·MFA 비밀·문서/DB URL/경로를 보고서에 넣지 않는다.
+
+`current-context.json`은 기존 수집기 `--context` 입력의5개 필드(workspaceId/generationId/policy/codeRevision/dbRevision)를 현재 DB에서 생성한다. 정책의 담당자 식별자/사유가 포함되므로 비공개로 보관한다. `preflight-report.json`은 범위/지문/관측 시각/집계와 관리자 자격의 boolean만 담으며 contextDigest로 기준 파일과 연결한다. 출력 성공을 인수 완료로 사용하지 않는다. 두 파일 생성 중 실패하면 이 실행이 새로 생성한 파일만 제거하고 기존/경합 파일은 보존한다.
+
+관측은 한 읽기 거래의 시점 상태다. 이후 계정·역할·정책·세대 변경이나 더 최신 실행 실패가 생기면 다시 점검하고 기존 최신 원본 서명/등록 대조를 수행해야 한다. 이 사전점검은 실행 증거를 선택하거나 과거 성공으로 대체하지 않는다. 외부 저장소 어댑터·실제10인 업무·복구/기기·전체 변경 수집/권한 회수·최종 PASS 계약은 후속이다.

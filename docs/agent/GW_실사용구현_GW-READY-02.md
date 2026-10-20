@@ -345,3 +345,23 @@ npx prettier --check src/gw/Operations.tsx src/gw/Operations.css src/gw/GwLayout
 npm run build
 ```
 Node24 사용. 실제 미리보기 `http://localhost:5362/gw/operations?companyId=3`, 시제품 HTML과 구분한다. 계정/OTP/키/전체 로그는 출력·Git 포함 금지. 재현은 회사3의 기존 합성 계정으로 로그인하고 위 읽기/미저장 취소 동작만 수행한다. 실제 캡처는 무시되는 `work/gw-readiness-02-preview/screens-36/desktop-live.jpg`, `mobile-live.jpg`이며 문서/제품 소스가 구현 기준이다. 임시 합성 API 응답 서버5363은 검증 뒤 종료했다. 마지막 커밋 `git log -1`.
+
+## 2026-10-20 GW-READY-02 37차 공통 인수 사전점검·admin 권한 기준
+
+- 시작 `bdd3e02`, 브랜치 `codex/gw-company-01`, 작업 트리 깨끗함. 사용자 질의에 운영 준비는 자동 팝업/미완료 때만 보이는 화면이 아니라 회사 GW의 상시 관리 화면이라고 설명했다. 활성 회사 소속·GW 직원 연결과 SECURITY_ADMIN/AUDITOR 역할로 메뉴를 표시하며 SECURITY_ADMIN만 변경, AUDITOR는 조회한다. 일반 직원의 직접 주소 접근은 본인 보안 안내만 제공한다. 플랫폼 ADMIN·회사 OWNER·로그인 이름 admin으로 GW 역할을 대체하지 않는다.
+- 사용자 기준: 개발자 관리자 아이디 `admin`. 외부 저장소는 **미정이며 공통 사전점검을 먼저 진행**한다는 답변을 받았다. 기존 실제 계정 생성/이름 변경/권한 변경은 하지 않는다. 현재 회사3 합성 미리보기 DB에는 admin 계정이 없고 기존 합성 미리보기 계정만 회사 GW에 연결돼 있음을 읽기 전용으로 확인했다. 다른 환경의 admin 계정 유무/권한을 이 결과로 단정하지 않는다.
+- `acceptance_preflight.collect`와 `tools/gw_acceptance_preflight.py` 추가. 전용 비공개 FS_GW_PREFLIGHT_DATABASE_URL을 사용하고 PostgreSQL REPEATABLE READ/READ ONLY 거래, 문장15초/잠금3초·연결10초 제한을 적용한다. 현재 활성 회사/GW 세대 준비/초기화·정책 원본 지문·DB head와 인원/부서/MFA/보안 역할/책임자를 동일 스냅샷에서 읽는다. 기본 admin 식별자는 조회 조건이며 이름으로 권한을 부여하지 않는다. 실제 업무 세션/최근 인증은 NOT_CHECKED다.
+- 예정10/1부서·활성 소속/직원/연결10명·현재 활성 부서 배정·전원 MFA·활성 보안 관리자1명/그 외9명·책임자 연결·지정 관리자 GW 역할/MFA를 대조한다. 예제 표지는 DB 분류일 뿐 실제 회사임을 증명하지 않는다. 모든 사전조건이 맞아도 PARTIAL/exit0, 부족하면 BLOCKED/exit2, 오류는 exit1이다. 항상 ready/liveCompanyAcceptance/releaseAuthorized=false·대표 업무/기기·최종4조건 미확인이다. 제품/DB 실행 버전을 함께 증명한 것은 아니며 codeRevision은 운영자 환경에서 제공, executionRevisionVerified=false를 남긴다.
+- 기존 수집기의5필드 현재 기준 파일과 원문/계정 식별자가 없는 집계 보고서를 서로 다른 새0600 파일로 출력하고 contextDigest로 묶는다. 정책 파일에는 담당자 식별자/사유가 포함되므로 비공개 보관한다. 기존 파일/경합 파일은 보존하고 새 파일 쌍 생성 실패 시 이 실행의 파일만 정리한다. 보고서는 unsigned이며 제품 ACCEPTANCE로 업로드하지 않는다. 서명/수동 체크/합성 결과로 최종 PASS를 발급하지 않는다.
+- 검증: 관련 단위201통과(기존 경고2). 별도 새 소유 PostgreSQL의 DB/HTTP/실CLI17통과95.40초(기존 경고2). admin 이름+플랫폼ADMIN만으로 권한 승격 없음, GW역할 제거/감사 전환/회사 소속 회수·정지/미연결/비활성·옛 정책/모듈/타회사·현재 기준 갱신·실CLI 비공개 출력/덮어쓰기 거부와 PostgreSQL 자체 쓰기 거부를 확인했다. 합성 등록값으로10명/1부서/전원MFA/보안관리자1·그 외9명을 구성한 사전조건 일치도 PARTIAL/ready=false이며 실제 OTP/업무 세션·기기·실회사10인 사용을 검증한 것은 아니다. 새 시험DB를 정리했다. 처음 실검사는 상태 주입에 필요한 종료 시각 누락으로2실패, 보정 뒤 취소 상태의 활성 시각 잔존1실패였다. 실제 제품 CHECK를 바꾸지 않고 합성 준비 상태를 적법한 형태로 보정했다. 실패를 인수 통과로 대체하지 않는다. 실제 미리보기 읽기 CLI는 새 비공개 파일로 BLOCKED/exit2·연결1/MFA1/부서1/보안관리자1·지정 admin 없음 확인. 당시 checkout HEAD를 제품 기준으로 명시 주입했으며 배포/실행 버전 검증 완료는 아니다. 정책/계정/업무 데이터 쓰기 없음.
+- Ruff check/format·정적DB219/2409/543·R1–R6 오류0. 도움말18통과. DB스키마/마이그레이션/Excel/ERD 변경 없음. 전체CI/전체회귀·실외부 저장소·실기기/실회사·10인 업무 인수는 미실행. 미리보기DB 초기화·다른 checkout/main 변경·원격 push·배포 없음. 비밀/전체로그/work를 Git에 포함하지 않는다.
+- 다음: 현재 회사 사전점검 기준과10인 대표 업무의 실제 실행 결과를 결합하는 인수 어댑터·최종PASS 계약을 이어간다. 외부 공급자 연결은 저장소 선정 뒤 검증한다. 이후 최신main 통합/전체회귀·실회사10인 인수·최종전환. 난이도 매우 높음, GPT-6 Astra + High 추천(신뢰하는 실행/관측 범위·최신성·역할/완료 판정 경계), 일반 구현은 GPT-6.1 Sol + High 대안. 모델 자동 변경 없음.
+
+재현(저장소 루트):
+```sh
+uv run --project backend pytest backend/tests/test_gw_acceptance_preflight.py backend/tests/test_gw_acceptance_reconciliation.py backend/tests/test_gw_route_verify.py backend/tests/test_gw_journal_routes.py backend/tests/test_gw_journal_coverage.py backend/tests/test_journal_review.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short
+# 별도 소유 새 *_test DB를 준비하고 DATABASE_URL/TEST_DATABASE_URL을 동일하게 비공개 주입:
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_acceptance_preflight_db.py backend/tests/test_gw_evidence.py backend/tests/test_gw_operations.py -q --tb=short
+```
+기존 `gw_preview_test`를 테스트 초기화에 사용하지 않는다. 소유 컨테이너ID/owner/127.0.0.1:55439를 대조한 새 `gw_preflight_*_test`만 생성/정리한다. 인수 도구의 실행/권한/출력 절차는 `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §11. 실제 계정이름·비밀번호/OTP·원문/전체로그 출력 금지. 마지막 커밋은 `git log -1`.
