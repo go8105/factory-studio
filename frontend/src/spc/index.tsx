@@ -11,6 +11,7 @@ import { Subgroups } from "./Subgroups";
 import { Characteristics } from "./Characteristics";
 import { Violations } from "./Violations";
 import { Ocap } from "./Ocap";
+import { Reports } from "./Reports";
 
 export default function SpcRoutes() {
   return (
@@ -26,6 +27,7 @@ export default function SpcRoutes() {
         <Route path="characteristics" element={<Characteristics />} />
         <Route path="violations" element={<Violations />} />
         <Route path="ocap" element={<Ocap />} />
+        <Route path="reports" element={<Reports />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

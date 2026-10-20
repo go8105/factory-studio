@@ -167,6 +167,54 @@ export type Checklist = {
   items: (OcapItem & { check: OcapCheck | null })[];
   missing: number[];
 };
+export type ReportStatus = "draft" | "confirmed" | "superseded";
+export type CapabilityReport = {
+  id: number;
+  characteristicId: number;
+  characteristicCode: string;
+  characteristicName: string;
+  itemCode: string;
+  itemName: string;
+  processCode: string;
+  unit: string;
+  lsl: string | null;
+  usl: string | null;
+  target: string | null;
+  decimals: number;
+  chartType: ChartType;
+  reportStartOn: string;
+  reportEndOn: string;
+  version: number;
+  status: ReportStatus;
+  subgroupCount: number;
+  mean: string;
+  sigmaWithin: string;
+  sigmaOverall: string;
+  cp: string | null;
+  cpk: string | null;
+  pp: string | null;
+  ppk: string | null;
+  skewness: string | null;
+  kurtosis: string | null;
+  comment: string | null;
+  confirmedAt: string | null;
+  createdAt: string;
+};
+export const REPORT_STATUS_LABEL: Record<ReportStatus, string> = {
+  draft: "초안",
+  confirmed: "확정",
+  superseded: "대체됨",
+};
+export const REPORT_STATUS_TONE: Record<
+  ReportStatus,
+  "normal" | "warning" | "issue"
+> = { draft: "warning", confirmed: "normal", superseded: "normal" };
+export type TrendPoint = {
+  month: string;
+  subgroupCount: number;
+  cpk: string | null;
+  judgement: Judgement | null;
+};
 export const RESULT_LABEL: Record<OcapResult, string> = {
   OK: "이상 없음",
   NG: "문제 있음",
