@@ -211,3 +211,36 @@ it("운영 전환 조건의 확인·조치·미확인과 다음 행동을 구분
     screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),
   ).toBeVisible();
 });
+
+it.each([true, false])(
+  "최근 등록 증거의 연결 결과를 표시하고 운영 완료로 바꾸지 않는다: %s",
+  async (paired) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      response({
+        ...initial,
+        backupRestoreCollection: {
+          result: paired ? "PARTIAL" : "BLOCKED",
+          source: "LATEST_REGISTRATIONS",
+          backupRestorePairVerified: paired,
+        },
+      }),
+    );
+    show();
+    await screen.findByRole("heading", { name: "백업·복원 연결 점검" });
+    expect(
+      screen.getByText(
+        "더 최근 미통과 기록을 과거 성공 기록으로 대신하지 않습니다.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        paired
+          ? "최근 등록한 백업·복원 증거가 같은 백업을 가리킵니다. 일부 확인이며 운영 인수 완료는 아닙니다."
+          : "최근 등록한 백업·복원 증거의 연결을 확인하지 못했습니다. 위 실행 증거 결과와 등록한 파일 쌍을 확인하세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),
+    ).toBeInTheDocument();
+  },
+);

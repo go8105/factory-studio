@@ -1,3 +1,13 @@
+## 2026-10-20 GW-READY-02 24차 최신 등록 증거와 수집기 연결
+
+기준88d9e5b/branch codex/gw-company-01. 기존 operations 회사트랜잭션/종류별최근조회와 acceptance_collection을 연결했다. 최신행을 recorded_at/id로 선택해 현재policy revision/키/코드/DB·시각·원본서명/등록행 전체 대조 후 BACKUP/RESTORE쌍을 수집. 더최근FAIL/PARTIAL/변조/원본없음/옛정책/타범위가있으면 과거성공 fallback없음. API backupRestoreCollection과 기존운영화면의 읽기전용 ‘백업·복원 연결 점검’ 안내 추가, 일반직원응답엔미노출. 별도추가쿼리/쓰기/완료입력/스키마없음. 쌍일치여도PARTIAL/readyfalse·미확인4유지. 서버가 실제백업을 복호화/복원하거나 외부저장소/전체권한회수/실회사인수를 실행한 것은 아니다.
+
+검증: 집중 단위backend69 통과0.13초, 별도 소유 임시PG DB에서 실제정책/증거HTTP/권한/최신실패/저장행변조 포함6 통과49.69초(각기존경고2). 새 PG DB는 소유preview컨테이너55439 안에 UUID *_test 이름으로 생성/alembic head적용 후 정확한생성DB만삭제·preview DB유지. 합성서명PASS는판정계약검사이며실제dump/restore증거가아님. 화면/도움말 최종28 통과3.32초·타입/수정ESLint/포맷/Ruff·정적DB219/2409/543/R1–R6/diff 오류0. 실제브라우저 회사3/로그인유지/operations200·새안내미확인표시 확인·캡처 outputs/gw-implementation-20261020/실제제품_최신증거연결점검.jpg. 미리보기검증키/증거미설정상태로 성공위장안함. 전체CI/실회사/실외부/실기기/10인부하는미실행.
+
+실행미리보기유지: 기존API89447을명령대조후종료·새코드API PID94063/세션60209로같은8362재실행, Vite5362/세션3065와소유PG fs-gw-ready02-preview/55439는유지. 사용자계정/비밀번호/실회사/원격/배포/예약설정변경없음. private work 접속/전체로그 스테이징금지. 종료시22차 소유ID/label·명령대조원칙유지. 외부시제품탭변경없음. main/다른checkout변경없음.
+
+남은같은02: 실제외부저장소와수집/회수·실회사·최종전환 증거계약/실행어댑터 → 기존GW UI 맥락/정보구성 보완 → 최신main통합/전체회귀·10인인수. 기존전체승인유효·이번운영인수완료아님. 재현: uv run --project backend pytest backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short (69). 별도 소유PG/alembic와비공개TEST_DATABASE_URL 후 test_gw_evidence.py/test_gw_operations.py (6). Node24 frontend npm test -- --run src/gw/operations.test.tsx src/gw/operating-evidence.test.tsx src/portal/content-pages.test.tsx (28).
+
 ## 2026-10-20 GW-READY-02 23차 백업·복원 인수 자료 수집기
 
 기준5666060/branch codex/gw-company-01. 기존 GW의 GwLayout 회사 운영 안내→operations 연결을 코드로 확인했다. 새 솔루션이 아닌 관리자 점검 화면이며 별도 GW처럼 보인다는 사용자 피드백을 10인 인수 절차에 UI 보완 항목(업무/관리 맥락·다음 행동·정보량·모바일·4대 UI 기준)으로 기록했다. 이번에 UI 재설계는 하지 않았다.

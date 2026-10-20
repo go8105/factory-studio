@@ -50,6 +50,11 @@ type State = {
       requiredEvidence?: string[];
     }[];
   };
+  backupRestoreCollection?: {
+    result: "PARTIAL" | "BLOCKED";
+    source: "LATEST_REGISTRATIONS";
+    backupRestorePairVerified: boolean;
+  };
   evidenceChecks?: {
     kind: string;
     label: string;
@@ -174,6 +179,17 @@ export function Operations() {
                 ))}
               </dl>
             </>
+          )}
+          {data.backupRestoreCollection && (
+            <section aria-label="백업·복원 연결 점검">
+              <h3>백업·복원 연결 점검</h3>
+              <p>
+                {data.backupRestoreCollection.backupRestorePairVerified
+                  ? "최근 등록한 백업·복원 증거가 같은 백업을 가리킵니다. 일부 확인이며 운영 인수 완료는 아닙니다."
+                  : "최근 등록한 백업·복원 증거의 연결을 확인하지 못했습니다. 위 실행 증거 결과와 등록한 파일 쌍을 확인하세요."}
+              </p>
+              <p>더 최근 미통과 기록을 과거 성공 기록으로 대신하지 않습니다.</p>
+            </section>
           )}
           {data.canEdit && (
             <EmergencyKit

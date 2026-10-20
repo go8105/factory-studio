@@ -252,3 +252,51 @@ def test_retained_original_and_row_tamper_are_rechecked(company_env, monkeypatch
         assert (
             not state["evidenceChecks"][0]["signatureVerified"] and not state["ready"]
         )
+
+
+def test_latest_registered_pair_cannot_hide_new_failure_or_stored_tampering(
+    company_env, monkeypatch
+):
+    body, signed = prepare(company_env, monkeypatch)
+    engine, co, admin, staff = company_env
+    assert api(admin, co, "operating-evidence", signed(body)).status_code == 200
+    finished = datetime.fromisoformat(body["finishedAt"])
+    restore = body | {
+        "runId": str(uuid4()),
+        "kind": "RESTORE",
+        "startedAt": (finished + timedelta(seconds=1)).isoformat(),
+        "finishedAt": (finished + timedelta(seconds=3)).isoformat(),
+        "metrics": {
+            "rowHashesMatch": True,
+            "foreignKeysValid": True,
+            "sessionsInvalidated": True,
+            "revocationsReapplied": True,
+            "twoAccountChecks": True,
+            "lossWindowSeconds": 60,
+            "elapsedSeconds": 2,
+        },
+    }
+    # Synthetic signed claims test the contract/API, not an actual restored DB.
+    assert api(admin, co, "operating-evidence", signed(restore)).status_code == 200
+    state = api(admin, co, "operations", method="GET").json()["data"]
+    pair = state["backupRestoreCollection"]
+    assert pair["result"] == "PARTIAL" and pair["backupRestorePairVerified"]
+    assert state["ready"] is False and state["launchGate"]["unverifiedCount"] == 4
+    staff_state = api(staff, co, "operations", method="GET").json()["data"]
+    assert "backupRestoreCollection" not in staff_state
+    failed = restore | {"runId": str(uuid4()), "result": "FAIL"}
+    assert api(admin, co, "operating-evidence", signed(failed)).status_code == 200
+    state = api(admin, co, "operations", method="GET").json()["data"]
+    pair = state["backupRestoreCollection"]
+    assert pair["result"] == "BLOCKED"
+    assert pair["registrations"][1]["state"] == "FAILED"
+    with engine.begin() as c:
+        c.execute(
+            text(
+                "UPDATE gw.operating_evidence SET result='PASS' WHERE workspace_id=:w AND run_id=cast(:run AS uuid)"
+            ),
+            {"w": co["companyId"], "run": failed["runId"]},
+        )
+    state = api(admin, co, "operations", method="GET").json()["data"]
+    assert state["backupRestoreCollection"]["registrations"][1]["state"] == "INVALID"
+    assert not state["backupRestoreCollection"]["backupRestorePairVerified"]

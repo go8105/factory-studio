@@ -7,6 +7,7 @@ from fs.core.company import require_recent_auth
 from fs.core.security.emergency import summary as emergency_summary
 from fs.core.security.service import database_now
 from fs.gw import company
+from fs.gw.acceptance_collection import collect_registered
 from fs.gw.company_identity import audit, require_active
 from fs.gw.launch_gate import build as build_launch_gate
 from fs.gw.operating_contract import OperatingPolicy
@@ -73,6 +74,13 @@ def read(context, company_id):
         )
         from fs.gw.operating_evidence import verifier_config
 
+        pair_check = {
+            "result": "BLOCKED",
+            "backupRestorePairVerified": False,
+            "ready": False,
+            "source": "LATEST_REGISTRATIONS",
+            "reason": "POLICY_REQUIRED",
+        }
         try:
             keys, code_revision, db_revision = verifier_config(c)
             evidence_rows = (
@@ -85,6 +93,19 @@ def read(context, company_id):
                 .mappings()
                 .all()
             )
+            clock = database_now(c)
+            if policy is not None:
+                pair_check = collect_registered(
+                    evidence_rows,
+                    policy_id=current["current_policy_revision_id"],
+                    workspace_id=ctx.workspace_id,
+                    generation_id=ctx.generation_id,
+                    policy=policy,
+                    code_revision=code_revision,
+                    db_revision=db_revision,
+                    public_keys=keys,
+                    now=clock,
+                )
             evidence_checks = assess(
                 evidence_rows,
                 policy=policy,
@@ -92,11 +113,12 @@ def read(context, company_id):
                 code_revision=code_revision,
                 db_revision=db_revision,
                 public_keys=keys,
-                now=database_now(c),
+                now=clock,
             )
         except ApiError as error:
             if error.code != "SECURITY_CONFIGURATION_UNAVAILABLE":
                 raise
+            pair_check["reason"] = "CONFIG_REQUIRED"
             evidence_checks = [
                 {
                     "kind": kind,
@@ -151,6 +173,7 @@ def read(context, company_id):
             "revisionNo": row["revision_no"] if row else None,
             "emergencyKit": emergency_summary(c, ctx.user_id, ctx.workspace_id),
             "evidenceChecks": evidence_checks,
+            "backupRestoreCollection": pair_check,
             "evidenceIntegrityReverified": all(
                 check["signatureVerified"] for check in evidence_checks
             ),

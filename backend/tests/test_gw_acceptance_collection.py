@@ -178,3 +178,74 @@ def test_cli_writes_private_blocked_report_and_refuses_overwrite(
     (tmp_path / "context").chmod(0o644)
     assert cli.main() == 1
     assert not output.exists()
+
+
+def registered_fixture():
+    from fs.gw.operating_contract import EvidenceEnvelope
+    from fs.gw.readiness import SOURCE_FIELD
+
+    key, payloads, context = fixture()
+    documents = signed(payloads, key)
+    rows = []
+    for id, (kind, doc) in enumerate(documents.items(), 1):
+        data = EvidenceEnvelope.model_validate(doc["envelope"])
+        row = data.model_dump()
+        row.update(
+            id=id,
+            workspace_id=10,
+            generation_id=20,
+            policy_revision_id=1,
+            recorded_at=NOW,
+            started_at=NOW.fromisoformat(data.started_at),
+            finished_at=NOW.fromisoformat(data.finished_at),
+            metrics=data.metrics.model_dump(by_alias=True)
+            | {SOURCE_FIELD: doc["envelope"]},
+            signature=doc["signature"],
+        )
+        rows.append(row)
+    return key, rows, context
+
+
+def test_registered_pair_revalidates_stored_rows_and_preserves_no_release_boundary():
+    from fs.gw.acceptance_collection import collect_registered
+
+    _, rows, ctx = registered_fixture()
+    result = collect_registered(rows, policy_id=1, **ctx)
+    assert result["result"] == "PARTIAL"
+    assert result["source"] == "LATEST_REGISTRATIONS"
+    assert all(r["state"] == "RECORDED_PASS" for r in result["registrations"])
+    assert not result["ready"]
+
+
+@pytest.mark.parametrize(
+    "change", ["failure", "tamper", "policy", "legacy", "scope", "partial"]
+)
+def test_latest_registration_never_falls_back_to_older_success(change):
+    from fs.gw.acceptance_collection import collect_registered
+    from fs.gw.operating_contract import EvidenceEnvelope
+    from fs.gw.readiness import SOURCE_FIELD
+
+    key, rows, ctx = registered_fixture()
+    newer = deepcopy(rows[1])
+    newer["id"] = 3  # Same registration timestamp: greater ID is latest.
+    if change in {"failure", "partial"}:
+        payload = newer["metrics"][SOURCE_FIELD]
+        payload["runId"] = str(uuid4())
+        payload["result"] = "FAIL" if change == "failure" else "PARTIAL"
+        newer.update(run_id=payload["runId"], result=payload["result"])
+        newer["signature"] = base64.b64encode(key.sign(canonical(payload))).decode()
+        newer["metrics"] = EvidenceEnvelope.model_validate(payload).metrics.model_dump(
+            by_alias=True
+        ) | {SOURCE_FIELD: payload}
+    elif change == "tamper":
+        newer["manifest_digest"] = "f" * 64
+    elif change == "policy":
+        newer["policy_revision_id"] = 2
+    elif change == "scope":
+        newer["workspace_id"] = 11
+    else:
+        newer["metrics"] = {}
+    report = collect_registered([newer, *rows], policy_id=1, **ctx)
+    assert report["result"] == "BLOCKED"
+    assert report["registrations"][1]["state"] != "RECORDED_PASS"
+    assert not report["backupRestorePairVerified"]

@@ -73,3 +73,48 @@ def collect(documents, **context):
             "FINAL_RELEASE",
         ],
     }
+
+
+def collect_registered(rows, *, policy_id, **context):
+    """Bind latest registrations to retained signatures before collecting their pair.
+
+    Caller reads rows and current policy under the company transaction. Never
+    search backwards for an older success after a later failure or invalid row.
+    """
+    from fs.gw.readiness import SOURCE_FIELD, evaluate
+
+    documents = {}
+    registrations = []
+    for kind in ("BACKUP", "RESTORE"):
+        candidates = [row for row in rows if row["kind"] == kind]
+        row = (
+            max(candidates, key=lambda r: (r["recorded_at"], r["id"]))
+            if candidates
+            else None
+        )
+        state = "MISSING"
+        if row is not None:
+            state, _detail, _verified = evaluate(
+                row,
+                context["policy"],
+                policy_id,
+                context["code_revision"],
+                context["db_revision"],
+                context["public_keys"],
+                context["now"],
+            )
+            if (
+                row["workspace_id"] != context["workspace_id"]
+                or row["generation_id"] != context["generation_id"]
+            ):
+                state = "INVALID"
+            if state == "RECORDED_PASS":
+                documents[kind] = {
+                    "envelope": row["metrics"][SOURCE_FIELD],
+                    "signature": row["signature"],
+                }
+        registrations.append({"kind": kind, "state": state})
+    report = collect(documents, **context)
+    report["source"] = "LATEST_REGISTRATIONS"
+    report["registrations"] = registrations
+    return report
