@@ -23,7 +23,7 @@ class ApplyTest(unittest.TestCase):
         self.assertFalse(apply_fs029a.apply(again))
         self.assertEqual(again, self.current)
         self.assertEqual(
-            sum(t["name"].startswith("cmms.") for t in self.current["tables"]), 6
+            sum(t["name"].startswith("cmms.") for t in self.current["tables"]), 12
         )
         self.assertEqual(audit(self.current), [])
         self.assertEqual(validate(self.current, expected_names(self.current)), [])

@@ -1,3 +1,36 @@
+# 2026-10-20 CMMS-1a — CMMS 6표 → 12표 (DB)
+
+Claude Code 직접 개발(D85). 브랜치 `cmms-1a`. 기존 솔루션 보강 순서 2번.
+
+## CMMS는 SPC와 상황이 다르다
+
+CMMS는 **FS-029a로 DB 6표만 있고 `backend/src/fs/cmms/`도 `frontend/src/cmms/`도 없다**(D76). SPC는 화면 7개가 돌고 있어 보강만 하면 됐지만, CMMS는 **화면 10개를 전부 새로 만들어야 한다.** 규모는 WMS(20화면·9단계)의 절반쯤이다.
+
+- 새 표 6개: `checklist_item`·`checklist_result`(점검표 구조화 Q3), `technician`(정비원 Q5), `vendor`(외주 업체 Q5), `failure_code`(증상·조치 코드 F24), `asset_part`(설비별 예비품 F34). **전체 215 → 221표.**
+- 기존 6표 칼럼 보강: `asset`에 계층(`parent_asset_id`)·상세 7칸, `pm_plan`에 사용량 기준 3칸, `work_order`에 정비원·외주·고장 코드 6칸, `work_log`에 정비원, `spare_part`에 WMS 품목·단가, `part_usage`에 사용 단가 스냅샷.
+- 바뀐 제약 6건(c992·993·999·1004·1007·1016)은 모두 **제자리 교체**다. 설비 종류에 MOLD·LINE·COMPONENT·FACILITY, 출처에 MES_MOLD, PM 주기 NULL 허용(사용량 기준이면 일 주기가 없다), 작업지시 출처에 RWS_REQUEST. **제약 순번 밀림 0건**(1,583 → 1,620).
+- `tools/apply_cmms1.py` 신설(멱등). 마이그레이션 `backend/alembic/versions/20261020_cmms1.py`(revision `cmms1`, down `spc2`, 88문).
+- `cmms.technician`이 생기면서 **DSN-21 계약 검사가 자동으로 켜졌다**(`validate_cmms_dsn21`) — 금형 출처 Q1, 기준별 PM 주기 Q2, 점검표 완료 조건 Q3, 신호 출처 확장 없음 Q4, 비용 비저장 Q5, 재고는 WMS Q6. 모두 통과.
+- `test_fs029a`의 표 개수 리터럴 6 → 12. (SPC 때와 같은 종류의 고정값이다.)
+- 검증: db:validate 0(221표/2,439칼럼/553FK), 격리 R1~R6 0, **마이그레이션 왕복 통과**, verify_ddl 0, Excel·ERD 재생성, 도구 테스트 138 OK.
+- **아직 없는 것: API·화면·시드·도움말 전부.** 새 6표는 빈 표다.
+
+## 다음 단계에서 막히는 것 — 교차 조회 함수 4개가 없다
+
+DSN-21 6장이 요구하는 읽기 함수가 **제공 쪽에 없다.** 표는 모두 있다(`mes.equipment`·`mes.mold`·`bems.hvac_unit`·`bems.alarm`·`wms.item`·`spc.signal`) — `interface.py`의 함수만 없다.
+
+| 필요 | 상태 | 막히는 화면 |
+|---|---|---|
+| BEMS `active_alarms()`·`hvac_units()` | **`fs/bems/interface.py` 자체가 없음** | **C-02 전환 대기 신호(전면)**, C-05 |
+| SPC `equipment_signals()` | 없음 | **C-02(전면)** |
+| MES `equipment()`·`molds()` | 없음 | C-05 설비·금형 가져오기, C-04 타수 PM |
+| WMS `stock_on_hand()` | **`fs/wms/interface.py` 자체가 없음** | C-06 예비품 재고·부족 |
+| ERP `partners()` | 없음 | C-08(코드 직접 입력으로 우회 가능) |
+
+10화면 중 **7개는 그대로 되고** C-02가 전면, C-05·C-06이 부분 막힌다. WMS W-16이 기다리는 POP(0표)와 달리 **만들 수 있는 것들**이라, 사용자에게 "CMMS 단계에서 직접 만든다" vs "빼고 간다"를 물었다.
+
+- 단계 계획: 1a DB / **1b 교차 조회 함수 4개** / 1c 설비 대장·고장 코드 / 1d 작업지시·전환 대기·정비원 / 1e 예방보전·예비품 / 1f 개요·지표·비용·도움말.
+
 # 2026-10-20 SPC-1e — 층별 비교(S-10)와 S-06 가변 n 표기 — SPC 화면 10 → 11
 
 Claude Code 직접 개발(D85). 브랜치 `spc-1e`. 모델은 Sonnet(새 설계 판단이 없는 반복 작업이라 추천받아 전환).

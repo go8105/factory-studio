@@ -1,11 +1,11 @@
 {
-  "task": "SPC-1c",
+  "task": "CMMS-1a",
   "validation": "정적 메타데이터 검증 + FS-013 R1~R6",
   "database_applied": false,
-  "tables": 215,
+  "tables": 221,
   "tables_by_schema": {
     "bems": 10,
-    "cmms": 6,
+    "cmms": 12,
     "core": 14,
     "erp": 27,
     "fems": 13,
@@ -17,10 +17,10 @@
     "spc": 10,
     "wms": 23
   },
-  "columns": 2360,
-  "foreign_keys": 536,
-  "constraints_and_policies": 1583,
-  "source_sha256": "a5d408b77c2786735e62247b02c8cd57c0052f51ed07abaa42f34265af4e7849",
+  "columns": 2439,
+  "foreign_keys": 553,
+  "constraints_and_policies": 1620,
+  "source_sha256": "c8ecaeb3ed9c76ec10f2edfdc2bf4cd4209c7a3db69613600b2b6e1e4cab2ead",
   "errors": [],
   "not_tested": [
     "실제 DDL 적용",

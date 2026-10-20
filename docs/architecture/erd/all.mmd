@@ -138,6 +138,60 @@ erDiagram
     varchar source_code "원천 코드 NULL"
     boolean is_active "사용 여부"
     timestamptz created_at "등록 시각"
+    bigint parent_asset_id FK "상위 설비 NULL"
+    varchar manufacturer "제조사 NULL"
+    varchar model "모델 NULL"
+    varchar serial_no "일련번호 NULL"
+    date installed_on "설치일 NULL"
+    numeric acquisition_cost "취득가 NULL"
+    varchar criticality "중요도 NULL"
+  }
+  cmms_asset_part {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    bigint asset_id FK "설비"
+    bigint spare_part_id FK "예비품"
+    numeric qty_per "표준 수량"
+    timestamptz created_at "등록 시각"
+  }
+  cmms_checklist_item {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    bigint pm_plan_id FK "예방보전 계획"
+    integer seq "순서"
+    varchar name "항목"
+    varchar method "판정 방식"
+    varchar standard_text "기준 NULL"
+    numeric lower_limit "하한 NULL"
+    numeric upper_limit "상한 NULL"
+    varchar unit "단위 NULL"
+    boolean is_active "사용 여부"
+    timestamptz created_at "등록 시각"
+  }
+  cmms_checklist_result {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    bigint work_order_id FK "작업지시"
+    bigint checklist_item_id FK "점검 항목"
+    varchar result "결과"
+    numeric measured_value "측정값 NULL"
+    varchar note "메모 NULL"
+    timestamptz checked_at "점검 시각"
+    timestamptz created_at "등록 시각"
+  }
+  cmms_failure_code {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    varchar kind "구분"
+    varchar code "코드"
+    varchar name "이름"
+    varchar cause_category "원인 분류 NULL"
+    boolean is_active "사용 여부"
+    timestamptz created_at "등록 시각"
   }
   cmms_part_usage {
     bigint id PK "내부 식별자"
@@ -148,6 +202,7 @@ erDiagram
     numeric qty "수량"
     timestamptz used_at "사용 시각"
     timestamptz created_at "등록 시각"
+    numeric unit_cost "사용 단가 NULL"
   }
   cmms_pm_plan {
     bigint id PK "내부 식별자"
@@ -162,6 +217,9 @@ erDiagram
     date last_done_on "마지막 수행일 NULL"
     boolean is_active "사용 여부"
     timestamptz created_at "등록 시각"
+    varchar trigger_kind "기준"
+    numeric interval_usage "사용량 주기 NULL"
+    numeric last_done_usage "마지막 수행 시 사용량 NULL"
   }
   cmms_spare_part {
     bigint id PK "내부 식별자"
@@ -171,6 +229,32 @@ erDiagram
     varchar name "예비품명"
     varchar unit "단위"
     numeric safety_stock "안전 재고(참고)"
+    boolean is_active "사용 여부"
+    timestamptz created_at "등록 시각"
+    varchar item_code "WMS 품목 코드 NULL"
+    numeric unit_cost "표준 단가 NULL"
+  }
+  cmms_technician {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    varchar code "정비원 코드"
+    varchar name "이름"
+    varchar skill "기술 분야"
+    numeric hourly_rate "시간당 인건비"
+    varchar currency "통화"
+    varchar hr_employee_code "HR 사원 코드 NULL"
+    boolean is_active "사용 여부"
+    timestamptz created_at "등록 시각"
+  }
+  cmms_vendor {
+    bigint id PK "내부 식별자"
+    bigint workspace_id FK "개인 체험 공간"
+    bigint generation_id FK "데이터 세대"
+    varchar code "업체 코드"
+    varchar name "업체명"
+    varchar erp_partner_code "ERP 거래처 코드 NULL"
+    varchar phone "연락처 NULL"
     boolean is_active "사용 여부"
     timestamptz created_at "등록 시각"
   }
@@ -183,6 +267,7 @@ erDiagram
     integer minutes "작업 시간(분)"
     varchar note "내용"
     timestamptz created_at "등록 시각"
+    bigint technician_id FK "정비원 NULL"
   }
   cmms_work_order {
     bigint id PK "내부 식별자"
@@ -209,6 +294,12 @@ erDiagram
     timestamptz cancelled_at "취소 시각 NULL"
     varchar cancel_reason "취소 사유 NULL"
     timestamptz created_at "등록 시각"
+    bigint technician_id FK "담당 정비원 NULL"
+    bigint vendor_id FK "외주 업체 NULL"
+    numeric external_cost "외주 비용 NULL"
+    bigint symptom_code_id FK "증상 코드 NULL"
+    bigint action_code_id FK "조치 코드 NULL"
+    numeric usage_at_due "생성 시 사용량 NULL"
   }
   core_app_review {
     bigint id PK "내부 식별자"
@@ -3325,3 +3416,20 @@ erDiagram
   spc_signal ||..o{ spc_ocap_check : "workspace_id,generation_id,signal_id"
   spc_ocap_item ||..o{ spc_ocap_check : "workspace_id,generation_id,ocap_item_id"
   spc_characteristic ||..o{ spc_capability_report : "workspace_id,generation_id,characteristic_id"
+  core_data_generation ||..o{ cmms_checklist_item : "workspace_id,generation_id"
+  core_data_generation ||..o{ cmms_checklist_result : "workspace_id,generation_id"
+  core_data_generation ||..o{ cmms_technician : "workspace_id,generation_id"
+  core_data_generation ||..o{ cmms_vendor : "workspace_id,generation_id"
+  core_data_generation ||..o{ cmms_failure_code : "workspace_id,generation_id"
+  core_data_generation ||..o{ cmms_asset_part : "workspace_id,generation_id"
+  cmms_pm_plan ||..o{ cmms_checklist_item : "workspace_id,generation_id,pm_plan_id"
+  cmms_work_order ||..o{ cmms_checklist_result : "workspace_id,generation_id,work_order_id"
+  cmms_checklist_item ||..o{ cmms_checklist_result : "workspace_id,generation_id,checklist_item_id"
+  cmms_asset ||..o{ cmms_asset_part : "workspace_id,generation_id,asset_id"
+  cmms_spare_part ||..o{ cmms_asset_part : "workspace_id,generation_id,spare_part_id"
+  cmms_asset |o..o{ cmms_asset : "workspace_id,generation_id,parent_asset_id"
+  cmms_technician |o..o{ cmms_work_order : "workspace_id,generation_id,technician_id"
+  cmms_vendor |o..o{ cmms_work_order : "workspace_id,generation_id,vendor_id"
+  cmms_failure_code |o..o{ cmms_work_order : "workspace_id,generation_id,symptom_code_id"
+  cmms_failure_code |o..o{ cmms_work_order : "workspace_id,generation_id,action_code_id"
+  cmms_technician |o..o{ cmms_work_log : "workspace_id,generation_id,technician_id"
