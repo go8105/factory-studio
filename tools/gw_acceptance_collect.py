@@ -1,7 +1,6 @@
 """Collect private proofs; optional signed PARTIAL reconciliation, never PASS."""
 
 import argparse
-import base64
 import json
 import os
 from datetime import UTC, datetime
@@ -14,6 +13,7 @@ from fs.gw.acceptance_artifact import inspect_copy
 from fs.gw.acceptance_collection import collect
 from fs.gw.acceptance_reconciliation import sign_reconciliation
 from fs.gw.acceptance_sources import sign_current
+from fs.gw.evidence_trust import from_environment
 from fs.gw.operating_contract import OperatingPolicy, canonical
 from pydantic import ValidationError
 from sqlalchemy import create_engine
@@ -72,12 +72,7 @@ def main():
         private_directory(path.parent)
         if path.exists() or path.is_symlink():
             raise ValueError()
-        keys = json.loads(os.environ["FS_GW_EVIDENCE_PUBLIC_KEYS"])
-        if not isinstance(keys, dict) or not 1 <= len(keys) <= 20:
-            raise ValueError()
-        public = {k: base64.b64decode(v, validate=True) for k, v in keys.items()}
-        if any(len(value) != 32 for value in public.values()):
-            raise ValueError()
+        public = from_environment()
         signer = None
         if args.signed_reconciliation:
             signer = Ed25519PrivateKey.from_private_bytes(

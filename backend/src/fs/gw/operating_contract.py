@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 from uuid import UUID
@@ -25,6 +26,7 @@ from pydantic import (
 )
 
 from fs.common.errors import ApiError
+from fs.gw.evidence_trust import authorize
 
 
 class StrictModel(BaseModel):
@@ -248,7 +250,7 @@ def verify_evidence(
     payload: dict,
     signature: str,
     *,
-    public_keys: dict[str, bytes],
+    public_keys: Mapping[str, bytes],
     workspace_id: int,
     generation_id: int,
     policy: OperatingPolicy,
@@ -263,6 +265,7 @@ def verify_evidence(
         if len(canonical(payload)) > 16384 or len(signature) > 100:
             raise ValueError("oversized envelope")
         data = EvidenceEnvelope.model_validate(payload)
+        authorize(public_keys, data.signer_key_id, data.kind, data.workspace_id)
         key = public_keys[data.signer_key_id]
         raw_signature = base64.b64decode(signature, validate=True)
         Ed25519PublicKey.from_public_bytes(key).verify(

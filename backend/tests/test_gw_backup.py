@@ -15,16 +15,17 @@ import pytest
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
-from fs.common.db import reset_engine
-from fs.common.security import hash_password
-from fs.core.backup import BackupError
-from fs.main import create_app
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from test_gw_company import context
 from test_gw_company_work import api, ok
 from test_gw_evidence import prepare
 from test_hr_work import company_env
+
+from fs.common.db import reset_engine
+from fs.common.security import hash_password
+from fs.core.backup import BackupError
+from fs.main import create_app
 
 
 def runner():
@@ -95,8 +96,23 @@ def backup_env(company_env, monkeypatch, tmp_path):
         folder = tmp_path / name
         folder.mkdir(mode=0o700)
         folders[name] = folder
+    monkeypatch.setenv(
+        "FS_GW_EVIDENCE_KEY_SCOPES",
+        json.dumps(
+            {
+                "version": 1,
+                "keys": {
+                    "runner": {
+                        "workspaceIds": [str(_co["companyId"])],
+                        "purposes": ["BACKUP", "RESTORE", "CHECKPOINT"],
+                    }
+                },
+            }
+        ),
+    )
     module = runner()
     config = module.settings()
+    assert config["public"].scoped
     yield module, config, folders, secret
 
 
@@ -238,6 +254,9 @@ def test_actual_backup_replay_restore_and_business_denial(
     captured = module.checkpoint(
         url=source_url, artifact=artifact, output=checkpoint, head=head, config=config
     )
+    head_scope = json.loads(head.read_text())["payload"]["scope"]
+    assert set(head_scope) == {"workspaceId", "generationId", "policyDigest"}
+    assert "policy" not in head_scope
     report = folders["reports"] / "restore.json"
     restore_proof = folders["reports"] / "evidence.json"
     admin_url = (
@@ -409,6 +428,45 @@ def test_missing_or_wrong_latest_checkpoint_never_creates_target(
             config=config,
         )
     assert not (folders["reports"] / "restore.json").exists()
+    original_head = json.loads(head.read_text())["payload"]
+    original_head["scope"]["generationId"] = str(
+        int(original_head["scope"]["generationId"]) + 1
+    )
+    wrong_head = folders["checkpoints"] / "wrong-scope-head.json"
+    module.write_json(wrong_head, module.signed_document(original_head, config))
+    with _engine.connect() as c:
+        before = tuple(
+            c.scalars(
+                text(
+                    "SELECT datname FROM pg_database WHERE datname LIKE 'fs_gw_restore_%_test' ORDER BY datname"
+                )
+            )
+        )
+    with pytest.raises(BackupError, match="회사 범위"):
+        module.restore(
+            admin_url=make_url(source_url)
+            .set(database="postgres")
+            .render_as_string(hide_password=False),
+            artifact=artifact,
+            checkpoint_file=checkpoint,
+            head=wrong_head,
+            expected_checkpoint_digest=module.sha256_file(checkpoint),
+            report=folders["reports"] / "restore.json",
+            evidence=folders["reports"] / "proof.json",
+            config=config,
+        )
+    with _engine.connect() as c:
+        assert (
+            tuple(
+                c.scalars(
+                    text(
+                        "SELECT datname FROM pg_database WHERE datname LIKE 'fs_gw_restore_%_test' ORDER BY datname"
+                    )
+                )
+            )
+            == before
+        )
+
     artifact_raw = bytearray(artifact.read_bytes())
     artifact_raw[40] ^= 1
     artifact.write_bytes(artifact_raw)

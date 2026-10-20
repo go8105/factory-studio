@@ -1,6 +1,5 @@
 """Signed runner evidence ingestion. Never turn an uploaded checkbox into readiness."""
 
-import base64
 import json
 import os
 import re
@@ -13,6 +12,7 @@ from fs.core.security.service import database_now
 from fs.gw import company
 from fs.gw.acceptance_reconciliation import verify_registered_sources
 from fs.gw.company_identity import audit
+from fs.gw.evidence_trust import from_environment
 from fs.gw.operating_contract import verify_evidence
 from fs.gw.operations import policy_from_row, settings
 from fs.gw.readiness import SOURCE_FIELD
@@ -22,20 +22,7 @@ S = company.S
 
 def verifier_config(c):
     try:
-        configured = json.loads(os.environ["FS_GW_EVIDENCE_PUBLIC_KEYS"])
-        if not isinstance(configured, dict) or not 1 <= len(configured) <= 20:
-            raise ValueError()
-        keys = {
-            name: base64.b64decode(value, validate=True)
-            for name, value in configured.items()
-        }
-        if any(len(value) != 32 for value in keys.values()):
-            raise ValueError()
-        if any(
-            not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,60}", name)
-            for name in keys
-        ):
-            raise ValueError()
+        keys = from_environment()
         revision = os.environ["FS_CODE_REVISION"]
         if not re.fullmatch(r"[0-9a-f]{7,64}", revision):
             raise ValueError()
@@ -47,7 +34,7 @@ def verifier_config(c):
         raise ApiError(
             503,
             "SECURITY_CONFIGURATION_UNAVAILABLE",
-            "운영 실행 증거의 검증 키와 제품 버전을 서버에서 설정해야 합니다.",
+            "운영 실행 증거의 검증 키·허용 회사/용도와 제품 버전을 서버에서 설정해야 합니다.",
         ) from None
 
 

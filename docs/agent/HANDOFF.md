@@ -1,3 +1,22 @@
+## 2026-10-20 GW-READY-02 40차 회사·용도별 서명 신뢰와 인수 발급 키 분리
+
+- 시작 `641eb00`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 사용자 다음 진행 승인 범위에서 기존 실행 증거의 서명자 권한을 회사/용도로 제한했다. 실환경 관측 어댑터나 최종 PASS를 완료했다고 표현하지 않는다.
+- `evidence_trust`에 배포자 소유 FS_GW_EVIDENCE_KEY_SCOPES v1 도입. 공개키 이름과 정확히 같은 키 집합·명시적 회사ID 문자열/용도를 요구하며 와일드카드·중복 JSON/회사/용도·형식/모르는 필드·별칭 공개키를 거부한다. ACCEPTANCE_RECONCILIATION 발급 키는 다른 용도를 혼용하거나 원본 실행 키와 같은 공개키 바이트를 쓸 수 없다. PUBLIC_DEMO/TEAM_TEST에서만 미설정 기존 방식 호환, COMPANY는 미설정 오류이며 명시하면 모든 모드에서 적용한다. 실제 환경/계정/키를 자동 변경하지 않았다.
+- 서버 증거 등록/준비 재조회·원본 대조, 수집기/현재DB 어댑터, 백업/복원/권한 대조/오프라인 사본 검사가 공통 신뢰 정책을 읽는다. 서명이 맞아도 다른 회사나 용도면 거부한다. 허용 용도는 BACKUP/RESTORE/CHECKPOINT/ACCEPTANCE_RECONCILIATION/INCIDENT이며 최종 PASS/미래 어댑터 권한을 문자열로 추가할 수 없다. 회사 모드 설정 부족/오류는 CONFIG_REQUIRED/503, 도구는 오류로 종료한다.
+- 백업 내부 명세와 권한 대조/최신 지문에 회사 권한을 대조한다. 새 권한 대조/최신 지문은 회사·세대·정책 지문3필드만 보관하며 정책 원문/담당자를 추가하지 않는다. 엄격 모드에서 옛 무범위 권한 대조를 거부하고 백업과 다른 범위도 거부한다. 새 격리 DB 생성 전에 RESTORE 실행자 권한을 확인한다. 기존 파일을 수정/덮어쓰지 않는다.
+- 서버가 현재 키/용도/회사 회수를 재평가해 이전 등록도 무효 처리하고 과거 통과로 대체하지 않는다. 기술적 키 분리는 별도 사람/장애 영역·실제 개인키 보관 분리/발급 당시 신뢰 이력 증명이 아니다. admin 로그인/GW 역할은 서명 권한과 별개이며 실제 키 분배·회수 인수는 남는다. ready=false·실제 복원 PARTIAL·최종4조건 미확인·ACCEPTANCE PASS 거부를 유지한다.
+- 검증: 관련 단위287통과(기존 경고2), 도움말18·Ruff check/format·정적DB219/2409/543·R1–R6 오류0. 별도 소유 PG에서 회사/용도·키 회수/별칭·실제CLI 및 실제 dump/암호화/사본/격리복원14통과91.22초. 권한 대조의 최소 범위/다른 세대 지문 거부 검사를 추가한 최종 백업·복원5건도51.54초 통과(기존 경고2). 최초14건 중 백업/복원5건을 보완 후 재실행한 것이며19개 별도 검사로 합산하지 않는다. 원본 사본 전체읽기·복호화·덤프/명세·옛 세션/회수 권한 거부·원본 유지·실패 복원 격리 유지와 다른 범위 거부 전후 새 격리 DB 미생성을 확인했다. 생성한 시험 자원만 정리·trust 시험DB0/폐쇄복원DB0·preview DB존재를 읽기 확인했다. 스키마/마이그레이션/Excel/ERD 변경 없음. 전체CI/전체회귀·고정24수집 재실행·브라우저/실외부 저장소/실회사·기기/10인 실인수 미실행.
+- 다음: 유형별 실환경 관측 자료와 검증 어댑터·최신 원본/현재 신뢰 정책을 묶는 최종 인수 계약을 이어간다. 외부 공급자는 미정이며 선정 뒤 장애 영역/키 보관/복구를 실제 검증한다. 이후 최신main/전체회귀·실회사10인/최종전환. 난이도 매우 높음, GPT-6 Astra + High 추천. 모델 자동변경 없음. 다른 checkout/main/원격push/배포 변경 없음.
+
+재현(저장소 루트):
+```sh
+uv run --project backend pytest backend/tests/test_gw_evidence_trust.py backend/tests/test_gw_acceptance_sources.py backend/tests/test_gw_business_observation.py backend/tests/test_gw_acceptance_preflight.py backend/tests/test_gw_acceptance_reconciliation.py backend/tests/test_gw_route_verify.py backend/tests/test_gw_journal_routes.py backend/tests/test_gw_journal_coverage.py backend/tests/test_journal_review.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short
+# 소유 컨테이너ID/owner/loopback 확인·새 *_test DB에만 동일 DATABASE_URL/TEST_DATABASE_URL과 소유 GW_BACKUP_TEST_CONTAINER 비공개 주입:
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_evidence_trust_db.py backend/tests/test_gw_backup.py backend/tests/test_backup_journal_restore.py -q --tb=short
+```
+새 시험 DB만 정리하며 preview DB 초기화/실제 계정·비밀번호/OTP/키 변경 없음. 운영 설정 계약: `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §14. 비밀/전체로그/work를 Git에 넣지 않는다. 마지막 커밋은 `git log -1`.
+
 ## 2026-10-20 GW-READY-02 39차 현재 DB 최신 원본 선택·서명 대조 계약v2
 
 - 시작 `1cf68ee`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 사용자 다음 진행 승인 범위에서 현재 DB 원본 선택 어댑터를 구현했다. 최종 PASS/실환경 인수 완료를 구현했다고 표현하지 않는다.

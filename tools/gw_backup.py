@@ -46,6 +46,7 @@ from fs.core.security.config import security_settings
 from fs.gw import backup as gw_checkpoint
 from fs.gw import backup_journal
 from fs.gw.acceptance_artifact import MAX_ARTIFACT_BYTES, inspect_copy
+from fs.gw.evidence_trust import authorize, from_environment
 from fs.gw.operating_contract import OperatingPolicy, canonical, timestamp
 from fs.hr import backup as hr_checkpoint
 from sqlalchemy import create_engine, text
@@ -83,15 +84,7 @@ def settings():
         re.fullmatch(r"[A-Za-z0-9_-]{1,60}", v) for v in [signer_id, key_id]
     ) or not re.fullmatch(r"[0-9a-f]{7,64}", revision):
         raise BackupError("키 식별자·제품 버전을 확인하세요.")
-    configured = json.loads(os.environ["FS_GW_EVIDENCE_PUBLIC_KEYS"])
-    if not isinstance(configured, dict) or not 1 <= len(configured) <= 20:
-        raise BackupError("검증 공개 키 설정을 확인하세요.")
-    public = {
-        name: base64.b64decode(value, validate=True)
-        for name, value in configured.items()
-    }
-    if any(len(value) != 32 for value in public.values()):
-        raise BackupError("검증 공개 키 크기를 확인하세요.")
+    public = from_environment()
     if public.get(signer_id) != signer.public_key().public_bytes_raw():
         raise BackupError("실행자 서명 키와 서버 검증 공개 키가 다릅니다.")
     return {
@@ -109,7 +102,27 @@ def settings():
     }
 
 
+def bundle_scope(manifest):
+    return {
+        field: manifest["scope"][field]
+        for field in ("workspaceId", "generationId", "policyDigest")
+    }
+
+
+def manifest_workspace(data):
+    scope = data.get("scope")
+    if scope is not None and not isinstance(scope, dict):
+        raise ValueError("invalid manifest scope")
+    return scope.get("workspaceId") if scope else None
+
+
 def signed_document(data, config):
+    authorize(
+        config["public"],
+        config["signerId"],
+        data.get("kind"),
+        manifest_workspace(data),
+    )
     return {
         "payload": data,
         "signature": base64.b64encode(
@@ -123,6 +136,15 @@ def verified_document(value, config):
     try:
         if set(value) != {"payload", "signature", "signerKeyId"}:
             raise ValueError()
+        data = value["payload"]
+        if not isinstance(data, dict):
+            raise TypeError()
+        authorize(
+            config["public"],
+            value["signerKeyId"],
+            data.get("kind"),
+            manifest_workspace(data),
+        )
         key = Ed25519PublicKey.from_public_bytes(config["public"][value["signerKeyId"]])
         key.verify(
             base64.b64decode(value["signature"], validate=True),
@@ -201,6 +223,9 @@ def unpack(artifact, temp, config, *, kind):
 
 
 def proof(manifest, config, *, kind, result, started, finished, metrics):
+    authorize(
+        config["public"], config["signerId"], kind, manifest["scope"]["workspaceId"]
+    )
     envelope = {
         "version": 1,
         "runId": manifest["runId"] if kind == "BACKUP" else str(uuid4()),
@@ -256,6 +281,9 @@ def backup(*, url, company_id, output, evidence, config):
             with engine.connect() as c, c.begin():
                 started = snapshot(c)
                 scope = gw_checkpoint.policy_snapshot(c, company_id)
+                authorize(
+                    config["public"], config["signerId"], "BACKUP", scope["workspaceId"]
+                )
                 major = (
                     int(c.execute(text("SHOW server_version_num")).scalar_one())
                     // 10000
@@ -355,6 +383,12 @@ def checkpoint(*, url, artifact, output, head, config):
         ) as folder:
             temp = Path(folder)
             original = unpack(artifact, temp, config, kind="BACKUP")
+            authorize(
+                config["public"],
+                config["signerId"],
+                "CHECKPOINT",
+                original["scope"]["workspaceId"],
+            )
             observed_journal = backup_journal.source_records()
             with engine.connect() as c, c.begin():
                 started = snapshot(c)
@@ -365,6 +399,7 @@ def checkpoint(*, url, artifact, output, head, config):
                 manifest = {
                     "version": 1,
                     "kind": "CHECKPOINT",
+                    "scope": bundle_scope(original),
                     "journal": backup_journal.plan(
                         c, original.get("journal"), observed_journal
                     ),
@@ -388,6 +423,7 @@ def checkpoint(*, url, artifact, output, head, config):
             latest = {
                 "version": 1,
                 "kind": "CHECKPOINT_HEAD",
+                "scope": bundle_scope(original),
                 "backupRunId": original["runId"],
                 "runId": manifest["runId"],
                 "checkpointDigest": sha256_file(output),
@@ -429,6 +465,12 @@ def restore(
         ) as folder:
             temp = Path(folder)
             manifest = unpack(artifact, temp, config, kind="BACKUP")
+            authorize(
+                config["public"],
+                config["signerId"],
+                "RESTORE",
+                manifest["scope"]["workspaceId"],
+            )
             if config["codeRevision"] != manifest["codeRevision"] or not set(
                 manifest["authenticationKeyIds"]
             ).issubset(config["authenticationKeyIds"]):
@@ -447,6 +489,11 @@ def restore(
             changes = unpack(
                 checkpoint_file, temp / "checkpoint", config, kind="CHECKPOINT"
             )
+            if getattr(config["public"], "scoped", False) and (
+                changes.get("scope") != bundle_scope(manifest)
+                or latest.get("scope") != bundle_scope(manifest)
+            ):
+                raise BackupError("권한 대조 기록의 회사 범위가 백업과 다릅니다.")
             if (
                 changes["backupRunId"] != manifest["runId"]
                 or changes["sourceIdentity"] != manifest["sourceIdentity"]
@@ -784,14 +831,7 @@ def verify_storage_copy(*, artifact, document, context, output, config):
 def copy_check_settings():
     """Read decryption material and trusted public keys, never a signing key."""
     key = private_file(os.environ["FS_GW_BACKUP_KEY_FILE"], size=32).read_bytes()
-    public = json.loads(os.environ["FS_GW_EVIDENCE_PUBLIC_KEYS"])
-    if not isinstance(public, dict) or not 1 <= len(public) <= 20:
-        raise BackupError("검증 공개 키 설정을 확인하세요.")
-    public = {
-        name: base64.b64decode(value, validate=True) for name, value in public.items()
-    }
-    if any(len(value) != 32 for value in public.values()):
-        raise BackupError("검증 공개 키 크기를 확인하세요.")
+    public = from_environment()
     return {"key": key, "keyId": os.environ["FS_GW_BACKUP_KEY_ID"], "public": public}
 
 

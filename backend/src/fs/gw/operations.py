@@ -125,7 +125,7 @@ def read(context, company_id):
                     "label": label,
                     "state": "CONFIG_REQUIRED",
                     "signatureVerified": False,
-                    "detail": "서버의 실행 증거 검증 키와 버전을 설정해야 합니다.",
+                    "detail": "서버의 실행 증거 검증 키·허용 회사/용도와 버전을 설정해야 합니다.",
                 }
                 for kind, label in (
                     ("BACKUP", "백업 실행"),
