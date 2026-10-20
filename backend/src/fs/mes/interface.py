@@ -1,6 +1,6 @@
 """MES 읽기 전용 조회 인터페이스 (FS-023 D9 · X1~X6).
 
-다른 솔루션(QMS·WMS·SPC)은 MES를 이 모듈로만 읽는다. 반환은 값(dict/list)이며 행을 잠그지 않는다.
+다른 솔루션(QMS·WMS·SPC·CMMS)은 MES를 이 모듈로만 읽는다. 반환은 값(dict/list)이며 행을 잠그지 않는다.
 MES를 꺼 두었으면 None을 돌려주고, 호출 쪽은 직접 입력으로 줄여 동작한다(D12).
 호출자의 범위(scoped: 활성 세대가 확정된 AuthContext)로만 조회한다 — 다른 공간·세대는 보이지 않는다.
 """
@@ -251,4 +251,67 @@ def operation_runs(
             "endedAt": None if r["ended_at"] is None else r["ended_at"].isoformat(),
         }
         for r in rows
+    ]
+
+
+def equipment(
+    connection: Connection, scoped: AuthContext
+) -> list[dict[str, Any]] | None:
+    """사용 중인 설비 `[{equipmentCode, name, equipmentType, locationCode}]`. MES가 꺼져 있으면 None.
+
+    CMMS가 설비 대장으로 가져온다(FS-029 D46). 코드만 스냅샷으로 넘기고 FK는 걸지 않는다.
+    """
+    if not _enabled(connection, scoped):
+        return None
+    rows = connection.execute(
+        text(
+            "SELECT e.equipment_code, e.name, e.equipment_type, l.location_code "
+            "FROM mes.equipment e "
+            "LEFT JOIN mes.location l ON l.workspace_id=e.workspace_id "
+            " AND l.generation_id=e.generation_id AND l.id=e.location_id "
+            "WHERE e.workspace_id=:w AND e.generation_id=:g AND e.is_active "
+            "ORDER BY e.equipment_code"
+        ),
+        {"w": scoped.workspace_id, "g": scoped.generation_id},
+    ).mappings()
+    return [
+        {
+            "equipmentCode": row["equipment_code"],
+            "name": row["name"],
+            "equipmentType": row["equipment_type"],
+            "locationCode": row["location_code"],
+        }
+        for row in rows
+    ]
+
+
+def molds(connection: Connection, scoped: AuthContext) -> list[dict[str, Any]] | None:
+    """폐기하지 않은 금형 `[{moldCode, name, cavity, lifeShots, shots, status}]`. MES가 꺼져 있으면 None.
+
+    CMMS가 대장(종류 MOLD)으로 가져오고 타수 기준 PM에 쓴다(DSN-21 Q1·Q2).
+    shots는 지금까지 누적 타수다 — 타수 주기 PM의 '현재 사용량'이 된다.
+    """
+    if not _enabled(connection, scoped):
+        return None
+    rows = connection.execute(
+        text(
+            "SELECT m.code, m.name, m.cavity, m.life_shots, m.status, "
+            " COALESCE((SELECT sum(u.shots) FROM mes.mold_usage u "
+            "   WHERE u.workspace_id=m.workspace_id AND u.generation_id=m.generation_id "
+            "     AND u.mold_id=m.id), 0) shots "
+            "FROM mes.mold m WHERE m.workspace_id=:w AND m.generation_id=:g "
+            "  AND m.status <> 'RETIRED' ORDER BY m.code"
+        ),
+        {"w": scoped.workspace_id, "g": scoped.generation_id},
+    ).mappings()
+    return [
+        {
+            "moldCode": row["code"],
+            "name": row["name"],
+            "cavity": row["cavity"],
+            "lifeShots": str(row["life_shots"]),
+            "shots": str(row["shots"]),
+            "status": row["status"],
+        }
+        for row in rows
     ]
