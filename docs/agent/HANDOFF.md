@@ -1,3 +1,13 @@
+## 2026-10-20 GW-READY-02 23차 백업·복원 인수 자료 수집기
+
+기준5666060/branch codex/gw-company-01. 기존 GW의 GwLayout 회사 운영 안내→operations 연결을 코드로 확인했다. 새 솔루션이 아닌 관리자 점검 화면이며 별도 GW처럼 보인다는 사용자 피드백을 10인 인수 절차에 UI 보완 항목(업무/관리 맥락·다음 행동·정보량·모바일·4대 UI 기준)으로 기록했다. 이번에 UI 재설계는 하지 않았다.
+
+acceptance_collection 및 tools/gw_acceptance_collect.py 구현: 기존 gw_backup.py BACKUP/RESTORE 원본 서명을 현재 회사/세대/정책/제품/DB·신뢰키로 재검증, PASS/백업RPO 현재성·시각·서로 다른실행·동일manifest 대조. 원본을 재실행/복호화하는 도구가 아닌 서명 증거 쌍 대조다. 검증한 원본 지문·현재 기준/시각·최소 상태만 새0600 파일에 저장. 입력은 소유자0600·출력폴더0700/기존파일 덮어쓰기거부. 개인키/DB URL/DB 접근 없음. 일치해도PARTIAL/exit0, 불일치BLOCKED/exit2, 파일/설정오류exit1. unsigned 수집보고서로 ACCEPTANCE PASS 업로드/launchGate 완료를 허용하지 않는다. 담당자 제공 현재 기준과 파일쌍만 검사하며 DB최신실패·실외부저장소·전체권한회수·실회사·최종전환은 아직 검증하지 않는다. 네 조건UNVERIFIED/readyfalse 유지.
+
+검증: 새 수집기14+기존 계약16+gate14=집중backend44 통과0.09초(기존경고2). 서명변조·타회사/정책/버전·서로다른manifest·시각겹침/미래·실행중복·기한초과·PARTIAL·누락/임의완료필드 차단, CLI 실제 파일 권한/덮어쓰기/최소출력 검사 포함. 도움말18 통과2.32초, Ruff/format·CLI help·정적DB219/2409/543 및R1–R6/diff 오류0. 새 PG/브라우저/실기기/실회사/전체CI/실외부저장소 검사 미실행. 이전22차 합성 미리보기(API8362/Vite5362/PG55439)는 별도 기록대로 유지하며 이번 새 서비스/예약 설치 없음. 비밀/work 스테이징금지. main/다른checkout/원격push/배포 변경 없음.
+
+다음 같은02: 수집 결과의 최신등록/실측자료 연결·외부저장소/전체수집회수/실회사/최종전환의 최종 서명 인수 계약과 실행 어댑터 → 최신main통합/전체회귀·10인부하 → 실제회사 인수. UI 보완은 위 피드백을 기존 GW 맥락에서 반영한다. 운영 인수 완료 아님. 재현: uv run --project backend pytest backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_launch_gate.py -q --tb=short. 도구 사용법은 docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md §2-1.
+
 ## 2026-10-20 GW-READY-02 22차 실제 제품 실행·시제품 구분
 
 기준 601fb4b, branch codex/gw-company-01. 기존 file:// 검토용화면.html#retention은 설계 시제품이며 구현/배포 증거가 아님을 정리했다. 현재 React+FastAPI+전용 PostgreSQL18을 실행하고 실제 브라우저에서 합성 관리자 비밀번호 로그인 → MFA → 홈 → 회사 운영 준비를 확인했다. 합성 회사3/부서1/연결직원1/인증앱1, 예정인원10이며 실제 10인 인수가 아니다. 정책 저장값과 12조건(확인4/조치4/미확인4), 증거 등록·보관 검토/보존 중지 화면을 확인하고 실제 화면을 캡처했다. 보관 변경/증거 업로드/실외부 저장소 검사는 이번에 실행하지 않았다. 도움말에서 운영 준비 미완료와 제품 미구현을 구분하고 기존의 판정 미구현 표현을 수정했다. 새 제품 기능/증거 어댑터/스키마 변경 없음.
