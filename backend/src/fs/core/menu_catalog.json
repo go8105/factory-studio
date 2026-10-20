@@ -702,6 +702,25 @@
       ]
     },
     {
+      "key": "cmms",
+      "name": "CMMS",
+      "title": "설비보전",
+      "screens": [
+        {
+          "path": "assets",
+          "id": "C-05",
+          "label": "설비 대장",
+          "group": "기준정보"
+        },
+        {
+          "path": "failure-codes",
+          "id": "C-09",
+          "label": "고장 코드",
+          "group": "기준정보"
+        }
+      ]
+    },
+    {
       "key": "hr",
       "name": "HR",
       "title": "인사관리",

@@ -1,0 +1,110 @@
+// CMMS 화면 공통 (FS-029 · DSN-21): API 경로·타입·문구.
+export const CMMS = "/api/v1/cmms";
+
+export type AssetType =
+  | "INJECTION"
+  | "ASSEMBLY"
+  | "INSPECTION"
+  | "HVAC"
+  | "UTILITY"
+  | "OTHER"
+  | "MOLD"
+  | "LINE"
+  | "COMPONENT"
+  | "FACILITY";
+export type AssetSource = "CMMS" | "MES" | "MES_MOLD" | "BEMS";
+export type Criticality = "A" | "B" | "C";
+/** 보전 원인 6분류. SPC의 4M1E와 다르다 — 설비가 왜 섰는지를 본다. */
+export type Cause =
+  "WEAR" | "LUBRICATION" | "ELECTRICAL" | "SETTING" | "EXTERNAL" | "OTHER";
+export type CodeKind = "SYMPTOM" | "CAUSE" | "ACTION";
+
+export type Asset = {
+  id: number;
+  code: string;
+  name: string;
+  assetType: AssetType;
+  location: string | null;
+  source: AssetSource;
+  sourceCode: string | null;
+  parentAssetId: number | null;
+  manufacturer: string | null;
+  model: string | null;
+  serialNo: string | null;
+  installedOn: string | null;
+  acquisitionCost: string | null;
+  criticality: Criticality | null;
+  isActive: boolean;
+};
+export type AssetNode = Pick<
+  Asset,
+  | "id"
+  | "code"
+  | "name"
+  | "assetType"
+  | "location"
+  | "source"
+  | "sourceCode"
+  | "parentAssetId"
+  | "criticality"
+  | "isActive"
+> & { depth: number };
+export type ImportCandidate = {
+  sourceCode: string;
+  name: string;
+  assetType: AssetType;
+  location: string | null;
+  note?: string;
+};
+export type FailureCode = {
+  id: number;
+  kind: CodeKind;
+  code: string;
+  name: string;
+  causeCategory: Cause | null;
+  isActive: boolean;
+};
+
+export const ASSET_TYPE_LABEL: Record<AssetType, string> = {
+  INJECTION: "사출기",
+  ASSEMBLY: "조립기",
+  INSPECTION: "검사기",
+  HVAC: "공조기",
+  UTILITY: "유틸리티",
+  OTHER: "기타",
+  MOLD: "금형",
+  LINE: "라인",
+  COMPONENT: "구성품",
+  FACILITY: "시설",
+};
+export const SOURCE_LABEL: Record<AssetSource, string> = {
+  CMMS: "직접 등록",
+  MES: "MES 설비",
+  MES_MOLD: "MES 금형",
+  BEMS: "BEMS 공조기",
+};
+/** 가져오기에서 고르는 원천. 직접 등록(CMMS)은 가져오기 대상이 아니다. */
+export const IMPORT_LABEL = {
+  MES: "MES 설비",
+  MES_MOLD: "MES 금형",
+  BEMS: "BEMS 공조기",
+} as const;
+export type ImportSource = keyof typeof IMPORT_LABEL;
+export const CRITICALITY_LABEL: Record<Criticality, string> = {
+  A: "A · 멈추면 라인이 선다",
+  B: "B · 대체 수단이 있다",
+  C: "C · 여유가 있다",
+};
+export const CODE_KIND_LABEL: Record<CodeKind, string> = {
+  SYMPTOM: "증상",
+  CAUSE: "원인",
+  ACTION: "조치",
+};
+export const CAUSE_LABEL: Record<Cause, string> = {
+  WEAR: "마모",
+  LUBRICATION: "윤활",
+  ELECTRICAL: "전기",
+  SETTING: "설정",
+  EXTERNAL: "외부 요인",
+  OTHER: "기타",
+};

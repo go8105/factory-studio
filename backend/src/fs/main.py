@@ -4,6 +4,7 @@ from fastapi import Depends, FastAPI
 
 from fs.bems.router import router as bems_router
 from fs.cad_cam.router import router as cad_cam_router
+from fs.cmms.router import router as cmms_router
 from fs.common.errors import install_error_handlers
 from fs.common.request_logging import RequestLogMiddleware
 from fs.common.scope import seed_ready
@@ -58,6 +59,9 @@ def create_app() -> FastAPI:
     )
     app.include_router(
         spc_router, prefix="/api/v1/spc", dependencies=[Depends(seed_ready("spc"))]
+    )
+    app.include_router(
+        cmms_router, prefix="/api/v1/cmms", dependencies=[Depends(seed_ready("cmms"))]
     )
     app.include_router(gw_router, prefix="/api/v1/gw", dependencies=[Depends(gw_entry)])
     app.include_router(
