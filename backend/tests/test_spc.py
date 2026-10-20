@@ -55,7 +55,15 @@ def _module(client, created, key: str, enabled: bool) -> None:
     )
 
 
-SPC_TABLES = ("signal", "measurement", "control_limit", "subgroup", "characteristic")
+SPC_TABLES = (
+    "signal",
+    "spec_violation",
+    "measurement",
+    "control_limit",
+    "subgroup",
+    "characteristic_rule",
+    "characteristic",
+)
 
 
 def _clear_seed(engine, created) -> None:
@@ -189,6 +197,15 @@ def test_limits_match_formula():
 LIMIT = stats.limits(
     [Decimal(10)] * 2, [Decimal(1)] * 2
 )  # CL 10, UCL 10.577, LCL 9.423
+D5 = Decimal("0.05")
+
+
+def _rules(previous, point) -> set[int]:
+    """모든 규칙을 켜고 판정했을 때 나온 규칙 번호."""
+    return {
+        rule
+        for _, rule, _ in stats.signals(previous, point, Decimal(1), LIMIT, ALL_RULES)
+    }
 
 
 def test_rule_one_on_both_charts():
@@ -221,6 +238,58 @@ def test_rule_three_needs_six_monotonic():
     assert stats.signals(rising[1:], Decimal("9.95"), Decimal(1), LIMIT) == []
     flat = [*rising[:-1], Decimal("9.93")]  # 같은 값은 끊김
     assert stats.signals(flat, Decimal("9.95"), Decimal(1), LIMIT) == []
+
+
+ALL_RULES = frozenset(range(1, 9))
+
+
+def test_rule_four_needs_fourteen_alternating():
+    """DSN-17 Q3: Nelson 4. 위아래로 번갈아 14점."""
+    alternating = [Decimal(10) + (D5 if i % 2 else -D5) for i in range(13)]
+    assert 4 in _rules(alternating, Decimal("10.05"))
+    assert 4 not in _rules(alternating[1:], Decimal("10.05"))
+    flat = [*alternating[:-1], alternating[-2]]  # 같은 값이 이어지면 번갈기가 끊긴다
+    assert 4 not in _rules(flat, Decimal("10.05"))
+
+
+def test_rules_five_and_six_count_one_side_beyond_zones():
+    """Nelson 5(3점 중 2점이 2σ 밖)·6(5점 중 4점이 1σ 밖). 마지막 점 자신이 구역 밖이어야 한다."""
+    assert 5 in _rules([Decimal("10.45"), Decimal(10)], Decimal("10.45"))
+    assert 5 not in _rules([Decimal(10), Decimal(10)], Decimal("10.45"))
+    # 반대쪽 점은 같은 쪽으로 세지 않는다.
+    assert 5 not in _rules([Decimal("9.55"), Decimal(10)], Decimal("10.45"))
+    beyond = [Decimal("10.25")] * 2 + [Decimal(10), Decimal("10.25")]
+    assert 6 in _rules(beyond, Decimal("10.25"))
+    assert 6 not in _rules(beyond, Decimal("10.05"))  # 마지막 점이 1σ 안
+
+
+def test_rules_seven_and_eight_are_about_one_sigma():
+    """Nelson 7(1σ 안 15점)·8(1σ 밖 8점, 쪽은 섞여도 된다)."""
+    assert 7 in _rules([Decimal("10.05")] * 14, Decimal("10.05"))
+    mixed = [Decimal("10.25"), Decimal("9.75")] * 3 + [Decimal("10.25")]
+    found = _rules(mixed, Decimal("9.75"))
+    assert 8 in found and 2 not in found  # 쪽이 섞였으니 규칙 2는 아니다
+
+
+def test_only_selected_rules_are_judged():
+    nine_above = [Decimal("10.1")] * 8
+    assert stats.signals(nine_above, Decimal("10.1"), Decimal(1), LIMIT, {1}) == []
+    assert 2 in _rules(nine_above, Decimal("10.1"))
+
+
+def test_i_mr_uses_moving_range_and_its_own_constants():
+    """Q1: n=1은 이웃 차이가 R 자리. 첫 점 MR 0은 평균에서 빠진다(E2 2.660·D4 3.267·d2 1.128)."""
+    assert stats.subgroup([Decimal(5)]) == (Decimal("5.000000"), Decimal("0.000000"))
+    assert stats.subgroup([Decimal(5)], Decimal(3)) == (
+        Decimal("5.000000"),
+        Decimal("2.000000"),
+    )
+    imr = stats.limits([Decimal(10)] * 3, [Decimal(0), Decimal(1), Decimal(1)], 1)
+    assert imr["r_cl"] == Decimal("1.000000")  # 0을 세었다면 0.666667
+    assert imr["xbar_ucl"] == Decimal("12.660000")
+    assert stats.signals([], Decimal(13), Decimal(0), imr, chart_type="I_MR") == [
+        ("I", 1, Decimal(13))
+    ]
 
 
 def test_capability_one_sided_and_judgement():
@@ -304,6 +373,100 @@ def test_characteristic_rules(spc):
         )
     )
     assert renamed["name"] == "핀 피치(조립)" and renamed["usl"] == "2.6000"
+
+
+def test_spec_violation_is_separate_from_control_limit(spc):
+    """Q4: 규격 밖 개별값은 한계 게시 전에도 기록되고, 부분군을 무효로 하면 함께 무효가 된다."""
+    client, created, _, ch = spc  # 규격 2.49~2.59
+    inside = _ok(
+        _record(client, created, ch, RUN_START + timedelta(hours=1), _around("2.54")),
+        201,
+    )
+    assert inside["specViolations"] == [] and inside["signals"] == []
+    out = _ok(
+        _record(
+            client,
+            created,
+            ch,
+            RUN_START + timedelta(hours=2),
+            [Decimal("2.60"), Decimal("2.48"), *_around("2.54")[:3]],
+        ),
+        201,
+    )
+    assert [(v["seq"], v["side"]) for v in out["specViolations"]] == [
+        (1, "HIGH"),
+        (2, "LOW"),
+    ]
+    rows = _ok(client.get(f"{P}/spec-violations"))
+    assert [(r["seq"], r["side"], r["limitValue"], r["status"]) for r in rows] == [
+        (2, "LOW", "2.490000", "open"),
+        (1, "HIGH", "2.590000", "open"),
+    ]
+    assert rows[0]["lotNo"] == "LT-0023" and rows[0]["characteristicCode"] == ch["code"]
+    _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/subgroups/{out['id']}/void",
+            {"reason": "오측정"},
+        )
+    )
+    assert _ok(client.get(f"{P}/spec-violations", params={"status": "open"})) == []
+    assert len(_ok(client.get(f"{P}/spec-violations", params={"status": "void"}))) == 2
+    assert _ok(client.get(f"{P}/dashboard"))["weekSpecViolations"] == 0
+
+
+def test_characteristic_chart_type_and_rule_selection(spc):
+    """Q1·Q3: I-MR은 측정값 1개만 받고, 특성이 고른 규칙만 판정한다."""
+    client, created, _, ch = spc
+    assert ch["chartType"] == "XBAR_R" and ch["subgroupSize"] == 5 and ch["rules"] == []
+    mismatch = _call(
+        client,
+        created,
+        "PATCH",
+        f"/characteristics/{ch['id']}",
+        {"chartType": "I_MR", "subgroupSize": 5},
+    )
+    assert (
+        mismatch.status_code == 400
+        and "subgroupSize" in mismatch.json()["error"]["details"]["fields"]
+    )
+    # 크기를 따로 주지 않으면 관리도 종류에 맞춰 준다.
+    imr = _ok(
+        _call(
+            client,
+            created,
+            "PATCH",
+            f"/characteristics/{ch['id']}",
+            {"chartType": "I_MR", "rules": [1, 2, 5]},
+        )
+    )
+    assert imr["subgroupSize"] == 1 and imr["rules"] == [1, 2, 5]
+    wrong_count = _record(
+        client, created, ch, RUN_START + timedelta(hours=1), _around("2.54")
+    )
+    assert (
+        wrong_count.status_code == 400
+        and "values" in wrong_count.json()["error"]["details"]["fields"]
+    )
+    first = _ok(
+        _record(client, created, ch, RUN_START + timedelta(hours=1), [Decimal("2.54")]),
+        201,
+    )
+    assert first["xbar"] == "2.540000" and first["r"] == "0.000000"
+    second = _ok(
+        _record(client, created, ch, RUN_START + timedelta(hours=2), [Decimal("2.56")]),
+        201,
+    )
+    assert second["r"] == "0.020000"  # 이웃 차이
+    no_one = _call(
+        client, created, "PATCH", f"/characteristics/{ch['id']}", {"rules": [2, 3]}
+    )
+    assert (
+        no_one.status_code == 400
+        and "rules" in no_one.json()["error"]["details"]["fields"]
+    )
 
 
 def test_runs_come_from_mes(spc):

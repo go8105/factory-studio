@@ -13,6 +13,8 @@ import {
 } from "../shared/components";
 import {
   CharacteristicSelect,
+  chartKeys,
+  CHART_LABEL,
   ControlChart,
   ModuleOff,
   moduleOff,
@@ -50,6 +52,9 @@ export function Chart() {
   };
   const latest = data?.limits[data.limits.length - 1];
   const digits = (data?.characteristic.decimals ?? 3) + 1;
+  const [position, dispersion] = chartKeys(
+    data?.characteristic ?? { chartType: "XBAR_R" },
+  );
   const columns: Column<Point>[] = [
     {
       key: "measuredAt",
@@ -58,8 +63,16 @@ export function Chart() {
     },
     { key: "lotNo", label: "LOT" },
     { key: "equipmentCode", label: "설비" },
-    { key: "xbar", label: "X̄", render: (p) => num(p.xbar, digits) },
-    { key: "r", label: "R", render: (p) => num(p.r, digits) },
+    {
+      key: "xbar",
+      label: CHART_LABEL[position],
+      render: (p) => num(p.xbar, digits),
+    },
+    {
+      key: "r",
+      label: CHART_LABEL[dispersion],
+      render: (p) => num(p.r, digits),
+    },
     {
       key: "limitVersion",
       label: "한계",
@@ -78,7 +91,7 @@ export function Chart() {
               to={`/spc/signals?c=${current?.id}&signal=${s.id}`}
             >
               <Badge tone={s.status === "open" ? "issue" : "normal"}>
-                {s.chart === "R" ? "R " : ""}
+                {s.chart === dispersion ? `${CHART_LABEL[dispersion]} ` : ""}
                 {RULE_LABEL[s.rule]} · {STATUS_LABEL[s.status]}
               </Badge>
             </Link>
@@ -163,9 +176,9 @@ export function Chart() {
                   </Link>
                 </p>
               )}
-              <ControlChart kind="XBAR" data={data} onSignal={openSignal} />
+              <ControlChart kind={position} data={data} onSignal={openSignal} />
               <ControlChart
-                kind="R"
+                kind={dispersion}
                 data={data}
                 onSignal={openSignal}
                 height={130}

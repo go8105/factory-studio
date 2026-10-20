@@ -139,7 +139,9 @@ def _period(date_from: date | None, date_to: date | None) -> tuple[datetime, dat
 
 CHAR_SQL = f"""
 SELECT c.id, c.code, c.item_code, c.item_name, c.process_code, c.name, c.unit, c.lsl, c.usl,
-       c.target, c.subgroup_size, c.decimals, c.is_active,
+       c.target, c.subgroup_size, c.decimals, c.is_active, c.chart_type, c.defect_source,
+       ARRAY(SELECT r.rule_no FROM spc.characteristic_rule r WHERE r.workspace_id=c.workspace_id
+             AND r.generation_id=c.generation_id AND r.characteristic_id=c.id ORDER BY r.rule_no) rules,
        (SELECT count(*) FROM spc.subgroup s WHERE s.workspace_id=c.workspace_id
           AND s.generation_id=c.generation_id AND s.characteristic_id=c.id AND s.status='valid') subgroup_count,
        (SELECT max(l.version) FROM spc.control_limit l WHERE l.workspace_id=c.workspace_id
@@ -192,12 +194,59 @@ def _spec(lsl: Decimal | None, usl: Decimal | None, target: Decimal | None) -> N
         raise _fields({"target": "목표값은 규격 안이어야 합니다."})
 
 
+def _chart(
+    values: dict[str, Any], current: dict[str, Any] | None = None
+) -> tuple[str, int]:
+    """관리도 종류와 부분군 크기. I-MR은 n=1로 묶인다(c1579) — 한쪽만 바꿔도 맞춰 준다."""
+    chart_type = values.get("chart_type") or (current or {}).get("chartType", "XBAR_R")
+    size = values.get("subgroup_size") or (current or {}).get("subgroupSize", 5)
+    if "chart_type" in values and "subgroup_size" not in values:
+        size = 1 if chart_type == "I_MR" else max(int(size), 2)
+    size = int(size)
+    if (chart_type == "I_MR") != (size == 1):
+        raise _fields(
+            {
+                "subgroupSize": "I-MR 관리도는 부분군 크기 1, X̄-R 관리도는 2~10이어야 합니다."
+            }
+        )
+    return chart_type, size
+
+
+def _rules(values: dict[str, Any]) -> list[int] | None:
+    """특성이 쓸 Nelson 규칙. 없으면 건드리지 않고, 빈 목록은 기본값(1~3)으로 되돌린다."""
+    if "rules" not in values:
+        return None
+    rules = sorted(set(values["rules"]))
+    if rules and 1 not in rules:
+        raise _fields({"rules": "규칙 1(관리 한계 이탈)은 끌 수 없습니다."})
+    return rules
+
+
+def _save_rules(connection, scoped, characteristic_id: int, rules: list[int]) -> None:
+    connection.execute(
+        text(
+            f"DELETE FROM spc.characteristic_rule WHERE {_S} AND characteristic_id=:c"
+        ),
+        {**_s(scoped), "c": characteristic_id},
+    )
+    for rule_no in rules:
+        connection.execute(
+            text(
+                "INSERT INTO spc.characteristic_rule(workspace_id,generation_id,characteristic_id,rule_no) "
+                "VALUES (:w,:g,:c,:r)"
+            ),
+            {**_s(scoped), "c": characteristic_id, "r": rule_no},
+        )
+
+
 def create_characteristic(
     context: AuthContext, values: dict[str, Any], key: str
 ) -> dict[str, Any]:
     lsl, usl = _number(values.get("lsl"), "lsl"), _number(values.get("usl"), "usl")
     target = _number(values.get("target"), "target")
     _spec(lsl, usl, target)
+    chart_type, subgroup_size = _chart(values)
+    rules = _rules(values)
 
     def fn(connection, scoped):
         items = mes.items(connection, scoped)
@@ -228,8 +277,8 @@ def create_characteristic(
         new_id = connection.execute(
             text(
                 "INSERT INTO spc.characteristic(workspace_id,generation_id,code,item_code,item_name,"
-                "process_code,name,unit,lsl,usl,target,decimals) VALUES "
-                "(:w,:g,:code,:item,:item_name,:process,:name,:unit,:lsl,:usl,:target,:decimals) RETURNING id"
+                "process_code,name,unit,lsl,usl,target,decimals,chart_type,subgroup_size) VALUES "
+                "(:w,:g,:code,:item,:item_name,:process,:name,:unit,:lsl,:usl,:target,:decimals,:chart,:size) RETURNING id"
             ),
             {
                 **_s(scoped),
@@ -243,14 +292,18 @@ def create_characteristic(
                 "usl": usl,
                 "target": target,
                 "decimals": values.get("decimals", 3),
+                "chart": chart_type,
+                "size": subgroup_size,
             },
         ).scalar_one()
+        if rules:
+            _save_rules(connection, scoped, new_id, rules)
         return _characteristic(connection, scoped, new_id), "characteristic", new_id
 
     return _action(context, "spc.characteristic.create", key, values, fn, 201)
 
 
-SPEC_FIELDS = ("unit", "lsl", "usl", "target")
+SPEC_FIELDS = ("unit", "lsl", "usl", "target", "chart_type", "subgroup_size")
 
 
 def update_characteristic(
@@ -260,7 +313,7 @@ def update_characteristic(
         current = _characteristic(connection, scoped, characteristic_id)
         if int(current["subgroupCount"]) > 0 and any(k in values for k in SPEC_FIELDS):
             raise _conflict(
-                "부분군이 있는 특성의 규격·단위는 바꿀 수 없습니다. 새 특성을 등록해 주세요.",
+                "부분군이 있는 특성의 규격·단위·관리도 종류는 바꿀 수 없습니다. 새 특성을 등록해 주세요.",
                 "CHARACTERISTIC_IN_USE",
                 subgroupCount=current["subgroupCount"],
             )
@@ -269,10 +322,15 @@ def update_characteristic(
             for k in ("lsl", "usl", "target")
         }
         _spec(merged["lsl"], merged["usl"], merged["target"])
+        rules = _rules(values)
         sets = {
-            **values,
-            **{k: merged[k] for k in ("lsl", "usl", "target") if k in values},
+            k: v
+            for k, v in values.items()
+            if k not in ("rules", "chart_type", "subgroup_size")
         }
+        sets.update({k: merged[k] for k in ("lsl", "usl", "target") if k in values})
+        if "chart_type" in values or "subgroup_size" in values:
+            sets["chart_type"], sets["subgroup_size"] = _chart(values, current)
         if sets:
             assignments = ", ".join(f"{k}=:{k}" for k in sets)
             connection.execute(
@@ -281,6 +339,8 @@ def update_characteristic(
                 ),
                 {**_s(scoped), **sets, "id": characteristic_id},
             )
+        if rules is not None:
+            _save_rules(connection, scoped, characteristic_id, rules)
         return (
             _characteristic(connection, scoped, characteristic_id),
             "characteristic",
@@ -295,7 +355,8 @@ def update_characteristic(
 def _lock(connection, scoped, characteristic_id: int) -> dict[str, Any]:
     found = _one(
         connection,
-        f"SELECT id, item_code, process_code, lsl, usl, is_active FROM spc.characteristic "
+        f"SELECT id, item_code, process_code, lsl, usl, is_active, chart_type, subgroup_size "
+        f"FROM spc.characteristic "
         f"WHERE {_S} AND id=:id FOR UPDATE",
         {**_s(scoped), "id": characteristic_id},
     )
@@ -329,7 +390,12 @@ def limits(context: AuthContext, characteristic_id: int) -> list[dict[str, Any]]
 
 
 def _basis(
-    connection, scoped, characteristic_id: int, basis_from: datetime, basis_to: datetime
+    connection,
+    scoped,
+    characteristic_id: int,
+    basis_from: datetime,
+    basis_to: datetime,
+    n: int = 5,
 ) -> dict[str, Any]:
     if basis_from > basis_to:
         raise _fields({"basisTo": "기준 구간 종료는 시작보다 늦어야 합니다."})
@@ -342,7 +408,7 @@ def _basis(
     ).all()
     result: dict[str, Any] = {"basisCount": len(rows), "minimum": stats.MIN_BASIS}
     if len(rows) >= stats.MIN_BASIS:
-        computed = stats.limits([r.xbar for r in rows], [r.r for r in rows])
+        computed = stats.limits([r.xbar for r in rows], [r.r for r in rows], n)
         result.update({_camel(k): v for k, v in computed.items()})
     return result
 
@@ -355,22 +421,30 @@ def preview_limit(
 ) -> dict[str, Any]:
     with _read() as connection:
         scoped = read_scope(connection, context, MODULE)
-        _characteristic(connection, scoped, characteristic_id)
-        found = _basis(connection, scoped, characteristic_id, basis_from, basis_to)
-        return {k: _value(v) for k, v in found.items()}
+        found = _characteristic(connection, scoped, characteristic_id)
+        basis = _basis(
+            connection,
+            scoped,
+            characteristic_id,
+            basis_from,
+            basis_to,
+            int(found["subgroupSize"]),
+        )
+        return {k: _value(v) for k, v in basis.items()}
 
 
 def publish_limit(
     context: AuthContext, characteristic_id: int, values: dict[str, Any], key: str
 ) -> dict[str, Any]:
     def fn(connection, scoped):
-        _lock(connection, scoped, characteristic_id)
+        locked = _lock(connection, scoped, characteristic_id)
         found = _basis(
             connection,
             scoped,
             characteristic_id,
             values["basis_from"],
             values["basis_to"],
+            int(locked["subgroupSize"]),
         )
         if found["basisCount"] < stats.MIN_BASIS:
             raise _fields(
@@ -398,7 +472,7 @@ def publish_limit(
         if found["rCl"] <= 0:
             raise _fields(
                 {
-                    "basisFrom": "기준 구간의 범위(R)가 모두 0이라 한계를 만들 수 없습니다."
+                    "basisFrom": "기준 구간의 범위(R·MR)가 모두 0이라 한계를 만들 수 없습니다."
                 }
             )
         version = connection.execute(
@@ -524,6 +598,13 @@ def record_subgroup(
         found = _lock(connection, scoped, values["characteristic_id"])
         if not found["isActive"]:
             raise _conflict("사용하지 않는 관리 특성입니다.", "CHARACTERISTIC_INACTIVE")
+        size = int(found["subgroupSize"])
+        if len(numbers) != size:
+            raise _fields(
+                {
+                    "values": f"이 특성은 측정값 {size}개를 받습니다(현재 {len(numbers)}개)."
+                }
+            )
         today = business_today()
         rows = mes.operation_runs(
             connection,
@@ -564,7 +645,19 @@ def record_subgroup(
                     "measuredAt": f"이 특성의 마지막 부분군({last.astimezone(SEOUL):%m-%d %H:%M})보다 늦어야 합니다."
                 }
             )
-        xbar, r = stats.subgroup(numbers)
+        # I-MR은 이웃 차이가 R 자리다. 같은 특성의 직전 유효 부분군 값이 필요하다.
+        before = (
+            connection.execute(
+                text(
+                    f"SELECT xbar FROM spc.subgroup WHERE {_S} AND characteristic_id=:c "
+                    "AND status='valid' ORDER BY measured_at DESC LIMIT 1"
+                ),
+                {**_s(scoped), "c": values["characteristic_id"]},
+            ).scalar()
+            if size == 1
+            else None
+        )
+        xbar, r = stats.subgroup(numbers, before)
         subgroup_id = connection.execute(
             text(
                 "INSERT INTO spc.subgroup(workspace_id,generation_id,characteristic_id,lot_no,item_code,"
@@ -594,6 +687,9 @@ def record_subgroup(
                 ),
                 {**_s(scoped), "sg": subgroup_id, "seq": seq, "v": number},
             )
+        violations = _spec_violations(
+            connection, scoped, found, subgroup_id, run["lotNo"], measured_at, numbers
+        )
         created = _evaluate(
             connection,
             scoped,
@@ -603,9 +699,14 @@ def record_subgroup(
             measured_at,
             xbar,
             r,
+            found["chartType"],
         )
         return (
-            {**_subgroup(connection, scoped, subgroup_id), "signals": created},
+            {
+                **_subgroup(connection, scoped, subgroup_id),
+                "signals": created,
+                "specViolations": violations,
+            },
             "subgroup",
             subgroup_id,
         )
@@ -614,8 +715,52 @@ def record_subgroup(
     return _action(context, "spc.subgroup.create", key, body, fn, 201)
 
 
+def _spec_violations(
+    connection, scoped, characteristic, subgroup_id, lot_no, measured_at, numbers
+) -> list[dict[str, Any]]:
+    """규격 이탈(F24·Q4). 관리 한계 이탈과 별개라 한계 게시 전에도 기록한다. 측정값마다 최대 1건."""
+    lsl = _number(characteristic["lsl"], "lsl")
+    usl = _number(characteristic["usl"], "usl")
+    found = []
+    for seq, value in enumerate(numbers, 1):
+        if lsl is not None and value < lsl:
+            side, limit_value = "LOW", lsl
+        elif usl is not None and value > usl:
+            side, limit_value = "HIGH", usl
+        else:
+            continue
+        connection.execute(
+            text(
+                "INSERT INTO spc.spec_violation(workspace_id,generation_id,subgroup_id,characteristic_id,"
+                "seq,lot_no,value,side,limit_value,detected_at) "
+                "VALUES (:w,:g,:sg,:c,:seq,:lot,:v,:side,:limit,:at)"
+            ),
+            {
+                **_s(scoped),
+                "sg": subgroup_id,
+                "c": characteristic["id"],
+                "seq": seq,
+                "lot": lot_no,
+                "v": value,
+                "side": side,
+                "limit": limit_value,
+                "at": measured_at,
+            },
+        )
+        found.append({"seq": seq, "value": str(value), "side": side})
+    return found
+
+
 def _evaluate(
-    connection, scoped, characteristic_id, subgroup_id, lot_no, measured_at, xbar, r
+    connection,
+    scoped,
+    characteristic_id,
+    subgroup_id,
+    lot_no,
+    measured_at,
+    xbar,
+    r,
+    chart_type="XBAR_R",
 ):
     limit = _judging_limit(connection, scoped, characteristic_id, measured_at)
     if limit is None:
@@ -636,8 +781,18 @@ def _evaluate(
             },
         )
     ]
+    rules = set(
+        connection.execute(
+            text(
+                f"SELECT rule_no FROM spc.characteristic_rule WHERE {_S} AND characteristic_id=:c"
+            ),
+            {**_s(scoped), "c": characteristic_id},
+        ).scalars()
+    )
     created = []
-    for chart, rule, value in stats.signals(previous, xbar, r, limit):
+    for chart, rule, value in stats.signals(
+        previous, xbar, r, limit, rules or stats.DEFAULT_RULES, chart_type
+    ):
         connection.execute(
             text(
                 "INSERT INTO spc.signal(workspace_id,generation_id,subgroup_id,characteristic_id,"
@@ -719,6 +874,14 @@ def void_subgroup(
             ),
             {**_s(scoped), "id": subgroup_id},
         ).rowcount
+        # 규격 이탈도 같은 부분군에서 나온 기록이라 함께 무효로 한다(4장 spec_violation).
+        connection.execute(
+            text(
+                f"UPDATE spc.spec_violation SET voided_at=clock_timestamp() "
+                f"WHERE {_S} AND subgroup_id=:id AND voided_at IS NULL"
+            ),
+            {**_s(scoped), "id": subgroup_id},
+        )
         return (
             {**_subgroup(connection, scoped, subgroup_id), "voidedSignals": voided},
             "subgroup",
@@ -892,6 +1055,39 @@ def resolve_signal(
     return _action(context, f"spc.signal.resolve:{signal_id}", key, values, fn)
 
 
+# ---------- 규격 이탈 (S-08) ----------
+
+VIOLATION_SQL = f"""
+SELECT v.id, v.subgroup_id, v.characteristic_id, c.code characteristic_code, c.name characteristic_name,
+       c.item_code, c.item_name, c.process_code, c.unit, v.seq, v.lot_no, s.equipment_code,
+       v.value, v.side, v.limit_value, v.detected_at, v.voided_at,
+       CASE WHEN v.voided_at IS NULL THEN 'open' ELSE 'void' END status
+FROM spc.spec_violation v
+JOIN spc.characteristic c ON c.workspace_id=v.workspace_id AND c.generation_id=v.generation_id AND c.id=v.characteristic_id
+JOIN spc.subgroup s ON s.workspace_id=v.workspace_id AND s.generation_id=v.generation_id AND s.id=v.subgroup_id
+WHERE v.{_S.replace(" AND ", " AND v.")}
+"""
+
+
+def spec_violations(
+    context: AuthContext,
+    characteristic_id: int | None,
+    lot_no: str | None,
+    status: str | None,
+) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return _all(
+            connection,
+            VIOLATION_SQL
+            + " AND (CAST(:c AS bigint) IS NULL OR v.characteristic_id=:c)"
+            " AND (CAST(:lot AS text) IS NULL OR v.lot_no=:lot)"
+            " AND (CAST(:st AS text) IS NULL OR (v.voided_at IS NULL)=(:st='open'))"
+            " ORDER BY v.detected_at DESC, v.id DESC LIMIT 500",
+            {**_s(scoped), "c": characteristic_id, "lot": lot_no, "st": status},
+        )
+
+
 # ---------- 대시보드 (S-01) ----------
 
 
@@ -940,6 +1136,12 @@ def dashboard(context: AuthContext) -> dict[str, Any]:
             ),
             {**_s(scoped), "a": week_start},
         ).scalar_one()
+        violations = connection.execute(
+            text(
+                f"SELECT count(*) FROM spc.spec_violation WHERE {_S} AND voided_at IS NULL AND detected_at>=:a"
+            ),
+            {**_s(scoped), "a": week_start},
+        ).scalar_one()
         judgements = [c["capability"]["judgement"] for c in cards if c["capability"]]
         cards.sort(
             key=lambda c: (
@@ -959,5 +1161,6 @@ def dashboard(context: AuthContext) -> dict[str, Any]:
                 j: judgements.count(j) for j in ("CAPABLE", "MARGINAL", "INCAPABLE")
             },
             "weekSubgroups": week,
+            "weekSpecViolations": violations,
             "cards": cards,
         }
