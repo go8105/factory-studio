@@ -87,3 +87,20 @@ uv run --project backend python tools/gw_acceptance_collect.py \
 기존 수집 명령에 `--storage-copy work/acceptance/copied-backup.enc`를 추가하면 담당자가 외부 보관에서 가져온 사본을 직접 끝까지 읽어 현재 서명 BACKUP PASS의 artifactDigest와 비교한다. 소유자 비공개 일반 파일(최대1GiB, 빈 파일·최종 심볼릭 링크 금지)만 읽고 읽기 전후 크기/변경 시각도 대조한다. 경로·내용·키는 보고에 넣지 않는다. 자동 다운로드/외부 자격 증명/원본 접근/DB 연결은 없다.
 
 `storageCopy.state=MATCH`는 바이트 지문 일치만 뜻한다. 저장소 장애영역 독립성·내구성·복호화 확인은 아니며, 네 조건과 ready=false를 유지한다. MISMATCH는 다른 증거 쌍이 맞아도 BLOCKED/종료2다. 파일/서명·현재성 오류는 종료1이며 기존 결과를 덮어쓰지 않는다. 이 보고는 서명된 ACCEPTANCE 증거가 아니며 제품에 등록하지 않는다. 최신 등록 실패 여부는 기존 제품 조회에서 별도로 확인해야 한다.
+
+
+## 2-5. 사본 복호화·내부 명세·dump 검사 · 27차 구현
+
+기존 백업 도구의 `verify-copy`는 원본DB 없이 가져온 암호화 사본을 검증한다. §2-1의 현재 기준/신뢰 공개키와 `FS_GW_BACKUP_KEY_FILE`(0600·32바이트 복호화키), `FS_GW_BACKUP_KEY_ID`를 준비한다. 서명 개인키·인증키·DB URL은 제공할 필요가 없다. 키를 명령행이나 보고서에 적지 않는다.
+
+```sh
+uv run --project backend python tools/gw_backup.py verify-copy \
+  --backup work/acceptance/copied-backup.enc \
+  --backup-evidence work/acceptance/backup-proof.json \
+  --context work/acceptance/current.json \
+  --report work/acceptance/copy-check.json
+```
+
+새0700 임시폴더에 사본을 제한 복사한 뒤 현재 서명 증거/지문을 확인하고 같은 사본을 복호화한다. 내부 명세 서명과 dump지문, 증거의 manifestDigest/runId까지 대조한다. 성공·실패 모두 임시 암호문/평문을 제거한다. 새0600 보고서는 지문/버전/검사값만 담으며 경로·원문·키는 제외한다. 성공은 PARTIAL/종료0, 오류는 종료1이다. 기존 보고서를 덮어쓰지 않는다.
+
+`decryptionConfirmed=true`/`dumpDigestVerified=true`는 파일 무결성 범위다. `databaseRestoreConfirmed=false`와 저장소 독립성 미확인은 유지한다. 실제 PostgreSQL 복원/권한회수·실회사 인수와 구분하며 이 unsigned 보고서는 제품 실행 증거에 등록하지 않는다. 최신 실패 여부는 기존 제품 등록조회에서 별도 확인해야 한다. 이번 검사는 합성 dump 바이트로 실행했으며 실제 pg_dump 사본과의 통합 회귀는 다음 작업이다.

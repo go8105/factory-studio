@@ -214,3 +214,13 @@ branch codex/gw-company-01 / 기준main2be292e. 실제 계정·공유DB·다른c
 API94777:8362/Vite89508:5362 포트와 PG fs-gw-ready02-preview 소유라벨 대조, 서비스/미리보기DB 변경 없음. 비밀/work 스테이징 없음·다른checkout/main/원격push/배포 변경 없음. 전체02 진행 중. 다음: 외부 사본의 실제 장애영역/복호화·격리복원 연결, 전체 변경 수집/권한회수 계약과 실행 어댑터, 최종 ACCEPTANCE 계약/게이트, 기존GW UI 구성 보완, 최신main/전체회귀·10인 실인수. 전체 권한회수와 UI 보완은 이번 미구현.
 
 재현: `uv run --project backend pytest backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short` (86). `npm run db:validate`; `uv run --project backend python tools/audit_schema_isolation.py`. 마지막 커밋은 git log -1 참조.
+
+## 2026-10-20 GW-READY-02 27차 사본 복호화·명세/dump 검증
+
+codex/gw-company-01, 시작b1ed206. 기존 gw_backup.py에 verify-copy 명령/verify_storage_copy 어댑터 추가. 원본DB 접속 없이 비공개 사본을 최대1GiB로 새 임시파일에 복사하고 현재 서명 BACKUP PASS/회사·세대·정책·제품/DB/RPO와 사본 지문을 대조한다. 같은 임시사본을 기존 AES-GCM/unpack 경로로 복호화해 내부 명세 서명·dump지문·증거 manifestDigest/runId를 확인한다. 입력은 백업 복호화키/키ID·신뢰 공개키만 필요하고 서명 개인키/인증키/DB URL 불필요. 임시 암호문/평문을 성공·실패 모두 정리한 뒤 새0600 최소보고서만 작성한다. 결과 PARTIAL/readyfalse·storageIndependenceConfirmed/databaseRestoreConfirmed=false. 오류exit1/기존출력 보존. unsigned보고서는 ACCEPTANCE 증거/제품등록용이 아니다. 사본의 실제PG 복원·외부장애영역/내구성은 미확인이다.
+
+검증: 관련93 통과0.19초(기존 경고2), 실제 합성 AES-GCM/tar 서명/dump7경로와 CLI DB/서명개인키 없는 실행 포함. 잘못된키/명세불일치/dump변조/증거서명변조/암호문변조/기존보고서 보존·임시폴더정리·원본불변 확인. Ruff check/format·db:validate219/2409/543·R1–R6 오류0. 이번PG복원/실외부/브라우저/UI/전체CI/10인인수 미실행. schema불변·Excel/ERD재생성 미실행. 미리보기DB/서비스·실계정·다른checkout/main/원격push/배포 변경없음. 작업 트리 시작 깨끗함·비밀/work 스테이징없음.
+
+전체GW-READY-02 진행 중. 다음: 이번 사본 검사와 실제 격리PG복원 증거의 연결·실제dump 기반 회귀 → 전체 변경 수집/권한회수 계약/어댑터 → 최종 ACCEPTANCE 계약·운영게이트 → 기존GW UI 구성 보완 → 최신main/전체회귀·10인실인수. 실제저장소/회사인수는 사용자 실환경에서 별도 확인하며 현재 readyfalse/미확인4 유지.
+
+재현: `uv run --project backend pytest backend/tests/test_gw_storage_copy.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short` (93). `npm run db:validate`; `uv run --project backend python tools/audit_schema_isolation.py`. 마지막커밋 git log -1.

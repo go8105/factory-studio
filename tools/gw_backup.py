@@ -12,6 +12,7 @@ import json
 import math
 import os
 import re
+import stat
 import tarfile
 import tempfile
 import time
@@ -44,7 +45,8 @@ from fs.core.security import backup as core_checkpoint
 from fs.core.security.config import security_settings
 from fs.gw import backup as gw_checkpoint
 from fs.gw import backup_journal
-from fs.gw.operating_contract import canonical, timestamp
+from fs.gw.acceptance_artifact import MAX_ARTIFACT_BYTES, inspect_copy
+from fs.gw.operating_contract import OperatingPolicy, canonical, timestamp
 from fs.hr import backup as hr_checkpoint
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
@@ -129,7 +131,7 @@ def verified_document(value, config):
         if not isinstance(value["payload"], dict):
             raise TypeError()
         return value["payload"]
-    except (ValueError, KeyError, TypeError, InvalidSignature):
+    except ValueError, KeyError, TypeError, InvalidSignature:
         raise BackupError("운영 명세의 서명 검증에 실패했습니다.") from None
 
 
@@ -722,6 +724,77 @@ def check(*, url, artifact, config):
         engine.dispose()
 
 
+def verify_storage_copy(*, artifact, document, context, output, config):
+    """Offline authenticated copy check. No DB, restore, or release approval."""
+    preflight(output)
+    with tempfile.TemporaryDirectory(
+        prefix=".fs-storage-copy-", dir=private_directory(output.parent)
+    ) as folder:
+        temp = Path(folder)
+        staged = temp / "copy.enc"
+        fd = os.open(artifact, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as source, create_private(staged) as destination:
+            info = os.fstat(source.fileno())
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_uid != os.geteuid()
+                or info.st_mode & 0o077
+                or not 0 < info.st_size <= MAX_ARTIFACT_BYTES
+            ):
+                raise BackupError("비공개 사본 파일을 확인하세요.")
+            count = 0
+            while block := source.read(1024 * 1024):
+                count += len(block)
+                if count > MAX_ARTIFACT_BYTES:
+                    raise BackupError("사본 크기 한도를 확인하세요.")
+                destination.write(block)
+        measured = inspect_copy(staged, document, **context)
+        if measured["state"] != "MATCH":
+            raise BackupError("서명된 백업과 사본 지문이 다릅니다.")
+        manifest = unpack(staged, temp, config, kind="BACKUP")
+        proof_data = document["envelope"]
+        if (
+            hashlib.sha256(canonical(manifest)).hexdigest()
+            != proof_data["manifestDigest"]
+            or manifest["runId"] != proof_data["runId"]
+        ):
+            raise BackupError("백업 증거와 내부 명세가 다릅니다.")
+        report = {
+            "version": 1,
+            "kind": "STORAGE_COPY_CHECK",
+            "result": "PARTIAL",
+            "ready": False,
+            "storageCopy": measured | {"decryptionConfirmed": True},
+            "manifestSignatureVerified": True,
+            "dumpDigestVerified": True,
+            "manifestDigest": proof_data["manifestDigest"],
+            "workspaceId": str(context["workspace_id"]),
+            "generationId": str(context["generation_id"]),
+            "policyDigest": context["policy"].digest(),
+            "codeRevision": context["code_revision"],
+            "dbRevision": context["db_revision"],
+            "checkedAt": context["now"].isoformat(),
+            "databaseRestoreConfirmed": False,
+        }
+    # Plaintext and staged ciphertext are removed before publishing the report.
+    write_json(output, report)
+    return {"result": "PARTIAL", "ready": False}
+
+
+def copy_check_settings():
+    """Read decryption material and trusted public keys, never a signing key."""
+    key = private_file(os.environ["FS_GW_BACKUP_KEY_FILE"], size=32).read_bytes()
+    public = json.loads(os.environ["FS_GW_EVIDENCE_PUBLIC_KEYS"])
+    if not isinstance(public, dict) or not 1 <= len(public) <= 20:
+        raise BackupError("검증 공개 키 설정을 확인하세요.")
+    public = {
+        name: base64.b64decode(value, validate=True) for name, value in public.items()
+    }
+    if any(len(value) != 32 for value in public.values()):
+        raise BackupError("검증 공개 키 크기를 확인하세요.")
+    return {"key": key, "keyId": os.environ["FS_GW_BACKUP_KEY_ID"], "public": public}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -742,8 +815,48 @@ def main():
     p.add_argument("--evidence", type=Path, required=True)
     p = sub.add_parser("check")
     p.add_argument("--backup", type=Path, required=True)
+    p = sub.add_parser("verify-copy")
+    p.add_argument("--backup", type=Path, required=True)
+    p.add_argument("--backup-evidence", type=Path, required=True)
+    p.add_argument("--context", type=Path, required=True)
+    p.add_argument("--report", type=Path, required=True)
     args = parser.parse_args()
     try:
+        if args.command == "verify-copy":
+            from gw_acceptance_collect import load
+
+            config = copy_check_settings()
+            current = load(args.context)
+            if set(current) != {
+                "workspaceId",
+                "generationId",
+                "policy",
+                "codeRevision",
+                "dbRevision",
+            }:
+                raise ValueError()
+            if any(
+                type(current[k]) is not int or current[k] < 1
+                for k in ("workspaceId", "generationId")
+            ):
+                raise ValueError()
+            result = verify_storage_copy(
+                artifact=args.backup,
+                document=load(args.backup_evidence),
+                output=args.report,
+                context={
+                    "workspace_id": current["workspaceId"],
+                    "generation_id": current["generationId"],
+                    "policy": OperatingPolicy.model_validate(current["policy"]),
+                    "code_revision": current["codeRevision"],
+                    "db_revision": current["dbRevision"],
+                    "public_keys": config["public"],
+                    "now": datetime.now(UTC),
+                },
+                config=config,
+            )
+            print(json.dumps(result))
+            return
         config = settings()
         if args.command == "backup":
             result = backup(
