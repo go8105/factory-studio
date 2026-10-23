@@ -96,7 +96,11 @@ def test_work_order_runs_through_the_whole_flow(cmms):
 
     # 진행 전에는 작업 기록을 남길 수 없다.
     early = _call(
-        client, created, "POST", f"/work-orders/{order['id']}/logs", {"minutes": 30}
+        client,
+        created,
+        "POST",
+        f"/work-orders/{order['id']}/logs",
+        {"minutes": 30, "note": "점검"},
     )
     assert early.status_code == 409 and _reason(early) == "NOT_IN_PROGRESS"
 

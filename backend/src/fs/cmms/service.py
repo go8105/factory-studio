@@ -10,10 +10,11 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from functools import partial
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
 
@@ -34,6 +35,7 @@ MODULE = "cmms"
 RUN_WINDOW_DAYS = (
     365  # 운전 시간 합산 구간. 그보다 오래된 실행은 MES가 들고 있어도 세지 않는다
 )
+SEOUL = ZoneInfo("Asia/Seoul")
 _S = "workspace_id=:w AND generation_id=:g"
 # 가져오기 출처 → (설비 종류, 사람이 읽을 이름). 종류가 고정이라 CHECK와 어긋나지 않는다.
 IMPORTS = {
@@ -353,6 +355,329 @@ def import_assets(
         fn,
         201,
     )
+
+
+# ---------- 보전 지표·비용 (C-01·C-07·C-10, FS-029 D51 · DSN-21 F27·F42~F43) ----------
+
+
+OPEN_END = datetime(9999, 1, 1, tzinfo=SEOUL)
+
+
+def _period(date_from: date | None, date_to: date | None) -> tuple[date, date]:
+    end = date_to or business_today()
+    start = date_from or (end - timedelta(days=90))
+    if start > end:
+        raise _fields({"from": "시작일은 종료일보다 늦을 수 없습니다."})
+    return start, end
+
+
+def _bounds(start: date, date_to: date | None, end: date) -> dict[str, Any]:
+    """조회 구간 [시작 00:00, 끝+1 00:00). 종료일을 주지 않으면 **끝을 열어 둔다**.
+
+    완료·고장 시각은 실제 시계라 업무 기준일(FS_TODAY)보다 늦을 수 있다. 끝을 업무 기준일로
+    닫으면 방금 닫은 작업지시가 비용·지표에서 빠진다.
+    """
+    return {
+        "a": datetime.combine(start, time(), SEOUL),
+        "b": datetime.combine(end + timedelta(days=1), time(), SEOUL)
+        if date_to
+        else OPEN_END,
+    }
+
+
+COST_SQL = f"""
+SELECT o.id, o.asset_id, a.code asset_code, a.name asset_name, o.kind,
+       to_char(o.completed_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') AS month,
+       COALESCE(o.external_cost, 0) external_cost,
+       COALESCE((SELECT sum(u.qty * COALESCE(u.unit_cost, 0)) FROM cmms.part_usage u
+                  WHERE u.workspace_id=o.workspace_id AND u.generation_id=o.generation_id
+                    AND u.work_order_id=o.id), 0) part_cost,
+       COALESCE((SELECT sum(l.minutes * COALESCE(t.hourly_rate, 0)) / 60 FROM cmms.work_log l
+                  LEFT JOIN cmms.technician t ON t.workspace_id=l.workspace_id
+                       AND t.generation_id=l.generation_id AND t.id=l.technician_id
+                  WHERE l.workspace_id=o.workspace_id AND l.generation_id=o.generation_id
+                    AND l.work_order_id=o.id), 0) labor_cost
+FROM cmms.work_order o
+JOIN cmms.asset a ON a.workspace_id=o.workspace_id AND a.generation_id=o.generation_id
+     AND a.id=o.asset_id
+WHERE o.{_S.replace(" AND ", " AND o.")} AND o.status='COMPLETED'
+  AND o.completed_at >= :a AND o.completed_at < :b
+"""
+
+
+def _money(value: Any) -> str:
+    return f"{Decimal(str(value or 0)).quantize(Decimal(1))}"
+
+
+def maintenance_cost(
+    context: AuthContext, date_from: date | None, date_to: date | None
+) -> dict[str, Any]:
+    """보전 비용 = 부품(수량 × 사용 단가) + 인건비(작업 분 ÷ 60 × 시간당) + 외주 비용.
+
+    **저장하지 않는다**(Q5) — 완료한 작업지시에서 볼 때마다 계산한다.
+    단가가 나중에 바뀌어도 지난 비용은 그대로다. 사용 단가를 스냅샷으로 남겨 두었기 때문이다.
+    """
+    start, end = _period(date_from, date_to)
+    with read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        rows = _all(
+            connection,
+            COST_SQL + " ORDER BY o.completed_at",
+            {**_s(scoped), **_bounds(start, date_to, end)},
+        )
+        by_asset: dict[str, dict[str, Any]] = {}
+        by_month: dict[str, dict[str, Any]] = {}
+        total = {
+            "partCost": Decimal(0),
+            "laborCost": Decimal(0),
+            "externalCost": Decimal(0),
+        }
+        for row in rows:
+            part = Decimal(row["partCost"])
+            labor = Decimal(row["laborCost"])
+            external = Decimal(row["externalCost"])
+            total["partCost"] += part
+            total["laborCost"] += labor
+            total["externalCost"] += external
+            for bucket, key, label in (
+                (by_asset, row["assetCode"], row["assetName"]),
+                (by_month, row["month"], row["month"]),
+            ):
+                entry = bucket.setdefault(
+                    key,
+                    {
+                        "id": key,
+                        "group": key,
+                        "label": label,
+                        "orderCount": 0,
+                        "bmCount": 0,
+                        "pmCount": 0,
+                        "part": Decimal(0),
+                        "labor": Decimal(0),
+                        "external": Decimal(0),
+                    },
+                )
+                entry["orderCount"] += 1
+                entry["bmCount" if row["kind"] == "BM" else "pmCount"] += 1
+                entry["part"] += part
+                entry["labor"] += labor
+                entry["external"] += external
+
+        def shaped(bucket: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+            out = []
+            for entry in bucket.values():
+                sum_ = entry["part"] + entry["labor"] + entry["external"]
+                out.append(
+                    {
+                        **{
+                            k: entry[k]
+                            for k in (
+                                "id",
+                                "group",
+                                "label",
+                                "orderCount",
+                                "bmCount",
+                                "pmCount",
+                            )
+                        },
+                        "partCost": _money(entry["part"]),
+                        "laborCost": _money(entry["labor"]),
+                        "externalCost": _money(entry["external"]),
+                        "totalCost": _money(sum_),
+                    }
+                )
+            out.sort(key=lambda r: Decimal(r["totalCost"]), reverse=True)
+            return out
+
+        months = shaped(by_month)
+        months.sort(key=lambda r: r["group"])
+        return {
+            "from": start.isoformat(),
+            "to": end.isoformat(),
+            "orderCount": len(rows),
+            "partCost": _money(total["partCost"]),
+            "laborCost": _money(total["laborCost"]),
+            "externalCost": _money(total["externalCost"]),
+            "totalCost": _money(sum(total.values(), Decimal(0))),
+            "byAsset": shaped(by_asset),
+            "byMonth": months,
+        }
+
+
+def _hours(delta) -> Decimal:
+    return (Decimal(delta.total_seconds()) / 3600).quantize(Decimal("0.1"))
+
+
+def metrics(
+    context: AuthContext, date_from: date | None, date_to: date | None
+) -> dict[str, Any]:
+    """MTBF·MTTR·PM 준수율과 고장 파레토(D51 · F42). 조회할 때 계산한다.
+
+    고장 건수는 **정지 시작이 기간 안인 완료 BM**이다. 정지 시간은 기간과 겹친 부분만 센다 —
+    기간 밖까지 세면 두 달 보고서의 합이 전체와 맞지 않는다.
+    """
+    start, end = _period(date_from, date_to)
+    bounds = _bounds(start, date_to, end)
+    with read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        rows = _all(
+            connection,
+            "SELECT o.id, o.asset_id, a.code asset_code, a.name asset_name, o.failure_at, "
+            " o.restored_at, o.cause_category, sc.code symptom_code, sc.name symptom_name "
+            "FROM cmms.work_order o "
+            "JOIN cmms.asset a ON a.workspace_id=o.workspace_id "
+            " AND a.generation_id=o.generation_id AND a.id=o.asset_id "
+            "LEFT JOIN cmms.failure_code sc ON sc.workspace_id=o.workspace_id "
+            " AND sc.generation_id=o.generation_id AND sc.id=o.symptom_code_id "
+            f"WHERE o.{_S.replace(' AND ', ' AND o.')} AND o.kind='BM' AND o.status='COMPLETED' "
+            "  AND o.failure_at >= :a AND o.failure_at < :b ORDER BY o.failure_at",
+            {**_s(scoped), **bounds},
+        )
+        # 끝이 열려 있으면 MTBF 분모를 '지금까지'로 센다. 9999년까지 셀 수는 없다.
+        upper = min(bounds["b"], _now(connection))
+        span = upper - bounds["a"]
+        downtime = Decimal(0)
+        by_asset: dict[str, dict[str, Any]] = {}
+        causes: dict[str, int] = {}
+        symptoms: dict[str, int] = {}
+        for row in rows:
+            failure = datetime.fromisoformat(row["failureAt"])
+            restored = datetime.fromisoformat(row["restoredAt"])
+            # 기간과 겹친 부분만 센다.
+            stop = min(restored, upper) - max(failure, bounds["a"])
+            hours = _hours(stop)
+            downtime += hours
+            entry = by_asset.setdefault(
+                row["assetCode"],
+                {
+                    "id": row["assetCode"],
+                    "assetCode": row["assetCode"],
+                    "assetName": row["assetName"],
+                    "failures": 0,
+                    "downtime": Decimal(0),
+                },
+            )
+            entry["failures"] += 1
+            entry["downtime"] += hours
+            if row["causeCategory"]:
+                causes[row["causeCategory"]] = causes.get(row["causeCategory"], 0) + 1
+            if row["symptomCode"]:
+                key = f"{row['symptomCode']} {row['symptomName']}"
+                symptoms[key] = symptoms.get(key, 0) + 1
+
+        period_hours = _hours(span)
+        count = len(rows)
+        pareto = [
+            {"id": f"{kind}:{name}", "kind": kind, "name": name, "count": n}
+            for kind, bucket in (("CAUSE", causes), ("SYMPTOM", symptoms))
+            for name, n in sorted(bucket.items(), key=lambda kv: -kv[1])
+        ]
+        assets = [
+            {
+                **entry,
+                "downtime": str(entry["downtime"]),
+                "mttr": str(
+                    (entry["downtime"] / entry["failures"]).quantize(Decimal("0.1"))
+                ),
+            }
+            for entry in sorted(
+                by_asset.values(), key=lambda e: (-e["failures"], -e["downtime"])
+            )
+        ]
+        # PM 준수율: 예정일이 기간 안인 PM 중 예정일까지(당일 포함) 완료한 비율(유예 0일).
+        pm = connection.execute(
+            text(
+                "SELECT count(*) total, count(*) FILTER ("
+                "  WHERE status='COMPLETED' "
+                "    AND (completed_at AT TIME ZONE 'Asia/Seoul')::date <= due_on) kept "
+                f"FROM cmms.work_order WHERE {_S} AND kind='PM' AND status <> 'CANCELLED' "
+                "  AND due_on BETWEEN :start AND :end"
+            ),
+            {**_s(scoped), "start": start, "end": end},
+        ).one()
+        return {
+            "from": start.isoformat(),
+            "to": end.isoformat(),
+            "periodHours": str(period_hours),
+            "failures": count,
+            "downtime": str(downtime),
+            "mttr": None
+            if count == 0
+            else str((downtime / count).quantize(Decimal("0.1"))),
+            "mtbf": None
+            if count == 0
+            else str(((period_hours - downtime) / count).quantize(Decimal("0.1"))),
+            "pmTotal": pm.total,
+            "pmKept": pm.kept,
+            "pmRate": None
+            if pm.total == 0
+            else str((Decimal(pm.kept) * 100 / pm.total).quantize(Decimal("0.1"))),
+            "byAsset": assets,
+            "pareto": pareto,
+        }
+
+
+def overview(context: AuthContext) -> dict[str, Any]:
+    """C-01 보전 개요 — 지금 무엇을 해야 하는지. 숫자는 모두 조회 계산이다."""
+    today = business_today()
+    with read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        counts = connection.execute(
+            text(
+                "SELECT count(*) FILTER (WHERE status='REQUESTED') requested, "
+                " count(*) FILTER (WHERE status='IN_PROGRESS') in_progress, "
+                " count(*) FILTER (WHERE kind='BM' AND status IN ('REQUESTED','IN_PROGRESS')) open_bm "
+                f"FROM cmms.work_order WHERE {_S}"
+            ),
+            _s(scoped),
+        ).one()
+        assets = connection.execute(
+            text(
+                "SELECT count(*) total, count(*) FILTER (WHERE criticality='A') critical "
+                f"FROM cmms.asset WHERE {_S} AND is_active"
+            ),
+            _s(scoped),
+        ).one()
+    board = pending_signals(context)
+    plans = pm_plans(context, None)
+    due = [p for p in plans if p["isDue"] and p["isActive"]]
+    short = [
+        p
+        for p in spare_parts(context, limit=200)[0]
+        if p["stockKnown"] and p["stock"]["isShort"]
+    ]
+    return {
+        "today": today.isoformat(),
+        "assetCount": assets.total,
+        "criticalCount": assets.critical,
+        "requested": counts.requested,
+        "inProgress": counts.in_progress,
+        "openBm": counts.open_bm,
+        "pendingSignals": len(board["signals"]),
+        "sources": board["sources"],
+        "duePlans": [
+            {
+                "id": p["id"],
+                "code": p["code"],
+                "title": p["title"],
+                "assetCode": p["assetCode"],
+                "dueOn": p["dueOn"],
+            }
+            for p in due
+        ],
+        "unknownPlans": sum(1 for p in plans if p["unknown"]),
+        "shortParts": [
+            {
+                "id": p["id"],
+                "code": p["code"],
+                "name": p["name"],
+                "qtyOnHand": p["stock"]["qtyOnHand"],
+                "safetyStock": p["stock"]["safetyStock"],
+                "unit": p["stock"]["unit"],
+            }
+            for p in short
+        ],
+    }
 
 
 # ---------- 예방보전 계획 (C-04, FS-029 D49 · DSN-21 Q2·Q3) ----------
@@ -900,7 +1225,7 @@ def add_work_log(context: AuthContext, order_id: int, values: dict, key: str):
                 **_s(scoped),
                 "id": order_id,
                 "minutes": values["minutes"],
-                "note": values.get("note"),
+                "note": values["note"].strip(),
                 "tech": values.get("technician_id") or found["technicianId"],
             },
         )
