@@ -71,6 +71,15 @@ type State = {
         journalCandidateIntents: number;
         journalUnconfirmedIntents: number;
         journalQuarantinedScopes: number;
+        executionObservation?: {
+          observedAt: string;
+          unrevokedSessions: number;
+          pendingChallenges: number;
+          coreViolations: number;
+          gwViolations: number;
+          hrViolations: number;
+          journalUserViolations: number;
+        };
       } | null;
     } | null;
   };
@@ -434,6 +443,67 @@ export function Operations() {
                         </p>
                       ) : (
                         <p>세부 격리·변경 기록 진단이 없는 이전 형식입니다.</p>
+                      )}
+                      {data.backupRestoreCollection.restoreMeasurements
+                        .restoreDiagnostics?.executionObservation && (
+                        <section aria-label="복원 직후 제한 재대조">
+                          <h4>복원 직후 제한 재대조</h4>
+                          <p>
+                            관측 시각:{" "}
+                            {new Date(
+                              data.backupRestoreCollection.restoreMeasurements
+                                .restoreDiagnostics.executionObservation
+                                .observedAt,
+                            ).toLocaleString("ko-KR")}
+                          </p>
+                          <p>
+                            회수되지 않은 세션{" "}
+                            {
+                              data.backupRestoreCollection.restoreMeasurements
+                                .restoreDiagnostics.executionObservation
+                                .unrevokedSessions
+                            }
+                            건 · 진행 중 인증 요청{" "}
+                            {
+                              data.backupRestoreCollection.restoreMeasurements
+                                .restoreDiagnostics.executionObservation
+                                .pendingChallenges
+                            }
+                            건
+                          </p>
+                          <p>
+                            제한 불일치: 공통 인증{" "}
+                            {
+                              data.backupRestoreCollection.restoreMeasurements
+                                .restoreDiagnostics.executionObservation
+                                .coreViolations
+                            }
+                            건 · GW{" "}
+                            {
+                              data.backupRestoreCollection.restoreMeasurements
+                                .restoreDiagnostics.executionObservation
+                                .gwViolations
+                            }
+                            건 · HR{" "}
+                            {
+                              data.backupRestoreCollection.restoreMeasurements
+                                .restoreDiagnostics.executionObservation
+                                .hrViolations
+                            }
+                            건 · 변경 기록 계정{" "}
+                            {
+                              data.backupRestoreCollection.restoreMeasurements
+                                .restoreDiagnostics.executionObservation
+                                .journalUserViolations
+                            }
+                            건
+                          </p>
+                          <p>
+                            백업과 최신 권한 대조에 기록된 제한을 복원 직후 다시
+                            확인한 결과입니다. 현재 복원본 상태·전체 권한
+                            회수·실제 회사 업무 인수를 확인한 것은 아닙니다.
+                          </p>
+                        </section>
                       )}
                     </>
                   ) : (

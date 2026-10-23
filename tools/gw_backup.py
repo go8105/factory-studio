@@ -47,7 +47,13 @@ from fs.gw import backup as gw_checkpoint
 from fs.gw import backup_journal
 from fs.gw.acceptance_artifact import MAX_ARTIFACT_BYTES, inspect_copy
 from fs.gw.evidence_trust import authorize, from_environment
-from fs.gw.operating_contract import OperatingPolicy, canonical, timestamp
+from fs.gw.operating_contract import (
+    EvidenceEnvelope,
+    OperatingPolicy,
+    RestoreExecutionObservation,
+    canonical,
+    timestamp,
+)
 from fs.hr import backup as hr_checkpoint
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
@@ -242,6 +248,8 @@ def proof(manifest, config, *, kind, result, started, finished, metrics):
         "signerKeyId": config["signerId"],
         "metrics": metrics,
     }
+    if metrics.get("restoreDiagnostics", {}).get("version") == 2:
+        EvidenceEnvelope.model_validate(envelope)
     return {
         "envelope": envelope,
         "signature": base64.b64encode(
@@ -439,6 +447,112 @@ def checkpoint(*, url, artifact, output, head, config):
         engine.dispose()
 
 
+def observe_restoration(c, *, manifest, changes, checkpoint_digest):
+    """Observe after replay commits, in a separate read-only snapshot.
+
+    This is an execution-time observation, not a current-target query by the
+    product server or proof of complete route collection/employee isolation.
+    """
+    observed_at = snapshot(c)
+    c.execute(text("SET LOCAL statement_timeout='15s'"))
+    c.execute(text("SET LOCAL lock_timeout='3s'"))
+    core = core_checkpoint.capture(c)
+    gw = gw_checkpoint.capture(c)
+    hr = hr_checkpoint.capture(c)
+    journal = changes.get("journal") or {"users": [], "scopes": []}
+    core_violations, journal_violations = core_checkpoint.restriction_violations(
+        core, manifest["coreSecurity"], changes["coreSecurity"], journal["users"]
+    )
+    gw_violations = gw_checkpoint.restriction_violations(
+        c, gw, manifest["gwSecurity"], changes["gwSecurity"], journal["scopes"]
+    )
+    hr_violations = hr_checkpoint.restriction_violations(
+        hr, manifest["hrSecurity"], changes["hrSecurity"], set(journal["users"])
+    )
+    isolation = (
+        c.execute(
+            text("""SELECT datconnlimit=0 AS limit_zero,
+        NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(d.datacl,acldefault('d',d.datdba))) a
+        WHERE a.grantee=0 AND a.privilege_type='CONNECT') AS public_revoked
+        FROM pg_database d WHERE datname=current_database()""")
+        )
+        .mappings()
+        .one()
+    )
+    unrevoked = c.scalar(
+        text("SELECT count(*) FROM core.auth_session WHERE revoked_at IS NULL")
+    )
+    pending = c.scalar(
+        text("SELECT count(*) FROM core.authentication_challenge WHERE state='PENDING'")
+    )
+    head_matches = (
+        c.scalar(text("SELECT version_num FROM alembic_version"))
+        == manifest["dbRevision"]
+    )
+    checks = [
+        unrevoked,
+        pending,
+        core_violations,
+        gw_violations,
+        hr_violations,
+        journal_violations,
+    ]
+    return RestoreExecutionObservation.model_validate(
+        {
+            "version": 1,
+            "scope": "RESTORED_CHECKPOINT_RESTRICTIONS",
+            "observedAt": observed_at,
+            "clockToleranceSeconds": 30,
+            "backupRunId": manifest["runId"],
+            "checkpointRunId": changes["runId"],
+            "backupManifestDigest": hashlib.sha256(canonical(manifest)).hexdigest(),
+            "checkpointDigest": checkpoint_digest,
+            "checkpointManifestDigest": hashlib.sha256(canonical(changes)).hexdigest(),
+            "sourceIdentity": manifest["sourceIdentity"],
+            "targetIdentity": database_identity(c),
+            "stateDigest": hashlib.sha256(
+                canonical({"core": core, "gw": gw, "hr": hr, "checks": checks})
+            ).hexdigest(),
+            "connectionLimitZero": isolation["limit_zero"],
+            "publicConnectRevoked": isolation["public_revoked"],
+            "dbRevisionMatches": head_matches,
+            "unrevokedSessions": unrevoked,
+            "pendingChallenges": pending,
+            "coreViolations": core_violations,
+            "gwViolations": gw_violations,
+            "hrViolations": hr_violations,
+            "journalUserViolations": journal_violations,
+            "result": "PARTIAL"
+            if not any(checks) and head_matches and all(isolation.values())
+            else "BLOCKED",
+            "revocationsComplete": False,
+            "liveCompanyAcceptance": False,
+            "releaseAuthorized": False,
+            "currentTargetStateVerified": False,
+        }
+    ).model_dump(by_alias=True)
+
+
+def observed_restore_diagnostics(observation, journal):
+    return {
+        "version": 2,
+        "executionObservation": observation,
+        "databaseClosed": observation["connectionLimitZero"]
+        and observation["publicConnectRevoked"],
+        "dbRevisionMatches": observation["dbRevisionMatches"],
+        "checkpointRestrictionsApplied": True,
+        "checkpointCompletenessConfirmed": False,
+        **{
+            k: journal[k]
+            for k in (
+                "journalCandidateIntents",
+                "journalUnconfirmedIntents",
+                "journalQuarantinedScopes",
+            )
+        },
+    }
+
+
 def restore(
     *,
     admin_url,
@@ -454,6 +568,7 @@ def restore(
         raise BackupError("독립 보관한 최신 권한 대조 지문을 확인하세요.")
     preflight(report, evidence)
     target_created = False
+    failed_observation = None
     started = now()
     timer = time.monotonic()
     admin = create_engine(admin_url, isolation_level="AUTOCOMMIT")
@@ -608,6 +723,15 @@ def restore(
                 # Security replay may only restrict restored permissions; originals remain untouched.
                 if not core_result["sessionsInvalidated"]:
                     raise BackupError("기존 인증 세션을 무효화하지 못했습니다.")
+            with target.connect() as c, c.begin():
+                observation = observe_restoration(
+                    c, manifest=manifest, changes=changes, checkpoint_digest=digest
+                )
+            if observation["result"] != "PARTIAL":
+                failed_observation = observation
+                raise BackupError(
+                    "복원 후 권한 제한·세션 회수 재대조에 실패했습니다. 격리 DB를 유지합니다."
+                )
             finished = now()
             elapsed = math.ceil(time.monotonic() - timer)
             loss = max(
@@ -633,6 +757,7 @@ def restore(
                 **journal_result,
                 "checkpointRestrictionsApplied": True,
                 "checkpointCompletenessConfirmed": False,
+                "executionObservation": observation,
                 "revocationsReapplied": False,
                 "twoAccountChecks": False,
                 "checkpointAgeSeconds": max(0, math.ceil(age)),
@@ -647,48 +772,34 @@ def restore(
                 ],
                 "targetLimits": "PUBLIC CONNECT 회수/접속수0; 운영 앱·worker 연결 금지",
             }
-            write_json(report, result)
-            write_json(
-                evidence,
-                proof(
-                    manifest,
-                    config,
-                    kind="RESTORE",
-                    result="PARTIAL",
-                    started=started,
-                    finished=finished,
-                    metrics={
-                        k: result[k]
-                        for k in [
-                            "rowHashesMatch",
-                            "foreignKeysValid",
-                            "sessionsInvalidated",
-                            "revocationsReapplied",
-                            "twoAccountChecks",
-                            "lossWindowSeconds",
-                            "elapsedSeconds",
-                        ]
-                    }
-                    | {
-                        "failedCheckCount": 1,
-                        "restoreDiagnostics": {
-                            "version": 1,
-                            "databaseClosed": result["closed"],
-                            **{
-                                k: result[k]
-                                for k in (
-                                    "dbRevisionMatches",
-                                    "checkpointRestrictionsApplied",
-                                    "checkpointCompletenessConfirmed",
-                                    "journalCandidateIntents",
-                                    "journalUnconfirmedIntents",
-                                    "journalQuarantinedScopes",
-                                )
-                            },
-                        },
-                    },
-                ),
+            document = proof(
+                manifest,
+                config,
+                kind="RESTORE",
+                result="PARTIAL",
+                started=started,
+                finished=finished,
+                metrics={
+                    k: result[k]
+                    for k in [
+                        "rowHashesMatch",
+                        "foreignKeysValid",
+                        "sessionsInvalidated",
+                        "revocationsReapplied",
+                        "twoAccountChecks",
+                        "lossWindowSeconds",
+                        "elapsedSeconds",
+                    ]
+                }
+                | {
+                    "failedCheckCount": 1,
+                    "restoreDiagnostics": observed_restore_diagnostics(
+                        observation, journal_result
+                    ),
+                },
             )
+            write_json(report, result)
+            write_json(evidence, document)
             return {"result": "PARTIAL", "database": target_name, "closed": True}
     except BaseException:
         frozen = False
@@ -702,6 +813,30 @@ def restore(
             except SQLAlchemyError:
                 pass
         if target_created and not report.exists():
+            if failed_observation is not None and not evidence.exists():
+                write_json(
+                    evidence,
+                    proof(
+                        manifest,
+                        config,
+                        kind="RESTORE",
+                        result="FAIL",
+                        started=started,
+                        finished=now(),
+                        metrics={
+                            "sessionsInvalidated": failed_observation[
+                                "unrevokedSessions"
+                            ]
+                            == 0,
+                            "revocationsReapplied": False,
+                            "twoAccountChecks": False,
+                            "failedCheckCount": 1,
+                            "restoreDiagnostics": observed_restore_diagnostics(
+                                failed_observation, journal_result
+                            ),
+                        },
+                    ),
+                )
             write_json(
                 report,
                 {
@@ -709,6 +844,11 @@ def restore(
                     "connectionsDisabled": frozen,
                     "database": target_name,
                     "closed": True,
+                    **(
+                        {"executionObservation": failed_observation}
+                        if failed_observation is not None
+                        else {}
+                    ),
                     "remaining": [
                         "복원 검증 실패; 격리 DB를 유지하고 비공개 진단을 확인하세요."
                     ],

@@ -417,3 +417,49 @@ it.each(["PARTIAL", "FAILED"])(
     ).toBeVisible();
   },
 );
+it("복원 직후 제한 관측을 현재 복원본이나 전체 회수 완료로 표시하지 않는다", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    response({
+      ...initial,
+      backupRestoreCollection: {
+        result: "BLOCKED",
+        source: "LATEST_REGISTRATIONS",
+        backupRestorePairVerified: false,
+        restoreMeasurements: {
+          rowHashesMatch: true,
+          foreignKeysValid: true,
+          sessionsInvalidated: true,
+          revocationsReapplied: false,
+          twoAccountChecks: false,
+          restoreDiagnostics: {
+            databaseClosed: true,
+            checkpointCompletenessConfirmed: false,
+            journalUnconfirmedIntents: 1,
+            journalQuarantinedScopes: 1,
+            executionObservation: {
+              observedAt: "2026-10-23T04:00:00Z",
+              unrevokedSessions: 0,
+              pendingChallenges: 0,
+              coreViolations: 0,
+              gwViolations: 0,
+              hrViolations: 0,
+              journalUserViolations: 0,
+            },
+          },
+        },
+      },
+    }),
+  );
+  show();
+  fireEvent.click(await screen.findByText("최근 복원 검사 내용"));
+  const observation = screen.getByRole("region", {
+    name: "복원 직후 제한 재대조",
+  });
+  expect(within(observation).getByText(/회수되지 않은 세션 0건/)).toBeVisible();
+  expect(
+    within(observation).getByText(/현재 복원본 상태·전체 권한 회수/),
+  ).toBeVisible();
+  expect(
+    screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),
+  ).toBeVisible();
+});

@@ -463,3 +463,25 @@ uv run --project backend pytest backend/tests/test_gw_journal_acceptance_db.py b
 PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/operations.test.tsx src/portal/content-pages.test.tsx --maxWorkers=2
 ```
 새 시험 DB만 정리하며 기존 gw_preview_test를 초기화하지 않는다. 운영 절차/수동 지문 갱신은 `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §16. 비밀/전체로그/work를 Git에 넣지 않는다. 마지막 커밋은 `git log -1`.
+
+## 2026-10-23 GW-READY-02 43차 복원 직후 제한·세션 회수 관측과 서명 인수 연결
+
+- 시작 `2260c79`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 기존 승인 범위에서 실제 복원 직후의 제한 재대조 어댑터를 추가했다. 기존 GW/암호화 백업·격리 복원 도구 확장이며 별도 GW/새 DB 스키마를 만들지 않았다. 외부 저장소 미정과 실회사10인/최종 PASS 미완료를 유지한다.
+- core/GW/HR 소유 backup 어댑터에 읽기 비교를 추가했다. 백업 원본과 최신 권한 대조 모두에 허용된 활성 계정/역할·멤버십·직원/조직·연결/열람자·근무 계정만 허용하고 더 강한 비활성/회수는 인정한다. 공통 자격/보안 버전·MFA/OTP 단계·복구/SSO·시도 제한, GW guard 차이/변경 기록 격리의 연결 중지/보존 중지와 위임 회수도 대조한다. 복원 제한 적용 함수의 성공 표지를 그대로 서명하지 않고 커밋 뒤 별도 READ ONLY/REPEATABLE READ 거래에서 실제 세션/인증 요청과 잔여 권한을 읽는다. 문장15초/잠금3초, DB/운영자 시각 차이30초를 적용한다. 기존 복원/권한 재적용 정책·업무 경계는 바꾸지 않았다.
+- 복원 진단v2/executionObservation/RESTORED_CHECKPOINT_RESTRICTIONS 추가. 백업/권한 대조 runId·명세/암호화 파일 지문·서로 다른 원본/복원 물리 식별·관측 시각/시계 허용 범위·상태 지문·PUBLIC CONNECT/접속수0·남은 세션/인증 요청/불일치 집계를 RESTORE 서명에 묶는다. 실제 자격 지문·계정·스냅샷·DB URL/이름을 제품 증거로 내보내지 않는다. 기존 v1은 유지하고 없는 관측을 추정하지 않는다. 새 증거는 쓰기 전에 계약을 자체 검증한다. 관측 PARTIAL도 revocationsComplete/currentTargetStateVerified/liveCompanyAcceptance/releaseAuthorized=false이며 RESTORE PASS로 승격할 수 없다.
+- 기존 ACCEPTANCE가 최신 RESTORE 원본 전체를 지문으로 참조하므로 새 관측도 함께 연결된다. 관측 backupRunId와 실제 참조 BACKUP 실행 번호도 대조한다. 변조/다른 실행·최신 실패·원본 없음/옛 기준을 과거 성공으로 대체하지 않는다. 관측은 RESTORE 실행자 신뢰 아래 있고 인수 발급은 기존 별도 키 용도를 유지한다. 독립 관측자 증명은 아니다. 적용 뒤 실제 관측이 BLOCKED면 서명 RESTORE FAIL/비공개 FAIL 보고를 남기고 새 DB의 연결을 추가 차단한다. 관측 이전 오류/측정 불가능은 기존 격리 실패 보고만 남기며 측정값을 지어내 서명하지 않는다. 자동 등록은 하지 않는다.
+- 기존 운영 준비의 최근 복원 검사 내용에 복원 직후 관측 시각·세션/인증 요청·제한 불일치와 범위 안내를 추가했다. 직관성은 기존 실행 영역, 유효성은 서명/현재 원본 대조, 학습성은 관측 시점·다음 점검 안내/정적 도움말, 유연성은 기존 펼침·키보드/모바일 구성을 따른다. factory-impeccable 기준을 유지했다. 실행 시점 관측이며 현재 복원본을 제품 API가 다시 조회한 것은 아니다. 이후 상태 변경의 신선한 재관측/격리 검증 어댑터는 다음 작업이다. 화면 전체 완성을 주장하지 않는다.
+- 검증: 관련 단위387통과(기존 경고2), 화면/정적 도움말32·타입·수정 ESLint/Prettier·Ruff check/format·정적DB219/2409/543·R1–R6 오류0. 별도 새 소유 PostgreSQL에서 실제 dump/암호화/사본/권한 대조/격리 복원과 API 인수 연결 최종7통과105.36초(기존 경고2). 실제 세션·GW 연결·HR 권한/공통 역할 재활성화, PUBLIC CONNECT/접속수 변경을 재관측해 BLOCKED, 읽기 거래의 UPDATE 거부와 제한 적용 함수의 잘못된 성공 표지 이후 서명 FAIL/연결 차단/최신 등록 FAILED를 확인했다. 기존 기록 이력/폴더 교체 복원2건과 실제 이전 세션/회수 업무 거부도 포함한다. 7건을 실회사10인 인수나 전체 CI로 표현하지 않는다.
+- 실패와 보정: 최초5건 중1건은 새 관측의 DB/운영자 시각을 엄격히 같은 실행 구간으로 비교해 API400, 이후 진단 자체 검증에서 같은 오류를 재현했다. 기존 복원 시계 허용30초를 새 계약에 명시하고 경계 단위를 추가해 실제 복원1건13.36초 통과. 후속7건 중1건은 합성 DB에 공통 역할 행이 없는데 미부여 조합을 가정한 시험 준비 오류였다(나머지6통과). 새 복원본에 합성 역할을 만들고 시험 뒤 제거하도록 보정했으며 최종7건을 재실행했다. 제품 제약/계정을 우회하지 않았다. 실패 실행에서 남은 제한 복원본3개는 소유 컨테이너·이름/표식·접속수/연결 없음과 이 실행 생성 시각을 정확히 대조해 정리했다. 다른 DB를 정리하지 않았다.
+- 브라우저: 실제 제품 React+읽기 전용 합성 API 서버(5364)로 1440px 키보드 펼침,390px 본문/범위 안내·가로 넘침0을 확인했다. 중간 크기 전환 뒤 비상호작용 제목 클릭이 다른 메뉴를 열어 그 화면은 증거로 쓰지 않았고, 새390px 탭에서 올바른 운영 준비 주소와 본문을 다시 확인했다. 실제 API 브라우저/실기기 인수가 아니다. 임시 서버·탭·뷰포트 정리. 새 시험DB/폐쇄 복원DB 남음0·preview DB존재를 읽기 확인했다. 기존 preview DB 초기화/실계정 admin·비밀번호/MFA·미리보기 정책/업무 변경 없음. API/Vite 재시작 없음. 스키마/마이그레이션/Excel/ERD 변경 없음. 전체CI/전체회귀·고정24수집/실외부 저장소/실회사·기기/10인 실인수 미실행. 다른 checkout/main/원격push/배포 변경 없음.
+- 다음: 복원 관측 이후의 현재 복원본 상태/신선한 관측·격리 상태 재검증을 별도 읽기 어댑터로 연결한다. 그 뒤 나머지 최종 증거 계약·공급자 선정 후 외부 장애복구·최신main 통합/전체회귀·실회사10인/최종전환. ready=false·실제 복원 PARTIAL·최종4조건 UNVERIFIED는 그대로다. 난이도 매우 높음, GPT-6 Astra + High 추천(현재성/격리·물리 원본·실행자 신뢰/최신 실패·복원 접근 경계). 모델 자동변경 없음.
+
+재현(저장소 루트):
+```sh
+uv run --project backend pytest backend/tests/test_restore_restriction_comparison.py backend/tests/test_gw_restore_observation.py backend/tests/test_gw_journal_acceptance.py backend/tests/test_gw_journal_observation.py backend/tests/test_gw_evidence_trust.py backend/tests/test_gw_acceptance_sources.py backend/tests/test_gw_business_observation.py backend/tests/test_gw_acceptance_preflight.py backend/tests/test_gw_acceptance_reconciliation.py backend/tests/test_gw_route_verify.py backend/tests/test_gw_journal_routes.py backend/tests/test_gw_journal_coverage.py backend/tests/test_journal_review.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short
+# 소유 컨테이너ID/owner/loopback 확인·새 *_test DB에만 동일 DATABASE_URL/TEST_DATABASE_URL과 소유 GW_BACKUP_TEST_CONTAINER 비공개 주입:
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_backup.py backend/tests/test_backup_journal_restore.py backend/tests/test_gw_restore_observation_db.py -q --tb=short
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/operations.test.tsx src/portal/content-pages.test.tsx --maxWorkers=2
+```
+새로 만든 시험 DB만 정리하고 기존 gw_preview_test를 초기화하지 않는다. 운영 계약은 `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §17. 비밀번호/OTP/키/전체 로그/work를 Git에 넣지 않는다. 마지막 커밋은 `git log -1`.

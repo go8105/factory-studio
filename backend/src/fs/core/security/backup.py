@@ -182,3 +182,141 @@ def restrict_journal_users(c, user_ids):
         ),
         {"ids": user_ids},
     ).rowcount
+
+
+def restriction_violations(current, original, checkpoint, journal_users):
+    """Read-only comparison against both captured states; stricter denial is valid.
+
+    Snapshots stay private. This verifies only the explicit checkpoint fields,
+    never completeness of the collection paths or live company acceptance.
+    """
+    from datetime import datetime
+
+    def matched(kind, row, fields, allowed=lambda r: True):
+        for source in (original, checkpoint):
+            saved = next(
+                (r for r in source[kind] if r.get("id") == row.get("id")), None
+            )
+            if (
+                saved is None
+                or not allowed(saved)
+                or any(saved[k] != row[k] for k in fields)
+            ):
+                return False
+        return True
+
+    users = {r["id"]: r for r in current["users"]}
+    active_users = {
+        k for k, r in users.items() if r["status"] == "active" and not r["disabled"]
+    }
+    violations = sum(
+        not matched(
+            "users",
+            row,
+            ["identity", "credential", "security_version"],
+            lambda r: r["status"] == "active" and not r["disabled"],
+        )
+        for row in current["users"]
+        if row["id"] in active_users
+    )
+    allowed_roles = set.intersection(
+        *(
+            {(r["user_id"], r["role_id"]) for r in source["roles"]}
+            for source in (original, checkpoint)
+        )
+    )
+    violations += sum(
+        (r["user_id"], r["role_id"]) not in allowed_roles for r in current["roles"]
+    )
+    workspace_sources = [
+        {r["id"]: r for r in source["workspaces"]} for source in (original, checkpoint)
+    ]
+    blocked = {
+        r["id"]
+        for r in current["workspaces"]
+        if any(source.get(r["id"]) != r for source in workspace_sources)
+    }
+    companies = [
+        {r["workspace_id"]: r for r in source["companies"]}
+        for source in (original, checkpoint)
+    ]
+    blocked.update(
+        r["workspace_id"]
+        for r in current["companies"]
+        if any(
+            source.get(r["workspace_id"], {}).get("status") != "ACTIVE"
+            for source in companies
+        )
+    )
+    violations += sum(
+        r["workspace_id"] in blocked
+        or not matched(
+            "members", r, ["workspace_id", "user_id", "role"], lambda v: v["is_active"]
+        )
+        for r in current["members"]
+        if r["is_active"]
+    )
+    factors = {r["id"]: r for r in current["factors"]}
+    for row in factors.values():
+        if row["state"] not in {"ACTIVE", "PENDING"}:
+            continue
+        valid = (
+            row["state"] == "ACTIVE"
+            and row["user_id"] in active_users
+            and matched(
+                "factors",
+                row,
+                ["user_id", "version", "secret"],
+                lambda r: r["state"] == "ACTIVE",
+            )
+        )
+        if valid:
+            for source in (original, checkpoint):
+                saved = next(r for r in source["factors"] if r["id"] == row["id"])
+                if saved["last_used_step"] is not None and (
+                    row["last_used_step"] is None
+                    or row["last_used_step"] < saved["last_used_step"]
+                ):
+                    valid = False
+        violations += not valid
+    for row in current["codes"]:
+        if not row["used"] and not row["revoked"]:
+            violations += not (
+                row["user_id"] in active_users
+                and factors.get(row["factor_id"], {}).get("state") == "ACTIVE"
+                and matched(
+                    "codes",
+                    row,
+                    ["user_id", "factor_id"],
+                    lambda r: not r["used"] and not r["revoked"],
+                )
+            )
+    violations += sum(
+        r["user_id"] not in active_users
+        or not matched(
+            "sso", r, ["user_id", "version"], lambda v: v["state"] == "ACTIVE"
+        )
+        for r in current["sso"]
+        if r["state"] == "ACTIVE"
+    )
+    throttles = {(r["bucket_hash"], r["window"]): r for r in current["throttles"]}
+    for saved in checkpoint["throttles"]:
+        row = throttles.get((saved["bucket_hash"], saved["window"]))
+        violations += (
+            row is None
+            or row["fail_count"] < saved["fail_count"]
+            or bool(
+                saved["locked"] is not None
+                and (
+                    row["locked"] is None
+                    or datetime.fromisoformat(row["locked"])
+                    < datetime.fromisoformat(saved["locked"])
+                )
+            )
+        )
+    journal_violations = sum(
+        uid in users
+        and (users[uid]["status"] != "disabled" or not users[uid]["disabled"])
+        for uid in set(journal_users)
+    )
+    return int(violations), journal_violations

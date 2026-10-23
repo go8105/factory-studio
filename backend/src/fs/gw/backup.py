@@ -200,3 +200,71 @@ def restrict_journal_scopes(c, scopes):
             p,
         ).rowcount
     return applied
+
+
+def restriction_violations(c, current, original, checkpoint, journal_scopes):
+    """Observe effective GW restrictions; no replay, grants, or business writes."""
+
+    def permitted(kind, row, fields, active):
+        return all(
+            (saved := next((r for r in source[kind] if r["id"] == row["id"]), None))
+            is not None
+            and active(saved)
+            and all(saved[k] == row[k] for k in fields)
+            for source in (original, checkpoint)
+        )
+
+    active_people = {r["id"] for r in current["people"] if r["is_active"]}
+    violations = sum(
+        not permitted(
+            "people",
+            r,
+            ["workspace_id", "generation_id", "organization_unit_id"],
+            lambda v: v["is_active"],
+        )
+        for r in current["people"]
+        if r["is_active"]
+    )
+    for kind, fields in [
+        ("roles", ["workspace_id", "generation_id", "person_id", "role_key"]),
+        ("readers", ["workspace_id", "generation_id", "person_id", "document_id"]),
+        ("bindings", ["workspace_id", "generation_id", "person_id", "user_id"]),
+    ]:
+        for row in current[kind]:
+            if not (
+                row["state"] == "ACTIVE" if kind == "bindings" else row["is_active"]
+            ):
+                continue
+            violations += row["person_id"] not in active_people or not permitted(
+                kind,
+                row,
+                fields,
+                lambda r, kind=kind: (
+                    r["state"] == "ACTIVE" if kind == "bindings" else r["is_active"]
+                ),
+            )
+    quarantine = set()
+    for table, before in original["guards"].items():
+        after = checkpoint["guards"].get(table, {})
+        quarantine.update(
+            tuple(map(int, s.split("/")))
+            for s in set(before) | set(after)
+            if before.get(s) != after.get(s)
+        )
+    journal = set(map(tuple, journal_scopes))
+    for w, g in quarantine | journal:
+        active = sum(
+            r["state"] == "ACTIVE" and (r["workspace_id"], r["generation_id"]) == (w, g)
+            for r in current["bindings"]
+        )
+        hold = c.scalar(
+            text(
+                "SELECT company_hold FROM gw.operating_settings WHERE workspace_id=:w AND generation_id=:g"
+            ),
+            {"w": w, "g": g},
+        )
+        violations += bool(active) or hold is not True
+    violations += c.scalar(
+        text("SELECT count(*) FROM gw.delegation WHERE revoked_at IS NULL")
+    )
+    return int(violations)

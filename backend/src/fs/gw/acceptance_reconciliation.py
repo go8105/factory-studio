@@ -7,6 +7,7 @@ from uuid import uuid4
 from fs.gw.operating_contract import (
     AcceptanceDiagnostics,
     JournalAcceptanceDiagnostics,
+    ObservedRestoreDiagnostics,
     RegisteredAcceptanceDiagnostics,
     acceptance_context_digest,
     backup_is_current,
@@ -38,6 +39,11 @@ def reconcile(documents, **context):
             "sourceDigest": hashlib.sha256(canonical(document)).hexdigest(),
         }
     backup, restore = sources["BACKUP"], sources["RESTORE"]
+    if isinstance(restore.metrics.restore_diagnostics, ObservedRestoreDiagnostics) and (
+        restore.metrics.restore_diagnostics.execution_observation.backup_run_id
+        != backup.run_id
+    ):
+        raise evidence_error()
     if (
         not backup_is_current(backup, context["policy"], context["now"])
         or backup.run_id == restore.run_id

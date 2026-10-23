@@ -308,6 +308,50 @@ def test_actual_backup_replay_restore_and_business_denial(
         measurements["restoreDiagnostics"]["checkpointCompletenessConfirmed"] is False
     )
     assert operating["ready"] is False
+    observation = details["executionObservation"]
+    assert observation["result"] == "PARTIAL"
+    assert observation["unrevokedSessions"] == observation["pendingChallenges"] == 0
+    assert observation["sourceIdentity"] != observation["targetIdentity"]
+    assert all(
+        observation[k] == 0
+        for k in [
+            "coreViolations",
+            "gwViolations",
+            "hrViolations",
+            "journalUserViolations",
+        ]
+    )
+    assert measurements["restoreDiagnostics"]["version"] == 2
+    assert measurements["restoreDiagnostics"]["executionObservation"] == observation
+    # Bind the actual execution observation through the latest RESTORE source
+    # digest into real ACCEPTANCE ingestion, with a separate collector key.
+    from fs.gw.acceptance_sources import sign_current
+    from fs.gw.evidence_trust import from_environment
+
+    collector = Ed25519PrivateKey.generate()
+    public = json.loads(os.environ["FS_GW_EVIDENCE_PUBLIC_KEYS"])
+    public["collector"] = base64.b64encode(
+        collector.public_key().public_bytes_raw()
+    ).decode()
+    monkeypatch.setenv("FS_GW_EVIDENCE_PUBLIC_KEYS", json.dumps(public))
+    scopes = json.loads(os.environ["FS_GW_EVIDENCE_KEY_SCOPES"])
+    scopes["keys"]["collector"] = {
+        "workspaceIds": [str(co["companyId"])],
+        "purposes": ["ACCEPTANCE_RECONCILIATION"],
+    }
+    monkeypatch.setenv("FS_GW_EVIDENCE_KEY_SCOPES", json.dumps(scopes))
+    acceptance = sign_current(
+        engine,
+        company_id=co["companyId"],
+        code_revision=config["codeRevision"],
+        public_keys=from_environment(),
+        signer=collector,
+        signer_id="collector",
+    )
+    assert api(admin, co, "operating-evidence", acceptance).status_code == 200
+    current = ok(api(admin, co, "operations", method="GET"))
+    assert current["evidenceChecks"][2]["state"] == "PARTIAL"
+    assert not current["ready"] and current["launchGate"]["unverifiedCount"] == 4
     target_url = (
         make_url(source_url)
         .set(database=restored["database"])

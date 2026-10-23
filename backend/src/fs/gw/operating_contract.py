@@ -78,6 +78,96 @@ def canonical(value: dict) -> bytes:
     ).encode()
 
 
+class RestoreExecutionObservation(StrictModel):
+    version: Literal[1]
+    scope: Literal["RESTORED_CHECKPOINT_RESTRICTIONS"]
+    observed_at: str = Field(alias="observedAt")
+    clock_tolerance_seconds: Literal[30] = Field(alias="clockToleranceSeconds")
+    backup_run_id: str = Field(alias="backupRunId")
+    checkpoint_run_id: str = Field(alias="checkpointRunId")
+    backup_manifest_digest: str = Field(
+        alias="backupManifestDigest", pattern=r"^[0-9a-f]{64}$"
+    )
+    checkpoint_digest: str = Field(alias="checkpointDigest", pattern=r"^[0-9a-f]{64}$")
+    checkpoint_manifest_digest: str = Field(
+        alias="checkpointManifestDigest", pattern=r"^[0-9a-f]{64}$"
+    )
+    source_identity: str = Field(alias="sourceIdentity", pattern=r"^[0-9a-f]{64}$")
+    target_identity: str = Field(alias="targetIdentity", pattern=r"^[0-9a-f]{64}$")
+    state_digest: str = Field(alias="stateDigest", pattern=r"^[0-9a-f]{64}$")
+    connection_limit_zero: bool = Field(alias="connectionLimitZero")
+    public_connect_revoked: bool = Field(alias="publicConnectRevoked")
+    db_revision_matches: bool = Field(alias="dbRevisionMatches")
+    unrevoked_sessions: int = Field(alias="unrevokedSessions", ge=0, le=10000000)
+    pending_challenges: int = Field(alias="pendingChallenges", ge=0, le=10000000)
+    core_violations: int = Field(alias="coreViolations", ge=0, le=10000000)
+    gw_violations: int = Field(alias="gwViolations", ge=0, le=10000000)
+    hr_violations: int = Field(alias="hrViolations", ge=0, le=10000000)
+    journal_user_violations: int = Field(
+        alias="journalUserViolations", ge=0, le=10000000
+    )
+    result: Literal["PARTIAL", "BLOCKED"]
+    revocations_complete: Literal[False] = Field(alias="revocationsComplete")
+    live_company_acceptance: Literal[False] = Field(alias="liveCompanyAcceptance")
+    release_authorized: Literal[False] = Field(alias="releaseAuthorized")
+    current_target_state_verified: Literal[False] = Field(
+        alias="currentTargetStateVerified"
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def exact_literals(cls, value):
+        if isinstance(value, dict):
+            if (
+                type(value.get("version")) is not int
+                or type(
+                    value.get(
+                        "clockToleranceSeconds", value.get("clock_tolerance_seconds")
+                    )
+                )
+                is not int
+            ):
+                raise ValueError("invalid observation version")
+            for name, field in cls.model_fields.items():
+                key = field.alias if field.alias in value else name
+                if (
+                    field.annotation == Literal[False]
+                    and type(value.get(key)) is not bool
+                ):
+                    raise ValueError("invalid observation completion flag")
+        return value
+
+    @model_validator(mode="after")
+    def bounded_result(self):
+        for run in [self.backup_run_id, self.checkpoint_run_id]:
+            if UUID(run).version != 4 or str(UUID(run)) != run:
+                raise ValueError("invalid observation run")
+        timestamp(self.observed_at)
+        if (
+            self.source_identity == self.target_identity
+            or self.backup_run_id == self.checkpoint_run_id
+        ):
+            raise ValueError("restore must be distinct from source")
+        clear = (
+            self.connection_limit_zero
+            and self.public_connect_revoked
+            and self.db_revision_matches
+            and not any(
+                [
+                    self.unrevoked_sessions,
+                    self.pending_challenges,
+                    self.core_violations,
+                    self.gw_violations,
+                    self.hr_violations,
+                    self.journal_user_violations,
+                ]
+            )
+        )
+        if self.result != ("PARTIAL" if clear else "BLOCKED"):
+            raise ValueError("observation result mismatch")
+        return self
+
+
 class RestoreDiagnostics(StrictModel):
     version: Literal[1]
     database_closed: bool = Field(alias="databaseClosed")
@@ -100,6 +190,34 @@ class RestoreDiagnostics(StrictModel):
     def consistent_counts(self):
         if self.journal_unconfirmed_intents > self.journal_candidate_intents:
             raise ValueError("미확인 기록 수가 대조 대상 수보다 많습니다.")
+        return self
+
+
+class ObservedRestoreDiagnostics(RestoreDiagnostics):
+    version: Literal[2]
+    execution_observation: RestoreExecutionObservation = Field(
+        alias="executionObservation"
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def integer_version(cls, value):
+        if isinstance(value, dict) and type(value.get("version")) is not int:
+            raise ValueError("invalid restore diagnostic version")
+        return value
+
+    @model_validator(mode="after")
+    def consistent_observation(self):
+        observation = self.execution_observation
+        if (
+            self.database_closed
+            != (
+                observation.connection_limit_zero and observation.public_connect_revoked
+            )
+            or self.db_revision_matches != observation.db_revision_matches
+            or self.checkpoint_completeness_confirmed
+        ):
+            raise ValueError("restore observation does not establish completeness")
         return self
 
 
@@ -166,7 +284,7 @@ class EvidenceMetrics(StrictModel):
         | JournalAcceptanceDiagnostics
         | None
     ) = Field(None, alias="acceptanceDiagnostics")
-    restore_diagnostics: RestoreDiagnostics | None = Field(
+    restore_diagnostics: RestoreDiagnostics | ObservedRestoreDiagnostics | None = Field(
         None, alias="restoreDiagnostics"
     )
     # Closed allowlist deliberately excludes URLs, document contents and identities.
@@ -255,6 +373,29 @@ class EvidenceEnvelope(StrictModel):
                 raise ValueError("인수 대조 명세 지문이 다릅니다.")
         if self.metrics.restore_diagnostics is not None and self.kind != "RESTORE":
             raise ValueError("복원 진단은 복원 증거에만 포함할 수 있습니다.")
+        if isinstance(self.metrics.restore_diagnostics, ObservedRestoreDiagnostics):
+            observation = self.metrics.restore_diagnostics.execution_observation
+            if (
+                not timestamp(self.started_at) - timedelta(seconds=30)
+                <= timestamp(observation.observed_at)
+                <= timestamp(self.finished_at) + timedelta(seconds=30)
+            ):
+                raise ValueError("복원 관측 시각이 실행 범위 밖입니다.")
+            if observation.backup_manifest_digest != self.manifest_digest:
+                raise ValueError("복원 관측의 백업 명세 지문이 다릅니다.")
+            if (
+                self.run_id
+                in {observation.backup_run_id, observation.checkpoint_run_id}
+                or self.metrics.sessions_invalidated
+                != (observation.unrevoked_sessions == 0)
+                or self.metrics.revocations_reapplied is not False
+                or self.metrics.two_account_checks is not False
+                or self.result
+                != ("PARTIAL" if observation.result == "PARTIAL" else "FAIL")
+            ):
+                raise ValueError(
+                    "복원 관측을 전체 회수/업무 인수로 승격할 수 없습니다."
+                )
         if timestamp(self.started_at) > timestamp(self.finished_at):
             raise ValueError("실행 시작과 종료 시각을 확인하세요.")
         return self
