@@ -93,3 +93,89 @@ def supply_items(
         }
         for row in rows
     ]
+
+
+# 검수에서 격리로 뺀 줄 = QMS 수입 검사 대상(DSN-13 F18). 공지 1건·줄 1개가 검사 1건의 원천이다.
+_TO_INSPECT = """
+SELECT n.notice_no, n.notice_kind, n.partner_ref, n.inspected_at, l.line_no, l.lot_no,
+       l.quarantined_qty, i.item_code, i.name item_name, i.base_unit
+FROM wms.inbound_notice n
+JOIN wms.inbound_notice_line l ON l.workspace_id=n.workspace_id
+ AND l.generation_id=n.generation_id AND l.notice_id=n.id
+JOIN wms.item i ON i.workspace_id=l.workspace_id AND i.generation_id=l.generation_id
+ AND i.id=l.item_id
+WHERE n.workspace_id=:w AND n.generation_id=:g AND n.status='INSPECTED'
+  AND l.quarantined_qty > 0
+ORDER BY n.inspected_at DESC, n.notice_no, l.line_no
+"""
+
+
+def inbound_lots_to_inspect(
+    connection: Connection, scoped: AuthContext
+) -> list[dict[str, Any]] | None:
+    """검수에서 격리된 입고 줄 `[{sourceRef, noticeNo, noticeKind, partnerCode, lotNo, itemCode, qty, unit}]`.
+
+    WMS가 꺼져 있으면 None. QMS 수입·반품 검사의 대상 목록이다(DSN-14 F11) —
+    `noticeKind`가 SALES_RETURN이면 반품 검사, 나머지는 수입 검사다.
+    이미 검사한 줄을 거르지 않는다. QMS가 자기 `source_ref`로 가린다.
+    """
+    if not enabled(connection, scoped):
+        return None
+    rows = connection.execute(
+        text(_TO_INSPECT), {"w": scoped.workspace_id, "g": scoped.generation_id}
+    ).mappings()
+    return [
+        {
+            "sourceRef": f"{row['notice_no']}:{row['line_no']}",
+            "noticeNo": row["notice_no"],
+            "noticeKind": row["notice_kind"],
+            "partnerCode": row["partner_ref"],
+            "inspectedAt": row["inspected_at"].isoformat(),
+            "lotNo": row["lot_no"],
+            "itemCode": row["item_code"],
+            "itemName": row["item_name"],
+            "qty": f"{Decimal(str(row['quarantined_qty'])):.3f}",
+            "unit": row["base_unit"],
+        }
+        for row in rows
+    ]
+
+
+def lots(
+    connection: Connection, scoped: AuthContext, item_code: str | None = None
+) -> list[dict[str, Any]] | None:
+    """LOT 대장 `[{lotNo, itemCode, origin, status, receivedOn, supplierLotNo, expiryDate}]`. WMS 꺼짐이면 None.
+
+    품목 코드를 주면 그 품목만. QMS가 검사 대상 LOT을 직접 고를 때 쓴다.
+    """
+    if not enabled(connection, scoped):
+        return None
+    rows = connection.execute(
+        text(
+            "SELECT t.lot_no, t.origin, t.status, t.received_on, t.supplier_lot_no, "
+            " t.expiry_date, i.item_code, i.name item_name, i.base_unit "
+            "FROM wms.lot t "
+            "JOIN wms.item i ON i.workspace_id=t.workspace_id "
+            " AND i.generation_id=t.generation_id AND i.id=t.item_id "
+            "WHERE t.workspace_id=:w AND t.generation_id=:g "
+            "  AND (CAST(:code AS text) IS NULL OR i.item_code=:code) "
+            "ORDER BY t.received_on DESC, t.lot_no"
+        ),
+        {"w": scoped.workspace_id, "g": scoped.generation_id, "code": item_code},
+    ).mappings()
+    return [
+        {
+            "lotNo": row["lot_no"],
+            "itemCode": row["item_code"],
+            "itemName": row["item_name"],
+            "unit": row["base_unit"],
+            "origin": row["origin"],
+            "status": row["status"],
+            "receivedOn": row["received_on"].isoformat(),
+            "supplierLotNo": row["supplier_lot_no"],
+            "expiryDate": None
+            if row["expiry_date"] is None
+            else row["expiry_date"].isoformat(),
+        }
+        for row in rows
+    ]
