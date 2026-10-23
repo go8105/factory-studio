@@ -8,6 +8,8 @@ import { Inspections } from "./Inspections";
 import { Holds } from "./Holds";
 import { Specs } from "./Specs";
 import { DefectTypes } from "./DefectTypes";
+import { Gauges } from "./Gauges";
+import { ChangeNotices } from "./ChangeNotices";
 
 export default function QmsRoutes() {
   return (
@@ -20,6 +22,8 @@ export default function QmsRoutes() {
         <Route path="holds" element={<Holds />} />
         <Route path="specs" element={<Specs />} />
         <Route path="defect-types" element={<DefectTypes />} />
+        <Route path="gauges" element={<Gauges />} />
+        <Route path="change-notices" element={<ChangeNotices />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
