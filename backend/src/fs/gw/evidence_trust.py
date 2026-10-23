@@ -8,7 +8,14 @@ from collections.abc import Mapping
 from types import MappingProxyType
 
 PURPOSES = frozenset(
-    {"BACKUP", "RESTORE", "CHECKPOINT", "ACCEPTANCE_RECONCILIATION", "INCIDENT"}
+    {
+        "BACKUP",
+        "RESTORE",
+        "CHECKPOINT",
+        "ACCEPTANCE_RECONCILIATION",
+        "INCIDENT",
+        "JOURNAL_OBSERVATION",
+    }
 )
 
 
@@ -20,6 +27,7 @@ def purpose(kind):
         "CHECKPOINT_HEAD": "CHECKPOINT",
         "ACCEPTANCE": "ACCEPTANCE_RECONCILIATION",
         "INCIDENT": "INCIDENT",
+        "JOURNAL_OBSERVATION": "JOURNAL_OBSERVATION",
     }.get(kind)
 
 

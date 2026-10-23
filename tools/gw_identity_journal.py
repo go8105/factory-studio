@@ -3,17 +3,113 @@
 import argparse
 import json
 import os
+from pathlib import Path
 
-from fs.core.backup import BackupError, private_file
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fs.common.errors import ApiError
+from fs.core.backup import BackupError, create_private, private_directory, private_file
 from fs.core.security import journal_review
 from fs.core.security.journal import verified_records, verify
+from fs.core.security.journal_witness import expected_head
 from fs.core.security.transaction_proof import classify, summary
 from fs.gw.backup import policy_snapshot
+from fs.gw.evidence_trust import from_environment
 from fs.gw.journal_coverage import build as family_coverage
+from fs.gw.journal_observation import observe, verify_current
 from fs.gw.journal_routes import build as route_coverage
+from fs.gw.operating_contract import canonical
 from fs.gw.security_journal import confirm_records, confirmed_digests
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.exc import SQLAlchemyError
+
+
+def observation_command(args):
+    engine = None
+    try:
+        if (
+            args.company_id is None
+            or args.company_id <= 0
+            or args.check_database
+            or args.classify_transactions
+            or args.review_report
+        ):
+            raise ValueError()
+        if expected_head() != args.expected_head:
+            raise ValueError()
+        if args.signed_observation:
+            output = Path(args.signed_observation)
+            private_directory(output.parent)
+            if output.exists() or output.is_symlink():
+                raise ValueError()
+        keys = from_environment()
+        url = make_url(os.environ["FS_GW_PREFLIGHT_DATABASE_URL"])
+        if (
+            url.drivername not in {"postgresql", "postgresql+psycopg"}
+            or not url.host
+            or not url.database
+            or not url.username
+        ):
+            raise ValueError()
+        engine = create_engine(
+            url.set(drivername="postgresql+psycopg"),
+            connect_args={"connect_timeout": 10},
+        )
+        args_context = {
+            "company_id": args.company_id,
+            "code_revision": os.environ["FS_CODE_REVISION"],
+            "public_keys": keys,
+        }
+        if args.signed_observation:
+            signer = Ed25519PrivateKey.from_private_bytes(
+                private_file(os.environ["FS_GW_RUNNER_KEY_FILE"], size=32).read_bytes()
+            )
+            document = observe(
+                engine,
+                signer=signer,
+                signer_id=os.environ["FS_GW_RUNNER_KEY_ID"],
+                **args_context,
+            )
+            with create_private(output) as stream:
+                stream.write(canonical(document))
+                stream.flush()
+                os.fsync(stream.fileno())
+            result = document["envelope"]
+        else:
+            source = private_file(args.verify_observation)
+            if source.stat().st_size > 16384:
+                raise ValueError()
+            result = verify_current(
+                engine, json.loads(source.read_bytes()), **args_context
+            ).model_dump(by_alias=True)
+        print(
+            json.dumps(
+                {
+                    "result": result["result"],
+                    "ready": False,
+                    "scopeRecords": result["scopeRecords"],
+                }
+            )
+        )
+        return 0 if result["result"] == "PARTIAL" else 2
+    except (
+        BackupError,
+        ApiError,
+        InvalidSignature,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        SQLAlchemyError,
+    ):
+        print(
+            "회사 변경 기록 관측을 완료하지 못했습니다. 현재 기준·최신 지문·읽기 연결·관측 키와 파일 권한을 확인하세요."
+        )
+        return 1
+    finally:
+        if engine is not None:
+            engine.dispose()
 
 
 def main():
@@ -27,7 +123,17 @@ def main():
     parser.add_argument(
         "--company-id", type=int, help="현재 정책 회사의 GW 연결 7경로 진단"
     )
+    observation = parser.add_mutually_exclusive_group()
+    observation.add_argument(
+        "--signed-observation",
+        help="회사 범위 관측을 기록할 새0600 서명 파일 (인수 증거 아님)",
+    )
+    observation.add_argument(
+        "--verify-observation", help="서명 관측을 현재 DB/기록과 다시 대조할0600 파일"
+    )
     args = parser.parse_args()
+    if args.signed_observation or args.verify_observation:
+        return observation_command(args)
     if args.company_id is not None and (
         args.company_id <= 0 or not (args.classify_transactions or args.review_report)
     ):
@@ -97,4 +203,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

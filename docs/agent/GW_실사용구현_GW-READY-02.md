@@ -421,3 +421,23 @@ uv run --project backend alembic -c backend/alembic.ini upgrade head
 uv run --project backend pytest backend/tests/test_gw_evidence_trust_db.py backend/tests/test_gw_backup.py backend/tests/test_backup_journal_restore.py -q --tb=short
 ```
 새 시험 DB만 정리하며 preview DB 초기화/실제 계정·비밀번호/OTP/키 변경 없음. 운영 설정 계약: `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §14. 비밀/전체로그/work를 Git에 넣지 않는다. 마지막 커밋은 `git log -1`.
+
+## 2026-10-23 GW-READY-02 41차 회사 GW 변경 기록 서명 관측·현재 재검증
+
+- 시작 `6261374`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 최신 실제 상태/인계와 기존 설계를 대조하고 외부 저장소 미정에서 자동 검증할 수 있는 현재 회사 변경 기록 관측 계약/실행 어댑터를 구현했다. 기존 GW/운영 도구 확장이며 별도 GW를 만들지 않았다.
+- `journal_observation`의 JOURNAL_OBSERVATION/GW_COMPANY_JOURNAL_SCOPE_V1 계약 추가. 현재 회사/활성 세대·정책/기준 지문·실DB head·물리 DB·끝/선택 기록 지문·DB 관측 시각·집계를 서명한다. 기록은 메타데이터로만 읽고 gw.company.intent.v2 중 해당 S만 선택한다. 다른 회사/세대·HR/core/과거 계열과 수집되지 않은 변경은 전체 수집으로 인정하지 않는다. 출력에 원문/계정/처리자·DB URL/경로·키/다른 범위 집계를 넣지 않는다.
+- 단일 READ ONLY/REPEATABLE READ DB 거래에서 실제 감사 지문·PostgreSQL 거래 결과를 대조한다. 같은 물리 원본/타임라인 근거가 없는 기록, 진행 중/감사 없는 커밋/미확인/대상 없음은 BLOCKED. 대상 전부가 감사 확인 또는 실제 롤백이고 거래 근거도 갖췄을 때만 PARTIAL이다. 관측 전후 최신 지문 변화는 오류다. 코드 버전은 운영자 입력이므로 executionRevisionVerified=false, 전체 수집/회수/실회사/전환/보관 독립성/ready는 항상 false다.
+- 기존 gw_identity_journal CLI에 --signed-observation/--verify-observation 추가. 전용 비공개 FS_GW_PREFLIGHT_DATABASE_URL, 현재 설정과 일치하는 --expected-head, 명시적 회사/JOURNAL_OBSERVATION 키 용도가 필요하며 모든 모드에서 무범위 키를 거부한다. 발급은 새0600 파일, 재검증에는 발급 개인키 불필요. PARTIAL/종료0, BLOCKED/종료2, 오류/종료1. 기존 검사 옵션과 혼용을 거부하고 일반 DATABASE_URL을 자동 사용하지 않는다. 기존 검사 경로는 유지한다.
+- 단순 verify는 서명/범위/제품/15분 기한만 확인한다. verify_current는 새 DB/암호화 기록/현재 키 권한/기준/집계까지 대조한다. 정책/물리DB/키/감사/거래 상태·끝 지문이 바뀌면 과거 파일을 검색해 대신 통과시키지 않는다. 관측 실행 이력의 최신 등록 저장/선택과 기존 ACCEPTANCE 수집/등록/재조회 연결은 다음 작업이다. 현재 파일은 제품 실행 증거 API가400으로 거부한다. 전체 인수 PASS·ready=false/최종4조건 미확인·실제 복원 PARTIAL은 그대로다.
+- 검증: 관련 단위315통과(기존 경고2). 새 소유 PostgreSQL/ASGI·실CLI/기존 기록 회귀13통과113.72초, 회사/세대 제외·관측 도중 지문 변경 추가2통과17.45초(각 기존 경고2), 총15개 별도 검사. 실제 커밋/롤백/진행 중·감사 없는 커밋/삭제·거래 근거 없는 기록·정책/지문/변조·서명/현재 재검증·API 오등록400/최종4조건 유지·실CLI 비공개 새 출력/덮어쓰기 거부/개인키 없는 재검증·PostgreSQL 쓰기 거부·다른 범위 원문 비노출을 확인했다. 새 시험DB만 정리, 관측 시험DB0·preview DB존재 읽기 확인. 합성 회사의 실제 기록 검증이며 실회사/기기/10인 인수가 아니다.
+- 도움말18·Ruff check/format·정적DB219/2409/543·R1–R6 오류0. 스키마/마이그레이션/Excel/ERD 변경 없음. 전체CI/전체회귀·고정24실수집/실dump복원 재실행·브라우저/실외부 저장소/실회사·기기/10인 실인수 미실행. 실제 계정/admin·비밀번호/OTP/키·미리보기 정책/업무 데이터 변경 없음. 다른 checkout/main/원격push/배포 변경 없음.
+- 다음: 서명 관측의 현재/최신 원본 대조를 기존 ACCEPTANCE PARTIAL 수집·등록·준비 재조회에 연결하되 전체 수집/PASS로 승격하지 않는다. 이후 나머지 유형별 실환경 어댑터/최종 인수 계약·공급자 선정 뒤 외부 장애복구·최신main/전체회귀·실회사10인/최종전환. 난이도 매우 높음, GPT-6 Astra + High 추천(서명/현재성·범위·부분/최종 판정 경계). 모델 자동 변경 없음.
+
+재현(저장소 루트):
+```sh
+uv run --project backend pytest backend/tests/test_gw_journal_observation.py backend/tests/test_gw_evidence_trust.py backend/tests/test_gw_acceptance_sources.py backend/tests/test_gw_business_observation.py backend/tests/test_gw_acceptance_preflight.py backend/tests/test_gw_acceptance_reconciliation.py backend/tests/test_gw_route_verify.py backend/tests/test_gw_journal_routes.py backend/tests/test_gw_journal_coverage.py backend/tests/test_journal_review.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short
+# 소유 컨테이너ID/owner/loopback 확인·새 *_test DB에만 동일 DATABASE_URL/TEST_DATABASE_URL 비공개 주입:
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_journal_observation_db.py backend/tests/test_gw_identity_journal.py -q --tb=short
+```
+새 시험 DB만 정리하며 기존 gw_preview_test를 초기화하지 않는다. 운영 절차는 `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §15. 비밀/전체로그/work를 Git에 넣지 않는다. 마지막 커밋은 `git log -1`.
