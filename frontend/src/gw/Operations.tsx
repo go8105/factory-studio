@@ -88,6 +88,23 @@ type State = {
     label: string;
     state: string;
     detail: string;
+    restoreRecheck?: {
+      checkedAt: string;
+      result: "PARTIAL" | "BLOCKED";
+      targetMeasured: boolean;
+      stateMatchesExecution: boolean | null;
+      reason: "MEASURED" | "MEASUREMENT_UNAVAILABLE";
+      measurement?: {
+        unrevokedSessions: number;
+        pendingChallenges: number;
+        coreViolations: number;
+        gwViolations: number;
+        hrViolations: number;
+        journalUserViolations: number;
+        connectionLimitZero: boolean;
+        publicConnectRevoked: boolean;
+      };
+    };
     journalObservation?: {
       observedAt: string;
       scopeRecords: number;
@@ -334,6 +351,91 @@ export function Operations() {
                       </dt>
                       <dd>
                         {check.detail}
+                        {check.restoreRecheck && (
+                          <details>
+                            <summary>복원본 최근 재관측</summary>
+                            <p>
+                              관측 시각:{" "}
+                              {new Date(
+                                check.restoreRecheck.checkedAt,
+                              ).toLocaleString("ko-KR")}
+                            </p>
+                            <p>
+                              서명 관측의 유효 기한은 15분입니다. 관측 이후의
+                              상태를 연속 감시하지 않습니다.
+                            </p>
+                            {check.restoreRecheck.measurement ? (
+                              <>
+                                <p>
+                                  회수되지 않은 세션{" "}
+                                  {
+                                    check.restoreRecheck.measurement
+                                      .unrevokedSessions
+                                  }
+                                  건 · 남은 인증 요청{" "}
+                                  {
+                                    check.restoreRecheck.measurement
+                                      .pendingChallenges
+                                  }
+                                  건
+                                </p>
+                                <p>
+                                  제한 불일치: 공통{" "}
+                                  {
+                                    check.restoreRecheck.measurement
+                                      .coreViolations
+                                  }
+                                  건 · GW{" "}
+                                  {
+                                    check.restoreRecheck.measurement
+                                      .gwViolations
+                                  }
+                                  건 · 인사{" "}
+                                  {
+                                    check.restoreRecheck.measurement
+                                      .hrViolations
+                                  }
+                                  건 · 변경 기록 사용자{" "}
+                                  {
+                                    check.restoreRecheck.measurement
+                                      .journalUserViolations
+                                  }
+                                  건
+                                </p>
+                                <p>
+                                  접속수 0 제한{" "}
+                                  {check.restoreRecheck.measurement
+                                    .connectionLimitZero
+                                    ? "확인"
+                                    : "미통과"}{" "}
+                                  · 공개 접속 회수{" "}
+                                  {check.restoreRecheck.measurement
+                                    .publicConnectRevoked
+                                    ? "확인"
+                                    : "미통과"}
+                                </p>
+                                {check.restoreRecheck.stateMatchesExecution ===
+                                  false && (
+                                  <p>
+                                    복원 직후와 상태 지문이 다릅니다. 제한 대조
+                                    결과와 변경 원인을 함께 확인하세요.
+                                  </p>
+                                )}
+                              </>
+                            ) : (
+                              <p>
+                                복원본을 측정하지 못했습니다. 연결 상태를
+                                조사하고 새 관측을 실행하세요. 측정값을 0건으로
+                                간주하지 않습니다.
+                              </p>
+                            )}
+                            <p>
+                              운영 담당자가 원인을 확인한 뒤 새 관측과 인수
+                              점검을 등록하세요. 전체 권한 회수·실회사 인수·운영
+                              전환은 별도 확인이 필요합니다.
+                            </p>
+                          </details>
+                        )}
                         {check.journalObservation && (
                           <details>
                             <summary>회사 변경 기록 관측 내용</summary>

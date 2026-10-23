@@ -5,11 +5,14 @@ import hashlib
 import importlib.util
 import json
 from copy import deepcopy
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from test_gw_acceptance_collection import fixture, registered_fixture, signed
+from test_gw_operating_contract import NOW
+
 from fs.common.errors import ApiError
 from fs.gw.acceptance_reconciliation import (
     sign_reconciliation,
@@ -18,8 +21,6 @@ from fs.gw.acceptance_reconciliation import (
 from fs.gw.launch_gate import build
 from fs.gw.operating_contract import EvidenceEnvelope, canonical, verify_evidence
 from fs.gw.readiness import SOURCE_FIELD, assess
-from test_gw_acceptance_collection import fixture, registered_fixture, signed
-from test_gw_operating_contract import NOW
 
 
 def proof_fixture():
@@ -335,3 +336,28 @@ def test_future_reconciliation_keeps_clock_warning_even_when_sources_match():
     row["signature"] = base64.b64encode(key.sign(canonical(payload))).decode()
     check = assessed(rows, ctx)[2]
     assert check["state"] == "STALE" and "미래" in check["detail"]
+
+
+@pytest.mark.parametrize("seconds,allowed", [(30, True), (31, False)])
+def test_backup_restore_clock_tolerance_is_bounded(seconds, allowed):
+    key, payloads, ctx = fixture()
+    payloads["RESTORE"]["startedAt"] = (
+        datetime.fromisoformat(payloads["BACKUP"]["finishedAt"])
+        - timedelta(seconds=seconds)
+    ).isoformat()
+    payloads["RESTORE"]["finishedAt"] = (
+        datetime.fromisoformat(payloads["RESTORE"]["startedAt"])
+        + timedelta(seconds=240)
+    ).isoformat()
+    if allowed:
+        assert (
+            sign_reconciliation(
+                signed(payloads, key), signer=key, signer_id="runner-1", **ctx
+            )["envelope"]["result"]
+            == "PARTIAL"
+        )
+    else:
+        with pytest.raises(ApiError):
+            sign_reconciliation(
+                signed(payloads, key), signer=key, signer_id="runner-1", **ctx
+            )

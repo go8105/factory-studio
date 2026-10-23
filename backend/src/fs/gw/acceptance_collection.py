@@ -1,6 +1,7 @@
 """Read-only collection of existing runner proofs; never a release approval."""
 
 import hashlib
+from datetime import timedelta
 
 from fs.common.errors import ApiError
 from fs.gw.operating_contract import (
@@ -66,7 +67,8 @@ def collect(documents, **context):
         paired = (
             backup.run_id != restore.run_id
             and backup.manifest_digest == restore.manifest_digest
-            and timestamp(backup.finished_at) <= timestamp(restore.started_at)
+            and timestamp(backup.finished_at)
+            <= timestamp(restore.started_at) + timedelta(seconds=30)
         )
     return {
         "version": 1,

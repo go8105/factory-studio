@@ -49,10 +49,12 @@ from fs.gw.acceptance_artifact import MAX_ARTIFACT_BYTES, inspect_copy
 from fs.gw.evidence_trust import authorize, from_environment
 from fs.gw.operating_contract import (
     EvidenceEnvelope,
+    ObservedRestoreDiagnostics,
     OperatingPolicy,
     RestoreExecutionObservation,
     canonical,
     timestamp,
+    verify_evidence,
 )
 from fs.hr import backup as hr_checkpoint
 from sqlalchemy import create_engine, text
@@ -447,13 +449,14 @@ def checkpoint(*, url, artifact, output, head, config):
         engine.dispose()
 
 
-def observe_restoration(c, *, manifest, changes, checkpoint_digest):
+def observe_restoration(c, *, manifest, changes, checkpoint_digest, observed_at=None):
     """Observe after replay commits, in a separate read-only snapshot.
 
     This is an execution-time observation, not a current-target query by the
     product server or proof of complete route collection/employee isolation.
     """
-    observed_at = snapshot(c)
+    if observed_at is None:
+        observed_at = snapshot(c)
     c.execute(text("SET LOCAL statement_timeout='15s'"))
     c.execute(text("SET LOCAL lock_timeout='3s'"))
     core = core_checkpoint.capture(c)
@@ -531,6 +534,133 @@ def observe_restoration(c, *, manifest, changes, checkpoint_digest):
             "currentTargetStateVerified": False,
         }
     ).model_dump(by_alias=True)
+
+
+def recheck_restore(
+    *,
+    url,
+    artifact,
+    checkpoint_file,
+    head,
+    expected_checkpoint_digest,
+    restore_document,
+    output,
+    config,
+):
+    """Read an existing target without replay/opening it; never fall back to source DB."""
+    from fs.gw.restore_recheck import require_trust, sign
+
+    preflight(output)
+    target_url = make_url(url)
+    if (
+        target_url.drivername not in {"postgresql", "postgresql+psycopg"}
+        or not target_url.host
+        or not target_url.username
+        or not re.fullmatch(
+            r"fs_gw_restore_[0-9a-f]{32}_test", target_url.database or ""
+        )
+        or not re.fullmatch(r"[0-9a-f]{64}", expected_checkpoint_digest)
+    ):
+        raise BackupError("전용 격리 복원본 접속과 권한 대조 지문이 필요합니다.")
+    with tempfile.TemporaryDirectory(
+        prefix=".fs-recheck-", dir=private_directory(output.parent)
+    ) as folder:
+        temp = Path(folder)
+        manifest = unpack(artifact, temp, config, kind="BACKUP")
+        (temp / "checkpoint").mkdir(mode=0o700)
+        changes = unpack(
+            checkpoint_file, temp / "checkpoint", config, kind="CHECKPOINT"
+        )
+        digest = sha256_file(private_file(checkpoint_file))
+        latest = verified_document(json.loads(private_file(head).read_bytes()), config)
+        context = {
+            "workspace_id": int(manifest["scope"]["workspaceId"]),
+            "generation_id": int(manifest["scope"]["generationId"]),
+            "policy": OperatingPolicy.model_validate(manifest["scope"]["policy"]),
+            "code_revision": config["codeRevision"],
+            "db_revision": manifest["dbRevision"],
+            "public_keys": config["public"],
+            "now": datetime.now(UTC),
+        }
+        require_trust(
+            config["public"], config["signerId"], manifest["scope"]["workspaceId"]
+        )
+        data = verify_evidence(
+            restore_document["envelope"], restore_document["signature"], **context
+        )
+        if (
+            data.kind != "RESTORE"
+            or data.result != "PARTIAL"
+            or not isinstance(
+                data.metrics.restore_diagnostics, ObservedRestoreDiagnostics
+            )
+        ):
+            raise BackupError("서명된 복원 직후 관측 원본이 필요합니다.")
+        original = data.metrics.restore_diagnostics.execution_observation
+        if (
+            hashlib.sha256(canonical(manifest)).hexdigest() != data.manifest_digest
+            or digest != expected_checkpoint_digest
+            or digest != original.checkpoint_digest
+            or hashlib.sha256(canonical(changes)).hexdigest()
+            != original.checkpoint_manifest_digest
+            or manifest["runId"] != original.backup_run_id
+            or changes["runId"] != original.checkpoint_run_id
+            or changes["backupRunId"] != manifest["runId"]
+            or changes["sourceIdentity"] != manifest["sourceIdentity"]
+            or changes.get("scope") != bundle_scope(manifest)
+            or latest
+            != {
+                "version": 1,
+                "kind": "CHECKPOINT_HEAD",
+                "scope": bundle_scope(manifest),
+                "backupRunId": manifest["runId"],
+                "runId": changes["runId"],
+                "checkpointDigest": digest,
+                "capturedAt": changes["capturedAt"],
+            }
+        ):
+            raise BackupError("복원 원본과 권한 대조 파일·최신 지문이 다릅니다.")
+        engine = create_engine(
+            target_url.set(drivername="postgresql+psycopg"),
+            connect_args={"connect_timeout": 10},
+        )
+        measurement = None
+        try:
+            try:
+                with engine.connect() as c, c.begin():
+                    observed_at = snapshot(c)
+                    if database_identity(c) != original.target_identity:
+                        raise BackupError(
+                            "지정한 접속이 원본 증거의 복원본과 다릅니다."
+                        )
+                    measurement = observe_restoration(
+                        c,
+                        manifest=manifest,
+                        changes=changes,
+                        checkpoint_digest=digest,
+                        observed_at=observed_at,
+                    )
+            except SQLAlchemyError:
+                # No measurement is inferred from a connection/permission/schema error.
+                measurement = None
+        finally:
+            engine.dispose()
+        checked_at = measurement["observedAt"] if measurement is not None else now()
+        context["now"] = timestamp(checked_at)
+        document = sign(
+            restore_document,
+            measurement=measurement,
+            checked_at=checked_at,
+            signer=config["signer"],
+            signer_id=config["signerId"],
+            **context,
+        )
+    write_json(output, document)
+    return {
+        "result": document["envelope"]["result"],
+        "ready": False,
+        "targetMeasured": measurement is not None,
+    }
 
 
 def observed_restore_diagnostics(observation, journal):
@@ -995,6 +1125,13 @@ def main():
     p.add_argument("--evidence", type=Path, required=True)
     p = sub.add_parser("check")
     p.add_argument("--backup", type=Path, required=True)
+    p = sub.add_parser("recheck-restore")
+    p.add_argument("--backup", type=Path, required=True)
+    p.add_argument("--checkpoint", type=Path, required=True)
+    p.add_argument("--head", type=Path, required=True)
+    p.add_argument("--expected-checkpoint-digest", required=True)
+    p.add_argument("--restore-evidence", type=Path, required=True)
+    p.add_argument("--output", type=Path, required=True)
     p = sub.add_parser("verify-copy")
     p.add_argument("--backup", type=Path, required=True)
     p.add_argument("--backup-evidence", type=Path, required=True)
@@ -1038,7 +1175,20 @@ def main():
             print(json.dumps(result))
             return
         config = settings()
-        if args.command == "backup":
+        if args.command == "recheck-restore":
+            from gw_acceptance_collect import load
+
+            result = recheck_restore(
+                url=os.environ["FS_GW_RECHECK_DATABASE_URL"],
+                artifact=args.backup,
+                checkpoint_file=args.checkpoint,
+                head=args.head,
+                expected_checkpoint_digest=args.expected_checkpoint_digest,
+                restore_document=load(args.restore_evidence),
+                output=args.output,
+                config=config,
+            )
+        elif args.command == "backup":
             result = backup(
                 url=os.environ["DATABASE_URL"],
                 company_id=args.company_id,
@@ -1084,6 +1234,8 @@ def main():
             "실행하지 못했습니다. 비공개 환경·키·도구 버전·파일·서명·권한 대조 기한을 확인하세요. 생성된 격리 DB와 결과 파일은 보존하며 원본 DB는 덮어쓰지 않습니다.\n",
         )
     print(json.dumps(result, ensure_ascii=False))
+    if args.command == "recheck-restore" and result["result"] != "PARTIAL":
+        raise SystemExit(2)
     if args.command == "check" and not result["current"]:
         raise SystemExit(3)
 

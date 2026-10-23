@@ -27,6 +27,7 @@ def sign_current(
     signer_id,
     admin_login="admin",
     journal_observation=None,
+    restore_recheck=None,
 ):
     validate_request(
         company_id=company_id, code_revision=code_revision, admin_login=admin_login
@@ -88,6 +89,7 @@ def sign_current(
             signer_id=signer_id,
             database_observed_at=preflight["observedAt"],
             journal_observation=journal_observation,
+            restore_recheck=restore_recheck,
             **context,
         )
         data = verify_evidence(document["envelope"], document["signature"], **context)

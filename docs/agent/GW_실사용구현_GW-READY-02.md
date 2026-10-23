@@ -485,3 +485,14 @@ uv run --project backend pytest backend/tests/test_gw_backup.py backend/tests/te
 PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/operations.test.tsx src/portal/content-pages.test.tsx --maxWorkers=2
 ```
 새로 만든 시험 DB만 정리하고 기존 gw_preview_test를 초기화하지 않는다. 운영 계약은 `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §17. 비밀번호/OTP/키/전체 로그/work를 Git에 넣지 않는다. 마지막 커밋은 `git log -1`.
+
+
+## 44차 — 기존 격리 복원본 재관측과 인수 진단v4 (2026-10-23)
+
+- 기존 복원 도구에 읽기 전용 `recheck-restore`를 추가했다. 원본 암호화 백업/권한 대조/서명 HEAD/RESTORE 관측을 대조하고, 새 READ ONLY/REPEATABLE READ 거래에서 같은 물리 복원본의 제한·세션·인증 요청·공개 접속/접속수 제한을 다시 읽는다. 다른 물리 DB·다른 명세/지문은 거부한다. 새 DB 생성·제한 변경·연결 개방·일반 DATABASE_URL 대체는 없다.
+- 명시적 회사/RESTORE_RECHECK 용도의 키로 새 관측을 서명한다. 최대15분/미래30초, 원본 전체 지문·백업/권한 대조 실행과 대상 물리 식별을 묶는다. 측정 불가는 measurement=null/targetMeasured=false/BLOCKED이며 0건으로 추정하지 않는다. 제한 위반은 BLOCKED, 제한 대조가 명확해도 PARTIAL이다. 상태 지문 불일치와 제한 위반을 구분한다. 회사 전체 회수·실회사·최종 전환/ready는 false다.
+- 현재 DB 수집기 `--restore-recheck`가 관측을 기존 ACCEPTANCE 진단v4에 연결한다. 변경 기록 관측도 함께 보존할 수 있다. 별도 ACCEPTANCE 발급 키와 최신 BACKUP/RESTORE 원본/현재 정책·버전을 다시 대조한다. 서버는 관측 서명/현재 원본을 검증하며 복원본 자격정보를 보유하거나 직접/연속 조회하지 않는다. 단독 재관측 문서는 API400이다. 성공 부분은 PARTIAL, 위반/측정 불가는 FAIL이며 PASS는 여전히 거부한다.
+- 새 등록에서는 기존 관측 유형을 생략할 수 없다. 실패/다른 정책/원본 없는 이력까지 조회하며 최신 ACCEPTANCE 등록 이후 관측만 받는다. 시계 허용 범위에서 같은 관측을 반복 등록하지 못하도록 두 관측 유형 모두 실행 번호 재사용도 거부한다. 미등록 파일 전체의 최신성을 보증하지 않는다. 백업 DB 시각과 복원 실행자 시각 비교는 기존 복원 계약과 같은30초로 제한했고31초 거부 경계를 추가했다.
+- 기존 운영 준비의 실행 증거 영역에 최근 복원본 관측 시각·잔여 항목·격리 제한·측정 불가·지문 변화/다음 조치를 펼쳐 보도록 보완했다. 기존 업무/회사/관리 맥락과 정적 도움말을 유지한다. UI 전체 완성이나 실제 브라우저 인수로 표현하지 않는다. `admin` 로그인 이름만으로 GW 보안/발급 권한을 부여하지 않는다.
+- 검증 결과와 재현 명령은 같은 날짜 `docs/progress.md`·`docs/agent/HANDOFF.md` 최신 기록을 따른다. 스키마/마이그레이션/Excel/ERD 변경 없음. 실제 복원 PARTIAL/ready=false/최종4조건 UNVERIFIED 유지. 외부 공급자/외부 장애복구·최신 권한 대조 이후 미수집 변경의 완전성/전체 회수·실회사10인/최종 운영 전환·main/전체회귀는 남아 있다.
+- 다음: 원래 복원에 사용한 권한 대조 이후의 새 변경을 감지하는 현재 원본/최신 체크포인트 대조 계약을 구현한다. 이후 외부 공급자 선정과 나머지 최종 인수 증거·통합/전체회귀·실회사10인 인수로 진행한다. 난이도 매우 높음, GPT-6 Astra + High 추천. 모델 자동 변경 없음.

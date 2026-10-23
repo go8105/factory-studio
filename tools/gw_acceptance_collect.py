@@ -36,6 +36,10 @@ def main():
     parser.add_argument("--backup", help="기존 백업 도구의 서명 증거")
     parser.add_argument("--restore", help="기존 복원 도구의 서명 증거")
     parser.add_argument(
+        "--restore-recheck",
+        help="현재 복원본 재관측 서명0600 파일 (현재DB 서명 수집 전용)",
+    )
+    parser.add_argument(
         "--journal-observation",
         help="현재 회사 변경 기록의 서명 관측0600 파일 (현재DB 서명 수집 전용)",
     )
@@ -71,6 +75,7 @@ def main():
             not all((args.context, args.backup, args.restore))
             or args.admin_login != "admin"
             or args.journal_observation
+            or args.restore_recheck
         ):
             raise ValueError()
         path = Path(args.output)
@@ -106,6 +111,9 @@ def main():
                 signer_id=os.environ["FS_GW_RUNNER_KEY_ID"],
                 journal_observation=load(args.journal_observation)
                 if args.journal_observation
+                else None,
+                restore_recheck=load(args.restore_recheck)
+                if args.restore_recheck
                 else None,
             )
         else:

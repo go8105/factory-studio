@@ -15,6 +15,7 @@ PURPOSES = frozenset(
         "ACCEPTANCE_RECONCILIATION",
         "INCIDENT",
         "JOURNAL_OBSERVATION",
+        "RESTORE_RECHECK",
     }
 )
 
@@ -28,6 +29,7 @@ def purpose(kind):
         "ACCEPTANCE": "ACCEPTANCE_RECONCILIATION",
         "INCIDENT": "INCIDENT",
         "JOURNAL_OBSERVATION": "JOURNAL_OBSERVATION",
+        "RESTORE_RECHECK": "RESTORE_RECHECK",
     }.get(kind)
 
 

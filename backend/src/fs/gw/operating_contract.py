@@ -277,11 +277,40 @@ class JournalAcceptanceDiagnostics(RegisteredAcceptanceDiagnostics):
         return value
 
 
+class RestoreRecheckDocument(StrictModel):
+    envelope: dict
+    signature: str = Field(max_length=100)
+
+    @model_validator(mode="after")
+    def recheck_contract(self):
+        from fs.gw.restore_recheck import RestoreRecheck
+
+        RestoreRecheck.model_validate(self.envelope)
+        return self
+
+
+class RecheckedAcceptanceDiagnostics(RegisteredAcceptanceDiagnostics):
+    version: Literal[4]
+    scope: Literal["CURRENT_REGISTERED_SOURCES_AND_RESTORE_RECHECK"]
+    restore_recheck: RestoreRecheckDocument = Field(alias="restoreRecheck")
+    journal_observation: JournalObservationDocument | None = Field(
+        None, alias="journalObservation"
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def integer_version(cls, value):
+        if isinstance(value, dict) and type(value.get("version")) is not int:
+            raise ValueError("invalid rechecked acceptance version")
+        return value
+
+
 class EvidenceMetrics(StrictModel):
     acceptance_diagnostics: (
         AcceptanceDiagnostics
         | RegisteredAcceptanceDiagnostics
         | JournalAcceptanceDiagnostics
+        | RecheckedAcceptanceDiagnostics
         | None
     ) = Field(None, alias="acceptanceDiagnostics")
     restore_diagnostics: RestoreDiagnostics | ObservedRestoreDiagnostics | None = Field(
@@ -338,7 +367,13 @@ class EvidenceEnvelope(StrictModel):
             ) != timestamp(self.started_at):
                 raise ValueError("DB 관측 시각과 인수 실행 시작이 다릅니다.")
             expected_result = "PARTIAL"
-            if isinstance(acceptance, JournalAcceptanceDiagnostics):
+            if (
+                isinstance(
+                    acceptance,
+                    (JournalAcceptanceDiagnostics, RecheckedAcceptanceDiagnostics),
+                )
+                and acceptance.journal_observation is not None
+            ):
                 observation = acceptance.journal_observation.envelope
                 expected_result = (
                     "FAIL" if observation["result"] == "BLOCKED" else "PARTIAL"
@@ -351,6 +386,20 @@ class EvidenceEnvelope(StrictModel):
                     raise ValueError("관측 실행 번호를 재사용할 수 없습니다.")
                 if timestamp(observation["observedAt"]) > timestamp(self.started_at):
                     raise ValueError("인수 시작 이후의 관측을 참조할 수 없습니다.")
+            if isinstance(acceptance, RecheckedAcceptanceDiagnostics):
+                recheck = acceptance.restore_recheck.envelope
+                if recheck["runId"] in {
+                    self.run_id,
+                    acceptance.backup.run_id,
+                    acceptance.restore.run_id,
+                } or (
+                    acceptance.journal_observation is not None
+                    and recheck["runId"]
+                    == acceptance.journal_observation.envelope["runId"]
+                ):
+                    raise ValueError("인수 재관측 실행 번호를 재사용할 수 없습니다.")
+                if recheck["result"] == "BLOCKED":
+                    expected_result = "FAIL"
             if self.kind != "ACCEPTANCE" or self.result != expected_result:
                 raise ValueError(
                     "원본 대조 진단은 인수 일부 확인·미통과에만 허용합니다."
@@ -479,7 +528,13 @@ def verify_evidence(
             db_revision=db_revision,
         ):
             raise ValueError("current database snapshot context mismatch")
-        if isinstance(diagnostic, JournalAcceptanceDiagnostics):
+        if (
+            isinstance(
+                diagnostic,
+                (JournalAcceptanceDiagnostics, RecheckedAcceptanceDiagnostics),
+            )
+            and diagnostic.journal_observation is not None
+        ):
             from fs.gw.journal_observation import verify
 
             observed = verify(
@@ -496,6 +551,23 @@ def verify_evidence(
                 or observed.context_digest != diagnostic.context_digest
             ):
                 raise ValueError("journal observation context mismatch")
+        if isinstance(diagnostic, RecheckedAcceptanceDiagnostics):
+            from fs.gw.restore_recheck import verify_signature
+
+            rechecked = verify_signature(
+                diagnostic.restore_recheck.model_dump(),
+                public_keys=public_keys,
+                workspace_id=workspace_id,
+                generation_id=generation_id,
+                policy=policy,
+                code_revision=code_revision,
+                db_revision=db_revision,
+                now=now,
+            )
+            if rechecked.restore != diagnostic.restore or timestamp(
+                rechecked.checked_at
+            ) > timestamp(data.started_at) + timedelta(seconds=30):
+                raise ValueError("recheck reference or observation time mismatch")
         if data.result == "PASS":
             _validate_pass(data, policy)
         return data

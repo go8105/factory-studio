@@ -463,3 +463,62 @@ it("복원 직후 제한 관측을 현재 복원본이나 전체 회수 완료�
     screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),
   ).toBeVisible();
 });
+
+it.each([true, false])(
+  "복원본 재관측의 측정 여부 %s와 다음 조치를 표시한다",
+  async (measured) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      response({
+        ...initial,
+        evidenceChecks: [
+          {
+            kind: "ACCEPTANCE",
+            label: "실환경 업무 인수",
+            state: "FAILED",
+            detail: "재관측 미통과",
+            restoreRecheck: {
+              checkedAt: "2026-10-23T04:00:00Z",
+              result: "BLOCKED",
+              targetMeasured: measured,
+              stateMatchesExecution: measured ? false : null,
+              reason: measured ? "MEASURED" : "MEASUREMENT_UNAVAILABLE",
+              ...(measured
+                ? {
+                    measurement: {
+                      unrevokedSessions: 1,
+                      pendingChallenges: 0,
+                      coreViolations: 0,
+                      gwViolations: 0,
+                      hrViolations: 0,
+                      journalUserViolations: 0,
+                      connectionLimitZero: true,
+                      publicConnectRevoked: true,
+                    },
+                  }
+                : {}),
+            },
+          },
+        ],
+      }),
+    );
+    show();
+    const summary = await screen.findByText("복원본 최근 재관측");
+    fireEvent.click(summary);
+    const detail = summary.closest("details")!;
+    expect(within(detail).getByText(/유효 기한은 15분/)).toBeVisible();
+    expect(
+      within(detail).getByText(
+        measured
+          ? /회수되지 않은 세션 1건/
+          : /측정값을 0건으로 간주하지 않습니다/,
+      ),
+    ).toBeVisible();
+    expect(
+      within(detail).getByText(/새 관측과 인수 점검을 등록/),
+    ).toBeVisible();
+    if (!measured) expect(within(detail).queryByText(/세션 0건/)).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),
+    ).toBeVisible();
+  },
+);

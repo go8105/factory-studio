@@ -6,6 +6,7 @@ from fs.common.errors import ApiError
 from fs.gw.operating_contract import (
     EvidenceEnvelope,
     JournalAcceptanceDiagnostics,
+    RecheckedAcceptanceDiagnostics,
     RegisteredAcceptanceDiagnostics,
     backup_is_current,
     timestamp,
@@ -34,6 +35,7 @@ def assess(
     checks = []
     for kind, label in LABELS.items():
         observation = None
+        recheck_summary = None
         row = next((r for r in rows if r["kind"] == kind), None)
         state, detail, verified = "MISSING", "등록된 실행 기록이 없습니다.", False
         if policy is None:
@@ -71,9 +73,16 @@ def assess(
                         RegisteredAcceptanceDiagnostics,
                     ):
                         detail = "DB 관측의 현재 기준과 최신 백업·복원 등록 원본을 재검증했습니다. 외부 보관·전체 회수·실회사·최종 전환은 미확인입니다."
-                    if isinstance(
-                        data.metrics.acceptance_diagnostics,
-                        JournalAcceptanceDiagnostics,
+                    if (
+                        isinstance(
+                            data.metrics.acceptance_diagnostics,
+                            (
+                                JournalAcceptanceDiagnostics,
+                                RecheckedAcceptanceDiagnostics,
+                            ),
+                        )
+                        and data.metrics.acceptance_diagnostics.journal_observation
+                        is not None
                     ):
                         saved = data.metrics.acceptance_diagnostics.journal_observation.envelope
                         counts = saved["dispositions"]
@@ -94,6 +103,42 @@ def assess(
                             if state == "PARTIAL"
                             else "최근 관측에 미확인 거래 또는 기록이 남아 인수 점검이 미통과입니다. 원인을 조사한 뒤 새 관측으로 점검하세요."
                         )
+                    if isinstance(
+                        data.metrics.acceptance_diagnostics,
+                        RecheckedAcceptanceDiagnostics,
+                    ):
+                        saved = (
+                            data.metrics.acceptance_diagnostics.restore_recheck.envelope
+                        )
+                        recheck_summary = {
+                            k: saved[k]
+                            for k in (
+                                "checkedAt",
+                                "result",
+                                "targetMeasured",
+                                "stateMatchesExecution",
+                                "reason",
+                            )
+                        }
+                        if saved["measurement"] is not None:
+                            recheck_summary["measurement"] = {
+                                k: saved["measurement"][k]
+                                for k in (
+                                    "unrevokedSessions",
+                                    "pendingChallenges",
+                                    "coreViolations",
+                                    "gwViolations",
+                                    "hrViolations",
+                                    "journalUserViolations",
+                                    "connectionLimitZero",
+                                    "publicConnectRevoked",
+                                )
+                            }
+                        detail = (
+                            "최근 서명 관측 시점의 복원본 제한과 최신 등록 원본을 대조했습니다. 관측 유효 기한은15분이며 현재까지 연속 감시한 결과는 아닙니다."
+                            if state == "PARTIAL"
+                            else "최근 복원본 재관측이 미통과이거나 측정 불가입니다. 원인을 조사하고 새 관측을 등록하세요."
+                        )
 
                 except ApiError, ValueError, TypeError, KeyError:
                     state, verified = "INVALID", False
@@ -108,6 +153,11 @@ def assess(
                 **(
                     {"journalObservation": observation}
                     if observation is not None
+                    else {}
+                ),
+                **(
+                    {"restoreRecheck": recheck_summary}
+                    if recheck_summary is not None
                     else {}
                 ),
             }

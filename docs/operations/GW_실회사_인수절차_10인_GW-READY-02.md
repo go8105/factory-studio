@@ -291,3 +291,29 @@ uv run --project backend python tools/gw_acceptance_collect.py \
 운영 준비의 **최근 복원 검사 내용 → 복원 직후 제한 재대조**에서 관측 시각·남은 세션/인증 요청·제한 불일치를 읽는다. 이는 서명된 실행 시점의 관측이며 현재 복원본을 제품 API가 다시 조회한 결과가 아니다(`currentTargetStateVerified=false`). 관측 후 복원본의 권한/격리 상태가 달라졌는지 재검증하는 별도 어댑터는 후속이다. PUBLIC CONNECT/접속수0은 일반 접속 제한이며 superuser·운영 앱/worker·네트워크 차단 전체를 증명하지 않는다.
 
 모든 집계가0이어도 PARTIAL이며 `revocationsComplete`, `revocationsReapplied`, `checkpointCompletenessConfirmed`, `twoAccountChecks`, `ready`를 완료로 바꾸지 않는다. 외부 저장소·전체 변경 수집/권한 회수·실회사/기기·최종 전환4조건은 미확인이다. 실제 회사10인 인수와 최신main/전체 회귀·최종 PASS 계약은 별도로 남는다. 스키마/마이그레이션/Excel/ERD 변경 없음.
+
+
+## 18. 기존 격리 복원본의 신선한 읽기 재관측 (44차)
+
+- 기존 `tools/gw_backup.py recheck-restore`는 새 복원을 만들거나 기존 복원본의 접근 제한을 바꾸지 않는다. 전용 `FS_GW_RECHECK_DATABASE_URL`의 `fs_gw_restore_<UUID32>_test`만 읽는다. 일반 `DATABASE_URL`이나 관리자 URL을 자동 대체하지 않는다. 실제 운영 DB/계정으로 시험하지 않는다.
+- 원본 BACKUP 암호화 묶음, CHECKPOINT와 별도 서명 HEAD/기대 지문, 서명 RESTORE 진단v2 원본이 필요하다. 전체 명세/파일 지문·실행 번호·회사/세대/정책/제품/DB 버전을 대조한 뒤 READ ONLY/REPEATABLE READ 거래에서 물리 복원본 식별을 먼저 확인하고 제한·세션·인증 요청을 다시 읽는다. 다른 물리 DB는 출력 없이 거부한다.
+- 새 RESTORE_RECHECK 회사/용도 범위의 발급 키를 사용한다. ACCEPTANCE_RECONCILIATION 발급 키는 별도로 유지한다. 비공개 키와 URL을 명령행/채팅/Git에 적지 않는다. 기존 보안 설정과 신뢰 공개 키도 필요하다. 출력은0700 폴더 안의 새0600 파일이며 덮어쓰지 않는다.
+
+```sh
+# 환경 변수는 별도 비공개 실행 환경에 주입한다. 예시 경로는 모두 합성이다.
+uv run --project backend python tools/gw_backup.py recheck-restore \
+  --backup /private/gw/database.fsbackup \
+  --checkpoint /private/gw/latest.fsbackup --head /private/gw/head.json \
+  --expected-checkpoint-digest "$GW_CHECKPOINT_DIGEST" \
+  --restore-evidence /private/gw/restore.json --output /private/gw/recheck-new.json
+# 별도 ACCEPTANCE 발급 키와 원본 회사용 FS_GW_PREFLIGHT_DATABASE_URL로 전환 후:
+uv run --project backend python tools/gw_acceptance_collect.py \
+  --current-company-id 3 --signed-reconciliation \
+  --restore-recheck /private/gw/recheck-new.json --output /private/gw/acceptance-new.json
+```
+
+- 제한 대조가 명확한 경우에도 재관측 PARTIAL/종료0이다. 잔여 세션/권한·공개 접속/접속수 제한 불일치는 BLOCKED/종료2이며 ACCEPTANCE FAIL로 연결한다. 연결/권한/스키마 오류는 measurement=null/targetMeasured=false로 서명하고 미통과로 남긴다. 도구는 연결을 열거나 제한을 재적용하지 않는다. 사전 계약/다른 물리 대상 오류는 종료1/출력 없음이다.
+- 서명 관측은 최대15분, 미래 허용30초이며 단일 시점의 일부 확인이다. `stateMatchesExecution`은 상태 지문 일치 여부이고 불일치만으로 권한이 늘었다고 단정하지 않는다. 새 제한 대조가 명확해도 전체 회수·실회사/전환 확인은 false다. 원래 권한 대조 이후 발생한 미수집 변경의 완전성을 증명하지 않는다.
+- 수집기는 최신 등록 BACKUP/RESTORE 전체 원본을 다시 선택해 ACCEPTANCE 진단v4에 재관측 문서를 연결한다. `--journal-observation`도 함께 사용할 수 있다. 한번 등록한 관측 유형은 새 등록에서 생략할 수 없고, 새 관측 시각은 최신 ACCEPTANCE 등록 시각보다 뒤여야 한다. 같은 관측 실행 번호의 재사용도 거부한다. 실행자/DB 시계 차이로 등록 시각을 아직 넘지 못하면 시계를 확인하고 그 이후 새 관측으로 재시도한다. 실패·다른 정책·원본 없는 이력도 유형 유지 판단에 포함한다. 원본 없는 기록/최신 실패·변조·옛 정책/제품·기한 경과를 과거 성공으로 대체하지 않는다.
+- 파일을 도구로 만들었다고 자동 등록되지 않는다. 재관측 단독 문서는 제품 실행 증거 API가400으로 거부한다. 기존 관리자 화면에서 수집기가 만든 ACCEPTANCE를 등록하고 최근 결과/관측 시각/측정 여부를 확인한다. 서버는 서명/원본을 검증하며 복원 DB에 직접 접속하거나 연속 감시하지 않는다. `admin` 로그인 이름은 보안 권한이나 발급 키 권한을 부여하지 않는다.
+- ready=false, 실제 복원 PARTIAL, 최종4조건 UNVERIFIED 유지. 외부 공급자 선정·실제 외부 장애복구·전체 변경 회수 완전성·실회사10인·최종 전환은 아직 남아 있다.

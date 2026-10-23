@@ -2,12 +2,14 @@
 
 import base64
 import hashlib
+from datetime import timedelta
 from uuid import uuid4
 
 from fs.gw.operating_contract import (
     AcceptanceDiagnostics,
     JournalAcceptanceDiagnostics,
     ObservedRestoreDiagnostics,
+    RecheckedAcceptanceDiagnostics,
     RegisteredAcceptanceDiagnostics,
     acceptance_context_digest,
     backup_is_current,
@@ -44,11 +46,14 @@ def reconcile(documents, **context):
         != backup.run_id
     ):
         raise evidence_error()
+    # BACKUP finishes on the DB clock; RESTORE starts on the runner clock.
+    # Use the same bounded skew as the restore contract.
     if (
         not backup_is_current(backup, context["policy"], context["now"])
         or backup.run_id == restore.run_id
         or backup.manifest_digest != restore.manifest_digest
-        or timestamp(backup.finished_at) > timestamp(restore.started_at)
+        or timestamp(backup.finished_at)
+        > timestamp(restore.started_at) + timedelta(seconds=30)
     ):
         raise evidence_error()
     return AcceptanceDiagnostics.model_validate(
@@ -96,6 +101,7 @@ def sign_reconciliation(
     signer_id,
     database_observed_at=None,
     journal_observation=None,
+    restore_recheck=None,
     **context,
 ):
     diagnostics = reconcile(documents, **context)
@@ -116,6 +122,20 @@ def sign_reconciliation(
                 "journalObservation": journal_observation,
             }
         )
+    if restore_recheck is not None:
+        from fs.gw.restore_recheck import verify
+
+        if database_observed_at is None:
+            raise evidence_error()
+        verify(restore_recheck, documents["RESTORE"], **context)
+        diagnostics = RecheckedAcceptanceDiagnostics.model_validate(
+            diagnostics.model_dump(by_alias=True)
+            | {
+                "version": 4,
+                "scope": "CURRENT_REGISTERED_SOURCES_AND_RESTORE_RECHECK",
+                "restoreRecheck": restore_recheck,
+            }
+        )
     diagnostics = diagnostics.model_dump(by_alias=True)
     payload = {
         "version": 1,
@@ -130,8 +150,14 @@ def sign_reconciliation(
         "dbRevision": context["db_revision"],
         "manifestDigest": hashlib.sha256(canonical(diagnostics)).hexdigest(),
         "result": "FAIL"
-        if journal_observation is not None
-        and journal_observation["envelope"]["result"] == "BLOCKED"
+        if (
+            journal_observation is not None
+            and journal_observation["envelope"]["result"] == "BLOCKED"
+        )
+        or (
+            restore_recheck is not None
+            and restore_recheck["envelope"]["result"] == "BLOCKED"
+        )
         else "PARTIAL",
         "signerKeyId": signer_id,
         "metrics": {"acceptanceDiagnostics": diagnostics},
@@ -190,7 +216,12 @@ def verify_registered_sources(data, rows, *, policy_id, connection=None, **conte
         expected = registered_diagnostics(
             expected, observed_at=diagnostic.observed_at, **context
         )
-    if isinstance(diagnostic, JournalAcceptanceDiagnostics):
+    if (
+        isinstance(
+            diagnostic, (JournalAcceptanceDiagnostics, RecheckedAcceptanceDiagnostics)
+        )
+        and diagnostic.journal_observation is not None
+    ):
         from cryptography.exceptions import InvalidSignature
 
         from fs.core.backup import BackupError
@@ -211,6 +242,24 @@ def verify_registered_sources(data, rows, *, policy_id, connection=None, **conte
                 "journalObservation": document,
             }
         )
+    if isinstance(diagnostic, RecheckedAcceptanceDiagnostics):
+        from cryptography.exceptions import InvalidSignature
+
+        from fs.gw.restore_recheck import verify
+
+        document = diagnostic.restore_recheck.model_dump()
+        try:
+            verify(document, documents["RESTORE"], **context)
+        except ValueError, TypeError, KeyError, InvalidSignature:
+            raise evidence_error() from None
+        expected = RecheckedAcceptanceDiagnostics.model_validate(
+            expected.model_dump(by_alias=True)
+            | {
+                "version": 4,
+                "scope": "CURRENT_REGISTERED_SOURCES_AND_RESTORE_RECHECK",
+                "restoreRecheck": document,
+            }
+        )
     if diagnostic != expected:
         raise evidence_error()
 
@@ -226,25 +275,52 @@ def require_new_observation(connection, data, *, workspace_id, generation_id):
     if data.kind != "ACCEPTANCE":
         return
     diagnostic = data.metrics.acceptance_diagnostics
+    journal = (
+        diagnostic.journal_observation
+        if isinstance(
+            diagnostic, (JournalAcceptanceDiagnostics, RecheckedAcceptanceDiagnostics)
+        )
+        else None
+    )
+    recheck = (
+        diagnostic.restore_recheck
+        if isinstance(diagnostic, RecheckedAcceptanceDiagnostics)
+        else None
+    )
     history = (
         connection.execute(
             text("""SELECT max(recorded_at) AS recorded_at,
-        coalesce(bool_or(metrics->'acceptanceDiagnostics'->>'version'='3'),false) AS journal_required
+        coalesce(bool_or(metrics->'acceptanceDiagnostics'->>'version'='3' OR (metrics->'acceptanceDiagnostics'->'journalObservation' IS NOT NULL AND metrics->'acceptanceDiagnostics'->'journalObservation' <> 'null'::jsonb)),false) AS journal_required,
+        coalesce(bool_or(metrics->'acceptanceDiagnostics'->>'version'='4'),false) AS recheck_required,
+        coalesce(bool_or(metrics->'acceptanceDiagnostics'->'journalObservation'->'envelope'->>'runId'=:journal_run),false) AS journal_reused,
+        coalesce(bool_or(metrics->'acceptanceDiagnostics'->'restoreRecheck'->'envelope'->>'runId'=:recheck_run),false) AS recheck_reused
         FROM gw.operating_evidence
         WHERE workspace_id=:w AND generation_id=:g AND kind='ACCEPTANCE'
         """),
-            {"w": workspace_id, "g": generation_id},
+            {
+                "w": workspace_id,
+                "g": generation_id,
+                "journal_run": journal.envelope["runId"] if journal else None,
+                "recheck_run": recheck.envelope["runId"] if recheck else None,
+            },
         )
         .mappings()
         .one()
     )
-    if not isinstance(diagnostic, JournalAcceptanceDiagnostics):
-        if history["journal_required"]:
-            raise evidence_error()
-        return
-    latest = history["recorded_at"]
-    if (
-        latest is not None
-        and timestamp(diagnostic.journal_observation.envelope["observedAt"]) <= latest
+    if history["journal_reused"] or history["recheck_reused"]:
+        raise evidence_error()
+    if history["recheck_required"] and not isinstance(
+        diagnostic, RecheckedAcceptanceDiagnostics
     ):
         raise evidence_error()
+    if journal is None and history["journal_required"]:
+        raise evidence_error()
+    latest = history["recorded_at"]
+    if latest is not None:
+        if journal is not None and timestamp(journal.envelope["observedAt"]) <= latest:
+            raise evidence_error()
+        if (
+            isinstance(diagnostic, RecheckedAcceptanceDiagnostics)
+            and timestamp(diagnostic.restore_recheck.envelope["checkedAt"]) <= latest
+        ):
+            raise evidence_error()
