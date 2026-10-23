@@ -311,3 +311,98 @@ export function CnStatusBadge({ status }: { status: CnStatus }) {
         : "warning";
   return <Badge tone={tone}>{CN_STATUS[status]}</Badge>;
 }
+
+export type NcrOrigin = "INCOMING" | "PROCESS" | "OUTGOING" | "CUSTOMER";
+export type NcrStatus = "OPEN" | "CLOSED";
+export type Ncr = {
+  id: number;
+  ncrNo: string;
+  origin: NcrOrigin;
+  itemCode: string;
+  lotNo: string | null;
+  qty: string;
+  defectTypeId: number | null;
+  defectCode: string | null;
+  defectName: string | null;
+  description: string;
+  immediateAction: string | null;
+  inspectionId: number | null;
+  inspectionNo: string | null;
+  claimId: number | null;
+  sourceRef: string | null;
+  reportedOn: string;
+  status: NcrStatus;
+  closedAt: string | null;
+  capaCount: number;
+  verifiedCount: number;
+  capas?: Capa[];
+};
+export type CapaKind = "CORRECTIVE" | "PREVENTIVE";
+export type CapaStatus = "OPEN" | "DONE" | "VERIFIED" | "INEFFECTIVE";
+export type Capa = {
+  id: number;
+  capaNo: string;
+  ncrId: number;
+  ncrNo: string;
+  itemCode: string;
+  kind: CapaKind;
+  rootCause: string;
+  action: string;
+  ownerName: string;
+  dueOn: string;
+  status: CapaStatus;
+  doneAt: string | null;
+  verifiedAt: string | null;
+  verificationNote: string | null;
+  ownerHrCode: string | null;
+};
+/** 공정 부적합의 근거 후보 = MES 공정 불량 1건(1b `defects`). */
+export type MesDefect = {
+  sourceRef: string;
+  lotNo: string;
+  itemCode: string;
+  itemName: string;
+  processCode: string;
+  defectQty: string;
+  unit: string;
+  reason: string | null;
+  confirmedAt: string;
+};
+
+export const NCR_ORIGIN: Record<NcrOrigin, string> = {
+  INCOMING: "수입",
+  PROCESS: "공정",
+  OUTGOING: "출하",
+  CUSTOMER: "고객",
+};
+export const NCR_STATUS: Record<NcrStatus, string> = {
+  OPEN: "미결",
+  CLOSED: "종결",
+};
+export const CAPA_KIND: Record<CapaKind, string> = {
+  CORRECTIVE: "시정",
+  PREVENTIVE: "예방",
+};
+export const CAPA_STATUS: Record<CapaStatus, string> = {
+  OPEN: "진행",
+  DONE: "완료",
+  VERIFIED: "유효 확인",
+  INEFFECTIVE: "무효",
+};
+
+export function NcrBadge({ status }: { status: NcrStatus }) {
+  return status === "CLOSED" ? (
+    <Badge tone="normal">종결</Badge>
+  ) : (
+    <Badge tone="warning">미결</Badge>
+  );
+}
+export function CapaBadge({ status }: { status: CapaStatus }) {
+  const tone =
+    status === "VERIFIED"
+      ? "normal"
+      : status === "INEFFECTIVE"
+        ? "issue"
+        : "warning";
+  return <Badge tone={tone}>{CAPA_STATUS[status]}</Badge>;
+}

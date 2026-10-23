@@ -566,6 +566,18 @@
           "group": "검사"
         },
         {
+          "path": "ncrs",
+          "id": "Q-07",
+          "label": "부적합 보고",
+          "group": "부적합"
+        },
+        {
+          "path": "capas",
+          "id": "Q-08",
+          "label": "시정·예방 조치",
+          "group": "부적합"
+        },
+        {
           "path": "specs",
           "id": "Q-02",
           "label": "검사 기준",

@@ -10,6 +10,8 @@ import { Specs } from "./Specs";
 import { DefectTypes } from "./DefectTypes";
 import { Gauges } from "./Gauges";
 import { ChangeNotices } from "./ChangeNotices";
+import { Ncrs } from "./Ncrs";
+import { Capas } from "./Capas";
 
 export default function QmsRoutes() {
   return (
@@ -24,6 +26,8 @@ export default function QmsRoutes() {
         <Route path="defect-types" element={<DefectTypes />} />
         <Route path="gauges" element={<Gauges />} />
         <Route path="change-notices" element={<ChangeNotices />} />
+        <Route path="ncrs" element={<Ncrs />} />
+        <Route path="capas" element={<Capas />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

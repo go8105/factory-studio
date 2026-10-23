@@ -13,6 +13,9 @@ from fs.common.page import Page
 from fs.qms import service
 from fs.qms.schema import (
     CalibrationCreate,
+    CapaCreate,
+    CapaUpdate,
+    CapaVerify,
     ChangeNoticeCreate,
     ChangeNoticeDecide,
     ChangeNoticeUpdate,
@@ -25,6 +28,8 @@ from fs.qms.schema import (
     HoldRelease,
     InspectionCreate,
     InspectionUpdate,
+    NcrCreate,
+    NcrUpdate,
     SpecCreate,
     SpecUpdate,
 )
@@ -497,5 +502,150 @@ def verify_change_notice(
     return _data(
         service.verify_change_notice(
             context, cn_id, payload.model_dump(), _mutation(context, csrf, key)
+        )
+    )
+
+
+# ---- 부적합 보고 (Q-07) ----
+# 비워 둘 수 있는 칸 — LOT·불량 유형·즉시 조치는 모르면 비운다.
+NCR_NULLABLE = frozenset(
+    {"lot_no", "defect_type_id", "immediate_action", "inspection_id", "source_ref"}
+)
+
+
+@router.get("/ncrs")
+def list_ncrs(
+    context: Auth,
+    status: Annotated[str | None, Query(pattern="^(OPEN|CLOSED)$")] = None,
+    origin: Annotated[
+        str | None, Query(pattern="^(INCOMING|PROCESS|OUTGOING|CUSTOMER)$")
+    ] = None,
+):
+    return _data(service.list_ncrs(context, status, origin))
+
+
+@router.get("/ncrs/sources")
+def ncr_sources(
+    context: Auth,
+    origin: Annotated[str, Query(pattern="^(INCOMING|PROCESS|OUTGOING)$")],
+    month: Annotated[str | None, Query(pattern=MONTH)] = None,
+):
+    return _data(service.ncr_sources(context, origin, month))
+
+
+@router.post("/ncrs", status_code=201)
+def post_ncr(
+    payload: NcrCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_ncr(
+            context,
+            _values(payload, NCR_NULLABLE | {"reported_on"}),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.get("/ncrs/{ncr_id}")
+def get_ncr(ncr_id: int, context: Auth):
+    return _data(service.get_ncr(context, ncr_id))
+
+
+@router.patch("/ncrs/{ncr_id}")
+def patch_ncr(
+    ncr_id: int,
+    payload: NcrUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_ncr(
+            context,
+            ncr_id,
+            _values(payload, NCR_NULLABLE),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/ncrs/{ncr_id}/closure")
+def close_ncr(
+    ncr_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(service.close_ncr(context, ncr_id, _mutation(context, csrf, key)))
+
+
+# ---- 시정·예방 조치 (Q-08) ----
+@router.get("/capas")
+def list_capas(
+    context: Auth,
+    status: Annotated[
+        str | None, Query(pattern="^(OPEN|DONE|VERIFIED|INEFFECTIVE)$")
+    ] = None,
+    ncr_id: Annotated[int | None, Query(alias="ncrId", gt=0)] = None,
+):
+    return _data(service.list_capas(context, status, ncr_id))
+
+
+@router.post("/capas", status_code=201)
+def post_capa(
+    payload: CapaCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_capa(context, _values(payload), _mutation(context, csrf, key))
+    )
+
+
+@router.get("/capas/{capa_id}")
+def get_capa(capa_id: int, context: Auth):
+    return _data(service.get_capa(context, capa_id))
+
+
+@router.patch("/capas/{capa_id}")
+def patch_capa(
+    capa_id: int,
+    payload: CapaUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_capa(
+            context, capa_id, _values(payload), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.post("/capas/{capa_id}/completion")
+def complete_capa(
+    capa_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(service.complete_capa(context, capa_id, _mutation(context, csrf, key)))
+
+
+@router.post("/capas/{capa_id}/verification")
+def verify_capa(
+    capa_id: int,
+    payload: CapaVerify,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.verify_capa(
+            context, capa_id, payload.model_dump(), _mutation(context, csrf, key)
         )
     )

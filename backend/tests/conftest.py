@@ -124,9 +124,15 @@ def _template_snapshot(template: GuestTemplate) -> tuple[str, ...]:
         )
 
 
+# 한 트랜잭션이 잡는 표의 수. 230개 표를 한 번에 지우면 작업자 10개가 동시에 쓰는
+# 공유 잠금표가 바닥나 "out of shared memory"가 난다(max_locks_per_transaction).
+# 자식 → 부모 순서는 그대로 두고 중간에 커밋만 한다 — 순서가 지켜지면 나눠 지워도 같다.
+_CLEANUP_CHUNK = 40
+
+
 def _delete_test_guests(template: GuestTemplate) -> None:
     """Remove all guests created by this test, including extra clients and retired generations."""
-    with template.engine.begin() as connection:
+    with template.engine.connect() as connection:
         guests = (
             connection.execute(
                 text("SELECT id FROM core.workspace WHERE workspace_kind='GUEST'")
@@ -136,46 +142,39 @@ def _delete_test_guests(template: GuestTemplate) -> None:
         )
         if not guests:
             return
-        params = {"guests": guests}
         # 서로를 가리키는 FK(재작업 지시 ↔ LOT)는 먼저 비워 고리를 끊는다 — 제품 정리와 같은 순서.
-        for table_name, columns in _cleanup_plan(connection)[1]:
-            connection.execute(
-                text(
-                    f"UPDATE {table_name} SET "
-                    + ",".join(f"{c}=NULL" for c in columns)
-                    + " WHERE workspace_id=ANY(:guests)"
-                ),
-                params,
-            )
-        # Resolve the FK order once per session; self-references are deleted in one statement.
-        for table in reversed(template.business_tables):
-            connection.execute(
-                text(f"DELETE FROM {table} WHERE workspace_id=ANY(:guests)"), params
-            )
+        cycles = _cleanup_plan(connection)[1]
+    params = {"guests": guests}
+    statements = [
+        f"UPDATE {table_name} SET "
+        + ",".join(f"{c}=NULL" for c in columns)
+        + " WHERE workspace_id=ANY(:guests)"
+        for table_name, columns in cycles
+    ]
+    # Resolve the FK order once per session; self-references are deleted in one statement.
+    statements += [
+        f"DELETE FROM {table} WHERE workspace_id=ANY(:guests)"
+        for table in reversed(template.business_tables)
+    ]
+    statements += [
+        f"DELETE FROM core.{table} WHERE workspace_id=ANY(:guests)"
         for table in (
             "holiday",
             "request_receipt",
             "audit_event",
             "job_run",
             "workspace_module",
-        ):
-            connection.execute(
-                text(f"DELETE FROM core.{table} WHERE workspace_id=ANY(:guests)"),
-                params,
-            )
-        connection.execute(
-            text(
-                "UPDATE core.workspace SET active_generation_id=NULL WHERE id=ANY(:guests)"
-            ),
-            params,
         )
-        connection.execute(
-            text("DELETE FROM core.data_generation WHERE workspace_id=ANY(:guests)"),
-            params,
-        )
-        connection.execute(
-            text("DELETE FROM core.workspace WHERE id=ANY(:guests)"), params
-        )
+    ]
+    statements += [
+        "UPDATE core.workspace SET active_generation_id=NULL WHERE id=ANY(:guests)",
+        "DELETE FROM core.data_generation WHERE workspace_id=ANY(:guests)",
+        "DELETE FROM core.workspace WHERE id=ANY(:guests)",
+    ]
+    for start in range(0, len(statements), _CLEANUP_CHUNK):
+        with template.engine.begin() as connection:
+            for sql in statements[start : start + _CLEANUP_CHUNK]:
+                connection.execute(text(sql), params)
 
 
 @pytest.fixture(scope="session")

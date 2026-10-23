@@ -1790,3 +1790,419 @@ def verify_change_notice(context: AuthContext, cn_id: int, values: dict, key: st
     return _action(
         context, "qms.change_notice.verify", key, {"id": cn_id, **values}, fn
     )
+
+
+# ---------- 부적합 보고 (Q-07, DSN-14 F31) ----------
+
+NCR_SQL = """
+SELECT n.id, n.ncr_no, n.origin, n.item_code, n.lot_no, n.qty, n.defect_type_id,
+       d.code defect_code, d.name defect_name, n.description, n.immediate_action,
+       n.inspection_id, i.inspection_no, n.claim_id, n.source_ref, n.reported_on,
+       n.status, n.closed_at, n.created_at,
+       (SELECT count(*) FROM qms.capa c WHERE c.workspace_id=n.workspace_id
+         AND c.generation_id=n.generation_id AND c.ncr_id=n.id) capa_count,
+       (SELECT count(*) FROM qms.capa c WHERE c.workspace_id=n.workspace_id
+         AND c.generation_id=n.generation_id AND c.ncr_id=n.id AND c.status='VERIFIED') verified_count
+FROM qms.ncr n
+LEFT JOIN qms.defect_type d ON d.workspace_id=n.workspace_id
+ AND d.generation_id=n.generation_id AND d.id=n.defect_type_id
+LEFT JOIN qms.inspection i ON i.workspace_id=n.workspace_id
+ AND i.generation_id=n.generation_id AND i.id=n.inspection_id
+WHERE n.workspace_id=:w AND n.generation_id=:g
+"""
+
+# 발생처별 근거 규칙은 DB CHECK와 같다 — 서비스는 같은 말을 사람 말로 돌려줄 뿐이다.
+_NEEDS_INSPECTION = ("INCOMING", "OUTGOING")
+
+
+def _ncr(
+    connection: Connection, scoped: AuthContext, ncr_id: int, lock: bool = False
+) -> dict[str, Any] | None:
+    if lock:
+        connection.execute(
+            text(f"SELECT 1 FROM qms.ncr WHERE {_S} AND id=:id FOR UPDATE"),
+            {**_s(scoped), "id": ncr_id},
+        )
+    row = (
+        connection.execute(
+            text(NCR_SQL + " AND n.id=:id"), {**_s(scoped), "id": ncr_id}
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else _row(row)
+
+
+def list_ncrs(
+    context: AuthContext, status: str | None, origin: str | None
+) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    NCR_SQL + " AND (CAST(:status AS text) IS NULL OR n.status=:status)"
+                    " AND (CAST(:origin AS text) IS NULL OR n.origin=:origin)"
+                    " ORDER BY n.reported_on DESC, n.id DESC"
+                ),
+                {**_s(scoped), "status": status, "origin": origin},
+            ).mappings()
+        ]
+
+
+def get_ncr(context: AuthContext, ncr_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = _ncr(connection, scoped, ncr_id)
+        if found is None:
+            raise _not_found("부적합 보고")
+        return {**found, "capas": _capas(connection, scoped, ncr_id)}
+
+
+def ncr_sources(context: AuthContext, origin: str, month: str | None) -> dict[str, Any]:
+    """발생처별 근거 후보. 검사는 QMS가, 공정 불량은 MES가 준다(1b `defects`의 첫 소비자).
+
+    이미 부적합 보고를 만든 원천은 빼 준다 — 원천당 1건이 설계다(UK_PARTIAL).
+    """
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        used = set(
+            connection.execute(
+                text(f"SELECT source_ref FROM qms.ncr WHERE {_S} AND origin=:o"),
+                {**_s(scoped), "o": origin},
+            ).scalars()
+        )
+        if origin == "PROCESS":
+            rows = mes.defects(connection, scoped, month or f"{business_today():%Y-%m}")
+            if rows is None:
+                return {"mesEnabled": False, "rows": []}
+            return {
+                "mesEnabled": True,
+                "rows": [
+                    {**r, "sourceRef": ref}
+                    for r in rows
+                    if (ref := f"{r['lotNo']}:{r['processCode']}") not in used
+                ],
+            }
+        kind = "INCOMING" if origin == "INCOMING" else "OUTGOING"
+        taken = set(
+            connection.execute(
+                text(
+                    f"SELECT inspection_id FROM qms.ncr WHERE {_S} AND inspection_id IS NOT NULL"
+                ),
+                _s(scoped),
+            ).scalars()
+        )
+        rows = [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    INSPECTION_SQL + " AND i.status='confirmed' AND i.result='FAIL'"
+                    " AND i.inspection_kind=:kind ORDER BY i.confirmed_at DESC"
+                ),
+                {**_s(scoped), "kind": kind},
+            ).mappings()
+        ]
+        return {
+            "mesEnabled": True,
+            "rows": [r for r in rows if r["id"] not in taken],
+        }
+
+
+def _check_origin(
+    connection: Connection, scoped: AuthContext, values: dict[str, Any]
+) -> None:
+    origin = values["origin"]
+    if origin == "CUSTOMER":
+        raise _conflict(
+            "고객 발생 부적합은 클레임에서 만듭니다.", "CLAIM_REQUIRED", origin=origin
+        )
+    if origin in _NEEDS_INSPECTION and not values.get("inspection_id"):
+        raise _field("inspectionId", "근거가 되는 불합격 검사를 고르세요.")
+    if origin not in _NEEDS_INSPECTION and values.get("inspection_id"):
+        raise _field("inspectionId", "이 발생처에는 근거 검사를 달 수 없습니다.")
+    if values.get("inspection_id"):
+        found = _inspection(connection, scoped, values["inspection_id"])
+        if found is None:
+            raise _field("inspectionId", "검사를 찾을 수 없습니다.")
+        if found["status"] != "confirmed" or found["result"] != "FAIL":
+            raise _field("inspectionId", "확정·불합격한 검사만 근거가 됩니다.")
+
+
+def create_ncr(context: AuthContext, values: dict[str, Any], key: str):
+    def fn(connection: Connection, scoped: AuthContext):
+        _check_origin(connection, scoped, values)
+        if (
+            values.get("source_ref")
+            and connection.execute(
+                text(
+                    f"SELECT 1 FROM qms.ncr WHERE {_S} AND origin=:o AND source_ref=:ref"
+                ),
+                {**_s(scoped), "o": values["origin"], "ref": values["source_ref"]},
+            ).first()
+        ):
+            raise _field("sourceRef", "이 원천으로 만든 부적합 보고가 이미 있습니다.")
+        ncr_id = connection.execute(
+            text(
+                "INSERT INTO qms.ncr(workspace_id,generation_id,ncr_no,origin,item_code,lot_no,"
+                "qty,defect_type_id,description,immediate_action,inspection_id,source_ref,reported_on) "
+                "VALUES (:w,:g,:no,:origin,:item,:lot,:qty,:defect,:desc,:act,:inspection,:ref,:on) "
+                "RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "no": _next_no(connection, scoped, "qms.ncr", "ncr_no", "NCR"),
+                "origin": values["origin"],
+                "item": values["item_code"],
+                "lot": values.get("lot_no"),
+                "qty": values["qty"],
+                "defect": values.get("defect_type_id"),
+                "desc": values["description"],
+                "act": values.get("immediate_action"),
+                "inspection": values.get("inspection_id"),
+                "ref": values.get("source_ref"),
+                "on": values.get("reported_on") or business_today(),
+            },
+        ).scalar_one()
+        return _ncr(connection, scoped, ncr_id), "ncr", ncr_id
+
+    return _action(context, "qms.ncr.create", key, values, fn, 201)
+
+
+_NCR_EDITABLE = ("description", "immediate_action", "qty", "defect_type_id", "lot_no")
+
+
+def update_ncr(context: AuthContext, ncr_id: int, values: dict, key: str):
+    """종결 전에만 고친다. 발생처·근거는 바꾸지 않는다 — 바꿀 일이면 새 보고다."""
+    if not values:
+        raise _fields({"description": "변경할 항목이 없습니다."})
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _ncr(connection, scoped, ncr_id, lock=True)
+        if found is None:
+            raise _not_found("부적합 보고")
+        if found["status"] != "OPEN":
+            raise _conflict("종결한 보고는 고칠 수 없습니다.", "NCR_CLOSED")
+        assignments = ",".join(f"{name}=:{name}" for name in values)
+        connection.execute(
+            text(f"UPDATE qms.ncr SET {assignments} WHERE {_S} AND id=:id"),
+            {**_s(scoped), **values, "id": ncr_id},
+        )
+        return _ncr(connection, scoped, ncr_id), "ncr", ncr_id
+
+    return _action(context, "qms.ncr.update", key, {"id": ncr_id, **values}, fn)
+
+
+def close_ncr(context: AuthContext, ncr_id: int, key: str):
+    """연결 CAPA가 **하나 이상 있고 모두 유효성 확인**되어야 종결한다(DB_POLICY Q3)."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _ncr(connection, scoped, ncr_id, lock=True)
+        if found is None:
+            raise _not_found("부적합 보고")
+        if found["status"] != "OPEN":
+            raise _conflict("이미 종결한 보고입니다.", "NCR_CLOSED")
+        total, verified = found["capaCount"], found["verifiedCount"]
+        if total == 0:
+            raise _conflict(
+                "시정·예방 조치가 없습니다. 조치를 만들고 유효성을 확인한 뒤 종결하세요.",
+                "NO_CAPA",
+            )
+        if verified < total:
+            raise _conflict(
+                "유효성을 확인하지 않은 조치가 남았습니다.",
+                "CAPA_NOT_VERIFIED",
+                open=total - verified,
+            )
+        connection.execute(
+            text(
+                "UPDATE qms.ncr SET status='CLOSED', closed_at=clock_timestamp() "
+                f"WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "id": ncr_id},
+        )
+        return _ncr(connection, scoped, ncr_id), "ncr", ncr_id
+
+    return _action(context, "qms.ncr.close", key, {"id": ncr_id}, fn)
+
+
+# ---------- 시정·예방 조치 (Q-08, DSN-14 F32) ----------
+
+CAPA_SQL = """
+SELECT c.id, c.capa_no, c.ncr_id, n.ncr_no, n.item_code, c.kind, c.root_cause, c.action,
+       c.owner_name, c.due_on, c.status, c.done_at, c.verified_at, c.verification_note,
+       c.owner_hr_code, c.created_at
+FROM qms.capa c
+JOIN qms.ncr n ON n.workspace_id=c.workspace_id AND n.generation_id=c.generation_id
+ AND n.id=c.ncr_id
+WHERE c.workspace_id=:w AND c.generation_id=:g
+"""
+
+
+def _capas(
+    connection: Connection, scoped: AuthContext, ncr_id: int
+) -> list[dict[str, Any]]:
+    return [
+        _row(r)
+        for r in connection.execute(
+            text(CAPA_SQL + " AND c.ncr_id=:id ORDER BY c.id"),
+            {**_s(scoped), "id": ncr_id},
+        ).mappings()
+    ]
+
+
+def _capa(
+    connection: Connection, scoped: AuthContext, capa_id: int, lock: bool = False
+) -> dict[str, Any] | None:
+    if lock:
+        connection.execute(
+            text(f"SELECT 1 FROM qms.capa WHERE {_S} AND id=:id FOR UPDATE"),
+            {**_s(scoped), "id": capa_id},
+        )
+    row = (
+        connection.execute(
+            text(CAPA_SQL + " AND c.id=:id"), {**_s(scoped), "id": capa_id}
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else _row(row)
+
+
+def list_capas(
+    context: AuthContext, status: str | None, ncr_id: int | None
+) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    CAPA_SQL
+                    + " AND (CAST(:status AS text) IS NULL OR c.status=:status)"
+                    " AND (CAST(:ncr AS bigint) IS NULL OR c.ncr_id=:ncr)"
+                    " ORDER BY c.due_on, c.id"
+                ),
+                {**_s(scoped), "status": status, "ncr": ncr_id},
+            ).mappings()
+        ]
+
+
+def get_capa(context: AuthContext, capa_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = _capa(connection, scoped, capa_id)
+        if found is None:
+            raise _not_found("시정·예방 조치")
+        return found
+
+
+def create_capa(context: AuthContext, values: dict[str, Any], key: str):
+    """조치는 부적합 보고에 속한다. 종결한 보고에는 더 달지 않는다."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        parent = _ncr(connection, scoped, values["ncr_id"], lock=True)
+        if parent is None:
+            raise _field("ncrId", "부적합 보고를 찾을 수 없습니다.")
+        if parent["status"] != "OPEN":
+            raise _conflict("종결한 보고에는 조치를 더할 수 없습니다.", "NCR_CLOSED")
+        capa_id = connection.execute(
+            text(
+                "INSERT INTO qms.capa(workspace_id,generation_id,capa_no,ncr_id,kind,root_cause,"
+                "action,owner_name,due_on) VALUES (:w,:g,:no,:ncr,:kind,:cause,:act,:owner,:due) "
+                "RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "no": _next_no(connection, scoped, "qms.capa", "capa_no", "CA"),
+                "ncr": values["ncr_id"],
+                "kind": values["kind"],
+                "cause": values["root_cause"],
+                "act": values["action"],
+                "owner": values["owner_name"],
+                "due": values["due_on"],
+            },
+        ).scalar_one()
+        return _capa(connection, scoped, capa_id), "capa", capa_id
+
+    return _action(context, "qms.capa.create", key, values, fn, 201)
+
+
+def update_capa(context: AuthContext, capa_id: int, values: dict, key: str):
+    """완료 전에만 고친다. 완료·확인 뒤의 기록은 그대로 둔다."""
+    if not values:
+        raise _fields({"action": "변경할 항목이 없습니다."})
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _capa(connection, scoped, capa_id, lock=True)
+        if found is None:
+            raise _not_found("시정·예방 조치")
+        if found["status"] != "OPEN":
+            raise _conflict(
+                "완료한 조치는 고칠 수 없습니다.",
+                "CAPA_NOT_OPEN",
+                status=found["status"],
+            )
+        assignments = ",".join(f"{name}=:{name}" for name in values)
+        connection.execute(
+            text(f"UPDATE qms.capa SET {assignments} WHERE {_S} AND id=:id"),
+            {**_s(scoped), **values, "id": capa_id},
+        )
+        return _capa(connection, scoped, capa_id), "capa", capa_id
+
+    return _action(context, "qms.capa.update", key, {"id": capa_id, **values}, fn)
+
+
+def complete_capa(context: AuthContext, capa_id: int, key: str):
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _capa(connection, scoped, capa_id, lock=True)
+        if found is None:
+            raise _not_found("시정·예방 조치")
+        if found["status"] != "OPEN":
+            raise _conflict(
+                "이미 완료한 조치입니다.", "CAPA_NOT_OPEN", status=found["status"]
+            )
+        connection.execute(
+            text(
+                "UPDATE qms.capa SET status='DONE', done_at=clock_timestamp() "
+                f"WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "id": capa_id},
+        )
+        return _capa(connection, scoped, capa_id), "capa", capa_id
+
+    return _action(context, "qms.capa.complete", key, {"id": capa_id}, fn)
+
+
+def verify_capa(context: AuthContext, capa_id: int, values: dict, key: str):
+    """완료한 조치의 유효성을 확인한다. **무효면 새 조치를 만든다** — 되돌리지 않는다."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _capa(connection, scoped, capa_id, lock=True)
+        if found is None:
+            raise _not_found("시정·예방 조치")
+        if found["status"] != "DONE":
+            raise _conflict(
+                "완료한 조치만 확인할 수 있습니다.",
+                "CAPA_NOT_DONE",
+                status=found["status"],
+            )
+        note = (values.get("note") or "").strip()
+        if len(note) < 2:
+            raise _field("note", "확인 내용을 두 글자 이상 적어 주세요.")
+        connection.execute(
+            text(
+                "UPDATE qms.capa SET status=:s, verified_at=clock_timestamp(), "
+                f"verification_note=:note WHERE {_S} AND id=:id"
+            ),
+            {
+                **_s(scoped),
+                "s": "VERIFIED" if values["effective"] else "INEFFECTIVE",
+                "note": note,
+                "id": capa_id,
+            },
+        )
+        return _capa(connection, scoped, capa_id), "capa", capa_id
+
+    return _action(context, "qms.capa.verify", key, {"id": capa_id, **values}, fn)

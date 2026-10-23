@@ -149,3 +149,52 @@ class FirstArticleCreate(ApiModel):
 
 class ChangeNoticeVerify(ApiModel):
     first_article_inspection_id: int = Field(alias="firstArticleInspectionId", gt=0)
+
+
+Origin = Literal["INCOMING", "PROCESS", "OUTGOING", "CUSTOMER"]
+CapaKind = Literal["CORRECTIVE", "PREVENTIVE"]
+
+
+class NcrCreate(ApiModel):
+    origin: Origin
+    item_code: str = Field(alias="itemCode", pattern=ITEM_CODE)
+    lot_no: str | None = Field(None, alias="lotNo", min_length=1, max_length=50)
+    qty: str = Field(pattern=QTY)
+    defect_type_id: int | None = Field(None, alias="defectTypeId", gt=0)
+    description: str = Field(min_length=2, max_length=1000)
+    immediate_action: str | None = Field(None, alias="immediateAction", max_length=500)
+    inspection_id: int | None = Field(None, alias="inspectionId", gt=0)
+    source_ref: str | None = Field(None, alias="sourceRef", max_length=60)
+    reported_on: date | None = Field(None, alias="reportedOn")
+
+
+class NcrUpdate(ApiModel):
+    lot_no: str | None = Field(None, alias="lotNo", min_length=1, max_length=50)
+    qty: str | None = Field(None, pattern=QTY)
+    defect_type_id: int | None = Field(None, alias="defectTypeId", gt=0)
+    description: str | None = Field(None, min_length=2, max_length=1000)
+    immediate_action: str | None = Field(None, alias="immediateAction", max_length=500)
+
+
+class CapaCreate(ApiModel):
+    ncr_id: int = Field(alias="ncrId", gt=0)
+    kind: CapaKind
+    root_cause: str = Field(alias="rootCause", min_length=2, max_length=1000)
+    action: str = Field(min_length=2, max_length=1000)
+    owner_name: str = Field(alias="ownerName", min_length=1, max_length=60)
+    due_on: date = Field(alias="dueOn")
+
+
+class CapaUpdate(ApiModel):
+    kind: CapaKind | None = None
+    root_cause: str | None = Field(
+        None, alias="rootCause", min_length=2, max_length=1000
+    )
+    action: str | None = Field(None, min_length=2, max_length=1000)
+    owner_name: str | None = Field(None, alias="ownerName", min_length=1, max_length=60)
+    due_on: date | None = Field(None, alias="dueOn")
+
+
+class CapaVerify(ApiModel):
+    effective: bool
+    note: str = Field(min_length=2, max_length=500)
