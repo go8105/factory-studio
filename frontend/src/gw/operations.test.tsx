@@ -522,3 +522,61 @@ it.each([true, false])(
     ).toBeVisible();
   },
 );
+
+it.each(["MATCH", "CHANGED", "MEASUREMENT_UNAVAILABLE"])(
+  "원본 권한 대조 %s와 조치 범위를 표시한다",
+  async (reason) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      response({
+        ...initial,
+        evidenceChecks: [
+          {
+            kind: "ACCEPTANCE",
+            label: "실환경 업무 인수",
+            state: reason === "MATCH" ? "PARTIAL" : "FAILED",
+            detail: "원본 비교",
+            restoreRecheck: {
+              checkedAt: "2026-10-23T05:00:00Z",
+              result: reason === "MATCH" ? "PARTIAL" : "BLOCKED",
+              targetMeasured: false,
+              stateMatchesExecution: null,
+              reason: "MEASUREMENT_UNAVAILABLE",
+              sourceObservation: {
+                observedAt: "2026-10-23T05:00:00Z",
+                sourceMeasured: reason !== "MEASUREMENT_UNAVAILABLE",
+                contextMatches:
+                  reason === "MEASUREMENT_UNAVAILABLE" ? null : true,
+                changedGroups:
+                  reason === "MEASUREMENT_UNAVAILABLE"
+                    ? null
+                    : { core: reason === "CHANGED" ? 1 : 0, gw: 0, hr: 0 },
+                reason,
+                result: reason === "MATCH" ? "PARTIAL" : "BLOCKED",
+              },
+            },
+          },
+        ],
+      }),
+    );
+    show();
+    fireEvent.click(await screen.findByText("복원본 최근 재관측"));
+    const region = screen.getByRole("region", {
+      name: "현재 원본과 복원 권한 대조 비교",
+    });
+    expect(
+      within(region).getByText(
+        reason === "MATCH"
+          ? /관측 시점의 원본과 일치/
+          : reason === "CHANGED"
+            ? /새 권한 대조와 격리 복원을 진행/
+            : /변경이 없다고 간주하지 않습니다/,
+      ),
+    ).toBeVisible();
+    expect(within(region).getByText(/두 시점만 비교/)).toBeVisible();
+    if (reason === "MEASUREMENT_UNAVAILABLE")
+      expect(within(region).queryByText(/공통 0개/)).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),
+    ).toBeVisible();
+  },
+);

@@ -536,6 +536,89 @@ def observe_restoration(c, *, manifest, changes, checkpoint_digest, observed_at=
     ).model_dump(by_alias=True)
 
 
+def observe_current_source(*, url, manifest, changes):
+    """Compare captured checkpoint fields in one new read-only source snapshot."""
+    from fs.gw.source_checkpoint import (
+        SourceCheckpointObservation,
+        changed_groups,
+        state_digest,
+    )
+
+    source_url = make_url(url)
+    if (
+        source_url.drivername not in {"postgresql", "postgresql+psycopg"}
+        or not source_url.host
+        or not source_url.username
+        or not source_url.database
+    ):
+        raise BackupError("전용 원본 관측 접속이 필요합니다.")
+    saved = {
+        "core": changes["coreSecurity"],
+        "gw": changes["gwSecurity"],
+        "hr": changes["hrSecurity"],
+    }
+    summary = {
+        "version": 1,
+        "scope": "CURRENT_SOURCE_CHECKPOINT_FIELDS",
+        "observedAt": now(),
+        "sourceIdentity": manifest["sourceIdentity"],
+        "checkpointStateDigest": state_digest(saved),
+        "currentStateDigest": None,
+        "sourceMeasured": False,
+        "contextMatches": None,
+        "changedGroups": None,
+        "reason": "MEASUREMENT_UNAVAILABLE",
+        "result": "BLOCKED",
+    }
+    engine = create_engine(
+        source_url.set(drivername="postgresql+psycopg"),
+        connect_args={"connect_timeout": 10},
+    )
+    try:
+        try:
+            with engine.connect() as c, c.begin():
+                observed_at = snapshot(c)
+                c.execute(text("SET LOCAL statement_timeout='15s'"))
+                c.execute(text("SET LOCAL lock_timeout='3s'"))
+                if database_identity(c) != manifest["sourceIdentity"]:
+                    raise BackupError(
+                        "지정한 관측 접속이 원래 백업의 물리 원본과 다릅니다."
+                    )
+                try:
+                    active_scope = gw_checkpoint.policy_snapshot(
+                        c, int(manifest["scope"]["workspaceId"])
+                    )
+                except BackupError:
+                    active_scope = None
+                context_matches = (
+                    active_scope == manifest["scope"]
+                    and c.scalar(text("SELECT version_num FROM alembic_version"))
+                    == manifest["dbRevision"]
+                )
+                current = {
+                    "core": core_checkpoint.capture(c),
+                    "gw": gw_checkpoint.capture(c),
+                    "hr": hr_checkpoint.capture(c),
+                }
+                groups = changed_groups(saved, current)
+                matches = not any(groups.values()) and context_matches
+                summary.update(
+                    observedAt=observed_at,
+                    currentStateDigest=state_digest(current),
+                    sourceMeasured=True,
+                    contextMatches=context_matches,
+                    changedGroups=groups,
+                    reason="MATCH" if matches else "CHANGED",
+                    result="PARTIAL" if matches else "BLOCKED",
+                )
+        except SQLAlchemyError:
+            # Never infer zero changes when the source cannot be read.
+            summary["observedAt"] = now()
+    finally:
+        engine.dispose()
+    return SourceCheckpointObservation.model_validate(summary).model_dump(by_alias=True)
+
+
 def recheck_restore(
     *,
     url,
@@ -546,6 +629,7 @@ def recheck_restore(
     restore_document,
     output,
     config,
+    source_url=None,
 ):
     """Read an existing target without replay/opening it; never fall back to source DB."""
     from fs.gw.restore_recheck import require_trust, sign
@@ -620,6 +704,11 @@ def recheck_restore(
             }
         ):
             raise BackupError("복원 원본과 권한 대조 파일·최신 지문이 다릅니다.")
+        source_observation = (
+            observe_current_source(url=source_url, manifest=manifest, changes=changes)
+            if source_url is not None
+            else None
+        )
         engine = create_engine(
             target_url.set(drivername="postgresql+psycopg"),
             connect_args={"connect_timeout": 10},
@@ -645,10 +734,20 @@ def recheck_restore(
                 measurement = None
         finally:
             engine.dispose()
-        checked_at = measurement["observedAt"] if measurement is not None else now()
+        checked_at = max(
+            [now()]
+            + ([measurement["observedAt"]] if measurement is not None else [])
+            + (
+                [source_observation["observedAt"]]
+                if source_observation is not None
+                else []
+            ),
+            key=timestamp,
+        )
         context["now"] = timestamp(checked_at)
         document = sign(
             restore_document,
+            source_observation=source_observation,
             measurement=measurement,
             checked_at=checked_at,
             signer=config["signer"],
@@ -1130,6 +1229,11 @@ def main():
     p.add_argument("--checkpoint", type=Path, required=True)
     p.add_argument("--head", type=Path, required=True)
     p.add_argument("--expected-checkpoint-digest", required=True)
+    p.add_argument(
+        "--check-current-source",
+        action="store_true",
+        help="전용 원본 접속으로 복원 권한 대조 이후 변경도 읽기 비교",
+    )
     p.add_argument("--restore-evidence", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
     p = sub.add_parser("verify-copy")
@@ -1180,6 +1284,9 @@ def main():
 
             result = recheck_restore(
                 url=os.environ["FS_GW_RECHECK_DATABASE_URL"],
+                source_url=os.environ["FS_GW_SOURCE_CHECKPOINT_DATABASE_URL"]
+                if args.check_current_source
+                else None,
                 artifact=args.backup,
                 checkpoint_file=args.checkpoint,
                 head=args.head,

@@ -283,9 +283,9 @@ class RestoreRecheckDocument(StrictModel):
 
     @model_validator(mode="after")
     def recheck_contract(self):
-        from fs.gw.restore_recheck import RestoreRecheck
+        from fs.gw.restore_recheck import parse_envelope
 
-        RestoreRecheck.model_validate(self.envelope)
+        parse_envelope(self.envelope)
         return self
 
 

@@ -20,6 +20,7 @@ from fs.gw.operating_contract import (
     timestamp,
     verify_evidence,
 )
+from fs.gw.source_checkpoint import SourceCheckpointObservation
 
 
 class RestoreRecheck(StrictModel):
@@ -61,6 +62,9 @@ class RestoreRecheck(StrictModel):
                     raise ValueError("invalid completion flag")
         return value
 
+    def expected_result(self):
+        return self.measurement.result if self.measurement is not None else "BLOCKED"
+
     @model_validator(mode="after")
     def consistent_snapshot(self):
         EvidenceReference(runId=self.run_id, sourceDigest=self.target_identity)
@@ -82,10 +86,46 @@ class RestoreRecheck(StrictModel):
             or self.target_identity != self.measurement.target_identity
             or abs((checked - timestamp(self.measurement.observed_at)).total_seconds())
             > 30
-            or self.result != self.measurement.result
+            or self.result != self.expected_result()
         ):
             raise ValueError("recheck measurement mismatch")
         return self
+
+
+class CurrentSourceRestoreRecheck(RestoreRecheck):
+    version: Literal[2]
+    scope: Literal["CURRENT_SOURCE_AND_RESTORED_CHECKPOINT_RESTRICTIONS"]
+    source_observation: SourceCheckpointObservation = Field(alias="sourceObservation")
+
+    def expected_result(self):
+        return (
+            "BLOCKED"
+            if self.source_observation.result == "BLOCKED"
+            else super().expected_result()
+        )
+
+    @model_validator(mode="after")
+    def source_clock(self):
+        if (
+            abs(
+                (
+                    timestamp(self.checked_at)
+                    - timestamp(self.source_observation.observed_at)
+                ).total_seconds()
+            )
+            > 30
+        ):
+            raise ValueError("source and restore observation clocks differ")
+        return self
+
+
+def parse_envelope(value):
+    model = (
+        CurrentSourceRestoreRecheck
+        if isinstance(value, dict) and value.get("version") == 2
+        else RestoreRecheck
+    )
+    return model.model_validate(value)
 
 
 def require_trust(keys, signer_id, workspace_id):
@@ -101,7 +141,7 @@ def verify_signature(document, **context):
         or len(canonical(document)) > 16384
     ):
         raise ValueError("invalid restore recheck")
-    data = RestoreRecheck.model_validate(document["envelope"])
+    data = parse_envelope(document["envelope"])
     require_trust(
         context["public_keys"], data.signer_key_id, str(context["workspace_id"])
     )
@@ -125,6 +165,12 @@ def verify_signature(document, **context):
         <= timedelta(minutes=15)
     ):
         raise ValueError("restore recheck scope or freshness mismatch")
+    if isinstance(data, CurrentSourceRestoreRecheck) and not -timedelta(
+        seconds=30
+    ) <= context["now"] - timestamp(data.source_observation.observed_at) <= timedelta(
+        minutes=15
+    ):
+        raise ValueError("source observation freshness mismatch")
     return data
 
 
@@ -151,6 +197,11 @@ def verify(document, restore_document, **context):
         or data.run_id in {original.backup_run_id, original.checkpoint_run_id}
     ):
         raise ValueError("restore recheck original mismatch")
+    if (
+        isinstance(data, CurrentSourceRestoreRecheck)
+        and data.source_observation.source_identity != original.source_identity
+    ):
+        raise ValueError("current source physical identity mismatch")
     if data.measurement is not None:
         for field in (
             "backup_run_id",
@@ -170,7 +221,16 @@ def verify(document, restore_document, **context):
     return data
 
 
-def sign(restore_document, *, measurement, checked_at, signer, signer_id, **context):
+def sign(
+    restore_document,
+    *,
+    measurement,
+    checked_at,
+    signer,
+    signer_id,
+    source_observation=None,
+    **context,
+):
     restore = verify_evidence(
         restore_document["envelope"], restore_document["signature"], **context
     )
@@ -178,11 +238,13 @@ def sign(restore_document, *, measurement, checked_at, signer, signer_id, **cont
         raise TypeError("restore execution observation required")
     original = restore.metrics.restore_diagnostics.execution_observation
     require_trust(context["public_keys"], signer_id, str(context["workspace_id"]))
-    payload = RestoreRecheck.model_validate(
+    payload = parse_envelope(
         {
-            "version": 1,
+            "version": 2 if source_observation is not None else 1,
             "kind": "RESTORE_RECHECK",
-            "scope": "CURRENT_RESTORED_CHECKPOINT_RESTRICTIONS",
+            "scope": "CURRENT_SOURCE_AND_RESTORED_CHECKPOINT_RESTRICTIONS"
+            if source_observation is not None
+            else "CURRENT_RESTORED_CHECKPOINT_RESTRICTIONS",
             "runId": str(uuid4()),
             "workspaceId": str(context["workspace_id"]),
             "generationId": str(context["generation_id"]),
@@ -203,7 +265,17 @@ def sign(restore_document, *, measurement, checked_at, signer, signer_id, **cont
             "reason": "MEASURED"
             if measurement is not None
             else "MEASUREMENT_UNAVAILABLE",
-            "result": measurement["result"] if measurement is not None else "BLOCKED",
+            "result": "BLOCKED"
+            if source_observation is not None
+            and source_observation["result"] == "BLOCKED"
+            else measurement["result"]
+            if measurement is not None
+            else "BLOCKED",
+            **(
+                {"sourceObservation": source_observation}
+                if source_observation is not None
+                else {}
+            ),
             "signerKeyId": signer_id,
             "ready": False,
             "revocationsComplete": False,

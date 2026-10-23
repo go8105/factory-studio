@@ -317,3 +317,28 @@ uv run --project backend python tools/gw_acceptance_collect.py \
 - 수집기는 최신 등록 BACKUP/RESTORE 전체 원본을 다시 선택해 ACCEPTANCE 진단v4에 재관측 문서를 연결한다. `--journal-observation`도 함께 사용할 수 있다. 한번 등록한 관측 유형은 새 등록에서 생략할 수 없고, 새 관측 시각은 최신 ACCEPTANCE 등록 시각보다 뒤여야 한다. 같은 관측 실행 번호의 재사용도 거부한다. 실행자/DB 시계 차이로 등록 시각을 아직 넘지 못하면 시계를 확인하고 그 이후 새 관측으로 재시도한다. 실패·다른 정책·원본 없는 이력도 유형 유지 판단에 포함한다. 원본 없는 기록/최신 실패·변조·옛 정책/제품·기한 경과를 과거 성공으로 대체하지 않는다.
 - 파일을 도구로 만들었다고 자동 등록되지 않는다. 재관측 단독 문서는 제품 실행 증거 API가400으로 거부한다. 기존 관리자 화면에서 수집기가 만든 ACCEPTANCE를 등록하고 최근 결과/관측 시각/측정 여부를 확인한다. 서버는 서명/원본을 검증하며 복원 DB에 직접 접속하거나 연속 감시하지 않는다. `admin` 로그인 이름은 보안 권한이나 발급 키 권한을 부여하지 않는다.
 - ready=false, 실제 복원 PARTIAL, 최종4조건 UNVERIFIED 유지. 외부 공급자 선정·실제 외부 장애복구·전체 변경 회수 완전성·실회사10인·최종 전환은 아직 남아 있다.
+
+
+## 19. 현재 원본과 복원 권한 대조의 읽기 비교 (45차)
+
+기존 `recheck-restore`에 `--check-current-source`를 추가하고, 별도 비공개 환경 `FS_GW_SOURCE_CHECKPOINT_DATABASE_URL`에 원래 백업의 원본 접속을 주입한다. 복원본은 기존 `FS_GW_RECHECK_DATABASE_URL`을 유지한다. 두 접속을 자동 교환하거나 일반 DATABASE_URL로 대체하지 않는다. 새 원본 비교도 명시적 회사/RESTORE_RECHECK 키와 별도 ACCEPTANCE 발급 키를 사용한다.
+
+```sh
+# 두 전용 URL/암호화 키/발급 키는 비공개 실행 환경에 주입한다.
+uv run --project backend python tools/gw_backup.py recheck-restore \
+  --check-current-source --backup /private/gw/database.fsbackup \
+  --checkpoint /private/gw/latest.fsbackup --head /private/gw/head.json \
+  --expected-checkpoint-digest "$GW_CHECKPOINT_DIGEST" \
+  --restore-evidence /private/gw/restore.json --output /private/gw/source-recheck-new.json
+# 별도 인수 발급 키로 전환 후 §18과 같은 현재 DB 수집 명령을 사용한다.
+uv run --project backend python tools/gw_acceptance_collect.py \
+  --current-company-id 3 --signed-reconciliation \
+  --restore-recheck /private/gw/source-recheck-new.json --output /private/gw/source-acceptance-new.json
+```
+
+- 원본 어댑터는 새 READ ONLY/REPEATABLE READ 거래에서 물리 원본 식별을 먼저 대조하고 현재 회사/세대/정책·DB head와 core/GW/HR의 **체크포인트 수집 항목**을 읽는다. 쿼리 행 순서를 정규화한 지문과 묶음별 변경 수를 원래 권한 대조 내용과 비교한다. 다른 물리 원본은 수집/출력 없이 거부한다. 개인/계정/권한/자격 원문은 서명 요약으로 내보내지 않는다. 이 백업의 전역 보안 스냅샷 범위이므로 같은 물리 DB의 다른 회사·공간 변경도 차단할 수 있다.
+- 새 RESTORE_RECHECK v2는 현재 원본 관측과 기존 복원본 제한 관측을 한 서명에 담는다. sourceObservation의 관측 시각/기대 물리 원본·권한 대조 상태 지문/현재 지문/기준 일치/변경 묶음/측정 여부를 포함한다. 두 관측과 발급 시각은30초 이내이고 원본 관측도 별도로15분 기한·미래30초를 검사한다. 기존 인수 진단v4에 그대로 연결하며 새 스키마/인수 종류는 만들지 않는다.
+- 원본 수집 항목·기준이 달라졌다면 복원본 관측이 PARTIAL이어도 재관측은 BLOCKED/종료2, 인수는 FAIL이다. 원본을 읽지 못하면 sourceMeasured=false, 지문/변경 묶음/기준 일치는 null이며 변경 없음으로 추정하지 않는다. 다른 물리 대상·명세/파일/서명·시계 계약 오류는 출력 없이 종료1이다. 원본/복원본의 권한 변경·연결 개방·재생/새 복원은 이 명령이 하지 않는다. 일치도 PARTIAL/종료0이며 운영 승인이 아니다.
+- 원본 비교를 한번 등록했다면 이후 새 등록에서 이전 v1/원본 비교 없는 관측으로 되돌릴 수 없다. 최신 인수 등록 이후의 원본 관측도 요구하며 기존 관측 실행 번호 재사용/기존 유형 생략 금지를 유지한다. 이력의 실패·옛 정책·원본 없는 행도 포함한다. 수집기를 우회해 발급한 파일도 서버 등록에서 같은 금지를 검사한다. 새 권한 대조 파일이 있더라도 옛 RESTORE 원본과 섞을 수 없다. 변경 원인을 확인한 뒤 새 권한 대조와 새 격리 복원으로 다시 점검한다.
+- 서버는 서명/원본·현재 정책/버전/최신 등록을 재검증하며, 원본/복원본을 직접 또는 연속 감시하지 않는다. 정책/DB head 일치와 운영자가 입력한 제품 버전 연결은 실행 바이너리 증명을 뜻하지 않는다. 체크포인트에 없는 원본 세션/추가 경로와 두 시점 사이 변경 후 원복, 외부 HEAD 목록의 독립 최신성·전체 변경 수집/권한 회수 완전성은 증명하지 않는다.
+- 기존 화면의 실행 증거 → 복원본 최근 재관측에서 비교 시각·공통/GW/인사 변경 묶음·측정 불가·다음 조치를 읽는다. 이전 기록에 이 비교가 없으면 추정하지 않는다. admin 이름은 권한을 대신하지 않는다. 실제 복원 PARTIAL/ready=false/최종4조건 UNVERIFIED 유지. 실제 외부 공급자·장애복구·실회사10인·main/전체회귀·최종 인수는 후속이다.

@@ -120,6 +120,18 @@ def assess(
                                 "reason",
                             )
                         }
+                        if saved["version"] == 2:
+                            recheck_summary["sourceObservation"] = {
+                                key: saved["sourceObservation"][key]
+                                for key in (
+                                    "observedAt",
+                                    "sourceMeasured",
+                                    "contextMatches",
+                                    "changedGroups",
+                                    "reason",
+                                    "result",
+                                )
+                            }
                         if saved["measurement"] is not None:
                             recheck_summary["measurement"] = {
                                 k: saved["measurement"][k]

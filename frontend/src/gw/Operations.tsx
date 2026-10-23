@@ -94,6 +94,14 @@ type State = {
       targetMeasured: boolean;
       stateMatchesExecution: boolean | null;
       reason: "MEASURED" | "MEASUREMENT_UNAVAILABLE";
+      sourceObservation?: {
+        observedAt: string;
+        sourceMeasured: boolean;
+        contextMatches: boolean | null;
+        changedGroups: { core: number; gw: number; hr: number } | null;
+        reason: "MATCH" | "CHANGED" | "MEASUREMENT_UNAVAILABLE";
+        result: "PARTIAL" | "BLOCKED";
+      };
       measurement?: {
         unrevokedSessions: number;
         pendingChallenges: number;
@@ -428,6 +436,58 @@ export function Operations() {
                                 조사하고 새 관측을 실행하세요. 측정값을 0건으로
                                 간주하지 않습니다.
                               </p>
+                            )}
+                            {check.restoreRecheck.sourceObservation && (
+                              <section aria-label="현재 원본과 복원 권한 대조 비교">
+                                <h4>현재 원본과 복원 권한 대조 비교</h4>
+                                <p>
+                                  원본 관측 시각:{" "}
+                                  {new Date(
+                                    check.restoreRecheck.sourceObservation
+                                      .observedAt,
+                                  ).toLocaleString("ko-KR")}
+                                </p>
+                                {check.restoreRecheck.sourceObservation
+                                  .changedGroups ? (
+                                  <>
+                                    <p>
+                                      달라진 항목 묶음: 공통{" "}
+                                      {
+                                        check.restoreRecheck.sourceObservation
+                                          .changedGroups.core
+                                      }
+                                      개 · GW{" "}
+                                      {
+                                        check.restoreRecheck.sourceObservation
+                                          .changedGroups.gw
+                                      }
+                                      개 · 인사{" "}
+                                      {
+                                        check.restoreRecheck.sourceObservation
+                                          .changedGroups.hr
+                                      }
+                                      개
+                                    </p>
+                                    <p>
+                                      {check.restoreRecheck.sourceObservation
+                                        .reason === "MATCH"
+                                        ? "권한 대조 파일의 수집 항목이 관측 시점의 원본과 일치합니다."
+                                        : "복원에 사용한 권한 대조 이후 원본이 달라졌거나 현재 기준이 일치하지 않습니다. 담당자가 변경 원인을 확인하고 새 권한 대조와 격리 복원을 진행하세요."}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <p>
+                                    원본을 측정하지 못했습니다. 접속·권한을
+                                    확인하고 다시 관측하세요. 변경이 없다고
+                                    간주하지 않습니다.
+                                  </p>
+                                )}
+                                <p>
+                                  수집 항목의 두 시점만 비교합니다. 중간에
+                                  바뀌었다가 되돌아온 변경이나 전체 수집·권한
+                                  회수의 완전성은 확인하지 않습니다.
+                                </p>
+                              </section>
                             )}
                             <p>
                               운영 담당자가 원인을 확인한 뒤 새 관측과 인수
