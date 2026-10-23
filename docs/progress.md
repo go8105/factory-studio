@@ -1,3 +1,30 @@
+# 2026-10-23 QMS-1b — WMS·MES 교차 조회 함수 5개
+
+Claude Code 직접 개발(D85). 브랜치 `qms-1b`. QMS가 읽을 **제공자 쪽 함수**만 만든다 — 화면은 1c 이후.
+
+- **WMS** `inbound_lots_to_inspect()`: 검수에서 **격리된 입고 줄**이 수입·반품 검사 대상이다(DSN-13 F18). `sourceRef = 공지번호:줄번호`로 원천을 집고, `noticeKind`가 `SALES_RETURN`이면 반품 검사다. **이미 검사한 줄을 거르지 않는다** — QMS가 자기 `source_ref`로 가린다(제공자는 판단하지 않는다).
+- **WMS** `lots(item_code=None)`: LOT 대장. 품목 코드를 주면 그 품목만.
+- **MES** `defects(month)`: 그 달 확정 공정 실적 중 불량이 난 건. **공정 실적 1건 = 1행**이고 불량 코드는 `codes` 배열로 붙는다. 코드가 없으면 `codes`는 빈 목록이고 `reason` 문자열만 남는다.
+- **MES** `process_inspections(month)`: 확정본만. draft는 번복될 수 있어 집계에서 뺀다.
+- **MES** `lot_trace(lot_no)`: `{materials, parents, children, usedIn}`. 투입 자재와 분할·병합·재작업 계보를 양쪽으로 따라간다(F43 클레임 역추적).
+
+달 경계는 한국 시간 `[1일 00:00, 다음 달 1일 00:00)`이다(`_month_bounds`). 다섯 함수 모두 솔루션이 꺼져 있으면 **None**, 켜져 있고 대상이 없으면 **빈 목록**이다.
+
+## 시드에 없어서 합성 행으로 검사한 것
+
+| 표 | 시드 | 검사 방법 |
+|---|---|---|
+| `wms.lot` | 0건(검수 흐름이 런타임에 만든다) | 합성 LOT 1건 넣고 품목 필터 확인 |
+| `mes.defect_code`·`operation_defect` | 0건 | 코드 2개 붙여 **행이 늘지 않는지** 확인 |
+| `mes.process_inspection` | 0건 | 확정 1·draft 1 넣고 확정본만 나오는지 확인 |
+| `mes.lot_genealogy` | 0건 | SPLIT 1건 넣고 parents·children 양방향 확인 |
+
+`mes.material_issue`의 `material_lot_id`·`material_lot_no`가 시드에서 모두 NULL이라 **`lot_trace`의 `usedIn`과 자재 `lotNo`는 실데이터로 확인하지 못했다.** 쿼리는 돌고 빈 목록이 나온다.
+
+- `conftest.PROVIDERS["qms"]`에 `wms` 추가. QMS 테스트가 WMS 시드를 받아야 수입 검사 대상이 보인다.
+- 검증: `backend/tests/test_qms_interfaces.py` 6건 통과, ruff check·format 통과, 전체 로컬 CI 1~5단계.
+- **DB 변경 없음** — 마이그레이션·schema.json·ERD 그대로.
+
 # 2026-10-23 QMS-1a — qms 6표 → 15표 (DB)
 
 Claude Code 직접 개발(D85). 브랜치 `qms-1a`. 기존 솔루션 보강 순서 3번. **CMMS 완료(화면 10·표 12) 뒤.**

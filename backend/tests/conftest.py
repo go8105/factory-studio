@@ -206,7 +206,7 @@ PROVIDERS = {
     "mes": ("qms",),
     "erp": ("gw",),
     "fems": (),
-    "qms": ("mes", "spc"),
+    "qms": ("mes", "spc", "wms"),
     "wms": ("erp", "mes"),
     "bems": ("fems",),
     "spc": ("mes",),
