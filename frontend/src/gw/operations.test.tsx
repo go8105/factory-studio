@@ -580,3 +580,48 @@ it.each(["MATCH", "CHANGED", "MEASUREMENT_UNAVAILABLE"])(
     ).toBeVisible();
   },
 );
+
+it.each([
+  ["NEW_BACKUP_REQUIRED", "새 백업 필요"],
+  ["NEW_RESTORE_REQUIRED", "새 권한 대조·격리 복원 필요"],
+  ["RECHECK_REQUIRED", "새 관측·인수 재점검 필요"],
+  ["RECOVERY_PARTIAL", "후속 일부 확인"],
+])(
+  "원본 변경 이후 재점검 단계 %s와 실패 보존을 표시한다",
+  async (state, label) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      response({
+        ...initial,
+        recovery: {
+          state,
+          failedRunId: "12345678-1234-4234-8234-123456789012",
+          failedRecordedAt: "2026-10-23T08:00:00Z",
+          failureOriginalVerified: state !== "NEW_BACKUP_REQUIRED",
+          nextAction: "현재 단계의 새 점검을 실행하세요.",
+          ready: false,
+        },
+      }),
+    );
+    show();
+    const region = await screen.findByRole("region", {
+      name: "원본 변경 후 재점검",
+    });
+    expect(within(region).getByText(label)).toBeVisible();
+    const summary = within(region).getByText("재점검 순서와 범위");
+    expect(summary.closest("details")!.open).toBe(false);
+    fireEvent.click(summary);
+    expect(
+      within(region).getByText(/이전 실패 기록은 그대로 남습니다/),
+    ).toBeVisible();
+    expect(
+      within(region).getByRole("link", { name: "재점검 도움말" }),
+    ).toHaveAttribute("href", "/help/gw/operations");
+    if (state === "NEW_BACKUP_REQUIRED")
+      expect(
+        within(region).getByText(/실패 원본을 재검증할 수 없어/),
+      ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),
+    ).toBeVisible();
+  },
+);

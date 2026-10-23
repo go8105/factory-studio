@@ -83,6 +83,18 @@ type State = {
       } | null;
     } | null;
   };
+  recovery?: {
+    state:
+      | "NEW_BACKUP_REQUIRED"
+      | "NEW_RESTORE_REQUIRED"
+      | "RECHECK_REQUIRED"
+      | "RECOVERY_PARTIAL";
+    failedRunId: string;
+    failedRecordedAt: string;
+    failureOriginalVerified: boolean;
+    nextAction: string;
+    ready: false;
+  };
   evidenceChecks?: {
     kind: string;
     label: string;
@@ -534,6 +546,59 @@ export function Operations() {
                   ))}
                 </dl>
               </>
+            )}
+            {data.recovery && (
+              <section aria-label="원본 변경 후 재점검">
+                <h3>원본 변경 후 재점검</h3>
+                <p>
+                  현재 단계:{" "}
+                  <strong>
+                    {
+                      {
+                        NEW_BACKUP_REQUIRED: "새 백업 필요",
+                        NEW_RESTORE_REQUIRED: "새 권한 대조·격리 복원 필요",
+                        RECHECK_REQUIRED: "새 관측·인수 재점검 필요",
+                        RECOVERY_PARTIAL: "후속 일부 확인",
+                      }[data.recovery.state]
+                    }
+                  </strong>
+                </p>
+                <p>{data.recovery.nextAction}</p>
+                <details>
+                  <summary>재점검 순서와 범위</summary>
+                  <p>
+                    기준 실패 등록:{" "}
+                    {new Date(data.recovery.failedRecordedAt).toLocaleString(
+                      "ko-KR",
+                    )}
+                  </p>
+                  {!data.recovery.failureOriginalVerified && (
+                    <p>
+                      실패 원본을 재검증할 수 없어 실패 등록 이후 새 백업부터
+                      필요합니다.
+                    </p>
+                  )}
+                  <ol>
+                    <li>
+                      변경 원인을 확인하고 현재 기준에 맞는 백업을 준비합니다.
+                      실패 원본을 확인할 수 없으면 새 백업부터 만듭니다.
+                    </li>
+                    <li>
+                      다른 권한 대조를 사용해 새 격리 복원을 실행하고 서명 복원
+                      기록을 등록합니다.
+                    </li>
+                    <li>
+                      현재 원본과 새 복원본을 관측한 뒤 새 인수 점검을
+                      등록합니다. 필요한 변경 기록 관측도 포함합니다.
+                    </li>
+                  </ol>
+                  <p>
+                    이전 실패 기록은 그대로 남습니다. 후속 일부 확인도 전체 권한
+                    회수·실회사 인수·운영 전환 완료를 뜻하지 않습니다.
+                  </p>
+                  <Link to="/help/gw/operations">재점검 도움말</Link>
+                </details>
+              </section>
             )}
             {data.backupRestoreCollection && (
               <section aria-label="백업·복원 연결 점검">

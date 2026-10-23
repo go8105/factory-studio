@@ -74,6 +74,7 @@ def read(context, company_id):
         )
         from fs.gw.operating_evidence import verifier_config
 
+        recovery_summary = None
         pair_check = {
             "result": "BLOCKED",
             "backupRestorePairVerified": False,
@@ -115,6 +116,16 @@ def read(context, company_id):
                 db_revision=db_revision,
                 public_keys=keys,
                 now=clock,
+            )
+            from fs.gw.recovery import summary as recovery_status
+
+            recovery_summary = recovery_status(
+                c,
+                evidence_rows,
+                evidence_checks,
+                workspace_id=ctx.workspace_id,
+                generation_id=ctx.generation_id,
+                public_keys=keys,
             )
         except ApiError as error:
             if error.code != "SECURITY_CONFIGURATION_UNAVAILABLE":
@@ -175,6 +186,7 @@ def read(context, company_id):
             "emergencyKit": emergency_summary(c, ctx.user_id, ctx.workspace_id),
             "evidenceChecks": evidence_checks,
             "backupRestoreCollection": pair_check,
+            **({"recovery": recovery_summary} if recovery_summary is not None else {}),
             "evidenceIntegrityReverified": all(
                 check["signatureVerified"] for check in evidence_checks
             ),

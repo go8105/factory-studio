@@ -163,8 +163,14 @@ def main():
         )
         print(json.dumps({"result": result, "ready": False}))
         return 0 if result == "PARTIAL" else 2
+    except ApiError as error:
+        print(
+            error.message
+            if error.code == "OPERATING_RECOVERY_REQUIRED"
+            else "인수 자료·현재 기준·공개 키·파일 권한을 확인하세요. 기존 결과는 덮어쓰지 않습니다."
+        )
+        return 1
     except (
-        ApiError,
         OSError,
         BackupError,
         ValueError,

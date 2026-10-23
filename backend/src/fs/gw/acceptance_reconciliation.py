@@ -262,6 +262,9 @@ def verify_registered_sources(data, rows, *, policy_id, connection=None, **conte
         )
     if diagnostic != expected:
         raise evidence_error()
+    from fs.gw.recovery import require_recovery
+
+    require_recovery(connection, data, documents, **context)
 
 
 def require_new_observation(connection, data, *, workspace_id, generation_id):

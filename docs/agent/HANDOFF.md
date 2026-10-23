@@ -1,3 +1,30 @@
+## 2026-10-23 GW-READY-02 46차 — 원본 변경 실패 뒤 새 대조·격리 복원·후속 인수
+
+- 시작 `5a2b040`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 사용자 “다음진행해줘”에 따라 기존 승인 범위의 후속 복구 흐름 하나를 보완했다. 새 GW/DB 테이블·서명 종류·수동 완료 체크를 만들지 않았다. 최종 커밋은 `git log -1`로 확인한다.
+- 같은 회사/세대의 모든 정책·버전에서 최근 원본 변경(CHANGED) ACCEPTANCE FAIL을 복구 기준으로 선택한다. 역사 인수/내부 재관측 서명과 현재 키의 회사/용도, 등록 행/집계/메타데이터를 대조한다. 옛 관측의 서명 확인을 현재 정책/버전/15분 관측 통과로 간주하지 않는다. 원문 없음/변조·키 회수·복원 관측 없음은 과거 checkpoint 식별을 믿지 않고 실패 등록 이후 새 BACKUP을 요구한다.
+- 새 PARTIAL 인수에는 실패 등록 이후 시작한 다른 RESTORE 실행·물리 대상·checkpoint runId/암호화 파일 지문과 현재 원본 MATCH/복원본 관측을 요구한다. 현재 백업/복원이 같은 백업 실행·명세를 가리키지 않으면 재복원 단계로 남긴다. 원본을 예전 상태로 되돌리거나 같은 checkpoint로 새 대상만 만든 결과도 등록을 거부한다. 검증 가능한 실패 원본/관측이 있으면 현재 유효한 기존 백업을 새 checkpoint와 함께 사용할 수 있다. 최신 각 종류 증거의 실패/원본 없음/옛 기준 선택은 기존 그대로이며 이전 성공으로 대체하지 않는다.
+- 현재 DB 수집기·회사 잠금 안의 API 등록·준비 재조회에 같은 복구 조건을 연결했다. 반복 FAIL 기록은 보존하고 새 PARTIAL만 복구 조건으로 제한한다. 수집기를 우회한 발급도 서버가 OPERATING_RECOVERY_REQUIRED/400으로 거부하며, 수집기는 종료1/파일 없음과 새 백업 또는 새 격리 복원 조치를 출력한다. 키/URL/계정 원문을 오류에 출력하지 않는다. 등록된 실패를 수정·삭제하거나 자동 복원을 실행하지 않는다.
+- 기존 실행 증거 영역에 **원본 변경 후 재점검**의 새 백업/새 대조·복원/새 관측·인수/후속 일부 확인4상태와 기준 실패 시각·조치·접힌 순서/정적 도움말을 연결했다. 직관성은 현재 조치/기존 회사 관리 영역, 유효성은 서버 재대조/차단, 학습성은 순서·범위/도움말, 유연성은 펼침·키보드/모바일을 고려했다. admin 로그인 이름은 회사/보안/발급 권한을 대신하지 않으며 UI 전체 완성은 아니다.
+- 검증: 관련 단위448통과(기존 경고2), 화면/정적 도움말41통과, 타입·수정 ESLint/Prettier·Ruff check/format·정적DB219/2409/543·R1–R6 오류0. 새 소유 PostgreSQL 실제 dump/암호화/복원·원본 변경/회수 후 복구2시나리오와 기존 원본 비교1시나리오, 최종3통과74.50초(기존 경고2). 역사 원문 정상/없는 경우, 원본 변경 원복·옛 대상 재관측·옛 checkpoint 새 대상의 수집기/API 거부, 실CLI 조치/종료1/새 출력 없음, 새 백업(필요시)/새 checkpoint/새 격리 복원/새 관측→PARTIAL·실패 행 유지, 이후 최신 RESTORE FAIL의 INVALID/재복원 요구를 확인했다. 마지막 최신 RESTORE FAIL 선택 검사는 합성 서명 FAIL 자료를 추가한 것으로, 그 실패를 실제 복원 도구가 측정했다고 주장하지 않는다. 실제 복원은 계속 PARTIAL이며 실회사10인 인수가 아니다.
+- 실패/보정: 최초 실제3건 중 마지막 최신 실패 검사에서2건이400이었다. 합성 FAIL 증거의 unrevokedSessions=1과 sessionsInvalidated=true를 모순되게 만들었기 때문에 기존 계약이 정확히 거부했다. 시험 표지를 false로 보정했고 실제 복구3건을 통과시킨 뒤 CLI 조치 추가를 포함해 최종3건을 재실행했다. 제품 서명/권한·미통과 기준을 느슨하게 하지 않았다.
+- 브라우저: 제품 React+읽기 전용 합성 API로1440/390px 재점검 본문·세 단계/미완료 범위·PC 키보드 펼침·44px 조작·가로 넘침0을 확인했다. 크기 전환 중 메뉴 오버레이는 닫고 실제 본문을 다시 확인했다. 실제 API 브라우저/실기기 인수가 아니다. 임시 탭·뷰포트·서버 정리. 기존 Vite5362 PID20714 listen만 재확인, API 실행 상태 재검사/재시작 없음.
+- 자원/제약: 생성한 시험 자원만 정리했고 관측 시험DB0·폐쇄 복원DB0/preview DB존재를 읽기 확인했다. preview 초기화·실계정 admin/비밀번호/OTP·미리보기 정책/업무 변경 없음. 스키마/마이그레이션/Excel/ERD 변경 없음. ready=false/실제 복원 PARTIAL/최종4조건 UNVERIFIED 유지. 전체CI/전체회귀·기존 전체 실제DB 회귀·고정24수집·실외부/실회사·기기/10인·최종 전환은 미실행/미완료. 다른 checkout/main/원격push/배포 변경 없음. work/.env·전체 로그·비밀은 Git에 넣지 않는다.
+- 다음: 권한 대조 생성 시각과 최신 HEAD의 독립 증거 연결을 보완한다. 이번 조건은 다른 대조 실행/파일과 실패 등록 이후 새 복원 시작을 확인하며 checkpoint 자체의 생성 시각·별도 최신 목록·실행 바이너리/연속 관측 증명은 아직 아니다. 이후 나머지 최종 인수 계약·공급자 선정 후 외부 장애복구·최신main/전체회귀·실회사10인/최종전환. 난이도 매우 높음, [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra) + High 추천(시간/서명·독립 최신성·실패/부분/최종 판정 경계). 모델 자동 변경 없음.
+
+재현(저장소 루트):
+```sh
+uv run --project backend pytest backend/tests/test_gw_recovery.py backend/tests/test_restore_restriction_comparison.py backend/tests/test_gw_source_checkpoint.py backend/tests/test_gw_restore_recheck.py backend/tests/test_gw_restore_observation.py backend/tests/test_gw_journal_acceptance.py backend/tests/test_gw_journal_observation.py backend/tests/test_gw_evidence_trust.py backend/tests/test_gw_acceptance_sources.py backend/tests/test_gw_business_observation.py backend/tests/test_gw_acceptance_preflight.py backend/tests/test_gw_acceptance_reconciliation.py backend/tests/test_gw_route_verify.py backend/tests/test_gw_journal_routes.py backend/tests/test_gw_journal_coverage.py backend/tests/test_journal_review.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short
+# 소유 컨테이너ID/owner/loopback 확인 후 새 UUID *_test DB에만 동일 DATABASE_URL/TEST_DATABASE_URL과 소유 GW_BACKUP_TEST_CONTAINER를 비공개 주입한다.
+# 기존 gw_preview_test는 절대 초기화/시험하지 않는다. 생성한 자원만 정리한다.
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_recovery_db.py backend/tests/test_gw_source_checkpoint_db.py -q --tb=short
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/operations.test.tsx src/portal/content-pages.test.tsx --maxWorkers=2
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend run typecheck
+python3 tools/validate_db_design.py
+uv run --project backend python tools/audit_schema_isolation.py
+```
+복구/CLI 순서와 키·전용 URL 전환, 새 대상 유지/격리·전체 인수 경계는 `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §20을 따른다. 이 문서와 표준 명령은 비공개 work 임시 harness 없이 재현 가능해야 한다. 원격 운영·타 checkout·실계정/브라우저 설정을 변경하지 않는다. 외부 공급자 미정이며 임의로 선정하지 않는다.
+
 ## 2026-10-23 GW-READY-02 45차 — 현재 원본과 복원 권한 대조 비교
 
 - 시작 `65e4acd`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 사용자 “다음진행해줘”로 기존 GW 승인 범위의 다음 작업 하나를 수행했다. 새 GW/스키마·실계정 권한을 만들거나 바꾸지 않았다. 마지막 커밋은 `git log -1`로 확인한다.
