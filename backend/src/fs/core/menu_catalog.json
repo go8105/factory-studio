@@ -576,6 +576,18 @@
           "id": "Q-06",
           "label": "불량 유형",
           "group": "기준정보"
+        },
+        {
+          "path": "gauges",
+          "id": "Q-11",
+          "label": "계측기·교정",
+          "group": "기준정보"
+        },
+        {
+          "path": "change-notices",
+          "id": "Q-12",
+          "label": "4M 변경",
+          "group": "변경 관리"
         }
       ]
     },

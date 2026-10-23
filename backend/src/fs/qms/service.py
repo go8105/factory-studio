@@ -13,13 +13,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from functools import partial
 from typing import Any
 
 from sqlalchemy import Connection, text
 
+from fs.common import master
 from fs.common.auth import AuthContext
 from fs.common.clock import business_today
 from fs.common.engine import action, read
@@ -749,13 +750,17 @@ def _insert_inspection(
     snap: dict[str, Any],
     spec_id: int,
     reinspection_of: int | None,
+    kind: str = "OUTGOING",
+    source_ref: str | None = None,
 ) -> int:
     inspected_on = snap["inspected_on"]
     inspection_id = connection.execute(
         text(
             "INSERT INTO qms.inspection(workspace_id,generation_id,inspection_no,source,lot_no,item_code,item_name,"
-            "lot_qty,unit,sample_qty,spec_id,reinspection_of_id,inspected_on,inspection_month,note) "
-            "VALUES (:w,:g,:no,:source,:lot,:item,:name,:lot_qty,:unit,:sample,:spec,:again,:on,:month,:note) RETURNING id"
+            "lot_qty,unit,sample_qty,spec_id,reinspection_of_id,inspected_on,inspection_month,note,"
+            "inspection_kind,source_ref) "
+            "VALUES (:w,:g,:no,:source,:lot,:item,:name,:lot_qty,:unit,:sample,:spec,:again,:on,:month,:note,"
+            ":kind,:ref) RETURNING id"
         ),
         {
             **_s(scoped),
@@ -772,6 +777,8 @@ def _insert_inspection(
             "on": inspected_on,
             "month": f"{inspected_on:%Y-%m}",
             "note": snap.get("note"),
+            "kind": kind,
+            "ref": source_ref,
         },
     ).scalar_one()
     # 항목마다 빈 측정값 행을 만들어 둔다. 수정은 행 단위 UPDATE로 한다.
@@ -1319,3 +1326,467 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
         "recentFails": recent,
         "holds": holds,
     }
+
+
+# ---------- 계측기·교정 (Q-11, DSN-14 F61·F62) ----------
+
+GAUGE = master.Master(
+    module=MODULE,
+    table="qms.gauge",
+    columns=(
+        "code",
+        "name",
+        "gauge_kind",
+        "measure_range",
+        "resolution",
+        "calibration_cycle_days",
+        "status",
+    ),
+    sort={"code": "code", "name": "name", "status": "status"},
+    default_sort="code ASC",
+    unique=("code",),
+    filters={"status": "status"},
+    references=(
+        master.Reference("qms.inspection_value", "gauge_id", "검사 사용 기록"),
+    ),
+    not_found="계측기를 찾을 수 없습니다.",
+    duplicate_field="code",
+    duplicate_message="이미 사용 중인 계측기 번호입니다.",
+    referenced_message=(
+        "검사에 사용한 기록이 있어 삭제할 수 없습니다. 폐기로 바꿔 주세요."
+    ),
+)
+
+# 교정 도래 경고는 30일 전부터(DSN-14 Q6). 차단이 아니라 표시다.
+DUE_SOON_DAYS = 30
+
+CALIBRATION_SQL = """
+SELECT c.id, c.gauge_id, c.calibrated_on, c.next_due_on, c.result, c.agency,
+       c.certificate_no, c.created_at
+FROM qms.calibration c WHERE c.workspace_id=:w AND c.generation_id=:g
+"""
+
+
+def _due_state(next_due: date | None, today: date) -> str:
+    """교정 상태: 기록 없음 / 기한 경과 / 임박 / 정상."""
+    if next_due is None:
+        return "NONE"
+    if next_due < today:
+        return "OVERDUE"
+    return "SOON" if (next_due - today).days <= DUE_SOON_DAYS else "OK"
+
+
+def _calibration_state(
+    connection: Connection, scoped: AuthContext, gauge_ids: list[int]
+) -> dict[int, dict[str, Any]]:
+    """계측기별 **마지막 교정**. 도래는 저장하지 않고 여기서 파생한다(설계 노트)."""
+    if not gauge_ids:
+        return {}
+    today = business_today()
+    rows = connection.execute(
+        text(
+            "SELECT DISTINCT ON (gauge_id) gauge_id, calibrated_on, next_due_on, result "
+            f"FROM qms.calibration WHERE {_S} AND gauge_id = ANY(:ids) "
+            "ORDER BY gauge_id, calibrated_on DESC, id DESC"
+        ),
+        {**_s(scoped), "ids": gauge_ids},
+    ).mappings()
+    found = {
+        r["gauge_id"]: {
+            "lastCalibratedOn": r["calibrated_on"].isoformat(),
+            "nextDueOn": r["next_due_on"].isoformat(),
+            "lastResult": r["result"],
+            "dueState": _due_state(r["next_due_on"], today),
+            "dueInDays": (r["next_due_on"] - today).days,
+        }
+        for r in rows
+    }
+    blank = {
+        "lastCalibratedOn": None,
+        "nextDueOn": None,
+        "lastResult": None,
+        "dueState": "NONE",
+        "dueInDays": None,
+    }
+    return {gauge_id: found.get(gauge_id, blank) for gauge_id in gauge_ids}
+
+
+def gauges(context: AuthContext, **kwargs) -> tuple[list[dict[str, Any]], int]:
+    """계측기 목록에 마지막 교정과 도래 상태를 얹는다."""
+    rows, total = master.listing(GAUGE, context, **kwargs)
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        state = _calibration_state(connection, scoped, [r["id"] for r in rows])
+    return [{**r, **state[r["id"]]} for r in rows], total
+
+
+def gauge(context: AuthContext, gauge_id: int) -> dict[str, Any]:
+    found = master.detail(GAUGE, context, gauge_id)
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        state = _calibration_state(connection, scoped, [gauge_id])[gauge_id]
+        history = [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    CALIBRATION_SQL
+                    + " AND c.gauge_id=:id ORDER BY c.calibrated_on DESC, c.id DESC"
+                ),
+                {**_s(scoped), "id": gauge_id},
+            ).mappings()
+        ]
+    return {**found, **state, "calibrations": history}
+
+
+def create_gauge(context: AuthContext, values: dict[str, Any], key: str):
+    return master.create(GAUGE, context, values, key)
+
+
+def update_gauge(context: AuthContext, gauge_id: int, values: dict, key: str):
+    return master.update(GAUGE, context, gauge_id, values, key)
+
+
+def delete_gauge(context: AuthContext, gauge_id: int, key: str) -> None:
+    master.delete(GAUGE, context, gauge_id, key)
+
+
+def add_calibration(
+    context: AuthContext, gauge_id: int, values: dict[str, Any], key: str
+):
+    """교정 이력 1건. **불합격이면 계측기를 수리 중으로, 수리 중이 합격하면 사용 중으로** 돌린다(F62)."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = (
+            connection.execute(
+                text(
+                    f"SELECT id, code, status, calibration_cycle_days FROM qms.gauge WHERE {_S} AND id=:id FOR UPDATE"
+                ),
+                {**_s(scoped), "id": gauge_id},
+            )
+            .mappings()
+            .first()
+        )
+        if found is None:
+            raise _not_found("계측기")
+        if found["status"] == "RETIRED":
+            raise _conflict(
+                "폐기한 계측기에는 교정을 기록할 수 없습니다.", "GAUGE_RETIRED"
+            )
+        calibrated_on = values["calibrated_on"]
+        if calibrated_on > business_today():
+            raise _field("calibratedOn", "교정일은 오늘 이후일 수 없습니다.")
+        # 기한을 적지 않으면 교정 주기로 정한다. 기관 성적서의 기한이 다르면 직접 적는다.
+        next_due = values.get("next_due_on") or calibrated_on + timedelta(
+            days=found["calibration_cycle_days"]
+        )
+        if next_due <= calibrated_on:
+            raise _field("nextDueOn", "다음 기한은 교정일보다 뒤여야 합니다.")
+        if connection.execute(
+            text(
+                f"SELECT 1 FROM qms.calibration WHERE {_S} AND gauge_id=:id AND calibrated_on=:on"
+            ),
+            {**_s(scoped), "id": gauge_id, "on": calibrated_on},
+        ).first():
+            raise _field("calibratedOn", "같은 날짜의 교정 기록이 이미 있습니다.")
+        row = (
+            connection.execute(
+                text(
+                    "INSERT INTO qms.calibration(workspace_id,generation_id,gauge_id,calibrated_on,"
+                    "next_due_on,result,agency,certificate_no) "
+                    "VALUES (:w,:g,:id,:on,:due,:result,:agency,:cert) "
+                    "RETURNING id, gauge_id, calibrated_on, next_due_on, result, agency, certificate_no, created_at"
+                ),
+                {
+                    **_s(scoped),
+                    "id": gauge_id,
+                    "on": calibrated_on,
+                    "due": next_due,
+                    "result": values["result"],
+                    "agency": values.get("agency"),
+                    "cert": values.get("certificate_no"),
+                },
+            )
+            .mappings()
+            .one()
+        )
+        status = (
+            "REPAIR"
+            if values["result"] == "FAIL"
+            else ("ACTIVE" if found["status"] == "REPAIR" else found["status"])
+        )
+        if status != found["status"]:
+            connection.execute(
+                text(f"UPDATE qms.gauge SET status=:s WHERE {_S} AND id=:id"),
+                {**_s(scoped), "s": status, "id": gauge_id},
+            )
+        return {**_row(row), "gaugeStatus": status}, "calibration", row["id"]
+
+    return _action(
+        context, "qms.calibration.create", key, {"id": gauge_id, **values}, fn, 201
+    )
+
+
+# ---------- 4M 변경 (Q-12, DSN-14 F06) ----------
+
+CHANGE_SQL = """
+SELECT n.id, n.cn_no, n.change_type, n.item_code, n.description, n.requested_on,
+       n.effective_on, n.status, n.decided_at, n.decision_note,
+       n.first_article_inspection_id, f.inspection_no first_article_no, f.result first_article_result,
+       n.plm_eco_no, n.created_at
+FROM qms.change_notice n
+LEFT JOIN qms.inspection f ON f.workspace_id=n.workspace_id AND f.generation_id=n.generation_id
+ AND f.id=n.first_article_inspection_id
+WHERE n.workspace_id=:w AND n.generation_id=:g
+"""
+
+
+def _change(
+    connection: Connection, scoped: AuthContext, cn_id: int, lock: bool = False
+) -> dict[str, Any] | None:
+    if lock:
+        connection.execute(
+            text(f"SELECT 1 FROM qms.change_notice WHERE {_S} AND id=:id FOR UPDATE"),
+            {**_s(scoped), "id": cn_id},
+        )
+    row = (
+        connection.execute(
+            text(CHANGE_SQL + " AND n.id=:id"), {**_s(scoped), "id": cn_id}
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else _row(row)
+
+
+def _first_articles(
+    connection: Connection, scoped: AuthContext, cn_no: str
+) -> list[dict[str, Any]]:
+    """이 신고 번호를 원천으로 만든 초품 검사. 확정 합격 1건이면 확인 완료로 닫을 수 있다."""
+    return [
+        _row(r)
+        for r in connection.execute(
+            text(
+                INSPECTION_SQL
+                + " AND i.inspection_kind='FIRST_ARTICLE' AND i.source_ref=:ref"
+                " ORDER BY i.id DESC"
+            ),
+            {**_s(scoped), "ref": cn_no},
+        ).mappings()
+    ]
+
+
+def list_change_notices(
+    context: AuthContext, status: str | None, change_type: str | None
+) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    CHANGE_SQL
+                    + " AND (CAST(:status AS text) IS NULL OR n.status=:status)"
+                    " AND (CAST(:kind AS text) IS NULL OR n.change_type=:kind)"
+                    " ORDER BY n.requested_on DESC, n.id DESC"
+                ),
+                {**_s(scoped), "status": status, "kind": change_type},
+            ).mappings()
+        ]
+
+
+def get_change_notice(context: AuthContext, cn_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = _change(connection, scoped, cn_id)
+        if found is None:
+            raise _not_found("4M 변경 신고")
+        return {
+            **found,
+            "firstArticles": _first_articles(connection, scoped, found["cnNo"]),
+        }
+
+
+def create_change_notice(context: AuthContext, values: dict[str, Any], key: str):
+    def fn(connection: Connection, scoped: AuthContext):
+        requested_on = values.get("requested_on") or business_today()
+        if values["effective_on"] < requested_on:
+            raise _field("effectiveOn", "적용 예정일은 신청일 이후여야 합니다.")
+        cn_id = connection.execute(
+            text(
+                "INSERT INTO qms.change_notice(workspace_id,generation_id,cn_no,change_type,"
+                "item_code,description,requested_on,effective_on) "
+                "VALUES (:w,:g,:no,:kind,:item,:desc,:on,:eff) RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "no": _next_no(connection, scoped, "qms.change_notice", "cn_no", "CN"),
+                "kind": values["change_type"],
+                "item": values["item_code"],
+                "desc": values["description"],
+                "on": requested_on,
+                "eff": values["effective_on"],
+            },
+        ).scalar_one()
+        return _change(connection, scoped, cn_id), "change_notice", cn_id
+
+    return _action(context, "qms.change_notice.create", key, values, fn, 201)
+
+
+def update_change_notice(context: AuthContext, cn_id: int, values: dict, key: str):
+    """신청 중일 때만 고친다. 승인·반려 뒤에는 기록을 바꾸지 않는다."""
+    if not values:
+        raise _fields({"description": "변경할 항목이 없습니다."})
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _change(connection, scoped, cn_id, lock=True)
+        if found is None:
+            raise _not_found("4M 변경 신고")
+        if found["status"] != "REQUESTED":
+            raise _conflict(
+                "결정한 신고는 고칠 수 없습니다.",
+                "NOT_REQUESTED",
+                status=found["status"],
+            )
+        merged = {
+            "requested_on": date.fromisoformat(found["requestedOn"]),
+            "effective_on": date.fromisoformat(found["effectiveOn"]),
+            **values,
+        }
+        if merged["effective_on"] < merged["requested_on"]:
+            raise _field("effectiveOn", "적용 예정일은 신청일 이후여야 합니다.")
+        assignments = ",".join(f"{name}=:{name}" for name in values)
+        connection.execute(
+            text(f"UPDATE qms.change_notice SET {assignments} WHERE {_S} AND id=:id"),
+            {**_s(scoped), **values, "id": cn_id},
+        )
+        return _change(connection, scoped, cn_id), "change_notice", cn_id
+
+    return _action(
+        context, "qms.change_notice.update", key, {"id": cn_id, **values}, fn
+    )
+
+
+def decide_change_notice(
+    context: AuthContext, cn_id: int, values: dict[str, Any], key: str
+):
+    """승인 또는 반려. 신청 중일 때만 결정하고, 반려에는 의견을 받는다."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _change(connection, scoped, cn_id, lock=True)
+        if found is None:
+            raise _not_found("4M 변경 신고")
+        if found["status"] != "REQUESTED":
+            raise _conflict(
+                "이미 결정한 신고입니다.", "ALREADY_DECIDED", status=found["status"]
+            )
+        status = "APPROVED" if values["approve"] else "REJECTED"
+        note = (values.get("note") or "").strip()
+        if status == "REJECTED" and not note:
+            raise _field("note", "반려 의견을 적어 주세요.")
+        connection.execute(
+            text(
+                f"UPDATE qms.change_notice SET status=:s, decided_at=clock_timestamp(), "
+                f"decision_note=:note WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "s": status, "note": note or None, "id": cn_id},
+        )
+        return _change(connection, scoped, cn_id), "change_notice", cn_id
+
+    return _action(
+        context, "qms.change_notice.decide", key, {"id": cn_id, **values}, fn
+    )
+
+
+def create_first_article(
+    context: AuthContext, cn_id: int, values: dict[str, Any], key: str
+):
+    """승인된 신고의 초품 검사를 만든다. 원천은 신고 번호이고 검사 기준은 품목의 게시본이다."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _change(connection, scoped, cn_id, lock=True)
+        if found is None:
+            raise _not_found("4M 변경 신고")
+        if found["status"] != "APPROVED":
+            raise _conflict(
+                "승인한 신고에만 초품 검사를 만들 수 있습니다.",
+                "NOT_APPROVED",
+                status=found["status"],
+            )
+        spec_id = _published_spec(connection, scoped, found["itemCode"])
+        item_name = connection.execute(
+            text(f"SELECT item_name FROM qms.inspection_spec WHERE {_S} AND id=:id"),
+            {**_s(scoped), "id": spec_id},
+        ).scalar_one()
+        _no_draft_for_lot(connection, scoped, values["lot_no"])
+        _sample_ok(values["sample_qty"], values["lot_qty"])
+        inspection_id = _insert_inspection(
+            connection,
+            scoped,
+            {
+                "source": "QMS",
+                "lot_no": values["lot_no"],
+                "item_code": found["itemCode"],
+                "item_name": item_name,
+                "lot_qty": values["lot_qty"],
+                "unit": values["unit"],
+                "sample_qty": values["sample_qty"],
+                "inspected_on": values.get("inspected_on") or business_today(),
+                "note": values.get("note"),
+            },
+            spec_id,
+            None,
+            kind="FIRST_ARTICLE",
+            source_ref=found["cnNo"],
+        )
+        return (
+            _inspection(connection, scoped, inspection_id),
+            "inspection",
+            inspection_id,
+        )
+
+    return _action(
+        context,
+        "qms.change_notice.first_article",
+        key,
+        {"id": cn_id, **values},
+        fn,
+        201,
+    )
+
+
+def verify_change_notice(context: AuthContext, cn_id: int, values: dict, key: str):
+    """초품 검사 합격으로 확인 완료. 불합격이면 승인 상태 그대로 두고 다시 검사한다(DB_POLICY)."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _change(connection, scoped, cn_id, lock=True)
+        if found is None:
+            raise _not_found("4M 변경 신고")
+        if found["status"] != "APPROVED":
+            raise _conflict(
+                "승인한 신고만 확인 완료할 수 있습니다.",
+                "NOT_APPROVED",
+                status=found["status"],
+            )
+        inspection_id = values["first_article_inspection_id"]
+        passed = {
+            i["id"]
+            for i in _first_articles(connection, scoped, found["cnNo"])
+            if i["status"] == "confirmed" and i["result"] == "PASS"
+        }
+        if inspection_id not in passed:
+            raise _field(
+                "firstArticleInspectionId",
+                "이 신고를 원천으로 확정·합격한 초품 검사만 고를 수 있습니다.",
+            )
+        connection.execute(
+            text(
+                "UPDATE qms.change_notice SET status='VERIFIED', "
+                f"first_article_inspection_id=:f WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "f": inspection_id, "id": cn_id},
+        )
+        return _change(connection, scoped, cn_id), "change_notice", cn_id
+
+    return _action(
+        context, "qms.change_notice.verify", key, {"id": cn_id, **values}, fn
+    )

@@ -25,6 +25,7 @@ import {
   previewJudgement,
   QMS,
   ResultBadge,
+  SOURCE,
   useSend,
   type DefectType,
   type Inspection,
@@ -272,7 +273,7 @@ export function Inspections() {
     {
       key: "source",
       label: "출처",
-      render: (r) => (r.source === "MES" ? "MES 조회" : "직접 입력"),
+      render: (r) => SOURCE[r.source],
     },
     { key: "inspectedOn", label: "검사일" },
   ];

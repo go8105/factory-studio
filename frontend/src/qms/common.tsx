@@ -71,7 +71,7 @@ export type Hold = {
 export type Inspection = {
   id: number;
   inspectionNo: string;
-  source: "MES" | "MANUAL";
+  source: "MES" | "MANUAL" | "QMS";
   lotNo: string;
   itemCode: string;
   itemName: string;
@@ -115,6 +115,13 @@ export function SpcBadge({ signal }: { signal?: boolean | null }) {
     </Badge>
   ) : null;
 }
+
+/** 검사 출처. QMS는 4M 변경 신고에서 만든 초품 검사다(Q-12). */
+export const SOURCE = {
+  MES: "MES 조회",
+  MANUAL: "직접 입력",
+  QMS: "4M 초품",
+} as const;
 
 export const num = (v: string | number, digits = 3) =>
   Number(v).toLocaleString("ko-KR", { maximumFractionDigits: digits });
@@ -206,3 +213,101 @@ export function previewJudgement(
 export const useLists = <T extends unknown[]>(paths: string[]) =>
   useApiLists<T>(QMS, paths);
 export const useSend = (onDone: () => void) => useApiSend(QMS, onDone);
+
+export type GaugeStatus = "ACTIVE" | "REPAIR" | "RETIRED";
+export type DueState = "NONE" | "OK" | "SOON" | "OVERDUE";
+export type Calibration = {
+  id: number;
+  gaugeId: number;
+  calibratedOn: string;
+  nextDueOn: string;
+  result: Judgement;
+  agency: string | null;
+  certificateNo: string | null;
+};
+export type Gauge = {
+  id: number;
+  code: string;
+  name: string;
+  gaugeKind: string;
+  measureRange: string | null;
+  resolution: string | null;
+  calibrationCycleDays: number;
+  status: GaugeStatus;
+  lastCalibratedOn: string | null;
+  nextDueOn: string | null;
+  lastResult: Judgement | null;
+  dueState: DueState;
+  dueInDays: number | null;
+  calibrations?: Calibration[];
+};
+export type ChangeType = "MAN" | "MACHINE" | "MATERIAL" | "METHOD";
+export type CnStatus = "REQUESTED" | "APPROVED" | "REJECTED" | "VERIFIED";
+export type ChangeNotice = {
+  id: number;
+  cnNo: string;
+  changeType: ChangeType;
+  itemCode: string;
+  description: string;
+  requestedOn: string;
+  effectiveOn: string;
+  status: CnStatus;
+  decidedAt: string | null;
+  decisionNote: string | null;
+  firstArticleInspectionId: number | null;
+  firstArticleNo: string | null;
+  firstArticleResult: Judgement | null;
+  plmEcoNo: string | null;
+  firstArticles?: Inspection[];
+};
+
+export const GAUGE_STATUS: Record<GaugeStatus, string> = {
+  ACTIVE: "사용 중",
+  REPAIR: "수리 중",
+  RETIRED: "폐기",
+};
+export const CHANGE_TYPE: Record<ChangeType, string> = {
+  MAN: "사람",
+  MACHINE: "설비",
+  MATERIAL: "자재",
+  METHOD: "방법",
+};
+export const CN_STATUS: Record<CnStatus, string> = {
+  REQUESTED: "신청",
+  APPROVED: "승인",
+  REJECTED: "반려",
+  VERIFIED: "확인 완료",
+};
+
+export function GaugeStatusBadge({ status }: { status: GaugeStatus }) {
+  const tone = status === "ACTIVE" ? "normal" : "warning";
+  return <Badge tone={tone}>{GAUGE_STATUS[status]}</Badge>;
+}
+
+/** 교정 도래. 저장하지 않고 마지막 교정의 다음 기한에서 파생한 값이다. */
+export function DueBadge({ gauge }: { gauge: Gauge }) {
+  if (gauge.dueState === "NONE")
+    return <span className="muted">기록 없음</span>;
+  // 마지막 교정이 불합격이면 남은 날을 세어 줄 일이 아니다 — 다시 교정해야 한다.
+  if (gauge.lastResult === "FAIL")
+    return <Badge tone="issue">재교정 필요 · {gauge.lastCalibratedOn}</Badge>;
+  if (gauge.dueState === "OVERDUE")
+    return <Badge tone="issue">기한 경과 · {gauge.nextDueOn}</Badge>;
+  if (gauge.dueState === "SOON")
+    return (
+      <Badge tone="warning">
+        {gauge.dueInDays}일 남음 · {gauge.nextDueOn}
+      </Badge>
+    );
+  return <span>{gauge.nextDueOn}</span>;
+}
+
+export function CnStatusBadge({ status }: { status: CnStatus }) {
+  const tone =
+    status === "VERIFIED"
+      ? "normal"
+      : status === "REJECTED"
+        ? "issue"
+        : "warning";
+  return <Badge tone={tone}>{CN_STATUS[status]}</Badge>;
+}

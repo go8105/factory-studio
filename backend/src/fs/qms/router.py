@@ -3,16 +3,25 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, Query, Response
 from pydantic import BaseModel
 
 from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
 from fs.common.errors import ApiError
+from fs.common.page import Page
 from fs.qms import service
 from fs.qms.schema import (
+    CalibrationCreate,
+    ChangeNoticeCreate,
+    ChangeNoticeDecide,
+    ChangeNoticeUpdate,
+    ChangeNoticeVerify,
     DefectTypeCreate,
     DefectTypeUpdate,
+    FirstArticleCreate,
+    GaugeCreate,
+    GaugeUpdate,
     HoldRelease,
     InspectionCreate,
     InspectionUpdate,
@@ -290,5 +299,203 @@ def release_hold(
     return _data(
         service.release_hold(
             context, hold_id, payload.model_dump(), _mutation(context, csrf, key)
+        )
+    )
+
+
+def _page(rows_total: tuple[list[dict[str, Any]], int], page: Page) -> dict[str, Any]:
+    rows, total = rows_total
+    return {
+        "data": rows,
+        "page": {"offset": page.offset, "limit": page.limit, "total": total},
+    }
+
+
+# ---- 계측기·교정 (Q-11) ----
+# 비워 둘 수 있는 칸 — 측정 범위·분해능은 모르면 비운다.
+GAUGE_NULLABLE = frozenset({"measure_range", "resolution"})
+
+
+@router.get("/gauges")
+def list_gauges(
+    context: Auth,
+    offset: int = 0,
+    limit: int = 50,
+    sort: str | None = None,
+    status: Annotated[str | None, Query(pattern="^(ACTIVE|REPAIR|RETIRED)$")] = None,
+):
+    page = Page(offset, limit).checked()
+    return _page(
+        service.gauges(
+            context,
+            filters={"status": status},
+            sort=sort,
+            offset=page.offset,
+            limit=page.limit,
+        ),
+        page,
+    )
+
+
+@router.post("/gauges", status_code=201)
+def post_gauge(
+    payload: GaugeCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_gauge(
+            context, _values(payload, GAUGE_NULLABLE), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.get("/gauges/{gauge_id}")
+def get_gauge(gauge_id: int, context: Auth):
+    return _data(service.gauge(context, gauge_id))
+
+
+@router.patch("/gauges/{gauge_id}")
+def patch_gauge(
+    gauge_id: int,
+    payload: GaugeUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_gauge(
+            context,
+            gauge_id,
+            _values(payload, GAUGE_NULLABLE),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.delete("/gauges/{gauge_id}", status_code=204)
+def delete_gauge(
+    gauge_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    service.delete_gauge(context, gauge_id, _mutation(context, csrf, key))
+    return Response(status_code=204)
+
+
+@router.post("/gauges/{gauge_id}/calibrations", status_code=201)
+def post_calibration(
+    gauge_id: int,
+    payload: CalibrationCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.add_calibration(
+            context,
+            gauge_id,
+            payload.model_dump(),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+# ---- 4M 변경 (Q-12) ----
+@router.get("/change-notices")
+def list_change_notices(
+    context: Auth,
+    status: Annotated[
+        str | None, Query(pattern="^(REQUESTED|APPROVED|REJECTED|VERIFIED)$")
+    ] = None,
+    change_type: Annotated[
+        str | None, Query(alias="changeType", pattern="^(MAN|MACHINE|MATERIAL|METHOD)$")
+    ] = None,
+):
+    return _data(service.list_change_notices(context, status, change_type))
+
+
+@router.post("/change-notices", status_code=201)
+def post_change_notice(
+    payload: ChangeNoticeCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_change_notice(
+            context,
+            _values(payload, frozenset({"requested_on"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.get("/change-notices/{cn_id}")
+def get_change_notice(cn_id: int, context: Auth):
+    return _data(service.get_change_notice(context, cn_id))
+
+
+@router.patch("/change-notices/{cn_id}")
+def patch_change_notice(
+    cn_id: int,
+    payload: ChangeNoticeUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_change_notice(
+            context, cn_id, _values(payload), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.post("/change-notices/{cn_id}/decision")
+def decide_change_notice(
+    cn_id: int,
+    payload: ChangeNoticeDecide,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.decide_change_notice(
+            context, cn_id, payload.model_dump(), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.post("/change-notices/{cn_id}/first-article", status_code=201)
+def post_first_article(
+    cn_id: int,
+    payload: FirstArticleCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_first_article(
+            context,
+            cn_id,
+            _values(payload, frozenset({"inspected_on", "note"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/change-notices/{cn_id}/verification")
+def verify_change_notice(
+    cn_id: int,
+    payload: ChangeNoticeVerify,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.verify_change_notice(
+            context, cn_id, payload.model_dump(), _mutation(context, csrf, key)
         )
     )

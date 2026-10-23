@@ -82,3 +82,70 @@ class HoldRelease(ApiModel):
     disposition: Disposition
     release_inspection_id: int | None = Field(None, alias="releaseInspectionId", gt=0)
     reason: str | None = Field(None, max_length=300)
+
+
+GAUGE_CODE = r"^[A-Z0-9][A-Z0-9_\-]{0,29}$"
+CN_TYPE = Literal["MAN", "MACHINE", "MATERIAL", "METHOD"]
+
+
+class GaugeCreate(ApiModel):
+    code: str = Field(pattern=GAUGE_CODE)
+    name: str = Field(min_length=1, max_length=100)
+    gauge_kind: str = Field(alias="gaugeKind", min_length=1, max_length=40)
+    measure_range: str | None = Field(None, alias="measureRange", max_length=60)
+    resolution: str | None = Field(None, max_length=30)
+    calibration_cycle_days: int = Field(alias="calibrationCycleDays", ge=1, le=1825)
+    status: Literal["ACTIVE", "REPAIR", "RETIRED"] = "ACTIVE"
+
+
+class GaugeUpdate(ApiModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    gauge_kind: str | None = Field(None, alias="gaugeKind", min_length=1, max_length=40)
+    measure_range: str | None = Field(None, alias="measureRange", max_length=60)
+    resolution: str | None = Field(None, max_length=30)
+    calibration_cycle_days: int | None = Field(
+        None, alias="calibrationCycleDays", ge=1, le=1825
+    )
+    status: Literal["ACTIVE", "REPAIR", "RETIRED"] | None = None
+
+
+class CalibrationCreate(ApiModel):
+    calibrated_on: date = Field(alias="calibratedOn")
+    # 비워 두면 계측기의 교정 주기로 정한다.
+    next_due_on: date | None = Field(None, alias="nextDueOn")
+    result: Literal["PASS", "FAIL"]
+    agency: str | None = Field(None, max_length=100)
+    certificate_no: str | None = Field(None, alias="certificateNo", max_length=60)
+
+
+class ChangeNoticeCreate(ApiModel):
+    change_type: CN_TYPE = Field(alias="changeType")
+    item_code: str = Field(alias="itemCode", pattern=ITEM_CODE)
+    description: str = Field(min_length=1, max_length=1000)
+    requested_on: date | None = Field(None, alias="requestedOn")
+    effective_on: date = Field(alias="effectiveOn")
+
+
+class ChangeNoticeUpdate(ApiModel):
+    change_type: CN_TYPE | None = Field(None, alias="changeType")
+    item_code: str | None = Field(None, alias="itemCode", pattern=ITEM_CODE)
+    description: str | None = Field(None, min_length=1, max_length=1000)
+    effective_on: date | None = Field(None, alias="effectiveOn")
+
+
+class ChangeNoticeDecide(ApiModel):
+    approve: bool
+    note: str | None = Field(None, max_length=500)
+
+
+class FirstArticleCreate(ApiModel):
+    lot_no: str = Field(alias="lotNo", min_length=1, max_length=50)
+    lot_qty: str = Field(alias="lotQty", pattern=QTY)
+    unit: str = Field(min_length=1, max_length=10)
+    sample_qty: str = Field(alias="sampleQty", pattern=QTY)
+    inspected_on: date | None = Field(None, alias="inspectedOn")
+    note: str | None = Field(None, max_length=300)
+
+
+class ChangeNoticeVerify(ApiModel):
+    first_article_inspection_id: int = Field(alias="firstArticleInspectionId", gt=0)

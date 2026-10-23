@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy import Connection, text
 
 from fs.common.auth import AuthContext
+from fs.common.clock import business_today
 from fs.common.scope import module_available
 
 
@@ -85,3 +86,38 @@ def latest_results(
         {"w": scoped.workspace_id, "g": scoped.generation_id, "lots": lot_nos},
     ).mappings()
     return {r["lot_no"]: r["result"] for r in rows}
+
+
+def gauges(connection: Connection, scoped: AuthContext) -> list[dict[str, Any]] | None:
+    """폐기하지 않은 계측기 `[{code, name, gaugeKind, status, nextDueOn, isOverdue}]`. QMS 꺼짐이면 None.
+
+    SPC가 측정에 쓴 계측기를 고를 때 읽는다(DSN-14 F61). 교정 도래는 저장하지 않고
+    마지막 교정의 다음 기한에서 파생한다 — 기한이 지났으면 경고일 뿐 차단하지 않는다.
+    """
+    if not _enabled(connection, scoped):
+        return None
+    rows = connection.execute(
+        text(
+            "SELECT g.code, g.name, g.gauge_kind, g.status, "
+            " (SELECT c.next_due_on FROM qms.calibration c "
+            "   WHERE c.workspace_id=g.workspace_id AND c.generation_id=g.generation_id "
+            "     AND c.gauge_id=g.id ORDER BY c.calibrated_on DESC, c.id DESC LIMIT 1) next_due_on "
+            "FROM qms.gauge g WHERE g.workspace_id=:w AND g.generation_id=:g "
+            "  AND g.status <> 'RETIRED' ORDER BY g.code"
+        ),
+        {"w": scoped.workspace_id, "g": scoped.generation_id},
+    ).mappings()
+    today = business_today()
+    return [
+        {
+            "code": r["code"],
+            "name": r["name"],
+            "gaugeKind": r["gauge_kind"],
+            "status": r["status"],
+            "nextDueOn": None
+            if r["next_due_on"] is None
+            else r["next_due_on"].isoformat(),
+            "isOverdue": r["next_due_on"] is not None and r["next_due_on"] < today,
+        }
+        for r in rows
+    ]
