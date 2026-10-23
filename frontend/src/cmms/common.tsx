@@ -354,3 +354,85 @@ export const standardOf = (item: ChecklistItem) => {
 };
 export const qty = (value: string | null | undefined) =>
   value == null ? "—" : String(Number(value));
+
+export type Overview = {
+  today: string;
+  assetCount: number;
+  criticalCount: number;
+  requested: number;
+  inProgress: number;
+  openBm: number;
+  pendingSignals: number;
+  sources: { bems: boolean; spc: boolean };
+  duePlans: {
+    id: number;
+    code: string;
+    title: string;
+    assetCode: string;
+    dueOn: string | null;
+  }[];
+  unknownPlans: number;
+  shortParts: {
+    id: number;
+    code: string;
+    name: string;
+    qtyOnHand: string;
+    safetyStock: string | null;
+    unit: string;
+  }[];
+};
+export type AssetMetric = {
+  id: string;
+  assetCode: string;
+  assetName: string;
+  failures: number;
+  downtime: string;
+  mttr: string;
+};
+export type ParetoRow = {
+  id: string;
+  kind: "CAUSE" | "SYMPTOM";
+  name: string;
+  count: number;
+};
+export type Metrics = {
+  from: string;
+  to: string;
+  periodHours: string;
+  failures: number;
+  downtime: string;
+  mttr: string | null;
+  mtbf: string | null;
+  pmTotal: number;
+  pmKept: number;
+  pmRate: string | null;
+  byAsset: AssetMetric[];
+  pareto: ParetoRow[];
+};
+export type CostRow = {
+  id: string;
+  group: string;
+  label: string;
+  orderCount: number;
+  bmCount: number;
+  pmCount: number;
+  partCost: string;
+  laborCost: string;
+  externalCost: string;
+  totalCost: string;
+};
+export type CostData = {
+  from: string;
+  to: string;
+  orderCount: number;
+  partCost: string;
+  laborCost: string;
+  externalCost: string;
+  totalCost: string;
+  byAsset: CostRow[];
+  byMonth: CostRow[];
+};
+
+/** 시간을 "3.0시간"으로. 지표는 소수 1자리로 맞춰 둔다. */
+export const hours = (value: string | null) =>
+  value == null ? "—" : `${Number(value).toLocaleString("ko-KR")}시간`;

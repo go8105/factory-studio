@@ -1,6 +1,7 @@
 # 주의: `from __future__ import annotations`를 쓰지 않는다. FastAPI가 본문 타입을 실제 클래스로 읽어야 한다.
 """CMMS API (/api/v1/cmms, FS-029 · DSN-21). 변경 요청은 CSRF와 Idempotency-Key가 필요하다."""
 
+from datetime import date
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Query, Response
@@ -322,7 +323,7 @@ def post_work_log(
         "data": service.add_work_log(
             context,
             order_id,
-            _values(payload, frozenset({"note", "technician_id"})),
+            _values(payload, frozenset({"technician_id"})),
             _mutation(context, csrf, key),
         )
     }
@@ -735,3 +736,24 @@ def delete_spare_part(
 @router.get("/lookups/supply-items")
 def lookup_supply_items(context: Auth):
     return {"data": service.supply_items(context)}
+
+
+# ── 개요·지표·비용 (C-01·C-07·C-10) ────────────────────────────────────────
+
+From = Annotated[date | None, Query(alias="from")]
+To = Annotated[date | None, Query(alias="to")]
+
+
+@router.get("/overview")
+def get_overview(context: Auth):
+    return {"data": service.overview(context)}
+
+
+@router.get("/metrics")
+def get_metrics(context: Auth, date_from: From = None, date_to: To = None):
+    return {"data": service.metrics(context, date_from, date_to)}
+
+
+@router.get("/cost")
+def get_cost(context: Auth, date_from: From = None, date_to: To = None):
+    return {"data": service.maintenance_cost(context, date_from, date_to)}

@@ -707,6 +707,12 @@
       "title": "설비보전",
       "screens": [
         {
+          "path": "overview",
+          "id": "C-01",
+          "label": "보전 개요",
+          "group": "보전 현황"
+        },
+        {
           "path": "signals",
           "id": "C-02",
           "label": "전환 대기 신호",
@@ -723,6 +729,18 @@
           "id": "C-04",
           "label": "예방보전 계획",
           "group": "보전 현황"
+        },
+        {
+          "path": "metrics",
+          "id": "C-07",
+          "label": "보전 지표",
+          "group": "분석"
+        },
+        {
+          "path": "cost",
+          "id": "C-10",
+          "label": "보전 비용",
+          "group": "분석"
         },
         {
           "path": "assets",

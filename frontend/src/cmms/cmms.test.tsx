@@ -552,3 +552,142 @@ it("C-06 예비품: WMS를 잇지 않으면 재고가 0이 아니라 '모름'이
   expect(screen.getByText("부족")).toBeVisible();
   expect(screen.getByText("1,200원")).toBeVisible();
 });
+
+it("C-07 지표: 고장이 0건이면 0이 아니라 '고장 없음'으로 알린다", async () => {
+  mount("/cmms/metrics", {
+    [`GET ${C}/metrics`]: ok({
+      from: "2026-07-01",
+      to: "2026-09-24",
+      periodHours: "2040.0",
+      failures: 0,
+      downtime: "0",
+      mttr: null,
+      mtbf: null,
+      pmTotal: 0,
+      pmKept: 0,
+      pmRate: null,
+      byAsset: [],
+      pareto: [],
+    }),
+  });
+  expect(await screen.findByText(/완료된 고장 작업지시가 없어/)).toBeVisible();
+  expect(screen.getByLabelText("MTBF")).toHaveTextContent("—");
+  expect(screen.getByLabelText("PM 준수율")).toHaveTextContent(
+    "이 기간에 예정된 PM이 없습니다",
+  );
+});
+
+it("C-07 지표: 고장이 있으면 설비별·파레토를 보여 주고 유예 없음을 알린다", async () => {
+  mount("/cmms/metrics", {
+    [`GET ${C}/metrics`]: ok({
+      from: "2026-07-01",
+      to: "2026-09-24",
+      periodHours: "2040.0",
+      failures: 2,
+      downtime: "6.0",
+      mttr: "3.0",
+      mtbf: "1017.0",
+      pmTotal: 4,
+      pmKept: 3,
+      pmRate: "75.0",
+      byAsset: [
+        {
+          id: "INJ-02",
+          assetCode: "INJ-02",
+          assetName: "사출기 2호",
+          failures: 2,
+          downtime: "6.0",
+          mttr: "3.0",
+        },
+      ],
+      pareto: [{ id: "CAUSE:WEAR", kind: "CAUSE", name: "WEAR", count: 2 }],
+    }),
+  });
+  expect(await screen.findByLabelText("MTTR")).toHaveTextContent("3시간");
+  expect(screen.getByLabelText("PM 준수율")).toHaveTextContent("75.0%");
+  expect(screen.getByText("3/4건 예정일 안에 완료")).toBeVisible();
+  expect(screen.getByText("사출기 2호", { exact: false })).toBeVisible();
+  expect(screen.getByText("유예 없음")).toBeVisible();
+  // 원인 코드는 사람이 읽는 이름으로 바꿔 보여 준다.
+  expect(screen.getByText("마모")).toBeVisible();
+});
+
+it("C-10 비용: 설비별·월별로 바꿔 볼 수 있다", async () => {
+  const row = {
+    id: "INJ-02",
+    group: "INJ-02",
+    label: "사출기 2호",
+    orderCount: 2,
+    bmCount: 1,
+    pmCount: 1,
+    partCost: "3600",
+    laborCost: "60000",
+    externalCost: "50000",
+    totalCost: "113600",
+  };
+  mount("/cmms/cost", {
+    [`GET ${C}/cost`]: ok({
+      from: "2026-04-01",
+      to: "2026-09-24",
+      orderCount: 2,
+      partCost: "3600",
+      laborCost: "60000",
+      externalCost: "50000",
+      totalCost: "113600",
+      byAsset: [row],
+      byMonth: [{ ...row, id: "2026-09", group: "2026-09", label: "2026-09" }],
+    }),
+  });
+  expect(await screen.findByLabelText("합계")).toHaveTextContent("113,600원");
+  expect(screen.getByLabelText("인건비")).toHaveTextContent("60,000원");
+  expect(screen.getByText("2건 (고장 1 · 예방 1)")).toBeVisible();
+  expect(screen.getByText("INJ-02")).toBeVisible();
+  fireEvent.change(screen.getByLabelText("기준"), {
+    target: { value: "month" },
+  });
+  expect(await screen.findByText("2026-09")).toBeVisible();
+});
+
+it("C-01 개요: 원천이 꺼지면 어느 쪽인지 알리고 모르는 PM 수를 따로 센다", async () => {
+  mount("/cmms/overview", {
+    [`GET ${C}/overview`]: ok({
+      today: "2026-09-24",
+      assetCount: 5,
+      criticalCount: 1,
+      requested: 2,
+      inProgress: 1,
+      openBm: 3,
+      pendingSignals: 1,
+      sources: { bems: true, spc: false },
+      duePlans: [
+        {
+          id: 1,
+          code: "PM-01",
+          title: "월간 점검",
+          assetCode: "INJ-02",
+          dueOn: "2026-09-20",
+        },
+      ],
+      unknownPlans: 2,
+      shortParts: [
+        {
+          id: 1,
+          code: "SP-01",
+          name: "오링",
+          qtyOnHand: "3.000",
+          safetyStock: "10.000",
+          unit: "EA",
+        },
+      ],
+    }),
+  });
+  expect(await screen.findByLabelText("미조치 작업지시")).toHaveTextContent(
+    "2건",
+  );
+  expect(screen.getByLabelText("전환 대기 신호")).toHaveTextContent("SPC 꺼짐");
+  expect(screen.getByLabelText("주기 도래 PM")).toHaveTextContent(
+    "2건은 MES 꺼짐으로 판정 불가",
+  );
+  expect(screen.getByText("PM-01")).toBeVisible();
+  expect(screen.getByText("3 / 10 EA")).toBeVisible();
+});

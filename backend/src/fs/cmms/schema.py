@@ -127,7 +127,8 @@ class WorkOrderStart(ApiModel):
 
 class WorkLogCreate(ApiModel):
     minutes: int = Field(ge=1, le=1440)
-    note: str | None = Field(None, max_length=300)
+    # 한 일은 필수다 — 시간만 남으면 나중에 무엇을 했는지 알 수 없다.
+    note: str = Field(min_length=1, max_length=300)
     technician_id: int | None = Field(None, alias="technicianId")
 
 

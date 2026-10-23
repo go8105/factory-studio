@@ -314,7 +314,7 @@ function OrderDetail({
               e.preventDefault();
               void send(`/work-orders/${row.id}/logs`, "POST", {
                 minutes: Number(minutes),
-                note: note || null,
+                note,
               }).then(() => setNote(""));
             }}
           >
@@ -330,9 +330,11 @@ function OrderDetail({
               onChange={(e) => setMinutes(e.target.value)}
             />
             <Field
-              label="한 일(선택)"
+              label="한 일"
               value={note}
+              required
               maxLength={300}
+              error={errors.note}
               onChange={(e) => setNote(e.target.value)}
             />
             <button type="submit" disabled={pending} aria-busy={pending}>
