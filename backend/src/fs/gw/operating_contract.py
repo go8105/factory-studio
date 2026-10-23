@@ -26,6 +26,7 @@ from pydantic import (
 )
 
 from fs.common.errors import ApiError
+from fs.core.backup import BackupError
 from fs.gw.evidence_trust import authorize
 
 
@@ -133,9 +134,37 @@ class RegisteredAcceptanceDiagnostics(AcceptanceDiagnostics):
     context_digest: str = Field(alias="contextDigest", pattern=r"^[0-9a-f]{64}$")
 
 
+class JournalObservationDocument(StrictModel):
+    envelope: dict
+    signature: str = Field(max_length=100)
+
+    @model_validator(mode="after")
+    def observation_contract(self):
+        from fs.gw.journal_observation import JournalObservation
+
+        JournalObservation.model_validate(self.envelope)
+        return self
+
+
+class JournalAcceptanceDiagnostics(RegisteredAcceptanceDiagnostics):
+    version: Literal[3]
+    scope: Literal["CURRENT_REGISTERED_SOURCES_AND_JOURNAL"]
+    journal_observation: JournalObservationDocument = Field(alias="journalObservation")
+
+    @model_validator(mode="before")
+    @classmethod
+    def integer_version(cls, value):
+        if isinstance(value, dict) and type(value.get("version")) is not int:
+            raise ValueError("진단 버전은 정수여야 합니다.")
+        return value
+
+
 class EvidenceMetrics(StrictModel):
     acceptance_diagnostics: (
-        AcceptanceDiagnostics | RegisteredAcceptanceDiagnostics | None
+        AcceptanceDiagnostics
+        | RegisteredAcceptanceDiagnostics
+        | JournalAcceptanceDiagnostics
+        | None
     ) = Field(None, alias="acceptanceDiagnostics")
     restore_diagnostics: RestoreDiagnostics | None = Field(
         None, alias="restoreDiagnostics"
@@ -190,8 +219,24 @@ class EvidenceEnvelope(StrictModel):
                 acceptance.observed_at
             ) != timestamp(self.started_at):
                 raise ValueError("DB 관측 시각과 인수 실행 시작이 다릅니다.")
-            if self.kind != "ACCEPTANCE" or self.result != "PARTIAL":
-                raise ValueError("원본 대조 진단은 인수 일부 확인에만 허용합니다.")
+            expected_result = "PARTIAL"
+            if isinstance(acceptance, JournalAcceptanceDiagnostics):
+                observation = acceptance.journal_observation.envelope
+                expected_result = (
+                    "FAIL" if observation["result"] == "BLOCKED" else "PARTIAL"
+                )
+                if observation["runId"] in {
+                    self.run_id,
+                    acceptance.backup.run_id,
+                    acceptance.restore.run_id,
+                }:
+                    raise ValueError("관측 실행 번호를 재사용할 수 없습니다.")
+                if timestamp(observation["observedAt"]) > timestamp(self.started_at):
+                    raise ValueError("인수 시작 이후의 관측을 참조할 수 없습니다.")
+            if self.kind != "ACCEPTANCE" or self.result != expected_result:
+                raise ValueError(
+                    "원본 대조 진단은 인수 일부 확인·미통과에만 허용합니다."
+                )
             if self.metrics.failed_check_count or set(
                 self.metrics.model_dump(exclude_none=True)
             ) != {"acceptance_diagnostics", "failed_check_count"}:
@@ -293,6 +338,23 @@ def verify_evidence(
             db_revision=db_revision,
         ):
             raise ValueError("current database snapshot context mismatch")
+        if isinstance(diagnostic, JournalAcceptanceDiagnostics):
+            from fs.gw.journal_observation import verify
+
+            observed = verify(
+                diagnostic.journal_observation.model_dump(),
+                public_keys=public_keys,
+                company_id=workspace_id,
+                code_revision=code_revision,
+                now=now,
+            )
+            if (
+                observed.generation_id != str(generation_id)
+                or observed.policy_digest != policy.digest()
+                or observed.db_revision != db_revision
+                or observed.context_digest != diagnostic.context_digest
+            ):
+                raise ValueError("journal observation context mismatch")
         if data.result == "PASS":
             _validate_pass(data, policy)
         return data
@@ -302,6 +364,7 @@ def verify_evidence(
         KeyError,
         TypeError,
         InvalidSignature,
+        BackupError,
         OverflowError,
     ):
         raise evidence_error() from None

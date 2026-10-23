@@ -1,4 +1,4 @@
-"""Collect private proofs; optional signed PARTIAL reconciliation, never PASS."""
+"""Collect private proofs; optional signed PARTIAL/FAIL reconciliation, never PASS."""
 
 import argparse
 import json
@@ -35,12 +35,16 @@ def main():
     parser.add_argument("--context", help="현재 회사/정책/버전 비공개 JSON")
     parser.add_argument("--backup", help="기존 백업 도구의 서명 증거")
     parser.add_argument("--restore", help="기존 복원 도구의 서명 증거")
+    parser.add_argument(
+        "--journal-observation",
+        help="현재 회사 변경 기록의 서명 관측0600 파일 (현재DB 서명 수집 전용)",
+    )
     parser.add_argument("--output", required=True, help="0700 폴더 안의 새 결과 파일")
     parser.add_argument("--storage-copy", help="외부 보관에서 가져온0600 암호화 사본")
     parser.add_argument(
         "--signed-reconciliation",
         action="store_true",
-        help="원본 참조를 서명한 ACCEPTANCE PARTIAL 출력 (실환경 인수 아님)",
+        help="원본 참조를 서명한 ACCEPTANCE PARTIAL/관측 미통과 FAIL 출력 (실환경 인수 아님)",
     )
     parser.add_argument(
         "--current-company-id",
@@ -66,6 +70,7 @@ def main():
         elif (
             not all((args.context, args.backup, args.restore))
             or args.admin_login != "admin"
+            or args.journal_observation
         ):
             raise ValueError()
         path = Path(args.output)
@@ -99,6 +104,9 @@ def main():
                 public_keys=public,
                 signer=signer,
                 signer_id=os.environ["FS_GW_RUNNER_KEY_ID"],
+                journal_observation=load(args.journal_observation)
+                if args.journal_observation
+                else None,
             )
         else:
             context = load(args.context)

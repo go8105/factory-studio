@@ -5,6 +5,7 @@ from datetime import timedelta
 from fs.common.errors import ApiError
 from fs.gw.operating_contract import (
     EvidenceEnvelope,
+    JournalAcceptanceDiagnostics,
     RegisteredAcceptanceDiagnostics,
     backup_is_current,
     timestamp,
@@ -19,9 +20,20 @@ LABELS = {
 SOURCE_FIELD = "_signedEnvelope"
 
 
-def assess(rows, *, policy, policy_id, code_revision, db_revision, public_keys, now):
+def assess(
+    rows,
+    *,
+    policy,
+    policy_id,
+    code_revision,
+    db_revision,
+    public_keys,
+    now,
+    connection=None,
+):
     checks = []
     for kind, label in LABELS.items():
+        observation = None
         row = next((r for r in rows if r["kind"] == kind), None)
         state, detail, verified = "MISSING", "등록된 실행 기록이 없습니다.", False
         if policy is None:
@@ -32,7 +44,7 @@ def assess(rows, *, policy, policy_id, code_revision, db_revision, public_keys, 
             )
             if (
                 kind == "ACCEPTANCE"
-                and state == "PARTIAL"
+                and state in {"PARTIAL", "FAILED"}
                 and verified
                 and row["metrics"].get("acceptanceDiagnostics") is not None
             ):
@@ -44,6 +56,7 @@ def assess(rows, *, policy, policy_id, code_revision, db_revision, public_keys, 
                         data,
                         rows,
                         policy_id=policy_id,
+                        connection=connection,
                         policy=policy,
                         code_revision=code_revision,
                         db_revision=db_revision,
@@ -58,10 +71,33 @@ def assess(rows, *, policy, policy_id, code_revision, db_revision, public_keys, 
                         RegisteredAcceptanceDiagnostics,
                     ):
                         detail = "DB 관측의 현재 기준과 최신 백업·복원 등록 원본을 재검증했습니다. 외부 보관·전체 회수·실회사·최종 전환은 미확인입니다."
+                    if isinstance(
+                        data.metrics.acceptance_diagnostics,
+                        JournalAcceptanceDiagnostics,
+                    ):
+                        saved = data.metrics.acceptance_diagnostics.journal_observation.envelope
+                        counts = saved["dispositions"]
+                        observation = {
+                            "observedAt": saved["observedAt"],
+                            "scopeRecords": saved["scopeRecords"],
+                            "auditConfirmed": counts["AUDIT_CONFIRMED"],
+                            "abortConfirmed": counts["ABORT_CONFIRMED"],
+                            "unresolvedRecords": saved["scopeRecords"]
+                            - counts["AUDIT_CONFIRMED"]
+                            - counts["ABORT_CONFIRMED"],
+                            "missingTransactionProofs": saved[
+                                "missingTransactionProofs"
+                            ],
+                        }
+                        detail = (
+                            "현재 회사 변경 기록의 서명 관측과 최신 백업·복원 원본을 재대조했습니다. 일부 확인이며 전체 수집·권한 회수·실회사 인수는 미확인입니다."
+                            if state == "PARTIAL"
+                            else "최근 관측에 미확인 거래 또는 기록이 남아 인수 점검이 미통과입니다. 원인을 조사한 뒤 새 관측으로 점검하세요."
+                        )
 
                 except ApiError, ValueError, TypeError, KeyError:
                     state, verified = "INVALID", False
-                    detail = "참조한 백업·복원 원본이 현재 최신 등록과 다르거나 재검증에 실패했습니다. 최신 원본으로 다시 점검하세요."
+                    detail = "참조한 원본이 현재 최신 등록·변경 기록과 다르거나 재검증에 실패했습니다. 최신 원본으로 다시 점검하세요."
         checks.append(
             {
                 "kind": kind,
@@ -69,6 +105,11 @@ def assess(rows, *, policy, policy_id, code_revision, db_revision, public_keys, 
                 "state": state,
                 "detail": detail,
                 "signatureVerified": verified,
+                **(
+                    {"journalObservation": observation}
+                    if observation is not None
+                    else {}
+                ),
             }
         )
     return checks

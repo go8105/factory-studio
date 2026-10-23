@@ -4,6 +4,7 @@ from sqlalchemy import text
 
 from fs.gw.acceptance_preflight import read_transaction, snapshot, validate_request
 from fs.gw.acceptance_reconciliation import (
+    require_new_observation,
     sign_reconciliation,
     verify_registered_sources,
 )
@@ -25,6 +26,7 @@ def sign_current(
     signer,
     signer_id,
     admin_login="admin",
+    journal_observation=None,
 ):
     validate_request(
         company_id=company_id, code_revision=code_revision, admin_login=admin_login
@@ -85,8 +87,14 @@ def sign_current(
             signer=signer,
             signer_id=signer_id,
             database_observed_at=preflight["observedAt"],
+            journal_observation=journal_observation,
             **context,
         )
         data = verify_evidence(document["envelope"], document["signature"], **context)
-        verify_registered_sources(data, rows, policy_id=policy_id, **context)
+        require_new_observation(
+            c, data, workspace_id=company_id, generation_id=current["generationId"]
+        )
+        verify_registered_sources(
+            data, rows, policy_id=policy_id, connection=c, **context
+        )
         return document

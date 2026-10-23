@@ -79,6 +79,14 @@ type State = {
     label: string;
     state: string;
     detail: string;
+    journalObservation?: {
+      observedAt: string;
+      scopeRecords: number;
+      auditConfirmed: number;
+      abortConfirmed: number;
+      unresolvedRecords: number;
+      missingTransactionProofs: number;
+    };
   }[];
   nextAction?: string;
   emergencyKit?: { prepared: boolean; expiresAt: string | null };
@@ -315,7 +323,42 @@ export function Operations() {
                           {evidenceLabels[check.state] ?? "결과 확인 필요"}
                         </small>
                       </dt>
-                      <dd>{check.detail}</dd>
+                      <dd>
+                        {check.detail}
+                        {check.journalObservation && (
+                          <details>
+                            <summary>회사 변경 기록 관측 내용</summary>
+                            <p>
+                              관측 시각:{" "}
+                              {new Date(
+                                check.journalObservation.observedAt,
+                              ).toLocaleString("ko-KR")}
+                            </p>
+                            <p>
+                              대조 대상 {check.journalObservation.scopeRecords}
+                              건 · DB 감사 확인{" "}
+                              {check.journalObservation.auditConfirmed}건 · 거래
+                              취소 확인{" "}
+                              {check.journalObservation.abortConfirmed}건
+                            </p>
+                            <p>
+                              미확인 거래{" "}
+                              {check.journalObservation.unresolvedRecords}건 ·
+                              거래 근거 없음{" "}
+                              {
+                                check.journalObservation
+                                  .missingTransactionProofs
+                              }
+                              건
+                            </p>
+                            <p>
+                              {check.state === "FAILED"
+                                ? "운영 담당자가 미확인 기록을 조사한 뒤 새 관측과 인수 점검을 등록해야 합니다."
+                                : "관측한 회사·세대의 기록만 확인했습니다. 전체 변경 수집·권한 회수와 실제 회사 인수는 별도로 확인합니다."}
+                            </p>
+                          </details>
+                        )}
+                      </dd>
                     </div>
                   ))}
                 </dl>

@@ -10,7 +10,10 @@ from fs.common.errors import ApiError
 from fs.core.company import require_recent_auth
 from fs.core.security.service import database_now
 from fs.gw import company
-from fs.gw.acceptance_reconciliation import verify_registered_sources
+from fs.gw.acceptance_reconciliation import (
+    require_new_observation,
+    verify_registered_sources,
+)
 from fs.gw.company_identity import audit
 from fs.gw.evidence_trust import from_environment
 from fs.gw.operating_contract import verify_evidence
@@ -86,6 +89,7 @@ def record(context, company_id, payload, key):
             verify_registered_sources(
                 data,
                 sources,
+                connection=c,
                 policy_id=row["id"],
                 public_keys=keys,
                 workspace_id=ctx.workspace_id,
@@ -105,6 +109,9 @@ def record(context, company_id, payload, key):
             raise ApiError(
                 409, "STATE_CHANGED", "이미 등록한 실행입니다. 실행 기록을 확인하세요."
             )
+        require_new_observation(
+            c, data, workspace_id=ctx.workspace_id, generation_id=ctx.generation_id
+        )
         values = (
             p
             | data.model_dump()

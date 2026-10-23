@@ -1,3 +1,25 @@
+## 2026-10-23 GW-READY-02 42차 서명 관측의 인수 수집·등록·현재 준비 조회 연결
+
+- 시작 `49b9d57`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 기존 승인 범위에서 41차 서명 관측을 기존 ACCEPTANCE 흐름에 연결했다. 별도 GW/새 스키마·권한을 만들지 않았다. 외부 저장소 미정이며 실제 회사/기기/10인 인수와 최종 PASS는 미완료다.
+- 진단v3/CURRENT_REGISTERED_SOURCES_AND_JOURNAL은 최신 BACKUP/RESTORE 원본 참조와 서명 관측 원본 전체를 인수 서명/명세 지문 안에 묶는다. 기존 v1/v2 지문·과거 조회를 유지한다. 중첩 관측의 회사·세대·정책/context·제품/DB·15분 시각·회사/용도별 관측 서명을 별도 검증하고 4개 runId 재사용/모르는 필드·PASS 승격을 거부한다. 관측 PARTIAL은 인수 PARTIAL, 관측 BLOCKED는 인수 FAIL로 보존하며 최종4조건 UNVERIFIED/실제 복원 PARTIAL/ready=false를 유지한다.
+- 현재 DB 수집기에 --journal-observation 추가. 기존 전용 읽기 DB/새0600 출력·발급 키 분리를 사용하고 관측 개인키는 요구하지 않는다. 현재 DB 서명 수집에서만 허용하며 파일 쌍/사본과 혼용하지 않는다. PARTIAL/종료0, FAIL/종료2, 오류/종료1. 자동 등록/DB 변경은 없다. 일반 admin 이름은 권한·서명 신뢰를 대신하지 않으며 실제 계정/비밀번호/MFA를 변경하지 않았다.
+- 등록과 준비 재조회는 현재 DB에서 관측 접두부의 물리 원본/타임라인·감사/거래 결과·집계를 재검증한다. 등록 자체의 기록으로 즉시 무효화되는 순환을 피하기 위해 이후 체인은 같은 회사/세대의 정확한 gw.operating_evidence.record·DB 감사 확인·물리 거래 근거가 모두 있는 등록 영수증만 허용한다. 다른 업무/회사/core 변경·취소/진행 중/근거 없는 등록·접두부 누락/변조/감사 삭제는 차단한다. 빈 관측은 FAIL이다. 수동 지문은 등록 영수증까지 검증한 뒤 운영자가 갱신해야 하며 오래된 핀을 자동 신뢰하지 않는다. 파일/DB의 무기한 원자성을 주장하지 않고 검증 도중 변경과 다음 조회의 현재성을 대조한다.
+- 관측 원본과 실패를 기존 불변 운영 실행 이력에 보존한다. 새 관측은 결과/정책/버전/원본 유무로 필터하지 않은 마지막 ACCEPTANCE 등록보다 뒤여야 한다. 같은 S에 v3 이력이 있으면 새 v1/v2/관측 없는 인수 등록도 거부해 미통과를 숨기는 역행을 막는다. 최신 실패·원본 없는 기록·옛 기준/변조를 과거 성공으로 대체하지 않는다. 등록하지 않은 운영자 파일 전체의 실행 순서/실패 이력을 아는 별도 수집 원장은 아니다.
+- factory-impeccable 지침으로 기존 실행 증거 영역 안에 현재 재대조된 관측의 펼침 상세(시각·대상/감사 확인/취소/미확인/거래 근거 없음·다음 조치)를 추가했다. 무효한 관측 집계는 정상 상세로 노출하지 않는다. 직관성은 기존 회사 업무 맥락/같은 영역, 유효성은 서버 현재 대조, 학습성은 범위/조치와 정적 도움말, 유연성은 접힘/키보드/모바일을 적용했다. 화면 전체 최종 완성을 주장하지 않는다.
+- 검증: 관련 단위332통과(기존 경고2). 별도 새 소유 PostgreSQL/ASGI/실CLI 고유34개 검사 통과: 최초 연결/기존관측/원본대조32건198.91초, 빈체인 추가1건9.12초, 형식 역행 차단 보완 후 연결/원본21건182.22초 재실행·최종 CLI 정상/FAIL 2건23.08초(정상은 재실행). 중복 회귀를 별도 신규 건수로 합산하지 않는다. 새 등록/재조회·최근 미통과/원본 없음 우선·키 회수/변조·취소/진행 중 영수증·단독 관측400·옛 관측/옛 형식 재등록 거부·개인키 분리/0600/덮어쓰기 거부·0/2 종료 분기를 확인했다. 입력 백업/복원은 합성 서명 주장으로 실dump/복원이나 실회사 인수를 대신하지 않는다.
+- 화면/정적 도움말31·타입·수정 ESLint/Prettier·Ruff check/format·정적DB219/2409/543·R1–R6 오류0. 실제 제품 React와 읽기 전용 합성 응답 서버(5364)에서 1440/390px 관측 펼침/키보드·44px 조작·가로 넘침0을 확인했다. 실제 API 브라우저 인수는 아니며 임시 서버/탭/뷰포트는 정리했다. 기존 Vite5362 PID20714의 listen만 재확인했고 API 실행 상태는 재검사/재시작하지 않았다. 새 시험DB만 정리하며 preview DB 초기화 없음. DB스키마/마이그레이션/Excel/ERD 변경 없음. 전체CI/전체회귀·고정24수집/실dump복원 재실행·실외부 저장소/실회사·기기/10인 실인수 미실행. 다른 checkout/main/원격push/배포 변경 없음.
+- 다음: 접속 제한 복원본의 권한 제한 재적용·세션 회수 관측을 최신 원본/서명 인수에 연결하는 유형별 실행 어댑터를 이어간다. 전체 수집/PASS와 실환경 인수 경계는 유지한다. 이후 나머지 최종 증거 계약·공급자 선정 뒤 외부 장애복구·최신main/전체회귀·실회사10인/최종전환. 난이도 매우 높음, GPT-6 Astra + High 추천(복원/현재 권한·서명·최신 실패와 부분/최종 판정 경계). OpenAI 공식 모델 사양을 확인했으며 모델 자동 변경 없음.
+
+재현(저장소 루트):
+```sh
+uv run --project backend pytest backend/tests/test_gw_journal_acceptance.py backend/tests/test_gw_journal_observation.py backend/tests/test_gw_evidence_trust.py backend/tests/test_gw_acceptance_sources.py backend/tests/test_gw_business_observation.py backend/tests/test_gw_acceptance_preflight.py backend/tests/test_gw_acceptance_reconciliation.py backend/tests/test_gw_route_verify.py backend/tests/test_gw_journal_routes.py backend/tests/test_gw_journal_coverage.py backend/tests/test_journal_review.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short
+# 소유 컨테이너ID/owner/loopback 확인·새 *_test DB에만 동일 DATABASE_URL/TEST_DATABASE_URL 비공개 주입:
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_journal_acceptance_db.py backend/tests/test_gw_journal_observation_db.py backend/tests/test_gw_acceptance_sources_db.py -q --tb=short
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/operations.test.tsx src/portal/content-pages.test.tsx --maxWorkers=2
+```
+새 시험 DB만 정리하며 기존 gw_preview_test를 초기화하지 않는다. 운영 절차/수동 지문 갱신은 `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §16. 비밀/전체로그/work를 Git에 넣지 않는다. 마지막 커밋은 `git log -1`.
+
 ## 2026-10-23 GW-READY-02 41차 회사 GW 변경 기록 서명 관측·현재 재검증
 
 - 시작 `6261374`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 최신 실제 상태/인계와 기존 설계를 대조하고 외부 저장소 미정에서 자동 검증할 수 있는 현재 회사 변경 기록 관측 계약/실행 어댑터를 구현했다. 기존 GW/운영 도구 확장이며 별도 GW를 만들지 않았다.

@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from fs.gw.operating_contract import (
     AcceptanceDiagnostics,
+    JournalAcceptanceDiagnostics,
     RegisteredAcceptanceDiagnostics,
     acceptance_context_digest,
     backup_is_current,
@@ -83,7 +84,13 @@ def registered_diagnostics(diagnostics, *, observed_at, **context):
 
 
 def sign_reconciliation(
-    documents, *, signer, signer_id, database_observed_at=None, **context
+    documents,
+    *,
+    signer,
+    signer_id,
+    database_observed_at=None,
+    journal_observation=None,
+    **context,
 ):
     diagnostics = reconcile(documents, **context)
     if database_observed_at is not None:
@@ -91,6 +98,17 @@ def sign_reconciliation(
             raise evidence_error()
         diagnostics = registered_diagnostics(
             diagnostics, observed_at=database_observed_at, **context
+        )
+    if journal_observation is not None:
+        if database_observed_at is None:
+            raise evidence_error()
+        diagnostics = JournalAcceptanceDiagnostics.model_validate(
+            diagnostics.model_dump(by_alias=True)
+            | {
+                "version": 3,
+                "scope": "CURRENT_REGISTERED_SOURCES_AND_JOURNAL",
+                "journalObservation": journal_observation,
+            }
         )
     diagnostics = diagnostics.model_dump(by_alias=True)
     payload = {
@@ -105,7 +123,10 @@ def sign_reconciliation(
         "codeRevision": context["code_revision"],
         "dbRevision": context["db_revision"],
         "manifestDigest": hashlib.sha256(canonical(diagnostics)).hexdigest(),
-        "result": "PARTIAL",
+        "result": "FAIL"
+        if journal_observation is not None
+        and journal_observation["envelope"]["result"] == "BLOCKED"
+        else "PARTIAL",
         "signerKeyId": signer_id,
         "metrics": {"acceptanceDiagnostics": diagnostics},
     }
@@ -114,7 +135,7 @@ def sign_reconciliation(
     return {"envelope": payload, "signature": signature}
 
 
-def verify_registered_sources(data, rows, *, policy_id, **context):
+def verify_registered_sources(data, rows, *, policy_id, connection=None, **context):
     """Called under the same company/settings lock as registration and readiness.
 
     Resolve each latest row first; no backwards search after failure, partial,
@@ -163,5 +184,61 @@ def verify_registered_sources(data, rows, *, policy_id, **context):
         expected = registered_diagnostics(
             expected, observed_at=diagnostic.observed_at, **context
         )
+    if isinstance(diagnostic, JournalAcceptanceDiagnostics):
+        from cryptography.exceptions import InvalidSignature
+
+        from fs.core.backup import BackupError
+        from fs.gw.journal_observation import verify_registered
+
+        if connection is None:
+            raise evidence_error()
+        document = diagnostic.journal_observation.model_dump()
+        try:
+            verify_registered(connection, document, **context)
+        except BackupError, OSError, ValueError, TypeError, KeyError, InvalidSignature:
+            raise evidence_error() from None
+        expected = JournalAcceptanceDiagnostics.model_validate(
+            expected.model_dump(by_alias=True)
+            | {
+                "version": 3,
+                "scope": "CURRENT_REGISTERED_SOURCES_AND_JOURNAL",
+                "journalObservation": document,
+            }
+        )
     if diagnostic != expected:
+        raise evidence_error()
+
+
+def require_new_observation(connection, data, *, workspace_id, generation_id):
+    """A new collection must observe after the latest registered acceptance run.
+
+    Select across all results/policies/versions, including missing originals. This
+    is registration order, not a claim about unregistered operator files.
+    """
+    from sqlalchemy import text
+
+    if data.kind != "ACCEPTANCE":
+        return
+    diagnostic = data.metrics.acceptance_diagnostics
+    history = (
+        connection.execute(
+            text("""SELECT max(recorded_at) AS recorded_at,
+        coalesce(bool_or(metrics->'acceptanceDiagnostics'->>'version'='3'),false) AS journal_required
+        FROM gw.operating_evidence
+        WHERE workspace_id=:w AND generation_id=:g AND kind='ACCEPTANCE'
+        """),
+            {"w": workspace_id, "g": generation_id},
+        )
+        .mappings()
+        .one()
+    )
+    if not isinstance(diagnostic, JournalAcceptanceDiagnostics):
+        if history["journal_required"]:
+            raise evidence_error()
+        return
+    latest = history["recorded_at"]
+    if (
+        latest is not None
+        and timestamp(diagnostic.journal_observation.envelope["observedAt"]) <= latest
+    ):
         raise evidence_error()

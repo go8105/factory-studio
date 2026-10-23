@@ -373,3 +373,47 @@ it("긴급 복구 요청이 거부되어도 펼친 영역과 오류·입력을 �
   expect(reason).toBeVisible();
   expect(reason).toHaveValue("합성 오류 표시 확인");
 });
+it.each(["PARTIAL", "FAILED"])(
+  "현재 재대조한 관측의 %s 상세와 다음 조치를 기존 실행 영역에 표시한다",
+  async (state) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      response({
+        ...initial,
+        evidenceChecks: [
+          {
+            kind: "ACCEPTANCE",
+            label: "실환경 업무 인수",
+            state,
+            detail: state === "FAILED" ? "최근 관측 미통과" : "관측 일부 확인",
+            journalObservation: {
+              observedAt: "2026-10-23T03:00:00Z",
+              scopeRecords: 8,
+              auditConfirmed: 6,
+              abortConfirmed: 1,
+              unresolvedRecords: 1,
+              missingTransactionProofs: 0,
+            },
+          },
+        ],
+      }),
+    );
+    show();
+    const summary = await screen.findByText("회사 변경 기록 관측 내용");
+    const detail = summary.closest("details")!;
+    expect(detail.open).toBe(false);
+    fireEvent.click(summary);
+    expect(detail.open).toBe(true);
+    expect(within(detail).getByText(/대조 대상 8건/)).toBeVisible();
+    expect(within(detail).getByText(/미확인 거래 1건/)).toBeVisible();
+    expect(
+      within(detail).getByText(
+        state === "FAILED"
+          ? /미확인 기록을 조사한 뒤 새 관측/
+          : /전체 변경 수집·권한 회수와 실제 회사 인수는 별도로/,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),
+    ).toBeVisible();
+  },
+);

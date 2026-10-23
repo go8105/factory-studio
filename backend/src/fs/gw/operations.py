@@ -108,6 +108,7 @@ def read(context, company_id):
                 )
             evidence_checks = assess(
                 evidence_rows,
+                connection=c,
                 policy=policy,
                 policy_id=current["current_policy_revision_id"] if current else None,
                 code_revision=code_revision,

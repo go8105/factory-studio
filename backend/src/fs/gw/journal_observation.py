@@ -16,6 +16,7 @@ from fs.gw.backup_journal import source_records
 from fs.gw.evidence_trust import EvidenceTrust, authorize
 from fs.gw.operating_contract import (
     EvidenceReference,
+    OperatingPolicy,
     StrictModel,
     canonical,
     timestamp,
@@ -129,51 +130,62 @@ def measure(engine, *, company_id, code_revision):
         current, preflight = snapshot(
             c, company_id=company_id, code_revision=code_revision, admin_login="admin"
         )
-        identity, current_timeline = database_identity(c), timeline(c)
-        selected = [
-            r
-            for r in records
-            if r["payload"].get("coverage") == "gw.company.intent.v2"
-            and r["payload"].get("workspaceId") == company_id
-            and str(r["payload"].get("generationId")) == str(current["generationId"])
-        ]
-        dispositions = classify(c, selected, confirmed_digests(c, selected))
-        missing = 0
-        for record in selected:
-            proof = record["payload"].get("transactionProof")
-            if proof is None:
-                missing += 1
-            elif (
-                proof["sourceIdentity"] != identity
-                or proof["timeline"] != current_timeline
-            ):
-                dispositions[record["digest"]] = "SOURCE_MISMATCH"
-        counts = summary(dispositions)["transactionDispositionCounts"]
-        settled = counts["AUDIT_CONFIRMED"] + counts["ABORT_CONFIRMED"]
-        measured = {
-            "workspaceId": str(company_id),
-            "generationId": str(current["generationId"]),
-            "policyDigest": preflight["policyDigest"],
-            "contextDigest": hashlib.sha256(canonical(current)).hexdigest(),
-            "codeRevision": current["codeRevision"],
-            "dbRevision": current["dbRevision"],
-            "sourceIdentity": identity,
-            "observedAt": preflight["observedAt"],
-            "sourceHead": state["head"],
-            "scopeRecordsDigest": hashlib.sha256(
-                canonical([r["digest"] for r in selected])
-            ).hexdigest(),
-            "scopeRecords": len(selected),
-            "missingTransactionProofs": missing,
-            "dispositions": counts,
-            "result": "PARTIAL"
-            if selected and settled == len(selected) and not missing
-            else "BLOCKED",
-        }
+        measured = measure_records(
+            c,
+            current=current,
+            observed_at=preflight["observedAt"],
+            records=records,
+            head=state["head"],
+        )
         after = source_records()
         if after is None or after[0] != state:
             raise BackupError("관측 도중 최신 변경 기록 지문이 달라졌습니다.")
         return measured
+
+
+def measure_records(c, *, current, observed_at, records, head):
+    """Internal primitive; caller owns the DB snapshot and current context."""
+    identity, current_timeline = database_identity(c), timeline(c)
+    selected = [
+        r
+        for r in records
+        if r["payload"].get("coverage") == "gw.company.intent.v2"
+        and r["payload"].get("workspaceId") == int(current["workspaceId"])
+        and str(r["payload"].get("generationId")) == str(current["generationId"])
+    ]
+    dispositions = classify(c, selected, confirmed_digests(c, selected))
+    missing = 0
+    for record in selected:
+        proof = record["payload"].get("transactionProof")
+        if proof is None:
+            missing += 1
+        elif (
+            proof["sourceIdentity"] != identity or proof["timeline"] != current_timeline
+        ):
+            dispositions[record["digest"]] = "SOURCE_MISMATCH"
+    counts = summary(dispositions)["transactionDispositionCounts"]
+    settled = counts["AUDIT_CONFIRMED"] + counts["ABORT_CONFIRMED"]
+    measured = {
+        "workspaceId": str(int(current["workspaceId"])),
+        "generationId": str(current["generationId"]),
+        "policyDigest": OperatingPolicy.model_validate(current["policy"]).digest(),
+        "contextDigest": hashlib.sha256(canonical(current)).hexdigest(),
+        "codeRevision": current["codeRevision"],
+        "dbRevision": current["dbRevision"],
+        "sourceIdentity": identity,
+        "observedAt": observed_at,
+        "sourceHead": head,
+        "scopeRecordsDigest": hashlib.sha256(
+            canonical([r["digest"] for r in selected])
+        ).hexdigest(),
+        "scopeRecords": len(selected),
+        "missingTransactionProofs": missing,
+        "dispositions": counts,
+        "result": "PARTIAL"
+        if selected and settled == len(selected) and not missing
+        else "BLOCKED",
+    }
+    return measured
 
 
 def observe(engine, *, company_id, code_revision, public_keys, signer, signer_id):
@@ -254,4 +266,69 @@ def verify_current(engine, document, *, company_id, code_revision, public_keys):
         saved[key] != value for key, value in current.items() if key != "observedAt"
     ):
         raise ValueError("observation no longer matches current journal and database")
+    return data
+
+
+def verify_registered(c, document, **context):
+    """Recheck the observed prefix plus strictly confirmed evidence receipts.
+
+    Registering evidence itself appends a company journal record. Only that exact
+    audited operation may extend the prefix; a business/security change, aborted
+    or pending receipt, wrong physical source, or missing chain is invalid.
+    The caller holds the existing company/settings locks. No history fallback.
+    """
+    data = verify(
+        document,
+        public_keys=context["public_keys"],
+        company_id=context["workspace_id"],
+        code_revision=context["code_revision"],
+        now=context["now"],
+    )
+    before = source_records()
+    if before is None:
+        raise BackupError("현재 변경 기록이 필요합니다.")
+    state, records = before
+    index = next(
+        (i for i, r in enumerate(records) if r["digest"] == data.source_head), None
+    )
+    if data.source_head == "0" * 64:
+        index = -1  # An empty observed chain can only support BLOCKED/FAIL.
+    if index is None:
+        raise ValueError("observed journal prefix is missing")
+    prefix, tail = records[: index + 1], records[index + 1 :]
+    current = {
+        "workspaceId": context["workspace_id"],
+        "generationId": context["generation_id"],
+        "policy": context["policy"].model_dump(by_alias=True),
+        "codeRevision": context["code_revision"],
+        "dbRevision": context["db_revision"],
+    }
+    measured = measure_records(
+        c,
+        current=current,
+        observed_at=context["now"].isoformat(),
+        records=prefix,
+        head=data.source_head,
+    )
+    saved = data.model_dump(by_alias=True)
+    if any(saved[k] != v for k, v in measured.items() if k != "observedAt"):
+        raise ValueError("observed prefix no longer matches database")
+    identity, current_timeline = database_identity(c), timeline(c)
+    confirmed = confirmed_digests(c, tail)
+    for record in tail:
+        payload = record["payload"]
+        proof = payload.get("transactionProof", {})
+        if (
+            payload.get("coverage") != "gw.company.intent.v2"
+            or payload.get("operation") != "gw.operating_evidence.record"
+            or payload.get("workspaceId") != context["workspace_id"]
+            or str(payload.get("generationId")) != str(context["generation_id"])
+            or record["digest"] not in confirmed
+            or proof.get("sourceIdentity") != identity
+            or proof.get("timeline") != current_timeline
+        ):
+            raise ValueError("journal advanced beyond confirmed evidence receipts")
+    after = source_records()
+    if after is None or after[0] != state:
+        raise BackupError("재검증 도중 최신 변경 기록 지문이 달라졌습니다.")
     return data
