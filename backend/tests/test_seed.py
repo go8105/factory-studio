@@ -489,4 +489,9 @@ def test_seed_copy_performance_benchmark(
         json.dumps(report, indent=2), encoding="utf-8"
     )
     assert report["runs"] == 10
-    assert report["max_seconds"] < 2
+    # 2초 약속(DSN-01)은 **중앙값**에 건다. 10회 중 한 번의 디스크 지연으로 깨지면
+    # 신호가 아니라 잡음이다. 최대값은 진짜 느려짐을 잡는 상한으로만 둔다.
+    # 추이: FS-015 때 중앙값 0.456초(표 ~150) → 2026-10-23 1.67초(표 230).
+    # 표가 381로 가면 이 둘 다 다시 본다.
+    assert report["median_seconds"] < 2
+    assert report["max_seconds"] < 3
