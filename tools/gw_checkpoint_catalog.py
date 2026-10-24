@@ -12,6 +12,7 @@ from fs.gw.catalog_store import (
     PENDING,
     PublishContext,
     current,
+    digest,
     directory,
     inventory,
     load_private,
@@ -64,11 +65,18 @@ def main():
                 check_scope(catalog, context)
                 names, _ = inventory(root)
                 pending = PENDING in names
+                catalog_digest = None
+                if catalog is not None:
+                    raw_pin = read_fd(root, "current-pin.json", 8192)
+                    if digest(raw_pin) != pin:
+                        raise ValueError("pin changed during status")
+                    catalog_digest = json.loads(raw_pin)["digest"]
                 report = {
                     "catalogId": catalog.catalog_id if catalog else None,
                     "revision": catalog.revision if catalog else None,
                     "highestStoredRevision": highest,
                     "pinDigest": pin,
+                    "catalogDigest": catalog_digest,
                     "pending": pending,
                     "ready": False,
                 }

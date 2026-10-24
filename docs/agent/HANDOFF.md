@@ -1,3 +1,34 @@
+## 2026-10-24 GW-READY-02 50차 — 수신 기준점·연속 이력 전달/보류 재시도
+
+- 시작 `bd1e38f`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 현황/인계와 실제49차 코드 확인 후 승인된 GW 범위의 수신 단계를 구현했다. 이 작업 폴더만 수정했다. 최종 커밋은 `git log -1`로 확인한다.
+- `catalog_transfer`/`gw_checkpoint_transfer.py export/install`: 발행자 현재 핀과 수신자 revision/catalogDigest 사이의 보존 원본 전부를 원래 서명/개행/파일 지문 그대로 전달한다. 목록 ID/묶음 전체 SHA-256은 별도 신뢰 경로로 확인해 지정하며 각 목록/HEAD의 현재 회사별 키·세대/서명·연속 버전/기록번호·갱신 기록 동일성/시각·실패 이후 새 생성/옛 HEAD·같은 버전 다른 바이트를 대조한다. 신규 묶음은 운영 증거나 새 서명 종류가 아니다. 수신에는 발행 개인키가 필요 없다. status의 catalogDigest/pinDigest를 구별한다.
+- 별도 수신 식별자 파일에 회사/세대/목록 ID/최초 묶음 지문을 보존하고 발행/수신 폴더를 혼용하지 않는다. 예상 수신 핀 CAS와 기존 식별자를 확인한 뒤 본문 검증 전에 보류 기록/fsync를 만든다. 확인된 최신 지문에 해당하는 파일 누락/변조·서명/중간 이력/기한/기준점 오류가 있어도 이전 성공 읽기를 차단한다. 입력 내용으로 예상 핀/신뢰 ID를 자동 설정하지 않는다. 잘못된 현재 핀/기존 회사·목록은 변경 없이 거부한다. 잘못 확인한 원본/손상된 바닥값·보류를 자동 초기화하는 도구는 없다.
+- 완성 임시 파일/fsync→배타적 링크/폴더 fsync로 원본 파일 게시→마지막 핀 한 번 원자 교체/fsync→보류 제거 순서다. 보존된 파일/실패/불완전 쓰기를 덮거나 지우지 않는다. 링크 직후 중단의 같은 바이트/소유자/자체 임시 별칭 하나만 정리한다. 같은 묶음의 명시 재시도와 완료 응답 유실 재확인만 허용한다. 같은 버전의 다른 원본·과거 이력 충돌·다른 묶음/옛 핀/더 최신 수신 이력을 우회하지 않는다. 같은 예상 핀 경합은 한 프로세스만 성공한다.
+- 보류 원본이 만료되면 같은 지문의 유효 원본에 한해 --resume으로 이력 완료할 수 있다. 미래 시각/서명·전체 버전 검증은 유지하며 targetFresh=false/종료2, 관리 핀 읽기는 계속 기한 오류로 차단된다. 그 기준점부터 새 신선한 묶음을 수신해야 현재 재관측을 할 수 있다. 최초/일반 설치에는 이 예외가 없으며 만료된 PASS를 종료0이나 현재 성공으로 사용하지 않는다. contextMatches도 별도로 출력하며 최신 옛 기준/FAIL/PARTIAL은 그대로 보존·종료2다. ready=false이며 운영 승인과 무관하다.
+- 범위/제약: 1회256개 스냅샷(기준 포함)/8MiB 안에서 **보존된 미수신 버전**을 따라잡는다. 발행 중단으로 예약만 된 버전/기록번호 공백·발행 원본 유실/손상·과거 키 회수는 자동 건너뛰지 않고 차단한다. 공백 복구 명세/키 이관·큰 이력 분할·장기 용량 관리는 후속이다. 기존 v1을 과거 해시가 연결된 서명 체인으로 바꾸지 않았다. 실제 네트워크 전송/다른 OS 계정·담당자/장애 영역·외부 공급자/연속 감시·미등록 이력 완전성은 증명하지 않는다. 별도 원격 전달/환경 설치를 자동 실행하지 않는다.
+- 검증: 관련 단위618통과(기존 경고2, 신규39검사). 순서/번호/서명·변조/누락/옛 기준·실패/같은 시각 옛 HEAD·같은 버전 분기·보존 이력 충돌, 크기/개수/중복 JSON/깊은 중첩/키 회수, 자체 식별자/스냅샷의 부분 쓰기·링크 직후·핀 교체/동기화·보류 제거 중단7경계, 같은 원본 재시도/다른 원본 거부·완료 응답 유실, 실제 두 수신 CLI 프로세스 경합/발행 개인키 없음, 실제 CLI의 입력 없음/옛 핀 거부·만료된 보류 PASS 종료2를 확인했다. 최종 화면/정적 도움말48통과, 타입·수정 Python Ruff check/format·정적DB219표/2409열/543FK·R1–R6 오류0. UI 제품 코드/브라우저·모바일·실제 API 브라우저 검사는 이번 재실행하지 않았다.
+- 실제 PostgreSQL: 새 UUID 소유 시험DB에서 실제 dump/암호화/폐쇄 복원→발행 CLI→별도 수신 폴더/미수신 FAIL+갱신 따라잡기→재관측v4·수집/API·준비 조회까지, 발행 직접 읽기/수신 읽기2변형+기존 목록1/복구2 총5통과78.18초(기존 경고2). 수신 변형은 최종 코드에서 별도1통과16.19초로 재확인했으며 같은 시나리오라 합산하지 않는다(앞선5통과82.95초/수신1통과15.46초도 중복). 확인한 최신 묶음의 변조 뒤 보류/기존 인수 INVALID·같은 원본 재시도·최신 FAIL 수집/등록·개인키 없는 수신·ready=false/미확인4를 확인했다. 실제 복원은 계속 PARTIAL이며 입력 검증 FAIL과 실제 복원 도구의 실패 측정을 혼동하지 않는다. 과거 최신 RESTORE FAIL 선택 검사는 합성 서명 자료다.
+- 실패/보정: 최초 신규 단위1건은 InvalidSignature를 검사가 ValueError만 기대해서 실패했으며 실제 암호 서명 거부 예외를 검사하도록 보정했다. 만료 재시도 보완 중 validate의 새 인자 연결 누락을 단위35실패/3통과가 탐지했고 실제 함수 선언/조건을 수정한 후 최종618 전체 선택 검사를 다시 통과했다. 미래 시각/서명/현재 기한 계약을 느슨하게 하지 않았고 만료 보류의 이력 완료와 현재 읽기 차단을 분리해 실CLI까지 검사했다. 실제PG5와 수신 재확인은 모두 통과했다.
+- 문서/사용성: 실회사 절차 §24·구현/정적 도움말·README/현황/progress/HANDOFF 갱신. 직관성(확인된 새 전달 실패 때 과거 상세 차단), 유효성(모든 원본/현재 신뢰), 학습성(전달과 인수 경계), 유연성(기존 API/오프라인 공개키 수신·보류 만료 복구)을 고려했다. 새 업무 화면/체크로 운영 완료를 만들지 않았다. admin 이름은 회사/보안/발행 권한을 대신하지 않는다. UI 전체 완성은 아니다.
+- 자원/제약: 시험 생성 자원만 정리, 최종 관측 시험DB0·폐쇄 복원DB0·기존 preview DB존재 확인. gw_preview_test 초기화/실계정 admin·비밀번호/OTP·브라우저/미리보기 정책·운영 서버 환경 변경 없음. API8362/Vite5362 상태 재검사/재시작 없음. 합성 수신은 같은 OS 계정의 별도0700 폴더이며 실제 외부/사람·장애 영역 독립 인수가 아니다. work/.env·비밀/전체 로그 Git 제외. 스키마/마이그레이션/metadata·Excel/ERD 변경 없음. 다른 checkout/WMS·main/push/배포 변경 없음. 실제 복원 PARTIAL/ready=false/최종4조건 UNVERIFIED·ACCEPTANCE PASS 거부 유지. 전체CI/전체회귀·고정24수집/전체 실제DB·실외부/실회사·기기/10인/최종전환·최신main 통합 미실행/미완료.
+- 다음: 발행 중단의 예약 번호/원본 공백을 수신자가 임의로 건너뛰지 않도록 **서명 복구 근거와 수신 기준점을 연결하는 계약/도구**를 구현한다. 이후 키 이관/큰 이력 분할·외부 공급자 선정 후 장애 복구, 나머지 최종 인수 계약/전체 변경·회수, 최신main/전체회귀·실회사10인/최종전환이 남는다. 다음 난이도 매우 높음, [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra) + High 추천(서명 이력 공백·실패 보존/재생·여러 기준점의 복구 판정). 공식 모델 안내에 따른 기능 확인과 작업 난이도를 바탕으로 한 판단이며 자동 모델 변경 없음.
+
+재현(저장소 루트):
+```sh
+uv run --project backend pytest backend/tests/test_gw_catalog_transfer.py backend/tests/test_gw_catalog_store.py backend/tests/test_gw_checkpoint_catalog.py backend/tests/test_gw_checkpoint_head.py backend/tests/test_gw_recovery.py backend/tests/test_restore_restriction_comparison.py backend/tests/test_gw_source_checkpoint.py backend/tests/test_gw_restore_recheck.py backend/tests/test_gw_restore_observation.py backend/tests/test_gw_journal_acceptance.py backend/tests/test_gw_journal_observation.py backend/tests/test_gw_evidence_trust.py backend/tests/test_gw_acceptance_sources.py backend/tests/test_gw_business_observation.py backend/tests/test_gw_acceptance_preflight.py backend/tests/test_gw_acceptance_reconciliation.py backend/tests/test_gw_route_verify.py backend/tests/test_gw_journal_routes.py backend/tests/test_gw_journal_coverage.py backend/tests/test_journal_review.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short
+# 소유 컨테이너ID/owner/loopback 확인 후 새 UUID *_test DB에만 동일 DATABASE_URL/TEST_DATABASE_URL과 소유 GW_BACKUP_TEST_CONTAINER를 비공개 주입한다.
+# 기존 gw_preview_test는 절대 초기화/시험하지 않는다. 생성한 자원만 정리한다.
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_catalog_store_db.py backend/tests/test_gw_checkpoint_catalog_db.py backend/tests/test_gw_recovery_db.py -q --tb=short
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/operations.test.tsx src/portal/content-pages.test.tsx --maxWorkers=2
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend run typecheck
+uv run --project backend ruff check backend/src/fs/gw/catalog_store.py backend/src/fs/gw/catalog_transfer.py backend/tests/test_gw_catalog_store_db.py backend/tests/test_gw_catalog_transfer.py tools/gw_checkpoint_catalog.py tools/gw_checkpoint_transfer.py
+uv run --project backend ruff format --check backend/src/fs/gw/catalog_store.py backend/src/fs/gw/catalog_transfer.py backend/tests/test_gw_catalog_store_db.py backend/tests/test_gw_catalog_transfer.py tools/gw_checkpoint_catalog.py tools/gw_checkpoint_transfer.py
+python3 tools/validate_db_design.py
+uv run --project backend python tools/audit_schema_isolation.py
+```
+발행/수신/별도 신뢰 지문·현재 기준점/재시도·보류 만료 이력 완료/제한은 `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §23–24를 따른다. 표준 명령과 계약은 비공개 work harness 없이 재현할 수 있어야 한다. 수신자에게 발행 개인키를 전달하거나 서버 설정·원격 운영을 자동 변경하지 않는다. 비밀/전체 로그 출력·다른 checkout/WMS·실계정/브라우저 변경 금지.
+
 ## 2026-10-24 GW-READY-02 49차 — 로컬 목록 발행·원자 핀 교체/중단 차단
 
 - 시작 `44e5537`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 최신 인계/현재 상태와 실제 코드 확인 후 승인된 GW 작업의 로컬 발행 단계를 구현했다. 작업 폴더만 수정했으며 별도 GW/스키마나 수동 완료 체크를 추가하지 않았다. 최종 커밋은 `git log -1`로 확인한다.

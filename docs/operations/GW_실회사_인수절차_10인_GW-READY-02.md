@@ -473,3 +473,61 @@ PARTIAL 복구/FAIL 이후에는 해당 기록 시각보다 엄격히 뒤에 생
 운영자가 확인한 로컬 발행 폴더를 읽는 환경에 `FS_GW_CHECKPOINT_CATALOG_PIN_FILE=/private/gw-catalog/current-pin.json`을 설정할 수 있다. 기존 `FS_GW_CHECKPOINT_CATALOG` JSON과 **동시에 지정하거나 빈 값으로 지정하면 오류**다. 핀은 기존 v1 JSON이며 같은 폴더의 지문 이름 파일만 가리킨다. 읽기는 소유자/0700·0600/링크·서명/범위/15분·미래30초와 보류/최고 버전/읽기 중 핀 교체를 대조한다. 수집기·API 등록·준비 조회가 이 현재 핀을 다시 읽으므로 변경 전 증거를 현재 근거로 대신하지 않는다. 새 재관측/서명 인수는 §22의 기존 명령으로 진행한다.
 
 발행자는 권한 있는 파일 검증 기록만 만든다. 설정 파일을 옮기는 것만으로 신뢰 전달이나 수신자 독립성이 완료되지 않는다. 별도 경로의 catalogId/전체 지문 전달·수신자 기준점/CAS·순차 설치/재시도·누락 버전 복구와 원격 공급자는 후속 작업이다. 이번 실제 PG 시험은 실제 dump/암호화/격리 복원 파일을 새 로컬 발행 CLI와 기존 API까지 연결한 합성 시험이며 외부 저장소·실회사 인수가 아니다. 실제 복원 PARTIAL, 최종4조건 UNVERIFIED, ready=false, ACCEPTANCE PASS 거부는 유지한다.
+
+## 24. 별도 수신 폴더의 신뢰 지문·미수신 버전 따라잡기 (50차)
+
+새 `tools/gw_checkpoint_transfer.py export/install`은 §23의 로컬 발행 폴더와 **별도 수신 폴더** 사이에서 보존된 서명 목록을 오프라인으로 전달한다. 전달 파일/목록 식별자/전체 지문은 담당자가 별도로 확인한다. 실제 네트워크 전송·다른 OS 사용자/장애 영역·외부 공급자 연결은 자동 설치하지 않았으며, 이번 합성 시험은 같은 OS 계정의 서로 다른0700 폴더다. 수신에 발행 개인키가 필요하지 않다. `admin` 로그인 이름은 파일 접근·서명 권한을 부여하지 않는다.
+
+### 전달 기준점과 파일 계약
+
+- 수신 담당자가 현재 `status`의 **revision/catalogDigest/pinDigest/catalogId**를 별도 기록과 대조한다. 상태 조회의 catalogDigest는 현재 목록 파일 지문, pinDigest는 수신자 경로를 포함한 현재 핀 파일 지문이다. 발행자와 수신자의 pinDigest는 일반적으로 다르며 서로 대신 사용하지 않는다. 최초 수신은 명시적인 빈 폴더/ABSENT만 허용한다.
+- 발행 담당자는 수신자의 마지막 revision/catalogDigest를 `export --from-revision/--from-catalog-digest`에 넣는다. 최초는 `0/ABSENT`다. 도구는 발행 폴더의 건강한 현재 핀을 고정하고, 기준 버전부터 현재 버전까지 **모든 보존 스냅샷**을 읽어 서명·회사/세대·번호/시각·HEAD를 검증한다. 최초에는 버전1/기록번호1부터 필요하다. 수신자 기준점 자체도 전달 파일에 포함한다.
+- 전달 문서는 v1 `CHECKPOINT_CATALOG_TRANSFER`이며 catalogId/workspaceId/generationId/baseRevision/baseDigest와 snapshots를 담는다. 각 snapshot은 version/revision/digest/content(원본 전체 바이트의 base64)다. 원래 개행/서명/파일 지문을 보존한다. 전달 묶음 자체는 새 운영 증거나 새 서명 종류가 아니다. **별도로 확인한 묶음 전체 SHA-256과 목록 식별자**, 각 원본의 현재 회사/CHECKPOINT_CATALOG 키 서명을 함께 검증한다. 업로드된 묶음에서 예상 지문을 자동 복사하지 않는다. 원문 보안 스냅샷·개인키·DB 접속 정보는 전달 파일에 넣지 않는다.
+- 버전은 하나씩 증가해야 한다. 기록 번호가 같으면 결과/HEAD/시각/기준을 포함한 기록 전체가 같아야 한다. 새 기록은 번호+1/시각 비후퇴이며, FAIL/PARTIAL 뒤 PASS에는 실패 기록 이후 생성한 새 HEAD가 필요하다. 같은 생성 시각의 다른 HEAD·옛 생성 시각·같은 버전의 다른 파일을 허용하지 않는다. 중간 FAIL/PARTIAL·옛 기준도 보존하며 최신 옛 정책/코드/DB 기준을 현재 성공으로 꾸미지 않는다.
+- 중간 스냅샷은 현재의15분 기한보다 오래돼도 역사 검증 대상으로 읽는다. 마지막 대상의 발행 시각은15분/미래30초를 검사한다. 모든 과거 원본도 **현재 신뢰 권한**으로 검증하므로 회수된 과거 키가 있으면 우회하지 않고 차단한다. v1 목록의 연속 번호/각 서명을 대조하는 방식이며, 원본 형식을 과거 해시로 연결한 새 서명 체인으로 변경하지 않는다.
+
+```sh
+# 발행 담당자. 수신자가 별도로 확인한 마지막 버전/목록 지문을 사용한다.
+uv run --project backend python tools/gw_checkpoint_transfer.py export \
+  --directory /private/gw-catalog --context /private/gw-input/context.json \
+  --from-revision 0 --from-catalog-digest ABSENT \
+  --output /private/gw-outgoing/transfer-new.json
+# 담당자가 파일을 별도 전달하고, catalogId/transferDigest를 별도 신뢰 경로로 확인한다.
+# 수신 담당자. 발행 개인키 환경은 필요하지 않다.
+uv run --project backend python tools/gw_checkpoint_transfer.py install \
+  --directory /private/gw-receiver --context /private/gw-input/context.json \
+  --transfer /private/gw-incoming/transfer-new.json \
+  --expected-transfer-digest "$GW_TRANSFER_DIGEST" --expected-catalog-id "$GW_CATALOG_ID" \
+  --expected-pin-digest ABSENT --initialize
+# 다음 전달은 수신 status의 revision/catalogDigest에서 export하고,
+# install에는 수신자의 현재 pinDigest를 지정한다. --initialize는 다시 쓰지 않는다.
+```
+
+출력은 제한된 식별자/버전·기록번호/결과·지문과 `ready=false`다. export 종료0은 파일 생성 결과다. install은 파일 기록 PASS이면서 제공된 현재 문맥과 일치하고 대상이15분 기한 안일 때 종료0, 최신 FAIL/PARTIAL·옛 문맥 또는 만료된 보류 이력 완료는 종료2다. `contextMatches`와 `targetFresh`를 별도로 출력한다. 설치·원본 대조 오류는 종료1이다. 어떤 종료 코드도 ACCEPTANCE PASS/외부 인수/운영 전환 승인이 아니다. 기존 §22의 재관측·서명 수집/등록을 별도로 실행한다.
+
+### 수신 차단·원자 교체·재시도
+
+- 전용0700 폴더/0600 일반 파일·소유자/링크/크기·중복 JSON을 검사한다. 발행/수신 폴더를 혼용하지 않는다. 수신자 식별자 파일 `.catalog.receiver`가 회사/세대/목록 ID/최초 전달 지문을 보존한다. 발행 도구는 수신 폴더에서 발행/서명 복구하지 못하며, 수신 도구도 기존 발행 폴더를 바꾸지 않는다.
+- 예상 수신 핀 CAS와 현재 회사/목록 식별자를 확인한 뒤, **전달 본문을 검증하기 전에** 확인된 예상 전달 지문/현재 기준점을 보류 기록에 fsync한다. 최신 전달 파일이 없거나 변조·서명 오류·이력 누락·다른 기준점·기한 초과이면 보류를 남겨 이전 성공 목록 읽기를 차단한다. 잘못된 예상 핀이나 기존 수신 폴더와 다른 회사/목록 입력은 현재 폴더를 변경하지 않는다. 예상 전달 지문 자체를 잘못 확인해 지정한 경우도 자동 변경/초기화하지 않으므로 담당자는 입력 전에 별도 기록을 대조해야 한다.
+- 모든 버전 검증 후 각 원본 바이트를 새 비공개 임시 파일에 쓰고 fsync한 뒤 배타적 링크로 완성 파일만 게시한다. 보존된 같은 버전의 다른 바이트를 덮어쓰지 않는다. 링크 직후 중단으로 남은 **내용까지 동일한 자체 임시 별칭 하나**만 재시도에서 정리한다. 일반 하드링크/심볼릭 링크는 허용하지 않는다. 불완전 임시 파일과 기존 기록은 삭제·덮어쓰기하지 않는다. 현재 핀은 마지막에 한 번만 원자 교체/fsync하며 완료 후 보류를 제거한다.
+- 보류 중에는 현재 핀이 이미 대상 버전으로 바뀌었더라도 읽기를 차단한다. `status`로 **실제 현재 pinDigest**를 확인하고, 같은 묶음/같은 예상 지문에만 `--resume`을 사용한다. 최초 중단으로 핀이 없으면 ABSENT다. 잘못 복사된 파일은 같은 기대 지문에 맞는 원본을 다시 받는다. 다른 묶음·이전 성공·초기화로 바꾸지 않는다. 보류/기준점 자체가 손상됐거나 확인한 원본 자체가 잘못됐다면 자동 복구하지 않고 조사한다.
+- 보류 중 원래 묶음의15분 기한이 지났으면 `--resume`에 한해 **같은 지문의 유효한 원본**을 역사 검증으로 끝낼 수 있다. 미래 시각/서명·전체 버전 검증은 그대로이며 `targetFresh=false`/종료2다. 만료된 핀은 기존 읽기에서 계속 차단된다. 그 기준점부터 새로 발행한 신선한 묶음을 다시 받아야 현재 관측을 진행할 수 있다. 최초 설치/일반 갱신이나 완료된 묶음의 재사용에 이 예외를 적용하지 않는다.
+- 완료 응답만 유실된 경우도 `--resume`은 같은 대상의 전체 바이트/모든 보존 버전을 재검증한다. 같은 버전의 다른 내용이나 후퇴를 완료된 재시도로 인정하지 않는다. 같은 예상 핀으로 동시 수신하면 하나만 진행한다. 발행자/수신자 OS 소유자의 악의적인 우회 쓰기를 차단하는 외부 CAS/WORM 증명이 아니다.
+
+```sh
+uv run --project backend python tools/gw_checkpoint_catalog.py status \
+  --directory /private/gw-receiver --context /private/gw-input/context.json
+uv run --project backend python tools/gw_checkpoint_transfer.py install \
+  --directory /private/gw-receiver --context /private/gw-input/context.json \
+  --transfer /private/gw-incoming/transfer-original.json \
+  --expected-transfer-digest "$GW_TRANSFER_DIGEST" --expected-catalog-id "$GW_CATALOG_ID" \
+  --expected-pin-digest "$GW_RECEIVER_CURRENT_PIN_DIGEST" --resume
+```
+
+운영자가 검토한 뒤 읽기 환경의 `FS_GW_CHECKPOINT_CATALOG_PIN_FILE`을 수신 폴더의 current-pin.json으로 지정할 수 있다. 도구는 서버 환경을 자동 교체/재시작하지 않는다. 기존 API·수집기·준비 조회가 수신 핀/보류를 다시 읽으므로 변경 전 관측이나 보류 중 이전 성공 상세를 대신 표시하지 않는다. 원격 발행과 수신/DB 등록 사이의 원자 거래·연속 감시는 아니다.
+
+### 제한과 후속
+
+1회는 **최대256개 스냅샷(기준 버전 포함)/8MiB**이며, 유실 없이 보존된 미수신 버전을 따라잡는 범위다. 초과 이력의 분할 전달은 아직 지원하지 않는다. **발행 중단으로 예약만 된 버전/기록 번호의 공백, 불완전·유실된 발행 원본은 건너뛰거나 추정하지 않고 차단한다.** §23의 PARTIAL 복구가 있어도 서명된 공백 복구 근거/이관 계약 없이 후퇴·공백을 허용하지 않는다. 손상/회수된 과거 키·확인한 전달 원본 자체 오류·수신 기준점 손상도 자동 리셋하지 않는다. 이 경우의 복구 명세/키 이관·분할/장기 용량 관리는 후속이다.
+
+이번 검증은 실제 PG dump/암호화/폐쇄 복원 파일을 바탕으로 별도 로컬 수신 폴더→재관측v4/수집/API/준비 조회까지 연결한 합성 시험이다. 실제 외부 저장소/신뢰 전달 담당자·OS 계정/회사·기기/10인 인수는 아니다. 외부 독립성 false·실제 복원 PARTIAL·최종4조건 UNVERIFIED·ready=false·ACCEPTANCE PASS 거부를 유지한다.

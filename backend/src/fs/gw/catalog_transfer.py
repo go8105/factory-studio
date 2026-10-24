@@ -1,0 +1,486 @@
+"""Bounded offline catalog transfer, preserving every supplied signed revision."""
+
+import base64
+import json
+import os
+import stat
+from datetime import timedelta
+from itertools import pairwise
+from typing import Literal
+from uuid import uuid4
+
+from pydantic import Field
+
+from fs.gw import catalog_store as store
+from fs.gw.checkpoint_catalog import CatalogConfig, Versioned, _object, verify_document
+from fs.gw.checkpoint_catalog import uuid4 as catalog_id
+from fs.gw.operating_contract import canonical, timestamp
+from fs.gw.restore_recheck import verify_checkpoint_head
+
+MAX_TRANSFER = 8 * 1024 * 1024
+MAX_SNAPSHOTS = 256
+
+
+class Identity(Versioned):
+    kind: Literal["CATALOG_RECEIVER"]
+    catalog_id: str = Field(alias="catalogId")
+    workspace_id: str = Field(alias="workspaceId", pattern=r"^[1-9][0-9]{0,18}$")
+    generation_id: str = Field(alias="generationId", pattern=r"^[1-9][0-9]{0,18}$")
+    bootstrap_digest: str = Field(alias="bootstrapDigest", pattern=r"^[0-9a-f]{64}$")
+
+
+class Snapshot(Versioned):
+    revision: int = Field(ge=1, le=9223372036854775807)
+    digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    content: str = Field(min_length=1, max_length=3 * 1024 * 1024)
+
+
+class Transfer(Versioned):
+    kind: Literal["CHECKPOINT_CATALOG_TRANSFER"]
+    catalog_id: str = Field(alias="catalogId")
+    workspace_id: str = Field(alias="workspaceId", pattern=r"^[1-9][0-9]{0,18}$")
+    generation_id: str = Field(alias="generationId", pattern=r"^[1-9][0-9]{0,18}$")
+    base_revision: int = Field(alias="baseRevision", ge=0, le=9223372036854775807)
+    base_digest: str = Field(alias="baseDigest", pattern=r"^(ABSENT|[0-9a-f]{64})$")
+    snapshots: list[Snapshot] = Field(min_length=1, max_length=MAX_SNAPSHOTS)
+
+
+class ReceiveIntent(Versioned):
+    kind: Literal["CATALOG_RECEIVE_PENDING"]
+    transfer_digest: str = Field(alias="transferDigest", pattern=r"^[0-9a-f]{64}$")
+    catalog_id: str = Field(alias="catalogId")
+    workspace_id: str = Field(alias="workspaceId", pattern=r"^[1-9][0-9]{0,18}$")
+    generation_id: str = Field(alias="generationId", pattern=r"^[1-9][0-9]{0,18}$")
+    base_pin_digest: str = Field(
+        alias="basePinDigest", pattern=r"^(ABSENT|[0-9a-f]{64})$"
+    )
+    base_revision: int = Field(alias="baseRevision", ge=0)
+    base_digest: str = Field(alias="baseDigest", pattern=r"^(ABSENT|[0-9a-f]{64})$")
+
+
+def check_identity(root, catalog):
+    identity = Identity.model_validate(
+        json.loads(store.read_fd(root, store.RECEIVER, 8192), object_pairs_hook=_object)
+    )
+    catalog_id(identity.catalog_id)
+    record = catalog.records[0]
+    if (
+        identity.catalog_id != catalog.catalog_id
+        or identity.workspace_id != record.workspace_id
+        or identity.generation_id != record.generation_id
+    ):
+        raise ValueError("receiver identity mismatch")
+    return identity
+
+
+def decode_snapshot(snapshot, identity, *, context, public_keys):
+    raw = base64.b64decode(snapshot.content, validate=True)
+    config = CatalogConfig(
+        version=1,
+        provider="SIGNED_SNAPSHOT_FILE",
+        catalogId=identity,
+        file="/operator-owned-unused-path",
+        digest=snapshot.digest,
+    )
+    catalog = verify_document(
+        raw, config, public_keys=public_keys, workspace_id=context.workspace_id
+    )
+    store.check_scope(catalog, context)
+    if catalog.revision != snapshot.revision or len(catalog.records) != 1:
+        raise ValueError("transfer revision/shape mismatch")
+    record = catalog.records[0]
+    if record.result == "PASS":
+        if record.head is None:
+            raise ValueError("managed PASS requires original HEAD")
+        verify_checkpoint_head(record.head, public_keys, str(context.workspace_id))
+    elif record.head is not None:
+        raise ValueError("managed failure/partial must not infer a HEAD")
+    return catalog, raw
+
+
+def transition(before, after):
+    if (
+        after.catalog_id != before.catalog_id
+        or after.revision != before.revision + 1
+        or timestamp(after.published_at) < timestamp(before.published_at)
+    ):
+        raise ValueError("catalog revision gap or regression")
+    previous, record = before.records[0], after.records[0]
+    if record.sequence == previous.sequence:
+        if canonical(record.model_dump(by_alias=True)) != canonical(
+            previous.model_dump(by_alias=True)
+        ):
+            raise ValueError("refresh changed a recorded result")
+        return
+    if record.sequence != previous.sequence + 1 or timestamp(
+        record.recorded_at
+    ) < timestamp(previous.recorded_at):
+        raise ValueError("catalog event gap or regression")
+    if record.result == "PASS":
+        captured = timestamp(record.head["payload"]["capturedAt"])
+        if previous.result != "PASS" and captured <= timestamp(previous.recorded_at):
+            raise ValueError("old success cannot replace failure")
+        if previous.head is not None:
+            old_capture = timestamp(previous.head["payload"]["capturedAt"])
+            if captured < old_capture or (
+                captured == old_capture
+                and canonical(record.head) != canonical(previous.head)
+            ):
+                raise ValueError("HEAD capture regressed")
+
+
+def validate(
+    raw,
+    *,
+    expected_transfer_digest,
+    expected_catalog_id,
+    context,
+    public_keys,
+    now,
+    allow_expired=False,
+):
+    catalog_id(expected_catalog_id)
+    if (
+        not 0 < len(raw) <= MAX_TRANSFER
+        or store.digest(raw) != expected_transfer_digest
+    ):
+        raise ValueError("transfer bytes differ from operator anchor")
+    bundle = Transfer.model_validate(json.loads(raw, object_pairs_hook=_object))
+    if (
+        bundle.catalog_id != expected_catalog_id
+        or bundle.workspace_id != str(context.workspace_id)
+        or bundle.generation_id != str(context.generation_id)
+        or (bundle.base_revision == 0) != (bundle.base_digest == "ABSENT")
+    ):
+        raise ValueError("transfer scope/base mismatch")
+    decoded = [
+        decode_snapshot(
+            snapshot, expected_catalog_id, context=context, public_keys=public_keys
+        )
+        for snapshot in bundle.snapshots
+    ]
+    first = decoded[0][0]
+    if first.revision != (bundle.base_revision or 1):
+        raise ValueError("transfer starting revision missing")
+    if bundle.base_revision:
+        if store.digest(decoded[0][1]) != bundle.base_digest or len(decoded) < 2:
+            raise ValueError("transfer base differs or no progress")
+    elif first.records[0].sequence != 1:
+        raise ValueError("initial catalog history missing")
+    for before, after in pairwise(decoded):
+        transition(before[0], after[0])
+    latest = decoded[-1][0]
+    age = now - timestamp(latest.published_at)
+    if age < -timedelta(seconds=30) or (
+        age > timedelta(minutes=15) and not allow_expired
+    ):
+        raise ValueError("fresh transfer target required")
+    return bundle, decoded
+
+
+def export(path, *, context, public_keys, now, base_revision, base_digest):
+    """Export through current source pin. Missing/corrupt history never gets skipped."""
+    with store.directory(path) as root, store.locked(root):
+        catalog, pin, _ = store.current(
+            root, path, public_keys=public_keys, workspace_id=context.workspace_id
+        )
+        if catalog is None or not 0 <= base_revision < catalog.revision:
+            raise ValueError("current source and an older receiver base required")
+        store.check_scope(catalog, context)
+        start = base_revision or 1
+        if catalog.revision - start + 1 > MAX_SNAPSHOTS:
+            raise ValueError("transfer batch limit; do not discard history")
+        names, _ = store.inventory(root)
+        indexed = {
+            int(m[1]): (name, m[2])
+            for name in names
+            if (m := store.NAME.fullmatch(name))
+        }
+        snapshots = []
+        total = 0
+        for revision in range(start, catalog.revision + 1):
+            name, sha = indexed[revision]
+            data = store.read_fd(root, name)
+            total += len(data) * 4 // 3 + 512
+            if total > MAX_TRANSFER:
+                raise ValueError("transfer size limit")
+            snapshots.append(
+                Snapshot(
+                    version=1,
+                    revision=revision,
+                    digest=sha,
+                    content=base64.b64encode(data).decode(),
+                )
+            )
+        bundle = Transfer(
+            version=1,
+            kind="CHECKPOINT_CATALOG_TRANSFER",
+            catalogId=catalog.catalog_id,
+            workspaceId=str(context.workspace_id),
+            generationId=str(context.generation_id),
+            baseRevision=base_revision,
+            baseDigest=base_digest,
+            snapshots=snapshots,
+        )
+        raw = canonical(bundle.model_dump(by_alias=True)) + b"\n"
+        validate(
+            raw,
+            expected_transfer_digest=store.digest(raw),
+            expected_catalog_id=catalog.catalog_id,
+            context=context,
+            public_keys=public_keys,
+            now=now,
+        )
+        store.cas(root, pin)
+        return raw, {
+            "catalogId": catalog.catalog_id,
+            "transferDigest": store.digest(raw),
+            "baseRevision": base_revision,
+            "targetRevision": catalog.revision,
+            "targetCatalogDigest": snapshots[-1].digest,
+            "sourceResult": catalog.records[0].result,
+            "ready": False,
+        }
+
+
+def put_snapshot(root, name, raw):
+    """Publish complete bytes via an exclusive hard link; interrupted temps remain bounded."""
+    try:
+        existing = os.stat(name, dir_fd=root, follow_symlinks=False)
+    except FileNotFoundError:
+        temp = ".pin-" + uuid4().hex
+        store.write_new(root, temp, raw)
+        os.link(temp, name, src_dir_fd=root, dst_dir_fd=root, follow_symlinks=False)
+        os.fsync(root)
+        os.unlink(temp, dir_fd=root)
+        os.fsync(root)
+        return
+    if (
+        not stat.S_ISREG(existing.st_mode)
+        or existing.st_uid != os.geteuid()
+        or existing.st_mode & 0o077
+        or existing.st_nlink not in {1, 2}
+    ):
+        raise ValueError("existing received snapshot invalid")
+    if store.read_fd(root, name, max_links=2) != raw:
+        raise ValueError("received immutable snapshot differs")
+    if existing.st_nlink == 2:
+        # A kill after link but before unlink may leave exactly one owned temp alias.
+        names, _ = store.inventory(root)
+        aliases = [
+            n
+            for n in names
+            if n.startswith(".pin-")
+            and (i := os.stat(n, dir_fd=root, follow_symlinks=False)).st_dev
+            == existing.st_dev
+            and i.st_ino == existing.st_ino
+        ]
+        if len(aliases) != 1:
+            raise ValueError("snapshot hard link is not a transfer temp")
+        os.unlink(aliases[0], dir_fd=root)
+        os.fsync(root)
+    if store.read_fd(root, name) != raw:
+        raise ValueError("received immutable snapshot differs")
+    # Re-sync even an existing complete file before clearing a pending operation.
+    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=root)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def install(
+    path,
+    raw,
+    *,
+    context,
+    public_keys,
+    now,
+    expected_transfer_digest,
+    expected_catalog_id,
+    expected_pin_digest,
+    initialize=False,
+    resume=False,
+):
+    # The separately confirmed anchor and receiver CAS establish a fence BEFORE parsing input.
+    catalog_id(expected_catalog_id)
+    if len(expected_transfer_digest) != 64 or any(
+        c not in "0123456789abcdef" for c in expected_transfer_digest
+    ):
+        raise ValueError("invalid operator transfer anchor")
+    with store.directory(path) as root, store.locked(root):
+        names, highest = store.inventory(root)
+        pending = store.PENDING in names
+        old, pin, _ = store.current(
+            root,
+            path,
+            public_keys=public_keys,
+            workspace_id=context.workspace_id,
+            healthy=not pending,
+        )
+        store.cas(root, expected_pin_digest)
+        store.check_scope(old, context)
+        if old and (
+            store.RECEIVER not in names or old.catalog_id != expected_catalog_id
+        ):
+            raise ValueError("receiver identity differs or publisher store selected")
+        intent = None
+        if pending:
+            if not resume or initialize:
+                raise ValueError("explicit same-transfer resume required")
+            intent = ReceiveIntent.model_validate(
+                json.loads(
+                    store.read_fd(root, store.PENDING, 8192), object_pairs_hook=_object
+                )
+            )
+            if (
+                intent.transfer_digest != expected_transfer_digest
+                or intent.catalog_id != expected_catalog_id
+                or intent.workspace_id != str(context.workspace_id)
+                or intent.generation_id != str(context.generation_id)
+            ):
+                raise ValueError("pending transfer differs")
+        elif resume:
+            if old is None or initialize:
+                raise ValueError("no matching completed transfer")
+        elif old is None:
+            if (
+                not initialize
+                or expected_pin_digest != "ABSENT"
+                or set(names) != {store.LOCK}
+            ):
+                raise ValueError("explicit empty receiver bootstrap required")
+        elif initialize:
+            raise ValueError("receiver already initialized")
+        if not pending and not resume:
+            base_digest = "ABSENT"
+            if old:
+                config = CatalogConfig.model_validate(
+                    json.loads(
+                        store.read_fd(root, store.PIN, 8192), object_pairs_hook=_object
+                    )
+                )
+                base_digest = config.digest
+            intent = ReceiveIntent(
+                version=1,
+                kind="CATALOG_RECEIVE_PENDING",
+                transferDigest=expected_transfer_digest,
+                catalogId=expected_catalog_id,
+                workspaceId=str(context.workspace_id),
+                generationId=str(context.generation_id),
+                basePinDigest=pin,
+                baseRevision=old.revision if old else 0,
+                baseDigest=base_digest,
+            )
+            store.write_new(
+                root, store.PENDING, canonical(intent.model_dump(by_alias=True)) + b"\n"
+            )
+        bundle, decoded = validate(
+            raw,
+            expected_transfer_digest=expected_transfer_digest,
+            expected_catalog_id=expected_catalog_id,
+            context=context,
+            public_keys=public_keys,
+            now=now,
+            allow_expired=bool(pending and resume),
+        )
+        target, target_raw = decoded[-1]
+        if intent:
+            if (
+                intent.base_revision != bundle.base_revision
+                or intent.base_digest != bundle.base_digest
+            ):
+                raise ValueError("transfer does not start at fenced receiver base")
+            if old and old.revision == target.revision:
+                config = CatalogConfig.model_validate(
+                    json.loads(
+                        store.read_fd(root, store.PIN, 8192), object_pairs_hook=_object
+                    )
+                )
+                if config.digest != store.digest(target_raw):
+                    raise ValueError("completed target differs")
+            elif (
+                pin != intent.base_pin_digest
+                or (old.revision if old else 0) != intent.base_revision
+            ):
+                raise ValueError("receiver base pin changed")
+        elif old.revision != target.revision:
+            raise ValueError("no matching completed transfer")
+        if (
+            old is not None
+            and old.revision != target.revision
+            and (
+                old.revision != bundle.base_revision
+                or store.digest(
+                    store.read_fd(
+                        root, store.filename(old.revision, bundle.base_digest)
+                    )
+                )
+                != bundle.base_digest
+            )
+        ):
+            raise ValueError("receiver base catalog differs")
+        if old is not None and old.revision == target.revision:
+            config = CatalogConfig.model_validate(
+                json.loads(
+                    store.read_fd(root, store.PIN, 8192), object_pairs_hook=_object
+                )
+            )
+            if config.digest != store.digest(target_raw):
+                raise ValueError("same receiver revision has different target bytes")
+        indexed = {
+            int(m[1]): name for name in names if (m := store.NAME.fullmatch(name))
+        }
+        if any(
+            catalog.revision in indexed
+            and indexed[catalog.revision]
+            != store.filename(catalog.revision, store.digest(data))
+            for catalog, data in decoded
+        ):
+            raise ValueError("received revision conflicts with retained history")
+        if highest > target.revision:
+            raise ValueError("newer receiver data exists")
+        if store.RECEIVER not in names or (pending and bundle.base_revision == 0):
+            identity = Identity(
+                version=1,
+                kind="CATALOG_RECEIVER",
+                catalogId=expected_catalog_id,
+                workspaceId=str(context.workspace_id),
+                generationId=str(context.generation_id),
+                bootstrapDigest=expected_transfer_digest,
+            )
+            put_snapshot(
+                root,
+                store.RECEIVER,
+                canonical(identity.model_dump(by_alias=True)) + b"\n",
+            )
+        else:
+            check_identity(root, target)
+        for catalog, data in decoded:
+            put_snapshot(
+                root, store.filename(catalog.revision, store.digest(data)), data
+            )
+        if not pending and resume:
+            report = {
+                "catalogId": target.catalog_id,
+                "revision": target.revision,
+                "sequence": target.records[0].sequence,
+                "result": target.records[0].result,
+                "catalogDigest": store.digest(target_raw),
+                "pinDigest": pin,
+                "ready": False,
+            }
+        else:
+            report = store.activate(root, path, target, target_raw, pin)
+        report["targetFresh"] = (
+            -timedelta(seconds=30)
+            <= now - timestamp(target.published_at)
+            <= timedelta(minutes=15)
+        )
+        record = target.records[0]
+        report["contextMatches"] = (
+            record.policy_digest == context.policy.digest()
+            and record.code_revision == context.code_revision
+            and record.db_revision == context.db_revision
+        )
+        return report

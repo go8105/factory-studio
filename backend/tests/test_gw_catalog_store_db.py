@@ -9,6 +9,7 @@ import sys
 import time
 from datetime import UTC, datetime
 
+import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
@@ -25,8 +26,9 @@ from fs.gw.evidence_trust import from_environment
 from fs.gw.operating_contract import canonical, timestamp
 
 
+@pytest.mark.parametrize("receiver_mode", [False, True])
 def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
-    company_env, backup_env, monkeypatch
+    company_env, backup_env, monkeypatch, receiver_mode
 ):
     engine, co, admin, _ = company_env
     module, config, folders, _ = backup_env
@@ -108,6 +110,77 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
         first = cli("publish", "ABSENT", source + ("--initialize",))
         assert first["result"] == "PASS" and first["ready"] is False
         assert cli("status")["pinDigest"] == first["pinDigest"]
+        receiver = folders["reports"] / "receiver"
+        receiver.mkdir(mode=0o700)
+        installed = None
+        deliveries = 0
+
+        def deliver(exit_code=0, *, tamper=False, resume=False):
+            nonlocal installed, deliveries
+            deliveries += 1
+            batch = folders["reports"] / f"transfer-{deliveries}.json"
+            base = installed["revision"] if installed else 0
+            base_digest = installed["catalogDigest"] if installed else "ABSENT"
+            exported = subprocess.run(
+                [
+                    sys.executable,
+                    "tools/gw_checkpoint_transfer.py",
+                    "export",
+                    "--directory",
+                    str(folder),
+                    "--context",
+                    str(context),
+                    "--from-revision",
+                    str(base),
+                    "--from-catalog-digest",
+                    base_digest,
+                    "--output",
+                    str(batch),
+                ],
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+            assert exported.returncode == 0
+            anchor = json.loads(exported.stdout)
+            if tamper:
+                batch.write_bytes(batch.read_bytes() + b"tampered")
+            receiving_env = os.environ.copy()
+            receiving_env.pop("FS_GW_CATALOG_KEY_FILE", None)
+            receiving_env.pop("FS_GW_CATALOG_KEY_ID", None)
+            command = [
+                sys.executable,
+                "tools/gw_checkpoint_transfer.py",
+                "install",
+                "--directory",
+                str(receiver),
+                "--context",
+                str(context),
+                "--transfer",
+                str(batch),
+                "--expected-transfer-digest",
+                anchor["transferDigest"],
+                "--expected-catalog-id",
+                first["catalogId"],
+                "--expected-pin-digest",
+                installed["pinDigest"] if installed else "ABSENT",
+            ]
+            if installed is None:
+                command += ["--initialize"]
+            if resume:
+                command += ["--resume"]
+            result = subprocess.run(
+                command, env=receiving_env, capture_output=True, timeout=30, check=False
+            )
+            assert result.returncode == exit_code and not result.stderr
+            if exit_code == 1:
+                return
+            installed = json.loads(result.stdout)
+            assert installed["ready"] is False
+
+        if receiver_mode:
+            deliver()
+            monkeypatch.setenv(PIN_ENV, str(receiver / "current-pin.json"))
         original_snapshots = {
             p.name: p.read_bytes() for p in folder.glob("catalog-*.json")
         }
@@ -170,11 +243,20 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
             exit_code=2,
         )
         assert failed["result"] == "FAIL" and failed["sequence"] == 2
+        refreshed = cli("refresh", failed["pinDigest"], exit_code=2)
+        if receiver_mode:
+            deliver(exit_code=1, tamper=True)
+            assert status()["state"] == "INVALID"
+            deliver(
+                exit_code=2, resume=True
+            )  # Same original bytes include missed FAIL and refresh.
         assert status()["state"] == "INVALID"
         rejected = collect(recheck("published-failure.json"))
         assert rejected["envelope"]["result"] == "FAIL"
         assert api(admin, co, "operating-evidence", rejected).status_code == 200
-        refreshed = cli("refresh", failed["pinDigest"], exit_code=2)
+        refreshed = cli("refresh", refreshed["pinDigest"], exit_code=2)
+        if receiver_mode:
+            deliver(exit_code=2)
         assert refreshed["result"] == "FAIL" and refreshed["sequence"] == 2
         cli("refresh", first["pinDigest"], exit_code=1)
         catalog, sha = read(

@@ -32,6 +32,7 @@ PIN_ENV = "FS_GW_CHECKPOINT_CATALOG_PIN_FILE"
 PIN = "current-pin.json"
 PENDING = ".catalog.pending"
 LOCK = ".catalog.lock"
+RECEIVER = ".catalog.receiver"
 NAME = re.compile(r"catalog-([0-9]{20})-([0-9a-f]{64})\.json\Z")
 
 
@@ -59,7 +60,7 @@ def digest(raw):
     return hashlib.sha256(raw).hexdigest()
 
 
-def read_fd(root, name, limit=MAX_BYTES):
+def read_fd(root, name, limit=MAX_BYTES, *, max_links=1):
     fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root)
     with os.fdopen(fd, "rb") as stream:
         info = os.fstat(stream.fileno())
@@ -67,7 +68,7 @@ def read_fd(root, name, limit=MAX_BYTES):
             not stat.S_ISREG(info.st_mode)
             or info.st_uid != os.geteuid()
             or info.st_mode & 0o077
-            or info.st_nlink != 1
+            or not 1 <= info.st_nlink <= max_links
             or not 0 < info.st_size <= limit
         ):
             raise ValueError("private regular file required")
@@ -136,7 +137,7 @@ def inventory(root):
         match = NAME.fullmatch(name)
         if match:
             revisions.append(int(match[1]))
-        elif name not in {PIN, PENDING, LOCK} and not re.fullmatch(
+        elif name not in {PIN, PENDING, LOCK, RECEIVER} and not re.fullmatch(
             r"\.pin-[0-9a-f]{32}", name
         ):
             raise ValueError("unexpected catalog entry")
@@ -169,6 +170,10 @@ def current(root, path, *, public_keys, workspace_id, healthy=True):
         or len(catalog.records) != 1
     ):
         raise ValueError("managed catalog shape mismatch")
+    if RECEIVER in names:
+        from fs.gw.catalog_transfer import check_identity
+
+        check_identity(root, catalog)
     if healthy and highest != catalog.revision:
         raise ValueError("uncommitted newer catalog exists")
     if read_fd(root, PIN, 8192) != raw_pin:
@@ -224,10 +229,15 @@ def commit(root, path, catalog, signer, expected):
     )
     if len(raw) > MAX_BYTES:
         raise ValueError("catalog size limit")
-    record = catalog.records[0]
     # Never overwrite or delete an old snapshot, including failed partial writes.
     name = filename(catalog.revision, digest(raw))
     write_new(root, name, raw)
+    return activate(root, path, catalog, raw, expected)
+
+
+def activate(root, path, catalog, raw, expected):
+    record = catalog.records[0]
+    name = filename(catalog.revision, digest(raw))
     config = CatalogConfig(
         version=1,
         provider="SIGNED_SNAPSHOT_FILE",
@@ -327,6 +337,8 @@ def publish(
         if old is not None and initialize:
             raise ValueError("initialization cannot replace an existing catalog")
         names, _ = inventory(root)
+        if RECEIVER in names:
+            raise ValueError("receiver store cannot publish catalogs")
         intent = None
         if recovering:
             intent = Intent.model_validate(
