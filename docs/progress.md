@@ -1,3 +1,32 @@
+## 2026-10-24 GW-READY-02 49차 — 로컬 목록 발행·원자 핀 교체/중단 차단
+
+- 시작 `44e5537`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 최신 인계/현재 상태와 실제 코드 확인 후 승인된 GW 작업의 로컬 발행 단계를 구현했다. 작업 폴더만 수정했으며 별도 GW/스키마나 수동 완료 체크를 추가하지 않았다. 최종 커밋은 `git log -1`로 확인한다.
+- `catalog_store`와 `gw_checkpoint_catalog.py publish/refresh/status/recover-pending`를 추가했다. 회사/세대 전용0700 폴더, 별도 회사/CHECKPOINT_CATALOG 단독 용도·실제 개인키/공개키 일치, 현재 정책/버전 문맥, 기존 서명 HEAD/실제0600 암호화 대조 파일의 서명/범위/RPO·시계/형식/크기/전체 SHA-256·읽기 중 변경을 검사한다. 정상 파일 대조만 목록 PASS이며 ACCEPTANCE PASS/복호화·격리복원/전체 인수 통과가 아니다. 권한/CAS 확인 뒤 입력 검증 실패는 새 FAIL·원문 null/종료2, 설정/권한/기존 상태 오류는 종료1이다.
+- 지속 잠금+예상 핀 지문 CAS, 원본 읽기 전 보류 의도0600/fsync, 새 지문 이름 스냅샷 O_EXCL/fsync, 임시 핀/fsync와 같은 폴더 원자 교체·폴더 fsync를 구현했다. 과거 스냅샷/실패/불완전 파일을 덮거나 지우지 않는다. 현재 스냅샷은 최신 항목 하나이며 과거 파일을 보존한다. 최대100,000폴더 항목/2MiB, 장기 이관/용량 관리 도구는 후속이다. refresh는 번호/기록 시각/결과/HEAD·기준을 바꾸지 않으며 실패를 숨기지 않는다. status는 공개키만 쓰는 제한된 진단이며 운영 준비/15분 신선도 승인이 아니다.
+- 보류/더 높은 미완료 스냅샷이 있으면 관리 핀 읽기를 차단한다. recover-pending은 실제 현재 핀과 기존 회사/세대/식별자를 검증한 뒤 가장 높은 저장/예약 번호보다 높은 새 PARTIAL·원문 null을 남긴다. 미완료 PASS 활성화나 과거 핀 롤백은 없다. 실패/PARTIAL 이후 옛 HEAD 재발행은 새 FAIL이며 새 생성 시각이 필요하다. 현재 핀/보류 자체가 손상되면 자동 초기화하지 않는다. 같은 OS 소유자의 악의적 변경을 막는 WORM/외부 CAS라고 주장하지 않는다.
+- `FS_GW_CHECKPOINT_CATALOG_PIN_FILE` 관리 모드는 기존 v1 핀 형식을 사용한다. 기존 JSON 설정과 동시 지정/빈 값, 경로/소유자/권한·링크/하드링크, 현재 서명/기한·보류/최고 저장 버전·읽기 중 핀 교체를 검사한다. 기존 모드/원본 서명 바이트는 유지한다. 수집기/API 등록/준비 조회에서 현재 관리 핀을 다시 읽어 변경 전 증거를 INVALID로 만들고 과거 성공으로 대신하지 않는다. 발행 개인키/URL/전체 문서/전체 로그를 출력하지 않는다. admin 로그인 이름은 회사/보안/발행 권한을 부여하지 않는다.
+- 검증: 관련 단위579통과(기존 경고2, 새36검사 포함). 별도 두 CLI 프로세스의 동일 예상 핀에서 하나만 성공, 원본 읽기 중 종료·스냅샷/임시 핀/원자 교체/교체 직후 동기화 중단, 불완전 파일 보존·새 PARTIAL 복구, 초기 중단 식별자 유지/재초기화 거부, 옛 생성/서명/원본 없음/기한·권한/링크·키 회수/핀 후퇴·읽기 중 교체·과도한 JSON 중첩의 안전한 오류/새 FAIL을 확인했다. 최종 화면/정적 도움말48통과, 타입·수정 Python Ruff check/format·정적DB219표/2409열/543FK·R1–R6 오류0. UI 제품 코드는 수정하지 않았으며 브라우저/모바일·실제 API 브라우저는 이번 재실행하지 않았다.
+- 실제 PostgreSQL: 새 UUID 소유 시험DB에서 실제 dump/암호화/폐쇄 격리 복원→새 발행 CLI→관리 핀→재관측v4/수집/API/준비 조회 신규1시나리오와 기존 목록1/복구2 최종4통과65.69초(기존 경고2). 새 발행 PASS/ready=false, 최신 입력 검증 FAIL 뒤 기존 인수 INVALID·새 ACCEPTANCE FAIL 등록, 갱신해도 FAIL 유지, 옛 예상 핀 거부·원본 바이트 보존을 확인했다. 앞선 실행은 새 시험이 기존 실행 설정에 없는 policy를 읽어 KeyError로1실패/기존3통과였다. 시험 문맥을 현재 operations API 정책으로 준비한 뒤 전부 재실행했다. 제품 계약/검증을 느슨하게 하지 않았다. 실제 복원은 계속 PARTIAL이며 새 FAIL은 발행 입력 검증 실패이지 실제 복원 실패 측정이 아니다. 기존 최신 RESTORE FAIL 선택 검사는 합성 서명 자료다.
+- 문서: 실회사 절차 §23·구현/정적 도움말·문서 지도/현재 상태/progress/HANDOFF 갱신. 직관성(현재 차단/다음 점검), 유효성(실파일 대조/현재 재조회), 학습성(파일 PASS/인수 경계), 유연성(기존 정적·명시적 관리 모드)을 고려했다. 작은 도움말 추가를 UI 전체 완성으로 표현하지 않는다.
+- 자원/제약: 시험 생성 자원만 정리, 최종 관측 시험DB0·폐쇄 복원DB0·기존 preview DB존재 읽기 확인. gw_preview_test 초기화/실계정 admin·비밀번호/OTP/브라우저·미리보기 정책/운영 서버 환경 변경 없음. API8362/Vite5362 상태 재검사/재시작 없음. work/.env·비밀/전체 로그 Git 제외. 스키마/마이그레이션/metadata·Excel/ERD 변경 없음. 외부 공급자 미정이며 임의 연결/설정하지 않았다. 실제 복원 PARTIAL/ready=false/최종4조건 UNVERIFIED·ACCEPTANCE PASS 거부 유지. 전체CI/전체회귀·고정24수집/전체 실제DB·실외부/실회사·기기/10인/최종전환·최신main 통합/원격push/배포 미실행/미완료.
+- 다음: 별도 수신 폴더의 신뢰 기준점 전달/검증·순차 설치/CAS·중단 재시도와 누락 버전 따라잡기 계약/도구를 구현한다. 로컬 핀 파일 교체만으로 원격 전달/수신자 독립성을 완료했다고 보지 않는다. 이후 공급자 선정 후 외부 장애 복구, 나머지 최종 인수 계약/전체 변경·회수, 최신main/전체회귀/실회사10인·최종전환이 남는다. 다음 난이도 매우 높음, [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra) + High 추천(복수 기준점·순서/재생/누락·중단 경계). OpenAI Docs 공식 모델 페이지를 열어 확인했으며 추천은 작업 난이도에 따른 판단이고 모델 자동 변경 없음.
+
+재현(저장소 루트):
+```sh
+uv run --project backend pytest backend/tests/test_gw_catalog_store.py backend/tests/test_gw_checkpoint_catalog.py backend/tests/test_gw_checkpoint_head.py backend/tests/test_gw_recovery.py backend/tests/test_restore_restriction_comparison.py backend/tests/test_gw_source_checkpoint.py backend/tests/test_gw_restore_recheck.py backend/tests/test_gw_restore_observation.py backend/tests/test_gw_journal_acceptance.py backend/tests/test_gw_journal_observation.py backend/tests/test_gw_evidence_trust.py backend/tests/test_gw_acceptance_sources.py backend/tests/test_gw_business_observation.py backend/tests/test_gw_acceptance_preflight.py backend/tests/test_gw_acceptance_reconciliation.py backend/tests/test_gw_route_verify.py backend/tests/test_gw_journal_routes.py backend/tests/test_gw_journal_coverage.py backend/tests/test_journal_review.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short
+# 소유 컨테이너ID/owner/loopback 확인 후 새 UUID *_test DB에만 동일 DATABASE_URL/TEST_DATABASE_URL과 소유 GW_BACKUP_TEST_CONTAINER를 비공개 주입한다.
+# 기존 gw_preview_test는 절대 초기화/시험하지 않는다. 생성한 자원만 정리한다.
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_catalog_store_db.py backend/tests/test_gw_checkpoint_catalog_db.py backend/tests/test_gw_recovery_db.py -q --tb=short
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/operations.test.tsx src/portal/content-pages.test.tsx --maxWorkers=2
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend run typecheck
+uv run --project backend ruff check backend/src/fs/gw/catalog_store.py backend/src/fs/gw/checkpoint_catalog.py backend/tests/test_gw_catalog_store.py backend/tests/test_gw_catalog_store_db.py tools/gw_checkpoint_catalog.py
+uv run --project backend ruff format --check backend/src/fs/gw/catalog_store.py backend/src/fs/gw/checkpoint_catalog.py backend/tests/test_gw_catalog_store.py backend/tests/test_gw_catalog_store_db.py tools/gw_checkpoint_catalog.py
+python3 tools/validate_db_design.py
+uv run --project backend python tools/audit_schema_isolation.py
+```
+발행/갱신/상태·중단 복구/관리 핀 설정은 `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §23을 따른다. 표준 명령과 계약은 비공개 work harness 없이 재현할 수 있어야 한다. 읽기 어댑터에는 발행 개인키가 필요 없으며 수신자 전송/설정 설치·원격 운영은 자동화하지 않는다. 비밀/전체 로그 출력·다른 checkout/WMS·실계정/브라우저 변경 금지.
+
 ## 2026-10-24 GW-READY-02 48차 — 별도 서명 목록의 현재 HEAD 대조
 
 - 시작 `eb29142`, 브랜치 `codex/gw-company-01`, 작업 트리 깨끗함. 사용자 다음 진행 승인 범위에서 기존 도구/인수 계약을 확장했다. 별도 GW/스키마·수동 인수 완료 체크 없이 공통 읽기 어댑터 하나를 진행했다. 최종 커밋은 `git log -1`로 확인한다.

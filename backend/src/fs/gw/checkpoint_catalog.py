@@ -205,12 +205,23 @@ def _object(pairs):
 
 def configured():
     # An explicitly empty configuration is an error, never disabled mode.
-    return ENV in os.environ
+    return ENV in os.environ or "FS_GW_CHECKPOINT_CATALOG_PIN_FILE" in os.environ
 
 
 def read(*, public_keys, workspace_id, now):
     """Read one bounded descriptor snapshot, not a path supplied by an upload."""
     try:
+        from fs.gw.catalog_store import PIN_ENV, managed_read
+
+        if PIN_ENV in os.environ:
+            if ENV in os.environ:
+                raise ValueError("ambiguous catalog configuration")
+            return managed_read(
+                os.environ[PIN_ENV],
+                public_keys=public_keys,
+                workspace_id=workspace_id,
+                now=now,
+            )
         raw_config = os.environ[ENV]
         if len(raw_config.encode()) > 8192:
             raise ValueError()
@@ -238,28 +249,45 @@ def read(*, public_keys, workspace_id, now):
             raw = stream.read(MAX_BYTES + 1)
         if len(raw) > MAX_BYTES or hashlib.sha256(raw).hexdigest() != config.digest:
             raise ValueError()
-        document = CatalogDocument.model_validate(
-            json.loads(raw, object_pairs_hook=_object)
+        catalog = verify_document(
+            raw, config, public_keys=public_keys, workspace_id=workspace_id
         )
-        catalog = document.envelope
-        if not isinstance(public_keys, EvidenceTrust) or not public_keys.scoped:
-            raise ValueError()
-        authorize(
-            public_keys, catalog.signer_key_id, "CHECKPOINT_CATALOG", str(workspace_id)
-        )
-        Ed25519PublicKey.from_public_bytes(public_keys[catalog.signer_key_id]).verify(
-            base64.b64decode(document.signature, validate=True),
-            DOMAIN + canonical(catalog.model_dump(by_alias=True)),
-        )
-        if catalog.catalog_id != config.catalog_id or not -timedelta(
-            seconds=30
-        ) <= now - timestamp(catalog.published_at) <= timedelta(minutes=15):
+        if (
+            not -timedelta(seconds=30)
+            <= now - timestamp(catalog.published_at)
+            <= timedelta(minutes=15)
+        ):
             raise ValueError()
         return catalog, config.digest
-    except OSError, KeyError, TypeError, ValueError, InvalidSignature:
+    except OSError, KeyError, TypeError, ValueError, InvalidSignature, RecursionError:
         raise ValueError(
             "configured checkpoint catalog unavailable or invalid"
         ) from None
+
+
+def verify_document(raw, config, *, public_keys, workspace_id):
+    """Verify archived bytes without requiring a fresh publication time."""
+    if (
+        not 0 < len(raw) <= MAX_BYTES
+        or hashlib.sha256(raw).hexdigest() != config.digest
+    ):
+        raise ValueError("catalog bytes differ from pin")
+    document = CatalogDocument.model_validate(
+        json.loads(raw, object_pairs_hook=_object)
+    )
+    catalog = document.envelope
+    if not isinstance(public_keys, EvidenceTrust) or not public_keys.scoped:
+        raise ValueError("scoped catalog authority required")
+    authorize(
+        public_keys, catalog.signer_key_id, "CHECKPOINT_CATALOG", str(workspace_id)
+    )
+    Ed25519PublicKey.from_public_bytes(public_keys[catalog.signer_key_id]).verify(
+        base64.b64decode(document.signature, validate=True),
+        DOMAIN + canonical(catalog.model_dump(by_alias=True)),
+    )
+    if catalog.catalog_id != config.catalog_id:
+        raise ValueError("catalog identity differs from pin")
+    return catalog
 
 
 def observe(selected_head, *, observed_at, **context):

@@ -425,3 +425,51 @@ uv run --project backend python tools/gw_acceptance_collect.py \
 - 기존 **복원본 최근 재관측 → 별도 서명 목록 대조**에서 관측 시각·목록 버전/최신 번호·일치/최신 실패·미확인 범위와 조치를 읽는다. 목록이 바뀌어 이전 관측을 재검증할 수 없으면 이전 상세로 대신하지 않는다. 화면 전체 완성이나 실제 API 브라우저·실회사10인 인수는 별도다.
 
 이 어댑터는 확인 시점에 설정된 서명 스냅샷을 대조한다. 외부 발행과 DB 등록 사이를 하나의 원자 거래로 만들거나 원격 목록을 연속 감시하지 않는다. 서버가 아직 관측하지 못한 더 최신 기록·숨겨진 기록, 발행자 자체의 악의/누락·물리 재해 분리·미등록 이력 전체/실행 바이너리·공인 시각을 증명하지 않는다. 보관/키 독립성은 `externalIndependenceVerified=false`, 최종4조건은 UNVERIFIED이며 실제 복원 PARTIAL·ready=false·ACCEPTANCE PASS 거부를 유지한다. 공급자는 미정이며 원격 연결/배포를 임의 설치하지 않았다. 다음은 이 계약을 따르는 목록 발행·불변 교체/신뢰 핀 전달 도구와 장애 검증이다.
+
+## 23. 로컬 서명 목록 발행·원자적 핀 교체 (49차)
+
+§22의 정적 JSON 핀 모드는 유지한다. 새 `tools/gw_checkpoint_catalog.py`는 **회사/세대 하나의 운영자 소유 로컬 폴더**에 목록을 발행한다. 실제 외부 공급자·다른 OS 계정의 수신/전달·누락 버전 따라잡기는 아직 제공하지 않는다. 이 도구가 과거 파일을 덮어쓰지 않는 것은 OS/공급자 WORM이나 물리 독립 보관 증명이 아니다. 실제 저장소/미리보기 설정을 자동 설치하지 않는다.
+
+### 발행 담당자 준비
+
+- 목록 전용0700 절대 폴더를 비워서 준비한다. 백업·대조 입력과 다른 전용 폴더를 사용한다. `.catalog.lock`은 재사용하므로 임의 삭제하지 않는다. 최초 발행만 `--initialize --expected-pin-digest ABSENT`를 명시한다. 기존 핀/파일/보류 발행이 있는 폴더를 최초 상태로 간주하지 않는다.
+- 발행 환경의 `FS_GW_CATALOG_KEY_FILE`은 소유자0600인 Ed25519 개인키32바이트 파일, `FS_GW_CATALOG_KEY_ID`는 §22의 회사/CHECKPOINT_CATALOG 단독 용도 허용 키다. 현재 공개키와 개인키도 대조한다. 읽기 서버에 개인키가 필요하지 않다. 기존 실행자/인수 키나 `admin` 로그인 이름으로 대신하지 않는다.
+- `--context`는0700 부모 안0600 JSON이며 정확히 `workspaceId`/`generationId`(양의 정수), `policy`(현재 운영 정책 전체), `codeRevision`/`dbRevision`을 담는다. 발행자는 현재 회사/정책/버전을 별도로 확인한다. 도구는 DB에서 이 값을 자동 수집하거나 실행 바이너리를 인증하지 않는다.
+- `--head`는 기존 도구의 서명 HEAD, `--checkpoint`는 그 HEAD에 대응하는 실제 암호화 대조 파일이다. 소유자/비공개 일반 파일·링크/하드링크·중복 JSON·형식/크기·현재 회사/CHECKPOINT 키 서명·세대/정책·RPO+30초/미래30초·전체 파일 SHA-256·읽기 중 파일 변경을 검사한다. 암호화 형식 헤더/지문 대조이며 이 발행 단계가 복호화·복원 결과까지 증명하지 않는다.
+
+```sh
+uv run --project backend python tools/gw_checkpoint_catalog.py publish \
+  --directory /private/gw-catalog --context /private/gw-input/context.json \
+  --head /private/gw-checkpoint/head.json --checkpoint /private/gw-checkpoint/latest.fsbackup \
+  --initialize --expected-pin-digest ABSENT
+# 후속 명령의 예상 지문은 status 결과와 담당자가 보관한 이전 전달 기록을 대조한다.
+uv run --project backend python tools/gw_checkpoint_catalog.py status \
+  --directory /private/gw-catalog --context /private/gw-input/context.json
+uv run --project backend python tools/gw_checkpoint_catalog.py refresh \
+  --directory /private/gw-catalog --context /private/gw-input/context.json \
+  --expected-pin-digest "$GW_CATALOG_PIN_DIGEST"
+```
+
+출력은 목록 식별자/버전·번호/결과, 목록 파일 전체 지문과 핀 파일 지문·`ready=false` 등 제한된 진단이다. 개인키·접속 정보·전체 문서/파일 경로를 출력하지 않는다. **catalogDigest와 pinDigest는 다른 지문**이다. 발행 경합 검사는 `pinDigest`를 사용한다. `status`는 무결성/현재 버전과 보류 상태를 조회하는 명령이며 목록 발행 시각의15분 기한이나 운영 준비를 통과시키는 명령이 아니다.
+
+### 발행 결과와 중단 처리
+
+- 정상 대조는 목록 항목 PASS/종료0이다. **목록 파일 대조의 PASS이며 ACCEPTANCE PASS나 운영 승인과 무관하다.** 권한/문맥/예상 핀을 확인한 뒤 원본 검증이 실패하면 새 FAIL·원문 null/종료2를 발행한다. 최신 실패를 이전 성공으로 대신하지 않는다. 권한·핀·기존 목록/폴더 오류는 종료1이며 자동 초기화하지 않는다. 실패 원인 원문이나 민감한 파일 내용을 로그로 출력하지 않는다.
+- 각 발행은 전체 바이트 지문을 이름에 넣은 새0600 `catalog-<20자리 revision>-<sha256>.json`을 생성하고 fsync한다. 현재 스냅샷에는 최신 항목 하나만 담고, 과거 스냅샷·FAIL·불완전 파일은 보존한다. 폴더 항목은 최대100,000개이며 초과 시 차단한다. 장기 보관/이관·용량 관리 도구는 후속이며 임의 삭제로 우회하지 않는다. 목록 식별자는 유지하며 새 기록은 번호를 증가시킨다. `refresh`는 버전/발행 시각만 새로 서명하고 이전 항목의 번호/시각/결과/HEAD/기준을 그대로 보존한다. FAIL/PARTIAL을 PASS로 바꾸거나 옛 정책을 새 정책으로 꾸미지 않는다.
+- 전용 잠금과 예상 핀 지문을 함께 검사한다. 같은 예상 핀으로 경합하면 한 발행만 진행한다. 의도 기록 `.catalog.pending`을 **원본 파일 읽기 전에**0600 생성/fsync하고, 새 스냅샷과 임시 핀을 fsync한 뒤 `current-pin.json`을 같은 폴더 안 원자 교체·폴더 fsync한다. 완료 후에만 보류 기록을 제거/fsync한다. 동일 OS 소유자의 악의적인 우회 쓰기를 막는 WORM/CAS 서비스는 아니다.
+- 중단/쓰기 실패/완료 응답 유실 시 먼저 `status`를 확인한다. 보류 기록이나 현재 핀보다 높은 저장 버전이 있으면 관리 핀 읽기는 차단된다. 이전 핀으로 자동 롤백하거나 불완전 파일을 삭제하지 않는다. 핀이 이미 교체됐더라도 보류가 있으면 차단한다.
+- 유효한 보류 기록과 재검증 가능한 현재 핀이 있을 때만 다음 명령을 사용한다. 예상 핀은 중단 전 값이 아니라 **현재 status의 지문**이며 최초 중단으로 핀이 없으면 ABSENT다. 복구는 원래 시도한 PASS를 활성화하지 않고, 가장 높은 저장/예약 버전보다 높은 **새 PARTIAL·원문 null**을 서명한다. 보류/현재 핀 자체가 손상됐으면 자동 복구하지 않고 차단한다. 회사/세대 리셋·손상 이력 삭제 기능은 없다.
+
+```sh
+uv run --project backend python tools/gw_checkpoint_catalog.py recover-pending \
+  --directory /private/gw-catalog --context /private/gw-input/context.json \
+  --expected-pin-digest "$GW_CATALOG_CURRENT_PIN_DIGEST"
+```
+
+PARTIAL 복구/FAIL 이후에는 해당 기록 시각보다 엄격히 뒤에 생성한 새 대조가 필요하다. 옛 HEAD를 재발행하면 새 FAIL을 남긴다. 인수 API에 등록한 실패가 더 늦으면 §22의 실패 등록 이후 생성·새 격리 복원 조건도 별도로 적용한다. 파일 번호/발행 시각만 높여 복구하지 않는다.
+
+### 기존 서버/도구의 관리 핀 읽기
+
+운영자가 확인한 로컬 발행 폴더를 읽는 환경에 `FS_GW_CHECKPOINT_CATALOG_PIN_FILE=/private/gw-catalog/current-pin.json`을 설정할 수 있다. 기존 `FS_GW_CHECKPOINT_CATALOG` JSON과 **동시에 지정하거나 빈 값으로 지정하면 오류**다. 핀은 기존 v1 JSON이며 같은 폴더의 지문 이름 파일만 가리킨다. 읽기는 소유자/0700·0600/링크·서명/범위/15분·미래30초와 보류/최고 버전/읽기 중 핀 교체를 대조한다. 수집기·API 등록·준비 조회가 이 현재 핀을 다시 읽으므로 변경 전 증거를 현재 근거로 대신하지 않는다. 새 재관측/서명 인수는 §22의 기존 명령으로 진행한다.
+
+발행자는 권한 있는 파일 검증 기록만 만든다. 설정 파일을 옮기는 것만으로 신뢰 전달이나 수신자 독립성이 완료되지 않는다. 별도 경로의 catalogId/전체 지문 전달·수신자 기준점/CAS·순차 설치/재시도·누락 버전 복구와 원격 공급자는 후속 작업이다. 이번 실제 PG 시험은 실제 dump/암호화/격리 복원 파일을 새 로컬 발행 CLI와 기존 API까지 연결한 합성 시험이며 외부 저장소·실회사 인수가 아니다. 실제 복원 PARTIAL, 최종4조건 UNVERIFIED, ready=false, ACCEPTANCE PASS 거부는 유지한다.
