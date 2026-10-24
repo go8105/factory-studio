@@ -10,6 +10,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from pydantic import Field, model_validator
 
+from fs.gw.checkpoint_catalog import CatalogObservation
 from fs.gw.evidence_trust import EvidenceTrust, authorize
 from fs.gw.operating_contract import (
     EvidenceReference,
@@ -163,12 +164,34 @@ class HeadBoundRestoreRecheck(CurrentSourceRestoreRecheck):
     checkpoint_head: CheckpointHeadDocument = Field(alias="checkpointHead")
 
 
+class CatalogBoundRestoreRecheck(HeadBoundRestoreRecheck):
+    version: Literal[4]
+    scope: Literal["CURRENT_SOURCE_RESTORE_AND_CONFIGURED_CHECKPOINT_CATALOG"]
+    catalog_observation: CatalogObservation = Field(alias="catalogObservation")
+
+    def expected_result(self):
+        return (
+            "BLOCKED"
+            if self.catalog_observation.result == "BLOCKED"
+            else super().expected_result()
+        )
+
+    @model_validator(mode="after")
+    def catalog_clock(self):
+        if timestamp(self.catalog_observation.observed_at) != timestamp(
+            self.checked_at
+        ):
+            raise ValueError("catalog observation clock mismatch")
+        return self
+
+
 def parse_envelope(value):
     if not isinstance(value, dict) or type(value.get("version")) is not int:
         raise ValueError("invalid restore recheck version")
     model = {
         2: CurrentSourceRestoreRecheck,
         3: HeadBoundRestoreRecheck,
+        4: CatalogBoundRestoreRecheck,
     }.get(value["version"], RestoreRecheck)
     return model.model_validate(value)
 
@@ -177,6 +200,20 @@ def require_trust(keys, signer_id, workspace_id):
     if not isinstance(keys, EvidenceTrust) or not keys.scoped:
         raise ValueError("scoped restore recheck signer required")
     authorize(keys, signer_id, "RESTORE_RECHECK", workspace_id)
+
+
+def verify_checkpoint_head(document, keys, workspace_id):
+    data = CheckpointHeadDocument.model_validate(document)
+    authorize(keys, data.signer_key_id, "CHECKPOINT_HEAD", workspace_id)
+    try:
+        Ed25519PublicKey.from_public_bytes(keys[data.signer_key_id]).verify(
+            base64.b64decode(data.signature, validate=True),
+            b"FS-OPERATOR-BUNDLE-v1\0"
+            + canonical(data.payload.model_dump(by_alias=True)),
+        )
+    except InvalidSignature:
+        raise ValueError("checkpoint head signature mismatch") from None
+    return data.payload
 
 
 def verify_signature(document, **context):
@@ -249,20 +286,11 @@ def verify(document, restore_document, **context):
         raise ValueError("current source physical identity mismatch")
     if isinstance(data, HeadBoundRestoreRecheck):
         head_document = data.checkpoint_head
-        head = head_document.payload
-        keys = context["public_keys"]
-        authorize(
-            keys, head_document.signer_key_id, "CHECKPOINT_HEAD", data.workspace_id
+        head = verify_checkpoint_head(
+            head_document.model_dump(by_alias=True),
+            context["public_keys"],
+            data.workspace_id,
         )
-        try:
-            Ed25519PublicKey.from_public_bytes(
-                keys[head_document.signer_key_id]
-            ).verify(
-                base64.b64decode(head_document.signature, validate=True),
-                b"FS-OPERATOR-BUNDLE-v1\0" + canonical(head.model_dump(by_alias=True)),
-            )
-        except InvalidSignature:
-            raise ValueError("checkpoint head signature mismatch") from None
         if (
             head.scope.workspace_id != data.workspace_id
             or head.scope.generation_id != data.generation_id
@@ -276,6 +304,18 @@ def verify(document, restore_document, **context):
             > timedelta(minutes=context["policy"].rpo_minutes, seconds=30)
         ):
             raise ValueError("checkpoint head scope, original or capture time mismatch")
+    from fs.gw.checkpoint_catalog import configured, observe
+
+    if isinstance(data, CatalogBoundRestoreRecheck):
+        expected = observe(
+            data.checkpoint_head.model_dump(by_alias=True),
+            observed_at=data.checked_at,
+            **context,
+        )
+        if data.catalog_observation.model_dump(by_alias=True) != expected:
+            raise ValueError("current checkpoint catalog differs")
+    elif configured():
+        raise ValueError("configured checkpoint catalog observation required")
     if data.measurement is not None:
         for field in (
             "backup_run_id",
@@ -304,6 +344,7 @@ def sign(
     signer_id,
     source_observation=None,
     checkpoint_head=None,
+    catalog_observation=None,
     **context,
 ):
     restore = verify_evidence(
@@ -315,13 +356,17 @@ def sign(
     require_trust(context["public_keys"], signer_id, str(context["workspace_id"]))
     payload = parse_envelope(
         {
-            "version": 3
+            "version": 4
+            if catalog_observation is not None
+            else 3
             if checkpoint_head is not None
             else 2
             if source_observation is not None
             else 1,
             "kind": "RESTORE_RECHECK",
-            "scope": "CURRENT_SOURCE_RESTORE_AND_SIGNED_CHECKPOINT_HEAD"
+            "scope": "CURRENT_SOURCE_RESTORE_AND_CONFIGURED_CHECKPOINT_CATALOG"
+            if catalog_observation is not None
+            else "CURRENT_SOURCE_RESTORE_AND_SIGNED_CHECKPOINT_HEAD"
             if checkpoint_head is not None
             else "CURRENT_SOURCE_AND_RESTORED_CHECKPOINT_RESTRICTIONS"
             if source_observation is not None
@@ -347,8 +392,14 @@ def sign(
             if measurement is not None
             else "MEASUREMENT_UNAVAILABLE",
             "result": "BLOCKED"
-            if source_observation is not None
-            and source_observation["result"] == "BLOCKED"
+            if (
+                catalog_observation is not None
+                and catalog_observation["result"] == "BLOCKED"
+            )
+            or (
+                source_observation is not None
+                and source_observation["result"] == "BLOCKED"
+            )
             else measurement["result"]
             if measurement is not None
             else "BLOCKED",
@@ -360,6 +411,11 @@ def sign(
             **(
                 {"checkpointHead": checkpoint_head}
                 if checkpoint_head is not None
+                else {}
+            ),
+            **(
+                {"catalogObservation": catalog_observation}
+                if catalog_observation is not None
                 else {}
             ),
             "signerKeyId": signer_id,

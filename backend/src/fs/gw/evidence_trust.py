@@ -16,6 +16,7 @@ PURPOSES = frozenset(
         "INCIDENT",
         "JOURNAL_OBSERVATION",
         "RESTORE_RECHECK",
+        "CHECKPOINT_CATALOG",
     }
 )
 
@@ -30,6 +31,7 @@ def purpose(kind):
         "INCIDENT": "INCIDENT",
         "JOURNAL_OBSERVATION": "JOURNAL_OBSERVATION",
         "RESTORE_RECHECK": "RESTORE_RECHECK",
+        "CHECKPOINT_CATALOG": "CHECKPOINT_CATALOG",
     }.get(kind)
 
 
@@ -139,6 +141,8 @@ def load(public_json, scopes_json=None, *, mode="PUBLIC_DEMO"):
             raise ValueError("invalid purpose scopes")
         if "ACCEPTANCE_RECONCILIATION" in uses and len(uses) != 1:
             raise ValueError("acceptance issuer must be separate")
+        if "CHECKPOINT_CATALOG" in uses and len(uses) != 1:
+            raise ValueError("checkpoint catalog authority must be separate")
         scopes[name] = (frozenset(companies), frozenset(uses))
     return EvidenceTrust(keys, scopes)
 

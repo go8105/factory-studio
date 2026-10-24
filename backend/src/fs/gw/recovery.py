@@ -98,7 +98,7 @@ def boundary(row, public_keys):
             raise ValueError("source failure required")
         recheck = diagnostic.restore_recheck.envelope
         if (
-            recheck["version"] not in {2, 3}
+            recheck["version"] not in {2, 3, 4}
             or recheck["sourceObservation"]["reason"] != "CHANGED"
         ):
             raise ValueError("source change required")
@@ -170,7 +170,7 @@ def require_recovery(connection, data, documents, **context):
         raise evidence_error()
     checked = diagnostic.restore_recheck.envelope
     if (
-        checked["version"] not in {2, 3}
+        checked["version"] not in {2, 3, 4}
         or checked["sourceObservation"]["reason"] != "MATCH"
         or not checked["sourceObservation"]["sourceMeasured"]
         or not checked["targetMeasured"]
@@ -185,7 +185,7 @@ def require_recovery(connection, data, documents, **context):
     # been captured after the registered failure. Current-source MATCH can miss
     # an intervening change followed by a revert.
     if step == "RECHECK_REQUIRED" and (
-        checked["version"] != 3
+        checked["version"] not in {3, 4}
         or timestamp(checked["checkpointHead"]["payload"]["capturedAt"])
         <= anchor["recordedAt"]
     ):

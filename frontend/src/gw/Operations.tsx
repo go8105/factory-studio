@@ -111,6 +111,23 @@ type State = {
         signatureVerified: true;
         latestIndependentlyVerified: false;
       };
+      catalogObservation?: {
+        observedAt: string;
+        publishedAt: string;
+        catalogRevision: number;
+        latestSequence: number | null;
+        latestRecordResult: "PASS" | "PARTIAL" | "FAIL" | null;
+        reason:
+          | "MATCH"
+          | "HEAD_MISMATCH"
+          | "LATEST_FAIL"
+          | "LATEST_PARTIAL"
+          | "ORIGINAL_MISSING"
+          | "SCOPE_MISSING"
+          | "CONTEXT_MISMATCH";
+        result: "PARTIAL" | "BLOCKED";
+        externalIndependenceVerified: false;
+      };
       sourceObservation?: {
         observedAt: string;
         sourceMeasured: boolean;
@@ -141,6 +158,21 @@ type State = {
   }[];
   nextAction?: string;
   emergencyKit?: { prepared: boolean; expiresAt: string | null };
+};
+const catalogMessages = {
+  MATCH: "설정된 별도 서명 목록의 최신 기록과 복원 파일이 일치합니다.",
+  HEAD_MISMATCH:
+    "복원에 사용한 파일이 목록의 최신 서명 기록과 다릅니다. 담당자가 최신 권한 대조와 복원 원본을 확인하세요.",
+  LATEST_FAIL:
+    "목록의 최신 기록이 실패입니다. 이전 성공으로 대신하지 않습니다. 새 권한 대조와 격리 복원으로 다시 점검하세요.",
+  LATEST_PARTIAL:
+    "목록의 최신 기록이 일부 확인입니다. 이전 성공으로 대신하지 않습니다. 새 권한 대조와 격리 복원으로 다시 점검하세요.",
+  ORIGINAL_MISSING:
+    "목록의 최신 기록에 서명 원본이 없습니다. 새 권한 대조와 격리 복원으로 다시 점검하세요.",
+  SCOPE_MISSING:
+    "선택 회사·세대의 목록 기록이 없습니다. 담당자가 목록 수집 범위를 확인하세요.",
+  CONTEXT_MISMATCH:
+    "목록의 최신 기록이 현재 운영 기준·제품·DB 버전과 다릅니다. 현재 기준으로 다시 점검하세요.",
 };
 const fields: [
   keyof Omit<Policy, "reason" | "responsiblePersonId">,
@@ -520,6 +552,41 @@ export function Operations() {
                                   복원에 사용한 파일과 서명 HEAD를 대조했습니다.
                                   외부 저장소의 독립된 최신 목록은 아직 확인하지
                                   않았습니다.
+                                </p>
+                              </section>
+                            )}
+                            {check.restoreRecheck.catalogObservation && (
+                              <section aria-label="별도 서명 목록 대조">
+                                <h4>별도 서명 목록 대조</h4>
+                                <p>
+                                  목록 관측 시각:{" "}
+                                  {new Date(
+                                    check.restoreRecheck.catalogObservation
+                                      .observedAt,
+                                  ).toLocaleString("ko-KR")}
+                                </p>
+                                <p>
+                                  목록 버전{" "}
+                                  {
+                                    check.restoreRecheck.catalogObservation
+                                      .catalogRevision
+                                  }{" "}
+                                  · 최신 기록 번호{" "}
+                                  {check.restoreRecheck.catalogObservation
+                                    .latestSequence ?? "없음"}
+                                </p>
+                                <p>
+                                  {
+                                    catalogMessages[
+                                      check.restoreRecheck.catalogObservation
+                                        .reason
+                                    ]
+                                  }
+                                </p>
+                                <p>
+                                  현재 읽은 목록의 대조 결과입니다. 실제 외부
+                                  저장소의 독립 보관·누락 없는 목록·장애 복구는
+                                  별도 인수가 필요합니다.
                                 </p>
                               </section>
                             )}

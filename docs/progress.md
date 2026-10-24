@@ -1,3 +1,30 @@
+## 2026-10-24 GW-READY-02 48차 — 별도 서명 목록의 현재 HEAD 대조
+
+- 시작 `eb29142`, 브랜치 `codex/gw-company-01`, 작업 트리 깨끗함. 사용자 다음 진행 승인 범위에서 기존 도구/인수 계약을 확장했다. 별도 GW/스키마·수동 인수 완료 체크 없이 공통 읽기 어댑터 하나를 진행했다. 최종 커밋은 `git log -1`로 확인한다.
+- `checkpoint_catalog`에 서버/운영자 소유 FS_GW_CHECKPOINT_CATALOG 설정의 SIGNED_SNAPSHOT_FILE 읽기를 추가했다. 고정 catalogId/문서 전체 바이트 SHA-256, 0600 일반 파일/0700 직접 부모·소유자/링크·중복 JSON/2MiB/1000항목·서명/15분·미래30초를 검사한다. 새 CHECKPOINT_CATALOG 키는 명시적 회사와 단독 용도를 요구하며 기존 원본/재관측/인수 키와 공개키 바이트를 공유할 수 없다. 경로/신뢰 핀을 선택 HEAD나 업로드 문서가 정하지 않는다. 목록 발행·불변 교체/핀 전달 도구와 외부 공급자 연결은 아직 없다.
+- 기존 recheck-restore의 --check-current-source --check-checkpoint-catalog가 RESTORE_RECHECK v4로 현재 원본/복원본·서명 HEAD와 별도 목록 관측을 연결한다. 설정이 있으면 목록 대조를 생략할 수 없다. 현재 설정의 목록 서명/핀·회사/세대의 최신 sequence를 모든 정책/버전/결과/원문 유무에서 선택한다. 최신 FAIL/PARTIAL·원문/범위 없음·옛 기준·다른 HEAD는 BLOCKED→ACCEPTANCE FAIL, 일치는 PARTIAL이다. 파일/서명/핀·기한/형식 오류는 새 출력 없는 오류다. 경로/URL/전체 목록·다른 회사 원문을 인수 증거에 넣지 않는다. 기존 인수 진단v4와 옛 v1~v3 바이트/지문을 유지한다.
+- 수집기·회사 잠금 안 API 등록·준비 재조회에서 현재 목록을 다시 읽는다. 등록된 모든 기준/실패/원문 없는 이력의 catalogId/버전/최신 번호·HEAD 지문/생성 시각을 바닥값으로 써서 목록 리셋·후퇴·같은 버전의 다른 파일·같은 번호의 다른 결과/HEAD·새 번호로 옛 생성 시각/다른 HEAD를 제시하는 새 PARTIAL을 거부한다. 등록된 목록 대조 미통과 뒤에는 실패 등록 이후 생성한 새 대조·격리 복원을 요구한다. 현재 핀/키 회수·목록 변경은 이전 인수를 INVALID로 만들며 과거 성공을 찾지 않는다. 설정을 제거해도 이미 등록한 v4에서 구형 형식으로 되돌릴 수 없다. 바닥값 관측 자체가 손상되면 차단하며 초기화 도구는 없다.
+- 기존 재관측 펼침 안에 별도 서명 목록의 시각/버전/최신 번호·7개 결과와 조치를 표시하고 현재 대조에 실패하면 상세를 숨긴다. 정적 도움말·실회사 절차 §22와 구현 문서를 갱신했다. 직관성(현재 증거 옆), 유효성(현재 원본/서명 재대조), 학습성(실패 원인/외부 인수 경계), 유연성(기존 접힘/키보드/모바일)을 고려했다. admin 이름은 회사/보안/목록 발행 권한을 대신하지 않으며 UI 전체 완성은 아니다.
+- 검증: 관련 단위543통과(기존 경고2), 화면/정적 도움말48통과, 타입·수정 ESLint/Prettier·Ruff check/format·정적DB219/2409/543·R1–R6 오류0. 새 UUID 소유 PostgreSQL에서 실제 dump/암호화/격리 복원·목록/API/실CLI1시나리오+기존 복구2시나리오 최종3통과60.89초(기존 경고2). 최신 실패/일부/원문 없음/옛 코드 기준·핀 후퇴·번호만 올린 옛 성공/우회 발급 등록 거부, 새 대조/새 격리복원 PARTIAL, 기존 실패 보존, 설정 제거/형식 생략·별도 발행 키 회수 시 INVALID, 단독 관측400, 두 CLI의 PARTIAL/FAIL 종료0/2·새0600 파일/미설정 종료1·자동 등록 없음까지 확인했다. 앞선3통과58.03초/59.90초는 같은 시나리오이며 합산하지 않는다. 목록은 별도 시험 키가 만든 합성 서명 자료로 실제 외부 목록 발행/저장소 인수가 아니다. 최신 RESTORE FAIL 선택 검사는 기존 합성 서명 FAIL 자료이며 실제 복원 도구가 그 실패를 측정했다고 표현하지 않는다.
+- 실패/보정: 최초 목록 단위8개 미통과 조합에서 서명 발급의 결과 계산이 새 목록 BLOCKED를 반영하지 않아 엄격 계약이 발급을 거부했다. 발급 계산에 목록 결과를 포함하고 원본/복원본/목록의 정상·미통과/측정 불가12조합을 추가해 검사했다. 목록 미통과6이유별 생성 시각의 실패 등록 직전/동일/직후18경계도 검사했다. 계약/서명/미통과 기준을 느슨하게 하지 않았다. 새 실제 DB 검사는 최초3통과 후 CLI/추가 후퇴 검사 보강 최종3을 재실행했다. 기존 DB/실행자 시계 차이 시험 대기는 이전 차수와 같은30초 미만 제한이며 제품의 미래 시각 거부는 그대로다.
+- 브라우저: 기존 제품 React+읽기 전용 합성 API에서1440/390px 목록 최신 실패/조치·외부 독립 인수 문구·PC Enter 펼침·44px·가로 넘침0을 확인했다. 모바일 메뉴 오버레이는 닫고 본문 위치를 확인했다. 실제 API 브라우저/실기기 인수나 메뉴 동작 수정/화면 전체 완성은 아니다. 임시 탭·뷰포트·소유5364 서버 정리. Vite5362 PID20714 listen만 재확인했고 API 실행 상태 재검사/재시작 없음.
+- 자원/제약: 생성한 시험 자원만 정리했고 최종 관측 시험DB0·폐쇄 복원DB0/기존 preview DB존재를 읽기 확인했다. preview DB 초기화·실계정 admin/비밀번호/OTP·미리보기 정책/업무 변경 없음. 새 서버 목록 환경/키를 실미리보기에 설치하지 않았다. work/.env·비밀/전체 로그는 Git에 넣지 않는다. 스키마/마이그레이션/Excel/ERD 변경 없음. ready=false/실제 복원 PARTIAL/최종4조건 UNVERIFIED·ACCEPTANCE PASS 거부 유지. 전체CI/전체회귀·기존 전체 실제DB/고정24수집·실외부/실회사·기기/10인·최종전환·최신main 통합/원격push/배포 미실행/미완료. 다른 checkout/WMS는 건드리지 않았다.
+- 다음: 이 계약을 따르는 목록 발행·불변 교체/신뢰 핀 전달 도구와 실패/경합 검증을 구현한다. 현재 설정한 서명 스냅샷을 읽은 결과로만 해석하며 아직 관측하지 못한 더 최신/누락 기록·발행자의 악의, 별도 사람/장애 영역·물리 독립 보관·전체 변경 수집/회수·공인 시각/바이너리·연속 감시는 증명하지 않는다. 외부 공급자는 미정이다. 이후 최종 인수 계약·공급자 선정 후 외부 장애복구·최신main/전체회귀·실회사10인/최종전환. 난이도 매우 높음, [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra) + High 추천(발행 권한·파일 교체/신뢰 핀 경합과 재생 방지·부분/최종 경계). OpenAI Docs 공식 모델 페이지를 검색·열어 확인했으며 모델 자동 변경 없음.
+
+재현(저장소 루트):
+```sh
+uv run --project backend pytest backend/tests/test_gw_checkpoint_catalog.py backend/tests/test_gw_checkpoint_head.py backend/tests/test_gw_recovery.py backend/tests/test_restore_restriction_comparison.py backend/tests/test_gw_source_checkpoint.py backend/tests/test_gw_restore_recheck.py backend/tests/test_gw_restore_observation.py backend/tests/test_gw_journal_acceptance.py backend/tests/test_gw_journal_observation.py backend/tests/test_gw_evidence_trust.py backend/tests/test_gw_acceptance_sources.py backend/tests/test_gw_business_observation.py backend/tests/test_gw_acceptance_preflight.py backend/tests/test_gw_acceptance_reconciliation.py backend/tests/test_gw_route_verify.py backend/tests/test_gw_journal_routes.py backend/tests/test_gw_journal_coverage.py backend/tests/test_journal_review.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short
+# 소유 컨테이너ID/owner/loopback 확인 후 새 UUID *_test DB에만 동일 DATABASE_URL/TEST_DATABASE_URL과 소유 GW_BACKUP_TEST_CONTAINER를 비공개 주입한다.
+# 기존 gw_preview_test는 절대 초기화/시험하지 않는다. 생성한 자원만 정리한다.
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_checkpoint_catalog_db.py backend/tests/test_gw_recovery_db.py -q --tb=short
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/operations.test.tsx src/portal/content-pages.test.tsx --maxWorkers=2
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend run typecheck
+python3 tools/validate_db_design.py
+uv run --project backend python tools/audit_schema_isolation.py
+```
+목록 설정/원본 서명·키/전용 URL·현재 읽기/새 복구 순서는 `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §18–22를 따른다. 이 표준 명령/계약은 비공개 work harness 없이 재현할 수 있어야 한다. 읽기 어댑터에 목록 발급 개인키는 필요 없으며 시험 자료 발행은 저장소의 합성 시험 helper로 한정했다. 외부 목록 발행자를 임의 설치하지 않는다. 비밀/전체 로그를 출력하거나 원격 운영·다른 checkout·실계정/브라우저 설정을 변경하지 않는다.
+
 ## 2026-10-24 GW-READY-02 47차 — 대조 생성 시각·서명 HEAD의 인수 연결
 
 - 시작 `14a61b6`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 사용자 다음 진행 승인 범위에서 기존 도구/증거 계약 하나를 보완했다. 새 GW/스키마·서명 종류·수동 완료 체크는 없다. 최종 커밋은 `git log -1`로 확인한다.

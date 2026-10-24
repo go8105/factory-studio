@@ -630,9 +630,15 @@ def recheck_restore(
     output,
     config,
     source_url=None,
+    check_catalog=False,
 ):
     """Read an existing target without replay/opening it; never fall back to source DB."""
+    from fs.gw.checkpoint_catalog import configured
+    from fs.gw.checkpoint_catalog import observe as observe_catalog
     from fs.gw.restore_recheck import require_trust, sign
+
+    if (check_catalog or configured()) and source_url is None:
+        raise BackupError("목록 대조에는 전용 현재 원본 비교가 필요합니다.")
 
     preflight(output)
     target_url = make_url(url)
@@ -746,10 +752,16 @@ def recheck_restore(
             key=timestamp,
         )
         context["now"] = timestamp(checked_at)
+        catalog_observation = (
+            observe_catalog(head_document, observed_at=checked_at, **context)
+            if check_catalog or configured()
+            else None
+        )
         document = sign(
             restore_document,
             source_observation=source_observation,
             checkpoint_head=head_document if source_observation is not None else None,
+            catalog_observation=catalog_observation,
             measurement=measurement,
             checked_at=checked_at,
             signer=config["signer"],
@@ -1237,6 +1249,11 @@ def main():
         help="전용 원본 접속으로 복원 권한 대조 이후 변경도 읽기 비교",
     )
     p.add_argument("--restore-evidence", type=Path, required=True)
+    p.add_argument(
+        "--check-checkpoint-catalog",
+        action="store_true",
+        help="서버 설정에 지정한 별도 서명 목록의 최신 기록과 대조",
+    )
     p.add_argument("--output", type=Path, required=True)
     p = sub.add_parser("verify-copy")
     p.add_argument("--backup", type=Path, required=True)
@@ -1289,6 +1306,7 @@ def main():
                 source_url=os.environ["FS_GW_SOURCE_CHECKPOINT_DATABASE_URL"]
                 if args.check_current_source
                 else None,
+                check_catalog=args.check_checkpoint_catalog,
                 artifact=args.backup,
                 checkpoint_file=args.checkpoint,
                 head=args.head,

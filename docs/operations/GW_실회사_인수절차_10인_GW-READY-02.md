@@ -383,3 +383,45 @@ uv run --project backend python tools/gw_backup.py restore \
 - 기존 **복원본 최근 재관측 → 복원 권한 대조 생성 근거**는 서명·현재 원본 대조에 성공한 기록에서 생성 시각을 표시한다. 서명/현재 대조에 실패하면 이 요약은 표시하지 않는다. 대조 생성 시각이 확인돼도 **독립된 최신 HEAD 목록은 미확인**이다.
 
 HEAD는 허가된 실행자가 서명한 생성 시각과 특정 파일의 연결 근거다. 별도 사람/장애 영역·불변 최신 목록/삭제 탐지·연속 관측·실행 바이너리/공인 시각 증명이 아니다. 같은 실행자가 BACKUP/RESTORE/CHECKPOINT 용도를 가질 수 있으며 기술적 재관측/인수 키 분리만으로 보관 독립성을 주장하지 않는다. 운영자가 고른 옛 HEAD와 기대 지문을 함께 제시하는 경우를 독립 목록으로 탐지하는 어댑터는 다음 작업이다. 외부 공급자는 미정이며 임의 선택하지 않았다. 실제 복원 PARTIAL/ready=false/최종4조건 UNVERIFIED·ACCEPTANCE PASS 거부를 유지한다.
+
+
+## 22. 별도 서명 목록의 현재 HEAD 대조 (48차)
+
+이 단계는 **서버 설정에 고정한 별도 서명 목록**을 읽는 공통 어댑터다. 실제 외부 저장소 공급자/장애 영역·발행 담당자의 독립성·미수집 변경의 존재는 아직 인수하지 않았다. 별도 서명 키나 파일 하나만으로 외부 보관 완료를 선언하지 않는다. 목록 발행·불변 보관/교체 도구와 공급자별 수집은 후속이다. 이번 실제 DB 시험의 목록은 별도 시험 키가 발행한 합성 서명 자료다.
+
+### 설정과 서명 권한
+
+- 목록 발행자는 새 `CHECKPOINT_CATALOG` 용도만 갖는 키를 사용한다. `FS_GW_EVIDENCE_PUBLIC_KEYS`와 기존 v1 `FS_GW_EVIDENCE_KEY_SCOPES`에서 명시적으로 회사 ID를 허용한다. 이 키는 BACKUP/RESTORE/CHECKPOINT/RESTORE_RECHECK/ACCEPTANCE_RECONCILIATION 등 다른 용도와 혼용할 수 없으며 같은 공개키 바이트를 다른 이름으로 재사용할 수 없다. 인수 발급 키의 기존 분리도 유지한다. `admin` 로그인 이름/GW 보안 역할은 이 서명 권한을 대신하지 않는다.
+- 서버와 읽기 도구의 운영자 소유 환경에 `FS_GW_CHECKPOINT_CATALOG` JSON을 지정한다. 정확한 필드는 `version`(정수1), `provider`(`SIGNED_SNAPSHOT_FILE`), `catalogId`(정규 UUID4), `file`(절대 경로), `digest`(목록 문서 파일 **전체 바이트**의 소문자 SHA-256)다. 알 수 없는 필드·중복 JSON 키·빈 설정·상대 경로는 거부한다. 목록 식별자/기대 지문은 선택한 HEAD/백업 도구의 입력값에서 자동 복사하지 말고 별도 목록 발행 경로에서 확인한다. 서명 입력 파일이나 API 요청으로 이 경로/신뢰 핀을 바꿀 수 없다.
+- 각 실행 환경에서 파일은 실행 계정 소유0600 일반 파일, 직접 부모 폴더는0700이어야 한다. 마지막 파일/부모의 심볼릭 링크·다른 소유자·권한 과다·2MiB 초과를 거부한다. 서버/도구가 다른 OS 계정이면 각자 소유한 비공개 사본에 동일한 고정 지문을 적용한다. 어댑터는 새 파일을 발행하거나 기존 목록·정책·계정·복원 제한을 변경하지 않는다.
+
+### 목록 원본 계약
+
+문서 최상위는 정확히 `{envelope,signature}`다. envelope의 필드는 `version`(정수1), `kind`(`CHECKPOINT_CATALOG`), `catalogId`, `revision`(양의 정수, 최대 int64), `publishedAt`(시간대 포함 시각), `records`(0~1000개), `signerKeyId`다. signature는 해당 키가 `b"FS-GW-CHECKPOINT-CATALOG-v1\0" + canonical(envelope)`를 Ed25519로 서명한 표준 base64다. canonical은 기존 운영 계약의 UTF-8/키 정렬/공백 없는 JSON/NaN 금지를 사용한다. 파일 지문에는 문서의 실제 개행도 포함된다.
+
+각 records 항목은 정확히 `sequence`(목록 안에서 중복 없는 양의 int64), `workspaceId`/`generationId`(양의 정수 문자열), `policyDigest`, `codeRevision`, `dbRevision`, `recordedAt`, `result`(`PASS`/`PARTIAL`/`FAIL`), `head`(기존 `{payload,signature,signerKeyId}` CHECKPOINT_HEAD 또는 null)다. head가 있으면 회사/세대/정책과 기록 시각을 대조하고, 선택된 최신 head의 현재 CHECKPOINT 키 권한/원본 서명도 확인한다. 목록 결과는 발행자가 서명한 목록 원본 상태이며 복원 도구가 실제 실패를 측정했다거나 전체 인수가 통과했다는 뜻은 아니다.
+
+목록 발행 시각의 기한은15분/미래30초다. 항목 등록 시각은 발행보다30초 넘게 늦을 수 없으며 head 생성도 등록보다30초 넘게 늦을 수 없다. 시계 동기·발행 주기/신뢰 지문 전달은 실제 운영 인수 대상이다. 서버는 현재 핀과 원본 서명을 검사하며 일반 DB 접속이나 입력 HEAD로 목록을 대체하지 않는다.
+
+### 기존 도구와 인수 연결
+
+```sh
+# 비공개 환경에 현재 목록 설정과 기존 원본/복원본 전용 URL·RESTORE_RECHECK 키를 주입한다.
+uv run --project backend python tools/gw_backup.py recheck-restore \
+  --check-current-source --check-checkpoint-catalog \
+  --backup /private/gw/database.fsbackup --checkpoint /private/gw/latest.fsbackup \
+  --head /private/gw/head.json --expected-checkpoint-digest "$GW_CHECKPOINT_DIGEST" \
+  --restore-evidence /private/gw/restore.json --output /private/gw/catalog-recheck-new.json
+# 별도 ACCEPTANCE_RECONCILIATION 키와 현재 DB 전용 읽기 URL로 전환한다.
+uv run --project backend python tools/gw_acceptance_collect.py \
+  --current-company-id 3 --signed-reconciliation \
+  --restore-recheck /private/gw/catalog-recheck-new.json --output /private/gw/catalog-acceptance-new.json
+```
+
+- 명시 옵션은 목록 설정 누락을 오류로 처리한다. 설정이 있으면 옵션을 생략해도 목록을 대조하며 `--check-current-source`가 필요하다. 일반 DATABASE_URL 자동 대체·원본 비교/목록 대조 생략은 없다. 새 재관측은 **RESTORE_RECHECK v4**, 기존 인수 진단은 그대로 v4다. 원본 HEAD와 현재 목록 지문/식별자·버전/발행/관측 시각·선택한 최신 기록 번호/결과·HEAD 지문/생성 시각·대조 이유를 서명한다. 전체 목록/다른 회사 항목·경로/URL·개인키는 인수 증거에 넣지 않는다.
+- 선택 회사/세대의 `sequence`가 가장 큰 항목 하나를 모든 정책·제품/DB 버전·결과/원문 유무에서 선택한다. 최신 FAIL/PARTIAL·원문 없음·회사/세대 기록 없음·현재 기준 불일치·선택 HEAD 불일치는 BLOCKED→ACCEPTANCE FAIL이다. 과거 PASS를 찾지 않는다. 파일/서명/권한/핀·형식/기한 오류에는 출력 없이 종료1이며 값을 지어내지 않는다. 정상 일치도 PARTIAL/종료0, 목록 미통과는 재관측 BLOCKED/수집 FAIL·각 종료2다. 수집기는 자동 등록하지 않는다. v4 재관측 단독 API 업로드는400이다.
+- 현재 DB 수집·회사 잠금 안 API 등록·준비 재조회 때 현재 설정의 목록을 다시 읽어 서명 관측과 대조한다. 수집 후 목록/핀·키 권한이 바뀌면 기존 인수는 INVALID가 되고 상세 요약을 숨긴다. 설정 중에는 기존 목록 없는 인수도 거부한다. v4 등록 이후 설정을 제거해도 구형 형식으로 새 인수를 등록할 수 없다. 형식/이력 규칙은 모든 정책/실패/원문 없는 행을 포함한다.
+- 기존 등록 이력의 식별자·목록 버전/기록 번호·HEAD 지문/생성 시각을 바닥값으로 사용한다. 식별자 리셋, 버전/기록 번호 후퇴, 같은 버전의 다른 파일 지문, 같은 번호의 다른 HEAD/결과, 새 번호로 옛 생성 시각/다른 HEAD를 제시하는 새 PARTIAL을 거부한다. 목록 대조가 미통과였다면 그 실패 등록 이후 생성한 새 대조와 격리 복원을 요구한다. 목록 번호만 높인 옛 성공으로 복구할 수 없다. 순서에는30초 유예를 적용하지 않는다. 바닥값인 관측 자체를 재구성할 수 없는 손상 이력은 차단하며, 이를 지우거나 임의로 초기화하는 도구는 제공하지 않는다.
+- 기존 **복원본 최근 재관측 → 별도 서명 목록 대조**에서 관측 시각·목록 버전/최신 번호·일치/최신 실패·미확인 범위와 조치를 읽는다. 목록이 바뀌어 이전 관측을 재검증할 수 없으면 이전 상세로 대신하지 않는다. 화면 전체 완성이나 실제 API 브라우저·실회사10인 인수는 별도다.
+
+이 어댑터는 확인 시점에 설정된 서명 스냅샷을 대조한다. 외부 발행과 DB 등록 사이를 하나의 원자 거래로 만들거나 원격 목록을 연속 감시하지 않는다. 서버가 아직 관측하지 못한 더 최신 기록·숨겨진 기록, 발행자 자체의 악의/누락·물리 재해 분리·미등록 이력 전체/실행 바이너리·공인 시각을 증명하지 않는다. 보관/키 독립성은 `externalIndependenceVerified=false`, 최종4조건은 UNVERIFIED이며 실제 복원 PARTIAL·ready=false·ACCEPTANCE PASS 거부를 유지한다. 공급자는 미정이며 원격 연결/배포를 임의 설치하지 않았다. 다음은 이 계약을 따르는 목록 발행·불변 교체/신뢰 핀 전달 도구와 장애 검증이다.

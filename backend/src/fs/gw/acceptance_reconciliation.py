@@ -262,6 +262,15 @@ def verify_registered_sources(data, rows, *, policy_id, connection=None, **conte
         )
     if diagnostic != expected:
         raise evidence_error()
+    if connection is not None:
+        from fs.gw.checkpoint_catalog import require_history
+
+        require_history(
+            connection,
+            data,
+            workspace_id=context["workspace_id"],
+            generation_id=context["generation_id"],
+        )
     from fs.gw.recovery import require_recovery
 
     require_recovery(connection, data, documents, **context)
@@ -295,8 +304,8 @@ def require_new_observation(connection, data, *, workspace_id, generation_id):
             text("""SELECT max(recorded_at) AS recorded_at,
         coalesce(bool_or(metrics->'acceptanceDiagnostics'->>'version'='3' OR (metrics->'acceptanceDiagnostics'->'journalObservation' IS NOT NULL AND metrics->'acceptanceDiagnostics'->'journalObservation' <> 'null'::jsonb)),false) AS journal_required,
         coalesce(bool_or(metrics->'acceptanceDiagnostics'->>'version'='4'),false) AS recheck_required,
-        coalesce(bool_or(metrics->'acceptanceDiagnostics'->'restoreRecheck'->'envelope'->>'version' IN ('2','3')),false) AS source_required,
-        coalesce(bool_or(metrics->'acceptanceDiagnostics'->'restoreRecheck'->'envelope'->>'version'='3'),false) AS head_required,
+        coalesce(bool_or(metrics->'acceptanceDiagnostics'->'restoreRecheck'->'envelope'->>'version' IN ('2','3','4')),false) AS source_required,
+        coalesce(bool_or(metrics->'acceptanceDiagnostics'->'restoreRecheck'->'envelope'->>'version' IN ('3','4')),false) AS head_required,
         coalesce(bool_or(metrics->'acceptanceDiagnostics'->'journalObservation'->'envelope'->>'runId'=:journal_run),false) AS journal_reused,
         coalesce(bool_or(metrics->'acceptanceDiagnostics'->'restoreRecheck'->'envelope'->>'runId'=:recheck_run),false) AS recheck_reused
         FROM gw.operating_evidence
@@ -319,16 +328,16 @@ def require_new_observation(connection, data, *, workspace_id, generation_id):
     ):
         raise evidence_error()
     if history["source_required"] and (
-        recheck is None or recheck.envelope["version"] not in {2, 3}
+        recheck is None or recheck.envelope["version"] not in {2, 3, 4}
     ):
         raise evidence_error()
     if history["head_required"] and (
-        recheck is None or recheck.envelope["version"] != 3
+        recheck is None or recheck.envelope["version"] not in {3, 4}
     ):
         raise evidence_error()
     if journal is None and history["journal_required"]:
         raise evidence_error()
-    if recheck is not None and recheck.envelope["version"] in {2, 3}:
+    if recheck is not None and recheck.envelope["version"] in {2, 3, 4}:
         source = recheck.envelope["sourceObservation"]
         if (
             history["recorded_at"] is not None

@@ -637,3 +637,60 @@ it.each([
     ).toBeVisible();
   },
 );
+
+it.each([
+  ["MATCH", "최신 기록과 복원 파일이 일치"],
+  ["HEAD_MISMATCH", "최신 서명 기록과 다릅니다"],
+  ["LATEST_FAIL", "최신 기록이 실패"],
+  ["LATEST_PARTIAL", "최신 기록이 일부 확인"],
+  ["ORIGINAL_MISSING", "서명 원본이 없습니다"],
+  ["SCOPE_MISSING", "목록 기록이 없습니다"],
+  ["CONTEXT_MISMATCH", "현재 운영 기준·제품·DB 버전과 다릅니다"],
+])(
+  "별도 서명 목록 대조 %s와 남은 인수 범위를 표시한다",
+  async (reason, message) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      response({
+        ...initial,
+        evidenceChecks: [
+          {
+            kind: "ACCEPTANCE",
+            label: "실환경 업무 인수",
+            state: reason === "MATCH" ? "PARTIAL" : "FAILED",
+            detail: "합성 목록 대조",
+            restoreRecheck: {
+              checkedAt: "2026-10-24T02:30:00Z",
+              result: "BLOCKED",
+              targetMeasured: false,
+              stateMatchesExecution: null,
+              reason: "MEASUREMENT_UNAVAILABLE",
+              catalogObservation: {
+                observedAt: "2026-10-24T02:30:00Z",
+                publishedAt: "2026-10-24T02:29:00Z",
+                catalogRevision: 3,
+                latestSequence: reason === "SCOPE_MISSING" ? null : 7,
+                latestRecordResult: reason === "SCOPE_MISSING" ? null : "PASS",
+                reason,
+                result: reason === "MATCH" ? "PARTIAL" : "BLOCKED",
+                externalIndependenceVerified: false,
+              },
+            },
+          },
+        ],
+      }),
+    );
+    show();
+    fireEvent.click(await screen.findByText("복원본 최근 재관측"));
+    const region = screen.getByRole("region", { name: "별도 서명 목록 대조" });
+    expect(within(region).getByText(new RegExp(message))).toBeVisible();
+    expect(within(region).getByText(/독립 보관/)).toBeVisible();
+    expect(
+      within(region).getByText(
+        reason === "SCOPE_MISSING" ? /최신 기록 번호 없음/ : /최신 기록 번호 7/,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "아직 운영 준비 중입니다" }),
+    ).toBeVisible();
+  },
+);
