@@ -578,6 +578,18 @@
           "group": "부적합"
         },
         {
+          "path": "claims",
+          "id": "Q-09",
+          "label": "고객 클레임",
+          "group": "부적합"
+        },
+        {
+          "path": "suppliers",
+          "id": "Q-10",
+          "label": "공급처 품질",
+          "group": "기준정보"
+        },
+        {
           "path": "specs",
           "id": "Q-02",
           "label": "검사 기준",
