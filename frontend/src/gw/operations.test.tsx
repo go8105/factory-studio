@@ -541,6 +541,11 @@ it.each(["MATCH", "CHANGED", "MEASUREMENT_UNAVAILABLE"])(
               targetMeasured: false,
               stateMatchesExecution: null,
               reason: "MEASUREMENT_UNAVAILABLE",
+              checkpointHead: {
+                capturedAt: "2026-10-23T04:00:00Z",
+                signatureVerified: true,
+                latestIndependentlyVerified: false,
+              },
               sourceObservation: {
                 observedAt: "2026-10-23T05:00:00Z",
                 sourceMeasured: reason !== "MEASUREMENT_UNAVAILABLE",
@@ -573,6 +578,13 @@ it.each(["MATCH", "CHANGED", "MEASUREMENT_UNAVAILABLE"])(
       ),
     ).toBeVisible();
     expect(within(region).getByText(/두 시점만 비교/)).toBeVisible();
+    const head = screen.getByRole("region", {
+      name: "복원 권한 대조 생성 근거",
+    });
+    expect(within(head).getByText(/서명으로 대조한 생성 시각/)).toBeVisible();
+    expect(
+      within(head).getByText(/독립된 최신 목록은 아직 확인하지/),
+    ).toBeVisible();
     if (reason === "MEASUREMENT_UNAVAILABLE")
       expect(within(region).queryByText(/공통 0개/)).toBeNull();
     expect(

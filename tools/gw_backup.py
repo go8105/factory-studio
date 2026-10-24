@@ -656,7 +656,8 @@ def recheck_restore(
             checkpoint_file, temp / "checkpoint", config, kind="CHECKPOINT"
         )
         digest = sha256_file(private_file(checkpoint_file))
-        latest = verified_document(json.loads(private_file(head).read_bytes()), config)
+        head_document = json.loads(private_file(head).read_bytes())
+        latest = verified_document(head_document, config)
         context = {
             "workspace_id": int(manifest["scope"]["workspaceId"]),
             "generation_id": int(manifest["scope"]["generationId"]),
@@ -748,6 +749,7 @@ def recheck_restore(
         document = sign(
             restore_document,
             source_observation=source_observation,
+            checkpoint_head=head_document if source_observation is not None else None,
             measurement=measurement,
             checked_at=checked_at,
             signer=config["signer"],

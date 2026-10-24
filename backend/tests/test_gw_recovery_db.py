@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from uuid import uuid4
 
@@ -20,6 +21,7 @@ from test_hr_work import company_env
 from fs.common.errors import ApiError
 from fs.gw.acceptance_sources import sign_current
 from fs.gw.evidence_trust import from_environment
+from fs.gw.operating_contract import timestamp
 
 
 @pytest.mark.parametrize("missing_original", [False, True])
@@ -45,6 +47,17 @@ def test_real_fail_new_checkpoint_closed_restore_and_partial_recovery(
             created.append(result["database"])
             document = json.loads(current["evidence"].read_bytes())
             assert api(admin, co, "operating-evidence", document).status_code == 200
+            # The runner and PG clocks can differ within the declared 30s skew.
+            # Readiness intentionally rejects even a slightly future completion.
+            # Observe after it actually passes; never relax the product rule.
+            with engine.connect() as c:
+                database_clock = c.scalar(text("SELECT clock_timestamp()"))
+            delay = (
+                timestamp(document["envelope"]["finishedAt"]) - database_clock
+            ).total_seconds()
+            assert delay < 30
+            if delay >= 0:
+                time.sleep(delay + 0.02)
             return result["database"], document
 
         backup = json.loads((folders["backups"] / "backup.json").read_bytes())
@@ -52,6 +65,16 @@ def test_real_fail_new_checkpoint_closed_restore_and_partial_recovery(
         database, original = restore(args)
         keys, recheck_config = add_keys(
             company_env, monkeypatch, config, folders["reports"]
+        )
+        # A different checkpoint captured BEFORE the failure is still too old.
+        earlier_checkpoint = folders["checkpoints"] / "before-failure.fsbackup"
+        earlier_head = folders["checkpoints"] / "before-failure-head.json"
+        earlier = module.checkpoint(
+            url=os.environ["TEST_DATABASE_URL"],
+            artifact=args["artifact"],
+            output=earlier_checkpoint,
+            head=earlier_head,
+            config=config,
         )
 
         def collect(document):
@@ -165,6 +188,27 @@ def test_real_fail_new_checkpoint_closed_restore_and_partial_recovery(
             "NEW_BACKUP_REQUIRED",
             "NEW_RESTORE_REQUIRED",
         }
+        if not missing_original:
+            stale_args = args | {
+                "checkpoint_file": earlier_checkpoint,
+                "head": earlier_head,
+                "expected_checkpoint_digest": earlier["checkpointDigest"],
+            }
+            stale_database, stale_restore = restore(stale_args)
+            stale = check(
+                stale_args, "pre-failure-checkpoint.json", stale_database, stale_restore
+            )
+            assert stale["envelope"]["version"] == 3
+            assert stale["envelope"]["result"] == "PARTIAL"
+            with pytest.raises(ApiError) as rejected:
+                collect(stale)
+            assert rejected.value.code == "OPERATING_RECOVERY_REQUIRED"
+            with monkeypatch.context() as unchecked:
+                unchecked.setattr(
+                    "fs.gw.recovery.require_recovery", lambda *a, **k: None
+                )
+                bypass = collect(stale)
+            assert api(admin, co, "operating-evidence", bypass).status_code == 400
         # Missing historical originals need a fresh backup before a new checkpoint.
         if missing_original:
             artifact = folders["backups"] / "fresh.fsbackup"
@@ -200,7 +244,14 @@ def test_real_fail_new_checkpoint_closed_restore_and_partial_recovery(
             "expected_checkpoint_digest": captured["checkpointDigest"],
         }
         database, original = restore(args)
-        assert status()["recovery"]["state"] == "RECHECK_REQUIRED"
+        pending = status()
+        assert pending["recovery"]["state"] == "RECHECK_REQUIRED", {
+            "state": pending["recovery"]["state"],
+            "checks": [
+                (check["kind"], check["state"], check["detail"])
+                for check in pending["evidenceChecks"]
+            ],
+        }
         fresh = check(args, "recovered.json", database, original)
         accepted = collect(fresh)
         assert accepted["envelope"]["result"] == "PARTIAL"
@@ -209,6 +260,41 @@ def test_real_fail_new_checkpoint_closed_restore_and_partial_recovery(
         assert current["evidenceChecks"][2]["state"] == "PARTIAL"
         assert current["recovery"]["state"] == "RECOVERY_PARTIAL"
         assert current["recovery"]["failedRunId"] == failed_run
+        head = current["evidenceChecks"][2]["restoreRecheck"]["checkpointHead"]
+        assert head["capturedAt"] == captured["capturedAt"]
+        assert head["signatureVerified"] and not head["latestIndependentlyVerified"]
+        # Strip the new proof and issue a fresh, correctly signed old contract.
+        import base64
+
+        from fs.gw.operating_contract import canonical
+
+        downgrade = check(args, "downgrade-source.json", database, original)
+        downgrade["envelope"].update(
+            version=2, scope="CURRENT_SOURCE_AND_RESTORED_CHECKPOINT_RESTRICTIONS"
+        )
+        downgrade["envelope"].pop("checkpointHead")
+        downgrade["signature"] = base64.b64encode(
+            keys["rechecker"].sign(canonical(downgrade["envelope"]))
+        ).decode()
+        with pytest.raises(ApiError):
+            collect(downgrade)
+        with monkeypatch.context() as unchecked:
+            unchecked.setattr(
+                "fs.gw.acceptance_sources.require_new_observation",
+                lambda *a, **k: None,
+            )
+            unchecked.setattr("fs.gw.recovery.require_recovery", lambda *a, **k: None)
+            bypass = collect(downgrade)
+        assert api(admin, co, "operating-evidence", bypass).status_code == 400
+        # Revoking only CHECKPOINT use invalidates the nested HEAD, even while
+        # its runner remains authorized for BACKUP/RESTORE.
+        scopes = json.loads(os.environ["FS_GW_EVIDENCE_KEY_SCOPES"])
+        scopes["keys"][config["signerId"]]["purposes"].remove("CHECKPOINT")
+        with monkeypatch.context() as revoked:
+            revoked.setenv("FS_GW_EVIDENCE_KEY_SCOPES", json.dumps(scopes))
+            assert status()["evidenceChecks"][2]["state"] == "INVALID"
+            assert "restoreRecheck" not in status()["evidenceChecks"][2]
+        assert status()["evidenceChecks"][2]["state"] == "PARTIAL"
         with engine.connect() as c:
             assert (
                 c.scalar(
@@ -226,10 +312,6 @@ def test_real_fail_new_checkpoint_closed_restore_and_partial_recovery(
         failed_restore["envelope"]["metrics"]["restoreDiagnostics"][
             "executionObservation"
         ].update(unrevokedSessions=1, result="BLOCKED")
-        import base64
-
-        from fs.gw.operating_contract import canonical
-
         failed_restore["signature"] = base64.b64encode(
             config["signer"].sign(canonical(failed_restore["envelope"]))
         ).decode()

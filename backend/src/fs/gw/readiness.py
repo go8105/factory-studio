@@ -120,7 +120,7 @@ def assess(
                                 "reason",
                             )
                         }
-                        if saved["version"] == 2:
+                        if saved["version"] in {2, 3}:
                             recheck_summary["sourceObservation"] = {
                                 key: saved["sourceObservation"][key]
                                 for key in (
@@ -131,6 +131,14 @@ def assess(
                                     "reason",
                                     "result",
                                 )
+                            }
+                        if saved["version"] == 3:
+                            recheck_summary["checkpointHead"] = {
+                                "capturedAt": saved["checkpointHead"]["payload"][
+                                    "capturedAt"
+                                ],
+                                "signatureVerified": True,
+                                "latestIndependentlyVerified": False,
                             }
                         if saved["measurement"] is not None:
                             recheck_summary["measurement"] = {

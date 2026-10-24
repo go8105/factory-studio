@@ -119,12 +119,57 @@ class CurrentSourceRestoreRecheck(RestoreRecheck):
         return self
 
 
+class CheckpointScope(StrictModel):
+    workspace_id: str = Field(alias="workspaceId", pattern=r"^[1-9][0-9]{0,18}$")
+    generation_id: str = Field(alias="generationId", pattern=r"^[1-9][0-9]{0,18}$")
+    policy_digest: str = Field(alias="policyDigest", pattern=r"^[0-9a-f]{64}$")
+
+
+class CheckpointHead(StrictModel):
+    version: Literal[1]
+    kind: Literal["CHECKPOINT_HEAD"]
+    scope: CheckpointScope
+    backup_run_id: str = Field(alias="backupRunId")
+    run_id: str = Field(alias="runId")
+    checkpoint_digest: str = Field(alias="checkpointDigest", pattern=r"^[0-9a-f]{64}$")
+    captured_at: str = Field(alias="capturedAt")
+
+    @model_validator(mode="before")
+    @classmethod
+    def integer_version(cls, value):
+        if isinstance(value, dict) and type(value.get("version")) is not int:
+            raise ValueError("invalid checkpoint head version")
+        return value
+
+    @model_validator(mode="after")
+    def distinct_runs(self):
+        for run in (self.run_id, self.backup_run_id):
+            EvidenceReference(runId=run, sourceDigest=self.checkpoint_digest)
+        if self.run_id == self.backup_run_id:
+            raise ValueError("checkpoint and backup runs must differ")
+        timestamp(self.captured_at)
+        return self
+
+
+class CheckpointHeadDocument(StrictModel):
+    payload: CheckpointHead
+    signature: str = Field(max_length=100)
+    signer_key_id: str = Field(alias="signerKeyId", pattern=r"^[A-Za-z0-9_-]{1,60}$")
+
+
+class HeadBoundRestoreRecheck(CurrentSourceRestoreRecheck):
+    version: Literal[3]
+    scope: Literal["CURRENT_SOURCE_RESTORE_AND_SIGNED_CHECKPOINT_HEAD"]
+    checkpoint_head: CheckpointHeadDocument = Field(alias="checkpointHead")
+
+
 def parse_envelope(value):
-    model = (
-        CurrentSourceRestoreRecheck
-        if isinstance(value, dict) and value.get("version") == 2
-        else RestoreRecheck
-    )
+    if not isinstance(value, dict) or type(value.get("version")) is not int:
+        raise ValueError("invalid restore recheck version")
+    model = {
+        2: CurrentSourceRestoreRecheck,
+        3: HeadBoundRestoreRecheck,
+    }.get(value["version"], RestoreRecheck)
     return model.model_validate(value)
 
 
@@ -202,6 +247,35 @@ def verify(document, restore_document, **context):
         and data.source_observation.source_identity != original.source_identity
     ):
         raise ValueError("current source physical identity mismatch")
+    if isinstance(data, HeadBoundRestoreRecheck):
+        head_document = data.checkpoint_head
+        head = head_document.payload
+        keys = context["public_keys"]
+        authorize(
+            keys, head_document.signer_key_id, "CHECKPOINT_HEAD", data.workspace_id
+        )
+        try:
+            Ed25519PublicKey.from_public_bytes(
+                keys[head_document.signer_key_id]
+            ).verify(
+                base64.b64decode(head_document.signature, validate=True),
+                b"FS-OPERATOR-BUNDLE-v1\0" + canonical(head.model_dump(by_alias=True)),
+            )
+        except InvalidSignature:
+            raise ValueError("checkpoint head signature mismatch") from None
+        if (
+            head.scope.workspace_id != data.workspace_id
+            or head.scope.generation_id != data.generation_id
+            or head.scope.policy_digest != data.policy_digest
+            or head.backup_run_id != original.backup_run_id
+            or head.run_id != original.checkpoint_run_id
+            or head.checkpoint_digest != original.checkpoint_digest
+            or timestamp(head.captured_at)
+            > timestamp(restore.started_at) + timedelta(seconds=30)
+            or timestamp(restore.started_at) - timestamp(head.captured_at)
+            > timedelta(minutes=context["policy"].rpo_minutes, seconds=30)
+        ):
+            raise ValueError("checkpoint head scope, original or capture time mismatch")
     if data.measurement is not None:
         for field in (
             "backup_run_id",
@@ -229,6 +303,7 @@ def sign(
     signer,
     signer_id,
     source_observation=None,
+    checkpoint_head=None,
     **context,
 ):
     restore = verify_evidence(
@@ -240,9 +315,15 @@ def sign(
     require_trust(context["public_keys"], signer_id, str(context["workspace_id"]))
     payload = parse_envelope(
         {
-            "version": 2 if source_observation is not None else 1,
+            "version": 3
+            if checkpoint_head is not None
+            else 2
+            if source_observation is not None
+            else 1,
             "kind": "RESTORE_RECHECK",
-            "scope": "CURRENT_SOURCE_AND_RESTORED_CHECKPOINT_RESTRICTIONS"
+            "scope": "CURRENT_SOURCE_RESTORE_AND_SIGNED_CHECKPOINT_HEAD"
+            if checkpoint_head is not None
+            else "CURRENT_SOURCE_AND_RESTORED_CHECKPOINT_RESTRICTIONS"
             if source_observation is not None
             else "CURRENT_RESTORED_CHECKPOINT_RESTRICTIONS",
             "runId": str(uuid4()),
@@ -274,6 +355,11 @@ def sign(
             **(
                 {"sourceObservation": source_observation}
                 if source_observation is not None
+                else {}
+            ),
+            **(
+                {"checkpointHead": checkpoint_head}
+                if checkpoint_head is not None
                 else {}
             ),
             "signerKeyId": signer_id,

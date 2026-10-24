@@ -106,6 +106,11 @@ type State = {
       targetMeasured: boolean;
       stateMatchesExecution: boolean | null;
       reason: "MEASURED" | "MEASUREMENT_UNAVAILABLE";
+      checkpointHead?: {
+        capturedAt: string;
+        signatureVerified: true;
+        latestIndependentlyVerified: false;
+      };
       sourceObservation?: {
         observedAt: string;
         sourceMeasured: boolean;
@@ -498,6 +503,23 @@ export function Operations() {
                                   수집 항목의 두 시점만 비교합니다. 중간에
                                   바뀌었다가 되돌아온 변경이나 전체 수집·권한
                                   회수의 완전성은 확인하지 않습니다.
+                                </p>
+                              </section>
+                            )}
+                            {check.restoreRecheck.checkpointHead && (
+                              <section aria-label="복원 권한 대조 생성 근거">
+                                <h4>복원 권한 대조 생성 근거</h4>
+                                <p>
+                                  서명으로 대조한 생성 시각:{" "}
+                                  {new Date(
+                                    check.restoreRecheck.checkpointHead
+                                      .capturedAt,
+                                  ).toLocaleString("ko-KR")}
+                                </p>
+                                <p>
+                                  복원에 사용한 파일과 서명 HEAD를 대조했습니다.
+                                  외부 저장소의 독립된 최신 목록은 아직 확인하지
+                                  않았습니다.
                                 </p>
                               </section>
                             )}

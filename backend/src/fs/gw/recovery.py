@@ -98,7 +98,7 @@ def boundary(row, public_keys):
             raise ValueError("source failure required")
         recheck = diagnostic.restore_recheck.envelope
         if (
-            recheck["version"] != 2
+            recheck["version"] not in {2, 3}
             or recheck["sourceObservation"]["reason"] != "CHANGED"
         ):
             raise ValueError("source change required")
@@ -170,7 +170,7 @@ def require_recovery(connection, data, documents, **context):
         raise evidence_error()
     checked = diagnostic.restore_recheck.envelope
     if (
-        checked["version"] != 2
+        checked["version"] not in {2, 3}
         or checked["sourceObservation"]["reason"] != "MATCH"
         or not checked["sourceObservation"]["sourceMeasured"]
         or not checked["targetMeasured"]
@@ -181,13 +181,22 @@ def require_recovery(connection, data, documents, **context):
         for kind, document in documents.items()
     }
     step = next_step(anchor, sources["BACKUP"], sources["RESTORE"])
+    # A different UUID/file is insufficient: the checkpoint itself must have
+    # been captured after the registered failure. Current-source MATCH can miss
+    # an intervening change followed by a revert.
+    if step == "RECHECK_REQUIRED" and (
+        checked["version"] != 3
+        or timestamp(checked["checkpointHead"]["payload"]["capturedAt"])
+        <= anchor["recordedAt"]
+    ):
+        step = "NEW_RESTORE_REQUIRED"
     if step != "RECHECK_REQUIRED":
         raise ApiError(
             400,
             "OPERATING_RECOVERY_REQUIRED",
             "원본 변경 실패 이후 새 백업부터 다시 점검하세요."
             if step == "NEW_BACKUP_REQUIRED"
-            else "원본 변경 실패 이후 다른 권한 대조를 사용해 새 격리 복원을 실행·등록하세요.",
+            else "원본 변경 실패 등록 이후 생성한 권한 대조를 사용해 새 격리 복원을 실행·등록하세요. 서명 HEAD를 포함해 현재 원본과 다시 관측하세요.",
             {"nextStep": step},
         )
 
@@ -223,8 +232,8 @@ def summary(connection, rows, checks, **context):
         step = "RECOVERY_PARTIAL"
     actions = {
         "NEW_BACKUP_REQUIRED": "현재 백업을 확인할 수 없거나 이전 실패 원본·복원 관측을 재검증할 수 없습니다. 실패 등록 이후 새 백업부터 만들고 새 권한 대조와 격리 복원을 진행하세요.",
-        "NEW_RESTORE_REQUIRED": "변경 원인을 확인하고 다른 권한 대조를 사용해 새 격리 복원을 실행·등록하세요. 이전 복원본을 다시 관측한 결과로 대신할 수 없습니다.",
-        "RECHECK_REQUIRED": "새 복원본과 현재 원본을 다시 관측하고 새 인수 점검을 등록하세요. 변경 기록 관측이 필요했던 회사는 함께 포함하세요.",
+        "NEW_RESTORE_REQUIRED": "변경 원인을 확인하고 실패 등록 이후 생성한 권한 대조를 사용해 새 격리 복원을 실행·등록하세요. 이전 복원본을 다시 관측한 결과로 대신할 수 없습니다.",
+        "RECHECK_REQUIRED": "서명 HEAD를 포함해 새 복원본과 현재 원본을 다시 관측하고 새 인수 점검을 등록하세요. 대조 생성 시각도 실패 등록 이후여야 합니다. 변경 기록 관측이 필요했던 회사는 함께 포함하세요.",
         "RECOVERY_PARTIAL": "새 복원본을 사용한 후속 점검까지 일부 확인했습니다. 외부 보관·전체 회수·실회사 인수·최종 운영 전환은 별도로 확인하세요.",
     }
     return {
