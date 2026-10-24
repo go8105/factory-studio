@@ -198,3 +198,63 @@ class CapaUpdate(ApiModel):
 class CapaVerify(ApiModel):
     effective: bool
     note: str = Field(min_length=2, max_length=500)
+
+
+PARTNER_CODE = r"^[A-Z0-9][A-Z0-9_\-]{0,39}$"
+Severity = Literal["MINOR", "MAJOR", "CRITICAL"]
+InspectionLevel = Literal["EXEMPT", "NORMAL", "TIGHTENED"]
+
+
+class ClaimCreate(ApiModel):
+    customer_code: str = Field(alias="customerCode", pattern=PARTNER_CODE)
+    received_on: date | None = Field(None, alias="receivedOn")
+    item_code: str = Field(alias="itemCode", pattern=ITEM_CODE)
+    lot_no: str | None = Field(None, alias="lotNo", min_length=1, max_length=50)
+    qty: str = Field(pattern=QTY)
+    severity: Severity
+    description: str = Field(min_length=1, max_length=1000)
+    return_ref: str | None = Field(None, alias="returnRef", max_length=40)
+
+
+class ClaimUpdate(ApiModel):
+    lot_no: str | None = Field(None, alias="lotNo", min_length=1, max_length=50)
+    qty: str | None = Field(None, pattern=QTY)
+    severity: Severity | None = None
+    description: str | None = Field(None, min_length=1, max_length=1000)
+    return_ref: str | None = Field(None, alias="returnRef", max_length=40)
+
+
+class ClaimInvestigate(ApiModel):
+    """조사 시작 = 고객 발생 부적합 보고 생성. 수량을 비우면 클레임 수량을 쓴다."""
+
+    description: str = Field(min_length=2, max_length=1000)
+    qty: str | None = Field(None, pattern=QTY)
+    defect_type_id: int | None = Field(None, alias="defectTypeId", gt=0)
+    immediate_action: str | None = Field(None, alias="immediateAction", max_length=500)
+
+
+class ClaimRespond(ApiModel):
+    response: str = Field(min_length=2, max_length=1000)
+    responded_on: date | None = Field(None, alias="respondedOn")
+
+
+class SupplierLevelCreate(ApiModel):
+    partner_code: str = Field(alias="partnerCode", pattern=PARTNER_CODE)
+    item_code: str | None = Field(None, alias="itemCode", pattern=ITEM_CODE)
+    level: InspectionLevel
+    valid_from: date = Field(alias="validFrom")
+    reason: str = Field(min_length=2, max_length=300)
+    rating_id: int | None = Field(None, alias="ratingId", gt=0)
+
+
+class ScarCreate(ApiModel):
+    partner_code: str = Field(alias="partnerCode", pattern=PARTNER_CODE)
+    inspection_id: int | None = Field(None, alias="inspectionId", gt=0)
+    ncr_id: int | None = Field(None, alias="ncrId", gt=0)
+    issued_on: date | None = Field(None, alias="issuedOn")
+    due_on: date = Field(alias="dueOn")
+
+
+class ScarRespond(ApiModel):
+    response: str = Field(min_length=2, max_length=1000)
+    responded_on: date | None = Field(None, alias="respondedOn")

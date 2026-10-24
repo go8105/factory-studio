@@ -406,3 +406,140 @@ export function CapaBadge({ status }: { status: CapaStatus }) {
         : "warning";
   return <Badge tone={tone}>{CAPA_STATUS[status]}</Badge>;
 }
+
+export type Severity = "MINOR" | "MAJOR" | "CRITICAL";
+export type ClaimStatus = "RECEIVED" | "INVESTIGATING" | "RESPONDED" | "CLOSED";
+export type LotTrace = {
+  lotNo: string;
+  itemCode: string;
+  itemName: string;
+  orderNo: string;
+  status: string;
+  materials: {
+    itemCode: string;
+    itemName: string;
+    lotNo: string | null;
+    qty: string;
+    unit: string;
+    processCode: string;
+    issuedAt: string;
+  }[];
+  parents: { lotNo: string; itemCode: string; relation: string }[];
+  children: { lotNo: string; itemCode: string; relation: string }[];
+  usedIn: { lotNo: string; itemCode: string; qty: string; unit: string }[];
+};
+export type Claim = {
+  id: number;
+  claimNo: string;
+  customerCode: string;
+  receivedOn: string;
+  itemCode: string;
+  lotNo: string | null;
+  qty: string;
+  severity: Severity;
+  description: string;
+  returnRef: string | null;
+  status: ClaimStatus;
+  response: string | null;
+  respondedOn: string | null;
+  closedAt: string | null;
+  crmInquiryNo: string | null;
+  ncrCount: number;
+  ncrs?: Ncr[];
+  trace?: LotTrace | null;
+  mesEnabled?: boolean;
+};
+export type Partner = {
+  partnerCode: string;
+  partnerName: string;
+  partnerKind: string;
+};
+export type InspectionLevel = "EXEMPT" | "NORMAL" | "TIGHTENED";
+export type SupplierLevel = {
+  id: number;
+  partnerCode: string;
+  itemCode: string | null;
+  level: InspectionLevel;
+  validFrom: string;
+  reason: string;
+  ratingId: number | null;
+  ratingMonth: string | null;
+  grade: string | null;
+  isCurrent: boolean;
+};
+export type SupplierRating = {
+  id: number;
+  ratingMonth: string;
+  partnerCode: string;
+  lotCount: number;
+  failedLotCount: number;
+  defectPpm: string;
+  scarCount: number;
+  grade: "A" | "B" | "C" | "D";
+  suggestedLevel: InspectionLevel | null;
+};
+export type ScarStatus = "OPEN" | "RESPONDED" | "CLOSED";
+export type Scar = {
+  id: number;
+  scarNo: string;
+  partnerCode: string;
+  inspectionId: number | null;
+  inspectionNo: string | null;
+  ncrId: number | null;
+  ncrNo: string | null;
+  issuedOn: string;
+  dueOn: string;
+  response: string | null;
+  respondedOn: string | null;
+  status: ScarStatus;
+  closedAt: string | null;
+};
+
+export const SEVERITY: Record<Severity, string> = {
+  MINOR: "경미",
+  MAJOR: "중대",
+  CRITICAL: "치명",
+};
+export const CLAIM_STATUS: Record<ClaimStatus, string> = {
+  RECEIVED: "접수",
+  INVESTIGATING: "조사 중",
+  RESPONDED: "회신",
+  CLOSED: "종결",
+};
+export const LEVEL: Record<InspectionLevel, string> = {
+  EXEMPT: "면제",
+  NORMAL: "보통",
+  TIGHTENED: "강화",
+};
+export const SCAR_STATUS: Record<ScarStatus, string> = {
+  OPEN: "발행",
+  RESPONDED: "회신",
+  CLOSED: "종결",
+};
+
+export function SeverityBadge({ severity }: { severity: Severity }) {
+  const tone =
+    severity === "CRITICAL"
+      ? "issue"
+      : severity === "MAJOR"
+        ? "warning"
+        : "normal";
+  return <Badge tone={tone}>{SEVERITY[severity]}</Badge>;
+}
+export function ClaimBadge({ status }: { status: ClaimStatus }) {
+  const tone = status === "CLOSED" ? "normal" : "warning";
+  return <Badge tone={tone}>{CLAIM_STATUS[status]}</Badge>;
+}
+export function LevelBadge({ level }: { level: InspectionLevel }) {
+  const tone =
+    level === "TIGHTENED" ? "issue" : level === "EXEMPT" ? "normal" : "warning";
+  return <Badge tone={tone}>{LEVEL[level]}</Badge>;
+}
+export function GradeBadge({ grade }: { grade: string }) {
+  const tone = grade === "A" ? "normal" : grade === "D" ? "issue" : "warning";
+  return <Badge tone={tone}>{grade}</Badge>;
+}
+export function ScarBadge({ status }: { status: ScarStatus }) {
+  const tone = status === "CLOSED" ? "normal" : "warning";
+  return <Badge tone={tone}>{SCAR_STATUS[status]}</Badge>;
+}

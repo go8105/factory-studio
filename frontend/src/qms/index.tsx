@@ -12,6 +12,8 @@ import { Gauges } from "./Gauges";
 import { ChangeNotices } from "./ChangeNotices";
 import { Ncrs } from "./Ncrs";
 import { Capas } from "./Capas";
+import { Claims } from "./Claims";
+import { Suppliers } from "./Suppliers";
 
 export default function QmsRoutes() {
   return (
@@ -28,6 +30,8 @@ export default function QmsRoutes() {
         <Route path="change-notices" element={<ChangeNotices />} />
         <Route path="ncrs" element={<Ncrs />} />
         <Route path="capas" element={<Capas />} />
+        <Route path="claims" element={<Claims />} />
+        <Route path="suppliers" element={<Suppliers />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

@@ -20,6 +20,10 @@ from fs.qms.schema import (
     ChangeNoticeDecide,
     ChangeNoticeUpdate,
     ChangeNoticeVerify,
+    ClaimCreate,
+    ClaimInvestigate,
+    ClaimRespond,
+    ClaimUpdate,
     DefectTypeCreate,
     DefectTypeUpdate,
     FirstArticleCreate,
@@ -30,8 +34,11 @@ from fs.qms.schema import (
     InspectionUpdate,
     NcrCreate,
     NcrUpdate,
+    ScarCreate,
+    ScarRespond,
     SpecCreate,
     SpecUpdate,
+    SupplierLevelCreate,
 )
 
 router = APIRouter()
@@ -649,3 +656,211 @@ def verify_capa(
             context, capa_id, payload.model_dump(), _mutation(context, csrf, key)
         )
     )
+
+
+# ---- 고객 클레임 (Q-09) ----
+CLAIM_NULLABLE = frozenset({"lot_no", "return_ref", "received_on"})
+
+
+@router.get("/claims")
+def list_claims(
+    context: Auth,
+    status: Annotated[
+        str | None, Query(pattern="^(RECEIVED|INVESTIGATING|RESPONDED|CLOSED)$")
+    ] = None,
+    customer_code: Annotated[
+        str | None, Query(alias="customerCode", max_length=40)
+    ] = None,
+):
+    return _data(service.list_claims(context, status, customer_code))
+
+
+@router.get("/claims/customers")
+def claim_customers(context: Auth):
+    return _data(service.customers(context))
+
+
+@router.post("/claims", status_code=201)
+def post_claim(
+    payload: ClaimCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_claim(
+            context, _values(payload, CLAIM_NULLABLE), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.get("/claims/{claim_id}")
+def get_claim(claim_id: int, context: Auth):
+    return _data(service.get_claim(context, claim_id))
+
+
+@router.patch("/claims/{claim_id}")
+def patch_claim(
+    claim_id: int,
+    payload: ClaimUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_claim(
+            context,
+            claim_id,
+            _values(payload, CLAIM_NULLABLE),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/claims/{claim_id}/investigation")
+def investigate_claim(
+    claim_id: int,
+    payload: ClaimInvestigate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.start_investigation(
+            context,
+            claim_id,
+            _values(payload, frozenset({"qty", "defect_type_id", "immediate_action"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/claims/{claim_id}/response")
+def respond_claim(
+    claim_id: int,
+    payload: ClaimRespond,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.respond_claim(
+            context,
+            claim_id,
+            _values(payload, frozenset({"responded_on"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/claims/{claim_id}/closure")
+def close_claim(
+    claim_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(service.close_claim(context, claim_id, _mutation(context, csrf, key)))
+
+
+# ---- 공급처 품질 (Q-10) ----
+@router.get("/suppliers")
+def list_suppliers(context: Auth):
+    return _data(service.suppliers(context))
+
+
+@router.get("/supplier-levels")
+def list_supplier_levels(
+    context: Auth,
+    partner_code: Annotated[
+        str | None, Query(alias="partnerCode", max_length=40)
+    ] = None,
+):
+    return _data(service.supplier_levels(context, partner_code))
+
+
+@router.post("/supplier-levels", status_code=201)
+def post_supplier_level(
+    payload: SupplierLevelCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_supplier_level(
+            context,
+            _values(payload, frozenset({"item_code", "rating_id"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.get("/supplier-ratings")
+def list_supplier_ratings(
+    context: Auth, month: Annotated[str | None, Query(pattern=MONTH)] = None
+):
+    return _data(service.supplier_ratings(context, month))
+
+
+@router.post("/supplier-ratings")
+def calculate_supplier_ratings(
+    context: Auth,
+    month: Annotated[str, Query(pattern=MONTH)],
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.calculate_ratings(context, month, _mutation(context, csrf, key))
+    )
+
+
+@router.get("/scars")
+def list_scars(
+    context: Auth,
+    status: Annotated[str | None, Query(pattern="^(OPEN|RESPONDED|CLOSED)$")] = None,
+):
+    return _data(service.list_scars(context, status))
+
+
+@router.post("/scars", status_code=201)
+def post_scar(
+    payload: ScarCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_scar(
+            context,
+            _values(payload, frozenset({"inspection_id", "ncr_id", "issued_on"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/scars/{scar_id}/response")
+def respond_scar(
+    scar_id: int,
+    payload: ScarRespond,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.respond_scar(
+            context,
+            scar_id,
+            _values(payload, frozenset({"responded_on"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/scars/{scar_id}/closure")
+def close_scar(
+    scar_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(service.close_scar(context, scar_id, _mutation(context, csrf, key)))
