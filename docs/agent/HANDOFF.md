@@ -1,3 +1,33 @@
+## 2026-10-24 GW-READY-02 51차 — 발행 공백의 서명 복구·실제 수신 기준점 연결
+
+- 시작 `888f647`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 현황/인계·설계와 실제 코드 대조 후 승인된 기존 GW 범위에서 발행 공백의 근거를 수신 흐름에 연결했다. 별도 GW/수동 완료 체크·새 DB 스키마는 없다. 최종 커밋은 `git log -1`로 확인한다.
+- `catalog_recovery`의 별도 FS-GW-CHECKPOINT-CATALOG-RECOVERY-v1 서명 문맥으로 실제 직전 목록의 전체 지문/버전·번호와 원래 보류 intent/예약 관계, 새 PARTIAL 기록 전체 지문/시각/기준, 공백별 파일 이름의 기대 지문·실제 바이트 지문/크기 또는 원본 없음 상태를 묶는다. 현재 회사/CHECKPOINT_CATALOG 단독 용도·안쪽/바깥 서명을 모두 검사한다. 예약이 직전 기준 바로 다음이면 원래 예상 핀도 실제 현재 핀과 같아야 하며 임의 큰 예약 번호·다른 회사/기준을 새 복구로 만들지 않는다. admin 이름은 권한을 대신하지 않는다.
+- 기존 recover-pending은 recoveryProof를 포함한 CHECKPOINT_CATALOG v2를 발행한다. 일반 v1/과거 서명 바이트와 핀·RESTORE_RECHECK v4/인수 진단 형식은 그대로다. 바깥 서명은 기존 catalog canonical 문맥으로 version/proof까지 묶는다. 새 복구는 반드시 PARTIAL/head=null·복구 시각/기록 지문 일치이며 refresh는 최초 근거와 기록을 유지한다. 구형 v1 전용 읽기 환경은 새 v2를 사용할 수 없으며 운영 환경을 자동 설치/재시작하지 않는다.
+- 전달 묶음 v2 artifacts는 0바이트/잘린 JSON·미활성 완성 원본을 실제 바이트 그대로 보존한다. 서명한 공백에 필요한 파일만 전달하고 정상 snapshots로 추정/재분류하지 않는다. 현재 목록부터 역으로 검증해 복구 원점에서만 명시된 직전 기준으로 연결한다. 실제 직전 수신 지문/버전/번호와 맞아야 하며 공백 안 기준점·일반 공백/형식 낮춤·누락/추가/중복·원본 변조/사라짐/나중 등장·같은 버전 분기를 거부한다. 기존 보류 선기록/완성 임시 파일/배타적 링크/최종 핀 원자 교체·같은 원본 재시도를 유지하며 불완전 파일/실패를 덮거나 지우지 않는다.
+- 범위는 복구 최대256슬롯·파일2MiB, 전달256스냅샷/256원본·총8MiB다. 유효한 현재 보류 intent와 직전 핀이 있는 중단 복구이며, 근거 없는 일반 공백·이미 보류를 잃은 과거 v1 복구·손상 기준점·원래 확인한 수신 지문 오류·회수된 과거 키를 자동 재구성/리셋하지 않는다. 큰 이력 분할/키 이관은 후속이다. 서명은 발행자가 확인한 완료 불명 근거이며 한 번도 공개되지 않았다는 물리 증명·공인 시각·발행자 악의/누락·전체 무누락/독립 담당자·장애 영역/WORM 증명이 아니다. 공급자는 미정이고 실제 원격 전달을 설치하지 않았다.
+- 검증: 관련 단위662통과(기존 경고2, 새44검사). 최초/기존 기준의 없음/0바이트/잘림/완성 중단, 두 번 복구 중단·핀 적용 뒤 중단/갱신의 같은 기록 번호, 실제 바이트 보존·0바이트 수신 링크 중단/재시도, 미활성 FAIL 보존·옛 HEAD 새 FAIL/새 생성 후 PASS, 복구/바깥 서명·현재 권한/회사/예약·정확한 원점/시각/기록 변경·가짜 성공/HEAD·과도한 구간, 원본 누락/추가·변조/나중 등장/정상 원본 위장·형식 낮춤·다른 실제 기준점을 검사했다. 최종 화면/정적 도움말48통과, 타입·수정 Python Ruff check/format·정적DB219표/2409열/543FK·R1–R6 오류0. UI 제품 코드/브라우저·모바일·실제 API 브라우저는 이번 재실행하지 않았다.
+- 실제PG: 새 UUID 소유 시험DB에서 실제 dump/암호화/폐쇄 복원→발행 중단/8바이트 원본→복구 서명 목록/수신 PARTIAL→기존 인수 INVALID/새 ACCEPTANCE FAIL→실패 후 새 대조·새 폐쇄 복원→현재 재관측/후속 PARTIAL과 이전 실패/원본 보존을 확인했다. 기존 발행/수신2변형+새 공백 복구1·기존 목록1/복구2 총6통과97.78초(기존 경고2). 복구 시나리오는 최종 코드로 별도1통과20.32초로 재확인했고 같은 시나리오라 합산하지 않는다. 실제 복원은 계속 PARTIAL이고, 목록 입력 FAIL/완료 불명과 실제 복원 도구가 측정한 실패를 혼동하지 않는다. 과거 최신 RESTORE FAIL 선택 검사는 합성 서명 자료다.
+- 실패/보정: 초기 새 복구 Literal 표기/참조 오류를 lint와 단위6실패/137통과가 탐지해 실제 타입 선언을 수정했다. 최초 실제PG는 공백 복구/새 대조·복원/후속 인수까지 진행한 뒤 기존 시험의 고정 sequence=2 기대가 새 기록5와 달라1실패/5통과였다. 직전 기록 번호 기준의 상대 검사로 바꾸고 최종6을 재실행했다. 서명·회사/기준·PARTIAL/실패 계약을 느슨하게 하지 않았다. DB/실행자 시계 검사는 기존30초 미만 제한 대기를 유지하며 미래/실패 이후 생성·복원 조건을 완화하지 않았다.
+- 문서/사용성: 실회사 절차 §25·구현/정적 도움말·README/현황/progress/HANDOFF 갱신. 직관성(새 복구도 현재 일부/미통과), 유효성(실제 수신 기준점·원본/서명), 학습성(공백 복구와 인수 경계), 유연성(기존 명령/일반v1·복구v2/재시도)을 고려했다. 작은 도움말 추가를 화면 전체 완성으로 표현하지 않는다.
+- 자원/제약: 시험 생성 자원만 정리했고 최종 관측 시험DB0·폐쇄 복원DB0/기존 preview DB존재를 읽기 확인했다. gw_preview_test 초기화/실계정 admin·비밀번호/OTP·브라우저/미리보기 정책·운영 서버 환경 변경 없음. API8362/Vite5362 상태 재검사/재시작 없음. 같은 OS 계정의 합성 폴더 수신이며 실외부/사람·장애 영역 독립 인수가 아니다. work/.env·비밀/전체 로그 Git 제외. 스키마/마이그레이션/metadata·Excel/ERD 변경 없음. 다른 checkout/WMS·main/push/배포 변경 없음. 실제 복원 PARTIAL/ready=false/최종4조건 UNVERIFIED·ACCEPTANCE PASS 거부 유지. 전체CI/전체회귀·고정24수집/전체 실제DB·실회사/기기/10인/최종전환·최신main 통합 미실행/미완료.
+- 다음: 256개/8MiB를 넘는 **큰 이력의 분할 전달과 수신 진행점 복구**를 구현한다. 중간 묶음을 현재 최신 성공으로 인정하지 않고 최종 신뢰 지문까지 연결하며 공백 복구 원본도 보존해야 한다. 이후 과거 키 이관/외부 공급자 선정 후 장애 복구, 나머지 최종 인수 계약/전체 변경·회수, 최신main/전체회귀·실회사10인/최종전환이 남는다. 난이도 매우 높음, [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra) + High 추천(여러 묶음/진행점·재생/누락/중단 경계). OpenAI Docs 공식 모델 페이지를 열어 확인했으며 작업 난이도에 따른 판단이고 자동 모델 변경 없음.
+
+재현(저장소 루트):
+```sh
+uv run --project backend pytest backend/tests/test_gw_catalog_recovery.py backend/tests/test_gw_catalog_transfer.py backend/tests/test_gw_catalog_store.py backend/tests/test_gw_checkpoint_catalog.py backend/tests/test_gw_checkpoint_head.py backend/tests/test_gw_recovery.py backend/tests/test_restore_restriction_comparison.py backend/tests/test_gw_source_checkpoint.py backend/tests/test_gw_restore_recheck.py backend/tests/test_gw_restore_observation.py backend/tests/test_gw_journal_acceptance.py backend/tests/test_gw_journal_observation.py backend/tests/test_gw_evidence_trust.py backend/tests/test_gw_acceptance_sources.py backend/tests/test_gw_business_observation.py backend/tests/test_gw_acceptance_preflight.py backend/tests/test_gw_acceptance_reconciliation.py backend/tests/test_gw_route_verify.py backend/tests/test_gw_journal_routes.py backend/tests/test_gw_journal_coverage.py backend/tests/test_journal_review.py backend/tests/test_gw_acceptance_artifact.py backend/tests/test_gw_acceptance_collection.py backend/tests/test_gw_operating_contract.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short
+# 소유 컨테이너ID/owner/loopback 확인 후 새 UUID *_test DB에만 동일 DATABASE_URL/TEST_DATABASE_URL과 소유 GW_BACKUP_TEST_CONTAINER를 비공개 주입한다.
+# 기존 gw_preview_test는 절대 초기화/시험하지 않는다. 생성한 자원만 정리한다.
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_catalog_store_db.py backend/tests/test_gw_checkpoint_catalog_db.py backend/tests/test_gw_recovery_db.py -q --tb=short
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/operations.test.tsx src/portal/content-pages.test.tsx --maxWorkers=2
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend run typecheck
+uv run --project backend ruff check backend/src/fs/gw/catalog_recovery.py backend/src/fs/gw/catalog_store.py backend/src/fs/gw/catalog_transfer.py backend/src/fs/gw/checkpoint_catalog.py backend/tests/test_gw_catalog_recovery.py backend/tests/test_gw_catalog_store_db.py
+uv run --project backend ruff format --check backend/src/fs/gw/catalog_recovery.py backend/src/fs/gw/catalog_store.py backend/src/fs/gw/catalog_transfer.py backend/src/fs/gw/checkpoint_catalog.py backend/tests/test_gw_catalog_recovery.py backend/tests/test_gw_catalog_store_db.py
+python3 tools/validate_db_design.py
+uv run --project backend python tools/audit_schema_isolation.py
+```
+발행/수신 계약은 `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §23–25를 따른다. 표준 명령과 계약은 비공개 work harness 없이 재현할 수 있어야 한다. 발행자 전용 개인키를 수신자에게 전달하지 않으며 서버 설정/원격 운영을 자동 변경하지 않는다. 비밀/전체 로그 출력·다른 checkout/WMS·실계정/브라우저 변경 금지.
+
 ## 2026-10-24 GW-READY-02 50차 — 수신 기준점·연속 이력 전달/보류 재시도
 
 - 시작 `bd1e38f`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 현황/인계와 실제49차 코드 확인 후 승인된 GW 범위의 수신 단계를 구현했다. 이 작업 폴더만 수정했다. 최종 커밋은 `git log -1`로 확인한다.

@@ -19,6 +19,7 @@ from test_gw_restore_observation_db import restored
 from test_gw_restore_recheck_db import add_keys
 from test_hr_work import company_env
 
+from fs.gw import catalog_store as store
 from fs.gw.acceptance_sources import sign_current
 from fs.gw.catalog_store import PIN_ENV
 from fs.gw.checkpoint_catalog import ENV, read
@@ -26,7 +27,7 @@ from fs.gw.evidence_trust import from_environment
 from fs.gw.operating_contract import canonical, timestamp
 
 
-@pytest.mark.parametrize("receiver_mode", [False, True])
+@pytest.mark.parametrize("receiver_mode", [False, True, "recovery"])
 def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
     company_env, backup_env, monkeypatch, receiver_mode
 ):
@@ -34,6 +35,7 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
     module, config, folders, _ = backup_env
     args = restored(company_env, backup_env)
     target = module.restore(**args)
+    targets = [target["database"]]
     cleanup = create_engine(args["admin_url"], isolation_level="AUTOCOMMIT")
     try:
         backup = json.loads((folders["backups"] / "backup.json").read_bytes())
@@ -231,6 +233,99 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
         if delay >= 0:
             time.sleep(delay + 0.02)
         assert status()["restoreRecheck"]["catalogObservation"]["reason"] == "MATCH"
+        if receiver_mode == "recovery":
+            original_write = store.write_new
+            with monkeypatch.context() as patch:
+
+                def interrupted(root, name, data):
+                    if name.startswith("catalog-"):
+                        original_write(root, name, data[:8])
+                        raise OSError("owned publisher interruption")
+                    return original_write(root, name, data)
+
+                patch.setattr(store, "write_new", interrupted)
+                with pytest.raises(OSError):
+                    store.publish(
+                        folder,
+                        context=store.PublishContext.model_validate(
+                            json.loads(context.read_bytes())
+                        ),
+                        public_keys=from_environment(),
+                        signer=authority,
+                        signer_id="catalog",
+                        now=datetime.now(UTC),
+                        expected_pin_digest=first["pinDigest"],
+                        head_path=args["head"],
+                        checkpoint_path=args["checkpoint_file"],
+                    )
+            first = cli("recover-pending", first["pinDigest"], exit_code=2)
+            assert first["result"] == "PARTIAL"
+            deliver(exit_code=2)
+            assert status()["state"] == "INVALID"
+            unknown = collect(recheck("recovery-unknown.json"))
+            assert unknown["envelope"]["result"] == "FAIL"
+            assert api(admin, co, "operating-evidence", unknown).status_code == 200
+            # Wait only for the existing bounded runner/DB clock difference, never relax production ordering.
+            catalog_path = folder / store.filename(
+                first["revision"], first["catalogDigest"]
+            )
+            recovered_at = timestamp(
+                json.loads(catalog_path.read_bytes())["envelope"]["publishedAt"]
+            )
+            with engine.connect() as c:
+                delay = (
+                    recovered_at - c.scalar(text("SELECT clock_timestamp()"))
+                ).total_seconds()
+            assert delay < 30
+            if delay >= 0:
+                time.sleep(delay + 0.02)
+            new_checkpoint = folders["checkpoints"] / "after-recovery.fsbackup"
+            new_head = folders["checkpoints"] / "after-recovery-head.json"
+            captured = module.checkpoint(
+                url=os.environ["TEST_DATABASE_URL"],
+                artifact=args["artifact"],
+                output=new_checkpoint,
+                head=new_head,
+                config=config,
+            )
+            first = cli(
+                "publish",
+                first["pinDigest"],
+                ("--head", str(new_head), "--checkpoint", str(new_checkpoint)),
+            )
+            args = args | {
+                "checkpoint_file": new_checkpoint,
+                "head": new_head,
+                "expected_checkpoint_digest": captured["checkpointDigest"],
+                "report": folders["reports"] / "after-recovery-restore-report.json",
+                "evidence": folders["reports"] / "after-recovery-restore.json",
+            }
+            target = module.restore(**args)
+            targets.append(target["database"])
+            original = json.loads(args["evidence"].read_bytes())
+            assert original["envelope"]["result"] == "PARTIAL"
+            assert api(admin, co, "operating-evidence", original).status_code == 200
+            deliver()
+            renewed = collect(recheck("after-recovery-current.json"))
+            assert renewed["envelope"]["result"] == "PARTIAL"
+            assert api(admin, co, "operating-evidence", renewed).status_code == 200
+            with engine.connect() as c:
+                assert (
+                    c.scalar(
+                        text(
+                            "SELECT count(*) FROM gw.operating_evidence WHERE kind='ACCEPTANCE' AND result='FAIL'"
+                        )
+                    )
+                    >= 1
+                )
+                delay = (
+                    timestamp(renewed["envelope"]["finishedAt"])
+                    - c.scalar(text("SELECT clock_timestamp()"))
+                ).total_seconds()
+            assert delay < 30
+            if delay >= 0:
+                time.sleep(delay + 0.02)
+            assert status()["state"] == "PARTIAL"
         failed = cli(
             "publish",
             first["pinDigest"],
@@ -242,7 +337,9 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
             ),
             exit_code=2,
         )
-        assert failed["result"] == "FAIL" and failed["sequence"] == 2
+        assert (
+            failed["result"] == "FAIL" and failed["sequence"] == first["sequence"] + 1
+        )
         refreshed = cli("refresh", failed["pinDigest"], exit_code=2)
         if receiver_mode:
             deliver(exit_code=1, tamper=True)
@@ -257,7 +354,10 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
         refreshed = cli("refresh", refreshed["pinDigest"], exit_code=2)
         if receiver_mode:
             deliver(exit_code=2)
-        assert refreshed["result"] == "FAIL" and refreshed["sequence"] == 2
+        assert (
+            refreshed["result"] == "FAIL"
+            and refreshed["sequence"] == failed["sequence"]
+        )
         cli("refresh", first["pinDigest"], exit_code=1)
         catalog, sha = read(
             public_keys=from_environment(),
@@ -271,7 +371,6 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
         )
     finally:
         with cleanup.connect() as connection:
-            connection.execute(
-                text(f'DROP DATABASE "{target["database"]}" WITH (FORCE)')
-            )
+            for database in targets:
+                connection.execute(text(f'DROP DATABASE "{database}" WITH (FORCE)'))
         cleanup.dispose()

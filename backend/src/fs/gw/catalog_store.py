@@ -21,6 +21,7 @@ from fs.gw.checkpoint_catalog import (
     Catalog,
     CatalogConfig,
     CatalogRecord,
+    RecoveryCatalog,
     _object,
     verify_document,
 )
@@ -60,7 +61,7 @@ def digest(raw):
     return hashlib.sha256(raw).hexdigest()
 
 
-def read_fd(root, name, limit=MAX_BYTES, *, max_links=1):
+def read_fd(root, name, limit=MAX_BYTES, *, max_links=1, allow_empty=False):
     fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root)
     with os.fdopen(fd, "rb") as stream:
         info = os.fstat(stream.fileno())
@@ -69,7 +70,7 @@ def read_fd(root, name, limit=MAX_BYTES, *, max_links=1):
             or info.st_uid != os.geteuid()
             or info.st_mode & 0o077
             or not 1 <= info.st_nlink <= max_links
-            or not 0 < info.st_size <= limit
+            or not (0 if allow_empty else 1) <= info.st_size <= limit
         ):
             raise ValueError("private regular file required")
         raw = stream.read(limit + 1)
@@ -353,6 +354,11 @@ def publish(
             from fs.gw.checkpoint_catalog import uuid4 as validate_id
 
             validate_id(intent.catalog_id)
+            if (
+                intent.revision == (old.revision if old else 0) + 1
+                and intent.expected_pin_digest != pin
+            ):
+                raise ValueError("interrupted reservation does not match current pin")
         elif old is None and (
             not initialize or expected_pin_digest != "ABSENT" or set(names) != {LOCK}
         ):
@@ -447,6 +453,29 @@ def publish(
             records=[record],
             signerKeyId=signer_id,
         )
+        if recovering:
+            from fs.gw.catalog_recovery import make
+
+            old_digest = "ABSENT"
+            if old:
+                config = CatalogConfig.model_validate(
+                    json.loads(read_fd(root, PIN, 8192), object_pairs_hook=_object)
+                )
+                old_digest = config.digest
+            catalog = make(
+                catalog,
+                old,
+                old_digest,
+                intent,
+                root,
+                signer=signer,
+                signer_id=signer_id,
+            )
+        elif operation == "refresh" and isinstance(old, RecoveryCatalog):
+            catalog = RecoveryCatalog.model_validate(
+                catalog.model_dump(by_alias=True)
+                | {"version": 2, "recoveryProof": old.recovery_proof}
+            )
         return commit(root, path, catalog, signer, pin)
 
 

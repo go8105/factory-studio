@@ -11,8 +11,15 @@ from uuid import uuid4
 
 from pydantic import Field
 
+from fs.gw import catalog_recovery as recovery
 from fs.gw import catalog_store as store
-from fs.gw.checkpoint_catalog import CatalogConfig, Versioned, _object, verify_document
+from fs.gw.checkpoint_catalog import (
+    CatalogConfig,
+    RecoveryCatalog,
+    Versioned,
+    _object,
+    verify_document,
+)
 from fs.gw.checkpoint_catalog import uuid4 as catalog_id
 from fs.gw.operating_contract import canonical, timestamp
 from fs.gw.restore_recheck import verify_checkpoint_head
@@ -43,6 +50,17 @@ class Transfer(Versioned):
     base_revision: int = Field(alias="baseRevision", ge=0, le=9223372036854775807)
     base_digest: str = Field(alias="baseDigest", pattern=r"^(ABSENT|[0-9a-f]{64})$")
     snapshots: list[Snapshot] = Field(min_length=1, max_length=MAX_SNAPSHOTS)
+
+
+class Artifact(Snapshot):
+    actual_digest: str = Field(alias="actualDigest", pattern=r"^[0-9a-f]{64}$")
+    size: int = Field(ge=0, le=store.MAX_BYTES)
+    content: str = Field(max_length=3 * 1024 * 1024)
+
+
+class RecoveryTransfer(Transfer):
+    version: Literal[2]
+    artifacts: list[Artifact] = Field(max_length=MAX_SNAPSHOTS)
 
 
 class ReceiveIntent(Versioned):
@@ -98,7 +116,12 @@ def decode_snapshot(snapshot, identity, *, context, public_keys):
     return catalog, raw
 
 
-def transition(before, after):
+def transition(before, after, before_digest):
+    if (
+        isinstance(after, RecoveryCatalog)
+        and after.revision == after.recovery_proof["envelope"]["targetRevision"]
+    ):
+        return recovery.bridge(before, after, before_digest)
     if (
         after.catalog_id != before.catalog_id
         or after.revision != before.revision + 1
@@ -145,7 +168,15 @@ def validate(
         or store.digest(raw) != expected_transfer_digest
     ):
         raise ValueError("transfer bytes differ from operator anchor")
-    bundle = Transfer.model_validate(json.loads(raw, object_pairs_hook=_object))
+    value = json.loads(raw, object_pairs_hook=_object)
+    model = (
+        RecoveryTransfer
+        if isinstance(value, dict)
+        and type(value.get("version")) is int
+        and value["version"] == 2
+        else Transfer
+    )
+    bundle = model.model_validate(value)
     if (
         bundle.catalog_id != expected_catalog_id
         or bundle.workspace_id != str(context.workspace_id)
@@ -160,15 +191,51 @@ def validate(
         for snapshot in bundle.snapshots
     ]
     first = decoded[0][0]
-    if first.revision != (bundle.base_revision or 1):
-        raise ValueError("transfer starting revision missing")
+    proofs = []
     if bundle.base_revision:
-        if store.digest(decoded[0][1]) != bundle.base_digest or len(decoded) < 2:
+        if (
+            first.revision != bundle.base_revision
+            or store.digest(decoded[0][1]) != bundle.base_digest
+            or len(decoded) < 2
+        ):
             raise ValueError("transfer base differs or no progress")
-    elif first.records[0].sequence != 1:
-        raise ValueError("initial catalog history missing")
+    elif first.revision != 1 or first.records[0].sequence != 1:
+        if not isinstance(first, RecoveryCatalog):
+            raise ValueError("initial history needs signed recovery")
+        proofs.append(recovery.bridge(None, first, "ABSENT"))
     for before, after in pairwise(decoded):
-        transition(before[0], after[0])
+        proof = transition(before[0], after[0], store.digest(before[1]))
+        if proof is not None:
+            proofs.append(proof)
+    if any(isinstance(c, RecoveryCatalog) for c, _ in decoded) and not isinstance(
+        bundle, RecoveryTransfer
+    ):
+        raise ValueError("recovery transfer format required")
+    needed = {}
+    for proof in proofs:
+        for slot in proof.slots:
+            if slot.revision in needed:
+                raise ValueError("overlapping recovery slots")
+            needed[slot.revision] = slot
+    artifacts = getattr(bundle, "artifacts", [])
+    actual = {a.revision: a for a in artifacts}
+    if len(actual) != len(artifacts) or set(actual) != {
+        r for r, slot in needed.items() if slot.actual_digest is not None
+    }:
+        raise ValueError("missing/extra interruption artifacts")
+    if set(needed) & {c.revision for c, _ in decoded}:
+        raise ValueError("unknown artifact cannot become a committed snapshot")
+    for revision, artifact in actual.items():
+        slot = needed[revision]
+        data = base64.b64decode(artifact.content, validate=True)
+        if (
+            artifact.digest != slot.expected_digest
+            or artifact.actual_digest != slot.actual_digest
+            or artifact.size != slot.size
+            or len(data) != slot.size
+            or store.digest(data) != slot.actual_digest
+        ):
+            raise ValueError("interrupted original differs from signed recovery")
     latest = decoded[-1][0]
     age = now - timestamp(latest.published_at)
     if age < -timedelta(seconds=30) or (
@@ -187,41 +254,100 @@ def export(path, *, context, public_keys, now, base_revision, base_digest):
         if catalog is None or not 0 <= base_revision < catalog.revision:
             raise ValueError("current source and an older receiver base required")
         store.check_scope(catalog, context)
-        start = base_revision or 1
-        if catalog.revision - start + 1 > MAX_SNAPSHOTS:
-            raise ValueError("transfer batch limit; do not discard history")
         names, _ = store.inventory(root)
         indexed = {
             int(m[1]): (name, m[2])
             for name in names
             if (m := store.NAME.fullmatch(name))
         }
-        snapshots = []
+        snapshots, artifacts = [], []
+        revision = catalog.revision
         total = 0
-        for revision in range(start, catalog.revision + 1):
+        while revision:
+            if len(snapshots) >= MAX_SNAPSHOTS:
+                raise ValueError("transfer batch limit; do not discard history")
             name, sha = indexed[revision]
             data = store.read_fd(root, name)
-            total += len(data) * 4 // 3 + 512
-            if total > MAX_TRANSFER:
-                raise ValueError("transfer size limit")
-            snapshots.append(
-                Snapshot(
-                    version=1,
-                    revision=revision,
-                    digest=sha,
-                    content=base64.b64encode(data).decode(),
-                )
+            snapshot = Snapshot(
+                version=1,
+                revision=revision,
+                digest=sha,
+                content=base64.b64encode(data).decode(),
             )
-        bundle = Transfer(
-            version=1,
-            kind="CHECKPOINT_CATALOG_TRANSFER",
-            catalogId=catalog.catalog_id,
-            workspaceId=str(context.workspace_id),
-            generationId=str(context.generation_id),
-            baseRevision=base_revision,
-            baseDigest=base_digest,
-            snapshots=snapshots,
-        )
+            current_catalog, _ = decode_snapshot(
+                snapshot, catalog.catalog_id, context=context, public_keys=public_keys
+            )
+            total += len(data) * 4 // 3 + 512
+            snapshots.append(snapshot)
+            if revision == base_revision:
+                break
+            if (
+                isinstance(current_catalog, RecoveryCatalog)
+                and revision
+                == current_catalog.recovery_proof["envelope"]["targetRevision"]
+            ):
+                proof = recovery.Proof.model_validate(
+                    current_catalog.recovery_proof
+                ).envelope
+                previous = proof.base_revision
+                if previous < base_revision:
+                    raise ValueError("receiver base is inside an unresolved interval")
+                for slot in proof.slots:
+                    if slot.actual_digest is None:
+                        if slot.revision in indexed:
+                            raise ValueError(
+                                "previously absent interruption file appeared"
+                            )
+                    else:
+                        gap_name, expected = indexed[slot.revision]
+                        gap_raw = store.read_fd(root, gap_name, allow_empty=True)
+                        if (
+                            expected != slot.expected_digest
+                            or len(gap_raw) != slot.size
+                            or store.digest(gap_raw) != slot.actual_digest
+                        ):
+                            raise ValueError(
+                                "interruption evidence changed after signing"
+                            )
+                        total += len(gap_raw) * 4 // 3 + 512
+                        if total > MAX_TRANSFER or len(artifacts) >= MAX_SNAPSHOTS:
+                            raise ValueError("transfer size/artifact limit")
+                        artifacts.append(
+                            Artifact(
+                                version=1,
+                                revision=slot.revision,
+                                digest=expected,
+                                actualDigest=slot.actual_digest,
+                                size=len(gap_raw),
+                                content=base64.b64encode(gap_raw).decode(),
+                            )
+                        )
+                revision = previous
+            else:
+                revision -= 1
+            if total > MAX_TRANSFER or len(artifacts) > MAX_SNAPSHOTS:
+                raise ValueError("transfer size/artifact limit")
+        snapshots.reverse()
+        fields = {
+            "kind": "CHECKPOINT_CATALOG_TRANSFER",
+            "catalogId": catalog.catalog_id,
+            "workspaceId": str(context.workspace_id),
+            "generationId": str(context.generation_id),
+            "baseRevision": base_revision,
+            "baseDigest": base_digest,
+            "snapshots": snapshots,
+        }
+        if any(
+            json.loads(base64.b64decode(s.content))["envelope"]["version"] == 2
+            for s in snapshots
+        ):
+            bundle = RecoveryTransfer(
+                version=2,
+                artifacts=sorted(artifacts, key=lambda a: a.revision),
+                **fields,
+            )
+        else:
+            bundle = Transfer(version=1, **fields)
         raw = canonical(bundle.model_dump(by_alias=True)) + b"\n"
         validate(
             raw,
@@ -262,7 +388,7 @@ def put_snapshot(root, name, raw):
         or existing.st_nlink not in {1, 2}
     ):
         raise ValueError("existing received snapshot invalid")
-    if store.read_fd(root, name, max_links=2) != raw:
+    if store.read_fd(root, name, max_links=2, allow_empty=not raw) != raw:
         raise ValueError("received immutable snapshot differs")
     if existing.st_nlink == 2:
         # A kill after link but before unlink may leave exactly one owned temp alias.
@@ -279,7 +405,7 @@ def put_snapshot(root, name, raw):
             raise ValueError("snapshot hard link is not a transfer temp")
         os.unlink(aliases[0], dir_fd=root)
         os.fsync(root)
-    if store.read_fd(root, name) != raw:
+    if store.read_fd(root, name, allow_empty=not raw) != raw:
         raise ValueError("received immutable snapshot differs")
     # Re-sync even an existing complete file before clearing a pending operation.
     fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=root)
@@ -431,11 +557,11 @@ def install(
         indexed = {
             int(m[1]): name for name in names if (m := store.NAME.fullmatch(name))
         }
+        wanted = [(catalog.revision, store.digest(data)) for catalog, data in decoded]
+        wanted += [(a.revision, a.digest) for a in getattr(bundle, "artifacts", [])]
         if any(
-            catalog.revision in indexed
-            and indexed[catalog.revision]
-            != store.filename(catalog.revision, store.digest(data))
-            for catalog, data in decoded
+            revision in indexed and indexed[revision] != store.filename(revision, sha)
+            for revision, sha in wanted
         ):
             raise ValueError("received revision conflicts with retained history")
         if highest > target.revision:
@@ -456,6 +582,12 @@ def install(
             )
         else:
             check_identity(root, target)
+        for artifact in getattr(bundle, "artifacts", []):
+            put_snapshot(
+                root,
+                store.filename(artifact.revision, artifact.digest),
+                base64.b64decode(artifact.content, validate=True),
+            )
         for catalog, data in decoded:
             put_snapshot(
                 root, store.filename(catalog.revision, store.digest(data)), data

@@ -106,8 +106,13 @@ class Catalog(Versioned):
         return self
 
 
+class RecoveryCatalog(Catalog):
+    version: Literal[2]
+    recovery_proof: dict = Field(alias="recoveryProof")
+
+
 class CatalogDocument(StrictModel):
-    envelope: Catalog
+    envelope: Catalog | RecoveryCatalog
     signature: str = Field(max_length=100)
 
 
@@ -287,6 +292,10 @@ def verify_document(raw, config, *, public_keys, workspace_id):
     )
     if catalog.catalog_id != config.catalog_id:
         raise ValueError("catalog identity differs from pin")
+    if isinstance(catalog, RecoveryCatalog):
+        from fs.gw.catalog_recovery import verify as verify_recovery
+
+        verify_recovery(catalog, public_keys=public_keys, workspace_id=workspace_id)
     return catalog
 
 
