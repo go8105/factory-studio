@@ -339,6 +339,14 @@ def cli_env(parts):
         "FS_GW_CATALOG_KEY_FILE": str(key),
         "FS_GW_CATALOG_KEY_ID": "catalog",
     }
+    from gw_catalog_trust_helpers import approve_subprocess
+
+    from fs.gw.catalog_trust_store import ENV as TRUST_ENV
+
+    trust_directory = folder.parent / "trust"
+    trust_directory.mkdir(mode=0o700, exist_ok=True)
+    env[TRUST_ENV] = str(trust_directory)
+    approve_subprocess(env)
     command = [
         sys.executable,
         "tools/gw_checkpoint_catalog.py",

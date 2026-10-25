@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from gw_catalog_trust_helpers import approve_subprocess
 from test_gw_catalog_recovery import interrupt, recover
 from test_gw_catalog_segments import finish, package
 from test_gw_catalog_store import cli_env, invoke, setup
@@ -495,6 +496,7 @@ def test_real_issue_cli_and_public_only_inspection_reload_pinned_lifecycle(
     }
     env["FS_GW_EVIDENCE_PUBLIC_KEYS"] = json.dumps(public)
     env["FS_GW_EVIDENCE_KEY_SCOPES"] = json.dumps(scopes)
+    approve_subprocess(env)
     private = setup[0].parent / "next.key"
     private.write_bytes(successor.private_bytes_raw())
     private.chmod(0o600)
@@ -542,6 +544,7 @@ def test_real_issue_cli_and_public_only_inspection_reload_pinned_lifecycle(
         FS_GW_EVIDENCE_KEY_SCOPES=json.dumps(scopes),
     )
     env[handover.ENV] = json.dumps(config)
+    approve_subprocess(env)
     for name in [
         "FS_GW_CATALOG_KEY_FILE",
         "FS_GW_CATALOG_KEY_ID",
@@ -572,6 +575,7 @@ def test_real_issue_cli_and_public_only_inspection_reload_pinned_lifecycle(
         "FS_GW_EVIDENCE_PUBLIC_KEYS",
         "FS_GW_EVIDENCE_KEY_SCOPES",
         handover.ENV,
+        "FS_GW_CATALOG_TRUST_DIRECTORY",
     ]:
         monkeypatch.setenv(name, env[name])
     assert from_environment().catalog_lifecycle is not None

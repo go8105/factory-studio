@@ -129,6 +129,7 @@ class Grant:
     # Exact (kind, catalog ID, generation, digest) -> cutoff and capture metadata.
     documents: object
     approval_digests: frozenset = frozenset()
+    approval_paths: tuple = ()
 
 
 class Lifecycle:
@@ -279,6 +280,7 @@ def bind(public_keys, value):
     for item in config.keys:
         raw_public = base64.b64decode(item.public_key, validate=True)
         documents = {}
+        approval_paths = []
         for approval in item.approvals:
             path = Path(approval.file)
             with store.directory(path.parent) as root:
@@ -293,6 +295,9 @@ def bind(public_keys, value):
                 workspace_id=item.workspace_id,
                 registry=registry,
             )
+            from fs.gw.catalog_trust_store import _lineage
+
+            approval_paths.append(tuple(_lineage(raw)))
             chains.append(chain)
             data = chain.root
             captured = timestamp(data.issued_at)
@@ -325,6 +330,7 @@ def bind(public_keys, value):
             raw_public,
             MappingProxyType(documents),
             frozenset(a.digest for a in item.approvals),
+            tuple(sorted(approval_paths)),
         )
     cross_check(chains)
     return EvidenceTrust(

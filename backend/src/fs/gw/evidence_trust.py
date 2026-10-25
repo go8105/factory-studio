@@ -156,15 +156,28 @@ def load(public_json, scopes_json=None, *, mode="PUBLIC_DEMO"):
     return EvidenceTrust(keys, scopes)
 
 
+def configured_environment():
+    """Validate operator settings without accepting them against the durable floor.
+
+    Only the explicit local trust installation CLI may call this to propose a change.
+    """
+    trust = load(
+        os.environ["FS_GW_EVIDENCE_PUBLIC_KEYS"],
+        os.environ.get("FS_GW_EVIDENCE_KEY_SCOPES"),
+        mode=os.environ.get("FS_SECURITY_MODE", "PUBLIC_DEMO"),
+    )
+    from fs.gw.catalog_key_handover import ENV, bind
+
+    return bind(trust, os.environ[ENV]) if ENV in os.environ else trust
+
+
 def from_environment():
     try:
-        trust = load(
-            os.environ["FS_GW_EVIDENCE_PUBLIC_KEYS"],
-            os.environ.get("FS_GW_EVIDENCE_KEY_SCOPES"),
-            mode=os.environ.get("FS_SECURITY_MODE", "PUBLIC_DEMO"),
-        )
-        from fs.gw.catalog_key_handover import ENV, bind
+        trust = configured_environment()
+        from fs.gw import catalog_trust_store as floor
 
-        return bind(trust, os.environ[ENV]) if ENV in os.environ else trust
-    except OSError, InvalidSignature, RecursionError, ValueError:
+        if floor.required(trust) or floor.ENV in os.environ:
+            return floor.check(trust, os.environ[floor.ENV])
+        return trust
+    except OSError, InvalidSignature, RecursionError, ValueError, KeyError, TypeError:
         raise ValueError("catalog lifecycle trust unavailable") from None

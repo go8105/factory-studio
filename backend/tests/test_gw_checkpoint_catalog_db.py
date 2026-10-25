@@ -14,6 +14,7 @@ from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from gw_catalog_trust_helpers import approve_environment
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from test_gw_backup import backup_env
@@ -80,6 +81,7 @@ def test_real_catalog_current_fail_missing_rollback_fresh_restore_and_cli(
         }
         monkeypatch.setenv("FS_GW_EVIDENCE_PUBLIC_KEYS", json.dumps(public))
         monkeypatch.setenv("FS_GW_EVIDENCE_KEY_SCOPES", json.dumps(scopes))
+        approve_environment(monkeypatch, folders["reports"] / "trust")
         checked_config["public"] = from_environment()
         catalog_folder = folders["reports"] / "catalog"
         catalog_folder.mkdir(mode=0o700)
@@ -349,7 +351,7 @@ def test_real_catalog_current_fail_missing_rollback_fresh_restore_and_cli(
         assert status()["state"] == "INVALID"  # CLI never auto-registers.
         assert api(admin, co, "operating-evidence", failed_cli).status_code == 200
         assert status()["state"] == "FAILED"
-        # Revoking the separate catalog authority invalidates retained acceptance.
+        # Deleting a catalog authority without a durable retirement/revocation is a configuration error.
         with monkeypatch.context() as revoked:
             revoked.setenv(
                 "FS_GW_EVIDENCE_PUBLIC_KEYS",
@@ -366,8 +368,11 @@ def test_real_catalog_current_fail_missing_rollback_fresh_restore_and_cli(
                     }
                 ),
             )
-            assert status()["state"] == "INVALID"
+            assert status()["state"] == "CONFIG_REQUIRED"
             assert "restoreRecheck" not in status()
+        assert (
+            status()["state"] == "FAILED"
+        )  # Exact retained current failure, never old success.
     finally:
         with cleanup.connect() as c:
             for name in targets:

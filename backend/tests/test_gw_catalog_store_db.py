@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from gw_catalog_trust_helpers import approve_environment
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from test_gw_backup import backup_env
@@ -58,6 +59,7 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
         }
         monkeypatch.setenv("FS_GW_EVIDENCE_PUBLIC_KEYS", json.dumps(public))
         monkeypatch.setenv("FS_GW_EVIDENCE_KEY_SCOPES", json.dumps(scopes))
+        approve_environment(monkeypatch, folders["reports"] / "trust")
         checked["public"] = from_environment()
         folder = folders["reports"] / "published"
         folder.mkdir(mode=0o700)
@@ -391,6 +393,7 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
                     "FS_GW_CATALOG_SUCCESSOR_KEY_FILE", str(successor_file)
                 )
                 monkeypatch.setenv("FS_GW_CATALOG_SUCCESSOR_KEY_ID", "next-catalog")
+                approve_environment(monkeypatch)
                 receipt = folders["reports"] / "catalog-handover.json"
                 issued = subprocess.run(
                     [
@@ -441,6 +444,7 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
                 monkeypatch.setenv("FS_GW_EVIDENCE_PUBLIC_KEYS", json.dumps(public))
                 monkeypatch.setenv("FS_GW_EVIDENCE_KEY_SCOPES", json.dumps(scopes))
                 monkeypatch.setenv(handover.ENV, json.dumps(lifecycle))
+                approve_environment(monkeypatch)
                 checked["public"] = from_environment()
                 assert status()["state"] == "INVALID"
                 retained_handover = receipt.read_bytes()
@@ -476,6 +480,7 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
                     monkeypatch.setenv(
                         "FS_GW_CATALOG_SUCCESSOR_KEY_ID", "final-catalog"
                     )
+                    approve_environment(monkeypatch)
                     own_file = folders["reports"] / "next-catalog-handover.json"
                     issue_args = [
                         sys.executable,
@@ -550,6 +555,7 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
                     monkeypatch.setenv("FS_GW_EVIDENCE_KEY_SCOPES", json.dumps(scopes))
                     monkeypatch.setenv(handover.ENV, json.dumps(lifecycle))
                     successor_file.unlink()
+                    approve_environment(monkeypatch)
                     checked["public"] = from_environment()
                     retained_continuation = continued_file.read_bytes()
                     continued_file.write_bytes(retained_continuation + b"tampered")
@@ -672,6 +678,7 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
             # Current revocation overrides older dual-signed approvals, without resetting history.
             lifecycle["keys"][0].update(state="REVOKED", approvals=[])
             monkeypatch.setenv(handover.ENV, json.dumps(lifecycle))
+            approve_environment(monkeypatch)
             checked["public"] = from_environment()
             with pytest.raises(ValueError):
                 from fs.gw.catalog_transfer import export as export_history
@@ -699,7 +706,50 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
                 "ready"
             ]
         elif receiver_mode == "chain":
-            # Revoked intermediate invalidates older A->B->C approvals despite active C.
+            from fs.gw import catalog_trust_store as floor
+
+            trust_path = os.environ[floor.ENV]
+            monkeypatch.delenv(floor.ENV)
+            assert status()["state"] == "CONFIG_REQUIRED"
+            monkeypatch.setenv(floor.ENV, trust_path)
+            assert status()["state"] == "INVALID"  # Latest actual FAIL remains.
+            # Persist revocation before live ENV edits; earlier valid settings immediately fail.
+            _, previous_floor = floor.inspect(trust_path)
+            revoked = subprocess.run(
+                [
+                    sys.executable,
+                    "tools/gw_catalog_trust.py",
+                    "revoke",
+                    "--expected-digest",
+                    previous_floor,
+                    "--workspace-id",
+                    str(co["companyId"]),
+                    "--key-id",
+                    "next-catalog",
+                ],
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+            assert revoked.returncode == 0 and not revoked.stderr
+            assert not json.loads(revoked.stdout)["ready"]
+            with pytest.raises(ValueError):
+                from_environment()
+            assert status()["state"] == "CONFIG_REQUIRED"
+            # Even the former correctly signed/valid RETIRED configuration cannot undo it.
+            rollback = subprocess.run(
+                [
+                    sys.executable,
+                    "tools/gw_catalog_trust.py",
+                    "advance",
+                    "--expected-digest",
+                    json.loads(revoked.stdout)["digest"],
+                ],
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+            assert rollback.returncode == 1 and not rollback.stderr
             lifecycle["keys"][1].update(state="REVOKED", approvals=[])
             monkeypatch.setenv(handover.ENV, json.dumps(lifecycle))
             with pytest.raises(ValueError):
