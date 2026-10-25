@@ -138,8 +138,10 @@ def inventory(root):
         match = NAME.fullmatch(name)
         if match:
             revisions.append(int(match[1]))
-        elif name not in {PIN, PENDING, LOCK, RECEIVER} and not re.fullmatch(
-            r"\.pin-[0-9a-f]{32}", name
+        elif (
+            not re.fullmatch(r"\.catalog-plan-[0-9a-f]{64}\.json", name)
+            and name not in {PIN, PENDING, LOCK, RECEIVER}
+            and not re.fullmatch(r"\.pin-[0-9a-f]{32}", name)
         ):
             raise ValueError("unexpected catalog entry")
     if len(revisions) != len(set(revisions)):

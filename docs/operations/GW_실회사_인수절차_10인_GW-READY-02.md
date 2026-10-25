@@ -561,3 +561,71 @@ uv run --project backend python tools/gw_checkpoint_transfer.py install \
 복구 슬롯은 최대256개, 파일 하나는2MiB, 전달은 기존256스냅샷/256남은 원본·총8MiB 범위다. 초과 이력의 분할/장기 보관은 후속이며 초과 시 차단한다. **현재의 유효한 보류 intent와 읽을 수 있는 직전 핀**에 대한 복구다. 이미 보류를 잃은 과거 v1 복구, 기준점 자체의 손상, 복구 근거 없이 사라진 과거 발행 원본, 회수된 과거 서명 키를 자동 재구성/초기화하지 않는다. 잘못 확인한 수신 지문을 다른 묶음으로 바꾸는 기능도 없다.
 
 서명은 허가된 발행자가 확인한 **중단/완료 불명 상태**의 근거다. 남은 완성 파일이 실제로 한 번도 공개되지 않았다는 물리 증명이나 공인 시각·발행자의 악의/누락·전체 이력 완전성·독립 담당자/장애 영역·WORM 증명이 아니다. 실제 외부 공급자/원격 전송은 계속 미정이며 같은 OS 계정의 합성 폴더 수신과 구분한다. 이번 실제PG 검사는 실제 dump/암호화/폐쇄 복원·고의 발행 중단/8바이트 원본 보존·서명 복구/수신·인수 무효화/실패 등록·새 대조/새 폐쇄 복원/후속 PARTIAL까지다. 전체CI/전체회귀·실회사/기기/10인 인수는 별도이며 실제 복원 PARTIAL·최종4조건 UNVERIFIED·ready=false·ACCEPTANCE PASS 거부를 유지한다.
+
+## 26. 큰 목록 이력의 분할 전달·진행점 복구 (GW-READY-02 52차)
+
+§24의 단일 묶음은 기존256개/8MiB 제한을 유지한다. 이보다 큰 이력에는 `tools/gw_checkpoint_segments.py`를 사용한다. **운영자가 별도 신뢰 경로로 확인한 manifest 전체 SHA-256과 catalogId**가 모든 조각·최종 목록 지문·실제 수신 기준점을 묶는다. manifest는 새 인수 증거/서명이 아니며 각 원본의 기존 회사별 서명과 현재 키 권한을 다시 검사한다. 발행 개인키는 수신자에게 주지 않는다. 공급자 미정 상태의 오프라인 파일 어댑터이며 원격 저장소/전송·서버 환경 설치를 자동화하지 않는다.
+
+### 발행 담당자
+
+현재 회사/세대/정책/버전의0600 context와 기존 공개키/용도 설정을 사용한다. 수신자 status의 마지막 **revision/catalogDigest**를 지정한다. pinDigest는 수신 CAS용이며 catalogDigest와 바꾸지 않는다. 최초 수신은0/ABSENT다. 패키지 폴더는 직접 만든 **빈0700 절대 폴더**이며 발행/수신 저장 폴더와 별개다.
+
+```sh
+uv run --project backend python tools/gw_checkpoint_segments.py export \
+  --directory /operator/published \
+  --context /operator/config/context.json \
+  --from-revision 0 --from-catalog-digest ABSENT \
+  --output-directory /operator/packages/new-session
+```
+
+원본 전체를 메모리에 합치지 않고, 최종 목록부터 역으로 검증해 `part-00001.bin`부터 각 원본의 **실제 바이트**를 새0600 파일에 보존한다. 서명 복구 구간의0바이트/잘린 원본도 조각으로 전달한다. 없는 슬롯은 서명 근거로만 확인하며 파일을 만들어 채우지 않는다. 마지막에만 manifest.json을 쓰고 지문을 출력한다. 중간에 실패한 출력 폴더의 파일을 완성 패키지로 쓰지 않고 새 빈 폴더에서 재실행한다. 중간 조각 지문을 새 최종 기준점으로 바꾸지 않는다.
+
+manifest v1은 kind=CHECKPOINT_CATALOG_SEGMENTS, catalogId/회사·세대, baseRevision/baseDigest, targetRevision/targetDigest와 순서가 고정된 parts를 가진다. 각 part는 version=1/kind(SNAPSHOT 또는 ARTIFACT)/revision/digest(원래 이름의 지문)/actualDigest/size다. 일반 원본의 두 지문은 같고, 불완전 원본은 서명 복구 슬롯의 기대 지문·실제 지문/크기를 따로 보존한다. 중복/추가·형식 낮춤·범위/최종 지문 불일치를 거부한다.
+
+### 수신 담당자
+
+아래 값은 입력 파일에서 자동 추출해 신뢰하지 않는다. `CONFIRMED_MANIFEST_SHA256`·`CONFIRMED_CATALOG_ID`는 별도 확인값으로 바꾼다. 최초는 비어 있는0700 수신 폴더와 ABSENT/--initialize를 명시한다. 기존 수신은 실제 현재 핀 지문을 지정하고 --initialize를 생략한다.
+
+```sh
+uv run --project backend python tools/gw_checkpoint_segments.py receive \
+  --directory /operator/received --context /operator/config/context.json \
+  --manifest /operator/incoming/manifest.json \
+  --expected-manifest-digest CONFIRMED_MANIFEST_SHA256 \
+  --expected-catalog-id CONFIRMED_CATALOG_ID \
+  --expected-pin-digest ABSENT --initialize
+```
+
+이 명령은 CAS/회사·기존 목록/수신 역할을 확인한 뒤 **본문을 해석·검증하기 전에 보류 상태를 저장**한다. 확인된 지문의 manifest가 누락/변조돼도 이전 성공을 운영 근거로 다시 사용하지 않는다. 정상 시작 출력은 state=RECEIVING/nextPart이며 종료2다. 이후 출력의 nextPart에 해당하는 원본을 같은 지문·현재 핀/--resume으로 전달한다. 이미 가진 정확한 기준 원본은 다시 전송하지 않아도 다음 번호 계산에 반영된다.
+
+```sh
+uv run --project backend python tools/gw_checkpoint_segments.py receive \
+  --directory /operator/received --context /operator/config/context.json \
+  --manifest /operator/incoming/manifest.json \
+  --expected-manifest-digest CONFIRMED_MANIFEST_SHA256 \
+  --expected-catalog-id CONFIRMED_CATALOG_ID \
+  --expected-pin-digest CURRENT_RECEIVER_PIN_SHA256 --resume \
+  --part-number 1 --part-file /operator/incoming/part-00001.bin
+```
+
+한 호출은 다음 조각 또는 이미 저장한 동일 조각의 재시도만 허용한다. 파일을 완성 임시 파일/fsync·배타적 링크로 보존하며 기존 바이트를 덮지 않는다. 중단 후 별도 숫자 진행 파일을 믿지 않고 현재 불변 파일의 이름/소유자/권한·형태/크기에서 진행점을 다시 구한다. **receivedParts는 저장 진행 수이며 전체 바이트/서명 검증 완료 수가 아니다.** 모든 원본의 실제 지문·서명/현재 권한·회사/세대·정확한 버전/번호/시각·실패 이후 새 HEAD·복구 근거/직전 기준/원본을 최종 단계에서 다시 읽어 검증한다. 저장 후 같은 크기로 변조된 파일도 최종 활성화 전에 차단한다.
+
+같은 명세 지문/목록 ID/현재 핀을 지정해 `status`를 호출하면 다음 조각을 읽기 전용으로 확인한다. --initialize/--resume/--part-*는 status에 넣지 않는다. 중단 직후 현재 핀 지문은 §23의 status로 재확인한다. 핀 교체 직후 응답이 유실됐다면 이미 바뀐 실제 핀 지문을 사용한다. 중단된 완성 링크 정리가 필요한 상태는 receive --resume에서 처리하며 status가 파일을 정리하지 않는다.
+
+```sh
+uv run --project backend python tools/gw_checkpoint_segments.py status \
+  --directory /operator/received --context /operator/config/context.json \
+  --manifest /operator/incoming/manifest.json \
+  --expected-manifest-digest CONFIRMED_MANIFEST_SHA256 \
+  --expected-catalog-id CONFIRMED_CATALOG_ID \
+  --expected-pin-digest CURRENT_RECEIVER_PIN_SHA256
+```
+
+마지막 조각 저장 뒤 전체 검증을 통과해야 **한 번만 최종 핀을 원자 교체**하고 보류를 끝낸다. 중간 수신은 현재 핀을 바꾸거나 보류를 해제하지 않으며 기존 API/수집기는 이전 성공도 읽지 못한다. 모든 파일은 왔지만 핀 교체 전 중단된 경우 status는 AWAITING_FINALIZE/sourceResult를 보여주고 성공 판정을 하지 않는다. 같은 receive --resume(조각 옵션 없이 가능)으로 최종화를 재시도한다. 완료 응답 유실은 같은 보존 manifest/실제 최종 지문만 재확인하며 다른 명세로 완료를 주장하지 못한다.
+
+완료는 state=COMPLETE다. **최신 원본 PASS·현재 정책/코드/DB 기준 일치·15분 안 확인**이 모두 맞을 때만 CLI 종료0이며 나머지는2, 오류는1이다. 모든 출력은 ready=false다. PARTIAL/FAIL·옛 정책/버전을 이전 PASS로 대체하지 않는다. 보류 중 기한이 지난 같은 원본은 명시적 --resume으로 이력 보존만 마칠 수 있고 targetFresh=false/종료2이며 현재 읽기는 계속 STALE로 막힌다. 새 확인 목록을 별도 후속 세션으로 받아야 한다. 미래30초 초과는 재시도에서도 거부한다. 잘못 확인한 명세/손상 기준점/근거 없는 유실·회수된 과거 키를 자동 초기화하거나 다른 지문으로 교체하지 않는다.
+
+### 한계와 인수 경계
+
+조각 하나2MiB·최대8192원본, manifest2MiB의 먼저 도달하는 제한을 적용한다. 일반 수신 읽기는 빈 파일/임의 하드링크를 허용하지 않는다. 기존 복구 서명은 최대256슬롯 제한을 유지한다. 총8192개/최대 용량에서의 성능·장기 보관/공급자 장애 복구는 검증하지 않았다. 수신마다 메타데이터를 점검하고 최종에 전체 원본을 다시 읽으므로 큰 이력에서는 시간/디스크 여유가 필요하다.
+
+최종화 후에도 최초 명세와 원본/이전 실패를 보존한다. 단일 묶음과 분할 세션의 보류 상태는 서로 바꿔 재시도하지 않는다. 서명 키를 현재 권한에서 제거하면 과거 원본 검증도 막히며 과거 키 이관은 후속이다. 이 전달은 외부 독립 보관·사람/장애 영역 독립·전체 무누락·실회사10인/운영 전환 인수가 아니다. 실제 복원은 PARTIAL/최종4조건 UNVERIFIED/ready=false·ACCEPTANCE PASS 거부를 유지한다.

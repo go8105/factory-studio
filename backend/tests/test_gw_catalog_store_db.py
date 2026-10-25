@@ -27,7 +27,7 @@ from fs.gw.evidence_trust import from_environment
 from fs.gw.operating_contract import canonical, timestamp
 
 
-@pytest.mark.parametrize("receiver_mode", [False, True, "recovery"])
+@pytest.mark.parametrize("receiver_mode", [False, True, "recovery", "segments"])
 def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
     company_env, backup_env, monkeypatch, receiver_mode
 ):
@@ -117,8 +117,112 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
         installed = None
         deliveries = 0
 
+        def deliver_segments(exit_code, *, tamper, resume):
+            nonlocal installed, deliveries
+            deliveries += 1
+            package = folders["reports"] / f"segments-{deliveries}"
+            package.mkdir(mode=0o700)
+            exported = subprocess.run(
+                [
+                    sys.executable,
+                    "tools/gw_checkpoint_segments.py",
+                    "export",
+                    "--directory",
+                    str(folder),
+                    "--context",
+                    str(context),
+                    "--from-revision",
+                    str(installed["revision"] if installed else 0),
+                    "--from-catalog-digest",
+                    installed["catalogDigest"] if installed else "ABSENT",
+                    "--output-directory",
+                    str(package),
+                ],
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+            assert exported.returncode == 0 and not exported.stderr
+            anchor = json.loads(exported.stdout)
+            manifest = package / "manifest.json"
+            if tamper:
+                manifest.write_bytes(manifest.read_bytes() + b"tampered")
+            receiving_env = os.environ.copy()
+            receiving_env.pop("FS_GW_CATALOG_KEY_FILE", None)
+            receiving_env.pop("FS_GW_CATALOG_KEY_ID", None)
+            command = [
+                sys.executable,
+                "tools/gw_checkpoint_segments.py",
+                "receive",
+                "--directory",
+                str(receiver),
+                "--context",
+                str(context),
+                "--manifest",
+                str(manifest),
+                "--expected-manifest-digest",
+                anchor["manifestDigest"],
+                "--expected-catalog-id",
+                anchor["catalogId"],
+                "--expected-pin-digest",
+                installed["pinDigest"] if installed else "ABSENT",
+            ]
+            result = subprocess.run(
+                command
+                + (
+                    ["--resume"]
+                    if resume
+                    else ["--initialize"]
+                    if installed is None
+                    else []
+                ),
+                env=receiving_env,
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+            assert not result.stderr
+            if exit_code == 1:
+                assert result.returncode == 1
+                return
+            assert result.returncode == 2
+            report = json.loads(result.stdout)
+            while report["state"] != "COMPLETE":
+                assert report["state"] == "RECEIVING" and "result" not in report
+                with pytest.raises(ValueError):
+                    store.managed_read(
+                        receiver / store.PIN,
+                        public_keys=from_environment(),
+                        workspace_id=co["companyId"],
+                        now=datetime.now(UTC),
+                    )
+                assert not api(admin, co, "operations", method="GET").json()["data"][
+                    "ready"
+                ]
+                number = report["nextPart"]
+                result = subprocess.run(
+                    command
+                    + [
+                        "--resume",
+                        "--part-number",
+                        str(number),
+                        "--part-file",
+                        str(package / f"part-{number:05d}.bin"),
+                    ],
+                    env=receiving_env,
+                    capture_output=True,
+                    timeout=30,
+                    check=False,
+                )
+                assert not result.stderr and result.returncode in {0, 2}
+                report = json.loads(result.stdout)
+            assert result.returncode == exit_code and not report["ready"]
+            installed = report
+
         def deliver(exit_code=0, *, tamper=False, resume=False):
             nonlocal installed, deliveries
+            if receiver_mode == "segments":
+                return deliver_segments(exit_code, tamper=tamper, resume=resume)
             deliveries += 1
             batch = folders["reports"] / f"transfer-{deliveries}.json"
             base = installed["revision"] if installed else 0
@@ -233,7 +337,7 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
         if delay >= 0:
             time.sleep(delay + 0.02)
         assert status()["restoreRecheck"]["catalogObservation"]["reason"] == "MATCH"
-        if receiver_mode == "recovery":
+        if receiver_mode in {"recovery", "segments"}:
             original_write = store.write_new
             with monkeypatch.context() as patch:
 
