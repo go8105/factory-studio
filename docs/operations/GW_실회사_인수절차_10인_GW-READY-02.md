@@ -703,3 +703,64 @@ uv run --project backend python tools/gw_catalog_key_handover.py inspect \
 - 서버 신뢰 설정은 운영자 소유 입력이다. 설정 자체의 악의적 롤백·실수로 회수 상태를 정상 은퇴로 덮는 것을 막는 독립 영구 회수 원장/WORM은 아직 없다. **REVOKED를 RETIRED로 되돌리는 복구 절차는 제공하지 않는다.** 현재 회수 우선 검증과 설정 자체의 물리적 롤백 방지는 서로 다르다.
 - 단일 호출은 로드한 신뢰 스냅샷을 사용하며 다음 명령/API 요청에서 다시 읽는다. 서명은 허가된 두 발행 키의 진술이고 독립 담당자/시간·개인키 삭제/장애 영역·전체 무누락을 증명하지 않는다. 실제 외부 공급자/운영 환경 설정·실계정/개인키 삭제를 이번 작업에서 변경하지 않았다.
 - 실제 복원 PARTIAL·최종4조건 UNVERIFIED·ready=false/ACCEPTANCE PASS 거부는 유지한다. 전체CI/전체회귀·실외부/실회사·기기/10인/최종전환·최신main 통합/원격push/배포는 별도다.
+
+## 28. 여러 차례 목록 키 교체의 이관 연결 (GW-READY-02 54차)
+
+§27의 한 단계 A→B를 마친 뒤 B→C로 다시 교체할 때 **A의 개인키 없이** A의 정확한 과거 승인을 연결한다. A의 원래 이관 파일과 허용 원본/복구 지문·허용 시각은 그대로 보존한다. B와 C는 그 파일 전체 지문과 현재 B의 별도 이관 자료를 역할별로 서명한다. 이름/날짜만 바꾸거나 은퇴 키 전체를 다시 활성 키로 간주하지 않는다. 현재 바깥 목록 서명은 계속 활성 최종 키가 필요하다.
+
+### B→C 교체 순서
+
+1. A는 RETIRED/기존 승인 파일·공개키/회사 설정을 유지하고 B는 현재 활성 상태로 둔다. C를 같은 회사의 별개 CHECKPOINT_CATALOG 단독 활성 키로 준비한다. B의 `FS_GW_CATALOG_KEY_FILE/ID`, C의 `FS_GW_CATALOG_SUCCESSOR_KEY_FILE/ID`만 발급 환경에 필요하다. A의 개인키 파일/환경을 읽지 않는다. 이 도구가 실환경 키를 생성·삭제/배포하거나 서버 설정을 설치하지는 않는다.
+2. B의 발행을 잠시 멈추고 §23 status로 실제 핀을 확인한다. §27의 **issue** 명령을 B/C로 실행해 B→C 원래 이관 파일을 만든다. 전체 보존 이력/복구 구간을 현재 권한으로 대조하며 A는 기존에 승인한 정확한 과거 원본으로만 검증한다. 새 파일의 전체 지문을 별도 확인한다.
+3. 더 오래된 각 은퇴 키의 **현재 설정에 고정한 승인 파일**을 부모로 지정해 아래 extend를 실행한다. 첫 반복에서는 A 하나다. 이후 C→D 교체에서는 A/B 각각의 현재 승인 파일을 별도로 연결해야 한다. 같은 회사 안에서도 목록/세대가 다르면 해당 context와 각각의 승인 자료가 필요하다. 모든 연결 자료는 같은 현재 발행 핀/실제 캡처에 맞아야 하며, 중간에 발행이 진행됐으면 이전 캡처를 새 현재 자료인 것처럼 쓰지 않는다.
+
+```sh
+uv run --project backend python tools/gw_catalog_key_handover.py extend \
+  --directory /operator/published --context /operator/config/context.json \
+  --retiring-key-id catalog-b --expected-pin-digest CONFIRMED_B_PIN_SHA256 \
+  --predecessor-key-id catalog-a \
+  --parent-file /operator/handovers/current-a-approval.json \
+  --expected-parent-digest CONFIRMED_CURRENT_A_APPROVAL_SHA256 \
+  --retiring-handover-file /operator/handovers/b-to-c.json \
+  --expected-retiring-handover-digest CONFIRMED_B_TO_C_SHA256 \
+  --output /operator/handovers/continued-a-to-c.json
+```
+
+부모는 입력자가 새로 고른 임의 지문이 아니라 **현재 서버 신뢰 스냅샷에 고정된 해당 은퇴 키 승인 지문**이어야 한다. 같은 의미의 JSON이라도 다른 바이트/지문은 새 부모로 추정하지 않는다. B→C 자료는 두 활성 키의 서명뿐 아니라 실제 현재 B 목록의 ID/회사·세대·전체 지문/버전·기록번호/기록 지문·확인 시각과 맞아야 한다. 해당 키가 서명한 저장 원본/복구 지문 목록도 현재 보존 이력과 **정확히 같아야** 하며 누락/추가·소급 발급은 거부한다. 잘못된 CAS·부모/자기 이관/원본·권한/시계·서명이면 새 연결/현재 핀을 발행하지 않는다.
+
+4. 출력의 handoverDigest/rootHandoverId/capturedRevision/edges를 확인한다. edges는 최초 이관을 포함한 연결 수이며 인수 통과 수가 아니다. 자료 생성 성공은 종료0/ready=false다. 승인자 자신의 B→C 원래 이관과 더 오래된 각 키의 연결 자료를 모두 준비한 뒤, 아직 B/C가 활성인 동안 C의 기존 refresh로 다음 목록을 발행한다. 실패/일부 기록과 안쪽 복구 근거는 그대로 둔다.
+5. 활성 공개키/목적 목록에서 B를 제외하고 §27과 같은 `FS_GW_CATALOG_KEY_LIFECYCLE` v1 설정에 B의 **원래 B→C 파일**을 RETIRED 승인으로 추가한다. A의 원래 공개키/회사·RETIRED 상태는 바꾸지 않고 승인 파일/핀만 새 A→C 연결 자료로 지정한다. C는 활성 키/회사·단독 목적 설정에 남기며 은퇴/회수 항목으로 지정하지 않는다. 기존 원본·이전 이관 파일은 덮거나 지우지 않는다. 예시 구조의 지문/공개키/경로는 실제 별도 확인값으로 바꾼다.
+
+```json
+{
+  "version": 1,
+  "keys": [
+    {"version": 1, "workspaceId": "10", "keyId": "catalog-a",
+     "publicKey": "CONFIRMED_A_PUBLIC_KEY_BASE64", "state": "RETIRED",
+     "approvals": [{"version": 1, "file": "/operator/handovers/continued-a-to-c.json", "digest": "CONFIRMED_A_CONTINUATION_SHA256"}]},
+    {"version": 1, "workspaceId": "10", "keyId": "catalog-b",
+     "publicKey": "CONFIRMED_B_PUBLIC_KEY_BASE64", "state": "RETIRED",
+     "approvals": [{"version": 1, "file": "/operator/handovers/b-to-c.json", "digest": "CONFIRMED_B_TO_C_SHA256"}]}
+  ]
+}
+```
+
+6. 기존 공개키만 필요한 inspect로 전체 설정의 현재 연결/권한을 확인한다. approvedDocuments는 **원래 허용한 목록/복구 문서 수**이며 새 연결 수나 운영 준비 통과 수가 아니다. 같은 회사의 승인 파일 하나라도 잘못됐거나 중간 키의 현재 상태/원래 이관을 확인하지 못하면 안전한 구성 오류로 차단한다. 과거 성공/낮은 단계의 승인 파일을 대신 선택하지 않는다.
+7. §24/§26의 단일/분할 전달을 기존처럼 진행한다. 옛 현재 핀은 일반 운영 읽기에 사용할 수 없고, 수신 도구만 정확한 옛 기준점/중간 이력으로 대조해 활성 C의 최종 목록까지 연결할 수 있다. 수신자에게 A/B/C 개인키를 전달하지 않는다. 전체 바이트/현재 승인·회수 상태 재검증·보류/원자 핀 교체 규칙은 유지한다. 실제 인수 미통과를 등록했다면 실패 이후 새 권한 대조·새 폐쇄 복원/현재 점검이 계속 필요하다.
+
+### 연결 문서의 검증 계약
+
+`CHECKPOINT_CATALOG_KEY_CONTINUATION` v1은 continuationId/rootHandoverId·회사/세대/목록, NORMAL_RETIREMENT_CONTINUATION, 기존 부모의 전체 지문과 **원래 바이트의 base64**, 현재 은퇴하는 키의 원래 이관 파일 전체 지문(retiringHandoverDigest), 현재/다음 키 ID·공개키 지문·시각과 실제 캡처 버전/목록 지문·번호/기록 지문을 묶는다. 새 서명 문맥은 `FS-GW-CATALOG-KEY-CONTINUATION-v1`+0바이트이며 역할별 RETIRING/SUCCESSOR+0바이트를 앞에 붙인다. 원래 이관/목록/복구 서명 문맥과 바이트는 바꾸지 않는다.
+
+검증은 중첩 부모의 실제 지문과 모든 역할 서명, 같은 회사/세대/목록과 최초 이관 ID, 앞 단계의 다음 키와 뒷 단계의 현재 키/공개키, 증가하는 실제 캡처 버전·후퇴하지 않는 번호/시각을 대조한다. 같은 번호의 기록 지문은 같아야 한다. 키 ID/공개키·연결 ID/최초 이관 ID의 반복과 순환·잘못된 부모/형식 낮춤은 거부한다. **과거 허용 원본과 허용 시각은 최초 이관의 값이며 뒤의 연결 시각으로 넓히지 않는다.**
+
+모든 중간 키의 공개키와 RETIRED 상태는 **현재 운영자 소유 설정**에 있어야 한다. 연결 문서 안에서 신뢰 키/권한을 가져오지 않는다. 각 중간 키는 같은 범위의 자기 원래 이관도 현재 승인 파일로 보존해야 하며, 해당 원래 문서의 전체 지문/직접 다음 키·캡처 값이 연결 문서와 정확히 같아야 한다. A→B→C와 B→C를 서로 대조한다. B→C→D로 이어질 때도 B의 원래 B→C 바이트는 안쪽에 남고 C의 원래 C→D와 새 연결을 함께 대조한다. 범위별 원래 이관/캡처가 중복/분기하거나 자기 자료가 없으면 거부한다.
+
+마지막 키는 **지금도 활성인 해당 회사의 CHECKPOINT_CATALOG 단독 권한**이어야 한다. 옛 A→B 자료를 재생해 은퇴한 B를 마지막 승인자로 사용할 수 없다. 원래 키/중간 키/최종 키의 현재 회수·누락·허용 회사/용도 상실은 모두 차단한다. 유효한 새 바깥 서명도 회수된 안쪽 복구 근거나 연결을 부활시키지 않는다. 오류는 CONFIG_REQUIRED/INVALID·보류/ready=false로 남고 이전 성공을 대신하지 않는다.
+
+### 범위와 남은 제약
+
+- 최초 이관 포함 **최대8연결**, 파일 하나2MiB/부모를 풀어 읽은 누적8MiB, 기존 설정64KiB/100회사-키·승인 전체20파일/각2MiB·원본/복구 지문 한도 중 먼저 도달하는 제한을 적용한다. 한도 초과는 새 연결/현재 핀 변경 없이 거부한다. 최대8연결을 넘는 압축·새 신뢰 기준점 전환은 지원하지 않는다. 최대 파일 용량/장기 성능 검증은 별도다.
+- 새 승인 파일을 읽으려면 54차 검증기가 필요하다. 이전 한 단계 전용 검증기는 새 형식을 거부하며 운영 환경/바이너리를 도구가 자동 업데이트하지 않는다. 한 단계 자료와 설정 v1·목록/복구/전달 형식은 유지한다.
+- 현재 설정 아래에서 회수·재생을 거부하는 검증이다. **독립 영구 회수 원장/서버 신뢰 설정 자체의 악의적 롤백 방지**는 아직 없으며, REVOKED를 RETIRED로 되돌리는 복구 도구/절차를 제공하지 않는다. 여러 서명도 무침해·개인키 실제 삭제·공인 시각/독립 담당자·장애 영역/WORM/전체 무누락을 증명하지 않는다.
+- 실제 외부 공급자/운영 환경·실계정/브라우저·실환경 키 삭제는 이번 범위가 아니다. 실제 복원 PARTIAL/최종4조건 UNVERIFIED·ready=false/ACCEPTANCE PASS 거부를 유지한다. 전체CI/전체회귀·최신main·실회사10인/최종전환·원격push/배포는 남아 있다.

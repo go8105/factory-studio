@@ -28,7 +28,7 @@ from fs.gw.operating_contract import canonical, timestamp
 
 
 @pytest.mark.parametrize(
-    "receiver_mode", [False, True, "recovery", "segments", "handover"]
+    "receiver_mode", [False, True, "recovery", "segments", "handover", "chain"]
 )
 def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
     company_env, backup_env, monkeypatch, receiver_mode
@@ -223,7 +223,7 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
 
         def deliver(exit_code=0, *, tamper=False, resume=False):
             nonlocal installed, deliveries
-            if receiver_mode in {"segments", "handover"}:
+            if receiver_mode in {"segments", "handover", "chain"}:
                 return deliver_segments(exit_code, tamper=tamper, resume=resume)
             deliveries += 1
             batch = folders["reports"] / f"transfer-{deliveries}.json"
@@ -339,7 +339,7 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
         if delay >= 0:
             time.sleep(delay + 0.02)
         assert status()["restoreRecheck"]["catalogObservation"]["reason"] == "MATCH"
-        if receiver_mode in {"recovery", "segments", "handover"}:
+        if receiver_mode in {"recovery", "segments", "handover", "chain"}:
             original_write = store.write_new
             with monkeypatch.context() as patch:
 
@@ -371,7 +371,7 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
             unknown = collect(recheck("recovery-unknown.json"))
             assert unknown["envelope"]["result"] == "FAIL"
             assert api(admin, co, "operating-evidence", unknown).status_code == 200
-            if receiver_mode == "handover":
+            if receiver_mode in {"handover", "chain"}:
                 from fs.gw import catalog_key_handover as handover
 
                 successor = Ed25519PrivateKey.generate()
@@ -454,6 +454,116 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
                 shifted = collect(recheck("retired-inner-current.json"))
                 assert shifted["envelope"]["result"] == "FAIL"
                 assert api(admin, co, "operating-evidence", shifted).status_code == 200
+                if receiver_mode == "chain":
+                    # The first private key is now unavailable; extension reads only B/C private keys.
+                    key.unlink()
+                    final_key = Ed25519PrivateKey.generate()
+                    final_file = folders["reports"] / "final-catalog.key"
+                    final_file.write_bytes(final_key.private_bytes_raw())
+                    final_file.chmod(0o600)
+                    public["final-catalog"] = base64.b64encode(
+                        final_key.public_key().public_bytes_raw()
+                    ).decode()
+                    scopes["keys"]["final-catalog"] = {
+                        "workspaceIds": [str(co["companyId"])],
+                        "purposes": ["CHECKPOINT_CATALOG"],
+                    }
+                    monkeypatch.setenv("FS_GW_EVIDENCE_PUBLIC_KEYS", json.dumps(public))
+                    monkeypatch.setenv("FS_GW_EVIDENCE_KEY_SCOPES", json.dumps(scopes))
+                    monkeypatch.setenv(
+                        "FS_GW_CATALOG_SUCCESSOR_KEY_FILE", str(final_file)
+                    )
+                    monkeypatch.setenv(
+                        "FS_GW_CATALOG_SUCCESSOR_KEY_ID", "final-catalog"
+                    )
+                    own_file = folders["reports"] / "next-catalog-handover.json"
+                    issue_args = [
+                        sys.executable,
+                        "tools/gw_catalog_key_handover.py",
+                        "issue",
+                        "--directory",
+                        str(folder),
+                        "--context",
+                        str(context),
+                        "--retiring-key-id",
+                        "next-catalog",
+                        "--expected-pin-digest",
+                        first["pinDigest"],
+                        "--output",
+                        str(own_file),
+                    ]
+                    issued_next = subprocess.run(
+                        issue_args, capture_output=True, timeout=30, check=False
+                    )
+                    assert issued_next.returncode == 0 and not issued_next.stderr
+                    own = json.loads(issued_next.stdout)
+                    continued_file = folders["reports"] / "continued-catalog.json"
+                    extend_args = issue_args.copy()
+                    extend_args[2] = "extend"
+                    extend_args[-1] = str(continued_file)
+                    extend_args += [
+                        "--predecessor-key-id",
+                        "catalog",
+                        "--parent-file",
+                        str(receipt),
+                        "--expected-parent-digest",
+                        approved["handoverDigest"],
+                        "--retiring-handover-file",
+                        str(own_file),
+                        "--expected-retiring-handover-digest",
+                        own["handoverDigest"],
+                    ]
+                    extended = subprocess.run(
+                        extend_args, capture_output=True, timeout=30, check=False
+                    )
+                    assert extended.returncode == 0 and not extended.stderr
+                    continuation = json.loads(extended.stdout)
+                    assert continuation["edges"] == 2 and not continuation["ready"]
+                    monkeypatch.setenv("FS_GW_CATALOG_KEY_FILE", str(final_file))
+                    monkeypatch.setenv("FS_GW_CATALOG_KEY_ID", "final-catalog")
+                    first = cli("refresh", first["pinDigest"], exit_code=2)
+                    lifecycle["keys"][0]["approvals"] = [
+                        {
+                            "version": 1,
+                            "file": str(continued_file),
+                            "digest": continuation["handoverDigest"],
+                        }
+                    ]
+                    lifecycle["keys"].append(
+                        {
+                            "version": 1,
+                            "workspaceId": str(co["companyId"]),
+                            "keyId": "next-catalog",
+                            "publicKey": public.pop("next-catalog"),
+                            "state": "RETIRED",
+                            "approvals": [
+                                {
+                                    "version": 1,
+                                    "file": str(own_file),
+                                    "digest": own["handoverDigest"],
+                                }
+                            ],
+                        }
+                    )
+                    scopes["keys"].pop("next-catalog")
+                    monkeypatch.setenv("FS_GW_EVIDENCE_PUBLIC_KEYS", json.dumps(public))
+                    monkeypatch.setenv("FS_GW_EVIDENCE_KEY_SCOPES", json.dumps(scopes))
+                    monkeypatch.setenv(handover.ENV, json.dumps(lifecycle))
+                    successor_file.unlink()
+                    checked["public"] = from_environment()
+                    retained_continuation = continued_file.read_bytes()
+                    continued_file.write_bytes(retained_continuation + b"tampered")
+                    assert status()["state"] == "CONFIG_REQUIRED"
+                    continued_file.write_bytes(retained_continuation)
+                    checked["public"] = from_environment()
+                    assert status()["state"] == "INVALID"
+                    deliver(exit_code=2)
+                    repeated = collect(recheck("continued-inner-current.json"))
+                    assert repeated["envelope"]["result"] == "FAIL"
+                    assert (
+                        api(admin, co, "operating-evidence", repeated).status_code
+                        == 200
+                    )
             # Wait only for the existing bounded runner/DB clock difference, never relax production ordering.
             catalog_path = folder / store.filename(
                 first["revision"], first["catalogDigest"]
@@ -588,6 +698,13 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
             assert not api(admin, co, "operations", method="GET").json()["data"][
                 "ready"
             ]
+        elif receiver_mode == "chain":
+            # Revoked intermediate invalidates older A->B->C approvals despite active C.
+            lifecycle["keys"][1].update(state="REVOKED", approvals=[])
+            monkeypatch.setenv(handover.ENV, json.dumps(lifecycle))
+            with pytest.raises(ValueError):
+                from_environment()
+            assert status()["state"] == "CONFIG_REQUIRED"
     finally:
         with cleanup.connect() as connection:
             for database in targets:

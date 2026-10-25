@@ -23,19 +23,38 @@ def main():
     parser = argparse.ArgumentParser(
         description="GW 목록 키 정상 이관 근거 생성/현재 상태 (운영 인수 승인 아님)"
     )
-    parser.add_argument("operation", choices=["issue", "inspect"])
+    parser.add_argument("operation", choices=["issue", "extend", "inspect"])
     parser.add_argument("--context", required=True)
     parser.add_argument("--retiring-key-id", required=True)
     parser.add_argument("--directory")
     parser.add_argument("--expected-pin-digest")
     parser.add_argument("--output")
+    parser.add_argument("--predecessor-key-id")
+    parser.add_argument("--parent-file")
+    parser.add_argument("--expected-parent-digest")
+    parser.add_argument("--retiring-handover-file")
+    parser.add_argument("--expected-retiring-handover-digest")
     args = parser.parse_args()
+    continuation = (
+        args.predecessor_key_id,
+        args.parent_file,
+        args.expected_parent_digest,
+        args.retiring_handover_file,
+        args.expected_retiring_handover_digest,
+    )
     try:
         context = store.PublishContext.model_validate(store.load_private(args.context))
         public = from_environment()
         if args.operation == "inspect":
             if (
-                any((args.directory, args.expected_pin_digest, args.output))
+                any(
+                    (
+                        args.directory,
+                        args.expected_pin_digest,
+                        args.output,
+                        *continuation,
+                    )
+                )
                 or public.catalog_lifecycle is None
             ):
                 raise ValueError("configured lifecycle required")
@@ -62,7 +81,30 @@ def main():
         output = Path(args.output)
         if output.parent.resolve() == Path(args.directory).resolve():
             raise ValueError("separate output required")
-        raw, report = handover.issue(
+        extras = {}
+        action = handover.issue
+        if args.operation == "extend":
+            from fs.gw.catalog_key_chain import extend
+
+            if not all(continuation):
+                raise ValueError("explicit pinned predecessor/own handover required")
+
+            def read_approval(value):
+                path = Path(value)
+                with store.directory(path.parent) as root:
+                    return store.read_fd(root, path.name, handover.MAX_BYTES)
+
+            extras = {
+                "parent_raw": read_approval(args.parent_file),
+                "retiring_handover_raw": read_approval(args.retiring_handover_file),
+                "predecessor_id": args.predecessor_key_id,
+                "expected_parent_digest": args.expected_parent_digest,
+                "expected_retiring_handover_digest": args.expected_retiring_handover_digest,
+            }
+            action = extend
+        elif any(continuation):
+            raise ValueError("continuation options require extend")
+        raw, report = action(
             args.directory,
             context=context,
             public_keys=public,
@@ -72,6 +114,7 @@ def main():
             successor_id=os.environ["FS_GW_CATALOG_SUCCESSOR_KEY_ID"],
             now=datetime.now(UTC),
             expected_pin_digest=args.expected_pin_digest,
+            **extras,
         )
         with store.directory(output.parent) as root:
             store.write_new(root, output.name, raw)

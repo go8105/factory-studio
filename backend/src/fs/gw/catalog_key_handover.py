@@ -128,6 +128,7 @@ class Grant:
     public_key: bytes
     # Exact (kind, catalog ID, generation, digest) -> cutoff and capture metadata.
     documents: object
+    approval_digests: frozenset = frozenset()
 
 
 class Lifecycle:
@@ -219,15 +220,19 @@ def verify(
         or successor == retiring_public
     ):
         raise ValueError("successor identity mismatch")
-    message = DOMAIN + canonical(data.model_dump(by_alias=True))
+    verify_pair(document, retiring_public, successor, DOMAIN)
+    return data
+
+
+def verify_pair(document, retiring_public, successor_public, domain):
+    message = domain + canonical(document.envelope.model_dump(by_alias=True))
     for public, signature, role in (
         (retiring_public, document.retiring_signature, b"RETIRING\0"),
-        (successor, document.successor_signature, b"SUCCESSOR\0"),
+        (successor_public, document.successor_signature, b"SUCCESSOR\0"),
     ):
         Ed25519PublicKey.from_public_bytes(public).verify(
             base64.b64decode(signature, validate=True), role + message
         )
-    return data
 
 
 def bind(public_keys, value):
@@ -261,6 +266,16 @@ def bind(public_keys, value):
                 name != item.key_id and public == raw
             ):
                 raise ValueError("lifecycle key identity reused/aliased")
+    from fs.gw.catalog_key_chain import cross_check
+    from fs.gw.catalog_key_chain import verify as verify_chain
+
+    registry = {
+        (item.workspace_id, item.key_id): Grant(
+            item.state, base64.b64decode(item.public_key, validate=True), {}
+        )
+        for item in config.keys
+    }
+    chains = []
     for item in config.keys:
         raw_public = base64.b64decode(item.public_key, validate=True)
         documents = {}
@@ -270,14 +285,16 @@ def bind(public_keys, value):
                 raw = store.read_fd(root, path.name, MAX_BYTES)
             if store.digest(raw) != approval.digest:
                 raise ValueError("handover differs from configured pin")
-            data = verify(
+            chain = verify_chain(
                 raw,
                 public_keys=public_keys,
                 retiring_key_id=item.key_id,
                 retiring_public=raw_public,
                 workspace_id=item.workspace_id,
-                blocked=identities,
+                registry=registry,
             )
+            chains.append(chain)
+            data = chain.root
             captured = timestamp(data.issued_at)
             for snapshot in data.snapshots:
                 identity = (
@@ -304,8 +321,12 @@ def bind(public_keys, value):
                     raise ValueError("overlapping recovery approvals")
                 documents[identity] = (captured, None, None, None)
         records[item.workspace_id, item.key_id] = Grant(
-            item.state, raw_public, MappingProxyType(documents)
+            item.state,
+            raw_public,
+            MappingProxyType(documents),
+            frozenset(a.digest for a in item.approvals),
         )
+    cross_check(chains)
     return EvidenceTrust(
         public_keys, public_keys.scopes, catalog_lifecycle=Lifecycle(records)
     )
