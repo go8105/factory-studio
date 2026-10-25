@@ -27,7 +27,9 @@ from fs.gw.evidence_trust import from_environment
 from fs.gw.operating_contract import canonical, timestamp
 
 
-@pytest.mark.parametrize("receiver_mode", [False, True, "recovery", "segments"])
+@pytest.mark.parametrize(
+    "receiver_mode", [False, True, "recovery", "segments", "handover"]
+)
 def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
     company_env, backup_env, monkeypatch, receiver_mode
 ):
@@ -221,7 +223,7 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
 
         def deliver(exit_code=0, *, tamper=False, resume=False):
             nonlocal installed, deliveries
-            if receiver_mode == "segments":
+            if receiver_mode in {"segments", "handover"}:
                 return deliver_segments(exit_code, tamper=tamper, resume=resume)
             deliveries += 1
             batch = folders["reports"] / f"transfer-{deliveries}.json"
@@ -337,7 +339,7 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
         if delay >= 0:
             time.sleep(delay + 0.02)
         assert status()["restoreRecheck"]["catalogObservation"]["reason"] == "MATCH"
-        if receiver_mode in {"recovery", "segments"}:
+        if receiver_mode in {"recovery", "segments", "handover"}:
             original_write = store.write_new
             with monkeypatch.context() as patch:
 
@@ -369,6 +371,89 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
             unknown = collect(recheck("recovery-unknown.json"))
             assert unknown["envelope"]["result"] == "FAIL"
             assert api(admin, co, "operating-evidence", unknown).status_code == 200
+            if receiver_mode == "handover":
+                from fs.gw import catalog_key_handover as handover
+
+                successor = Ed25519PrivateKey.generate()
+                successor_file = folders["reports"] / "successor.key"
+                successor_file.write_bytes(successor.private_bytes_raw())
+                successor_file.chmod(0o600)
+                public["next-catalog"] = base64.b64encode(
+                    successor.public_key().public_bytes_raw()
+                ).decode()
+                scopes["keys"]["next-catalog"] = {
+                    "workspaceIds": [str(co["companyId"])],
+                    "purposes": ["CHECKPOINT_CATALOG"],
+                }
+                monkeypatch.setenv("FS_GW_EVIDENCE_PUBLIC_KEYS", json.dumps(public))
+                monkeypatch.setenv("FS_GW_EVIDENCE_KEY_SCOPES", json.dumps(scopes))
+                monkeypatch.setenv(
+                    "FS_GW_CATALOG_SUCCESSOR_KEY_FILE", str(successor_file)
+                )
+                monkeypatch.setenv("FS_GW_CATALOG_SUCCESSOR_KEY_ID", "next-catalog")
+                receipt = folders["reports"] / "catalog-handover.json"
+                issued = subprocess.run(
+                    [
+                        sys.executable,
+                        "tools/gw_catalog_key_handover.py",
+                        "issue",
+                        "--directory",
+                        str(folder),
+                        "--context",
+                        str(context),
+                        "--retiring-key-id",
+                        "catalog",
+                        "--expected-pin-digest",
+                        first["pinDigest"],
+                        "--output",
+                        str(receipt),
+                    ],
+                    capture_output=True,
+                    timeout=30,
+                    check=False,
+                )
+                assert issued.returncode == 0 and not issued.stderr
+                approved = json.loads(issued.stdout)
+                assert approved["recoveryProofs"] == 1 and not approved["ready"]
+                monkeypatch.setenv("FS_GW_CATALOG_KEY_FILE", str(successor_file))
+                monkeypatch.setenv("FS_GW_CATALOG_KEY_ID", "next-catalog")
+                first = cli("refresh", first["pinDigest"], exit_code=2)
+                lifecycle = {
+                    "version": 1,
+                    "keys": [
+                        {
+                            "version": 1,
+                            "workspaceId": str(co["companyId"]),
+                            "keyId": "catalog",
+                            "publicKey": public.pop("catalog"),
+                            "state": "RETIRED",
+                            "approvals": [
+                                {
+                                    "version": 1,
+                                    "file": str(receipt),
+                                    "digest": approved["handoverDigest"],
+                                }
+                            ],
+                        }
+                    ],
+                }
+                scopes["keys"].pop("catalog")
+                monkeypatch.setenv("FS_GW_EVIDENCE_PUBLIC_KEYS", json.dumps(public))
+                monkeypatch.setenv("FS_GW_EVIDENCE_KEY_SCOPES", json.dumps(scopes))
+                monkeypatch.setenv(handover.ENV, json.dumps(lifecycle))
+                checked["public"] = from_environment()
+                assert status()["state"] == "INVALID"
+                retained_handover = receipt.read_bytes()
+                receipt.write_bytes(retained_handover + b"tampered")
+                assert status()["state"] == "CONFIG_REQUIRED"
+                receipt.write_bytes(
+                    retained_handover
+                )  # Exact original under the same configured digest.
+                checked["public"] = from_environment()
+                deliver(exit_code=2)
+                shifted = collect(recheck("retired-inner-current.json"))
+                assert shifted["envelope"]["result"] == "FAIL"
+                assert api(admin, co, "operating-evidence", shifted).status_code == 200
             # Wait only for the existing bounded runner/DB clock difference, never relax production ordering.
             catalog_path = folder / store.filename(
                 first["revision"], first["catalogDigest"]
@@ -473,6 +558,36 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
             (folder / name).read_bytes() == raw
             for name, raw in original_snapshots.items()
         )
+        if receiver_mode == "handover":
+            # Current revocation overrides older dual-signed approvals, without resetting history.
+            lifecycle["keys"][0].update(state="REVOKED", approvals=[])
+            monkeypatch.setenv(handover.ENV, json.dumps(lifecycle))
+            checked["public"] = from_environment()
+            with pytest.raises(ValueError):
+                from fs.gw.catalog_transfer import export as export_history
+
+                export_history(
+                    folder,
+                    context=store.PublishContext.model_validate(
+                        json.loads(context.read_bytes())
+                    ),
+                    public_keys=from_environment(),
+                    now=datetime.now(UTC),
+                    base_revision=0,
+                    base_digest="ABSENT",
+                )
+            current_catalog, _ = read(
+                public_keys=from_environment(),
+                workspace_id=co["companyId"],
+                now=datetime.now(UTC),
+            )
+            assert (
+                current_catalog.records[0].result == "FAIL"
+                and current_catalog.signer_key_id == "next-catalog"
+            )
+            assert not api(admin, co, "operations", method="GET").json()["data"][
+                "ready"
+            ]
     finally:
         with cleanup.connect() as connection:
             for database in targets:

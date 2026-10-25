@@ -115,7 +115,11 @@ def walk(
             content=base64.b64encode(raw).decode(),
         )
         catalog, _ = transfer.decode_snapshot(
-            snapshot, identity, context=context, public_keys=public_keys
+            snapshot,
+            identity,
+            context=context,
+            public_keys=public_keys,
+            historical=revision != target_revision,
         )
         if after is not None:
             transfer.transition(catalog, after, sha)
@@ -323,6 +327,7 @@ def receive(
             public_keys=public_keys,
             workspace_id=context.workspace_id,
             healthy=not pending,
+            historical=True,
         )
         store.cas(root, expected_pin_digest)
         store.check_scope(old, context)
@@ -448,6 +453,7 @@ def receive(
                     plan.catalog_id,
                     context=context,
                     public_keys=public_keys,
+                    historical=item.revision != plan.target_revision,
                 )
             transfer.put_snapshot(
                 root, store.filename(item.revision, item.digest), part_raw

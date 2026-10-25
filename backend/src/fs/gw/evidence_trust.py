@@ -7,6 +7,8 @@ import re
 from collections.abc import Mapping
 from types import MappingProxyType
 
+from cryptography.exceptions import InvalidSignature
+
 PURPOSES = frozenset(
     {
         "BACKUP",
@@ -36,7 +38,8 @@ def purpose(kind):
 
 
 class EvidenceTrust(Mapping):
-    def __init__(self, keys, scopes=None):
+    def __init__(self, keys, scopes=None, *, catalog_lifecycle=None):
+        self.catalog_lifecycle = catalog_lifecycle
         self._keys = MappingProxyType(dict(keys))
         self._scopes = None if scopes is None else MappingProxyType(dict(scopes))
 
@@ -50,10 +53,16 @@ class EvidenceTrust(Mapping):
         return len(self._keys)
 
     @property
+    def scopes(self):
+        return self._scopes
+
+    @property
     def scoped(self):
         return self._scopes is not None
 
     def authorize(self, key, use, workspace_id):
+        if use == "CHECKPOINT_CATALOG" and self.catalog_lifecycle is not None:
+            self.catalog_lifecycle.deny_current(key, workspace_id)
         if key not in self:
             raise ValueError("untrusted signer")
         if self._scopes is not None:
@@ -148,8 +157,14 @@ def load(public_json, scopes_json=None, *, mode="PUBLIC_DEMO"):
 
 
 def from_environment():
-    return load(
-        os.environ["FS_GW_EVIDENCE_PUBLIC_KEYS"],
-        os.environ.get("FS_GW_EVIDENCE_KEY_SCOPES"),
-        mode=os.environ.get("FS_SECURITY_MODE", "PUBLIC_DEMO"),
-    )
+    try:
+        trust = load(
+            os.environ["FS_GW_EVIDENCE_PUBLIC_KEYS"],
+            os.environ.get("FS_GW_EVIDENCE_KEY_SCOPES"),
+            mode=os.environ.get("FS_SECURITY_MODE", "PUBLIC_DEMO"),
+        )
+        from fs.gw.catalog_key_handover import ENV, bind
+
+        return bind(trust, os.environ[ENV]) if ENV in os.environ else trust
+    except OSError, InvalidSignature, RecursionError, ValueError:
+        raise ValueError("catalog lifecycle trust unavailable") from None

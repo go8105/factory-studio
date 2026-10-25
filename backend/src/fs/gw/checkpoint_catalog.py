@@ -16,7 +16,7 @@ from pydantic import Field, model_validator
 from sqlalchemy import text
 
 from fs.common.errors import ApiError
-from fs.gw.evidence_trust import EvidenceTrust, authorize
+from fs.gw.evidence_trust import EvidenceTrust
 from fs.gw.operating_contract import StrictModel, canonical, evidence_error, timestamp
 
 ENV = "FS_GW_CHECKPOINT_CATALOG"
@@ -270,7 +270,7 @@ def read(*, public_keys, workspace_id, now):
         ) from None
 
 
-def verify_document(raw, config, *, public_keys, workspace_id):
+def verify_document(raw, config, *, public_keys, workspace_id, historical=False):
     """Verify archived bytes without requiring a fresh publication time."""
     if (
         not 0 < len(raw) <= MAX_BYTES
@@ -283,10 +283,21 @@ def verify_document(raw, config, *, public_keys, workspace_id):
     catalog = document.envelope
     if not isinstance(public_keys, EvidenceTrust) or not public_keys.scoped:
         raise ValueError("scoped catalog authority required")
-    authorize(
-        public_keys, catalog.signer_key_id, "CHECKPOINT_CATALOG", str(workspace_id)
+    from fs.gw.catalog_key_handover import key
+
+    public = key(
+        public_keys,
+        catalog.signer_key_id,
+        str(workspace_id),
+        digest=config.digest if historical else None,
+        catalog_id=catalog.catalog_id,
+        generation_id=catalog.records[0].generation_id
+        if len(catalog.records) == 1
+        else None,
+        claimed_at=catalog.published_at,
+        catalog=catalog,
     )
-    Ed25519PublicKey.from_public_bytes(public_keys[catalog.signer_key_id]).verify(
+    Ed25519PublicKey.from_public_bytes(public).verify(
         base64.b64decode(document.signature, validate=True),
         DOMAIN + canonical(catalog.model_dump(by_alias=True)),
     )

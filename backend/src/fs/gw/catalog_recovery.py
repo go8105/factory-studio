@@ -9,7 +9,6 @@ from pydantic import Field, model_validator
 
 from fs.gw import catalog_store as store
 from fs.gw.checkpoint_catalog import RecoveryCatalog, Versioned, uuid4
-from fs.gw.evidence_trust import authorize
 from fs.gw.operating_contract import StrictModel, canonical, timestamp
 
 DOMAIN = b"FS-GW-CHECKPOINT-CATALOG-RECOVERY-v1\0"
@@ -105,8 +104,19 @@ def record_digest(record):
 def verify(catalog, *, public_keys, workspace_id):
     proof = Proof.model_validate(catalog.recovery_proof)
     data = proof.envelope
-    authorize(public_keys, data.signer_key_id, "CHECKPOINT_CATALOG", str(workspace_id))
-    Ed25519PublicKey.from_public_bytes(public_keys[data.signer_key_id]).verify(
+    from fs.gw.catalog_key_handover import key
+
+    public = key(
+        public_keys,
+        data.signer_key_id,
+        str(workspace_id),
+        kind="RECOVERY",
+        digest=store.digest(canonical(proof.model_dump(by_alias=True))),
+        catalog_id=data.catalog_id,
+        generation_id=data.generation_id,
+        claimed_at=data.recovered_at,
+    )
+    Ed25519PublicKey.from_public_bytes(public).verify(
         base64.b64decode(proof.signature, validate=True),
         DOMAIN + canonical(data.model_dump(by_alias=True)),
     )

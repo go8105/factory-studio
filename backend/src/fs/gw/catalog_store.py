@@ -149,7 +149,7 @@ def inventory(root):
     return names, max(revisions, default=0)
 
 
-def current(root, path, *, public_keys, workspace_id, healthy=True):
+def current(root, path, *, public_keys, workspace_id, healthy=True, historical=False):
     names, highest = inventory(root)
     if healthy and PENDING in names:
         raise ValueError("interrupted catalog publication")
@@ -166,7 +166,11 @@ def current(root, path, *, public_keys, workspace_id, healthy=True):
         raise ValueError("catalog must stay in its store")
     raw = read_fd(root, file.name)
     catalog = verify_document(
-        raw, config, public_keys=public_keys, workspace_id=workspace_id
+        raw,
+        config,
+        public_keys=public_keys,
+        workspace_id=workspace_id,
+        historical=historical,
     )
     if (
         file.name != filename(catalog.revision, config.digest)

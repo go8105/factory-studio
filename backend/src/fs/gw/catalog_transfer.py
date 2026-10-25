@@ -91,7 +91,7 @@ def check_identity(root, catalog):
     return identity
 
 
-def decode_snapshot(snapshot, identity, *, context, public_keys):
+def decode_snapshot(snapshot, identity, *, context, public_keys, historical=False):
     raw = base64.b64decode(snapshot.content, validate=True)
     config = CatalogConfig(
         version=1,
@@ -101,7 +101,11 @@ def decode_snapshot(snapshot, identity, *, context, public_keys):
         digest=snapshot.digest,
     )
     catalog = verify_document(
-        raw, config, public_keys=public_keys, workspace_id=context.workspace_id
+        raw,
+        config,
+        public_keys=public_keys,
+        workspace_id=context.workspace_id,
+        historical=historical,
     )
     store.check_scope(catalog, context)
     if catalog.revision != snapshot.revision or len(catalog.records) != 1:
@@ -186,9 +190,13 @@ def validate(
         raise ValueError("transfer scope/base mismatch")
     decoded = [
         decode_snapshot(
-            snapshot, expected_catalog_id, context=context, public_keys=public_keys
+            snapshot,
+            expected_catalog_id,
+            context=context,
+            public_keys=public_keys,
+            historical=index < len(bundle.snapshots) - 1,
         )
-        for snapshot in bundle.snapshots
+        for index, snapshot in enumerate(bundle.snapshots)
     ]
     first = decoded[0][0]
     proofs = []
@@ -275,7 +283,11 @@ def export(path, *, context, public_keys, now, base_revision, base_digest):
                 content=base64.b64encode(data).decode(),
             )
             current_catalog, _ = decode_snapshot(
-                snapshot, catalog.catalog_id, context=context, public_keys=public_keys
+                snapshot,
+                catalog.catalog_id,
+                context=context,
+                public_keys=public_keys,
+                historical=revision != catalog.revision,
             )
             total += len(data) * 4 // 3 + 512
             snapshots.append(snapshot)
@@ -443,6 +455,7 @@ def install(
             public_keys=public_keys,
             workspace_id=context.workspace_id,
             healthy=not pending,
+            historical=True,
         )
         store.cas(root, expected_pin_digest)
         store.check_scope(old, context)
