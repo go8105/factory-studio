@@ -713,6 +713,88 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
             assert status()["state"] == "CONFIG_REQUIRED"
             monkeypatch.setenv(floor.ENV, trust_path)
             assert status()["state"] == "INVALID"  # Latest actual FAIL remains.
+            from fs.gw import catalog_trust_transfer as trust_transfer
+
+            # Export the separately confirmed latest floor before simulated local original loss.
+            floor_head, floor_sha = floor.inspect(trust_path)
+            archive = folders["reports"] / "trust-archive"
+            archive.mkdir(mode=0o700)
+            recovered_trust = folders["reports"] / "trust-recovered"
+            recovered_trust.mkdir(mode=0o700)
+            transfer_args = [
+                "--expected-ledger-id",
+                floor_head.ledger_id,
+                "--expected-revision",
+                str(floor_head.revision),
+                "--expected-digest",
+                floor_sha,
+            ]
+            exported = subprocess.run(
+                [
+                    sys.executable,
+                    "tools/gw_catalog_trust_transfer.py",
+                    "export",
+                    "--directory",
+                    trust_path,
+                    "--output",
+                    str(archive),
+                    *transfer_args,
+                ],
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+            assert exported.returncode == 0 and not exported.stderr
+            exported_report = json.loads(exported.stdout)
+            assert not exported_report["ready"]
+            damaged = (
+                folders["reports"]
+                / "trust"
+                / trust_transfer.filename(floor_head.revision, floor_sha)
+            )
+            damaged.write_bytes(damaged.read_bytes()[:8])
+            assert status()["state"] == "CONFIG_REQUIRED"
+            received = subprocess.run(
+                [
+                    sys.executable,
+                    "tools/gw_catalog_trust_transfer.py",
+                    "receive",
+                    "--directory",
+                    str(archive),
+                    "--output",
+                    str(recovered_trust),
+                    "--existing-directory",
+                    trust_path,
+                    *transfer_args,
+                    "--expected-manifest-digest",
+                    exported_report["manifestDigest"],
+                ],
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+            assert received.returncode == 0 and not received.stderr
+            assert damaged.read_bytes() == (archive / damaged.name).read_bytes()[:8]
+            assert (
+                status()["state"] == "CONFIG_REQUIRED"
+            )  # Tool never installs live env.
+            trust_path = str(recovered_trust)
+            monkeypatch.setenv(
+                floor.ENV, trust_path
+            )  # Synthetic test-owned switch only.
+            assert from_environment().catalog_lifecycle is not None
+            # Docker/runner clocks can differ briefly. Keep the same bounded real DB wait
+            # used above; do not relax the product's future-time or freshness checks.
+            with engine.connect() as connection:
+                delay = (
+                    timestamp(rejected["envelope"]["finishedAt"])
+                    - connection.scalar(text("SELECT clock_timestamp()"))
+                ).total_seconds()
+            assert delay < 30
+            if delay >= 0:
+                time.sleep(delay + 0.02)
+            restored_status = status()
+            assert restored_status["state"] == "INVALID", restored_status["detail"]
             # Persist revocation before live ENV edits; earlier valid settings immediately fail.
             _, previous_floor = floor.inspect(trust_path)
             revoked = subprocess.run(
@@ -750,6 +832,29 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
                 check=False,
             )
             assert rollback.returncode == 1 and not rollback.stderr
+            stale_target = folders["reports"] / "stale-trust-recovery"
+            stale_target.mkdir(mode=0o700)
+            stale = subprocess.run(
+                [
+                    sys.executable,
+                    "tools/gw_catalog_trust_transfer.py",
+                    "receive",
+                    "--directory",
+                    str(archive),
+                    "--output",
+                    str(stale_target),
+                    "--existing-directory",
+                    trust_path,
+                    *transfer_args,
+                    "--expected-manifest-digest",
+                    exported_report["manifestDigest"],
+                ],
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+            assert stale.returncode == 1 and not stale.stderr
+            assert floor.inspect(trust_path)[1] == json.loads(revoked.stdout)["digest"]
             lifecycle["keys"][1].update(state="REVOKED", approvals=[])
             monkeypatch.setenv(handover.ENV, json.dumps(lifecycle))
             with pytest.raises(ValueError):

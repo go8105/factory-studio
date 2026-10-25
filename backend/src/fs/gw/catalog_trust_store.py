@@ -176,13 +176,23 @@ def transition(before, after):
                     raise ValueError("retirement approval rollback or fork")
 
 
-def _history(root, *, anchored=True):
+def _history(root, *, anchored=True, receiving=False):
+    from fs.gw import catalog_trust_transfer as transfer
+
+    if not receiving and transfer.RECEIVING in os.listdir(root):
+        raise ValueError("trust recovery incomplete")
     names = []
     with os.scandir(root) as entries:
         for entry in entries:
             if len(names) > MAX_RECORDS:
                 raise ValueError("trust history limit")
-            if entry.name not in {store.LOCK, HEAD, PENDING}:
+            if entry.name not in {
+                store.LOCK,
+                HEAD,
+                PENDING,
+                transfer.RECEIVING,
+                transfer.RECEIPT,
+            }:
                 if not NAME.fullmatch(entry.name):
                     raise ValueError("incomplete or unexpected trust history")
                 names.append(entry.name)
@@ -204,6 +214,8 @@ def _history(root, *, anchored=True):
         if previous is not None:
             transition(previous.authorities, record.authorities)
         previous, sha = record, store.digest(raw)
+    if transfer.RECEIPT in os.listdir(root):
+        transfer.validate_receipt(root, previous)
     if anchored:
         if PENDING in os.listdir(root):
             raise ValueError("trust head update incomplete")

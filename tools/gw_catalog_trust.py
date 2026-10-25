@@ -50,6 +50,7 @@ def main():
         print(
             json.dumps(
                 {
+                    "ledgerId": head.ledger_id,
                     "revision": head.revision,
                     "digest": sha,
                     "revokedKeys": sum(a.state == "REVOKED" for a in head.authorities),
