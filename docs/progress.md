@@ -1,3 +1,33 @@
+## 2026-10-25 GW-READY-02 57차 — 운영 준비 차단 안내·담당자별 조치와 모바일 보완 완료
+
+- 시작 `7a7309f`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 기존 승인 GW 범위의57차 UI/API 안내 하나를 진행했다. 최종 커밋은 `git log -1`로 확인한다. 이 checkout만 수정했다.
+- 신뢰 검증 설정·키 수명/이관·보존 설정 누락/원본 읽기·대조/현재 설정 불일치·기준점 반영/수신 진행의7개 허용 진단 코드를 추가했다. 기존 ValueError 차단/일반 예외 메시지를 유지하며 API는 고정 문구/담당자/다음 조치만 반환한다. 경로·키·원본 예외 전문은 노출하지 않는다. 코드가 모르는 값이면 일반 안내로 처리하고 회사 SECURITY_ADMIN/AUDITOR만 진단을 조회한다. 직원 응답에는 서버 진단이 없다. 현재 검사 실패를 과거 성공으로 대신하지 않는다.
+- 기존 GwLayout의 현재 회사·역할/연결1명·예정10명과 업무 복귀를 유지하고 최근 실행 요약→담당자별 다음 조치→펼치는12조건/기존 실행 기록을 연결했다. 서버 담당자/회사 보안 관리자/직원 본인의 행동과 정적 도움말을 구분한다. GET 재점검은 백업/복구·설정을 실행하지 않으며 완료 후 버튼 초점을 복원한다. 기준/보관 검토/선택 증거 파일·긴급 문서 입력 중에는 잠근다. 조회 실패 시 이전 결과를 숨기고 현재 회사/오류·재시도/업무 복귀를 표시한다. 작은 안내를 전체 UI 완성으로 표현하지 않는다.
+- 검증: 관련 단위940통과24.01초(신규19/기존 경고2). 화면/정적 도움말61통과5.20초(기존48+관련 기존/새13), 타입/수정ESLint·Prettier/Ruff check·format/정적DB219표2409열543FK·R1–R6 오류0. 실제PG는 소유 컨테이너ID/owner/loopback 검증 후 새 UUID *_test DB에만 마이그레이션/검사해12통과208.67초(기존 실제 백업/폐쇄 복원 흐름9+운영API3).7종 진단 응답/관리자·감사·직원 범위와 구성 오류 해소 뒤 최신 INVALID/FAIL·후속 PARTIAL 유지를 확인했다. 새 진단 API 역할 검사는 시험 설정 실패를 주입했고 파일 단계 분류는 실제 합성 파일 단위 검사로 확인했다. 전체CI/전체회귀 통과로 표시하지 않는다.
+- 브라우저: 실제5362 세션 만료/로그인 입력란 펼침을 확인했다. 로그인 후 실제API 전체 화면은 미검증이다. 별도 읽기 전용 합성 API+제품 자산5365에서1440×1000/390×844, 담당자 안내/12조건 Enter 펼침·재점검 초점/기준 편집 잠금·취소/감사 조회 전용/회사 유지 업무 복귀/정적 도움말 절을 확인했다. clientWidth=scrollWidth 데스크톱1425·모바일375, 가로 넘침 없음. 합성 배너/연결1명·예정10명으로 표시했다. 근거는 `outputs/gw-readiness-02-phase57/`이며 실제 실회사/실기기10인 인수가 아니다. 임시 viewport 초기화/생성 합성 탭·서버5365 정리. 사용자 로그인용 실제 탭은 유지했다.
+- 사용자 로그인 문의: 비밀번호가 바뀐 것으로 추정하지 않고 별도 미리보기DB를 읽기 확인했다. admin 계정은 없고 기존 저장된 합성 로그인은 admin과 다르며 저장 정보가 DB와 일치했다. 이번 계정 생성/개명·비밀번호/OTP/키/브라우저 설정·미리보기 정책·DB 초기화는 없다. 개발자 관리자 로그인 ID admin 통일 기준과 회사 연결/SECURITY_ADMIN·AUDITOR/서버 OS·서명 권한을 구분한다. 비공개 접속 자료의 값은 출력/Git에 싣지 않았다.
+- 실패 보정: 새 시험 코드의 루프 변수 바인딩/정렬 린트2건을 보정해 최종 수정 린트를 통과했다. 도움말의 지연 렌더링 후 절 이동을 GW 문서에 한정해 보정했다. 연결 교체 중 JSX 닫힘/새 시험의 잘못된 exact 옵션으로 변환1/타입1 오류를 탐지·수정한 뒤 최종61·타입을 재검사했다. 브라우저 상세 summary의 DOM 역할 선택을 실제 보이는 텍스트로 고쳐 Enter 펼침을 확인했다. 제품 동작·시각/회수/원본·인수 차단을 완화하지 않았다. 검사 누락이나 테스트 실패를 통과로 간주하지 않았다.
+- 문서/사용성: 실회사 절차 §31·구현/보안 수집 경계/도움말/README/현황/progress/HANDOFF 갱신. 직관성(상단 원인/담당자), 유효성(허용된 진단/현재 재조회·이전 성공 대체 금지), 학습성(담당자별 행동/도움말·조건 펼침), 유연성(감사 조회/회사 동선/390px)을 반영했다. DB 스키마/마이그레이션·metadata/Excel/ERD 변경 없다.
+- 자원/제약: 생성 시험DB/폐쇄 복원DB만 정리했다. 기존 gw_preview_test 보존. API8362 PID20713/Vite5362 PID20714 LISTEN을 읽기 확인했고 재시작/서버 신뢰 설치는 하지 않았다. work/.env·비밀/전체로그 Git 제외. 다른 checkout/WMS/main/원격push/배포 변경 없음. 실제 복원 PARTIAL·ready=false/최종4조건 UNVERIFIED·ACCEPTANCE PASS 거부 유지. 실제 외부 공급자 미정/독립 최신 기준·전체 수집/회수·실회사10인·최종 전환/최신main 통합·전체CI/회귀는 미완료.
+- 다음: **최종 인수 PASS 계약의 남은 근거를 기존 도구/12조건과 대조하고 자동 검증 가능한 조건·실환경 전용 조건을 분리하는 공통 계약/실행 어댑터**부터 진행한다. 옛 정책/버전·최신 실패/PARTIAL·원본 유실/변조·회수 상태를 과거 성공으로 대체하지 않고 최종PASS는 근거가 갖춰지기 전 열지 않는다. 이후 공급자 선정/외부 독립 인수·실제API 로그인 후 화면/최신main/전체회귀·실회사10인·최종 전환이 남는다. 난이도 높음, [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra) + High 추천. OpenAI Docs 공식 모델 페이지의 복잡한 추론/코딩·High 지원을 확인했으며 이 계약/권한 회수 정합 난이도에 따른 판단이다. 자동 모델 변경 없음.
+
+재현(저장소 루트):
+```sh
+uv run --project backend pytest backend/tests/test_gw_trust_configuration.py backend/tests/test_gw_catalog_trust_transfer.py backend/tests/test_gw_catalog_trust_store.py backend/tests/test_gw_evidence_trust.py backend/tests/test_gw_readiness.py backend/tests/test_gw_launch_gate.py -q --tb=short
+# 전체 관련940 목록은 직전56차 기록의921 명령에 test_gw_trust_configuration.py를 추가한다.
+# 소유 컨테이너 ID/owner/loopback 확인 후 새 UUID *_test DB에만 DATABASE_URL/TEST_DATABASE_URL/GW_BACKUP_TEST_CONTAINER를 비공개 주입한다.
+# 기존 gw_preview_test는 절대 초기화/시험하지 않는다. fixture가 만든 자원만 정리한다.
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_catalog_store_db.py backend/tests/test_gw_checkpoint_catalog_db.py backend/tests/test_gw_recovery_db.py backend/tests/test_gw_operations.py -q --tb=short
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/operations.test.tsx src/gw/operating-evidence.test.tsx src/gw/emergency-kit.test.tsx src/portal/content-pages.test.tsx --maxWorkers=1
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend run typecheck
+uv run --project backend ruff check backend/src/fs/gw/trust_configuration.py backend/src/fs/gw/evidence_trust.py backend/src/fs/gw/catalog_trust_store.py backend/src/fs/gw/operations.py backend/src/fs/gw/operating_evidence.py backend/tests/test_gw_trust_configuration.py backend/tests/test_gw_catalog_store_db.py backend/tests/test_gw_operations.py
+uv run --project backend ruff format --check backend/src/fs/gw/trust_configuration.py backend/src/fs/gw/evidence_trust.py backend/src/fs/gw/catalog_trust_store.py backend/src/fs/gw/operations.py backend/src/fs/gw/operating_evidence.py backend/tests/test_gw_trust_configuration.py backend/tests/test_gw_catalog_store_db.py backend/tests/test_gw_operations.py
+python3 tools/validate_db_design.py
+uv run --project backend python tools/audit_schema_isolation.py
+```
+상세 운영 절차는 `docs/operations/GW_실회사_인수절차_10인_GW-READY-02.md` §29–31, 도움말은 `content/help/gw/operations.md`를 따른다. 비공개 work harness/자격 증명에만 의존하지 않고 표준 시험 명령·화면 근거로 재현한다. 실제 계정·미리보기DB/다른 checkout/WMS를 변경하지 않는다.
+
 ## 2026-10-25 GW-READY-02 56차 — 신뢰 이력 내보내기·별도 최신 지문으로 원본 복구 완료
 
 - 시작 `08d529f`, 브랜치 `codex/gw-company-01`, 시작 작업 트리 깨끗함. 승인된 기존 GW 범위에서 신뢰 원본 전달/복구 하나를 진행했다. 최종 커밋은 `git log -1`로 확인한다. 이 checkout만 수정했고 새 GW/업무 DB 스키마·수동 인수 완료 체크는 없다.

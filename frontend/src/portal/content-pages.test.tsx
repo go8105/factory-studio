@@ -181,3 +181,21 @@ it("설계 문서 8편은 결정 → 대안 → 이유 → 한계 틀이고 본�
     expect(body, key).not.toMatch(/\b(FS|AC|UI|DOC|MAP)-\d/);
   }
 });
+
+it("GW 도움말이 늦게 렌더링되어도 요청한 절로 이동한다", async () => {
+  const scroll = vi.fn();
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    value: scroll,
+  });
+  try {
+    show("/help/gw/operations#" + encodeURIComponent("서버-점검이-필요할-때"));
+    const heading = await screen.findByRole("heading", {
+      name: "서버 점검이 필요할 때",
+    });
+    expect(scroll).toHaveBeenCalledWith({ block: "start" });
+    expect(scroll.mock.instances).toContain(heading);
+  } finally {
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  }
+});

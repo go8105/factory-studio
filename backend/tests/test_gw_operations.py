@@ -146,3 +146,43 @@ def test_launch_condition_rechecks_responsible_staff_connection(
         == 200
     )
     assert responsible_state() == "BLOCKED"
+
+
+def test_configuration_guidance_is_scoped_to_current_company_roles(
+    company_env, monkeypatch
+):
+    from fs.gw import operating_evidence
+    from fs.gw.trust_configuration import ISSUES, TrustConfigurationError, guidance
+
+    engine, co, admin, staff = company_env
+    person = initialize(company_env)
+    connect_staff(company_env)
+    for code in ISSUES:
+
+        def unavailable(code=code):
+            raise TrustConfigurationError(code)
+
+        monkeypatch.setattr(operating_evidence, "from_environment", unavailable)
+        current = api(admin, co, "operations", method="GET").json()["data"]
+        assert current["configurationIssue"] == guidance(code)
+        assert current["canEdit"] and not current["ready"]
+        assert current["launchGate"]["unverifiedCount"] == 4
+        assert all(c["state"] == "CONFIG_REQUIRED" for c in current["evidenceChecks"])
+        employee = api(staff, co, "operations", method="GET").json()["data"]
+        assert not employee["administrator"] and "configurationIssue" not in employee
+    with engine.begin() as c:
+        c.execute(
+            text(
+                "UPDATE gw.role_grant SET is_active=false WHERE workspace_id=:w AND person_id=:p"
+            ),
+            {"w": co["companyId"], "p": person},
+        )
+        c.execute(
+            text(
+                "UPDATE gw.role_grant SET role_key='AUDITOR',is_active=true WHERE workspace_id=:w AND person_id=:p AND role_key='SECURITY_ADMIN'"
+            ),
+            {"w": co["companyId"], "p": person},
+        )
+    auditor = api(admin, co, "operations", method="GET").json()["data"]
+    assert auditor["administrator"] and not auditor["canEdit"]
+    assert auditor["configurationIssue"] == guidance(code)

@@ -18,11 +18,13 @@ export function EmergencyKit({
   reload,
   disabled = false,
   onPendingChange,
+  onDirtyChange,
 }: {
   status?: { prepared: boolean; expiresAt: string | null };
   reload: () => void;
   disabled?: boolean;
   onPendingChange?: (value: boolean) => void;
+  onDirtyChange?: (value: boolean) => void;
 }) {
   const { setNavigationBlocked } = useSession();
   const [issued, setIssued] = useState<Issued>();
@@ -31,6 +33,12 @@ export function EmergencyKit({
   const [downloaded, setDownloaded] = useState(false);
   const [stored, setStored] = useState(false);
   const request = useSend();
+  useEffect(() => {
+    onDirtyChange?.(
+      Boolean(reason) || consent || Boolean(issued) || request.pending,
+    );
+  }, [reason, consent, issued, request.pending, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   useEffect(() => {
     onPendingChange?.(Boolean(issued) || request.pending);
     return () => onPendingChange?.(false);

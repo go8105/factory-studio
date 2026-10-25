@@ -198,6 +198,7 @@ it("운영 전환 조건의 확인·조치·미확인과 다음 행동을 구분
     await screen.findByRole("heading", { name: "운영 전환 조건" }),
   ).toBeVisible();
   expect(screen.getByText("운영 기준 · 확인됨")).not.toBeVisible();
+  fireEvent.click(screen.getByText("전환 조건 3개 자세히 확인"));
   fireEvent.click(screen.getByText("확인된 조건 1개 보기"));
   expect(screen.getByText("운영 기준 · 확인됨")).toBeVisible();
   expect(screen.getByText("직원 인증 앱 · 조치 필요")).toBeVisible();
@@ -694,3 +695,74 @@ it.each([
     ).toBeVisible();
   },
 );
+
+it.each([
+  "TRUST_STORE_REQUIRED",
+  "TRUST_RECOVERY_PENDING",
+  "unexpected-private-value",
+])(
+  "설정 문제를 고정 안내와 담당자로 연결하고 재점검 실패 시 이전 성공을 숨긴다: %s",
+  async (code) => {
+    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      response({
+        ...initial,
+        configurationIssue: { code, detail: "private-path-do-not-render" },
+        evidenceChecks: [
+          {
+            kind: "BACKUP",
+            label: "백업 실행",
+            state: "CONFIG_REQUIRED",
+            detail: "서버 점검 필요",
+          },
+        ],
+      }),
+    );
+    show();
+    const actions = await screen.findByRole("region", {
+      name: "담당자별 다음 조치",
+    });
+    expect(within(actions).getByText("서버 운영 담당자")).toBeVisible();
+    expect(screen.queryByText("private-path-do-not-render")).toBeNull();
+    expect(screen.queryByText("unexpected-private-value")).toBeNull();
+    expect(
+      within(actions).getByRole("link", { name: "서버 점검 도움말" }),
+    ).toHaveAttribute("href", "/help/gw/operations#서버-점검이-필요할-때");
+    fetch.mockResolvedValue(
+      response({ code: "UNAVAILABLE", message: "현재 상태 조회 실패" }, 503),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "현재 상태 다시 점검" }),
+    );
+    expect(await screen.findByText("현재 상태 조회 실패")).toBeVisible();
+    expect(
+      screen.queryByRole("region", { name: "담당자별 다음 조치" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "GW 업무로 돌아가기" }),
+    ).toHaveAttribute("href", "/gw/dashboard?companyId=10");
+    expect(
+      fetch.mock.calls.every(
+        ([, init]) => !init?.method || init.method === "GET",
+      ),
+    ).toBe(true);
+  },
+);
+it("운영 기준 편집 중에는 재점검을 막고 취소 후 초점을 복원한다", async () => {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+    response(initial),
+  );
+  show();
+  const refresh = await screen.findByRole("button", {
+    name: "현재 상태 다시 점검",
+  });
+  fireEvent.click(screen.getByRole("button", { name: "운영 기준 검토·적용" }));
+  expect(refresh).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "취소" }));
+  expect(refresh).toBeEnabled();
+  fireEvent.click(refresh);
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "현재 상태 다시 점검" }),
+    ).toHaveFocus(),
+  );
+});

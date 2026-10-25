@@ -327,6 +327,19 @@ def test_actual_checkpoint_cli_atomic_pin_fail_and_current_api(
         def status():
             data = api(admin, co, "operations", method="GET").json()["data"]
             assert not data["ready"] and data["launchGate"]["unverifiedCount"] == 4
+            if data["evidenceChecks"][2]["state"] == "CONFIG_REQUIRED":
+                assert data["configurationIssue"]["code"] in {
+                    "VERIFIER_CONFIGURATION",
+                    "CATALOG_LIFECYCLE",
+                    "TRUST_STORE_REQUIRED",
+                    "TRUST_STORE_UNAVAILABLE",
+                    "TRUST_SETTINGS_MISMATCH",
+                    "TRUST_UPDATE_PENDING",
+                    "TRUST_RECOVERY_PENDING",
+                }
+                assert data["configurationIssue"]["owner"] == "SERVER_OPERATOR"
+            else:
+                assert "configurationIssue" not in data
             return data["evidenceChecks"][2]
 
         proof = collect(recheck("published-match.json"))

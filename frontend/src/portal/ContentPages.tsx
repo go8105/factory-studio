@@ -2,9 +2,11 @@
 import {
   Link,
   useNavigate,
+  useLocation,
   useParams,
   useSearchParams,
 } from "react-router-dom";
+import { useEffect } from "react";
 import { PageTitle, NotFound } from "../shared/components";
 import { cards, help, MarkdownContent, contentTitle } from "../shared/content";
 import flow from "../../../content/flow-map.json";
@@ -370,6 +372,20 @@ function DocHome() {
   );
 }
 function DocPage({ docKey }: { docKey: string }) {
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (!docKey.startsWith("gw/") || !hash) return;
+    // GW help is lazy loaded, so the destination heading may mount after navigation.
+    let id: string;
+    try {
+      id = decodeURIComponent(hash.slice(1));
+    } catch {
+      return;
+    }
+    const heading = document.getElementById(id);
+    if (heading?.matches(".markdown h2"))
+      heading.scrollIntoView?.({ block: "start" });
+  }, [docKey, hash]);
   const sections = docSections(help);
   const section = sectionOf(sections, docKey);
   const order = section?.groups.flatMap((g) => g.keys) ?? [docKey];

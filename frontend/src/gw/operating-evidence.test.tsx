@@ -13,7 +13,11 @@ const response = (data: unknown, status = 200) =>
   new Response(JSON.stringify(status < 400 ? { data } : { error: data }), {
     status,
   });
-function show(canEdit = true, onRecorded?: () => void) {
+function show(
+  canEdit = true,
+  onRecorded?: () => void,
+  onDirtyChange?: (dirty: boolean) => void,
+) {
   return render(
     <MemoryRouter>
       <CompanyContext.Provider value={{ companyId: "10" }}>
@@ -31,6 +35,7 @@ function show(canEdit = true, onRecorded?: () => void) {
             canEdit={canEdit}
             disabled={false}
             onRecorded={onRecorded}
+            onDirtyChange={onDirtyChange}
           />
         </RoleContext.Provider>
       </CompanyContext.Provider>
@@ -115,4 +120,20 @@ it("실행 증거를 등록한 뒤 상위 준비 판정을 갱신한다", async 
       "실행 기록을 등록했습니다. 운영 준비 완료를 뜻하지 않습니다.",
     ),
   ).toBeVisible();
+});
+
+it("파일 선택을 상위 재점검 잠금에 연결하고 해제한다", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    response({ total: 0, items: [] }),
+  );
+  const dirty = vi.fn();
+  const view = show(true, undefined, dirty);
+  await screen.findByText("등록된 실행 기록이 없습니다.");
+  expect(dirty).toHaveBeenLastCalledWith(false);
+  fireEvent.change(screen.getByLabelText("서명된 실행 증거 파일"), {
+    target: { files: [new File(["{}"], "synthetic.json")] },
+  });
+  expect(dirty).toHaveBeenLastCalledWith(true);
+  view.unmount();
+  expect(dirty).toHaveBeenLastCalledWith(false);
 });

@@ -19,6 +19,7 @@ from fs.gw.evidence_trust import from_environment
 from fs.gw.operating_contract import verify_evidence
 from fs.gw.operations import policy_from_row, settings
 from fs.gw.readiness import SOURCE_FIELD
+from fs.gw.trust_configuration import TrustConfigurationError
 
 S = company.S
 
@@ -33,11 +34,16 @@ def verifier_config(c):
             text("SELECT version_num FROM alembic_version")
         ).scalar_one()
         return keys, revision, db_revision
-    except KeyError, ValueError, TypeError:
+    except (KeyError, ValueError, TypeError) as error:
         raise ApiError(
             503,
             "SECURITY_CONFIGURATION_UNAVAILABLE",
             "운영 실행 증거의 검증 키·허용 회사/용도와 제품 버전을 서버에서 설정해야 합니다.",
+            {
+                "configurationCode": error.code
+                if isinstance(error, TrustConfigurationError)
+                else "VERIFIER_CONFIGURATION"
+            },
         ) from None
 
 

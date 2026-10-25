@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ErrorNotice, Loading } from "../shared/components";
 import { ApiError } from "../shared/api";
@@ -16,10 +16,12 @@ export function OperatingEvidence({
   canEdit,
   disabled,
   onRecorded,
+  onDirtyChange,
 }: {
   canEdit: boolean;
   disabled: boolean;
   onRecorded?: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [offset, setOffset] = useState(0);
   const history = useGet<{ total: number; items: Entry[] }>(
@@ -30,6 +32,10 @@ export function OperatingEvidence({
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  useEffect(() => {
+    onDirtyChange?.(file !== null || busy);
+  }, [file, busy, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   async function upload() {
     if (!file || busy) return;
     setBusy(true);

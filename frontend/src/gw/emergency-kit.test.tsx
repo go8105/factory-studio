@@ -136,3 +136,14 @@ it("운영 기준 편집 중에는 긴급 문서를 발급하지 않는다", asy
   ).toBeDisabled();
   await waitFor(() => expect(fetch).not.toHaveBeenCalled());
 });
+
+it("발급 사유 입력이 있으면 상위 재점검을 잠그고 비우면 해제한다", () => {
+  const onDirtyChange = vi.fn();
+  show({ onDirtyChange });
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+  const input = screen.getByLabelText("긴급 복구 문서 발급 사유");
+  fireEvent.change(input, { target: { value: "합성 사유" } });
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+  fireEvent.change(input, { target: { value: "" } });
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+});

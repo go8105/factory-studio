@@ -12,6 +12,7 @@ from fs.gw.company_identity import audit, require_active
 from fs.gw.launch_gate import build as build_launch_gate
 from fs.gw.operating_contract import OperatingPolicy
 from fs.gw.readiness import assess
+from fs.gw.trust_configuration import guidance
 
 S = company.S
 
@@ -75,6 +76,7 @@ def read(context, company_id):
         from fs.gw.operating_evidence import verifier_config
 
         recovery_summary = None
+        configuration_issue = None
         pair_check = {
             "result": "BLOCKED",
             "backupRestorePairVerified": False,
@@ -130,6 +132,7 @@ def read(context, company_id):
         except ApiError as error:
             if error.code != "SECURITY_CONFIGURATION_UNAVAILABLE":
                 raise
+            configuration_issue = guidance(error.details.get("configurationCode"))
             pair_check["reason"] = "CONFIG_REQUIRED"
             evidence_checks = [
                 {
@@ -137,7 +140,7 @@ def read(context, company_id):
                     "label": label,
                     "state": "CONFIG_REQUIRED",
                     "signatureVerified": False,
-                    "detail": "서버의 실행 증거 검증 키·허용 회사/용도와 버전을 설정해야 합니다.",
+                    "detail": configuration_issue["detail"],
                 }
                 for kind, label in (
                     ("BACKUP", "백업 실행"),
@@ -185,6 +188,11 @@ def read(context, company_id):
             "revisionNo": row["revision_no"] if row else None,
             "emergencyKit": emergency_summary(c, ctx.user_id, ctx.workspace_id),
             "evidenceChecks": evidence_checks,
+            **(
+                {"configurationIssue": configuration_issue}
+                if configuration_issue is not None
+                else {}
+            ),
             "backupRestoreCollection": pair_check,
             **({"recovery": recovery_summary} if recovery_summary is not None else {}),
             "evidenceIntegrityReverified": all(

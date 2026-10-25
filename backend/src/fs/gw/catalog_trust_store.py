@@ -17,6 +17,7 @@ from fs.gw import catalog_store as store
 from fs.gw.checkpoint_catalog import Versioned, _object
 from fs.gw.checkpoint_catalog import uuid4 as check_id
 from fs.gw.operating_contract import canonical
+from fs.gw.trust_configuration import TrustConfigurationError
 
 ENV = "FS_GW_CATALOG_TRUST_DIRECTORY"
 HEAD = "current-trust.json"
@@ -180,7 +181,7 @@ def _history(root, *, anchored=True, receiving=False):
     from fs.gw import catalog_trust_transfer as transfer
 
     if not receiving and transfer.RECEIVING in os.listdir(root):
-        raise ValueError("trust recovery incomplete")
+        raise TrustConfigurationError("TRUST_RECOVERY_PENDING")
     names = []
     with os.scandir(root) as entries:
         for entry in entries:
@@ -218,7 +219,7 @@ def _history(root, *, anchored=True, receiving=False):
         transfer.validate_receipt(root, previous)
     if anchored:
         if PENDING in os.listdir(root):
-            raise ValueError("trust head update incomplete")
+            raise TrustConfigurationError("TRUST_UPDATE_PENDING")
         if previous is not None:
             if store.read_fd(root, HEAD, 1024) != _head_bytes(previous, sha):
                 raise ValueError("trust head differs from retained history")
@@ -260,7 +261,7 @@ def inspect(path):
 def check(trust, path):
     head, _ = inspect(path)
     if snapshot(trust) != head.authorities:
-        raise ValueError("current trust does not match durable floor")
+        raise TrustConfigurationError("TRUST_SETTINGS_MISMATCH")
     return trust
 
 

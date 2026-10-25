@@ -157,27 +157,41 @@ def load(public_json, scopes_json=None, *, mode="PUBLIC_DEMO"):
 
 
 def configured_environment():
-    """Validate operator settings without accepting them against the durable floor.
+    """Validate proposed settings without accepting them against retained history.
 
-    Only the explicit local trust installation CLI may call this to propose a change.
+    Only the explicit installation CLI may use this to propose a change.
+    Readers must use from_environment(), which also checks retained history.
     """
-    trust = load(
-        os.environ["FS_GW_EVIDENCE_PUBLIC_KEYS"],
-        os.environ.get("FS_GW_EVIDENCE_KEY_SCOPES"),
-        mode=os.environ.get("FS_SECURITY_MODE", "PUBLIC_DEMO"),
-    )
+    from fs.gw.trust_configuration import TrustConfigurationError
+
+    try:
+        trust = load(
+            os.environ["FS_GW_EVIDENCE_PUBLIC_KEYS"],
+            os.environ.get("FS_GW_EVIDENCE_KEY_SCOPES"),
+            mode=os.environ.get("FS_SECURITY_MODE", "PUBLIC_DEMO"),
+        )
+    except OSError, ValueError, KeyError, TypeError, RecursionError:
+        raise TrustConfigurationError("VERIFIER_CONFIGURATION") from None
     from fs.gw.catalog_key_handover import ENV, bind
 
-    return bind(trust, os.environ[ENV]) if ENV in os.environ else trust
+    try:
+        return bind(trust, os.environ[ENV]) if ENV in os.environ else trust
+    except OSError, InvalidSignature, RecursionError, ValueError, KeyError, TypeError:
+        raise TrustConfigurationError("CATALOG_LIFECYCLE") from None
 
 
 def from_environment():
-    try:
-        trust = configured_environment()
-        from fs.gw import catalog_trust_store as floor
+    from fs.gw import catalog_trust_store as floor
+    from fs.gw.trust_configuration import TrustConfigurationError
 
-        if floor.required(trust) or floor.ENV in os.environ:
-            return floor.check(trust, os.environ[floor.ENV])
+    trust = configured_environment()
+    if not floor.required(trust) and floor.ENV not in os.environ:
         return trust
+    if floor.ENV not in os.environ:
+        raise TrustConfigurationError("TRUST_STORE_REQUIRED")
+    try:
+        return floor.check(trust, os.environ[floor.ENV])
+    except TrustConfigurationError:
+        raise
     except OSError, InvalidSignature, RecursionError, ValueError, KeyError, TypeError:
-        raise ValueError("catalog lifecycle trust unavailable") from None
+        raise TrustConfigurationError("TRUST_STORE_UNAVAILABLE") from None

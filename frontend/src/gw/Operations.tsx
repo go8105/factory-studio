@@ -1,6 +1,11 @@
 import { RetentionReviews } from "./RetentionReviews";
 import { OperatingEvidence } from "./OperatingEvidence";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  CheckAction,
+  OperatingNextSteps,
+  configurationFor,
+} from "./OperatingNextSteps";
 import { EmergencyKit } from "./EmergencyKit";
 import { Link } from "react-router-dom";
 import {
@@ -156,6 +161,7 @@ type State = {
       missingTransactionProofs: number;
     };
   }[];
+  configurationIssue?: { code: string };
   nextAction?: string;
   emergencyKit?: { prepared: boolean; expiresAt: string | null };
 };
@@ -206,19 +212,6 @@ const evidenceLabels: Record<string, string> = {
   CONFIG_REQUIRED: "서버 설정 필요",
   POLICY_REQUIRED: "운영 기준 필요",
 };
-function CheckAction({ code }: { code: string }) {
-  if (code === "PEOPLE" || code === "RESPONSIBLE")
-    return <GwLink to="/gw/people">직원·권한 확인</GwLink>;
-  if (code === "DEPARTMENTS")
-    return <GwLink to="/gw/organization">조직 확인</GwLink>;
-  if (code === "MFA")
-    return <Link to="/account/security">내 계정 보안 확인</Link>;
-  if (code === "POLICY")
-    return <a href="#gw-operating-policy">운영 기준으로 이동</a>;
-  if (["BACKUP", "RESTORE", "ACCEPTANCE"].includes(code))
-    return <a href="#gw-operating-evidence">실행 기록으로 이동</a>;
-  return <Link to="/help/gw/operations">인수 절차 도움말</Link>;
-}
 function GateRows({ checks }: { checks: GateCheck[] }) {
   return (
     <dl className="gw-check-list">
@@ -260,6 +253,16 @@ export function Operations() {
   const [kitPending, setKitPending] = useState(false);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [retentionEditing, setRetentionEditing] = useState(false);
+  const [evidenceEditing, setEvidenceEditing] = useState(false);
+  const [kitEditing, setKitEditing] = useState(false);
+  const refreshRef = useRef<HTMLButtonElement>(null);
+  const refreshRequested = useRef(false);
+  useEffect(() => {
+    if (state.data && refreshRequested.current) {
+      refreshRequested.current = false;
+      refreshRef.current?.focus();
+    }
+  }, [state.data]);
   if (!role.companyId)
     return (
       <section className="gw-operations">
@@ -272,7 +275,17 @@ export function Operations() {
       </section>
     );
   if (state.error)
-    return <ErrorNotice error={state.error} retry={state.reload} />;
+    return (
+      <section className="gw-operations">
+        <PageTitle id="GW 운영" title="운영 준비" help="gw/operations" />
+        <p>
+          {role.companyName ?? "선택 회사"}의 현재 점검 결과를 불러오지
+          못했습니다. 이전 결과로 대신하지 않습니다.
+        </p>
+        <ErrorNotice error={state.error} retry={state.reload} />
+        <GwLink to="/gw/dashboard">GW 업무로 돌아가기</GwLink>
+      </section>
+    );
   if (!state.data) return <Loading />;
   const data = state.data;
   const blocked =
@@ -282,6 +295,7 @@ export function Operations() {
   const confirmed =
     data.launchGate?.checks.filter((c) => c.state === "CONFIRMED") ?? [];
   const next = blocked[0] ?? unverified[0];
+  const issue = configurationFor(data.configurationIssue, data.evidenceChecks);
   return (
     <section className="gw-operations">
       <header className="gw-operations-heading">
@@ -323,7 +337,13 @@ export function Operations() {
             </div>
             <div className="gw-operating-next">
               <h3>지금 확인할 항목</h3>
-              {next ? (
+              {issue ? (
+                <>
+                  <strong>{issue.title}</strong>
+                  <p>서버 운영 담당자의 확인이 필요합니다.</p>
+                  <a href="#gw-next-actions">담당자별 조치 확인</a>
+                </>
+              ) : next ? (
                 <>
                   <strong>{next.label}</strong>
                   <p>{next.nextAction || next.detail}</p>
@@ -334,16 +354,52 @@ export function Operations() {
               )}
             </div>
           </section>
+          {data.evidenceChecks && (
+            <ul
+              className="gw-evidence-overview"
+              aria-label="최근 실행 점검 요약"
+            >
+              {data.evidenceChecks.map((check) => (
+                <li key={check.kind}>
+                  <a href="#gw-operating-evidence">
+                    <span>{check.label}</span>
+                    <strong>
+                      {evidenceLabels[check.state] ?? "결과 확인 필요"}
+                    </strong>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
           <nav
             className="gw-operations-sections"
             aria-label="운영 준비 항목 바로가기"
           >
+            <a href="#gw-next-actions">다음 조치</a>
             <a href="#gw-launch-conditions">전환 조건</a>
             <a href="#gw-operating-evidence">실행 증거</a>
             <a href="#gw-operating-policy">보관·복구 기준</a>
             <a href="#gw-retention">보관 검토</a>
             {data.canEdit && <a href="#gw-account-recovery">계정 복구</a>}
           </nav>
+          <OperatingNextSteps
+            issue={issue}
+            checks={[...blocked, ...unverified]}
+            recovery={data.recovery}
+            canEdit={data.canEdit}
+            disabled={
+              editing ||
+              retentionEditing ||
+              kitPending ||
+              evidenceEditing ||
+              kitEditing
+            }
+            refreshRef={refreshRef}
+            refresh={() => {
+              refreshRequested.current = true;
+              state.reload();
+            }}
+          />
           <section
             id="gw-launch-conditions"
             className="gw-operating-section"
@@ -362,19 +418,24 @@ export function Operations() {
                   {data.launchGate.blockedCount}개 · 미확인{" "}
                   {data.launchGate.unverifiedCount}개
                 </p>
-                {blocked.length > 0 && <GateRows checks={blocked} />}
-                {unverified.length > 0 && (
-                  <>
-                    <h3>실환경 근거가 필요한 조건</h3>
-                    <GateRows checks={unverified} />
-                  </>
-                )}
-                {confirmed.length > 0 && (
-                  <details className="gw-confirmed-conditions">
-                    <summary>확인된 조건 {confirmed.length}개 보기</summary>
-                    <GateRows checks={confirmed} />
-                  </details>
-                )}
+                <details className="gw-gate-details">
+                  <summary>
+                    전환 조건 {data.launchGate.checks.length}개 자세히 확인
+                  </summary>
+                  {blocked.length > 0 && <GateRows checks={blocked} />}
+                  {unverified.length > 0 && (
+                    <>
+                      <h3>실환경 근거가 필요한 조건</h3>
+                      <GateRows checks={unverified} />
+                    </>
+                  )}
+                  {confirmed.length > 0 && (
+                    <details className="gw-confirmed-conditions">
+                      <summary>확인된 조건 {confirmed.length}개 보기</summary>
+                      <GateRows checks={confirmed} />
+                    </details>
+                  )}
+                </details>
               </>
             ) : (
               <ul>
@@ -407,7 +468,17 @@ export function Operations() {
                         </small>
                       </dt>
                       <dd>
-                        {check.detail}
+                        {issue && check.state === "CONFIG_REQUIRED" ? (
+                          <>
+                            <p>
+                              공통 서버 점검을 마친 뒤 현재 근거를 다시
+                              대조합니다.
+                            </p>
+                            <a href="#gw-next-actions">담당자별 조치 확인</a>
+                          </>
+                        ) : (
+                          check.detail
+                        )}
                         {check.restoreRecheck && (
                           <details>
                             <summary>복원본 최근 재관측</summary>
@@ -833,6 +904,7 @@ export function Operations() {
             )}
 
             <OperatingEvidence
+              onDirtyChange={setEvidenceEditing}
               onRecorded={state.reload}
               canEdit={data.canEdit}
               disabled={editing || kitPending || retentionEditing}
@@ -915,6 +987,7 @@ export function Operations() {
                   reload={state.reload}
                   disabled={editing || retentionEditing}
                   onPendingChange={setKitPending}
+                  onDirtyChange={setKitEditing}
                 />
               </details>
             </section>
