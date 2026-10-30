@@ -881,3 +881,21 @@ uv run --project backend python tools/gw_catalog_trust_transfer.py receive \
 최근 실행 요약과 담당자 조치 뒤 **전환 조건 자세히 확인**에서12조건/미확인4조건의 근거를 펼친다. 회사 선택을 유지한 직원·조직/업무 복귀 링크와 정적 도움말을 이용한다. 안내를 읽거나 재점검해도 ready=false·실제 복원 PARTIAL/최종4조건 UNVERIFIED·ACCEPTANCE PASS 거부는 유지한다. 공급자 미정/독립 보관·전체 수집/회수·실회사10인/최종 전환은 별도다.
 
 로컬5362 미리보기는 별도 합성 DB이며 현재 저장된 합성 로그인과 개발 환경의 admin을 혼동하지 않는다.57차 읽기 점검에서는 해당 DB에 admin 계정이 없고 저장된 합성 계정/접속 정보는 현재 DB와 일치했다. 실제 계정 생성/이름 변경·비밀번호 초기화·DB 초기화를 수행하지 않았다. 접속 비밀은 무시되는 로컬 자료로만 관리하며 문서/Git/화면 증거에 싣지 않는다.
+
+## 32. 최종 인수 근거의 공통 계약·실행 어댑터 · 58차
+
+`acceptance_contract` v1은 운영 전환12조건에 `verification`을 붙인다. `mode`/`executionState`/`existingTools`/`automaticScope`/`remainingScope`/`prerequisites`는 서버 고정 계약이며 업로드 입력이나 완료 체크가 아니다. `launchGate.acceptanceContract`의 종류는 `GW_ACCEPTANCE_EXECUTION_BOUNDARY`다. 결과는 BLOCKED 또는 PARTIAL이고 passSupported/liveCompanyAcceptance/releaseAuthorized는 항상 false다. 서명 ACCEPTANCE 형식과 혼용하거나 등록하지 않는다.
+
+| 전환 조건 | 자동 확인·기존 도구 | 남은 근거 |
+|---|---|---|
+| POLICY·RESPONSIBLE | 현재 기준과 활성 계정/회사 멤버십/직원 연결 | 기준의 실회사 적합성·담당자 대응 가능 여부 |
+| DEPARTMENTS·PEOPLE·MFA | 기존 준비 조회의 예정 수 이상/연결 전원 MFA | 정확히1부서·10명·보안 관리자1명/직원9명·전원 부서 배치는 기존 `gw_acceptance_preflight.py`로 별도 점검. 조회가 사전점검을 실행했다고 표시하지 않음 |
+| BACKUP·RESTORE·ACCEPTANCE | `readiness.assess`와 `acceptance_collection.collect_registered`의 현재 원본/등록행·서명 권한·정책/버전·시각·연결 관측 검증 | 실제 복원 PARTIAL, 인수 PASS 미지원. 외부 독립성/전체 회수/실회사 인수는 이 서명으로 확인할 수 없음 |
+| EXTERNAL_STORAGE | 기존 사본 지문·복호화/명세 검사와 격리 복원 도구 | 공급자 선정·장애 영역/키/접근 분리·원본 단절 상태의 실제 복구 |
+| JOURNAL_COVERAGE | 기존 `gw_route_verify.py`, 변경 관측·원본/복원 재관측·목록/회수 이력 도구 | 운영 전경로 무누락·직접SQL/제외 경로 통제·독립 최신 기준과 전체 권한의 실제 거부 |
+| LIVE_COMPANY | 기존10인 사전점검 | 실제10인 동시 업무·TLS/도메인·기기/복구·역할별 허용/거부 |
+| FINAL_RELEASE | 현재12조건/최신 원본 조회 | 앞선 근거 검토·배포/되돌림·담당자 최종 전환 및 실제 접속 확인 |
+
+`acceptance_execution.execute`는 기존 회사 트랜잭션 안에서 서버가 읽은 범위·정책·현재 시각·버전·키를 받는다. 모든 결과/정책/버전 중 `recorded_at,id`가 가장 큰 행을 종류별로 먼저 선택하고 기존 수집기/준비 검증기를 호출한다. 다른 회사/세대는 거부한다. 파일의 자기 주장, unsigned 사전점검/합성 실행 결과, 기존 성공으로 최신 실패/PARTIAL·원본 유실/변조·옛 정책/버전·회수를 대체하지 않는다. 연결된 인수 관측/신뢰 복구 검증도 기존 검증기가 수행한다. 새 수집기·복원·공급자 연결을 실행하는 도구가 아니다.
+
+마지막4조건은 `LIVE_ENVIRONMENT`/`NOT_EXECUTED`/UNVERIFIED다. 기존 도구 목록은 확인 가능한 일부 범위를 설명하며 이 GET에서 그 도구를 실행했다는 뜻이 아니다. 선행 조건이 확인돼도 최종4조건을 승격하지 않는다. 운영 준비 → 전환 조건 → **자동 확인·실환경 인수 구분**에서 각 범위를 읽는다. 기존 **필요한 인수 근거**와 회사/역할 동선은 유지한다. 현재 ready=false/실제 복원 PARTIAL·ACCEPTANCE PASS 거부는 정상이며, 외부 공급자와 실제 근거가 갖춰지기 전 해제하지 않는다.

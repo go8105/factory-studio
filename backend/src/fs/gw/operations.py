@@ -7,11 +7,10 @@ from fs.core.company import require_recent_auth
 from fs.core.security.emergency import summary as emergency_summary
 from fs.core.security.service import database_now
 from fs.gw import company
-from fs.gw.acceptance_collection import collect_registered
+from fs.gw.acceptance_execution import execute
 from fs.gw.company_identity import audit, require_active
 from fs.gw.launch_gate import build as build_launch_gate
 from fs.gw.operating_contract import OperatingPolicy
-from fs.gw.readiness import assess
 from fs.gw.trust_configuration import guidance
 
 S = company.S
@@ -97,23 +96,13 @@ def read(context, company_id):
                 .all()
             )
             clock = database_now(c)
-            if policy is not None:
-                pair_check = collect_registered(
-                    evidence_rows,
-                    policy_id=current["current_policy_revision_id"],
-                    workspace_id=ctx.workspace_id,
-                    generation_id=ctx.generation_id,
-                    policy=policy,
-                    code_revision=code_revision,
-                    db_revision=db_revision,
-                    public_keys=keys,
-                    now=clock,
-                )
-            evidence_checks = assess(
+            pair_check, evidence_checks = execute(
                 evidence_rows,
                 connection=c,
                 policy=policy,
                 policy_id=current["current_policy_revision_id"] if current else None,
+                workspace_id=ctx.workspace_id,
+                generation_id=ctx.generation_id,
                 code_revision=code_revision,
                 db_revision=db_revision,
                 public_keys=keys,

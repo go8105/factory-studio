@@ -52,6 +52,12 @@ type State = {
       state: "CONFIRMED" | "BLOCKED" | "UNVERIFIED";
       detail: string;
       nextAction: string;
+      verification?: {
+        mode: "CURRENT_DB" | "CURRENT_SIGNED_SOURCE" | "LIVE_ENVIRONMENT";
+        automaticScope: string;
+        remainingScope: string;
+        prerequisites: string[];
+      };
       acceptanceScope?: string;
       requiredEvidence?: string[];
     }[];
@@ -228,6 +234,27 @@ function GateRows({ checks }: { checks: GateCheck[] }) {
               <p className="gw-next-action">{check.nextAction}</p>
             )}
             {check.state !== "CONFIRMED" && <CheckAction code={check.code} />}
+            {check.verification && (
+              <details className="gw-check-evidence">
+                <summary>자동 확인·실환경 인수 구분</summary>
+                <p>
+                  {check.verification.mode === "LIVE_ENVIRONMENT"
+                    ? "실환경 인수 필요"
+                    : "현재 자료의 자동 검증"}
+                </p>
+                <p>
+                  기존 도구의 확인 범위: {check.verification.automaticScope}
+                </p>
+                {check.verification.mode === "LIVE_ENVIRONMENT" && (
+                  <p>이 조회에서는 실환경 검사 도구를 실행하지 않습니다.</p>
+                )}
+                <p>남은 확인: {check.verification.remainingScope}</p>
+                <p>
+                  이 구분 안내는 인수 증거가 아니며 최종 통과를 승인하지
+                  않습니다.
+                </p>
+              </details>
+            )}
             {!!check.requiredEvidence?.length && (
               <details className="gw-check-evidence">
                 <summary>필요한 인수 근거</summary>

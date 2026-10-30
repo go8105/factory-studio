@@ -186,6 +186,12 @@ it("운영 전환 조건의 확인·조치·미확인과 다음 행동을 구분
             state: "UNVERIFIED",
             detail: "인수 근거가 없습니다.",
             nextAction: "외부 사본 복구를 인수하세요.",
+            verification: {
+              mode: "LIVE_ENVIRONMENT",
+              automaticScope: "기존 도구의 사본 지문 대조",
+              remainingScope: "독립 장애 영역과 원본 단절 복구 인수",
+              prerequisites: ["BACKUP", "RESTORE"],
+            },
             acceptanceScope: "실제 외부 저장소에서 확인합니다.",
             requiredEvidence: ["원본 없이 외부 사본을 읽고 복구한 결과"],
           },
@@ -207,6 +213,15 @@ it("운영 전환 조건의 확인·조치·미확인과 다음 행동을 구분
   expect(
     screen.getByText("원본 없이 외부 사본을 읽고 복구한 결과"),
   ).not.toBeVisible();
+  fireEvent.click(screen.getByText("자동 확인·실환경 인수 구분"));
+  expect(screen.getByText("실환경 인수 필요")).toBeVisible();
+  expect(
+    screen.getByText("기존 도구의 확인 범위: 기존 도구의 사본 지문 대조"),
+  ).toBeVisible();
+  expect(
+    screen.getByText("남은 확인: 독립 장애 영역과 원본 단절 복구 인수"),
+  ).toBeVisible();
+  expect(screen.getByText("외부 저장소 장애·복구 · 미확인")).toBeVisible();
   fireEvent.click(screen.getByText("필요한 인수 근거"));
   await waitFor(() =>
     expect(

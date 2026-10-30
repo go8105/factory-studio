@@ -1,5 +1,6 @@
 """Explicit evidence boundaries; no checkbox or caller-supplied release override."""
 
+from fs.gw.acceptance_contract import attach
 from fs.gw.acceptance_requirements import for_condition
 
 
@@ -111,6 +112,7 @@ def build(*, policy, connected, enrolled, departments, responsible_active, evide
         )
     return {
         "version": 1,
+        "acceptanceContract": attach(checks),
         "ready": all(c["state"] == "CONFIRMED" for c in checks),
         "confirmedCount": sum(c["state"] == "CONFIRMED" for c in checks),
         "blockedCount": sum(c["state"] == "BLOCKED" for c in checks),
