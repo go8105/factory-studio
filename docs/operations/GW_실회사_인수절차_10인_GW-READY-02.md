@@ -929,3 +929,32 @@ uv run --project backend python tools/gw_acceptance_preflight.py \
 | 회사 멤버십 | 이번 검토 목록의 실행 근거 미연결 | 회수 뒤 복원본의 새 인증·다른 회사 접근 거부 |
 
 이8영역은 전체 쓰기/권한 전수 목록이 아니다. 암호·MFA/복구코드 재사용 검사는 기존 `test_security_checkpoint.py`를 별도로 따르며 이 보고서가 수집하지 않는다. 게시 대상·결재 전결/위임·채팅 멤버십·일정/참석자·직접SQL/운영 도구·향후SSO와 독립 최신 기준/중간 변경 무누락도 별도 대조 대상이다. 실제 권한 거부 수집/복원 실행을 추가하지 않았으므로 기존 복원 PARTIAL·전체 회수 미확인을 유지한다. 공급자 선정과 실제 근거 없이 외부 독립성·전체 회수·실회사/최종PASS를 해제하지 않는다.
+
+## 34. 격리 복원본의 새 인증·권한 거부 전용 실행 · 60차
+
+기존 `tools/gw_route_verify.py --restored-denial-only`는 고정5조건만 실행하는 제한된 합성 시험 모드다. 대상 회사/계정/URL·임의 경로/SQL을 입력받지 않는다. 운영 DB·기존 미리보기·59차 실행 보고서 파일을 입력으로 쓰지 않으며 기존 전체 합성 카탈로그V5 모드는 유지한다. 공통 관측 계약은 `RestoredDenialObservation` v1/`SYNTHETIC_CLOSED_RESTORE_AUTHENTICATION`, 전용 카탈로그는 `GW_RESTORED_DENIAL_PROBES_V1`이다.
+
+1. 새 소유 PostgreSQL18 시험 컨테이너를 준비한다. `GW_BACKUP_TEST_CONTAINER`에는 docker inspect로 확인한 **전체64자리 컨테이너ID**, `FS_GW_ROUTE_VERIFY_OWNER`에는 그 컨테이너의 `factory-studio.owner` 라벨을 비공개 주입한다. 단일loopback5432 포트 매핑과 running/ID/owner가 정확히 일치해야 한다. 컨테이너 이름·공개바인딩·추가 바인딩은 전용 모드에서 거부한다.
+2. `FS_GW_ROUTE_VERIFY_ADMIN_URL`에는 그 컨테이너의 loopback `postgres` 관리 연결만 비공개 주입한다. URL/비밀번호를 명령행·문서/로그에 출력하지 않는다. 실행기는 매번 새 UUID *_test DB를 만들며 기존 DB를 초기화하지 않는다.
+3. 소유자0700 폴더에 새0600 보고서를 만든다. 개인키/OTP·합성 계정의 원문은 출력하지 않는다.
+
+```sh
+uv run --project backend python tools/gw_route_verify.py \
+  --restored-denial-only --report work/acceptance/restored-denial-60.json
+```
+
+새 DB에 마이그레이션 후 고정 pytest5조건을 실행한다. 각 조건은 합성 계정/권한·암호화 MFA factor를 시험 준비로 구성하고 기존 실제 dump/암호화 백업·현재 권한 checkpoint·격리 restore 도구를 호출한다. 합성 MFA factor 준비는 앱 등록/실휴대폰 인수 시험이 아니다. 접속제한0/PUBLIC CONNECT 회수는 그대로이며 소유 시험 superuser의 내부 ASGI 접속만 사용한다. 직원 DB 접속을 개방하거나 실제 운영 계정/암호·OTP·서버 키를 수정하지 않는다.
+
+| 고정 조건 | 새 인증과 양성 대조 | 요구하는 거부 |
+|---|---|---|
+| CORE_ACCOUNT | 관리자 새MFA 로그인/현재 세션·GW 감사 조회 성공 | 회수된 합성 직원의 새 로그인401/INVALID_CREDENTIALS |
+| COMPANY_MEMBERSHIP | 관리자 양성 대조·직원 새MFA/현재 세션 성공 | 회사 GW 감사 조회403/COMPANY_ACCESS_DENIED |
+| GW_BINDING | 관리자 양성 대조·직원 새MFA/현재 세션 성공 | 회수 연결의 GW 감사 조회403/GW_IDENTITY_REQUIRED |
+| GW_ROLE | 관리자 양성 대조·직원 새MFA/현재 세션 및 GW me 성공 | GW 감사 조회403/GW_ROLE_REQUIRED |
+| HR_AUTHORITY | 관리자 양성 대조·직원 새MFA/현재 세션 및 GW me 성공 | HR 사용자관리 조회403/WORK_ACCESS_DENIED |
+
+임의401/403·추가인증 필요·서버 오류·양성 대조 실패를 권한 회수 성공으로 바꾸지 않는다. 직접SQL로 준비한 합성 회수의 checkpoint 제한 적용/실제 HTTP 거부 시험이며 해당 회수 작업의 전경로 자동수집·회사 실기기/도메인 인수가 아니다. 원본 비교는 app_user/auth_session/mfa_factor/company_member/GW binding/role_grant/HR work_account **선택7개 테이블 지문**이며 전체 업무 DB 불변 증명이 아니다. 복원 서명 파일의 실제 바이트 지문을 기록하지만 그 원본을 외부 독립 보관했다고 인정하지 않는다.
+
+현재 실행의 정확한 pytest 이름/클래스·5조건 전체/단일 관측 속성, 실행UUID·코드/DB 버전·시각·기대 상태/오류코드·새MFA/양성대조/격리/원본비교 플래그를 확인한다. 누락/중복·실패/skip·다른 조건/실행·옛 버전·미래/범위밖 시각·형식 변조는 BLOCKED다. 실행 전후 backend/tools 원본 지문도 같아야 한다. 출력은 unsigned SYNTHETIC_GW_ROUTE_EXECUTION이며 성공해도 PARTIAL/종료0·ready/liveCompanyAcceptance/revocationsReapplied/completenessConfirmed=false다. 전용 결과는 `restoredDenialObservations`와 SYNTHETIC_FRESH_AUTH_CASES_PASSED로 표시하며 새 ACCEPTANCE 증거로 등록하지 않는다. 마지막4조건 UNVERIFIED/실제 복원PARTIAL을 유지한다.
+
+생성한 기본 시험 DB는 실행기가 정리하고 각 격리 복원 DB는 시험의 finally에서 정리한다. 중단/프로세스 강제 종료 시에는 생성 소유 자원과 닫힌 복원 DB가 남을 수 있다. 전체ID/owner로 확인한 **이번 생성 자원만** 점검·정리하며 기존 미리보기나 병행 DB를 일괄 삭제하지 않는다. 문서별 ACL·다른회사 접근·모든 업무 경로/암호·복구코드/SSO·독립 최신성·실회사10인 인수와 전체 회수는 후속이다.

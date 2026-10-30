@@ -627,3 +627,12 @@ PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/op
 - [실회사 절차 §33](../operations/GW_실회사_인수절차_10인_GW-READY-02.md)·수집 경계·운영 준비의 기존 구분 안내/정적 도움말로 연결했다. CLI가 계정/비밀번호·권한을 자동 수정하지 않는다. 작은 설명/보고서 연결이며 전체 UI 완성 작업이 아니다. 실제 복원PARTIAL·ready=false/최종4조건 UNVERIFIED·ACCEPTANCE PASS 거부 유지.
 - 검증: 관련 단위971(신규11)·화면/도움말61·별도 소유PG8(신규보고3+운영API3+실제dump/격리복원2)·수정Ruff check/format·정적DB219표2409열543FK/R1–R6 오류0. 같은 읽기 거래/쓰기거부25006·회사 상태불변/기본admin 부재·최신FAIL/원본유실·연결된서명PARTIAL 재검증을 확인했다. 새 UUID *_test DB와 새 owner라벨/loopback 컨테이너만 만들고 정리했으며 병행 DB/기존 미리보기는 접속/변경하지 않았다. 새 시험 환경 초기화의 임시socket 준비 상태를 TCP 준비 검사로 보정한 뒤 신규연결1건을 통과했다. 상세/재현/제약은 최신HANDOFF/progress를 따른다.
 - 다음: 복원본에서 새 인증 뒤 권한 거부를 확인할 공통 검사 계약/제한 실행기부터 진행한다. 제한된 합성 대상·허용 경로와 실제 회수/실환경 인수를 구분하고 새 시험이 끝나도 전체 회수/인수PASS를 올리지 않는다. 실제10인/실기기·브라우저/전체CI·회귀·공급자/독립 최신 기준·최신main 통합/최종 전환은 남는다. 스키마/마이그레이션/metadata·Excel/ERD·실계정/OTP/키·다른checkout/WMS/main/push/배포 변경 없음.
+
+
+## 60차 — 닫힌 복원본의 새 인증·업무 권한 거부 공통 계약과 제한 실행 (2026-10-30)
+
+- `RestoredDenialObservation` v1/고정5조건과 기존 `gw_route_verify.py --restored-denial-only`를 연결했다. 새 소유UUID 시험DB에서 실제dump/암호화백업·checkpoint·격리restore를 재사용하고 새MFA HTTP 인증 뒤 회사멤버십/GW연결·역할/HR권한을 확인한다. 계정회수는 새로그인401/INVALID_CREDENTIALS로 별도 검사한다. 관리자 새MFA/감사조회 양성대조·직원 현재세션/해당GW me와 정확한403 오류코드를 요구한다. MFA factor는 합성SQL 준비라 실제 앱등록/기기 인수를 의미하지 않는다.
+- 전용모드는 full64자리 컨테이너ID·owner·running·단일loopback 연결을 확인하고 고정 pytest5조건만 실행한다. 임의회사/계정/경로/SQL·기존DB를 입력받지 않는다. 관측속성/실행UUID·코드/DB·시각/기대상태·원본선택7테이블 불변/격리유지와 실행전후소스지문을 대조한다. 누락/중복·skip·실패/잘못된문맥은BLOCKED, 모두확인해도 unsigned PARTIAL이다. 보고서단독/서명/수동체크로ACCEPTANCE PASS를 만들지 않는다.
+- [실회사 절차 §34](../operations/GW_실회사_인수절차_10인_GW-READY-02.md)·수집경계·정적도움말에 연결했다. 문서별ACL/다른회사접근·게시/위임/채팅/일정/직접SQL/운영도구/SSO·전경로/전체회수/독립최신성·실회사10인 인수는 남는다.59차보고서는 이 합성결과를 자동수입하지 않으며 마지막4조건 UNVERIFIED·ready=false/실제복원PARTIAL을 유지한다. UI전체완성 작업은 아니다.
+- 실제검사/실패보정/최종CLI결과·자원정리/재현은 최신 progress/HANDOFF를 따른다. 초기직접5조건통과 뒤 CLI의계정회수 기대오류코드가 내부AUTHENTICATION_FAILED와 HTTP외부INVALID_CREDENTIALS를 혼동해 차단됐다. 실제HTTP계약으로 수정했으며 제품인증/인수차단은 완화하지 않았다. 실패보고서는 과거성공으로대체하지 않고 새실행으로 재검증했다. 스키마/마이그레이션·metadata/Excel/ERD/실계정·미리보기·다른checkout/WMS/main/push/배포변경없음.
+- 다음은 문서별ACL과 다른회사범위의 복원 후 실제허용/거부 검사를 같은 고정실행계약에 추가하는 단계다. 그 뒤에도 전체무누락/실외부/실회사10인·전체회귀/최신main통합/최종전환은 별도로 남는다.

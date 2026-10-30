@@ -1,3 +1,15 @@
+## 2026-10-30 GW-READY-02 60차 — 격리 복원본 새 인증·권한 거부 공통 계약/제한 실행 완료
+
+- 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`, 시작 `a15aa7f`/작업트리 깨끗함을 확인했다. 이 checkout만 수정했다. 최종 커밋은 `git log -1`로 확인한다.
+- `RestoredDenialObservation` v1과 기존 `gw_route_verify.py --restored-denial-only`/GW_RESTORED_DENIAL_PROBES_V1을 추가했다. 새 소유 UUID *_test DB에서 기존 실제dump/암호화백업·checkpoint·격리restore를 재사용하고 계정회수 새로그인401/INVALID_CREDENTIALS, 새MFA 뒤 회사멤버십/GW연결·역할/HR권한403의 고정5조건을 확인한다. 관리자 새MFA/현재세션·감사조회 양성대조와 직원 새MFA/현재세션·필요GW me를 따로 요구한다. 임의401/403·인증실패·서버오류를 회수 성공으로 세지 않는다. MFA factor/회수 상태는 합성SQL 시험 준비여서 등록/실기기·회수 명령 수집 검증은 아니다.
+- 전용모드는 full64자리 컨테이너ID/owner/running·단일loopback 매핑을 검증한다. 임의회사/계정/URL/경로·기존DB를 실행 대상으로 받지 않는다. 실제 이번 실행의 정확한 pytest이름/클래스·5개전체·단일속성·UUID/코드/DB/시각·기대상태/코드·격리/양성대조/선택원본불변을 확인한다. 누락/중복·skip/실패·옛문맥·변조·실행중소스변경은BLOCKED다. 관측은 unsigned합성결과이며 기존 인수에 자동수입/등록하지 않는다. 성공도PARTIAL/ready=false·전체회수/완전성/실회사인수=false, 마지막4조건UNVERIFIED·실제복원PARTIAL 유지.
+- 원본불변 비교는 계정/세션/MFA/회사멤버십/GW연결·역할/HR계정 선택7개테이블 지문이다. 전체업무DB 불변이나 외부독립 원본보관 증명이 아니다. 닫힌 대상은 datconnlimit0/PUBLIC CONNECT 회수 유지, 소유시험superuser의 내부ASGI만 사용하며 직원 접속을 개방하지 않았다. 실제회사의 계정/admin·암호·OTP·키를 바꾸지 않는다.
+- 최종검증: 관련 단위1009통과27.46초(신규38, 기존 사용중단경고2); 집중58통과0.67초는 중복 합산하지 않는다. 화면/정적도움말61통과5.30초. 수정Python4파일 Ruff check/format·정적DB219표2409열543FK/R1–R6 오류0. 프런트제품코드 미변경으로 이번타입/ESLint/build·실브라우저/모바일은 재실행하지 않았다. 전체CI/전체회귀·실회사10인/실기기 인수는 아니다.
+- 실제PG/실CLI: 새 owner=gw-ready-02-phase60-test·전체ID/loopback 확인 컨테이너와 새UUID시험DB에서 직접5조건76.50초 통과 후 CLI통합을 확인했다. 최종 전용CLI는 pytest종료0/5조건PASSED·관측5개·sourceUnchanged/databaseCleaned=true·PARTIAL/종료0, 전체81.72초다. 직접5+CLI반복을 다른10건으로 합산하지 않는다. 각새MFA/HTTP거부·양성대조/원본선택지문·폐쇄유지와 정리를 확인했다. 기존V5 전체카탈로그 실행은 이번 재실행하지 않았다.
+- 실패/보정: 새실행기 import정렬I001을 보정했다. 초기직접검사 뒤 계약작성 중 내부오류AUTHENTICATION_FAILED를 기대해 전용CLI2회에서 CORE_ACCOUNT1실패/나머지4통과·BLOCKED였다. 비공개진단에서 실제router가 외부401/INVALID_CREDENTIALS로 변환함을 확인해 계약만 HTTP코드로 보정했다. 인증/인수 차단·기대401/403/양성대조는 완화하지 않았다. 실패출력은 덮거나 과거통과로 대신하지 않았고 새번호/새소유DB/새파일의 최종CLI5조건과 전체1009를 재검증했다. 미통과 실행을 완료로 세지 않는다.
+- 문서/자원: 실회사절차§34/보안수집경계·정적도움말/구현문서·현황199줄/progress/HANDOFF 갱신. 직관성(고정조건/전용모드)/유효성(새인증·양성대조·정확한오류코드)/학습성(제한범위/남은ACL)/유연성(기존도구재사용)을 반영했으며 전체UI완성은 아니다. 이번생성컨테이너/볼륨/기본DB·폐쇄복원DB를 정리했고 owner잔여0을 확인했다. 기존미리보기/병행DB 접속·초기화/다른checkout/WMS/main/push/배포 변경없음. 스키마/마이그레이션·metadata/Excel/ERD 변경없음. work/.env·비밀/전체로그 Git제외.
+- 다음: 문서별ACL과 다른회사범위의 복원후 실제허용/거부 고정검사를 같은 실행계약으로 확장한다. 문서/게시/결재위임·채팅/일정/직접SQL/운영도구/SSO·전경로무누락/독립최신성·외부공급자/장애복구·실API브라우저/최신main/전체회귀·실회사10인/최종전환은 남는다. 다음 난이도높음, GPT-6 Astra + High 추천(객체ACL/회사격리·인증상태 정합), 자동모델변경 없음. 사용자확인 전 다음단계 자동착수하지 않는다.
+
 ## 2026-10-30 GW-READY-02 59차 — 동일 읽기 스냅샷 실행 보고·권한 거부 미연결 대조 완료
 
 - 작업 위치 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`, 시작 `9308a92`, 작업 트리 깨끗함 확인. 이 checkout만 수정했다. 최종 커밋은 `git log -1`로 확인한다.

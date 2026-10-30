@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -15,6 +16,13 @@ from xml.etree import ElementTree
 from fs.core.backup import BackupError, create_private, private_directory
 from fs.gw.acceptance_business import PROBE, PROPERTY, SyntheticBusinessObservation
 from fs.gw.operating_contract import canonical, timestamp
+from fs.gw.restored_denial import (
+    CASES,
+    RestoredDenialObservation,
+)
+from fs.gw.restored_denial import (
+    PROPERTY as DENIAL_PROPERTY,
+)
 from pydantic import ValidationError
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
@@ -121,6 +129,15 @@ PROBES = {
 }
 
 
+DENIAL_PROBES = {
+    "RESTORED_FRESH_AUTH_" + case: (
+        "backend/tests/test_gw_restored_denial_db.py",
+        "test_closed_restore_fresh_authentication_denial[" + case + "]",
+    )
+    for case in CASES
+}
+
+
 def source_identity():
     commit = (
         subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT).decode().strip()
@@ -132,7 +149,10 @@ def source_identity():
     paths = {Path(os.fsdecode(p)) for p in files if p}
     paths.add(Path(__file__).relative_to(ROOT))
     paths.add(Path("backend/src/fs/gw/acceptance_business.py"))
-    paths.update(Path(path) for path, _name in PROBES.values())
+    paths.update(
+        Path(path) for path, _name in [*PROBES.values(), *DENIAL_PROBES.values()]
+    )
+    paths.add(Path("backend/src/fs/gw/restored_denial.py"))
     digest = hashlib.sha256()
     for path in sorted(paths):
         digest.update(os.fsencode(path) + b"\0")
@@ -144,11 +164,12 @@ def source_identity():
     return {"commit": commit, "sourceDigest": digest.hexdigest()}
 
 
-def probe_results(xml_path):
+def probe_results(xml_path, probes=None):
+    probes = PROBES if probes is None else probes
     root = ElementTree.parse(xml_path).getroot()
     cases = list(root.iter("testcase"))
     results = []
-    for code, (path, name) in PROBES.items():
+    for code, (path, name) in probes.items():
         matches = [
             case
             for case in cases
@@ -168,8 +189,8 @@ def probe_results(xml_path):
         elif matches:
             state = "INVALID"
         results.append({"probe": code, "state": state})
-    unexpected = len(cases) != len(PROBES) or any(
-        case.get("name") not in {name for _, name in PROBES.values()} for case in cases
+    unexpected = len(cases) != len(probes) or any(
+        case.get("name") not in {name for _, name in probes.values()} for case in cases
     )
     return results, unexpected
 
@@ -215,10 +236,51 @@ def business_observation(
     return "SYNTHETIC_SCENARIO_PASSED", data.model_dump(by_alias=True)
 
 
-def validate_restore_container(url, container, owner):
+def denial_observations(
+    xml_path, *, run_id, code_revision, db_revision, started_at, now
+):
+    """Only exact passed cases from this execution; no detached report ingestion."""
+    root = ElementTree.parse(xml_path).getroot()
+    results, unexpected = probe_results(xml_path, DENIAL_PROBES)
+    if unexpected or any(r["state"] != "PASSED" for r in results):
+        return []
+    observations = []
+    try:
+        for case in root.iter("testcase"):
+            values = [
+                p.get("value")
+                for p in case.findall("./properties/property")
+                if p.get("name") == DENIAL_PROPERTY
+            ]
+            if len(values) != 1:
+                return []
+            data = RestoredDenialObservation.model_validate_json(values[0], strict=True)
+            path, name = DENIAL_PROBES["RESTORED_FRESH_AUTH_" + data.case]
+            if case.get("name") != name or case.get("classname") not in {
+                Path(path).stem,
+                "tests." + Path(path).stem,
+            }:
+                return []
+            if (
+                data.run_id != run_id
+                or data.code_revision != code_revision
+                or data.db_revision != db_revision
+                or timestamp(data.started_at) < timestamp(started_at)
+                or timestamp(data.finished_at) > now
+            ):
+                return []
+            observations.append(data.model_dump(by_alias=True))
+    except (ValueError, TypeError, KeyError):
+        return []
+    if len({o["case"] for o in observations}) != len(CASES):
+        return []
+    return observations
+
+
+def validate_restore_container(url, container, owner, *, strict=False):
     if not owner:
         raise BackupError("복원 검사 컨테이너 소유 라벨이 필요합니다.")
-    template = '{"owner":{{json (index .Config.Labels "factory-studio.owner")}},"ports":{{json .NetworkSettings.Ports}},"running":{{json .State.Running}}}'
+    template = '{"id":{{json .Id}},"owner":{{json (index .Config.Labels "factory-studio.owner")}},"ports":{{json .NetworkSettings.Ports}},"running":{{json .State.Running}}}'
     result = subprocess.run(
         ["docker", "inspect", "--format", template, container],
         capture_output=True,
@@ -230,6 +292,14 @@ def validate_restore_container(url, container, owner):
         raise BackupError("소유 복원 검사 컨테이너를 확인하세요.")
     info = json.loads(result.stdout)
     bindings = info.get("ports", {}).get("5432/tcp") or []
+    if strict and (
+        not re.fullmatch(r"[0-9a-f]{64}", container)
+        or info.get("id") != container
+        or len(bindings) != 1
+        or bindings[0].get("HostIp") != url.host
+        or bindings[0].get("HostPort") != str(url.port)
+    ):
+        raise BackupError("고정한 시험 컨테이너ID와 단일loopback 연결이 필요합니다.")
     if (
         info.get("owner") != owner
         or info.get("running") is not True
@@ -242,7 +312,8 @@ def validate_restore_container(url, container, owner):
         raise BackupError("복원 검사 컨테이너의 소유권·연결 범위가 다릅니다.")
 
 
-def run(*, admin_url, output):
+def run(*, admin_url, output, restored_denial_only=False):
+    probes = DENIAL_PROBES if restored_denial_only else PROBES
     output = Path(output)
     private_directory(output.parent)
     if output.exists() or output.is_symlink():
@@ -255,9 +326,14 @@ def run(*, admin_url, output):
     ):
         raise BackupError("소유 테스트 PostgreSQL의 postgres 관리 연결을 사용하세요.")
     container = os.environ.get("GW_BACKUP_TEST_CONTAINER")
+    if restored_denial_only and not container:
+        raise BackupError("복원 권한 거부 검사는 소유 컨테이너가 필요합니다.")
     if container:
         validate_restore_container(
-            url, container, os.environ.get("FS_GW_ROUTE_VERIFY_OWNER")
+            url,
+            container,
+            os.environ.get("FS_GW_ROUTE_VERIFY_OWNER"),
+            strict=restored_denial_only,
         )
     identity = source_identity()
     run_id = str(uuid4())
@@ -267,7 +343,10 @@ def run(*, admin_url, output):
     report = {
         "version": 1,
         "kind": "SYNTHETIC_GW_ROUTE_EXECUTION",
-        "catalogVersion": "GW_SYNTHETIC_ROUTE_PROBES_V5",
+        "catalogVersion": "GW_RESTORED_DENIAL_PROBES_V1"
+        if restored_denial_only
+        else "GW_SYNTHETIC_ROUTE_PROBES_V5",
+        "restoredDenialObservations": [],
         "runId": run_id,
         "startedAt": datetime.now(UTC).isoformat(),
         "executionScope": "NEW_OWNED_SYNTHETIC_DATABASE",
@@ -342,7 +421,7 @@ def run(*, admin_url, output):
                             sys.executable,
                             "-m",
                             "pytest",
-                            *[f"{path}::{name}" for path, name in PROBES.values()],
+                            *[f"{path}::{name}" for path, name in probes.values()],
                             "-q",
                             "--tb=no",
                             f"--junitxml={junit}",
@@ -356,14 +435,14 @@ def run(*, admin_url, output):
                     )
                     report["pytestExitCode"] = executed.returncode
                     if junit.exists():
-                        report["probes"], unexpected = probe_results(junit)
+                        report["probes"], unexpected = probe_results(junit, probes)
                         if (
                             executed.returncode == 0
                             and not unexpected
                             and all(p["state"] == "PASSED" for p in report["probes"])
                         ):
-                            report["businessObservationState"], observation = (
-                                business_observation(
+                            if restored_denial_only:
+                                observations = denial_observations(
                                     junit,
                                     run_id=run_id,
                                     code_revision=identity["commit"],
@@ -371,10 +450,26 @@ def run(*, admin_url, output):
                                     started_at=report["startedAt"],
                                     now=datetime.now(UTC),
                                 )
-                            )
-                            if observation is not None:
-                                report["syntheticBusinessObservation"] = observation
-                                report["result"] = "PARTIAL"
+                                report["restoredDenialObservations"] = observations
+                                if len(observations) == len(CASES):
+                                    report["result"] = "PARTIAL"
+                                    report["restoredAccessDenial"] = (
+                                        "SYNTHETIC_FRESH_AUTH_CASES_PASSED"
+                                    )
+                            else:
+                                report["businessObservationState"], observation = (
+                                    business_observation(
+                                        junit,
+                                        run_id=run_id,
+                                        code_revision=identity["commit"],
+                                        db_revision=report["dbRevision"],
+                                        started_at=report["startedAt"],
+                                        now=datetime.now(UTC),
+                                    )
+                                )
+                                if observation is not None:
+                                    report["syntheticBusinessObservation"] = observation
+                                    report["result"] = "PARTIAL"
                     else:
                         report["failureStage"] = "EXECUTION"
         report["sourceUnchanged"] = source_identity() == identity
@@ -382,6 +477,8 @@ def run(*, admin_url, output):
             report["result"] = "BLOCKED"
             report["businessObservationState"] = "INVALID_SOURCE_CHANGED"
             report["syntheticBusinessObservation"] = None
+            report["restoredDenialObservations"] = []
+            report["restoredAccessDenial"] = "UNVERIFIED"
         if report["result"] == "PARTIAL" and any(
             p["probe"] == "RESTORED_SESSION_CHALLENGE_AND_AUTHORITY_DENIAL"
             and p["state"] == "PASSED"
@@ -405,10 +502,17 @@ def run(*, admin_url, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument(
+        "--restored-denial-only",
+        action="store_true",
+        help="새 소유DB의 합성 복원·새MFA 권한 거부5조건만 실행",
+    )
     args = parser.parse_args()
     try:
         report = run(
-            admin_url=os.environ["FS_GW_ROUTE_VERIFY_ADMIN_URL"], output=args.report
+            admin_url=os.environ["FS_GW_ROUTE_VERIFY_ADMIN_URL"],
+            output=args.report,
+            restored_denial_only=args.restored_denial_only,
         )
     except (
         BackupError,
