@@ -86,6 +86,8 @@ export function Inspections() {
   const [initial, setInitial] = useState<Draft>();
   const [manual, setManual] = useState<Manual>(EMPTY_MANUAL);
   const [done, setDone] = useState<{ text: string; holdId?: number }>();
+  // AQL 검사의 시료 불량 개수. 표본 수량과 달리 검사 본문과 따로 저장한다.
+  const [defectCount, setDefectCount] = useState("");
   const {
     send,
     pending,
@@ -136,6 +138,9 @@ export function Inspections() {
     try {
       const r = await api<Inspection>(`${QMS}/inspections/${id}`);
       setDetail(r.data);
+      setDefectCount(
+        r.data.defectCount === null ? "" : String(r.data.defectCount),
+      );
       const d = toDraft(r.data);
       setDraft(d);
       setInitial(d);
@@ -177,6 +182,17 @@ export function Inspections() {
             };
       }),
     };
+  }
+  async function saveDefects(inspectionId: number) {
+    const saved = await send<Inspection>(
+      `/inspections/${inspectionId}/defect-count`,
+      "PATCH",
+      { defectCount: Number(defectCount) },
+    );
+    if (saved) {
+      setDetail(saved);
+      setDone({ text: `시료 불량 ${saved.defectCount}개를 적었습니다.` });
+    }
   }
   async function save(confirm: boolean) {
     if (!detail || !draft || pending) return;
@@ -459,18 +475,48 @@ export function Inspections() {
                   재검사에 합격하면 보류를 풀 수 있습니다.
                 </p>
               )}
-              <div className="field-row">
-                <Field
-                  label={`표본 수량 (${detail.unit})`}
-                  inputMode="decimal"
-                  value={draft.sample}
-                  required
-                  error={errors.sampleQty}
-                  onChange={(e) =>
-                    setDraft({ ...draft, sample: e.target.value })
-                  }
-                />
-              </div>
+              {detail.sampling === "AQL" ? (
+                <>
+                  <p className="muted" role="note">
+                    <strong>
+                      AQL {detail.specAql} · 시료 {num(detail.sampleQty)}{" "}
+                      {detail.unit} · 합격 판정 개수 {detail.acceptNumber}
+                    </strong>{" "}
+                    — 표가 정한 시료 수라 바꾸지 않습니다. 시료 불량이{" "}
+                    {detail.rejectNumber}개 이상이면 불합격입니다.
+                  </p>
+                  <div className="field-row">
+                    <Field
+                      label="시료 불량 개수"
+                      inputMode="numeric"
+                      value={defectCount}
+                      error={errors.defectCount}
+                      onChange={(e) => setDefectCount(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={pending || defectCount.trim() === ""}
+                      onClick={() => void saveDefects(detail.id)}
+                    >
+                      불량 개수 저장
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="field-row">
+                  <Field
+                    label={`표본 수량 (${detail.unit})`}
+                    inputMode="decimal"
+                    value={draft.sample}
+                    required
+                    error={errors.sampleQty}
+                    onChange={(e) =>
+                      setDraft({ ...draft, sample: e.target.value })
+                    }
+                  />
+                </div>
+              )}
               <div className="table-scroll section-block">
                 <table>
                   <caption>측정값 입력</caption>

@@ -1,3 +1,69 @@
+# 2026-10-30 QMS-1f 완료 — SPC·CMMS·QMS 보강 진행 중 (다음: QMS-1g)
+
+- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `qms-1f` (병합 뒤 `main`)
+- **마지막 커밋**: `git log --oneline -3` 참조. 원격 `origin/main`과 동기.
+- **담당**: Claude Code가 설계·개발·검증·병합을 모두 한다(D85). Codex는 GW 범위만.
+
+## 이번 구간에 끝낸 것 (2026-10-19 ~ 10-30)
+
+보강 순서 **SPC → CMMS → QMS**를 따라왔고, 세 솔루션이 모두 화면까지 끝났다.
+
+| 솔루션 | 결과 | 마이그레이션 |
+|---|---|---|
+| SPC | 7 → **11화면**, 5 → 10표 | `spc1`, `spc2` |
+| CMMS | 0 → **10화면**(솔루션 개통), 6 → 12표 | `cmms1`, `cmms2` |
+| QMS | 6 → **12화면**, 6 → 15표 | `qms1` |
+
+QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1c** 계측기·교정(Q-11)·4M 변경(Q-12) / **1d** 부적합 보고(Q-07)·시정예방조치(Q-08) / **1e** 클레임(Q-09)·공급처 품질(Q-10) / **1f** 검사 종류·AQL 샘플링·수입 검사.
+
+**1b에서 만든 교차 조회 함수가 전부 소비자를 얻었다** — `defects`는 Q-07 공정 부적합이, `lot_trace`는 Q-09 LOT 역추적이, `inbound_lots_to_inspect`는 Q-03 수입 탭이 쓴다. 죽은 코드로 남지 않았다.
+
+## 곁들여 고친 것 (QMS 작업과 무관한 선재 문제)
+
+1. **테스트 정리가 PostgreSQL 잠금표를 바닥냈다** — 게스트 정리가 230개 표를 한 트랜잭션에서 지워 `out of shared memory`. `conftest._delete_test_guests`를 40개 표마다 커밋하도록 바꿨다.
+2. **프런트 기본 대기 1초가 빠듯했다** — 파일이 늘자 ERP 테스트가 병렬 부하에서 재현성 있게 깨졌다. `src/test/setup.ts`에서 `asyncUtilTimeout` 5초로.
+3. **시드 복사 성능 기준(사용자 결정)** — 2초 약속을 최대값이 아니라 **중앙값**에 건다(최대 3초 상한). FS-015 때 0.456초였던 중앙값이 표 230개에서 1.67초다. **표가 381로 가면 기준이 아니라 복사 자체를 고쳐야 한다.**
+
+## 다음 작업 — QMS-1g
+
+1f 설계 범위(검사 보강·지표)가 커서 **수입 검사 라인 완성**만 1f로 하고 나머지를 1g로 넘겼다.
+
+| 할 일 | 설계 | 메모 |
+|---|---|---|
+| 검사 값에 **계측기 기록** | F27 | `qms.inspection_value.gauge_id`. Q-11은 1c에 있다. 교정 만료·수리 중 계측기면 경고(차단 아님) |
+| **검사 성적서(COA)** 브라우저 인쇄 | F25 | 확정 검사의 항목·측정값·판정·계측기 |
+| **Q-13 품질 지표** 신규 화면 | F72 | 파레토·PPM 추이. 1f로 수입 데이터가 생겨 이제 의미가 있다 |
+| Q-01 대시보드 카드 보강 | F71 | 수입 대기·미결 NCR/CAPA·클레임·교정 도래 |
+| 반품 검사·처분 | F42 | **막힘** — `erp.sales_return`이 목표 설계에만 있다. ERP 단계까지 대기 |
+
+## 그 뒤 로드맵
+
+**기존 솔루션 보강**: SPC ✔ → CMMS ✔ → QMS(1g 남음) → **FEMS(12표)** → **BEMS(11표)** → **ERP(38표)**
+**그 뒤 새 솔루션**: POP(7표)부터
+
+## 주의점
+
+- **`apply_*.py` 틀이 nullability를 옮기지 않는다.** SPC·CMMS에서 각각 `spc2`·`cmms2`를 따로 만들어 보완했다. FEMS·BEMS·ERP에서도 난다.
+- **다른 세션이 같은 폴더의 main을 쓴다.** QMS-1d 커밋이 브랜치가 아니라 main에 직행한 적이 있다(reflog상 외부 checkout). 커밋 직전 `git branch --show-current`를 확인할 것.
+- **git add는 파일 경로로.** 디렉터리 단위로 넣지 않는다.
+- `git push --mirror` 금지. 원격 push는 사용자 확인 후.
+- **AQL 강화 검사 표(ISO Table 2-B)는 구현하지 않았다.** "한 단계 엄격한 AQL" 규칙으로 대신하며 코드·도움말에 명시돼 있다. 진짜 2-B가 필요해지면 그때 넣는다.
+- 월 평가 등급 기준(불합격 비율 0/5/10%, 시정 요구 있으면 한 단계 하향)은 **설계에 수치가 없어 내가 정한 값**이다.
+
+## 환경
+
+- **colima VM이 내려가 있을 수 있다**(일주일 만의 세션에서 겪었다). `colima start --profile factory-studio --cpu 2 --memory 4 --disk 20 --vm-type vz --runtime docker` 뒤 `docker start factory-studio-db-1`.
+- PostgreSQL 18.6 / 포트 55432 / Python 3.14 / Node 24(`/opt/homebrew/opt/node@24/bin`).
+- **`docker-compose.yml`에서 `max_locks_per_transaction=512`를 준다.** 기본값 64로는 표 230개를 작업자 10개가 동시에 만들 때 잠금표가 바닥나 CI가 수백 건 깨진다. 컨테이너를 다시 만들어야 적용된다(`docker-compose up -d`). 표가 381로 가도 버티도록 넉넉히 뒀다.
+- 재현 명령:
+  - 전체: `tools/ci_local.sh`
+  - QMS만: `TEST_DATABASE_URL="$(grep -o 'DATABASE_URL=.*' .env | sed 's/^DATABASE_URL=//; s#/factory_studio$#/factory_studio_ci_test#')" backend/.venv/bin/pytest backend/tests -q -k qms`
+  - 프런트: `npm --prefix frontend test -- --run`
+
+## 배포
+
+**운영은 `gw_wms_merge`까지다. `spc1`·`spc2`·`cmms1`·`cmms2`·`qms1` 5건이 미배포다.** 운영 반영은 사용자 승인 뒤 `docs/deploy/배포절차_FS-022.md`를 따른다. GitHub Actions가 결제 문제로 막혀 있어 `--skip-ci-check`와 수동 `ci_local.sh`가 필요하다.
+
 # 2026-10-18 W2b-1d D-4 W-09 출고 예약 피킹 상태 연계 및 완제품 출고 예약 보강 완료 (W2b-1d 전체 완료)
 
 - **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio-ag` / `antigravity/w2b-1d-work`

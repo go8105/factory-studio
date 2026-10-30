@@ -1,5 +1,6 @@
-// Q-03 검사 대기 — MES 완료 LOT을 읽기 전용으로 조회한다(FS-023 D9, UI-02 L 패턴).
-// "검사 시작"은 LOT 값을 스냅샷으로 복사한 검사를 만들고 Q-04 입력 패널로 이동한다.
+// Q-03 검사 대기 — 출하(MES 완료 LOT)·수입(WMS 격리 입고 줄) 두 탭 (FS-023 D9, DSN-14 F11·F21).
+// "검사 시작"은 원천 값을 스냅샷으로 복사한 검사를 만들고 Q-04 입력 패널로 이동한다.
+// 반품·초품 탭은 ERP 반품 표가 생긴 뒤에 붙인다.
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSession } from "../app/session";
@@ -14,15 +15,21 @@ import {
   type Column,
 } from "../shared/components";
 import {
+  LEVEL,
+  LevelBadge,
   ModuleOff,
   moduleOff,
   num,
   QMS,
   time,
   useSend,
+  type IncomingLot,
   type MesLot,
   SpcBadge,
 } from "./common";
+
+type Tab = "outgoing" | "incoming";
+const TABS: Record<Tab, string> = { outgoing: "출하", incoming: "수입" };
 
 const STATUS = {
   pending: ["대기", "warning"],
@@ -35,8 +42,15 @@ const DEFAULT_SAMPLE = 32;
 export function Pending() {
   const { fail } = useSession();
   const navigate = useNavigate();
+  const [tab, setTab] = useState<Tab>("outgoing");
   const [includeDone, setIncludeDone] = useState(false);
   const [rows, setRows] = useState<MesLot[]>();
+  const [incoming, setIncoming] = useState<{
+    wmsEnabled: boolean;
+    rows: IncomingLot[];
+  }>();
+  // 탭마다 원천이 다르다. 출하(MES) 오류가 수입(WMS) 탭에 새어 나오면 안 된다.
+  const [incomingError, setIncomingError] = useState<unknown>();
   const [error, setError] = useState<unknown>();
   const [reload, setReload] = useState(0);
   const {
@@ -62,6 +76,24 @@ export function Pending() {
     return () => controller.abort();
   }, [includeDone, reload]);
 
+  useEffect(() => {
+    if (tab !== "incoming") return;
+    const controller = new AbortController();
+    setIncoming(undefined);
+    setIncomingError(undefined);
+    api<{ wmsEnabled: boolean; rows: IncomingLot[] }>(
+      `${QMS}/lookups/incoming-lots`,
+      { signal: controller.signal },
+    )
+      .then((r) => !controller.signal.aborted && setIncoming(r.data))
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        setIncomingError(e);
+        if (e instanceof ApiError && [401, 410].includes(e.status)) fail(e);
+      });
+    return () => controller.abort();
+  }, [tab, reload]);
+
   if (moduleOff(error)) return <ModuleOff />;
   const sourceOff =
     error instanceof ApiError &&
@@ -76,6 +108,60 @@ export function Pending() {
     });
     if (created) navigate(`/qms/inspections?open=${created.id}`);
   }
+  async function startIncoming(row: IncomingLot) {
+    const created = await send<{ id: number }>(
+      "/inspections/incoming",
+      "POST",
+      {
+        sourceRef: row.sourceRef,
+      },
+    );
+    if (created) navigate(`/qms/inspections?open=${created.id}`);
+  }
+
+  const incomingColumns: Column<IncomingLot & { id: number }>[] = [
+    { key: "sourceRef", label: "입고 원천" },
+    {
+      key: "id",
+      label: "관리",
+      render: (r) =>
+        r.hasSpec ? (
+          <button
+            type="button"
+            className="link-button"
+            disabled={pending}
+            onClick={() => void startIncoming(r)}
+          >
+            검사 시작
+          </button>
+        ) : (
+          <Link className="link-button" to="/qms/specs">
+            수입 기준 없음 · 기준 만들기
+          </Link>
+        ),
+    },
+    {
+      key: "partnerCode",
+      label: "공급처",
+      render: (r) => r.partnerCode ?? "—",
+    },
+    {
+      key: "itemCode",
+      label: "품목",
+      render: (r) => `${r.itemCode} ${r.itemName}`,
+    },
+    { key: "lotNo", label: "LOT", render: (r) => r.lotNo ?? "—" },
+    {
+      key: "qty",
+      label: "격리 수량",
+      render: (r) => `${num(r.qty)} ${r.unit}`,
+    },
+    {
+      key: "level",
+      label: "검사 수준",
+      render: (r) => <LevelBadge level={r.level} />,
+    },
+  ];
 
   const columns: Column<MesLot>[] = [
     {
@@ -149,15 +235,65 @@ export function Pending() {
       <PageTitle
         id="Q-03"
         title="검사 대기"
-        subtitle="MES에서 실적 확정이 끝난 LOT을 읽어 와 출하 전 최종검사를 시작합니다"
+        subtitle="출하는 MES 완료 LOT, 수입은 WMS 격리 입고 줄에서 검사를 시작합니다"
         help="qms/q-03"
       />
       <p className="muted" role="note">
-        MES 데이터를 읽기만 합니다. 검사를 시작하면 LOT 번호·품목·양품 수량을
-        검사 기록에 복사하고, 이후 MES가 바뀌어도 검사 기록은 그대로입니다.
+        원천 데이터를 읽기만 합니다. 검사를 시작하면 LOT 번호·품목·수량을 검사
+        기록에 복사하고, 이후 MES·WMS가 바뀌어도 검사 기록은 그대로입니다.
       </p>
       <ErrorNotice error={saveError} />
-      {sourceOff ? (
+      <div className="filter-bar">
+        {(Object.keys(TABS) as Tab[]).map((key) => (
+          <button
+            key={key}
+            type="button"
+            className={tab === key ? undefined : "secondary"}
+            aria-pressed={tab === key}
+            onClick={() => setTab(key)}
+          >
+            {TABS[key]}
+          </button>
+        ))}
+      </div>
+      {tab === "incoming" ? (
+        <>
+          <p className="muted">
+            <strong>검수에서 격리된 입고 줄</strong>이 수입 검사 대상입니다.{" "}
+            {LEVEL.EXEMPT} 수준으로 정한 공급처는 목록에서 빠집니다.
+          </p>
+          <ErrorNotice
+            error={incomingError}
+            retry={() => setReload((n) => n + 1)}
+          />
+          {!incoming ? (
+            !incomingError && <Loading delay={300} />
+          ) : !incoming.wmsEnabled ? (
+            <EmptyState
+              reason="WMS를 사용하지 않도록 설정했습니다. 수입 검사 대상을 읽을 수 없습니다."
+              to="/workspace"
+              action="내 공간으로"
+            />
+          ) : (
+            <DataTable
+              rows={incoming.rows.map((r, i) => ({ ...r, id: i + 1 }))}
+              columns={incomingColumns}
+              caption="수입 검사 대기"
+              offset={0}
+              total={incoming.rows.length}
+              limit={incoming.rows.length || 1}
+              onPage={() => undefined}
+              empty={
+                <EmptyState
+                  reason="수입 검사할 입고 줄이 없습니다. WMS 검수에서 격리한 줄이 여기에 나타납니다."
+                  to="/wms/receiving"
+                  action="WMS 입고 검수로"
+                />
+              }
+            />
+          )}
+        </>
+      ) : sourceOff ? (
         <EmptyState
           reason="MES를 사용하지 않도록 설정했습니다. LOT 코드를 직접 입력해 검사할 수 있습니다."
           action="직접 입력으로 검사"

@@ -238,23 +238,25 @@ def test_pm_compliance_counts_due_dates_in_the_period(shop):
     assert late["pmTotal"] == 1 and late["pmKept"] == 0
 
     with engine.begin() as c:
-        c.execute(
+        # 완료는 실제 시계로 찍힌다. 기간은 **그 완료일**을 감싸야 한다 — FS_TODAY를 기준으로
+        # 잡으면 실제 날짜가 한 달 넘게 흐른 뒤 기간 밖으로 밀려 나간다.
+        done_on = c.execute(
             text(
                 "UPDATE cmms.work_order SET due_on=(completed_at AT TIME ZONE 'Asia/Seoul')::date "
-                "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+                "WHERE workspace_id=:w AND generation_id=:g AND id=:id RETURNING due_on"
             ),
             {
                 "w": created["workspaceId"],
                 "g": created["generationId"],
                 "id": order["id"],
             },
-        )
+        ).scalar_one()
     kept = _ok(
         client.get(
             f"{C}/metrics",
             params={
-                "from": (TODAY - timedelta(days=30)).isoformat(),
-                "to": (TODAY + timedelta(days=30)).isoformat(),
+                "from": min(TODAY, done_on).isoformat(),
+                "to": max(TODAY, done_on).isoformat(),
             },
         )
     )

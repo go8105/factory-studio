@@ -39,10 +39,18 @@ class SpecItemIn(ApiModel):
     is_required: bool = Field(True, alias="isRequired")
 
 
+SpecKind = Literal["OUTGOING", "INCOMING"]
+# 기준에 적을 수 있는 AQL (KS Q ISO 2859-1 표의 열). sampling.AQLS와 같아야 한다.
+Aql = Literal["0.65", "1.0", "1.5", "2.5", "4.0", "6.5"]
+
+
 class SpecCreate(ApiModel):
     item_code: str = Field(alias="itemCode", pattern=ITEM_CODE)
     item_name: str = Field(alias="itemName", min_length=1, max_length=100)
     note: str | None = Field(None, max_length=300)
+    # 반품·초품은 출하 기준을 쓴다. 기준은 출하·수입 둘만 게시한다.
+    inspection_kind: SpecKind = Field("OUTGOING", alias="inspectionKind")
+    aql: Aql | None = None
     items: list[SpecItemIn] = Field(default_factory=list, max_length=50)
 
 
@@ -258,3 +266,15 @@ class ScarCreate(ApiModel):
 class ScarRespond(ApiModel):
     response: str = Field(min_length=2, max_length=1000)
     responded_on: date | None = Field(None, alias="respondedOn")
+
+
+class IncomingInspectionCreate(ApiModel):
+    source_ref: str = Field(alias="sourceRef", min_length=1, max_length=60)
+    # 기준에 AQL이 있으면 표가 정한다. 없을 때만 직접 적는다.
+    sample_qty: str | None = Field(None, alias="sampleQty", pattern=QTY)
+    inspected_on: date | None = Field(None, alias="inspectedOn")
+    note: str | None = Field(None, max_length=300)
+
+
+class DefectCountIn(ApiModel):
+    defect_count: int = Field(alias="defectCount", ge=0)

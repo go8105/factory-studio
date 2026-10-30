@@ -24,6 +24,37 @@ export type SpecItem = {
   isRequired: boolean;
 };
 export type SpecStatus = "draft" | "published" | "retired";
+export type SpecKind = "OUTGOING" | "INCOMING";
+/** 기준에 적을 수 있는 AQL. 백엔드 sampling.AQLS와 같아야 한다. */
+export const AQLS = ["0.65", "1.0", "1.5", "2.5", "4.0", "6.5"] as const;
+export const SPEC_KIND: Record<SpecKind, string> = {
+  OUTGOING: "출하 (반품·초품 포함)",
+  INCOMING: "수입",
+};
+export type SamplingPlan = {
+  letter: string;
+  sampleSize: number;
+  acceptNumber: number;
+  rejectNumber: number;
+  aql: string;
+  isFullInspection: boolean;
+};
+/** 수입 검사 대기 한 줄 — WMS 격리 입고 줄에 검사 수준을 얹은 것. */
+export type IncomingLot = {
+  sourceRef: string;
+  noticeNo: string;
+  noticeKind: string;
+  partnerCode: string | null;
+  inspectedAt: string;
+  lotNo: string | null;
+  itemCode: string;
+  itemName: string;
+  qty: string;
+  unit: string;
+  level: InspectionLevel;
+  hasSpec: boolean;
+  isTarget: boolean;
+};
 export type Spec = {
   id: number;
   itemCode: string;
@@ -32,6 +63,8 @@ export type Spec = {
   status: SpecStatus;
   publishedAt: string | null;
   note: string | null;
+  inspectionKind: SpecKind;
+  aql: string | null;
   itemCount: number;
   inspectionCount: number;
   items?: SpecItem[];
@@ -71,7 +104,15 @@ export type Hold = {
 export type Inspection = {
   id: number;
   inspectionNo: string;
-  source: "MES" | "MANUAL" | "QMS";
+  source: "MES" | "MANUAL" | "QMS" | "WMS";
+  inspectionKind: "OUTGOING" | "INCOMING" | "RETURN" | "FIRST_ARTICLE";
+  partnerCode: string | null;
+  sourceRef: string | null;
+  sampling: "AQL" | "MANUAL";
+  acceptNumber: number | null;
+  rejectNumber: number | null;
+  defectCount: number | null;
+  specAql: string | null;
   lotNo: string;
   itemCode: string;
   itemName: string;
@@ -121,6 +162,13 @@ export const SOURCE = {
   MES: "MES 조회",
   MANUAL: "직접 입력",
   QMS: "4M 초품",
+  WMS: "WMS 입고",
+} as const;
+export const INSPECTION_KIND = {
+  OUTGOING: "출하",
+  INCOMING: "수입",
+  RETURN: "반품",
+  FIRST_ARTICLE: "초품",
 } as const;
 
 export const num = (v: string | number, digits = 3) =>

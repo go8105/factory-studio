@@ -6,6 +6,9 @@ services:
       POSTGRES_DB: factory_studio
       POSTGRES_USER: factory_studio
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    # 표가 230개를 넘어 xdist 작업자 10개가 동시에 템플릿을 만들면 기본 잠금표(64 × 100)가
+    # 바닥나 "out of shared memory"가 난다. 표는 381까지 늘 예정이라 넉넉히 둔다.
+    command: ["postgres", "-c", "max_locks_per_transaction=512"]
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
     volumes:

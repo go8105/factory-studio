@@ -21,15 +21,24 @@ import {
   ModuleOff,
   moduleOff,
   QMS,
+  AQLS,
+  SPEC_KIND,
   SpecBadge,
   time,
   useSend,
   type Spec,
   type SpecItem,
+  type SpecKind,
 } from "./common";
 
 type MesItem = { itemCode: string; name: string; baseUnit: string };
-type Create = { itemCode: string; itemName: string; note: string };
+type Create = {
+  itemCode: string;
+  itemName: string;
+  note: string;
+  inspectionKind: SpecKind;
+  aql: string;
+};
 type ItemDraft = {
   name: string;
   method: SpecItem["method"];
@@ -38,7 +47,13 @@ type ItemDraft = {
   unit: string;
   isRequired: boolean;
 };
-const EMPTY_CREATE: Create = { itemCode: "", itemName: "", note: "" };
+const EMPTY_CREATE: Create = {
+  itemCode: "",
+  itemName: "",
+  note: "",
+  inspectionKind: "OUTGOING",
+  aql: "",
+};
 const EMPTY_ITEM: ItemDraft = {
   name: "",
   method: "RANGE",
@@ -162,6 +177,8 @@ export function Specs() {
       itemCode: create.itemCode.trim().toUpperCase(),
       itemName: create.itemName.trim(),
       note: create.note.trim() || null,
+      inspectionKind: create.inspectionKind,
+      aql: create.aql || null,
     });
     if (saved) {
       setSpec(saved);
@@ -273,8 +290,10 @@ export function Specs() {
       />
       <p className="muted" role="note">
         게시한 기준은 바꿀 수 없습니다. 바꾸려면 개정하세요. 검사는 만들 때의
-        게시 기준을 그대로 씁니다. 품목당 게시 기준은 1개이며, 새 버전을
-        게시하면 이전 버전은 폐기됩니다.
+        게시 기준을 그대로 씁니다.{" "}
+        <strong>품목·검사 종류당 게시 기준이 1개</strong>
+        이며, 새 버전을 게시하면 같은 종류의 이전 버전만 폐기됩니다. 반품·초품
+        검사는 출하 기준을 씁니다.
       </p>
       {!panel && (
         <ErrorNotice
@@ -391,6 +410,50 @@ export function Specs() {
                   </div>
                 </>
               )}
+              <div className="field">
+                <label htmlFor="spec-kind">검사 종류</label>
+                <select
+                  id="spec-kind"
+                  value={create.inspectionKind}
+                  onChange={(e) =>
+                    setCreate({
+                      ...create,
+                      inspectionKind: e.target.value as SpecKind,
+                    })
+                  }
+                >
+                  {(Object.keys(SPEC_KIND) as SpecKind[]).map((k) => (
+                    <option key={k} value={k}>
+                      {SPEC_KIND[k]}
+                    </option>
+                  ))}
+                </select>
+                <small>
+                  품목·종류당 게시본 1개입니다.{" "}
+                  <strong>반품·초품 검사는 출하 기준을 씁니다.</strong>
+                </small>
+              </div>
+              <div className="field">
+                <label htmlFor="spec-aql">AQL (선택)</label>
+                <select
+                  id="spec-aql"
+                  value={create.aql}
+                  onChange={(e) =>
+                    setCreate({ ...create, aql: e.target.value })
+                  }
+                >
+                  <option value="">없음 (시료 수 직접 입력)</option>
+                  {AQLS.map((a) => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
+                  ))}
+                </select>
+                <small>
+                  AQL을 정하면 로트 크기에 맞는 시료 수와 합격 판정 개수를 표가
+                  정합니다(KS Q ISO 2859-1, 일반 검사 수준 II).
+                </small>
+              </div>
               <Field
                 label="메모"
                 value={create.note}
