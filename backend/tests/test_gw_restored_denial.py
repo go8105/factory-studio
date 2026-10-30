@@ -14,6 +14,7 @@ from fs.gw.restored_denial import (
     ALL_CASES,
     CASES,
     OBJECT_CASES,
+    POST_CASES,
     PROPERTY,
     RestoredDenialObservation,
 )
@@ -65,6 +66,31 @@ def observation(case="GW_ROLE"):
                 hiddenScopeReadCode="NOT_FOUND",
                 hiddenScopeWriteCode="NOT_FOUND",
             )
+    if case in POST_CASES:
+        guarded = case == "POST_VISIBILITY_GUARD"
+        data.update(
+            version=3,
+            scope="SYNTHETIC_CLOSED_RESTORE_POST_VISIBILITY",
+            sourceComparisonScope="SELECTED_AUTHORIZATION_ORGANIZATION_AND_POST_TABLES",
+            writeStatus=status,
+            writeErrorCode=code,
+            baselineReadConfirmed=True,
+            baselineWriteConfirmed=True,
+            restoredOwnerReadConfirmed=not guarded,
+            restoredPublicReadConfirmed=not guarded,
+            restoredOrgReadConfirmed=not guarded,
+            restoredOwnDraftWriteConfirmed=not guarded,
+            quarantineObserved=guarded,
+            companyHold=guarded,
+            contentExposed=False,
+            deniedPostStateUnchanged=True,
+            listingMode="IDENTITY_DENIED" if guarded else "FILTERED",
+            listStatus=403 if guarded else 200,
+            searchStatus=403 if guarded else 200,
+            listCode="GW_IDENTITY_REQUIRED" if guarded else None,
+            searchCode="GW_IDENTITY_REQUIRED" if guarded else None,
+            visibilityReplayed=False,
+        )
     return data
 
 
@@ -317,7 +343,7 @@ def test_object_contract_rejects_unproven_read_write_or_scope(change):
         "other-code": ("hiddenScopeReadCode", "COMPANY_ACCESS_DENIED"),
         "numeric-boolean": ("positiveObjectWrite", 1),
         "status-float": ("hiddenScopeReadStatus", 404.0),
-        "unknown-version": ("version", 3),
+        "unknown-version": ("version", 4),
     }
     key, value = edits[change]
     data[key] = value
@@ -333,3 +359,75 @@ def test_observation_parser_refuses_ambiguous_non_objects_or_oversized_claims(ra
 
     with pytest.raises(ValueError):
         parse_observation(raw)
+
+
+@pytest.mark.parametrize("case", list(POST_CASES))
+def test_post_v3_distinguishes_filtering_from_whole_scope_quarantine(case):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation(case)
+    parsed = parse_observation(json.dumps(data))
+    guarded = case == "POST_VISIBILITY_GUARD"
+    assert parsed.version == 3 and parsed.quarantine_observed == guarded
+    assert parsed.restored_owner_read_confirmed is (not guarded)
+    for version in (1, 2):
+        data["version"] = version
+        with pytest.raises(ValueError):
+            parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "baseline-read",
+        "baseline-write",
+        "owner-positive",
+        "public-positive",
+        "org-positive",
+        "draft-positive",
+        "quarantine",
+        "hold",
+        "content",
+        "state",
+        "list-code",
+        "search-code",
+        "list-status",
+        "search-status",
+        "listing-mode",
+        "replayed",
+        "status-code",
+        "source-scope",
+        "boolean-int",
+        "float-status",
+    ],
+)
+def test_post_guard_contract_cannot_be_reported_as_successful_object_filtering(change):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation("POST_VISIBILITY_GUARD")
+    changes = {
+        "baseline-read": ("baselineReadConfirmed", False),
+        "baseline-write": ("baselineWriteConfirmed", False),
+        "owner-positive": ("restoredOwnerReadConfirmed", True),
+        "public-positive": ("restoredPublicReadConfirmed", True),
+        "org-positive": ("restoredOrgReadConfirmed", True),
+        "draft-positive": ("restoredOwnDraftWriteConfirmed", True),
+        "quarantine": ("quarantineObserved", False),
+        "hold": ("companyHold", False),
+        "content": ("contentExposed", True),
+        "state": ("deniedPostStateUnchanged", False),
+        "list-code": ("listCode", "NOT_FOUND"),
+        "search-code": ("searchCode", "SESSION_EXPIRED"),
+        "list-status": ("listStatus", 200),
+        "search-status": ("searchStatus", 404),
+        "listing-mode": ("listingMode", "FILTERED"),
+        "replayed": ("visibilityReplayed", True),
+        "status-code": ("errorCode", "NOT_FOUND"),
+        "source-scope": ("sourceComparisonScope", "SELECTED_AUTHORIZATION_TABLES"),
+        "boolean-int": ("quarantineObserved", 1),
+        "float-status": ("listStatus", 403.0),
+    }
+    key, value = changes[change]
+    data[key] = value
+    with pytest.raises(ValueError):
+        parse_observation(json.dumps(data))

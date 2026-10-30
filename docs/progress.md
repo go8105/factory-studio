@@ -1,3 +1,15 @@
+## 2026-10-30 GW-READY-02 62차 — 게시물 조직 공개·공개 범위 guard 복원 검사 완료
+
+- 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`, 시작 `e9c1119`/작업트리깨끗함 확인. 이 checkout만 수정했다. 최종커밋은 `git log -1`로 확인한다.
+- 기존전용실행기를 GW_RESTORED_DENIAL_PROBES_V3/9조건으로 확장했다. v1다섯/v2둘은 유지하고 새게시물2조건만 RestoredPostDenialObservation v3로 분리한다. 기존소유검증/새UUID DB/실제dump·암호화백업·checkpoint·폐쇄restore·새MFA/실행UUID·버전/시각/소스지문 검증을 재사용했다. 새수집기/공급자/임의대상·수동완료체크·인수PASS는없다.
+- POST_ORG_SCOPE: 백업전후 소속조직밖 작성자본인글·같은조직공지·회사공개글 읽기200과 직원본인FREE초안수정200을 대조한다. 다른조직공지의 상세/수정404/NOT_FOUND·목록/검색미노출·게시물/이력·조직/소속4개테이블 불변을 확인한다. POST_VISIBILITY_GUARD: 백업뒤 전체공개→조직공개 변경만 합성SQL로주입하고 기존guard의 활성GW연결0/companyHold=true를 확인한다. 옛게시물의 전체공개값은자동재생하지 않으며 관리자/직원새MFA성공과 GW상세/수정·목록/검색/본인초안403/GW_IDENTITY_REQUIRED를 구분한다. 격리된GW의복원후양성대조를true로꾸미지 않는다.
+- v3는 복원전후대조/격리/보존중지·정확한읽기/수정오류·목록/검색모드와본문미노출·상태불변을 필수로검증한다. FILTERED(정상조직ACL)와IDENTITY_DENIED(회사범위격리)를혼동하거나 범위를재생했다고주장하면거부한다. 원본비교는 선택7개권한+person/organization_unit/board_post/board_event=11개이며 문서v2의11개와구성이다르다. 인증/유휴세션·감사처리를 객체불변과혼동하지 않는다. 성공도unsigned합성PARTIAL·ready=false/최종4조건UNVERIFIED·실제복원PARTIAL/PASS거부유지.
+- 최종검증: 관련단위1053통과26.21초(신규22/기존사용중단경고2), 화면/정적도움말61통과6.36초. 수정Python4파일 Ruff check/format·정적DB219표2409열543FK/R1–R6 오류0. 프런트제품코드미변경으로 이번타입/ESLint/build·실브라우저/모바일은재실행하지 않았다. 전체CI/전체회귀·실회사/실기기10인/기존V5전체합성실행은미완료/미실행이다.
+- 실제PG/CLI: 새owner=gw-ready-02-phase62-test·전체ID/단일loopback 확인 컨테이너와 새UUID *_test DB에서 추가2조건33.20초통과. 거부요청전후지문/미노출범위를보강한 최종전용CLI는9조건PASSED·관측9개(v1다섯/v2둘/v3둘)·pytest종료0/sourceUnchanged/databaseCleaned=true·PARTIAL/종료0/141.77초다. 직접2+CLI9를 다른11건으로합산하지 않는다. 생성기본DB/폐쇄복원DB·컨테이너/볼륨정리와owner잔여0확인. 기존미리보기/병행DB에는접속/초기화하지 않았다.
+- 실패/보정: 초기합성준비에서 FREE게시물에ORG공개를주어 기존NOTICE한정규칙으로2건400/VALIDATION_FAILED·17.14초실패했다. 공지로준비하고 기존게시권한/조직/격리규칙은유지했다. import정렬I001을보정했다. 최종검사에서는 격리경로의모든GW거부요청 전에 지문을잡고 정상허용수정은지문전에마쳐 부작용범위를구분했다. 실패를과거통과로대신하거나 미실행을통과로세지 않았다.
+- 문서/범위: 실회사절차§36/수집경계/도움말/문서지도·구현문서/현황199줄/progress/HANDOFF갱신. 직관성(필터/격리구분)/유효성(실제게시/양성대조·정확한거부)/학습성(새인증과GW격리구분)/유연성(기존계약·실행기재사용)을반영했으며 전체UI완성은아니다. 스키마/마이그레이션·metadata/Excel/ERD·실계정/admin/비밀번호/OTP/키·브라우저설정변경없음. work/.env·비밀/전체로그Git제외. 다른checkout/WMS/main/push/배포변경없음.
+- 다음: 채팅멤버십/메시지의 복원후접근경계 고정검사를 같은제한실행기에 연결한다. 정정/재게시·결재/위임·일정·직접SQL/운영도구/SSO·전경로무누락/전체회수·독립최신성/외부공급자·실API브라우저/최신main/전체회귀·실회사/기기10인/최종전환은남는다. 난이도높음, GPT-6 Astra + High 추천(객체멤버십·회사격리·복원원본정합), 모델자동변경없음. 사용자확인전 다음단계 자동착수하지 않는다.
+
 ## 2026-10-30 GW-READY-02 61차 — 문서 ACL·다른 회사 문서의 복원 후 허용/거부 완료
 
 - 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`, 시작 `22689b1`/작업트리 깨끗함 확인. 이 checkout만 수정했다. 최종 커밋은 `git log -1`로 확인한다.

@@ -19,6 +19,7 @@ from fs.gw.operating_contract import canonical, timestamp
 from fs.gw.restored_denial import (
     ALL_CASES,
     OBJECT_CASES,
+    POST_CASES,
     parse_observation,
 )
 from fs.gw.restored_denial import (
@@ -144,6 +145,16 @@ DENIAL_PROBES.update(
             "test_closed_restore_object_authorization[" + case + "]",
         )
         for case in OBJECT_CASES
+    }
+)
+
+DENIAL_PROBES.update(
+    {
+        "RESTORED_FRESH_AUTH_" + case: (
+            "backend/tests/test_gw_restored_post_db.py",
+            "test_closed_restore_post_visibility[" + case + "]",
+        )
+        for case in POST_CASES
     }
 )
 
@@ -352,7 +363,7 @@ def run(*, admin_url, output, restored_denial_only=False):
     report = {
         "version": 1,
         "kind": "SYNTHETIC_GW_ROUTE_EXECUTION",
-        "catalogVersion": "GW_RESTORED_DENIAL_PROBES_V2"
+        "catalogVersion": "GW_RESTORED_DENIAL_PROBES_V3"
         if restored_denial_only
         else "GW_SYNTHETIC_ROUTE_PROBES_V5",
         "restoredDenialObservations": [],
@@ -514,7 +525,7 @@ def main():
     parser.add_argument(
         "--restored-denial-only",
         action="store_true",
-        help="새 소유DB의 합성 복원·새MFA 권한 거부7조건만 실행",
+        help="새 소유DB의 합성 복원·새MFA 권한 거부9조건만 실행",
     )
     args = parser.parse_args()
     try:

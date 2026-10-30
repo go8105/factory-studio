@@ -20,7 +20,11 @@ OBJECT_CASES = {
     "DOCUMENT_READER": (404, "NOT_FOUND"),
     "FOREIGN_SCOPE": (403, "COMPANY_ACCESS_DENIED"),
 }
-ALL_CASES = CASES | OBJECT_CASES
+POST_CASES = {
+    "POST_ORG_SCOPE": (404, "NOT_FOUND"),
+    "POST_VISIBILITY_GUARD": (403, "GW_IDENTITY_REQUIRED"),
+}
+ALL_CASES = CASES | OBJECT_CASES | POST_CASES
 
 
 class RestoredDenialObservation(StrictModel):
@@ -149,6 +153,97 @@ class RestoredObjectDenialObservation(RestoredDenialObservation):
         return self
 
 
+class RestoredPostDenialObservation(RestoredDenialObservation):
+    version: Literal[3]
+    scope: Literal["SYNTHETIC_CLOSED_RESTORE_POST_VISIBILITY"]
+    case: Literal["POST_ORG_SCOPE", "POST_VISIBILITY_GUARD"]
+    source_comparison_scope: Literal[
+        "SELECTED_AUTHORIZATION_ORGANIZATION_AND_POST_TABLES"
+    ] = Field(alias="sourceComparisonScope")
+    write_status: int = Field(alias="writeStatus")
+    write_error_code: str = Field(alias="writeErrorCode")
+    baseline_read_confirmed: Literal[True] = Field(alias="baselineReadConfirmed")
+    baseline_write_confirmed: Literal[True] = Field(alias="baselineWriteConfirmed")
+    restored_owner_read_confirmed: bool = Field(alias="restoredOwnerReadConfirmed")
+    restored_public_read_confirmed: bool = Field(alias="restoredPublicReadConfirmed")
+    restored_org_read_confirmed: bool = Field(alias="restoredOrgReadConfirmed")
+    restored_own_draft_write_confirmed: bool = Field(
+        alias="restoredOwnDraftWriteConfirmed"
+    )
+    quarantine_observed: bool = Field(alias="quarantineObserved")
+    company_hold: bool = Field(alias="companyHold")
+    content_exposed: Literal[False] = Field(alias="contentExposed")
+    denied_post_state_unchanged: Literal[True] = Field(alias="deniedPostStateUnchanged")
+    listing_mode: Literal["FILTERED", "IDENTITY_DENIED"] = Field(alias="listingMode")
+    list_status: int = Field(alias="listStatus")
+    search_status: int = Field(alias="searchStatus")
+    list_code: str | None = Field(alias="listCode")
+    search_code: str | None = Field(alias="searchCode")
+    visibility_replayed: Literal[False] = Field(alias="visibilityReplayed")
+
+    @model_validator(mode="before")
+    @classmethod
+    def exact_post_types(cls, value):
+        if isinstance(value, dict):
+            for key in (
+                "baselineReadConfirmed",
+                "baselineWriteConfirmed",
+                "restoredOwnerReadConfirmed",
+                "restoredPublicReadConfirmed",
+                "restoredOrgReadConfirmed",
+                "restoredOwnDraftWriteConfirmed",
+                "quarantineObserved",
+                "companyHold",
+                "contentExposed",
+                "deniedPostStateUnchanged",
+                "visibilityReplayed",
+            ):
+                if type(value.get(key)) is not bool:
+                    raise ValueError("exact post boolean required")
+            for key in ("writeStatus", "listStatus", "searchStatus"):
+                if type(value.get(key)) is not int:
+                    raise ValueError("exact post status required")
+        return value
+
+    @model_validator(mode="after")
+    def post_boundaries(self):
+        guarded = self.case == "POST_VISIBILITY_GUARD"
+        if (self.write_status, self.write_error_code) != POST_CASES[self.case]:
+            raise ValueError("wrong post write boundary")
+        if self.quarantine_observed != guarded or self.company_hold != guarded:
+            raise ValueError("post quarantine mismatch")
+        if any(
+            v != (not guarded)
+            for v in (
+                self.restored_owner_read_confirmed,
+                self.restored_public_read_confirmed,
+                self.restored_org_read_confirmed,
+                self.restored_own_draft_write_confirmed,
+            )
+        ):
+            raise ValueError("post positive control mismatch")
+        expected = (
+            (
+                403,
+                403,
+                "GW_IDENTITY_REQUIRED",
+                "GW_IDENTITY_REQUIRED",
+                "IDENTITY_DENIED",
+            )
+            if guarded
+            else (200, 200, None, None, "FILTERED")
+        )
+        if (
+            self.list_status,
+            self.search_status,
+            self.list_code,
+            self.search_code,
+            self.listing_mode,
+        ) != expected:
+            raise ValueError("post list boundary mismatch")
+        return self
+
+
 def parse_observation(raw):
     import json
 
@@ -165,9 +260,11 @@ def parse_observation(raw):
 
     payload = json.loads(raw, object_pairs_hook=unique)
     version = payload.get("version") if isinstance(payload, dict) else None
-    if type(version) is not int or version not in {1, 2}:
+    if type(version) is not int or version not in {1, 2, 3}:
         raise ValueError("unsupported restored denial version")
-    model = (
-        RestoredDenialObservation if version == 1 else RestoredObjectDenialObservation
-    )
+    model = {
+        1: RestoredDenialObservation,
+        2: RestoredObjectDenialObservation,
+        3: RestoredPostDenialObservation,
+    }[version]
     return model.model_validate_json(raw, strict=True)
