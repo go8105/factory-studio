@@ -55,6 +55,14 @@ Claude Code 직접 개발(D85). 브랜치 `qms-1f`. **DB 변경 없음.** 1f 설
 
 기간을 **실제 완료일**(`RETURNING due_on`)과 FS_TODAY 양쪽을 감싸도록 바꿨다. 날짜가 더 흘러도 깨지지 않는다.
 
+## 곁들여 고친 것 — PostgreSQL 잠금표를 늘렸다
+
+재실행에서 **832건이 `out of shared memory`**로 깨졌다. 1d에서 게스트 정리를 40표마다 커밋하도록 고쳤지만, 이번에는 **평범한 INSERT·SELECT**에서 났다 — 한 트랜잭션이 아니라 **서버 전역 잠금표**가 바닥난 것이다.
+
+표 230개 × 인덱스를 xdist 작업자 10개가 동시에 템플릿으로 만들면 기본값(`max_locks_per_transaction` 64 × `max_connections` 100 = 6,400칸)으로는 모자란다. colima VM을 다시 올린 뒤 처음 드러났다.
+
+`docker-compose.yml`에 `command: postgres -c max_locks_per_transaction=512`를 선언했다. 손으로 `ALTER SYSTEM`을 치면 다음 사람이 모른다. **표는 381까지 늘 예정이라 넉넉히 뒀다.** 컨테이너를 다시 만들어야 적용된다(`docker-compose up -d`).
+
 ## 1g로 넘긴 것
 
 | 범위 | 왜 |

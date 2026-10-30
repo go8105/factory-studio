@@ -54,6 +54,7 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 
 - **colima VM이 내려가 있을 수 있다**(일주일 만의 세션에서 겪었다). `colima start --profile factory-studio --cpu 2 --memory 4 --disk 20 --vm-type vz --runtime docker` 뒤 `docker start factory-studio-db-1`.
 - PostgreSQL 18.6 / 포트 55432 / Python 3.14 / Node 24(`/opt/homebrew/opt/node@24/bin`).
+- **`docker-compose.yml`에서 `max_locks_per_transaction=512`를 준다.** 기본값 64로는 표 230개를 작업자 10개가 동시에 만들 때 잠금표가 바닥나 CI가 수백 건 깨진다. 컨테이너를 다시 만들어야 적용된다(`docker-compose up -d`). 표가 381로 가도 버티도록 넉넉히 뒀다.
 - 재현 명령:
   - 전체: `tools/ci_local.sh`
   - QMS만: `TEST_DATABASE_URL="$(grep -o 'DATABASE_URL=.*' .env | sed 's/^DATABASE_URL=//; s#/factory_studio$#/factory_studio_ci_test#')" backend/.venv/bin/pytest backend/tests -q -k qms`
