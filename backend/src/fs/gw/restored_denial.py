@@ -16,6 +16,13 @@ CASES = {
 }
 
 
+OBJECT_CASES = {
+    "DOCUMENT_READER": (404, "NOT_FOUND"),
+    "FOREIGN_SCOPE": (403, "COMPANY_ACCESS_DENIED"),
+}
+ALL_CASES = CASES | OBJECT_CASES
+
+
 class RestoredDenialObservation(StrictModel):
     version: Literal[1]
     scope: Literal["SYNTHETIC_CLOSED_RESTORE_AUTHENTICATION"]
@@ -72,10 +79,95 @@ class RestoredDenialObservation(StrictModel):
 
         if str(UUID(self.run_id)) != self.run_id or UUID(self.run_id).version != 4:
             raise ValueError("run must be UUID4")
-        if (self.status, self.error_code) != CASES[self.case]:
+        if (self.status, self.error_code) != ALL_CASES[self.case]:
             raise ValueError("wrong denial boundary")
         if self.subject_mfa_authenticated != (self.case != "CORE_ACCOUNT"):
             raise ValueError("authentication boundary mismatch")
         if timestamp(self.started_at) > timestamp(self.finished_at):
             raise ValueError("observation time mismatch")
         return self
+
+
+class RestoredObjectDenialObservation(RestoredDenialObservation):
+    version: Literal[2]
+    scope: Literal["SYNTHETIC_CLOSED_RESTORE_OBJECT_AUTHORIZATION"]
+    case: Literal["DOCUMENT_READER", "FOREIGN_SCOPE"]
+    source_comparison_scope: Literal["SELECTED_AUTHORIZATION_AND_DOCUMENT_TABLES"] = (
+        Field(alias="sourceComparisonScope")
+    )
+    write_status: int = Field(alias="writeStatus")
+    write_error_code: str = Field(alias="writeErrorCode")
+    positive_object_read: Literal[True] = Field(alias="positiveObjectRead")
+    positive_object_write: Literal[True] = Field(alias="positiveObjectWrite")
+    list_hidden: Literal[True] = Field(alias="listHidden")
+    denied_object_state_unchanged: Literal[True] = Field(
+        alias="deniedObjectStateUnchanged"
+    )
+    hidden_scope_read_status: int | None = Field(None, alias="hiddenScopeReadStatus")
+    hidden_scope_write_status: int | None = Field(None, alias="hiddenScopeWriteStatus")
+    hidden_scope_read_code: str | None = Field(None, alias="hiddenScopeReadCode")
+    hidden_scope_write_code: str | None = Field(None, alias="hiddenScopeWriteCode")
+
+    @model_validator(mode="before")
+    @classmethod
+    def exact_object_types(cls, value):
+        if isinstance(value, dict):
+            for name in (
+                "positiveObjectRead",
+                "positiveObjectWrite",
+                "listHidden",
+                "deniedObjectStateUnchanged",
+            ):
+                if type(value.get(name)) is not bool:
+                    raise ValueError("exact object boolean required")
+            for name in (
+                "writeStatus",
+                "hiddenScopeReadStatus",
+                "hiddenScopeWriteStatus",
+            ):
+                if value.get(name) is not None and type(value[name]) is not int:
+                    raise ValueError("exact object status required")
+        return value
+
+    @model_validator(mode="after")
+    def object_boundaries(self):
+        if (self.write_status, self.write_error_code) != OBJECT_CASES[self.case]:
+            raise ValueError("wrong object write boundary")
+        hidden = (
+            self.hidden_scope_read_status,
+            self.hidden_scope_write_status,
+            self.hidden_scope_read_code,
+            self.hidden_scope_write_code,
+        )
+        expected = (
+            (404, 404, "NOT_FOUND", "NOT_FOUND")
+            if self.case == "FOREIGN_SCOPE"
+            else (None, None, None, None)
+        )
+        if hidden != expected:
+            raise ValueError("wrong hidden scope boundary")
+        return self
+
+
+def parse_observation(raw):
+    import json
+
+    if not isinstance(raw, str) or len(raw.encode()) > 8192:
+        raise ValueError("invalid observation size")
+
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate observation key")
+            result[key] = value
+        return result
+
+    payload = json.loads(raw, object_pairs_hook=unique)
+    version = payload.get("version") if isinstance(payload, dict) else None
+    if type(version) is not int or version not in {1, 2}:
+        raise ValueError("unsupported restored denial version")
+    model = (
+        RestoredDenialObservation if version == 1 else RestoredObjectDenialObservation
+    )
+    return model.model_validate_json(raw, strict=True)

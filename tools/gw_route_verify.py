@@ -17,8 +17,9 @@ from fs.core.backup import BackupError, create_private, private_directory
 from fs.gw.acceptance_business import PROBE, PROPERTY, SyntheticBusinessObservation
 from fs.gw.operating_contract import canonical, timestamp
 from fs.gw.restored_denial import (
-    CASES,
-    RestoredDenialObservation,
+    ALL_CASES,
+    OBJECT_CASES,
+    parse_observation,
 )
 from fs.gw.restored_denial import (
     PROPERTY as DENIAL_PROPERTY,
@@ -134,8 +135,17 @@ DENIAL_PROBES = {
         "backend/tests/test_gw_restored_denial_db.py",
         "test_closed_restore_fresh_authentication_denial[" + case + "]",
     )
-    for case in CASES
+    for case in ALL_CASES
 }
+DENIAL_PROBES.update(
+    {
+        "RESTORED_FRESH_AUTH_" + case: (
+            "backend/tests/test_gw_restored_object_db.py",
+            "test_closed_restore_object_authorization[" + case + "]",
+        )
+        for case in OBJECT_CASES
+    }
+)
 
 
 def source_identity():
@@ -247,14 +257,13 @@ def denial_observations(
     observations = []
     try:
         for case in root.iter("testcase"):
-            values = [
-                p.get("value")
-                for p in case.findall("./properties/property")
-                if p.get("name") == DENIAL_PROPERTY
-            ]
+            properties = case.findall("./properties/property")
+            if len(properties) != 1 or properties[0].get("name") != DENIAL_PROPERTY:
+                return []
+            values = [properties[0].get("value")]
             if len(values) != 1:
                 return []
-            data = RestoredDenialObservation.model_validate_json(values[0], strict=True)
+            data = parse_observation(values[0])
             path, name = DENIAL_PROBES["RESTORED_FRESH_AUTH_" + data.case]
             if case.get("name") != name or case.get("classname") not in {
                 Path(path).stem,
@@ -272,7 +281,7 @@ def denial_observations(
             observations.append(data.model_dump(by_alias=True))
     except (ValueError, TypeError, KeyError):
         return []
-    if len({o["case"] for o in observations}) != len(CASES):
+    if len({o["case"] for o in observations}) != len(ALL_CASES):
         return []
     return observations
 
@@ -343,7 +352,7 @@ def run(*, admin_url, output, restored_denial_only=False):
     report = {
         "version": 1,
         "kind": "SYNTHETIC_GW_ROUTE_EXECUTION",
-        "catalogVersion": "GW_RESTORED_DENIAL_PROBES_V1"
+        "catalogVersion": "GW_RESTORED_DENIAL_PROBES_V2"
         if restored_denial_only
         else "GW_SYNTHETIC_ROUTE_PROBES_V5",
         "restoredDenialObservations": [],
@@ -451,7 +460,7 @@ def run(*, admin_url, output, restored_denial_only=False):
                                     now=datetime.now(UTC),
                                 )
                                 report["restoredDenialObservations"] = observations
-                                if len(observations) == len(CASES):
+                                if len(observations) == len(ALL_CASES):
                                     report["result"] = "PARTIAL"
                                     report["restoredAccessDenial"] = (
                                         "SYNTHETIC_FRESH_AUTH_CASES_PASSED"
@@ -505,7 +514,7 @@ def main():
     parser.add_argument(
         "--restored-denial-only",
         action="store_true",
-        help="새 소유DB의 합성 복원·새MFA 권한 거부5조건만 실행",
+        help="새 소유DB의 합성 복원·새MFA 권한 거부7조건만 실행",
     )
     args = parser.parse_args()
     try:

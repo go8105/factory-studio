@@ -10,14 +10,20 @@ import pytest
 from pydantic import ValidationError
 from test_gw_route_verify import runner
 
-from fs.gw.restored_denial import CASES, PROPERTY, RestoredDenialObservation
+from fs.gw.restored_denial import (
+    ALL_CASES,
+    CASES,
+    OBJECT_CASES,
+    PROPERTY,
+    RestoredDenialObservation,
+)
 
 NOW = datetime(2026, 10, 30, 0, 0, tzinfo=UTC)
 
 
 def observation(case="GW_ROLE"):
-    status, code = CASES[case]
-    return {
+    status, code = ALL_CASES[case]
+    data = {
         "version": 1,
         "scope": "SYNTHETIC_CLOSED_RESTORE_AUTHENTICATION",
         "case": case,
@@ -39,6 +45,27 @@ def observation(case="GW_ROLE"):
         "revocationsComplete": False,
         "liveCompanyAcceptance": False,
     }
+
+    if case in OBJECT_CASES:
+        data.update(
+            version=2,
+            scope="SYNTHETIC_CLOSED_RESTORE_OBJECT_AUTHORIZATION",
+            sourceComparisonScope="SELECTED_AUTHORIZATION_AND_DOCUMENT_TABLES",
+            writeStatus=status,
+            writeErrorCode=code,
+            positiveObjectRead=True,
+            positiveObjectWrite=True,
+            listHidden=True,
+            deniedObjectStateUnchanged=True,
+        )
+        if case == "FOREIGN_SCOPE":
+            data.update(
+                hiddenScopeReadStatus=404,
+                hiddenScopeWriteStatus=404,
+                hiddenScopeReadCode="NOT_FOUND",
+                hiddenScopeWriteCode="NOT_FOUND",
+            )
+    return data
 
 
 @pytest.mark.parametrize("case", list(CASES))
@@ -110,6 +137,7 @@ def test_rejects_wrong_boundary_or_promoted_completion(change):
         "version",
         "flag",
         "extra-case",
+        "extra-property",
     ],
 )
 def test_collector_requires_exact_current_execution_and_every_fixed_case(
@@ -159,6 +187,10 @@ def test_collector_requires_exact_current_execution_and_every_fixed_case(
         data["ready"] = True
     elif change == "extra-case":
         root.append(deepcopy(first))
+    elif change == "extra-property":
+        ET.SubElement(
+            first.find("properties"), "property", name="unsignedClaim", value="PASS"
+        )
     prop.set("value", json.dumps(data))
     path = tmp_path / "results.xml"
     ET.ElementTree(root).write(path)
@@ -170,7 +202,7 @@ def test_collector_requires_exact_current_execution_and_every_fixed_case(
         started_at=(NOW - timedelta(seconds=2)).isoformat(),
         now=NOW,
     )
-    assert (len(results) == 5) == (change == "none")
+    assert (len(results) == len(ALL_CASES)) == (change == "none")
 
 
 def test_denial_profile_refuses_missing_container_before_database(
@@ -228,3 +260,76 @@ def test_denial_profile_pins_full_container_id_and_only_loopback(monkeypatch, ch
     else:
         with pytest.raises(module.BackupError):
             module.validate_restore_container(*args, strict=True)
+
+
+@pytest.mark.parametrize("case", list(OBJECT_CASES))
+def test_object_v2_keeps_original_v1_separate(case):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation(case)
+    parsed = parse_observation(json.dumps(data))
+    assert parsed.version == 2 and parsed.case == case
+    data["version"] = 1
+    with pytest.raises(ValueError):
+        parse_observation(json.dumps(data))
+    legacy = observation("GW_ROLE")
+    assert parse_observation(json.dumps(legacy)).version == 1
+    legacy["version"] = 2
+    with pytest.raises(ValueError):
+        parse_observation(json.dumps(legacy))
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "write-success",
+        "wrong-write-code",
+        "no-positive-read",
+        "no-positive-write",
+        "list-visible",
+        "state-changed",
+        "wrong-source-scope",
+        "other-scope-visible",
+        "other-write-allowed",
+        "other-code",
+        "numeric-boolean",
+        "status-float",
+        "unknown-version",
+    ],
+)
+def test_object_contract_rejects_unproven_read_write_or_scope(change):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation("FOREIGN_SCOPE")
+    edits = {
+        "write-success": ("writeStatus", 200),
+        "wrong-write-code": ("writeErrorCode", "SESSION_EXPIRED"),
+        "no-positive-read": ("positiveObjectRead", False),
+        "no-positive-write": ("positiveObjectWrite", False),
+        "list-visible": ("listHidden", False),
+        "state-changed": ("deniedObjectStateUnchanged", False),
+        "wrong-source-scope": (
+            "sourceComparisonScope",
+            "SELECTED_AUTHORIZATION_TABLES",
+        ),
+        "other-scope-visible": ("hiddenScopeReadStatus", 200),
+        "other-write-allowed": ("hiddenScopeWriteStatus", 200),
+        "other-code": ("hiddenScopeReadCode", "COMPANY_ACCESS_DENIED"),
+        "numeric-boolean": ("positiveObjectWrite", 1),
+        "status-float": ("hiddenScopeReadStatus", 404.0),
+        "unknown-version": ("version", 3),
+    }
+    key, value = edits[change]
+    data[key] = value
+    with pytest.raises(ValueError):
+        parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize(
+    "raw", ["[]", "null", "1", '"claim"', '{"version":1,"version":2}', " " * 8193]
+)
+def test_observation_parser_refuses_ambiguous_non_objects_or_oversized_claims(raw):
+    from fs.gw.restored_denial import parse_observation
+
+    with pytest.raises(ValueError):
+        parse_observation(raw)

@@ -1,3 +1,15 @@
+## 2026-10-30 GW-READY-02 61차 — 문서 ACL·다른 회사 문서의 복원 후 허용/거부 완료
+
+- 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`, 시작 `22689b1`/작업트리 깨끗함 확인. 이 checkout만 수정했다. 최종 커밋은 `git log -1`로 확인한다.
+- 기존 전용실행기를 GW_RESTORED_DENIAL_PROBES_V2/7조건으로 확장했다. 앞선5조건의 RestoredDenialObservation v1은 보존하고 DOCUMENT_READER/FOREIGN_SCOPE 새2조건만 RestoredObjectDenialObservation v2로 구분한다. 기존백업/checkpoint/폐쇄restore·새MFA/소유검증/실행UUID·버전/시각/소스지문 검증을 재사용하며 새수집기·임의대상·공급자연결은 없다. v1에새조건을 끼우거나 옛5조건 결과로 새7조건을 통과시키지 않는다.
+- DOCUMENT_READER: 백업전 참조자읽기200·다른결재열람경로SKIPPED 합성준비 뒤 최신checkpoint의 참조자회수를 복원본 상세404/NOT_FOUND·목록/검색미노출·수정404와 객체불변으로 검사한다. 대상은회수문서라편집권회수검사가 아니며 양성수정은 별도소유초안200으로 확인한다. FOREIGN_SCOPE: 실제두번째합성회사/그소유문서·별도활성결재자를 준비하고 소유자 새MFA/읽기·수정200을 확인한다. 대상직원은 그회사에 미가입이며 타회사ID 상세/수정403/COMPANY_ACCESS_DENIED, 자기회사ID+타문서ID404/NOT_FOUND·목록/검색미노출을 검사한다. 존재하지않는 회사번호 추정으로대체하지 않는다.
+- 거부전후 문서/참조자/결재단계/이력4테이블지문과 원본선택11테이블불변·접속제한0/PUBLIC CONNECT 회수를 확인한다. 허용된수정은 거부직전지문 전에 마친다. 객체불변을 인증·세션유휴시각/보안감사 처리와 혼동하지 않는다. v2는 읽기/수정정확한상태·오류코드/양성대조/목록/불변/타회사번호조합을필수로검증한다. JSON비객체/중복키·8KiB초과/지원외버전·추가관측속성/실패·skip/다른실행문맥은BLOCKED다. 자동인수등록/수동완료체크는없고 성공도unsigned합성PARTIAL·ready=false/최종4조건UNVERIFIED·실제복원PARTIAL/PASS거부유지.
+- 최종검증: 관련단위1031통과27.18초(신규22, 기존사용중단경고2), 화면/정적도움말61통과6.24초. 수정Python4파일 Ruff check/format·정적DB219표2409열543FK/R1–R6 오류0. 제품프런트코드 미변경으로 이번타입/ESLint/build·실브라우저/모바일은 재실행하지 않았다. 전체CI/전체회귀·실회사/실기기10인·기존V5전체합성카탈로그 실행은 미완료/미실행이다.
+- 실제PG/CLI: 새owner=gw-ready-02-phase61-test·전체ID/단일loopback 확인 컨테이너/새UUID *_test DB에서 추가2조건33.31초 통과. 최종전용CLI는 새출력파일에서7조건PASSED·관측7개(v1다섯/v2둘)·pytest종료0/sourceUnchanged/databaseCleaned=true·PARTIAL/종료0/85.28초다. 직접2+반복CLI7을 다른9건으로 합산하지 않는다. 최종원본변경후 다시CLI전체를 실행했다. 생성기본DB/폐쇄복원DB와 컨테이너/볼륨 정리, owner잔여0 확인. 기존병행/미리보기DB에는 접속/초기화하지 않았다.
+- 실패/보정: 초기합성기안에 기안자자신을결재자로 지정해2건준비검사가400/VALIDATION_FAILED로실패했다. 기존기안자제외규칙에맞춰 별도활성결재자를 준비했고 제품규칙은완화하지 않았다. 불필요owner변수/F841·예외스타일TRY004를 보정했다. TRY004는 비객체JSON을 지원외버전으로거부하는 같은ValueError경계로 정리했고 중복/크기검사·정확한거부·양성대조는유지했다. 정리전7조건CLI통과뒤 최종소스에서도 전체1031/CLI7을 재검증했으며 실패출력을덮거나 미실행을통과로세지 않았다.
+- 문서/범위: 실회사절차§35·수집경계·정적도움말/문서지도·구현문서/현황199줄/progress/HANDOFF갱신. 직관성(문서/회사거부구분)/유효성(실재객체·양성대조·정확한404/403)/학습성(편집권회수와참조자읽기구분)/유연성(기존계약보존·실행기확장)을반영했으며 전체UI완성은아니다. 스키마/마이그레이션·metadata/Excel/ERD·실계정/admin개명/비밀번호/OTP·키/브라우저설정 변경없음. work/.env·비밀/전체로그Git제외. 다른checkout/WMS/main/push/배포변경없음.
+- 다음: 게시물 공개범위의 복원후 실제허용/거부 고정검사를 같은 제한실행기에 연결한다. 문서전체생명주기/다중참조·전결/위임·채팅/일정·직접SQL/운영도구/SSO·전경로무누락/독립최신성·외부공급자/장애복구·실API브라우저/최신main/전체회귀·실회사10인/최종전환은 남는다. 난이도높음, GPT-6 Astra + High 추천(공개범위·회수/격리·최신원본 정합), 모델자동변경없음. 사용자확인전 다음단계 자동착수하지 않는다.
+
 ## 2026-10-30 GW-READY-02 60차 — 격리 복원본 새 인증·권한 거부 공통 계약/제한 실행 완료
 
 - 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`, 시작 `a15aa7f`/작업트리 깨끗함을 확인했다. 이 checkout만 수정했다. 최종 커밋은 `git log -1`로 확인한다.

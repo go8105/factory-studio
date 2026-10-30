@@ -958,3 +958,20 @@ uv run --project backend python tools/gw_route_verify.py \
 현재 실행의 정확한 pytest 이름/클래스·5조건 전체/단일 관측 속성, 실행UUID·코드/DB 버전·시각·기대 상태/오류코드·새MFA/양성대조/격리/원본비교 플래그를 확인한다. 누락/중복·실패/skip·다른 조건/실행·옛 버전·미래/범위밖 시각·형식 변조는 BLOCKED다. 실행 전후 backend/tools 원본 지문도 같아야 한다. 출력은 unsigned SYNTHETIC_GW_ROUTE_EXECUTION이며 성공해도 PARTIAL/종료0·ready/liveCompanyAcceptance/revocationsReapplied/completenessConfirmed=false다. 전용 결과는 `restoredDenialObservations`와 SYNTHETIC_FRESH_AUTH_CASES_PASSED로 표시하며 새 ACCEPTANCE 증거로 등록하지 않는다. 마지막4조건 UNVERIFIED/실제 복원PARTIAL을 유지한다.
 
 생성한 기본 시험 DB는 실행기가 정리하고 각 격리 복원 DB는 시험의 finally에서 정리한다. 중단/프로세스 강제 종료 시에는 생성 소유 자원과 닫힌 복원 DB가 남을 수 있다. 전체ID/owner로 확인한 **이번 생성 자원만** 점검·정리하며 기존 미리보기나 병행 DB를 일괄 삭제하지 않는다. 문서별 ACL·다른회사 접근·모든 업무 경로/암호·복구코드/SSO·독립 최신성·실회사10인 인수와 전체 회수는 후속이다.
+
+## 35. 문서 ACL·다른 회사 문서 범위의 확장 관측 · 61차
+
+같은 `gw_route_verify.py --restored-denial-only`가 전용 카탈로그 `GW_RESTORED_DENIAL_PROBES_V2`의7조건을 실행한다. 앞선5조건의 관측 v1은 그대로 검증하고, 추가2조건만 `RestoredObjectDenialObservation` v2/`SYNTHETIC_CLOSED_RESTORE_OBJECT_AUTHORIZATION`으로 구분한다. v1에 새 조건을 끼워 넣거나 v2를 과거5조건 형식으로 해석하지 않는다. 명령/전체ID·owner·단일loopback 검증/새UUID DB/새0600 출력과 격리 유지 규칙은 §34와 같다. 기존 전체 카탈로그V5 모드와 실제 복원PARTIAL은 유지한다.
+
+| 추가 조건 | 허용을 먼저 확인하는 대조 | 거부와 불변 확인 |
+|---|---|---|
+| DOCUMENT_READER | 백업 전 참조자 읽기200, 복원 후 새MFA와 회사 연결, 소유자의 대상 문서 읽기200·별도 소유 초안 수정200 | 최신checkpoint의 참조자 회수 후 상세404/NOT_FOUND·목록/검색 미노출·수정404/NOT_FOUND, 문서/참조자/결재 단계/이력 불변 |
+| FOREIGN_SCOPE | 실제 두 번째 합성 회사와 문서를 준비하고 해당 소유자 새MFA로 상세200·수정200, 첫 회사에서도 허용 소유 초안 읽기/수정200 | 회사 미가입 직원의 다른회사ID 상세/수정403/COMPANY_ACCESS_DENIED, 자기회사ID에 다른회사 문서ID를 조합한 상세/수정404/NOT_FOUND, 목록/검색 미노출과 객체 상태 불변 |
+
+참조자 조건은 합성 회수 문서/참조자와 SKIPPED 결재 단계를 준비해 참조자 외의 열람 경로가 없도록 한다. 이 문서는 수정 가능한 상태가 아니므로 **기존 편집권 회수**를 검증한 것으로 표현하지 않는다. 수정 거부와 부작용 없음만 확인하고 양성 수정은 별도 소유 초안에서 확인한다. 다른 회사는 존재하지 않는 번호를 추정하는 방식이 아니라 기존 회사 생성/직원 연결·문서 도구로 실제 만든 합성 회사다. 별도 결재자 연결은 시험 준비로 명시하며, 검사 대상 직원에게 그 회사 멤버십을 부여하지 않는다.
+
+추가 관측에는 읽기/수정 각각의 상태·정확한 오류 코드, 소유 객체 읽기·수정 양성 대조, 목록/검색 비노출·거부 후 객체 상태 불변을 필수로 기록한다. FOREIGN_SCOPE는 자기회사ID 조합의 읽기/수정404도 별도로 필수다. 인증 실패·추가 인증·다른 업무 오류·스키마 입력 오류를 문서/회사 거부 성공으로 세지 않는다. 관측은 JSON 객체만 허용하고 중복키/8KiB 초과·지원하지 않는 버전·검사 범위/시각·고정 실행 불일치를 거부한다.
+
+v2의 원본 비교 범위는 이전7개 권한 테이블에 approval_document/document_reader/approval_step/approval_event를 더한 **선택11개 테이블**이다. 전체DB 불변/외부 독립 원본 보관을 뜻하지 않는다. 검사 대상의 허용된 수정은 거부 요청 직전 객체 지문을 잡기 전에 마치며, 그 뒤 거부된 요청의 객체/이력 변화를 확인한다. 이때 실제 인증·유휴 세션 시각/보안 감사 등 대상의 정상 인증 처리를 객체 불변과 혼동하지 않는다.
+
+최종 성공도 unsigned합성 PARTIAL이고 ready/전체회수/완전성/실회사 인수는 false다.59차 보고서나 제품12조건이 이 결과를 자동수입하지 않고 마지막4조건 UNVERIFIED를 유지한다. 문서 전체 생명주기/다중참조·전결/위임·게시 대상·채팅/일정·직접SQL/운영도구/SSO·전체 무누락/독립 최신성/실회사10인 인수는 남는다.
