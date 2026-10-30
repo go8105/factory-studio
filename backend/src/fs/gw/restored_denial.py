@@ -28,7 +28,11 @@ CHAT_CASES = {
     "CHAT_LEFT_MEMBER": (404, "NOT_FOUND"),
     "CHAT_MEMBERSHIP_GUARD": (403, "GW_IDENTITY_REQUIRED"),
 }
-ALL_CASES = CASES | OBJECT_CASES | POST_CASES | CHAT_CASES
+CALENDAR_CASES = {
+    "CALENDAR_REMOVED_ATTENDEE": (404, "NOT_FOUND"),
+    "CALENDAR_ATTENDEE_GUARD": (403, "GW_IDENTITY_REQUIRED"),
+}
+ALL_CASES = CASES | OBJECT_CASES | POST_CASES | CHAT_CASES | CALENDAR_CASES
 
 
 class RestoredDenialObservation(StrictModel):
@@ -350,6 +354,122 @@ class RestoredChatDenialObservation(RestoredDenialObservation):
         return self
 
 
+class RestoredCalendarDenialObservation(RestoredDenialObservation):
+    version: Literal[5]
+    scope: Literal["SYNTHETIC_CLOSED_RESTORE_CALENDAR_AUTHORIZATION"]
+    case: Literal["CALENDAR_REMOVED_ATTENDEE", "CALENDAR_ATTENDEE_GUARD"]
+    source_comparison_scope: Literal[
+        "SELECTED_AUTHORIZATION_CALENDAR_AND_RECEIPT_TABLES"
+    ] = Field(alias="sourceComparisonScope")
+    respond_status: int = Field(alias="respondStatus")
+    respond_code: str = Field(alias="respondCode")
+    replay_status: int = Field(alias="replayStatus")
+    replay_code: str = Field(alias="replayCode")
+    edit_status: int = Field(alias="editStatus")
+    edit_code: str = Field(alias="editCode")
+    cancel_status: int = Field(alias="cancelStatus")
+    cancel_code: str = Field(alias="cancelCode")
+    attendee_edit_status: int = Field(alias="attendeeEditStatus")
+    attendee_edit_code: str = Field(alias="attendeeEditCode")
+    attendee_cancel_status: int = Field(alias="attendeeCancelStatus")
+    attendee_cancel_code: str = Field(alias="attendeeCancelCode")
+    list_status: int = Field(alias="listStatus")
+    list_code: str | None = Field(alias="listCode")
+    listing_mode: Literal["FILTERED", "IDENTITY_DENIED"] = Field(alias="listingMode")
+    baseline_read_confirmed: Literal[True] = Field(alias="baselineReadConfirmed")
+    baseline_respond_confirmed: Literal[True] = Field(alias="baselineRespondConfirmed")
+    baseline_owner_edit_confirmed: Literal[True] = Field(
+        alias="baselineOwnerEditConfirmed"
+    )
+    restored_owner_read_confirmed: bool = Field(alias="restoredOwnerReadConfirmed")
+    restored_owner_edit_confirmed: bool = Field(alias="restoredOwnerEditConfirmed")
+    restored_attendee_read_confirmed: bool = Field(
+        alias="restoredAttendeeReadConfirmed"
+    )
+    restored_attendee_respond_confirmed: bool = Field(
+        alias="restoredAttendeeRespondConfirmed"
+    )
+    quarantine_observed: bool = Field(alias="quarantineObserved")
+    company_hold: bool = Field(alias="companyHold")
+    content_exposed: Literal[False] = Field(alias="contentExposed")
+    denied_calendar_state_unchanged: Literal[True] = Field(
+        alias="deniedCalendarStateUnchanged"
+    )
+    cached_receipt_retained: Literal[True] = Field(alias="cachedReceiptRetained")
+    attendees_replayed: Literal[False] = Field(alias="attendeesReplayed")
+
+    @model_validator(mode="before")
+    @classmethod
+    def exact_calendar_types(cls, value):
+        if isinstance(value, dict):
+            for key in (
+                "baselineReadConfirmed",
+                "baselineRespondConfirmed",
+                "baselineOwnerEditConfirmed",
+                "restoredOwnerReadConfirmed",
+                "restoredOwnerEditConfirmed",
+                "restoredAttendeeReadConfirmed",
+                "restoredAttendeeRespondConfirmed",
+                "quarantineObserved",
+                "companyHold",
+                "contentExposed",
+                "deniedCalendarStateUnchanged",
+                "cachedReceiptRetained",
+                "attendeesReplayed",
+            ):
+                if type(value.get(key)) is not bool:
+                    raise ValueError("exact calendar boolean required")
+            for key in (
+                "respondStatus",
+                "replayStatus",
+                "editStatus",
+                "cancelStatus",
+                "attendeeEditStatus",
+                "attendeeCancelStatus",
+                "listStatus",
+            ):
+                if type(value.get(key)) is not int:
+                    raise ValueError("exact calendar status required")
+        return value
+
+    @model_validator(mode="after")
+    def calendar_boundaries(self):
+        expected = CALENDAR_CASES[self.case]
+        if any(
+            pair != expected
+            for pair in (
+                (self.respond_status, self.respond_code),
+                (self.replay_status, self.replay_code),
+                (self.edit_status, self.edit_code),
+                (self.cancel_status, self.cancel_code),
+                (self.attendee_edit_status, self.attendee_edit_code),
+                (self.attendee_cancel_status, self.attendee_cancel_code),
+            )
+        ):
+            raise ValueError("wrong calendar permission boundary")
+        guarded = self.case == "CALENDAR_ATTENDEE_GUARD"
+        if self.quarantine_observed != guarded or self.company_hold != guarded:
+            raise ValueError("calendar quarantine mismatch")
+        if any(
+            v != (not guarded)
+            for v in (
+                self.restored_owner_read_confirmed,
+                self.restored_owner_edit_confirmed,
+                self.restored_attendee_read_confirmed,
+                self.restored_attendee_respond_confirmed,
+            )
+        ):
+            raise ValueError("calendar positive control mismatch")
+        listing = (
+            (403, "GW_IDENTITY_REQUIRED", "IDENTITY_DENIED")
+            if guarded
+            else (200, None, "FILTERED")
+        )
+        if (self.list_status, self.list_code, self.listing_mode) != listing:
+            raise ValueError("wrong calendar listing boundary")
+        return self
+
+
 def parse_observation(raw):
     import json
 
@@ -366,12 +486,13 @@ def parse_observation(raw):
 
     payload = json.loads(raw, object_pairs_hook=unique)
     version = payload.get("version") if isinstance(payload, dict) else None
-    if type(version) is not int or version not in {1, 2, 3, 4}:
+    if type(version) is not int or version not in {1, 2, 3, 4, 5}:
         raise ValueError("unsupported restored denial version")
     model = {
         1: RestoredDenialObservation,
         2: RestoredObjectDenialObservation,
         3: RestoredPostDenialObservation,
         4: RestoredChatDenialObservation,
+        5: RestoredCalendarDenialObservation,
     }[version]
     return model.model_validate_json(raw, strict=True)

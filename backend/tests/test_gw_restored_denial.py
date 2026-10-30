@@ -12,6 +12,7 @@ from test_gw_route_verify import runner
 
 from fs.gw.restored_denial import (
     ALL_CASES,
+    CALENDAR_CASES,
     CASES,
     CHAT_CASES,
     OBJECT_CASES,
@@ -121,6 +122,41 @@ def observation(case="GW_ROLE"):
             contentExposed=False,
             deniedChatStateUnchanged=True,
             membershipReplayed=False,
+            cachedReceiptRetained=True,
+        )
+    if case in CALENDAR_CASES:
+        guarded = case == "CALENDAR_ATTENDEE_GUARD"
+        data.update(
+            version=5,
+            scope="SYNTHETIC_CLOSED_RESTORE_CALENDAR_AUTHORIZATION",
+            sourceComparisonScope="SELECTED_AUTHORIZATION_CALENDAR_AND_RECEIPT_TABLES",
+            respondStatus=status,
+            respondCode=code,
+            replayStatus=status,
+            replayCode=code,
+            editStatus=status,
+            editCode=code,
+            cancelStatus=status,
+            cancelCode=code,
+            attendeeEditStatus=status,
+            attendeeEditCode=code,
+            attendeeCancelStatus=status,
+            attendeeCancelCode=code,
+            listStatus=403 if guarded else 200,
+            listCode=code if guarded else None,
+            listingMode="IDENTITY_DENIED" if guarded else "FILTERED",
+            baselineReadConfirmed=True,
+            baselineRespondConfirmed=True,
+            baselineOwnerEditConfirmed=True,
+            restoredOwnerReadConfirmed=not guarded,
+            restoredOwnerEditConfirmed=not guarded,
+            restoredAttendeeReadConfirmed=not guarded,
+            restoredAttendeeRespondConfirmed=not guarded,
+            quarantineObserved=guarded,
+            companyHold=guarded,
+            contentExposed=False,
+            deniedCalendarStateUnchanged=True,
+            attendeesReplayed=False,
             cachedReceiptRetained=True,
         )
     return data
@@ -375,7 +411,7 @@ def test_object_contract_rejects_unproven_read_write_or_scope(change):
         "other-code": ("hiddenScopeReadCode", "COMPANY_ACCESS_DENIED"),
         "numeric-boolean": ("positiveObjectWrite", 1),
         "status-float": ("hiddenScopeReadStatus", 404.0),
-        "unknown-version": ("version", 5),
+        "unknown-version": ("version", 6),
     }
     key, value = edits[change]
     data[key] = value
@@ -515,6 +551,69 @@ def test_chat_guard_rejects_cached_replay_cursor_or_false_positive_claims(field,
     from fs.gw.restored_denial import parse_observation
 
     data = observation("CHAT_MEMBERSHIP_GUARD")
+    data[field] = value
+    with pytest.raises(ValueError):
+        parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize("case", list(CALENDAR_CASES))
+def test_calendar_v5_keeps_owner_and_attendee_boundaries_separate(case):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation(case)
+    parsed = parse_observation(json.dumps(data))
+    assert parsed.version == 5 and not parsed.attendees_replayed
+    assert parsed.restored_attendee_respond_confirmed is (
+        case == "CALENDAR_REMOVED_ATTENDEE"
+    )
+    for version in (1, 2, 3, 4):
+        data["version"] = version
+        with pytest.raises(ValueError):
+            parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("baselineReadConfirmed", False),
+        ("baselineRespondConfirmed", False),
+        ("baselineOwnerEditConfirmed", False),
+        ("restoredOwnerReadConfirmed", True),
+        ("restoredOwnerEditConfirmed", True),
+        ("restoredAttendeeReadConfirmed", True),
+        ("restoredAttendeeRespondConfirmed", True),
+        ("quarantineObserved", False),
+        ("companyHold", False),
+        ("contentExposed", True),
+        ("deniedCalendarStateUnchanged", False),
+        ("attendeesReplayed", True),
+        ("cachedReceiptRetained", False),
+        ("respondStatus", 200),
+        ("respondCode", "NOT_FOUND"),
+        ("replayStatus", 200),
+        ("replayCode", "SESSION_EXPIRED"),
+        ("editStatus", 200),
+        ("editCode", "NOT_FOUND"),
+        ("cancelStatus", 200),
+        ("cancelCode", "NOT_FOUND"),
+        ("attendeeEditStatus", 200),
+        ("attendeeEditCode", "NOT_FOUND"),
+        ("attendeeCancelStatus", 200),
+        ("attendeeCancelCode", "NOT_FOUND"),
+        ("listStatus", 200),
+        ("listCode", None),
+        ("listingMode", "FILTERED"),
+        ("sourceComparisonScope", "SELECTED_AUTHORIZATION_TABLES"),
+        ("companyHold", 1),
+        ("respondStatus", 403.0),
+    ],
+)
+def test_calendar_rejects_false_owner_or_attendee_or_cached_receipt_claims(
+    field, value
+):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation("CALENDAR_ATTENDEE_GUARD")
     data[field] = value
     with pytest.raises(ValueError):
         parse_observation(json.dumps(data))

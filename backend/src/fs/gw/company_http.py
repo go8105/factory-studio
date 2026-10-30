@@ -148,7 +148,13 @@ class CompanyRoute(APIRoute):
         try:
             values = (
                 model.model_validate(body or {}).model_dump(
+                    # CalendarEdit is a full replacement, like the personal route.
+                    # Its optional fields need schema defaults in the mutation.
                     exclude_unset=request.method in {"PATCH", "DELETE"}
+                    and not (
+                        request.method == "PATCH"
+                        and self.path.endswith("/calendar/{id}")
+                    )
                 )
                 if request.method != "GET"
                 else {}

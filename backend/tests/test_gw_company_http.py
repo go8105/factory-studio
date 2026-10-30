@@ -5,8 +5,6 @@ import re
 from uuid import uuid4
 
 import pytest
-from fs.gw import company
-from fs.gw.router import router
 from test_gw_company_work import (
     api,
     connect_staff,
@@ -15,6 +13,9 @@ from test_gw_company_work import (
     third,  # noqa: F401
 )
 from test_hr_work import company_env  # noqa: F401
+
+from fs.gw import company
+from fs.gw.router import router
 
 
 def ok(response):
@@ -216,6 +217,24 @@ def test_calendar_owner_attendee_and_current_scope(company_env):
             },
         )
     )
+    # Calendar edit replaces the event; omitted optional fields use schema defaults.
+    event = ok(
+        api(
+            admin,
+            co,
+            f"calendar/{event['id']}",
+            {
+                "title": "회사 일정 수정",
+                "scope": "PERSONAL",
+                "startsAt": "2026-10-19T09:00:00+09:00",
+                "endsAt": "2026-10-19T10:00:00+09:00",
+                "attendeeIds": [str(target)],
+                "expectedVersion": event["version"],
+            },
+            method="PATCH",
+        )
+    )
+    assert event["allDay"] is False and event["location"] is None
     assert (
         api(
             staff,

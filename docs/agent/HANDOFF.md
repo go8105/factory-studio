@@ -1,3 +1,37 @@
+## 2026-10-30 GW-READY-02 64차 — 일정 소유자·참석자/응답 영수증 복원 경계 완료
+
+- 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, `codex/gw-company-01`, 시작 커밋 `d776913`과 깨끗한 작업 트리를 확인했다. 이 checkout만 수정했다. 최종 커밋은 `git log -1`로 확인한다.
+- 기존 전용 실행기를 `GW_RESTORED_DENIAL_PROBES_V5`/13조건으로 확장했다. 앞선 v1다섯/v2둘/v3둘/v4둘은 보존하고 일정2조건만 `RestoredCalendarDenialObservation` v5로 분리한다. 기존 소유 검증/새UUID DB·실제 암호화 백업/checkpoint/폐쇄restore·새MFA/실행 문맥·소스 지문 검증을 재사용했다. 새 수집기/복원기/공급자·임의 대상·수동 완료 체크·인수 PASS를 만들지 않았다.
+- `CALENDAR_REMOVED_ATTENDEE`: 백업 전에 실제 소유자 수정API로 참석에서 제외한 일정의 상세/응답·보존된 응답 영수증의 같은 요청 재전송/수정/취소404·목록 제외/제목 미노출을 확인한다. 복원 후 소유자의 대상 조회/대조일정 수정과 남은 참석자의 대조일정 조회/DECLINED 응답200을 확인한다. 읽을 수 있는 참석자라도 소유자가 아니면 수정/취소404다. 불참 응답과 참석자 제외·편집권을 혼동하지 않는다.
+- `CALENDAR_ATTENDEE_GUARD`: 백업 뒤 같은 실제 소유자 수정API로 참석자를 제외하고 최신 checkpoint를 만든다. calendar_event/event_attendee 전체guard 불일치로 활성GW연결0/companyHold=true·소유자/참석자의 모든 대상/대조업무·목록403/GW_IDENTITY_REQUIRED를 확인한다. core 새MFA 성공과 GW 양성 대조를 구분하고 복원 후 GW 대조를 true로 꾸미거나 옛 참석자 행을 임의 재생하지 않는다.
+- 기존 응답 영수증의 일정ID를 복원 직후와 재요청 직전에 확인하고 원래 멱등키·expectedVersion/본문을 그대로 쓴다. 영수증 없는 새 요청/다른본문·버전충돌을 회수 검증으로 대신하지 않는다. source는 권한7+일정/참석자/영수증3=선택10개, 대상 거부 전후는3개를 비교한다. 정상 대조 쓰기 후/격리GW거부 전에 지문을 잡고 인증·세션/보안감사/알림 등 전체DB불변을 주장하지 않는다. 현재 guard에는 제목·일시/장소·응답시각 등도 포함되며 이번은 참석자 제외의 두 시점만 확인한 것이다.
+- 실제 DB 검사 초기2조건은13.61초에 KeyError(all_day)로 실패했다. 회사 일정 PATCH에서 exclude_unset이 생략 가능한 allDay/location 기본값까지 제거하던 기존 제품 결함이었다. 일정 전체교체 경로만 개인GW처럼 모델 기본값을 전달하도록 보정하고, 생략 입력을 유지한 복원 정상 대조와 기존 회사HTTP 시험에 수정/기본값 검증을 추가했다. 다른 PATCH/DELETE 부분변경과 권한/격리는 유지했다. 수정한 기존 시험의 import 정렬 I001도 보정했다. 실패 로그는 비공개로 보존하고 과거 성공으로 대신하지 않았다.
+- 실제 검증: 관련 단위1115 통과22.98초(신규33/기존 사용중단 경고2), 최종 도움말 반영 후 화면/도움말61 통과5.03초. 새 소유 PostgreSQL의 일정 직접2조건24.18초·회사HTTP 회귀10건67.44초 통과. 직접2/전용13·집중단위164/전체1115·반복 실행은 별개 건수로 합산하지 않는다. 수정Python6개 Ruff check/format, 정적DB219표2409열543FK·R1–R6 오류0. 스키마/마이그레이션·metadata/Excel/ERD 변경 없음.
+- 최종 전용CLI: 최종 소스에서13조건 PASSED/관측13(v1다섯/v2둘/v3둘/v4둘/v5둘)·pytest종료0·sourceUnchanged/databaseCleaned=true·PARTIAL/종료0, 141.56초. import 정렬 전 실행도13조건 통과했으나 최종 소스 지문으로 새DB/새출력에서 재실행했다. 각 실행은 full64 컨테이너ID/owner=gw-ready-02-phase64-test/running·단일127.0.0.1 바인딩을 확인한 새 postgres:18과 새UUID *_test DB에서 수행했다. 생성 DB/폐쇄복원DB·컨테이너/볼륨만 정리하고 소유 라벨 잔여0을 확인했다. 기존 미리보기·병행DB에 접속/초기화하지 않았다.
+- 실회사 절차§38/수집경계·정적 도움말/문서지도·구현문서/현황199줄·progress/HANDOFF를 갱신했다. 소유자/참석자·거부/격리 구분, 정확한 권한 경계·영수증, 응답/제외 학습 안내와 기존 계약 재사용을 반영했다. 전체 UI 완성은 아니다. 프런트제품 코드 미변경으로 타입/ESLint/build·브라우저/모바일 재실행 없음. 전체CI/전체회귀·기존V5 전체합성모드/실회사·실기기10인 인수는 미실행/미완료다.
+- unsigned 합성 PARTIAL·ready=false/최종4조건UNVERIFIED·실제복원PARTIAL/PASS거부 유지.59차 보고서/제품12조건으로 자동 승격하지 않는다. 실계정/admin 이름·비밀번호/OTP/키·브라우저/미리보기·다른checkout/WMS/main/push/배포 변경 없음. work/.env·비밀/전체로그 Git 제외.
+- 다음: 결재 위임의 복원 후 접근 경계 고정검사를 같은 제한 실행기에 연결한다. 일정 소유자교체/부서공개·응답만의guard정책·채팅재가입/읽음순번·동시성/게시정정·직접SQL/운영도구/SSO·전경로무누락/전체회수·독립최신성/외부공급자·실API브라우저/최신main/전체회귀·실회사10인/최종전환은 남는다. 난이도 높음, GPT-6 Astra + High 추천(위임 유효기간·현재 주체/단계·회사격리 정합). 모델 자동변경/사용자 확인 전 다음단계 자동착수 없음.
+
+재현(이 GW 저장소 루트; 비밀은 환경주입하고 출력하지 않는다):
+```sh
+uv run --project backend pytest backend/tests/test_gw_restored_denial.py backend/tests/test_gw_route_verify.py -q --tb=short
+# 관련1115는 아래63차1082와 같은35파일에 새단위33건을 추가한 결과다.
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/operations.test.tsx src/gw/operating-evidence.test.tsx src/gw/emergency-kit.test.tsx src/portal/content-pages.test.tsx --maxWorkers=1
+uv run --project backend ruff check backend/src/fs/gw/company_http.py backend/src/fs/gw/restored_denial.py tools/gw_route_verify.py backend/tests/test_gw_company_http.py backend/tests/test_gw_restored_denial.py backend/tests/test_gw_restored_calendar_db.py
+uv run --project backend ruff format --check backend/src/fs/gw/company_http.py backend/src/fs/gw/restored_denial.py tools/gw_route_verify.py backend/tests/test_gw_company_http.py backend/tests/test_gw_restored_denial.py backend/tests/test_gw_restored_calendar_db.py
+python3 tools/validate_db_design.py
+uv run --project backend python tools/audit_schema_isolation.py
+# 새소유 postgres:18 fullID/owner/running·단일loopback/TCP준비 확인.
+# FS_GW_ROUTE_VERIFY_ADMIN_URL=그 컨테이너 postgres 관리연결,
+# GW_BACKUP_TEST_CONTAINER=전체ID, FS_GW_ROUTE_VERIFY_OWNER=실제 라벨을 비공개주입.
+# 새0700 폴더/새 출력파일 사용; 실행기가 새UUID *_test DB 생성/마이그레이션/검사/정리.
+uv run --project backend python tools/gw_route_verify.py --restored-denial-only --report work/acceptance/restored-denial-64.json
+# 직접검사는 소유 검증한 별도 새UUID *_test DB에만 DATABASE_URL/TEST_DATABASE_URL 주입:
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_restored_calendar_db.py backend/tests/test_gw_company_http.py -q --tb=short
+```
+전용V5는 앞선11+일정2=13조건이다. 일반 전체경로 카탈로그V5와 구분하고 --restored-denial-only를 명시한다. 이전 관측v1–v4를 바꾸지 않고 새일정만v5다. 소유자 편집/취소와 참석자 조회/응답·불참응답/명단제외를 구분한다. 원래 영수증/요청이 남은 재전송만 측정하며 정상 필터목록200/data와 실제404/403의 data금지를 구분한다. 일정/참석자 전체guard의 비권한 필드 변경 격리 제약을 숨기거나 자동해제하지 않는다. 내부ASGI·합성MFA준비는 실기기 인수가 아니며 선택10개소스/3개대상 비교는 전체DB불변·전체회수를 뜻하지 않는다. work 임시도구/비공개로그 없이 위 표준 명령/실회사 절차§38로 재현한다. 생성자원은 이번ID/owner로 확인한 생성분만 정리한다.
+
 ## 2026-10-30 GW-READY-02 63차 — 채팅 멤버십·메시지/영수증 복원 후 접근 경계 완료
 
 - 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`, 시작 `10a2d6b`/작업트리깨끗함 확인. 이 checkout만 수정했다. 최종커밋은 `git log -1`로 확인한다.
