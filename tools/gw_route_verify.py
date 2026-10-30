@@ -18,6 +18,7 @@ from fs.gw.acceptance_business import PROBE, PROPERTY, SyntheticBusinessObservat
 from fs.gw.operating_contract import canonical, timestamp
 from fs.gw.restored_denial import (
     ALL_CASES,
+    CHAT_CASES,
     OBJECT_CASES,
     POST_CASES,
     parse_observation,
@@ -155,6 +156,16 @@ DENIAL_PROBES.update(
             "test_closed_restore_post_visibility[" + case + "]",
         )
         for case in POST_CASES
+    }
+)
+
+DENIAL_PROBES.update(
+    {
+        "RESTORED_FRESH_AUTH_" + case: (
+            "backend/tests/test_gw_restored_chat_db.py",
+            "test_closed_restore_chat_membership[" + case + "]",
+        )
+        for case in CHAT_CASES
     }
 )
 
@@ -363,7 +374,7 @@ def run(*, admin_url, output, restored_denial_only=False):
     report = {
         "version": 1,
         "kind": "SYNTHETIC_GW_ROUTE_EXECUTION",
-        "catalogVersion": "GW_RESTORED_DENIAL_PROBES_V3"
+        "catalogVersion": "GW_RESTORED_DENIAL_PROBES_V4"
         if restored_denial_only
         else "GW_SYNTHETIC_ROUTE_PROBES_V5",
         "restoredDenialObservations": [],
@@ -525,7 +536,7 @@ def main():
     parser.add_argument(
         "--restored-denial-only",
         action="store_true",
-        help="새 소유DB의 합성 복원·새MFA 권한 거부9조건만 실행",
+        help="새 소유DB의 합성 복원·새MFA 권한 거부11조건만 실행",
     )
     args = parser.parse_args()
     try:

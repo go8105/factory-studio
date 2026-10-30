@@ -1,3 +1,36 @@
+## 2026-10-30 GW-READY-02 63차 — 채팅 멤버십·메시지/영수증 복원 후 접근 경계 완료
+
+- 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`, 시작 `10a2d6b`/작업트리깨끗함 확인. 이 checkout만 수정했다. 최종커밋은 `git log -1`로 확인한다.
+- 기존전용실행기를 GW_RESTORED_DENIAL_PROBES_V4/11조건으로 확장했다. v1다섯/v2둘/v3둘은 보존하고 새CHAT_LEFT_MEMBER/CHAT_MEMBERSHIP_GUARD2조건만 RestoredChatDenialObservation v4로구분한다. 기존소유검증/새UUID DB/백업·checkpoint·폐쇄restore/새MFA/실행UUID·버전/시각·소스지문을 재사용한다. 새복원·수집기/임의대상·공급자/수동인수체크·PASS형식은없다.
+- CHAT_LEFT_MEMBER: 백업전나간채널은조회/빈조회순번·신규전송·보존영수증의같은요청재전송·읽음처리404/NOT_FOUND, 목록제외/본문·채널명미노출을검사한다. 남은관리자의대상조회와직원의별도대조채널조회/전송/읽음200·새MFA로전부거부와구분한다. CHAT_MEMBERSHIP_GUARD: 백업뒤실제나가기API/최신checkpoint의chat_member변경은기존회사격리로GW활성연결0/companyHold=true·모든GW요청403/GW_IDENTITY_REQUIRED를확인한다. core새MFA성공과GW격리를구분하며복원후GW양성대조를true로꾸미지않고멤버십을임의재생하지않는다.
+- 복원본초기와실제재요청직전 원래영수증이있고 메시지ID가일치하는지확인한다. 영수증없는새요청·만료/본문불일치422를재전송거부로대체하지않는다. 원본선택7권한+채팅3/request_receipt1=11테이블비교, 대상거부전후채팅/영수증4테이블불변과정확한상태/코드·비노출을필수검증한다. 정상200필터목록에는대조채널data를허용하되실제404/403응답은data가없어야한다. 정상대조쓰기뒤/격리GW거부전에지문을잡으며인증/세션유휴·보안감사처리를객체불변과혼동하지않는다.
+- v4는조회/전송/영수증재전송/조회순번/읽음/목록·양성대조·격리·영수증보존을분리하고지원외버전/누락·중복/skip·실패/실행문맥·JSON/소스불일치차단을유지한다. chat_member전체guard에는읽음순번/가입시각도포함되며이번에는나가기시점2조건만확인했다. 성공도unsigned합성PARTIAL·ready=false/최종4조건UNVERIFIED·실제복원PARTIAL/PASS거부유지. 전경로수집/외부독립성/전체회수인수는아니다.
+- 최종검증: 관련단위1082통과22.61초(신규29/기존사용중단경고2), 화면/정적도움말61통과5.39초. 수정Python4파일Ruff check/format·정적DB219표2409열543FK/R1–R6 오류0. 프런트제품코드미변경으로이번타입/ESLint/build·실브라우저/모바일은재실행하지않았다. 전체CI/전체회귀·실회사/실기기10인/기존V5전체합성실행은미완료/미실행이다.
+- 실제PG/CLI: 새owner=gw-ready-02-phase63-test·전체ID/running/단일loopback확인컨테이너와새UUID *_test DB에서추가2조건23.94초통과. 최종전용CLI는새출력파일에서11조건PASSED·관측11(v1다섯/v2둘/v3둘/v4둘)·pytest종료0/sourceUnchanged/databaseCleaned=true·PARTIAL/종료0/127.27초다. 직접2+CLI11/반복을다른13건으로합산하지않는다. 생성기본DB/폐쇄복원DB·컨테이너/볼륨정리와owner잔여0확인. 기존미리보기/병행DB에는접속/초기화하지않았다.
+- 실패/보정: 초기채널생성201을시험도우미가200으로기대해준비2건이12.89초실패했다. 생성만201로명시하고메시지/조회·읽음의기존200은유지했다. 초기전체CLI와진단실행은10통과/CHAT_LEFT_MEMBER1실패·BLOCKED였다. 정상필터목록200에대조채널data가있어야하는데거부응답의data금지검사를같이적용한것이원인이었다. 실제404/403응답에만data금지를적용하고정상목록의대상제외/대조노출과본문미노출·상태불변은유지했다. 재전송직전에도영수증을재확인해최종소스/새번호·새소유DB/새파일로전체CLI11을통과했다. 실패출력은덮거나과거통과로대신하지않았고import정렬I001도보정했다.
+- 문서/범위: 실회사절차§37/수집경계/도움말/문서지도·구현문서/현황199줄/progress/HANDOFF갱신. 직관성(멤버십/격리구분)/유효성(보존영수증·정확한경계·불변)/학습성(나간채널/새인증·GW권한구분)/유연성(기존계약/실행기재사용)을반영했으며전체UI완성은아니다. 스키마/마이그레이션·metadata/Excel/ERD·실계정/admin/비밀번호/OTP/키/브라우저설정변경없음. work/.env·비밀/전체로그Git제외. 다른checkout/WMS/main/push/배포변경없음.
+- 다음: 일정소유자/참석자의복원후접근경계고정검사를같은제한실행기에연결한다. 채팅멤버추가/재가입·읽음순번변경만의guard정책/동시성·정정/재게시/결재위임·직접SQL/운영도구/SSO·전경로무누락/전체회수·독립최신성/외부공급자·실API브라우저/최신main/전체회귀·실회사/기기10인/최종전환은남는다. 난이도높음,GPT-6 Astra + High 추천(객체참석권한·회사격리·복원원본정합),모델자동변경없음. 사용자확인전다음단계자동착수하지않는다.
+
+재현(이 GW 저장소 루트; 비밀값은 환경주입하고 출력하지 않는다):
+```sh
+uv run --project backend pytest backend/tests/test_gw_restored_denial.py backend/tests/test_gw_route_verify.py -q --tb=short
+# 관련1082는 아래62차1053의 같은35파일에 새단위29건이 추가된 결과다.
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/operations.test.tsx src/gw/operating-evidence.test.tsx src/gw/emergency-kit.test.tsx src/portal/content-pages.test.tsx --maxWorkers=1
+uv run --project backend ruff check backend/src/fs/gw/restored_denial.py tools/gw_route_verify.py backend/tests/test_gw_restored_denial.py backend/tests/test_gw_restored_chat_db.py
+uv run --project backend ruff format --check backend/src/fs/gw/restored_denial.py tools/gw_route_verify.py backend/tests/test_gw_restored_denial.py backend/tests/test_gw_restored_chat_db.py
+python3 tools/validate_db_design.py
+uv run --project backend python tools/audit_schema_isolation.py
+# 새소유 postgres:18 컨테이너 fullID/owner/running·단일loopback/TCP준비 확인.
+# FS_GW_ROUTE_VERIFY_ADMIN_URL은 해당컨테이너 postgres관리연결, GW_BACKUP_TEST_CONTAINER는전체ID,
+# FS_GW_ROUTE_VERIFY_OWNER는실제owner라벨을 비공개주입. 새0700폴더/새출력파일 사용.
+# 실행기가 새UUID *_test DB를 생성/마이그레이션/검사/정리한다. 기존DB초기화없음.
+uv run --project backend python tools/gw_route_verify.py --restored-denial-only --report work/acceptance/restored-denial-63.json
+# 추가채팅2조건만 직접재현: 소유검증한 새UUID *_test DB에만 DATABASE_URL/TEST_DATABASE_URL주입 후:
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_restored_chat_db.py -q --tb=short
+```
+전용V4전체는v1다섯+v2둘+v3둘+v4둘=11조건이다. 반복/직접2를다른시나리오로합산하지않는다. 생성201/메시지·조회·읽음200과권한거부404/403을구분한다. 나간채널의404와chat_member불일치의회사격리403을혼동하지않고영수증이없는새요청을캐시재전송으로세지않는다. 정상200필터목록에는멤버대조채널data가있어야하며실제404/403은data가없어야한다. 선택11테이블(권한7+채팅3/영수증1)/내부ASGI·합성MFA준비와전체DB불변/실기기등록·전경로수집·전체회수를구분한다. chat_member전체guard의읽음순번/가입시각포함제약과멤버십임의재생금지/격리유지·ready=false/미확인4·실제복원PARTIAL/PASS거부유지. 중단자원은이번생성ID/owner로확인해생성분만정리한다. work도구/비공개로그없이위표준검사/실회사절차§37로재현한다.
+
 ## 2026-10-30 GW-READY-02 62차 — 게시물 조직 공개·공개 범위 guard 복원 검사 완료
 
 - 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`, 시작 `e9c1119`/작업트리깨끗함 확인. 이 checkout만 수정했다. 최종커밋은 `git log -1`로 확인한다.

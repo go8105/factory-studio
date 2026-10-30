@@ -13,6 +13,7 @@ from test_gw_route_verify import runner
 from fs.gw.restored_denial import (
     ALL_CASES,
     CASES,
+    CHAT_CASES,
     OBJECT_CASES,
     POST_CASES,
     PROPERTY,
@@ -90,6 +91,37 @@ def observation(case="GW_ROLE"):
             listCode="GW_IDENTITY_REQUIRED" if guarded else None,
             searchCode="GW_IDENTITY_REQUIRED" if guarded else None,
             visibilityReplayed=False,
+        )
+    if case in CHAT_CASES:
+        guarded = case == "CHAT_MEMBERSHIP_GUARD"
+        data.update(
+            version=4,
+            scope="SYNTHETIC_CLOSED_RESTORE_CHAT_MEMBERSHIP",
+            sourceComparisonScope="SELECTED_AUTHORIZATION_CHAT_AND_RECEIPT_TABLES",
+            writeStatus=status,
+            writeErrorCode=code,
+            replayStatus=status,
+            replayCode=code,
+            cursorStatus=status,
+            cursorCode=code,
+            readStatus=status,
+            readCode=code,
+            listStatus=403 if guarded else 200,
+            listCode=code if guarded else None,
+            listingMode="IDENTITY_DENIED" if guarded else "FILTERED",
+            baselineReadConfirmed=True,
+            baselineSendConfirmed=True,
+            baselineCursorConfirmed=True,
+            restoredOwnerReadConfirmed=not guarded,
+            restoredSharedReadConfirmed=not guarded,
+            restoredSharedSendConfirmed=not guarded,
+            restoredSharedCursorConfirmed=not guarded,
+            quarantineObserved=guarded,
+            companyHold=guarded,
+            contentExposed=False,
+            deniedChatStateUnchanged=True,
+            membershipReplayed=False,
+            cachedReceiptRetained=True,
         )
     return data
 
@@ -343,7 +375,7 @@ def test_object_contract_rejects_unproven_read_write_or_scope(change):
         "other-code": ("hiddenScopeReadCode", "COMPANY_ACCESS_DENIED"),
         "numeric-boolean": ("positiveObjectWrite", 1),
         "status-float": ("hiddenScopeReadStatus", 404.0),
-        "unknown-version": ("version", 4),
+        "unknown-version": ("version", 5),
     }
     key, value = edits[change]
     data[key] = value
@@ -429,5 +461,60 @@ def test_post_guard_contract_cannot_be_reported_as_successful_object_filtering(c
     }
     key, value = changes[change]
     data[key] = value
+    with pytest.raises(ValueError):
+        parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize("case", list(CHAT_CASES))
+def test_chat_v4_preserves_previous_versions_and_exact_membership_boundary(case):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation(case)
+    parsed = parse_observation(json.dumps(data))
+    assert parsed.version == 4 and not parsed.membership_replayed
+    assert parsed.restored_shared_send_confirmed is (case == "CHAT_LEFT_MEMBER")
+    for version in (1, 2, 3):
+        data["version"] = version
+        with pytest.raises(ValueError):
+            parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("baselineReadConfirmed", False),
+        ("baselineSendConfirmed", False),
+        ("baselineCursorConfirmed", False),
+        ("restoredOwnerReadConfirmed", True),
+        ("restoredSharedReadConfirmed", True),
+        ("restoredSharedSendConfirmed", True),
+        ("restoredSharedCursorConfirmed", True),
+        ("quarantineObserved", False),
+        ("companyHold", False),
+        ("contentExposed", True),
+        ("deniedChatStateUnchanged", False),
+        ("membershipReplayed", True),
+        ("cachedReceiptRetained", False),
+        ("writeStatus", 200),
+        ("writeErrorCode", "NOT_FOUND"),
+        ("replayStatus", 200),
+        ("replayCode", "SESSION_EXPIRED"),
+        ("cursorStatus", 200),
+        ("cursorCode", "NOT_FOUND"),
+        ("readStatus", 200),
+        ("readCode", "NOT_FOUND"),
+        ("listStatus", 200),
+        ("listCode", None),
+        ("listingMode", "FILTERED"),
+        ("sourceComparisonScope", "SELECTED_AUTHORIZATION_TABLES"),
+        ("companyHold", 1),
+        ("readStatus", 403.0),
+    ],
+)
+def test_chat_guard_rejects_cached_replay_cursor_or_false_positive_claims(field, value):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation("CHAT_MEMBERSHIP_GUARD")
+    data[field] = value
     with pytest.raises(ValueError):
         parse_observation(json.dumps(data))

@@ -24,7 +24,11 @@ POST_CASES = {
     "POST_ORG_SCOPE": (404, "NOT_FOUND"),
     "POST_VISIBILITY_GUARD": (403, "GW_IDENTITY_REQUIRED"),
 }
-ALL_CASES = CASES | OBJECT_CASES | POST_CASES
+CHAT_CASES = {
+    "CHAT_LEFT_MEMBER": (404, "NOT_FOUND"),
+    "CHAT_MEMBERSHIP_GUARD": (403, "GW_IDENTITY_REQUIRED"),
+}
+ALL_CASES = CASES | OBJECT_CASES | POST_CASES | CHAT_CASES
 
 
 class RestoredDenialObservation(StrictModel):
@@ -244,6 +248,108 @@ class RestoredPostDenialObservation(RestoredDenialObservation):
         return self
 
 
+class RestoredChatDenialObservation(RestoredDenialObservation):
+    version: Literal[4]
+    scope: Literal["SYNTHETIC_CLOSED_RESTORE_CHAT_MEMBERSHIP"]
+    case: Literal["CHAT_LEFT_MEMBER", "CHAT_MEMBERSHIP_GUARD"]
+    source_comparison_scope: Literal[
+        "SELECTED_AUTHORIZATION_CHAT_AND_RECEIPT_TABLES"
+    ] = Field(alias="sourceComparisonScope")
+    write_status: int = Field(alias="writeStatus")
+    write_error_code: str = Field(alias="writeErrorCode")
+    replay_status: int = Field(alias="replayStatus")
+    replay_code: str = Field(alias="replayCode")
+    cursor_status: int = Field(alias="cursorStatus")
+    cursor_code: str = Field(alias="cursorCode")
+    read_status: int = Field(alias="readStatus")
+    read_code: str = Field(alias="readCode")
+    list_status: int = Field(alias="listStatus")
+    list_code: str | None = Field(alias="listCode")
+    listing_mode: Literal["FILTERED", "IDENTITY_DENIED"] = Field(alias="listingMode")
+    baseline_read_confirmed: Literal[True] = Field(alias="baselineReadConfirmed")
+    baseline_send_confirmed: Literal[True] = Field(alias="baselineSendConfirmed")
+    baseline_cursor_confirmed: Literal[True] = Field(alias="baselineCursorConfirmed")
+    restored_owner_read_confirmed: bool = Field(alias="restoredOwnerReadConfirmed")
+    restored_shared_read_confirmed: bool = Field(alias="restoredSharedReadConfirmed")
+    restored_shared_send_confirmed: bool = Field(alias="restoredSharedSendConfirmed")
+    restored_shared_cursor_confirmed: bool = Field(
+        alias="restoredSharedCursorConfirmed"
+    )
+    quarantine_observed: bool = Field(alias="quarantineObserved")
+    company_hold: bool = Field(alias="companyHold")
+    content_exposed: Literal[False] = Field(alias="contentExposed")
+    denied_chat_state_unchanged: Literal[True] = Field(alias="deniedChatStateUnchanged")
+    cached_receipt_retained: Literal[True] = Field(alias="cachedReceiptRetained")
+    membership_replayed: Literal[False] = Field(alias="membershipReplayed")
+
+    @model_validator(mode="before")
+    @classmethod
+    def exact_chat_types(cls, value):
+        if isinstance(value, dict):
+            for key in (
+                "baselineReadConfirmed",
+                "baselineSendConfirmed",
+                "baselineCursorConfirmed",
+                "restoredOwnerReadConfirmed",
+                "restoredSharedReadConfirmed",
+                "restoredSharedSendConfirmed",
+                "restoredSharedCursorConfirmed",
+                "quarantineObserved",
+                "companyHold",
+                "contentExposed",
+                "deniedChatStateUnchanged",
+                "membershipReplayed",
+                "cachedReceiptRetained",
+            ):
+                if type(value.get(key)) is not bool:
+                    raise ValueError("exact chat boolean required")
+            for key in (
+                "writeStatus",
+                "replayStatus",
+                "cursorStatus",
+                "readStatus",
+                "listStatus",
+            ):
+                if type(value.get(key)) is not int:
+                    raise ValueError("exact chat status required")
+        return value
+
+    @model_validator(mode="after")
+    def chat_boundaries(self):
+        expected = CHAT_CASES[self.case]
+        if any(
+            pair != expected
+            for pair in (
+                (self.write_status, self.write_error_code),
+                (self.replay_status, self.replay_code),
+                (self.cursor_status, self.cursor_code),
+                (self.read_status, self.read_code),
+            )
+        ):
+            raise ValueError("wrong chat permission boundary")
+        guarded = self.case == "CHAT_MEMBERSHIP_GUARD"
+        if self.quarantine_observed != guarded or self.company_hold != guarded:
+            raise ValueError("chat quarantine mismatch")
+        if any(
+            v != (not guarded)
+            for v in (
+                self.restored_owner_read_confirmed,
+                self.restored_shared_read_confirmed,
+                self.restored_shared_send_confirmed,
+                self.restored_shared_cursor_confirmed,
+            )
+        ):
+            raise ValueError("chat positive control mismatch")
+        listing = (
+            (403, "GW_IDENTITY_REQUIRED", "IDENTITY_DENIED")
+            if guarded
+            else (200, None, "FILTERED")
+        )
+        if (self.list_status, self.list_code, self.listing_mode) != listing:
+            raise ValueError("wrong chat listing boundary")
+        return self
+
+
 def parse_observation(raw):
     import json
 
@@ -260,11 +366,12 @@ def parse_observation(raw):
 
     payload = json.loads(raw, object_pairs_hook=unique)
     version = payload.get("version") if isinstance(payload, dict) else None
-    if type(version) is not int or version not in {1, 2, 3}:
+    if type(version) is not int or version not in {1, 2, 3, 4}:
         raise ValueError("unsupported restored denial version")
     model = {
         1: RestoredDenialObservation,
         2: RestoredObjectDenialObservation,
         3: RestoredPostDenialObservation,
+        4: RestoredChatDenialObservation,
     }[version]
     return model.model_validate_json(raw, strict=True)
