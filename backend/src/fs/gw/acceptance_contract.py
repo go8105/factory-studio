@@ -67,7 +67,7 @@ CATALOG = {
     ),
     "LIVE_COMPANY": (
         "LIVE_ENVIRONMENT",
-        "기존 사전점검의10인·1부서·역할/MFA 구성",
+        "기존 사전점검의10인·1부서·역할/MFA 구성과 동일 스냅샷 실행 보고",
         "실제10인 동시 업무·도메인/TLS·기기·복구 흐름은 별도 인수가 필요합니다.",
         ("POLICY", "RESPONSIBLE", "DEPARTMENTS", "PEOPLE", "MFA"),
     ),
@@ -93,7 +93,7 @@ TOOLS = {
         "restore_recheck",
         "catalog_trust_store",
     ],
-    "LIVE_COMPANY": ["acceptance_preflight.collect"],
+    "LIVE_COMPANY": ["acceptance_preflight.collect", "acceptance_report.collect"],
     "FINAL_RELEASE": ["launch_gate.build"],
 }
 

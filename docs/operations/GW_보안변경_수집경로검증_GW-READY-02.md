@@ -154,3 +154,7 @@ uv run --project backend python tools/gw_route_verify.py \
 ## 58차 공통 계약과 전체 회수의 경계
 
 [실회사 인수 절차 §32](GW_실회사_인수절차_10인_GW-READY-02.md)의12조건 계약/실행 어댑터는 기존 원본 검증기를 재사용하고 최신 등록부터 선택한다. 경로 검사·변경 관측·복원 재관측·목록/신뢰 회수는 전체 수집/회수 조건을 지원하는 일부 도구이며 GET에서 새로 실행하지 않는다. 실제 전경로 누락·직접SQL/재생 제외·독립 최신성·모든 회수 권한 거부 인수는 미확인이다. unsigned 합성 보고나 파일 자기 주장에 서명/체크를 더해 완료로 올리지 않는다. JOURNAL_COVERAGE는 LIVE_ENVIRONMENT/NOT_EXECUTED/UNVERIFIED, 실제 복원 PARTIAL·ready=false를 유지한다.
+
+## 59차 권한 거부의 제한된 검토 목록
+
+[실회사 인수 절차 §33](GW_실회사_인수절차_10인_GW-READY-02.md)의 선택형 실행 보고는 같은 읽기 거래의10인 구성/최신 원본/12조건을 대조한다. 권한 거부8영역은 기존 시험 참조와 미연결 확인을 표시하는 `SELECTED_REVOCATION_BOUNDARIES`이며 전수 경로 목록이 아니다. 인증 판별401·원본 HTTP 거부·복원/replay 제한 상태·격리와 실제 복원본의 새 인증 후 업무 권한 거부를 구분한다. 보고서 생성은 이 시험들을 실행하지 않고 unsigned 합성 결과를 가져오지도 않는다. 모든 검토 행 NOT_EXECUTED·coverageComplete/revocationsComplete=false다. 직접SQL/운영 도구·게시 대상/위임/채팅/일정·향후SSO·독립 최신성/실기기 검증은 별도다. 기존 복원PARTIAL·최종4조건 UNVERIFIED/ready=false 유지.

@@ -899,3 +899,33 @@ uv run --project backend python tools/gw_catalog_trust_transfer.py receive \
 `acceptance_execution.execute`는 기존 회사 트랜잭션 안에서 서버가 읽은 범위·정책·현재 시각·버전·키를 받는다. 모든 결과/정책/버전 중 `recorded_at,id`가 가장 큰 행을 종류별로 먼저 선택하고 기존 수집기/준비 검증기를 호출한다. 다른 회사/세대는 거부한다. 파일의 자기 주장, unsigned 사전점검/합성 실행 결과, 기존 성공으로 최신 실패/PARTIAL·원본 유실/변조·옛 정책/버전·회수를 대체하지 않는다. 연결된 인수 관측/신뢰 복구 검증도 기존 검증기가 수행한다. 새 수집기·복원·공급자 연결을 실행하는 도구가 아니다.
 
 마지막4조건은 `LIVE_ENVIRONMENT`/`NOT_EXECUTED`/UNVERIFIED다. 기존 도구 목록은 확인 가능한 일부 범위를 설명하며 이 GET에서 그 도구를 실행했다는 뜻이 아니다. 선행 조건이 확인돼도 최종4조건을 승격하지 않는다. 운영 준비 → 전환 조건 → **자동 확인·실환경 인수 구분**에서 각 범위를 읽는다. 기존 **필요한 인수 근거**와 회사/역할 동선은 유지한다. 현재 ready=false/실제 복원 PARTIAL·ACCEPTANCE PASS 거부는 정상이며, 외부 공급자와 실제 근거가 갖춰지기 전 해제하지 않는다.
+
+## 33. 같은 읽기 스냅샷의 사전점검·최신 원본 실행 보고 · 59차
+
+기존 `tools/gw_acceptance_preflight.py`에 `--execution-report`를 선택하면 기존10인 사전점검과58차 원본 검증 어댑터/12조건을 **하나의 REPEATABLE READ·READ ONLY 거래** 안에서 실행한다. 기존 옵션만 사용하면 이전 사전점검 출력은 유지된다. 기존 `FS_GW_PREFLIGHT_DATABASE_URL`, `FS_CODE_REVISION` 및 서버 소유 검증 신뢰 설정을 사용한다. 서명 개인키는 필요하지 않다. 조회한 코드 버전은 운영자 환경값이며 실행 바이너리를 증명하지 않아 `executionRevisionVerified=false`다.
+
+```sh
+uv run --project backend python tools/gw_acceptance_preflight.py \
+  --company-id 3 --execution-report \
+  --context-output work/acceptance/current-59.json \
+  --report work/acceptance/execution-59.json
+```
+
+예시3은 도입 회사의 ID가 아니다. 실제 대상 회사와 새 출력 파일을 명시하고 사전에 소유자 전용0700 폴더를 준비한다. 기본 조회 이름은 admin이다. admin 부재·회사 역할/MFA 미충족을 계정 생성/개명/비밀번호 초기화로 자동 고치지 않는다. 필요하면 기존 `--admin-login`으로 실제 점검할 이름을 명시하며 이름과 회사/서버 권한을 구분한다. 부서/직원 조건의 최소 예정 수 판정과 정확히1부서·10인/역할·전원 부서배치 사전점검을 둘 다 보존한다.
+
+결과는 unsigned `GW_ACCEPTANCE_EXECUTION_REPORT` v1이며 회사/세대·정책/코드/DB·관측 시각/문맥 지문, `preflight`, `launchGate`/`checks`, `evidenceChecks`, `backupRestoreCollection`, `revocationCoverage`를 포함한다. 최신 행은 모든 결과·정책/버전 중 `recorded_at DESC,id DESC`로 선택한다. 연결된 관측·목록/신뢰·복구 근거도 기존 검증기로 재대조한다. 원본 전문/서명·경로·키/DB접속값을 결과에 복사하지 않는다. 보고서는 조회 시점의 결과이며 연속 관측이나 독립 최신성 증거가 아니다.
+
+사전점검이 BLOCKED이거나12조건 중 BLOCKED가 있으면 전체 BLOCKED/종료2다. 자동 조건이 모두 충족돼도 PARTIAL/종료0만 허용하며 마지막4조건 UNVERIFIED와 ready/liveCompanyAcceptance/releaseAuthorized=false, signedEvidence=false를 유지한다. stdout은 상태/차단 수만 출력하고 사전점검 차단 수와 전환 조건 차단 수를 구분한다. 잘못된 신뢰 설정·DB/권한/기준 오류는 종료1이며 사전점검 전용으로 자동 후퇴하지 않는다. 기존 새0600 출력/덮어쓰기 금지와 출력 중 실패 정리 규칙은 유지한다. 보고서를 서명 ACCEPTANCE로 등록할 수 없다.
+
+권한 거부 검토는 `SELECTED_REVOCATION_BOUNDARIES`의8영역이며 `coverageComplete=false`다. 각 `testReference`는 검토할 기존 시험 이름이고 이번 실행 결과가 아니다. 모든 행은 NOT_EXECUTED, revocationsComplete=false/UNVERIFIED다.
+
+| 영역 | 기존 검사에서 확인하는 범위 | 아직 연결하지 않은 확인 |
+|---|---|---|
+| 옛 세션·미완료 인증 | 실제 합성 격리 복원 시험의 인증 판별 함수401 | 실환경 기기/진행 요청·외부 인증 경로 |
+| core 계정 | 복원 시험의 계정 제한 상태 | 회수 계정의 새 로그인 거부 |
+| HR 권한 | 기존 checkpoint replay의 하향/비활성 상태 | 복원본에서 새 인증 후 HR 관리 API 거부 |
+| GW 연결·역할 | 원본에서 취소/재개·부여/회수 HTTP 허용/거부 | 복원본의 새 인증 후 업무 접근 |
+| 문서 ACL | 불확실 ACL/보존 변경 시 격리 | 복원본의 문서별 읽기/쓰기 거부 |
+| 회사 멤버십 | 이번 검토 목록의 실행 근거 미연결 | 회수 뒤 복원본의 새 인증·다른 회사 접근 거부 |
+
+이8영역은 전체 쓰기/권한 전수 목록이 아니다. 암호·MFA/복구코드 재사용 검사는 기존 `test_security_checkpoint.py`를 별도로 따르며 이 보고서가 수집하지 않는다. 게시 대상·결재 전결/위임·채팅 멤버십·일정/참석자·직접SQL/운영 도구·향후SSO와 독립 최신 기준/중간 변경 무누락도 별도 대조 대상이다. 실제 권한 거부 수집/복원 실행을 추가하지 않았으므로 기존 복원 PARTIAL·전체 회수 미확인을 유지한다. 공급자 선정과 실제 근거 없이 외부 독립성·전체 회수·실회사/최종PASS를 해제하지 않는다.

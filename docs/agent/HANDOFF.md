@@ -1,3 +1,34 @@
+## 2026-10-30 GW-READY-02 59차 — 동일 읽기 스냅샷 실행 보고·권한 거부 미연결 대조 완료
+
+- 작업 위치 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`, 시작 `9308a92`, 작업 트리 깨끗함 확인. 이 checkout만 수정했다. 최종 커밋은 `git log -1`로 확인한다.
+- 기존 사전점검 CLI `--execution-report` 선택 옵션과 `acceptance_report.collect` 추가. 같은 REPEATABLE READ·READ ONLY 거래에서 기존10인 구성/현재 기준을 읽고58차 어댑터의 최신 원본 검증·12조건을 연결한다. 모든 결과/정책/버전 중 최신 등록부터 선택하고 기존 수집·관측·목록/신뢰 복구 검증을 재사용한다. unsigned GW_ACCEPTANCE_EXECUTION_REPORT v1이며 서명 ACCEPTANCE 등록 대상/운영 승인이 아니다. 기본 옵션·출력/새0600 파일·덮어쓰기 금지는 유지한다. 사전점검 차단과12조건 차단을 분리하며 신뢰 오류를 사전점검 전용 결과로 자동 후퇴시키지 않는다.
+- 권한 거부8영역의 SELECTED_REVOCATION_BOUNDARIES/기존 시험 참조·확인 범위/남은 미연결을 추가했다. 인증 함수401·원본HTTP 거부·제한 상태/replay·격리를 복원본 새 인증 후 업무 권한 거부와 구분한다. 보고서가 시험을 실행한 것처럼 표시하지 않는다. 모든 검토 행 NOT_EXECUTED·coverageComplete/revocationsComplete=false, 마지막4조건 UNVERIFIED·ready=false·실제복원PARTIAL/ACCEPTANCE PASS 거부 유지. 전체 쓰기/권한 전수 목록이 아니며 직접SQL·게시 대상/위임·채팅/일정·향후SSO/독립 최신 기준은 별도다.
+- 직관성(동일시점 구성/원본)/유효성(최신원본/별도 사전점검 차단)/학습성(기존검사·미연결 구분)/유연성(기존 CLI 선택옵션)을 반영했다. 운영 준비 기존 자동/실환경 안내 카탈로그·정적 도움말과 실회사 절차§33/수집경계를 연결했다. UI 제품 코드/새 버튼/전체 UI 완성은 이번 범위가 아니다.
+- 검증: 관련 단위971통과24.04초(신규11/기존 사용중단 경고2), 사전점검 독립 차단·PARTIAL 최대값 시험을 보강한 최종 신규11통과0.11초(971과 중복 합산 안 함). 화면/정적 도움말61통과5.33초. 수정 Python5파일 Ruff check/format·정적DB219표2409열543FK·R1–R6 오류0. 프런트 제품 코드 미변경으로 이번 타입/ESLint/build·실브라우저/모바일 재실행은 하지 않았다. 전체CI/전체회귀 통과로 표현하지 않는다.
+- 실제PG: Docker는 다시 응답했으나 기존 GW전용 컨테이너는 없었다. postgres:18 로컬 이미지로 새 UUID 이름/owner=gw-ready-02-phase59-test·loopback 임의포트 컨테이너만 생성하고 정확한ID/라벨/loopback 확인 뒤 새 UUID *_test DB에 마이그레이션했다. 보고서2+기존운영API3+기존실제dump/격리복원2=7통과63.22초. 추가 연결된서명PARTIAL 보고서1통과7.64초(서로 다른 검사, 총8). 기본admin 부재/합성연결2명·엄격10인차단, 같은스냅샷·문맥지문/READ ONLY 쓰기거부SQLSTATE25006, 조회전후 계정/세션/MFA/설정/원본상태 불변, 최신FAIL/원본유실과 연결된PARTIAL 재검증을 확인했다. 이는 실제회사10인 인수나 새 인증 후 전체업무권한 거부 검사가 아니다.
+- 실패/보정: 추가PG 검사 준비에서 pg_isready가 PostgreSQL 초기화 중 임시socket 서버를 준비완료로 관측해 createdb가 실패했다. 해당 생성 컨테이너/볼륨만 정리했고 테스트는 실행되지 않았다. TCP127.0.0.1 준비검사로 고쳐 새 소유 자원에서 마이그레이션/추가1건을 통과했다. 제품의 시각·신뢰·인수차단/검사 조건은 완화하지 않았다.
+- 자원/범위: 생성한 모든 시험 컨테이너/볼륨/DB는 정리했다. 기존 병행컨테이너 factory-studio-db-1/55432는 목록만 읽고 접속/변경하지 않았다. 기존 미리보기DB·실계정/admin 개명·비밀번호/OTP·키/브라우저 설정 변경 없음. 스키마/마이그레이션·metadata/Excel/ERD 변경 없음. work/.env·비밀/전체로그 Git 제외. 현황199줄·구현문서/운영절차/도움말/progress/HANDOFF 갱신. 다른checkout/WMS/main/push/배포 변경 없음.
+- 다음: 복원본에서 새 인증 후 권한 거부를 확인하는 공통 검사 계약/제한 실행기를 진행한다. 제한된 합성 대상/허용 경로와 실제 전체회수·실환경 인수의 경계를 유지한다. 이후 전경로/독립 최신기준·외부공급자/장애복구·실API 브라우저/최신main/전체회귀·실회사/실기기10인/최종 전환이 남는다. 난이도 높음, GPT-6 Astra + High 추천(인증/격리·권한회수 정합), 모델 자동 변경 없음. 사용자 확인 전 다음 단계를 시작하지 않는다.
+
+재현(이 저장소 루트; 비밀값은 출력하지 않고 환경으로 주입):
+```sh
+uv run --project backend pytest backend/tests/test_gw_acceptance_report.py backend/tests/test_gw_acceptance_preflight.py backend/tests/test_gw_acceptance_execution.py backend/tests/test_gw_launch_gate.py -q --tb=short
+# 관련971 전체는 아래58차 관련960 목록에 test_gw_acceptance_report.py를 추가한34파일이다.
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/operations.test.tsx src/gw/operating-evidence.test.tsx src/gw/emergency-kit.test.tsx src/portal/content-pages.test.tsx --maxWorkers=1
+uv run --project backend ruff check backend/src/fs/gw/acceptance_report.py backend/src/fs/gw/acceptance_contract.py tools/gw_acceptance_preflight.py backend/tests/test_gw_acceptance_report.py backend/tests/test_gw_acceptance_report_db.py
+uv run --project backend ruff format --check backend/src/fs/gw/acceptance_report.py backend/src/fs/gw/acceptance_contract.py tools/gw_acceptance_preflight.py backend/tests/test_gw_acceptance_report.py backend/tests/test_gw_acceptance_report_db.py
+python3 tools/validate_db_design.py
+uv run --project backend python tools/audit_schema_isolation.py
+# 실제PG: 새 소유postgres:18 컨테이너의 ID/owner/loopback을 먼저 확인한다.
+# pg_isready는 -h 127.0.0.1로 TCP준비를 확인해 초기화 임시socket을 제외한다.
+# 새 UUID *_test DB를 만들고 DATABASE_URL/TEST_DATABASE_URL과 GW_BACKUP_TEST_CONTAINER를 비공개 주입한다.
+# 기존 gw_preview_test/병행 DB는 절대 초기화/시험 대상으로 쓰지 않는다.
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_acceptance_report_db.py backend/tests/test_gw_operations.py backend/tests/test_backup_journal_restore.py -q --tb=short
+# 종료 후 생성DB/컨테이너/볼륨만 ID/owner를 재확인하여 정리한다.
+```
+위 PG8건은 첫 실행7건과 추가 연결 시험1건의 서로 다른 시나리오다. 최신 전체8건 단일 실행 시간으로 표현하지 않는다. work harness/비공개로그에만 의존하지 않고 위 표준 검사 파일과 운영절차§33으로 재현한다. 실제 외부 공급자 미정/독립 최신성·전체 권한거부/10인 인수·최종PASS 미완료, 제한 복원본 접속을 열거나 운영계정을 바꾸지 않는다.
+
 ## 2026-10-30 GW-READY-02 58차 — 자동 검증/실환경 인수 공통 계약·기존 검증 실행 어댑터 완료
 
 - 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`, 시작 `dfadc0b`, 작업 트리 깨끗함을 확인했다. 이 checkout만 수정했다. 최종 커밋은 `git log -1`로 확인한다.

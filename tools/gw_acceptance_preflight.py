@@ -4,8 +4,11 @@ import argparse
 import os
 from pathlib import Path
 
+from fs.common.errors import ApiError
 from fs.core.backup import BackupError, create_private, private_directory
 from fs.gw.acceptance_preflight import collect
+from fs.gw.acceptance_report import collect as collect_execution
+from fs.gw.evidence_trust import from_environment
 from fs.gw.operating_contract import canonical
 from sqlalchemy import create_engine
 from sqlalchemy.engine import make_url
@@ -53,6 +56,11 @@ def main():
         "--context-output", required=True, help="현재 기준을 기록할 새0600 파일"
     )
     parser.add_argument("--report", required=True, help="사전점검을 기록할 새0600 파일")
+    parser.add_argument(
+        "--execution-report",
+        action="store_true",
+        help="같은 읽기 스냅샷의 최신 원본/12조건·권한 거부 미검증 범위를 함께 보고 (서명 인수 아님)",
+    )
     args = parser.parse_args()
     engine = None
     try:
@@ -68,11 +76,16 @@ def main():
             url.set(drivername="postgresql+psycopg"),
             connect_args={"connect_timeout": 10},
         )
-        context, report = collect(
+        collector = collect_execution if args.execution_report else collect
+        verification = (
+            {"public_keys": from_environment()} if args.execution_report else {}
+        )
+        context, report = collector(
             engine,
             company_id=args.company_id,
             admin_login=args.admin_login,
             code_revision=os.environ["FS_CODE_REVISION"],
+            **verification,
         )
         write_outputs(
             context,
@@ -85,6 +98,16 @@ def main():
                 {
                     "result": report["result"],
                     "ready": False,
+                    **(
+                        {
+                            "preflightBlockedCount": sum(
+                                r["state"] == "BLOCKED"
+                                for r in report["preflight"]["checks"]
+                            )
+                        }
+                        if args.execution_report
+                        else {}
+                    ),
                     "blockedCount": sum(
                         r["state"] == "BLOCKED" for r in report["checks"]
                     ),
@@ -92,7 +115,15 @@ def main():
             ).decode()
         )
         return 0 if report["result"] == "PARTIAL" else 2
-    except (BackupError, OSError, ValueError, TypeError, KeyError, SQLAlchemyError):
+    except (
+        ApiError,
+        BackupError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        SQLAlchemyError,
+    ):
         print(
             "사전점검을 완료하지 못했습니다. 회사·현재 기준·읽기 연결·출력 권한을 확인하세요. 기존 파일은 덮어쓰지 않습니다."
         )
