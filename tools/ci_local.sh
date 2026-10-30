@@ -100,14 +100,15 @@ admin_url = url.set(database="postgres")
 target_db = url.database
 
 try:
-    admin_eng = create_engine(admin_url)
+    # CREATE DATABASE는 트랜잭션 안에서 못 돈다. 아래 146·182·220행과 같은 틀.
+    admin_eng = create_engine(admin_url, isolation_level="AUTOCOMMIT")
     with admin_eng.connect() as conn:
         ver = conn.execute(text("SHOW server_version")).scalar()
         if not ver.startswith("18."):
             sys.exit(f"PostgreSQL 18이 아닙니다 (현재: {ver}). 포트 55432의 PostgreSQL 18.6을 확인하세요.")
         exists = conn.execute(text("SELECT 1 FROM pg_database WHERE datname = :d"), {"d": target_db}).scalar()
         if not exists:
-            conn.execution_options(isolation_level="AUTOCOMMIT").execute(text(f"CREATE DATABASE \"{target_db}\""))
+            conn.execute(text(f"CREATE DATABASE \"{target_db}\""))
             print(f"새 테스트 DB 생성 완료: {target_db}")
 except Exception as e:
     sys.exit(f"PostgreSQL 점검 실패: {e}")
