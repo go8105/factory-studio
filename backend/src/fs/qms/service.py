@@ -28,7 +28,9 @@ from fs.common.errors import ApiError
 from fs.common.scope import read_scope
 from fs.erp import interface as erp
 from fs.mes import interface as mes
+from fs.qms import sampling
 from fs.spc import interface as spc
+from fs.wms import interface as wms
 
 MODULE = "qms"
 _S = "workspace_id=:w AND generation_id=:g"
@@ -232,7 +234,8 @@ def delete_defect_type(context: AuthContext, row_id: int, key: str) -> dict[str,
 # ---------- 검사 기준 (Q-02) ----------
 
 SPEC_SQL = """
-SELECT s.id, s.item_code, s.item_name, s.version_no, s.status, s.published_at, s.note, s.created_at,
+SELECT s.id, s.item_code, s.item_name, s.version_no, s.status, s.published_at, s.note,
+       s.inspection_kind, s.aql, s.created_at,
        (SELECT count(*) FROM qms.inspection_spec_item i
          WHERE i.workspace_id=s.workspace_id AND i.generation_id=s.generation_id AND i.spec_id=s.id) item_count,
        (SELECT count(*) FROM qms.inspection x
@@ -263,6 +266,7 @@ def _spec(
     if row is None:
         return None
     spec = _row(row)
+    spec["aql"] = sampling.label(spec["aql"]) or None
     spec["items"] = [
         _row(r)
         for r in connection.execute(
@@ -330,13 +334,15 @@ def _insert_items(
 
 
 def _draft_for_item(
-    connection: Connection, scoped: AuthContext, item_code: str
+    connection: Connection, scoped: AuthContext, item_code: str, kind: str
 ) -> int | None:
+    """작성 중인 기준은 **품목·검사 종류당 1건**이다 — 게시본 유니크와 같은 범위다."""
     return connection.execute(
         text(
-            f"SELECT id FROM qms.inspection_spec WHERE {_S} AND item_code=:item AND status='draft'"
+            f"SELECT id FROM qms.inspection_spec WHERE {_S} AND item_code=:item "
+            "AND inspection_kind=:kind AND status='draft'"
         ),
-        {**_s(scoped), "item": item_code},
+        {**_s(scoped), "item": item_code, "kind": kind},
     ).scalar()
 
 
@@ -355,7 +361,7 @@ def list_specs(
         rows = connection.execute(
             text(sql + " ORDER BY s.item_code, s.version_no DESC"), params
         ).mappings()
-        return [_row(r) for r in rows]
+        return [{**_row(r), "aql": sampling.label(r["aql"]) or None} for r in rows]
 
 
 def get_spec(context: AuthContext, spec_id: int) -> dict[str, Any]:
@@ -372,21 +378,27 @@ def create_spec(
     items = _spec_items(values.get("items", []))
 
     def fn(connection: Connection, scoped: AuthContext):
-        draft = _draft_for_item(connection, scoped, values["item_code"])
+        kind = values.get("inspection_kind") or "OUTGOING"
+        draft = _draft_for_item(connection, scoped, values["item_code"], kind)
         if draft is not None:
             raise _conflict(
-                "이 품목에는 작성 중인 기준이 있습니다.", "DRAFT_EXISTS", specId=draft
+                "이 품목·검사 종류에는 작성 중인 기준이 있습니다.",
+                "DRAFT_EXISTS",
+                specId=draft,
             )
+        # 버전은 **품목 단위로** 올라간다(UK item_code·version_no). 종류가 달라도 번호는 이어진다.
         version = connection.execute(
             text(
-                f"SELECT coalesce(max(version_no),0)+1 FROM qms.inspection_spec WHERE {_S} AND item_code=:item"
+                f"SELECT coalesce(max(version_no),0)+1 FROM qms.inspection_spec WHERE {_S} "
+                "AND item_code=:item"
             ),
             {**_s(scoped), "item": values["item_code"]},
         ).scalar_one()
         spec_id = connection.execute(
             text(
-                "INSERT INTO qms.inspection_spec(workspace_id,generation_id,item_code,item_name,version_no,note) "
-                "VALUES (:w,:g,:item,:name,:version,:note) RETURNING id"
+                "INSERT INTO qms.inspection_spec(workspace_id,generation_id,item_code,item_name,"
+                "version_no,note,inspection_kind,aql) "
+                "VALUES (:w,:g,:item,:name,:version,:note,:kind,:aql) RETURNING id"
             ),
             {
                 **_s(scoped),
@@ -394,6 +406,8 @@ def create_spec(
                 "name": values["item_name"],
                 "version": version,
                 "note": values.get("note"),
+                "kind": kind,
+                "aql": values.get("aql"),
             },
         ).scalar_one()
         _insert_items(connection, scoped, spec_id, items)
@@ -470,17 +484,25 @@ def publish_spec(context: AuthContext, spec_id: int, key: str) -> dict[str, Any]
             raise _conflict(
                 "검사 항목이 1개 이상 있어야 게시할 수 있습니다.", "NO_ITEMS"
             )
+        # 게시본은 **품목·검사 종류당 1건**이다. 출하 기준을 내리며 수입 기준까지 내리지 않는다.
+        scope_keys = {
+            **_s(scoped),
+            "item": spec["itemCode"],
+            "kind": spec["inspectionKind"],
+        }
         connection.execute(
             text(
-                f"SELECT 1 FROM qms.inspection_spec WHERE {_S} AND item_code=:item AND status='published' FOR UPDATE"
+                f"SELECT 1 FROM qms.inspection_spec WHERE {_S} AND item_code=:item "
+                "AND inspection_kind=:kind AND status='published' FOR UPDATE"
             ),
-            {**_s(scoped), "item": spec["itemCode"]},
+            scope_keys,
         )
         connection.execute(
             text(
-                f"UPDATE qms.inspection_spec SET status='retired' WHERE {_S} AND item_code=:item AND status='published'"
+                f"UPDATE qms.inspection_spec SET status='retired' WHERE {_S} AND item_code=:item "
+                "AND inspection_kind=:kind AND status='published'"
             ),
-            {**_s(scoped), "item": spec["itemCode"]},
+            scope_keys,
         )
         connection.execute(
             text(
@@ -520,10 +542,14 @@ def revise_spec(context: AuthContext, spec_id: int, key: str) -> dict[str, Any]:
             raise _not_found("검사 기준")
         if spec["status"] == "draft":
             raise _conflict("작성 중인 기준은 그대로 고치면 됩니다.", "ALREADY_DRAFT")
-        draft = _draft_for_item(connection, scoped, spec["itemCode"])
+        draft = _draft_for_item(
+            connection, scoped, spec["itemCode"], spec["inspectionKind"]
+        )
         if draft is not None:
             raise _conflict(
-                "이 품목에는 작성 중인 기준이 있습니다.", "DRAFT_EXISTS", specId=draft
+                "이 품목·검사 종류에는 작성 중인 기준이 있습니다.",
+                "DRAFT_EXISTS",
+                specId=draft,
             )
         version = connection.execute(
             text(
@@ -533,8 +559,9 @@ def revise_spec(context: AuthContext, spec_id: int, key: str) -> dict[str, Any]:
         ).scalar_one()
         new_id = connection.execute(
             text(
-                "INSERT INTO qms.inspection_spec(workspace_id,generation_id,item_code,item_name,version_no,note) "
-                "VALUES (:w,:g,:item,:name,:version,:note) RETURNING id"
+                "INSERT INTO qms.inspection_spec(workspace_id,generation_id,item_code,item_name,"
+                "version_no,note,inspection_kind,aql) "
+                "VALUES (:w,:g,:item,:name,:version,:note,:kind,:aql) RETURNING id"
             ),
             {
                 **_s(scoped),
@@ -542,6 +569,8 @@ def revise_spec(context: AuthContext, spec_id: int, key: str) -> dict[str, Any]:
                 "name": spec["itemName"],
                 "version": version,
                 "note": spec["note"],
+                "kind": spec["inspectionKind"],
+                "aql": spec["aql"],
             },
         ).scalar_one()
         _insert_items(
@@ -652,7 +681,9 @@ def mes_lots(context: AuthContext, pending: bool) -> list[dict[str, Any]]:
 INSPECTION_SQL = """
 SELECT i.id, i.inspection_no, i.source, i.lot_no, i.item_code, i.item_name, i.lot_qty, i.unit,
        i.sample_qty, i.spec_id, s.version_no spec_version, i.reinspection_of_id, i.status, i.result,
-       i.inspected_on, i.inspection_month, i.confirmed_at, i.note, i.created_at
+       i.inspected_on, i.inspection_month, i.confirmed_at, i.note, i.inspection_kind, i.partner_code,
+       i.source_ref, i.sampling, i.accept_number, i.reject_number, i.defect_count, s.aql spec_aql,
+       i.created_at
 FROM qms.inspection i
 JOIN qms.inspection_spec s ON s.workspace_id=i.workspace_id AND s.generation_id=i.generation_id AND s.id=i.spec_id
 WHERE i.workspace_id=:w AND i.generation_id=:g
@@ -697,6 +728,7 @@ def _inspection(
     if row is None:
         return None
     found = _row(row)
+    found["specAql"] = sampling.label(found["specAql"]) or None
     found["values"] = [
         _row(r)
         for r in connection.execute(
@@ -716,18 +748,37 @@ def _inspection(
     return found
 
 
-def _published_spec(connection: Connection, scoped: AuthContext, item_code: str) -> int:
+# 반품·초품은 **출하 기준**을 쓴다(DSN-14 3장) — 따로 기준을 게시하지 않는다.
+_SPEC_KIND = {
+    "OUTGOING": "OUTGOING",
+    "RETURN": "OUTGOING",
+    "FIRST_ARTICLE": "OUTGOING",
+    "INCOMING": "INCOMING",
+}
+
+
+def _published_spec(
+    connection: Connection,
+    scoped: AuthContext,
+    item_code: str,
+    kind: str = "OUTGOING",
+) -> int:
+    """그 품목·검사 종류의 게시본. 종류를 보지 않으면 출하·수입 기준이 섞인다(1c의 빚)."""
+    spec_kind = _SPEC_KIND[kind]
     spec_id = connection.execute(
         text(
-            f"SELECT id FROM qms.inspection_spec WHERE {_S} AND item_code=:item AND status='published'"
+            f"SELECT id FROM qms.inspection_spec WHERE {_S} AND item_code=:item "
+            "AND inspection_kind=:kind AND status='published'"
         ),
-        {**_s(scoped), "item": item_code},
+        {**_s(scoped), "item": item_code, "kind": spec_kind},
     ).scalar()
     if spec_id is None:
         raise _conflict(
-            "이 품목에는 게시한 검사 기준이 없습니다. 검사 기준을 먼저 게시하세요.",
+            f"이 품목에는 게시한 {'수입' if spec_kind == 'INCOMING' else '출하'} 검사 기준이 없습니다. "
+            "검사 기준을 먼저 게시하세요.",
             "NO_PUBLISHED_SPEC",
             itemCode=item_code,
+            inspectionKind=spec_kind,
         )
     return spec_id
 
@@ -759,9 +810,9 @@ def _insert_inspection(
         text(
             "INSERT INTO qms.inspection(workspace_id,generation_id,inspection_no,source,lot_no,item_code,item_name,"
             "lot_qty,unit,sample_qty,spec_id,reinspection_of_id,inspected_on,inspection_month,note,"
-            "inspection_kind,source_ref) "
+            "inspection_kind,source_ref,partner_code,sampling,accept_number,reject_number) "
             "VALUES (:w,:g,:no,:source,:lot,:item,:name,:lot_qty,:unit,:sample,:spec,:again,:on,:month,:note,"
-            ":kind,:ref) RETURNING id"
+            ":kind,:ref,:partner,:sampling,:accept,:reject) RETURNING id"
         ),
         {
             **_s(scoped),
@@ -780,6 +831,10 @@ def _insert_inspection(
             "note": snap.get("note"),
             "kind": kind,
             "ref": source_ref,
+            "partner": snap.get("partner_code"),
+            "sampling": snap.get("sampling") or "MANUAL",
+            "accept": snap.get("accept_number"),
+            "reject": snap.get("reject_number"),
         },
     ).scalar_one()
     # 항목마다 빈 측정값 행을 만들어 둔다. 수정은 행 단위 UPDATE로 한다.
@@ -1019,9 +1074,18 @@ def confirm_inspection(
                 )
         if errors:
             raise _fields(errors)
-        result = (
-            "FAIL" if any(v["judgement"] == "FAIL" for v in found["values"]) else "PASS"
-        )
+        items_passed = all(v["judgement"] != "FAIL" for v in found["values"])
+        if found["sampling"] == "AQL":
+            if found["defectCount"] is None:
+                raise _field("defectCount", "시료에서 나온 불량 개수를 적어 주세요.")
+            if found["defectCount"] > int(Decimal(str(found["sampleQty"]))):
+                raise _field("defectCount", "불량 개수는 시료 수를 넘을 수 없습니다.")
+            # 계수(불량 개수 ≤ Ac)와 계량(항목 판정)을 함께 본다(DSN-14 Q2).
+            result = sampling.judge(
+                found["defectCount"], found["acceptNumber"], items_passed
+            )
+        else:
+            result = "PASS" if items_passed else "FAIL"
         connection.execute(
             text(
                 f"UPDATE qms.inspection SET status='confirmed', result=:r, confirmed_at=clock_timestamp() WHERE {_S} AND id=:id"
@@ -1065,7 +1129,9 @@ def reinspect(context: AuthContext, inspection_id: int, key: str) -> dict[str, A
         if original["status"] != "confirmed":
             raise _conflict("확정한 검사만 재검사할 수 있습니다.", "NOT_CONFIRMED")
         _no_draft_for_lot(connection, scoped, original["lotNo"])
-        spec_id = _published_spec(connection, scoped, original["itemCode"])
+        spec_id = _published_spec(
+            connection, scoped, original["itemCode"], original["inspectionKind"]
+        )
         snap = {
             "source": original["source"],
             "lot_no": original["lotNo"],
@@ -1075,8 +1141,20 @@ def reinspect(context: AuthContext, inspection_id: int, key: str) -> dict[str, A
             "unit": original["unit"],
             "sample_qty": original["sampleQty"],
             "inspected_on": business_today(),
+            "partner_code": original["partnerCode"],
+            "sampling": original["sampling"],
+            "accept_number": original["acceptNumber"],
+            "reject_number": original["rejectNumber"],
         }
-        new_id = _insert_inspection(connection, scoped, snap, spec_id, inspection_id)
+        new_id = _insert_inspection(
+            connection,
+            scoped,
+            snap,
+            spec_id,
+            inspection_id,
+            kind=original["inspectionKind"],
+            source_ref=original["sourceRef"],
+        )
         return _inspection(connection, scoped, new_id), "inspection", new_id
 
     return _action(
@@ -1713,7 +1791,9 @@ def create_first_article(
                 "NOT_APPROVED",
                 status=found["status"],
             )
-        spec_id = _published_spec(connection, scoped, found["itemCode"])
+        spec_id = _published_spec(
+            connection, scoped, found["itemCode"], "FIRST_ARTICLE"
+        )
         item_name = connection.execute(
             text(f"SELECT item_name FROM qms.inspection_spec WHERE {_S} AND id=:id"),
             {**_s(scoped), "id": spec_id},
@@ -2798,3 +2878,202 @@ def close_scar(context: AuthContext, scar_id: int, key: str):
         return _scar(connection, scoped, scar_id), "scar", scar_id
 
     return _action(context, "qms.scar.close", key, {"id": scar_id}, fn)
+
+
+# ---------- 수입 검사 (Q-03 수입 탭 · Q-04, DSN-14 F11·F12) ----------
+
+
+def _current_levels(
+    connection: Connection, scoped: AuthContext
+) -> dict[tuple[str, str | None], str]:
+    """공급처·품목별 현재 검사 수준. 적용일이 오늘 이하인 최신 행만 남긴다."""
+    rows = connection.execute(
+        text(
+            f"SELECT DISTINCT ON (partner_code, item_code) partner_code, item_code, level "
+            f"FROM qms.supplier_level WHERE {_S} AND valid_from <= :today "
+            "ORDER BY partner_code, item_code, valid_from DESC, id DESC"
+        ),
+        {**_s(scoped), "today": business_today()},
+    ).mappings()
+    return {(r["partner_code"], r["item_code"]): r["level"] for r in rows}
+
+
+def _level_for(
+    levels: dict[tuple[str, str | None], str], partner: str, item: str
+) -> str:
+    """품목 지정이 공급처 전체보다 우선한다. 정하지 않았으면 보통이다."""
+    return levels.get((partner, item)) or levels.get((partner, None)) or "NORMAL"
+
+
+def incoming_lots(context: AuthContext) -> dict[str, Any]:
+    """수입 검사 대기 — WMS에서 **격리된 입고 줄**을 읽어 검사 수준으로 거른다(F11·Q1).
+
+    1b `inbound_lots_to_inspect`의 첫 소비자다. 면제 공급처는 대상에서 빠지고, 이미 검사를
+    만든 원천도 빠진다. WMS를 꺼 두었으면 `wmsEnabled: False`이고 목록은 비어 있다.
+    """
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        rows = wms.inbound_lots_to_inspect(connection, scoped)
+        if rows is None:
+            return {"wmsEnabled": False, "rows": []}
+        used = set(
+            connection.execute(
+                text(
+                    f"SELECT source_ref FROM qms.inspection WHERE {_S} "
+                    "AND inspection_kind='INCOMING' AND source_ref IS NOT NULL"
+                ),
+                _s(scoped),
+            ).scalars()
+        )
+        levels = _current_levels(connection, scoped)
+        published = set(
+            connection.execute(
+                text(
+                    f"SELECT item_code FROM qms.inspection_spec WHERE {_S} "
+                    "AND inspection_kind='INCOMING' AND status='published'"
+                ),
+                _s(scoped),
+            ).scalars()
+        )
+        out = []
+        for row in rows:
+            if row["sourceRef"] in used:
+                continue
+            level = _level_for(levels, row["partnerCode"] or "", row["itemCode"])
+            out.append(
+                {
+                    **row,
+                    "level": level,
+                    "hasSpec": row["itemCode"] in published,
+                    # 면제는 검사하지 않는다(Q1). 목록에 남겨 두면 왜 없는지 알 수 없다.
+                    "isTarget": level != "EXEMPT",
+                }
+            )
+        return {"wmsEnabled": True, "rows": [r for r in out if r["isTarget"]]}
+
+
+def create_incoming_inspection(context: AuthContext, values: dict[str, Any], key: str):
+    """격리된 입고 줄 하나로 수입 검사를 만든다. **시료 수는 AQL 표가 정한다**(Q2).
+
+    기준에 AQL이 없으면 지금까지처럼 시료 수를 직접 받는다. 공급처가 강화 수준이면
+    한 단계 엄격한 AQL로 본다(`sampling.tightened`).
+    """
+
+    def fn(connection: Connection, scoped: AuthContext):
+        rows = wms.inbound_lots_to_inspect(connection, scoped)
+        if rows is None:
+            raise _conflict(
+                "WMS를 사용하지 않도록 설정했습니다. 수입 검사 대상을 읽을 수 없습니다.",
+                "SOURCE_MODULE_DISABLED",
+                sourceModule="wms",
+            )
+        source = next((r for r in rows if r["sourceRef"] == values["source_ref"]), None)
+        if source is None:
+            raise _field("sourceRef", "검사할 입고 줄을 찾을 수 없습니다.")
+        if connection.execute(
+            text(
+                f"SELECT 1 FROM qms.inspection WHERE {_S} AND inspection_kind='INCOMING' "
+                "AND source_ref=:ref"
+            ),
+            {**_s(scoped), "ref": values["source_ref"]},
+        ).first():
+            raise _field("sourceRef", "이 입고 줄의 수입 검사가 이미 있습니다.")
+
+        partner = source["partnerCode"] or ""
+        level = _level_for(
+            _current_levels(connection, scoped), partner, source["itemCode"]
+        )
+        if level == "EXEMPT":
+            raise _conflict(
+                "면제 수준 공급처입니다. 수입 검사를 하지 않습니다.",
+                "SUPPLIER_EXEMPT",
+                partnerCode=partner,
+            )
+        spec_id = _published_spec(connection, scoped, source["itemCode"], "INCOMING")
+        aql = connection.execute(
+            text(f"SELECT aql FROM qms.inspection_spec WHERE {_S} AND id=:id"),
+            {**_s(scoped), "id": spec_id},
+        ).scalar()
+
+        lot_qty = source["qty"]
+        if aql is None:
+            if not values.get("sample_qty"):
+                raise _field(
+                    "sampleQty", "기준에 AQL이 없어 시료 수를 직접 적어야 합니다."
+                )
+            _sample_ok(values["sample_qty"], lot_qty)
+            extra = {"sample_qty": values["sample_qty"], "sampling": "MANUAL"}
+        else:
+            found = sampling.plan(
+                sampling.lot_size_of(lot_qty), sampling.label(aql), level
+            )
+            extra = {
+                "sample_qty": str(found["sampleSize"]),
+                "sampling": "AQL",
+                "accept_number": found["acceptNumber"],
+                "reject_number": found["rejectNumber"],
+            }
+        _no_draft_for_lot(connection, scoped, source["lotNo"] or source["sourceRef"])
+        inspection_id = _insert_inspection(
+            connection,
+            scoped,
+            {
+                "source": "WMS",
+                "lot_no": source["lotNo"] or source["sourceRef"],
+                "item_code": source["itemCode"],
+                "item_name": source["itemName"],
+                "lot_qty": lot_qty,
+                "unit": source["unit"],
+                "inspected_on": values.get("inspected_on") or business_today(),
+                "note": values.get("note"),
+                "partner_code": partner or None,
+                **extra,
+            },
+            spec_id,
+            None,
+            kind="INCOMING",
+            source_ref=values["source_ref"],
+        )
+        return (
+            _inspection(connection, scoped, inspection_id),
+            "inspection",
+            inspection_id,
+        )
+
+    return _action(context, "qms.inspection.incoming", key, values, fn, 201)
+
+
+def set_defect_count(context: AuthContext, inspection_id: int, values: dict, key: str):
+    """AQL 검사의 시료 불량 개수. 확정 전에만 고친다."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _draft_inspection(connection, scoped, inspection_id)
+        if found["sampling"] != "AQL":
+            raise _conflict(
+                "AQL 검사에만 불량 개수를 적습니다.",
+                "NOT_AQL",
+                sampling=found["sampling"],
+            )
+        count = values["defect_count"]
+        if count > int(Decimal(str(found["sampleQty"]))):
+            raise _field("defectCount", "불량 개수는 시료 수를 넘을 수 없습니다.")
+        connection.execute(
+            text(f"UPDATE qms.inspection SET defect_count=:c WHERE {_S} AND id=:id"),
+            {**_s(scoped), "c": count, "id": inspection_id},
+        )
+        return (
+            _inspection(connection, scoped, inspection_id),
+            "inspection",
+            inspection_id,
+        )
+
+    return _action(
+        context, "qms.inspection.defect_count", key, {"id": inspection_id, **values}, fn
+    )
+
+
+def sampling_preview(context: AuthContext, lot_qty: str, aql: str, level: str):
+    """기준 화면에서 'AQL 2.5면 시료 몇 개?'를 미리 보여 준다. 저장하지 않는다."""
+    with _read() as connection:
+        read_scope(connection, context, MODULE)
+    return sampling.plan(sampling.lot_size_of(lot_qty), aql, level)

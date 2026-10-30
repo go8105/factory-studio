@@ -1,6 +1,7 @@
 // Q-10 공급처 품질 — 검사 수준(F05)·월 평가(F51)·시정 요구(F14) 세 묶음 한 화면.
 // 현재 수준은 저장하지 않는다. 등급은 계산 결과이고 수준 전환은 사람이 확정한다.
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { useSession } from "../app/session";
 import { api, ApiError } from "../shared/api";
 import {
@@ -375,7 +376,8 @@ export function Suppliers() {
                 </div>
                 <p className="muted">
                   평가는 <strong>확정한 수입 검사</strong>로 계산합니다. 수입
-                  검사 화면이 아직 없어 지금은 평가할 대상이 없을 수 있습니다.
+                  검사는 <Link to="/qms/pending">검사 대기</Link>의 수입 탭에서
+                  시작합니다.
                 </p>
                 <DataTable
                   rows={ratings}

@@ -24,12 +24,14 @@ from fs.qms.schema import (
     ClaimInvestigate,
     ClaimRespond,
     ClaimUpdate,
+    DefectCountIn,
     DefectTypeCreate,
     DefectTypeUpdate,
     FirstArticleCreate,
     GaugeCreate,
     GaugeUpdate,
     HoldRelease,
+    IncomingInspectionCreate,
     InspectionCreate,
     InspectionUpdate,
     NcrCreate,
@@ -864,3 +866,50 @@ def close_scar(
     key: IdempotencyKey = None,
 ):
     return _data(service.close_scar(context, scar_id, _mutation(context, csrf, key)))
+
+
+# ---- 수입 검사 (Q-03 수입 탭 · Q-04) ----
+@router.get("/lookups/incoming-lots")
+def incoming_lots(context: Auth):
+    return _data(service.incoming_lots(context))
+
+
+@router.get("/lookups/sampling-plan")
+def sampling_plan(
+    context: Auth,
+    lot_qty: Annotated[str, Query(alias="lotQty", pattern=r"^\d{1,12}(\.\d{1,3})?$")],
+    aql: Annotated[str, Query(pattern=r"^(0\.65|1\.0|1\.5|2\.5|4\.0|6\.5)$")],
+    level: Annotated[str, Query(pattern="^(NORMAL|TIGHTENED)$")] = "NORMAL",
+):
+    return _data(service.sampling_preview(context, lot_qty, aql, level))
+
+
+@router.post("/inspections/incoming", status_code=201)
+def post_incoming_inspection(
+    payload: IncomingInspectionCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_incoming_inspection(
+            context,
+            _values(payload, frozenset({"sample_qty", "inspected_on", "note"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.patch("/inspections/{inspection_id}/defect-count")
+def patch_defect_count(
+    inspection_id: int,
+    payload: DefectCountIn,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.set_defect_count(
+            context, inspection_id, payload.model_dump(), _mutation(context, csrf, key)
+        )
+    )
