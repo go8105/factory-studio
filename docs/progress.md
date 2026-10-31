@@ -1,3 +1,36 @@
+# 2026-10-31 FEMS-1a — fems 13표 → 25표 (DB)
+
+Claude Code 직접 개발(D85). 브랜치 `fems-1a`. 기존 솔루션 보강 순서 4번. **QMS 완료(화면 13·표 15) 뒤.**
+
+- 새 표 12개: `tariff_band`(시간대별 요율), `reading_upload`·`reading_correction`(계측 올리기·보정), `alarm_rule`·`alarm`(에너지 경보), `saving_project`(절감 활동), `energy_review`(월간 검토), `ghg_inventory`·`ghg_inventory_line`(온실가스 명세서), `cost_run`·`cost_allocation_line`(비용 배분), `utility_bill`(고지서 대조). **전체 230 → 242표.**
+- 기존 4표 칼럼 5개: `tariff`에 종류·계약전력, `energy_reading`에 입력 방법, `equipment`에 부서 코드, `production_record`에 출처.
+- 제약 **제자리 교체 2건**: `fems.meter` 범위에 generation, `fems.energy_source` 종류에 GENERATION(둘 다 F37 신재생). **제약 순번 밀림 0건**(1,691 → 1,772, 관계 572 → 598).
+- `tools/apply_fems1.py` 신설(멱등). 마이그레이션 `fems1`(down `qms1`, 121문), DDL 대조 0.
+
+## apply 틀의 nullability 빚을 갚았다
+
+`apply_*.py`는 **칼럼을 더하기만** 하고 기존 칼럼의 NULL 허용 변경을 옮기지 않았다. 그래서 SPC·CMMS가 각각 `spc2`·`cmms2`를 따로 만들어야 했고, HANDOFF에 "FEMS·BEMS·ERP에서도 난다"고 적혀 있었다.
+
+`apply_fems1.py`에 `sync_nullable()`을 넣었다. **푸는 방향만 옮기고 NOT NULL로 조이는 변경은 거부한다** — 기존 행이 비어 있지 않은지 확인해야 하는 일이라 스크립트가 할 수 없다.
+
+**FEMS는 바뀌는 칼럼이 0건이라 실제로는 아무 일도 하지 않는다.** 그래도 넣은 이유는 BEMS·ERP가 이 파일을 본보기로 복사해 가기 때문이다. 빚이 두 번 반복된 뒤였다.
+
+## DSN-15 계약 검사가 자동으로 켜졌다
+
+`fems.alarm`이 생기면서 `validate_fems_dsn15`가 동작한다. 모두 통과: TOU 계약전력 필수(Q1), 확정 1건/기간(검토·명세서·비용 배분), 진행 경보 1건/규칙, 환산·배출 계수 분리, **15분 계측 표 없음(Q2 — 1시간 유지)**, 절감 비교는 달력 키가 아니라 날짜.
+
+- 검증: db:validate 0(242표/2,719칼럼/598FK), 격리 R1~R6 0, 마이그레이션 `fems1` 적용·DDL 대조 0, Excel·ERD 재생성, 로컬 CI 1~5단계(pytest 1,233 passed·3 skipped + perf 1, vitest 696).
+- **아직 없는 것: 신규 12표의 API·화면·시드·도움말.** 기존 F-01~14 화면은 그대로 돈다.
+
+## 다음 단계에서 막히는 것
+
+| 기능 | 막는 것 | 성격 |
+|---|---|---|
+| F-05 **MES 생산량 가져오기** | `mes.production_results(month)`가 없다 | 1b에서 직접 만든다(QMS-1b와 같은 방식) |
+| F-10 **설비 부서 코드** | 설계서는 ERP라고 적었지만 **부서는 `hr.department` 하나뿐**이고 HR이 이미 `departments()`를 제공한다 | 설계서 §6 오류. 읽는 쪽을 HR로 한다 |
+
+- 단계 계획: 1a DB / 1b 교차 조회 / 1c TOU·피크 / 1d 데이터 품질 / 1e 분석·경보 / 1f 에너지 경영 / 1g 비용.
+
 # 2026-10-31 QMS-1g-2 — Q-13 품질 지표(F72)·Q-01 미결 업무 카드(F71)
 
 Claude Code 직접 개발(D85). 브랜치 `qms-1g-2`. **DB 변경 없음** — 지표는 저장하지 않고 조회할 때마다 센다(설계 4장). **QMS 12 → 13화면.** 이로써 DSN-14 화면 목록이 다 찼다.

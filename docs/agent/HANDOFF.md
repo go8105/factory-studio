@@ -1,6 +1,6 @@
-# 2026-10-31 QMS-1g 완료 — SPC·CMMS·QMS 보강 끝 (다음: FEMS)
+# 2026-10-31 FEMS-1a 완료 — SPC·CMMS·QMS 보강 끝, FEMS 진행 중 (다음: FEMS-1b)
 
-- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `qms-1g-2` (병합 뒤 `main`)
+- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1a` (병합 뒤 `main`)
 - **마지막 커밋**: `git log --oneline -3` 참조. 원격 `origin/main`과 동기.
 - **담당**: Claude Code가 설계·개발·검증·병합을 모두 한다(D85). Codex는 GW 범위만.
 
@@ -37,11 +37,27 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 
 **PPM은 불량을 '개수'로 센 칸이 있어야 낸다.** 수입(`defect_count`/`sample_qty`)과 공정(MES `defectQty`/`inputQty`)만 가능하고 출하·고객은 못 낸다. 설계 3장이 4종 모두 PPM을 적었지만 **0으로 채우지 않고 `—`로 두고 화면이 왜 비는지 밝힌다.** FEMS·BEMS에서도 같은 판단이 필요할 것이다.
 
-## 다음 작업 — FEMS
+## FEMS — 1a 완료, 1b부터
 
-**QMS 보강 끝.** 기존 솔루션 보강 순서상 다음은 FEMS(12표)다. 착수 전에 `docs/modules/fems/`의 공통 설계서와 보강 설계가 있는지 먼저 확인할 것(AGENTS.md §2: 설계서 없으면 개발 착수 대상이 아니다).
+설계는 **DSN-15**에 있고 Q1~Q7이 2026-10-05에 이미 확정돼 있다. 범위 13 → 25표·14 → **23화면**(신규 9·기존 보강 8)으로 QMS보다 크다.
 
-**남겨 둔 것 둘:**
+**1a 완료(2026-10-31)**: fems 25표, 마이그레이션 `fems1`, 제약 순번 밀림 0. **`apply_*.py`의 nullability 빚을 갚았다** — `apply_fems1.py`의 `sync_nullable()`이 기존 칼럼의 NULL 허용을 함께 옮긴다. **BEMS·ERP는 `apply_fems1.py`를 복사해 쓸 것**(`apply_qms1.py`가 아니다).
+
+| 단계 | 범위 | 권장 모델 |
+|---|---|---|
+| ~~1a~~ | ~~DB 13 → 25표~~ | 완료 |
+| **1b** | MES `production_results(month)` 신설 | Sonnet (QMS-1b와 같은 패턴) |
+| 1c | TOU 요금·피크 — F-14 구간표·F-08 산정·**F-16 부하 패턴·피크** | Opus (계절×요일×시간대 요율) |
+| 1d | 데이터 품질 — **F-15**(CSV·보정)·F-02 수동 검침·F-05 MES 가져오기 | Opus (원 값 보존 규칙) |
+| 1e | 분석·경보 — **F-17 설비 비교**·**F-18 경보**·F-01 대시보드 | Sonnet |
+| 1f | 에너지 경영 — **F-19 절감**·**F-20 월간 검토**(인쇄)·**F-21 온실가스**(인쇄) | Opus (절감 측정·검증 공식) |
+| 1g | 비용 — **F-22 배분**·**F-23 고지서 대조**·F-10 부서·F-11 발전 | Opus |
+
+**설계서 §6의 `ERP departments()`는 오류다.** 부서 표는 `hr.department` 하나뿐이고 **HR이 이미 `departments()`를 제공한다**("부서 코드의 원천이다(DSN-30 Q1)"). ERP에는 부서 표가 없다. 읽는 쪽을 HR로 하면 1b에서 만들 제공자는 MES 하나뿐이다.
+
+**인쇄는 새로 설계할 것이 없다** — QMS-1g-1에서 만든 `shared/styles.css`의 `.print-area`를 F-20·F-21이 그대로 쓴다.
+
+**QMS에서 남겨 둔 것 둘:**
 
 | 할 일 | 왜 미뤘나 |
 |---|---|
@@ -50,12 +66,14 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 
 ## 그 뒤 로드맵
 
-**기존 솔루션 보강**: SPC ✔ → CMMS ✔ → QMS ✔ → **FEMS(12표)** → **BEMS(11표)** → **ERP(38표)**
+**기존 솔루션 보강**: SPC ✔ → CMMS ✔ → QMS ✔ → **FEMS(1a 완료, 1b~1g 남음)** → **BEMS(+11표)** → **ERP(+38표)**
+**전체 목표 381표 / 지금 242표** — 미구현 139표(erp 38·plm 16·crm 13·elb 12·rws 12·bems 11·tms 10·scm 9·eip 8·pop 7·core 3)
 **그 뒤 새 솔루션**: POP(7표)부터
 
 ## 주의점
 
-- **`apply_*.py` 틀이 nullability를 옮기지 않는다.** SPC·CMMS에서 각각 `spc2`·`cmms2`를 따로 만들어 보완했다. FEMS·BEMS·ERP에서도 난다.
+- ~~`apply_*.py` 틀이 nullability를 옮기지 않는다~~ — **FEMS-1a에서 갚았다.** `apply_fems1.py`를 본보기로 복사할 것.
+- **파트가 끝나면 main에 병합·push하고 내가 만든 브랜치를 지운다**(2026-10-31 사용자 상시 지시). 파트마다 push 허가를 다시 묻지 않는다. `codex/*` 등 다른 세션 브랜치는 건드리지 않는다.
 - **다른 세션이 같은 폴더의 main을 쓴다.** QMS-1d 커밋이 브랜치가 아니라 main에 직행한 적이 있다(reflog상 외부 checkout). 커밋 직전 `git branch --show-current`를 확인할 것.
 - **git add는 파일 경로로.** 디렉터리 단위로 넣지 않는다.
 - **CI는 `TEST_DB=factory_studio_ci_<작업>_test`로 갈라서 돌린다.** 다른 세션이 기본 이름 `factory_studio_ci_test`를 동시에 쓰면 워커 복제가 `ObjectInUse`로 깨지고, 서로의 접속을 끊는다. 2026-10-30에 세 번 깨진 뒤 알았다.
