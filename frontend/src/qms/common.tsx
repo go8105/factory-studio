@@ -85,6 +85,9 @@ export type InspectionValue = {
   defectTypeId: number | null;
   defectCode: string | null;
   defectName: string | null;
+  gaugeId: number | null;
+  gaugeCode: string | null;
+  gaugeName: string | null;
 };
 export type Hold = {
   id: number;
