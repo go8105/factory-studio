@@ -410,3 +410,115 @@ def test_first_article_is_not_an_outgoing_inspection(qms, guest_space):
         )
     assert row["inspection_kind"] == "FIRST_ARTICLE"
     assert row["source_ref"] == approved["cnNo"] and row["sampling"] == "MANUAL"
+
+
+# ---------- 검사에 사용한 계측기 (QMS-1g-1, DSN-14 F27) ----------
+
+
+def _first_article(client, created, lot_no="FA-G01") -> dict:
+    """계측기를 적을 검사 한 건. 초품이 가장 적은 준비로 만들어진다."""
+    _publish_spec(client, created)
+    approved = _approved(client, created)
+    return _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/change-notices/{approved['id']}/first-article",
+            {"lotNo": lot_no, "lotQty": "10", "unit": "EA", "sampleQty": "3"},
+        ),
+        201,
+    )
+
+
+def test_gauge_stays_on_the_value_and_reaches_the_certificate(qms):
+    """F27·F25. 항목마다 쓴 계측기가 남고, 확정 뒤 성적서가 읽을 수 있다."""
+    client, created = qms
+    gauge = _gauge(client, created)
+    inspection = _first_article(client, created)
+    by_name = {v["name"]: v["specItemId"] for v in inspection["values"]}
+    saved = _ok(
+        _call(
+            client,
+            created,
+            "PATCH",
+            f"/inspections/{inspection['id']}",
+            {
+                "values": [
+                    {"specItemId": by_name["외관"], "passValue": True},
+                    {
+                        "specItemId": by_name["핀 피치"],
+                        "measuredValue": "2.50",
+                        "gaugeId": gauge["id"],
+                    },
+                ]
+            },
+        )
+    )
+    used = {v["name"]: v for v in saved["values"]}
+    assert used["핀 피치"]["gaugeId"] == gauge["id"]
+    assert used["핀 피치"]["gaugeCode"] == gauge["code"]
+    assert used["핀 피치"]["gaugeName"] == gauge["name"]
+    # 적지 않은 항목은 빈 채로 둔다 — 눈으로 보는 항목에는 계측기가 없다.
+    assert used["외관"]["gaugeId"] is None
+
+    confirmed = _ok(
+        _call(client, created, "POST", f"/inspections/{inspection['id']}/confirm")
+    )
+    assert confirmed["result"] == "PASS"
+    after = {v["name"]: v for v in confirmed["values"]}
+    assert after["핀 피치"]["gaugeCode"] == gauge["code"]
+
+
+def test_unknown_gauge_is_rejected(qms):
+    """다른 공간의 계측기나 지워진 번호는 받지 않는다."""
+    client, created = qms
+    inspection = _first_article(client, created)
+    by_name = {v["name"]: v["specItemId"] for v in inspection["values"]}
+    bad = _call(
+        client,
+        created,
+        "PATCH",
+        f"/inspections/{inspection['id']}",
+        {
+            "values": [
+                {
+                    "specItemId": by_name["핀 피치"],
+                    "measuredValue": "2.50",
+                    "gaugeId": 999_999,
+                }
+            ]
+        },
+    )
+    assert bad.status_code == 400
+    assert "values.2.gaugeId" in _fields(bad)
+
+
+def test_overdue_or_repairing_gauge_still_records(qms):
+    """설계는 경고까지다(DSN-14 3장). 교정이 지났거나 수리 중이어도 검사를 막지 않는다."""
+    client, created = qms
+    gauge = _gauge(client, created)
+    _ok(_calibrate(client, created, gauge["id"], result="FAIL"), 201)
+    assert _ok(client.get(f"{Q}/gauges/{gauge['id']}"))["status"] == "REPAIR"
+
+    inspection = _first_article(client, created)
+    by_name = {v["name"]: v["specItemId"] for v in inspection["values"]}
+    saved = _ok(
+        _call(
+            client,
+            created,
+            "PATCH",
+            f"/inspections/{inspection['id']}",
+            {
+                "values": [
+                    {
+                        "specItemId": by_name["핀 피치"],
+                        "measuredValue": "2.50",
+                        "gaugeId": gauge["id"],
+                    }
+                ]
+            },
+        )
+    )
+    used = {v["name"]: v for v in saved["values"]}
+    assert used["핀 피치"]["gaugeId"] == gauge["id"]

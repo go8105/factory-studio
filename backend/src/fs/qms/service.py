@@ -690,11 +690,13 @@ WHERE i.workspace_id=:w AND i.generation_id=:g
 """
 VALUE_SQL = """
 SELECT t.id spec_item_id, t.seq, t.name, t.method, t.lower_limit, t.upper_limit, t.unit, t.is_required,
-       v.id value_id, v.measured_value, v.pass_value, v.judgement, v.defect_type_id, d.code defect_code, d.name defect_name
+       v.id value_id, v.measured_value, v.pass_value, v.judgement, v.defect_type_id, d.code defect_code, d.name defect_name,
+       v.gauge_id, ga.code gauge_code, ga.name gauge_name
 FROM qms.inspection_spec_item t
 LEFT JOIN qms.inspection_value v ON v.workspace_id=t.workspace_id AND v.generation_id=t.generation_id
  AND v.spec_item_id=t.id AND v.inspection_id=:inspection
 LEFT JOIN qms.defect_type d ON d.workspace_id=v.workspace_id AND d.generation_id=v.generation_id AND d.id=v.defect_type_id
+LEFT JOIN qms.gauge ga ON ga.workspace_id=v.workspace_id AND ga.generation_id=v.generation_id AND ga.id=v.gauge_id
 WHERE t.workspace_id=:w AND t.generation_id=:g AND t.spec_id=:spec
 ORDER BY t.seq
 """
@@ -1002,6 +1004,12 @@ def update_inspection(
                 _s(scoped),
             ).scalars()
         )
+        # F27 사용 계측기. 폐기·수리 중도 받는다 — 설계는 경고까지이고 검사를 막지 않는다.
+        known_gauges = set(
+            connection.execute(
+                text(f"SELECT id FROM qms.gauge WHERE {_S}"), _s(scoped)
+            ).scalars()
+        )
         errors: dict[str, str] = {}
         for entry in values.get("values") or []:
             item = items.get(entry["spec_item_id"])
@@ -1031,9 +1039,14 @@ def update_inspection(
             if defect is not None and defect not in active_defects:
                 errors[f"values.{seq}.defectTypeId"] = "사용 중인 불량 유형을 고르세요."
                 continue
+            gauge = entry.get("gauge_id")
+            if gauge is not None and gauge not in known_gauges:
+                errors[f"values.{seq}.gaugeId"] = "계측기를 찾을 수 없습니다."
+                continue
             connection.execute(
                 text(
-                    "UPDATE qms.inspection_value SET measured_value=:m, pass_value=:p, judgement=:j, defect_type_id=:d "
+                    "UPDATE qms.inspection_value SET measured_value=:m, pass_value=:p, judgement=:j, "
+                    "defect_type_id=:d, gauge_id=:ga "
                     f"WHERE {_S} AND inspection_id=:inspection AND spec_item_id=:item"
                 ),
                 {
@@ -1042,6 +1055,7 @@ def update_inspection(
                     "p": entry.get("pass_value"),
                     "j": judgement,
                     "d": defect,
+                    "ga": gauge,
                     "inspection": inspection_id,
                     "item": entry["spec_item_id"],
                 },

@@ -77,6 +77,7 @@ class ValueIn(ApiModel):
     measured_value: str | None = Field(None, alias="measuredValue", pattern=NUMBER)
     pass_value: bool | None = Field(None, alias="passValue")
     defect_type_id: int | None = Field(None, alias="defectTypeId", gt=0)
+    gauge_id: int | None = Field(None, alias="gaugeId", gt=0)
 
 
 class InspectionUpdate(ApiModel):

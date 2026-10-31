@@ -2672,3 +2672,30 @@ th[aria-sort="none"] button span {
   font-weight: 600;
   margin-bottom: var(--s2);
 }
+
+/* 성적서·전표 인쇄. `.print-area`로 가는 길만 남기고 나머지 형제를 접는다.
+   감추기만 하면(visibility) 자리를 차지해 앞뒤로 빈 쪽이 생긴다. */
+.print-only {
+  display: none;
+}
+@media print {
+  body:has(.print-area) > *:not(:has(.print-area), .print-area),
+  body:has(.print-area)
+    *:has(.print-area)
+    > *:not(:has(.print-area), .print-area) {
+    display: none;
+  }
+  body:has(.print-area) *:has(.print-area) {
+    position: static;
+    display: block;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    width: auto;
+    overflow: visible;
+    transform: none;
+  }
+  .print-only {
+    display: block;
+  }
+}
