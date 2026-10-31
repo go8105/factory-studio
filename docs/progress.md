@@ -1,3 +1,30 @@
+# 2026-10-31 FEMS-1b — MES 생산량 교차 조회
+
+Claude Code 직접 개발(D85). 브랜치 `fems-1b`. **DB 변경 없음.** 화면도 없다 — 1d·1g가 쓸 읽기 함수만 만든다.
+
+## 만든 것은 하나뿐이다
+
+`mes.interface.production_results(month)` — 그 달 확정 실적의 **설비·품목별 양품 수량**. FEMS 원단위의 분모다(DSN-15 F51·Q3).
+
+기존 `defects(month)`와 같은 조인을 쓰되 불량 조건을 빼고 설비·품목·단위로 묶었다. 돌려주는 것: `equipmentCode`·`equipmentName`·`itemCode`·`itemName`·`unit`·`goodQty`·`resultCount`·`firstConfirmedAt`·`lastConfirmedAt`.
+
+**설계서가 요구한 제공자 둘 중 하나는 만들 필요가 없었다.** DSN-15 §6이 설비 부서 코드를 `ERP departments()`로 적었지만, **부서 표는 `hr.department` 하나뿐이고 HR이 이미 `departments()`를 제공한다**(docstring에 "부서 코드의 원천이다(DSN-30 Q1)"). ERP에는 부서 표가 없다. 설계서 오류라 읽는 쪽을 HR로 한다.
+
+## 세 가지 판단
+
+- **수량은 `good_qty`(양품)다.** 원단위 분모는 쓸 수 있게 만든 양이지 투입량(`input_qty`)도 산출량(`output_qty`)도 아니다.
+- **공정별 행을 품목 총생산으로 보면 안 된다.** 한 LOT이 사출 → 조립 → 검사를 거치면 공정마다 행이 하나씩 나온다. **설비별로 나눠 쓸 때만 맞는 값**이고, 에너지도 설비별로 배분하므로 짝이 맞는다. docstring에 적었다.
+- **설비가 없는 실적은 `equipmentCode`가 None**이다. FEMS 생산량은 설비별이라 가져올 수 없다. 거르지 않고 그대로 돌려주고, 쓰는 쪽(1d F-05)이 "설비 없는 실적 N건은 가져오지 못합니다"라고 말하게 한다.
+
+## conftest의 PROVIDERS를 고쳤다
+
+`PROVIDERS["fems"]`가 `()`였다 — **FEMS가 아무것도 읽지 않는다는 선언**이고, 그래서 `test_fems_*` 공간에는 MES·HR 시드가 복사되지 않아 `module_available`이 거짓이었다. 처음 쓴 테스트 5건 중 4건이 None을 받고 깨졌다.
+
+`("mes", "hr")`로 바꿨다. 1b가 바꾼 사실 그대로다. 기존 FEMS 테스트 전부가 MES·HR 시드까지 복사하게 되지만 회귀는 없었다(289건 통과, 4워커 2분 33초).
+
+- 검증: `test_fems_interfaces.py` 5건 신설, FEMS 전체 289건 회귀 없음, 로컬 CI 1~5단계.
+- 남은 것: 이 함수의 **소비자가 아직 없다**(1d F-05 MES 가져오기). QMS-1b 때와 같은 상태다.
+
 # 2026-10-31 FEMS-1a — fems 13표 → 25표 (DB)
 
 Claude Code 직접 개발(D85). 브랜치 `fems-1a`. 기존 솔루션 보강 순서 4번. **QMS 완료(화면 13·표 15) 뒤.**

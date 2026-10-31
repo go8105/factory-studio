@@ -204,7 +204,7 @@ def guest_template(db_engine: Engine) -> Iterator[GuestTemplate]:
 PROVIDERS = {
     "mes": ("qms",),
     "erp": ("gw",),
-    "fems": (),
+    "fems": ("mes", "hr"),
     "qms": ("mes", "spc", "wms"),
     "wms": ("erp", "mes"),
     "bems": ("fems",),

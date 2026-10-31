@@ -406,6 +406,67 @@ def defects(
     return list(out.values())
 
 
+_PRODUCTION = """
+SELECT eq.equipment_code, eq.name equipment_name, i.item_code, i.name item_name, r.unit,
+       sum(r.good_qty) good_qty, count(*) result_count,
+       min(r.confirmed_at) first_confirmed_at, max(r.confirmed_at) last_confirmed_at
+FROM mes.operation_result r
+JOIN mes.operation_execution e ON e.workspace_id=r.workspace_id
+ AND e.generation_id=r.generation_id AND e.id=r.execution_id
+JOIN mes.lot t ON t.workspace_id=e.workspace_id AND t.generation_id=e.generation_id AND t.id=e.lot_id
+JOIN mes.work_order o ON o.workspace_id=t.workspace_id AND o.generation_id=t.generation_id
+ AND o.id=t.work_order_id
+JOIN mes.item i ON i.workspace_id=o.workspace_id AND i.generation_id=o.generation_id AND i.id=o.item_id
+LEFT JOIN mes.equipment eq ON eq.workspace_id=e.workspace_id AND eq.generation_id=e.generation_id
+ AND eq.id=e.equipment_id
+WHERE r.workspace_id=:w AND r.generation_id=:g
+  AND r.confirmed_at >= :start AND r.confirmed_at < :end
+GROUP BY eq.equipment_code, eq.name, i.item_code, i.name, r.unit
+ORDER BY eq.equipment_code NULLS LAST, i.item_code
+"""
+
+
+def production_results(
+    connection: Connection, scoped: AuthContext, month: str
+) -> list[dict[str, Any]] | None:
+    """그 달 확정 실적의 **설비·품목별 양품 수량**. MES 꺼짐이면 None.
+
+    FEMS 원단위의 분모다(DSN-15 F51·Q3). 에너지를 설비별로 배분하므로 생산량도 설비별이다.
+
+    **합계를 품목 총생산으로 보면 안 된다.** 한 LOT이 사출 → 조립 → 검사를 거치면 공정마다
+    행이 하나씩 나온다. 설비별로 나눠 쓸 때만 맞는 값이다.
+
+    수량은 `good_qty`(양품)다 — 원단위 분모는 쓸 수 있게 만든 양이지 투입량이 아니다.
+    **설비가 없는 실적은 `equipmentCode`가 None**이고, FEMS 생산량은 설비별이라 가져올 수 없다.
+    """
+    if not _enabled(connection, scoped):
+        return None
+    start, end = _month_bounds(month)
+    rows = connection.execute(
+        text(_PRODUCTION),
+        {
+            "w": scoped.workspace_id,
+            "g": scoped.generation_id,
+            "start": start,
+            "end": end,
+        },
+    ).mappings()
+    return [
+        {
+            "equipmentCode": r["equipment_code"],
+            "equipmentName": r["equipment_name"],
+            "itemCode": r["item_code"],
+            "itemName": r["item_name"],
+            "unit": r["unit"],
+            "goodQty": str(r["good_qty"]),
+            "resultCount": r["result_count"],
+            "firstConfirmedAt": r["first_confirmed_at"].isoformat(),
+            "lastConfirmedAt": r["last_confirmed_at"].isoformat(),
+        }
+        for r in rows
+    ]
+
+
 def process_inspections(
     connection: Connection, scoped: AuthContext, month: str
 ) -> list[dict[str, Any]] | None:
