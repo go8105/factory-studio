@@ -75,6 +75,14 @@ def get_dashboard(
     return _data(service.dashboard(context, month))
 
 
+# ---- 품질 지표 (Q-13) ----
+@router.get("/metrics")
+def get_metrics(
+    context: Auth, month: Annotated[str | None, Query(pattern=MONTH)] = None
+):
+    return _data(service.quality_metrics(context, month))
+
+
 # ---- 불량 유형 (Q-06) ----
 @router.get("/defect-types")
 def list_defect_types(context: Auth):

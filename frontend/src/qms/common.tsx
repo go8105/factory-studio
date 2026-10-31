@@ -53,7 +53,6 @@ export type IncomingLot = {
   unit: string;
   level: InspectionLevel;
   hasSpec: boolean;
-  isTarget: boolean;
 };
 export type Spec = {
   id: number;

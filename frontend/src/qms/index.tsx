@@ -14,6 +14,7 @@ import { Ncrs } from "./Ncrs";
 import { Capas } from "./Capas";
 import { Claims } from "./Claims";
 import { Suppliers } from "./Suppliers";
+import { Metrics } from "./Metrics";
 
 export default function QmsRoutes() {
   return (
@@ -32,6 +33,7 @@ export default function QmsRoutes() {
         <Route path="capas" element={<Capas />} />
         <Route path="claims" element={<Claims />} />
         <Route path="suppliers" element={<Suppliers />} />
+        <Route path="metrics" element={<Metrics />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

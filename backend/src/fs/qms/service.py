@@ -1405,6 +1405,34 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
                 for lot in lots
                 if not states.get(lot["lotNo"], {}).get("latestResult")
             )
+        # F71 미결 카드. WMS가 꺼져 있으면 수입 대기는 0이 아니라 '모름'이다.
+        incoming = _incoming_targets(connection, scoped)
+        open_counts = (
+            connection.execute(
+                text(
+                    f"SELECT (SELECT count(*) FROM qms.ncr WHERE {_S} AND status='OPEN') ncrs, "
+                    f" (SELECT count(*) FROM qms.capa WHERE {_S} "
+                    "   AND status IN ('OPEN','DONE','INEFFECTIVE')) capas, "
+                    f" (SELECT count(*) FROM qms.claim WHERE {_S} AND status <> 'CLOSED') claims"
+                ),
+                _s(scoped),
+            )
+            .mappings()
+            .one()
+        )
+        gauge_ids = list(
+            connection.execute(
+                text(f"SELECT id FROM qms.gauge WHERE {_S} AND status <> 'RETIRED'"),
+                _s(scoped),
+            ).scalars()
+        )
+        due = _calibration_state(connection, scoped, gauge_ids)
+        # 기록이 아예 없는 계측기(NONE)는 세지 않는다 — 기한이 다가온 것이 아니다.
+        gauges_due = sum(
+            1
+            for state in due.values()
+            if state["dueState"] in ("SOON", "OVERDUE") or state["lastResult"] == "FAIL"
+        )
     total, passed = counts["total"], counts["passed"]
     return {
         "month": month,
@@ -1414,6 +1442,11 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
         else f"{Decimal(passed) * 100 / Decimal(total):.1f}",
         "activeHolds": len(holds),
         "pendingLots": pending,
+        "incomingPending": None if incoming is None else len(incoming),
+        "openNcrs": open_counts["ncrs"],
+        "openCapas": open_counts["capas"],
+        "openClaims": open_counts["claims"],
+        "gaugesDue": gauges_due,
         "daily": daily,
         "topDefects": defects,
         "recentFails": recent,
@@ -2919,6 +2952,44 @@ def _level_for(
     return levels.get((partner, item)) or levels.get((partner, None)) or "NORMAL"
 
 
+def _incoming_targets(
+    connection: Connection, scoped: AuthContext
+) -> list[dict[str, Any]] | None:
+    """검사해야 할 입고 줄. WMS가 꺼져 있으면 None(0건이 아니다)."""
+    rows = wms.inbound_lots_to_inspect(connection, scoped)
+    if rows is None:
+        return None
+    used = set(
+        connection.execute(
+            text(
+                f"SELECT source_ref FROM qms.inspection WHERE {_S} "
+                "AND inspection_kind='INCOMING' AND source_ref IS NOT NULL"
+            ),
+            _s(scoped),
+        ).scalars()
+    )
+    levels = _current_levels(connection, scoped)
+    published = set(
+        connection.execute(
+            text(
+                f"SELECT item_code FROM qms.inspection_spec WHERE {_S} "
+                "AND inspection_kind='INCOMING' AND status='published'"
+            ),
+            _s(scoped),
+        ).scalars()
+    )
+    out = []
+    for row in rows:
+        if row["sourceRef"] in used:
+            continue
+        level = _level_for(levels, row["partnerCode"] or "", row["itemCode"])
+        # 면제는 검사하지 않는다(Q1). 목록에 남겨 두면 왜 없는지 알 수 없다.
+        if level == "EXEMPT":
+            continue
+        out.append({**row, "level": level, "hasSpec": row["itemCode"] in published})
+    return out
+
+
 def incoming_lots(context: AuthContext) -> dict[str, Any]:
     """수입 검사 대기 — WMS에서 **격리된 입고 줄**을 읽어 검사 수준으로 거른다(F11·Q1).
 
@@ -2927,43 +2998,8 @@ def incoming_lots(context: AuthContext) -> dict[str, Any]:
     """
     with _read() as connection:
         scoped = read_scope(connection, context, MODULE)
-        rows = wms.inbound_lots_to_inspect(connection, scoped)
-        if rows is None:
-            return {"wmsEnabled": False, "rows": []}
-        used = set(
-            connection.execute(
-                text(
-                    f"SELECT source_ref FROM qms.inspection WHERE {_S} "
-                    "AND inspection_kind='INCOMING' AND source_ref IS NOT NULL"
-                ),
-                _s(scoped),
-            ).scalars()
-        )
-        levels = _current_levels(connection, scoped)
-        published = set(
-            connection.execute(
-                text(
-                    f"SELECT item_code FROM qms.inspection_spec WHERE {_S} "
-                    "AND inspection_kind='INCOMING' AND status='published'"
-                ),
-                _s(scoped),
-            ).scalars()
-        )
-        out = []
-        for row in rows:
-            if row["sourceRef"] in used:
-                continue
-            level = _level_for(levels, row["partnerCode"] or "", row["itemCode"])
-            out.append(
-                {
-                    **row,
-                    "level": level,
-                    "hasSpec": row["itemCode"] in published,
-                    # 면제는 검사하지 않는다(Q1). 목록에 남겨 두면 왜 없는지 알 수 없다.
-                    "isTarget": level != "EXEMPT",
-                }
-            )
-        return {"wmsEnabled": True, "rows": [r for r in out if r["isTarget"]]}
+        rows = _incoming_targets(connection, scoped)
+    return {"wmsEnabled": rows is not None, "rows": rows or []}
 
 
 def create_incoming_inspection(context: AuthContext, values: dict[str, Any], key: str):
@@ -3091,3 +3127,154 @@ def sampling_preview(context: AuthContext, lot_qty: str, aql: str, level: str):
     with _read() as connection:
         read_scope(connection, context, MODULE)
     return sampling.plan(sampling.lot_size_of(lot_qty), aql, level)
+
+
+# ---------- 품질 지표 (Q-13, DSN-14 F72) ----------
+
+# 월 추이는 한 해만 본다. 더 길게 잡아도 시드가 없는 공간에서는 빈 칸만 늘어난다.
+_TREND_MONTHS = 12
+
+
+def _ppm(defects: Any, base: Any) -> str | None:
+    """100만 개당 불량. **분모가 0이면 0이 아니라 모름**이다."""
+    total = Decimal(str(base or 0))
+    if total == 0:
+        return None
+    return f"{Decimal(str(defects or 0)) * 1000000 / total:.1f}"
+
+
+def quality_metrics(context: AuthContext, month: str | None) -> dict[str, Any]:
+    """발생처별 불량률·PPM, 불량 유형 파레토, 월 추이(F72). 저장하지 않고 그때그때 센다.
+
+    **PPM은 불량 '개수'가 있는 곳에서만 낸다** — 수입 검사는 시료 불량 개수를, 공정은 MES
+    실적의 불량 수량을 센다. 출하·고객 검사에는 개수 칸이 없어 LOT 불합격률·클레임 건수까지만
+    내고, 화면이 그 사실을 밝힌다. 없는 숫자를 만들어 내지 않는다.
+    """
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        months = list(
+            connection.execute(
+                text(
+                    f"SELECT DISTINCT inspection_month FROM qms.inspection WHERE {_S} "
+                    "AND status='confirmed' ORDER BY inspection_month DESC"
+                ),
+                _s(scoped),
+            ).scalars()
+        )
+        if not month:
+            month = months[0] if months else f"{business_today():%Y-%m}"
+        params = {**_s(scoped), "month": month}
+
+        by_kind = {
+            r["inspection_kind"]: _row(r)
+            for r in connection.execute(
+                text(
+                    "SELECT inspection_kind, count(*) lots, "
+                    " count(*) FILTER (WHERE result='FAIL') failed_lots, "
+                    " COALESCE(sum(defect_count), 0) defects, "
+                    " COALESCE(sum(sample_qty) FILTER (WHERE defect_count IS NOT NULL), 0) sampled "
+                    f"FROM qms.inspection WHERE {_S} AND status='confirmed' "
+                    "AND inspection_month=:month GROUP BY inspection_kind"
+                ),
+                params,
+            ).mappings()
+        }
+
+        def kind(name: str) -> dict[str, Any]:
+            row = by_kind.get(name) or {"lots": 0, "failedLots": 0}
+            return {
+                "lots": row["lots"],
+                "failedLots": row["failedLots"],
+                "failRate": None
+                if row["lots"] == 0
+                else f"{Decimal(row['failedLots']) * 100 / Decimal(row['lots']):.1f}",
+                "ppm": _ppm(row.get("defects"), row.get("sampled")),
+            }
+
+        claims = (
+            connection.execute(
+                text(
+                    f"SELECT count(*) count, COALESCE(sum(qty), 0) qty FROM qms.claim WHERE {_S} "
+                    "AND to_char(received_on, 'YYYY-MM')=:month"
+                ),
+                params,
+            )
+            .mappings()
+            .one()
+        )
+        pareto = [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    "SELECT d.code, d.name, count(*) count FROM qms.inspection_value v "
+                    "JOIN qms.inspection i ON i.workspace_id=v.workspace_id "
+                    " AND i.generation_id=v.generation_id AND i.id=v.inspection_id "
+                    "JOIN qms.defect_type d ON d.workspace_id=v.workspace_id "
+                    " AND d.generation_id=v.generation_id AND d.id=v.defect_type_id "
+                    "WHERE v.workspace_id=:w AND v.generation_id=:g AND v.judgement='FAIL' "
+                    " AND i.status='confirmed' AND i.inspection_month=:month "
+                    "GROUP BY d.code, d.name ORDER BY count(*) DESC, d.code"
+                ),
+                params,
+            ).mappings()
+        ]
+        trend = [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    # month는 예약어라 별칭에 따옴표가 필요하다.
+                    'SELECT inspection_month AS "month", count(*) inspected, '
+                    " count(*) FILTER (WHERE result='FAIL') failed, "
+                    " COALESCE(sum(defect_count), 0) defects, "
+                    " COALESCE(sum(sample_qty) FILTER (WHERE defect_count IS NOT NULL), 0) sampled "
+                    f"FROM qms.inspection WHERE {_S} AND status='confirmed' "
+                    "AND inspection_month <= :month "
+                    "GROUP BY inspection_month ORDER BY inspection_month DESC LIMIT :n"
+                ),
+                {**params, "n": _TREND_MONTHS},
+            ).mappings()
+        ]
+        # 공정은 MES가 원천이다. 꺼져 있으면 0이 아니라 모름이고, 달마다 한 번만 읽는다.
+        process_rows = mes.defects(connection, scoped, month)
+
+    process = None
+    process_pareto = None
+    if process_rows is not None:
+        input_qty = sum(Decimal(r["inputQty"]) for r in process_rows)
+        defect_qty = sum(Decimal(r["defectQty"]) for r in process_rows)
+        counted: dict[tuple[str, str], Decimal] = {}
+        for record in process_rows:
+            # 코드가 없는 실적은 사유 한 줄뿐이다(mes.defect_code 시드 0건). 그대로 묶는다.
+            keys = [(c["defectCode"], c["defectName"]) for c in record["codes"]] or [
+                ("—", record["reason"] or "사유 없음")
+            ]
+            share = Decimal(record["defectQty"]) / len(keys)
+            for key in keys:
+                counted[key] = counted.get(key, Decimal(0)) + share
+        process = {
+            "records": len(process_rows),
+            "inputQty": str(input_qty),
+            "defectQty": str(defect_qty),
+            "ppm": _ppm(defect_qty, input_qty),
+        }
+        process_pareto = [
+            {"code": code, "name": name, "qty": f"{qty:.3f}"}
+            for (code, name), qty in sorted(
+                counted.items(), key=lambda kv: (-kv[1], kv[0])
+            )
+        ]
+
+    return {
+        "month": month,
+        "months": months,
+        "incoming": kind("INCOMING"),
+        "outgoing": kind("OUTGOING"),
+        "customer": {"claims": claims["count"], "qty": str(claims["qty"])},
+        "process": process,
+        "pareto": pareto,
+        "processPareto": process_pareto,
+        "trend": [
+            {**row, "ppm": _ppm(row["defects"], row["sampled"])}
+            for row in reversed(trend)
+        ],
+    }

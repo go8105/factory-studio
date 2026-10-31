@@ -1,17 +1,32 @@
 # QMS — 품질 관리
 
-## 현재 기준 (2026-09-30, ROADMAP-01)
+## 현재 기준 (2026-10-31, DSN-14 보강 완료)
 
-- 상태: **운영 · 동결** — 6화면(Q-01~06). 기능 추가는 [로드맵](../../plan/로드맵_17개시스템_ROADMAP-01.md)의 "살 붙이기" 단계에서만 한다. 다른 솔루션이 요청하는 **조회 함수 추가는 동결 중에도 허용**한다.
-- 설계: [QMS 모듈 설계서](QMS_모듈설계_FS-023.md) · **보강 설계: [DSN-14](QMS_보강설계_DSN-14.md)**(ROADMAP-02 — 33기능 중 28 범위, 6 → 15테이블, 화면 13. 수입 검사·NCR/CAPA·클레임·공급처·계측기·4M. 설계 완료·확인 대기) · [결정서 FS-023](../../plan/QMS도입_교차조회_결정_FS-023.md)
-- 읽는 조회: MES `inspectable_lots`·`lot_snapshot`·`items` · SPC `open_signal_lot_nos`(Q-03·Q-04 "SPC 이상" 배지, 판정·보류와 무관 — FS-028 D44)
+- 상태: **운영 · 보강 완료** — **13화면(Q-01~13)**, qms 15테이블. DSN-14 화면 목록을 다 채웠다. 로컬 main에만 있고 **운영 미배포**(마이그레이션 `qms1` 포함 5건 미배포).
+- 설계: [QMS 모듈 설계서](QMS_모듈설계_FS-023.md) · **보강 설계: [DSN-14](QMS_보강설계_DSN-14.md)**(33기능 중 28 범위) · [결정서 FS-023](../../plan/QMS도입_교차조회_결정_FS-023.md)
+- 읽는 조회: MES `inspectable_lots`·`lot_snapshot`·`items`·`defects(month)`·`process_inspections(month)`·`lot_trace(lot_no)` · WMS `inbound_lots_to_inspect`·`lots` · SPC `open_signal_lot_nos`(Q-03·Q-04 "SPC 이상" 배지, 판정·보류와 무관 — FS-028 D44)
+
+### 구현하지 않은 것
+
+| 범위 | 왜 |
+|---|---|
+| Q-05 반품 검사·처분 (F42) | `erp.sales_return`이 목표 설계에만 있다. **ERP 단계까지 대기** |
+| AQL 강화 검사 표 (ISO Table 2-B) | 표를 옮기지 않고 **"한 단계 엄격한 AQL"** 규칙으로 대신한다. 코드·도움말에 명시 |
+| 출하·고객 PPM | 불량을 **개수로 센 칸이 없다**. LOT 불합격률·클레임 건수까지만 내고 PPM 자리는 `—` |
+| 월 추이의 공정 불량 | `mes.defects`가 달 단위라 12개월이면 MES를 12번 읽는다. 선택한 달만 본다 |
+| PLM ECO·CRM 문의 가져오기 | 두 솔루션이 0표. 직접 입력으로는 동작한다 |
+| 시드 | **QMS 시드 없음.** 시드 검사 17건은 전부 출하·월 둘이라 Q-13이 빈약하다 |
 
 ### 제공 조회 함수 (`backend/src/fs/qms/interface.py`)
 
 | 함수 | 돌려주는 것 | 쓰는 곳 |
 |---|---|---|
 | `held_lot_nos()` | 활성 보류 LOT 번호 | MES |
+| `active_hold_details(lot_nos)` | 활성 보류 상세 | MES |
 | `latest_results(lot_nos)` | LOT별 마지막 확정 판정 | MES |
+| `gauges()` | 계측기 대장·교정 도래 | Q-04 검사(F27) |
+| `claims(customer_code)` | 클레임 목록·상태 | CRM(0표, 소비자 없음) |
+| `supplier_grades(month)` | 공급처 월 등급 | ERP 구매·SCM(소비자 없음) |
 
 모든 함수의 앞 두 인자는 `(connection, scoped)`이고, 이 솔루션이 꺼져 있으면 `None`을 돌려준다.
 

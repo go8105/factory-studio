@@ -74,7 +74,6 @@ const incomingLot = {
   unit: "KG",
   level: "NORMAL",
   hasSpec: true,
-  isTarget: true,
 };
 
 it("수입 탭은 WMS 격리 줄과 검사 수준을 보여 준다", async () => {
