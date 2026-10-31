@@ -20,6 +20,7 @@ from fs.gw.restored_denial import (
     ALL_CASES,
     CALENDAR_CASES,
     CHAT_CASES,
+    DELEGATION_BOUND_CASES,
     DELEGATION_CASES,
     OBJECT_CASES,
     POST_CASES,
@@ -190,6 +191,17 @@ DENIAL_PROBES.update(
             "test_closed_restore_delegation_authorization[" + case + "]",
         )
         for case in DELEGATION_CASES
+    }
+)
+
+
+DENIAL_PROBES.update(
+    {
+        "RESTORED_FRESH_AUTH_" + case: (
+            "backend/tests/test_gw_restored_delegation_bounds_db.py",
+            "test_source_bounds_and_restored_delegation_floor[" + case + "]",
+        )
+        for case in DELEGATION_BOUND_CASES
     }
 )
 
@@ -398,7 +410,7 @@ def run(*, admin_url, output, restored_denial_only=False):
     report = {
         "version": 1,
         "kind": "SYNTHETIC_GW_ROUTE_EXECUTION",
-        "catalogVersion": "GW_RESTORED_DENIAL_PROBES_V6"
+        "catalogVersion": "GW_RESTORED_DENIAL_PROBES_V7"
         if restored_denial_only
         else "GW_SYNTHETIC_ROUTE_PROBES_V5",
         "restoredDenialObservations": [],
@@ -417,6 +429,10 @@ def run(*, admin_url, output, restored_denial_only=False):
         "businessObservationState": "UNVERIFIED",
         "syntheticBusinessObservation": None,
     }
+    execution_timeout = (
+        min(1200, max(300, 30 * len(probes))) if restored_denial_only else 300
+    )
+    report["executionTimeoutSeconds"] = execution_timeout
     try:
         with admin.connect() as c:
             c.execute(text(f'CREATE DATABASE "{database}"'))
@@ -471,49 +487,42 @@ def run(*, admin_url, output, restored_denial_only=False):
                     finally:
                         test_engine.dispose()
                     junit = folder / "results.xml"
-                    executed = subprocess.run(
-                        [
-                            sys.executable,
-                            "-m",
-                            "pytest",
-                            *[f"{path}::{name}" for path, name in probes.values()],
-                            "-q",
-                            "--tb=no",
-                            f"--junitxml={junit}",
-                        ],
-                        cwd=ROOT,
-                        env=env,
-                        stdout=log,
-                        stderr=subprocess.STDOUT,
-                        check=False,
-                        timeout=300,
-                    )
-                    report["pytestExitCode"] = executed.returncode
-                    if junit.exists():
-                        report["probes"], unexpected = probe_results(junit, probes)
-                        if (
-                            executed.returncode == 0
-                            and not unexpected
-                            and all(p["state"] == "PASSED" for p in report["probes"])
-                        ):
-                            if restored_denial_only:
-                                observations = denial_observations(
-                                    junit,
-                                    run_id=run_id,
-                                    code_revision=identity["commit"],
-                                    db_revision=report["dbRevision"],
-                                    started_at=report["startedAt"],
-                                    now=datetime.now(UTC),
+                    try:
+                        executed = subprocess.run(
+                            [
+                                sys.executable,
+                                "-m",
+                                "pytest",
+                                *[f"{path}::{name}" for path, name in probes.values()],
+                                "-q",
+                                "--tb=no",
+                                f"--junitxml={junit}",
+                            ],
+                            cwd=ROOT,
+                            env=env,
+                            stdout=log,
+                            stderr=subprocess.STDOUT,
+                            check=False,
+                            timeout=execution_timeout,
+                        )
+                    except subprocess.TimeoutExpired:
+                        # Partial/stale JUnit is never accepted after timeout.
+                        executed = None
+                        report["failureStage"] = "EXECUTION_TIMEOUT"
+                        report["pytestExitCode"] = None
+                    if executed is not None:
+                        report["pytestExitCode"] = executed.returncode
+                        if junit.exists():
+                            report["probes"], unexpected = probe_results(junit, probes)
+                            if (
+                                executed.returncode == 0
+                                and not unexpected
+                                and all(
+                                    p["state"] == "PASSED" for p in report["probes"]
                                 )
-                                report["restoredDenialObservations"] = observations
-                                if len(observations) == len(ALL_CASES):
-                                    report["result"] = "PARTIAL"
-                                    report["restoredAccessDenial"] = (
-                                        "SYNTHETIC_FRESH_AUTH_CASES_PASSED"
-                                    )
-                            else:
-                                report["businessObservationState"], observation = (
-                                    business_observation(
+                            ):
+                                if restored_denial_only:
+                                    observations = denial_observations(
                                         junit,
                                         run_id=run_id,
                                         code_revision=identity["commit"],
@@ -521,12 +530,30 @@ def run(*, admin_url, output, restored_denial_only=False):
                                         started_at=report["startedAt"],
                                         now=datetime.now(UTC),
                                     )
-                                )
-                                if observation is not None:
-                                    report["syntheticBusinessObservation"] = observation
-                                    report["result"] = "PARTIAL"
-                    else:
-                        report["failureStage"] = "EXECUTION"
+                                    report["restoredDenialObservations"] = observations
+                                    if len(observations) == len(ALL_CASES):
+                                        report["result"] = "PARTIAL"
+                                        report["restoredAccessDenial"] = (
+                                            "SYNTHETIC_FRESH_AUTH_CASES_PASSED"
+                                        )
+                                else:
+                                    report["businessObservationState"], observation = (
+                                        business_observation(
+                                            junit,
+                                            run_id=run_id,
+                                            code_revision=identity["commit"],
+                                            db_revision=report["dbRevision"],
+                                            started_at=report["startedAt"],
+                                            now=datetime.now(UTC),
+                                        )
+                                    )
+                                    if observation is not None:
+                                        report["syntheticBusinessObservation"] = (
+                                            observation
+                                        )
+                                        report["result"] = "PARTIAL"
+                        else:
+                            report["failureStage"] = "EXECUTION"
         report["sourceUnchanged"] = source_identity() == identity
         if not report["sourceUnchanged"]:
             report["result"] = "BLOCKED"
@@ -560,7 +587,7 @@ def main():
     parser.add_argument(
         "--restored-denial-only",
         action="store_true",
-        help="새 소유DB의 합성 복원·새MFA 권한 거부11조건만 실행",
+        help=f"새 소유DB의 고정 합성 복원·권한 경계 {len(DENIAL_PROBES)}조건만 실행",
     )
     args = parser.parse_args()
     try:

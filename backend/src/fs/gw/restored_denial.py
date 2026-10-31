@@ -36,8 +36,24 @@ DELEGATION_CASES = {
     "DELEGATION_REVOKED": (404, "NOT_FOUND"),
     "DELEGATION_GUARD": (403, "GW_IDENTITY_REQUIRED"),
 }
+DELEGATION_BOUND_CASES = {
+    case: (404, "NOT_FOUND")
+    for case in (
+        "DELEGATION_NOT_STARTED",
+        "DELEGATION_EXPIRED",
+        "DELEGATION_AMOUNT",
+        "DELEGATION_KIND_INPUT",
+        "DELEGATION_CURRENT_STAGE",
+    )
+}
 ALL_CASES = (
-    CASES | OBJECT_CASES | POST_CASES | CHAT_CASES | CALENDAR_CASES | DELEGATION_CASES
+    CASES
+    | OBJECT_CASES
+    | POST_CASES
+    | CHAT_CASES
+    | CALENDAR_CASES
+    | DELEGATION_CASES
+    | DELEGATION_BOUND_CASES
 )
 
 
@@ -586,6 +602,131 @@ class RestoredDelegationDenialObservation(RestoredDenialObservation):
         return self
 
 
+class RestoredDelegationBoundaryObservation(RestoredDenialObservation):
+    version: Literal[7]
+    scope: Literal["SYNTHETIC_SOURCE_BOUNDS_AND_CLOSED_RESTORE_DELEGATION_FLOOR"]
+    case: Literal[
+        "DELEGATION_NOT_STARTED",
+        "DELEGATION_EXPIRED",
+        "DELEGATION_AMOUNT",
+        "DELEGATION_KIND_INPUT",
+        "DELEGATION_CURRENT_STAGE",
+    ]
+    source_comparison_scope: Literal[
+        "SELECTED_AUTHORIZATION_DELEGATION_DOCUMENT_AND_RECEIPT_TABLES"
+    ] = Field(alias="sourceComparisonScope")
+    source_read_status: Literal[404] = Field(alias="sourceReadStatus")
+    source_approve_status: Literal[404] = Field(alias="sourceApproveStatus")
+    source_reject_status: Literal[404] = Field(alias="sourceRejectStatus")
+    source_error_code: Literal["NOT_FOUND"] = Field(alias="sourceErrorCode")
+    source_list_hidden: Literal[True] = Field(alias="sourceListHidden")
+    source_search_hidden: Literal[True] = Field(alias="sourceSearchHidden")
+    source_policy_empty: Literal[True] = Field(alias="sourcePolicyEmpty")
+    source_denial_state_unchanged: Literal[True] = Field(
+        alias="sourceDenialStateUnchanged"
+    )
+    baseline_delegated_read: Literal[True] = Field(alias="baselineDelegatedRead")
+    baseline_delegated_approval: Literal[True] = Field(
+        alias="baselineDelegatedApproval"
+    )
+    source_window: Literal["FUTURE", "EXPIRED", "ACTIVE", "NO_GRANT"] = Field(
+        alias="sourceWindow"
+    )
+    time_endpoint_policy_confirmed: bool = Field(alias="timeEndpointPolicyConfirmed")
+    amount_equality_confirmed: bool = Field(alias="amountEqualityConfirmed")
+    kind_input_status: int | None = Field(alias="kindInputStatus")
+    kind_input_code: str | None = Field(alias="kindInputCode")
+    stage_advanced_confirmed: bool = Field(alias="stageAdvancedConfirmed")
+    restored_original_read: Literal[True] = Field(alias="restoredOriginalRead")
+    restored_original_approval: Literal[True] = Field(alias="restoredOriginalApproval")
+    restored_approve_status: Literal[404] = Field(alias="restoredApproveStatus")
+    restored_reject_status: Literal[404] = Field(alias="restoredRejectStatus")
+    restored_error_code: Literal["NOT_FOUND"] = Field(alias="restoredErrorCode")
+    restored_list_hidden: Literal[True] = Field(alias="restoredListHidden")
+    restored_search_hidden: Literal[True] = Field(alias="restoredSearchHidden")
+    restored_delegations_revoked: Literal[True] = Field(
+        alias="restoredDelegationsRevoked"
+    )
+    restored_denial_state_unchanged: Literal[True] = Field(
+        alias="restoredDenialStateUnchanged"
+    )
+    restored_boundary_cause: Literal["ALL_DELEGATIONS_REVOKED"] = Field(
+        alias="restoredBoundaryCause"
+    )
+    company_hold: Literal[False] = Field(alias="companyHold")
+    content_exposed: Literal[False] = Field(alias="contentExposed")
+    delegation_replayed: Literal[False] = Field(alias="delegationReplayed")
+
+    @model_validator(mode="before")
+    @classmethod
+    def exact_boundary_types(cls, value):
+        if isinstance(value, dict):
+            for key in (
+                "sourceListHidden",
+                "sourceSearchHidden",
+                "sourcePolicyEmpty",
+                "sourceDenialStateUnchanged",
+                "baselineDelegatedRead",
+                "baselineDelegatedApproval",
+                "timeEndpointPolicyConfirmed",
+                "amountEqualityConfirmed",
+                "stageAdvancedConfirmed",
+                "restoredOriginalRead",
+                "restoredOriginalApproval",
+                "restoredListHidden",
+                "restoredSearchHidden",
+                "restoredDelegationsRevoked",
+                "restoredDenialStateUnchanged",
+                "companyHold",
+                "contentExposed",
+                "delegationReplayed",
+            ):
+                if type(value.get(key)) is not bool:
+                    raise ValueError("exact boundary boolean required")
+            for key in (
+                "sourceReadStatus",
+                "sourceApproveStatus",
+                "sourceRejectStatus",
+                "restoredApproveStatus",
+                "restoredRejectStatus",
+            ):
+                if type(value.get(key)) is not int:
+                    raise ValueError("exact boundary status required")
+            if (
+                value.get("kindInputStatus") is not None
+                and type(value["kindInputStatus"]) is not int
+            ):
+                raise ValueError("exact kind input status required")
+        return value
+
+    @model_validator(mode="after")
+    def bound_case(self):
+        expected = {
+            "DELEGATION_NOT_STARTED": ("FUTURE", True, False, None, None, False),
+            "DELEGATION_EXPIRED": ("EXPIRED", True, False, None, None, False),
+            "DELEGATION_AMOUNT": ("ACTIVE", False, True, None, None, False),
+            "DELEGATION_KIND_INPUT": (
+                "NO_GRANT",
+                False,
+                False,
+                400,
+                "VALIDATION_FAILED",
+                False,
+            ),
+            "DELEGATION_CURRENT_STAGE": ("ACTIVE", False, False, None, None, True),
+        }[self.case]
+        if (
+            self.source_window,
+            self.time_endpoint_policy_confirmed,
+            self.amount_equality_confirmed,
+            self.kind_input_status,
+            self.kind_input_code,
+            self.stage_advanced_confirmed,
+        ) != expected:
+            raise ValueError("wrong source boundary or inflated coverage")
+        return self
+
+
 def parse_observation(raw):
     import json
 
@@ -602,7 +743,7 @@ def parse_observation(raw):
 
     payload = json.loads(raw, object_pairs_hook=unique)
     version = payload.get("version") if isinstance(payload, dict) else None
-    if type(version) is not int or version not in {1, 2, 3, 4, 5, 6}:
+    if type(version) is not int or version not in {1, 2, 3, 4, 5, 6, 7}:
         raise ValueError("unsupported restored denial version")
     model = {
         1: RestoredDenialObservation,
@@ -611,5 +752,6 @@ def parse_observation(raw):
         4: RestoredChatDenialObservation,
         5: RestoredCalendarDenialObservation,
         6: RestoredDelegationDenialObservation,
+        7: RestoredDelegationBoundaryObservation,
     }[version]
     return model.model_validate_json(raw, strict=True)

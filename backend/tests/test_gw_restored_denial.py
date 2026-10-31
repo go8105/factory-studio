@@ -15,6 +15,7 @@ from fs.gw.restored_denial import (
     CALENDAR_CASES,
     CASES,
     CHAT_CASES,
+    DELEGATION_BOUND_CASES,
     DELEGATION_CASES,
     OBJECT_CASES,
     POST_CASES,
@@ -192,6 +193,48 @@ def observation(case="GW_ROLE"):
             delegationReplayed=False,
             cachedReceiptRetained=True,
             restoredDelegationsRevoked=True,
+        )
+    if case in DELEGATION_BOUND_CASES:
+        data.update(
+            version=7,
+            scope="SYNTHETIC_SOURCE_BOUNDS_AND_CLOSED_RESTORE_DELEGATION_FLOOR",
+            sourceComparisonScope="SELECTED_AUTHORIZATION_DELEGATION_DOCUMENT_AND_RECEIPT_TABLES",
+            sourceReadStatus=404,
+            sourceApproveStatus=404,
+            sourceRejectStatus=404,
+            sourceErrorCode="NOT_FOUND",
+            sourceListHidden=True,
+            sourceSearchHidden=True,
+            sourcePolicyEmpty=True,
+            sourceDenialStateUnchanged=True,
+            baselineDelegatedRead=True,
+            baselineDelegatedApproval=True,
+            sourceWindow={
+                "DELEGATION_NOT_STARTED": "FUTURE",
+                "DELEGATION_EXPIRED": "EXPIRED",
+                "DELEGATION_KIND_INPUT": "NO_GRANT",
+            }.get(case, "ACTIVE"),
+            timeEndpointPolicyConfirmed=case
+            in {"DELEGATION_NOT_STARTED", "DELEGATION_EXPIRED"},
+            amountEqualityConfirmed=case == "DELEGATION_AMOUNT",
+            kindInputStatus=400 if case == "DELEGATION_KIND_INPUT" else None,
+            kindInputCode="VALIDATION_FAILED"
+            if case == "DELEGATION_KIND_INPUT"
+            else None,
+            stageAdvancedConfirmed=case == "DELEGATION_CURRENT_STAGE",
+            restoredOriginalRead=True,
+            restoredOriginalApproval=True,
+            restoredApproveStatus=404,
+            restoredRejectStatus=404,
+            restoredErrorCode="NOT_FOUND",
+            restoredListHidden=True,
+            restoredSearchHidden=True,
+            restoredDelegationsRevoked=True,
+            restoredDenialStateUnchanged=True,
+            restoredBoundaryCause="ALL_DELEGATIONS_REVOKED",
+            companyHold=False,
+            contentExposed=False,
+            delegationReplayed=False,
         )
     return data
 
@@ -445,7 +488,7 @@ def test_object_contract_rejects_unproven_read_write_or_scope(change):
         "other-code": ("hiddenScopeReadCode", "COMPANY_ACCESS_DENIED"),
         "numeric-boolean": ("positiveObjectWrite", 1),
         "status-float": ("hiddenScopeReadStatus", 404.0),
-        "unknown-version": ("version", 7),
+        "unknown-version": ("version", 8),
     }
     key, value = edits[change]
     data[key] = value
@@ -705,6 +748,88 @@ def test_delegation_rejects_false_authority_or_history_or_replay_claims(field, v
     from fs.gw.restored_denial import parse_observation
 
     data = observation("DELEGATION_GUARD")
+    data[field] = value
+    with pytest.raises(ValueError):
+        parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize("case", list(DELEGATION_BOUND_CASES))
+def test_v7_measures_source_boundary_separately_from_restore_floor(case):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation(case)
+    parsed = parse_observation(json.dumps(data))
+    assert (
+        parsed.version == 7
+        and parsed.restored_boundary_cause == "ALL_DELEGATIONS_REVOKED"
+    )
+    for version in range(1, 7):
+        data["version"] = version
+        with pytest.raises(ValueError):
+            parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("sourceReadStatus", 200),
+        ("sourceApproveStatus", 409),
+        ("sourceRejectStatus", 403),
+        ("sourceErrorCode", "NOT_CURRENT_STEP"),
+        ("sourceListHidden", False),
+        ("sourceSearchHidden", False),
+        ("sourcePolicyEmpty", False),
+        ("sourceDenialStateUnchanged", False),
+        ("baselineDelegatedRead", False),
+        ("baselineDelegatedApproval", False),
+        ("sourceWindow", "ACTIVE"),
+        ("timeEndpointPolicyConfirmed", False),
+        ("amountEqualityConfirmed", True),
+        ("kindInputStatus", 400),
+        ("kindInputCode", "VALIDATION_FAILED"),
+        ("stageAdvancedConfirmed", True),
+        ("restoredOriginalRead", False),
+        ("restoredOriginalApproval", False),
+        ("restoredApproveStatus", 409),
+        ("restoredRejectStatus", 200),
+        ("restoredErrorCode", "NOT_CURRENT_STEP"),
+        ("restoredListHidden", False),
+        ("restoredSearchHidden", False),
+        ("restoredDelegationsRevoked", False),
+        ("restoredDenialStateUnchanged", False),
+        ("restoredBoundaryCause", "EXPIRED_ONLY"),
+        ("companyHold", True),
+        ("contentExposed", True),
+        ("delegationReplayed", True),
+        ("sourcePolicyEmpty", 1),
+        ("sourceApproveStatus", 404.0),
+    ],
+)
+def test_v7_rejects_unmeasured_source_or_inflated_restore_claim(field, value):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation("DELEGATION_EXPIRED")
+    data[field] = value
+    with pytest.raises(ValueError):
+        parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize(
+    "case,field,value",
+    [
+        ("DELEGATION_AMOUNT", "amountEqualityConfirmed", False),
+        ("DELEGATION_KIND_INPUT", "kindInputStatus", 422),
+        ("DELEGATION_KIND_INPUT", "kindInputStatus", 400.0),
+        ("DELEGATION_KIND_INPUT", "kindInputCode", "DELEGATION_OVERLAP_OR_CHAIN"),
+        ("DELEGATION_CURRENT_STAGE", "stageAdvancedConfirmed", False),
+    ],
+)
+def test_v7_does_not_substitute_wrong_input_or_missing_allowed_control(
+    case, field, value
+):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation(case)
     data[field] = value
     with pytest.raises(ValueError):
         parse_observation(json.dumps(data))

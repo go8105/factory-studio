@@ -150,3 +150,89 @@ def test_source_fingerprint_includes_untracked_fixed_probe(tmp_path, monkeypatch
     after = module.source_identity()
     assert before["commit"] == after["commit"]
     assert before["sourceDigest"] != after["sourceDigest"]
+
+
+@pytest.mark.parametrize("denial_only", [False, True])
+def test_execution_timeout_writes_blocked_report_and_cleans_own_database(
+    tmp_path, monkeypatch, denial_only
+):
+    import json
+    import subprocess
+    from types import SimpleNamespace
+
+    module = runner()
+    tmp_path.chmod(0o700)
+    commands = []
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def execute(self, statement):
+            commands.append(str(statement))
+            return SimpleNamespace(scalar_one=lambda: "test_head")
+
+    class Engine:
+        def connect(self):
+            return Connection()
+
+        def dispose(self):
+            pass
+
+    monkeypatch.setattr(module, "create_engine", lambda *a, **k: Engine())
+    monkeypatch.setenv("GW_BACKUP_TEST_CONTAINER", "a" * 64)
+    monkeypatch.setattr(module, "validate_restore_container", lambda *a, **k: None)
+    monkeypatch.setattr(
+        module,
+        "source_identity",
+        lambda: {"commit": "a" * 40, "sourceDigest": "b" * 64},
+    )
+    budgets = []
+
+    def execute(command, **kw):
+        if "pytest" in command:
+            budgets.append(kw["timeout"])
+            # Even a leftover JUnit must never be read after process timeout.
+            junit = next(
+                v.split("=", 1)[1] for v in command if v.startswith("--junitxml=")
+            )
+            Path(junit).write_text("<testsuite><testcase/></testsuite>")
+            raise subprocess.TimeoutExpired(
+                command, kw["timeout"], output=b"private credential"
+            )
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(module.subprocess, "run", execute)
+    monkeypatch.setattr(
+        module,
+        "probe_results",
+        lambda *a, **k: pytest.fail("timed-out JUnit must not be read"),
+    )
+    output = tmp_path / "report.json"
+    report = module.run(
+        admin_url="postgresql+psycopg://127.0.0.1:55439/postgres",
+        output=output,
+        restored_denial_only=denial_only,
+    )
+    assert report["result"] == "BLOCKED" and not report["ready"]
+    assert (
+        report["failureStage"] == "EXECUTION_TIMEOUT"
+        and report["pytestExitCode"] is None
+    )
+    assert report["databaseCleaned"] and report["sourceUnchanged"]
+    assert (
+        report["restoredDenialObservations"] == []
+        and report["restoredAccessDenial"] == "UNVERIFIED"
+    )
+    expected = (
+        min(1200, max(300, 30 * len(module.DENIAL_PROBES))) if denial_only else 300
+    )
+    assert budgets == [expected] and report["executionTimeoutSeconds"] == expected
+    assert any(s.startswith('DROP DATABASE "gw_route_verify_') for s in commands)
+    assert (
+        json.loads(output.read_bytes()) == report
+        and b"private credential" not in output.read_bytes()
+    )
