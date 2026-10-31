@@ -15,6 +15,7 @@ from fs.gw.restored_denial import (
     CALENDAR_CASES,
     CASES,
     CHAT_CASES,
+    DELEGATION_CASES,
     OBJECT_CASES,
     POST_CASES,
     PROPERTY,
@@ -158,6 +159,39 @@ def observation(case="GW_ROLE"):
             deniedCalendarStateUnchanged=True,
             attendeesReplayed=False,
             cachedReceiptRetained=True,
+        )
+    if case in DELEGATION_CASES:
+        guarded = case == "DELEGATION_GUARD"
+        data.update(
+            version=6,
+            scope="SYNTHETIC_CLOSED_RESTORE_DELEGATION_AUTHORIZATION",
+            sourceComparisonScope="SELECTED_AUTHORIZATION_DELEGATION_DOCUMENT_AND_RECEIPT_TABLES",
+            approveStatus=status,
+            approveCode=code,
+            rejectStatus=status,
+            rejectCode=code,
+            listStatus=403 if guarded else 200,
+            listCode=code if guarded else None,
+            searchStatus=403 if guarded else 200,
+            searchCode=code if guarded else None,
+            historyStatus=403 if guarded else 200,
+            historyCode=code if guarded else None,
+            replayStatus=403 if guarded else 200,
+            replayCode=code if guarded else None,
+            listingMode="IDENTITY_DENIED" if guarded else "FILTERED",
+            baselineDelegatedRead=True,
+            baselineDelegatedApproval=True,
+            baselineActorHistory=True,
+            restoredOriginalRead=not guarded,
+            restoredOriginalApproval=not guarded,
+            restoredActorHistory=not guarded,
+            quarantineObserved=guarded,
+            companyHold=guarded,
+            contentExposed=False,
+            deniedDelegationStateUnchanged=True,
+            delegationReplayed=False,
+            cachedReceiptRetained=True,
+            restoredDelegationsRevoked=True,
         )
     return data
 
@@ -411,7 +445,7 @@ def test_object_contract_rejects_unproven_read_write_or_scope(change):
         "other-code": ("hiddenScopeReadCode", "COMPANY_ACCESS_DENIED"),
         "numeric-boolean": ("positiveObjectWrite", 1),
         "status-float": ("hiddenScopeReadStatus", 404.0),
-        "unknown-version": ("version", 6),
+        "unknown-version": ("version", 7),
     }
     key, value = edits[change]
     data[key] = value
@@ -614,6 +648,63 @@ def test_calendar_rejects_false_owner_or_attendee_or_cached_receipt_claims(
     from fs.gw.restored_denial import parse_observation
 
     data = observation("CALENDAR_ATTENDEE_GUARD")
+    data[field] = value
+    with pytest.raises(ValueError):
+        parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize("case", list(DELEGATION_CASES))
+def test_delegation_v6_separates_current_power_from_historical_actor_access(case):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation(case)
+    parsed = parse_observation(json.dumps(data))
+    assert parsed.version == 6 and not parsed.delegation_replayed
+    assert parsed.restored_actor_history is (case == "DELEGATION_REVOKED")
+    for version in (1, 2, 3, 4, 5):
+        data["version"] = version
+        with pytest.raises(ValueError):
+            parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("baselineDelegatedRead", False),
+        ("baselineDelegatedApproval", False),
+        ("baselineActorHistory", False),
+        ("restoredOriginalRead", True),
+        ("restoredOriginalApproval", True),
+        ("restoredActorHistory", True),
+        ("quarantineObserved", False),
+        ("companyHold", False),
+        ("contentExposed", True),
+        ("deniedDelegationStateUnchanged", False),
+        ("delegationReplayed", True),
+        ("restoredDelegationsRevoked", False),
+        ("cachedReceiptRetained", False),
+        ("approveStatus", 200),
+        ("approveCode", "NOT_FOUND"),
+        ("rejectStatus", 200),
+        ("rejectCode", "NOT_FOUND"),
+        ("listStatus", 200),
+        ("listCode", None),
+        ("searchStatus", 200),
+        ("searchCode", None),
+        ("historyStatus", 200),
+        ("historyCode", None),
+        ("replayStatus", 200),
+        ("replayCode", None),
+        ("listingMode", "FILTERED"),
+        ("sourceComparisonScope", "SELECTED_AUTHORIZATION_TABLES"),
+        ("companyHold", 1),
+        ("approveStatus", 403.0),
+    ],
+)
+def test_delegation_rejects_false_authority_or_history_or_replay_claims(field, value):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation("DELEGATION_GUARD")
     data[field] = value
     with pytest.raises(ValueError):
         parse_observation(json.dumps(data))

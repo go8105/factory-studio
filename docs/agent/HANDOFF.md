@@ -1,3 +1,37 @@
+## 2026-10-31 GW-READY-02 65차 — 위임 회수·현재 결재권과 실제 대리 처리 이력 완료
+
+- 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`, 시작 `05b3c66`/깨끗한 작업트리를 확인했다. 이 checkout만 수정했다. 최종커밋은 `git log -1`로 확인한다.
+- 기존 전용실행기 `GW_RESTORED_DENIAL_PROBES_V6`/15조건으로 확장했다. 이전v1다섯/v2둘/v3둘/v4둘/v5둘은 유지하고 새위임2조건만 `RestoredDelegationDenialObservation` v6로 분리한다. 기존 소유검증/새UUID DB/실제 암호화백업·checkpoint·폐쇄restore/새MFA·실행UUID/코드/DB/시각·소스지문 검증을 재사용한다. 새 공급자/복원기·수동체크·임의대상·인수PASS는 없다.
+- 합성3명의 기안자/원 담당자/대리자를 분리한다. 현재 원 담당자 단계에 실제 위임생성API로 유효한 GENERAL 위임을 만들고 대리열람/actionSteps의delegationId·별도문서 승인/actingPersonId·onBehalfOfPersonId/이벤트1개를 백업 전에 확인한다. 관리계정도 기안자 예외 없이 위임만으로 대상에 접근하게 했다. DELEGATION_REVOKED는 백업전 실제 회수API 뒤 미처리문서조회/승인·반려404, 목록/검색·원문비노출을 요구한다. 복원후 원 담당자 조회/actionSteps·별도 직접승인200과 실제대리처리자 과거문서열람200·원 담당자 이력을 보존한다.
+- DELEGATION_GUARD는 백업뒤 실제회수API/최신checkpoint의delegation guard 불일치로 회사격리/활성GW연결0/companyHold=true를 확인한다. core 새MFA성공과 원 담당자/대리자의 현재/과거GW조회·처리·목록/검색/옛영수증재요청403/GW_IDENTITY_REQUIRED를 구분한다. 격리된GW 양성대조를true로 꾸미지 않는다. 기존 복원도구는 모든 활성위임을 보수적으로 회수한다. 양조건 모두 미회수0건/restoredDelegationsRevoked=true·delegationReplayed=false를 요구하며 옛활성행을 그대로 남긴다고 가정하지 않는다.
+- 과거 완료문서의 실제승인영수증이 복원초기/재요청직전에 존재하고 문서ID가 맞아야 한다. 정상회수에서는 같은멱등키/expectedVersion/본문의 완료요청이 원래결과200으로 재전송되고 승인1개/문서·단계/이력·위임/영수증5테이블이 변하지 않아야 한다. 이 과거성공은 현재미처리대상 권한으로 세지 않는다. 격리에서는 영수증재전송도403이다. source는 기존권한7+앞선5=선택12개, 대상은5개를 비교한다. 정상허용쓰기뒤/모든격리GW요청전에 지문을 잡고 인증·세션/보안감사·알림/전체DB불변을 주장하지 않는다.
+- v6는 현재승인/반려와 목록/검색·과거이력/완료재전송의 상태·오류/복원전후대조/격리·회수필수값을 분리한다. 정확한bool/int/실행문맥/지원버전과 누락/중복/skip·실패/JSON중복/8KiB/추가속성 거부를 유지한다. unsigned합성 PARTIAL·ready=false/최종4조건UNVERIFIED·실제복원PARTIAL/PASS거부 유지,59차 보고서/제품12조건으로 자동승격하지 않는다.
+- 실제검증: 최종 관련단위1146통과23.09초(신규31/기존사용중단경고2), 화면/도움말61통과5.18초. 소유PG 추가직접2조건26.66초통과. 집중단위194/이전1145·직접2/최종CLI15·반복을 독립건수로 합산하지 않는다. 수정Python4개Ruff check/format·정적DB219표2409열543FK/R1–R6오류0. 스키마/마이그레이션·metadata/Excel/ERD변경없음.
+- 최종CLI: 15조건 PASSED/관측15(v1다섯/v2둘/v3둘/v4둘/v5둘/v6둘), pytest종료0·sourceUnchanged/databaseCleaned=true·PARTIAL/종료0·171.70초. full64컨테이너ID/owner=gw-ready-02-phase65-test/running·단일loopback을 확인한 새postgres:18/새UUID *_test DB에서 실행했다. 생성기본DB/폐쇄복원DB·컨테이너/볼륨만 정리했고 owner잔여0을 확인했다. 기존미리보기/병행DB에는 접속/초기화하지 않았다.
+- 실패/보정: 초기 실제PG2조건은25.90초 실패했다. 정상문서 목록의 data가페이지객체인데 배열로 해석했고, 격리복원에서 기존전체위임회수를 무시해 옛활성행을 기대했다. rows를읽고 양조건미회수0건과필수관측을추가했다. 기존ACL/위임회수/격리·캐시정책은 수정하지 않았다. 초기실패로그는 비공개보존했고 과거통과로 대신하지 않았다.
+- 실회사절차§39/수집경계·정적도움말·문서지도/구현문서/현황199줄·progress/HANDOFF를 갱신했다. 현재권한/과거이력·격리 구분/실제원본대조·회수/재전송안내·기존계약재사용을 반영했으며 전체UI완성은 아니다. 제품프런트미변경으로 타입/ESLint/build·실브라우저/모바일을 재실행하지 않았다. 전체CI/전체회귀·기존V5전체경로합성모드/실회사·실기기10인인수는 미실행/미완료다. 실제계정/admin/비밀번호/OTP/키/브라우저·미리보기/다른checkout/WMS/main/push/배포변경없음. work/.env·비밀/전체로그Git제외.
+- 다음: 위임 유효기간/금액·문서종류 한도/현재단계의 접근경계 고정검사. 연쇄/배정변경·일정/채팅guard정책/동시성·게시정정·직접SQL/운영도구/SSO·전경로무누락/전체회수·외부공급자/독립최신성·실API브라우저/최신main/전체회귀·실회사10인/최종전환은 남는다. 난이도높음,GPT-6 Astra + High추천(실시간기간·SQL ACL/처리적격성·복원제한일치). 모델자동변경없음, 사용자확인전 다음단계자동착수없음.
+
+재현(이 GW 저장소 루트; 비밀값은 환경주입하고 출력하지 않는다):
+```sh
+uv run --project backend pytest backend/tests/test_gw_restored_denial.py backend/tests/test_gw_route_verify.py -q --tb=short
+# 관련1146은 아래64차1115와 같은35파일에 신규31건이 추가된 결과다.
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/operations.test.tsx src/gw/operating-evidence.test.tsx src/gw/emergency-kit.test.tsx src/portal/content-pages.test.tsx --maxWorkers=1
+uv run --project backend ruff check backend/src/fs/gw/restored_denial.py tools/gw_route_verify.py backend/tests/test_gw_restored_denial.py backend/tests/test_gw_restored_delegation_db.py
+uv run --project backend ruff format --check backend/src/fs/gw/restored_denial.py tools/gw_route_verify.py backend/tests/test_gw_restored_denial.py backend/tests/test_gw_restored_delegation_db.py
+python3 tools/validate_db_design.py
+uv run --project backend python tools/audit_schema_isolation.py
+# 새소유 postgres:18 fullID/owner/running·단일127.0.0.1/TCP준비 확인.
+# FS_GW_ROUTE_VERIFY_ADMIN_URL=그 컨테이너 postgres관리연결,
+# GW_BACKUP_TEST_CONTAINER=전체ID, FS_GW_ROUTE_VERIFY_OWNER=실제owner라벨 비공개주입.
+# 새0700폴더/새출력파일 사용; 실행기가 새UUID *_test DB생성/마이그레이션/검사/정리.
+uv run --project backend python tools/gw_route_verify.py --restored-denial-only --report work/acceptance/restored-denial-65.json
+# 직접재현은 소유검증한 별도 새UUID *_test DB에만 DATABASE_URL/TEST_DATABASE_URL주입 후:
+uv run --project backend alembic -c backend/alembic.ini upgrade head
+uv run --project backend pytest backend/tests/test_gw_restored_delegation_db.py -q --tb=short
+```
+전용V6는 기존13+위임2=15조건이다. 일반전체경로카탈로그V5와구분해 --restored-denial-only를명시한다. 이전관측v1–v5보존/새위임만v6이며 보고서단독으로 최종PASS를 만들지않는다. 명시적회수의두시점과 현재권한/실제과거처리이력·동일완료요청을구분한다. 기존복원은 전체위임회수이며 양조건미회수0건/guard불일치회사격리를검사한다. 목록data는페이지객체의rows를읽는다. 선택12소스/5대상불변·내부ASGI/합성MFA와 전체DB/실기기·외부독립성/전체회수를구분한다. work임시도구/비공개로그없이 위표준명령과실회사절차§39로재현한다. 중단자원은이번ID/owner로확인한생성분만정리한다.
+
 ## 2026-10-30 GW-READY-02 64차 — 일정 소유자·참석자/응답 영수증 복원 경계 완료
 
 - 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, `codex/gw-company-01`, 시작 커밋 `d776913`과 깨끗한 작업 트리를 확인했다. 이 checkout만 수정했다. 최종 커밋은 `git log -1`로 확인한다.

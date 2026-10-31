@@ -32,7 +32,13 @@ CALENDAR_CASES = {
     "CALENDAR_REMOVED_ATTENDEE": (404, "NOT_FOUND"),
     "CALENDAR_ATTENDEE_GUARD": (403, "GW_IDENTITY_REQUIRED"),
 }
-ALL_CASES = CASES | OBJECT_CASES | POST_CASES | CHAT_CASES | CALENDAR_CASES
+DELEGATION_CASES = {
+    "DELEGATION_REVOKED": (404, "NOT_FOUND"),
+    "DELEGATION_GUARD": (403, "GW_IDENTITY_REQUIRED"),
+}
+ALL_CASES = (
+    CASES | OBJECT_CASES | POST_CASES | CHAT_CASES | CALENDAR_CASES | DELEGATION_CASES
+)
 
 
 class RestoredDenialObservation(StrictModel):
@@ -470,6 +476,116 @@ class RestoredCalendarDenialObservation(RestoredDenialObservation):
         return self
 
 
+class RestoredDelegationDenialObservation(RestoredDenialObservation):
+    version: Literal[6]
+    scope: Literal["SYNTHETIC_CLOSED_RESTORE_DELEGATION_AUTHORIZATION"]
+    case: Literal["DELEGATION_REVOKED", "DELEGATION_GUARD"]
+    source_comparison_scope: Literal[
+        "SELECTED_AUTHORIZATION_DELEGATION_DOCUMENT_AND_RECEIPT_TABLES"
+    ] = Field(alias="sourceComparisonScope")
+    approve_status: int = Field(alias="approveStatus")
+    approve_code: str = Field(alias="approveCode")
+    reject_status: int = Field(alias="rejectStatus")
+    reject_code: str = Field(alias="rejectCode")
+    list_status: int = Field(alias="listStatus")
+    list_code: str | None = Field(alias="listCode")
+    search_status: int = Field(alias="searchStatus")
+    search_code: str | None = Field(alias="searchCode")
+    history_status: int = Field(alias="historyStatus")
+    history_code: str | None = Field(alias="historyCode")
+    replay_status: int = Field(alias="replayStatus")
+    replay_code: str | None = Field(alias="replayCode")
+    listing_mode: Literal["FILTERED", "IDENTITY_DENIED"] = Field(alias="listingMode")
+    baseline_delegated_read: Literal[True] = Field(alias="baselineDelegatedRead")
+    baseline_delegated_approval: Literal[True] = Field(
+        alias="baselineDelegatedApproval"
+    )
+    baseline_actor_history: Literal[True] = Field(alias="baselineActorHistory")
+    restored_original_read: bool = Field(alias="restoredOriginalRead")
+    restored_original_approval: bool = Field(alias="restoredOriginalApproval")
+    restored_actor_history: bool = Field(alias="restoredActorHistory")
+    quarantine_observed: bool = Field(alias="quarantineObserved")
+    company_hold: bool = Field(alias="companyHold")
+    content_exposed: Literal[False] = Field(alias="contentExposed")
+    denied_delegation_state_unchanged: Literal[True] = Field(
+        alias="deniedDelegationStateUnchanged"
+    )
+    restored_delegations_revoked: Literal[True] = Field(
+        alias="restoredDelegationsRevoked"
+    )
+    cached_receipt_retained: Literal[True] = Field(alias="cachedReceiptRetained")
+    delegation_replayed: Literal[False] = Field(alias="delegationReplayed")
+
+    @model_validator(mode="before")
+    @classmethod
+    def exact_delegation_types(cls, value):
+        if isinstance(value, dict):
+            for key in (
+                "baselineDelegatedRead",
+                "baselineDelegatedApproval",
+                "baselineActorHistory",
+                "restoredOriginalRead",
+                "restoredOriginalApproval",
+                "restoredActorHistory",
+                "quarantineObserved",
+                "companyHold",
+                "contentExposed",
+                "restoredDelegationsRevoked",
+                "deniedDelegationStateUnchanged",
+                "cachedReceiptRetained",
+                "delegationReplayed",
+            ):
+                if type(value.get(key)) is not bool:
+                    raise ValueError("exact delegation boolean required")
+            for key in (
+                "approveStatus",
+                "rejectStatus",
+                "listStatus",
+                "searchStatus",
+                "historyStatus",
+                "replayStatus",
+            ):
+                if type(value.get(key)) is not int:
+                    raise ValueError("exact delegation status required")
+        return value
+
+    @model_validator(mode="after")
+    def delegation_boundaries(self):
+        expected = DELEGATION_CASES[self.case]
+        if any(
+            pair != expected
+            for pair in (
+                (self.approve_status, self.approve_code),
+                (self.reject_status, self.reject_code),
+            )
+        ):
+            raise ValueError("wrong current delegation boundary")
+        guarded = self.case == "DELEGATION_GUARD"
+        if self.quarantine_observed != guarded or self.company_hold != guarded:
+            raise ValueError("delegation quarantine mismatch")
+        if any(
+            v != (not guarded)
+            for v in (
+                self.restored_original_read,
+                self.restored_original_approval,
+                self.restored_actor_history,
+            )
+        ):
+            raise ValueError("delegation positive control mismatch")
+        response = (403, "GW_IDENTITY_REQUIRED") if guarded else (200, None)
+        if any(
+            pair != response
+            for pair in (
+                (self.list_status, self.list_code),
+                (self.search_status, self.search_code),
+                (self.history_status, self.history_code),
+                (self.replay_status, self.replay_code),
+            )
+        ) or self.listing_mode != ("IDENTITY_DENIED" if guarded else "FILTERED"):
+            raise ValueError("delegation history/list boundary mismatch")
+        return self
+
+
 def parse_observation(raw):
     import json
 
@@ -486,7 +602,7 @@ def parse_observation(raw):
 
     payload = json.loads(raw, object_pairs_hook=unique)
     version = payload.get("version") if isinstance(payload, dict) else None
-    if type(version) is not int or version not in {1, 2, 3, 4, 5}:
+    if type(version) is not int or version not in {1, 2, 3, 4, 5, 6}:
         raise ValueError("unsupported restored denial version")
     model = {
         1: RestoredDenialObservation,
@@ -494,5 +610,6 @@ def parse_observation(raw):
         3: RestoredPostDenialObservation,
         4: RestoredChatDenialObservation,
         5: RestoredCalendarDenialObservation,
+        6: RestoredDelegationDenialObservation,
     }[version]
     return model.model_validate_json(raw, strict=True)

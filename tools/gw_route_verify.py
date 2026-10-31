@@ -20,6 +20,7 @@ from fs.gw.restored_denial import (
     ALL_CASES,
     CALENDAR_CASES,
     CHAT_CASES,
+    DELEGATION_CASES,
     OBJECT_CASES,
     POST_CASES,
     parse_observation,
@@ -178,6 +179,17 @@ DENIAL_PROBES.update(
             "test_closed_restore_calendar_authorization[" + case + "]",
         )
         for case in CALENDAR_CASES
+    }
+)
+
+
+DENIAL_PROBES.update(
+    {
+        "RESTORED_FRESH_AUTH_" + case: (
+            "backend/tests/test_gw_restored_delegation_db.py",
+            "test_closed_restore_delegation_authorization[" + case + "]",
+        )
+        for case in DELEGATION_CASES
     }
 )
 
@@ -386,7 +398,7 @@ def run(*, admin_url, output, restored_denial_only=False):
     report = {
         "version": 1,
         "kind": "SYNTHETIC_GW_ROUTE_EXECUTION",
-        "catalogVersion": "GW_RESTORED_DENIAL_PROBES_V5"
+        "catalogVersion": "GW_RESTORED_DENIAL_PROBES_V6"
         if restored_denial_only
         else "GW_SYNTHETIC_ROUTE_PROBES_V5",
         "restoredDenialObservations": [],
