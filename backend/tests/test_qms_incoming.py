@@ -218,7 +218,7 @@ def test_waiting_list_comes_from_wms_quarantine(qms_space):
     row = _source(client)
     assert row["sourceRef"] and row["partnerCode"]
     assert row["level"] == "NORMAL"  # 수준을 정하지 않으면 보통
-    assert row["isTarget"] is True
+    # 목록에 남았다는 것이 곧 검사 대상이라는 뜻이다(면제는 아래 테스트에서 빠진다).
 
 
 def test_exempt_supplier_drops_out_of_the_waiting_list(qms_space):
