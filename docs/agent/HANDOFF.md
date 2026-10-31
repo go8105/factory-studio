@@ -1,3 +1,33 @@
+## 2026-10-31 GW-READY-02 70차 — 실제 API 로그인·운영 준비 동선 및 회사 복귀 링크 보정
+
+- GW 저장소 / codex/gw-company-01 / 시작 fad7181 / 깨끗한 작업트리에서 수행했다. 다른 checkout·WMS/main/push/배포는 건드리지 않았다. 최종 커밋은 git log -1로 확인한다.
+- 중지된 기존 미리보기의 저장된 full container ID·owner=gw-ready-02-preview·단일127.0.0.1:55439 바인딩을 대조한 뒤 기존 컨테이너를 시작했다. 기존 server.env의 DB는 gw_preview_test이며 초기화/마이그레이션/계정 변경 없이 기존 API8362·웹5362를 재기동했다. 현재 PID는 API47906/웹47907이나 다음 세션에서 재확인한다.
+- 읽기 전용 계정 점검에서 저장된 합성 계정 존재/비밀번호 일치, admin 부재를 확인했다. admin을 생성/이름 변경/초기화하지 않았다. 기존 등록된 합성 MFA로 실제 브라우저 비밀번호 로그인→본인 확인→home 진입을 확인했다. 비밀번호/OTP/설정키는 출력·화면 근거·Git에 넣지 않았다. 일반 로그인에 따른 세션·인증 기록 쓰기는 발생하며 전체 DB 불변을 주장하지 않는다.
+- 실제 제품/API에서 런처→GW 개인 체험→사용 공간 선택→회사3→회사 운영 안내→운영 준비를 확인했다. 현재 회사/연결 직원·보안 관리자, 연결1/예정10·인증앱1, 서버 검증 설정 필요, 확인됨4/조치필요4/미확인4를 표시한다. GET 재점검·12조건 펼치기·서버 점검 도움말 해당절→브라우저 뒤로→현재회사 운영준비→GW 업무/내 결재함 복귀를 확인했다. 인증 뒤 운영 준비가 자동 표시된다고 안내하지 않는다.
+- 실제 빈 결재함의 결재선 관리 링크가 /gw/routes로 회사 선택을 잃는 결함을 발견했다. DocumentsSpace의 EmptyState에 기존 CompanyContext/companyPath를 적용했다. 기안함/결재함/결재기록 공통 빈 상태가 회사에서는 회사ID를 유지하고 개인 체험에서는 기존 개인 경로를 쓴다. 권한을 부여하거나 API 검사를 우회하지 않는다. 수정 뒤 실제390 화면의 링크 Enter로 /gw/routes?companyId=3와 연결직원·회사모드를 확인했다.
+- factory-impeccable 스킬의 기존 제품 맥락/빈상태·모바일 기준을 적용했다. 기본359 및1440/390 뷰포트에서 운영준비·조건·도움말/회사복귀를 확인하고 임시 viewport override는 reset했다. 화면 근거는 outputs/gw-readiness-02-phase70/에 있다. 화면 크기 변경 시 기존 펼친 사이드바가 모바일 오버레이로 남아 닫기 버튼으로 닫았다. 기존 설정을 임의 변경하지 않았다.
+- 실제 API 로그의 비공개 전문 대신 상태 집계를 확인했다: 로그인 시작202/기존MFA확인201, 로그인 전 GET401 두건과 로그인 후 GET200. 업무·정책·증거 등록/계정·MFA설정 변경은 요청하지 않았다. 로그에 비밀이 없다는 보증이나 모든 요청·모든 데이터의 불변 검증은 아니다.
+- 검증: 최종 도움말 반영 후 관련 화면/도움말6파일75건 통과6.11초(신규3건은 각 문서함의 회사/개인 두범위 대조), frontend typecheck·수정2파일 ESLint 통과. 최초 신규3시험은 같은 Response 본문을 두번 읽는 시험fixture 오류로 실패해 매번 새 Response를 반환하도록 보정했고 최종75 통과했다. 첫 prettier 명령은 prefix의 cwd 차이로 파일을 못 찾아 실제 경로로 다시 실행했다. 제품 API의 기능 실패로 처리하지 않는다. 최종 포맷/문서·diff 검사는 아래 재현을 따른다.
+- ready=false·최종4 UNVERIFIED, 실제복원 PARTIAL/ACCEPTANCE PASS 거부는 유지하며 이 화면검사로 승격하지 않는다. 현재 미리보기에는 실행 증거0건/검증설정 필요여서 실제 signed PARTIAL 등록 상세나 복구 도구를 이번에 실행한 결과가 아니다. 과거 합성API/시제품 화면을 실API 근거로 대신하지 않았다.
+- 스키마/마이그레이션/metadata/Excel/ERD 변경 없음. 백엔드 단위/별도PG 복원/전체CI·전체회귀/전체build/실회사10인·실기기/감사자·일반직원 브라우저 동선은 이번 미실행이다. UI 전체완성/전체권한회수/외부독립성을 의미하지 않는다.
+- 다음: GW 회사모드의 나머지 빈상태·오류 복구 링크를 기존 회사경로 함수와 대조하고 회사 선택을 잃는 경로를 보정한다. 감사자/일반직원 실브라우저 검증은 기존 승인된 계정·자료가 있을 때만 수행하고 계정/역할/MFA를 임의 준비하지 않는다. 외부공급자·독립최신성/전경로·전체회수/최신main·전체회귀/실회사10인·최종전환은 계속 남는다. 다음 난이도 중상, GPT-6 Astra + High 추천(회사범위/역할·오류복귀 정합), 모델 자동변경 없음. 한 단계 종료 후 다음 ID 자동착수 없음.
+
+재현(이 GW 저장소 루트):
+```sh
+git status --short
+git branch --show-current
+git log -1 --oneline
+# docker inspect로 저장된 fullID/owner/running/단일loopback을 먼저 검증한다.
+# 기존 비공개 접속자료는 출력하지 않고 기존 계정/회사/MFA와 일치하는지만 읽기전용 확인한다.
+# localhost:5362 실제 제품 로그인→기존MFA→GW→사용공간선택→회사→운영준비.
+# 전환조건12/미확인4·도움말 절·뒤로·회사 업무/결재함·빈상태 결재선관리의 companyId 유지 확인.
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/company.test.tsx src/gw/gw.test.tsx src/gw/operations.test.tsx src/gw/operating-evidence.test.tsx src/gw/emergency-kit.test.tsx src/portal/content-pages.test.tsx --maxWorkers=1
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend run typecheck
+/opt/homebrew/opt/node@24/bin/node frontend/node_modules/eslint/bin/eslint.js frontend/src/gw/Documents.tsx frontend/src/gw/company.test.tsx
+/opt/homebrew/opt/node@24/bin/node frontend/node_modules/prettier/bin/prettier.cjs --check frontend/src/gw/Documents.tsx frontend/src/gw/company.test.tsx
+git diff --check
+```
+
 ## 2026-10-31 GW-READY-02 69차 — 공통 카탈로그와 선택 권한검토맵 정합 완료
 
 - 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, `codex/gw-company-01`, 시작 `1791667`/깨끗한 작업트리를 확인했다. 이 checkout만 수정했다. 최종커밋은 `git log -1`로 확인한다.

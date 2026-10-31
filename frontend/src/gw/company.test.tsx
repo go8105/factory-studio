@@ -17,6 +17,7 @@ import {
 } from "./common";
 import { CompanyStart, type CompanyMe } from "./Company";
 import { RoleBar } from "./ui";
+import { Documents } from "./Documents";
 import type { ReactNode } from "react";
 
 vi.mock("../app/session", () => ({
@@ -62,6 +63,43 @@ it("scopes GW paths and preserves external solution independence", () => {
   );
   expect(companyPath("/documents", "")).toBe("/documents?companyId=");
 });
+
+it.each(["drafts", "pending", "archive"] as const)(
+  "%s empty-state route keeps the selected company and personal scope",
+  async (box) => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      response({ rows: [], total: 0 }),
+    );
+    const company = render(
+      <MemoryRouter>
+        <Wrapper>
+          <Documents box={box} />
+        </Wrapper>
+      </MemoryRouter>,
+    );
+    expect(
+      await screen.findByRole("link", { name: "결재선 관리 →" }),
+    ).toHaveAttribute("href", "/gw/routes?companyId=11");
+    company.unmount();
+    render(
+      <MemoryRouter>
+        <RoleContext.Provider
+          value={{
+            person: "501",
+            setPerson: vi.fn(),
+            people: [],
+            reload: vi.fn(),
+          }}
+        >
+          <Documents box={box} />
+        </RoleContext.Provider>
+      </MemoryRouter>,
+    );
+    expect(
+      await screen.findByRole("link", { name: "결재선 관리 →" }),
+    ).toHaveAttribute("href", "/gw/routes");
+  },
+);
 
 it("aborts an earlier company's GET and rejects its late response", async () => {
   let oldResolve: (r: Response) => void = () => {};

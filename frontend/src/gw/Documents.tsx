@@ -1,6 +1,6 @@
 import { DocumentReaders } from "./Company";
 import { Comments } from "./Collaboration";
-import { useState, type FormEvent } from "react";
+import { useContext, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { GwLink as Link } from "./common";
 import {
@@ -17,6 +17,8 @@ import {
 import { fieldErrors } from "../shared/hooks";
 import {
   labels,
+  CompanyContext,
+  companyPath,
   useDocumentKinds,
   sourceKinds,
   time,
@@ -34,6 +36,7 @@ export function Documents({ box }: { box: "drafts" | "pending" | "archive" }) {
   return <DocumentsSpace key={role.person} box={box} />;
 }
 function DocumentsSpace({ box }: { box: "drafts" | "pending" | "archive" }) {
+  const { companyId } = useContext(CompanyContext);
   const kinds = useDocumentKinds();
   const { person, busy } = useRole();
   const [q, setQ] = useSearchParams();
@@ -186,7 +189,7 @@ function DocumentsSpace({ box }: { box: "drafts" | "pending" | "archive" }) {
                   empty={
                     <EmptyState
                       reason="표시할 문서가 없습니다. 담당자와 결재선을 등록한 뒤 기안을 만들어 보세요."
-                      to="/gw/routes"
+                      to={companyPath("/gw/routes", companyId)}
                       action="결재선 관리"
                     />
                   }
