@@ -1,6 +1,6 @@
-# 2026-10-31 FEMS-1a 완료 — SPC·CMMS·QMS 보강 끝, FEMS 진행 중 (다음: FEMS-1b)
+# 2026-10-31 FEMS-1b 완료 — SPC·CMMS·QMS 보강 끝, FEMS 진행 중 (다음: FEMS-1c)
 
-- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1a` (병합 뒤 `main`)
+- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1b` (병합 뒤 `main`)
 - **마지막 커밋**: `git log --oneline -3` 참조. 원격 `origin/main`과 동기.
 - **담당**: Claude Code가 설계·개발·검증·병합을 모두 한다(D85). Codex는 GW 범위만.
 
@@ -37,7 +37,7 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 
 **PPM은 불량을 '개수'로 센 칸이 있어야 낸다.** 수입(`defect_count`/`sample_qty`)과 공정(MES `defectQty`/`inputQty`)만 가능하고 출하·고객은 못 낸다. 설계 3장이 4종 모두 PPM을 적었지만 **0으로 채우지 않고 `—`로 두고 화면이 왜 비는지 밝힌다.** FEMS·BEMS에서도 같은 판단이 필요할 것이다.
 
-## FEMS — 1a 완료, 1b부터
+## FEMS — 1a·1b 완료, 1c부터
 
 설계는 **DSN-15**에 있고 Q1~Q7이 2026-10-05에 이미 확정돼 있다. 범위 13 → 25표·14 → **23화면**(신규 9·기존 보강 8)으로 QMS보다 크다.
 
@@ -46,14 +46,17 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 | 단계 | 범위 | 권장 모델 |
 |---|---|---|
 | ~~1a~~ | ~~DB 13 → 25표~~ | 완료 |
-| **1b** | MES `production_results(month)` 신설 | Sonnet (QMS-1b와 같은 패턴) |
-| 1c | TOU 요금·피크 — F-14 구간표·F-08 산정·**F-16 부하 패턴·피크** | Opus (계절×요일×시간대 요율) |
+| ~~1b~~ | ~~MES `production_results(month)`~~ | 완료 |
+| **1c** | TOU 요금·피크 | **Opus** |
+| 1c 상세 | F-14 구간표·F-08 산정·**F-16 부하 패턴·피크** | 계절×요일×시간대 요율 |
 | 1d | 데이터 품질 — **F-15**(CSV·보정)·F-02 수동 검침·F-05 MES 가져오기 | Opus (원 값 보존 규칙) |
 | 1e | 분석·경보 — **F-17 설비 비교**·**F-18 경보**·F-01 대시보드 | Sonnet |
 | 1f | 에너지 경영 — **F-19 절감**·**F-20 월간 검토**(인쇄)·**F-21 온실가스**(인쇄) | Opus (절감 측정·검증 공식) |
 | 1g | 비용 — **F-22 배분**·**F-23 고지서 대조**·F-10 부서·F-11 발전 | Opus |
 
-**설계서 §6의 `ERP departments()`는 오류다.** 부서 표는 `hr.department` 하나뿐이고 **HR이 이미 `departments()`를 제공한다**("부서 코드의 원천이다(DSN-30 Q1)"). ERP에는 부서 표가 없다. 읽는 쪽을 HR로 하면 1b에서 만들 제공자는 MES 하나뿐이다.
+**설계서 §6의 `ERP departments()`는 오류다**(1b에서 확인). 부서 표는 `hr.department` 하나뿐이고 **HR이 이미 `departments()`를 제공한다**. ERP에는 부서 표가 없다.
+
+**`conftest.PROVIDERS`를 잊지 말 것.** `"fems"`가 `()`라 테스트 공간에 MES·HR 시드가 복사되지 않아 1b 테스트가 None을 받고 깨졌다. 새 교차 조회를 더하면 이 표도 같이 고친다.
 
 **인쇄는 새로 설계할 것이 없다** — QMS-1g-1에서 만든 `shared/styles.css`의 `.print-area`를 F-20·F-21이 그대로 쓴다.
 
