@@ -1,3 +1,17 @@
+## 2026-10-31 GW-READY-02 69차 — 공통 카탈로그와 선택 권한검토맵 정합 완료
+
+- 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, `codex/gw-company-01`, 시작 `1791667`/깨끗한 작업트리를 확인했다. 이 checkout만 수정했다. 최종커밋은 `git log -1`로 확인한다.
+- 새 denial_catalog.py의 불변9가족/28조건을 실행기와 진단맵이 함께 참조하게 했다. 모델Literal에서 관측버전/범위를 얻고 실제 매개변수시험 nodeid를 제공한다. 실행기의 중복 선택정의를 제거했으며 기존고정카탈로그V9/관측v1–v9/시험·수집기·복원기/엄격한검증은 유지했다. 새카탈로그는 커밋전에도 source_identity 지문에 포함하고 변경감지 회귀를 추가했다.
+- revocationCoverage내부v2/12검토영역으로 갱신했다. 기존8영역을 유지/갱신하고 게시/채팅/일정/위임을 추가했다. 회사멤버십/다른회사 참조는 현재고정2조건으로 연결한다. FOREIGN_SCOPE를회사영역에만배치하고문서영역은DOCUMENT_READER만 배치해 고정28조건을중복없이연결한다. 위임은관측v6~v9의15조건으로 원본/복원하한·정책/HTTP·fixture를 구분한다. 구세션/미완료인증의 기존함수[False]2영역은legacy참조로유지하고28건에 합산하지않는다.
+- 기존대표testReference와 전체testReferences·syntheticCases(case/probe/실제nodeid/모델관측버전·범위)를 제공하며 remainingScope에 영역별 실제회사/기기·전경로·동시성 등 미검증을 남긴다. 검토12영역과 운영전환12조건은 별개/코드집합비중복이며 1:1대응/완료수가아니다. 참조는저장소구현위치이지 설치서버에시험파일이있거나 현재회사에서실행됐다는증명이아니다.
+- 보고서생성은 프로세스/시험실행·추가DB읽기·과거파일/환경PASS수입을 하지않는다. 전역/모든영역/조건은NOT_EXECUTED·currentCompanyVerified=false·result=UNVERIFIED/coverageComplete/revocationsComplete/syntheticExecutionImported=false를유지한다. 반환값PASS변조가 후속보고나 불변실행카탈로그로전파되지않음을 확인했다. 알수없는 참조는legacy시험으로바꾸지않고 거부한다.
+- 동일읽기전용스냅샷·최신원본재검증/최신FAIL·PARTIAL/원본유실·변조·회수·옛정책/버전차단·사전점검은유지했다. 실행보고상위version1/내부맵v2를 구분한다. ready=false/최종4조건UNVERIFIED·실제복원PARTIAL/PASS거부유지. 새소유DB에서 별도CLI28조건을 실제실행해도 그합성결과를 현재회사보고서에자동수입하지 않는다.
+- 실제검증: 관련단위1315통과25.55초(신규13/기존사용중단경고2), 최종도움말반영후화면/도움말61통과6.51초. 소유PG읽기전용진단3건18.32초통과: 회사2명/개발admin계정없음·4조건미확인/최신실패·원본유실·서명PARTIAL 유지, 실제읽기거래의쓰기25006차단·계정/세션/MFA·운영설정/증거5표지문불변을 확인했다. 집중단위375/전체1315·반복은합산하지않는다. 수정Python6개Ruff check/format·정적DB219표2409열543FK/R1–R6오류0. import/포맷보정, 실행시험실패없음. 스키마/마이그레이션·metadata/Excel/ERD변경없음.
+- 최종고정CLI: 공통카탈로그를사용한최종소스28조건 PASSED/관측28·pytest종료0·sourceUnchanged/databaseCleaned=true·PARTIAL/종료0·528.00초·상한840초. 실행선택공유의실제회귀를확인하려고 full64컨테이너ID/owner=gw-ready-02-phase69-test/running·단일127.0.0.1/TCP준비를확인한 새postgres:18/새UUID *_test DB에서 수행했다. 생성기본DB/폐쇄복원DB·컨테이너/볼륨만정리하고 owner잔여0확인. 기존미리보기/병행DB접속·초기화없음.
+- 실회사절차§43/수집경계·정적도움말/문서지도/구현문서·현황199줄/progress/HANDOFF갱신. 참조/실행·현재회사구분의직관성, 실제카탈로그/관측/읽기불변의유효성, 두12목록·선택범위학습안내와 공통카탈로그재사용을반영했다. 전체UI완성은아니다. 제품프런트미변경으로 타입/ESLint/build·실브라우저/모바일재실행없음. 전체CI/전체회귀·기존V5전체경로합성모드/실회사·실기기10인/최종전환은미실행·미완료다.
+- unsigned진단/합성PARTIAL·실제복원PARTIAL과최종4조건미확인/PASS거부를 유지한다. 실계정/admin/비밀번호/OTP/키/브라우저·미리보기/다른checkout/WMS/main/push/배포변경없음.work/.env·비밀/전체로그Git제외.
+- 다음:별도합성미리보기에서 실제API로그인후회사선택→운영안내→운영준비→도움말/업무복귀 동선을 검증한다. 기존URL http://localhost:5362/gw/operations?companyId=3 은실행상태를재확인할과거기록이며 API8362/PG fs-gw-ready02-preview·owner=gw-ready-02-preview/loopback55439의현재ID·라벨·계정/접속자료/회사·역할을먼저확인한다. 개발admin계정은57차시점없었으므로 생성/이름변경/비밀번호초기화·DB/브라우저설정변경을임의로하지않는다. 비공개work/gw-readiness-02-preview 자료의비밀을출력/Git에넣지않고 계정불일치를합성API/옛시제품으로통과시키지않는다. 외부공급자/독립최신성·전경로/전체회수·최신main/전체회귀·실회사10인/최종전환은남는다. 난이도높음,GPT-6 Astra + High추천(실API/MFA·회사/역할맥락·브라우저상태와계정변경금지정합). 모델자동변경없음/사용자확인전다음단계자동착수없음.
+
 ## 2026-10-31 GW-READY-02 68차 — 저장 위임의 정책함수·회사ACL 런타임 대조 완료
 
 - 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, `codex/gw-company-01`, 시작 `fedd5bd`/깨끗한 작업트리를 확인했다. 이 checkout만 수정했다. 최종커밋은 `git log -1`로 확인한다.

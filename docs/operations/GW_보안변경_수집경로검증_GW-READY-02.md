@@ -194,3 +194,7 @@ uv run --project backend python tools/gw_route_verify.py \
 ## 68차 저장 위임의 정책 함수·회사ACL 대조
 
 [실회사 인수 절차 §42](GW_실회사_인수절차_10인_GW-READY-02.md)의 전용V9/28조건은 새 합성행으로 종류불일치·나가는/들어오는연쇄·직접배정 충돌을 준비한다. fixtureInserted=true/fixtureAcceptedViaApi=false를 필수로 두며 API등록·직접SQL운영권한/무누락수집을 검증했다고 세지 않는다. 정확종류/종류미지정의 실제API 승인·회수 대조 뒤 실제저장쌍/종류/행수와 회사HTTP/eligible·policy.decision(company_mode=True)의 승인/반려 거부를 각각 대조한다. 결함 상태 뒤에도 직접현재단계 승인은 유지한다. 선택12소스/원본·대상각5개 불변과 전체DB/독립외부수집·실기기/10인인수를 구분한다. ERP_PURCHASE는GW코드매칭이며 ERP업무/스키마/인증연동을 뜻하지 않는다. 복원전체위임회수와 직접권한보존을 분리하고 unsigned PARTIAL·ready=false/미확인4·실제복원PARTIAL/PASS거부를 유지한다.
+
+## 69차 공통 참조 카탈로그와 선택 검토의 미실행 유지
+
+[실회사 인수절차§43](GW_실회사_인수절차_10인_GW-READY-02.md)의 진단 revocationCoverage v2는 공통 고정카탈로그V9/28조건을12검토영역에 중복없이 연결한다. 기존8영역의 오래된 상태/미연결참조를 갱신하고 게시/채팅/일정/위임을 추가한다. 구세션/미완료인증의 기존함수참조2영역은28건에 합산하지 않는다. 모델의 관측버전/범위와 실제매개변수시험 위치를 제공하며 실행기도 같은불변카탈로그를 사용한다. 새카탈로그는 커밋전에도 코드지문에 포함한다. 참조가존재해도 보고서생성은 실행/과거결과수입을 하지 않는다. 모든행·조건NOT_EXECUTED/현재회사false·UNVERIFIED/전체회수false를 유지하고 검토12영역과 운영12조건을 혼동하지 않는다. 같은읽기스냅샷의 최신원본 재검증/FAIL·PARTIAL·유실·변조·회수·옛정책/버전차단과 ready=false/최종4조건UNVERIFIED·실제복원PARTIAL/PASS거부를 유지한다.

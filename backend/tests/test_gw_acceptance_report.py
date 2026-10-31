@@ -15,6 +15,7 @@ from test_gw_acceptance_preflight import facts, runner
 from fs.common.errors import ApiError
 from fs.gw import acceptance_report
 from fs.gw.acceptance_preflight import assess
+from fs.gw.denial_catalog import FAMILIES
 from fs.gw.operating_contract import canonical, verify_evidence
 from fs.gw.readiness import SOURCE_FIELD
 
@@ -113,6 +114,13 @@ def test_same_snapshot_combines_existing_preflight_and_original_verification(
     text = json.dumps(report)
     assert "_signedEnvelope" not in text and '"signature"' not in text
     assert report["revocationCoverage"]["executionState"] == "NOT_EXECUTED"
+    review = report["revocationCoverage"]
+    assert len(report["checks"]) == len(review["checks"]) == 12
+    assert {check["code"] for check in report["checks"]}.isdisjoint(
+        {check["code"] for check in review["checks"]}
+    )
+    assert all(check["executionState"] == "NOT_EXECUTED" for check in review["checks"])
+
     with pytest.raises(ApiError):
         verify_evidence(report, "arbitrary", **ctx)
 
@@ -186,18 +194,119 @@ def test_strict_ten_person_preflight_cannot_be_replaced_by_looser_gate(monkeypat
 
 def test_denial_map_points_only_to_real_existing_tests_and_claims_no_execution():
     review = acceptance_report.denial_review()
-    assert len(review["checks"]) == len({c["code"] for c in review["checks"]}) == 8
-    assert review["result"] == "UNVERIFIED" and not review["revocationsComplete"]
+    assert len(review["checks"]) == len({c["code"] for c in review["checks"]}) == 12
+    assert review["version"] == 2 and review["result"] == "UNVERIFIED"
+    assert not review["revocationsComplete"] and not review["currentCompanyVerified"]
+    root = Path(__file__).resolve().parents[2]
     for check in review["checks"]:
-        assert check["executionState"] == "NOT_EXECUTED"
-        if check["testReference"]:
-            filename, function = check["testReference"].split("::")
-            tree = ast.parse((Path(__file__).parent / filename).read_text())
-            assert function in {
+        assert (
+            check["executionState"] == "NOT_EXECUTED"
+            and not check["currentCompanyVerified"]
+        )
+        assert check["testReference"] == check["testReferences"][0]
+        for reference in check["testReferences"]:
+            filename, function = reference.split("::")
+            tree = ast.parse((root / filename).read_text())
+            assert function.split("[", 1)[0] in {
                 n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
             }
-        else:
-            assert check["existingScope"] == "UNCONNECTED"
+
+
+def test_review_has_every_fixed_case_once_and_separates_legacy_references():
+    from collections import Counter
+
+    from test_gw_route_verify import runner as route_runner
+
+    from fs.gw.denial_catalog import CATALOG_VERSION, DENIAL_PROBES
+    from fs.gw.restored_denial import ALL_CASES
+
+    review = acceptance_report.denial_review()
+    cases = [item for row in review["checks"] for item in row["syntheticCases"]]
+    assert Counter(item["case"] for item in cases) == Counter(ALL_CASES.keys())
+    assert len(cases) == 28 and {item["probe"] for item in cases} == set(DENIAL_PROBES)
+    assert dict(route_runner().DENIAL_PROBES) == dict(DENIAL_PROBES)
+    assert review["referenceCatalog"] == {
+        "version": CATALOG_VERSION,
+        "fixedSyntheticCaseCount": 28,
+        "observationFamilyCount": 9,
+        "observationVersions": list(range(1, 10)),
+        "executionProfile": "RESTORED_DENIAL_ONLY",
+        "executionScope": "NEW_OWNED_SYNTHETIC_DATABASE",
+    }
+    rows = {row["code"]: row for row in review["checks"]}
+    assert (
+        rows["OLD_SESSIONS"]["syntheticCases"]
+        == rows["PENDING_AUTHENTICATION"]["syntheticCases"]
+        == []
+    )
+    assert {c["case"] for c in rows["COMPANY_MEMBERSHIP"]["syntheticCases"]} == {
+        "COMPANY_MEMBERSHIP",
+        "FOREIGN_SCOPE",
+    }
+    assert {c["case"] for c in rows["DOCUMENT_ACL"]["syntheticCases"]} == {
+        "DOCUMENT_READER"
+    }
+    assert len(rows["DELEGATION"]["syntheticCases"]) == 15
+    for case in cases:
+        assert case["testReference"] == "::".join(DENIAL_PROBES[case["probe"]])
+        assert (
+            case["executionState"] == "NOT_EXECUTED"
+            and not case["currentCompanyVerified"]
+        )
+
+
+def test_review_does_not_read_or_run_or_import_claims_and_returns_fresh_flags(
+    monkeypatch,
+):
+    import subprocess
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("review metadata must not execute or import results")
+
+    monkeypatch.setattr(subprocess, "run", forbidden)
+    monkeypatch.setattr(Path, "read_text", forbidden)
+    monkeypatch.setattr(acceptance_report, "read_transaction", forbidden)
+    monkeypatch.setenv("FS_GW_SYNTHETIC_RESULT", "PASS")
+    monkeypatch.setenv("FS_GW_SYNTHETIC_REPORT", "work/old-pass.json")
+    first = acceptance_report.denial_review()
+    first["result"] = "PASS"
+    first["checks"][2]["syntheticCases"][0]["executionState"] = "PASSED"
+    first["checks"][2]["syntheticCases"][0]["currentCompanyVerified"] = True
+    fresh = acceptance_report.denial_review()
+    assert fresh["result"] == "UNVERIFIED" and fresh["executionState"] == "NOT_EXECUTED"
+    assert not fresh["syntheticExecutionImported"] and not fresh["coverageComplete"]
+    assert not fresh["revocationsComplete"] and not fresh["currentCompanyVerified"]
+    for row in fresh["checks"]:
+        for case in row["syntheticCases"]:
+            assert (
+                case["executionState"] == "NOT_EXECUTED"
+                and not case["currentCompanyVerified"]
+            )
+
+
+@pytest.mark.parametrize("family", FAMILIES)
+def test_catalog_family_matches_its_strict_observation_case_literals(family):
+    from typing import get_args
+
+    from fs.gw.denial_catalog import review_cases
+
+    assert set(family.cases) == set(
+        get_args(family.observation.model_fields["case"].annotation)
+    )
+    cases = review_cases(family.cases)
+    assert {case["case"] for case in cases} == set(family.cases)
+    assert all(
+        case["observationVersion"] == family.observation_version
+        and case["observationScope"] == family.observation_scope
+        for case in cases
+    )
+
+
+def test_unknown_catalog_reference_is_not_silently_replaced_by_legacy_test():
+    from fs.gw.denial_catalog import review_cases
+
+    with pytest.raises(ValueError):
+        review_cases(["CORE_ACCOUNT", "UNKNOWN_CASE"])
 
 
 def test_execution_cli_uses_opt_in_collector_and_never_leaks_errors(

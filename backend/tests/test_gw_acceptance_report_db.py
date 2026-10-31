@@ -57,6 +57,19 @@ def test_report_actual_read_only_snapshot_and_unchanged_company(
     assert report["launchGate"]["unverifiedCount"] == 4
     assert report["observedAt"] == report["preflight"]["observedAt"]
     assert not report["revocationCoverage"]["revocationsComplete"]
+    review = report["revocationCoverage"]
+    assert review["version"] == 2 and len(review["checks"]) == 12
+    assert review["referenceCatalog"]["fixedSyntheticCaseCount"] == 28
+    assert (
+        not review["currentCompanyVerified"]
+        and not review["syntheticExecutionImported"]
+    )
+    cases = [case for row in review["checks"] for case in row["syntheticCases"]]
+    assert len(cases) == 28 and all(
+        case["executionState"] == "NOT_EXECUTED" and not case["currentCompanyVerified"]
+        for case in cases
+    )
+
     assert state(engine) == before
     with pytest.raises(DBAPIError) as error, read_transaction(engine) as c:
         assert c.scalar(text("SHOW transaction_read_only")) == "on"

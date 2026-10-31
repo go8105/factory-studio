@@ -15,19 +15,9 @@ from xml.etree import ElementTree
 
 from fs.core.backup import BackupError, create_private, private_directory
 from fs.gw.acceptance_business import PROBE, PROPERTY, SyntheticBusinessObservation
+from fs.gw.denial_catalog import CATALOG_VERSION, DENIAL_PROBES
 from fs.gw.operating_contract import canonical, timestamp
-from fs.gw.restored_denial import (
-    ALL_CASES,
-    CALENDAR_CASES,
-    CHAT_CASES,
-    DELEGATION_BOUND_CASES,
-    DELEGATION_CASES,
-    DELEGATION_RELATION_CASES,
-    OBJECT_CASES,
-    POST_CASES,
-    STORED_DELEGATION_CASES,
-    parse_observation,
-)
+from fs.gw.restored_denial import ALL_CASES, parse_observation
 from fs.gw.restored_denial import (
     PROPERTY as DENIAL_PROPERTY,
 )
@@ -137,99 +127,6 @@ PROBES = {
 }
 
 
-DENIAL_PROBES = {
-    "RESTORED_FRESH_AUTH_" + case: (
-        "backend/tests/test_gw_restored_denial_db.py",
-        "test_closed_restore_fresh_authentication_denial[" + case + "]",
-    )
-    for case in ALL_CASES
-}
-DENIAL_PROBES.update(
-    {
-        "RESTORED_FRESH_AUTH_" + case: (
-            "backend/tests/test_gw_restored_object_db.py",
-            "test_closed_restore_object_authorization[" + case + "]",
-        )
-        for case in OBJECT_CASES
-    }
-)
-
-DENIAL_PROBES.update(
-    {
-        "RESTORED_FRESH_AUTH_" + case: (
-            "backend/tests/test_gw_restored_post_db.py",
-            "test_closed_restore_post_visibility[" + case + "]",
-        )
-        for case in POST_CASES
-    }
-)
-
-DENIAL_PROBES.update(
-    {
-        "RESTORED_FRESH_AUTH_" + case: (
-            "backend/tests/test_gw_restored_chat_db.py",
-            "test_closed_restore_chat_membership[" + case + "]",
-        )
-        for case in CHAT_CASES
-    }
-)
-
-
-DENIAL_PROBES.update(
-    {
-        "RESTORED_FRESH_AUTH_" + case: (
-            "backend/tests/test_gw_restored_calendar_db.py",
-            "test_closed_restore_calendar_authorization[" + case + "]",
-        )
-        for case in CALENDAR_CASES
-    }
-)
-
-
-DENIAL_PROBES.update(
-    {
-        "RESTORED_FRESH_AUTH_" + case: (
-            "backend/tests/test_gw_restored_delegation_db.py",
-            "test_closed_restore_delegation_authorization[" + case + "]",
-        )
-        for case in DELEGATION_CASES
-    }
-)
-
-
-DENIAL_PROBES.update(
-    {
-        "RESTORED_FRESH_AUTH_" + case: (
-            "backend/tests/test_gw_restored_delegation_bounds_db.py",
-            "test_source_bounds_and_restored_delegation_floor[" + case + "]",
-        )
-        for case in DELEGATION_BOUND_CASES
-    }
-)
-
-
-DENIAL_PROBES.update(
-    {
-        "RESTORED_FRESH_AUTH_" + case: (
-            "backend/tests/test_gw_restored_delegation_relations_db.py",
-            "test_source_relation_money_and_restored_floor[" + case + "]",
-        )
-        for case in DELEGATION_RELATION_CASES
-    }
-)
-
-
-DENIAL_PROBES.update(
-    {
-        "RESTORED_FRESH_AUTH_" + case: (
-            "backend/tests/test_gw_stored_delegation_runtime_db.py",
-            "test_stored_delegation_policy_acl_and_restore[" + case + "]",
-        )
-        for case in STORED_DELEGATION_CASES
-    }
-)
-
-
 def source_identity():
     commit = (
         subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT).decode().strip()
@@ -245,6 +142,7 @@ def source_identity():
         Path(path) for path, _name in [*PROBES.values(), *DENIAL_PROBES.values()]
     )
     paths.add(Path("backend/src/fs/gw/restored_denial.py"))
+    paths.add(Path("backend/src/fs/gw/denial_catalog.py"))
     digest = hashlib.sha256()
     for path in sorted(paths):
         digest.update(os.fsencode(path) + b"\0")
@@ -434,7 +332,7 @@ def run(*, admin_url, output, restored_denial_only=False):
     report = {
         "version": 1,
         "kind": "SYNTHETIC_GW_ROUTE_EXECUTION",
-        "catalogVersion": "GW_RESTORED_DENIAL_PROBES_V9"
+        "catalogVersion": CATALOG_VERSION
         if restored_denial_only
         else "GW_SYNTHETIC_ROUTE_PROBES_V5",
         "restoredDenialObservations": [],

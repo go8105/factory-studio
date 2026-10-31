@@ -1131,3 +1131,28 @@ v9는 결함 준비 방식·실제 저장형태/행 수/종류, 두 정상종류
 소스는 기존권한7+위5=선택12개, 원본/복원 거부 불변은 각5개만 뜻한다. 인증/세션·보안감사/알림 등 전체DB불변·독립외부수집/전경로무누락·실기기/실회사10인 인수는 아니다. ERP_PURCHASE는 GW 위임의 코드 문자열이며 ERP 업무/스키마/인증연동은 검사하지 않았다. 업무스키마 간 FK를 추가하지 않는다.
 
 unsigned합성 PARTIAL·ready=false/최종4조건UNVERIFIED·실제복원PARTIAL/PASS거부를 유지하며59차보고/제품12조건으로 자동 승격하지 않는다. 다음은59차 진단의 선택권한검토맵을 최신28조건의 실제범위와 대조해 오래된참조/미연결·미실행 표시를 갱신한다. 자동실행/결과수입·현재회사PASS는 별도다. 외부공급자/독립최신성·전경로/전체회수·동시성/실API브라우저/최신main/전체회귀·실회사10인/최종전환은 남는다.
+
+## 43. 선택 권한검토맵의 공통 카탈로그와 미실행 표시 · 69차
+
+기존 인수진단 `gw_acceptance_preflight.py --execution-report`의 `revocationCoverage`는 내부 버전2로 갱신한다. 보고서 상위 version1과 동일 읽기전용 스냅샷·최신 원본 재검증·12운영조건 판정은 유지한다. 기존8영역에 게시물/채팅/일정/위임을 더한12검토영역을 제공한다. **검토12영역은 운영전환12조건과 별개의 목록이며 1:1 대응·완료 수가 아니다.**
+
+새 공통 `backend/src/fs/gw/denial_catalog.py`의 불변9가족/28고정조건을 실행기와 검토맵이 함께 사용한다. 실행 카탈로그는 그대로 GW_RESTORED_DENIAL_PROBES_V9다. 새 관측버전/시험·수집기/복원기를 만들지 않는다. 보고서의 referenceCatalog에는 고정조건 수28·관측가족9/버전1–9·RESTORED_DENIAL_ONLY/NEW_OWNED_SYNTHETIC_DATABASE를 표시한다. 각 syntheticCases는 case/probe/매개변수 포함 testReference/실제모델 observationVersion·observationScope를 제공한다. 참조는 저장소의 시험 위치이며 설치 서버의 파일 존재·실행 성공을 판별하는 기능이 아니다.
+
+| 검토영역 | 고정 합성조건 참조 |
+|---|---|
+| CORE_ACCOUNT / HR_AUTHORITY / GW_BINDING / GW_ROLE | 각 새인증 경계1건 |
+| COMPANY_MEMBERSHIP | 회사멤버십 회수·실제 다른합성회사 범위2건. 기존 미연결 표시는 참조연결로 갱신 |
+| DOCUMENT_ACL | 참조자 읽기회수 문서1건. 원래 허용되지 않은 수정 거부와 편집권 회수를 혼동하지 않음 |
+| POST_VISIBILITY / CHAT_MEMBERSHIP / CALENDAR_AUTHORIZATION | 각2건의 객체경계·회사격리/영수증 대조 |
+| DELEGATION | 회수2/원본범위5/관계금액4/저장상태정책4=15건. 원본판정·복원하한·정책함수/HTTP·fixture 준비를 관측범위로 구분 |
+| OLD_SESSIONS / PENDING_AUTHENTICATION | 기존 합성 복원함수[False] 참조만 유지. 고정28조건에 중복 합산하지 않음 |
+
+고정28조건은 영역 간 중복 없이 배치한다. FOREIGN_SCOPE는 COMPANY_MEMBERSHIP에만 배치하고 문서영역에서 중복 계산하지 않는다. 기존 단일 testReference는 대표 참조로 남기며 전체는 testReferences/syntheticCases에서 확인한다. remainingScope는 영역별 현재회사/실기기·전체경로/동시성 등 미검증 범위를 명시한다. 관측7/8/9의 원본범위/복원전체회수·저장fixture 차이를 단순히 “복원 권한검사 완료”로 합치지 않는다.
+
+이 맵은 메타데이터다. 보고서 생성은 시험/프로세스를 실행하거나 DB를 추가 조회하거나 과거JSON·환경의 PASS 주장을 가져오지 않는다. 모든 영역/조건은 NOT_EXECUTED·currentCompanyVerified=false, 전체 result=UNVERIFIED/coverageComplete=false/revocationsComplete=false/syntheticExecutionImported=false를 유지한다. 검사 참조가 갱신된 것과 현재회사의 인수를 완료한 것은 다르다. 새 보고서마다 독립 복사본을 만들어 이전 반환값의 PASS 수정으로 다음 보고서나 실행 카탈로그를 바꾸지 못하게 한다.
+
+실행기는 같은 공통 카탈로그에서 실제 매개변수 시험을 선택한다. 새 파일이 아직 커밋되지 않았어도 source_identity의 코드 지문에 포함한다. 참조 불명 조건은 과거 시험으로 대체하지 않고 거부한다. 현재 상한840초/일반300/마이그레이션120초·시간초과BLOCKED/부분JUnit미채택은 유지한다. 이번 참조 정리를 검증하는 실제 CLI 실행은 별도 새소유DB에서 수행하며, 그 결과를 현재회사 진단에 자동 수입하지 않는다.
+
+동일 읽기전용 거래의 사전점검·정책/현재버전·최신 원본 재검증은 유지한다. 최신FAIL/PARTIAL·원본유실·변조/회수·옛정책/버전을 과거PASS로 대신하지 않는다. ready=false/최종4조건UNVERIFIED·실제복원PARTIAL/인수PASS거부를 해제하지 않는다. 스키마/마이그레이션·계정명/비밀번호·실데이터·미리보기 DB 변경은 없다.
+
+다음은 별도 합성 미리보기에서 실제API 로그인 후 회사 선택→운영안내→운영준비→도움말/업무복귀 동선을 검증한다. 현재 프로세스/소유컨테이너·접속자료/계정·회사/역할을 먼저 다시 확인하며 admin 계정 생성·이름변경/비밀번호초기화·DB초기화·브라우저설정을 임의 변경하지 않는다. 실제계정이 일치하지 않으면 합성 API/옛 화면으로 실API 동선을 통과시키지 않는다. 외부공급자/독립최신성·전경로/전체회수·최신main/전체회귀·실회사10인/최종전환은 남는다.

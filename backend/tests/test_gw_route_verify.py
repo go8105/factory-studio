@@ -236,3 +236,29 @@ def test_execution_timeout_writes_blocked_report_and_cleans_own_database(
         json.loads(output.read_bytes()) == report
         and b"private credential" not in output.read_bytes()
     )
+
+
+def test_source_fingerprint_includes_new_shared_catalog_before_commit(
+    tmp_path, monkeypatch
+):
+    module = runner()
+    script = tmp_path / "tools/gw_route_verify.py"
+    catalog = tmp_path / "backend/src/fs/gw/denial_catalog.py"
+    script.parent.mkdir(parents=True)
+    catalog.parent.mkdir(parents=True)
+    script.write_text("runner")
+    catalog.write_text("first shared catalog")
+    monkeypatch.setattr(module, "ROOT", tmp_path)
+    monkeypatch.setattr(module, "__file__", str(script))
+    monkeypatch.setattr(
+        module.subprocess,
+        "check_output",
+        lambda command, **kw: b"a" * 40 if command[1] == "rev-parse" else b"",
+    )
+    before = module.source_identity()
+    catalog.write_text("changed shared catalog")
+    after = module.source_identity()
+    assert (
+        before["commit"] == after["commit"]
+        and before["sourceDigest"] != after["sourceDigest"]
+    )
