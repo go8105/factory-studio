@@ -186,3 +186,7 @@ uv run --project backend python tools/gw_route_verify.py \
 ## 66차 원본 위임 범위 판정과 복원 전체회수의 구분
 
 [실회사 인수 절차 §40](GW_실회사_인수절차_10인_GW-READY-02.md)의 전용V7/20조건은 시작전·만료후·KRW100한도/101·회사타종류위임입력400·다음단계의 원본404/목록검색비노출/실제정책eligible와 허용대조를 확인한다. 시각끝점은 실제DB 정책함수에 명시시각을 넘겨 검사하며 HTTP의 순간 경계로 과장하지 않는다. 문서종류는 GENERAL 등록제한 검사이며 타종류 저장행/ERP업무 런타임매칭 완료가 아니다. 실제단계진행 전후를 대조한다. 그 뒤 닫힌 복원본에서 새MFA·원 담당자 직접처리·미회수위임0건/대리404를 검사한다. restoredBoundaryCause=ALL_DELEGATIONS_REVOKED를 필수로 두어 복원전체회수를 원본 범위검사로 대신하지 않는다. 선택12소스/원본거부5/대상거부5 비교와 전체DB불변·독립수집/전경로/실기기 인수를 구분한다. unsigned PARTIAL·ready=false/미확인4·실제복원PARTIAL/PASS거부 유지.
+
+## 67차 연쇄 등록·직접배정과 외화/금액 누락
+
+[실회사 인수 절차 §41](GW_실회사_인수절차_10인_GW-READY-02.md)의 전용V8/24조건은 연쇄등록409/PRECONDITION_NOT_MET·reason=DELEGATION_OVERLAP_OR_CHAIN과 원본 회사범위 유효위임 보존/후보404를 확인한다. 직접배정은 원본/복원 모두 열람/목록검색200·현재차례아닌처리409/PRECONDITION_NOT_MET·reason=NOT_CURRENT_STEP과 별도직접승인200을 구분한다. 한도100에서 실제USD100/금액통화모두null의 원본404/eligible=[]와KRW100허용을 대조한다. 실제생성응답/한도와 전송코드/사유를 각각검증한다. 복원전체위임회수와 직접권한보존 원인을 분리하며 복원404를 원본관계/금액검사로 대신하지 않는다. 연쇄는 등록차단이며 저장된불법연쇄 런타임/ERP연동 검사는 별도다. 선택12소스/원본·대상각5테이블 불변은 전체DB/외부독립수집·무누락/실기기인수가 아니다. unsigned PARTIAL·ready=false/미확인4·실제복원PARTIAL/PASS거부 유지.

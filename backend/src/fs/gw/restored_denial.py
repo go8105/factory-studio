@@ -46,6 +46,12 @@ DELEGATION_BOUND_CASES = {
         "DELEGATION_CURRENT_STAGE",
     )
 }
+DELEGATION_RELATION_CASES = {
+    "DELEGATION_CHAIN_INPUT": (404, "NOT_FOUND"),
+    "DELEGATION_DIRECT_ASSIGNMENT": (409, "PRECONDITION_NOT_MET"),
+    "DELEGATION_FOREIGN_CURRENCY": (404, "NOT_FOUND"),
+    "DELEGATION_MISSING_AMOUNT": (404, "NOT_FOUND"),
+}
 ALL_CASES = (
     CASES
     | OBJECT_CASES
@@ -54,6 +60,7 @@ ALL_CASES = (
     | CALENDAR_CASES
     | DELEGATION_CASES
     | DELEGATION_BOUND_CASES
+    | DELEGATION_RELATION_CASES
 )
 
 
@@ -727,6 +734,192 @@ class RestoredDelegationBoundaryObservation(RestoredDenialObservation):
         return self
 
 
+class RestoredDelegationRelationObservation(RestoredDenialObservation):
+    version: Literal[8]
+    scope: Literal["SYNTHETIC_SOURCE_RELATION_MONEY_AND_CLOSED_RESTORE_FLOOR"]
+    case: Literal[
+        "DELEGATION_CHAIN_INPUT",
+        "DELEGATION_DIRECT_ASSIGNMENT",
+        "DELEGATION_FOREIGN_CURRENCY",
+        "DELEGATION_MISSING_AMOUNT",
+    ]
+    source_comparison_scope: Literal[
+        "SELECTED_AUTHORIZATION_DELEGATION_DOCUMENT_AND_RECEIPT_TABLES"
+    ] = Field(alias="sourceComparisonScope")
+    source_read_status: int = Field(alias="sourceReadStatus")
+    source_read_code: str | None = Field(alias="sourceReadCode")
+    source_approve_status: int = Field(alias="sourceApproveStatus")
+    source_reject_status: int = Field(alias="sourceRejectStatus")
+    source_action_code: str = Field(alias="sourceActionCode")
+    source_action_reason: str | None = Field(alias="sourceActionReason")
+    source_target_amount: Literal["100"] | None = Field(alias="sourceTargetAmount")
+    source_target_currency: Literal["KRW", "USD"] | None = Field(
+        alias="sourceTargetCurrency"
+    )
+    source_limited_grant: bool = Field(alias="sourceLimitedGrant")
+    source_target_listed: bool = Field(alias="sourceTargetListed")
+    source_target_searchable: bool = Field(alias="sourceTargetSearchable")
+    source_policy_empty: Literal[True] = Field(alias="sourcePolicyEmpty")
+    source_denial_state_unchanged: Literal[True] = Field(
+        alias="sourceDenialStateUnchanged"
+    )
+    baseline_delegated_read: Literal[True] = Field(alias="baselineDelegatedRead")
+    baseline_delegated_approval: Literal[True] = Field(
+        alias="baselineDelegatedApproval"
+    )
+    source_remaining_valid_grant: Literal[True] = Field(
+        alias="sourceRemainingValidGrant"
+    )
+    chain_input_status: int | None = Field(alias="chainInputStatus")
+    chain_input_code: str | None = Field(alias="chainInputCode")
+    chain_input_reason: str | None = Field(alias="chainInputReason")
+    chain_rejected_state_unchanged: bool = Field(alias="chainRejectedStateUnchanged")
+    source_direct_approval: bool = Field(alias="sourceDirectApproval")
+    restored_original_read: Literal[True] = Field(alias="restoredOriginalRead")
+    restored_original_approval: Literal[True] = Field(alias="restoredOriginalApproval")
+    restored_subject_direct_approval: bool = Field(
+        alias="restoredSubjectDirectApproval"
+    )
+    restored_read_status: int = Field(alias="restoredReadStatus")
+    restored_read_code: str | None = Field(alias="restoredReadCode")
+    restored_approve_status: int = Field(alias="restoredApproveStatus")
+    restored_reject_status: int = Field(alias="restoredRejectStatus")
+    restored_action_code: str = Field(alias="restoredActionCode")
+    restored_action_reason: str | None = Field(alias="restoredActionReason")
+    restored_target_listed: bool = Field(alias="restoredTargetListed")
+    restored_target_searchable: bool = Field(alias="restoredTargetSearchable")
+    restored_delegations_revoked: Literal[True] = Field(
+        alias="restoredDelegationsRevoked"
+    )
+    restored_denial_state_unchanged: Literal[True] = Field(
+        alias="restoredDenialStateUnchanged"
+    )
+    restored_boundary_cause: Literal[
+        "ALL_DELEGATIONS_REVOKED", "DIRECT_ASSIGNMENT_RETAINED"
+    ] = Field(alias="restoredBoundaryCause")
+    company_hold: Literal[False] = Field(alias="companyHold")
+    unauthorized_content_exposed: Literal[False] = Field(
+        alias="unauthorizedContentExposed"
+    )
+    delegation_replayed: Literal[False] = Field(alias="delegationReplayed")
+
+    @model_validator(mode="before")
+    @classmethod
+    def exact_relation_types(cls, value):
+        if isinstance(value, dict):
+            for key in (
+                "sourceTargetListed",
+                "sourceTargetSearchable",
+                "sourcePolicyEmpty",
+                "sourceDenialStateUnchanged",
+                "baselineDelegatedRead",
+                "baselineDelegatedApproval",
+                "sourceRemainingValidGrant",
+                "sourceLimitedGrant",
+                "chainRejectedStateUnchanged",
+                "sourceDirectApproval",
+                "restoredOriginalRead",
+                "restoredOriginalApproval",
+                "restoredSubjectDirectApproval",
+                "restoredTargetListed",
+                "restoredTargetSearchable",
+                "restoredDelegationsRevoked",
+                "restoredDenialStateUnchanged",
+                "companyHold",
+                "unauthorizedContentExposed",
+                "delegationReplayed",
+            ):
+                if type(value.get(key)) is not bool:
+                    raise ValueError("exact relation boolean required")
+            for key in (
+                "sourceReadStatus",
+                "sourceApproveStatus",
+                "sourceRejectStatus",
+                "restoredReadStatus",
+                "restoredApproveStatus",
+                "restoredRejectStatus",
+            ):
+                if type(value.get(key)) is not int:
+                    raise ValueError("exact relation status required")
+            if (
+                value.get("chainInputStatus") is not None
+                and type(value["chainInputStatus"]) is not int
+            ):
+                raise ValueError("exact chain input status required")
+        return value
+
+    @model_validator(mode="after")
+    def relation_boundaries(self):
+        direct = self.case == "DELEGATION_DIRECT_ASSIGNMENT"
+        chain = self.case == "DELEGATION_CHAIN_INPUT"
+        read = (200, None) if direct else (404, "NOT_FOUND")
+        action = DELEGATION_RELATION_CASES[self.case]
+        if any(
+            pair != read
+            for pair in (
+                (self.source_read_status, self.source_read_code),
+                (self.restored_read_status, self.restored_read_code),
+            )
+        ):
+            raise ValueError("wrong relation read boundary")
+        if any(
+            pair != action
+            for pair in (
+                (self.source_approve_status, self.source_action_code),
+                (self.source_reject_status, self.source_action_code),
+                (self.restored_approve_status, self.restored_action_code),
+                (self.restored_reject_status, self.restored_action_code),
+            )
+        ):
+            raise ValueError("wrong relation decision boundary")
+        if any(
+            v != direct
+            for v in (
+                self.source_target_listed,
+                self.source_target_searchable,
+                self.restored_target_listed,
+                self.restored_target_searchable,
+                self.source_direct_approval,
+                self.restored_subject_direct_approval,
+            )
+        ):
+            raise ValueError("direct participation is not delegated authority")
+        if (
+            self.chain_input_status,
+            self.chain_input_code,
+            self.chain_input_reason,
+            self.chain_rejected_state_unchanged,
+        ) != (
+            (409, "PRECONDITION_NOT_MET", "DELEGATION_OVERLAP_OR_CHAIN", True)
+            if chain
+            else (None, None, None, False)
+        ):
+            raise ValueError("wrong chain rejection boundary")
+        if self.restored_boundary_cause != (
+            "DIRECT_ASSIGNMENT_RETAINED" if direct else "ALL_DELEGATIONS_REVOKED"
+        ):
+            raise ValueError("wrong restore cause")
+        expected_reason = "NOT_CURRENT_STEP" if direct else None
+        if (
+            self.source_action_reason != expected_reason
+            or self.restored_action_reason != expected_reason
+        ):
+            raise ValueError("wrong decision reason")
+        money = {
+            "DELEGATION_CHAIN_INPUT": ("100", "KRW", False),
+            "DELEGATION_DIRECT_ASSIGNMENT": ("100", "KRW", False),
+            "DELEGATION_FOREIGN_CURRENCY": ("100", "USD", True),
+            "DELEGATION_MISSING_AMOUNT": (None, None, True),
+        }[self.case]
+        if (
+            self.source_target_amount,
+            self.source_target_currency,
+            self.source_limited_grant,
+        ) != money:
+            raise ValueError("wrong measured money or limit")
+        return self
+
+
 def parse_observation(raw):
     import json
 
@@ -743,7 +936,7 @@ def parse_observation(raw):
 
     payload = json.loads(raw, object_pairs_hook=unique)
     version = payload.get("version") if isinstance(payload, dict) else None
-    if type(version) is not int or version not in {1, 2, 3, 4, 5, 6, 7}:
+    if type(version) is not int or version not in {1, 2, 3, 4, 5, 6, 7, 8}:
         raise ValueError("unsupported restored denial version")
     model = {
         1: RestoredDenialObservation,
@@ -753,5 +946,6 @@ def parse_observation(raw):
         5: RestoredCalendarDenialObservation,
         6: RestoredDelegationDenialObservation,
         7: RestoredDelegationBoundaryObservation,
+        8: RestoredDelegationRelationObservation,
     }[version]
     return model.model_validate_json(raw, strict=True)

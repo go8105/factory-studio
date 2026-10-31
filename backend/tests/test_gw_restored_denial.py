@@ -17,6 +17,7 @@ from fs.gw.restored_denial import (
     CHAT_CASES,
     DELEGATION_BOUND_CASES,
     DELEGATION_CASES,
+    DELEGATION_RELATION_CASES,
     OBJECT_CASES,
     POST_CASES,
     PROPERTY,
@@ -234,6 +235,59 @@ def observation(case="GW_ROLE"):
             restoredBoundaryCause="ALL_DELEGATIONS_REVOKED",
             companyHold=False,
             contentExposed=False,
+            delegationReplayed=False,
+        )
+    if case in DELEGATION_RELATION_CASES:
+        direct = case == "DELEGATION_DIRECT_ASSIGNMENT"
+        chain = case == "DELEGATION_CHAIN_INPUT"
+        data.update(
+            version=8,
+            scope="SYNTHETIC_SOURCE_RELATION_MONEY_AND_CLOSED_RESTORE_FLOOR",
+            sourceComparisonScope="SELECTED_AUTHORIZATION_DELEGATION_DOCUMENT_AND_RECEIPT_TABLES",
+            sourceReadStatus=200 if direct else 404,
+            sourceReadCode=None if direct else "NOT_FOUND",
+            sourceApproveStatus=status,
+            sourceRejectStatus=status,
+            sourceActionCode=code,
+            sourceActionReason="NOT_CURRENT_STEP" if direct else None,
+            sourceTargetAmount=None if case == "DELEGATION_MISSING_AMOUNT" else "100",
+            sourceTargetCurrency=None
+            if case == "DELEGATION_MISSING_AMOUNT"
+            else "USD"
+            if case == "DELEGATION_FOREIGN_CURRENCY"
+            else "KRW",
+            sourceLimitedGrant=case
+            in {"DELEGATION_FOREIGN_CURRENCY", "DELEGATION_MISSING_AMOUNT"},
+            sourceTargetListed=direct,
+            sourceTargetSearchable=direct,
+            sourcePolicyEmpty=True,
+            sourceDenialStateUnchanged=True,
+            baselineDelegatedRead=True,
+            baselineDelegatedApproval=True,
+            sourceRemainingValidGrant=True,
+            chainInputStatus=409 if chain else None,
+            chainInputCode="PRECONDITION_NOT_MET" if chain else None,
+            chainInputReason="DELEGATION_OVERLAP_OR_CHAIN" if chain else None,
+            chainRejectedStateUnchanged=chain,
+            sourceDirectApproval=direct,
+            restoredOriginalRead=True,
+            restoredOriginalApproval=True,
+            restoredSubjectDirectApproval=direct,
+            restoredReadStatus=200 if direct else 404,
+            restoredReadCode=None if direct else "NOT_FOUND",
+            restoredApproveStatus=status,
+            restoredRejectStatus=status,
+            restoredActionCode=code,
+            restoredActionReason="NOT_CURRENT_STEP" if direct else None,
+            restoredTargetListed=direct,
+            restoredTargetSearchable=direct,
+            restoredDelegationsRevoked=True,
+            restoredDenialStateUnchanged=True,
+            restoredBoundaryCause="DIRECT_ASSIGNMENT_RETAINED"
+            if direct
+            else "ALL_DELEGATIONS_REVOKED",
+            companyHold=False,
+            unauthorizedContentExposed=False,
             delegationReplayed=False,
         )
     return data
@@ -488,7 +542,7 @@ def test_object_contract_rejects_unproven_read_write_or_scope(change):
         "other-code": ("hiddenScopeReadCode", "COMPANY_ACCESS_DENIED"),
         "numeric-boolean": ("positiveObjectWrite", 1),
         "status-float": ("hiddenScopeReadStatus", 404.0),
-        "unknown-version": ("version", 8),
+        "unknown-version": ("version", 9),
     }
     key, value = edits[change]
     data[key] = value
@@ -825,6 +879,118 @@ def test_v7_rejects_unmeasured_source_or_inflated_restore_claim(field, value):
     ],
 )
 def test_v7_does_not_substitute_wrong_input_or_missing_allowed_control(
+    case, field, value
+):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation(case)
+    data[field] = value
+    with pytest.raises(ValueError):
+        parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize("case", list(DELEGATION_RELATION_CASES))
+def test_v8_keeps_direct_read_access_separate_from_delegated_decisions(case):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation(case)
+    parsed = parse_observation(json.dumps(data))
+    assert parsed.version == 8 and parsed.source_policy_empty
+    assert parsed.restored_subject_direct_approval is (
+        case == "DELEGATION_DIRECT_ASSIGNMENT"
+    )
+    for version in range(1, 8):
+        data["version"] = version
+        with pytest.raises(ValueError):
+            parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("sourceReadStatus", 404),
+        ("sourceReadCode", "NOT_FOUND"),
+        ("sourceApproveStatus", 200),
+        ("sourceRejectStatus", 404),
+        ("sourceActionCode", "NOT_FOUND"),
+        ("sourceTargetListed", False),
+        ("sourceTargetSearchable", False),
+        ("sourcePolicyEmpty", False),
+        ("sourceDenialStateUnchanged", False),
+        ("baselineDelegatedRead", False),
+        ("baselineDelegatedApproval", False),
+        ("sourceRemainingValidGrant", False),
+        ("chainInputStatus", 409),
+        ("chainInputCode", "DELEGATION_OVERLAP_OR_CHAIN"),
+        ("chainRejectedStateUnchanged", True),
+        ("sourceDirectApproval", False),
+        ("restoredOriginalRead", False),
+        ("restoredOriginalApproval", False),
+        ("restoredSubjectDirectApproval", False),
+        ("restoredReadStatus", 404),
+        ("restoredReadCode", "NOT_FOUND"),
+        ("restoredApproveStatus", 200),
+        ("restoredRejectStatus", 404),
+        ("restoredActionCode", "NOT_FOUND"),
+        ("restoredTargetListed", False),
+        ("restoredTargetSearchable", False),
+        ("restoredDelegationsRevoked", False),
+        ("restoredDenialStateUnchanged", False),
+        ("restoredBoundaryCause", "ALL_DELEGATIONS_REVOKED"),
+        ("companyHold", True),
+        ("unauthorizedContentExposed", True),
+        ("delegationReplayed", True),
+        ("sourceTargetListed", 1),
+        ("sourceApproveStatus", 409.0),
+    ],
+)
+def test_v8_rejects_hidden_direct_rights_or_unmeasured_decision_claim(field, value):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation("DELEGATION_DIRECT_ASSIGNMENT")
+    data[field] = value
+    with pytest.raises(ValueError):
+        parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("chainInputStatus", 400),
+        ("chainInputStatus", 409.0),
+        ("chainInputCode", "VALIDATION_FAILED"),
+        ("chainRejectedStateUnchanged", False),
+        ("sourceTargetListed", True),
+        ("restoredSubjectDirectApproval", True),
+        ("restoredBoundaryCause", "DIRECT_ASSIGNMENT_RETAINED"),
+    ],
+)
+def test_v8_chain_requires_exact_rejected_registration_and_retained_valid_grant(
+    field, value
+):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation("DELEGATION_CHAIN_INPUT")
+    data[field] = value
+    with pytest.raises(ValueError):
+        parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize(
+    "case,field,value",
+    [
+        ("DELEGATION_CHAIN_INPUT", "chainInputReason", "NOT_CURRENT_STEP"),
+        ("DELEGATION_DIRECT_ASSIGNMENT", "sourceActionReason", None),
+        ("DELEGATION_DIRECT_ASSIGNMENT", "restoredActionReason", None),
+        ("DELEGATION_FOREIGN_CURRENCY", "sourceTargetCurrency", "KRW"),
+        ("DELEGATION_FOREIGN_CURRENCY", "sourceTargetAmount", None),
+        ("DELEGATION_FOREIGN_CURRENCY", "sourceLimitedGrant", False),
+        ("DELEGATION_MISSING_AMOUNT", "sourceTargetAmount", "100"),
+        ("DELEGATION_MISSING_AMOUNT", "sourceTargetCurrency", "USD"),
+        ("DELEGATION_MISSING_AMOUNT", "sourceLimitedGrant", 1),
+    ],
+)
+def test_v8_requires_measured_currency_amount_limit_and_precise_reason(
     case, field, value
 ):
     from fs.gw.restored_denial import parse_observation

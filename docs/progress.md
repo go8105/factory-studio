@@ -1,3 +1,19 @@
+## 2026-10-31 GW-READY-02 67차 — 위임 연쇄·직접배정/외화·금액 누락 경계 완료
+
+- 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, `codex/gw-company-01`, 시작 `6adfeb8`/깨끗한 작업트리를 확인했다. 이 checkout만 수정했다. 최종커밋은 `git log -1`로 확인한다.
+- 기존 전용실행기 `GW_RESTORED_DENIAL_PROBES_V8`/24조건으로 확장했다. 이전v1다섯/v2~v6각둘/v7다섯은 보존하고 새4조건만 `RestoredDelegationRelationObservation` v8/`SYNTHETIC_SOURCE_RELATION_MONEY_AND_CLOSED_RESTORE_FLOOR`로 구분한다. 기존소유검증/새UUID DB·암호화백업/checkpoint/폐쇄restore·새MFA/실행/소스지문을 재사용한다. 현재상한은 기존식의720초, 일반300/마이그레이션120초·시간초과BLOCKED/부분JUnit미채택은 유지한다. 새공급자/복원기·임의대상/수동체크/PASS없음.
+- 합성4명의 실제 회사HTTP 문서/결재선생성·상신·위임등록·승인으로 준비한다. 유효원담당자→대리자 위임으로KRW100대조열람/별도승인과actingPersonId·onBehalfOfPersonId를 먼저 확인한다. 원본의 회사·세대범위 유효위임1건/실제위임비회수·대조문서eligible1개를 요구한다. 전체DB에있는 다른합성범위 위임을 삭제하거나 회사범위1건을 전역집계로 바꾸지 않는다.
+- DELEGATION_CHAIN_INPUT은 대리자가 별도직접현재단계도 가진상태에서 후보에게 재위임하면409/PRECONDITION_NOT_MET·details.reason=DELEGATION_OVERLAP_OR_CHAIN·실패5테이블불변/기존유효위임유지를 확인한다. 후보의대상조회/승인·반려404·eligible=[]·목록/검색제외를 요구한다. 실제연쇄등록차단이며 저장된불법연쇄의런타임차단 검사는아니다.
+- DELEGATION_DIRECT_ASSIGNMENT는 원담당자1단계/대리자2단계직접배정 대상의 읽기·목록/검색200과 actionSteps/eligible빈값·승인/반려409/PRECONDITION_NOT_MET·reason=NOT_CURRENT_STEP를 구분한다. 별도현재직접단계의 실제승인200·onBehalfOfPersonId=null을 원본/복원양쪽에서 확인한다. 합법열람을 원문유출로 세거나 직접권한까지 위임회수로 숨기지 않는다.
+- DELEGATION_FOREIGN_CURRENCY/DELEGATION_MISSING_AMOUNT는 실제생성응답의100/USD 또는amount/currency모두null과 maxAmount100을 확인하고 원본404/비노출/eligible=[]·같은위임KRW100허용을 대조한다. 입력값을 서로대신하거나 제한없는위임으로 통과시키지 않는다. v8이 실제금액/통화·한도/전송코드·사유를 별도필수검증한다.
+- 폐쇄복원에서 companyHold=false/미회수위임0·새MFA2명과 원담당자 대상열람/별도직접승인, 직접배정조건의 본인현재단계승인을 확인한다. 이후 대상거부/합법열람의5테이블불변을 검사한다. 복원원인은 세조건ALL_DELEGATIONS_REVOKED/직접배정DIRECT_ASSIGNMENT_RETAINED로 분리한다. 복원전체회수만으로 원본관계/금액판정을대신하지않는다. source권한7+문서/단계/이력/위임/영수증5=12개·원본/대상각5개만 비교하며 인증/세션·감사/알림/전체DB불변·독립외부수집/전경로·실기기인수가 아니다.
+- 실제검증: 관련단위1243통과23.92초(신규54/기존사용중단경고2), 화면/도움말61통과5.68초. 새소유PG 추가직접4조건57.48초통과 후 회사·세대범위쿼리를명시하고 최종CLI에서재확인했다. 집중단위292/전체1243·직접4/전용24·반복을합산하지않는다. 수정Python4개Ruff check/format·정적DB219표2409열543FK/R1–R6오류0. 스키마/마이그레이션·metadata/Excel/ERD변경없음.
+- 최종전용CLI: 최종소스24조건 PASSED/관측24(v1다섯/v2~v6각둘/v7다섯/v8넷), pytest종료0·sourceUnchanged/databaseCleaned=true·PARTIAL/종료0·320.80초·상한720초. full64컨테이너ID/owner=gw-ready-02-phase67-test/running·단일127.0.0.1/TCP준비를 확인한 새postgres:18/새UUID *_test DB에서 실행했다. 생성기본DB/폐쇄복원DB·컨테이너/볼륨만 정리하고 owner잔여0확인. 기존미리보기/병행DB접속·초기화없음.
+- 실패/보정: 초기직접PG4조건은34.47초실패했다. 내부사유를error.code로 기대했고 다른합성범위의위임까지 전역집계해1건으로기대했다. 실제기존계약인PRECONDITION_NOT_MET/개별details.reason을각각검증하고 회사·세대범위집계/실제위임비회수를확인하도록보정했다. 금액·통화/한도실측을관측계약에추가했다. 기존ACL/위임/전송/복원정책을바꾸지않았다. 실패로그는비공개보존/과거통과로대체없음. import정렬/미사용변수도보정했다.
+- 실회사절차§41/수집경계·정적도움말·문서지도/구현문서/현황199줄/progress/HANDOFF갱신. 열람/처리·코드/사유의직관적구분·실제허용/거부의유효성·직접배정/통화학습안내·기존계약재사용을반영했으며 전체UI완성은아니다. 제품프런트미변경으로 타입/ESLint/build·실브라우저/모바일재실행없음. 전체CI/전체회귀·기존V5전체경로합성모드·실회사/실기기10인/최종전환은미실행·미완료다.
+- unsigned합성PARTIAL·ready=false/최종4조건UNVERIFIED·실제복원PARTIAL/PASS거부유지.59차보고/제품12조건자동승격없음. 실계정/admin/비밀번호/OTP/키/브라우저·미리보기/다른checkout/WMS/main/push/배포변경없음. work/.env·비밀/전체로그Git제외.
+- 다음: 저장된위임의문서종류 런타임매칭·연쇄/직접배정차단을 합성서비스경계에대조하는고정검사. 실제ERP연동/불법연쇄허용·동시성/무누락/전체회수·외부공급자/독립최신성·실API브라우저/최신main/전체회귀/실회사10인/최종전환은남는다. 난이도높음, GPT-6 Astra + High추천(등록제한/저장행정책/회사ACL·현재단계/복원하한의정합). 모델자동변경없음/사용자확인전다음단계자동착수없음.
+
 ## 2026-10-31 GW-READY-02 66차 — 원본 위임 범위와 복원 전체회수 하한 분리 완료
 
 - 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, `codex/gw-company-01`, 시작 `6d31351`과 깨끗한 작업트리를 확인했다. 이 checkout만 수정했다. 최종커밋은 `git log -1`로 확인한다.
