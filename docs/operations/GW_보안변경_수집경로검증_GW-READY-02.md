@@ -190,3 +190,7 @@ uv run --project backend python tools/gw_route_verify.py \
 ## 67차 연쇄 등록·직접배정과 외화/금액 누락
 
 [실회사 인수 절차 §41](GW_실회사_인수절차_10인_GW-READY-02.md)의 전용V8/24조건은 연쇄등록409/PRECONDITION_NOT_MET·reason=DELEGATION_OVERLAP_OR_CHAIN과 원본 회사범위 유효위임 보존/후보404를 확인한다. 직접배정은 원본/복원 모두 열람/목록검색200·현재차례아닌처리409/PRECONDITION_NOT_MET·reason=NOT_CURRENT_STEP과 별도직접승인200을 구분한다. 한도100에서 실제USD100/금액통화모두null의 원본404/eligible=[]와KRW100허용을 대조한다. 실제생성응답/한도와 전송코드/사유를 각각검증한다. 복원전체위임회수와 직접권한보존 원인을 분리하며 복원404를 원본관계/금액검사로 대신하지 않는다. 연쇄는 등록차단이며 저장된불법연쇄 런타임/ERP연동 검사는 별도다. 선택12소스/원본·대상각5테이블 불변은 전체DB/외부독립수집·무누락/실기기인수가 아니다. unsigned PARTIAL·ready=false/미확인4·실제복원PARTIAL/PASS거부 유지.
+
+## 68차 저장 위임의 정책 함수·회사ACL 대조
+
+[실회사 인수 절차 §42](GW_실회사_인수절차_10인_GW-READY-02.md)의 전용V9/28조건은 새 합성행으로 종류불일치·나가는/들어오는연쇄·직접배정 충돌을 준비한다. fixtureInserted=true/fixtureAcceptedViaApi=false를 필수로 두며 API등록·직접SQL운영권한/무누락수집을 검증했다고 세지 않는다. 정확종류/종류미지정의 실제API 승인·회수 대조 뒤 실제저장쌍/종류/행수와 회사HTTP/eligible·policy.decision(company_mode=True)의 승인/반려 거부를 각각 대조한다. 결함 상태 뒤에도 직접현재단계 승인은 유지한다. 선택12소스/원본·대상각5개 불변과 전체DB/독립외부수집·실기기/10인인수를 구분한다. ERP_PURCHASE는GW코드매칭이며 ERP업무/스키마/인증연동을 뜻하지 않는다. 복원전체위임회수와 직접권한보존을 분리하고 unsigned PARTIAL·ready=false/미확인4·실제복원PARTIAL/PASS거부를 유지한다.

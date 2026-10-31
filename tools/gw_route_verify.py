@@ -25,6 +25,7 @@ from fs.gw.restored_denial import (
     DELEGATION_RELATION_CASES,
     OBJECT_CASES,
     POST_CASES,
+    STORED_DELEGATION_CASES,
     parse_observation,
 )
 from fs.gw.restored_denial import (
@@ -214,6 +215,17 @@ DENIAL_PROBES.update(
             "test_source_relation_money_and_restored_floor[" + case + "]",
         )
         for case in DELEGATION_RELATION_CASES
+    }
+)
+
+
+DENIAL_PROBES.update(
+    {
+        "RESTORED_FRESH_AUTH_" + case: (
+            "backend/tests/test_gw_stored_delegation_runtime_db.py",
+            "test_stored_delegation_policy_acl_and_restore[" + case + "]",
+        )
+        for case in STORED_DELEGATION_CASES
     }
 )
 
@@ -422,7 +434,7 @@ def run(*, admin_url, output, restored_denial_only=False):
     report = {
         "version": 1,
         "kind": "SYNTHETIC_GW_ROUTE_EXECUTION",
-        "catalogVersion": "GW_RESTORED_DENIAL_PROBES_V8"
+        "catalogVersion": "GW_RESTORED_DENIAL_PROBES_V9"
         if restored_denial_only
         else "GW_SYNTHETIC_ROUTE_PROBES_V5",
         "restoredDenialObservations": [],

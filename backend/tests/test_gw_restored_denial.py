@@ -21,6 +21,7 @@ from fs.gw.restored_denial import (
     OBJECT_CASES,
     POST_CASES,
     PROPERTY,
+    STORED_DELEGATION_CASES,
     RestoredDenialObservation,
 )
 
@@ -290,6 +291,66 @@ def observation(case="GW_ROLE"):
             unauthorizedContentExposed=False,
             delegationReplayed=False,
         )
+    if case in STORED_DELEGATION_CASES:
+        direct = case == "STORED_DIRECT_ASSIGNMENT"
+        shape, count, kind = {
+            "STORED_KIND_MISMATCH": ("KIND_MISMATCH", 1, "ERP_PURCHASE"),
+            "STORED_OUTGOING_CHAIN": ("OUTGOING_CHAIN", 2, "GENERAL"),
+            "STORED_INCOMING_CHAIN": ("INCOMING_CHAIN", 2, "GENERAL"),
+            "STORED_DIRECT_ASSIGNMENT": ("DIRECT_ASSIGNMENT", 1, "GENERAL"),
+        }[case]
+        data.update(
+            version=9,
+            scope="SYNTHETIC_STORED_FIXTURE_POLICY_ACL_AND_CLOSED_RESTORE_FLOOR",
+            sourceComparisonScope="SELECTED_AUTHORIZATION_DELEGATION_DOCUMENT_AND_RECEIPT_TABLES",
+            fixtureInserted=True,
+            fixtureAcceptedViaApi=False,
+            fixtureShape=shape,
+            fixtureActiveCount=count,
+            fixtureKind=kind,
+            targetKind="GENERAL",
+            baselineExactKindConfirmed=True,
+            baselineWildcardKindConfirmed=True,
+            sourceReadStatus=200 if direct else 404,
+            sourceReadCode=None if direct else "NOT_FOUND",
+            sourceApproveStatus=status,
+            sourceRejectStatus=status,
+            sourceActionCode=code,
+            sourceActionReason="NOT_CURRENT_STEP" if direct else None,
+            sourceListVisible=direct,
+            sourceSearchVisible=direct,
+            sourcePolicyEmpty=True,
+            sourceDirectControlConfirmed=True,
+            sourcePolicyApproveStatus=409,
+            sourcePolicyRejectStatus=409,
+            sourcePolicyCode="PRECONDITION_NOT_MET",
+            sourcePolicyReason="NOT_CURRENT_STEP",
+            sourceDenialStateUnchanged=True,
+            restoredOriginalRead=True,
+            restoredOriginalApproval=True,
+            restoredDirectControlConfirmed=True,
+            restoredReadStatus=200 if direct else 404,
+            restoredReadCode=None if direct else "NOT_FOUND",
+            restoredApproveStatus=status,
+            restoredRejectStatus=status,
+            restoredActionCode=code,
+            restoredActionReason="NOT_CURRENT_STEP" if direct else None,
+            restoredListVisible=direct,
+            restoredSearchVisible=direct,
+            restoredPolicyEmpty=True,
+            restoredPolicyApproveStatus=409,
+            restoredPolicyRejectStatus=409,
+            restoredPolicyCode="PRECONDITION_NOT_MET",
+            restoredPolicyReason="NOT_CURRENT_STEP",
+            restoredDelegationsRevoked=True,
+            restoredDenialStateUnchanged=True,
+            restoredBoundaryCause="DIRECT_ASSIGNMENT_RETAINED"
+            if direct
+            else "ALL_DELEGATIONS_REVOKED",
+            companyHold=False,
+            unauthorizedContentExposed=False,
+            delegationReplayed=False,
+        )
     return data
 
 
@@ -542,7 +603,7 @@ def test_object_contract_rejects_unproven_read_write_or_scope(change):
         "other-code": ("hiddenScopeReadCode", "COMPANY_ACCESS_DENIED"),
         "numeric-boolean": ("positiveObjectWrite", 1),
         "status-float": ("hiddenScopeReadStatus", 404.0),
-        "unknown-version": ("version", 9),
+        "unknown-version": ("version", 10),
     }
     key, value = edits[change]
     data[key] = value
@@ -991,6 +1052,110 @@ def test_v8_chain_requires_exact_rejected_registration_and_retained_valid_grant(
     ],
 )
 def test_v8_requires_measured_currency_amount_limit_and_precise_reason(
+    case, field, value
+):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation(case)
+    data[field] = value
+    with pytest.raises(ValueError):
+        parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize("case", list(STORED_DELEGATION_CASES))
+def test_v9_stored_faults_require_both_policy_and_http_observations(case):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation(case)
+    parsed = parse_observation(json.dumps(data))
+    assert (
+        parsed.version == 9
+        and parsed.fixture_inserted
+        and not parsed.fixture_accepted_via_api
+    )
+    for version in range(1, 9):
+        data["version"] = version
+        with pytest.raises(ValueError):
+            parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("fixtureInserted", False),
+        ("fixtureAcceptedViaApi", True),
+        ("fixtureShape", "INCOMING_CHAIN"),
+        ("fixtureActiveCount", 1),
+        ("fixtureKind", "ERP_PURCHASE"),
+        ("targetKind", "ERP_PURCHASE"),
+        ("baselineExactKindConfirmed", False),
+        ("baselineWildcardKindConfirmed", False),
+        ("sourceReadStatus", 200),
+        ("sourceReadCode", None),
+        ("sourceApproveStatus", 409),
+        ("sourceRejectStatus", 409),
+        ("sourceActionCode", "PRECONDITION_NOT_MET"),
+        ("sourceActionReason", "NOT_CURRENT_STEP"),
+        ("sourceListVisible", True),
+        ("sourceSearchVisible", True),
+        ("sourcePolicyEmpty", False),
+        ("sourceDirectControlConfirmed", False),
+        ("sourcePolicyApproveStatus", 200),
+        ("sourcePolicyRejectStatus", 404),
+        ("sourcePolicyCode", "NOT_FOUND"),
+        ("sourcePolicyReason", "WRONG_ACTOR"),
+        ("sourceDenialStateUnchanged", False),
+        ("restoredOriginalRead", False),
+        ("restoredOriginalApproval", False),
+        ("restoredDirectControlConfirmed", False),
+        ("restoredReadStatus", 200),
+        ("restoredReadCode", None),
+        ("restoredApproveStatus", 409),
+        ("restoredRejectStatus", 409),
+        ("restoredActionCode", "PRECONDITION_NOT_MET"),
+        ("restoredActionReason", "NOT_CURRENT_STEP"),
+        ("restoredListVisible", True),
+        ("restoredSearchVisible", True),
+        ("restoredPolicyEmpty", False),
+        ("restoredPolicyApproveStatus", 404),
+        ("restoredPolicyRejectStatus", 200),
+        ("restoredPolicyCode", "NOT_FOUND"),
+        ("restoredPolicyReason", "WRONG_ACTOR"),
+        ("restoredDelegationsRevoked", False),
+        ("restoredDenialStateUnchanged", False),
+        ("restoredBoundaryCause", "DIRECT_ASSIGNMENT_RETAINED"),
+        ("companyHold", True),
+        ("unauthorizedContentExposed", True),
+        ("delegationReplayed", True),
+        ("fixtureActiveCount", 2.0),
+        ("sourcePolicyEmpty", 1),
+    ],
+)
+def test_v9_cannot_promote_inserted_fixture_to_api_acceptance_or_missing_denial(
+    field, value
+):
+    from fs.gw.restored_denial import parse_observation
+
+    data = observation("STORED_OUTGOING_CHAIN")
+    data[field] = value
+    with pytest.raises(ValueError):
+        parse_observation(json.dumps(data))
+
+
+@pytest.mark.parametrize(
+    "case,field,value",
+    [
+        ("STORED_KIND_MISMATCH", "fixtureKind", "GENERAL"),
+        ("STORED_INCOMING_CHAIN", "fixtureShape", "OUTGOING_CHAIN"),
+        ("STORED_DIRECT_ASSIGNMENT", "sourceReadStatus", 404),
+        ("STORED_DIRECT_ASSIGNMENT", "sourceListVisible", False),
+        ("STORED_DIRECT_ASSIGNMENT", "restoredReadStatus", 404),
+        ("STORED_DIRECT_ASSIGNMENT", "restoredSearchVisible", False),
+        ("STORED_DIRECT_ASSIGNMENT", "sourceActionReason", None),
+        ("STORED_DIRECT_ASSIGNMENT", "restoredActionReason", None),
+    ],
+)
+def test_v9_distinguishes_stored_kind_direction_and_authorized_direct_read(
     case, field, value
 ):
     from fs.gw.restored_denial import parse_observation

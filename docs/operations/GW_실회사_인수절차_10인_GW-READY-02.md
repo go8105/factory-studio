@@ -1104,3 +1104,30 @@ v7은 원본/복원 각각의 상태·코드·목록/검색 비노출·정책 �
 v8은 원본/복원 읽기와 처리, 코드와 사유, 목록/검색의 공개 여부, 실제 금액/통화·한도, 연쇄 등록 거부 불변·유효 위임 보존·직접 담당자 승인 대조를 별도로 기록한다. 복원 원인은 세 조건 ALL_DELEGATIONS_REVOKED, 직접배정은 DIRECT_ASSIGNMENT_RETAINED로 구분한다. 엄격한bool/int·현재실행UUID/코드/DB/시각/소스·관측누락/중복/skip/실패/지원외버전·JSON중복/8KiB/추가속성 거부를 유지한다. 서명/파일의 주장/수동체크만으로PASS를 만들지 않는다.
 
 unsigned 합성 PARTIAL·ready=false/최종4조건UNVERIFIED·실제복원PARTIAL/PASS거부를 유지하며59차보고/제품12조건에 자동 반영하지 않는다. 다음은 저장된 위임의 문서종류 런타임 매칭·연쇄/직접배정의 런타임 차단을 합성 서비스 경계와 대조하는 고정검사다. 이를 실제ERP연동·동시성/무누락/실회사인수로 과장하지 않는다. 외부공급자·독립최신성/전경로·전체회수·실API브라우저/최신main/전체회귀·실회사10인/최종전환은 남는다.
+
+## 42. 저장된 위임의 정책 함수·회사 ACL 대조 · 68차
+
+기존 `gw_route_verify.py --restored-denial-only`는 `GW_RESTORED_DENIAL_PROBES_V9`/28조건이다. 이전v1다섯/v2~v6각둘/v7다섯/v8넷을 보존하고 새4조건만 `StoredDelegationRuntimeObservation` v9/`SYNTHETIC_STORED_FIXTURE_POLICY_ACL_AND_CLOSED_RESTORE_FLOOR`로 구분한다. §34–41의 소유 full64 컨테이너ID/owner/running·단일loopback·새UUID *_test DB·새 출력/생성분 정리를 재사용한다. 현재 상한840초/일반300/마이그레이션120초·시간초과BLOCKED/부분JUnit미채택을 유지한다.
+
+회사 API는 타종류·연쇄 위임 등록을 막는다. 이번에는 별도 시험DB에만 회사·세대 범위 `gw.insert`로 새 합성 위임 행을 넣는다. fixtureInserted=true/fixtureAcceptedViaApi=false와 실제 저장 담당자 쌍/행 수/종류·대상GENERAL을 필수로 확인한다. API 등록 성공·마이그레이션/직접SQL 운영권한·무누락 수집을 확인한 결과가 아니다. 기존 확정 문서를 SQL로 덮거나 제약·회수 정책을 해제하지 않는다.
+
+합성4명을 기안자/원 담당자/대리자/추가 관계자로 분리한다. 먼저 실제 회사HTTP에서 GENERAL 위임과 종류 미지정(documentKind=null) 위임을 각각 만들어 별도 GENERAL 문서의 열람/eligible1개·승인200 및 실제 처리자/원 담당자 이력을 확인하고 정상 회수한다. 그 뒤 새 결함 행을 넣고 현재 잘못된 상태를 검사한다. 과거 정상 처리를 현재 상태의 성공으로 대신하지 않는다.
+
+| 추가 조건 | 실제 저장 상태 | 회사 HTTP와 내부 정책 |
+|---|---|---|
+| STORED_KIND_MISMATCH | 원 담당자→대리자1건/ERP_PURCHASE, 대상GENERAL | 회사 상세·승인·반려404/목록검색 제외·eligible빈값, 내부 승인·반려409 |
+| STORED_OUTGOING_CHAIN | 원 담당자→대리자→추가 관계자2건/GENERAL | 같은404/비노출·빈eligible와 내부409 |
+| STORED_INCOMING_CHAIN | 추가 관계자→원 담당자→대리자2건/GENERAL | 같은404/비노출·빈eligible와 내부409 |
+| STORED_DIRECT_ASSIGNMENT | 원 담당자→대리자1건/GENERAL, 대상1단계 원 담당자·2단계 대리자 | 회사 열람/목록검색200은 보존, actionSteps/eligible빈값·회사 승인/반려409·내부409 |
+
+내부 검사는 현재 로그인 주체/회사 범위에서 `policy.decision(..., company_mode=True)`의 승인·반려를 각각 호출한다. 정확한 ApiError 409/PRECONDITION_NOT_MET·details.reason=NOT_CURRENT_STEP와 거래 롤백을 확인한다. 이 함수 호출은 회사HTTP 전체 경로·버전/멱등·직접SQL 운영경로 검사를 뜻하지 않는다. 같은 상태의 실제 회사HTTP도 별도로 검사한다. HTTP404와 내부409는 다른 경계다. 직접배정의 HTTP409도 같은 전송코드/사유를 요구한다.
+
+네 조건 모두 잘못된 저장 상태 뒤 별도 현재직접단계 담당자의 승인200·onBehalfOfPersonId=null을 확인해 단순 전체 업무 차단과 구분한다. 원본 HTTP·정책 거부 전후 문서/단계/이력/위임/영수증5개 불변을 요구한다. 직접배정의 합법 열람을 유출로 세지 않으며 승인·반려 오류에는 대상 원문/data가 없어야 한다.
+
+실제 백업/checkpoint/폐쇄restore 후 companyHold=false·미회수위임0·새MFA2명과 원 담당자의 대상열람/별도 직접승인, 대리자의 별도 현재직접단계 승인200을 확인한다. 이후 복원HTTP/eligible/정책 승인·반려 및5테이블 불변을 다시 대조한다. 복원원인은 세조건ALL_DELEGATIONS_REVOKED/직접배정DIRECT_ASSIGNMENT_RETAINED다. 복원 전체회수만으로 원본의 종류/연쇄 판정을 통과시키지 않는다.
+
+v9는 결함 준비 방식·실제 저장형태/행 수/종류, 두 정상종류 대조, 원본/복원 HTTP·정책함수·직접업무 대조/불변을 분리한다. 엄격한bool/int·현재실행UUID/코드/DB/시각/소스·누락/중복/skip/실패/지원외버전·JSON중복/8KiB/추가속성 거부를 유지한다. 파일/서명/수동체크로PASS를 만들지 않는다.
+
+소스는 기존권한7+위5=선택12개, 원본/복원 거부 불변은 각5개만 뜻한다. 인증/세션·보안감사/알림 등 전체DB불변·독립외부수집/전경로무누락·실기기/실회사10인 인수는 아니다. ERP_PURCHASE는 GW 위임의 코드 문자열이며 ERP 업무/스키마/인증연동은 검사하지 않았다. 업무스키마 간 FK를 추가하지 않는다.
+
+unsigned합성 PARTIAL·ready=false/최종4조건UNVERIFIED·실제복원PARTIAL/PASS거부를 유지하며59차보고/제품12조건으로 자동 승격하지 않는다. 다음은59차 진단의 선택권한검토맵을 최신28조건의 실제범위와 대조해 오래된참조/미연결·미실행 표시를 갱신한다. 자동실행/결과수입·현재회사PASS는 별도다. 외부공급자/독립최신성·전경로/전체회수·동시성/실API브라우저/최신main/전체회귀·실회사10인/최종전환은 남는다.

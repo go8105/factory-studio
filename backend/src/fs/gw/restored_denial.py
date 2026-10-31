@@ -52,6 +52,12 @@ DELEGATION_RELATION_CASES = {
     "DELEGATION_FOREIGN_CURRENCY": (404, "NOT_FOUND"),
     "DELEGATION_MISSING_AMOUNT": (404, "NOT_FOUND"),
 }
+STORED_DELEGATION_CASES = {
+    "STORED_KIND_MISMATCH": (404, "NOT_FOUND"),
+    "STORED_OUTGOING_CHAIN": (404, "NOT_FOUND"),
+    "STORED_INCOMING_CHAIN": (404, "NOT_FOUND"),
+    "STORED_DIRECT_ASSIGNMENT": (409, "PRECONDITION_NOT_MET"),
+}
 ALL_CASES = (
     CASES
     | OBJECT_CASES
@@ -61,6 +67,7 @@ ALL_CASES = (
     | DELEGATION_CASES
     | DELEGATION_BOUND_CASES
     | DELEGATION_RELATION_CASES
+    | STORED_DELEGATION_CASES
 )
 
 
@@ -920,6 +927,198 @@ class RestoredDelegationRelationObservation(RestoredDenialObservation):
         return self
 
 
+class StoredDelegationRuntimeObservation(RestoredDenialObservation):
+    version: Literal[9]
+    scope: Literal["SYNTHETIC_STORED_FIXTURE_POLICY_ACL_AND_CLOSED_RESTORE_FLOOR"]
+    case: Literal[
+        "STORED_KIND_MISMATCH",
+        "STORED_OUTGOING_CHAIN",
+        "STORED_INCOMING_CHAIN",
+        "STORED_DIRECT_ASSIGNMENT",
+    ]
+    source_comparison_scope: Literal[
+        "SELECTED_AUTHORIZATION_DELEGATION_DOCUMENT_AND_RECEIPT_TABLES"
+    ] = Field(alias="sourceComparisonScope")
+    fixture_inserted: Literal[True] = Field(alias="fixtureInserted")
+    fixture_accepted_via_api: Literal[False] = Field(alias="fixtureAcceptedViaApi")
+    fixture_shape: Literal[
+        "KIND_MISMATCH", "OUTGOING_CHAIN", "INCOMING_CHAIN", "DIRECT_ASSIGNMENT"
+    ] = Field(alias="fixtureShape")
+    fixture_active_count: int = Field(alias="fixtureActiveCount")
+    fixture_kind: Literal["GENERAL", "ERP_PURCHASE"] = Field(alias="fixtureKind")
+    target_kind: Literal["GENERAL"] = Field(alias="targetKind")
+    baseline_exact_kind_confirmed: Literal[True] = Field(
+        alias="baselineExactKindConfirmed"
+    )
+    baseline_wildcard_kind_confirmed: Literal[True] = Field(
+        alias="baselineWildcardKindConfirmed"
+    )
+    source_read_status: int = Field(alias="sourceReadStatus")
+    source_read_code: str | None = Field(alias="sourceReadCode")
+    source_approve_status: int = Field(alias="sourceApproveStatus")
+    source_reject_status: int = Field(alias="sourceRejectStatus")
+    source_action_code: str = Field(alias="sourceActionCode")
+    source_action_reason: str | None = Field(alias="sourceActionReason")
+    source_list_visible: bool = Field(alias="sourceListVisible")
+    source_search_visible: bool = Field(alias="sourceSearchVisible")
+    source_policy_empty: Literal[True] = Field(alias="sourcePolicyEmpty")
+    source_direct_control_confirmed: Literal[True] = Field(
+        alias="sourceDirectControlConfirmed"
+    )
+    source_policy_approve_status: Literal[409] = Field(
+        alias="sourcePolicyApproveStatus"
+    )
+    source_policy_reject_status: Literal[409] = Field(alias="sourcePolicyRejectStatus")
+    source_policy_code: Literal["PRECONDITION_NOT_MET"] = Field(
+        alias="sourcePolicyCode"
+    )
+    source_policy_reason: Literal["NOT_CURRENT_STEP"] = Field(
+        alias="sourcePolicyReason"
+    )
+    source_denial_state_unchanged: Literal[True] = Field(
+        alias="sourceDenialStateUnchanged"
+    )
+    restored_original_read: Literal[True] = Field(alias="restoredOriginalRead")
+    restored_original_approval: Literal[True] = Field(alias="restoredOriginalApproval")
+    restored_direct_control_confirmed: Literal[True] = Field(
+        alias="restoredDirectControlConfirmed"
+    )
+    restored_read_status: int = Field(alias="restoredReadStatus")
+    restored_read_code: str | None = Field(alias="restoredReadCode")
+    restored_approve_status: int = Field(alias="restoredApproveStatus")
+    restored_reject_status: int = Field(alias="restoredRejectStatus")
+    restored_action_code: str = Field(alias="restoredActionCode")
+    restored_action_reason: str | None = Field(alias="restoredActionReason")
+    restored_list_visible: bool = Field(alias="restoredListVisible")
+    restored_search_visible: bool = Field(alias="restoredSearchVisible")
+    restored_policy_empty: Literal[True] = Field(alias="restoredPolicyEmpty")
+    restored_policy_approve_status: Literal[409] = Field(
+        alias="restoredPolicyApproveStatus"
+    )
+    restored_policy_reject_status: Literal[409] = Field(
+        alias="restoredPolicyRejectStatus"
+    )
+    restored_policy_code: Literal["PRECONDITION_NOT_MET"] = Field(
+        alias="restoredPolicyCode"
+    )
+    restored_policy_reason: Literal["NOT_CURRENT_STEP"] = Field(
+        alias="restoredPolicyReason"
+    )
+    restored_delegations_revoked: Literal[True] = Field(
+        alias="restoredDelegationsRevoked"
+    )
+    restored_denial_state_unchanged: Literal[True] = Field(
+        alias="restoredDenialStateUnchanged"
+    )
+    restored_boundary_cause: Literal[
+        "ALL_DELEGATIONS_REVOKED", "DIRECT_ASSIGNMENT_RETAINED"
+    ] = Field(alias="restoredBoundaryCause")
+    company_hold: Literal[False] = Field(alias="companyHold")
+    unauthorized_content_exposed: Literal[False] = Field(
+        alias="unauthorizedContentExposed"
+    )
+    delegation_replayed: Literal[False] = Field(alias="delegationReplayed")
+
+    @model_validator(mode="before")
+    @classmethod
+    def exact_runtime_types(cls, value):
+        if isinstance(value, dict):
+            for key in (
+                "fixtureInserted",
+                "fixtureAcceptedViaApi",
+                "baselineExactKindConfirmed",
+                "baselineWildcardKindConfirmed",
+                "sourceListVisible",
+                "sourceSearchVisible",
+                "sourcePolicyEmpty",
+                "sourceDenialStateUnchanged",
+                "restoredOriginalRead",
+                "restoredOriginalApproval",
+                "restoredDirectControlConfirmed",
+                "sourceDirectControlConfirmed",
+                "restoredListVisible",
+                "restoredSearchVisible",
+                "restoredPolicyEmpty",
+                "restoredDelegationsRevoked",
+                "restoredDenialStateUnchanged",
+                "companyHold",
+                "unauthorizedContentExposed",
+                "delegationReplayed",
+            ):
+                if type(value.get(key)) is not bool:
+                    raise ValueError("exact runtime boolean required")
+            for key in (
+                "fixtureActiveCount",
+                "sourceReadStatus",
+                "sourceApproveStatus",
+                "sourceRejectStatus",
+                "sourcePolicyApproveStatus",
+                "sourcePolicyRejectStatus",
+                "restoredReadStatus",
+                "restoredApproveStatus",
+                "restoredRejectStatus",
+                "restoredPolicyApproveStatus",
+                "restoredPolicyRejectStatus",
+            ):
+                if type(value.get(key)) is not int:
+                    raise ValueError("exact runtime integer required")
+        return value
+
+    @model_validator(mode="after")
+    def runtime_boundaries(self):
+        direct = self.case == "STORED_DIRECT_ASSIGNMENT"
+        shape, count, kind = {
+            "STORED_KIND_MISMATCH": ("KIND_MISMATCH", 1, "ERP_PURCHASE"),
+            "STORED_OUTGOING_CHAIN": ("OUTGOING_CHAIN", 2, "GENERAL"),
+            "STORED_INCOMING_CHAIN": ("INCOMING_CHAIN", 2, "GENERAL"),
+            "STORED_DIRECT_ASSIGNMENT": ("DIRECT_ASSIGNMENT", 1, "GENERAL"),
+        }[self.case]
+        if (self.fixture_shape, self.fixture_active_count, self.fixture_kind) != (
+            shape,
+            count,
+            kind,
+        ):
+            raise ValueError("wrong measured stored fixture")
+        read = (200, None) if direct else (404, "NOT_FOUND")
+        action = STORED_DELEGATION_CASES[self.case]
+        if any(
+            pair != read
+            for pair in (
+                (self.source_read_status, self.source_read_code),
+                (self.restored_read_status, self.restored_read_code),
+            )
+        ):
+            raise ValueError("wrong runtime ACL read boundary")
+        if any(
+            pair != action
+            for pair in (
+                (self.source_approve_status, self.source_action_code),
+                (self.source_reject_status, self.source_action_code),
+                (self.restored_approve_status, self.restored_action_code),
+                (self.restored_reject_status, self.restored_action_code),
+            )
+        ):
+            raise ValueError("wrong runtime ACL decision boundary")
+        reason = "NOT_CURRENT_STEP" if direct else None
+        if self.source_action_reason != reason or self.restored_action_reason != reason:
+            raise ValueError("wrong runtime ACL reason")
+        if any(
+            v != direct
+            for v in (
+                self.source_list_visible,
+                self.source_search_visible,
+                self.restored_list_visible,
+                self.restored_search_visible,
+            )
+        ):
+            raise ValueError("direct visibility or positive control mismatch")
+        if self.restored_boundary_cause != (
+            "DIRECT_ASSIGNMENT_RETAINED" if direct else "ALL_DELEGATIONS_REVOKED"
+        ):
+            raise ValueError("wrong stored fixture restore cause")
+        return self
+
+
 def parse_observation(raw):
     import json
 
@@ -936,7 +1135,7 @@ def parse_observation(raw):
 
     payload = json.loads(raw, object_pairs_hook=unique)
     version = payload.get("version") if isinstance(payload, dict) else None
-    if type(version) is not int or version not in {1, 2, 3, 4, 5, 6, 7, 8}:
+    if type(version) is not int or version not in {1, 2, 3, 4, 5, 6, 7, 8, 9}:
         raise ValueError("unsupported restored denial version")
     model = {
         1: RestoredDenialObservation,
@@ -947,5 +1146,6 @@ def parse_observation(raw):
         6: RestoredDelegationDenialObservation,
         7: RestoredDelegationBoundaryObservation,
         8: RestoredDelegationRelationObservation,
+        9: StoredDelegationRuntimeObservation,
     }[version]
     return model.model_validate_json(raw, strict=True)
