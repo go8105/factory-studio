@@ -36,7 +36,7 @@ EQUIPMENT_REFERENCES = (
     ("fems.production_record", "생산 실적"),
 )
 LOCATION_COLUMNS = "id,site_id,parent_location_id,location_code,name,kind"
-TARIFF_COLUMNS = "id,energy_source_id,tariff_code,name,contract_type,basic_charge,usage_rate,currency,effective_from,effective_to,created_at"
+TARIFF_COLUMNS = "id,energy_source_id,tariff_code,name,contract_type,basic_charge,usage_rate,currency,effective_from,effective_to,tariff_kind,contract_kw,created_at"
 TARIFF_SORT = {
     "tariffCode": "tariff_code",
     "name": "name",
@@ -265,6 +265,8 @@ def tariff_dict(row: Any) -> dict[str, Any]:
         "currency": row["currency"],
         "effectiveFrom": row["effective_from"],
         "effectiveTo": row["effective_to"],
+        "tariffKind": row["tariff_kind"],
+        "contractKw": None if row["contract_kw"] is None else str(row["contract_kw"]),
         "createdAt": row["created_at"].isoformat(),
     }
 
@@ -1500,13 +1502,116 @@ def monthly_consumption(
     return [dict(r) for r in rows]
 
 
+def tariff_bands(
+    connection: Connection, context: AuthContext, tariff_ids: list[int]
+) -> dict[int, list[dict[str, Any]]]:
+    """요금제별 시간대 구간. TOU 요금제가 아니면 빈 목록이다."""
+    if not tariff_ids:
+        return {}
+    rows = connection.execute(
+        text(
+            "SELECT id,tariff_id,season,day_kind,hour_from,hour_to,load_band,rate "
+            "FROM fems.tariff_band WHERE workspace_id=:w AND generation_id=:g "
+            " AND tariff_id = ANY(:ids) ORDER BY season,day_kind,hour_from"
+        ),
+        {**_s(context), "ids": tariff_ids},
+    ).mappings()
+    grouped: dict[int, list[dict[str, Any]]] = {i: [] for i in tariff_ids}
+    for row in rows:
+        grouped[row["tariff_id"]].append(dict(row))
+    return grouped
+
+
+def replace_tariff_bands(
+    connection: Connection,
+    context: AuthContext,
+    tariff_id: int,
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """구간을 통째로 바꾼다. 한 줄씩 고치면 하루를 못 덮는 중간 상태가 생긴다."""
+    connection.execute(
+        text(
+            "DELETE FROM fems.tariff_band "
+            "WHERE workspace_id=:w AND generation_id=:g AND tariff_id=:t"
+        ),
+        {**_s(context), "t": tariff_id},
+    )
+    for row in rows:
+        connection.execute(
+            text(
+                "INSERT INTO fems.tariff_band(workspace_id,generation_id,tariff_id,"
+                "season,day_kind,hour_from,hour_to,load_band,rate) "
+                "VALUES (:w,:g,:t,:season,:day_kind,:hour_from,:hour_to,:load_band,:rate)"
+            ),
+            {**_s(context), "t": tariff_id, **row},
+        )
+    return tariff_bands(connection, context, [tariff_id])[tariff_id]
+
+
+def holidays(
+    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+) -> set[Any]:
+    """그 기간의 휴일. core가 가진 공통 달력이고 FK 없이 날짜로만 읽는다(DSN-16 Q1)."""
+    return set(
+        connection.execute(
+            text(
+                "SELECT holiday_on FROM core.holiday "
+                "WHERE workspace_id=:w AND generation_id=:g "
+                " AND holiday_on BETWEEN CAST(:date_from AS date) AND CAST(:date_to AS date)"
+            ),
+            {**_s(context), "date_from": date_from, "date_to": date_to},
+        ).scalars()
+    )
+
+
+def hourly_consumption(
+    connection: Connection,
+    context: AuthContext,
+    date_from: Any,
+    date_to: Any,
+    energy_source_id: int | None = None,
+) -> list[dict[str, Any]]:
+    """최상위 계측기 기준 **사업장 시각별** 사용량. TOU 요금과 부하 패턴·피크가 함께 쓴다.
+
+    계측이 1시간 단위라 시간 사용량(kWh)이 곧 그 시간의 평균 kW다 — 수요전력을 이렇게
+    근사한다(DSN-15 Q2). 구간 끝이 정시라 1마이크로초를 빼고 그 시각이 속한 시간으로 센다.
+    """
+    local = "(r.observed_at - interval '1 microsecond') AT TIME ZONE s.timezone"
+    where = " AND e.id=:energy_source_id" if energy_source_id is not None else ""
+    rows = connection.execute(
+        text(
+            f"SELECT e.id source_id,e.source_code,e.name,e.is_billable,c.unit,"
+            f"CAST({local} AS date) reading_date,"
+            f'CAST(extract(hour FROM {local}) AS integer) AS "hour",'
+            "coalesce(sum(r.value*c.multiplier) FILTER (WHERE r.quality<>'invalid'),0) quantity "
+            + READING_FROM
+            + READING_PERIOD
+            + " AND m.parent_meter_id IS NULL"
+            + where
+            + ' GROUP BY e.id,e.source_code,e.name,e.is_billable,c.unit,reading_date,"hour"'
+            ' ORDER BY e.source_code,reading_date,"hour"'
+        ),
+        {
+            **_s(context),
+            "date_from": date_from,
+            "date_to": date_to,
+            **(
+                {"energy_source_id": energy_source_id}
+                if energy_source_id is not None
+                else {}
+            ),
+        },
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
 def billing_tariffs(
     connection: Connection, context: AuthContext
 ) -> list[dict[str, Any]]:
     rows = connection.execute(
         text(
-            "SELECT energy_source_id,tariff_code,name,basic_charge,usage_rate,"
-            "effective_from,effective_to FROM fems.tariff "
+            "SELECT id,energy_source_id,tariff_code,name,basic_charge,usage_rate,"
+            "effective_from,effective_to,tariff_kind,contract_kw FROM fems.tariff "
             "WHERE workspace_id=:w AND generation_id=:g ORDER BY effective_from DESC"
         ),
         _s(context),
