@@ -1,6 +1,7 @@
 // F-14 요금제 — FEMS 에너지원별 단일 요금제 목록 + 등록/수정 패널 (FS-018)
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useSession } from "../app/session";
+import { TariffBandsPanel } from "./TariffBands";
 import { api, ApiError, MutationKeys } from "../shared/api";
 import {
   DataTable,
@@ -30,8 +31,35 @@ export type Tariff = {
   currency: string;
   effectiveFrom: string;
   effectiveTo: string | null;
+  tariffKind: "FLAT" | "TOU";
+  contractKw: string | null;
   createdAt: string;
 };
+
+export type Band = {
+  id?: number;
+  season: "SUMMER" | "SPRING_FALL" | "WINTER";
+  dayKind: "WEEKDAY" | "SATURDAY" | "HOLIDAY";
+  hourFrom: number;
+  hourTo: number;
+  loadBand: "OFF_PEAK" | "MID" | "PEAK";
+  rate: string;
+};
+export const SEASON_LABEL = {
+  SUMMER: "여름",
+  SPRING_FALL: "봄·가을",
+  WINTER: "겨울",
+} as const;
+export const DAY_KIND_LABEL = {
+  WEEKDAY: "평일",
+  SATURDAY: "토요일",
+  HOLIDAY: "휴일",
+} as const;
+export const BAND_LABEL = {
+  OFF_PEAK: "경부하",
+  MID: "중간부하",
+  PEAK: "최대부하",
+} as const;
 
 export type EnergySource = {
   id: number;
@@ -49,6 +77,8 @@ type Draft = {
   usageRate: string;
   effectiveFrom: string;
   effectiveTo: string;
+  tariffKind: "FLAT" | "TOU";
+  contractKw: string;
 };
 
 const EMPTY: Draft = {
@@ -60,6 +90,8 @@ const EMPTY: Draft = {
   usageRate: "",
   effectiveFrom: "",
   effectiveTo: "",
+  tariffKind: "FLAT",
+  contractKw: "",
 };
 
 function formatMoney(amount: string | number) {
@@ -107,6 +139,12 @@ function cleanDraft(draft: Draft): Record<string, unknown> {
     usageRate: draft.usageRate.trim(),
     effectiveFrom: draft.effectiveFrom.trim(),
     effectiveTo: draft.effectiveTo.trim() ? draft.effectiveTo.trim() : null,
+    tariffKind: draft.tariffKind,
+    // TOU는 계약전력이 있어야 기본요금을 낼 수 있다(DB CHECK도 같은 규칙).
+    contractKw:
+      draft.tariffKind === "TOU" && draft.contractKw.trim()
+        ? draft.contractKw.trim()
+        : null,
   };
 }
 
@@ -121,6 +159,8 @@ export function Tariffs() {
   const [reload, setReload] = useState(0);
   const [loadError, setLoadError] = useState<unknown>();
   const [panel, setPanel] = useState<{ row: Tariff | null } | null>(null);
+  // 구간표는 요금제와 따로 저장한다(PUT .../bands). 패널도 따로 둔다.
+  const [bandsFor, setBandsFor] = useState<Tariff>();
   const editing = panel?.row ?? null;
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [initial, setInitial] = useState<Draft>(EMPTY);
@@ -181,6 +221,8 @@ export function Tariffs() {
           usageRate: row.usageRate,
           effectiveFrom: row.effectiveFrom,
           effectiveTo: row.effectiveTo ?? "",
+          tariffKind: row.tariffKind,
+          contractKw: row.contractKw ?? "",
         }
       : { ...EMPTY, energySourceId: defaultSource };
     setPanel({ row });
@@ -359,6 +401,16 @@ export function Tariffs() {
             >
               수정
             </button>
+            {r.tariffKind === "TOU" && (
+              <button
+                type="button"
+                className="link-button"
+                aria-pressed={bandsFor?.id === r.id}
+                onClick={() => setBandsFor(r)}
+              >
+                구간표
+              </button>
+            )}
             <button
               type="button"
               className="link-button"
@@ -459,6 +511,15 @@ export function Tariffs() {
             />
           )}
         </section>
+
+        {bandsFor && session?.csrfToken && (
+          <TariffBandsPanel
+            key={bandsFor.id}
+            tariff={bandsFor}
+            csrfToken={session.csrfToken}
+            onClose={() => setBandsFor(undefined)}
+          />
+        )}
 
         {panel && (
           <FormPanel
@@ -568,6 +629,44 @@ export function Tariffs() {
                 }
               />
             </div>
+            <div className="field-row">
+              <label>
+                요금제 종류
+                <select
+                  value={draft.tariffKind}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      tariffKind: e.target.value as Draft["tariffKind"],
+                    })
+                  }
+                >
+                  <option value="FLAT">단일요금</option>
+                  <option value="TOU">시간대별(TOU)</option>
+                </select>
+              </label>
+              {draft.tariffKind === "TOU" && (
+                <Field
+                  label="계약전력 (kW)"
+                  value={draft.contractKw}
+                  required
+                  inputMode="decimal"
+                  error={errors.contractKw}
+                  onChange={(e) =>
+                    setDraft({ ...draft, contractKw: e.target.value })
+                  }
+                />
+              )}
+            </div>
+            {draft.tariffKind === "TOU" && (
+              <p className="muted" role="note">
+                시간대별 요금은{" "}
+                <strong>기본요금 = 계약전력 × 기본요금 단가</strong>이고, 사용
+                요금은 시각마다 구간표의 요율을 적용합니다. 사용량 단가는 쓰지
+                않습니다. 저장한 뒤 목록에서 <strong>구간표</strong>를 눌러 시간
+                구간을 채우세요.
+              </p>
+            )}
             <div className="field-row">
               <Field
                 label="적용 시작 연월"

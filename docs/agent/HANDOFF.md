@@ -1,6 +1,6 @@
-# 2026-10-31 FEMS-1b 완료 — SPC·CMMS·QMS 보강 끝, FEMS 진행 중 (다음: FEMS-1c)
+# 2026-11-01 FEMS-1c 완료 — SPC·CMMS·QMS 보강 끝, FEMS 진행 중 (다음: FEMS-1d)
 
-- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1b` (병합 뒤 `main`)
+- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1c` (병합 뒤 `main`)
 - **마지막 커밋**: `git log --oneline -3` 참조. 원격 `origin/main`과 동기.
 - **담당**: Claude Code가 설계·개발·검증·병합을 모두 한다(D85). Codex는 GW 범위만.
 
@@ -37,28 +37,7 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 
 **PPM은 불량을 '개수'로 센 칸이 있어야 낸다.** 수입(`defect_count`/`sample_qty`)과 공정(MES `defectQty`/`inputQty`)만 가능하고 출하·고객은 못 낸다. 설계 3장이 4종 모두 PPM을 적었지만 **0으로 채우지 않고 `—`로 두고 화면이 왜 비는지 밝힌다.** FEMS·BEMS에서도 같은 판단이 필요할 것이다.
 
-## FEMS-1c 진행 중 — 백엔드만 끝났다
-
-**다음 세션이 이어서 할 일: 1c 프런트.** 백엔드는 커밋돼 있고 테스트 12건이 통과한다.
-
-| 끝난 것 (백엔드) | 어디 |
-|---|---|
-| TOU 코드 상수·구간 검증 | `backend/src/fs/fems/tou.py` 신설 — 계절(여름 6~8·겨울 11~2)·요일(휴일 > 토요일)·`coverage_errors()`·`rate_lookup()` |
-| 구간표 저장 | `PUT /fems/tariffs/{id}/bands` — **통째로 교체**. 저장 전 0~24시 빈틈·겹침 검사, FLAT이면 409 `NOT_TOU` |
-| TOU 요금 산정 | `_tou_charge()` — 계약전력 × 기본요금 단가 + Σ(시간 사용량 × 그 시각 요율), 부하 구분별 소계 |
-| 부하 패턴·피크 | `GET /fems/load-pattern?month=&energySourceId=` — 요일×시각 평균·최대, 기저부하(0~6시 최솟값), 피크(1시간 근사)·계약전력 대비 |
-
-**남은 것: 프런트 3곳.**
-
-| 화면 | 할 일 |
-|---|---|
-| F-14 요금제 | 종류(FLAT/TOU)·계약전력 입력, TOU면 **구간표 편집**(9조합). 저장은 `PUT .../bands` 한 번 |
-| F-08 요금 산정 | TOU 구간이면 `segment.loadBands` 소계와 `tariff.contractKw` 표시 |
-| **F-16 부하 패턴·피크 신규** | `Metrics.tsx`(Q-13)를 본보기로. 등록 4곳: `menu_catalog.json`·`fems/index.tsx`·`content/help/fems/f-16.md`·라우트. **포털 카운터 테스트 둘도 함께**(메뉴 144·FEMS 도움말 15) |
-
-**주의**: `hour`는 Postgres 예약어라 별칭에 따옴표가 필요하다(Q-13의 `month`와 같은 함정). **TOU 시드는 없다** — 브라우저로 확인하려면 F-14에서 요금제를 TOU로 바꾸고 구간표를 넣어야 한다. 시드 보강은 FEMS 전체 시드 작업으로 미뤘다.
-
-## FEMS — 1a·1b 완료, 1c 진행 중
+## FEMS — 1a·1b·1c 완료, 1d부터
 
 설계는 **DSN-15**에 있고 Q1~Q7이 2026-10-05에 이미 확정돼 있다. 범위 13 → 25표·14 → **23화면**(신규 9·기존 보강 8)으로 QMS보다 크다.
 
@@ -68,14 +47,17 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 |---|---|---|
 | ~~1a~~ | ~~DB 13 → 25표~~ | 완료 |
 | ~~1b~~ | ~~MES `production_results(month)`~~ | 완료 |
-| **1c** | TOU 요금·피크 | **Opus** |
-| 1c 상세 | F-14 구간표·F-08 산정·**F-16 부하 패턴·피크** | 계절×요일×시간대 요율 |
-| 1d | 데이터 품질 — **F-15**(CSV·보정)·F-02 수동 검침·F-05 MES 가져오기 | Opus (원 값 보존 규칙) |
+| ~~1c~~ | ~~TOU 요금·피크, F-16 신설(FEMS 15화면)~~ | 완료 |
+| **1d** | 데이터 품질 — F-15(CSV·보정)·F-02 수동 검침·F-05 MES 가져오기 | **Opus** |
 | 1e | 분석·경보 — **F-17 설비 비교**·**F-18 경보**·F-01 대시보드 | Sonnet |
 | 1f | 에너지 경영 — **F-19 절감**·**F-20 월간 검토**(인쇄)·**F-21 온실가스**(인쇄) | Opus (절감 측정·검증 공식) |
 | 1g | 비용 — **F-22 배분**·**F-23 고지서 대조**·F-10 부서·F-11 발전 | Opus |
 
 **설계서 §6의 `ERP departments()`는 오류다**(1b에서 확인). 부서 표는 `hr.department` 하나뿐이고 **HR이 이미 `departments()`를 제공한다**. ERP에는 부서 표가 없다.
+
+**`hour`·`month`는 Postgres 예약어다.** 별칭에 따옴표가 없으면 구문 오류가 난다. Q-13과 F-16에서 두 번 밟았다.
+
+**TOU 시드가 없다.** 브라우저로 보려면 F-14에서 요금제를 TOU로 바꾸고 구간표를 채워야 한다. FEMS 전체 시드 작업으로 미뤘다.
 
 **`conftest.PROVIDERS`를 잊지 말 것.** `"fems"`가 `()`라 테스트 공간에 MES·HR 시드가 복사되지 않아 1b 테스트가 None을 받고 깨졌다. 새 교차 조회를 더하면 이 표도 같이 고친다.
 
@@ -100,6 +82,10 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 - **파트가 끝나면 main에 병합·push하고 내가 만든 브랜치를 지운다**(2026-10-31 사용자 상시 지시). 파트마다 push 허가를 다시 묻지 않는다. `codex/*` 등 다른 세션 브랜치는 건드리지 않는다.
 - **다른 세션이 같은 폴더의 main을 쓴다.** QMS-1d 커밋이 브랜치가 아니라 main에 직행한 적이 있다(reflog상 외부 checkout). 커밋 직전 `git branch --show-current`를 확인할 것.
 - **git add는 파일 경로로.** 디렉터리 단위로 넣지 않는다.
+- **CI 전에 `tools/clear_test_data.py`로 테스트 DB를 비운다.** CI 4단계가 비우지만 **pytest(3단계)보다 뒤**라, 중간에 단독 pytest를 돌렸다면 그 시드가 남아 다음 CI를 깨뜨린다. 2026-11-01에 `test_schema_verifier`가 이렇게 깨졌다 — `erp.partner.payment_term_days`에 NULL 행이 남아 드리프트용 `SET NOT NULL`이 적용되지 않았다. **코드 문제가 아니다.**
+  ```
+  DATABASE_URL="…/<테스트DB>" backend/.venv/bin/python tools/clear_test_data.py
+  ```
 - **CI는 `TEST_DB=factory_studio_ci_<작업>_test`로 갈라서 돌린다.** 다른 세션이 기본 이름 `factory_studio_ci_test`를 동시에 쓰면 워커 복제가 `ObjectInUse`로 깨지고, 서로의 접속을 끊는다. 2026-10-30에 세 번 깨진 뒤 알았다.
 - QMS-1f 커밋·병합·push는 **다른 세션이 했다**(`a28c300`). 같은 폴더의 main을 여럿이 쓴다는 뜻이다.
 - **새 화면을 추가하면 포털 테스트 두 곳이 깨진다.** 숫자를 박아 둔 자리다 — `frontend/src/portal/favorites.test.tsx`의 메뉴 개수(지금 143)와 `content-pages.test.tsx`의 솔루션별 도움말 개수 배열(QMS는 지금 13). 화면 등록 4곳(`menu_catalog.json`·`index.tsx`·`content/help/<모듈>/`·라우트)을 고친 뒤 이 둘도 함께 고친다.
