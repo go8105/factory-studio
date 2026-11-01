@@ -1,3 +1,30 @@
+## 2026-11-01 GW-READY-02 72차 — 권한 변경 시 원문·선택 제거와 합성 재조회 복구
+
+- 저장소 /Users/hwang-kyoungho/projects/factory-studio-gw-company, codex/gw-company-01, 시작8c8c4d7/깨끗한 작업트리 확인. AGENTS·현황/FS-013/문서지도/progress/HANDOFF와 기존CompanyRoot/invalidate·GET/POST를 대조했다. 최종커밋은 git log -1로 확인한다.
+- 결함: 업무403/404에서 원문을 숨기고컴포넌트를새로만들어도 URL open은남아 재확인시같은문서를다시열었다. CompanyRoot의기존invalidate에 현재URL open제거/replace를추가했고 회사·경로/필터·hash·location.state는유지한다. 실제원문/기록삭제나 권한재부여가아니다.
+- 기존 /me의authzVersion 변경을관측하면 새업무원문을먼저보이지않고 Loading→open제거/epoch갱신→새회사연결조회를한다. 기존15초/포커스조회는유지하고 같은버전은선택/입력을유지한다. epoch를통해 기존요청abort/오래된쓰기응답무시를재사용하며 별도수집기/폴링/권한회수도구를만들지않았다. 버전변경은권한추가등도포함할수있어 회수확정으로표현하지않는다. 서버응답전의즉시감지·전기기전체회수를보장하지않는다.
+- 새 authorization-recovery.test.tsx8건은 실제GwLayout/CompanyRoot·Documents/공통훅을사용하고 세션/HTTP·SolutionLayout셸은모의다. GET403/404각각 원문숨김/URL선택제거/회사·필터유지/재확인후옛문서자동재선택없음을검사한다. POST403/404각각실제승인패널의합성처리사유/확정입력제거·다른메뉴회사유지를검사한다. 버전변경때 지연상세요청abort/옛원문비표시, 지연승인성공이selection을되살리지않음, STEP_UP_REQUIRED는권한거부와달리 원문/합성입력을유지함을검사한다. 기존15000ms콜백을합성호출한같은버전재조회는선택유지/새GET을검사하며 실제15초경과·실브라우저타이머시험은아니다.
+- 기존사용중화면이 /me403/404/연결정지로전환될때의모든상태는이번8건범위가아니다. 실제PG권한정책/실제계정회수/인증기기·브라우저/모바일·감사자/일반직원실사용/복원은미실행이다. 미리보기DB/계정·권한·MFA설정/실제업무자료·정책·증거등록·브라우저설정변경없음. 이번HTTP는모의응답이며 API실로그인성공으로보고하지않는다.
+- 초기통합시험4건은권한오류화면직후URL전환이완료되기전동기assert로실패했다. 원문이이미숨겨진뒤ReactRouter의URL반영완료를waitFor로검사하게보정했고7건통과, 정상주기/입력유지시험을더해최종8건으로확인했다. 임시로그는무시되는work/gw-readiness-02-phase72에두며전체로그Git제외. 검증결과는아래최종기록을따른다.
+- factory-impeccable의기존회사맥락·오류상태/입력유효성기준을적용하고 정적도움말·실회사절차§46/수집경계·구현문서·현황200줄이하/문서지도/progress/HANDOFF갱신한다. 화면모의검증을제품전체UI완성으로세지않는다.
+- ready=false/최종4 UNVERIFIED·실제복원PARTIAL/ACCEPTANCE PASS거부유지. 백엔드·DB복원/전체CI/전체회귀·전체build/실API실브라우저·실회사10인인수는이번미실행이다. 스키마/마이그레이션·metadata/Excel/ERD변경없어DB생성·마이그레이션/정적DB재실행없음. 다른checkout/WMS/main/push/배포변경없음.work/.env/비밀Git제외.
+- 다음: /me조회실패·회사연결정지/취소때원문제거/재연결안내와URL선택/입력복구를합성통합시험으로대조한다. 기존미리보기의실제연결·권한을임의회수하지않는다. 외부공급자/독립최신성·전경로/전체회수·최신main/전체회귀·실회사10인/최종전환은남는다. GPT-6 Astra + High추천(회사연결·오래된응답/오류복구정합), 모델자동변경없음/다음ID자동착수없음.
+
+- 최종검증: GW화면/도움말12파일107건/11.66초 통과(신규통합8건, 집중8/1.50초와반복은중복합산없음). 타입·수정2파일ESLint/Prettier·diff오류0. 합성사유입력제거/STEP_UP입력유지까지최종확인했다. 실제API/브라우저·DB/계정회수·전체CI/실회사인수결과는아니다.
+
+재현(이GW작업저장소루트):
+```sh
+git status --short
+git branch --show-current
+git log -1 --oneline
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/authorization-recovery.test.tsx --maxWorkers=1
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw src/portal/content-pages.test.tsx --maxWorkers=1
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend run typecheck
+/opt/homebrew/opt/node@24/bin/node frontend/node_modules/eslint/bin/eslint.js frontend/src/gw/GwLayout.tsx frontend/src/gw/authorization-recovery.test.tsx
+/opt/homebrew/opt/node@24/bin/node frontend/node_modules/prettier/bin/prettier.cjs --check frontend/src/gw/GwLayout.tsx frontend/src/gw/authorization-recovery.test.tsx
+git diff --check
+```
+
 ## 2026-11-01 GW-READY-02 71차 — GW 회사 복귀·검색/페이지 범위 보정
 
 - 저장소 /Users/hwang-kyoungho/projects/factory-studio-gw-company, codex/gw-company-01, 시작992fc99/깨끗한 작업트리를 확인했다. AGENTS/현황/FS-013/문서지도/progress/HANDOFF와70차구현을 대조했다. 최종 커밋은 git log -1로 확인한다.

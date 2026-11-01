@@ -2,11 +2,12 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
 } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { SolutionLayout } from "../shared/SolutionLayout";
 import { ErrorNotice, Loading } from "../shared/components";
 import { gwScreens } from "../shared/menuCatalog";
@@ -171,9 +172,27 @@ function PersonalSpace() {
   );
 }
 
-function CompanySpace({ issue, retry }: { issue: unknown; retry: () => void }) {
+function CompanySpace({
+  issue,
+  retry,
+  authorizationChanged,
+}: {
+  issue: unknown;
+  retry: () => void;
+  authorizationChanged: () => void;
+}) {
   const scope = useContext(CompanyContext);
   const me = useGet<CompanyMe>("/me", true);
+  const previousAuthorization = useRef<number | undefined>(undefined);
+  const changed =
+    me.data !== undefined &&
+    previousAuthorization.current !== undefined &&
+    previousAuthorization.current !== me.data.authzVersion;
+  useLayoutEffect(() => {
+    if (!me.data) return;
+    previousAuthorization.current = me.data.authzVersion;
+    if (changed) authorizationChanged();
+  }, [me.data, changed, authorizationChanged]);
   const latestReload = useRef(me.reload);
   latestReload.current = me.reload;
   useEffect(() => {
@@ -197,7 +216,9 @@ function CompanySpace({ issue, retry }: { issue: unknown; retry: () => void }) {
   const [uncertain, setUncertain] = useState(false);
   const p = me.data?.person;
   let content;
-  if (me.error) content = <ErrorNotice error={me.error} retry={me.reload} />;
+  if (changed) content = <Loading label="현재 권한을 다시 확인하고 있습니다" />;
+  else if (me.error)
+    content = <ErrorNotice error={me.error} retry={me.reload} />;
   else if (!me.data) content = <Loading />;
   else if (issue)
     content = (
@@ -252,16 +273,42 @@ function CompanyRoot({ companyId }: { companyId: string }) {
   const [epoch, setEpoch] = useState(0);
   const [issue, setIssue] = useState<unknown>();
   const location = useLocation();
-  const invalidate = useCallback((error: unknown) => {
-    setIssue(error);
+  const navigate = useNavigate();
+  const currentLocation = useRef(location);
+  currentLocation.current = location;
+  const clearSelection = useCallback(() => {
+    const current = currentLocation.current;
+    const query = new URLSearchParams(current.search);
+    if (!query.has("open")) return;
+    query.delete("open");
+    navigate(
+      {
+        pathname: current.pathname,
+        search: query.toString(),
+        hash: current.hash,
+      },
+      { replace: true, state: current.state },
+    );
+  }, [navigate]);
+  const invalidate = useCallback(
+    (error: unknown) => {
+      clearSelection();
+      setIssue(error);
+      setEpoch((v) => v + 1);
+    },
+    [clearSelection],
+  );
+  const authorizationChanged = useCallback(() => {
+    clearSelection();
     setEpoch((v) => v + 1);
-  }, []);
+  }, [clearSelection]);
   useEffect(() => setIssue(undefined), [location.pathname]);
   return (
     <CompanyContext.Provider value={{ companyId, epoch, invalidate }}>
       <CompanySpace
         key={epoch}
         issue={issue}
+        authorizationChanged={authorizationChanged}
         retry={() => {
           setIssue(undefined);
           setEpoch((v) => v + 1);
