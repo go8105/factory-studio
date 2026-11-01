@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -112,6 +112,24 @@ class TariffUpdate(ApiModel):
     contract_kw: str | None = Field(
         None, alias="contractKw", pattern=r"^\d+(\.\d{1,2})?$"
     )
+
+
+# ---- F-15 계측 품질 (DSN-15 F12·F14) ----
+QTY = r"^\d{1,14}(\.\d{1,6})?$"  # numeric(20,6). 음수는 DB CHECK가 막는다
+
+
+class ManualReadingCreate(ApiModel):
+    channel_id: int = Field(alias="channelId", gt=0)
+    period_start: datetime = Field(alias="periodStart")
+    value: str = Field(pattern=QTY)
+
+
+class CorrectionCreate(ApiModel):
+    channel_id: int = Field(alias="channelId", gt=0)
+    period_start: datetime = Field(alias="periodStart")
+    corrected_value: str = Field(alias="correctedValue", pattern=QTY)
+    method: Literal["INTERPOLATE", "PREVIOUS", "MANUAL"]
+    reason: str = Field(min_length=2, max_length=300)
 
 
 # ---- F-13 환산·배출계수 (FS-018k) ----

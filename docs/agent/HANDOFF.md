@@ -37,7 +37,28 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 
 **PPM은 불량을 '개수'로 센 칸이 있어야 낸다.** 수입(`defect_count`/`sample_qty`)과 공정(MES `defectQty`/`inputQty`)만 가능하고 출하·고객은 못 낸다. 설계 3장이 4종 모두 PPM을 적었지만 **0으로 채우지 않고 `—`로 두고 화면이 왜 비는지 밝힌다.** FEMS·BEMS에서도 같은 판단이 필요할 것이다.
 
-## FEMS — 1a·1b·1c 완료, 1d부터
+## FEMS-1d 진행 중 — F12·F14 백엔드만 끝났다
+
+**다음 세션이 이어서 할 일.** 백엔드는 커밋돼 있고 테스트 8건이 통과한다.
+
+| 끝난 것 | 어디 |
+|---|---|
+| 수동 검침 입력 (F12) | `POST /fems/readings` — `entry_method=MANUAL`. 이미 값이 있으면 409 `READING_EXISTS`(덮지 않는다, 고치는 건 보정) |
+| 결측·이상값 탐지 (F14) | `GET /fems/reading-quality?channelId=&from=&to=` — MISSING·ZERO_RUN(0이 3시간 이상)·SPIKE(중앙값 3배 초과), **판단 근거를 note로 함께 준다** |
+| 보정 적용 (F14) | `POST /fems/reading-corrections` — 새 `input_revision`(estimated) 행을 넣고 원 계측은 `quality=invalid`로 집계에서만 뺀다 |
+
+**보정 설계에서 고른 길**: `energy_reading`에 `UK(채널, source_key)`가 있어 같은 키로 행을 더할 수 없다. 그래서 보정 행은 `<채널>:FIX-<시각>-r<n>` 키를 쓰고, **원 행은 지우지 않고 `quality=invalid`로 돌린다.** 집계 질의가 이미 invalid를 거르므로 읽는 쪽을 다섯 군데 고치지 않아도 된다. 원래 값은 행에도, `reading_correction.original_value`에도 남는다.
+
+**남은 것**
+
+| 할 일 | 메모 |
+|---|---|
+| **F-15 계측 품질 화면(신규)** | 채널 고르기 → 결측·이상값 목록 → 보정. 등록 4곳 + 포털 카운터 둘(메뉴 145·FEMS 도움말 16) |
+| F-02 수동 검침 입력 UI | `POST /readings`를 쓰는 폼 |
+| **F13 CSV 올리기** | `fems.reading_upload` 표는 비어 있다. **브라우저가 CSV를 파싱해 행 배열로 보내는 쪽을 권함** — multipart를 안 만들어도 된다 |
+| **F51 MES 생산량 가져오기** | F-05 보강. 1b의 `mes.production_results(month)`가 여기서 **첫 소비자**를 얻는다 |
+
+## FEMS — 1a·1b·1c 완료, 1d 진행 중
 
 설계는 **DSN-15**에 있고 Q1~Q7이 2026-10-05에 이미 확정돼 있다. 범위 13 → 25표·14 → **23화면**(신규 9·기존 보강 8)으로 QMS보다 크다.
 

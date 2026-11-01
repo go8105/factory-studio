@@ -1522,6 +1522,141 @@ def tariff_bands(
     return grouped
 
 
+def channel_for_reading(
+    connection: Connection, context: AuthContext, channel_id: int
+) -> dict[str, Any] | None:
+    """계측 채널 하나. 수동 검침·보정이 단위와 채널 코드를 여기서 가져온다."""
+    row = (
+        connection.execute(
+            text(
+                "SELECT c.id,c.channel_code,c.name,c.unit,c.measurement_kind,c.is_active,"
+                "m.meter_code,s.timezone "
+                "FROM fems.meter_channel c "
+                "JOIN fems.meter m ON m.workspace_id=c.workspace_id "
+                " AND m.generation_id=c.generation_id AND m.id=c.meter_id "
+                "JOIN fems.site s ON s.workspace_id=m.workspace_id "
+                " AND s.generation_id=m.generation_id AND s.id=m.site_id "
+                "WHERE c.workspace_id=:w AND c.generation_id=:g AND c.id=:id"
+            ),
+            {**_s(context), "id": channel_id},
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else dict(row)
+
+
+def channel_readings(
+    connection: Connection,
+    context: AuthContext,
+    channel_id: int,
+    date_from: Any,
+    date_to: Any,
+) -> list[dict[str, Any]]:
+    """한 채널의 구간별 계측. 결측·이상값 탐지는 이 목록을 파이썬에서 훑는다.
+
+    버려진 값(invalid)은 빼고 **구간마다 최신 input_revision 하나만** 돌려준다 —
+    보정이 쌓여도 한 구간은 한 값이다.
+    """
+    rows = connection.execute(
+        text(
+            "SELECT DISTINCT ON (r.period_start) r.id,r.period_start,r.observed_at,"
+            "r.value,r.quality,r.source_key,r.input_revision,r.entry_method "
+            "FROM fems.energy_reading r "
+            "JOIN fems.meter_channel c ON c.workspace_id=r.workspace_id "
+            " AND c.generation_id=r.generation_id AND c.id=r.meter_channel_id "
+            "JOIN fems.meter m ON m.workspace_id=c.workspace_id "
+            " AND m.generation_id=c.generation_id AND m.id=c.meter_id "
+            "JOIN fems.site s ON s.workspace_id=m.workspace_id "
+            " AND s.generation_id=m.generation_id AND s.id=m.site_id "
+            "WHERE r.workspace_id=:w AND r.generation_id=:g AND r.meter_channel_id=:id "
+            " AND r.quality <> 'invalid'"
+            " AND r.observed_at > (CAST(CAST(:date_from AS date) AS timestamp) AT TIME ZONE s.timezone)"
+            " AND r.observed_at <= (CAST(CAST(:date_to AS date) + 1 AS timestamp) AT TIME ZONE s.timezone)"
+            " ORDER BY r.period_start, r.input_revision DESC, r.id DESC"
+        ),
+        {**_s(context), "id": channel_id, "date_from": date_from, "date_to": date_to},
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
+def insert_reading(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    columns = ",".join(values.keys())
+    placeholders = ",".join(f":{c}" for c in values)
+    row = (
+        connection.execute(
+            text(
+                f"INSERT INTO fems.energy_reading (workspace_id, generation_id, {columns}) "
+                f"VALUES (:w, :g, {placeholders}) "
+                "RETURNING id,meter_channel_id,observed_at,period_start,value,unit,"
+                "quality,source_key,input_revision,entry_method,created_at"
+            ),
+            {**_s(context), **values},
+        )
+        .mappings()
+        .one()
+    )
+    return dict(row)
+
+
+def supersede_reading(
+    connection: Connection, context: AuthContext, reading_id: int
+) -> None:
+    """보정으로 대체된 원 계측을 **지우지 않고** 집계에서만 뺀다(quality=invalid).
+
+    값은 행에 그대로 남고, 보정 이력(`reading_correction.original_value`)에도 남는다.
+    집계 질의가 이미 invalid를 거르므로 읽는 쪽을 모두 고치지 않아도 된다.
+    """
+    connection.execute(
+        text(
+            "UPDATE fems.energy_reading SET quality='invalid' "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), "id": reading_id},
+    )
+
+
+def insert_correction(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    row = (
+        connection.execute(
+            text(
+                "INSERT INTO fems.reading_correction (workspace_id,generation_id,"
+                "meter_channel_id,period_start,original_value,corrected_value,method,"
+                "reason,corrected_at) VALUES (:w,:g,:channel,:period_start,:original,"
+                ":corrected,:method,:reason,now()) "
+                "RETURNING id,meter_channel_id,period_start,original_value,"
+                "corrected_value,method,reason,corrected_at"
+            ),
+            {**_s(context), **values},
+        )
+        .mappings()
+        .one()
+    )
+    return dict(row)
+
+
+def list_corrections(
+    connection: Connection, context: AuthContext, limit: int = 50
+) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            "SELECT k.id,k.meter_channel_id,c.channel_code,k.period_start,"
+            "k.original_value,k.corrected_value,k.method,k.reason,k.corrected_at "
+            "FROM fems.reading_correction k "
+            "JOIN fems.meter_channel c ON c.workspace_id=k.workspace_id "
+            " AND c.generation_id=k.generation_id AND c.id=k.meter_channel_id "
+            "WHERE k.workspace_id=:w AND k.generation_id=:g "
+            "ORDER BY k.corrected_at DESC, k.id DESC LIMIT :limit"
+        ),
+        {**_s(context), "limit": limit},
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
 def replace_tariff_bands(
     connection: Connection,
     context: AuthContext,

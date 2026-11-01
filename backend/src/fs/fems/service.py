@@ -114,6 +114,36 @@ def _replay(
     return digest, find_receipt(connection, scoped, operation, key, digest)
 
 
+def _run_once(
+    context: AuthContext,
+    operation: str,
+    key: str,
+    body: Any,
+    run: Any,
+    status: int = 200,
+    entity: str = "reading",
+) -> dict[str, Any]:
+    """멱등 쓰기 한 번. 같은 키로 다시 부르면 저장해 둔 결과를 그대로 돌려준다."""
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        digest, cached = _replay(connection, scoped, operation, key, body)
+        if cached is not None:
+            return cached
+        result = run(connection, scoped)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            entity,
+            result.get("id"),
+            result,
+            status,
+        )
+        return result
+
+
 def create_source(
     context: AuthContext, values: dict[str, Any], key: str
 ) -> dict[str, Any]:
@@ -2505,3 +2535,288 @@ def load_pattern(
         # 휴일 달력이 비어 있으면 일요일만 휴일로 본다 — 화면이 그 사실을 밝힌다.
         "hasHolidayCalendar": bool(holiday_days),
     }
+
+
+# ---------- 계측 품질 (F-15, DSN-15 F12·F14) ----------
+
+# 0이 몇 시간 이어지면 멈춘 것이 아니라 못 읽은 것으로 본다.
+ZERO_RUN_HOURS = 3
+# 중앙값의 몇 배를 넘으면 급증으로 본다. 평균이 아니라 중앙값이어야 한 번의 급증에 흔들리지 않는다.
+SPIKE_FACTOR = Decimal(3)
+HOUR = timedelta(hours=1)
+
+
+def _median(values: list[Decimal]) -> Decimal:
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if not ordered:
+        return Decimal(0)
+    if len(ordered) % 2:
+        return ordered[middle]
+    return (ordered[middle - 1] + ordered[middle]) / 2
+
+
+def _detect(rows: list[dict[str, Any]], zone: ZoneInfo) -> list[dict[str, Any]]:
+    """결측·0 연속·급증을 찾는다. **판단 근거를 함께 돌려준다** — 숫자만 주면 못 고친다."""
+    found: list[dict[str, Any]] = []
+    by_period = {r["period_start"]: r for r in rows}
+    if not rows:
+        return found
+    values = [Decimal(str(r["value"])) for r in rows]
+    median = _median([v for v in values if v > 0])
+
+    # 1) 빠진 시각. 첫 계측과 마지막 계측 사이만 본다 — 바깥은 아직 안 잰 것이지 결측이 아니다.
+    cursor = min(by_period)
+    last = max(by_period)
+    while cursor < last:
+        cursor += HOUR
+        if cursor not in by_period and cursor < last:
+            found.append(
+                {
+                    "kind": "MISSING",
+                    "periodStart": cursor.astimezone(zone).isoformat(),
+                    "value": None,
+                    "note": "계측값이 없습니다.",
+                }
+            )
+
+    # 2) 0이 이어지는 구간. 한두 시간은 정지일 수 있어 ZERO_RUN_HOURS부터 본다.
+    run: list[dict[str, Any]] = []
+    for row in sorted(rows, key=lambda r: r["period_start"]):
+        if Decimal(str(row["value"])) == 0:
+            run.append(row)
+            continue
+        if len(run) >= ZERO_RUN_HOURS:
+            found.extend(_zero_run(run, zone))
+        run = []
+    if len(run) >= ZERO_RUN_HOURS:
+        found.extend(_zero_run(run, zone))
+
+    # 3) 급증. 중앙값이 0이면(거의 안 쓰는 채널) 판단하지 않는다.
+    if median > 0:
+        for row in rows:
+            value = Decimal(str(row["value"]))
+            if value > median * SPIKE_FACTOR:
+                found.append(
+                    {
+                        "kind": "SPIKE",
+                        "periodStart": row["period_start"].astimezone(zone).isoformat(),
+                        "value": str(value),
+                        "note": f"중앙값 {median:.3f}의 {SPIKE_FACTOR}배를 넘습니다.",
+                    }
+                )
+    found.sort(key=lambda f: f["periodStart"])
+    return found
+
+
+def _zero_run(run: list[dict[str, Any]], zone: ZoneInfo) -> list[dict[str, Any]]:
+    note = f"0이 {len(run)}시간 이어집니다."
+    return [
+        {
+            "kind": "ZERO_RUN",
+            "periodStart": row["period_start"].astimezone(zone).isoformat(),
+            "value": "0",
+            "note": note,
+        }
+        for row in run
+    ]
+
+
+def reading_quality(
+    context: AuthContext, channel_id: int, date_from: date | None, date_to: date | None
+) -> dict[str, Any]:
+    """한 채널의 결측·이상값과 보정 이력(F14). 저장하지 않고 그때그때 훑는다."""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        channel = repo.channel_for_reading(connection, scoped, channel_id)
+        if channel is None:
+            raise ApiError(404, "NOT_FOUND", "계측 채널을 찾을 수 없습니다.")
+        if date_to is None:
+            latest = repo.latest_reading_date(connection, scoped)
+            if latest is None:
+                return {
+                    "channel": None,
+                    "period": None,
+                    "issues": [],
+                    "corrections": [],
+                }
+            date_to = latest
+            date_from = date_to - timedelta(days=DEFAULT_READING_DAYS - 1)
+        _check_period(date_from, date_to)
+        rows = repo.channel_readings(connection, scoped, channel_id, date_from, date_to)
+        corrections = repo.list_corrections(connection, scoped)
+    zone = ZoneInfo(channel["timezone"])
+    return {
+        "channel": {
+            "id": channel["id"],
+            "channelCode": channel["channel_code"],
+            "name": channel["name"],
+            "unit": channel["unit"],
+            "meterCode": channel["meter_code"],
+        },
+        "period": {"from": date_from.isoformat(), "to": date_to.isoformat()},
+        "readingCount": len(rows),
+        "issues": _detect(rows, zone),
+        "corrections": [
+            {
+                "id": c["id"],
+                "channelCode": c["channel_code"],
+                "periodStart": c["period_start"].astimezone(zone).isoformat(),
+                "originalValue": None
+                if c["original_value"] is None
+                else str(c["original_value"]),
+                "correctedValue": str(c["corrected_value"]),
+                "method": c["method"],
+                "reason": c["reason"],
+                "correctedAt": c["corrected_at"].isoformat(),
+            }
+            for c in corrections
+        ],
+    }
+
+
+def _reading_payload(
+    channel: dict[str, Any],
+    period_start: datetime,
+    value: str,
+    entry_method: str,
+    source_key: str,
+    revision: int,
+    quality: str,
+) -> dict[str, Any]:
+    return {
+        "meter_channel_id": channel["id"],
+        # 구간형 계측이라 관측 시각은 구간 끝이다(시드와 같은 규칙).
+        "observed_at": period_start + HOUR,
+        "period_start": period_start,
+        "value": value,
+        "unit": channel["unit"],
+        "quality": quality,
+        "source_key": source_key,
+        "input_revision": revision,
+        "entry_method": entry_method,
+    }
+
+
+def _reading_dict(row: dict[str, Any]) -> dict[str, Any]:
+    """영수증(멱등 재생)에 그대로 들어가므로 날짜를 문자열로 바꾼다."""
+    return {
+        "id": row["id"],
+        "meterChannelId": row["meter_channel_id"],
+        "observedAt": row["observed_at"].isoformat(),
+        "periodStart": None
+        if row["period_start"] is None
+        else row["period_start"].isoformat(),
+        "value": str(row["value"]),
+        "unit": row["unit"],
+        "quality": row["quality"],
+        "sourceKey": row["source_key"],
+        "inputRevision": row["input_revision"],
+        "entryMethod": row["entry_method"],
+    }
+
+
+def create_manual_reading(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """계측기가 없는 연료·용수를 손으로 적는다(F12).
+
+    같은 채널·구간에 이미 값이 있으면 덮지 않는다 — 고치는 것은 **보정**이고 이력이 남아야 한다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        channel = repo.channel_for_reading(connection, scoped, values["channel_id"])
+        if channel is None:
+            raise ApiError(404, "NOT_FOUND", "계측 채널을 찾을 수 없습니다.")
+        period_start = values["period_start"]
+        existing = repo.channel_readings(
+            connection,
+            scoped,
+            channel["id"],
+            period_start.date(),
+            period_start.date(),
+        )
+        if any(r["period_start"] == period_start for r in existing):
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "이 구간에는 이미 계측값이 있습니다. 고치려면 보정을 쓰세요.",
+                {"reason": "READING_EXISTS"},
+            )
+        row = repo.insert_reading(
+            connection,
+            scoped,
+            _reading_payload(
+                channel,
+                period_start,
+                values["value"],
+                "MANUAL",
+                f"{channel['channel_code']}:MANUAL-{period_start:%Y%m%dT%H}",
+                1,
+                "valid",
+            ),
+        )
+        return _reading_dict(row)
+
+    return _run_once(context, "fems.reading.manual", key, values, run, 201)
+
+
+def create_correction(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """결측·이상값을 고친다(F14). **원 계측은 지우지 않는다.**
+
+    고친 값은 같은 구간의 새 `input_revision` 행(quality=estimated)으로 들어가고, 원 계측은
+    집계에서만 빠진다(quality=invalid). 원래 값은 행에도, 보정 이력에도 남는다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        channel = repo.channel_for_reading(connection, scoped, values["channel_id"])
+        if channel is None:
+            raise ApiError(404, "NOT_FOUND", "계측 채널을 찾을 수 없습니다.")
+        period_start = values["period_start"]
+        rows = repo.channel_readings(
+            connection, scoped, channel["id"], period_start.date(), period_start.date()
+        )
+        original = next((r for r in rows if r["period_start"] == period_start), None)
+        revision = (original["input_revision"] + 1) if original else 1
+        if original is not None:
+            repo.supersede_reading(connection, scoped, original["id"])
+        row = repo.insert_reading(
+            connection,
+            scoped,
+            _reading_payload(
+                channel,
+                period_start,
+                values["corrected_value"],
+                original["entry_method"] if original else "MANUAL",
+                f"{channel['channel_code']}:FIX-{period_start:%Y%m%dT%H}-r{revision}",
+                revision,
+                "estimated",
+            ),
+        )
+        correction = repo.insert_correction(
+            connection,
+            scoped,
+            {
+                "channel": channel["id"],
+                "period_start": period_start,
+                "original": None if original is None else original["value"],
+                "corrected": values["corrected_value"],
+                "method": values["method"],
+                "reason": values["reason"],
+            },
+        )
+        return {
+            "id": correction["id"],
+            "readingId": row["id"],
+            "inputRevision": row["input_revision"],
+            "originalValue": None
+            if correction["original_value"] is None
+            else str(correction["original_value"]),
+            "correctedValue": str(correction["corrected_value"]),
+            "method": correction["method"],
+            "reason": correction["reason"],
+        }
+
+    return _run_once(context, "fems.reading.correction", key, values, run, 201)
