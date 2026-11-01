@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   DataTable,
+  EmptyState,
   ErrorNotice,
   Field,
   FormPanel,
@@ -12,6 +13,7 @@ import {
 import { fieldErrors } from "../shared/hooks";
 import {
   labels,
+  companyPath,
   SelectedPeople,
   useGet,
   useRole,
@@ -29,6 +31,14 @@ export function Masters({ kind }: { kind: "people" | "routes" }) {
     `/${kind}?limit=20&offset=${offset}&search=${encodeURIComponent(search)}`,
   );
   const role = useRole();
+  const changeQuery = (search: string, offset?: number) => {
+    const next = new URLSearchParams(query);
+    if (search) next.set("search", search);
+    else next.delete("search");
+    if (offset) next.set("offset", String(offset));
+    else next.delete("offset");
+    setQuery(next);
+  };
   const [edit, setEdit] = useState<Person | Route | null | undefined>();
   const person = kind === "people";
   const title = person ? "체험 담당자" : "결재선 템플릿";
@@ -62,7 +72,7 @@ export function Masters({ kind }: { kind: "people" | "routes" }) {
           <Field
             label="검색"
             value={search}
-            onChange={(e) => setQuery({ search: e.target.value })}
+            onChange={(e) => changeQuery(e.target.value)}
           />
           <ErrorNotice error={result.error} />
           {!result.data && !result.error ? (
@@ -100,7 +110,14 @@ export function Masters({ kind }: { kind: "people" | "routes" }) {
                 offset={offset}
                 limit={20}
                 total={result.data.total}
-                onPage={(n) => setQuery({ search, offset: String(n) })}
+                onPage={(n) => changeQuery(search, n)}
+                empty={
+                  <EmptyState
+                    reason="조건에 맞는 기록이 없습니다. 검색어를 확인하거나 등록 권한이 있으면 새 기록을 등록하세요."
+                    to={companyPath("/gw/dashboard", role.companyId)}
+                    action="GW 업무로 돌아가기"
+                  />
+                }
               />
             )
           )}

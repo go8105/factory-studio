@@ -6,7 +6,27 @@ import {
   ErrorNotice,
   type DiscardGuard,
 } from "../shared/components";
-import { labels, time, useRole, type Event, type Snapshot } from "./common";
+import {
+  companyPath,
+  labels,
+  time,
+  useRole,
+  type Event,
+  type Snapshot,
+} from "./common";
+export function MissingGwPage() {
+  const { companyId } = useRole();
+  return (
+    <section>
+      <h1>GW 화면을 찾을 수 없습니다</h1>
+      <EmptyState
+        reason="업무 현황에서 메뉴를 다시 선택하세요."
+        to={companyPath("/gw/dashboard", companyId)}
+        action="GW 업무로 돌아가기"
+      />
+    </section>
+  );
+}
 export function RoleBar({
   guard,
   pending = false,

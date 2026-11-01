@@ -1,3 +1,33 @@
+## 2026-11-01 GW-READY-02 71차 — GW 회사 복귀·검색/페이지 범위 보정
+
+- 저장소 /Users/hwang-kyoungho/projects/factory-studio-gw-company, codex/gw-company-01, 시작992fc99/깨끗한 작업트리를 확인했다. AGENTS/현황/FS-013/문서지도/progress/HANDOFF와70차구현을 대조했다. 최종 커밋은 git log -1로 확인한다.
+- 결재선 템플릿/게시판의 빈 DataTable은 공통 기본 앱런처 대신 기존 companyPath로 현재회사 GW업무현황 복귀를 제공한다. 누락 GW경로는 전용 MissingGwPage의 명확한 h1/회사복귀로 연결한다. 개인 체험은 개인 GW복귀이며 다른 솔루션의 공통EmptyState/NotFound는 변경하지 않았다.
+- Masters 검색/페이지 이동이 setQuery의 새객체로 companyId를 버리는 결함을 보정했다. 기존URLSearchParams를 복사하고 검색만 변경/offset초기화, 페이지이동시 검색·회사/기타선택을 보존한다. 기존 ROUTE_ADMIN/등록·편집 검사는 그대로다. 새권한·계정/자동등록·공급자/수집기·복원기·인수PASS를 만들지 않았다.
+- 정적 링크 대조: 문서함은70차회사경로, 역할체험NoRole은개인경로/내공간설정, 회사구성은 CompanySpace가 별도차단한다. 위임빈상태는같은화면등록, Authority 공통마스터는동일화면패널/모듈꺼짐시내공간안내, 조직·문서·공지·알림은기존GwLink, 운영준비오류는기존현재회사GwLink/GET재점검이다. 개인체험/다른회사선택·계정보안/도움말/HR·런처명시이동은 의도한 범위전환으로 유지한다. 모든동적경로/모든역할인수를완료했다는목록은아니다.
+- 새 navigation.test.tsx 6건: 회사/개인 각각 결재선·게시판·누락화면 복귀, 검색시offset만초기화/다음페이지 검색·companyId·기타query 유지/API회사범위와GET만실행, 읽기역할 등록비활성, 개인담당자 안내를 확인한다. 회사모의값11/개인두범위의 URL/API를같이검사하며 실제PG권한시험으로 세지않는다.
+- 실제자원: 기존 API47906/웹47907/listener8362/5362와 preview컨테이너의 저장fullID/owner=gw-ready-02-preview/running·단일127.0.0.1:55439를재검증했다. 읽기전용계정점검은 저장합성계정존재/비밀번호일치·admin없음이다. 기존MFA로 실제제품로그인후 회사3 결재선검색에 companyId유지·빈상태클릭복귀,390게시판빈상태/누락주소 Enter복귀와 회사명·연결직원유지를 확인했다. 기존데이터가0건이라 실제다중페이지는미검증/모의회귀로구분한다. 사이드바닫기/임시viewport원복, 비밀/OTP·키/전체로그출력없음.
+- factory-impeccable 기준으로빈상태설명·회사맥락·제목/키보드·모바일을확인했고 화면근거 outputs/gw-readiness-02-phase71/를남겼다. 계정/역할/MFA설정·업무자료/정책·실행증거등록은요청하지않았다. 일반로그인인증/세션기록은발생하므로전체DB불변을주장하지않는다. 미리보기초기화·새DB/자원생성/스키마변경없음.
+- 검증: 최종 GW전체화면/정적도움말11파일99건과타입/수정5파일ESLint·Prettier/diff검사를실행한다(최종수치는아래결과). 집중6/전체99·반복은합산하지않는다. 최초타입검사에서신규시험의TestingLibrary옵션exact지원외2건을발견해제거하고통과했다. 후속포맷경고1건은write로보정했다. 기능시험실패없음. 스키마/마이그레이션·metadata/Excel/ERD변경없어DB재생성/정적DB·백엔드/복원·전체build/전체CI/전체회귀는이번미실행이다.
+- ready=false/최종4조건UNVERIFIED·실제복원PARTIAL/ACCEPTANCE PASS거부유지. 보안관리자합성1명/예정10명이며 실제10인/감사자·일반직원브라우저/실기기·외부독립성/전체회수·전체UI완성은미검증이다. 실계정/admin/비밀번호·키/브라우저설정·다른checkout/WMS/main/push/배포변경없음.work/.env·비밀Git제외.
+- 다음: 별도합성시험에서 회사권한회수후 프런트의원문/선택제거·재조회/다른메뉴복구를 기존CompanyRoot/invalidate와대조한다. 현재미리보기의계정/역할을임의회수하지않고 기존모의/별도소유시험을사용한다. 감사자/일반직원의실브라우저는기존승인계정자료없으면통과시키지않는다. 외부공급자/독립최신성·전경로/전체회수·최신main/전체회귀·실회사10인/최종전환은남는다. GPT-6 Astra + High추천(권한회수/비동기오래된응답·회사범위정합), 모델자동변경없음/다음ID자동착수없음.
+
+- 최종검증 완료: GW화면/도움말11파일99건/10.57초, 도움말 최종문구 반영후 해당파일19건/2.17초 재통과(99건과중복합산없음). 타입·수정5파일ESLint/Prettier·diff오류0. 실제합성API 검색/빈목록/누락화면·390/Enter복귀를확인했고 페이지이동은모의범위다.
+
+재현(이GW저장소루트):
+```sh
+git status --short
+git branch --show-current
+git log -1 --oneline
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw src/portal/content-pages.test.tsx --maxWorkers=1
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend run typecheck
+/opt/homebrew/opt/node@24/bin/node frontend/node_modules/eslint/bin/eslint.js frontend/src/gw/Board.tsx frontend/src/gw/Masters.tsx frontend/src/gw/ui.tsx frontend/src/gw/index.tsx frontend/src/gw/navigation.test.tsx
+/opt/homebrew/opt/node@24/bin/node frontend/node_modules/prettier/bin/prettier.cjs --check frontend/src/gw/Board.tsx frontend/src/gw/Masters.tsx frontend/src/gw/ui.tsx frontend/src/gw/index.tsx frontend/src/gw/navigation.test.tsx
+git diff --check
+# 실제API: 소유ID/owner/running/loopback·기존합성credential 대조후에만.
+# localhost:5362 기존login/MFA→회사3→결재선검색→빈상태 회사업무복귀.
+# 게시판/없는GW화면도 같은회사로복귀. 페이지이동은모의시험만.
+```
+
 ## 2026-10-31 GW-READY-02 70차 — 실제 API 로그인·운영 준비 동선 및 회사 복귀 링크 보정
 
 - GW 저장소 / codex/gw-company-01 / 시작 fad7181 / 깨끗한 작업트리에서 수행했다. 다른 checkout·WMS/main/push/배포는 건드리지 않았다. 최종 커밋은 git log -1로 확인한다.

@@ -1,6 +1,6 @@
 import { Operations } from "./Operations";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { NotFound } from "../shared/components";
+import { MissingGwPage } from "./ui";
 import { GwLayout } from "./GwLayout";
 import { Dashboard } from "./Dashboard";
 import { Documents } from "./Documents";
@@ -40,7 +40,7 @@ export default function GwRoutes() {
         <Route path="calendar" element={<Calendar />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="chat" element={<Chat />} />
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={<MissingGwPage />} />
       </Route>
     </Routes>
   );

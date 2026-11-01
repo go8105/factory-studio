@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { GwLink as Link } from "./common";
 import {
   DataTable,
+  EmptyState,
   DetailPanel,
   ErrorNotice,
   Field,
@@ -17,6 +18,7 @@ import {
   useRole,
   time,
   labels,
+  companyPath,
   type Page,
   type Post,
 } from "./common";
@@ -27,7 +29,7 @@ export function Board() {
   return <BoardSpace key={person} />;
 }
 function BoardSpace() {
-  const { person, busy } = useRole();
+  const { person, busy, companyId } = useRole();
   const [q, setQ] = useSearchParams();
   const [create, setCreate] = useState(false);
   const open = q.get("open");
@@ -144,6 +146,13 @@ function BoardSpace() {
               limit={20}
               total={list.data.total}
               onPage={(n) => change("offset", String(n))}
+              empty={
+                <EmptyState
+                  reason="조건에 맞는 게시글이 없습니다. 게시판·상태·검색어를 확인하세요."
+                  to={companyPath("/gw/dashboard", companyId)}
+                  action="GW 업무로 돌아가기"
+                />
+              }
             />
           ) : (
             !list.error && <Loading />
