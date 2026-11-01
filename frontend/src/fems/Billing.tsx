@@ -1,5 +1,5 @@
 // F-08 요금 산정 — 월마다 그 달의 요금제를 적용, 개정 월에서 구간이 나뉜다 (FS-018h)
-// 조회 시 계산하며 저장하지 않는다. 시간대별 차등(TOU)은 적용하지 않는다.
+// 조회 시 계산하며 저장하지 않는다. TOU 요금제면 시각마다 그 시간의 요율을 적용한다(DSN-15 Q1).
 import { useEffect, useState, type FormEvent } from "react";
 import { useSession } from "../app/session";
 import { api, ApiError } from "../shared/api";
@@ -10,12 +10,20 @@ import {
   Loading,
   PageTitle,
 } from "../shared/components";
+export type LoadBand = "OFF_PEAK" | "MID" | "PEAK";
+export const LOAD_BAND_LABEL: Record<LoadBand, string> = {
+  OFF_PEAK: "경부하",
+  MID: "중간부하",
+  PEAK: "최대부하",
+};
 type Segment = {
   month: string;
   usage: string;
   tariff: {
     tariffCode: string;
     name: string;
+    tariffKind: "FLAT" | "TOU";
+    contractKw: string | null;
     basicCharge: string;
     usageRate: string;
     effectiveFrom: string;
@@ -24,6 +32,7 @@ type Segment = {
   basicCharge: string | null;
   usageCharge: string | null;
   amount: string | null;
+  loadBands?: { loadBand: LoadBand; usage: string; charge: string }[];
 };
 export type BillingSource = {
   energySourceId: number;
@@ -98,15 +107,51 @@ export function SourceBilling({ source }: { source: BillingSource }) {
                   {s.amount === null ? "요금제 없음" : won(s.amount)}
                 </td>
                 <td>
-                  {s.tariff
-                    ? `${s.tariff.tariffCode} (${s.tariff.effectiveFrom} ~ ${s.tariff.effectiveTo ?? "계속"})`
-                    : "—"}
+                  {s.tariff ? (
+                    <>
+                      {s.tariff.tariffCode} ({s.tariff.effectiveFrom} ~{" "}
+                      {s.tariff.effectiveTo ?? "계속"})
+                      {s.tariff.tariffKind === "TOU" && (
+                        <>
+                          {" "}
+                          <Badge tone="normal">시간대별</Badge>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </td>
-                <td className="num">{won(s.basicCharge)}</td>
+                <td className="num">
+                  {won(s.basicCharge)}
+                  {s.tariff?.tariffKind === "TOU" && s.tariff.contractKw && (
+                    <small className="muted">
+                      {" "}
+                      계약 {num(s.tariff.contractKw)} kW
+                    </small>
+                  )}
+                </td>
                 <td>
                   {num(s.usage)} {source.unit}
-                  {s.tariff &&
-                    ` × ${num(s.tariff.usageRate)}원 = ${won(s.usageCharge)}`}
+                  {s.tariff?.tariffKind === "TOU" ? (
+                    <> = {won(s.usageCharge)}</>
+                  ) : (
+                    s.tariff &&
+                    ` × ${num(s.tariff.usageRate)}원 = ${won(s.usageCharge)}`
+                  )}
+                  {s.loadBands && (
+                    // 부하 구분별 소계. 어느 시간대가 요금을 끌어올렸는지 여기서 보인다.
+                    <ul className="rank-list">
+                      {s.loadBands.map((b) => (
+                        <li key={b.loadBand}>
+                          <span>{LOAD_BAND_LABEL[b.loadBand]}</span>
+                          <span>
+                            {num(b.usage)} {source.unit} · {won(b.charge)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </td>
               </tr>
             ))}

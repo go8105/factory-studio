@@ -2699,3 +2699,15 @@ th[aria-sort="none"] button span {
     display: block;
   }
 }
+
+/* 히트맵 칸. 색 농도 대신 막대 길이로 읽는다(저채도 기준, UI-02). */
+.bar-cell {
+  display: inline-block;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: linear-gradient(
+    to right,
+    var(--accent-soft, rgba(31, 45, 61, 0.12)) var(--share, 0%),
+    transparent var(--share, 0%)
+  );
+}

@@ -27,6 +27,7 @@ from fs.fems.schema import (
     ProductionUpdate,
     SiteCreate,
     SiteUpdate,
+    TariffBandsReplace,
     TariffCreate,
     TariffUpdate,
 )
@@ -393,6 +394,15 @@ def delete_factor(
     return Response(status_code=204)
 
 
+@router.get("/load-pattern")
+def get_load_pattern(
+    context: Auth,
+    month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
+    energy_source_id: Annotated[int | None, Query(alias="energySourceId", gt=0)] = None,
+) -> dict[str, object]:
+    return {"data": service.load_pattern(context, month, energy_source_id)}
+
+
 @router.get("/tariffs")
 def list_tariffs(
     context: Auth,
@@ -425,6 +435,19 @@ def post_tariff(
 ) -> dict[str, object]:
     key = _mutation(context, x_csrf_token, idempotency_key)
     return {"data": service.create_tariff(context, payload.model_dump(), key)}
+
+
+@router.put("/tariffs/{tariff_id}/bands")
+def put_tariff_bands(
+    tariff_id: int,
+    payload: TariffBandsReplace,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    bands = [b.model_dump() for b in payload.bands]
+    return {"data": service.replace_tariff_bands(context, tariff_id, bands, key)}
 
 
 @router.patch("/tariffs/{tariff_id}")

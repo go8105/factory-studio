@@ -68,6 +68,25 @@ class TariffCreate(ApiModel):
     effective_to: str | None = Field(
         None, alias="effectiveTo", pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$"
     )
+    tariff_kind: Literal["FLAT", "TOU"] = Field("FLAT", alias="tariffKind")
+    contract_kw: str | None = Field(
+        None, alias="contractKw", pattern=r"^\d+(\.\d{1,2})?$"
+    )
+
+
+class TariffBandIn(ApiModel):
+    season: Literal["SUMMER", "SPRING_FALL", "WINTER"]
+    day_kind: Literal["WEEKDAY", "SATURDAY", "HOLIDAY"] = Field(alias="dayKind")
+    hour_from: int = Field(alias="hourFrom", ge=0, le=23)
+    hour_to: int = Field(alias="hourTo", ge=1, le=24)
+    load_band: Literal["OFF_PEAK", "MID", "PEAK"] = Field(alias="loadBand")
+    rate: str = Field(pattern=r"^\d+(\.\d{1,4})?$")
+
+
+class TariffBandsReplace(ApiModel):
+    """구간은 통째로 바꾼다 — 한 줄씩 고치면 하루를 덮지 못하는 중간 상태가 생긴다."""
+
+    bands: list[TariffBandIn] = Field(max_length=216)  # 3계절 × 3요일 × 24시
 
 
 class TariffUpdate(ApiModel):
@@ -88,6 +107,10 @@ class TariffUpdate(ApiModel):
     )
     effective_to: str | None = Field(
         None, alias="effectiveTo", pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$"
+    )
+    tariff_kind: Literal["FLAT", "TOU"] | None = Field(None, alias="tariffKind")
+    contract_kw: str | None = Field(
+        None, alias="contractKw", pattern=r"^\d+(\.\d{1,2})?$"
     )
 
 

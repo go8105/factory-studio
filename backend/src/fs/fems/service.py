@@ -20,6 +20,7 @@ from fs.common.errors import ApiError
 from fs.common.idempotency import find_receipt, request_digest, save_receipt
 from fs.common.scope import read_scope, write_scope
 from fs.fems import repository as repo
+from fs.fems import tou
 
 MODULE = "fems"
 
@@ -378,9 +379,11 @@ def get_tariff(context: AuthContext, tariff_id: int) -> dict[str, Any]:
     with _read() as connection:
         scoped = read_scope(connection, context, MODULE)
         found = repo.get_tariff(connection, scoped, tariff_id)
-    if found is None:
-        raise _tariff_not_found()
-    return found
+        if found is None:
+            raise _tariff_not_found()
+        bands = repo.tariff_bands(connection, scoped, [tariff_id])[tariff_id]
+    # 단일요금제는 구간이 없다. 빈 목록이 곧 그 사실이다.
+    return {**found, "bands": [_band_dict(b) for b in bands]}
 
 
 def create_tariff(
@@ -428,6 +431,60 @@ def create_tariff(
             201,
         )
         return created
+
+
+def replace_tariff_bands(
+    context: AuthContext, tariff_id: int, bands: list[dict[str, Any]], key: str
+) -> dict[str, Any]:
+    """TOU 구간표를 통째로 바꾼다(F05·Q1).
+
+    저장 전에 **계절·요일마다 0~24시를 빈틈·겹침 없이 덮는지** 본다. DB CHECK는 구간 하나의
+    모양까지만 보고, 구간 사이의 빈틈은 여러 행을 함께 봐야 알 수 있다.
+    """
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.tariff.bands"
+        digest, cached = _replay(
+            connection, scoped, operation, key, {"id": tariff_id, "bands": bands}
+        )
+        if cached is not None:
+            return cached
+        current = repo.get_tariff(connection, scoped, tariff_id)
+        if current is None:
+            raise _tariff_not_found()
+        if current["tariffKind"] != "TOU":
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "단일요금제에는 시간대 구간을 둘 수 없습니다. 요금제 종류를 TOU로 바꾸세요.",
+                {"reason": "NOT_TOU"},
+            )
+        errors = tou.coverage_errors(bands)
+        if errors:
+            raise ApiError(
+                400,
+                "VALIDATION_FAILED",
+                "시간대 구간이 하루를 덮지 못합니다.",
+                {"fields": {"bands": " ".join(errors)}},
+            )
+        rows = repo.replace_tariff_bands(connection, scoped, tariff_id, bands)
+        result = {"tariffId": tariff_id, "bands": [_band_dict(r) for r in rows]}
+        save_receipt(
+            connection, scoped, operation, key, digest, "tariff", tariff_id, result, 200
+        )
+        return result
+
+
+def _band_dict(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "season": row["season"],
+        "dayKind": row["day_kind"],
+        "hourFrom": row["hour_from"],
+        "hourTo": row["hour_to"],
+        "loadBand": row["load_band"],
+        "rate": str(row["rate"]),
+    }
 
 
 def update_tariff(
@@ -1474,13 +1531,58 @@ def _tariff_for(
     return None
 
 
+def _tou_charge(
+    hourly: list[dict[str, Any]],
+    bands: list[dict[str, Any]],
+    holiday_days: set[date],
+) -> tuple[Decimal, dict[str, dict[str, Decimal]]]:
+    """시간 사용량마다 그 시각의 요율을 곱해 더한다(Q1). 부하 구분별 소계도 함께 낸다.
+
+    구간표에 없는 시각은 **버리지 않고 요율 0으로 센다** — 사용량이 사라지면 합계가 조용히
+    틀린다. 구간 완전성은 요금제를 저장할 때 막으므로 여기까지 오는 일은 없어야 한다.
+    """
+    table = tou.rate_lookup(bands)
+    charge = Decimal(0)
+    by_band: dict[str, dict[str, Decimal]] = {
+        band: {"usage": Decimal(0), "charge": Decimal(0)} for band in tou.LOAD_BANDS
+    }
+    for row in hourly:
+        day = row["reading_date"]
+        key = (
+            tou.season_of(day.month),
+            tou.day_kind_of(day, holiday_days),
+            row["hour"],
+        )
+        band = table.get(key)
+        rate = band["rate"] if band else Decimal(0)
+        amount = row["quantity"] * rate
+        charge += amount
+        bucket = by_band[band["load_band"]] if band else None
+        if bucket is not None:
+            bucket["usage"] += row["quantity"]
+            bucket["charge"] += amount
+    return charge, by_band
+
+
 def _billing(
-    rows: list[dict[str, Any]], tariffs: list[dict[str, Any]]
+    rows: list[dict[str, Any]],
+    tariffs: list[dict[str, Any]],
+    bands: dict[int, list[dict[str, Any]]] | None = None,
+    hourly: list[dict[str, Any]] | None = None,
+    holiday_days: set[date] | None = None,
 ) -> tuple[list[dict[str, Any]], str, bool]:
     """에너지원별로 월마다 그 달의 요금제를 적용한다. 요금제가 바뀌는 달에서 구간이 나뉜다.
 
-    월 요금 = 기본요금 + 사용량 × 단가(원 단위 반올림). 시간대 가중치 없음(FS-008a F-08).
+    FLAT: 기본요금 + 사용량 × 단가. TOU: **계약전력 × 기본요금 단가** + Σ(시간 사용량 × 그
+    시각의 요율)(Q1). 둘 다 원 단위 반올림이다.
     """
+    bands = bands or {}
+    holiday_days = holiday_days or set()
+    by_month: dict[tuple[int, str], list[dict[str, Any]]] = {}
+    for row in hourly or []:
+        by_month.setdefault(
+            (row["source_id"], row["reading_date"].strftime("%Y-%m")), []
+        ).append(row)
     sources: dict[tuple[int, str], dict[str, Any]] = {}
     for r in rows:
         source = sources.setdefault(
@@ -1511,12 +1613,34 @@ def _billing(
         if tariff is None:
             source["status"] = "TARIFF_MISSING"
         else:
-            usage_charge = (r["quantity"] * tariff["usage_rate"]).quantize(WON)
-            basic = tariff["basic_charge"].quantize(WON)
+            is_tou = tariff.get("tariff_kind") == "TOU"
+            band_rows = bands.get(tariff.get("id"), [])
+            if is_tou:
+                hours = by_month.get((r["source_id"], r["reading_month"]), [])
+                raw_charge, by_band = _tou_charge(hours, band_rows, holiday_days)
+                usage_charge = raw_charge.quantize(WON)
+                basic = (
+                    (tariff["contract_kw"] or Decimal(0)) * tariff["basic_charge"]
+                ).quantize(WON)
+                segment["loadBands"] = [
+                    {
+                        "loadBand": name,
+                        "usage": str(value["usage"].quantize(SIX)),
+                        "charge": str(value["charge"].quantize(WON)),
+                    }
+                    for name, value in by_band.items()
+                ]
+            else:
+                usage_charge = (r["quantity"] * tariff["usage_rate"]).quantize(WON)
+                basic = tariff["basic_charge"].quantize(WON)
             segment.update(
                 tariff={
                     "tariffCode": tariff["tariff_code"],
                     "name": tariff["name"],
+                    "tariffKind": tariff.get("tariff_kind", "FLAT"),
+                    "contractKw": None
+                    if tariff.get("contract_kw") is None
+                    else str(tariff["contract_kw"]),
                     "basicCharge": str(tariff["basic_charge"]),
                     "usageRate": str(tariff["usage_rate"]),
                     "effectiveFrom": tariff["effective_from"],
@@ -1593,7 +1717,22 @@ def billing(
         _, _, last = _month_period(connection, scoped, month_to)
         rows = repo.monthly_consumption(connection, scoped, first, last)
         tariffs = repo.billing_tariffs(connection, scoped)
-    sources, total, complete = _billing(rows, tariffs)
+        # TOU 요금제가 걸린 달이 있을 때만 시각별 계측을 읽는다 — 12개월치는 가볍지 않다.
+        tou_ids = [
+            t["id"]
+            for t in tariffs
+            if t["tariff_kind"] == "TOU"
+            and t["effective_from"] <= month_to
+            and (t["effective_to"] is None or t["effective_to"] >= month_from)
+        ]
+        bands = repo.tariff_bands(connection, scoped, tou_ids)
+        hourly = (
+            repo.hourly_consumption(connection, scoped, first, last) if tou_ids else []
+        )
+        holiday_days = (
+            repo.holidays(connection, scoped, first, last) if tou_ids else set()
+        )
+    sources, total, complete = _billing(rows, tariffs, bands, hourly, holiday_days)
     return {
         "period": {
             "from": month_from,
@@ -2252,4 +2391,117 @@ def intensity(
         "period": {"from": first, "to": last},
         "records": records,
         "items": item_rows,
+    }
+
+
+# ---------- 부하 패턴·피크 (F-16, DSN-15 F25·F26) ----------
+
+# 기저부하는 밤에 돌지 않아도 쓰는 양이다. 0~6시를 본다.
+BASE_LOAD_HOURS = range(6)
+
+
+def load_pattern(
+    context: AuthContext, month: str | None, energy_source_id: int | None
+) -> dict[str, Any]:
+    """시간대·요일 프로파일, 기저부하, 수요전력 피크(F25·F26). **저장하지 않는다.**
+
+    수요전력은 **1시간 계측의 최대값으로 근사**한다(Q2). 15분 수요를 재지 않으므로 실제
+    최대수요전력보다 낮게 나온다 — 화면이 "1시간 근사"라고 밝힌다.
+
+    계약전력이 없는 요금제(FLAT)면 비율을 내지 않는다. 0%가 아니라 '모름'이다.
+    """
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        period = _month_period(connection, scoped, month)
+        if period is None:
+            return {
+                "month": None,
+                "source": None,
+                "profile": [],
+                "peak": None,
+                "baseLoad": None,
+                "hasHolidayCalendar": False,
+            }
+        month, first, last = period
+        sources = repo.active_sources(connection, scoped)
+        source = next(
+            (s for s in sources if s["id"] == energy_source_id),
+            next((s for s in sources if s["source_code"] == "ELEC"), None)
+            or (sources[0] if sources else None),
+        )
+        if source is None:
+            return {
+                "month": month,
+                "source": None,
+                "profile": [],
+                "peak": None,
+                "baseLoad": None,
+                "hasHolidayCalendar": False,
+            }
+        rows = repo.hourly_consumption(connection, scoped, first, last, source["id"])
+        holiday_days = repo.holidays(connection, scoped, first, last)
+        tariffs = repo.billing_tariffs(connection, scoped)
+    tariff = _tariff_for(tariffs, source["id"], month)
+    contract_kw = (tariff or {}).get("contract_kw")
+
+    # 시간 × 요일 구분 평균. 같은 칸에 며칠이 들어가므로 합이 아니라 평균이어야 비교된다.
+    buckets: dict[tuple[str, int], list[Decimal]] = {}
+    peak: dict[str, Any] | None = None
+    base_values: list[Decimal] = []
+    for row in rows:
+        day_kind = tou.day_kind_of(row["reading_date"], holiday_days)
+        buckets.setdefault((day_kind, row["hour"]), []).append(row["quantity"])
+        if row["hour"] in BASE_LOAD_HOURS:
+            base_values.append(row["quantity"])
+        if peak is None or row["quantity"] > peak["value"]:
+            peak = {
+                "value": row["quantity"],
+                "date": row["reading_date"],
+                "hour": row["hour"],
+            }
+    profile = [
+        {
+            "dayKind": day_kind,
+            "hour": hour,
+            "days": len(values),
+            "average": str((sum(values) / len(values)).quantize(SIX)),
+            "max": str(max(values).quantize(SIX)),
+        }
+        for (day_kind, hour), values in sorted(buckets.items())
+    ]
+    return {
+        "month": month,
+        "source": {
+            "id": source["id"],
+            "sourceCode": source["source_code"],
+            "name": source["name"],
+            "unit": source["measure_unit"],
+        },
+        "sources": [
+            {"id": s["id"], "sourceCode": s["source_code"], "name": s["name"]}
+            for s in sources
+        ],
+        "profile": profile,
+        "peak": None
+        if peak is None
+        else {
+            "value": str(peak["value"].quantize(SIX)),
+            "date": peak["date"].isoformat(),
+            "hour": peak["hour"],
+            "contractKw": None if contract_kw is None else str(contract_kw),
+            # 계약전력이 없으면 비율은 0이 아니라 모름이다.
+            "contractRatio": None
+            if not contract_kw
+            else str((peak["value"] * 100 / contract_kw).quantize(Decimal("0.1"))),
+        },
+        # 기저부하 = 밤(0~6시) 시간 사용량의 최솟값. 멈춰도 빠지지 않는 양이다.
+        "baseLoad": None
+        if not base_values
+        else {
+            "value": str(min(base_values).quantize(SIX)),
+            "average": str((sum(base_values) / len(base_values)).quantize(SIX)),
+            "hours": f"{BASE_LOAD_HOURS.start}~{BASE_LOAD_HOURS.stop}",
+        },
+        # 휴일 달력이 비어 있으면 일요일만 휴일로 본다 — 화면이 그 사실을 밝힌다.
+        "hasHolidayCalendar": bool(holiday_days),
     }

@@ -499,6 +499,12 @@
           "group": "요금"
         },
         {
+          "path": "load-pattern",
+          "id": "F-16",
+          "label": "부하 패턴·피크",
+          "group": "요금"
+        },
+        {
           "path": "sites",
           "id": "F-09",
           "label": "사업장·공간",
