@@ -12,6 +12,7 @@ import {
   Route,
   Routes,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
@@ -91,6 +92,11 @@ const reply = (data: unknown, status = 200) =>
 function fixture() {
   const state = {
     version: 1,
+    meStatus: 0,
+    meNetwork: false,
+    binding: "ACTIVE",
+    personActive: true,
+    ready: true,
     denied: 0,
     stepUp: false,
     lateRead: undefined as undefined | ((r: Response) => void),
@@ -105,15 +111,40 @@ function fixture() {
       const path = url.pathname;
       if (path.endsWith("/companies"))
         return reply([{ id: 11, name: "합성 회사" }]);
-      if (path.endsWith("/me"))
+      if (path.endsWith("/me")) {
+        if (state.meNetwork) throw new TypeError("synthetic network failure");
+        if (state.meStatus)
+          return reply(
+            {
+              code: "SYNTHETIC_CONNECTION_ERROR",
+              message: "합성 연결 조회 실패",
+            },
+            state.meStatus,
+          );
         return reply({
           company: { id: 11, name: "합성 회사" },
-          person: { id: "501", name: "합성 직원", isActive: true },
-          bindingStatus: "ACTIVE",
-          roles: ["SECURITY_ADMIN"],
+          person: {
+            id: "501",
+            name: "합성 직원",
+            isActive: state.personActive,
+          },
+          bindingStatus: state.binding,
+          roles:
+            state.binding === "ACTIVE" && state.personActive
+              ? ["SECURITY_ADMIN"]
+              : [],
           authzVersion: state.version,
           setupRequired: false,
-          businessReady: true,
+          businessReady: state.ready,
+        });
+      }
+      if (path.endsWith("/me/binding"))
+        return reply({
+          id: "77",
+          state: state.binding,
+          name: "합성 직원",
+          hrEmployeeCode: "SYN-501",
+          version: 1,
         });
       if (path.endsWith("/people-options") || path.endsWith("/comments"))
         return reply([]);
@@ -152,7 +183,19 @@ function fixture() {
 }
 function CurrentLocation() {
   const l = useLocation();
-  return <output aria-label="current query">{l.search}</output>;
+  const navigate = useNavigate();
+  return (
+    <>
+      <output aria-label="current query">{l.search}</output>
+      <button
+        onClick={() =>
+          navigate("/gw/pending?companyId=11&open=10&status=IN_REVIEW")
+        }
+      >
+        과거 선택 주소 다시 방문
+      </button>
+    </>
+  );
 }
 function show() {
   render(
@@ -305,4 +348,184 @@ it("the existing 15-second refresh preserves selection when authorization is unc
   );
   expect(query().get("open")).toBe("10");
   expect(screen.getByText("합성 비공개 본문")).toBeInTheDocument();
+});
+it.each([403, 404, 500, 0])(
+  "connection lookup failure %s clears original and retries without reopening it",
+  async (status) => {
+    const { state, fetch } = fixture();
+    show();
+    await screen.findByText("합성 비공개 본문");
+    await openApproval();
+    state.meStatus = status;
+    state.meNetwork = status === 0;
+    fireEvent(window, new Event("focus"));
+    await screen.findByRole("heading", {
+      name: "회사 연결을 확인하지 못했습니다",
+    });
+    await waitFor(() => expect(query().has("open")).toBe(false));
+    expect(screen.queryByText("합성 비공개 본문")).not.toBeInTheDocument();
+    expect(
+      screen.queryByDisplayValue("합성 미저장 사유"),
+    ).not.toBeInTheDocument();
+    expect(query().get("companyId")).toBe("11");
+    expect(query().get("status")).toBe("IN_REVIEW");
+    const meCount = () =>
+      fetch.mock.calls.filter(([url]) => String(url).includes("/me?")).length;
+    const before = meCount();
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    await waitFor(() => expect(meCount()).toBe(before + 1));
+    await screen.findByRole("button", { name: "다시 시도" });
+    expect(screen.queryByText("합성 비공개 본문")).not.toBeInTheDocument();
+    state.meStatus = 0;
+    state.meNetwork = false;
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    await screen.findByRole("button", { name: "합성 비공개 원문" });
+    expect(query().has("open")).toBe(false);
+    expect(screen.queryByText("합성 비공개 본문")).not.toBeInTheDocument();
+    expect(
+      fetch.mock.calls.filter(([, i]) => i?.method === "POST"),
+    ).toHaveLength(0);
+    expect(auth.fail).not.toHaveBeenCalled();
+  },
+);
+it.each(["SUSPENDED", "CANCELLED", "UNBOUND", "INACTIVE", "NOT_READY"])(
+  "same-version connection %s removes selection and only queries on recheck",
+  async (mode) => {
+    const { state, fetch } = fixture();
+    show();
+    await screen.findByText("합성 비공개 본문");
+    await openApproval();
+    if (mode === "INACTIVE") state.personActive = false;
+    else if (mode === "NOT_READY") state.ready = false;
+    else state.binding = mode;
+    fireEvent(window, new Event("focus"));
+    await screen.findByRole("button", { name: "회사 연결 다시 확인" });
+    await waitFor(() => expect(query().has("open")).toBe(false));
+    expect(screen.queryByText("합성 비공개 본문")).not.toBeInTheDocument();
+    expect(
+      screen.queryByDisplayValue("합성 미저장 사유"),
+    ).not.toBeInTheDocument();
+    if (mode === "SUSPENDED")
+      expect(
+        await screen.findByText(/GW 연결이 정지되어 있습니다/),
+      ).toBeInTheDocument();
+    if (mode === "CANCELLED" || mode === "UNBOUND")
+      expect(
+        await screen.findByText(
+          /GW 조직 관리자에게 직원 연결 요청을 문의하세요/,
+        ),
+      ).toBeInTheDocument();
+    if (mode === "INACTIVE")
+      expect(
+        await screen.findByText(/GW 직원이 비활성 상태입니다/),
+      ).toBeInTheDocument();
+    state.binding = "ACTIVE";
+    state.personActive = true;
+    state.ready = true;
+    fireEvent.click(
+      screen.getByRole("button", { name: "회사 연결 다시 확인" }),
+    );
+    await screen.findByRole("button", { name: "합성 비공개 원문" });
+    expect(query().get("companyId")).toBe("11");
+    expect(query().has("open")).toBe(false);
+    expect(screen.queryByText("합성 비공개 본문")).not.toBeInTheDocument();
+    expect(
+      fetch.mock.calls.filter(([, i]) => i?.method === "POST"),
+    ).toHaveLength(0);
+  },
+);
+it("a connection failure discards a late pending approval result", async () => {
+  const { state } = fixture();
+  show();
+  await screen.findByText("합성 비공개 본문");
+  await openApproval();
+  state.deferWrite = true;
+  fireEvent.click(screen.getByRole("button", { name: "확정" }));
+  await waitFor(() => expect(state.lateWrite).toBeDefined());
+  state.meStatus = 403;
+  fireEvent(window, new Event("focus"));
+  await screen.findByRole("heading", {
+    name: "회사 연결을 확인하지 못했습니다",
+  });
+  await waitFor(() => expect(query().has("open")).toBe(false));
+  state.meStatus = 0;
+  fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+  const row = await screen.findByRole("button", { name: "합성 비공개 원문" });
+  expect(row.closest("section")).not.toHaveAttribute("inert");
+  await act(async () =>
+    state.lateWrite!(reply({ ...doc, body: "옛 연결 처리 결과" })),
+  );
+  expect(query().has("open")).toBe(false);
+  expect(screen.queryByText("옛 연결 처리 결과")).not.toBeInTheDocument();
+});
+it("an initial connection failure clears a deep link without issuing business reads or writes", async () => {
+  const { state, fetch } = fixture();
+  state.meStatus = 403;
+  show();
+  await screen.findByRole("heading", {
+    name: "회사 연결을 확인하지 못했습니다",
+  });
+  await waitFor(() => expect(query().has("open")).toBe(false));
+  expect(
+    fetch.mock.calls.filter(([url]) => String(url).includes("/documents")),
+  ).toHaveLength(0);
+  expect(fetch.mock.calls.filter(([, i]) => i?.method !== "GET")).toHaveLength(
+    0,
+  );
+});
+it("a late detail response cannot revive an original after connection failure", async () => {
+  const { state, fetch } = fixture();
+  show();
+  await screen.findByText("합성 비공개 본문");
+  state.deferRead = true;
+  fireEvent.click(screen.getByRole("button", { name: "서버 상태 다시 확인" }));
+  await waitFor(() => expect(state.lateRead).toBeDefined());
+  state.meStatus = 500;
+  fireEvent(window, new Event("focus"));
+  await screen.findByRole("heading", {
+    name: "회사 연결을 확인하지 못했습니다",
+  });
+  const calls = fetch.mock.calls.filter(([url]) =>
+    String(url).includes("/documents/10?"),
+  );
+  expect(calls.at(-1)?.[1]?.signal?.aborted).toBe(true);
+  await act(async () =>
+    state.lateRead!(reply({ ...doc, body: "옛 연결 지연 원문" })),
+  );
+  expect(screen.queryByText("옛 연결 지연 원문")).not.toBeInTheDocument();
+});
+it.each([401, 410])(
+  "connection %s follows the existing session failure path",
+  async (status) => {
+    const { state } = fixture();
+    show();
+    await screen.findByText("합성 비공개 본문");
+    state.meStatus = status;
+    fireEvent(window, new Event("focus"));
+    await waitFor(() => expect(auth.fail).toHaveBeenCalledTimes(1));
+    expect(auth.fail.mock.calls[0][0].status).toBe(status);
+    await waitFor(() => expect(query().has("open")).toBe(false));
+    expect(screen.queryByText("합성 비공개 본문")).not.toBeInTheDocument();
+  },
+);
+it("revisiting a stale selection while connection is unavailable cannot restore it", async () => {
+  const { state, fetch } = fixture();
+  state.meStatus = 403;
+  show();
+  await screen.findByRole("heading", {
+    name: "회사 연결을 확인하지 못했습니다",
+  });
+  await waitFor(() => expect(query().has("open")).toBe(false));
+  fireEvent.click(
+    screen.getByRole("button", { name: "과거 선택 주소 다시 방문" }),
+  );
+  await waitFor(() => expect(query().has("open")).toBe(false));
+  expect(
+    fetch.mock.calls.filter(([url]) => String(url).includes("/documents")),
+  ).toHaveLength(0);
+  state.meStatus = 0;
+  fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+  await screen.findByRole("button", { name: "합성 비공개 원문" });
+  expect(query().has("open")).toBe(false);
+  expect(screen.queryByText("합성 비공개 본문")).not.toBeInTheDocument();
 });

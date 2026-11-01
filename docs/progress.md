@@ -1,3 +1,31 @@
+## 2026-11-01 GW-READY-02 73차 — 회사 연결 실패·정지/취소 후 원문 제거·재조회
+
+- 저장소 /Users/hwang-kyoungho/projects/factory-studio-gw-company, codex/gw-company-01, 시작4c38841/깨끗한 작업트리 확인. AGENTS·현황/FS-013/문서지도/progress/HANDOFF와72차구현·CompanyStart·backend me응답을대조했다. 최종커밋은 git log -1로 확인한다.
+- 결함: /me실패·연결정지/취소가원문을숨겨도URL open은남았고 같은권한버전으로복구되면옛원문을자동재선택할수있었다. CompanySpace의unavailable조건(/meerror 또는직원/연결비활성·초기설정필요·업무미준비)에서 기존clearSelection을호출한다. 오류재시도로CompanyRoot를계속새로만들지않아 무한재조회가없으며 실패중과거선택주소재방문도query변경을감지해선택을비운다. 회사/경로/목록필터는유지한다.
+- 연결오류에원문/입력숨김·재조회/자동재선택없음안내를추가했다. SUSPENDED/CANCELLED/UNBOUND·직원비활성은기존CompanyStart의정지/조직관리자문의안내를유지하며 회사연결다시확인(GET)을제공한다. 이버튼은연결재개/새계정·권한부여가아니다. 업무미준비에도재조회할수있다. 초기설정/본인동의의기존변경요청동작은유지한다.
+- 미완료쓰기와함께연결실패가나면숨겨진컴포넌트의busy/uncertain표시가새업무까지막을수있어 unavailable에서참여자검색과함께초기화했다. 옛쓰기응답은기존mounted검사로무시한다. 이는실제서버거래취소/롤백이아니므로복구후현재기록을확인하라는안내를추가했다. 미완료요청을자동재전송하지않는다.
+- authorization-recovery.test.tsx에신규15건/총23건: /me403/404/500/네트워크오류, 같은버전SUSPENDED/CANCELLED/UNBOUND·직원비활성/업무미준비각5, 지연승인결과무시·응답전연결복구후목록inert해제, 최초403업무요청없음, 지연상세abort/비표시,401/410기존session.fail호출, 실패중과거선택주소재방문을검사한다. 정상복구뒤허용목록에같은문서제목이보여도본문/처리입력과open은자동복구하지않는다. 재확인요청에새POST없음·회사/필터유지·정지/비활성/관리자문의문구를검사한다.
+- 실제GwLayout/CompanyRoot·CompanyStart/Documents/공통훅을사용하지만HTTP/세션·SolutionLayout셸은모의다.401/410은mock fail호출과원문비표시만확인하며실앱로그아웃/재로그인은미검증이다. 기존주기/포커스재조회경로를사용하며실15초경과·모바일/실브라우저타이머·실제PG권한/계정회수검증이아니다. 실제미리보기/실계정연결·권한·MFA/업무자료/정책·증거등록을변경하지않았다.
+- 초기신규9건은정상복구뒤목록을빈목록으로기대해실패했다. 서버가현재허용한목록의문서제목은보여도원문을자동열지않아야하므로목록행존재/본문비표시·선택없음으로수정했다. 수정22건/추가주소재방문과busy복구포함최종집중23건통과. 최초실패기록은work/gw-readiness-02-phase73에보존하고전체로그Git제외한다. 과거통과로실패를대신하지않는다.
+- factory-impeccable의오류복구·회사맥락/유효성기준을적용했다. 정적도움말·실회사절차§47/수집경계·구현문서/문서지도·현황200줄이하/progress/HANDOFF갱신한다. 전체UI완성·실회사10인인수/전체권한회수/외부독립성완료로세지않는다.
+- ready=false/최종4조건UNVERIFIED·실제복원PARTIAL/ACCEPTANCE PASS거부유지. 스키마/마이그레이션·metadata/Excel/ERD변경없음. DB초기화/실계정/비밀번호/MFA/키·브라우저설정·다른checkout/WMS/main/push/배포변경없음.work/.env·비밀Git제외. 백엔드/별도PG·복원/전체CI·전체회귀/전체build/실API실브라우저·실회사10인/실기기는이번미실행이다.
+- 다음: PENDING 본인연결동의의재조회·취소/다른회사전환과오래된응답처리를기존CompanyStart/회사경계와합성검증한다. 실제미리보기연결·권한을임의변경하지않는다. 외부공급자/독립최신성·전경로/전체회수·최신main/전체회귀·실회사10인/최종전환은남는다. GPT-6 Astra + High추천(본인동의·회사경계/지연응답정합), 모델자동변경없음/다음ID자동착수없음.
+
+- 최종검증: GW화면/도움말12파일122건/17.09초, 집중연결복구23건/2.63초 통과(신규15·반복중복합산없음). 타입·수정2파일ESLint/Prettier·diff오류0. 초기신규9건의허용목록기대오류보정과지연쓰기응답전busy초기화까지최종소스로검사했다. 실제API/실브라우저·계정회수·DB복원/전체CI/실회사인수결과는아니다.
+
+재현(이GW작업저장소루트):
+```sh
+git status --short
+git branch --show-current
+git log -1 --oneline
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/authorization-recovery.test.tsx --maxWorkers=1
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw src/portal/content-pages.test.tsx --maxWorkers=1
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend run typecheck
+/opt/homebrew/opt/node@24/bin/node frontend/node_modules/eslint/bin/eslint.js frontend/src/gw/GwLayout.tsx frontend/src/gw/authorization-recovery.test.tsx
+/opt/homebrew/opt/node@24/bin/node frontend/node_modules/prettier/bin/prettier.cjs --check frontend/src/gw/GwLayout.tsx frontend/src/gw/authorization-recovery.test.tsx
+git diff --check
+```
+
 ## 2026-11-01 GW-READY-02 72차 — 권한 변경 시 원문·선택 제거와 합성 재조회 복구
 
 - 저장소 /Users/hwang-kyoungho/projects/factory-studio-gw-company, codex/gw-company-01, 시작8c8c4d7/깨끗한 작업트리 확인. AGENTS·현황/FS-013/문서지도/progress/HANDOFF와 기존CompanyRoot/invalidate·GET/POST를 대조했다. 최종커밋은 git log -1로 확인한다.

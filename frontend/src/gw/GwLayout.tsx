@@ -176,12 +176,15 @@ function CompanySpace({
   issue,
   retry,
   authorizationChanged,
+  clearSelection,
 }: {
   issue: unknown;
   retry: () => void;
   authorizationChanged: () => void;
+  clearSelection: () => void;
 }) {
   const scope = useContext(CompanyContext);
+  const { search: locationSearch } = useLocation();
   const me = useGet<CompanyMe>("/me", true);
   const previousAuthorization = useRef<number | undefined>(undefined);
   const changed =
@@ -207,6 +210,10 @@ function CompanySpace({
   const [search, setSearch] = useState("");
   const active =
     me.data?.bindingStatus === "ACTIVE" && me.data.person?.isActive;
+  const unavailable = Boolean(
+    me.error ||
+    (me.data && (!active || me.data.setupRequired || !me.data.businessReady)),
+  );
   const people = useGet<Person[]>(
     active && !issue && me.data?.businessReady
       ? `/people-options?limit=100&search=${encodeURIComponent(search)}`
@@ -214,11 +221,27 @@ function CompanySpace({
   );
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(false);
+  useLayoutEffect(() => {
+    if (!unavailable) return;
+    clearSelection();
+    setBusy(false);
+    setUncertain(false);
+    setSearch("");
+  }, [unavailable, clearSelection, locationSearch]);
   const p = me.data?.person;
   let content;
   if (changed) content = <Loading label="현재 권한을 다시 확인하고 있습니다" />;
   else if (me.error)
-    content = <ErrorNotice error={me.error} retry={me.reload} />;
+    content = (
+      <section className="card">
+        <h2>회사 연결을 확인하지 못했습니다</h2>
+        <p>
+          원문과 처리 입력을 숨겼습니다. 현재 회사 연결을 다시 조회하세요. 이전
+          문서는 자동으로 다시 열지 않습니다.
+        </p>
+        <ErrorNotice error={me.error} retry={me.reload} />
+      </section>
+    );
   else if (!me.data) content = <Loading />;
   else if (issue)
     content = (
@@ -232,12 +255,34 @@ function CompanySpace({
       </section>
     );
   else if (!active || me.data.setupRequired)
-    content = <CompanyStart me={me.data} reload={me.reload} />;
+    content = (
+      <>
+        <p>
+          현재 연결로 업무를 열 수 없어 원문 선택을 비웠습니다. 아래 안내에 따라
+          연결을 확인하세요.
+        </p>
+        <button onClick={me.reload}>회사 연결 다시 확인</button>
+        <CompanyStart me={me.data} reload={me.reload} />
+      </>
+    );
   else if (!me.data.businessReady)
     content = (
-      <p role="status">
-        회사 업무 연결을 검증 중입니다. 개인 체험을 이용할 수 있습니다.
-      </p>
+      <section>
+        <p role="status">
+          회사 업무 연결을 검증 중입니다. 개인 체험을 이용할 수 있습니다.
+        </p>
+        <button onClick={me.reload}>회사 연결 다시 확인</button>
+      </section>
+    );
+  if (unavailable)
+    content = (
+      <>
+        {content}
+        <p>
+          화면 초기화는 처리 요청의 취소를 뜻하지 않습니다. 연결 복구 후 현재
+          기록을 확인하세요.
+        </p>
+      </>
     );
   return (
     <RoleContext.Provider
@@ -309,6 +354,7 @@ function CompanyRoot({ companyId }: { companyId: string }) {
         key={epoch}
         issue={issue}
         authorizationChanged={authorizationChanged}
+        clearSelection={clearSelection}
         retry={() => {
           setIssue(undefined);
           setEpoch((v) => v + 1);
