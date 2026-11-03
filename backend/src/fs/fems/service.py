@@ -1815,6 +1815,9 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
         tariffs = repo.billing_tariffs(connection, scoped)
         summary = repo.allocation_summary(connection, scoped, {}, first, last)
         issues, recent = repo.quality_issues(connection, scoped, first, last)
+        # F-01 보강: 진행 중인 경보와 그 달 피크. 저장하지 않고 센다.
+        open_alarms = repo.list_alarms(connection, scoped, open_only=True)
+        hourly = repo.hourly_consumption(connection, scoped, first, last)
     toe_sources, toe_total, toe_complete = _converted(rows, primary, "PRIMARY", "toe")
     _, emission_total, emission_complete = _converted(
         rows, emission, "EMISSION", "emission"
@@ -1838,8 +1841,22 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
     if target:
         # 달성률 = 실적 ÷ 목표. 100% 이하면 목표 이내.
         achievement = str((Decimal(toe_total) / target * 100).quantize(Decimal("0.1")))
+    peak = max((Decimal(str(r["quantity"])) for r in hourly), default=None)
     return {
         "period": {"month": month, "from": first.isoformat(), "to": last.isoformat()},
+        "openAlarms": [
+            {
+                "id": a["id"],
+                "ruleCode": a["ruleCode"],
+                "ruleName": a["ruleName"],
+                "alarmKind": a["alarmKind"],
+                "status": a["status"],
+            }
+            for a in open_alarms[:5]
+        ],
+        "openAlarmCount": len(open_alarms),
+        # 계측이 없는 달은 0이 아니라 모름이다.
+        "peak": None if peak is None else str(peak.quantize(SIX)),
         "primaryEnergy": {
             "total": toe_total,
             "unit": "TOE",

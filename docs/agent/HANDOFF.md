@@ -1,6 +1,6 @@
-# 2026-11-03 FEMS-1d 완료 — SPC·CMMS·QMS 보강 끝, FEMS 진행 중 (다음: FEMS-1e)
+# 2026-11-03 FEMS-1e 완료 — SPC·CMMS·QMS 보강 끝, FEMS 진행 중 (다음: FEMS-1f)
 
-- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1d` (병합 뒤 `main`)
+- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1e` (병합 뒤 `main`)
 - **마지막 커밋**: `git log --oneline -3` 참조. 원격 `origin/main`과 동기.
 - **담당**: Claude Code가 설계·개발·검증·병합을 모두 한다(D85). Codex는 GW 범위만.
 
@@ -37,7 +37,7 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 
 **PPM은 불량을 '개수'로 센 칸이 있어야 낸다.** 수입(`defect_count`/`sample_qty`)과 공정(MES `defectQty`/`inputQty`)만 가능하고 출하·고객은 못 낸다. 설계 3장이 4종 모두 PPM을 적었지만 **0으로 채우지 않고 `—`로 두고 화면이 왜 비는지 밝힌다.** FEMS·BEMS에서도 같은 판단이 필요할 것이다.
 
-## FEMS — 1a~1d 완료, 1e부터
+## FEMS — 1a~1e 완료, 1f부터
 
 설계는 **DSN-15**에 있고 Q1~Q7이 2026-10-05에 이미 확정돼 있다. 범위 13 → 25표·14 → **23화면**(신규 9·기존 보강 8)으로 QMS보다 크다.
 
@@ -49,13 +49,15 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 | ~~1b~~ | ~~MES `production_results(month)`~~ | 완료 |
 | ~~1c~~ | ~~TOU 요금·피크, F-16 신설(FEMS 15화면)~~ | 완료 |
 | ~~1d~~ | ~~F-15 계측 품질 신설(FEMS 16화면)·CSV·MES 가져오기~~ | 완료 |
-| **1e** | 분석·경보 — F-17 설비 비교·F-18 경보·F-01 대시보드 | Sonnet |
-| 1f | 에너지 경영 — **F-19 절감**·**F-20 월간 검토**(인쇄)·**F-21 온실가스**(인쇄) | Opus (절감 측정·검증 공식) |
+| ~~1e~~ | ~~F-17 설비 비교·F-18 경보(FEMS 18화면)~~ | 완료 |
+| **1f** | 에너지 경영 — F-19 절감·F-20 월간 검토(인쇄)·F-21 온실가스(인쇄) | **Opus** |
 | 1g | 비용 — **F-22 배분**·**F-23 고지서 대조**·F-10 부서·F-11 발전 | Opus |
 
 **설계서 §6의 `ERP departments()`는 오류다**(1b에서 확인). 부서 표는 `hr.department` 하나뿐이고 **HR이 이미 `departments()`를 제공한다**. ERP에는 부서 표가 없다.
 
 **`hour`·`month`는 Postgres 예약어다.** 별칭에 따옴표가 없으면 구문 오류가 난다. Q-13과 F-16에서 두 번 밟았다.
+
+**`open_alarms()`는 1e에서 만들었고 소비자가 아직 없다** — BEMS 보강(피크 감축)이 읽는다.
 
 **1b `production_results`가 1d에서 소비자를 얻었다** — QMS-1b 때처럼 죽은 코드로 남지 않았다.
 

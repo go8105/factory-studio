@@ -511,6 +511,18 @@
           "group": "요금"
         },
         {
+          "path": "equipment-comparison",
+          "id": "F-17",
+          "label": "설비 비교",
+          "group": "분석"
+        },
+        {
+          "path": "alarms",
+          "id": "F-18",
+          "label": "에너지 경보",
+          "group": "분석"
+        },
+        {
           "path": "sites",
           "id": "F-09",
           "label": "사업장·공간",
