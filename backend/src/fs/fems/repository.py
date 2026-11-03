@@ -1372,6 +1372,36 @@ def list_allocations(
     return [allocation_dict(r) for r in rows], total
 
 
+def production_by_equipment(
+    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+) -> dict[int, dict[str, Any]]:
+    """기간과 겹치는 **유효 확정본**의 설비별 생산량. 원단위의 분모다.
+
+    같은 원천 키의 최신 확정 버전만 센다 — 정정본이 있으면 옛 버전은 빠진다.
+    """
+    rows = connection.execute(
+        text(
+            """
+            SELECT equipment_id, unit, sum(production_qty) qty
+            FROM (
+              SELECT p.equipment_id, p.unit, p.production_qty,
+                     p.status='confirmed' AND p.version_no = max(p.version_no)
+                       FILTER (WHERE p.status='confirmed')
+                       OVER (PARTITION BY p.source_key) is_effective
+              FROM fems.production_record p
+              WHERE p.workspace_id=:w AND p.generation_id=:g
+                AND p.period_start < CAST(CAST(:date_to AS date) + 1 AS timestamp)
+                AND p.period_end > CAST(CAST(:date_from AS date) AS timestamp)
+            ) z
+            WHERE z.is_effective
+            GROUP BY equipment_id, unit
+            """
+        ),
+        {**_s(context), "date_from": date_from, "date_to": date_to},
+    ).mappings()
+    return {r["equipment_id"]: {"qty": r["qty"], "unit": r["unit"]} for r in rows}
+
+
 def allocation_summary(
     connection: Connection,
     context: AuthContext,
@@ -1520,6 +1550,172 @@ def tariff_bands(
     for row in rows:
         grouped[row["tariff_id"]].append(dict(row))
     return grouped
+
+
+ALARM_RULE_COLUMNS = "id,code,name,alarm_kind,meter_channel_id,equipment_id,threshold,unit,is_active,created_at"
+
+
+def alarm_rule_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "code": row["code"],
+        "name": row["name"],
+        "alarmKind": row["alarm_kind"],
+        "meterChannelId": row["meter_channel_id"],
+        "equipmentId": row["equipment_id"],
+        "threshold": str(row["threshold"]),
+        "unit": row["unit"],
+        "isActive": row["is_active"],
+        "createdAt": row["created_at"].isoformat(),
+    }
+
+
+def list_alarm_rules(
+    connection: Connection, context: AuthContext, active_only: bool = False
+) -> list[dict[str, Any]]:
+    where = " AND is_active" if active_only else ""
+    rows = connection.execute(
+        text(
+            f"SELECT {ALARM_RULE_COLUMNS} FROM fems.alarm_rule "
+            f"WHERE workspace_id=:w AND generation_id=:g{where} ORDER BY code"
+        ),
+        _s(context),
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
+def insert_alarm_rule(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    columns = ",".join(values.keys())
+    placeholders = ",".join(f":{c}" for c in values)
+    row = (
+        connection.execute(
+            text(
+                f"INSERT INTO fems.alarm_rule (workspace_id,generation_id,{columns}) "
+                f"VALUES (:w,:g,{placeholders}) RETURNING {ALARM_RULE_COLUMNS}"
+            ),
+            {**_s(context), **values},
+        )
+        .mappings()
+        .one()
+    )
+    return alarm_rule_dict(row)
+
+
+def alarm_rule_code_taken(
+    connection: Connection, context: AuthContext, code: str
+) -> bool:
+    return bool(
+        connection.execute(
+            text(
+                "SELECT 1 FROM fems.alarm_rule "
+                "WHERE workspace_id=:w AND generation_id=:g AND code=:code"
+            ),
+            {**_s(context), "code": code},
+        ).first()
+    )
+
+
+ALARM_SQL = """
+SELECT a.id,a.alarm_rule_id,r.code rule_code,r.name rule_name,r.alarm_kind,r.threshold,
+       r.unit,a.raised_at,a.peak_value,a.status,a.acknowledged_at,a.cleared_at,
+       c.channel_code,e.equipment_code
+FROM fems.alarm a
+JOIN fems.alarm_rule r ON r.workspace_id=a.workspace_id
+ AND r.generation_id=a.generation_id AND r.id=a.alarm_rule_id
+LEFT JOIN fems.meter_channel c ON c.workspace_id=r.workspace_id
+ AND c.generation_id=r.generation_id AND c.id=r.meter_channel_id
+LEFT JOIN fems.equipment e ON e.workspace_id=r.workspace_id
+ AND e.generation_id=r.generation_id AND e.id=r.equipment_id
+WHERE a.workspace_id=:w AND a.generation_id=:g
+"""
+
+
+def alarm_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "alarmRuleId": row["alarm_rule_id"],
+        "ruleCode": row["rule_code"],
+        "ruleName": row["rule_name"],
+        "alarmKind": row["alarm_kind"],
+        "threshold": str(row["threshold"]),
+        "unit": row["unit"],
+        "channelCode": row["channel_code"],
+        "equipmentCode": row["equipment_code"],
+        "raisedAt": row["raised_at"].isoformat(),
+        "peakValue": str(row["peak_value"]),
+        "status": row["status"],
+        "acknowledgedAt": None
+        if row["acknowledged_at"] is None
+        else row["acknowledged_at"].isoformat(),
+        "clearedAt": None
+        if row["cleared_at"] is None
+        else row["cleared_at"].isoformat(),
+    }
+
+
+def list_alarms(
+    connection: Connection, context: AuthContext, open_only: bool = False
+) -> list[dict[str, Any]]:
+    where = " AND a.status <> 'CLEARED'" if open_only else ""
+    rows = connection.execute(
+        text(ALARM_SQL + where + " ORDER BY a.raised_at DESC, a.id DESC LIMIT 100"),
+        _s(context),
+    ).mappings()
+    return [alarm_dict(r) for r in rows]
+
+
+def get_alarm(
+    connection: Connection, context: AuthContext, alarm_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(ALARM_SQL + " AND a.id=:id"), {**_s(context), "id": alarm_id}
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else alarm_dict(row)
+
+
+def open_alarm_rule_ids(connection: Connection, context: AuthContext) -> set[int]:
+    """진행 중(OPEN·ACK) 경보가 있는 규칙. 규칙당 한 건만 열어 둔다(UK_PARTIAL)."""
+    return set(
+        connection.execute(
+            text(
+                "SELECT alarm_rule_id FROM fems.alarm "
+                "WHERE workspace_id=:w AND generation_id=:g AND status <> 'CLEARED'"
+            ),
+            _s(context),
+        ).scalars()
+    )
+
+
+def raise_alarm(
+    connection: Connection, context: AuthContext, rule_id: int, peak_value: str
+) -> int:
+    return connection.execute(
+        text(
+            "INSERT INTO fems.alarm (workspace_id,generation_id,alarm_rule_id,"
+            "raised_at,peak_value,status) VALUES (:w,:g,:rule,now(),:peak,'OPEN') "
+            "RETURNING id"
+        ),
+        {**_s(context), "rule": rule_id, "peak": peak_value},
+    ).scalar_one()
+
+
+def update_alarm_status(
+    connection: Connection, context: AuthContext, alarm_id: int, status: str
+) -> None:
+    column = "acknowledged_at" if status == "ACK" else "cleared_at"
+    connection.execute(
+        text(
+            f"UPDATE fems.alarm SET status=:status, {column}=now() "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), "id": alarm_id, "status": status},
+    )
 
 
 def channel_ids_by_code(connection: Connection, context: AuthContext) -> dict[str, int]:

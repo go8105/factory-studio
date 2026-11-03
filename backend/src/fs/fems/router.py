@@ -11,6 +11,8 @@ from fs.common.errors import ApiError
 from fs.common.page import Page
 from fs.fems import service
 from fs.fems.schema import (
+    AlarmEvaluate,
+    AlarmRuleCreate,
     ChannelCreate,
     ChannelUpdate,
     CorrectionCreate,
@@ -454,6 +456,71 @@ def post_production_import(
 ) -> dict[str, object]:
     key = _mutation(context, x_csrf_token, idempotency_key)
     return {"data": service.import_production(context, payload.month, key)}
+
+
+@router.get("/alarm-rules")
+def list_alarm_rules(context: Auth) -> dict[str, object]:
+    return {"data": service.list_alarm_rules(context)}
+
+
+@router.post("/alarm-rules", status_code=201)
+def post_alarm_rule(
+    payload: AlarmRuleCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_alarm_rule(context, payload.model_dump(), key)}
+
+
+@router.get("/alarms")
+def list_alarms(
+    context: Auth,
+    open_only: Annotated[bool, Query(alias="openOnly")] = False,
+) -> dict[str, object]:
+    return {"data": service.list_alarms(context, open_only)}
+
+
+@router.post("/alarms/evaluate", status_code=201)
+def post_alarm_evaluate(
+    payload: AlarmEvaluate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.evaluate_alarms(context, payload.month, key)}
+
+
+@router.post("/alarms/{alarm_id}/acknowledge")
+def post_alarm_ack(
+    alarm_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.change_alarm_status(context, alarm_id, "ACK", key)}
+
+
+@router.post("/alarms/{alarm_id}/clear")
+def post_alarm_clear(
+    alarm_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.change_alarm_status(context, alarm_id, "CLEARED", key)}
+
+
+@router.get("/equipment-comparison")
+def get_equipment_comparison(
+    context: Auth,
+    month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
+) -> dict[str, object]:
+    return {"data": service.equipment_comparison(context, month)}
 
 
 @router.get("/load-pattern")
