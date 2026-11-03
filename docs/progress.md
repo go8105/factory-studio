@@ -4,6 +4,7 @@
 - 소유 전체ID/owner/127.0.0.1:55439/PG18 확인 후 새UUID *_test DB. 신규마이그레이션/실DDL219표2409열543FK/정적DB·R1~R6 오류0. 프런트 GW/계정보안/도움말/API153건·전체build/typecheck 통과(기존청크/외부화경고).
 - 초기GW80파일/1601수집 선택은949pass/1fail/1skip에서중단(잔여미실행). Flow전체체인downgrade가 GW이력보호로거부돼 검사를 Flow함수직접왕복+전체체인거부/보안이력지문보존으로보정. 적용migration/제품코드변경없음. 보정집중1pass, 전체재실행중. 생성초기/집중DB삭제·예상밖새DB0. 최종결과전완료아님.
 - skip은구형10인폐쇄복원 PG_TEST_CONTAINER/이름규칙미설정이며임의완화하지않음. 실제미리보기DB/계정·권한·MFA/비밀번호/업무자료·다른checkout/WMS변경없음. ready=false/최종4UNVERIFIED·실제복원PARTIAL/PASS거부유지.
+- 추가 WIP:3591a64 이후 전체80파일 재실행은89% 구간까지 실패 표시 없이 진행(최종집계전). 원격 main783a2c1 재조회 동일. 수집은 DB fixture300/비DB fixture1301, 백업 fixture46은 DB 안의 중복 범주다. 초기 실패/보정 집중/최종 재실행을 합산하지 않는다.
 - 새안전실행기 tools/gw_integration_check.py, 상세/재현 docs/agent/GW_통합회귀_main차이_GW-READY-02_77.md. 실행중원문로그/JUnit/요약은무시되는work/gw-readiness-02-phase77/final/. 비밀/원문로그는Git제외. 전체관련재실행/DB정리·문서최종화·커밋남음. 모델자동변경/다음ID착수없음.
 
 ## 76차 — 본인 동의 합성 브라우저·모바일/키보드 검증과 체크 배치 보정 (2026-11-03)
