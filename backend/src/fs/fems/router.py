@@ -13,6 +13,7 @@ from fs.fems import service
 from fs.fems.schema import (
     ChannelCreate,
     ChannelUpdate,
+    CorrectionCreate,
     EnergySourceCreate,
     EnergySourceUpdate,
     EquipmentCreate,
@@ -21,10 +22,13 @@ from fs.fems.schema import (
     FactorUpdate,
     LocationCreate,
     LocationUpdate,
+    ManualReadingCreate,
     MeterCreate,
     MeterUpdate,
     ProductionCreate,
+    ProductionImport,
     ProductionUpdate,
+    ReadingUpload,
     SiteCreate,
     SiteUpdate,
     TariffBandsReplace,
@@ -392,6 +396,64 @@ def delete_factor(
     key = _mutation(context, x_csrf_token, idempotency_key)
     service.delete_factor(context, factor_id, key)
     return Response(status_code=204)
+
+
+@router.get("/reading-quality")
+def get_reading_quality(
+    context: Auth,
+    channel_id: Annotated[int, Query(alias="channelId", gt=0)],
+    date_from: Annotated[date | None, Query(alias="from")] = None,
+    date_to: Annotated[date | None, Query(alias="to")] = None,
+) -> dict[str, object]:
+    return {"data": service.reading_quality(context, channel_id, date_from, date_to)}
+
+
+@router.post("/readings", status_code=201)
+def post_manual_reading(
+    payload: ManualReadingCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_manual_reading(context, payload.model_dump(), key)}
+
+
+@router.post("/reading-corrections", status_code=201)
+def post_correction(
+    payload: CorrectionCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_correction(context, payload.model_dump(), key)}
+
+
+@router.post("/reading-uploads", status_code=201)
+def post_reading_upload(
+    payload: ReadingUpload,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = {
+        "file_name": payload.file_name,
+        "rows": [r.model_dump() for r in payload.rows],
+    }
+    return {"data": service.upload_readings(context, values, key)}
+
+
+@router.post("/production-records/import", status_code=201)
+def post_production_import(
+    payload: ProductionImport,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.import_production(context, payload.month, key)}
 
 
 @router.get("/load-pattern")

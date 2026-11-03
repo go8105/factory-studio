@@ -14,6 +14,7 @@ from sqlalchemy import Connection
 
 from fs.common import master
 from fs.common.auth import AuthContext
+from fs.common.clock import business_today
 from fs.common.db import get_engine
 from fs.common.engine import read
 from fs.common.errors import ApiError
@@ -21,6 +22,7 @@ from fs.common.idempotency import find_receipt, request_digest, save_receipt
 from fs.common.scope import read_scope, write_scope
 from fs.fems import repository as repo
 from fs.fems import tou
+from fs.mes import interface as mes
 
 MODULE = "fems"
 
@@ -112,6 +114,37 @@ def _replay(
 ) -> tuple[str, dict[str, Any] | None]:
     digest = request_digest(body)
     return digest, find_receipt(connection, scoped, operation, key, digest)
+
+
+def _run_once(
+    context: AuthContext,
+    operation: str,
+    key: str,
+    body: Any,
+    run: Any,
+    status: int = 200,
+    entity: str = "reading",
+) -> dict[str, Any]:
+    """멱등 쓰기 한 번. 같은 키로 다시 부르면 저장해 둔 결과를 그대로 돌려준다."""
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        digest, cached = _replay(connection, scoped, operation, key, body)
+        if cached is not None:
+            return cached
+        result = run(connection, scoped)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            entity,
+            # 행 하나에 매이지 않는 작업(가져오기·올리기)은 0으로 둔다 — 칸이 NOT NULL이다.
+            result.get("id") or 0,
+            result,
+            status,
+        )
+        return result
 
 
 def create_source(
@@ -2505,3 +2538,437 @@ def load_pattern(
         # 휴일 달력이 비어 있으면 일요일만 휴일로 본다 — 화면이 그 사실을 밝힌다.
         "hasHolidayCalendar": bool(holiday_days),
     }
+
+
+# ---------- 계측 품질 (F-15, DSN-15 F12·F14) ----------
+
+# 0이 몇 시간 이어지면 멈춘 것이 아니라 못 읽은 것으로 본다.
+ZERO_RUN_HOURS = 3
+# 중앙값의 몇 배를 넘으면 급증으로 본다. 평균이 아니라 중앙값이어야 한 번의 급증에 흔들리지 않는다.
+SPIKE_FACTOR = Decimal(3)
+HOUR = timedelta(hours=1)
+
+
+def _median(values: list[Decimal]) -> Decimal:
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if not ordered:
+        return Decimal(0)
+    if len(ordered) % 2:
+        return ordered[middle]
+    return (ordered[middle - 1] + ordered[middle]) / 2
+
+
+def _detect(rows: list[dict[str, Any]], zone: ZoneInfo) -> list[dict[str, Any]]:
+    """결측·0 연속·급증을 찾는다. **판단 근거를 함께 돌려준다** — 숫자만 주면 못 고친다."""
+    found: list[dict[str, Any]] = []
+    by_period = {r["period_start"]: r for r in rows}
+    if not rows:
+        return found
+    values = [Decimal(str(r["value"])) for r in rows]
+    median = _median([v for v in values if v > 0])
+
+    # 1) 빠진 시각. 첫 계측과 마지막 계측 사이만 본다 — 바깥은 아직 안 잰 것이지 결측이 아니다.
+    cursor = min(by_period)
+    last = max(by_period)
+    while cursor < last:
+        cursor += HOUR
+        if cursor not in by_period and cursor < last:
+            found.append(
+                {
+                    "kind": "MISSING",
+                    "periodStart": cursor.astimezone(zone).isoformat(),
+                    "value": None,
+                    "note": "계측값이 없습니다.",
+                }
+            )
+
+    # 2) 0이 이어지는 구간. 한두 시간은 정지일 수 있어 ZERO_RUN_HOURS부터 본다.
+    run: list[dict[str, Any]] = []
+    for row in sorted(rows, key=lambda r: r["period_start"]):
+        if Decimal(str(row["value"])) == 0:
+            run.append(row)
+            continue
+        if len(run) >= ZERO_RUN_HOURS:
+            found.extend(_zero_run(run, zone))
+        run = []
+    if len(run) >= ZERO_RUN_HOURS:
+        found.extend(_zero_run(run, zone))
+
+    # 3) 급증. 중앙값이 0이면(거의 안 쓰는 채널) 판단하지 않는다.
+    if median > 0:
+        for row in rows:
+            value = Decimal(str(row["value"]))
+            if value > median * SPIKE_FACTOR:
+                found.append(
+                    {
+                        "kind": "SPIKE",
+                        "periodStart": row["period_start"].astimezone(zone).isoformat(),
+                        "value": str(value),
+                        "note": f"중앙값 {median:.3f}의 {SPIKE_FACTOR}배를 넘습니다.",
+                    }
+                )
+    found.sort(key=lambda f: f["periodStart"])
+    return found
+
+
+def _zero_run(run: list[dict[str, Any]], zone: ZoneInfo) -> list[dict[str, Any]]:
+    note = f"0이 {len(run)}시간 이어집니다."
+    return [
+        {
+            "kind": "ZERO_RUN",
+            "periodStart": row["period_start"].astimezone(zone).isoformat(),
+            "value": "0",
+            "note": note,
+        }
+        for row in run
+    ]
+
+
+def reading_quality(
+    context: AuthContext, channel_id: int, date_from: date | None, date_to: date | None
+) -> dict[str, Any]:
+    """한 채널의 결측·이상값과 보정 이력(F14). 저장하지 않고 그때그때 훑는다."""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        channel = repo.channel_for_reading(connection, scoped, channel_id)
+        if channel is None:
+            raise ApiError(404, "NOT_FOUND", "계측 채널을 찾을 수 없습니다.")
+        if date_to is None:
+            latest = repo.latest_reading_date(connection, scoped)
+            if latest is None:
+                return {
+                    "channel": None,
+                    "period": None,
+                    "issues": [],
+                    "corrections": [],
+                }
+            date_to = latest
+            date_from = date_to - timedelta(days=DEFAULT_READING_DAYS - 1)
+        _check_period(date_from, date_to)
+        rows = repo.channel_readings(connection, scoped, channel_id, date_from, date_to)
+        corrections = repo.list_corrections(connection, scoped)
+    zone = ZoneInfo(channel["timezone"])
+    return {
+        "channel": {
+            "id": channel["id"],
+            "channelCode": channel["channel_code"],
+            "name": channel["name"],
+            "unit": channel["unit"],
+            "meterCode": channel["meter_code"],
+        },
+        "period": {"from": date_from.isoformat(), "to": date_to.isoformat()},
+        "readingCount": len(rows),
+        "issues": _detect(rows, zone),
+        "corrections": [
+            {
+                "id": c["id"],
+                "channelCode": c["channel_code"],
+                "periodStart": c["period_start"].astimezone(zone).isoformat(),
+                "originalValue": None
+                if c["original_value"] is None
+                else str(c["original_value"]),
+                "correctedValue": str(c["corrected_value"]),
+                "method": c["method"],
+                "reason": c["reason"],
+                "correctedAt": c["corrected_at"].isoformat(),
+            }
+            for c in corrections
+        ],
+    }
+
+
+def _reading_payload(
+    channel: dict[str, Any],
+    period_start: datetime,
+    value: str,
+    entry_method: str,
+    source_key: str,
+    revision: int,
+    quality: str,
+) -> dict[str, Any]:
+    return {
+        "meter_channel_id": channel["id"],
+        # 구간형 계측이라 관측 시각은 구간 끝이다(시드와 같은 규칙).
+        "observed_at": period_start + HOUR,
+        "period_start": period_start,
+        "value": value,
+        "unit": channel["unit"],
+        "quality": quality,
+        "source_key": source_key,
+        "input_revision": revision,
+        "entry_method": entry_method,
+    }
+
+
+def _reading_dict(row: dict[str, Any]) -> dict[str, Any]:
+    """영수증(멱등 재생)에 그대로 들어가므로 날짜를 문자열로 바꾼다."""
+    return {
+        "id": row["id"],
+        "meterChannelId": row["meter_channel_id"],
+        "observedAt": row["observed_at"].isoformat(),
+        "periodStart": None
+        if row["period_start"] is None
+        else row["period_start"].isoformat(),
+        "value": str(row["value"]),
+        "unit": row["unit"],
+        "quality": row["quality"],
+        "sourceKey": row["source_key"],
+        "inputRevision": row["input_revision"],
+        "entryMethod": row["entry_method"],
+    }
+
+
+def create_manual_reading(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """계측기가 없는 연료·용수를 손으로 적는다(F12).
+
+    같은 채널·구간에 이미 값이 있으면 덮지 않는다 — 고치는 것은 **보정**이고 이력이 남아야 한다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        channel = repo.channel_for_reading(connection, scoped, values["channel_id"])
+        if channel is None:
+            raise ApiError(404, "NOT_FOUND", "계측 채널을 찾을 수 없습니다.")
+        period_start = values["period_start"]
+        existing = repo.channel_readings(
+            connection,
+            scoped,
+            channel["id"],
+            period_start.date(),
+            period_start.date(),
+        )
+        if any(r["period_start"] == period_start for r in existing):
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "이 구간에는 이미 계측값이 있습니다. 고치려면 보정을 쓰세요.",
+                {"reason": "READING_EXISTS"},
+            )
+        row = repo.insert_reading(
+            connection,
+            scoped,
+            _reading_payload(
+                channel,
+                period_start,
+                values["value"],
+                "MANUAL",
+                f"{channel['channel_code']}:MANUAL-{period_start:%Y%m%dT%H}",
+                1,
+                "valid",
+            ),
+        )
+        return _reading_dict(row)
+
+    return _run_once(context, "fems.reading.manual", key, values, run, 201)
+
+
+def create_correction(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """결측·이상값을 고친다(F14). **원 계측은 지우지 않는다.**
+
+    고친 값은 같은 구간의 새 `input_revision` 행(quality=estimated)으로 들어가고, 원 계측은
+    집계에서만 빠진다(quality=invalid). 원래 값은 행에도, 보정 이력에도 남는다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        channel = repo.channel_for_reading(connection, scoped, values["channel_id"])
+        if channel is None:
+            raise ApiError(404, "NOT_FOUND", "계측 채널을 찾을 수 없습니다.")
+        period_start = values["period_start"]
+        rows = repo.channel_readings(
+            connection, scoped, channel["id"], period_start.date(), period_start.date()
+        )
+        original = next((r for r in rows if r["period_start"] == period_start), None)
+        revision = (original["input_revision"] + 1) if original else 1
+        if original is not None:
+            repo.supersede_reading(connection, scoped, original["id"])
+        row = repo.insert_reading(
+            connection,
+            scoped,
+            _reading_payload(
+                channel,
+                period_start,
+                values["corrected_value"],
+                original["entry_method"] if original else "MANUAL",
+                f"{channel['channel_code']}:FIX-{period_start:%Y%m%dT%H}-r{revision}",
+                revision,
+                "estimated",
+            ),
+        )
+        correction = repo.insert_correction(
+            connection,
+            scoped,
+            {
+                "channel": channel["id"],
+                "period_start": period_start,
+                "original": None if original is None else original["value"],
+                "corrected": values["corrected_value"],
+                "method": values["method"],
+                "reason": values["reason"],
+            },
+        )
+        return {
+            "id": correction["id"],
+            "readingId": row["id"],
+            "inputRevision": row["input_revision"],
+            "originalValue": None
+            if correction["original_value"] is None
+            else str(correction["original_value"]),
+            "correctedValue": str(correction["corrected_value"]),
+            "method": correction["method"],
+            "reason": correction["reason"],
+        }
+
+    return _run_once(context, "fems.reading.correction", key, values, run, 201)
+
+
+# ---------- 계측 올리기·생산량 가져오기 (F-15·F-05, DSN-15 F13·F51) ----------
+
+MAX_UPLOAD_ROWS = 5000
+
+
+def upload_readings(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """CSV로 받은 행을 검증해 반영한다(F13).
+
+    **파일을 서버가 읽지 않는다.** 브라우저가 CSV를 풀어 행 배열로 보내고, 서버는 행마다
+    검증해 받아들이거나 사유와 함께 돌려보낸다. 올린 기록은 합계만 남는다(설계 4-1).
+
+    한 행이라도 틀리면 통째로 막지 않는다 — 500행 중 3행이 틀렸다고 497행을 버릴 이유가 없다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        channels = repo.channel_ids_by_code(connection, scoped)
+        accepted, rejected = 0, []
+        for index, row in enumerate(values["rows"], start=1):
+            channel_id = channels.get(row["channel_code"])
+            if channel_id is None:
+                rejected.append(
+                    f"{index}행: 채널 {row['channel_code']}을(를) 찾을 수 없습니다."
+                )
+                continue
+            channel = repo.channel_for_reading(connection, scoped, channel_id)
+            period_start = row["period_start"]
+            existing = repo.channel_readings(
+                connection,
+                scoped,
+                channel_id,
+                period_start.date(),
+                period_start.date(),
+            )
+            if any(r["period_start"] == period_start for r in existing):
+                rejected.append(f"{index}행: 이미 계측값이 있는 구간입니다.")
+                continue
+            repo.insert_reading(
+                connection,
+                scoped,
+                _reading_payload(
+                    channel,
+                    period_start,
+                    row["value"],
+                    "FILE",
+                    f"{channel['channel_code']}:FILE-{period_start:%Y%m%dT%H}",
+                    1,
+                    "valid",
+                ),
+            )
+            accepted += 1
+        upload = repo.insert_upload(
+            connection,
+            scoped,
+            {
+                "upload_no": repo.next_upload_no(
+                    connection, scoped, f"{business_today():%Y%m%d}"
+                ),
+                "file_name": values["file_name"],
+                "row_count": len(values["rows"]),
+                "accepted": accepted,
+                "rejected": len(rejected),
+                # 사유를 다 담지 않는다 — 1,000자 칸이고 화면이 전체를 받아 본다.
+                "errors": "\n".join(rejected[:10])[:1000] or None,
+            },
+        )
+        return {
+            "id": upload["id"],
+            "uploadNo": upload["upload_no"],
+            "fileName": upload["file_name"],
+            "rowCount": upload["row_count"],
+            "acceptedCount": upload["accepted_count"],
+            "rejectedCount": upload["rejected_count"],
+            "rejected": rejected,
+        }
+
+    body = {
+        "file_name": values["file_name"],
+        "rows": [{**r, "period_start": str(r["period_start"])} for r in values["rows"]],
+    }
+    return _run_once(context, "fems.reading.upload", key, body, run, 201, "upload")
+
+
+def import_production(context: AuthContext, month: str, key: str) -> dict[str, Any]:
+    """MES 확정 실적을 생산량으로 가져온다(F51·Q3).
+
+    1b `mes.production_results(month)`의 첫 소비자다. 설비 코드로만 맞추고 FK를 두지 않는다.
+    **가져온 행은 초안**이다 — 확정은 사람이 F-05에서 한다.
+
+    이미 같은 원천 키가 있으면 건너뛴다. 덮어쓰면 확정한 값이 조용히 바뀐다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        rows = mes.production_results(connection, scoped, month)
+        if rows is None:
+            raise _conflict_module_off()
+        equipment = repo.equipment_ids_by_code(connection, scoped)
+        existing = repo.production_keys(connection, scoped)
+        first = date(int(month[:4]), int(month[5:]), 1)
+        last = (first.replace(day=28) + timedelta(days=4)).replace(day=1)
+        imported, skipped = 0, []
+        for row in rows:
+            code = row["equipmentCode"]
+            if not code:
+                # FEMS 생산량은 설비별이다. 설비 없는 실적은 붙일 곳이 없다.
+                skipped.append(
+                    f"{row['itemCode']}: 설비가 없는 실적이라 가져올 수 없습니다."
+                )
+                continue
+            equipment_id = equipment.get(code)
+            if equipment_id is None:
+                skipped.append(f"{code}: FEMS에 같은 코드의 설비가 없습니다.")
+                continue
+            source_key = f"MES:{month}:{code}:{row['itemCode']}"
+            if source_key in existing:
+                skipped.append(f"{code} {row['itemCode']}: 이미 가져왔습니다.")
+                continue
+            repo.insert_production(
+                connection,
+                scoped,
+                {
+                    "source_key": source_key,
+                    "version_no": 1,
+                    "equipment_id": equipment_id,
+                    "item_code": row["itemCode"],
+                    "period_start": datetime.combine(first, time()),
+                    "period_end": datetime.combine(last, time()),
+                    "production_qty": row["goodQty"],
+                    "unit": row["unit"],
+                },
+            )
+            imported += 1
+        return {"month": month, "imported": imported, "skipped": skipped}
+
+    return _run_once(
+        context, "fems.production.import", key, {"month": month}, run, 201, "production"
+    )
+
+
+def _conflict_module_off() -> ApiError:
+    return ApiError(
+        409,
+        "PRECONDITION_NOT_MET",
+        "MES를 사용하지 않도록 설정했습니다. 생산 실적을 읽을 수 없습니다.",
+        {"reason": "SOURCE_MODULE_DISABLED", "sourceModule": "mes"},
+    )

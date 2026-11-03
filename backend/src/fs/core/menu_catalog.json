@@ -463,6 +463,12 @@
           "group": "에너지 현황"
         },
         {
+          "path": "reading-quality",
+          "id": "F-15",
+          "label": "계측 품질",
+          "group": "에너지 현황"
+        },
+        {
           "path": "allocations",
           "id": "F-03",
           "label": "설비별 배분",
