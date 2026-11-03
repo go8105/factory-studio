@@ -461,8 +461,14 @@ def test_flow_alias_receipt_and_independent_module(company_env):
 def test_flow_migration_roundtrip_preserves_records_and_favorites(
     company_env, monkeypatch
 ):
+    import importlib.util
+    from pathlib import Path
+
+    import pytest
     from alembic import command
     from alembic.config import Config
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
 
     engine, company, admin, _ = company_env
     bid = board(admin, company)
@@ -516,15 +522,79 @@ def test_flow_migration_roundtrip_preserves_records_and_favorites(
         )
     monkeypatch.setenv("DATABASE_URL", engine.url.render_as_string(hide_password=False))
     cfg = Config("backend/alembic.ini")
-    command.downgrade(cfg, "gw_projects")
+
+    def security_snapshot():
+        # Hash, never print authentication records or remove history to pass rollback.
+        with engine.connect() as c:
+            return tuple(
+                c.scalar(
+                    text(
+                        f"SELECT md5(coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]'::jsonb)::text) FROM {name} t"
+                    )
+                )
+                for name in (
+                    "core.mfa_factor",
+                    "core.authentication_challenge",
+                    "core.recovery_code",
+                    "core.sso_identity",
+                    "core.authentication_throttle",
+                    "gw.operating_settings",
+                    "gw.operating_policy_revision",
+                    "gw.operating_evidence",
+                    "gw.retention_review",
+                )
+            )
+
+    security_before = security_snapshot()
+    with engine.connect() as c:
+        assert c.scalar(text("SELECT count(*) FROM core.authentication_throttle")) > 0
+        version_before = tuple(
+            c.scalars(
+                text("SELECT version_num FROM alembic_version ORDER BY version_num")
+            )
+        )
+    # Whole-chain downgrade must stay blocked by authentication/operating history.
+    with pytest.raises(RuntimeError, match="GW-READY-02 history exists"):
+        command.downgrade(cfg, "gw_projects")
+    assert snapshot("flow") == before
+    assert security_snapshot() == security_before
+
+    def flow_migration(filename):
+        location = Path("backend/alembic/versions") / filename
+        spec = importlib.util.spec_from_file_location(location.stem, location)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    split = flow_migration("20261010_flow_split.py")
+    custom = flow_migration("20261011_flow_board_custom.py")
+    # Exercise only the Flow inverse/forward functions in this disposable test DB.
+    # Do not roll back newer GW/WMS revisions or alter the Alembic head marker.
+    with engine.begin() as c:
+        custom.op = split.op = Operations(MigrationContext.configure(c))
+        custom.downgrade()
+        split.downgrade()
     assert snapshot("gw") == before
     with engine.connect() as c:
         assert c.execute(
             text("SELECT menu_preferences->'menuIds' FROM core.workspace WHERE id=:w"),
             {"w": company["companyId"]},
         ).scalar_one() == ["gw:projects", "gw:pending", "gw:my-tasks"]
-    command.upgrade(cfg, "head")
+    with engine.begin() as c:
+        custom.op = split.op = Operations(MigrationContext.configure(c))
+        split.upgrade()
+        custom.upgrade()
     assert snapshot("flow") == before
+    assert security_snapshot() == security_before
+    with engine.connect() as c:
+        assert (
+            tuple(
+                c.scalars(
+                    text("SELECT version_num FROM alembic_version ORDER BY version_num")
+                )
+            )
+            == version_before
+        )
     with engine.connect() as c:
         assert c.execute(
             text("SELECT menu_preferences->'menuIds' FROM core.workspace WHERE id=:w"),

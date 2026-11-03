@@ -1,0 +1,79 @@
+{
+  "branchStart": "fceb68f",
+  "remoteMain": "783a2c1aa6e4f0053d055341f9738226a60dbdc7",
+  "mergeBase": "2be292ee06778c26fadc1336aa6a12134f8846aa",
+  "branchOnlyCommits": 85,
+  "mainOnlyCommits": 90,
+  "branchChangedPaths": 292,
+  "mainChangedPaths": 239,
+  "overlapPaths": [
+    "backend/src/fs/main.py",
+    "docs/agent/HANDOFF.md",
+    "docs/architecture/erd/EIP_모듈별_ERD.html",
+    "docs/architecture/erd/README.md",
+    "docs/architecture/erd/all.mmd",
+    "docs/db/DB설계서.xlsx",
+    "docs/db/schema-metadata/schema-target.json",
+    "docs/db/schema-metadata/schema.json",
+    "docs/db/validation-report.json",
+    "docs/plan/현재기획_진행현황.md",
+    "docs/progress.md",
+    "frontend/src/app/App.tsx",
+    "frontend/src/portal/content-pages.test.tsx",
+    "frontend/src/portal/docs.ts",
+    "tools/validate_db_design.py"
+  ],
+  "textConflicts": [
+    {
+      "kind": "changed in both",
+      "path": "docs/agent/HANDOFF.md",
+      "conflictHunks": 1
+    },
+    {
+      "kind": "changed in both",
+      "path": "docs/architecture/erd/EIP_모듈별_ERD.html",
+      "conflictHunks": 1
+    },
+    {
+      "kind": "changed in both",
+      "path": "docs/architecture/erd/README.md",
+      "conflictHunks": 2
+    },
+    {
+      "kind": "changed in both",
+      "path": "docs/architecture/erd/all.mmd",
+      "conflictHunks": 1
+    },
+    {
+      "kind": "changed in both",
+      "path": "docs/db/schema-metadata/schema-target.json",
+      "conflictHunks": 1
+    },
+    {
+      "kind": "changed in both",
+      "path": "docs/db/schema-metadata/schema.json",
+      "conflictHunks": 5
+    },
+    {
+      "kind": "changed in both",
+      "path": "docs/db/validation-report.json",
+      "conflictHunks": 2
+    },
+    {
+      "kind": "changed in both",
+      "path": "docs/progress.md",
+      "conflictHunks": 1
+    }
+  ],
+  "binaryConflict": "docs/db/DB설계서.xlsx",
+  "merged": false,
+  "treeOrIndexWritten": false,
+  "migrationHeads": [
+    "gw_readiness",
+    "fems1"
+  ],
+  "sameRevisionByteDifference": {
+    "revision": "w2b1_wms",
+    "scope": "downgrade storage_location cleanup DELETE only; not executed"
+  }
+}
