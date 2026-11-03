@@ -38,7 +38,7 @@ function SpaceChoice() {
         <summary>사용 공간 선택</summary>
         <nav
           className="gw-space-options"
-          onClick={(e) => {
+          onClickCapture={(e) => {
             if (role.busy || role.uncertain) {
               e.preventDefault();
               e.stopPropagation();

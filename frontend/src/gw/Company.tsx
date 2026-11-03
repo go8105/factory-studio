@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ApiError } from "../shared/api";
 import {
   ErrorNotice,
   Field,
@@ -99,9 +100,28 @@ export function CompanyStart({
   const bindingKey = binding.data
     ? `${binding.data.id}:${binding.data.version}`
     : "";
-  const consent = !!bindingKey && consentKey === bindingKey;
   const request = useSend();
-  const guard = useDiscardGuard(!!reason || consent);
+  const [acceptAttempt, setAcceptAttempt] = useState<{
+    bindingId: string;
+    expectedVersion: number;
+  }>();
+  const acceptError =
+    acceptAttempt && request.error instanceof ApiError
+      ? request.error
+      : undefined;
+  const acceptUncertain = !!acceptAttempt && request.uncertain;
+  const acceptConflict = acceptError?.status === 409;
+  const consent = !!bindingKey && consentKey === bindingKey && !acceptConflict;
+  async function accept(body: { bindingId: string; expectedVersion: number }) {
+    setAcceptAttempt(body);
+    if (await request.send("/me/binding/accept", "POST", body)) {
+      setAcceptAttempt(undefined);
+      setConsentKey("");
+      binding.reload();
+      reload();
+    }
+  }
+  const guard = useDiscardGuard(!!reason || consent || acceptUncertain);
   return (
     <section className="card">
       {guard.pending && (
@@ -120,7 +140,51 @@ export function CompanyStart({
         회사 GW는 로그인 계정에 연결된 본인 이름으로만 사용합니다. 회사 관리자와
         GW 업무 역할은 별개입니다.
       </p>
-      <ErrorNotice error={request.error ?? own.error ?? binding.error} />
+      <ErrorNotice error={request.error} />
+      <ErrorNotice error={own.error ?? binding.error} />
+      {acceptConflict && (
+        <p role="status">
+          연결 요청이 변경되어 동의하지 못했습니다. 본인 연결 요청을 다시 확인한
+          뒤 새 내용에 동의하세요.
+        </p>
+      )}
+      {acceptError?.error.code === "STEP_UP_REQUIRED" && (
+        <p role="status">
+          {acceptUncertain ? (
+            <>
+              추가 본인 확인이 필요합니다. 이 화면을 유지한 채{" "}
+              <a
+                href="/account/security"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                다른 탭에서 내 계정 보안 열기
+              </a>
+              로 확인을 마친 뒤 같은 동의 요청 결과 확인을 누르세요.
+            </>
+          ) : (
+            <>
+              추가 본인 확인이 필요합니다. 내 계정 보안에서 확인을 마친 뒤 같은
+              회사에서 동의를 다시 진행하세요.
+            </>
+          )}
+        </p>
+      )}
+      {acceptUncertain && acceptAttempt && (
+        <div role="status">
+          <p>
+            동의 처리 결과를 확인하지 못했습니다. 재조회는 이 요청의 결과 확인을
+            대신하지 않습니다. 같은 동의 요청으로 결과를 확인하세요. 새 요청에는
+            동의할 수 없습니다.
+          </p>
+          <button
+            disabled={request.pending}
+            onClick={() => accept(acceptAttempt)}
+          >
+            같은 동의 요청 결과 확인
+          </button>
+        </div>
+      )}
       {!me.setupRequired && (
         <>
           <p>
@@ -131,6 +195,10 @@ export function CompanyStart({
             disabled={request.pending}
             onClick={() => {
               setConsentKey("");
+              if (!acceptUncertain) {
+                request.setError(undefined);
+                setAcceptAttempt(undefined);
+              }
               binding.reload();
               reload();
             }}
@@ -194,6 +262,7 @@ export function CompanyStart({
             <input
               type="checkbox"
               checked={consent}
+              disabled={request.pending || acceptUncertain || acceptConflict}
               onChange={(e) =>
                 setConsentKey(e.target.checked ? bindingKey : "")
               }
@@ -201,19 +270,15 @@ export function CompanyStart({
             위 사번·이름이 본인임을 확인했습니다.
           </label>
           <button
-            disabled={!consent || request.pending}
-            onClick={async () => {
-              if (
-                await request.send("/me/binding/accept", "POST", {
-                  bindingId: binding.data!.id,
-                  expectedVersion: binding.data!.version,
-                })
-              ) {
-                setConsentKey("");
-                binding.reload();
-                reload();
-              }
-            }}
+            disabled={
+              !consent || request.pending || acceptUncertain || acceptConflict
+            }
+            onClick={() =>
+              accept({
+                bindingId: binding.data!.id,
+                expectedVersion: binding.data!.version,
+              })
+            }
           >
             본인 연결 동의
           </button>

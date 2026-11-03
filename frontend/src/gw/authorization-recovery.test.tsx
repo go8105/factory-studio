@@ -100,6 +100,10 @@ function fixture() {
     bindingError: false,
     deferBinding: false,
     lateBinding: undefined as undefined | ((r: Response) => void),
+    acceptStatus: 0,
+    acceptCode: "",
+    acceptNetwork: false,
+    acceptMalformed: false,
     deferAccept: false,
     lateAccept: undefined as undefined | ((r: Response) => void),
     personActive: true,
@@ -152,6 +156,21 @@ function fixture() {
         });
       }
       if (path.endsWith("/me/binding/accept")) {
+        if (state.acceptNetwork) throw new TypeError("synthetic lost response");
+        if (state.acceptMalformed)
+          return new Response("not-json", { status: 200 });
+        if (state.acceptStatus)
+          return reply(
+            {
+              code:
+                state.acceptCode ||
+                (state.acceptStatus === 403
+                  ? "STEP_UP_REQUIRED"
+                  : "VERSION_CONFLICT"),
+              message: "합성 동의 오류",
+            },
+            state.acceptStatus,
+          );
         if (state.deferAccept)
           return new Promise((resolve) => {
             state.lateAccept = resolve;
@@ -743,4 +762,288 @@ it("cancelled company state ignores a late acceptance success without reopening 
   expect(screen.queryByLabelText(consentLabel)).not.toBeInTheDocument();
   expect(screen.queryByText("합성 비공개 본문")).not.toBeInTheDocument();
   expect(query().get("companyId")).toBe("11");
+});
+
+function acceptCalls(fetch: ReturnType<typeof fixture>["fetch"]) {
+  return fetch.mock.calls.filter(
+    ([url, init]) =>
+      String(url).includes("/me/binding/accept") && init?.method === "POST",
+  );
+}
+const idempotencyKey = (call: ReturnType<typeof acceptCalls>[number]) =>
+  (call[1]!.headers as Record<string, string>)["Idempotency-Key"];
+async function startConsent() {
+  fireEvent.click(await screen.findByLabelText(consentLabel));
+  fireEvent.click(screen.getByRole("button", { name: "본인 연결 동의" }));
+}
+it("acceptance conflict clears consent and requires a fresh request before another POST", async () => {
+  const { state, fetch } = fixture();
+  state.binding = "PENDING";
+  state.acceptStatus = 409;
+  show();
+  await startConsent();
+  await screen.findByText(/연결 요청이 변경되어 동의하지 못했습니다/);
+  expect(screen.getByLabelText(consentLabel)).not.toBeChecked();
+  expect(screen.getByRole("button", { name: "본인 연결 동의" })).toBeDisabled();
+  const first = acceptCalls(fetch)[0];
+  state.bindingId = "78";
+  state.bindingVersion = 2;
+  state.acceptStatus = 0;
+  fireEvent.click(
+    screen.getByRole("button", { name: "본인 연결 요청 다시 확인" }),
+  );
+  await waitFor(() =>
+    expect(screen.getByLabelText(consentLabel)).toBeEnabled(),
+  );
+  expect(acceptCalls(fetch)).toHaveLength(1);
+  await startConsent();
+  await waitFor(() => expect(acceptCalls(fetch)).toHaveLength(2));
+  const second = acceptCalls(fetch)[1];
+  expect(JSON.parse(String(second[1]!.body))).toEqual({
+    bindingId: "78",
+    expectedVersion: 2,
+  });
+  expect(idempotencyKey(second)).not.toBe(idempotencyKey(first));
+});
+it("step-up keeps consent and company scope and does not auto-submit", async () => {
+  const { state, fetch } = fixture();
+  state.binding = "PENDING";
+  state.acceptStatus = 403;
+  show();
+  await startConsent();
+  await screen.findByText(/추가 본인 확인이 필요합니다. 내 계정 보안/);
+  expect(screen.getByLabelText(consentLabel)).toBeChecked();
+  expect(screen.getByRole("button", { name: "본인 연결 동의" })).toBeEnabled();
+  expect(query().get("companyId")).toBe("11");
+  expect(
+    screen.queryByRole("button", { name: "권한과 연결 다시 확인" }),
+  ).not.toBeInTheDocument();
+  expect(acceptCalls(fetch)).toHaveLength(1);
+  state.acceptStatus = 0;
+  fireEvent.click(screen.getByRole("button", { name: "본인 연결 동의" }));
+  await waitFor(() => expect(acceptCalls(fetch)).toHaveLength(2));
+  expect(acceptCalls(fetch)[1][1]!.body).toBe(acceptCalls(fetch)[0][1]!.body);
+});
+it.each(["network", "server", "malformed"])(
+  "%s uncertain response retries exact original body/key after GET changes request",
+  async (failure) => {
+    const { state, fetch } = fixture();
+    state.binding = "PENDING";
+    state.acceptNetwork = failure === "network";
+    state.acceptStatus = failure === "server" ? 500 : 0;
+    state.acceptMalformed = failure === "malformed";
+    show();
+    await startConsent();
+    await screen.findByRole("button", { name: "같은 동의 요청 결과 확인" });
+    const first = acceptCalls(fetch)[0];
+    expect(idempotencyKey(first)).toBeTruthy();
+    state.bindingId = "78";
+    state.bindingVersion = 2;
+    fireEvent.click(
+      screen.getByRole("button", { name: "본인 연결 요청 다시 확인" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText(consentLabel)).not.toBeChecked(),
+    );
+    expect(screen.getByLabelText(consentLabel)).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "본인 연결 동의" }),
+    ).toBeDisabled();
+    expect(acceptCalls(fetch)).toHaveLength(1);
+    state.acceptNetwork = state.acceptMalformed = false;
+    state.acceptStatus = 0;
+    fireEvent.click(
+      screen.getByRole("button", { name: "같은 동의 요청 결과 확인" }),
+    );
+    await waitFor(() => expect(acceptCalls(fetch)).toHaveLength(2));
+    const second = acceptCalls(fetch)[1];
+    expect(second[0]).toBe(first[0]);
+    expect(second[1]!.body).toBe(first[1]!.body);
+    expect(idempotencyKey(second)).toBe(idempotencyKey(first));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "같은 동의 요청 결과 확인" }),
+      ).not.toBeInTheDocument(),
+    );
+  },
+);
+it("uncertain consent blocks company link navigation and a second uncertain reply keeps its key", async () => {
+  const { state, fetch } = fixture();
+  state.binding = "PENDING";
+  state.acceptNetwork = true;
+  show();
+  await startConsent();
+  await screen.findByRole("button", { name: "같은 동의 요청 결과 확인" });
+  fireEvent.click(
+    screen.getByRole("button", { name: "본인 연결 요청 다시 확인" }),
+  );
+  await waitFor(() =>
+    expect(screen.getByLabelText(consentLabel)).not.toBeChecked(),
+  );
+  fireEvent.click(screen.getByRole("link", { name: "합성 두번째 회사" }));
+  fireEvent.click(screen.getByRole("button", { name: "변경 버리기" }));
+  expect(query().get("companyId")).toBe("11");
+  expect(acceptCalls(fetch)).toHaveLength(1);
+  fireEvent.click(
+    screen.getByRole("button", { name: "같은 동의 요청 결과 확인" }),
+  );
+  await screen.findByRole("button", { name: "같은 동의 요청 결과 확인" });
+  expect(acceptCalls(fetch)).toHaveLength(2);
+  expect(idempotencyKey(acceptCalls(fetch)[1])).toBe(
+    idempotencyKey(acceptCalls(fetch)[0]),
+  );
+});
+it("pending acceptance blocks double submit, request refresh, checkbox and company links", async () => {
+  const { state, fetch } = fixture();
+  state.binding = "PENDING";
+  state.deferAccept = true;
+  show();
+  await startConsent();
+  await waitFor(() => expect(state.lateAccept).toBeDefined());
+  expect(screen.getByLabelText(consentLabel)).toBeDisabled();
+  expect(
+    screen.getByRole("button", { name: "본인 연결 요청 다시 확인" }),
+  ).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "본인 연결 동의" }));
+  fireEvent.click(screen.getByRole("link", { name: "합성 두번째 회사" }));
+  expect(query().get("companyId")).toBe("11");
+  expect(acceptCalls(fetch)).toHaveLength(1);
+  await act(async () => state.lateAccept!(reply({ id: "77" })));
+});
+it("uncertain original attempt resolved as conflict releases retry and requires current request consent", async () => {
+  const { state } = fixture();
+  state.binding = "PENDING";
+  state.acceptNetwork = true;
+  show();
+  await startConsent();
+  await screen.findByRole("button", { name: "같은 동의 요청 결과 확인" });
+  state.acceptNetwork = false;
+  state.acceptStatus = 409;
+  fireEvent.click(
+    screen.getByRole("button", { name: "같은 동의 요청 결과 확인" }),
+  );
+  await screen.findByText(/연결 요청이 변경되어 동의하지 못했습니다/);
+  expect(
+    screen.queryByRole("button", { name: "같은 동의 요청 결과 확인" }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole("button", { name: "본인 연결 요청 다시 확인" }),
+  );
+  await waitFor(() =>
+    expect(screen.getByLabelText(consentLabel)).toBeEnabled(),
+  );
+  expect(screen.getByLabelText(consentLabel)).not.toBeChecked();
+});
+
+it.each([401, 410, 403])(
+  "acceptance %s preserves session/permission failure boundaries",
+  async (status) => {
+    const { state, fetch } = fixture();
+    state.binding = "PENDING";
+    state.acceptStatus = status;
+    state.acceptCode = "GW_PERMISSION_DENIED";
+    show();
+    await startConsent();
+    if (status === 403) {
+      await screen.findByRole("button", { name: "권한과 연결 다시 확인" });
+      expect(screen.queryByLabelText(consentLabel)).not.toBeInTheDocument();
+      expect(auth.fail).not.toHaveBeenCalled();
+    } else {
+      await waitFor(() => expect(auth.fail).toHaveBeenCalledTimes(1));
+    }
+    expect(
+      screen.queryByRole("button", { name: "같은 동의 요청 결과 확인" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("합성 비공개 본문")).not.toBeInTheDocument();
+    expect(acceptCalls(fetch)).toHaveLength(1);
+  },
+);
+it("permission failure resolving an uncertain retry cannot restore consent or business", async () => {
+  const { state, fetch } = fixture();
+  state.binding = "PENDING";
+  state.acceptNetwork = true;
+  show();
+  await startConsent();
+  await screen.findByRole("button", { name: "같은 동의 요청 결과 확인" });
+  state.acceptNetwork = false;
+  state.acceptStatus = 404;
+  state.acceptCode = "GW_NOT_FOUND";
+  fireEvent.click(
+    screen.getByRole("button", { name: "같은 동의 요청 결과 확인" }),
+  );
+  await screen.findByRole("button", { name: "권한과 연결 다시 확인" });
+  expect(screen.queryByLabelText(consentLabel)).not.toBeInTheDocument();
+  expect(screen.queryByText("합성 비공개 본문")).not.toBeInTheDocument();
+  expect(idempotencyKey(acceptCalls(fetch)[1])).toBe(
+    idempotencyKey(acceptCalls(fetch)[0]),
+  );
+});
+it("failed GET after uncertain acceptance retains the original explicit result retry", async () => {
+  const { state, fetch } = fixture();
+  state.binding = "PENDING";
+  state.acceptNetwork = true;
+  show();
+  await startConsent();
+  await screen.findByRole("button", { name: "같은 동의 요청 결과 확인" });
+  state.bindingError = true;
+  fireEvent.click(
+    screen.getByRole("button", { name: "본인 연결 요청 다시 확인" }),
+  );
+  await waitFor(() =>
+    expect(screen.queryByLabelText(consentLabel)).not.toBeInTheDocument(),
+  );
+  await screen.findByText("합성 요청 조회 실패");
+  expect(
+    screen.getByRole("button", { name: "같은 동의 요청 결과 확인" }),
+  ).toBeEnabled();
+  expect(acceptCalls(fetch)).toHaveLength(1);
+  state.acceptNetwork = false;
+  state.acceptStatus = 409;
+  fireEvent.click(
+    screen.getByRole("button", { name: "같은 동의 요청 결과 확인" }),
+  );
+  await screen.findByText(/연결 요청이 변경되어 동의하지 못했습니다/);
+  expect(acceptCalls(fetch)[1][1]!.body).toBe(acceptCalls(fetch)[0][1]!.body);
+});
+
+it("step-up during uncertain retry preserves original key and blocks a new request until explicit resolution", async () => {
+  const { state, fetch } = fixture();
+  state.binding = "PENDING";
+  state.acceptNetwork = true;
+  show();
+  await startConsent();
+  await screen.findByRole("button", { name: "같은 동의 요청 결과 확인" });
+  const first = acceptCalls(fetch)[0];
+  state.acceptNetwork = false;
+  state.acceptStatus = 403;
+  fireEvent.click(
+    screen.getByRole("button", { name: "같은 동의 요청 결과 확인" }),
+  );
+  const security = await screen.findByRole("link", {
+    name: "다른 탭에서 내 계정 보안 열기",
+  });
+  expect(security).toHaveAttribute("href", "/account/security");
+  expect(security).toHaveAttribute("target", "_blank");
+  expect(
+    screen.getByRole("button", { name: "같은 동의 요청 결과 확인" }),
+  ).toBeEnabled();
+  expect(screen.getByRole("button", { name: "본인 연결 동의" })).toBeDisabled();
+  state.bindingId = "78";
+  state.bindingVersion = 2;
+  fireEvent.click(
+    screen.getByRole("button", { name: "본인 연결 요청 다시 확인" }),
+  );
+  await waitFor(() =>
+    expect(screen.getByLabelText(consentLabel)).not.toBeChecked(),
+  );
+  expect(acceptCalls(fetch)).toHaveLength(2);
+  state.acceptStatus = 0;
+  fireEvent.click(
+    screen.getByRole("button", { name: "같은 동의 요청 결과 확인" }),
+  );
+  await waitFor(() => expect(acceptCalls(fetch)).toHaveLength(3));
+  for (const call of acceptCalls(fetch)) {
+    expect(call[1]!.body).toBe(first[1]!.body);
+    expect(idempotencyKey(call)).toBe(idempotencyKey(first));
+  }
 });

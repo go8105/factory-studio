@@ -417,11 +417,24 @@ export function useSend() {
         ? r.data
         : undefined;
     } catch (e) {
-      if (e instanceof ApiError && e.status > 0 && e.status < 500)
+      const pendingStepUp =
+        uncertainOperation.current === op &&
+        e instanceof ApiError &&
+        e.status === 403 &&
+        e.error.code === "STEP_UP_REQUIRED";
+      if (
+        e instanceof ApiError &&
+        e.status > 0 &&
+        e.status < 500 &&
+        !pendingStepUp
+      )
         keys.current.complete(op);
       if (!mounted.current || liveScope.current !== currentScope)
         return undefined;
-      if (e instanceof ApiError && (e.status === 0 || e.status >= 500)) {
+      if (
+        pendingStepUp ||
+        (e instanceof ApiError && (e.status === 0 || e.status >= 500))
+      ) {
         uncertainOperation.current = op;
         role.setUncertain?.(true);
       } else {
@@ -443,7 +456,13 @@ export function useSend() {
       role.setBusy?.(false);
     }
   }
-  return { send, pending, error, setError };
+  return {
+    send,
+    pending,
+    error,
+    setError,
+    uncertain: uncertainOperation.current !== undefined,
+  };
 }
 
 // 검색 페이지 밖의 선택 ID는 허용된 최소 표시만 개별 조회한다.
