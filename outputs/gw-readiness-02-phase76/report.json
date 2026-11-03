@@ -1,0 +1,52 @@
+{
+  "kind": "GW_SYNTHETIC_CONSENT_BROWSER_REVIEW",
+  "version": 1,
+  "syntheticApi": true,
+  "realApi": false,
+  "realAuthentication": false,
+  "realDevice": false,
+  "signedEvidence": false,
+  "ready": false,
+  "liveCompanyAcceptance": false,
+  "releaseAuthorized": false,
+  "checks": [
+    {
+      "viewport": 1440,
+      "keyboard": true,
+      "tabOrder": true,
+      "compactConsentLayout": true,
+      "conflict": true,
+      "getDoesNotResubmit": true,
+      "changedRequestCannotReplacePendingCommand": true,
+      "sameBodyAndKey": true,
+      "companySelectionBlocked": true,
+      "pendingInputsBlocked": true,
+      "syntheticPopupStepUp": true,
+      "realStepUpVerified": false,
+      "replayDoesNotActivateNewRequest": true,
+      "cancellationHidesConsent": true,
+      "overflow": false,
+      "pageErrors": 0,
+      "unexpectedRequests": 0
+    },
+    {
+      "viewport": 390,
+      "keyboard": true,
+      "tabOrder": true,
+      "compactConsentLayout": true,
+      "conflict": true,
+      "getDoesNotResubmit": true,
+      "changedRequestCannotReplacePendingCommand": true,
+      "sameBodyAndKey": true,
+      "companySelectionBlocked": true,
+      "pendingInputsBlocked": true,
+      "syntheticPopupStepUp": true,
+      "realStepUpVerified": false,
+      "replayDoesNotActivateNewRequest": true,
+      "cancellationHidesConsent": true,
+      "overflow": false,
+      "pageErrors": 0,
+      "unexpectedRequests": 0
+    }
+  ]
+}

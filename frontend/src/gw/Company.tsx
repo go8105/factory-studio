@@ -123,7 +123,7 @@ export function CompanyStart({
   }
   const guard = useDiscardGuard(!!reason || consent || acceptUncertain);
   return (
-    <section className="card">
+    <section className="card gw-company-start">
       {guard.pending && (
         <div role="alert">
           <p>저장하지 않은 입력이 있습니다.</p>
@@ -258,7 +258,7 @@ export function CompanyStart({
             {binding.data.name} · 사번 {binding.data.hrEmployeeCode} ·{" "}
             {binding.data.organizationName ?? "조직 미지정"}
           </p>
-          <label>
+          <label className="gw-company-consent">
             <input
               type="checkbox"
               checked={consent}
@@ -267,7 +267,7 @@ export function CompanyStart({
                 setConsentKey(e.target.checked ? bindingKey : "")
               }
             />
-            위 사번·이름이 본인임을 확인했습니다.
+            <span>위 사번·이름이 본인임을 확인했습니다.</span>
           </label>
           <button
             disabled={

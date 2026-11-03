@@ -226,3 +226,36 @@
   display: block;
   margin: 8px 0;
 }
+
+.gw-company-start {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.gw-company-start > p {
+  max-width: 74ch;
+  margin: 0;
+}
+.gw-company-start button {
+  align-self: flex-start;
+}
+.gw-company-start .gw-company-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  line-height: 1.6;
+}
+.gw-company-start .gw-company-consent input {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  margin: 2px 0 0;
+  padding: 0;
+  accent-color: #1f2d3d;
+}
+.gw-company-start [role="status"] a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
