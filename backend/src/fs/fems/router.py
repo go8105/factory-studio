@@ -26,7 +26,9 @@ from fs.fems.schema import (
     MeterCreate,
     MeterUpdate,
     ProductionCreate,
+    ProductionImport,
     ProductionUpdate,
+    ReadingUpload,
     SiteCreate,
     SiteUpdate,
     TariffBandsReplace,
@@ -426,6 +428,32 @@ def post_correction(
 ) -> dict[str, object]:
     key = _mutation(context, x_csrf_token, idempotency_key)
     return {"data": service.create_correction(context, payload.model_dump(), key)}
+
+
+@router.post("/reading-uploads", status_code=201)
+def post_reading_upload(
+    payload: ReadingUpload,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = {
+        "file_name": payload.file_name,
+        "rows": [r.model_dump() for r in payload.rows],
+    }
+    return {"data": service.upload_readings(context, values, key)}
+
+
+@router.post("/production-records/import", status_code=201)
+def post_production_import(
+    payload: ProductionImport,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.import_production(context, payload.month, key)}
 
 
 @router.get("/load-pattern")

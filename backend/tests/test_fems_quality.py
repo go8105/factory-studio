@@ -216,3 +216,188 @@ def test_a_spike_is_found(fems):
     )
     data = _quality(client, channel_id)
     assert any(i["kind"] == "SPIKE" for i in data["issues"])
+
+
+# ---------- CSV 올리기 (F13) ----------
+
+
+def _channel_code(engine, created, channel_id: int) -> str:
+    with engine.begin() as c:
+        return c.execute(
+            text(
+                "SELECT channel_code FROM fems.meter_channel "
+                "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+            ),
+            {
+                "w": created["workspaceId"],
+                "g": created["generationId"],
+                "id": channel_id,
+            },
+        ).scalar_one()
+
+
+def test_upload_takes_the_good_rows_and_names_the_bad_ones(fems):
+    """한 행이 틀렸다고 나머지를 버리지 않는다. 사유를 행 번호와 함께 돌려준다."""
+    client, created, engine = fems
+    channel_id, _, last = _a_channel(engine, created)
+    code = _channel_code(engine, created, channel_id)
+    rows = [
+        {
+            "channelCode": code,
+            "periodStart": (last + timedelta(hours=3)).astimezone(KST).isoformat(),
+            "value": "11",
+        },
+        {
+            "channelCode": "NO-SUCH-CH",
+            "periodStart": (last + timedelta(hours=4)).astimezone(KST).isoformat(),
+            "value": "12",
+        },
+        {
+            # 이미 값이 있는 구간 — 올리기로 덮지 않는다.
+            "channelCode": code,
+            "periodStart": last.astimezone(KST).isoformat(),
+            "value": "13",
+        },
+    ]
+    saved = _ok(
+        client.post(
+            f"{F}/reading-uploads",
+            json={"fileName": "2026-09.csv", "rows": rows},
+            headers=_headers(created),
+        ),
+        201,
+    )
+    assert saved["rowCount"] == 3
+    assert saved["acceptedCount"] == 1 and saved["rejectedCount"] == 2
+    assert saved["uploadNo"].startswith("UP-")
+    assert any("NO-SUCH-CH" in r for r in saved["rejected"])
+    assert any("이미 계측값이 있는" in r for r in saved["rejected"])
+
+
+def test_uploaded_rows_are_marked_as_file_entry(fems):
+    client, created, engine = fems
+    channel_id, _, last = _a_channel(engine, created)
+    code = _channel_code(engine, created, channel_id)
+    slot = last + timedelta(hours=5)
+    _ok(
+        client.post(
+            f"{F}/reading-uploads",
+            json={
+                "fileName": "a.csv",
+                "rows": [
+                    {
+                        "channelCode": code,
+                        "periodStart": slot.astimezone(KST).isoformat(),
+                        "value": "7",
+                    }
+                ],
+            },
+            headers=_headers(created),
+        ),
+        201,
+    )
+    with engine.begin() as c:
+        method = c.execute(
+            text(
+                "SELECT entry_method FROM fems.energy_reading "
+                "WHERE workspace_id=:w AND generation_id=:g AND meter_channel_id=:ch "
+                " AND period_start=:p"
+            ),
+            {
+                "w": created["workspaceId"],
+                "g": created["generationId"],
+                "ch": channel_id,
+                "p": slot,
+            },
+        ).scalar_one()
+    assert method == "FILE"
+
+
+# ---------- MES 생산량 가져오기 (F51) ----------
+
+
+def _busy_month(engine, created) -> str:
+    with engine.begin() as c:
+        return c.execute(
+            text(
+                "SELECT to_char(confirmed_at AT TIME ZONE 'Asia/Seoul','YYYY-MM') m "
+                "FROM mes.operation_result WHERE workspace_id=:w AND generation_id=:g "
+                "GROUP BY 1 ORDER BY count(*) DESC LIMIT 1"
+            ),
+            {"w": created["workspaceId"], "g": created["generationId"]},
+        ).scalar_one()
+
+
+def test_import_brings_mes_results_in_as_drafts(fems):
+    """1b production_results의 첫 소비자. 가져온 행은 초안이고 확정은 사람이 한다."""
+    client, created, engine = fems
+    month = _busy_month(engine, created)
+    saved = _ok(
+        client.post(
+            f"{F}/production-records/import",
+            json={"month": month},
+            headers=_headers(created),
+        ),
+        201,
+    )
+    assert saved["month"] == month
+    assert saved["imported"] > 0, "시드 실적이 있어야 한다"
+    with engine.begin() as c:
+        rows = c.execute(
+            text(
+                "SELECT status,source_key FROM fems.production_record "
+                "WHERE workspace_id=:w AND generation_id=:g AND source_key LIKE :p"
+            ),
+            {
+                "w": created["workspaceId"],
+                "g": created["generationId"],
+                "p": f"MES:{month}:%",
+            },
+        ).all()
+    assert len(rows) == saved["imported"]
+    assert all(r[0] == "draft" for r in rows)
+
+
+def test_import_twice_does_not_duplicate(fems):
+    """덮어쓰면 확정한 값이 조용히 바뀐다. 이미 가져온 것은 건너뛴다."""
+    client, created, engine = fems
+    month = _busy_month(engine, created)
+    first = _ok(
+        client.post(
+            f"{F}/production-records/import",
+            json={"month": month},
+            headers=_headers(created),
+        ),
+        201,
+    )
+    second = _ok(
+        client.post(
+            f"{F}/production-records/import",
+            json={"month": month},
+            headers=_headers(created),
+        ),
+        201,
+    )
+    assert second["imported"] == 0
+    assert len(second["skipped"]) >= first["imported"]
+    assert all("이미 가져왔습니다" in s for s in second["skipped"][: first["imported"]])
+
+
+def test_import_says_so_when_mes_is_off(fems):
+    client, created, engine = fems
+    month = _busy_month(engine, created)
+    with engine.begin() as c:
+        c.execute(
+            text(
+                "UPDATE core.workspace_module SET enabled=false "
+                "WHERE workspace_id=:w AND module_key='mes'"
+            ),
+            {"w": created["workspaceId"]},
+        )
+    response = client.post(
+        f"{F}/production-records/import",
+        json={"month": month},
+        headers=_headers(created),
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "SOURCE_MODULE_DISABLED"

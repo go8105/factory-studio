@@ -1522,6 +1522,90 @@ def tariff_bands(
     return grouped
 
 
+def channel_ids_by_code(connection: Connection, context: AuthContext) -> dict[str, int]:
+    """채널 코드 → id. CSV가 코드로 오므로 한 번에 읽어 둔다."""
+    rows = connection.execute(
+        text(
+            "SELECT channel_code,id FROM fems.meter_channel "
+            "WHERE workspace_id=:w AND generation_id=:g AND is_active"
+        ),
+        _s(context),
+    ).mappings()
+    return {r["channel_code"]: r["id"] for r in rows}
+
+
+def equipment_ids_by_code(
+    connection: Connection, context: AuthContext
+) -> dict[str, int]:
+    """설비 코드 → id. MES 생산량을 FEMS 설비에 붙일 때 쓴다(FK 없음, 코드로만 맞춘다)."""
+    rows = connection.execute(
+        text(
+            "SELECT equipment_code,id FROM fems.equipment "
+            "WHERE workspace_id=:w AND generation_id=:g AND is_active"
+        ),
+        _s(context),
+    ).mappings()
+    return {r["equipment_code"]: r["id"] for r in rows}
+
+
+def insert_upload(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    row = (
+        connection.execute(
+            text(
+                "INSERT INTO fems.reading_upload (workspace_id,generation_id,upload_no,"
+                "file_name,row_count,accepted_count,rejected_count,uploaded_at,error_summary) "
+                "VALUES (:w,:g,:upload_no,:file_name,:row_count,:accepted,:rejected,now(),:errors) "
+                "RETURNING id,upload_no,file_name,row_count,accepted_count,rejected_count,"
+                "uploaded_at,error_summary"
+            ),
+            {**_s(context), **values},
+        )
+        .mappings()
+        .one()
+    )
+    return dict(row)
+
+
+def next_upload_no(connection: Connection, context: AuthContext, day: str) -> str:
+    taken = connection.execute(
+        text(
+            "SELECT count(*) FROM fems.reading_upload "
+            "WHERE workspace_id=:w AND generation_id=:g AND upload_no LIKE :prefix"
+        ),
+        {**_s(context), "prefix": f"UP-{day}-%"},
+    ).scalar_one()
+    return f"UP-{day}-{taken + 1:03d}"
+
+
+def list_uploads(
+    connection: Connection, context: AuthContext, limit: int = 20
+) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            "SELECT id,upload_no,file_name,row_count,accepted_count,rejected_count,"
+            "uploaded_at,error_summary FROM fems.reading_upload "
+            "WHERE workspace_id=:w AND generation_id=:g "
+            "ORDER BY uploaded_at DESC, id DESC LIMIT :limit"
+        ),
+        {**_s(context), "limit": limit},
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
+def production_keys(connection: Connection, context: AuthContext) -> set[str]:
+    return set(
+        connection.execute(
+            text(
+                "SELECT DISTINCT source_key FROM fems.production_record "
+                "WHERE workspace_id=:w AND generation_id=:g"
+            ),
+            _s(context),
+        ).scalars()
+    )
+
+
 def channel_for_reading(
     connection: Connection, context: AuthContext, channel_id: int
 ) -> dict[str, Any] | None:

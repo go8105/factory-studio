@@ -14,6 +14,7 @@ from sqlalchemy import Connection
 
 from fs.common import master
 from fs.common.auth import AuthContext
+from fs.common.clock import business_today
 from fs.common.db import get_engine
 from fs.common.engine import read
 from fs.common.errors import ApiError
@@ -21,6 +22,7 @@ from fs.common.idempotency import find_receipt, request_digest, save_receipt
 from fs.common.scope import read_scope, write_scope
 from fs.fems import repository as repo
 from fs.fems import tou
+from fs.mes import interface as mes
 
 MODULE = "fems"
 
@@ -137,7 +139,8 @@ def _run_once(
             key,
             digest,
             entity,
-            result.get("id"),
+            # 행 하나에 매이지 않는 작업(가져오기·올리기)은 0으로 둔다 — 칸이 NOT NULL이다.
+            result.get("id") or 0,
             result,
             status,
         )
@@ -2820,3 +2823,152 @@ def create_correction(
         }
 
     return _run_once(context, "fems.reading.correction", key, values, run, 201)
+
+
+# ---------- 계측 올리기·생산량 가져오기 (F-15·F-05, DSN-15 F13·F51) ----------
+
+MAX_UPLOAD_ROWS = 5000
+
+
+def upload_readings(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """CSV로 받은 행을 검증해 반영한다(F13).
+
+    **파일을 서버가 읽지 않는다.** 브라우저가 CSV를 풀어 행 배열로 보내고, 서버는 행마다
+    검증해 받아들이거나 사유와 함께 돌려보낸다. 올린 기록은 합계만 남는다(설계 4-1).
+
+    한 행이라도 틀리면 통째로 막지 않는다 — 500행 중 3행이 틀렸다고 497행을 버릴 이유가 없다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        channels = repo.channel_ids_by_code(connection, scoped)
+        accepted, rejected = 0, []
+        for index, row in enumerate(values["rows"], start=1):
+            channel_id = channels.get(row["channel_code"])
+            if channel_id is None:
+                rejected.append(
+                    f"{index}행: 채널 {row['channel_code']}을(를) 찾을 수 없습니다."
+                )
+                continue
+            channel = repo.channel_for_reading(connection, scoped, channel_id)
+            period_start = row["period_start"]
+            existing = repo.channel_readings(
+                connection,
+                scoped,
+                channel_id,
+                period_start.date(),
+                period_start.date(),
+            )
+            if any(r["period_start"] == period_start for r in existing):
+                rejected.append(f"{index}행: 이미 계측값이 있는 구간입니다.")
+                continue
+            repo.insert_reading(
+                connection,
+                scoped,
+                _reading_payload(
+                    channel,
+                    period_start,
+                    row["value"],
+                    "FILE",
+                    f"{channel['channel_code']}:FILE-{period_start:%Y%m%dT%H}",
+                    1,
+                    "valid",
+                ),
+            )
+            accepted += 1
+        upload = repo.insert_upload(
+            connection,
+            scoped,
+            {
+                "upload_no": repo.next_upload_no(
+                    connection, scoped, f"{business_today():%Y%m%d}"
+                ),
+                "file_name": values["file_name"],
+                "row_count": len(values["rows"]),
+                "accepted": accepted,
+                "rejected": len(rejected),
+                # 사유를 다 담지 않는다 — 1,000자 칸이고 화면이 전체를 받아 본다.
+                "errors": "\n".join(rejected[:10])[:1000] or None,
+            },
+        )
+        return {
+            "id": upload["id"],
+            "uploadNo": upload["upload_no"],
+            "fileName": upload["file_name"],
+            "rowCount": upload["row_count"],
+            "acceptedCount": upload["accepted_count"],
+            "rejectedCount": upload["rejected_count"],
+            "rejected": rejected,
+        }
+
+    body = {
+        "file_name": values["file_name"],
+        "rows": [{**r, "period_start": str(r["period_start"])} for r in values["rows"]],
+    }
+    return _run_once(context, "fems.reading.upload", key, body, run, 201, "upload")
+
+
+def import_production(context: AuthContext, month: str, key: str) -> dict[str, Any]:
+    """MES 확정 실적을 생산량으로 가져온다(F51·Q3).
+
+    1b `mes.production_results(month)`의 첫 소비자다. 설비 코드로만 맞추고 FK를 두지 않는다.
+    **가져온 행은 초안**이다 — 확정은 사람이 F-05에서 한다.
+
+    이미 같은 원천 키가 있으면 건너뛴다. 덮어쓰면 확정한 값이 조용히 바뀐다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        rows = mes.production_results(connection, scoped, month)
+        if rows is None:
+            raise _conflict_module_off()
+        equipment = repo.equipment_ids_by_code(connection, scoped)
+        existing = repo.production_keys(connection, scoped)
+        first = date(int(month[:4]), int(month[5:]), 1)
+        last = (first.replace(day=28) + timedelta(days=4)).replace(day=1)
+        imported, skipped = 0, []
+        for row in rows:
+            code = row["equipmentCode"]
+            if not code:
+                # FEMS 생산량은 설비별이다. 설비 없는 실적은 붙일 곳이 없다.
+                skipped.append(
+                    f"{row['itemCode']}: 설비가 없는 실적이라 가져올 수 없습니다."
+                )
+                continue
+            equipment_id = equipment.get(code)
+            if equipment_id is None:
+                skipped.append(f"{code}: FEMS에 같은 코드의 설비가 없습니다.")
+                continue
+            source_key = f"MES:{month}:{code}:{row['itemCode']}"
+            if source_key in existing:
+                skipped.append(f"{code} {row['itemCode']}: 이미 가져왔습니다.")
+                continue
+            repo.insert_production(
+                connection,
+                scoped,
+                {
+                    "source_key": source_key,
+                    "version_no": 1,
+                    "equipment_id": equipment_id,
+                    "item_code": row["itemCode"],
+                    "period_start": datetime.combine(first, time()),
+                    "period_end": datetime.combine(last, time()),
+                    "production_qty": row["goodQty"],
+                    "unit": row["unit"],
+                },
+            )
+            imported += 1
+        return {"month": month, "imported": imported, "skipped": skipped}
+
+    return _run_once(
+        context, "fems.production.import", key, {"month": month}, run, 201, "production"
+    )
+
+
+def _conflict_module_off() -> ApiError:
+    return ApiError(
+        409,
+        "PRECONDITION_NOT_MET",
+        "MES를 사용하지 않도록 설정했습니다. 생산 실적을 읽을 수 없습니다.",
+        {"reason": "SOURCE_MODULE_DISABLED", "sourceModule": "mes"},
+    )

@@ -132,6 +132,23 @@ class CorrectionCreate(ApiModel):
     reason: str = Field(min_length=2, max_length=300)
 
 
+class UploadRow(ApiModel):
+    channel_code: str = Field(alias="channelCode", min_length=1, max_length=20)
+    period_start: datetime = Field(alias="periodStart")
+    value: str = Field(pattern=QTY)
+
+
+class ReadingUpload(ApiModel):
+    """파일은 브라우저가 푼다 — 서버는 행만 받는다(multipart를 만들지 않는다)."""
+
+    file_name: str = Field(alias="fileName", min_length=1, max_length=200)
+    rows: list[UploadRow] = Field(min_length=1, max_length=5000)
+
+
+class ProductionImport(ApiModel):
+    month: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+
+
 # ---- F-13 환산·배출계수 (FS-018k) ----
 FACTOR = r"^\d{1,12}(\.\d{1,6})?$"  # numeric(18,6). 0은 서비스에서 거부(> 0)
 YEAR = r"^[0-9]{4}$"
