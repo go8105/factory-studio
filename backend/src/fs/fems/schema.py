@@ -149,6 +149,24 @@ class ProductionImport(ApiModel):
     month: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
 
 
+# ---- F-18 에너지 경보 (DSN-15 F31) ----
+
+
+class AlarmRuleCreate(ApiModel):
+    code: str = Field(pattern=r"^[A-Z0-9][A-Z0-9_\-]{0,29}$")
+    name: str = Field(min_length=1, max_length=100)
+    alarm_kind: Literal["THRESHOLD", "PEAK", "IDLE_USAGE"] = Field(alias="alarmKind")
+    meter_channel_id: int | None = Field(None, alias="meterChannelId", gt=0)
+    equipment_id: int | None = Field(None, alias="equipmentId", gt=0)
+    threshold: str = Field(pattern=QTY)
+    unit: str = Field(min_length=1, max_length=10)
+    is_active: bool = Field(True, alias="isActive")
+
+
+class AlarmEvaluate(ApiModel):
+    month: str | None = Field(None, pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+
+
 # ---- F-13 환산·배출계수 (FS-018k) ----
 FACTOR = r"^\d{1,12}(\.\d{1,6})?$"  # numeric(18,6). 0은 서비스에서 거부(> 0)
 YEAR = r"^[0-9]{4}$"

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import Connection, text
 
@@ -62,3 +63,46 @@ def manufacturing_electricity(
         {**_s(scoped), "date_from": date_from, "date_to": date_to},
     ).mappings()
     return {r["reading_day"]: r["kwh"] for r in rows}
+
+
+def open_alarms(
+    connection: Connection, scoped: AuthContext
+) -> list[dict[str, Any]] | None:
+    """진행 중인 에너지 경보 `[{ruleCode, alarmKind, equipmentCode, peakValue, status}]`.
+
+    BEMS 피크 감축이 PEAK 경보를 읽는다(DSN-15 6장). **CMMS 작업지시 신호로는 쓰지 않는다**
+    — 에너지 이상은 고장이 아니다(DSN-21 Q4로 제외). FEMS가 꺼져 있으면 None.
+    """
+    if not enabled(connection, scoped):
+        return None
+    rows = connection.execute(
+        text(
+            "SELECT r.code rule_code, r.name rule_name, r.alarm_kind, r.threshold, r.unit,"
+            " e.equipment_code, c.channel_code, a.peak_value, a.status, a.raised_at "
+            "FROM fems.alarm a "
+            "JOIN fems.alarm_rule r ON r.workspace_id=a.workspace_id "
+            " AND r.generation_id=a.generation_id AND r.id=a.alarm_rule_id "
+            "LEFT JOIN fems.equipment e ON e.workspace_id=r.workspace_id "
+            " AND e.generation_id=r.generation_id AND e.id=r.equipment_id "
+            "LEFT JOIN fems.meter_channel c ON c.workspace_id=r.workspace_id "
+            " AND c.generation_id=r.generation_id AND c.id=r.meter_channel_id "
+            "WHERE a.workspace_id=:w AND a.generation_id=:g AND a.status <> 'CLEARED' "
+            "ORDER BY a.raised_at DESC"
+        ),
+        {"w": scoped.workspace_id, "g": scoped.generation_id},
+    ).mappings()
+    return [
+        {
+            "ruleCode": r["rule_code"],
+            "ruleName": r["rule_name"],
+            "alarmKind": r["alarm_kind"],
+            "threshold": str(r["threshold"]),
+            "unit": r["unit"],
+            "equipmentCode": r["equipment_code"],
+            "channelCode": r["channel_code"],
+            "peakValue": str(r["peak_value"]),
+            "status": r["status"],
+            "raisedAt": r["raised_at"].isoformat(),
+        }
+        for r in rows
+    ]

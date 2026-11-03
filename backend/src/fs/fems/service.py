@@ -1815,6 +1815,9 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
         tariffs = repo.billing_tariffs(connection, scoped)
         summary = repo.allocation_summary(connection, scoped, {}, first, last)
         issues, recent = repo.quality_issues(connection, scoped, first, last)
+        # F-01 보강: 진행 중인 경보와 그 달 피크. 저장하지 않고 센다.
+        open_alarms = repo.list_alarms(connection, scoped, open_only=True)
+        hourly = repo.hourly_consumption(connection, scoped, first, last)
     toe_sources, toe_total, toe_complete = _converted(rows, primary, "PRIMARY", "toe")
     _, emission_total, emission_complete = _converted(
         rows, emission, "EMISSION", "emission"
@@ -1838,8 +1841,22 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
     if target:
         # 달성률 = 실적 ÷ 목표. 100% 이하면 목표 이내.
         achievement = str((Decimal(toe_total) / target * 100).quantize(Decimal("0.1")))
+    peak = max((Decimal(str(r["quantity"])) for r in hourly), default=None)
     return {
         "period": {"month": month, "from": first.isoformat(), "to": last.isoformat()},
+        "openAlarms": [
+            {
+                "id": a["id"],
+                "ruleCode": a["ruleCode"],
+                "ruleName": a["ruleName"],
+                "alarmKind": a["alarmKind"],
+                "status": a["status"],
+            }
+            for a in open_alarms[:5]
+        ],
+        "openAlarmCount": len(open_alarms),
+        # 계측이 없는 달은 0이 아니라 모름이다.
+        "peak": None if peak is None else str(peak.quantize(SIX)),
         "primaryEnergy": {
             "total": toe_total,
             "unit": "TOE",
@@ -2972,3 +2989,279 @@ def _conflict_module_off() -> ApiError:
         "MES를 사용하지 않도록 설정했습니다. 생산 실적을 읽을 수 없습니다.",
         {"reason": "SOURCE_MODULE_DISABLED", "sourceModule": "mes"},
     )
+
+
+# ---------- 에너지 경보 (F-18, DSN-15 F31) ----------
+
+ALARM_KIND_LABEL = {
+    "THRESHOLD": "시간 사용량 임계",
+    "PEAK": "계약전력 대비 피크",
+    "IDLE_USAGE": "비가동 시간 사용",
+}
+
+
+def list_alarm_rules(context: AuthContext) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return [
+            repo.alarm_rule_dict(r) for r in repo.list_alarm_rules(connection, scoped)
+        ]
+
+
+def create_alarm_rule(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """경보 규칙을 만든다. 채널이나 설비 중 **하나는 있어야** 무엇을 보는지 정해진다."""
+
+    def run(connection: Connection, scoped: AuthContext):
+        if repo.alarm_rule_code_taken(connection, scoped, values["code"]):
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "이미 사용 중인 규칙 코드입니다.",
+                {"reason": "DUPLICATE_CODE"},
+            )
+        if (
+            values.get("meter_channel_id") is None
+            and values.get("equipment_id") is None
+        ):
+            raise ApiError(
+                400,
+                "VALIDATION_FAILED",
+                "입력값을 확인해 주세요.",
+                {
+                    "fields": {
+                        "meterChannelId": "채널이나 설비 중 하나는 골라야 합니다."
+                    }
+                },
+            )
+        if (
+            values.get("meter_channel_id") is not None
+            and repo.channel_for_reading(connection, scoped, values["meter_channel_id"])
+            is None
+        ):
+            raise ApiError(404, "NOT_FOUND", "계측 채널을 찾을 수 없습니다.")
+        return repo.insert_alarm_rule(connection, scoped, values)
+
+    return _run_once(context, "fems.alarm_rule.create", key, values, run, 201, "alarm")
+
+
+def _peak_ratio(
+    connection: Connection, scoped: AuthContext, rule: dict[str, Any], month: str
+) -> tuple[Decimal, Decimal] | None:
+    """피크 규칙: 그 달 최대 시간 사용량 ÷ 계약전력. 계약전력이 없으면 판단하지 않는다."""
+    period = _month_period(connection, scoped, month)
+    if period is None:
+        return None
+    _, first, last = period
+    rows = repo.hourly_consumption(connection, scoped, first, last)
+    if not rows:
+        return None
+    peak = max(Decimal(str(r["quantity"])) for r in rows)
+    tariffs = repo.billing_tariffs(connection, scoped)
+    contract = next(
+        (
+            t["contract_kw"]
+            for t in tariffs
+            if t["contract_kw"]
+            and t["effective_from"] <= month
+            and (t["effective_to"] is None or t["effective_to"] >= month)
+        ),
+        None,
+    )
+    if not contract:
+        return None
+    return peak, peak / contract
+
+
+def evaluate_alarms(
+    context: AuthContext, month: str | None, key: str
+) -> dict[str, Any]:
+    """규칙을 지금 한 번 본다(F31). **상시 감시 서버를 만들지 않는다**(FEMS 범위).
+
+    규칙당 진행 경보는 하나다(UK_PARTIAL). 이미 열려 있으면 다시 올리지 않고 건너뛴다 —
+    같은 일로 경보가 쌓이면 아무도 보지 않게 된다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        target = month or f"{business_today():%Y-%m}"
+        period = _month_period(connection, scoped, target)
+        rules = repo.list_alarm_rules(connection, scoped, active_only=True)
+        already = repo.open_alarm_rule_ids(connection, scoped)
+        raised, skipped = [], []
+        idle_hours: set[Any] | None = None
+        for rule in rules:
+            if rule["id"] in already:
+                skipped.append(f"{rule['code']}: 이미 진행 중인 경보가 있습니다.")
+                continue
+            hit = _rule_hit(connection, scoped, rule, target, period, idle_hours)
+            if hit is None:
+                continue
+            value, idle_hours = hit
+            repo.raise_alarm(connection, scoped, rule["id"], str(value))
+            raised.append(rule["code"])
+        return {"month": target, "raised": raised, "skipped": skipped}
+
+    return _run_once(
+        context, "fems.alarm.evaluate", key, {"month": month}, run, 201, "alarm"
+    )
+
+
+def _rule_hit(
+    connection: Connection,
+    scoped: AuthContext,
+    rule: dict[str, Any],
+    month: str,
+    period: Any,
+    idle_hours: set[Any] | None,
+) -> tuple[Decimal, set[Any] | None] | None:
+    """규칙 하나를 본다. 걸리면 (넘은 값, 비가동 시각 캐시)를 돌려준다."""
+    threshold = Decimal(str(rule["threshold"]))
+    if rule["alarm_kind"] == "PEAK":
+        measured = _peak_ratio(connection, scoped, rule, month)
+        if measured is None:
+            return None
+        peak, ratio = measured
+        return (peak, idle_hours) if ratio > threshold else None
+
+    if period is None or rule["meter_channel_id"] is None:
+        return None
+    _, first, last = period
+    rows = repo.channel_readings(
+        connection, scoped, rule["meter_channel_id"], first, last
+    )
+    if not rows:
+        return None
+
+    if rule["alarm_kind"] == "THRESHOLD":
+        peak = max(Decimal(str(r["value"])) for r in rows)
+        return (peak, idle_hours) if peak > threshold else None
+
+    # IDLE_USAGE — MES 가동 구간 밖의 사용량. MES가 꺼져 있으면 판단하지 않는다.
+    if idle_hours is None:
+        runs = mes.operation_runs(connection, scoped, first, last)
+        if runs is None:
+            return None
+        busy = set()
+        for run_row in runs:
+            started = datetime.fromisoformat(run_row["startedAt"])
+            ended = (
+                datetime.fromisoformat(run_row["endedAt"])
+                if run_row["endedAt"]
+                else started + HOUR
+            )
+            cursor = started.replace(minute=0, second=0, microsecond=0)
+            while cursor < ended:
+                busy.add(cursor)
+                cursor += HOUR
+        idle_hours = busy
+    worst = Decimal(0)
+    for row in rows:
+        start = row["period_start"]
+        if start.replace(minute=0, second=0, microsecond=0) in (idle_hours or set()):
+            continue
+        worst = max(worst, Decimal(str(row["value"])))
+    return (worst, idle_hours) if worst > threshold else None
+
+
+def list_alarms(context: AuthContext, open_only: bool) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return repo.list_alarms(connection, scoped, open_only)
+
+
+def change_alarm_status(
+    context: AuthContext, alarm_id: int, status: str, key: str
+) -> dict[str, Any]:
+    """발생 → 확인 → 해제. 뒤로 가지 않는다 — 되돌릴 일이면 새 경보가 올라온다."""
+    allowed = {"ACK": ("OPEN",), "CLEARED": ("OPEN", "ACK")}
+
+    def run(connection: Connection, scoped: AuthContext):
+        found = repo.get_alarm(connection, scoped, alarm_id)
+        if found is None:
+            raise ApiError(404, "NOT_FOUND", "경보를 찾을 수 없습니다.")
+        if found["status"] not in allowed[status]:
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "이 경보에서는 할 수 없는 처리입니다.",
+                {"reason": "BAD_STATE", "status": found["status"]},
+            )
+        repo.update_alarm_status(connection, scoped, alarm_id, status)
+        return repo.get_alarm(connection, scoped, alarm_id)
+
+    return _run_once(
+        context,
+        f"fems.alarm.{status.lower()}",
+        key,
+        {"id": alarm_id},
+        run,
+        200,
+        "alarm",
+    )
+
+
+# ---------- 설비 비교 (F-17, DSN-15 F27) ----------
+
+
+def equipment_comparison(context: AuthContext, month: str | None) -> dict[str, Any]:
+    """같은 **종류** 설비끼리 원단위를 줄 세운다(F27). 저장하지 않는다.
+
+    종류가 다른 설비는 비교하지 않는다 — 사출기와 검사기의 원단위를 나란히 두면 뜻이 없다.
+    생산량이 없는 설비는 **0위가 아니라 순위 밖**이다. 나눌 수 없는 것과 나쁜 것은 다르다.
+    """
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        period = _month_period(connection, scoped, month)
+        if period is None:
+            return {"month": None, "groups": []}
+        month, first, last = period
+        allocations = repo.allocation_summary(connection, scoped, {}, first, last)
+        production = repo.production_by_equipment(connection, scoped, first, last)
+        equipments, _ = repo.list_equipments(
+            connection, scoped, None, None, "equipment_code ASC", 0, 500
+        )
+    types: dict[str, list[dict[str, Any]]] = {}
+    by_id = {e["id"]: e for e in equipments}
+    energy: dict[tuple[int, str], Decimal] = {}
+    for row in allocations:
+        key = (row["equipmentId"], row["unit"])
+        energy[key] = energy.get(key, Decimal(0)) + Decimal(row["quantity"])
+    for (equipment_id, unit), quantity in sorted(energy.items()):
+        equipment = by_id.get(equipment_id)
+        if equipment is None:
+            continue
+        made = production.get(equipment_id)
+        kind = equipment["equipmentType"] or "미분류"
+        types.setdefault(kind, []).append(
+            {
+                "equipmentId": equipment_id,
+                "equipmentCode": equipment["equipmentCode"],
+                "equipmentName": equipment["name"],
+                "energy": str(quantity.quantize(SIX)),
+                "energyUnit": unit,
+                "production": None if made is None else str(made["qty"]),
+                "productionUnit": None if made is None else made["unit"],
+                # 생산량이 없으면 원단위는 0이 아니라 낼 수 없는 값이다.
+                "intensity": None
+                if not made or Decimal(str(made["qty"])) == 0
+                else str((quantity / Decimal(str(made["qty"]))).quantize(SIX)),
+            }
+        )
+    groups = []
+    for kind, rows in sorted(types.items()):
+        ranked = sorted(
+            [r for r in rows if r["intensity"] is not None],
+            key=lambda r: Decimal(r["intensity"]),
+        )
+        for index, row in enumerate(ranked, start=1):
+            row["rank"] = index
+        groups.append(
+            {
+                "equipmentType": kind,
+                "ranked": ranked,
+                # 비교할 수 없는 설비도 숨기지 않는다 — 왜 빠졌는지 보여야 한다.
+                "unranked": [r for r in rows if r["intensity"] is None],
+            }
+        )
+    return {"month": month, "groups": groups}

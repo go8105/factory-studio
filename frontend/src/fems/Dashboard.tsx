@@ -22,6 +22,15 @@ type Converted = {
 };
 export type DashboardData = {
   period: { month: string; from: string; to: string } | null;
+  openAlarms?: {
+    id: number;
+    ruleCode: string;
+    ruleName: string;
+    alarmKind: string;
+    status: string;
+  }[];
+  openAlarmCount?: number;
+  peak?: string | null;
   primaryEnergy: {
     total: string;
     unit: string;
@@ -333,6 +342,44 @@ export function Dashboard() {
           {/* 주요 차트(일자별 추이) + 보조 영역 3:2. 읽는 순서는 화면 폭과 관계없이 같다. */}
           <div className="dashboard-grid has-lead">
             <DailyChart daily={data.daily} />
+            <section className="panel" aria-label="에너지 경보">
+              <h2>
+                진행 중인 경보 {data.openAlarmCount ?? 0}건
+                {!!data.openAlarmCount && (
+                  <>
+                    {" "}
+                    <Badge tone="issue">확인 필요</Badge>
+                  </>
+                )}
+              </h2>
+              {data.openAlarms?.length ? (
+                <ul className="rank-list">
+                  {data.openAlarms.map((a) => (
+                    <li key={a.id}>
+                      <span>
+                        {a.ruleCode} {a.ruleName}
+                      </span>
+                      <span>{a.status === "OPEN" ? "발생" : "확인"}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted">진행 중인 경보가 없습니다.</p>
+              )}
+              <p className="muted">
+                {/* 계측이 없는 달은 0이 아니라 낼 수 없는 값이다. */}이 달
+                수요전력{" "}
+                {data.peak
+                  ? Number(data.peak).toLocaleString("ko-KR", {
+                      maximumFractionDigits: 1,
+                    })
+                  : "—"}{" "}
+                · 1시간 근사
+              </p>
+              <Link className="text-link" to="/fems/alarms">
+                에너지 경보 →
+              </Link>
+            </section>
             <Composition sources={data.primaryEnergy.sources} />
             <section className="panel" aria-label="설비별 소비 상위 5">
               <h2>설비별 소비 상위 5 · kWh</h2>
