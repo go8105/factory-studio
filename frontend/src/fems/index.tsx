@@ -17,6 +17,7 @@ import { Meters } from "./Meters";
 import { Sites } from "./Sites";
 import { Tariffs } from "./Tariffs";
 import { LoadPattern } from "./LoadPattern";
+import { ReadingQuality } from "./ReadingQuality";
 export default function FemsRoutes() {
   return (
     <Routes>
@@ -32,6 +33,7 @@ export default function FemsRoutes() {
         <Route path="targets" element={<Targets />} />
         <Route path="billing" element={<Billing />} />
         <Route path="load-pattern" element={<LoadPattern />} />
+        <Route path="reading-quality" element={<ReadingQuality />} />
         <Route path="energy-sources" element={<EnergySources />} />
         <Route path="sites" element={<Sites />} />
         <Route path="meters" element={<Meters />} />

@@ -1,6 +1,6 @@
-# 2026-11-01 FEMS-1c 완료 — SPC·CMMS·QMS 보강 끝, FEMS 진행 중 (다음: FEMS-1d)
+# 2026-11-03 FEMS-1d 완료 — SPC·CMMS·QMS 보강 끝, FEMS 진행 중 (다음: FEMS-1e)
 
-- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1c` (병합 뒤 `main`)
+- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1d` (병합 뒤 `main`)
 - **마지막 커밋**: `git log --oneline -3` 참조. 원격 `origin/main`과 동기.
 - **담당**: Claude Code가 설계·개발·검증·병합을 모두 한다(D85). Codex는 GW 범위만.
 
@@ -37,28 +37,7 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 
 **PPM은 불량을 '개수'로 센 칸이 있어야 낸다.** 수입(`defect_count`/`sample_qty`)과 공정(MES `defectQty`/`inputQty`)만 가능하고 출하·고객은 못 낸다. 설계 3장이 4종 모두 PPM을 적었지만 **0으로 채우지 않고 `—`로 두고 화면이 왜 비는지 밝힌다.** FEMS·BEMS에서도 같은 판단이 필요할 것이다.
 
-## FEMS-1d 진행 중 — F12·F14 백엔드만 끝났다
-
-**다음 세션이 이어서 할 일.** 백엔드는 커밋돼 있고 테스트 8건이 통과한다.
-
-| 끝난 것 | 어디 |
-|---|---|
-| 수동 검침 입력 (F12) | `POST /fems/readings` — `entry_method=MANUAL`. 이미 값이 있으면 409 `READING_EXISTS`(덮지 않는다, 고치는 건 보정) |
-| 결측·이상값 탐지 (F14) | `GET /fems/reading-quality?channelId=&from=&to=` — MISSING·ZERO_RUN(0이 3시간 이상)·SPIKE(중앙값 3배 초과), **판단 근거를 note로 함께 준다** |
-| 보정 적용 (F14) | `POST /fems/reading-corrections` — 새 `input_revision`(estimated) 행을 넣고 원 계측은 `quality=invalid`로 집계에서만 뺀다 |
-
-**보정 설계에서 고른 길**: `energy_reading`에 `UK(채널, source_key)`가 있어 같은 키로 행을 더할 수 없다. 그래서 보정 행은 `<채널>:FIX-<시각>-r<n>` 키를 쓰고, **원 행은 지우지 않고 `quality=invalid`로 돌린다.** 집계 질의가 이미 invalid를 거르므로 읽는 쪽을 다섯 군데 고치지 않아도 된다. 원래 값은 행에도, `reading_correction.original_value`에도 남는다.
-
-**남은 것**
-
-| 할 일 | 메모 |
-|---|---|
-| **F-15 계측 품질 화면(신규)** | 채널 고르기 → 결측·이상값 목록 → 보정. 등록 4곳 + 포털 카운터 둘(메뉴 145·FEMS 도움말 16) |
-| F-02 수동 검침 입력 UI | `POST /readings`를 쓰는 폼 |
-| **F13 CSV 올리기** | `fems.reading_upload` 표는 비어 있다. **브라우저가 CSV를 파싱해 행 배열로 보내는 쪽을 권함** — multipart를 안 만들어도 된다 |
-| **F51 MES 생산량 가져오기** | F-05 보강. 1b의 `mes.production_results(month)`가 여기서 **첫 소비자**를 얻는다 |
-
-## FEMS — 1a·1b·1c 완료, 1d 진행 중
+## FEMS — 1a~1d 완료, 1e부터
 
 설계는 **DSN-15**에 있고 Q1~Q7이 2026-10-05에 이미 확정돼 있다. 범위 13 → 25표·14 → **23화면**(신규 9·기존 보강 8)으로 QMS보다 크다.
 
@@ -69,14 +48,16 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 | ~~1a~~ | ~~DB 13 → 25표~~ | 완료 |
 | ~~1b~~ | ~~MES `production_results(month)`~~ | 완료 |
 | ~~1c~~ | ~~TOU 요금·피크, F-16 신설(FEMS 15화면)~~ | 완료 |
-| **1d** | 데이터 품질 — F-15(CSV·보정)·F-02 수동 검침·F-05 MES 가져오기 | **Opus** |
-| 1e | 분석·경보 — **F-17 설비 비교**·**F-18 경보**·F-01 대시보드 | Sonnet |
+| ~~1d~~ | ~~F-15 계측 품질 신설(FEMS 16화면)·CSV·MES 가져오기~~ | 완료 |
+| **1e** | 분석·경보 — F-17 설비 비교·F-18 경보·F-01 대시보드 | Sonnet |
 | 1f | 에너지 경영 — **F-19 절감**·**F-20 월간 검토**(인쇄)·**F-21 온실가스**(인쇄) | Opus (절감 측정·검증 공식) |
 | 1g | 비용 — **F-22 배분**·**F-23 고지서 대조**·F-10 부서·F-11 발전 | Opus |
 
 **설계서 §6의 `ERP departments()`는 오류다**(1b에서 확인). 부서 표는 `hr.department` 하나뿐이고 **HR이 이미 `departments()`를 제공한다**. ERP에는 부서 표가 없다.
 
 **`hour`·`month`는 Postgres 예약어다.** 별칭에 따옴표가 없으면 구문 오류가 난다. Q-13과 F-16에서 두 번 밟았다.
+
+**1b `production_results`가 1d에서 소비자를 얻었다** — QMS-1b 때처럼 죽은 코드로 남지 않았다.
 
 **TOU 시드가 없다.** 브라우저로 보려면 F-14에서 요금제를 TOU로 바꾸고 구간표를 채워야 한다. FEMS 전체 시드 작업으로 미뤘다.
 
