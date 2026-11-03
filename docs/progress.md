@@ -1,11 +1,29 @@
-## 77차 진행 중 — GW 통합 회귀·main 읽기 검토 (2026-11-03)
+## 77차 — GW 분할 회귀·보호 검사 보정·main 통합 전 차이 확인 (2026-11-03)
 
-- 저장소 factory-studio-gw-company / codex/gw-company-01, 시작fceb68f. origin/main783a2c1 조회, 공통기준2be292e 이후 GW85/main90커밋. 읽기 병합 모의는 텍스트8파일14구간/Excel1충돌, union migration heads gw_readiness/fems1. 병합·main수정/push/배포 없음.
-- 소유 전체ID/owner/127.0.0.1:55439/PG18 확인 후 새UUID *_test DB. 신규마이그레이션/실DDL219표2409열543FK/정적DB·R1~R6 오류0. 프런트 GW/계정보안/도움말/API153건·전체build/typecheck 통과(기존청크/외부화경고).
-- 초기GW80파일/1601수집 선택은949pass/1fail/1skip에서중단(잔여미실행). Flow전체체인downgrade가 GW이력보호로거부돼 검사를 Flow함수직접왕복+전체체인거부/보안이력지문보존으로보정. 적용migration/제품코드변경없음. 보정집중1pass, 전체재실행중. 생성초기/집중DB삭제·예상밖새DB0. 최종결과전완료아님.
-- skip은구형10인폐쇄복원 PG_TEST_CONTAINER/이름규칙미설정이며임의완화하지않음. 실제미리보기DB/계정·권한·MFA/비밀번호/업무자료·다른checkout/WMS변경없음. ready=false/최종4UNVERIFIED·실제복원PARTIAL/PASS거부유지.
-- 추가 WIP:3591a64 이후 전체80파일 재실행은89% 구간까지 실패 표시 없이 진행(최종집계전). 원격 main783a2c1 재조회 동일. 수집은 DB fixture300/비DB fixture1301, 백업 fixture46은 DB 안의 중복 범주다. 초기 실패/보정 집중/최종 재실행을 합산하지 않는다.
-- 새안전실행기 tools/gw_integration_check.py, 상세/재현 docs/agent/GW_통합회귀_main차이_GW-READY-02_77.md. 실행중원문로그/JUnit/요약은무시되는work/gw-readiness-02-phase77/final/. 비밀/원문로그는Git제외. 전체관련재실행/DB정리·문서최종화·커밋남음. 모델자동변경/다음ID착수없음.
+- 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, `codex/gw-company-01`, 시작fceb68f/깨끗한 작업 트리. 사용자 다음 진행 승인 범위. WIP3591a64/1a90d02로 실행 중 상태를 보존했고 최종 커밋은 git log -1로 확인한다. 이번 제품 소스/적용 migration 변경 없음.
+- GW80파일1601개 고유 case를 대조한 분할 결과는 **1600pass/1skip, 누락0**. DB fixture299pass/1skip, DB fixture 없는1301pass. 소유 백업 fixture46pass는 DB 범주 안의 중복이다. **보정 후 단일 전체 실행 통과가 아니다.** 전체 CI/전체 backend/frontend·main 통합 소스의 회귀와 구분한다.
+- 초기 전체 선택949pass/1fail/1skip 중단: Flow 왕복 검사가 GW 보안 이력까지 전체 체인을 내려가려 해 정상 보호로 거부됨. 적용 migration/보호를 바꾸지 않고 전체 체인 거부·보안 이력 지문 보존을 검사하고 Flow 함수만 폐기 DB에서 직접 왕복하도록 보정, 집중1pass. 재실행1494pass/1fail/1skip 중단: GW/WMS 정규화 검사의 고정 옛 head 기대값. 현재 ScriptDirectory head와 정규화 왕복 전후 head 유지로 보정했다.
+- 제품 소스가 시작fceb68f 이후 바뀌지 않았음을 확인하고, 재실행의1494pass와 수정 모듈/실패·미실행·skip107건을 현재 수집 node ID로 대조했다. 후속107건은106pass/1skip. 실패한 두 case는 보정 뒤 각각 통과했고 미해결 실패0이나, 전체 순서/단일 프로세스 검증 완료로 승격하지 않는다. 초기/집중/반복의 pass를 합산하지 않는다.
+- skip1은 구형10인 폐쇄복원의 PG_TEST_CONTAINER/컨테이너 이름 계약 미설정. 이름/소유 보호를 임의 완화하지 않았다. 최신 소유 백업 fixture 통과나 과거 성공으로 이skip을 대신하지 않는다. 실회사10인 인수/실 API 브라우저·실 TOTP/전경로·전체 회수 확인이 아니다.
+- `tools/gw_integration_check.py`는 전체ID/owner/running·단일127.0.0.1:55439/PG18 확인 후 새UUID *_test DB를 생성해 migration→실DDL→GW pytest를 수행한다. 새 실행기/검사파일2개 Ruff·포맷 통과. 잘못된 owner는 DB 연결 전에 종료1로 거부했다. 원문 로그/JUnit/접속값은 work에만 보존하며 출력/Git 제외한다. 수집/사전점검/복원기·신규 공급자를 중복 구현한 것이 아니다.
+- 생성 원본DB4개 모두 삭제, 각 실행의 예상 밖 새 DB0, 종료 후 전체ID/라벨/loopback·4DB 부재/preview DB 존재 재확인. preview 업무 행을 조회/변경하지 않았다. 실제 계정·비밀번호/MFA·권한·업무자료/증거등록·브라우저 설정·다른 checkout/WMS/main·push/배포 변경 없음.
+- 신규 DB 실DDL219표/2409열/543FK와정적DB/R1~R6 오류0. 시스템Python3.9의 감사 AST 구문 오류는 프로젝트Python3.14.7 재실행으로 통과했고 명령을 명시했다. 작성 중 실행기 Ruff3건은 수정 후 통과했다. 프런트 GW/계정보안/도움말/API153건/14파일(15.47초), 전체 frontend build/typecheck 통과. 기존 청크/의존성 외부화 경고 유지. 스키마/metadata/Excel/ERD 변경 없어 db:build/ERD 재생성 없음.
+- origin/main783a2c1 재조회 동일. 시작 기준 GW85/main90커밋 분기, 양쪽 변경15경로. 시작 시 읽기3-way 모의는 텍스트8파일14구간/Excel1충돌.77차 검사 보정 후 복사본 재대조는 양쪽16경로, 텍스트9파일15구간/Excel1충돌이다. 새 충돌은 GW/WMS 검사 파일이다. 합친 migration은 gw_readiness/fems1 두head이며 동일w2b1_wms 바이트 차이는 main downgrade 정리SQL1줄이다(이번 미실행/미수정). 한쪽 metadata/Excel을 선택해 덮으면 GW인증/운영9표 또는 main32표가 누락된다.
+- 상세·재현·남은검증: docs/agent/GW_통합회귀_main차이_GW-READY-02_77.md, unsigned 집계/실패·분할/자원 근거 outputs/gw-readiness-02-phase77/. ready=false/최종4UNVERIFIED·실제복원PARTIAL/ACCEPTANCE PASS거부 유지. 현재 단계는 회귀/통합 경계 확인 한정 완료이며 전체UI/최종인수 완료가 아니다.
+- 다음: 두head 연결의 새revision·metadata/Excel/ERD 충돌 해소안, 빈DB/기존GW head/기존main head 합성승격 보존 검증 계획을 확정한다. 실제 통합·병행WMS 수정·main/push/배포는 별도 범위다. 구형 폐쇄복원skip의 소유자검증 계약도 별도 정리한다. 외부공급자/독립최신성·전체회수/통합후전체회귀·실회사10인·최종전환은 남는다. GPT-6 Astra + High 추천, 모델 자동변경/다음ID 자동착수 없음.
+
+재현(이 GW 저장소 루트; 전체 명령의 보정 후 단일 실행은 아직 남음):
+```sh
+backend/.venv/bin/python tools/gw_integration_check.py --container fs-gw-ready02-preview --expected-id-file work/gw-readiness-02-preview/container-id --owner gw-ready-02-preview --port 55439 --private-output work/gw-readiness-02-phase77/reproduce
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw src/portal/content-pages.test.tsx src/shared/api.test.ts src/portal/account-security.test.tsx --maxWorkers=1
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend run build
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm run db:validate
+backend/.venv/bin/python tools/audit_schema_isolation.py
+backend/.venv/bin/ruff check --config backend/pyproject.toml tools/gw_integration_check.py backend/tests/test_gw_projects.py backend/tests/test_gw_wms_merge.py
+backend/.venv/bin/ruff format --config backend/pyproject.toml --check tools/gw_integration_check.py backend/tests/test_gw_projects.py backend/tests/test_gw_wms_merge.py
+git diff --check
+```
+예상ID 파일이 없으면 상세 문서의 전체ID·소유자/loopback 기록과 실제 자원을 먼저 대조한 뒤 소유자 전용 work 파일로 전달한다. 새로 inspect한 값을 확인 없이 예상ID로 자동 채우지 않는다. 실제미리보기 DB를 시험 대상으로 지정하지 않는다.
 
 ## 76차 — 본인 동의 합성 브라우저·모바일/키보드 검증과 체크 배치 보정 (2026-11-03)
 

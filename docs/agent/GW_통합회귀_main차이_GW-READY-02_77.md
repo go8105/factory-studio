@@ -1,6 +1,6 @@
 # GW-READY-02 77차 — 현재 GW 회귀와 main 통합 전 차이
 
-2026-11-03. 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`. 시작 `fceb68f`/깨끗한 작업 트리. 사용자 다음 진행 승인으로 회귀와 읽기 검토를 수행한다. 이번 단계에서 다른 checkout·병행 WMS·main 코드/DB를 수정하거나 병합·push·배포하지 않는다.
+2026-11-03. 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`. 시작 `fceb68f`/깨끗한 작업 트리. 사용자 다음 진행 승인으로 회귀와 읽기 검토를 수행했다. 이번 단계에서 다른 checkout·병행 WMS·main 코드/DB를 수정하거나 병합·push·배포하지 않는다.
 
 ## 비교 기준
 
@@ -10,11 +10,11 @@
 |---|---|---|---|
 | migration head | gw_readiness | fems1 | 단순 파일 합치기로는2heads. 적용 이력을 보존하는 새 연결 revision/승격 경로 설계 필요 |
 | metadata |219표·GW28표 |242표·GW24표 | 양쪽 업무/인증 구조를 보존하고 current/target·Excel·ERD를 같은 작업에서 재생성/대조 |
-| 변경 경로 |292개 |239개 | 양쪽 변경15경로. 자동 병합 가능과 동작 정합을 구분 |
-| 텍스트 충돌 |8파일·14구간 | 동일 | 메타데이터/ERD/검증 보고서·진행/인계 문서는 현재 사실을 보존해 재작성 |
+| 변경 경로 | 시작292개 |239개 | 시작 양쪽15경로,77차 보정 후16경로. 자동 병합 가능과 동작 정합을 구분 |
+| 텍스트 충돌 | 시작8파일·14구간,현재9파일·15구간 | 동일 | 메타데이터/ERD/검증 보고서·진행/인계 문서는 현재 사실을 보존해 재작성 |
 | binary 충돌 |DB설계서.xlsx | 동일 | 한쪽 파일 선택으로 끝내지 않고 통합 metadata로 재생성/검증 |
 
-텍스트 충돌 파일은 HANDOFF, ERD HTML/README/all.mmd, schema.json/schema-target.json, validation-report.json, progress.md다. 충돌 경로/구간 수는 [읽기 검토 보고서](../../outputs/gw-readiness-02-phase77/main-review.json)에 고정했다. 나머지 공통 변경 파일인 API 등록/App 라우팅·문서 등록/현황·검증 스크립트도 자동 병합 결과만으로 완료 처리하지 않는다.
+시작 텍스트 충돌 파일은 HANDOFF, ERD HTML/README/all.mmd, schema.json/schema-target.json, validation-report.json, progress.md다. 시작 경로/구간 수는 [초기 읽기 보고서](../../outputs/gw-readiness-02-phase77/main-review.json)에 고정했다.77차의 test_gw_wms_merge.py 보정도 main과 겹쳐 현재는16경로, 텍스트9파일15구간/Excel1충돌이다. [현재 작업 소스 재대조](../../outputs/gw-readiness-02-phase77/current-merge-review.json)는 원본/기준/main의 work 복사본을 git merge-file -p로 확인했다. 실제 소스/index/브랜치는 병합하지 않았다. 나머지 공통 변경 파일인 API 등록/App 라우팅·문서 등록/현황·검증 스크립트도 자동 병합 결과만으로 완료 처리하지 않는다.
 
 GW에만 있는9표는 core의 authentication_challenge/authentication_throttle/mfa_factor/recovery_code/sso_identity와 GW의 operating_evidence/operating_policy_revision/operating_settings/retention_review다. main에만 있는32표는 CMMS6·FEMS12·QMS9·SPC5표다. 테이블 이름의 단순 합집합은 통합 설계나 실제 DDL 일치를 확정하지 않는다. 공통 표의 열/제약·인덱스·코드/상태/권한과 제약명·downgrade 참조도 대조해야 한다.
 
@@ -56,7 +56,9 @@ git diff --check
 
 ## 결과와 한계
 
-초기 전체 선택은949통과/1실패/1skip에서 fail-fast로 중단했다(잔여 미실행). 실패는 기존 Flow 왕복 검사가 최신 GW 보안 이력을 포함한 전체 체인을 내려가려 해 이력 보호가 정상 거부한 것이다. 마이그레이션은 고치지 않았다. 검사에 전체 체인 거부/이력 지문 보존을 명시하고, Flow 함수만 폐기 DB에서 직접 역/순이관해 업무·즐겨찾기와 보안 이력/Alembic head 보존을 확인하도록 보정했다. 보정 집중1건 통과, 각 생성 DB 삭제/예상 밖 새DB0. 전체80파일 재실행 중이며 최종 집계 전까지 전체 통과로 처리하지 않는다. 수집 분류는 DB fixture300건/DB fixture 없는1301건이며, DB 중46건은 소유 백업 fixture를 포함한다(중복 범주). 이는 수집 기준 분류이고 완료 집계와 구분한다.
+[고유 case 분할 집계](../../outputs/gw-readiness-02-phase77/segmented-review.json) · [초기 중단](../../outputs/gw-readiness-02-phase77/initial-run.json) · [전체 재실행 중단](../../outputs/gw-readiness-02-phase77/full-rerun.json) · [잔여 실행](../../outputs/gw-readiness-02-phase77/remaining-run.json) · [자원 정리](../../outputs/gw-readiness-02-phase77/resources.json). 반복 실행 수를 합산하지 않는다. 초기 실패 두 건은 각 보정 뒤 통과했지만, 전체 순서/단일 프로세스 검증이나 main 통합 후 전체 CI를 대신하지 않는다. 생성 원본DB4개와 각 실행의 추가 DB가 남지 않았음을 확인했고, preview DB 존재만 메타데이터로 확인했다(업무 행 미조회).
+
+초기 전체 선택은949통과/1실패/1skip에서 fail-fast로 중단했다(잔여 미실행). 실패는 기존 Flow 왕복 검사가 최신 GW 보안 이력을 포함한 전체 체인을 내려가려 해 이력 보호가 정상 거부한 것이다. 마이그레이션은 고치지 않았다. 검사에 전체 체인 거부/이력 지문 보존을 명시하고, Flow 함수만 폐기 DB에서 직접 역/순이관해 업무·즐겨찾기와 보안 이력/Alembic head 보존을 확인하도록 보정했다. 보정 집중1건 통과, 각 생성 DB 삭제/예상 밖 새DB0. 전체80파일 재실행은1494통과/1실패/1skip에서 중단했다. 추가 실패는 GW/WMS 정규화 검사의 고정 옛 head(`gw_wms_merge`) 기대값이었다. 현재 ScriptDirectory head를 확인하고 정규화 왕복 전후 head 유지로 검사를 보정했다. 제품/적용 migration 파일은 바꾸지 않았다. 이전 통과1494건의 고유 node ID와 전체1601건을 대조해 수정 모듈·실패/미실행·skip107건을 새DB에서 분할 실행했고106통과/1skip으로 종료했다. 현재 수집 목록과 다시 대조한 고유 case 결과는1600통과/1skip·누락0이며, 단일 전체 실행 통과로 보고하지 않는다. 수집 분류는 DB fixture300건/DB fixture 없는1301건이며, DB 중46건은 소유 백업 fixture를 포함한다(중복 범주). 실행 대조는 DB fixture299통과/1skip·DB fixture 없는1301통과이며, 소유 백업fixture46건은 모두 통과했다(중복 범주).
 
 초기skip은 구형10인 폐쇄복원 검사의 PG_TEST_CONTAINER/전용 이름 규칙 미설정이다. 최신 GW 백업/복원 검사에 쓰는 검증된 GW_BACKUP_TEST_CONTAINER와 다른 계약이며, 이름 검사를 임의 완화하지 않았다. skip을 실행 통과로 세지 않는다.
 

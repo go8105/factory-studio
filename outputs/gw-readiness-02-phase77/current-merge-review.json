@@ -1,0 +1,67 @@
+{
+  "kind": "GW_CURRENT_WORKING_SOURCE_MERGE_REVIEW",
+  "base": "2be292ee06778c26fadc1336aa6a12134f8846aa",
+  "remoteMain": "783a2c1aa6e4f0053d055341f9738226a60dbdc7",
+  "method": "git merge-file -p, copied files only",
+  "overlapPaths": [
+    "backend/src/fs/main.py",
+    "backend/tests/test_gw_wms_merge.py",
+    "docs/agent/HANDOFF.md",
+    "docs/architecture/erd/EIP_모듈별_ERD.html",
+    "docs/architecture/erd/README.md",
+    "docs/architecture/erd/all.mmd",
+    "docs/db/DB설계서.xlsx",
+    "docs/db/schema-metadata/schema-target.json",
+    "docs/db/schema-metadata/schema.json",
+    "docs/db/validation-report.json",
+    "docs/plan/현재기획_진행현황.md",
+    "docs/progress.md",
+    "frontend/src/app/App.tsx",
+    "frontend/src/portal/content-pages.test.tsx",
+    "frontend/src/portal/docs.ts",
+    "tools/validate_db_design.py"
+  ],
+  "textConflicts": [
+    {
+      "path": "backend/tests/test_gw_wms_merge.py",
+      "conflictHunks": 1
+    },
+    {
+      "path": "docs/agent/HANDOFF.md",
+      "conflictHunks": 1
+    },
+    {
+      "path": "docs/architecture/erd/EIP_모듈별_ERD.html",
+      "conflictHunks": 1
+    },
+    {
+      "path": "docs/architecture/erd/README.md",
+      "conflictHunks": 2
+    },
+    {
+      "path": "docs/architecture/erd/all.mmd",
+      "conflictHunks": 1
+    },
+    {
+      "path": "docs/db/schema-metadata/schema-target.json",
+      "conflictHunks": 1
+    },
+    {
+      "path": "docs/db/schema-metadata/schema.json",
+      "conflictHunks": 5
+    },
+    {
+      "path": "docs/db/validation-report.json",
+      "conflictHunks": 2
+    },
+    {
+      "path": "docs/progress.md",
+      "conflictHunks": 1
+    }
+  ],
+  "binaryConflicts": [
+    "docs/db/DB설계서.xlsx"
+  ],
+  "merged": false,
+  "sourceFilesOrIndexModifiedByMerge": false
+}

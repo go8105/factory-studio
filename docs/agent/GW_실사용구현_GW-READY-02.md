@@ -807,3 +807,18 @@ ready=false/최종4조건 UNVERIFIED·실제 복원 PARTIAL/ACCEPTANCE PASS 거�
 - 별도 탭은 실제 Chrome에서 제품 계정 보안 화면/추가 확인 POST와 복귀까지 실행했으나 API응답은 모두 합성이다. 실제 TOTP/로그인·쿠키/서버 세션 갱신·서버 멱등 거래/권한 회수 검증이 아니다. 보고서의 ready=false 등은 검토 범위 선언이며 현재 실제 서버의12조건을 실행/대조한 결과가 아니다. 실제 미리보기 계정/연결/권한/비밀번호/MFA·DB·업무자료/증거등록·브라우저 설정을 변경하지 않았다. 전체 UI완성/실회사10인 인수로 세지 않는다.
 - ready=false/최종4조건 UNVERIFIED·실제 복원 PARTIAL/ACCEPTANCE PASS 거부 유지. 스키마/마이그레이션·metadata/Excel/ERD 변경 없음. DB/백엔드/복원·전체 CI/전체 회귀/전체 build·실 API/실 인증·실회사10인은 이번 미실행이다. 다른 checkout/WMS/main/push/배포 변경 없음. 최종5365 리스너 없음 확인, 생성 Chrome 정리, work/.env/실제 비밀 Git 제외.
 - 다음: GW 관련 백엔드/프런트 통합 회귀와 최신main 대비 차이의 읽기 검토로 통합 전 남은 검증 범위를 확정한다. DB검사는 기존 소유컨테이너 ID/라벨/loopback 재확인 후 새UUID *_test DB만 사용하고 생성 자원만 정리한다. 병합/push/배포는 하지 않는다. 외부 공급자·독립 최신성/전경로·전체 회수·최신main 통합/전체 회귀·실회사10인/최종 전환은 남는다. GPT-6 Astra + High 추천, 모델 자동 변경/다음 ID 자동 착수 없음.
+
+
+## 77차 — GW 분할 회귀·보호 검사 보정·main 통합 전 차이 확인 (2026-11-03)
+
+- 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, `codex/gw-company-01`, 시작fceb68f/깨끗한 작업 트리. 사용자 다음 진행 승인 범위. WIP3591a64/1a90d02로 실행 중 상태를 보존했고 최종 커밋은 git log -1로 확인한다. 이번 제품 소스/적용 migration 변경 없음.
+- GW80파일1601개 고유 case를 대조한 분할 결과는 **1600pass/1skip, 누락0**. DB fixture299pass/1skip, DB fixture 없는1301pass. 소유 백업 fixture46pass는 DB 범주 안의 중복이다. **보정 후 단일 전체 실행 통과가 아니다.** 전체 CI/전체 backend/frontend·main 통합 소스의 회귀와 구분한다.
+- 초기 전체 선택949pass/1fail/1skip 중단: Flow 왕복 검사가 GW 보안 이력까지 전체 체인을 내려가려 해 정상 보호로 거부됨. 적용 migration/보호를 바꾸지 않고 전체 체인 거부·보안 이력 지문 보존을 검사하고 Flow 함수만 폐기 DB에서 직접 왕복하도록 보정, 집중1pass. 재실행1494pass/1fail/1skip 중단: GW/WMS 정규화 검사의 고정 옛 head 기대값. 현재 ScriptDirectory head와 정규화 왕복 전후 head 유지로 보정했다.
+- 제품 소스가 시작fceb68f 이후 바뀌지 않았음을 확인하고, 재실행의1494pass와 수정 모듈/실패·미실행·skip107건을 현재 수집 node ID로 대조했다. 후속107건은106pass/1skip. 실패한 두 case는 보정 뒤 각각 통과했고 미해결 실패0이나, 전체 순서/단일 프로세스 검증 완료로 승격하지 않는다. 초기/집중/반복의 pass를 합산하지 않는다.
+- skip1은 구형10인 폐쇄복원의 PG_TEST_CONTAINER/컨테이너 이름 계약 미설정. 이름/소유 보호를 임의 완화하지 않았다. 최신 소유 백업 fixture 통과나 과거 성공으로 이skip을 대신하지 않는다. 실회사10인 인수/실 API 브라우저·실 TOTP/전경로·전체 회수 확인이 아니다.
+- `tools/gw_integration_check.py`는 전체ID/owner/running·단일127.0.0.1:55439/PG18 확인 후 새UUID *_test DB를 생성해 migration→실DDL→GW pytest를 수행한다. 새 실행기/검사파일2개 Ruff·포맷 통과. 잘못된 owner는 DB 연결 전에 종료1로 거부했다. 원문 로그/JUnit/접속값은 work에만 보존하며 출력/Git 제외한다. 수집/사전점검/복원기·신규 공급자를 중복 구현한 것이 아니다.
+- 생성 원본DB4개 모두 삭제, 각 실행의 예상 밖 새 DB0, 종료 후 전체ID/라벨/loopback·4DB 부재/preview DB 존재 재확인. preview 업무 행을 조회/변경하지 않았다. 실제 계정·비밀번호/MFA·권한·업무자료/증거등록·브라우저 설정·다른 checkout/WMS/main·push/배포 변경 없음.
+- 신규 DB 실DDL219표/2409열/543FK와정적DB/R1~R6 오류0. 시스템Python3.9의 감사 AST 구문 오류는 프로젝트Python3.14.7 재실행으로 통과했고 명령을 명시했다. 작성 중 실행기 Ruff3건은 수정 후 통과했다. 프런트 GW/계정보안/도움말/API153건/14파일(15.47초), 전체 frontend build/typecheck 통과. 기존 청크/의존성 외부화 경고 유지. 스키마/metadata/Excel/ERD 변경 없어 db:build/ERD 재생성 없음.
+- origin/main783a2c1 재조회 동일. 시작 기준 GW85/main90커밋 분기, 양쪽 변경15경로. 시작 시 읽기3-way 모의는 텍스트8파일14구간/Excel1충돌.77차 검사 보정 후 복사본 재대조는 양쪽16경로, 텍스트9파일15구간/Excel1충돌이다. 새 충돌은 GW/WMS 검사 파일이다. 합친 migration은 gw_readiness/fems1 두head이며 동일w2b1_wms 바이트 차이는 main downgrade 정리SQL1줄이다(이번 미실행/미수정). 한쪽 metadata/Excel을 선택해 덮으면 GW인증/운영9표 또는 main32표가 누락된다.
+- 상세·재현·남은검증: docs/agent/GW_통합회귀_main차이_GW-READY-02_77.md, unsigned 집계/실패·분할/자원 근거 outputs/gw-readiness-02-phase77/. ready=false/최종4UNVERIFIED·실제복원PARTIAL/ACCEPTANCE PASS거부 유지. 현재 단계는 회귀/통합 경계 확인 한정 완료이며 전체UI/최종인수 완료가 아니다.
+- 다음: 두head 연결의 새revision·metadata/Excel/ERD 충돌 해소안, 빈DB/기존GW head/기존main head 합성승격 보존 검증 계획을 확정한다. 실제 통합·병행WMS 수정·main/push/배포는 별도 범위다. 구형 폐쇄복원skip의 소유자검증 계약도 별도 정리한다. 외부공급자/독립최신성·전체회수/통합후전체회귀·실회사10인·최종전환은 남는다. GPT-6 Astra + High 추천, 모델 자동변경/다음ID 자동착수 없음.

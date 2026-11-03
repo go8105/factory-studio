@@ -1,0 +1,38 @@
+{
+  "kind": "GW_SEGMENTED_BRANCH_REVIEW",
+  "collectedUniqueCases": 1601,
+  "uniqueCaseResults": {
+    "passed": 1600,
+    "skipped": 1,
+    "failure": 0,
+    "error": 0
+  },
+  "fixtureResults": {
+    "databaseFixture": {
+      "passed": 299,
+      "skipped": 1
+    },
+    "withoutDatabaseFixture": {
+      "passed": 1301,
+      "skipped": 0
+    },
+    "ownedBackupFixture": {
+      "passed": 46,
+      "skipped": 0
+    }
+  },
+  "singleFullRunPassed": false,
+  "executionMode": "FAILED_FULL_RUN_THEN_CORRECTED_REMAINING_CASES",
+  "unreportedCases": 0,
+  "signedEvidence": false,
+  "coverageComplete": false,
+  "ready": false,
+  "liveCompanyAcceptance": false,
+  "releaseAuthorized": false,
+  "mainIntegrated": false,
+  "fullCiExecuted": false,
+  "productCodeUnchangedFrom": "fceb68f",
+  "skippedTests": [
+    "backend/tests/test_gw_company_acceptance.py::test_closed_restore_preserves_rows_then_reapplies_revocation"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "kind": "GW_BRANCH_REGRESSION",
+  "signedEvidence": false,
+  "ready": false,
+  "liveCompanyAcceptance": false,
+  "releaseAuthorized": false,
+  "database": "gw_integration_b3110ee7889141f4b25fc0f0f0516c84_test",
+  "createdDatabaseRemoved": true,
+  "stages": [
+    {
+      "name": "migration",
+      "exitCode": 0
+    },
+    {
+      "name": "ddl",
+      "exitCode": 0
+    },
+    {
+      "name": "gw-pytest",
+      "exitCode": 0
+    }
+  ],
+  "testFiles": 9,
+  "fullGwSelection": false,
+  "pytest": {
+    "collectedExecuted": 107,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1,
+    "passed": 106
+  },
+  "unexpectedNewDatabaseCount": 0
+}

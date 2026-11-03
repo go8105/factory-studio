@@ -15,6 +15,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
+from alembic.script import ScriptDirectory
 from fs.common.db import reset_engine
 from fs.hr.work_setup import create_example_company
 from seed.generate import create_template
@@ -105,6 +106,11 @@ def test_merge_both_existing_branches_preserves_original_data(isolated_database,
             )
     columns, before = fingerprint(engine)
     command.upgrade(cfg, "head")
+    with engine.connect() as c:
+        heads_before = sorted(
+            c.exec_driver_sql("SELECT version_num FROM alembic_version").scalars()
+        )
+    assert heads_before == sorted(ScriptDirectory.from_config(cfg).get_heads())
     assert fingerprint(engine, columns)[1] == before
     assert (
         subprocess.run(
@@ -138,6 +144,9 @@ def test_merge_both_existing_branches_preserves_original_data(isolated_database,
         == 0
     )
     with engine.connect() as c:
-        assert c.exec_driver_sql(
-            "SELECT version_num FROM alembic_version"
-        ).scalars().all() == ["gw_wms_merge"]
+        assert (
+            sorted(
+                c.exec_driver_sql("SELECT version_num FROM alembic_version").scalars()
+            )
+            == heads_before
+        )
