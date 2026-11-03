@@ -262,7 +262,11 @@ function CompanySpace({
           연결을 확인하세요.
         </p>
         <button onClick={me.reload}>회사 연결 다시 확인</button>
-        <CompanyStart me={me.data} reload={me.reload} />
+        <CompanyStart
+          key={me.data.bindingStatus}
+          me={me.data}
+          reload={me.reload}
+        />
       </>
     );
   else if (!me.data.businessReady)

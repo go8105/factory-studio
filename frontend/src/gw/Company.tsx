@@ -95,7 +95,11 @@ export function CompanyStart({
   }>(me.setupRequired && me.companyOwner ? "/company-setup" : null);
   const binding = useGet<Binding>(!me.setupRequired ? "/me/binding" : null);
   const [reason, setReason] = useState("");
-  const [consent, setConsent] = useState(false);
+  const [consentKey, setConsentKey] = useState("");
+  const bindingKey = binding.data
+    ? `${binding.data.id}:${binding.data.version}`
+    : "";
+  const consent = !!bindingKey && consentKey === bindingKey;
   const request = useSend();
   const guard = useDiscardGuard(!!reason || consent);
   return (
@@ -117,6 +121,24 @@ export function CompanyStart({
         GW 업무 역할은 별개입니다.
       </p>
       <ErrorNotice error={request.error ?? own.error ?? binding.error} />
+      {!me.setupRequired && (
+        <>
+          <p>
+            요청을 다시 확인하면 본인 확인 체크가 해제됩니다. 취소된 요청은
+            동의할 수 없습니다.
+          </p>
+          <button
+            disabled={request.pending}
+            onClick={() => {
+              setConsentKey("");
+              binding.reload();
+              reload();
+            }}
+          >
+            본인 연결 요청 다시 확인
+          </button>
+        </>
+      )}
       {me.setupRequired ? (
         me.companyOwner ? (
           <>
@@ -161,7 +183,8 @@ export function CompanyStart({
         ) : (
           <p>회사 소유자의 GW 최초 설정이 필요합니다.</p>
         )
-      ) : binding.data?.state === "PENDING" ? (
+      ) : me.bindingStatus === "PENDING" &&
+        binding.data?.state === "PENDING" ? (
         <>
           <p>
             {binding.data.name} · 사번 {binding.data.hrEmployeeCode} ·{" "}
@@ -171,7 +194,9 @@ export function CompanyStart({
             <input
               type="checkbox"
               checked={consent}
-              onChange={(e) => setConsent(e.target.checked)}
+              onChange={(e) =>
+                setConsentKey(e.target.checked ? bindingKey : "")
+              }
             />
             위 사번·이름이 본인임을 확인했습니다.
           </label>
@@ -183,8 +208,11 @@ export function CompanyStart({
                   bindingId: binding.data!.id,
                   expectedVersion: binding.data!.version,
                 })
-              )
+              ) {
+                setConsentKey("");
+                binding.reload();
                 reload();
+              }
             }}
           >
             본인 연결 동의

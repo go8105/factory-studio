@@ -1,3 +1,27 @@
+## 74차 — PENDING 본인 연결 동의의 재조회·취소·회사 전환 (2026-11-03)
+
+- 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`, 시작 커밋 `5c52729`, 시작 작업 트리 깨끗함. 최종 커밋은 `git log -1 --oneline`으로 확인한다. 요청의58차는 실제9308a92에 완료돼 최신73차 인계 후속을 사용자 승인받아 진행했다. factory-impeccable의 오류 복구·회사 맥락 기준 적용.
+
+본인 연결 동의는 현재 회사 연결 상태와 별도 요청 상태가 모두 PENDING일 때만 표시한다. 회사 연결 상태가 바뀌면 CompanyStart를 새로 구성하고, 본인 확인 체크는 조회한 요청 ID·버전에만 대응한다. **본인 연결 요청 다시 확인**은 회사 연결과 요청을 GET으로 다시 읽고 체크를 해제한다. 동의 성공 후에도 체크를 비우고 현재 상태를 재조회한다. 새 계정·연결 생성이나 요청 취소 API를 실행하지 않는다.
+
+취소/정지 관측 뒤 옛 PENDING 응답이 도착해도 동의 화면을 복구하지 않는다. 기존 회사 경계와 useGet의 abort/useSend의 mounted 검사를 재사용한다. 다른 회사로 이동할 때 체크한 입력은 기존 변경 버리기/계속 편집 보호를 따른다. 변경 버리기는 로컬 입력 정리이며 서버 연결 요청 취소가 아니다. 처리 중 링크 차단은 유지한다. 주소 변경 등으로 회사가 전환되면 옛 동의 응답으로 이전 회사 재조회를 실행하지 않는다. 서버에서 이미 처리된 거래의 취소/롤백이나 즉시 전체 회수를 뜻하지 않는다.
+
+검증: 실제 GwLayout/CompanyStart와 모의 HTTP·세션/셸의 합성 통합시험 신규9건 포함 총32건, GW 화면/도움말12파일131건 통과(도움말 갱신 후 최종 실행14.45초, 반복 중복 합산 없음). 요청 ID/버전 변경 뒤 재동의·정확한 POST 대상, 같은 권한 버전 취소/정지, 지연 요청/동의 응답, 조회 오류 후 재시도, 회사 링크의 입력 보호를 검사했다. 최초 추가 시험1건은 회사 선택 링크의 dashboard 경로를 시험 라우터에 누락해 실패했고 경로 추가 후 최종131건 통과했다. 타입·수정3파일 ESLint/Prettier·diff 검사 통과. 실 API/브라우저·실기기·DB/백엔드/복원·전체 CI/전체 회귀/전체 build·실회사10인 인수는 이번 미실행이다.
+
+ready=false/최종4조건 UNVERIFIED·실제 복원 PARTIAL/ACCEPTANCE PASS 거부 유지. 스키마/마이그레이션·metadata/Excel/ERD 변경 없음. 미리보기 계정/연결/권한·비밀번호/MFA·DB 초기화·다른 checkout/WMS/main/push/배포 변경 없음. 전체 UI 완성으로 세지 않는다.
+
+다음: 본인 동의 POST의 충돌·추가 인증·네트워크 응답 불명확 상태에서 기존 멱등 요청/재조회/회사 전환 보호를 합성 검증한다. 실제 계정 연결은 임의 변경하지 않는다. 외부 공급자·독립 최신성/전경로·전체 회수·최신 main/전체 회귀·실회사10인/최종 전환은 남는다. GPT-6 Astra + High 추천, 모델 자동 변경/다음 ID 자동 착수 없음.
+
+재현(이 GW 저장소 루트):
+```sh
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw/authorization-recovery.test.tsx --maxWorkers=1
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend test -- src/gw src/portal/content-pages.test.tsx --maxWorkers=1
+PATH=/opt/homebrew/opt/node@24/bin:$PATH npm --prefix frontend run typecheck
+/opt/homebrew/opt/node@24/bin/node frontend/node_modules/eslint/bin/eslint.js frontend/src/gw/Company.tsx frontend/src/gw/GwLayout.tsx frontend/src/gw/authorization-recovery.test.tsx
+/opt/homebrew/opt/node@24/bin/node frontend/node_modules/prettier/bin/prettier.cjs --check frontend/src/gw/Company.tsx frontend/src/gw/GwLayout.tsx frontend/src/gw/authorization-recovery.test.tsx
+git diff --check
+```
+
 ## 2026-11-01 GW-READY-02 73차 — 회사 연결 실패·정지/취소 후 원문 제거·재조회
 
 - 저장소 /Users/hwang-kyoungho/projects/factory-studio-gw-company, codex/gw-company-01, 시작4c38841/깨끗한 작업트리 확인. AGENTS·현황/FS-013/문서지도/progress/HANDOFF와72차구현·CompanyStart·backend me응답을대조했다. 최종커밋은 git log -1로 확인한다.

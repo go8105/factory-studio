@@ -95,6 +95,13 @@ function fixture() {
     meStatus: 0,
     meNetwork: false,
     binding: "ACTIVE",
+    bindingVersion: 1,
+    bindingId: "77",
+    bindingError: false,
+    deferBinding: false,
+    lateBinding: undefined as undefined | ((r: Response) => void),
+    deferAccept: false,
+    lateAccept: undefined as undefined | ((r: Response) => void),
     personActive: true,
     ready: true,
     denied: 0,
@@ -110,7 +117,10 @@ function fixture() {
       const url = new URL(String(input), "http://localhost");
       const path = url.pathname;
       if (path.endsWith("/companies"))
-        return reply([{ id: 11, name: "합성 회사" }]);
+        return reply([
+          { id: 11, name: "합성 회사" },
+          { id: 12, name: "합성 두번째 회사" },
+        ]);
       if (path.endsWith("/me")) {
         if (state.meNetwork) throw new TypeError("synthetic network failure");
         if (state.meStatus)
@@ -122,7 +132,10 @@ function fixture() {
             state.meStatus,
           );
         return reply({
-          company: { id: 11, name: "합성 회사" },
+          company: {
+            id: Number(url.searchParams.get("companyId")),
+            name: "합성 회사",
+          },
           person: {
             id: "501",
             name: "합성 직원",
@@ -138,14 +151,32 @@ function fixture() {
           businessReady: state.ready,
         });
       }
-      if (path.endsWith("/me/binding"))
+      if (path.endsWith("/me/binding/accept")) {
+        if (state.deferAccept)
+          return new Promise((resolve) => {
+            state.lateAccept = resolve;
+          });
+        state.binding = "ACTIVE";
+        return reply({ id: state.bindingId });
+      }
+      if (path.endsWith("/me/binding")) {
+        if (state.bindingError)
+          return reply(
+            { code: "SYNTHETIC_ERROR", message: "합성 요청 조회 실패" },
+            500,
+          );
+        if (state.deferBinding)
+          return new Promise((resolve) => {
+            state.lateBinding = resolve;
+          });
         return reply({
-          id: "77",
+          id: state.bindingId,
           state: state.binding,
           name: "합성 직원",
           hrEmployeeCode: "SYN-501",
-          version: 1,
+          version: state.bindingVersion,
         });
+      }
       if (path.endsWith("/people-options") || path.endsWith("/comments"))
         return reply([]);
       if (path.includes("/documents/10")) {
@@ -187,6 +218,9 @@ function CurrentLocation() {
   return (
     <>
       <output aria-label="current query">{l.search}</output>
+      <button onClick={() => navigate("/gw/board?companyId=12")}>
+        합성 다른 회사로 전환
+      </button>
       <button
         onClick={() =>
           navigate("/gw/pending?companyId=11&open=10&status=IN_REVIEW")
@@ -206,6 +240,7 @@ function show() {
         <Route path="/gw" element={<GwLayout />}>
           <Route path="pending" element={<Documents box="pending" />} />
           <Route path="board" element={<p>다른 업무 현재 범위</p>} />
+          <Route path="dashboard" element={<p>회사 업무현황</p>} />
         </Route>
       </Routes>
       <CurrentLocation />
@@ -528,4 +563,184 @@ it("revisiting a stale selection while connection is unavailable cannot restore 
   await screen.findByRole("button", { name: "합성 비공개 원문" });
   expect(query().has("open")).toBe(false);
   expect(screen.queryByText("합성 비공개 본문")).not.toBeInTheDocument();
+});
+
+const consentLabel = "위 사번·이름이 본인임을 확인했습니다.";
+it("pending refresh clears consent and requires consent to the new request/version", async () => {
+  const { state, fetch } = fixture();
+  state.binding = "PENDING";
+  show();
+  fireEvent.click(await screen.findByLabelText(consentLabel));
+  expect(screen.getByRole("button", { name: "본인 연결 동의" })).toBeEnabled();
+  state.bindingId = "78";
+  state.bindingVersion = 2;
+  fireEvent.click(
+    screen.getByRole("button", { name: "본인 연결 요청 다시 확인" }),
+  );
+  await waitFor(() =>
+    expect(screen.getByLabelText(consentLabel)).not.toBeChecked(),
+  );
+  expect(screen.getByRole("button", { name: "본인 연결 동의" })).toBeDisabled();
+  expect(fetch.mock.calls.filter(([, i]) => i?.method === "POST")).toHaveLength(
+    0,
+  );
+  fireEvent.click(screen.getByLabelText(consentLabel));
+  fireEvent.click(screen.getByRole("button", { name: "본인 연결 동의" }));
+  await waitFor(() =>
+    expect(
+      fetch.mock.calls.some(
+        ([u, i]) =>
+          String(u).includes("/me/binding/accept?companyId=11") &&
+          JSON.parse(String(i?.body)).bindingId === "78" &&
+          JSON.parse(String(i?.body)).expectedVersion === 2,
+      ),
+    ).toBe(true),
+  );
+  await waitFor(() =>
+    expect(screen.queryByLabelText(consentLabel)).not.toBeInTheDocument(),
+  );
+});
+it.each(["CANCELLED", "SUSPENDED"])(
+  "same-version %s removes pending consent on company refresh",
+  async (status) => {
+    const { state, fetch } = fixture();
+    state.binding = "PENDING";
+    show();
+    fireEvent.click(await screen.findByLabelText(consentLabel));
+    state.binding = status;
+    fireEvent.click(
+      screen.getByRole("button", { name: "회사 연결 다시 확인" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByLabelText(consentLabel)).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByRole("button", { name: "본인 연결 동의" }),
+    ).not.toBeInTheDocument();
+    expect(
+      fetch.mock.calls.filter(([, i]) => i?.method === "POST"),
+    ).toHaveLength(0);
+    expect(query().get("companyId")).toBe("11");
+  },
+);
+it("late pending binding response cannot restore consent after cancellation", async () => {
+  const { state } = fixture();
+  state.binding = "PENDING";
+  state.deferBinding = true;
+  show();
+  await waitFor(() => expect(state.lateBinding).toBeDefined());
+  const late = state.lateBinding!;
+  state.deferBinding = false;
+  state.binding = "CANCELLED";
+  fireEvent.click(screen.getByRole("button", { name: "회사 연결 다시 확인" }));
+  await screen.findByText(/GW 조직 관리자에게 직원 연결 요청을 문의하세요/);
+  await act(async () =>
+    late(reply({ id: "77", state: "PENDING", name: "옛 요청", version: 1 })),
+  );
+  expect(screen.queryByLabelText(consentLabel)).not.toBeInTheDocument();
+  expect(screen.queryByText(/옛 요청/)).not.toBeInTheDocument();
+});
+it("late accept response does not reload the old company after navigation", async () => {
+  const { state, fetch } = fixture();
+  state.binding = "PENDING";
+  state.deferAccept = true;
+  show();
+  fireEvent.click(await screen.findByLabelText(consentLabel));
+  fireEvent.click(screen.getByRole("button", { name: "본인 연결 동의" }));
+  await waitFor(() => expect(state.lateAccept).toBeDefined());
+  fireEvent.click(
+    screen.getByRole("button", { name: "합성 다른 회사로 전환" }),
+  );
+  await waitFor(() => expect(query().get("companyId")).toBe("12"));
+  await screen.findByLabelText(consentLabel);
+  const count = fetch.mock.calls.filter(([u]) =>
+    String(u).endsWith("/me?companyId=11"),
+  ).length;
+  await act(async () => state.lateAccept!(reply({ id: "77" })));
+  expect(query().get("companyId")).toBe("12");
+  expect(screen.getByLabelText(consentLabel)).not.toBeChecked();
+  expect(
+    fetch.mock.calls.filter(([u]) => String(u).endsWith("/me?companyId=11")),
+  ).toHaveLength(count);
+});
+it("late binding read is aborted and ignored when switching companies", async () => {
+  const { state, fetch } = fixture();
+  state.binding = "PENDING";
+  state.deferBinding = true;
+  show();
+  await waitFor(() => expect(state.lateBinding).toBeDefined());
+  const late = state.lateBinding!;
+  const signal = fetch.mock.calls.find(([u]) =>
+    String(u).includes("/me/binding?companyId=11"),
+  )![1]!.signal!;
+  state.deferBinding = false;
+  fireEvent.click(
+    screen.getByRole("button", { name: "합성 다른 회사로 전환" }),
+  );
+  await screen.findByLabelText(consentLabel);
+  expect(signal.aborted).toBe(true);
+  await act(async () =>
+    late(
+      reply({ id: "old", state: "PENDING", name: "옛 회사 요청", version: 1 }),
+    ),
+  );
+  expect(screen.queryByText(/옛 회사 요청/)).not.toBeInTheDocument();
+  expect(query().get("companyId")).toBe("12");
+});
+
+it("failed binding refresh hides old request and restores unchecked consent only after retry", async () => {
+  const { state, fetch } = fixture();
+  state.binding = "PENDING";
+  show();
+  fireEvent.click(await screen.findByLabelText(consentLabel));
+  state.bindingError = true;
+  fireEvent.click(
+    screen.getByRole("button", { name: "본인 연결 요청 다시 확인" }),
+  );
+  await screen.findByText("합성 요청 조회 실패");
+  expect(screen.queryByLabelText(consentLabel)).not.toBeInTheDocument();
+  state.bindingError = false;
+  fireEvent.click(
+    screen.getByRole("button", { name: "본인 연결 요청 다시 확인" }),
+  );
+  expect(await screen.findByLabelText(consentLabel)).not.toBeChecked();
+  expect(fetch.mock.calls.filter(([, i]) => i?.method === "POST")).toHaveLength(
+    0,
+  );
+});
+it("checked consent guards company links and discarding only clears local input", async () => {
+  const { state, fetch } = fixture();
+  state.binding = "PENDING";
+  show();
+  fireEvent.click(await screen.findByLabelText(consentLabel));
+  fireEvent.click(
+    await screen.findByRole("link", { name: "합성 두번째 회사" }),
+  );
+  await screen.findByText("저장하지 않은 입력이 있습니다.");
+  fireEvent.click(screen.getByRole("button", { name: "계속 편집" }));
+  expect(query().get("companyId")).toBe("11");
+  expect(screen.getByLabelText(consentLabel)).toBeChecked();
+  fireEvent.click(screen.getByRole("link", { name: "합성 두번째 회사" }));
+  fireEvent.click(screen.getByRole("button", { name: "변경 버리기" }));
+  await waitFor(() => expect(query().get("companyId")).toBe("12"));
+  expect(await screen.findByLabelText(consentLabel)).not.toBeChecked();
+  expect(fetch.mock.calls.filter(([, i]) => i?.method === "POST")).toHaveLength(
+    0,
+  );
+});
+it("cancelled company state ignores a late acceptance success without reopening business", async () => {
+  const { state } = fixture();
+  state.binding = "PENDING";
+  state.deferAccept = true;
+  show();
+  fireEvent.click(await screen.findByLabelText(consentLabel));
+  fireEvent.click(screen.getByRole("button", { name: "본인 연결 동의" }));
+  await waitFor(() => expect(state.lateAccept).toBeDefined());
+  state.binding = "CANCELLED";
+  fireEvent.click(screen.getByRole("button", { name: "회사 연결 다시 확인" }));
+  await screen.findByText(/GW 조직 관리자에게 직원 연결 요청을 문의하세요/);
+  await act(async () => state.lateAccept!(reply({ id: "77" })));
+  expect(screen.queryByLabelText(consentLabel)).not.toBeInTheDocument();
+  expect(screen.queryByText("합성 비공개 본문")).not.toBeInTheDocument();
+  expect(query().get("companyId")).toBe("11");
 });
