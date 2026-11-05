@@ -21,6 +21,7 @@ const LIMIT = 20;
 
 type Kind = "PRIMARY" | "EMISSION";
 
+const NO_FACTOR = new Set(["UTILITY", "GENERATION"]);
 export type Factor = {
   id: number;
   energySourceId: number;
@@ -97,15 +98,15 @@ export function Factors() {
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState("");
 
-  // 용수(UTILITY)는 TOE 합산·배출량 계산 대상이 아니라 계수를 등록하지 않는다.
-  const usable = (sources ?? []).filter((s) => s.sourceKind !== "UTILITY");
+  // 용수(UTILITY)와 발전(GENERATION)은 TOE 합산·배출량 계산 대상이 아니라 계수를 등록하지 않는다.
+  const usable = (sources ?? []).filter((s) => !NO_FACTOR.has(s.sourceKind));
 
   useEffect(() => {
     const controller = new AbortController();
     api<Source[]>(SOURCES_BASE, { signal: controller.signal })
       .then((r) => {
         setSources(r.data);
-        const first = r.data.find((s) => s.sourceKind !== "UTILITY");
+        const first = r.data.find((s) => !NO_FACTOR.has(s.sourceKind));
         if (first) {
           setDraft((prev) =>
             prev.energySourceId ? prev : { ...prev, energySourceId: first.id },

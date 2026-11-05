@@ -541,6 +541,18 @@
           "group": "에너지 경영"
         },
         {
+          "path": "cost-runs",
+          "id": "F-22",
+          "label": "에너지 비용 배분",
+          "group": "비용"
+        },
+        {
+          "path": "utility-bills",
+          "id": "F-23",
+          "label": "고지서 대조",
+          "group": "비용"
+        },
+        {
           "path": "sites",
           "id": "F-09",
           "label": "사업장·공간",

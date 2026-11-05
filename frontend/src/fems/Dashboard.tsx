@@ -31,6 +31,12 @@ export type DashboardData = {
   }[];
   openAlarmCount?: number;
   peak?: string | null;
+  generation?: {
+    sourceCode: string;
+    name: string;
+    quantity: string;
+    unit: string;
+  }[];
   primaryEnergy: {
     total: string;
     unit: string;
@@ -366,6 +372,15 @@ export function Dashboard() {
               ) : (
                 <p className="muted">진행 중인 경보가 없습니다.</p>
               )}
+              {data.generation?.map((g) => (
+                <p className="muted" key={g.sourceCode}>
+                  {g.name} 발전{" "}
+                  {Number(g.quantity).toLocaleString("ko-KR", {
+                    maximumFractionDigits: 0,
+                  })}{" "}
+                  {g.unit} · 역송을 재지 않아 전부 자가소비로 봅니다
+                </p>
+              ))}
               <p className="muted">
                 {/* 계측이 없는 달은 0이 아니라 낼 수 없는 값이다. */}이 달
                 수요전력{" "}
