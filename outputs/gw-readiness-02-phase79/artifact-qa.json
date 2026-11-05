@@ -1,0 +1,35 @@
+{
+  "kind": "STATIC_ARTIFACT_QA",
+  "signedEvidence": false,
+  "liveCompanyAcceptance": false,
+  "results": {
+    "current": {
+      "schemaSha256": "f016e785a793d699979fb8bf36e7dd2017c766298aee10064355a3b70ce7f4ac",
+      "sheets": 51,
+      "nativeLinks": 716,
+      "errorCells": 0,
+      "rows": {
+        "tables": 251,
+        "columns": 2833,
+        "relations": 617
+      },
+      "allTableIdentifiersExact": true,
+      "erdHashAndEmbeddedMetadataExact": true,
+      "nativeExcelAppVerified": false
+    },
+    "target": {
+      "schemaSha256": "526241eda5f8caa44a7d9bd58d5240ebfa5f0c53b581cb7e2c853196ae7af337",
+      "sheets": 83,
+      "nativeLinks": 1113,
+      "errorCells": 0,
+      "rows": {
+        "tables": 390,
+        "columns": 4464,
+        "relations": 950
+      },
+      "allTableIdentifiersExact": true,
+      "erdHashAndEmbeddedMetadataExact": true,
+      "nativeExcelAppVerified": false
+    }
+  }
+}

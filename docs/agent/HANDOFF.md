@@ -1,3 +1,11 @@
+## 79차 WIP4 — 고정 소스 단독 승격 통과·전체 CI 재실행 중 (2026-11-05)
+
+- 검증 소스는 a0cbb9f로 고정했다. 이후 코드/테스트/CI설정/도움말/metadata 변경0(문서·공개검증요약만 변경). 단독 최종9건 전부pass, migration/실DDL0, 추가DB잔존0/생성DB제거true. UM 실제 pin 로그인 API 세션과 UG10인/MFA·복구·성공/실패원본·UF6경로·유데이터 이름역/순을 포함한다. 선행분기3건도고정seed로보정후3pass/자원정리확인.
+- 전체CI는 work/gw-readiness-02-phase79/ci-frozen/에서실행중(현재약35%). 도구139건·backendRuff/포맷·정적DB/R1~R6/실DDL단계를통과했으나전체backend/왕복/frontend가끝나지않았으므로최종통과가아니다. 다른CI/DB검사를병행시작하지말고기존프로세스와로그를확인한다. 실행전후추적소스지문·JUnit·추가DB잔존/생성DB제거를마지막에확인한다.
+- 첫전체CI2035pass/2fail/2skip은실패소스의부분/중단기록이다. 최종CI와합산하지않는다. sourcepin helper는work안에내보내고정리하며GitHubcheckout fetch-depth0을설정했지만실GitHubActions실행은미검증이다.
+- 최종Excel51/83시트·링크716/1113·오류셀0, 모든표식별자와표/열/관계행수정확대조·ERD해시/내장명세일치·재가져오기렌더확인. 공개outputs/gw-readiness-02-phase79/artifact-qa.json은정적명세QA다. validation.json은LOCAL_CI_IN_PROGRESS다. 실MicrosoftExcel앱/실API브라우저·실회사인수근거가아니다.
+- 남은일: 기존전체CI결과·소스동일성/생성자원정리확인→최종현황/progress/HANDOFF·보고서/공개요약확정→최종커밋. ready=false/최종4UNVERIFIED·실제복원PARTIAL·ACCEPTANCE PASS거부유지. 미리보기/실계정·다른checkout·공유main/push/배포변경없음.
+
 ## 79차 WIP3 — 선행 분기 seed 보정·최종 소스 동결 (2026-11-05)
 
 - 첫 전체CI는 GW/WMS 선행분기2건에서 최신 RECEIVING seed가 옛 c781 제약을 위반했다. 실패한 소스의 실행을 정상중단(SIGINT, pytest만)했고 결과2035pass/2fail/2skip/1deselected·53분19초는 부분결과다. 실행기exit2/생성DB제거true. 완료/최종회귀로 합산하지 않는다.

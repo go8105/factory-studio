@@ -1,6 +1,6 @@
 # GW-READY-02 79차 — GW 브랜치 통합 적용·승격 검증
 
-작성일 2026-11-05. 저장소 `factory-studio-gw-company`, 브랜치 `codex/gw-company-01`. 시작 d6a02c7, 고정 main783a2c1, GW 기준4c898ac. 중간 merge/WIP5d3df3f. 최종 결과 확정 전 작성 중인 기록이다.
+작성일 2026-11-05. 저장소 `factory-studio-gw-company`, 브랜치 `codex/gw-company-01`. 시작 d6a02c7, 고정 main783a2c1, GW 기준4c898ac. 중간 merge/WIP5d3df3f·d24cfb0·a0cbb9f. 최종 결과 확정 전 작성 중인 기록이다.
 
 ## 범위와 보존
 
@@ -12,7 +12,7 @@
 
 ## 검증 방법
 
-`tools/gw_integration_check.py`가 전체 컨테이너ID/owner/running·단일127.0.0.1 포트/PG18을 확인한 뒤 새 UUID *_test DB를 만든다. 미리보기DB를 템플릿이나 초기화 대상으로 쓰지 않는다. 검사별 생성DB만 정리한다. `--ci`는 생성한 URL을 `ci_local.sh --owned-url`에 명시 전달하며 `.env`를 읽거나 덮어쓰지 않는다. 자식도 ID/owner/loopback을 재확인한다. CI의 회귀 DB를 비우는 대신 `--empty-roundtrip`이 별도 새 빈DB에서 downgrade base→upgrade head/실DDL을 검사한다. 기존 경로의 기본 동작은 유지하며 dry-run은 접속정보 없이 실행한다.
+`tools/gw_integration_check.py`가 전체 컨테이너ID/owner/running·단일127.0.0.1 포트/PG18을 확인한 뒤 새 UUID *_test DB를 만든다. 미리보기DB를 템플릿이나 초기화 대상으로 쓰지 않는다. 검사별 생성DB만 정리한다. `--ci`는 생성한 URL을 `ci_local.sh --owned-url`에 명시 전달하며 `.env`를 읽거나 덮어쓰지 않는다. 자식도 ID/owner/loopback을 재확인한다. CI의 회귀 DB를 비우는 대신 `--empty-roundtrip`이 별도 새 빈DB에서 downgrade base→upgrade head/실DDL을 검사한다. 기존 경로의 기본 동작은 유지하며 dry-run은 접속정보 없이 실행한다. owned CI의 JUnit/basetemp는 private work에 두고, 추적 코드·테스트·metadata·CI설정의 실행 전후 지문이 다르면 통과로 반환하지 않는다. source pin 이력을 위해 checkout fetch-depth0을 명시했다. 실제 GitHub Actions 실행은 이번에 하지 않았다.
 
 전체 backend는 `-n 0`으로 실행한다. 복원검사의 전역 DB 목록 대조와 생성/정리가 다른 worker와 경합하지 않도록 한 선택이다. worker 병렬성/성능 용량 검증 결과로 해석하지 않는다. 구형10인 폐쇄복원의 이름 prefix guard는 제거만 한 것이 아니라 기존 `gw_route_verify.validate_restore_container(strict=True)`의 전체ID/owner/loopback 계약으로 교체했다.
 
@@ -23,7 +23,7 @@ UF는 양쪽 부모까지 적용한 별도 빈 합성DB에 누락·새 이름 �
 ## 현재 실행 기록과 한계
 
 - U0 초기 실행: migration/실DDL251표·2833열·617FK, 스키마6pass, 생성DB 제거.
-- 집중 초기7pass: UG/UM·UR·누락/점유/정의/중단. 이후 권한부족·인덱스 옵션 검사와 유데이터 역/순 확인을 보강한 최종9건은 pytest 통과했다. 다만 동시 CI 생성DB를 새 자원으로 감지해 실행기의 자원 검사가 종료1이므로 CI 종료 후 단독 재실행을 남겼다.
+- 집중 초기7pass: UG/UM·UR·누락/점유/정의/중단. 이후 권한부족·인덱스 옵션 검사와 유데이터 역/순 확인을 보강한9건의 초기 실행은 pytest 통과/동시CI 생성DB 감지로 실행기 종료1이었다. 최종 a0cbb9f 소스로 동시 DB 실행 없이 단독 재검증한9건은 전부 통과했고(migration/실DDL0), 추가DB잔존0/생성DB제거true를 확인했다. UM 실제 로그인 API 세션과 SQLSTATE42501/두번째rename 중단까지 포함한다.
 - 프런트 초기 전체822pass, type/lint/format/build 확인. 도움말 후속 문구의 최종검사는 전체CI에서 다시 실행한다.
 - 도구 초기138건 중4failure/1error: .env 의존dry-run·옛 GW표개수 기대·목표 재생성의 미지원 운영4표. 문안/기대만 낮추지 않고 4표/관계/제약/상태 원문 보존 검사를 추가해138pass 확인.
 - 전체 backend Ruff의 기존 I001 76건은 import 순서만 정리했다. 초기 main 증인은 비어 있는 CMMS/QMS seed를 잘못 기대해 실패했고 기준 pin에서 합성 행을 명시 추가해 통과했다. 인덱스 검사 SQL의 예약어 alias 오류는 실제 빈DB 적용에서 확인해 수정했고 재검증 중이다. 실패를 과거 성공으로 대체하지 않는다.

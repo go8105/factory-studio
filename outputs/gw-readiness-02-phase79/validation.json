@@ -1,0 +1,76 @@
+{
+  "task": "GW-READY-02",
+  "phase": 79,
+  "status": "LOCAL_CI_IN_PROGRESS",
+  "signedEvidence": false,
+  "ready": false,
+  "liveCompanyAcceptance": false,
+  "releaseAuthorized": false,
+  "inputs": {
+    "gw": "4c898aca0d4a56c9fb91a4d1b89a5b5b06a718e0",
+    "main": "783a2c1aa6e4f0053d055341f9738226a60dbdc7",
+    "frozenSourceCommit": "a0cbb9f"
+  },
+  "currentSchema": {
+    "version": "0.34.0",
+    "revision": "gw_main_ready02_merge",
+    "tables": 251,
+    "columns": 2833,
+    "foreignKeys": 617,
+    "renamedObjects": 92
+  },
+  "targetSchema": {
+    "version": "target-0.22.0",
+    "tables": 390,
+    "columns": 4464,
+    "foreignKeys": 950,
+    "applied": false
+  },
+  "isolatedUpgrade": {
+    "stages": [
+      {
+        "name": "migration",
+        "exitCode": 0
+      },
+      {
+        "name": "ddl",
+        "exitCode": 0
+      },
+      {
+        "name": "gw-pytest",
+        "exitCode": 0
+      }
+    ],
+    "pytest": {
+      "collectedExecuted": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 9
+    },
+    "createdDatabaseRemoved": true,
+    "unexpectedNewDatabaseCount": 0
+  },
+  "workbooks": {
+    "current": {
+      "sheets": 51,
+      "nativeLinks": 716,
+      "errorCells": 0
+    },
+    "target": {
+      "sheets": 83,
+      "nativeLinks": 1113,
+      "errorCells": 0
+    },
+    "allTableIdentifiersAndTableColumnRelationRowsMatchMetadata": true,
+    "artifactToolRendered": true,
+    "nativeExcelAppVerified": false
+  },
+  "limitations": [
+    "Final local CI is still running.",
+    "Live API browser and real-company ten-person acceptance unverified.",
+    "External independence, complete revocation and final four launch conditions remain unverified.",
+    "Real restore remains PARTIAL; acceptance PASS is refused.",
+    "No shared-main integration, remote push or production deployment."
+  ]
+}
