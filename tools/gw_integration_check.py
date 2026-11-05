@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -16,6 +17,48 @@ from sqlalchemy import URL, create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def source_digest():
+    names = subprocess.check_output(
+        [
+            "git",
+            "ls-files",
+            "-z",
+            ".github/workflows/ci.yml",
+            "backend",
+            "frontend",
+            "tools",
+            "content/help",
+            "docs/db/schema-metadata",
+            "package.json",
+            "package-lock.json",
+        ],
+        cwd=ROOT,
+    ).split(b"\0")
+    digest = hashlib.sha256()
+    for name in names:
+        if name:
+            digest.update(
+                name
+                + b"\0"
+                + hashlib.sha256((ROOT / os.fsdecode(name)).read_bytes()).digest()
+            )
+    return digest.hexdigest()
+
+
+def pytest_counts(junit):
+    cases = list(ElementTree.parse(junit).getroot().iter("testcase"))
+    counts = {
+        "collectedExecuted": len(cases),
+        "failures": sum(c.find("failure") is not None for c in cases),
+        "errors": sum(c.find("error") is not None for c in cases),
+        "skipped": sum(c.find("skipped") is not None for c in cases),
+    }
+    counts["passed"] = len(cases) - sum(
+        counts[k] for k in ("failures", "errors", "skipped")
+    )
+    return counts
 
 
 def main() -> int:
@@ -186,7 +229,20 @@ def main() -> int:
             )
         if args.ci:
             report["kind"] = "OWNED_LOCAL_CI"
+            report["sourceDigestBefore"] = source_digest()
             code = stage("local-ci", ["bash", "tools/ci_local.sh", "--owned-url"])
+            report["sourceDigestAfter"] = source_digest()
+            report["validationSourceUnchanged"] = (
+                report["sourceDigestBefore"] == report["sourceDigestAfter"]
+            )
+            for name in ("backend", "perf"):
+                junit = private / (name + ".xml")
+                if junit.exists():
+                    report[name + "Pytest"] = pytest_counts(junit)
+                    print(
+                        name + " counts: " + json.dumps(report[name + "Pytest"]),
+                        flush=True,
+                    )
             with admin.connect() as connection:
                 after = set(connection.scalars(text("SELECT datname FROM pg_database")))
             report["unexpectedNewDatabaseCount"] = len(after - before - {database})
@@ -196,7 +252,7 @@ def main() -> int:
                     flush=True,
                 )
                 return 1
-            return code
+            return code if report["validationSourceUnchanged"] else 1
         tests = args.test_node or sorted(
             str(p.relative_to(ROOT))
             for p in (ROOT / "backend/tests").glob("test_gw*.py")
@@ -228,17 +284,7 @@ def main() -> int:
             ],
         )
         if junit.exists():
-            suites = ElementTree.parse(junit).getroot()
-            cases = list(suites.iter("testcase"))
-            report["pytest"] = {
-                "collectedExecuted": len(cases),
-                "failures": sum(c.find("failure") is not None for c in cases),
-                "errors": sum(c.find("error") is not None for c in cases),
-                "skipped": sum(c.find("skipped") is not None for c in cases),
-            }
-            report["pytest"]["passed"] = len(cases) - sum(
-                report["pytest"][k] for k in ("failures", "errors", "skipped")
-            )
+            report["pytest"] = pytest_counts(junit)
             print("pytest counts: " + json.dumps(report["pytest"]), flush=True)
         with admin.connect() as connection:
             after = set(connection.scalars(text("SELECT datname FROM pg_database")))

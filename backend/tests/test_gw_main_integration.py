@@ -12,6 +12,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
+from gw_integration_sources import pinned_source
 from sqlalchemy import event, text
 from sqlalchemy.exc import DBAPIError
 from test_gw_wms_merge import fingerprint, isolated_database
@@ -37,18 +38,12 @@ def object_names(engine):
 
 
 @pytest.mark.parametrize("pin", ["4c898ac", "783a2c1"])
-def test_pinned_parent_data_survives_upgrade(isolated_database, tmp_path, pin):
+def test_pinned_parent_data_survives_upgrade(
+    isolated_database, tmp_path, pin, pinned_source
+):
     engine = isolated_database
     # Export only the immutable pin, under this repository's ignored work tree.
-    source = tmp_path / pin
-    source.mkdir()
-    archive = subprocess.run(
-        ["git", "archive", pin, "backend", "tools", "docs/db/schema-metadata"],
-        cwd=ROOT,
-        capture_output=True,
-        check=True,
-    ).stdout
-    subprocess.run(["tar", "-x", "-C", str(source)], input=archive, check=True)
+    source = pinned_source(pin)
     child = source / "backend/tests/test_upgrade_witness.py"
     common = """
 import os

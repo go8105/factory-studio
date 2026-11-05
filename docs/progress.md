@@ -1,3 +1,10 @@
+## 79차 WIP3 — 선행 분기 seed 보정·최종 소스 동결 (2026-11-05)
+
+- 첫 전체CI는 GW/WMS 선행분기2건에서 최신 RECEIVING seed가 옛 c781 제약을 위반했다. 실패한 소스의 실행을 정상중단(SIGINT, pytest만)했고 결과2035pass/2fail/2skip/1deselected·53분19초는 부분결과다. 실행기exit2/생성DB제거true. 완료/최종회귀로 합산하지 않는다.
+- 제품migration/제약을 낮추지 않고 선행분기 fixture도 고정GW pin4c898ac seed로 만들도록 수정했다. 3분기집중3pass/실DDL/생성DB제거확인. 중간수정에서fixture import 자동정리로 오류1이 있어 명시등록 후 재검증했다. pin별 소스 내보내기는공통fixture로work안에생성/정리하며전체SHA를고정했다.
+- 새9건 승격검사도같은fixture를사용한다. CIcheckout fetch-depth0(실GitHub실행미검증), owned CI에privateJUnit/basetemp와실행전후코드·테스트·metadata지문동일성/생성DB추가검사를연결했다. 기존미리보기/다른checkout/원격push/배포변경없음.
+- 다음순서: 최종소스로단독9건승격검사→새UUID시험DB전체CI(소스동결)→실제결과·자원정리/제약문서화·최종커밋. 이번커밋은WIP다. ready=false/최종4UNVERIFIED·실제복원PARTIAL·ACCEPTANCE PASS거부유지. 실회사인수/외부독립성·전체회수는남는다.
+
 ## 79차 WIP2 — 전체 CI 진행·최종 단독 검증 대기 (2026-11-05)
 
 - merge/WIP5d3df3f 이후 전체CI가 실행 중이며 약50%를 진행했다. 완료 결과가 아니다. 원문 로그는 work에만 둔다. 현재명세 상태 문구는 격리 시험 적용·운영 미적용으로 동기화했고 Excel/ERD를 다시 생성/확인했다.

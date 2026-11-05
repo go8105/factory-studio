@@ -115,6 +115,13 @@ fi
 fi
 
 echo "대상 DB: $CI_DB_NAME"
+CI_PYTEST_OPTS=(--tb=short)
+CI_PERF_OPTS=(--tb=short)
+if [ "$OWNED_URL" = 1 ]; then
+  CI_PYTEST_OPTS+=(-x "--junitxml=$FS_CI_PRIVATE_OUTPUT/backend.xml" "--basetemp=$FS_CI_PRIVATE_OUTPUT/pytest-main")
+  CI_PERF_OPTS+=("--junitxml=$FS_CI_PRIVATE_OUTPUT/perf.xml" "--basetemp=$FS_CI_PRIVATE_OUTPUT/pytest-perf")
+fi
+
 
 # 4. PostgreSQL 18 버전 및 DB 준비 점검
 if [ "$DRY_RUN" = 0 ]; then
@@ -177,14 +184,14 @@ with admin_eng.connect() as conn:
     conn.execute(text("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :d AND pid <> pg_backend_pid()"), {"d": url.database})
 ' 2>/dev/null || true
 
-  DATABASE_URL="$CI_DB_URL" TEST_DATABASE_URL="$CI_DB_URL" uv run --project backend pytest backend/tests -q -n "${FS_CI_WORKERS:-auto}" -m "not perf"
+  DATABASE_URL="$CI_DB_URL" TEST_DATABASE_URL="$CI_DB_URL" uv run --project backend pytest backend/tests -q -n "${FS_CI_WORKERS:-auto}" -m "not perf" "${CI_PYTEST_OPTS[@]}"
 
   # perf 테스트 전 대기 (병렬 작업자 디스크 I/O 정리)
   sleep 3
-  if ! DATABASE_URL="$CI_DB_URL" TEST_DATABASE_URL="$CI_DB_URL" uv run --project backend pytest backend/tests -q -m perf; then
+  if ! DATABASE_URL="$CI_DB_URL" TEST_DATABASE_URL="$CI_DB_URL" uv run --project backend pytest backend/tests -q -m perf "${CI_PERF_OPTS[@]}"; then
     echo "성능 테스트 일시적 I/O 지연 감지, 3초 후 1회 재시도..."
     sleep 3
-    DATABASE_URL="$CI_DB_URL" TEST_DATABASE_URL="$CI_DB_URL" uv run --project backend pytest backend/tests -q -m perf
+    DATABASE_URL="$CI_DB_URL" TEST_DATABASE_URL="$CI_DB_URL" uv run --project backend pytest backend/tests -q -m perf "${CI_PERF_OPTS[@]}"
   fi
 fi
 

@@ -21,6 +21,9 @@ jobs:
       TEST_DATABASE_URL: postgresql+psycopg://factory_studio:ci-only-disposable-password@localhost:5432/factory_studio_test
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Historical GW/main upgrade fixtures export immutable parent sources.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc

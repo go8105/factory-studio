@@ -1,12 +1,12 @@
 """05: 적용 순서·이름 정규화·데이터 보존. 새 전용 _test DB만 사용한다."""
 
+# ruff: noqa: F401,F811
 import hashlib
 import importlib.util
 import json
 import os
 import subprocess
 import sys
-from datetime import date
 from pathlib import Path
 from uuid import uuid4
 
@@ -17,8 +17,7 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from alembic.script import ScriptDirectory
 from fs.common.db import reset_engine
-from fs.hr.work_setup import create_example_company
-from seed.generate import create_template
+from gw_integration_sources import pinned_source
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import make_url
 
@@ -82,15 +81,51 @@ def fingerprint(engine, columns=None):
 @pytest.mark.parametrize(
     "first", ["w2b1_wms", "gw_company_identity", "flow_board_custom"]
 )
-def test_merge_both_existing_branches_preserves_original_data(isolated_database, first):
+def test_merge_both_existing_branches_preserves_original_data(
+    isolated_database, first, pinned_source, tmp_path
+):
     engine = isolated_database
     cfg = Config("backend/alembic.ini")
     command.upgrade(cfg, first)
+    # Current main seed includes RECEIVING locations, unsupported by these
+    # historical branches. Use the same immutable seed validated before main.
+    source = pinned_source("4c898ac")
+    seed = """
+from pathlib import Path
+from datetime import date
+from uuid import uuid4
+import os, fs
+from sqlalchemy import create_engine
+from seed.generate import create_template
+from fs.hr.work_setup import create_example_company
+assert Path(fs.__file__).resolve().is_relative_to(Path.cwd())
+engine=create_engine(os.environ["DATABASE_URL"])
+with engine.begin() as c:
+    create_template(c,date(2026,10,18))
+    create_example_company(c,"Synthetic-"+uuid4().hex,"Synthetic-"+uuid4().hex)
+engine.dispose()
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", seed],
+        cwd=source,
+        env=os.environ
+        | {
+            "DATABASE_URL": engine.url.render_as_string(hide_password=False),
+            "PYTHONPATH": os.pathsep.join(
+                str(source / p) for p in ("backend/src", "backend", "backend/tests")
+            ),
+        },
+        capture_output=True,
+        check=False,
+    )
+    (tmp_path / "historical-seed.log").write_bytes(result.stdout + result.stderr)
+    assert result.returncode == 0, "historical seed failed; inspect private test log"
     with engine.begin() as c:
-        create_template(c, date(2026, 10, 18))
-        co = create_example_company(
-            c, "Synthetic-" + uuid4().hex, "Synthetic-" + uuid4().hex
-        )
+        co = {
+            "companyId": c.exec_driver_sql(
+                "SELECT workspace_id FROM core.company"
+            ).scalar_one()
+        }
         # New branch data must survive too, not only old/common tables.
         if first == "w2b1_wms":
             c.exec_driver_sql(

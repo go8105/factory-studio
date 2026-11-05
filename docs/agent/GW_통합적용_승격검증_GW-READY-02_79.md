@@ -16,7 +16,7 @@
 
 전체 backend는 `-n 0`으로 실행한다. 복원검사의 전역 DB 목록 대조와 생성/정리가 다른 worker와 경합하지 않도록 한 선택이다. worker 병렬성/성능 용량 검증 결과로 해석하지 않는다. 구형10인 폐쇄복원의 이름 prefix guard는 제거만 한 것이 아니라 기존 `gw_route_verify.validate_restore_container(strict=True)`의 전체ID/owner/loopback 계약으로 교체했다.
 
-UG/UM은 `git archive`로 고정 pin의 backend/tools/metadata를 GW 저장소의 무시되는 work에 내보내 별도 프로세스에서 실행한다. `fs.__file__`이 해당 pin 소스인지 검사한다. 최신 seed를 옛 schema에 실행하지 않는다. UG는 기존 10인 API fixture와 실제 합성 MFA 등록/로그인·복구 코드, 성공/실패 서명 원본, 직원 거부를 남긴다. UM은 기존 seed·회사/실제 로그인 API 세션과 명시적인 합성 CMMS설비/QMS계측기 행을 남긴다. main 추가32표 전부에 업무 데이터를 넣은 것은 아니다. 승격 전 원래 컬럼/행 지문, 이름 역/순 후 지문·객체 OID/유효성, 현재 DDL을 대조한다. UM 세션은 PASSWORD 기본값이며 MFA 표는 비어 있어야 한다. 실제 계정/키/회사 데이터는 사용하지 않는다.
+UG/UM은 `git archive`로 고정 전체 SHA pin의 backend/tools/metadata를 공통 fixture로 GW 저장소의 무시되는 work에 내보내 별도 프로세스에서 실행한다. `fs.__file__`이 해당 pin 소스인지 검사한다. 최신 seed를 옛 schema에 실행하지 않는다. UG는 기존 10인 API fixture와 실제 합성 MFA 등록/로그인·복구 코드, 성공/실패 서명 원본, 직원 거부를 남긴다. UM은 기존 seed·회사/실제 로그인 API 세션과 명시적인 합성 CMMS설비/QMS계측기 행을 남긴다. main 추가32표 전부에 업무 데이터를 넣은 것은 아니다. 승격 전 원래 컬럼/행 지문, 이름 역/순 후 지문·객체 OID/유효성, 현재 DDL을 대조한다. UM 세션은 PASSWORD 기본값이며 MFA 표는 비어 있어야 한다. 실제 계정/키/회사 데이터는 사용하지 않는다.
 
 UF는 양쪽 부모까지 적용한 별도 빈 합성DB에 누락·새 이름 점유·CHECK 변조·중간 예외·권한 부족·인덱스 옵션 변조를 주입한다. 실패 시 이름/객체 OID·행 지문·head가 그대로인지 확인한다. 이 부정 주입을 모든 UG/UM 유데이터 스냅샷 조합에 반복한 것은 아니다. UR은 빈DB와 UG/UM 유데이터에서 이름 역/순 후 원래 컬럼/행·OID·head/DDL을 확인한다.
 
@@ -28,7 +28,7 @@ UF는 양쪽 부모까지 적용한 별도 빈 합성DB에 누락·새 이름 �
 - 도구 초기138건 중4failure/1error: .env 의존dry-run·옛 GW표개수 기대·목표 재생성의 미지원 운영4표. 문안/기대만 낮추지 않고 4표/관계/제약/상태 원문 보존 검사를 추가해138pass 확인.
 - 전체 backend Ruff의 기존 I001 76건은 import 순서만 정리했다. 초기 main 증인은 비어 있는 CMMS/QMS seed를 잘못 기대해 실패했고 기준 pin에서 합성 행을 명시 추가해 통과했다. 인덱스 검사 SQL의 예약어 alias 오류는 실제 빈DB 적용에서 확인해 수정했고 재검증 중이다. 실패를 과거 성공으로 대체하지 않는다.
 - Excel은 번들 artifact-tool로 재생성·재계산/오류 검사 후 다시 가져와 GW 시트를 렌더 확인했다. current51시트/native링크716, target83시트/링크1113, 셀오류0. 실제 Microsoft Excel 앱 검증은 아니다. ERD current/target도 각각 재생성했다.
-- 전체CI/최종9건은 실행 중이다. 최종 검증 결과를 확정하기 전 완료로 표시하지 않는다.
+- 첫 전체CI는 선행분기2건의 최신 RECEIVING seed/옛 c781 불일치를 확인한 뒤 정상중단했다(2035pass/2fail/2skip/1deselected,53분19초·exit2/DB제거true). 해당 fixture도 고정GW seed로 보정해3분기3pass 확인. 중간 fixture import 누락 오류1은 보정했다. 최종9건과 소스지문/JUnit을 남기는 전체CI를 새 소스로 다시 실행하며, 최종 결과 전 완료로 표시하지 않는다.
 
 ready=false/최종4조건 UNVERIFIED·실제 복원 PARTIAL·ACCEPTANCE PASS 거부는 유지한다. 보존한 옛 정책/버전·최신 실패/회수/보류·원본 없는 기록을 현재 성공으로 재분류하거나 재서명하지 않는다. 외부 공급자·독립 최신성·전체 권한 회수·실회사10인 인수/실API 브라우저·운영전환은 이 합성 승격/회귀로 확인하지 않는다. 작은 도움말 보완을 UI 전체 완성으로 보고하지 않는다.
 
