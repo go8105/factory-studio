@@ -523,6 +523,24 @@
           "group": "분석"
         },
         {
+          "path": "savings",
+          "id": "F-19",
+          "label": "절감 활동",
+          "group": "에너지 경영"
+        },
+        {
+          "path": "energy-reviews",
+          "id": "F-20",
+          "label": "월간 에너지 검토",
+          "group": "에너지 경영"
+        },
+        {
+          "path": "ghg-inventories",
+          "id": "F-21",
+          "label": "온실가스 명세서",
+          "group": "에너지 경영"
+        },
+        {
           "path": "sites",
           "id": "F-09",
           "label": "사업장·공간",
