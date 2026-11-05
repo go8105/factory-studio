@@ -1,7 +1,7 @@
 {
   "task": "GW-READY-02",
   "phase": 79,
-  "status": "LOCAL_CI_IN_PROGRESS",
+  "status": "IMPLEMENTATION_AND_FOCUSED_VALIDATION_COMPLETE_FULL_CI_BLOCKED",
   "signedEvidence": false,
   "ready": false,
   "liveCompanyAcceptance": false,
@@ -67,10 +67,111 @@
     "nativeExcelAppVerified": false
   },
   "limitations": [
-    "Final local CI is still running.",
-    "Live API browser and real-company ten-person acceptance unverified.",
+    "Whole local CI is NOT passed; latest attempt stopped at 1510 passed / 1 failed / 1 skipped.",
+    "Performance case and separate empty-database parent-chain roundtrip remain unexecuted.",
+    "Clock sampling can refuse instability; it cannot certify continuous stability.",
+    "Shared Docker/host clock configuration and restart were not changed.",
+    "Live API browser and real-company ten-person acceptance remain unverified.",
     "External independence, complete revocation and final four launch conditions remain unverified.",
     "Real restore remains PARTIAL; acceptance PASS is refused.",
-    "No shared-main integration, remote push or production deployment."
-  ]
+    "No shared-main branch update, remote push or production deployment."
+  ],
+  "phaseComplete": false,
+  "allRequiredValidationComplete": false,
+  "latestFullCiAttempt": {
+    "stages": [
+      {
+        "name": "migration",
+        "exitCode": 0
+      },
+      {
+        "name": "ddl",
+        "exitCode": 0
+      },
+      {
+        "name": "local-ci",
+        "exitCode": 1
+      }
+    ],
+    "backendPytest": {
+      "collectedExecuted": 1512,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 1,
+      "passed": 1510
+    },
+    "sourceDigestBefore": "42d1108b9ed60d84641aae36e34c9ee215152e6432ff044ed711bab19bb644ac",
+    "sourceDigestAfter": "42d1108b9ed60d84641aae36e34c9ee215152e6432ff044ed711bab19bb644ac",
+    "validationSourceUnchanged": true,
+    "unexpectedNewDatabaseCount": 0,
+    "createdDatabaseRemoved": true,
+    "completed": false,
+    "failure": "test_closed_restore_post_visibility[POST_ORG_SCOPE]: backup/checkpoint clock ordering refused"
+  },
+  "failedCaseRecheck": {
+    "passed": 1,
+    "failed": 0,
+    "createdDatabaseRemoved": true,
+    "replacesFailedCi": false
+  },
+  "clockPreflight": {
+    "clockPreflight": {
+      "kind": "LOCAL_TEST_CLOCK_PREFLIGHT",
+      "samples": 20,
+      "databaseBackwardsCount": 0,
+      "hostBackwardsCount": 0,
+      "maxOutsideHostWindowMs": 2026.238,
+      "testHarnessMaxOutsideWindowMs": 250,
+      "stableSample": false,
+      "continuousStabilityVerified": false,
+      "clockConfigurationChanged": false,
+      "signedEvidence": false,
+      "liveCompanyAcceptance": false
+    },
+    "databaseCreated": false,
+    "createdDatabaseRemoved": null,
+    "stages": [],
+    "databaseBackwardsObservedInEarlier10SampleProbe": 1,
+    "earlierPreflightMaxOutsideHostWindowMs": 2027.257,
+    "sampleIsNotContinuousStability": true
+  },
+  "frontend": {
+    "passed": 822,
+    "failed": 0,
+    "skipped": 0,
+    "stages": [
+      {
+        "name": "typecheck",
+        "exitCode": 0
+      },
+      {
+        "name": "lint",
+        "exitCode": 0
+      },
+      {
+        "name": "format",
+        "exitCode": 0
+      },
+      {
+        "name": "build",
+        "exitCode": 0
+      },
+      {
+        "name": "tests",
+        "exitCode": 0
+      }
+    ]
+  },
+  "tools": {
+    "passed": 144,
+    "clockGuardTests": 5
+  },
+  "resources": {
+    "ownedIdentityAndLoopbackVerified": true,
+    "actuallyCreatedRootDatabases": 13,
+    "createdRootDatabasesStillPresent": 0,
+    "pinnedSourceTemporaryDirectories": 0,
+    "deletedUnownedResources": false,
+    "previewDatabaseReset": false
+  }
 }

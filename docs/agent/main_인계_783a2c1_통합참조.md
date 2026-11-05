@@ -1,5 +1,7 @@
 # main 783a2c1 integration reference
 
+접속 URL은 비공개 처리했다. 과거 실행 기록의 사실은 유지하며 현재 재현은 최신 소유 시험 실행기 명령을 따른다.
+
 # 2026-11-03 FEMS-1e 완료 — SPC·CMMS·QMS 보강 끝, FEMS 진행 중 (다음: FEMS-1f)
 
 - **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1e` (병합 뒤 `main`)
@@ -424,7 +426,7 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
   - 원격 push 금지 (로컬 커밋만 유지).
   - 프런트엔드 전체 테스트 실행 시 기존 실패(`frontend/src/flow/projects.test.tsx`, 7 failed, `main` `2be292e`에서도 동일 실패)는 파일 이름·건수·main 동일 여부를 항상 명시한다.
 - **재현 명령**:
-  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
+  - `TEST_DATABASE_URL="REDACTED_DATABASE_URL" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
   - `npm --prefix frontend test -- src/wms/wms.test.tsx src/portal/favorites.test.tsx`
   - `npm run ci:local`
 
@@ -461,7 +463,7 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
   - 스키마 불변 (`schema.json`, 마이그레이션 변경 금지).
   - 원격 push 금지 (로컬 커밋만 유지).
 - **재현 명령**:
-  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
+  - `TEST_DATABASE_URL="REDACTED_DATABASE_URL" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
   - `npm --prefix frontend test -- src/wms/wms.test.tsx src/portal/favorites.test.tsx`
   - `npm --prefix frontend run lint && npm --prefix frontend run format:check && npm --prefix frontend run typecheck`
 
@@ -497,7 +499,7 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
   - 스키마 불변 (`schema.json`, 마이그레이션 변경 금지).
   - 원격 push 금지 (로컬 커밋만 유지).
 - **재현 명령**:
-  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
+  - `TEST_DATABASE_URL="REDACTED_DATABASE_URL" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
   - `npm --prefix frontend test -- src/wms/wms.test.tsx`
   - `npm --prefix frontend run lint && npm --prefix frontend run format:check && npm --prefix frontend run typecheck`
 
@@ -528,7 +530,7 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
   - 격리품(`quarantined_qty > 0`) 및 부족품(`shortage_qty`)은 적치 대상 제외 (`accepted_qty > 0`인 명세만 적치 대상).
   - DB 변경 없음 (`schema.json` 불변, 마이그레이션 변경 금지).
 - **재현 명령**:
-  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
+  - `TEST_DATABASE_URL="REDACTED_DATABASE_URL" backend/.venv/bin/pytest backend/tests/test_wms.py backend/tests/test_wms_receiving.py -q`
   - `npm --prefix frontend test -- src/wms/wms.test.tsx`
 
 # 2026-10-17 W2b-1c C-1 W-08 notice_kind 보강 완료
@@ -553,7 +555,7 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
   - 검수 확정 시 적치 작업(`putaway_task`) 생성 시 `suggested_location_id`는 NULL로 두고 W-11 목록 조회 시 동적 계산.
   - 격리품(`quarantined_qty > 0`) 및 부족품은 적치 작업 생성에서 제외 (`accepted_qty > 0`인 명세만 생성).
 - **재현 명령**:
-  - `TEST_DATABASE_URL="postgresql+psycopg://factory_studio:factory_studio@127.0.0.1:55432/factory_studio_test" backend/.venv/bin/pytest backend/tests/test_wms.py -v`
+  - `TEST_DATABASE_URL="REDACTED_DATABASE_URL" backend/.venv/bin/pytest backend/tests/test_wms.py -v`
   - `npm --prefix frontend test -- src/wms/wms.test.tsx`
 
 ## 2026-10-17 PWA-POLICY-01 로컬 main 반영 · GW 설계 대조 시작
@@ -1165,7 +1167,7 @@ schema0.24.0/headgw_projects: 실제191표2074열464FK, 목표379표918FK. migra
 - 새 파일 backend/src/fs/hr/{review,analytics}.py, backend/tests/test_hr_review.py, frontend/src/hr/{Overview,Reviews,Cost,Me}.tsx, frontend/src/hr/review.test.tsx. 수정: hr/{schema,router,service,interface}.py, backend/src/fs/common/request_logging.py, frontend/src/hr/{Employees,index,HrLayout}.tsx.
 - 주의점: 평가자는 코드 문자열(`reviewer_code`)이고 FK가 아니다. 확정은 `status='confirmed' = (confirmed_at IS NOT NULL AND grade IS NOT NULL)` CHECK를 지켜야 해서 한 UPDATE로 처리한다. 평가 기간을 닫으면 그 해 평가를 더 만들거나 고칠 수 없다(409 `CYCLE_CLOSED`). 인건비·`monthly_summary`의 인건비는 **확정 급여만** 센다. H-15는 EIP 연동 전까지 화면에서 사원 코드를 고른다.
 - 라우터 `_values(payload, full=True)`가 등록용이다. 기본값이 있는 새 등록 본문을 만들면 **반드시 `full=True`**로 넘겨야 한다(DB 기본값이 없는 칸에서 NOT NULL 위반).
-- 재현: `set -a && . ./.env && set +a`; `cd backend && TEST_DATABASE_URL="postgresql+psycopg://factory_studio:$POSTGRES_PASSWORD@127.0.0.1:$POSTGRES_PORT/factory_studio_ci_test" .venv/bin/python -m pytest tests/test_hr_review.py -q`; `npx --prefix frontend vitest run src/hr`. 로컬 미리보기는 .claude/launch.json의 backend(8000)·frontend(5173), uvicorn에 --reload가 없어 백엔드를 고치면 preview를 다시 띄운다.
+- 재현: `set -a && . ./.env && set +a`; `cd backend && TEST_DATABASE_URL="REDACTED_DATABASE_URL" .venv/bin/python -m pytest tests/test_hr_review.py -q`; `npx --prefix frontend vitest run src/hr`. 로컬 미리보기는 .claude/launch.json의 backend(8000)·frontend(5173), uvicorn에 --reload가 없어 백엔드를 고치면 preview를 다시 띄운다.
 - 로컬 게스트 공간은 생성 다음 날 00:00 KST에 만료된다. 만료된 공간으로 브라우저 검증을 이어가려면 새로 만들거나 `core.workspace.expires_at`을 미뤄야 한다(로컬 전용).
 - 미실행: 전체 pytest 일괄 실행, 운영 배포(운영은 아직 `3474942`). 다음: W1c HR 시드·도움말, 그 뒤 W2a.
 
@@ -1197,7 +1199,7 @@ schema0.24.0/headgw_projects: 실제191표2074열464FK, 목표379표918FK. migra
 - branch main. 끝난 것: 급여 항목·사원 기준·고정 수당·상여 규칙(H-10), 계산 → 검토 → 확정(H-11), 급여대장·명세서·퇴직금 추계(H-12), ERP용 `payroll_runs(month)`. HR OpenAPI 경로 36개.
 - 새 파일 backend/src/fs/hr/payroll.py, backend/tests/test_hr_payroll.py, frontend/src/hr/{PayStandards,Payroll,Payslips}.tsx, frontend/src/hr/payroll.test.tsx. 수정: hr/{schema,router,interface}.py, frontend/src/shared/hooks.tsx(`fieldErrors`가 `body.` 접두사 제거), hr/{index,HrLayout}.tsx.
 - 주의점: 계산 입력은 그 달의 **확정 근태 마감**이다. 공제는 `calc_kind='RATE'`만이고 과세 지급 합계에만 건다(DB CHECK가 `item_kind='DEDUCTION' = (calc_kind='RATE')`). `rate`는 계산 방식에 따라 뜻이 다르다 — 연장·야간·휴일은 배수(1.5), 공제는 퍼센트(4.5). 작성 중 실행을 다시 계산하면 같은 버전을 **지우고 다시 만든다**(id가 바뀐다). 확정 후 재계산만 새 버전이다. 퇴직금 추계와 ERP 합계는 저장하지 않는 조회 계산이다.
-- 재현: `set -a && . ./.env && set +a`; `cd backend && TEST_DATABASE_URL="postgresql+psycopg://factory_studio:$POSTGRES_PASSWORD@127.0.0.1:$POSTGRES_PORT/factory_studio_ci_test" .venv/bin/python -m pytest tests/test_hr_payroll.py -q`; `npx --prefix frontend vitest run src/hr`. 로컬 미리보기는 .claude/launch.json의 backend(8000)·frontend(5173) — uvicorn에 --reload가 없어서 백엔드를 고치면 preview를 다시 띄워야 한다.
+- 재현: `set -a && . ./.env && set +a`; `cd backend && TEST_DATABASE_URL="REDACTED_DATABASE_URL" .venv/bin/python -m pytest tests/test_hr_payroll.py -q`; `npx --prefix frontend vitest run src/hr`. 로컬 미리보기는 .claude/launch.json의 backend(8000)·frontend(5173) — uvicorn에 --reload가 없어서 백엔드를 고치면 preview를 다시 띄워야 한다.
 - 미실행: 전체 pytest 일괄 실행, 운영 배포(운영은 아직 `3474942`). 다음: W1b-4 평가·현황·본인(H-01·H-13~15) + `monthly_summary`·`pending_tasks`·`lookup`, 그 뒤 W1c 시드·도움말.
 
 ## CAD-10 NC·소비·편집 고도화 분석 (2026-10-07)
@@ -1212,7 +1214,7 @@ schema0.24.0/headgw_projects: 실제191표2074열464FK, 목표379표918FK. migra
 - branch main. 끝난 것: 근태 자동 생성·예외 수정(H-07), 월 마감 draft→확정→재마감 새 버전(H-08), 연차 발생·잔여 계산·신청·부서장 승인/반려/취소(H-09). 승인하면 마감하지 않은 달의 해당 날짜 근태가 LEAVE/HALF_LEAVE가 된다. HR OpenAPI 경로 23개.
 - 새 파일 backend/src/fs/hr/{attendance,leave}.py, frontend/src/hr/{Attendance,AttendanceCloses,Leaves}.tsx, backend/tests/test_hr_attendance.py, frontend/src/hr/attendance.test.tsx. 수정: hr/{schema,router}.py, fs/core/service.py(게스트 정리에 core.holiday), backend/tests/conftest.py(같은 이유), hr/{index,HrLayout}.tsx.
 - 주의점: 월 잠금 판정은 `hr.attendance_close`의 **월별 마지막 버전**만 본다(확정만 보면 재마감해도 안 열린다). 근태 수정은 항상 `source=MANUAL`로 바꾼다. 휴가 승인은 `is_head` 직책 재직 사원만, 본인 승인 불가, 잔여는 `FOR UPDATE`로 재확인. `core.holiday`는 등록 화면이 없어 W1c 시드 전에는 비어 있다(공휴일이 휴무로 안 잡힘).
-- 재현: `set -a && . ./.env && set +a`; `cd backend && TEST_DATABASE_URL="postgresql+psycopg://factory_studio:$POSTGRES_PASSWORD@127.0.0.1:$POSTGRES_PORT/factory_studio_ci_test" .venv/bin/python -m pytest tests/test_hr_attendance.py tests/test_hr_master.py -q`; `npx --prefix frontend vitest run src/hr`; `ruff check --config backend/pyproject.toml backend`. 로컬 미리보기는 .claude/launch.json의 backend(8000)·frontend(5173).
+- 재현: `set -a && . ./.env && set +a`; `cd backend && TEST_DATABASE_URL="REDACTED_DATABASE_URL" .venv/bin/python -m pytest tests/test_hr_attendance.py tests/test_hr_master.py -q`; `npx --prefix frontend vitest run src/hr`; `ruff check --config backend/pyproject.toml backend`. 로컬 미리보기는 .claude/launch.json의 backend(8000)·frontend(5173).
 - 미실행: 전체 pytest 일괄 실행, 운영 배포(운영은 아직 `3474942`). 다음: W1b-3 급여(H-10~12), 그 뒤 W1b-4·W1c.
 
 ## CAD-09 품질 우선 경로 제안 (2026-10-07 완료)

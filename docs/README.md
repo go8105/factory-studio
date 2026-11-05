@@ -1,6 +1,6 @@
-## 79차 — GW 브랜치 통합 적용·합성 승격 검증 중 (2026-11-05)
+## 79차 — 통합 구현·집중 검증 / 전체 CI 시각 차단 (2026-11-05)
 
-[최신 인계](agent/HANDOFF.md) · [선행 통합 설계](agent/GW_통합설계_승격검증_GW-READY-02_78.md). 현재251표/목표390표와 Excel·ERD를 동기화하고 새 연결 revision을 검증 중이다. 전체 CI의 최종 결과는 인계 최신 기록을 따른다. [main 인계 원문](agent/main_인계_783a2c1_통합참조.md)과 [main 진행 원문](main_진행이력_783a2c1_통합참조.md)을 보존했다. 실제 회사 인수·공유 main·push/배포와 구분한다.
+[상세·재현](agent/GW_통합적용_승격검증_GW-READY-02_79.md) · [검증 요약](../outputs/gw-readiness-02-phase79/validation.json) · [최신 인계](agent/HANDOFF.md). GW브랜치 main783a2c1 통합·92이름/현재251표·목표390표와Excel/ERD동기화. 단독승격9/선행3·도구144/프런트822pass. 전체CI는1510pass/1fail 후 DB시각역전/host범위밖약2초로미통과다. 시각가드실제DB생성전거부/설정변경없음. 다음은79차잔여시각안정성확인/전체CI재실행이다. [main 인계](agent/main_인계_783a2c1_통합참조.md)와 [main 진행](main_진행이력_783a2c1_통합참조.md)을보존했다. 실인수/공유main/push/배포미완료.
 
 ## 78차 — 두 head 연결·metadata 충돌 해소·승격 검증 설계 (2026-11-05)
 

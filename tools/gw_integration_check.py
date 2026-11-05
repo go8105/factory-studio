@@ -123,6 +123,11 @@ def main() -> int:
         action="store_true",
         help="Round-trip only a new empty disposable database",
     )
+    mode.add_argument(
+        "--clock-check-only",
+        action="store_true",
+        help="Read clock samples without creating a test database",
+    )
     args = parser.parse_args()
     private = args.private_output.resolve()
     # Full logs/URLs must stay under the ignored local work directory.
@@ -223,6 +228,9 @@ def main() -> int:
             )
             if not report["clockPreflight"]["stableSample"]:
                 raise ValueError("GW_TEST_CLOCK_UNSTABLE")
+            if args.clock_check_only:
+                report["kind"] = "GW_TEST_CLOCK_PREFLIGHT"
+                return 0
             before = set(connection.scalars(text("SELECT datname FROM pg_database")))
             connection.exec_driver_sql(
                 f'CREATE DATABASE "{database}" TEMPLATE template0'

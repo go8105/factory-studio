@@ -1,3 +1,25 @@
+## 79차 통합 구현 정리 — 전체 CI 미통과, 잔여 검증 보류 (2026-11-05)
+
+- 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`. 시작d6a02c7, 고정 main783a2c1/GW4c898ac. merge/WIP5d3df3f·d24cfb0·a0cbb9f·364f529·117bd77. 마지막 기록 커밋은 `git log -1`로 확인한다. **79차 전체 완료가 아니다. 다음은 같은79차의 잔여 검증이며 다른 ID를 자동 시작하지 않는다.**
+- GW 브랜치에 main 구현을 통합했다. 새 `gw_main_ready02_merge`(parents gw_readiness/fems1)는 11표/92객체를 정의·새 이름 점유 선검사 후 이름만 바꾸고 OID를 대조한다. current0.34.0/251표·2833열·617FK, target390표·4464열·950FK. 기존 UK쌍과 양쪽 이력 보존, 미래139표 미적용. Excel51/83시트·native링크716/1113·셀오류0·모든 표 식별자/행 수와 ERD 해시·내장 명세 일치/렌더 확인. Microsoft Excel 앱 검증은 아니다.
+- 실제 단독 승격9pass/0skip·선행3분기3pass, 각 실DDL/추가DB잔존0·생성DB 제거 확인. UG10인/MFA·복구·성공/실패 원본·UM 실제 pin 로그인 세션/PASSWORD 기본값·원래 열/행·OID/이름 역순을 확인했다. UF6경로는 별도 빈 부모DB에서 주입했으며 모든 유데이터 조합이나 main 신규32표 전체 업무 행을 검증한 것은 아니다.
+- 최종 프런트822pass/0skip, type/lint/format/build 모두exit0. 도구144pass(시각보호5건), backend/신규도구 Ruff·포맷430파일, bash 문법·정적DB/R1~R6 확인. 프런트는 별도 실행 결과이며 전체CI 통과로 합산하지 않는다. 실API 로그인 후 브라우저는 미검증이다.
+- 첫 전체CI는 최신 RECEIVING seed/옛 c781 불일치2건을 확인한 뒤 정상중단했다(2035pass/2fail/2skip·부분기록). fixture를 고정pin seed로 보정해3분기3pass. 공통 source fixture는 work에 내보내고 정리하며 전체SHA를 고정한다. CI checkout fetch-depth0 설정은 했지만 실제 GitHub Actions는 미실행이다.
+- 고정 a0 소스 전체CI는 **1510pass/1fail/1skip/1deselected**에서 중단했다. POST_ORG_SCOPE 폐쇄 복원에서 오래된 checkpoint 거부. sourceDigestBefore/After는42d1108b9ed60d84641aae36e34c9ee215152e6432ff044ed711bab19bb644ac로 같고 추가DB잔존0/생성DB제거true. 같은case 별도1pass는 이 실패를 대신하지 않는다. 남은backend/성능1건·별도 빈DB 부모 전체왕복·단일 전체CI는 미완료다.
+- 실제 DB 시각 역전1회와 SQL왕복host범위밖 약2.03초를 관측했다. host/image ARM64native·privileged=false·시각강제변수없음, 정확한 동기화 원인은 미확정. 시험 실행기에만 DB 생성 전20회 시각 표본 검사와 `--clock-check-only`를 추가했다. 역전/host범위밖250ms 초과면 CLI전용 GW_TEST_CLOCK_UNSTABLE로 거부한다. 최종 읽기전용 실행도2026.238ms로 거부/databaseCreated=false. 표본통과는 연속안정성 증명이 아니다. **운영백업 시각정책·12전환조건·최종4·화면7코드는 바꾸지 않았다.**
+- 실제 시각/서버/OS·Docker 설정/재시작은 하지 않았다. 병행WMS와 미리보기에 영향 없는 검증 환경/시각 안정성을 먼저 확인한 뒤 전체CI를 재실행해야 한다. 보호를 낮추거나 장시간CI 반복으로 실패를 덮지 않는다. 모델 제안은 기존 GPT-6 Astra + High 유지, 자동변경 없음.
+- 기록된 실제 생성 rootDB13개 잔존0·pin 임시폴더0. 미리보기DB·실계정/비밀번호/MFA·브라우저 설정·다른checkout·공유main/push/배포 변경 없음. API127.0.0.1:8362/PID47906, Vite127.0.0.1:5362/PID47907을 마지막 읽기 확인했다. PID는 다시 확인한다. 전체ID `f992fe7e3c8dab0c4ac0b13e6bddd0ea9ba14be0d02e84fb63ac5a0b47cfa7f3`, owner `gw-ready-02-preview`, PG18/단일127.0.0.1:55439를 다시 대조한다. 다른 자원을 임의 삭제하지 않는다.
+- ready=false/최종4UNVERIFIED·실제복원PARTIAL·ACCEPTANCE PASS거부 유지. 외부 공급자·독립 최신성/전체 권한 회수·실회사10인 인수·운영 전환은 남는다. 작은 도움말 보완을 UI 전체 완성으로 보고하지 않는다. 공개 요약은 outputs/gw-readiness-02-phase79/, 원문로그/JUnit/접속값·키는 무시되는 work에만 둔다.
+
+상세·재현: [통합 보고서](agent/GW_통합적용_승격검증_GW-READY-02_79.md). 공개 근거: [검증 요약](../outputs/gw-readiness-02-phase79/validation.json).
+
+우선 읽기전용 진단(이 GW 저장소 루트, 새 output 경로):
+```sh
+backend/.venv/bin/python tools/gw_integration_check.py --container fs-gw-ready02-preview --expected-id-file work/gw-readiness-02-preview/container-id --owner gw-ready-02-preview --port 55439 --private-output work/gw-readiness-02-phase79/reproduce-clock --clock-check-only
+backend/.venv/bin/python -m unittest discover -s tools -p 'test_*.py'
+```
+시각이 안정된 소유 검증 환경에서만 보고서의 단독 승격/전체CI 재현 명령을 실행한다. 현재 실패를 과거/단독 성공으로 대체하지 않는다.
+
 ## 79차 WIP5 — 구현/집중 검증 통과·전체 CI 시각 차단 확정 (2026-11-05)
 
 - 고정소스전체CI는1510pass/1fail/1skip/1deselected에서중단(36분16초)됐다. 실패는 POST_ORG_SCOPE 폐쇄복원의 백업보다오래된checkpoint 거부다. 실행전후추적소스지문42d1108b...동일/추가DB잔존0/생성DB제거true. 전체CI통과가아니다.

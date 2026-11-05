@@ -1,3 +1,27 @@
+## 79차 통합 구현 정리 — 전체 CI 미통과, 잔여 검증 보류 (2026-11-05)
+
+접속 URL은 비공개 처리했다. 과거 실행 기록의 사실은 유지하며 현재 재현은 최신 소유 시험 실행기 명령을 따른다.
+
+- 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, 브랜치 `codex/gw-company-01`. 시작d6a02c7, 고정 main783a2c1/GW4c898ac. merge/WIP5d3df3f·d24cfb0·a0cbb9f·364f529·117bd77. 마지막 기록 커밋은 `git log -1`로 확인한다. **79차 전체 완료가 아니다. 다음은 같은79차의 잔여 검증이며 다른 ID를 자동 시작하지 않는다.**
+- GW 브랜치에 main 구현을 통합했다. 새 `gw_main_ready02_merge`(parents gw_readiness/fems1)는 11표/92객체를 정의·새 이름 점유 선검사 후 이름만 바꾸고 OID를 대조한다. current0.34.0/251표·2833열·617FK, target390표·4464열·950FK. 기존 UK쌍과 양쪽 이력 보존, 미래139표 미적용. Excel51/83시트·native링크716/1113·셀오류0·모든 표 식별자/행 수와 ERD 해시·내장 명세 일치/렌더 확인. Microsoft Excel 앱 검증은 아니다.
+- 실제 단독 승격9pass/0skip·선행3분기3pass, 각 실DDL/추가DB잔존0·생성DB 제거 확인. UG10인/MFA·복구·성공/실패 원본·UM 실제 pin 로그인 세션/PASSWORD 기본값·원래 열/행·OID/이름 역순을 확인했다. UF6경로는 별도 빈 부모DB에서 주입했으며 모든 유데이터 조합이나 main 신규32표 전체 업무 행을 검증한 것은 아니다.
+- 최종 프런트822pass/0skip, type/lint/format/build 모두exit0. 도구144pass(시각보호5건), backend/신규도구 Ruff·포맷430파일, bash 문법·정적DB/R1~R6 확인. 프런트는 별도 실행 결과이며 전체CI 통과로 합산하지 않는다. 실API 로그인 후 브라우저는 미검증이다.
+- 첫 전체CI는 최신 RECEIVING seed/옛 c781 불일치2건을 확인한 뒤 정상중단했다(2035pass/2fail/2skip·부분기록). fixture를 고정pin seed로 보정해3분기3pass. 공통 source fixture는 work에 내보내고 정리하며 전체SHA를 고정한다. CI checkout fetch-depth0 설정은 했지만 실제 GitHub Actions는 미실행이다.
+- 고정 a0 소스 전체CI는 **1510pass/1fail/1skip/1deselected**에서 중단했다. POST_ORG_SCOPE 폐쇄 복원에서 오래된 checkpoint 거부. sourceDigestBefore/After는42d1108b9ed60d84641aae36e34c9ee215152e6432ff044ed711bab19bb644ac로 같고 추가DB잔존0/생성DB제거true. 같은case 별도1pass는 이 실패를 대신하지 않는다. 남은backend/성능1건·별도 빈DB 부모 전체왕복·단일 전체CI는 미완료다.
+- 실제 DB 시각 역전1회와 SQL왕복host범위밖 약2.03초를 관측했다. host/image ARM64native·privileged=false·시각강제변수없음, 정확한 동기화 원인은 미확정. 시험 실행기에만 DB 생성 전20회 시각 표본 검사와 `--clock-check-only`를 추가했다. 역전/host범위밖250ms 초과면 CLI전용 GW_TEST_CLOCK_UNSTABLE로 거부한다. 최종 읽기전용 실행도2026.238ms로 거부/databaseCreated=false. 표본통과는 연속안정성 증명이 아니다. **운영백업 시각정책·12전환조건·최종4·화면7코드는 바꾸지 않았다.**
+- 실제 시각/서버/OS·Docker 설정/재시작은 하지 않았다. 병행WMS와 미리보기에 영향 없는 검증 환경/시각 안정성을 먼저 확인한 뒤 전체CI를 재실행해야 한다. 보호를 낮추거나 장시간CI 반복으로 실패를 덮지 않는다. 모델 제안은 기존 GPT-6 Astra + High 유지, 자동변경 없음.
+- 기록된 실제 생성 rootDB13개 잔존0·pin 임시폴더0. 미리보기DB·실계정/비밀번호/MFA·브라우저 설정·다른checkout·공유main/push/배포 변경 없음. API127.0.0.1:8362/PID47906, Vite127.0.0.1:5362/PID47907을 마지막 읽기 확인했다. PID는 다시 확인한다. 전체ID `f992fe7e3c8dab0c4ac0b13e6bddd0ea9ba14be0d02e84fb63ac5a0b47cfa7f3`, owner `gw-ready-02-preview`, PG18/단일127.0.0.1:55439를 다시 대조한다. 다른 자원을 임의 삭제하지 않는다.
+- ready=false/최종4UNVERIFIED·실제복원PARTIAL·ACCEPTANCE PASS거부 유지. 외부 공급자·독립 최신성/전체 권한 회수·실회사10인 인수·운영 전환은 남는다. 작은 도움말 보완을 UI 전체 완성으로 보고하지 않는다. 공개 요약은 outputs/gw-readiness-02-phase79/, 원문로그/JUnit/접속값·키는 무시되는 work에만 둔다.
+
+상세·재현: [통합 보고서](GW_통합적용_승격검증_GW-READY-02_79.md). 공개 근거: [검증 요약](../../outputs/gw-readiness-02-phase79/validation.json).
+
+우선 읽기전용 진단(이 GW 저장소 루트, 새 output 경로):
+```sh
+backend/.venv/bin/python tools/gw_integration_check.py --container fs-gw-ready02-preview --expected-id-file work/gw-readiness-02-preview/container-id --owner gw-ready-02-preview --port 55439 --private-output work/gw-readiness-02-phase79/reproduce-clock --clock-check-only
+backend/.venv/bin/python -m unittest discover -s tools -p 'test_*.py'
+```
+시각이 안정된 소유 검증 환경에서만 보고서의 단독 승격/전체CI 재현 명령을 실행한다. 현재 실패를 과거/단독 성공으로 대체하지 않는다.
+
 ## 79차 WIP5 — 구현/집중 검증 통과·전체 CI 시각 차단 확정 (2026-11-05)
 
 - 고정소스전체CI는1510pass/1fail/1skip/1deselected에서중단(36분16초)됐다. 실패는 POST_ORG_SCOPE 폐쇄복원의 백업보다오래된checkpoint 거부다. 실행전후추적소스지문42d1108b...동일/추가DB잔존0/생성DB제거true. 전체CI통과가아니다.
@@ -2255,7 +2279,7 @@ schema0.24.0/headgw_projects: 실제191표2074열464FK, 목표379표918FK. migra
 - 새 파일 backend/src/fs/hr/{review,analytics}.py, backend/tests/test_hr_review.py, frontend/src/hr/{Overview,Reviews,Cost,Me}.tsx, frontend/src/hr/review.test.tsx. 수정: hr/{schema,router,service,interface}.py, backend/src/fs/common/request_logging.py, frontend/src/hr/{Employees,index,HrLayout}.tsx.
 - 주의점: 평가자는 코드 문자열(`reviewer_code`)이고 FK가 아니다. 확정은 `status='confirmed' = (confirmed_at IS NOT NULL AND grade IS NOT NULL)` CHECK를 지켜야 해서 한 UPDATE로 처리한다. 평가 기간을 닫으면 그 해 평가를 더 만들거나 고칠 수 없다(409 `CYCLE_CLOSED`). 인건비·`monthly_summary`의 인건비는 **확정 급여만** 센다. H-15는 EIP 연동 전까지 화면에서 사원 코드를 고른다.
 - 라우터 `_values(payload, full=True)`가 등록용이다. 기본값이 있는 새 등록 본문을 만들면 **반드시 `full=True`**로 넘겨야 한다(DB 기본값이 없는 칸에서 NOT NULL 위반).
-- 재현: `set -a && . ./.env && set +a`; `cd backend && TEST_DATABASE_URL="postgresql+psycopg://factory_studio:$POSTGRES_PASSWORD@127.0.0.1:$POSTGRES_PORT/factory_studio_ci_test" .venv/bin/python -m pytest tests/test_hr_review.py -q`; `npx --prefix frontend vitest run src/hr`. 로컬 미리보기는 .claude/launch.json의 backend(8000)·frontend(5173), uvicorn에 --reload가 없어 백엔드를 고치면 preview를 다시 띄운다.
+- 재현: `set -a && . ./.env && set +a`; `cd backend && TEST_DATABASE_URL="REDACTED_DATABASE_URL" .venv/bin/python -m pytest tests/test_hr_review.py -q`; `npx --prefix frontend vitest run src/hr`. 로컬 미리보기는 .claude/launch.json의 backend(8000)·frontend(5173), uvicorn에 --reload가 없어 백엔드를 고치면 preview를 다시 띄운다.
 - 로컬 게스트 공간은 생성 다음 날 00:00 KST에 만료된다. 만료된 공간으로 브라우저 검증을 이어가려면 새로 만들거나 `core.workspace.expires_at`을 미뤄야 한다(로컬 전용).
 - 미실행: 전체 pytest 일괄 실행, 운영 배포(운영은 아직 `3474942`). 다음: W1c HR 시드·도움말, 그 뒤 W2a.
 
@@ -2287,7 +2311,7 @@ schema0.24.0/headgw_projects: 실제191표2074열464FK, 목표379표918FK. migra
 - branch main. 끝난 것: 급여 항목·사원 기준·고정 수당·상여 규칙(H-10), 계산 → 검토 → 확정(H-11), 급여대장·명세서·퇴직금 추계(H-12), ERP용 `payroll_runs(month)`. HR OpenAPI 경로 36개.
 - 새 파일 backend/src/fs/hr/payroll.py, backend/tests/test_hr_payroll.py, frontend/src/hr/{PayStandards,Payroll,Payslips}.tsx, frontend/src/hr/payroll.test.tsx. 수정: hr/{schema,router,interface}.py, frontend/src/shared/hooks.tsx(`fieldErrors`가 `body.` 접두사 제거), hr/{index,HrLayout}.tsx.
 - 주의점: 계산 입력은 그 달의 **확정 근태 마감**이다. 공제는 `calc_kind='RATE'`만이고 과세 지급 합계에만 건다(DB CHECK가 `item_kind='DEDUCTION' = (calc_kind='RATE')`). `rate`는 계산 방식에 따라 뜻이 다르다 — 연장·야간·휴일은 배수(1.5), 공제는 퍼센트(4.5). 작성 중 실행을 다시 계산하면 같은 버전을 **지우고 다시 만든다**(id가 바뀐다). 확정 후 재계산만 새 버전이다. 퇴직금 추계와 ERP 합계는 저장하지 않는 조회 계산이다.
-- 재현: `set -a && . ./.env && set +a`; `cd backend && TEST_DATABASE_URL="postgresql+psycopg://factory_studio:$POSTGRES_PASSWORD@127.0.0.1:$POSTGRES_PORT/factory_studio_ci_test" .venv/bin/python -m pytest tests/test_hr_payroll.py -q`; `npx --prefix frontend vitest run src/hr`. 로컬 미리보기는 .claude/launch.json의 backend(8000)·frontend(5173) — uvicorn에 --reload가 없어서 백엔드를 고치면 preview를 다시 띄워야 한다.
+- 재현: `set -a && . ./.env && set +a`; `cd backend && TEST_DATABASE_URL="REDACTED_DATABASE_URL" .venv/bin/python -m pytest tests/test_hr_payroll.py -q`; `npx --prefix frontend vitest run src/hr`. 로컬 미리보기는 .claude/launch.json의 backend(8000)·frontend(5173) — uvicorn에 --reload가 없어서 백엔드를 고치면 preview를 다시 띄워야 한다.
 - 미실행: 전체 pytest 일괄 실행, 운영 배포(운영은 아직 `3474942`). 다음: W1b-4 평가·현황·본인(H-01·H-13~15) + `monthly_summary`·`pending_tasks`·`lookup`, 그 뒤 W1c 시드·도움말.
 
 ## CAD-10 NC·소비·편집 고도화 분석 (2026-10-07)
@@ -2302,7 +2326,7 @@ schema0.24.0/headgw_projects: 실제191표2074열464FK, 목표379표918FK. migra
 - branch main. 끝난 것: 근태 자동 생성·예외 수정(H-07), 월 마감 draft→확정→재마감 새 버전(H-08), 연차 발생·잔여 계산·신청·부서장 승인/반려/취소(H-09). 승인하면 마감하지 않은 달의 해당 날짜 근태가 LEAVE/HALF_LEAVE가 된다. HR OpenAPI 경로 23개.
 - 새 파일 backend/src/fs/hr/{attendance,leave}.py, frontend/src/hr/{Attendance,AttendanceCloses,Leaves}.tsx, backend/tests/test_hr_attendance.py, frontend/src/hr/attendance.test.tsx. 수정: hr/{schema,router}.py, fs/core/service.py(게스트 정리에 core.holiday), backend/tests/conftest.py(같은 이유), hr/{index,HrLayout}.tsx.
 - 주의점: 월 잠금 판정은 `hr.attendance_close`의 **월별 마지막 버전**만 본다(확정만 보면 재마감해도 안 열린다). 근태 수정은 항상 `source=MANUAL`로 바꾼다. 휴가 승인은 `is_head` 직책 재직 사원만, 본인 승인 불가, 잔여는 `FOR UPDATE`로 재확인. `core.holiday`는 등록 화면이 없어 W1c 시드 전에는 비어 있다(공휴일이 휴무로 안 잡힘).
-- 재현: `set -a && . ./.env && set +a`; `cd backend && TEST_DATABASE_URL="postgresql+psycopg://factory_studio:$POSTGRES_PASSWORD@127.0.0.1:$POSTGRES_PORT/factory_studio_ci_test" .venv/bin/python -m pytest tests/test_hr_attendance.py tests/test_hr_master.py -q`; `npx --prefix frontend vitest run src/hr`; `ruff check --config backend/pyproject.toml backend`. 로컬 미리보기는 .claude/launch.json의 backend(8000)·frontend(5173).
+- 재현: `set -a && . ./.env && set +a`; `cd backend && TEST_DATABASE_URL="REDACTED_DATABASE_URL" .venv/bin/python -m pytest tests/test_hr_attendance.py tests/test_hr_master.py -q`; `npx --prefix frontend vitest run src/hr`; `ruff check --config backend/pyproject.toml backend`. 로컬 미리보기는 .claude/launch.json의 backend(8000)·frontend(5173).
 - 미실행: 전체 pytest 일괄 실행, 운영 배포(운영은 아직 `3474942`). 다음: W1b-3 급여(H-10~12), 그 뒤 W1b-4·W1c.
 
 ## CAD-09 품질 우선 경로 제안 (2026-10-07 완료)

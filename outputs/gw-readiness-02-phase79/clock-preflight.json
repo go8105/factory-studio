@@ -1,0 +1,13 @@
+{
+  "kind": "LOCAL_TEST_CLOCK_PREFLIGHT",
+  "samples": 20,
+  "databaseBackwardsCount": 0,
+  "hostBackwardsCount": 0,
+  "maxOutsideHostWindowMs": 2026.238,
+  "testHarnessMaxOutsideWindowMs": 250,
+  "stableSample": false,
+  "continuousStabilityVerified": false,
+  "clockConfigurationChanged": false,
+  "signedEvidence": false,
+  "liveCompanyAcceptance": false
+}
