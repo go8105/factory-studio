@@ -1,3 +1,11 @@
+## 2026-11-06 로컬 main 병합 완료 — 79차 전체 CI 재개
+
+- 사용자 승인으로 로컬 main1815db2와 GWb71ad85를 통합했다. GW의 merge커밋은0ac0727이며 로컬main도0ac0727로fast-forward했고 양쪽작업트리clean을확인했다. 다른checkout·병행WMS개발·원격push/배포·실DB마이그레이션/계정변경은하지않았다.
+- main의추가FEMS9커밋을모두보존했다. 충돌은HANDOFF/progress2개만이었으며양쪽기록을보존했다. 최신main인계참조는docs/agent/main_인계_1815db2_통합참조.md(접속URL비공개)다. DBschema추가변경0이므로251표/기존metadata·Excel·ERD는그대로다.
+- 이번통합소스로정적DB/R1~R6/type/Ruff·프런트847pass/0skip/build0·도구144pass를확인했다. 이전822건/144건기록과혼합하지않는다. 전체backend/CI·실API브라우저·실회사인수완료가아니다.
+- 소유PG의읽기전용시각20회표본최대67.873ms,400회표본최대69.258ms/DB·host역전0을확인했다. 250ms하네스기준에들지만연속안정성증명은아니다. 시각/Docker/서버설정·재시작은하지않았다. 같은79차의전체CI를새UUID시험DB에서재실행한다. 과거시각실패를과거성공이나이번짧은표본으로대체하지않는다.
+- ready=false/최종4UNVERIFIED·실제복원PARTIAL/ACCEPTANCE PASS거부유지. 다른ID자동착수없음. 원문로그/접속값은work/gw-readiness-02-main-20261106/에만둔다.
+
 ## 2026-11-06 GW 로컬 main 병합 — 79차 잔여 검증 유지
 
 사용자가 진행 전에 GW를 로컬 main에 병합하도록 승인했다. main1815db2의 FEMS 추가9커밋을 먼저 GW 브랜치에 통합했고, 충돌은 progress/HANDOFF2개만 발생했다. 양쪽 사실과 진행 이력을 보존하고 최신 main 인계는 `docs/agent/main_인계_1815db2_통합참조.md`에 접속 URL을 비공개 처리해 보존했다. main의 FEMS 완료/다음BEMS와 Codex GW 담당 구분은 유지한다.
