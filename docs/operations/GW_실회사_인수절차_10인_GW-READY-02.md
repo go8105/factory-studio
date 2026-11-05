@@ -1246,3 +1246,17 @@ ready=false/최종4조건 UNVERIFIED·실제 복원 PARTIAL/ACCEPTANCE PASS 거�
 - origin/main783a2c1 재조회 동일. 시작 기준 GW85/main90커밋 분기, 양쪽 변경15경로. 시작 시 읽기3-way 모의는 텍스트8파일14구간/Excel1충돌.77차 검사 보정 후 복사본 재대조는 양쪽16경로, 텍스트9파일15구간/Excel1충돌이다. 새 충돌은 GW/WMS 검사 파일이다. 합친 migration은 gw_readiness/fems1 두head이며 동일w2b1_wms 바이트 차이는 main downgrade 정리SQL1줄이다(이번 미실행/미수정). 한쪽 metadata/Excel을 선택해 덮으면 GW인증/운영9표 또는 main32표가 누락된다.
 - 상세·재현·남은검증: docs/agent/GW_통합회귀_main차이_GW-READY-02_77.md, unsigned 집계/실패·분할/자원 근거 outputs/gw-readiness-02-phase77/. ready=false/최종4UNVERIFIED·실제복원PARTIAL/ACCEPTANCE PASS거부 유지. 현재 단계는 회귀/통합 경계 확인 한정 완료이며 전체UI/최종인수 완료가 아니다.
 - 다음: 두head 연결의 새revision·metadata/Excel/ERD 충돌 해소안, 빈DB/기존GW head/기존main head 합성승격 보존 검증 계획을 확정한다. 실제 통합·병행WMS 수정·main/push/배포는 별도 범위다. 구형 폐쇄복원skip의 소유자검증 계약도 별도 정리한다. 외부공급자/독립최신성·전체회수/통합후전체회귀·실회사10인·최종전환은 남는다. GPT-6 Astra + High 추천, 모델 자동변경/다음ID 자동착수 없음.
+
+
+## 52. 78차 — 두 head 연결·metadata 충돌 해소·승격 검증 설계 (2026-11-05)
+
+- 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, `codex/gw-company-01`, 시작4c898ac/깨끗한 작업 트리. 최신77차 인계 후속을 사용자 승인으로 진행했다. main재조회783a2c1 동일, 공통2be292e·GW88/main90커밋 분기. 최종 커밋은 git log -1로 확인한다.
+- 통합 설계를 작성했다: main metadata 순서+GW 추가분 보존, 신규예정revision gw_main_ready02_merge/parents(gw_readiness,fems1). 실제 migration 파일/병합은 아직 없다. 공통 표 동시변경0, 설계 후보 현재251표/2833열/617FK·목표390표/4464열/950FK. 현재1845레코드 중196SERVICE/DB_POLICY는 DB제약이 아니다.
+- main 이름 변경0, GW 제약·인덱스73+FK19=92개 정규화 계획을 실제 metadata 순번으로 계산했다. 기존객체 정의/이름 점유·트랜잭션/실패·OID·지문 대조 후 이름만 변경하는 기준이며 실제DB 이름을 검증한 것은 아니다. 기존approval_step UK2개(c1335/c1546)는 양쪽 적용 이력으로 보존하고 신규 중복 증가만 거부한다.
+- current헤더 제안0.34.0/GW-READY-02-INTEGRATION/새revision, target제안target-0.22.0/base_task재기준화/migration_revision=null. main의 오래된migration_revision=gw_wms_merge와 실제head=fems1 차이를 그대로 복사하지 않는다. 목표 미래139표·컬럼18묶음/BEMS nullable차이1곳은 실제승격에 섞지 않는다.
+- 파일별metadata·Excel양쪽·ERD양쪽/검증기·API/App·도움말/검사·진행/인계 해소 기준과 U0빈DB/UG기존GW/UM기존main/UF실패/UR역순이름정규화 검증 행렬을 작성했다. 기존 세션 PASSWORD기본값을 MFA로 자동승격하지 않으며, 코드/DB버전 변경 뒤 옛 증거를 재분류/재서명하지 않는다. same-revision WMS차이는 main공유본 보존·기존적용재실행/다운그레이드 없음 기준으로 기록했다.
+- 현재 ci_local은 .env강제읽기/-n auto/데이터삭제후downgrade base여서 소유검증실행기와 자동연결된 것이 아니다. 다음 구현에서 소유확인URL 명시주입/CI동등실행·복원병렬성/구형skip의 ID·라벨·loopback 계약을 마련해야 한다. 기존이력DB의전체downgrade는거부하며 폐기빈DB왕복과분리한다.
+- 실행: tools/plan_gw_main_integration.py의 고정Git입력 계산·구조참조/RESTRICT·교차업무FK/중복FK점검, 동일입력결과파일cmp결정성, 기준제약삭제/동시표수정/CASCADE/신규중복FK·물리중복거부5건과 기존UK2개보존 확인. Ruff/포맷·문서링크/JSON·diff·현황200줄 제한 검사. 초기구조검사의기존UK중복오인·부정검사의잘못된삭제대상을보정한뒤확인했다. 77차1600pass/1skip은이번검증으로합산하지않는다.
+- 새 도구는읽기Git/설계계산이며제품수집기/복원기아니다. 후보JSON은work의review_only/migration_revision=null 초안이고정식metadata아니다. 공개출력은 outputs/gw-readiness-02-phase78/의계획/거부검사, 상세 docs/agent/GW_통합설계_승격검증_GW-READY-02_78.md. DB접속·실DDL/rename·canonical검증기·Excel/ERD재생성·브라우저/제품단위·통합/전체CI는이번미실행이다.
+- 제품/적용migration·정식schema/Excel/ERD·실계정/권한/MFA/비밀번호·미리보기DB/브라우저설정·다른checkout/병행WMS/main·push/배포변경없음. ready=false/최종4UNVERIFIED·실제복원PARTIAL/ACCEPTANCE PASS거부유지. 78차는설계완료한정이며승격/실회사10인인수완료가아니다.
+- 다음79차: GW브랜치안의통합구현·신규이름정규화revision/정식metadata·Excel·ERD동기화와U0/UG/UM합성승격검증. 공유main/다른checkout·운영DB/push/배포제외. 외부공급자·독립최신성/전체회수·구형skip/통합후전체회귀·실10인/최종전환은남는다. GPT-6 Astra + High추천, 모델자동변경/다음ID자동착수없음.

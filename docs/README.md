@@ -1,3 +1,7 @@
+## 78차 — 두 head 연결·metadata 충돌 해소·승격 검증 설계 (2026-11-05)
+
+[통합 설계/검증 계약](agent/GW_통합설계_승격검증_GW-READY-02_78.md) · [설계 계산 근거](../outputs/gw-readiness-02-phase78/README.md) · [최신 인계](agent/HANDOFF.md). main순서+GW추가9표/92이름정규화·기존UK2개보존·3승격경로/실패·역순검증을설계했다. 정식schema/DB/병합미적용이며실제인수완료가아니다.
+
 ## 77차 — GW 분할 회귀·보호 검사 보정·main 통합 전 차이 확인 (2026-11-03)
 
 [상세·재현·한계](agent/GW_통합회귀_main차이_GW-READY-02_77.md) · [분할 집계](../outputs/gw-readiness-02-phase77/segmented-review.json) · [최신 인계](agent/HANDOFF.md). 고유case1600pass/1skip/누락0은 분할 결과이며 단일 전체실행 통과가 아니다. main 두head/metadata·ERD/Excel 충돌과 다음 승격 검증 경로를 정리했다.

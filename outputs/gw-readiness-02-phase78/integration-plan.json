@@ -1,0 +1,1827 @@
+{
+  "kind": "GW_MAIN_INTEGRATION_DESIGN",
+  "version": 1,
+  "gwRef": "4c898aca0d4a56c9fb91a4d1b89a5b5b06a718e0",
+  "mainRef": "783a2c1aa6e4f0053d055341f9738226a60dbdc7",
+  "mergeBase": "2be292ee06778c26fadc1336aa6a12134f8846aa",
+  "proposedCurrentMetadataHeader": {
+    "task": "GW-READY-02-INTEGRATION",
+    "version": "0.34.0",
+    "migration_revision": "gw_main_ready02_merge"
+  },
+  "proposedTargetMetadataHeader": {
+    "task": "DSN-90",
+    "base_task": "GW-READY-02-INTEGRATION",
+    "version": "target-0.22.0",
+    "migration_revision": null,
+    "target": true
+  },
+  "proposedRevision": "gw_main_ready02_merge",
+  "proposedParents": [
+    "gw_readiness",
+    "fems1"
+  ],
+  "applied": false,
+  "ready": false,
+  "signedEvidence": false,
+  "canonicalMetadataChanged": false,
+  "documentaryMergePending": [
+    "date",
+    "basis",
+    "status",
+    "change_log"
+  ],
+  "candidateDdlValidated": false,
+  "preservedPhysicalDuplicates": [
+    {
+      "table": "gw.approval_step",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "document_id",
+        "id"
+      ],
+      "count": 2,
+      "gwCount": 2,
+      "mainCount": 2
+    }
+  ],
+  "preservedTargetPhysicalDuplicates": [
+    {
+      "table": "mes.item",
+      "kind": "CHECK",
+      "columns": [
+        "plm_part_no",
+        "plm_revision"
+      ],
+      "count": 2,
+      "gwCount": 2,
+      "mainCount": 2
+    },
+    {
+      "table": "wms.item",
+      "kind": "CHECK",
+      "columns": [
+        "plm_part_no",
+        "plm_revision"
+      ],
+      "count": 2,
+      "gwCount": 2,
+      "mainCount": 2
+    }
+  ],
+  "currentStructuralAudit": {
+    "tables": 251,
+    "columns": 2833,
+    "relations": 617,
+    "constraintKinds": {
+      "PK": 251,
+      "UK": 510,
+      "CHECK": 630,
+      "UNIQUE_INDEX": 2,
+      "SERVICE/DB_POLICY": 196,
+      "UK_PARTIAL": 62,
+      "INDEX": 194
+    }
+  },
+  "targetStructuralAudit": {
+    "tables": 390,
+    "columns": 4464,
+    "relations": 950,
+    "constraintKinds": {
+      "PK": 390,
+      "UK": 770,
+      "CHECK": 925,
+      "UNIQUE_INDEX": 2,
+      "SERVICE/DB_POLICY": 249,
+      "UK_PARTIAL": 106,
+      "INDEX": 261
+    }
+  },
+  "normalizationByParentMetadata": {
+    "gw": {
+      "constraints": [
+        {
+          "table": "core.mfa_factor",
+          "from": "c1549_pk",
+          "to": "c1772_pk",
+          "kind": "PK",
+          "definition": {
+            "table": "core.mfa_factor",
+            "kind": "PK",
+            "columns": [
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.authentication_challenge",
+          "from": "c1550_pk",
+          "to": "c1773_pk",
+          "kind": "PK",
+          "definition": {
+            "table": "core.authentication_challenge",
+            "kind": "PK",
+            "columns": [
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.recovery_code",
+          "from": "c1551_pk",
+          "to": "c1774_pk",
+          "kind": "PK",
+          "definition": {
+            "table": "core.recovery_code",
+            "kind": "PK",
+            "columns": [
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.sso_identity",
+          "from": "c1552_pk",
+          "to": "c1775_pk",
+          "kind": "PK",
+          "definition": {
+            "table": "core.sso_identity",
+            "kind": "PK",
+            "columns": [
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.authentication_throttle",
+          "from": "c1553_pk",
+          "to": "c1776_pk",
+          "kind": "PK",
+          "definition": {
+            "table": "core.authentication_throttle",
+            "kind": "PK",
+            "columns": [
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_settings",
+          "from": "c1554_pk",
+          "to": "c1777_pk",
+          "kind": "PK",
+          "definition": {
+            "table": "gw.operating_settings",
+            "kind": "PK",
+            "columns": [
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_settings",
+          "from": "c1555_uk",
+          "to": "c1778_uk",
+          "kind": "UK",
+          "definition": {
+            "table": "gw.operating_settings",
+            "kind": "UK",
+            "columns": [
+              "workspace_id",
+              "generation_id",
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_settings",
+          "from": "c1556_idx",
+          "to": "c1779_idx",
+          "kind": "INDEX",
+          "definition": {
+            "table": "gw.operating_settings",
+            "kind": "INDEX",
+            "columns": [
+              "workspace_id",
+              "generation_id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1557_pk",
+          "to": "c1780_pk",
+          "kind": "PK",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "PK",
+            "columns": [
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1558_uk",
+          "to": "c1781_uk",
+          "kind": "UK",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "UK",
+            "columns": [
+              "workspace_id",
+              "generation_id",
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1559_idx",
+          "to": "c1782_idx",
+          "kind": "INDEX",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "INDEX",
+            "columns": [
+              "workspace_id",
+              "generation_id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_evidence",
+          "from": "c1560_pk",
+          "to": "c1783_pk",
+          "kind": "PK",
+          "definition": {
+            "table": "gw.operating_evidence",
+            "kind": "PK",
+            "columns": [
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_evidence",
+          "from": "c1561_uk",
+          "to": "c1784_uk",
+          "kind": "UK",
+          "definition": {
+            "table": "gw.operating_evidence",
+            "kind": "UK",
+            "columns": [
+              "workspace_id",
+              "generation_id",
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_evidence",
+          "from": "c1562_idx",
+          "to": "c1785_idx",
+          "kind": "INDEX",
+          "definition": {
+            "table": "gw.operating_evidence",
+            "kind": "INDEX",
+            "columns": [
+              "workspace_id",
+              "generation_id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "c1563_pk",
+          "to": "c1786_pk",
+          "kind": "PK",
+          "definition": {
+            "table": "gw.retention_review",
+            "kind": "PK",
+            "columns": [
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "c1564_uk",
+          "to": "c1787_uk",
+          "kind": "UK",
+          "definition": {
+            "table": "gw.retention_review",
+            "kind": "UK",
+            "columns": [
+              "workspace_id",
+              "generation_id",
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "c1565_idx",
+          "to": "c1788_idx",
+          "kind": "INDEX",
+          "definition": {
+            "table": "gw.retention_review",
+            "kind": "INDEX",
+            "columns": [
+              "workspace_id",
+              "generation_id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.app_user",
+          "from": "c1566_check",
+          "to": "c1789_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.app_user",
+            "kind": "CHECK",
+            "columns": [
+              "security_version"
+            ],
+            "expression": "security_version>0",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.auth_session",
+          "from": "c1567_uk",
+          "to": "c1790_uk",
+          "kind": "UK",
+          "definition": {
+            "table": "core.auth_session",
+            "kind": "UK",
+            "columns": [
+              "user_id",
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.auth_session",
+          "from": "c1568_check",
+          "to": "c1791_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.auth_session",
+            "kind": "CHECK",
+            "columns": [
+              "security_version"
+            ],
+            "expression": "security_version>0",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.auth_session",
+          "from": "c1569_check",
+          "to": "c1792_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.auth_session",
+            "kind": "CHECK",
+            "columns": [
+              "assurance"
+            ],
+            "expression": "assurance IN ('PASSWORD','MFA','RECOVERY_LIMITED','OIDC')",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.auth_session",
+          "from": "c1570_check",
+          "to": "c1793_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.auth_session",
+            "kind": "CHECK",
+            "columns": [
+              "auth_method"
+            ],
+            "expression": "auth_method IN ('PASSWORD','TOTP','RECOVERY','OIDC')",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.mfa_factor",
+          "from": "c1571_uk",
+          "to": "c1794_uk",
+          "kind": "UK",
+          "definition": {
+            "table": "core.mfa_factor",
+            "kind": "UK",
+            "columns": [
+              "user_id",
+              "id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.mfa_factor",
+          "from": "c1572_uidx",
+          "to": "c1795_uidx",
+          "kind": "UK_PARTIAL",
+          "definition": {
+            "table": "core.mfa_factor",
+            "kind": "UK_PARTIAL",
+            "columns": [
+              "user_id",
+              "kind"
+            ],
+            "expression": "UNIQUE WHERE state='ACTIVE'",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.mfa_factor",
+          "from": "c1573_uidx",
+          "to": "c1796_uidx",
+          "kind": "UK_PARTIAL",
+          "definition": {
+            "table": "core.mfa_factor",
+            "kind": "UK_PARTIAL",
+            "columns": [
+              "user_id",
+              "kind"
+            ],
+            "expression": "UNIQUE WHERE state='PENDING'",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.mfa_factor",
+          "from": "c1574_check",
+          "to": "c1797_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.mfa_factor",
+            "kind": "CHECK",
+            "columns": [
+              "kind"
+            ],
+            "expression": "kind='TOTP'",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.mfa_factor",
+          "from": "c1575_check",
+          "to": "c1798_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.mfa_factor",
+            "kind": "CHECK",
+            "columns": [
+              "version"
+            ],
+            "expression": "version>0",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.mfa_factor",
+          "from": "c1576_check",
+          "to": "c1799_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.mfa_factor",
+            "kind": "CHECK",
+            "columns": [
+              "state",
+              "pending_expires_at",
+              "confirmed_at",
+              "revoked_at"
+            ],
+            "expression": "(state='PENDING' AND pending_expires_at IS NOT NULL AND revoked_at IS NULL) OR (state='ACTIVE' AND confirmed_at IS NOT NULL AND revoked_at IS NULL) OR (state='REVOKED' AND revoked_at IS NOT NULL)",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.authentication_challenge",
+          "from": "c1577_uk",
+          "to": "c1800_uk",
+          "kind": "UK",
+          "definition": {
+            "table": "core.authentication_challenge",
+            "kind": "UK",
+            "columns": [
+              "token_hash"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.authentication_challenge",
+          "from": "c1578_check",
+          "to": "c1801_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.authentication_challenge",
+            "kind": "CHECK",
+            "columns": [
+              "state"
+            ],
+            "expression": "state IN ('PENDING','CONSUMED','EXPIRED','LOCKED')",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.authentication_challenge",
+          "from": "c1579_check",
+          "to": "c1802_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.authentication_challenge",
+            "kind": "CHECK",
+            "columns": [
+              "purpose"
+            ],
+            "expression": "purpose IN ('LOGIN_MFA','STEP_UP','ENROLL','OIDC_LOGIN','OIDC_LINK','RECOVERY')",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.authentication_challenge",
+          "from": "c1580_check",
+          "to": "c1803_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.authentication_challenge",
+            "kind": "CHECK",
+            "columns": [
+              "attempt_count"
+            ],
+            "expression": "attempt_count>=0",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.authentication_challenge",
+          "from": "c1581_check",
+          "to": "c1804_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.authentication_challenge",
+            "kind": "CHECK",
+            "columns": [
+              "expires_at",
+              "created_at"
+            ],
+            "expression": "expires_at>created_at",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.authentication_challenge",
+          "from": "c1582_check",
+          "to": "c1805_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.authentication_challenge",
+            "kind": "CHECK",
+            "columns": [
+              "state",
+              "consumed_at"
+            ],
+            "expression": "state<>'CONSUMED' OR consumed_at IS NOT NULL",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.authentication_challenge",
+          "from": "c1583_check",
+          "to": "c1806_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.authentication_challenge",
+            "kind": "CHECK",
+            "columns": [
+              "purpose",
+              "user_id",
+              "session_id"
+            ],
+            "expression": "(purpose='OIDC_LOGIN' OR user_id IS NOT NULL) AND (purpose NOT IN ('STEP_UP','OIDC_LINK') OR session_id IS NOT NULL)",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.authentication_challenge",
+          "from": "c1584_check",
+          "to": "c1807_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.authentication_challenge",
+            "kind": "CHECK",
+            "columns": [
+              "protected_payload",
+              "encryption_key_id"
+            ],
+            "expression": "(protected_payload IS NULL)=(encryption_key_id IS NULL)",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.authentication_challenge",
+          "from": "c1585_idx",
+          "to": "c1808_idx",
+          "kind": "INDEX",
+          "definition": {
+            "table": "core.authentication_challenge",
+            "kind": "INDEX",
+            "columns": [
+              "expires_at"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.recovery_code",
+          "from": "c1586_uk",
+          "to": "c1809_uk",
+          "kind": "UK",
+          "definition": {
+            "table": "core.recovery_code",
+            "kind": "UK",
+            "columns": [
+              "user_id",
+              "code_hash"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.recovery_code",
+          "from": "c1587_check",
+          "to": "c1810_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.recovery_code",
+            "kind": "CHECK",
+            "columns": [
+              "factor_version"
+            ],
+            "expression": "factor_version>0",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.sso_identity",
+          "from": "c1588_uk",
+          "to": "c1811_uk",
+          "kind": "UK",
+          "definition": {
+            "table": "core.sso_identity",
+            "kind": "UK",
+            "columns": [
+              "issuer",
+              "subject"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.sso_identity",
+          "from": "c1589_uidx",
+          "to": "c1812_uidx",
+          "kind": "UK_PARTIAL",
+          "definition": {
+            "table": "core.sso_identity",
+            "kind": "UK_PARTIAL",
+            "columns": [
+              "user_id",
+              "provider_key"
+            ],
+            "expression": "UNIQUE WHERE state='ACTIVE'",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.sso_identity",
+          "from": "c1590_check",
+          "to": "c1813_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.sso_identity",
+            "kind": "CHECK",
+            "columns": [
+              "state",
+              "revoked_at"
+            ],
+            "expression": "(state='ACTIVE' AND revoked_at IS NULL) OR (state='REVOKED' AND revoked_at IS NOT NULL)",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.sso_identity",
+          "from": "c1591_check",
+          "to": "c1814_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.sso_identity",
+            "kind": "CHECK",
+            "columns": [
+              "version"
+            ],
+            "expression": "version>0",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.authentication_throttle",
+          "from": "c1592_uk",
+          "to": "c1815_uk",
+          "kind": "UK",
+          "definition": {
+            "table": "core.authentication_throttle",
+            "kind": "UK",
+            "columns": [
+              "bucket_hash",
+              "window_started_at"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.authentication_throttle",
+          "from": "c1593_check",
+          "to": "c1816_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "core.authentication_throttle",
+            "kind": "CHECK",
+            "columns": [
+              "fail_count"
+            ],
+            "expression": "fail_count>=0",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "core.authentication_throttle",
+          "from": "c1594_idx",
+          "to": "c1817_idx",
+          "kind": "INDEX",
+          "definition": {
+            "table": "core.authentication_throttle",
+            "kind": "INDEX",
+            "columns": [
+              "locked_until"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_settings",
+          "from": "c1595_uk",
+          "to": "c1818_uk",
+          "kind": "UK",
+          "definition": {
+            "table": "gw.operating_settings",
+            "kind": "UK",
+            "columns": [
+              "workspace_id",
+              "generation_id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_settings",
+          "from": "c1596_check",
+          "to": "c1819_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_settings",
+            "kind": "CHECK",
+            "columns": [
+              "version"
+            ],
+            "expression": "version>0",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_settings",
+          "from": "c1597_check",
+          "to": "c1820_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_settings",
+            "kind": "CHECK",
+            "columns": [
+              "rollout_state"
+            ],
+            "expression": "rollout_state IN ('DRAFT','PILOT','ACTIVE','PAUSED')",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_settings",
+          "from": "c1598_check",
+          "to": "c1821_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_settings",
+            "kind": "CHECK",
+            "columns": [
+              "company_hold",
+              "hold_reason"
+            ],
+            "expression": "NOT company_hold OR (hold_reason IS NOT NULL AND char_length(btrim(hold_reason)) BETWEEN 2 AND 500)",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1599_uk",
+          "to": "c1822_uk",
+          "kind": "UK",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "UK",
+            "columns": [
+              "workspace_id",
+              "generation_id",
+              "revision_no"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1600_check",
+          "to": "c1823_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "CHECK",
+            "columns": [
+              "expected_people"
+            ],
+            "expression": "expected_people BETWEEN 1 AND 10000",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1601_check",
+          "to": "c1824_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "CHECK",
+            "columns": [
+              "expected_departments"
+            ],
+            "expression": "expected_departments BETWEEN 1 AND 1000",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1602_check",
+          "to": "c1825_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "CHECK",
+            "columns": [
+              "backup_interval_minutes"
+            ],
+            "expression": "backup_interval_minutes BETWEEN 5 AND 1440",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1603_check",
+          "to": "c1826_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "CHECK",
+            "columns": [
+              "rpo_minutes"
+            ],
+            "expression": "rpo_minutes BETWEEN 1 AND 1440",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1604_check",
+          "to": "c1827_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "CHECK",
+            "columns": [
+              "rto_minutes"
+            ],
+            "expression": "rto_minutes BETWEEN 15 AND 10080",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1605_check",
+          "to": "c1828_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "CHECK",
+            "columns": [
+              "document_review_months"
+            ],
+            "expression": "document_review_months BETWEEN 1 AND 120",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1606_check",
+          "to": "c1829_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "CHECK",
+            "columns": [
+              "audit_review_months"
+            ],
+            "expression": "audit_review_months BETWEEN 1 AND 120",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1607_check",
+          "to": "c1830_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "CHECK",
+            "columns": [
+              "backup_keep_days"
+            ],
+            "expression": "backup_keep_days BETWEEN 7 AND 365",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1608_check",
+          "to": "c1831_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "CHECK",
+            "columns": [
+              "backup_interval_minutes",
+              "rpo_minutes"
+            ],
+            "expression": "backup_interval_minutes<rpo_minutes",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1609_check",
+          "to": "c1832_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "CHECK",
+            "columns": [
+              "revision_no"
+            ],
+            "expression": "revision_no>0",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "c1610_check",
+          "to": "c1833_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_policy_revision",
+            "kind": "CHECK",
+            "columns": [
+              "reason"
+            ],
+            "expression": "char_length(btrim(reason)) BETWEEN 2 AND 500",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_evidence",
+          "from": "c1611_uk",
+          "to": "c1834_uk",
+          "kind": "UK",
+          "definition": {
+            "table": "gw.operating_evidence",
+            "kind": "UK",
+            "columns": [
+              "workspace_id",
+              "generation_id",
+              "run_id"
+            ],
+            "expression": "",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_evidence",
+          "from": "c1612_check",
+          "to": "c1835_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_evidence",
+            "kind": "CHECK",
+            "columns": [
+              "kind"
+            ],
+            "expression": "kind IN ('BACKUP','RESTORE','ACCEPTANCE','INCIDENT')",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_evidence",
+          "from": "c1613_check",
+          "to": "c1836_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_evidence",
+            "kind": "CHECK",
+            "columns": [
+              "result"
+            ],
+            "expression": "result IN ('PASS','FAIL','PARTIAL')",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.operating_evidence",
+          "from": "c1614_check",
+          "to": "c1837_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.operating_evidence",
+            "kind": "CHECK",
+            "columns": [
+              "finished_at",
+              "started_at"
+            ],
+            "expression": "finished_at>=started_at",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "c1615_uidx",
+          "to": "c1838_uidx",
+          "kind": "UK_PARTIAL",
+          "definition": {
+            "table": "gw.retention_review",
+            "kind": "UK_PARTIAL",
+            "columns": [
+              "workspace_id",
+              "generation_id",
+              "document_id",
+              "policy_revision_id"
+            ],
+            "expression": "UNIQUE WHERE document_id IS NOT NULL",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "c1616_uidx",
+          "to": "c1839_uidx",
+          "kind": "UK_PARTIAL",
+          "definition": {
+            "table": "gw.retention_review",
+            "kind": "UK_PARTIAL",
+            "columns": [
+              "workspace_id",
+              "generation_id",
+              "post_id",
+              "policy_revision_id"
+            ],
+            "expression": "UNIQUE WHERE post_id IS NOT NULL",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "c1617_check",
+          "to": "c1840_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.retention_review",
+            "kind": "CHECK",
+            "columns": [
+              "document_id",
+              "post_id"
+            ],
+            "expression": "(document_id IS NULL)<>(post_id IS NULL)",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "c1618_check",
+          "to": "c1841_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.retention_review",
+            "kind": "CHECK",
+            "columns": [
+              "state"
+            ],
+            "expression": "state IN ('DUE','HELD','ARCHIVE_PREPARED','ARCHIVED')",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "c1619_check",
+          "to": "c1842_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.retention_review",
+            "kind": "CHECK",
+            "columns": [
+              "version"
+            ],
+            "expression": "version>0",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "c1620_check",
+          "to": "c1843_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.retention_review",
+            "kind": "CHECK",
+            "columns": [
+              "reason"
+            ],
+            "expression": "char_length(btrim(reason)) BETWEEN 2 AND 500",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "c1621_check",
+          "to": "c1844_check",
+          "kind": "CHECK",
+          "definition": {
+            "table": "gw.retention_review",
+            "kind": "CHECK",
+            "columns": [
+              "state",
+              "archive_digest",
+              "archive_reference",
+              "reviewed_by_user_id",
+              "reviewed_at"
+            ],
+            "expression": "state<>'ARCHIVED' OR (archive_digest IS NOT NULL AND archive_reference IS NOT NULL AND reviewed_by_user_id IS NOT NULL AND reviewed_at IS NOT NULL)",
+            "reason": "GW-READY-02 인증·운영 무결성"
+          }
+        }
+      ],
+      "relations": [
+        {
+          "table": "core.mfa_factor",
+          "from": "r524_fk",
+          "to": "r598_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "core.mfa_factor",
+            "columns": [
+              "user_id"
+            ],
+            "target": "core.app_user",
+            "target_columns": [
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "core.authentication_challenge",
+          "from": "r525_fk",
+          "to": "r599_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "core.authentication_challenge",
+            "columns": [
+              "user_id"
+            ],
+            "target": "core.app_user",
+            "target_columns": [
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "core.sso_identity",
+          "from": "r526_fk",
+          "to": "r600_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "core.sso_identity",
+            "columns": [
+              "user_id"
+            ],
+            "target": "core.app_user",
+            "target_columns": [
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "core.authentication_challenge",
+          "from": "r527_fk",
+          "to": "r601_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "core.authentication_challenge",
+            "columns": [
+              "user_id",
+              "session_id"
+            ],
+            "target": "core.auth_session",
+            "target_columns": [
+              "user_id",
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "core.recovery_code",
+          "from": "r528_fk",
+          "to": "r602_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "core.recovery_code",
+            "columns": [
+              "user_id",
+              "factor_id"
+            ],
+            "target": "core.mfa_factor",
+            "target_columns": [
+              "user_id",
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "gw.operating_settings",
+          "from": "r529_fk",
+          "to": "r603_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "gw.operating_settings",
+            "columns": [
+              "workspace_id"
+            ],
+            "target": "core.workspace",
+            "target_columns": [
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "gw.operating_settings",
+          "from": "r530_fk",
+          "to": "r604_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "gw.operating_settings",
+            "columns": [
+              "workspace_id",
+              "generation_id"
+            ],
+            "target": "core.data_generation",
+            "target_columns": [
+              "workspace_id",
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "r531_fk",
+          "to": "r605_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "gw.operating_policy_revision",
+            "columns": [
+              "workspace_id"
+            ],
+            "target": "core.workspace",
+            "target_columns": [
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "r532_fk",
+          "to": "r606_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "gw.operating_policy_revision",
+            "columns": [
+              "workspace_id",
+              "generation_id"
+            ],
+            "target": "core.data_generation",
+            "target_columns": [
+              "workspace_id",
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "gw.operating_evidence",
+          "from": "r533_fk",
+          "to": "r607_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "gw.operating_evidence",
+            "columns": [
+              "workspace_id"
+            ],
+            "target": "core.workspace",
+            "target_columns": [
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "gw.operating_evidence",
+          "from": "r534_fk",
+          "to": "r608_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "gw.operating_evidence",
+            "columns": [
+              "workspace_id",
+              "generation_id"
+            ],
+            "target": "core.data_generation",
+            "target_columns": [
+              "workspace_id",
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "r535_fk",
+          "to": "r609_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "gw.retention_review",
+            "columns": [
+              "workspace_id"
+            ],
+            "target": "core.workspace",
+            "target_columns": [
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "r536_fk",
+          "to": "r610_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "gw.retention_review",
+            "columns": [
+              "workspace_id",
+              "generation_id"
+            ],
+            "target": "core.data_generation",
+            "target_columns": [
+              "workspace_id",
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "gw.operating_settings",
+          "from": "r537_fk",
+          "to": "r611_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "gw.operating_settings",
+            "columns": [
+              "workspace_id",
+              "generation_id",
+              "current_policy_revision_id"
+            ],
+            "target": "gw.operating_policy_revision",
+            "target_columns": [
+              "workspace_id",
+              "generation_id",
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "gw.operating_policy_revision",
+          "from": "r538_fk",
+          "to": "r612_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "gw.operating_policy_revision",
+            "columns": [
+              "workspace_id",
+              "generation_id",
+              "responsible_person_id"
+            ],
+            "target": "gw.person",
+            "target_columns": [
+              "workspace_id",
+              "generation_id",
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "gw.operating_evidence",
+          "from": "r539_fk",
+          "to": "r613_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "gw.operating_evidence",
+            "columns": [
+              "workspace_id",
+              "generation_id",
+              "policy_revision_id"
+            ],
+            "target": "gw.operating_policy_revision",
+            "target_columns": [
+              "workspace_id",
+              "generation_id",
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "r540_fk",
+          "to": "r614_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "gw.retention_review",
+            "columns": [
+              "workspace_id",
+              "generation_id",
+              "policy_revision_id"
+            ],
+            "target": "gw.operating_policy_revision",
+            "target_columns": [
+              "workspace_id",
+              "generation_id",
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "r541_fk",
+          "to": "r615_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "gw.retention_review",
+            "columns": [
+              "workspace_id",
+              "generation_id",
+              "document_id"
+            ],
+            "target": "gw.approval_document",
+            "target_columns": [
+              "workspace_id",
+              "generation_id",
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        },
+        {
+          "table": "gw.retention_review",
+          "from": "r542_fk",
+          "to": "r616_fk",
+          "kind": "FK",
+          "definition": {
+            "source": "gw.retention_review",
+            "columns": [
+              "workspace_id",
+              "generation_id",
+              "post_id"
+            ],
+            "target": "gw.board_post",
+            "target_columns": [
+              "workspace_id",
+              "generation_id",
+              "id"
+            ],
+            "on_delete": "RESTRICT",
+            "on_update": "RESTRICT",
+            "note": "GW-READY-02 승인 설계"
+          }
+        }
+      ]
+    },
+    "main": {
+      "constraints": [],
+      "relations": []
+    }
+  },
+  "mainMetadataRevision": "gw_wms_merge",
+  "mainActualHeads": [
+    "fems1"
+  ],
+  "targetStructuralDifferences": [
+    {
+      "column": "bems.schedule_slot.hvac_unit_id",
+      "fields": [
+        "nullable"
+      ],
+      "current": {
+        "nullable": false
+      },
+      "target": {
+        "nullable": true
+      }
+    }
+  ],
+  "targetOnlyColumnGroups": [
+    {
+      "table": "core.app_user",
+      "columns": [
+        "subject_key"
+      ]
+    },
+    {
+      "table": "core.auth_session",
+      "columns": [
+        "active_workspace_id",
+        "assurance_expires_at",
+        "assurance_level",
+        "assurance_provider",
+        "assurance_verified_at",
+        "context_version"
+      ]
+    },
+    {
+      "table": "core.workspace",
+      "columns": [
+        "access_version",
+        "name"
+      ]
+    },
+    {
+      "table": "erp.item",
+      "columns": [
+        "plm_part_no",
+        "plm_revision",
+        "spec",
+        "standard_cost",
+        "standard_price",
+        "track_stock"
+      ]
+    },
+    {
+      "table": "erp.partner",
+      "columns": [
+        "address",
+        "business_item",
+        "business_no",
+        "business_type",
+        "contact_name",
+        "credit_days",
+        "credit_limit",
+        "crm_account_code",
+        "partner_group",
+        "phone",
+        "purchase_price_group_id",
+        "representative",
+        "sale_price_group_id"
+      ]
+    },
+    {
+      "table": "erp.sales_plan",
+      "columns": [
+        "scm_forecast_ref"
+      ]
+    },
+    {
+      "table": "erp.sales_order_line",
+      "columns": [
+        "discount_amount"
+      ]
+    },
+    {
+      "table": "erp.quotation",
+      "columns": [
+        "crm_quote_request_no"
+      ]
+    },
+    {
+      "table": "erp.purchase_invoice",
+      "columns": [
+        "department_id",
+        "invoice_kind",
+        "project_id",
+        "purchase_order_id",
+        "source_ref"
+      ]
+    },
+    {
+      "table": "erp.purchase_invoice_line",
+      "columns": [
+        "expense_account_id",
+        "purchase_order_line_id"
+      ]
+    },
+    {
+      "table": "erp.receipt",
+      "columns": [
+        "bank_account_id"
+      ]
+    },
+    {
+      "table": "erp.payment",
+      "columns": [
+        "bank_account_id"
+      ]
+    },
+    {
+      "table": "erp.tax_invoice",
+      "columns": [
+        "cancelled_at",
+        "transmit_message",
+        "transmitted_at"
+      ]
+    },
+    {
+      "table": "erp.account",
+      "columns": [
+        "account_class",
+        "is_active",
+        "normal_side",
+        "requires_department",
+        "requires_partner",
+        "statement_group"
+      ]
+    },
+    {
+      "table": "bems.zone",
+      "columns": [
+        "building_id",
+        "department_code",
+        "floor_label"
+      ]
+    },
+    {
+      "table": "bems.hvac_unit",
+      "columns": [
+        "curtail_priority"
+      ]
+    },
+    {
+      "table": "bems.schedule_slot",
+      "columns": [
+        "lighting_circuit_id"
+      ]
+    },
+    {
+      "table": "bems.control_command",
+      "columns": [
+        "demand_plan_id",
+        "lighting_circuit_id"
+      ]
+    }
+  ],
+  "existingRevisionByteDifferences": [
+    "w2b1_wms"
+  ],
+  "draftDigests": {
+    "current-draft.json": "02493586598f5559eec96a563dad670d9b2e547557fc0b92dfcdf2acac82760c",
+    "target-draft.json": "a0a68b8003fd1c8ec17e38cd764828f6f586c5daed6439019ba23c2377a320ff"
+  }
+}

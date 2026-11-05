@@ -1,0 +1,13 @@
+{
+  "designOnly": true,
+  "executedChecks": [
+    "GW base constraint removal rejected",
+    "concurrent table edits rejected",
+    "CASCADE rejected",
+    "duplicate FK rejected",
+    "new physical duplicate rejected"
+  ],
+  "passed": 5,
+  "inheritedUkPairPreserved": true,
+  "dbConnected": false
+}
