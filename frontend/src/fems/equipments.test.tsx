@@ -28,6 +28,7 @@ const rows = [
   equipmentCode,
   name,
   equipmentType,
+  departmentCode: null,
   isActive: true,
   createdAt: "2026-09-24T00:00:00Z",
 }));
@@ -61,7 +62,9 @@ function mockApi(replies: Record<string, Reply> = {}) {
             }))
           : url.endsWith("/locations")
             ? locations
-            : rows;
+            : url.endsWith("/lookups/departments")
+              ? { hrEnabled: true, rows: [{ code: "PROD", name: "생산팀" }] }
+              : rows;
       return new Response(
         JSON.stringify({ data, page: { offset: 0, limit: 20, total: 2 } }),
         { status: 200 },
@@ -271,4 +274,31 @@ it("FEMS를 끈 공간은 내 공간으로 안내한다", async () => {
   expect(
     await screen.findByRole("link", { name: /내 공간으로/ }),
   ).toHaveAttribute("href", "/workspace");
+});
+
+it("설비 폼은 HR 부서 목록에서 부서를 고른다", async () => {
+  mockApi();
+  show("/fems/equipments");
+  fireEvent.click((await screen.findAllByRole("button", { name: "수정" }))[0]);
+  const select = await screen.findByLabelText("부서");
+  await screen.findByRole("option", { name: /생산팀/ });
+  expect(select).toHaveValue("");
+  expect(select).toHaveTextContent("미지정");
+});
+
+it("부서를 고르고 저장하면 바뀐 항목인 부서만 PATCH로 보낸다", async () => {
+  const fetcher = mockApi({
+    [`PATCH ${EQUIPMENTS}/1`]: { status: 200, body: { data: rows[0] } },
+  });
+  show("/fems/equipments");
+  fireEvent.click((await screen.findAllByRole("button", { name: "수정" }))[0]);
+  await screen.findByRole("option", { name: /생산팀/ });
+  fireEvent.change(screen.getByLabelText("부서"), {
+    target: { value: "PROD" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "수정 저장" }));
+  await waitFor(() => expect(calls(fetcher, "PATCH")).toHaveLength(1));
+  expect(JSON.parse(String(calls(fetcher, "PATCH")[0][1]?.body))).toEqual({
+    departmentCode: "PROD",
+  });
 });

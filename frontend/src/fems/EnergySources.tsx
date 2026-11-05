@@ -17,6 +17,7 @@ const KINDS = {
   FUEL: "연료",
   HEAT: "열",
   UTILITY: "유틸리티",
+  GENERATION: "발전",
 };
 const UNITS = ["kWh", "Nm3", "m3", "ton"];
 // 기준정보 공통: 등록 순서 안내 (FS-008a FEMS §2)

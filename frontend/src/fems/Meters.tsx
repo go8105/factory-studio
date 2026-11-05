@@ -40,7 +40,7 @@ export type Meter = {
   equipmentId: number | null;
   meterCode: string;
   name: string;
-  scopeKind: "factory" | "site_total";
+  scopeKind: "factory" | "site_total" | "generation";
   channelCount: number;
   observed: boolean;
   channels: Channel[];
@@ -73,7 +73,11 @@ type ChannelDraft = {
   isActive: boolean;
 };
 
-const SCOPES = { factory: "공정·설비", site_total: "사업장 전체" };
+const SCOPES = {
+  factory: "공정·설비",
+  site_total: "사업장 전체",
+  generation: "발전",
+};
 const KINDS = { CUMULATIVE: "누적", INSTANT: "순시" };
 
 function fieldErrors(error: unknown): Record<string, string> {

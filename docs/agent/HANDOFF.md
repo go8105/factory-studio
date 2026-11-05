@@ -1,6 +1,6 @@
-# 2026-11-05 FEMS-1f 완료 — SPC·CMMS·QMS 보강 끝, FEMS 진행 중 (다음: FEMS-1g)
+# 2026-11-05 FEMS-1g 완료 — SPC·CMMS·QMS·FEMS 보강 끝 (다음: BEMS)
 
-- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1f` (병합 뒤 `main`)
+- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1g` (병합 뒤 `main`)
 - **마지막 커밋**: `git log --oneline -3` 참조. 원격 `origin/main`과 동기.
 - **담당**: Claude Code가 설계·개발·검증·병합을 모두 한다(D85). Codex는 GW 범위만.
 
@@ -37,7 +37,7 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 
 **PPM은 불량을 '개수'로 센 칸이 있어야 낸다.** 수입(`defect_count`/`sample_qty`)과 공정(MES `defectQty`/`inputQty`)만 가능하고 출하·고객은 못 낸다. 설계 3장이 4종 모두 PPM을 적었지만 **0으로 채우지 않고 `—`로 두고 화면이 왜 비는지 밝힌다.** FEMS·BEMS에서도 같은 판단이 필요할 것이다.
 
-## FEMS — 1a~1f 완료, 1g부터
+## FEMS 보강 완료 — 다음은 BEMS
 
 설계는 **DSN-15**에 있고 Q1~Q7이 2026-10-05에 이미 확정돼 있다. 범위 13 → 25표·14 → **23화면**(신규 9·기존 보강 8)으로 QMS보다 크다.
 
@@ -51,11 +51,17 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 | ~~1d~~ | ~~F-15 계측 품질 신설(FEMS 16화면)·CSV·MES 가져오기~~ | 완료 |
 | ~~1e~~ | ~~F-17 설비 비교·F-18 경보(FEMS 18화면)~~ | 완료 |
 | ~~1f~~ | ~~F-19 절감·F-20 월간 검토·F-21 온실가스(FEMS 21화면)~~ | 완료 |
-| **1g** | 비용 — F-22 비용 배분·F-23 고지서 대조·F-10 설비 부서·F-11 발전 | **Opus** |
+| ~~1g~~ | ~~F-22 비용 배분·F-23 고지서 대조·F-10 부서·F-11 발전(FEMS 23화면)~~ | 완료 |
 
 **설계서 §6의 `ERP departments()`는 오류다**(1b에서 확인). 부서 표는 `hr.department` 하나뿐이고 **HR이 이미 `departments()`를 제공한다**. ERP에는 부서 표가 없다.
 
 **`hour`·`month`는 Postgres 예약어다.** 별칭에 따옴표가 없으면 구문 오류가 난다. Q-13과 F-16에서 두 번 밟았다.
+
+**소비 집계는 `CONSUMPTION_ONLY`를 거친다.** `GENERATION` 에너지원(발전)은 만든 양이라 소비가 아니다. 새 소비 집계 질의를 쓸 때 이 상수를 붙인다 — 안 붙이면 발전량이 소비량·요금·피크에 섞인다. 1g에서 다섯 곳을 막았고, 필터를 빼면 테스트가 실제로 실패함을 확인했다.
+
+**`energy_costs(month)`와 `open_alarms()`는 소비자가 아직 없다.** 각각 ERP 보강(원가 참고)·BEMS 보강(피크 감축)이 읽는다. QMS-1b 때처럼 소비자가 생기는지 그때 확인한다.
+
+**프런트 테스트에서 옵션은 비동기로 채워진다.** `findByLabelText(셀렉트)`는 셀렉트가 나타나는 즉시 돌려주지만 옵션은 응답 뒤에 온다. `await screen.findByRole("option", { name: /…/ })`로 기다려야 한다. 이 경쟁을 1g에서 세 번 밟았다. 또 **기존 화면 테스트가 있으면 새 하네스를 짜지 말고 그 파일에 넣는다**(`page`·위치·모듈 목록 응답을 이미 갖췄다).
 
 **초안은 지운다.** `energy_review`·`ghg_inventory`의 CHECK `(status='draft') = (confirmed_at IS NULL)` 때문에 확정한 적 없는 행은 `superseded`가 될 수 없다. 1g의 `cost_run`(비용 배분 실행)도 같은 틀(draft/confirmed/superseded, 확정 1건)이면 **`repo.drop_drafts()`·`confirm_snapshot()`·`_confirm_period()`를 그대로 쓴다** — 1f에서 일반 이름으로 만들어 뒀다.
 
@@ -84,7 +90,7 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 
 ## 그 뒤 로드맵
 
-**기존 솔루션 보강**: SPC ✔ → CMMS ✔ → QMS ✔ → **FEMS(1a 완료, 1b~1g 남음)** → **BEMS(+11표)** → **ERP(+38표)**
+**기존 솔루션 보강**: SPC ✔ → CMMS ✔ → QMS ✔ → **FEMS ✔** → **BEMS(+11표, 설계 DSN-16)** → **ERP(+38표)**
 **전체 목표 381표 / 지금 242표** — 미구현 139표(erp 38·plm 16·crm 13·elb 12·rws 12·bems 11·tms 10·scm 9·eip 8·pop 7·core 3)
 **그 뒤 새 솔루션**: POP(7표)부터
 

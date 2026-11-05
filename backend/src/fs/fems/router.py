@@ -13,9 +13,11 @@ from fs.fems import service
 from fs.fems.schema import (
     AlarmEvaluate,
     AlarmRuleCreate,
+    BillCreate,
     ChannelCreate,
     ChannelUpdate,
     CorrectionCreate,
+    CostRunCreate,
     EnergySourceCreate,
     EnergySourceUpdate,
     EquipmentCreate,
@@ -198,7 +200,8 @@ def patch_equipment(
 ) -> dict[str, object]:
     key = _mutation(context, x_csrf_token, idempotency_key)
     values = payload.model_dump(exclude_unset=True)
-    if any(value is None for value in values.values()):
+    # 부서 코드만 비울 수 있다(배정을 푸는 것). 나머지는 필수라 null이면 안 된다.
+    if any(v is None for k, v in values.items() if k != "department_code"):
         raise ApiError(400, "VALIDATION_FAILED", "null로 비울 수 있는 항목이 없습니다.")
     return {"data": service.update_equipment(context, equipment_id, values, key)}
 
@@ -613,6 +616,70 @@ def post_ghg_confirm(
 ) -> dict[str, object]:
     key = _mutation(context, x_csrf_token, idempotency_key)
     return {"data": service.confirm_ghg(context, ghg_id, key)}
+
+
+@router.get("/lookups/departments")
+def lookup_departments(context: Auth) -> dict[str, object]:
+    return {"data": service.list_departments(context)}
+
+
+@router.get("/cost-runs")
+def list_cost_runs(context: Auth) -> dict[str, object]:
+    return {"data": service.list_cost_runs(context)}
+
+
+@router.get("/cost-runs/{run_id}")
+def get_cost_run(context: Auth, run_id: int) -> dict[str, object]:
+    return {"data": service.get_cost_run(context, run_id)}
+
+
+@router.post("/cost-runs", status_code=201)
+def post_cost_run(
+    payload: CostRunCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_cost_run(context, payload.month, key)}
+
+
+@router.post("/cost-runs/{run_id}/confirm")
+def post_cost_run_confirm(
+    run_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.confirm_cost_run(context, run_id, key)}
+
+
+@router.get("/utility-bills")
+def list_utility_bills(context: Auth) -> dict[str, object]:
+    return {"data": service.list_bills(context)}
+
+
+@router.post("/utility-bills", status_code=201)
+def post_utility_bill(
+    payload: BillCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_bill(context, payload.model_dump(), key)}
+
+
+@router.delete("/utility-bills/{bill_id}")
+def delete_utility_bill(
+    bill_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.delete_bill(context, bill_id, key)}
 
 
 @router.get("/load-pattern")

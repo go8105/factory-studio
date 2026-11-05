@@ -106,3 +106,44 @@ def open_alarms(
         }
         for r in rows
     ]
+
+
+def energy_costs(
+    connection: Connection, scoped: AuthContext, month: str
+) -> list[dict[str, Any]] | None:
+    """**확정한** 월 에너지 비용 배분 `[{equipmentCode, departmentCode, itemCode, sourceCode, quantity, unit, cost}]`.
+
+    ERP 원가 화면이 **참고로** 읽는다(DSN-15 Q4) — ERP의 원가 배부 기준은 생산량 그대로이고 이것으로
+    바꾸지 않는다. 초안·대체된 버전은 주지 않는다. 확정본이 없으면 빈 목록, FEMS가 꺼져 있으면 None.
+    """
+    if not enabled(connection, scoped):
+        return None
+    rows = connection.execute(
+        text(
+            "SELECT q.equipment_code, l.department_code, l.item_code, s.source_code,"
+            " l.quantity, l.unit, l.cost "
+            "FROM fems.cost_run r "
+            "JOIN fems.cost_allocation_line l ON l.workspace_id=r.workspace_id "
+            " AND l.generation_id=r.generation_id AND l.cost_run_id=r.id "
+            "JOIN fems.equipment q ON q.workspace_id=l.workspace_id "
+            " AND q.generation_id=l.generation_id AND q.id=l.equipment_id "
+            "JOIN fems.energy_source s ON s.workspace_id=l.workspace_id "
+            " AND s.generation_id=l.generation_id AND s.id=l.energy_source_id "
+            "WHERE r.workspace_id=:w AND r.generation_id=:g "
+            " AND r.cost_month=:month AND r.status='confirmed' "
+            "ORDER BY q.equipment_code, s.source_code"
+        ),
+        {"w": scoped.workspace_id, "g": scoped.generation_id, "month": month},
+    ).mappings()
+    return [
+        {
+            "equipmentCode": r["equipment_code"],
+            "departmentCode": r["department_code"],
+            "itemCode": r["item_code"],
+            "sourceCode": r["source_code"],
+            "quantity": str(r["quantity"]),
+            "unit": r["unit"],
+            "cost": str(r["cost"]),
+        }
+        for r in rows
+    ]
