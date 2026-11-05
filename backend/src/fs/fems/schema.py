@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-SourceKind = Literal["ELECTRIC", "FUEL", "HEAT", "UTILITY"]
+SourceKind = Literal["ELECTRIC", "FUEL", "HEAT", "UTILITY", "GENERATION"]
 MeasureUnit = Literal["kWh", "Nm3", "m3", "ton"]
 
 
@@ -41,6 +41,7 @@ class EquipmentCreate(ApiModel):
     name: str = Field(min_length=1, max_length=100)
     equipment_type: str = Field(alias="equipmentType", min_length=1, max_length=40)
     location_id: int = Field(alias="locationId", gt=0)
+    department_code: str | None = Field(None, alias="departmentCode", max_length=30)
     is_active: bool = Field(True, alias="isActive")
 
 
@@ -53,6 +54,7 @@ class EquipmentUpdate(ApiModel):
         None, alias="equipmentType", min_length=1, max_length=40
     )
     location_id: int | None = Field(None, alias="locationId", gt=0)
+    department_code: str | None = Field(None, alias="departmentCode", max_length=30)
     is_active: bool | None = Field(None, alias="isActive")
 
 
@@ -195,6 +197,25 @@ class GhgCreate(ApiModel):
     year: str = Field(pattern=r"^[0-9]{4}$")
 
 
+# ---- F-22·F-23 비용 (DSN-15 F43·F42) ----
+
+
+class CostRunCreate(ApiModel):
+    month: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+
+
+class BillCreate(ApiModel):
+    energy_source_id: int = Field(alias="energySourceId", gt=0)
+    bill_month: str = Field(alias="billMonth", pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    billed_qty: Decimal = Field(
+        alias="billedQty", ge=0, max_digits=20, decimal_places=6
+    )
+    billed_amount: Decimal = Field(
+        alias="billedAmount", ge=0, max_digits=18, decimal_places=2
+    )
+    note: str | None = Field(None, max_length=300)
+
+
 # ---- F-13 환산·배출계수 (FS-018k) ----
 FACTOR = r"^\d{1,12}(\.\d{1,6})?$"  # numeric(18,6). 0은 서비스에서 거부(> 0)
 YEAR = r"^[0-9]{4}$"
@@ -220,7 +241,7 @@ class FactorUpdate(ApiModel):
 # ---- F-12 계측기·채널 (FS-018l) ----
 METER_CODE = r"^[A-Z][A-Z0-9_\-]{1,39}$"
 CHANNEL_CODE = r"^[A-Z][A-Z0-9_\-]{1,19}$"
-ScopeKind = Literal["factory", "site_total"]
+ScopeKind = Literal["factory", "site_total", "generation"]
 MeasurementKind = Literal["CUMULATIVE", "INSTANT"]
 
 
