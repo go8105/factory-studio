@@ -147,6 +147,31 @@ def test_correction_keeps_the_original_and_supersedes_it(fems):
     assert rows[1][0] == Decimal("77.5") and rows[1][1] == "estimated"
 
 
+def test_dashboard_counts_a_corrected_slot_once(fems):
+    """보정하면 원본(invalid)과 보정본(estimated)이 같은 구간에 둘 남는다 — 이상 건수는 하나만 센다."""
+    client, created, engine = fems
+    channel_id, _, last = _a_channel(engine, created)
+    month = last.astimezone(KST).strftime("%Y-%m")
+    before = _ok(client.get(f"{F}/dashboard?month={month}"))["quality"]["issues"]
+    _ok(
+        client.post(
+            f"{F}/reading-corrections",
+            json={
+                "channelId": channel_id,
+                "periodStart": last.astimezone(KST).isoformat(),
+                "correctedValue": "77.5",
+                "method": "PREVIOUS",
+                "reason": "통신 끊김",
+            },
+            headers=_headers(created),
+        ),
+        201,
+    )
+    after = _ok(client.get(f"{F}/dashboard?month={month}"))["quality"]["issues"]
+    # 이 구간이 valid였다면 +1(보정본), 이미 이상이었다면 +0. 원본까지 세면 +2가 된다.
+    assert after - before <= 1
+
+
 def test_correction_fills_a_missing_slot(fems):
     """결측은 원래 값이 없다. original은 0이 아니라 null이다."""
     client, created, engine = fems

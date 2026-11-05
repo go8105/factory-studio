@@ -1,5 +1,7 @@
 # 2026-11-05 FEMS-1g 완료 — SPC·CMMS·QMS·FEMS 보강 끝 (다음: BEMS)
 
+> **FEMS 브라우저 확인 완료(브랜치 `fems-browser-fix` → main).** 결함 2건 수정(F-17 단위 혼합·대시보드 품질 이상 이중 집계). 자세한 것은 `docs/progress.md` 맨 위. 다음은 BEMS(1a DB부터).
+
 - **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1g` (병합 뒤 `main`)
 - **마지막 커밋**: `git log --oneline -3` 참조. 원격 `origin/main`과 동기.
 - **담당**: Claude Code가 설계·개발·검증·병합을 모두 한다(D85). Codex는 GW 범위만.
