@@ -1,6 +1,6 @@
-# 2026-11-03 FEMS-1e 완료 — SPC·CMMS·QMS 보강 끝, FEMS 진행 중 (다음: FEMS-1f)
+# 2026-11-05 FEMS-1f 완료 — SPC·CMMS·QMS 보강 끝, FEMS 진행 중 (다음: FEMS-1g)
 
-- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1e` (병합 뒤 `main`)
+- **작업 폴더 / 브랜치**: `/Users/hwang-kyoungho/projects/factory-studio` / `fems-1f` (병합 뒤 `main`)
 - **마지막 커밋**: `git log --oneline -3` 참조. 원격 `origin/main`과 동기.
 - **담당**: Claude Code가 설계·개발·검증·병합을 모두 한다(D85). Codex는 GW 범위만.
 
@@ -37,7 +37,7 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 
 **PPM은 불량을 '개수'로 센 칸이 있어야 낸다.** 수입(`defect_count`/`sample_qty`)과 공정(MES `defectQty`/`inputQty`)만 가능하고 출하·고객은 못 낸다. 설계 3장이 4종 모두 PPM을 적었지만 **0으로 채우지 않고 `—`로 두고 화면이 왜 비는지 밝힌다.** FEMS·BEMS에서도 같은 판단이 필요할 것이다.
 
-## FEMS — 1a~1e 완료, 1f부터
+## FEMS — 1a~1f 완료, 1g부터
 
 설계는 **DSN-15**에 있고 Q1~Q7이 2026-10-05에 이미 확정돼 있다. 범위 13 → 25표·14 → **23화면**(신규 9·기존 보강 8)으로 QMS보다 크다.
 
@@ -50,12 +50,20 @@ QMS 단계별: **1a** DB 15표 / **1b** WMS·MES 교차 조회 함수 5개 / **1
 | ~~1c~~ | ~~TOU 요금·피크, F-16 신설(FEMS 15화면)~~ | 완료 |
 | ~~1d~~ | ~~F-15 계측 품질 신설(FEMS 16화면)·CSV·MES 가져오기~~ | 완료 |
 | ~~1e~~ | ~~F-17 설비 비교·F-18 경보(FEMS 18화면)~~ | 완료 |
-| **1f** | 에너지 경영 — F-19 절감·F-20 월간 검토(인쇄)·F-21 온실가스(인쇄) | **Opus** |
-| 1g | 비용 — **F-22 배분**·**F-23 고지서 대조**·F-10 부서·F-11 발전 | Opus |
+| ~~1f~~ | ~~F-19 절감·F-20 월간 검토·F-21 온실가스(FEMS 21화면)~~ | 완료 |
+| **1g** | 비용 — F-22 비용 배분·F-23 고지서 대조·F-10 설비 부서·F-11 발전 | **Opus** |
 
 **설계서 §6의 `ERP departments()`는 오류다**(1b에서 확인). 부서 표는 `hr.department` 하나뿐이고 **HR이 이미 `departments()`를 제공한다**. ERP에는 부서 표가 없다.
 
 **`hour`·`month`는 Postgres 예약어다.** 별칭에 따옴표가 없으면 구문 오류가 난다. Q-13과 F-16에서 두 번 밟았다.
+
+**초안은 지운다.** `energy_review`·`ghg_inventory`의 CHECK `(status='draft') = (confirmed_at IS NULL)` 때문에 확정한 적 없는 행은 `superseded`가 될 수 없다. 1g의 `cost_run`(비용 배분 실행)도 같은 틀(draft/confirmed/superseded, 확정 1건)이면 **`repo.drop_drafts()`·`confirm_snapshot()`·`_confirm_period()`를 그대로 쓴다** — 1f에서 일반 이름으로 만들어 뒀다.
+
+**부분 합계를 확정본에 남기지 않는다.** 계수·요금제가 빠진 에너지원이 있으면 만들지 않는다(`_gaps()`·`_incomplete()`). 비용 배분도 같은 원칙이다.
+
+**시간대를 조심할 것.** 생산 기록·계측은 **사업장 시간대(KST)** 기준이다. 세션 시간대(UTC)로 기간을 자르면 9시간 어긋난다 — 1f에서 `production_by_equipment`가 그랬다. 기간 질의는 `s.timezone`을 쓴다(`READING_PERIOD`처럼).
+
+**`_charges()`로 비용을 센다.** 요금 화면·대시보드·월간 검토가 같은 계산을 쓴다. 비용이 필요하면 `_billing`을 직접 부르지 말고 이것을 쓴다 — 1c에서 대시보드가 `_billing`을 직접 불러 TOU 사용 요금을 빠뜨렸다.
 
 **`open_alarms()`는 1e에서 만들었고 소비자가 아직 없다** — BEMS 보강(피크 감축)이 읽는다.
 
