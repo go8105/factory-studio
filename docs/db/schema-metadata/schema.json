@@ -2,7 +2,7 @@
   "version": "0.34.0",
   "task": "GW-READY-02-INTEGRATION",
   "date": "2026-11-05",
-  "status": "통합 검증 중; 운영 미적용",
+  "status": "통합 명세; 격리 시험 적용·운영 미적용",
   "migration_revision": "gw_main_ready02_merge",
   "tables": [
     {
@@ -55363,7 +55363,7 @@
       "task": "GW-READY-02 79차",
       "date": "2026-11-05",
       "change": "main 783a2c1과 GW 보안·운영 이력 보존 통합 및 이름 정규화",
-      "status": "격리 승격 검증 중; 운영 미적용"
+      "status": "격리 시험 적용; 실환경·운영 미적용"
     }
   ]
 }

@@ -106,17 +106,23 @@ def test_seed(ten_people, monkeypatch):
     else:
         body = """
 from fs.hr.work_setup import create_example_company
+from fs.main import create_app
+from fastapi.testclient import TestClient
+from uuid import uuid4
 def test_seed():
     command.upgrade(Config("backend/alembic.ini"),"head")
     engine = create_engine(os.environ["DATABASE_URL"])
+    password = "Synthetic-" + uuid4().hex
     with engine.begin() as c:
         create_template(c,date(2026,10,18))
-        create_example_company(c,"Synthetic-upgrade-owner","Synthetic-upgrade-password")
-        c.exec_driver_sql("INSERT INTO core.auth_session(user_id,token_hash,csrf_token_hash,expires_at) SELECT id,'synthetic-upgrade-session','synthetic-upgrade-csrf',clock_timestamp()+interval '1 hour' FROM core.app_user ORDER BY id LIMIT 1")
+        create_example_company(c,password,"Synthetic-"+uuid4().hex)
         c.exec_driver_sql("INSERT INTO cmms.asset(workspace_id,generation_id,code,name,asset_type,source) SELECT workspace_id,id,'UPGRADE-WITNESS','Synthetic asset','OTHER','CMMS' FROM core.data_generation ORDER BY id LIMIT 1")
         c.exec_driver_sql("INSERT INTO qms.gauge(workspace_id,generation_id,code,name,gauge_kind,calibration_cycle_days) SELECT workspace_id,id,'UPGRADE-WITNESS','Synthetic gauge','Synthetic',30 FROM core.data_generation ORDER BY id LIMIT 1")
         assert c.scalar(text("SELECT count(*) FROM cmms.asset")) > 0
         assert c.scalar(text("SELECT count(*) FROM qms.gauge")) > 0
+    with TestClient(create_app()) as client:
+        response = client.post("/api/v1/core/sessions",json={"loginId":"hugh-admin","password":password},headers={"Idempotency-Key":str(uuid4())})
+        assert response.status_code == 201
     engine.dispose()
 """
     child.write_text(common + body)
@@ -210,7 +216,8 @@ def test_names_inverse_preserves_oids_and_data(isolated_database):
 
 
 @pytest.mark.parametrize(
-    "fault", ["missing", "occupied", "definition", "interrupted", "permission"]
+    "fault",
+    ["missing", "occupied", "definition", "interrupted", "permission", "index-options"],
 )
 def test_name_normalization_failure_is_atomic(isolated_database, fault):
     engine = isolated_database
@@ -219,9 +226,15 @@ def test_name_normalization_failure_is_atomic(isolated_database, fault):
     command.upgrade(cfg, "fems1")
     module = migration()
     item = next(x for x in module.RENAMES if x["kind"] == "CHECK")
+    if fault == "index-options":
+        item = next(x for x in module.RENAMES if x["kind"] == "INDEX")
     table, old = item["table"], item["from"]
     with engine.begin() as c:
-        if fault == "missing":
+        if fault == "index-options":
+            c.exec_driver_sql(f'DROP INDEX "{table.split(".")[0]}"."{old}"')
+            fields = ",".join('"' + n + '" DESC' for n in item["definition"]["columns"])
+            c.exec_driver_sql(f'CREATE INDEX "{old}" ON {table} ({fields})')
+        elif fault == "missing":
             c.exec_driver_sql(
                 f'ALTER TABLE {table} RENAME CONSTRAINT "{old}" TO synthetic_missing'
             )
@@ -255,13 +268,21 @@ def test_name_normalization_failure_is_atomic(isolated_database, fault):
         event.listen(Engine, "before_cursor_execute", interrupt)
     try:
         if fault == "permission":
-            with pytest.raises(DBAPIError), engine.begin() as c:
+            with pytest.raises(DBAPIError) as denied, engine.begin() as c:
                 c.exec_driver_sql("SET LOCAL ROLE pg_read_all_data")
                 module.op = Operations(MigrationContext.configure(c))
                 module.upgrade()
+            assert denied.value.orig.sqlstate == "42501"
         else:
-            with pytest.raises(RuntimeError):
+            expected = (
+                "synthetic interruption"
+                if fault == "interrupted"
+                else "GW_INTEGRATION_OBJECT_MISMATCH"
+            )
+            with pytest.raises(RuntimeError, match=expected):
                 command.upgrade(cfg, "head")
+            if fault == "interrupted":
+                assert interrupt.count == 2
     finally:
         if fault == "interrupted":
             event.remove(Engine, "before_cursor_execute", interrupt)

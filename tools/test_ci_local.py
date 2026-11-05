@@ -48,6 +48,30 @@ class CiLocalScriptTest(unittest.TestCase):
         self.assertIn("5단계: 프런트엔드 검증", result.stdout)
         self.assertIn("로컬 CI 전체 통과 완료", result.stdout)
 
+    def test_owned_mode_refuses_unowned_targets_before_ci(self):
+        # Rejections happen before any Docker/DB operation or CI test recursion.
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as directory:
+            identity = Path(directory) / "container-id"
+            identity.write_text("b" * 64)
+            for target in (
+                "postgresql+psycopg://127.0.0.1/gw_preview_test",
+                "postgresql+psycopg://remote.invalid/gw_integration_" + "a" * 32 + "_test",
+                "postgresql+psycopg://127.0.0.1/gw_integration_" + "a" * 32 + "_test",
+            ):
+                with self.subTest(target=target):
+                    result = subprocess.run(
+                        ["bash",str(CI_LOCAL),"--owned-url"], cwd=ROOT,
+                        capture_output=True,text=True,
+                        env={**subprocess.os.environ,
+                             "FS_CI_OWNED_DATABASE_URL":target,
+                             "FS_CI_CONTAINER":"a" * 64,
+                             "FS_CI_EXPECTED_ID_FILE":str(identity)},
+                    )
+                    self.assertNotEqual(result.returncode,0)
+                    self.assertNotIn("1단계:",result.stdout)
+                    self.assertNotIn(target,result.stdout+result.stderr)
+
     def test_rejects_non_test_db(self):
         env = {"TEST_DB": "factory_studio_production"}
         result = subprocess.run(

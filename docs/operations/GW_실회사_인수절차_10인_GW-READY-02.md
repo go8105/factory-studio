@@ -1260,3 +1260,9 @@ ready=false/최종4조건 UNVERIFIED·실제 복원 PARTIAL/ACCEPTANCE PASS 거�
 - 새 도구는읽기Git/설계계산이며제품수집기/복원기아니다. 후보JSON은work의review_only/migration_revision=null 초안이고정식metadata아니다. 공개출력은 outputs/gw-readiness-02-phase78/의계획/거부검사, 상세 docs/agent/GW_통합설계_승격검증_GW-READY-02_78.md. DB접속·실DDL/rename·canonical검증기·Excel/ERD재생성·브라우저/제품단위·통합/전체CI는이번미실행이다.
 - 제품/적용migration·정식schema/Excel/ERD·실계정/권한/MFA/비밀번호·미리보기DB/브라우저설정·다른checkout/병행WMS/main·push/배포변경없음. ready=false/최종4UNVERIFIED·실제복원PARTIAL/ACCEPTANCE PASS거부유지. 78차는설계완료한정이며승격/실회사10인인수완료가아니다.
 - 다음79차: GW브랜치안의통합구현·신규이름정규화revision/정식metadata·Excel·ERD동기화와U0/UG/UM합성승격검증. 공유main/다른checkout·운영DB/push/배포제외. 외부공급자·독립최신성/전체회수·구형skip/통합후전체회귀·실10인/최종전환은남는다. GPT-6 Astra + High추천, 모델자동변경/다음ID자동착수없음.
+
+## 79차 통합 승격과 실제 인수의 경계
+
+GW 브랜치 통합 검증은 기존 GW/main 기준의 합성 DB를 새 통합 head로 올려 원래 열·행과 객체를 보존하는 검사다. 실제 회사 데이터·미리보기 DB를 승격한 결과가 아니다. 계정·회사 연결·MFA/복구·운영 증거를 초기화하거나 기존 세션을 MFA로 올려 처리하지 않는다. 제품/DB 버전이 바뀐 이전 증거는 이력으로 보존하고 현재 인수 PASS의 근거로 재분류하지 않는다.
+
+운영 반영 담당자는 승인된 적용 전후에 현재 회사·역할·10명 연결, 원본/정책/현재 버전, 최신 실패·PARTIAL·회수/보류 상태를 다시 확인한다. 합성 승격·빈 DB 왕복·회귀 성공만으로 외부 독립성·모든 권한 회수·실회사 10인 인수를 완료로 표시하지 않는다. ready=false/최종4조건 UNVERIFIED·실제 복원 PARTIAL·ACCEPTANCE PASS 거부는 실제 근거 전까지 유지한다. 이번 단계는 운영 반영·main 통합·push/배포를 승인하거나 실행하지 않는다.

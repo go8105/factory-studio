@@ -1239,6 +1239,11 @@ def inspect_object(connection, item, name, temps):
             connection.execute(
                 text("""SELECT i.indexrelid AS oid,i.indrelid,i.indkey::smallint[] AS keys,
             i.indisvalid,i.indisready,i.indislive,i.indisunique,i.indnatts,i.indnkeyatts,
+            i.indnullsnotdistinct,
+            NOT EXISTS(SELECT 1 FROM unnest(i.indclass::oid[],i.indcollation::oid[],i.indkey::smallint[],i.indoption::smallint[]) k(opclass_oid,collation_oid,attnum,options)
+              JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.attnum
+              JOIN pg_opclass p ON p.oid=k.opclass_oid
+              WHERE NOT p.opcdefault OR k.collation_oid<>a.attcollation OR k.options<>0) AS default_options,
             pg_get_expr(i.indpred,i.indrelid) AS predicate,am.amname
             FROM pg_index i JOIN pg_class x ON x.oid=i.indexrelid
             JOIN pg_am am ON am.oid=x.relam
@@ -1260,6 +1265,8 @@ def inspect_object(connection, item, name, temps):
             and row["indisready"]
             and row["indislive"]
             and row["amname"] == "btree"
+            and row["default_options"]
+            and not row["indnullsnotdistinct"]
             and row["indisunique"] == (kind != "INDEX")
             and row["indnatts"] == row["indnkeyatts"] == len(expected["columns"])
             and columns(connection, row["indrelid"], row["keys"]) == expected["columns"]
@@ -1273,8 +1280,10 @@ def inspect_object(connection, item, name, temps):
         c.convalidated,c.condeferrable,c.condeferred,c.connoinherit,c.confdeltype,c.confupdtype,c.confmatchtype,
         c.conindid,pg_get_expr(c.conbin,c.conrelid) AS expression,
         x.relname AS index_name,i.indisvalid,i.indisready,i.indisunique,i.indnullsnotdistinct,
-        c.confrelid::regclass::text AS target
-        FROM pg_constraint c LEFT JOIN pg_class x ON x.oid=c.conindid
+        tn.nspname || '.' || tc.relname AS target
+        FROM pg_constraint c LEFT JOIN pg_class tc ON tc.oid=c.confrelid
+        LEFT JOIN pg_namespace tn ON tn.oid=tc.relnamespace
+        LEFT JOIN pg_class x ON x.oid=c.conindid
         LEFT JOIN pg_index i ON i.indexrelid=c.conindid
         WHERE c.conrelid=to_regclass(:table) AND c.conname=:name"""),
             {"table": table, "name": name},

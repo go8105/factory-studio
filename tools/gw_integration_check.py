@@ -186,7 +186,17 @@ def main() -> int:
             )
         if args.ci:
             report["kind"] = "OWNED_LOCAL_CI"
-            return stage("local-ci", ["bash", "tools/ci_local.sh", "--owned-url"])
+            code = stage("local-ci", ["bash", "tools/ci_local.sh", "--owned-url"])
+            with admin.connect() as connection:
+                after = set(connection.scalars(text("SELECT datname FROM pg_database")))
+            report["unexpectedNewDatabaseCount"] = len(after - before - {database})
+            if report["unexpectedNewDatabaseCount"]:
+                print(
+                    "Unexpected new databases remain; do not delete unowned resources",
+                    flush=True,
+                )
+                return 1
+            return code
         tests = args.test_node or sorted(
             str(p.relative_to(ROOT))
             for p in (ROOT / "backend/tests").glob("test_gw*.py")

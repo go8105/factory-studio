@@ -1,10 +1,18 @@
+## 79차 WIP2 — 전체 CI 진행·최종 단독 검증 대기 (2026-11-05)
+
+- merge/WIP5d3df3f 이후 전체CI가 실행 중이며 약50%를 진행했다. 완료 결과가 아니다. 원문 로그는 work에만 둔다. 현재명세 상태 문구는 격리 시험 적용·운영 미적용으로 동기화했고 Excel/ERD를 다시 생성/확인했다.
+- 최종 보강9건 pytest는 모두 통과했지만 동시 CI 생성DB를 새 자원으로 감지해 실행기 전체 종료1이다. 외부 자원을 삭제하거나 안전검사를 무시하지 않았다. CI 종료 후 단독9건 실행에서 자원 정리까지 다시 확인해야 한다. 이후 UM의 실제 pin 로그인 API 세션, 권한오류42501/두번째rename 중단 검사도 보강했으므로 이 최종 소스로 다시 실행한다.
+- 새 연결revision은 인덱스 정렬/collation/opclass·NULL 옵션과 search_path 독립 FK 대조를 추가했다. 예약어alias 오류는 실제 U0에서 확인/수정했다. 기존공유migration은 고정main바이트와 동일하다. GW전용파일70개 비import AST 보존 확인. 신뢰/인수 PASS 조건은 완화하지 않았다.
+- CI 접속가드 부정3경로를 추가해 도구전체139pass. CI 시작때의도구138건/백엔드8개 승격case 수집과 이후보강결과를 구분한다. 최종9건단독과전체CI결과확정·생성자원확인·최종인계/커밋이 남는다. 미리보기PID는읽기재확인API47906/Vite47907이며DB/계정변경없다.
+- [상세보고](GW_통합적용_승격검증_GW-READY-02_79.md), [공개근거](../../outputs/gw-readiness-02-phase79/README.md). progress에서상대경로는docs/agent하위보고를참조한다. 공유main/다른checkout·push/배포없음,실회사인수미완료.
+
 ## 79차 WIP — GW 브랜치 통합 적용·승격 검증 중 (2026-11-05)
 
 - GW 저장소/브랜치 안에서 고정 main783a2c1을 통합 중이다. 공유 main checkout·다른 WMS checkout·원격 push·배포는 변경하지 않는다. 시작 d6a02c7. 최종 완료 기록 전까지 이번 작업을 완료로 보지 않는다.
 - 새 gw_main_ready02_merge(parents gw_readiness/fems1)는 92개 이름을 정의/점유 선검사 후 변경하며 OID를 보존한다. metadata 현재0.34.0/251표·2833열·617FK, 목표390표·4464열·950FK로 동기화. Excel51/83시트·native링크716/1113·셀오류0·GW렌더, ERD양쪽 재생성 확인.
 - 실행한 U0는 migration/실DDL/스키마6pass. 고정 GW/main 코드에서 각각 합성 데이터를 만든 UG/UM·이름 역/순·실패롤백 집중7pass. 이후 권한부족/보존 검사를 보강해 전체 CI에서 다시 검증 중이다. 프런트 전체822pass, type/lint/format/build 확인. 초기 main 증인은 빈 CMMS/QMS 시드를 잘못 기대해 실패했고 합성 행을 명시 추가한 뒤 통과했다.
 - 소유 실행기에 명시URL CI 경로/별도 빈DB 왕복을 연결하고, 구형10인복원은 기존 전체ID/owner/loopback 검증을 재사용한다. CI 초기 도구검사4failure/1error는 .env 의존 dry-run·옛 GW표개수/목표재생성 계약 때문. 보정 뒤 도구138pass, backend Ruff/포맷 확인. 전체CI는 아직 실행 중이며 통과로 기록하지 않는다.
-- 전체 Ruff의 기존 I001 76건은 import 순서만 정리했다. 공개된 기존 migration은 새로 수정하지 않았다(main의 공유 WMS 파일을 그대로 수용). main 인계/진행 원문은 main_인계_783a2c1_통합참조.md와 ../plan/main_진행이력_783a2c1_통합참조.md로 보존했다.
+- 전체 Ruff의 기존 I001 76건은 import 순서만 정리했다. 공개된 기존 migration은 새로 수정하지 않았다(main의 공유 WMS 파일을 그대로 수용). main 인계/진행 원문은 main_인계_783a2c1_통합참조.md와 ../main_진행이력_783a2c1_통합참조.md로 보존했다.
 - ready=false/최종4UNVERIFIED·실제복원PARTIAL·ACCEPTANCE PASS거부 유지. 실회사10인/실 API브라우저·실외부공급자/전체회수·운영전환은 미검증이다. 남은 일: 전체CI/8개승격보강 결과 확인·자원정리·최종문서/커밋. 이 기록의 커밋은 WIP이며 실제 main 통합/배포 승인이 아니다.
 
 ## 78차 — 두 head 연결·metadata 충돌 해소·승격 검증 설계 (2026-11-05)
