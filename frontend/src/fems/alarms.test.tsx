@@ -44,6 +44,7 @@ const comparison = {
   groups: [
     {
       equipmentType: "사출기",
+      energyUnit: "kWh",
       ranked: [
         {
           equipmentId: 1,
@@ -159,7 +160,7 @@ it("피크 규칙의 임계값이 비율임을 알린다", async () => {
 it("설비 비교는 종류 안에서만 줄 세운다", async () => {
   mount("/fems/equipment-comparison");
   const table = await screen.findByRole("table", {
-    name: "사출기 원단위 순위",
+    name: "사출기 kWh 원단위 순위",
   });
   const rows = table.querySelectorAll("tbody tr");
   expect(rows).toHaveLength(2);
