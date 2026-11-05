@@ -1,3 +1,10 @@
+## 2026-11-06 79차 WIP2 — 통합 소스 backend 약70% 진행
+
+- 로컬main병합0ac0727/기록ce06e84 완료 상태는 유지한다. GW브랜치에서 소스변경 없이 work/gw-readiness-02-main-20261106/ci/의 단일 전체CI를 계속 실행 중이다. 현재 backend 약70%이며 전체 backend/성능/빈DB왕복/frontend·source 지문/자원 정리는 아직 최종 결과가 아니다.
+- 코드·테스트·metadata는ce06e84 이후변경0, 앞선WIPb7128a1과이번커밋은문서만이다. 별도CI/DB검사를병행시작하지말고현재프로세스/로그/JUnit을확인한다. 30분WIP주기와 work/.env스테이징제외를지킨다.
+- 이번통합사전검사 프런트847/도구144·type/build/Ruff/정적DB·격리통과, 시각20/400표본최대약68/69ms·역전0은이미기록했다. 짧은표본은연속안정성증명이아니며전체CI완료로대체하지않는다. 시각/Docker설정/실DB/실계정변경·원격push/배포없음.
+- 남은일: 현재CI완료→stage/JUnit/skip사유/source동일성/소유자원정리확인→현황/progress/HANDOFF·병합검증보고최종화/커밋. ready=false/최종4UNVERIFIED·실제복원PARTIAL·ACCEPTANCE PASS거부유지, 실회사인수/실API브라우저미완료. 다른ID자동시작없음.
+
 ## 2026-11-06 79차 WIP — main 병합 완료·통합 소스 전체 CI 실행 중
 
 - 사용자 승인한 로컬main병합은완료했다. merge0ac0727/기록ce06e84가로컬main과GW에반영됐고, 이후코드·테스트·metadata변경0이다. main1815db2의FEMS9커밋과GWb71ad85를모두보존했다. 다른checkout/WMS개발·원격push/배포·실DB/계정변경없음.
