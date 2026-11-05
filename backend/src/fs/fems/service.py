@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import calendar
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
@@ -1697,6 +1698,35 @@ def _billing(
     return result, str(total), all(s["status"] == "CALCULATED" for s in billed)
 
 
+def _charges(
+    connection: Connection,
+    scoped: AuthContext,
+    rows: list[dict[str, Any]],
+    month_from: str,
+    month_to: str,
+    first: date,
+    last: date,
+) -> tuple[list[dict[str, Any]], str, bool]:
+    """요금 산정 한 번. 요금 화면·대시보드·월간 검토가 **같은 계산**을 쓴다.
+
+    TOU 요금제가 걸린 달이 있을 때만 시각별 계측을 읽는다 — 12개월치는 가볍지 않다.
+    대시보드가 이것을 거치지 않고 `_billing(rows, tariffs)`를 부르던 때는 TOU 달의 사용
+    요금이 빠지고 기본요금만 나왔다.
+    """
+    tariffs = repo.billing_tariffs(connection, scoped)
+    tou_ids = [
+        t["id"]
+        for t in tariffs
+        if t["tariff_kind"] == "TOU"
+        and t["effective_from"] <= month_to
+        and (t["effective_to"] is None or t["effective_to"] >= month_from)
+    ]
+    bands = repo.tariff_bands(connection, scoped, tou_ids)
+    hourly = repo.hourly_consumption(connection, scoped, first, last) if tou_ids else []
+    holiday_days = repo.holidays(connection, scoped, first, last) if tou_ids else set()
+    return _billing(rows, tariffs, bands, hourly, holiday_days)
+
+
 MAX_BILLING_MONTHS = 12
 
 
@@ -1749,23 +1779,9 @@ def billing(
         _, first, _ = _month_period(connection, scoped, month_from)
         _, _, last = _month_period(connection, scoped, month_to)
         rows = repo.monthly_consumption(connection, scoped, first, last)
-        tariffs = repo.billing_tariffs(connection, scoped)
-        # TOU 요금제가 걸린 달이 있을 때만 시각별 계측을 읽는다 — 12개월치는 가볍지 않다.
-        tou_ids = [
-            t["id"]
-            for t in tariffs
-            if t["tariff_kind"] == "TOU"
-            and t["effective_from"] <= month_to
-            and (t["effective_to"] is None or t["effective_to"] >= month_from)
-        ]
-        bands = repo.tariff_bands(connection, scoped, tou_ids)
-        hourly = (
-            repo.hourly_consumption(connection, scoped, first, last) if tou_ids else []
+        sources, total, complete = _charges(
+            connection, scoped, rows, month_from, month_to, first, last
         )
-        holiday_days = (
-            repo.holidays(connection, scoped, first, last) if tou_ids else set()
-        )
-    sources, total, complete = _billing(rows, tariffs, bands, hourly, holiday_days)
     return {
         "period": {
             "from": month_from,
@@ -1812,7 +1828,7 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
         daily_rows = repo.daily_consumption(connection, scoped, first, last)
         target = repo.site_toe_target(connection, scoped, month)
         monthly = repo.monthly_consumption(connection, scoped, first, last)
-        tariffs = repo.billing_tariffs(connection, scoped)
+        charges = _charges(connection, scoped, monthly, month, month, first, last)
         summary = repo.allocation_summary(connection, scoped, {}, first, last)
         issues, recent = repo.quality_issues(connection, scoped, first, last)
         # F-01 보강: 진행 중인 경보와 그 달 피크. 저장하지 않고 센다.
@@ -1822,7 +1838,7 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
     _, emission_total, emission_complete = _converted(
         rows, emission, "EMISSION", "emission"
     )
-    billed, charge_total, charge_complete = _billing(monthly, tariffs)
+    billed, charge_total, charge_complete = charges
     # 대시보드는 한 달이라 구간이 하나다. 부과 대상만 요약한다.
     charges = [
         {
@@ -3265,3 +3281,516 @@ def equipment_comparison(context: AuthContext, month: str | None) -> dict[str, A
             }
         )
     return {"month": month, "groups": groups}
+
+
+# ---------- 절감 활동 (F-19, DSN-15 F32·Q5) ----------
+
+DAYS_PER_YEAR = Decimal(365)
+
+
+def _saving_error(field: str, message: str) -> ApiError:
+    return ApiError(
+        400,
+        "VALIDATION_FAILED",
+        "입력값을 확인해 주세요.",
+        {"fields": {field: message}},
+    )
+
+
+def list_savings(context: AuthContext) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return repo.list_savings(connection, scoped)
+
+
+def create_saving(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """절감 과제를 계획 상태로 만든다. 비교 전 기간은 시행일 앞에서 끝나야 한다."""
+
+    def run(connection: Connection, scoped: AuthContext):
+        if values["baseline_end_on"] <= values["baseline_start_on"]:
+            raise _saving_error("baselineEndOn", "비교 전 끝은 시작보다 뒤여야 합니다.")
+        if values["baseline_end_on"] > values["start_on"]:
+            raise _saving_error(
+                "baselineEndOn", "비교 전 기간은 시행일 앞에서 끝나야 합니다."
+            )
+        review_end = values.get("review_end_on")
+        if review_end is not None and review_end <= values["start_on"]:
+            raise _saving_error("reviewEndOn", "검증 끝은 시행일보다 뒤여야 합니다.")
+        if not repo.source_exists(connection, scoped, values["energy_source_id"]):
+            raise _invalid_energy_source()
+        equipment_id = values.get("equipment_id")
+        if (
+            equipment_id is not None
+            and repo.site_timezone_of_equipment(connection, scoped, equipment_id)
+            is None
+        ):
+            raise _saving_error("equipmentId", "유효하지 않은 설비입니다.")
+        if repo.saving_code_taken(connection, scoped, values["code"]):
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "이미 사용 중인 과제 코드입니다.",
+                {"reason": "DUPLICATE_CODE"},
+            )
+        return repo.insert_saving(
+            connection, scoped, {**values, "currency": "KRW", "status": "PLANNED"}
+        )
+
+    body = {k: str(v) for k, v in values.items()}
+    return _run_once(context, "fems.saving.create", key, body, run, 201, "saving")
+
+
+def change_saving_status(
+    context: AuthContext, saving_id: int, action: str, key: str
+) -> dict[str, Any]:
+    """시행 시작(계획 → 시행)과 취소. 검증한 과제는 바꾸지 않는다."""
+    moves = {"start": ("PLANNED", "ACTIVE"), "cancel": (None, "CANCELLED")}
+    source, target = moves[action]
+
+    def run(connection: Connection, scoped: AuthContext):
+        found = repo.get_saving(connection, scoped, saving_id)
+        if found is None:
+            raise ApiError(404, "NOT_FOUND", "절감 과제를 찾을 수 없습니다.")
+        allowed = (source,) if source else ("PLANNED", "ACTIVE")
+        if found["status"] not in allowed:
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "이 과제에서는 할 수 없는 처리입니다.",
+                {"reason": "BAD_STATE", "status": found["status"]},
+            )
+        return repo.update_saving(connection, scoped, saving_id, {"status": target})
+
+    return _run_once(
+        context,
+        f"fems.saving.{action}",
+        key,
+        {"id": saving_id},
+        run,
+        200,
+        "saving",
+    )
+
+
+def _period_energy(
+    connection: Connection,
+    scoped: AuthContext,
+    saving: dict[str, Any],
+    first: date,
+    last: date,
+) -> Decimal:
+    """과제 대상의 기간 사용량. 설비가 있으면 그 설비의 배분량, 없으면 사업장 수전 합계다."""
+    if saving["equipmentId"] is not None:
+        rows = repo.allocation_summary(
+            connection,
+            scoped,
+            {
+                "equipment_id": saving["equipmentId"],
+                "energy_source_id": saving["energySourceId"],
+            },
+            first,
+            last,
+        )
+        return sum((Decimal(r["quantity"]) for r in rows), Decimal(0))
+    rows = repo.emission_consumption(connection, scoped, first, last)
+    return sum(
+        (r["quantity"] for r in rows if r["source_id"] == saving["energySourceId"]),
+        Decimal(0),
+    )
+
+
+def verify_saving(context: AuthContext, saving_id: int, key: str) -> dict[str, Any]:
+    """시행 전·후 같은 길이를 견줘 실제 절감을 잰다(Q5). 검증하면 바꾸지 않는다.
+
+    실제 절감 = (비교 전 원단위 − 비교 후 원단위) × 비교 후 생산량, 연 환산.
+    **설비가 없는 과제는 생산량으로 보정할 수 없어** 사용량 차이를 그대로 쓰고 응답이 그렇다고 밝힌다.
+
+    shortcut: 비교 기간에 빠진 날이 있어도 센 만큼만 합한다, 계측 완결성 검사가 생기면 막는다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        saving = repo.get_saving(connection, scoped, saving_id)
+        if saving is None:
+            raise ApiError(404, "NOT_FOUND", "절감 과제를 찾을 수 없습니다.")
+        if saving["status"] != "ACTIVE":
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "시행 중인 과제만 검증할 수 있습니다.",
+                {"reason": "BAD_STATE", "status": saving["status"]},
+            )
+        b_from = date.fromisoformat(saving["baselineStartOn"])
+        b_to = date.fromisoformat(saving["baselineEndOn"])  # 끝은 포함하지 않는다
+        start = date.fromisoformat(saving["startOn"])
+        length = (b_to - b_from).days
+        a_to = start + timedelta(days=length)
+        latest = repo.latest_reading_date(connection, scoped)
+        if latest is None or a_to - timedelta(days=1) > latest:
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                f"비교 후 기간이 아직 끝나지 않았습니다({a_to - timedelta(days=1)}까지 필요).",
+                {"reason": "PERIOD_NOT_ELAPSED"},
+            )
+        day = timedelta(days=1)
+        e0 = _period_energy(connection, scoped, saving, b_from, b_to - day)
+        e1 = _period_energy(connection, scoped, saving, start, a_to - day)
+        if e0 <= 0 or e1 <= 0:
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "비교 전·후 기간 중 사용량이 없는 쪽이 있습니다.",
+                {"reason": "NO_DATA"},
+            )
+        adjusted = saving["equipmentId"] is not None
+        p0 = p1 = None
+        if adjusted:
+            equipment_id = saving["equipmentId"]
+            before = repo.production_by_equipment(
+                connection, scoped, b_from, b_to - day, prorate=True
+            ).get(equipment_id)
+            after = repo.production_by_equipment(
+                connection, scoped, start, a_to - day, prorate=True
+            ).get(equipment_id)
+            p0 = Decimal(str(before["qty"])) if before else Decimal(0)
+            p1 = Decimal(str(after["qty"])) if after else Decimal(0)
+            if p0 <= 0 or p1 <= 0:
+                raise ApiError(
+                    409,
+                    "PRECONDITION_NOT_MET",
+                    "비교 전·후 기간의 생산량이 없어 원단위를 낼 수 없습니다.",
+                    {"reason": "NO_PRODUCTION"},
+                )
+            period_saving = (e0 / p0 - e1 / p1) * p1
+        else:
+            period_saving = e0 - e1
+        annual = (period_saving * DAYS_PER_YEAR / length).quantize(SIX)
+        done = repo.update_saving(
+            connection,
+            scoped,
+            saving_id,
+            {
+                "status": "VERIFIED",
+                "measured_saving": annual,
+                "verified_at": datetime.now(ZoneInfo("UTC")),
+            },
+        )
+        return {
+            **done,
+            "evidence": {
+                "days": length,
+                "productionAdjusted": adjusted,
+                "baseline": {
+                    "from": b_from.isoformat(),
+                    "to": (b_to - day).isoformat(),
+                    "energy": str(e0.quantize(SIX)),
+                    "production": None if p0 is None else str(p0.quantize(SIX)),
+                },
+                "after": {
+                    "from": start.isoformat(),
+                    "to": (a_to - day).isoformat(),
+                    "energy": str(e1.quantize(SIX)),
+                    "production": None if p1 is None else str(p1.quantize(SIX)),
+                },
+                "periodSaving": str(period_saving.quantize(SIX)),
+            },
+        }
+
+    return _run_once(
+        context, "fems.saving.verify", key, {"id": saving_id}, run, 200, "saving"
+    )
+
+
+# ---------- 월간 에너지 검토 (F-20, DSN-15 F33·Q5) ----------
+
+
+def _gaps(sources: list[dict[str, Any]], fine: tuple[str, ...]) -> list[str]:
+    """계산이 안 된 에너지원. 확정본에 부분 합계를 넣지 않으려고 센다."""
+    return [
+        f"{s['sourceCode']}({s['status']})" for s in sources if s["status"] not in fine
+    ]
+
+
+def _incomplete(what: str, gaps: list[str]) -> ApiError:
+    return ApiError(
+        409,
+        "PRECONDITION_NOT_MET",
+        f"{what}을(를) 낼 수 없는 에너지원이 있어 만들 수 없습니다: {', '.join(gaps)}",
+        {"reason": "INCOMPLETE", "sources": gaps},
+    )
+
+
+def _coverage(
+    connection: Connection, scoped: AuthContext, first: date, last: date, span: int
+) -> dict[str, Any]:
+    found = repo.reading_coverage(connection, scoped, first, last)
+    return {**found, "expectedDays": span, "partial": found["days"] < span}
+
+
+def list_reviews(context: AuthContext) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return repo.list_reviews(connection, scoped)
+
+
+def create_review(
+    context: AuthContext, month: str, issues: str | None, key: str
+) -> dict[str, Any]:
+    """그 달 스냅샷 초안을 만든다. **계산은 지금 하고, 확정은 그 값을 그대로 굳힌다.**
+
+    1차에너지는 PRIMARY 계수, 배출은 EMISSION 계수로 따로 환산한다(AGENTS §3). 계수나
+    요금제가 빠진 에너지원이 있으면 부분 합계를 확정본에 남기지 않으려고 만들지 않는다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        _, first, last = _month_period(connection, scoped, month)
+        month_days = calendar.monthrange(first.year, first.month)[1]
+        coverage = _coverage(connection, scoped, first, last, month_days)
+        if coverage["days"] == 0:
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "이 달에는 계측값이 없어 검토를 만들 수 없습니다.",
+                {"reason": "NO_READINGS"},
+            )
+        rows = repo.emission_consumption(connection, scoped, first, last)
+        toe_sources, toe_total, _ = _converted(
+            rows, repo.factors(connection, scoped, "PRIMARY"), "PRIMARY", "toe"
+        )
+        em_sources, em_total, _ = _converted(
+            rows, repo.factors(connection, scoped, "EMISSION"), "EMISSION", "emission"
+        )
+        for what, found in (("1차에너지", toe_sources), ("배출량", em_sources)):
+            gaps = _gaps(found, ("CALCULATED", "NOT_APPLICABLE"))
+            if gaps:
+                raise _incomplete(what, gaps)
+        monthly = repo.monthly_consumption(connection, scoped, first, last)
+        billed, cost_total, _ = _charges(
+            connection, scoped, monthly, month, month, first, last
+        )
+        gaps = _gaps(billed, ("CALCULATED", "NOT_BILLABLE"))
+        if gaps:
+            raise _incomplete("요금", gaps)
+        target = repo.site_toe_target(connection, scoped, month)
+        achievement = (
+            None
+            if not target
+            else (Decimal(toe_total) / target * 100).quantize(Decimal("0.0001"))
+        )
+        note = (issues or "").strip()[:1800]
+        if coverage["partial"]:
+            # 확정본에 남는 곳은 이 칸뿐이라, 달 전체가 아니라는 사실을 여기에 적는다.
+            note += (
+                f"\n※ 계측 {coverage['days']}일/{month_days}일분 "
+                f"({coverage['from']} ~ {coverage['to']})"
+            )
+        repo.drop_drafts(connection, scoped, "energy_review", "review_month", month)
+        review_id = repo.insert_review(
+            connection,
+            scoped,
+            {
+                "review_month": month,
+                "version": repo.next_version(
+                    connection, scoped, "energy_review", "review_month", month
+                ),
+                "status": "draft",
+                "primary_energy_toe": Decimal(toe_total).quantize(Decimal("0.0001")),
+                "energy_cost": Decimal(cost_total),
+                "currency": "KRW",
+                "emission_tco2e": Decimal(em_total).quantize(Decimal("0.0001")),
+                "target_achievement": achievement,
+                "issues": note.strip() or None,
+            },
+        )
+        return {**repo.get_review(connection, scoped, review_id), "coverage": coverage}
+
+    return _run_once(
+        context,
+        "fems.review.create",
+        key,
+        {"month": month, "issues": issues},
+        run,
+        201,
+        "review",
+    )
+
+
+def _confirm_period(
+    context: AuthContext,
+    key: str,
+    operation: str,
+    table: str,
+    column: str,
+    row_id: int,
+    get: Any,
+) -> dict[str, Any]:
+    """초안을 확정한다. 확정본은 다시 바꾸지 않고, 고치려면 새 초안을 만든다."""
+
+    def run(connection: Connection, scoped: AuthContext):
+        found = get(connection, scoped, row_id)
+        if found is None:
+            raise ApiError(404, "NOT_FOUND", "찾을 수 없습니다.")
+        if found["status"] != "draft":
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "초안만 확정할 수 있습니다.",
+                {"reason": "BAD_STATE", "status": found["status"]},
+            )
+        repo.confirm_snapshot(connection, scoped, table, column, row_id)
+        return get(connection, scoped, row_id)
+
+    return _run_once(context, operation, key, {"id": row_id}, run, 200, table)
+
+
+def confirm_review(context: AuthContext, review_id: int, key: str) -> dict[str, Any]:
+    return _confirm_period(
+        context,
+        key,
+        "fems.review.confirm",
+        "energy_review",
+        "review_month",
+        review_id,
+        repo.get_review,
+    )
+
+
+# ---------- 온실가스 명세서 (F-21, DSN-15 F35·Q6) ----------
+
+GHG_SCOPE = {"FUEL": 1, "ELECTRIC": 2, "HEAT": 2}
+
+
+def list_ghg(context: AuthContext) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return repo.list_ghg(connection, scoped)
+
+
+def get_ghg(context: AuthContext, ghg_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = repo.get_ghg(connection, scoped, ghg_id)
+        if found is None:
+            raise ApiError(404, "NOT_FOUND", "명세서를 찾을 수 없습니다.")
+        year = int(found["inventoryYear"])
+        coverage = _coverage(
+            connection,
+            scoped,
+            date(year, 1, 1),
+            date(year, 12, 31),
+            (date(year, 12, 31) - date(year, 1, 1)).days + 1,
+        )
+    return {**found, "coverage": coverage}
+
+
+def create_ghg(context: AuthContext, year: str, key: str) -> dict[str, Any]:
+    """연간 Scope 1·2 초안. 설비(시설)·에너지원별 활동량 × **그 연도** 배출 계수다.
+
+    Scope 1 = 연료, Scope 2 = 전력·열. 합계는 줄의 합이다 — 따로 계산하지 않는다.
+    설비에 배분되지 않은 나머지는 사업장 공용 줄로 넣어 **사업장 합계와 맞춘다**.
+    배출 계수가 없는 에너지원이 있으면 부분 합계를 확정본에 남기지 않으려고 만들지 않는다.
+
+    shortcut: 연 전체를 덮는지는 막지 않고 coverage로 알린다, 명세서에 칸이 생기면 저장한다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        first, last = date(int(year), 1, 1), date(int(year), 12, 31)
+        coverage = _coverage(connection, scoped, first, last, 365)
+        if coverage["days"] == 0:
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "이 해에는 계측값이 없어 명세서를 만들 수 없습니다.",
+                {"reason": "NO_READINGS"},
+            )
+        site = repo.emission_consumption(connection, scoped, first, last)
+        factors = repo.factors(connection, scoped, "EMISSION")
+        sources: dict[str, dict[str, Any]] = {}
+        gaps: list[str] = []
+        for row in site:
+            if row["source_kind"] not in GHG_SCOPE:
+                continue
+            factor = factors.get((row["source_id"], year))
+            if factor is None or not factor["factor_unit"].endswith("/" + row["unit"]):
+                gaps.append(f"{row['source_code']}(계수 없음·단위 불일치)")
+                continue
+            entry = sources.setdefault(
+                row["source_code"],
+                {
+                    "id": row["source_id"],
+                    "scope": GHG_SCOPE[row["source_kind"]],
+                    "unit": row["unit"],
+                    "factor": factor["factor_value"],
+                    "site": Decimal(0),
+                    "allocated": Decimal(0),
+                },
+            )
+            entry["site"] += row["quantity"]
+        if gaps:
+            raise _incomplete("배출 계수", sorted(set(gaps)))
+        lines: list[dict[str, Any]] = []
+        for row in repo.allocation_summary(connection, scoped, {}, first, last):
+            entry = sources.get(row["energySourceCode"])
+            if entry is None or row["unit"] != entry["unit"]:
+                continue
+            qty = Decimal(row["quantity"])
+            entry["allocated"] += qty
+            lines.append(_ghg_line(entry, row["equipmentId"], qty))
+        for entry in sources.values():
+            rest = entry["site"] - entry["allocated"]
+            if rest > 0:
+                lines.append(_ghg_line(entry, None, rest))
+        repo.drop_drafts(
+            connection,
+            scoped,
+            "ghg_inventory",
+            "inventory_year",
+            year,
+            ("ghg_inventory_line", "ghg_inventory_id"),
+        )
+        scope1 = sum((ln["emission"] for ln in lines if ln["scope"] == 1), Decimal(0))
+        scope2 = sum((ln["emission"] for ln in lines if ln["scope"] == 2), Decimal(0))
+        ghg_id = repo.insert_ghg(
+            connection,
+            scoped,
+            {
+                "year": year,
+                "version": repo.next_version(
+                    connection, scoped, "ghg_inventory", "inventory_year", year
+                ),
+                "scope1": scope1,
+                "scope2": scope2,
+            },
+            lines,
+        )
+        return {**repo.get_ghg(connection, scoped, ghg_id), "coverage": coverage}
+
+    return _run_once(context, "fems.ghg.create", key, {"year": year}, run, 201, "ghg")
+
+
+def _ghg_line(
+    entry: dict[str, Any], equipment_id: int | None, qty: Decimal
+) -> dict[str, Any]:
+    return {
+        "equipment": equipment_id,
+        "source": entry["id"],
+        "scope": entry["scope"],
+        "qty": qty.quantize(SIX),
+        "unit": entry["unit"],
+        "factor": entry["factor"],
+        "emission": (qty * entry["factor"]).quantize(Decimal("0.0001")),
+    }
+
+
+def confirm_ghg(context: AuthContext, ghg_id: int, key: str) -> dict[str, Any]:
+    return _confirm_period(
+        context,
+        key,
+        "fems.ghg.confirm",
+        "ghg_inventory",
+        "inventory_year",
+        ghg_id,
+        lambda c, s, i: repo.get_ghg(c, s, i),
+    )

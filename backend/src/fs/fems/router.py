@@ -22,6 +22,7 @@ from fs.fems.schema import (
     EquipmentUpdate,
     FactorCreate,
     FactorUpdate,
+    GhgCreate,
     LocationCreate,
     LocationUpdate,
     ManualReadingCreate,
@@ -31,6 +32,8 @@ from fs.fems.schema import (
     ProductionImport,
     ProductionUpdate,
     ReadingUpload,
+    ReviewCreate,
+    SavingCreate,
     SiteCreate,
     SiteUpdate,
     TariffBandsReplace,
@@ -521,6 +524,95 @@ def get_equipment_comparison(
     month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
 ) -> dict[str, object]:
     return {"data": service.equipment_comparison(context, month)}
+
+
+@router.get("/savings")
+def list_savings(context: Auth) -> dict[str, object]:
+    return {"data": service.list_savings(context)}
+
+
+@router.post("/savings", status_code=201)
+def post_saving(
+    payload: SavingCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_saving(context, payload.model_dump(), key)}
+
+
+@router.post("/savings/{saving_id}/{action}")
+def post_saving_action(
+    saving_id: int,
+    action: Literal["start", "cancel", "verify"],
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    if action == "verify":
+        return {"data": service.verify_saving(context, saving_id, key)}
+    return {"data": service.change_saving_status(context, saving_id, action, key)}
+
+
+@router.get("/energy-reviews")
+def list_reviews(context: Auth) -> dict[str, object]:
+    return {"data": service.list_reviews(context)}
+
+
+@router.post("/energy-reviews", status_code=201)
+def post_review(
+    payload: ReviewCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_review(context, payload.month, payload.issues, key)}
+
+
+@router.post("/energy-reviews/{review_id}/confirm")
+def post_review_confirm(
+    review_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.confirm_review(context, review_id, key)}
+
+
+@router.get("/ghg-inventories")
+def list_ghg(context: Auth) -> dict[str, object]:
+    return {"data": service.list_ghg(context)}
+
+
+@router.get("/ghg-inventories/{ghg_id}")
+def get_ghg(context: Auth, ghg_id: int) -> dict[str, object]:
+    return {"data": service.get_ghg(context, ghg_id)}
+
+
+@router.post("/ghg-inventories", status_code=201)
+def post_ghg(
+    payload: GhgCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_ghg(context, payload.year, key)}
+
+
+@router.post("/ghg-inventories/{ghg_id}/confirm")
+def post_ghg_confirm(
+    ghg_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.confirm_ghg(context, ghg_id, key)}
 
 
 @router.get("/load-pattern")

@@ -1373,25 +1373,49 @@ def list_allocations(
 
 
 def production_by_equipment(
-    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+    connection: Connection,
+    context: AuthContext,
+    date_from: Any,
+    date_to: Any,
+    prorate: bool = False,
 ) -> dict[int, dict[str, Any]]:
     """기간과 겹치는 **유효 확정본**의 설비별 생산량. 원단위의 분모다.
 
     같은 원천 키의 최신 확정 버전만 센다 — 정정본이 있으면 옛 버전은 빠진다.
+
+    `prorate`면 기간에 걸친 만큼만 일할 계산한다. 기록이 월 단위인데 비교 기간이 월
+    경계와 어긋나면 겹친 기록 전체를 세게 되어 원단위가 틀린다(절감 검증이 쓴다).
     """
+    # 기록이 사업장 시간대 기준이라 기간도 그 시간대로 자른다. 세션 시간대(UTC)로 자르면
+    # 한국 자정이 UTC 15:00이라 9시간이 어긋나 일할 계산이 틀어진다.
+    start = "(CAST(CAST(:date_from AS date) AS timestamp) AT TIME ZONE s.timezone)"
+    end = "(CAST(CAST(:date_to AS date) + 1 AS timestamp) AT TIME ZONE s.timezone)"
+    share = (
+        f"greatest(0, extract(epoch FROM (least(p.period_end, {end}) "
+        f"- greatest(p.period_start, {start})))) "
+        "/ extract(epoch FROM (p.period_end - p.period_start))"
+        if prorate
+        else "1"
+    )
     rows = connection.execute(
         text(
-            """
-            SELECT equipment_id, unit, sum(production_qty) qty
+            f"""
+            SELECT equipment_id, unit, sum(production_qty * share) qty
             FROM (
-              SELECT p.equipment_id, p.unit, p.production_qty,
+              SELECT p.equipment_id, p.unit, p.production_qty, {share} share,
                      p.status='confirmed' AND p.version_no = max(p.version_no)
                        FILTER (WHERE p.status='confirmed')
                        OVER (PARTITION BY p.source_key) is_effective
               FROM fems.production_record p
+              JOIN fems.equipment q ON q.workspace_id=p.workspace_id
+               AND q.generation_id=p.generation_id AND q.id=p.equipment_id
+              JOIN fems.location l ON l.workspace_id=q.workspace_id
+               AND l.generation_id=q.generation_id AND l.id=q.location_id
+              JOIN fems.site s ON s.workspace_id=l.workspace_id
+               AND s.generation_id=l.generation_id AND s.id=l.site_id
               WHERE p.workspace_id=:w AND p.generation_id=:g
-                AND p.period_start < CAST(CAST(:date_to AS date) + 1 AS timestamp)
-                AND p.period_end > CAST(CAST(:date_from AS date) AS timestamp)
+                AND p.period_start < {end}
+                AND p.period_end > {start}
             ) z
             WHERE z.is_effective
             GROUP BY equipment_id, unit
@@ -2374,3 +2398,396 @@ def item_baselines(
         _s(context),
     ).mappings()
     return {r["item_code"]: dict(r) for r in rows}
+
+
+# ---- F-19·F-20·F-21 에너지 경영 (DSN-15 F32·F33·F35) ----
+
+SAVING_COLUMNS = (
+    "id,code,title,equipment_id,energy_source_id,expected_saving,investment,currency,"
+    "start_on,baseline_start_on,baseline_end_on,review_end_on,measured_saving,status,"
+    "verified_at,created_at"
+)
+
+
+def saving_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "code": row["code"],
+        "title": row["title"],
+        "equipmentId": row["equipment_id"],
+        "energySourceId": row["energy_source_id"],
+        "expectedSaving": str(row["expected_saving"]),
+        "investment": str(row["investment"]),
+        "currency": row["currency"],
+        "startOn": row["start_on"].isoformat(),
+        "baselineStartOn": row["baseline_start_on"].isoformat(),
+        "baselineEndOn": row["baseline_end_on"].isoformat(),
+        "reviewEndOn": None
+        if row["review_end_on"] is None
+        else row["review_end_on"].isoformat(),
+        "measuredSaving": None
+        if row["measured_saving"] is None
+        else str(row["measured_saving"]),
+        "status": row["status"],
+        "verifiedAt": None
+        if row["verified_at"] is None
+        else row["verified_at"].isoformat(),
+    }
+
+
+def list_savings(connection: Connection, context: AuthContext) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            f"SELECT {SAVING_COLUMNS} FROM fems.saving_project "
+            "WHERE workspace_id=:w AND generation_id=:g ORDER BY start_on DESC, code"
+        ),
+        _s(context),
+    ).mappings()
+    return [saving_dict(r) for r in rows]
+
+
+def get_saving(
+    connection: Connection, context: AuthContext, saving_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(
+                f"SELECT {SAVING_COLUMNS} FROM fems.saving_project "
+                "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+            ),
+            {**_s(context), "id": saving_id},
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else saving_dict(row)
+
+
+def insert_saving(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    columns = ",".join(values.keys())
+    placeholders = ",".join(f":{c}" for c in values)
+    row = (
+        connection.execute(
+            text(
+                f"INSERT INTO fems.saving_project (workspace_id,generation_id,{columns}) "
+                f"VALUES (:w,:g,{placeholders}) RETURNING {SAVING_COLUMNS}"
+            ),
+            {**_s(context), **values},
+        )
+        .mappings()
+        .one()
+    )
+    return saving_dict(row)
+
+
+def update_saving(
+    connection: Connection, context: AuthContext, saving_id: int, values: dict[str, Any]
+) -> dict[str, Any]:
+    sets = ",".join(f"{k}=:{k}" for k in values)
+    row = (
+        connection.execute(
+            text(
+                f"UPDATE fems.saving_project SET {sets} "
+                f"WHERE workspace_id=:w AND generation_id=:g AND id=:id "
+                f"RETURNING {SAVING_COLUMNS}"
+            ),
+            {**_s(context), "id": saving_id, **values},
+        )
+        .mappings()
+        .one()
+    )
+    return saving_dict(row)
+
+
+def next_version(
+    connection: Connection, context: AuthContext, table: str, column: str, value: str
+) -> int:
+    """같은 기간의 다음 버전 번호. 확정본이 있어도 새 버전은 초안으로 시작한다."""
+    taken = connection.execute(
+        text(
+            f"SELECT coalesce(max(version),0) FROM fems.{table} "
+            f"WHERE workspace_id=:w AND generation_id=:g AND {column}=:value"
+        ),
+        {**_s(context), "value": value},
+    ).scalar_one()
+    return taken + 1
+
+
+def drop_drafts(
+    connection: Connection,
+    context: AuthContext,
+    table: str,
+    column: str,
+    value: str,
+    child: tuple[str, str] | None = None,
+) -> None:
+    """같은 기간의 옛 **초안**을 지운다. 확정본은 건드리지 않는다(불변).
+
+    초안을 `superseded`로 돌릴 수 없다 — CHECK가 `(status='draft') = (confirmed_at IS NULL)`
+    이라 확정한 적 없는 행은 draft여야 한다. 확정 전 초안은 기록이 아니라 작업 중인 계산이다.
+    `child`는 (자식 표, 부모 id 칼럼)이다 — 부모를 지우기 전에 자식부터 지운다(RESTRICT).
+    """
+    scope = "workspace_id=:w AND generation_id=:g"
+    ids = f"SELECT id FROM fems.{table} WHERE {scope} AND {column}=:value AND status='draft'"
+    if child:
+        connection.execute(
+            text(
+                f"DELETE FROM fems.{child[0]} WHERE {scope} AND {child[1]} IN ({ids})"
+            ),
+            {**_s(context), "value": value},
+        )
+    connection.execute(
+        text(
+            f"DELETE FROM fems.{table} WHERE {scope} AND {column}=:value AND status='draft'"
+        ),
+        {**_s(context), "value": value},
+    )
+
+
+def confirm_snapshot(
+    connection: Connection,
+    context: AuthContext,
+    table: str,
+    column: str,
+    row_id: int,
+) -> None:
+    """초안을 확정한다. 같은 기간의 기존 확정본은 `superseded`로 넘긴다(새 버전이 이긴다)."""
+    scope = "workspace_id=:w AND generation_id=:g"
+    params = {**_s(context), "id": row_id}
+    connection.execute(
+        text(
+            f"UPDATE fems.{table} SET status='superseded' WHERE {scope} AND status='confirmed' "
+            f"AND {column}=(SELECT {column} FROM fems.{table} WHERE {scope} AND id=:id)"
+        ),
+        params,
+    )
+    connection.execute(
+        text(
+            f"UPDATE fems.{table} SET status='confirmed', confirmed_at=now() "
+            f"WHERE {scope} AND id=:id"
+        ),
+        params,
+    )
+
+
+def reading_coverage(
+    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+) -> dict[str, Any]:
+    """기간에 계측이 **있는 날**이 며칠인지. 최상위 계측기 기준이다.
+
+    확정 명세서·검토가 연·월 전체를 덮는지 알려면 필요하다 — 시드처럼 한 달치뿐이면
+    '연간 명세서'라는 이름이 거짓이 된다.
+    """
+    local = "(r.observed_at - interval '1 microsecond') AT TIME ZONE s.timezone"
+    row = (
+        connection.execute(
+            text(
+                f"SELECT count(DISTINCT CAST({local} AS date)) days, "
+                f"min(CAST({local} AS date)) first_day, max(CAST({local} AS date)) last_day "
+                + READING_FROM
+                + READING_PERIOD
+                + " AND m.parent_meter_id IS NULL"
+            ),
+            {**_s(context), "date_from": date_from, "date_to": date_to},
+        )
+        .mappings()
+        .one()
+    )
+    return {
+        "days": row["days"],
+        "from": None if row["first_day"] is None else row["first_day"].isoformat(),
+        "to": None if row["last_day"] is None else row["last_day"].isoformat(),
+    }
+
+
+REVIEW_COLUMNS = (
+    "id,review_month,version,status,primary_energy_toe,energy_cost,currency,"
+    "emission_tco2e,target_achievement,issues,confirmed_at,created_at"
+)
+
+
+def review_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "reviewMonth": row["review_month"],
+        "version": row["version"],
+        "status": row["status"],
+        "primaryEnergyToe": str(row["primary_energy_toe"]),
+        "energyCost": str(row["energy_cost"]),
+        "currency": row["currency"],
+        "emissionTco2e": str(row["emission_tco2e"]),
+        # 목표가 없으면 0%가 아니라 모름이다.
+        "targetAchievement": None
+        if row["target_achievement"] is None
+        else str(row["target_achievement"]),
+        "issues": row["issues"],
+        "confirmedAt": None
+        if row["confirmed_at"] is None
+        else row["confirmed_at"].isoformat(),
+        "createdAt": row["created_at"].isoformat(),
+    }
+
+
+def list_reviews(connection: Connection, context: AuthContext) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            f"SELECT {REVIEW_COLUMNS} FROM fems.energy_review "
+            "WHERE workspace_id=:w AND generation_id=:g "
+            "ORDER BY review_month DESC, version DESC LIMIT 60"
+        ),
+        _s(context),
+    ).mappings()
+    return [review_dict(r) for r in rows]
+
+
+def get_review(
+    connection: Connection, context: AuthContext, review_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(
+                f"SELECT {REVIEW_COLUMNS} FROM fems.energy_review "
+                "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+            ),
+            {**_s(context), "id": review_id},
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else review_dict(row)
+
+
+def insert_review(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> int:
+    columns = ",".join(values.keys())
+    placeholders = ",".join(f":{c}" for c in values)
+    return connection.execute(
+        text(
+            f"INSERT INTO fems.energy_review (workspace_id,generation_id,{columns}) "
+            f"VALUES (:w,:g,{placeholders}) RETURNING id"
+        ),
+        {**_s(context), **values},
+    ).scalar_one()
+
+
+GHG_COLUMNS = (
+    "id,inventory_year,version,status,scope1_tco2e,scope2_tco2e,confirmed_at,created_at"
+)
+
+
+def ghg_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "inventoryYear": row["inventory_year"],
+        "version": row["version"],
+        "status": row["status"],
+        "scope1Tco2e": str(row["scope1_tco2e"]),
+        "scope2Tco2e": str(row["scope2_tco2e"]),
+        "confirmedAt": None
+        if row["confirmed_at"] is None
+        else row["confirmed_at"].isoformat(),
+        "createdAt": row["created_at"].isoformat(),
+    }
+
+
+def list_ghg(connection: Connection, context: AuthContext) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            f"SELECT {GHG_COLUMNS} FROM fems.ghg_inventory "
+            "WHERE workspace_id=:w AND generation_id=:g "
+            "ORDER BY inventory_year DESC, version DESC LIMIT 30"
+        ),
+        _s(context),
+    ).mappings()
+    return [ghg_dict(r) for r in rows]
+
+
+def get_ghg(
+    connection: Connection, context: AuthContext, ghg_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(
+                f"SELECT {GHG_COLUMNS} FROM fems.ghg_inventory "
+                "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+            ),
+            {**_s(context), "id": ghg_id},
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        return None
+    lines = connection.execute(
+        text(
+            "SELECT l.scope,l.activity_qty,l.unit,l.factor_value,l.emission_tco2e,"
+            "q.equipment_code,q.name equipment_name,s.source_code,s.name source_name "
+            "FROM fems.ghg_inventory_line l "
+            "JOIN fems.energy_source s ON s.workspace_id=l.workspace_id "
+            " AND s.generation_id=l.generation_id AND s.id=l.energy_source_id "
+            "LEFT JOIN fems.equipment q ON q.workspace_id=l.workspace_id "
+            " AND q.generation_id=l.generation_id AND q.id=l.equipment_id "
+            "WHERE l.workspace_id=:w AND l.generation_id=:g AND l.ghg_inventory_id=:id "
+            "ORDER BY l.scope, s.source_code, q.equipment_code NULLS LAST"
+        ),
+        {**_s(context), "id": ghg_id},
+    ).mappings()
+    return {
+        **ghg_dict(row),
+        "lines": [
+            {
+                "scope": ln["scope"],
+                "equipmentCode": ln["equipment_code"],
+                "equipmentName": ln["equipment_name"],
+                "sourceCode": ln["source_code"],
+                "sourceName": ln["source_name"],
+                "activityQty": str(ln["activity_qty"]),
+                "unit": ln["unit"],
+                "factorValue": str(ln["factor_value"]),
+                "emissionTco2e": str(ln["emission_tco2e"]),
+            }
+            for ln in lines
+        ],
+    }
+
+
+def insert_ghg(
+    connection: Connection,
+    context: AuthContext,
+    values: dict[str, Any],
+    lines: list[dict[str, Any]],
+) -> int:
+    ghg_id = connection.execute(
+        text(
+            "INSERT INTO fems.ghg_inventory (workspace_id,generation_id,inventory_year,"
+            "version,status,scope1_tco2e,scope2_tco2e) "
+            "VALUES (:w,:g,:year,:version,'draft',:scope1,:scope2) RETURNING id"
+        ),
+        {**_s(context), **values},
+    ).scalar_one()
+    for line in lines:
+        connection.execute(
+            text(
+                "INSERT INTO fems.ghg_inventory_line (workspace_id,generation_id,"
+                "ghg_inventory_id,equipment_id,energy_source_id,scope,activity_qty,unit,"
+                "factor_value,emission_tco2e) VALUES (:w,:g,:inv,:equipment,:source,:scope,"
+                ":qty,:unit,:factor,:emission)"
+            ),
+            {**_s(context), "inv": ghg_id, **line},
+        )
+    return ghg_id
+
+
+def saving_code_taken(connection: Connection, context: AuthContext, code: str) -> bool:
+    return bool(
+        connection.execute(
+            text(
+                "SELECT 1 FROM fems.saving_project "
+                "WHERE workspace_id=:w AND generation_id=:g AND code=:code"
+            ),
+            {**_s(context), "code": code},
+        ).first()
+    )

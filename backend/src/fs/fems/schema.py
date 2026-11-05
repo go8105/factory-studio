@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -165,6 +166,33 @@ class AlarmRuleCreate(ApiModel):
 
 class AlarmEvaluate(ApiModel):
     month: str | None = Field(None, pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+
+
+# ---- F-19~F-21 에너지 경영 (DSN-15 F32·F33·F35) ----
+
+
+class SavingCreate(ApiModel):
+    code: str = Field(pattern=r"^[A-Z0-9][A-Z0-9_\-]{0,29}$")
+    title: str = Field(min_length=1, max_length=200)
+    equipment_id: int | None = Field(None, alias="equipmentId", gt=0)
+    energy_source_id: int = Field(alias="energySourceId", gt=0)
+    expected_saving: Decimal = Field(
+        alias="expectedSaving", gt=0, max_digits=20, decimal_places=6
+    )
+    investment: Decimal = Field(Decimal(0), ge=0, max_digits=18, decimal_places=2)
+    start_on: date = Field(alias="startOn")
+    baseline_start_on: date = Field(alias="baselineStartOn")
+    baseline_end_on: date = Field(alias="baselineEndOn")
+    review_end_on: date | None = Field(None, alias="reviewEndOn")
+
+
+class ReviewCreate(ApiModel):
+    month: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    issues: str | None = Field(None, max_length=1800)
+
+
+class GhgCreate(ApiModel):
+    year: str = Field(pattern=r"^[0-9]{4}$")
 
 
 # ---- F-13 환산·배출계수 (FS-018k) ----
