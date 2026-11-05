@@ -52,6 +52,7 @@ class GwMigrationTests(unittest.TestCase):
                 t["name"].startswith("gw.")
                 and not t["name"].startswith("gw.work_")
                 and t["name"] not in implemented
+                and t.get("phase") != "GW-READY-02"
                 for t in self.current["tables"]
             ),
             19,

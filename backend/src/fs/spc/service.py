@@ -139,7 +139,9 @@ def _period(date_from: date | None, date_to: date | None) -> tuple[datetime, dat
 
 CHAR_SQL = f"""
 SELECT c.id, c.code, c.item_code, c.item_name, c.process_code, c.name, c.unit, c.lsl, c.usl,
-       c.target, c.subgroup_size, c.decimals, c.is_active,
+       c.target, c.subgroup_size, c.decimals, c.is_active, c.chart_type, c.defect_source,
+       ARRAY(SELECT r.rule_no FROM spc.characteristic_rule r WHERE r.workspace_id=c.workspace_id
+             AND r.generation_id=c.generation_id AND r.characteristic_id=c.id ORDER BY r.rule_no) rules,
        (SELECT count(*) FROM spc.subgroup s WHERE s.workspace_id=c.workspace_id
           AND s.generation_id=c.generation_id AND s.characteristic_id=c.id AND s.status='valid') subgroup_count,
        (SELECT max(l.version) FROM spc.control_limit l WHERE l.workspace_id=c.workspace_id
@@ -192,12 +194,59 @@ def _spec(lsl: Decimal | None, usl: Decimal | None, target: Decimal | None) -> N
         raise _fields({"target": "목표값은 규격 안이어야 합니다."})
 
 
+def _chart(
+    values: dict[str, Any], current: dict[str, Any] | None = None
+) -> tuple[str, int]:
+    """관리도 종류와 부분군 크기. I-MR은 n=1로 묶인다(c1579) — 한쪽만 바꿔도 맞춰 준다."""
+    chart_type = values.get("chart_type") or (current or {}).get("chartType", "XBAR_R")
+    size = values.get("subgroup_size") or (current or {}).get("subgroupSize", 5)
+    if "chart_type" in values and "subgroup_size" not in values:
+        size = 1 if chart_type == "I_MR" else max(int(size), 2)
+    size = int(size)
+    if (chart_type == "I_MR") != (size == 1):
+        raise _fields(
+            {
+                "subgroupSize": "I-MR 관리도는 부분군 크기 1, X̄-R 관리도는 2~10이어야 합니다."
+            }
+        )
+    return chart_type, size
+
+
+def _rules(values: dict[str, Any]) -> list[int] | None:
+    """특성이 쓸 Nelson 규칙. 없으면 건드리지 않고, 빈 목록은 기본값(1~3)으로 되돌린다."""
+    if "rules" not in values:
+        return None
+    rules = sorted(set(values["rules"]))
+    if rules and 1 not in rules:
+        raise _fields({"rules": "규칙 1(관리 한계 이탈)은 끌 수 없습니다."})
+    return rules
+
+
+def _save_rules(connection, scoped, characteristic_id: int, rules: list[int]) -> None:
+    connection.execute(
+        text(
+            f"DELETE FROM spc.characteristic_rule WHERE {_S} AND characteristic_id=:c"
+        ),
+        {**_s(scoped), "c": characteristic_id},
+    )
+    for rule_no in rules:
+        connection.execute(
+            text(
+                "INSERT INTO spc.characteristic_rule(workspace_id,generation_id,characteristic_id,rule_no) "
+                "VALUES (:w,:g,:c,:r)"
+            ),
+            {**_s(scoped), "c": characteristic_id, "r": rule_no},
+        )
+
+
 def create_characteristic(
     context: AuthContext, values: dict[str, Any], key: str
 ) -> dict[str, Any]:
     lsl, usl = _number(values.get("lsl"), "lsl"), _number(values.get("usl"), "usl")
     target = _number(values.get("target"), "target")
     _spec(lsl, usl, target)
+    chart_type, subgroup_size = _chart(values)
+    rules = _rules(values)
 
     def fn(connection, scoped):
         items = mes.items(connection, scoped)
@@ -228,8 +277,8 @@ def create_characteristic(
         new_id = connection.execute(
             text(
                 "INSERT INTO spc.characteristic(workspace_id,generation_id,code,item_code,item_name,"
-                "process_code,name,unit,lsl,usl,target,decimals) VALUES "
-                "(:w,:g,:code,:item,:item_name,:process,:name,:unit,:lsl,:usl,:target,:decimals) RETURNING id"
+                "process_code,name,unit,lsl,usl,target,decimals,chart_type,subgroup_size) VALUES "
+                "(:w,:g,:code,:item,:item_name,:process,:name,:unit,:lsl,:usl,:target,:decimals,:chart,:size) RETURNING id"
             ),
             {
                 **_s(scoped),
@@ -243,14 +292,18 @@ def create_characteristic(
                 "usl": usl,
                 "target": target,
                 "decimals": values.get("decimals", 3),
+                "chart": chart_type,
+                "size": subgroup_size,
             },
         ).scalar_one()
+        if rules:
+            _save_rules(connection, scoped, new_id, rules)
         return _characteristic(connection, scoped, new_id), "characteristic", new_id
 
     return _action(context, "spc.characteristic.create", key, values, fn, 201)
 
 
-SPEC_FIELDS = ("unit", "lsl", "usl", "target")
+SPEC_FIELDS = ("unit", "lsl", "usl", "target", "chart_type", "subgroup_size")
 
 
 def update_characteristic(
@@ -260,7 +313,7 @@ def update_characteristic(
         current = _characteristic(connection, scoped, characteristic_id)
         if int(current["subgroupCount"]) > 0 and any(k in values for k in SPEC_FIELDS):
             raise _conflict(
-                "부분군이 있는 특성의 규격·단위는 바꿀 수 없습니다. 새 특성을 등록해 주세요.",
+                "부분군이 있는 특성의 규격·단위·관리도 종류는 바꿀 수 없습니다. 새 특성을 등록해 주세요.",
                 "CHARACTERISTIC_IN_USE",
                 subgroupCount=current["subgroupCount"],
             )
@@ -269,10 +322,15 @@ def update_characteristic(
             for k in ("lsl", "usl", "target")
         }
         _spec(merged["lsl"], merged["usl"], merged["target"])
+        rules = _rules(values)
         sets = {
-            **values,
-            **{k: merged[k] for k in ("lsl", "usl", "target") if k in values},
+            k: v
+            for k, v in values.items()
+            if k not in ("rules", "chart_type", "subgroup_size")
         }
+        sets.update({k: merged[k] for k in ("lsl", "usl", "target") if k in values})
+        if "chart_type" in values or "subgroup_size" in values:
+            sets["chart_type"], sets["subgroup_size"] = _chart(values, current)
         if sets:
             assignments = ", ".join(f"{k}=:{k}" for k in sets)
             connection.execute(
@@ -281,6 +339,8 @@ def update_characteristic(
                 ),
                 {**_s(scoped), **sets, "id": characteristic_id},
             )
+        if rules is not None:
+            _save_rules(connection, scoped, characteristic_id, rules)
         return (
             _characteristic(connection, scoped, characteristic_id),
             "characteristic",
@@ -295,7 +355,8 @@ def update_characteristic(
 def _lock(connection, scoped, characteristic_id: int) -> dict[str, Any]:
     found = _one(
         connection,
-        f"SELECT id, item_code, process_code, lsl, usl, is_active FROM spc.characteristic "
+        f"SELECT id, item_code, process_code, lsl, usl, is_active, chart_type, subgroup_size "
+        f"FROM spc.characteristic "
         f"WHERE {_S} AND id=:id FOR UPDATE",
         {**_s(scoped), "id": characteristic_id},
     )
@@ -329,7 +390,12 @@ def limits(context: AuthContext, characteristic_id: int) -> list[dict[str, Any]]
 
 
 def _basis(
-    connection, scoped, characteristic_id: int, basis_from: datetime, basis_to: datetime
+    connection,
+    scoped,
+    characteristic_id: int,
+    basis_from: datetime,
+    basis_to: datetime,
+    n: int = 5,
 ) -> dict[str, Any]:
     if basis_from > basis_to:
         raise _fields({"basisTo": "기준 구간 종료는 시작보다 늦어야 합니다."})
@@ -342,7 +408,7 @@ def _basis(
     ).all()
     result: dict[str, Any] = {"basisCount": len(rows), "minimum": stats.MIN_BASIS}
     if len(rows) >= stats.MIN_BASIS:
-        computed = stats.limits([r.xbar for r in rows], [r.r for r in rows])
+        computed = stats.limits([r.xbar for r in rows], [r.r for r in rows], n)
         result.update({_camel(k): v for k, v in computed.items()})
     return result
 
@@ -355,22 +421,30 @@ def preview_limit(
 ) -> dict[str, Any]:
     with _read() as connection:
         scoped = read_scope(connection, context, MODULE)
-        _characteristic(connection, scoped, characteristic_id)
-        found = _basis(connection, scoped, characteristic_id, basis_from, basis_to)
-        return {k: _value(v) for k, v in found.items()}
+        found = _characteristic(connection, scoped, characteristic_id)
+        basis = _basis(
+            connection,
+            scoped,
+            characteristic_id,
+            basis_from,
+            basis_to,
+            int(found["subgroupSize"]),
+        )
+        return {k: _value(v) for k, v in basis.items()}
 
 
 def publish_limit(
     context: AuthContext, characteristic_id: int, values: dict[str, Any], key: str
 ) -> dict[str, Any]:
     def fn(connection, scoped):
-        _lock(connection, scoped, characteristic_id)
+        locked = _lock(connection, scoped, characteristic_id)
         found = _basis(
             connection,
             scoped,
             characteristic_id,
             values["basis_from"],
             values["basis_to"],
+            int(locked["subgroupSize"]),
         )
         if found["basisCount"] < stats.MIN_BASIS:
             raise _fields(
@@ -398,7 +472,7 @@ def publish_limit(
         if found["rCl"] <= 0:
             raise _fields(
                 {
-                    "basisFrom": "기준 구간의 범위(R)가 모두 0이라 한계를 만들 수 없습니다."
+                    "basisFrom": "기준 구간의 범위(R·MR)가 모두 0이라 한계를 만들 수 없습니다."
                 }
             )
         version = connection.execute(
@@ -524,6 +598,13 @@ def record_subgroup(
         found = _lock(connection, scoped, values["characteristic_id"])
         if not found["isActive"]:
             raise _conflict("사용하지 않는 관리 특성입니다.", "CHARACTERISTIC_INACTIVE")
+        size = int(found["subgroupSize"])
+        if len(numbers) != size:
+            raise _fields(
+                {
+                    "values": f"이 특성은 측정값 {size}개를 받습니다(현재 {len(numbers)}개)."
+                }
+            )
         today = business_today()
         rows = mes.operation_runs(
             connection,
@@ -564,7 +645,19 @@ def record_subgroup(
                     "measuredAt": f"이 특성의 마지막 부분군({last.astimezone(SEOUL):%m-%d %H:%M})보다 늦어야 합니다."
                 }
             )
-        xbar, r = stats.subgroup(numbers)
+        # I-MR은 이웃 차이가 R 자리다. 같은 특성의 직전 유효 부분군 값이 필요하다.
+        before = (
+            connection.execute(
+                text(
+                    f"SELECT xbar FROM spc.subgroup WHERE {_S} AND characteristic_id=:c "
+                    "AND status='valid' ORDER BY measured_at DESC LIMIT 1"
+                ),
+                {**_s(scoped), "c": values["characteristic_id"]},
+            ).scalar()
+            if size == 1
+            else None
+        )
+        xbar, r = stats.subgroup(numbers, before)
         subgroup_id = connection.execute(
             text(
                 "INSERT INTO spc.subgroup(workspace_id,generation_id,characteristic_id,lot_no,item_code,"
@@ -594,6 +687,9 @@ def record_subgroup(
                 ),
                 {**_s(scoped), "sg": subgroup_id, "seq": seq, "v": number},
             )
+        violations = _spec_violations(
+            connection, scoped, found, subgroup_id, run["lotNo"], measured_at, numbers
+        )
         created = _evaluate(
             connection,
             scoped,
@@ -603,9 +699,14 @@ def record_subgroup(
             measured_at,
             xbar,
             r,
+            found["chartType"],
         )
         return (
-            {**_subgroup(connection, scoped, subgroup_id), "signals": created},
+            {
+                **_subgroup(connection, scoped, subgroup_id),
+                "signals": created,
+                "specViolations": violations,
+            },
             "subgroup",
             subgroup_id,
         )
@@ -614,8 +715,52 @@ def record_subgroup(
     return _action(context, "spc.subgroup.create", key, body, fn, 201)
 
 
+def _spec_violations(
+    connection, scoped, characteristic, subgroup_id, lot_no, measured_at, numbers
+) -> list[dict[str, Any]]:
+    """규격 이탈(F24·Q4). 관리 한계 이탈과 별개라 한계 게시 전에도 기록한다. 측정값마다 최대 1건."""
+    lsl = _number(characteristic["lsl"], "lsl")
+    usl = _number(characteristic["usl"], "usl")
+    found = []
+    for seq, value in enumerate(numbers, 1):
+        if lsl is not None and value < lsl:
+            side, limit_value = "LOW", lsl
+        elif usl is not None and value > usl:
+            side, limit_value = "HIGH", usl
+        else:
+            continue
+        connection.execute(
+            text(
+                "INSERT INTO spc.spec_violation(workspace_id,generation_id,subgroup_id,characteristic_id,"
+                "seq,lot_no,value,side,limit_value,detected_at) "
+                "VALUES (:w,:g,:sg,:c,:seq,:lot,:v,:side,:limit,:at)"
+            ),
+            {
+                **_s(scoped),
+                "sg": subgroup_id,
+                "c": characteristic["id"],
+                "seq": seq,
+                "lot": lot_no,
+                "v": value,
+                "side": side,
+                "limit": limit_value,
+                "at": measured_at,
+            },
+        )
+        found.append({"seq": seq, "value": str(value), "side": side})
+    return found
+
+
 def _evaluate(
-    connection, scoped, characteristic_id, subgroup_id, lot_no, measured_at, xbar, r
+    connection,
+    scoped,
+    characteristic_id,
+    subgroup_id,
+    lot_no,
+    measured_at,
+    xbar,
+    r,
+    chart_type="XBAR_R",
 ):
     limit = _judging_limit(connection, scoped, characteristic_id, measured_at)
     if limit is None:
@@ -636,8 +781,18 @@ def _evaluate(
             },
         )
     ]
+    rules = set(
+        connection.execute(
+            text(
+                f"SELECT rule_no FROM spc.characteristic_rule WHERE {_S} AND characteristic_id=:c"
+            ),
+            {**_s(scoped), "c": characteristic_id},
+        ).scalars()
+    )
     created = []
-    for chart, rule, value in stats.signals(previous, xbar, r, limit):
+    for chart, rule, value in stats.signals(
+        previous, xbar, r, limit, rules or stats.DEFAULT_RULES, chart_type
+    ):
         connection.execute(
             text(
                 "INSERT INTO spc.signal(workspace_id,generation_id,subgroup_id,characteristic_id,"
@@ -719,6 +874,14 @@ def void_subgroup(
             ),
             {**_s(scoped), "id": subgroup_id},
         ).rowcount
+        # 규격 이탈도 같은 부분군에서 나온 기록이라 함께 무효로 한다(4장 spec_violation).
+        connection.execute(
+            text(
+                f"UPDATE spc.spec_violation SET voided_at=clock_timestamp() "
+                f"WHERE {_S} AND subgroup_id=:id AND voided_at IS NULL"
+            ),
+            {**_s(scoped), "id": subgroup_id},
+        )
         return (
             {**_subgroup(connection, scoped, subgroup_id), "voidedSignals": voided},
             "subgroup",
@@ -813,14 +976,61 @@ def capability(
             ).scalars()
         )
         lsl, usl = _number(found["lsl"], "lsl"), _number(found["usl"], "usl")
+        size = int(found["subgroupSize"])
         computed = stats.capability(
-            [r.xbar for r in rows], [r.r for r in rows], lsl, usl
+            [r.xbar for r in rows], [r.r for r in rows], lsl, usl, size
         )
         result.update({k: _value(v) for k, v in computed.items()})
+        result.update(
+            {
+                _camel(k): _value(v)
+                for k, v in stats.performance(values, lsl, usl).items()
+            }
+        )
         result["histogram"] = [
             {k: _value(v) for k, v in b.items()} for b in stats.histogram(values)
         ]
+        result["trend"] = _monthly_cpk(connection, scoped, found, start, end)
         return result
+
+
+def _monthly_cpk(connection, scoped, characteristic, start, end):
+    """월별 Cpk 추이(F44). 부분군이 기준에 못 미치는 달은 수만 보여 주고 계산하지 않는다."""
+    rows = connection.execute(
+        text(
+            f"SELECT to_char(measured_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM') AS month, xbar, r "
+            f"FROM spc.subgroup WHERE {_S} AND characteristic_id=:c AND status='valid' "
+            "AND measured_at>=:a AND measured_at<:b ORDER BY measured_at"
+        ),
+        {
+            **_s(scoped),
+            "c": characteristic["id"],
+            "a": start,
+            "b": end,
+        },
+    ).all()
+    lsl = _number(characteristic["lsl"], "lsl")
+    usl = _number(characteristic["usl"], "usl")
+    size = int(characteristic["subgroupSize"])
+    months: dict[str, list] = {}
+    for row in rows:
+        months.setdefault(row.month, []).append(row)
+    trend = []
+    for month, group in months.items():
+        entry: dict[str, Any] = {
+            "month": month,
+            "subgroupCount": len(group),
+            "cpk": None,
+            "judgement": None,
+        }
+        if len(group) >= stats.MIN_BASIS:
+            computed = stats.capability(
+                [g.xbar for g in group], [g.r for g in group], lsl, usl, size
+            )
+            entry["cpk"] = _value(computed["cpk"])
+            entry["judgement"] = computed["judgement"]
+        trend.append(entry)
+    return trend
 
 
 # ---------- 이상·조치 (S-05, TX-S3) ----------
@@ -856,16 +1066,30 @@ def resolve_signal(
     context: AuthContext, signal_id: int, values: dict[str, Any], key: str
 ) -> dict[str, Any]:
     def fn(connection, scoped):
-        found = _one(
-            connection,
-            SIGNAL_SQL + " AND x.id=:id FOR UPDATE OF x",
-            {**_s(scoped), "id": signal_id},
-        )
-        if found is None:
-            raise _not_found("이상 기록")
+        found = _signal_row(connection, scoped, signal_id, lock=True)
         if found["status"] != "open":
             raise _conflict(
                 "미조치 이상만 조치할 수 있습니다.", "NOT_OPEN", status=found["status"]
+            )
+        # 이상 대응 절차(Q5): 해당 점검 항목을 모두 기록해야 조치를 닫을 수 있다.
+        recorded = set(
+            connection.execute(
+                text(
+                    f"SELECT ocap_item_id FROM spc.ocap_check WHERE {_S} AND signal_id=:id"
+                ),
+                {**_s(scoped), "id": signal_id},
+            ).scalars()
+        )
+        missing = [
+            int(i["id"])
+            for i in _checklist(connection, scoped, found)
+            if i["isActive"] and int(i["id"]) not in recorded
+        ]
+        if missing:
+            raise _conflict(
+                f"점검 항목 {len(missing)}개를 아직 기록하지 않았습니다.",
+                "OCAP_INCOMPLETE",
+                missing=missing,
             )
         connection.execute(
             text(
@@ -890,6 +1114,535 @@ def resolve_signal(
         )
 
     return _action(context, f"spc.signal.resolve:{signal_id}", key, values, fn)
+
+
+# ---------- 층별 비교 (S-10, DSN-17 Q6 F45) ----------
+
+STRATA = {"equipment": "equipment_code", "lot": "lot_no"}
+
+
+def strata(
+    context: AuthContext,
+    characteristic_id: int,
+    by: str,
+    date_from: date | None,
+    date_to: date | None,
+) -> dict[str, Any]:
+    """설비·LOT별로 부분군을 갈라 평균과 능력을 견준다. 읽기 전용, 저장하지 않는다.
+
+    부분군에 스냅샷으로 남은 설비·LOT만 축이 된다. MES에 작업자 정보가 없어 작업자 축은 없다.
+    Cpk는 그룹의 유효 부분군이 MIN_BASIS 이상일 때만 계산한다 — LOT처럼 부분군이 적은 그룹은 평균만 본다.
+    """
+    column = STRATA[by]
+    start, end = _period(date_from, date_to)
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = _characteristic(connection, scoped, characteristic_id)
+        rows = connection.execute(
+            text(
+                f"SELECT {column} AS grp, xbar, r FROM spc.subgroup WHERE {_S} "
+                "AND characteristic_id=:c AND status='valid' AND measured_at>=:a AND measured_at<:b "
+                "ORDER BY measured_at"
+            ),
+            {**_s(scoped), "c": characteristic_id, "a": start, "b": end},
+        ).all()
+        lsl = _number(found["lsl"], "lsl")
+        usl = _number(found["usl"], "usl")
+        size = int(found["subgroupSize"])
+        overall = stats.mean([r.xbar for r in rows]) if rows else None
+        groups: dict[str, list] = {}
+        for row in rows:
+            groups.setdefault(row.grp, []).append(row)
+        out = []
+        for name, members in sorted(groups.items()):
+            mu = stats.mean([m.xbar for m in members])
+            entry: dict[str, Any] = {
+                "id": name,
+                "group": name,
+                "subgroupCount": len(members),
+                "mean": _value(stats.q(mu)),
+                "shift": None if overall is None else _value(stats.q(mu - overall)),
+                "cpk": None,
+                "judgement": None,
+            }
+            if len(members) >= stats.MIN_BASIS:
+                computed = stats.capability(
+                    [m.xbar for m in members], [m.r for m in members], lsl, usl, size
+                )
+                entry["cpk"] = _value(computed["cpk"])
+                entry["judgement"] = computed["judgement"]
+            out.append(entry)
+        return {
+            "characteristic": found,
+            "by": by,
+            "minimum": stats.MIN_BASIS,
+            "overallMean": None if overall is None else _value(stats.q(overall)),
+            "groups": out,
+        }
+
+
+# ---------- 공정능력 보고서 (S-11, DSN-17 Q6 F46) ----------
+
+REPORT_SQL = f"""
+SELECT p.id, p.characteristic_id, c.code characteristic_code, c.name characteristic_name,
+       c.item_code, c.item_name, c.process_code, c.unit, c.lsl, c.usl, c.target, c.decimals,
+       c.chart_type, p.report_start_on, p.report_end_on, p.version, p.status, p.subgroup_count,
+       p.mean, p.sigma_within, p.sigma_overall, p.cp, p.cpk, p.pp, p.ppk, p.skewness, p.kurtosis,
+       p.comment, p.confirmed_at, p.created_at
+FROM spc.capability_report p
+JOIN spc.characteristic c ON c.workspace_id=p.workspace_id AND c.generation_id=p.generation_id
+     AND c.id=p.characteristic_id
+WHERE p.{_S.replace(" AND ", " AND p.")}
+"""
+
+
+def _report(connection, scoped, report_id: int) -> dict[str, Any]:
+    found = _one(
+        connection, REPORT_SQL + " AND p.id=:id", {**_s(scoped), "id": report_id}
+    )
+    if found is None:
+        raise _not_found("공정능력 보고서")
+    return found
+
+
+def capability_reports(
+    context: AuthContext, characteristic_id: int | None, status: str | None
+) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return _all(
+            connection,
+            REPORT_SQL + " AND (CAST(:c AS bigint) IS NULL OR p.characteristic_id=:c)"
+            " AND (CAST(:st AS text) IS NULL OR p.status=:st)"
+            " ORDER BY p.report_end_on DESC, p.characteristic_id, p.version DESC LIMIT 200",
+            {**_s(scoped), "c": characteristic_id, "st": status},
+        )
+
+
+def capability_report(context: AuthContext, report_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return _report(connection, scoped, report_id)
+
+
+def create_capability_report(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """기간의 능력 지표를 **그때 계산해 스냅샷으로** 만든다(초안). 뒤에 부분군이 바뀌어도 값은 그대로다."""
+    start_on, end_on = values["report_start_on"], values["report_end_on"]
+    if start_on > end_on:
+        raise _fields({"reportEndOn": "기간 끝은 시작보다 늦어야 합니다."})
+
+    def fn(connection, scoped):
+        found = _lock(connection, scoped, values["characteristic_id"])
+        start = datetime.combine(start_on, time(), SEOUL)
+        end = datetime.combine(end_on + timedelta(days=1), time(), SEOUL)
+        params = {
+            **_s(scoped),
+            "c": values["characteristic_id"],
+            "a": start,
+            "b": end,
+        }
+        rows = connection.execute(
+            text(
+                f"SELECT xbar, r FROM spc.subgroup WHERE {_S} AND characteristic_id=:c "
+                "AND status='valid' AND measured_at>=:a AND measured_at<:b"
+            ),
+            params,
+        ).all()
+        if len(rows) < stats.MIN_BASIS:
+            raise _fields(
+                {
+                    "reportStartOn": f"유효 부분군이 {stats.MIN_BASIS}개 이상이어야 합니다(현재 {len(rows)}개)."
+                }
+            )
+        measurements = list(
+            connection.execute(
+                text(
+                    "SELECT m.value FROM spc.measurement m JOIN spc.subgroup s "
+                    "ON s.workspace_id=m.workspace_id AND s.generation_id=m.generation_id AND s.id=m.subgroup_id "
+                    "WHERE m.workspace_id=:w AND m.generation_id=:g AND s.characteristic_id=:c "
+                    "AND s.status='valid' AND s.measured_at>=:a AND s.measured_at<:b"
+                ),
+                params,
+            ).scalars()
+        )
+        lsl = _number(found["lsl"], "lsl")
+        usl = _number(found["usl"], "usl")
+        within = stats.capability(
+            [r.xbar for r in rows],
+            [r.r for r in rows],
+            lsl,
+            usl,
+            int(found["subgroupSize"]),
+        )
+        overall = stats.performance(measurements, lsl, usl)
+        version = connection.execute(
+            text(
+                f"SELECT COALESCE(max(version),0)+1 FROM spc.capability_report WHERE {_S} "
+                "AND characteristic_id=:c AND report_start_on=:a AND report_end_on=:b"
+            ),
+            {
+                **_s(scoped),
+                "c": values["characteristic_id"],
+                "a": start_on,
+                "b": end_on,
+            },
+        ).scalar_one()
+        new_id = connection.execute(
+            text(
+                "INSERT INTO spc.capability_report(workspace_id,generation_id,characteristic_id,"
+                "report_start_on,report_end_on,version,subgroup_count,mean,sigma_within,sigma_overall,"
+                "cp,cpk,pp,ppk,skewness,kurtosis,comment) VALUES "
+                "(:w,:g,:c,:a,:b,:v,:n,:mean,:within,:overall,:cp,:cpk,:pp,:ppk,:skew,:kurt,:comment) RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "c": values["characteristic_id"],
+                "a": start_on,
+                "b": end_on,
+                "v": version,
+                "n": len(rows),
+                "mean": overall["mean"],
+                "within": within["sigma"],
+                "overall": overall["sigma_overall"],
+                "cp": within["cp"],
+                "cpk": within["cpk"],
+                "pp": overall["pp"],
+                "ppk": overall["ppk"],
+                "skew": overall["skewness"],
+                "kurt": overall["kurtosis"],
+                "comment": (values.get("comment") or "").strip() or None,
+            },
+        ).scalar_one()
+        return _report(connection, scoped, new_id), "capability_report", new_id
+
+    body = {
+        **values,
+        "report_start_on": start_on.isoformat(),
+        "report_end_on": end_on.isoformat(),
+    }
+    return _action(context, "spc.capability_report.create", key, body, fn, 201)
+
+
+def confirm_capability_report(
+    context: AuthContext, report_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """확정하면 불변이다. 같은 기간의 옛 확정본은 '대체됨'으로 밀린다(기간당 확정 1건)."""
+
+    def fn(connection, scoped):
+        found = _one(
+            connection,
+            REPORT_SQL + " AND p.id=:id FOR UPDATE OF p",
+            {**_s(scoped), "id": report_id},
+        )
+        if found is None:
+            raise _not_found("공정능력 보고서")
+        if found["status"] != "draft":
+            raise _conflict(
+                "초안만 확정할 수 있습니다.", "NOT_DRAFT", status=found["status"]
+            )
+        connection.execute(
+            text(
+                f"UPDATE spc.capability_report SET status='superseded' WHERE {_S} "
+                "AND characteristic_id=:c AND report_start_on=:a AND report_end_on=:b "
+                "AND status='confirmed'"
+            ),
+            {
+                **_s(scoped),
+                "c": found["characteristicId"],
+                "a": found["reportStartOn"],
+                "b": found["reportEndOn"],
+            },
+        )
+        comment = (values.get("comment") or "").strip() or None
+        connection.execute(
+            text(
+                "UPDATE spc.capability_report SET status='confirmed', confirmed_at=clock_timestamp(), "
+                f"comment=COALESCE(:comment, comment) WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "comment": comment, "id": report_id},
+        )
+        return _report(connection, scoped, report_id), "capability_report", report_id
+
+    return _action(
+        context, f"spc.capability_report.confirm:{report_id}", key, values, fn
+    )
+
+
+# ---------- 이상 대응 절차 OCAP (S-09, DSN-17 Q5) ----------
+
+OCAP_SQL = f"""
+SELECT o.id, o.characteristic_id, c.code characteristic_code, c.name characteristic_name,
+       c.item_code, c.process_code, o.rule_no, o.seq, o.check_text, o.cause_category, o.is_active,
+       (SELECT count(*) FROM spc.ocap_check k WHERE k.workspace_id=o.workspace_id
+          AND k.generation_id=o.generation_id AND k.ocap_item_id=o.id) check_count
+FROM spc.ocap_item o
+LEFT JOIN spc.characteristic c ON c.workspace_id=o.workspace_id AND c.generation_id=o.generation_id
+     AND c.id=o.characteristic_id
+WHERE o.{_S.replace(" AND ", " AND o.")}
+"""
+# 어떤 이상에 해당하는 항목인가: 특성이 비면 모든 특성, 규칙이 비면 모든 규칙(4장 ocap_item).
+APPLIES = (
+    "(o.characteristic_id IS NULL OR o.characteristic_id=:c) "
+    "AND (o.rule_no IS NULL OR o.rule_no=:rule)"
+)
+OCAP_ORDER = " ORDER BY o.characteristic_id NULLS FIRST, o.rule_no NULLS FIRST, o.seq"
+
+
+def _ocap_item(connection, scoped, item_id: int) -> dict[str, Any]:
+    found = _one(connection, OCAP_SQL + " AND o.id=:id", {**_s(scoped), "id": item_id})
+    if found is None:
+        raise _not_found("점검 항목")
+    return found
+
+
+def ocap_items(
+    context: AuthContext, characteristic_id: int | None
+) -> list[dict[str, Any]]:
+    """점검 항목. characteristicId를 주면 그 특성에 해당하는 것(공통 포함)만."""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        where = (
+            " AND (o.characteristic_id IS NULL OR o.characteristic_id=:c)"
+            if characteristic_id
+            else ""
+        )
+        return _all(
+            connection,
+            OCAP_SQL + where + OCAP_ORDER,
+            {**_s(scoped), "c": characteristic_id},
+        )
+
+
+def _duplicate_ocap(connection, scoped, values, exclude: int | None) -> None:
+    """같은 적용 범위(특성·규칙)에 같은 순서가 또 있으면 막는다.
+
+    DB UK는 NULL을 서로 다른 값으로 보기 때문에 '모든 특성'·'모든 규칙' 항목을 잡지 못한다.
+    """
+    found = connection.execute(
+        text(
+            f"SELECT id FROM spc.ocap_item WHERE {_S} AND seq=:seq "
+            "AND characteristic_id IS NOT DISTINCT FROM :c "
+            "AND rule_no IS NOT DISTINCT FROM :rule AND id IS DISTINCT FROM :exclude"
+        ),
+        {
+            **_s(scoped),
+            "seq": values["seq"],
+            "c": values.get("characteristic_id"),
+            "rule": values.get("rule_no"),
+            "exclude": exclude,
+        },
+    ).scalar()
+    if found is not None:
+        raise _conflict(
+            "같은 적용 범위에 같은 순서의 점검 항목이 이미 있습니다.",
+            "DUPLICATE",
+            id=found,
+        )
+
+
+def create_ocap_item(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    def fn(connection, scoped):
+        if values.get("characteristic_id"):
+            _characteristic(connection, scoped, values["characteristic_id"])
+        _duplicate_ocap(connection, scoped, values, None)
+        new_id = connection.execute(
+            text(
+                "INSERT INTO spc.ocap_item(workspace_id,generation_id,characteristic_id,rule_no,"
+                "seq,check_text,cause_category) VALUES (:w,:g,:c,:rule,:seq,:body,:cause) RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "c": values.get("characteristic_id"),
+                "rule": values.get("rule_no"),
+                "seq": values["seq"],
+                "body": values["check_text"].strip(),
+                "cause": values.get("cause_category"),
+            },
+        ).scalar_one()
+        return _ocap_item(connection, scoped, new_id), "ocap_item", new_id
+
+    return _action(context, "spc.ocap.create", key, values, fn, 201)
+
+
+SCOPE_FIELDS = ("characteristic_id", "rule_no")
+
+
+def update_ocap_item(
+    context: AuthContext, item_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    def fn(connection, scoped):
+        current = _ocap_item(connection, scoped, item_id)
+        if int(current["checkCount"]) > 0 and any(k in values for k in SCOPE_FIELDS):
+            raise _conflict(
+                "점검 기록이 있는 항목의 적용 범위는 바꿀 수 없습니다. 사용을 끄고 새 항목을 만들어 주세요.",
+                "OCAP_ITEM_IN_USE",
+                checkCount=current["checkCount"],
+            )
+        merged = {
+            "seq": values.get("seq", current["seq"]),
+            "characteristic_id": values.get(
+                "characteristic_id", current["characteristicId"]
+            ),
+            "rule_no": values.get("rule_no", current["ruleNo"]),
+        }
+        _duplicate_ocap(connection, scoped, merged, item_id)
+        sets = dict(values)
+        if "check_text" in sets:
+            sets["check_text"] = sets["check_text"].strip()
+        if sets:
+            assignments = ", ".join(f"{k}=:{k}" for k in sets)
+            connection.execute(
+                text(f"UPDATE spc.ocap_item SET {assignments} WHERE {_S} AND id=:id"),
+                {**_s(scoped), **sets, "id": item_id},
+            )
+        return _ocap_item(connection, scoped, item_id), "ocap_item", item_id
+
+    return _action(context, f"spc.ocap.update:{item_id}", key, values, fn)
+
+
+def _signal_row(
+    connection, scoped, signal_id: int, lock: bool = False
+) -> dict[str, Any]:
+    found = _one(
+        connection,
+        SIGNAL_SQL + " AND x.id=:id" + (" FOR UPDATE OF x" if lock else ""),
+        {**_s(scoped), "id": signal_id},
+    )
+    if found is None:
+        raise _not_found("이상 기록")
+    return found
+
+
+def _checklist(connection, scoped, signal: dict[str, Any]) -> list[dict[str, Any]]:
+    """이 이상에 해당하는 점검 항목. 이미 기록한 항목은 사용을 꺼도 계속 보인다."""
+    return _all(
+        connection,
+        OCAP_SQL + f" AND ({APPLIES}) AND (o.is_active OR EXISTS ("
+        "SELECT 1 FROM spc.ocap_check k WHERE k.workspace_id=o.workspace_id "
+        "AND k.generation_id=o.generation_id AND k.ocap_item_id=o.id AND k.signal_id=:signal))"
+        + OCAP_ORDER,
+        {
+            **_s(scoped),
+            "c": signal["characteristicId"],
+            "rule": signal["rule"],
+            "signal": signal["id"],
+        },
+    )
+
+
+CHECK_SQL = f"""
+SELECT k.id, k.signal_id, k.ocap_item_id, k.result, k.note, k.checked_at
+FROM spc.ocap_check k WHERE k.{_S.replace(" AND ", " AND k.")}
+"""
+
+
+def ocap_checks(context: AuthContext, signal_id: int) -> dict[str, Any]:
+    """S-05 이상 상세의 점검표: 해당 항목과 이미 기록한 결과."""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        signal = _signal_row(connection, scoped, signal_id)
+        items = _checklist(connection, scoped, signal)
+        results = {
+            int(r["ocapItemId"]): r
+            for r in _all(
+                connection,
+                CHECK_SQL + " AND k.signal_id=:id",
+                {**_s(scoped), "id": signal_id},
+            )
+        }
+        rows = [{**i, "check": results.get(int(i["id"]))} for i in items]
+        return {
+            "signalId": signal_id,
+            "status": signal["status"],
+            "items": rows,
+            "missing": [
+                int(r["id"]) for r in rows if r["check"] is None and r["isActive"]
+            ],
+        }
+
+
+def record_ocap_checks(
+    context: AuthContext, signal_id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """점검 결과를 한 번에 저장한다. 조치 완료 전에만, 같은 항목은 덮어쓴다."""
+
+    def fn(connection, scoped):
+        signal = _signal_row(connection, scoped, signal_id, lock=True)
+        if signal["status"] != "open":
+            raise _conflict(
+                "미조치 이상만 점검을 기록할 수 있습니다.",
+                "NOT_OPEN",
+                status=signal["status"],
+            )
+        allowed = {int(i["id"]) for i in _checklist(connection, scoped, signal)}
+        for entry in values["checks"]:
+            item_id = int(entry["ocap_item_id"])
+            if item_id not in allowed:
+                raise _fields(
+                    {"checks": "이 이상에 해당하지 않는 점검 항목이 있습니다."}
+                )
+            note = (entry.get("note") or "").strip()
+            # DB CHECK는 note가 NULL이면 통과한다(NULL은 거짓이 아니다). 여기서 막는다.
+            if entry["result"] == "NG" and len(note) < 2:
+                raise _fields(
+                    {f"checks.{item_id}": "NG는 무엇이 문제였는지 적어 주세요."}
+                )
+            connection.execute(
+                text(
+                    "INSERT INTO spc.ocap_check(workspace_id,generation_id,signal_id,ocap_item_id,"
+                    "result,note,checked_at) VALUES (:w,:g,:s,:i,:r,:note,clock_timestamp()) "
+                    "ON CONFLICT (workspace_id,generation_id,signal_id,ocap_item_id) DO UPDATE "
+                    "SET result=EXCLUDED.result, note=EXCLUDED.note, checked_at=EXCLUDED.checked_at"
+                ),
+                {
+                    **_s(scoped),
+                    "s": signal_id,
+                    "i": item_id,
+                    "r": entry["result"],
+                    "note": note or None,
+                },
+            )
+        return None, "signal", signal_id
+
+    _action(context, f"spc.ocap.check:{signal_id}", key, values, fn)
+    return ocap_checks(context, signal_id)
+
+
+# ---------- 규격 이탈 (S-08) ----------
+
+VIOLATION_SQL = f"""
+SELECT v.id, v.subgroup_id, v.characteristic_id, c.code characteristic_code, c.name characteristic_name,
+       c.item_code, c.item_name, c.process_code, c.unit, v.seq, v.lot_no, s.equipment_code,
+       v.value, v.side, v.limit_value, v.detected_at, v.voided_at,
+       CASE WHEN v.voided_at IS NULL THEN 'open' ELSE 'void' END status
+FROM spc.spec_violation v
+JOIN spc.characteristic c ON c.workspace_id=v.workspace_id AND c.generation_id=v.generation_id AND c.id=v.characteristic_id
+JOIN spc.subgroup s ON s.workspace_id=v.workspace_id AND s.generation_id=v.generation_id AND s.id=v.subgroup_id
+WHERE v.{_S.replace(" AND ", " AND v.")}
+"""
+
+
+def spec_violations(
+    context: AuthContext,
+    characteristic_id: int | None,
+    lot_no: str | None,
+    status: str | None,
+) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return _all(
+            connection,
+            VIOLATION_SQL
+            + " AND (CAST(:c AS bigint) IS NULL OR v.characteristic_id=:c)"
+            " AND (CAST(:lot AS text) IS NULL OR v.lot_no=:lot)"
+            " AND (CAST(:st AS text) IS NULL OR (v.voided_at IS NULL)=(:st='open'))"
+            " ORDER BY v.detected_at DESC, v.id DESC LIMIT 500",
+            {**_s(scoped), "c": characteristic_id, "lot": lot_no, "st": status},
+        )
 
 
 # ---------- 대시보드 (S-01) ----------
@@ -940,6 +1693,12 @@ def dashboard(context: AuthContext) -> dict[str, Any]:
             ),
             {**_s(scoped), "a": week_start},
         ).scalar_one()
+        violations = connection.execute(
+            text(
+                f"SELECT count(*) FROM spc.spec_violation WHERE {_S} AND voided_at IS NULL AND detected_at>=:a"
+            ),
+            {**_s(scoped), "a": week_start},
+        ).scalar_one()
         judgements = [c["capability"]["judgement"] for c in cards if c["capability"]]
         cards.sort(
             key=lambda c: (
@@ -959,5 +1718,6 @@ def dashboard(context: AuthContext) -> dict[str, Any]:
                 j: judgements.count(j) for j in ("CAPABLE", "MARGINAL", "INCAPABLE")
             },
             "weekSubgroups": week,
+            "weekSpecViolations": violations,
             "cards": cards,
         }

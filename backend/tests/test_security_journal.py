@@ -11,12 +11,11 @@ from types import SimpleNamespace
 
 import pytest
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from sqlalchemy import create_engine, text
-
 from fs.common.errors import ApiError
 from fs.core.backup import BackupError
 from fs.core.security.journal import ZERO, append, canonical, verify
 from fs.gw import company_identity, security_journal
+from sqlalchemy import create_engine, text
 
 
 @pytest.fixture

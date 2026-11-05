@@ -12,6 +12,12 @@ import { Inbounds } from "./Inbounds";
 import { Reservations } from "./Reservations";
 import { Items } from "./Items";
 import { Lots } from "./Lots";
+import { Counts } from "./Counts";
+import { Labels } from "./Labels";
+import { Analysis, Ledger, Occupancy } from "./Reports";
+import { Issues } from "./Issues";
+import { Putaways } from "./Putaways";
+import { Picks } from "./Picks";
 
 export default function WmsRoutes() {
   return (
@@ -25,7 +31,15 @@ export default function WmsRoutes() {
         <Route path="moves" element={<Moves />} />
         <Route path="warehouses" element={<Warehouses />} />
         <Route path="inbounds" element={<Inbounds />} />
+        <Route path="ledger" element={<Ledger />} />
+        <Route path="analysis" element={<Analysis />} />
+        <Route path="occupancy" element={<Occupancy />} />
+        <Route path="labels" element={<Labels />} />
+        <Route path="counts" element={<Counts />} />
+        <Route path="issues" element={<Issues />} />
+        <Route path="putaways" element={<Putaways />} />
         <Route path="reservations" element={<Reservations />} />
+        <Route path="picks" element={<Picks />} />
         <Route path="items" element={<Items />} />
         <Route path="lots" element={<Lots />} />
         <Route path="*" element={<NotFound />} />

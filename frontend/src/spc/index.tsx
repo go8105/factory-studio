@@ -9,6 +9,10 @@ import { Measure } from "./Measure";
 import { Signals } from "./Signals";
 import { Subgroups } from "./Subgroups";
 import { Characteristics } from "./Characteristics";
+import { Violations } from "./Violations";
+import { Ocap } from "./Ocap";
+import { Reports } from "./Reports";
+import { Strata } from "./Strata";
 
 export default function SpcRoutes() {
   return (
@@ -22,6 +26,10 @@ export default function SpcRoutes() {
         <Route path="signals" element={<Signals />} />
         <Route path="subgroups" element={<Subgroups />} />
         <Route path="characteristics" element={<Characteristics />} />
+        <Route path="violations" element={<Violations />} />
+        <Route path="ocap" element={<Ocap />} />
+        <Route path="strata" element={<Strata />} />
+        <Route path="reports" element={<Reports />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

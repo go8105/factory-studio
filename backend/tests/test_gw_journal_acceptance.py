@@ -7,11 +7,6 @@ from datetime import timedelta
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from pydantic import ValidationError
-from test_gw_acceptance_collection import fixture as sources
-from test_gw_acceptance_collection import signed
-from test_gw_journal_observation import fixture as observation
-
 from fs.common.errors import ApiError
 from fs.gw.acceptance_reconciliation import (
     sign_reconciliation,
@@ -23,6 +18,10 @@ from fs.gw.operating_contract import (
     canonical,
     verify_evidence,
 )
+from pydantic import ValidationError
+from test_gw_acceptance_collection import fixture as sources
+from test_gw_acceptance_collection import signed
+from test_gw_journal_observation import fixture as observation
 
 
 def prepared():

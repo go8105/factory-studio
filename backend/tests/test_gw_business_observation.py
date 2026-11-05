@@ -7,7 +7,6 @@ from uuid import uuid4
 from xml.etree import ElementTree as ET
 
 import pytest
-
 from fs.gw.acceptance_business import PROBE, PROPERTY
 from fs.gw.operating_contract import canonical
 

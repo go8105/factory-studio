@@ -11,6 +11,7 @@ import { wmsScreens } from "../wms/WmsLayout";
 import { bemsScreens } from "../bems/BemsLayout";
 import { gwScreens } from "../gw/GwLayout";
 import { spcScreens } from "../spc/SpcLayout";
+import { cmmsScreens } from "../cmms/CmmsLayout";
 import { contentTitle } from "../shared/content";
 export { slug } from "../shared/content";
 export type DocGroup = { solution?: string; title: string; keys: string[] };
@@ -30,6 +31,7 @@ const solutions: [string, string, Screen[]][] = [
   ["wms", "WMS 창고관리", wmsScreens],
   ["bems", "BEMS 건물관리", bemsScreens],
   ["spc", "SPC 공정관리", spcScreens],
+  ["cmms", "CMMS 설비보전", cmmsScreens],
   ["gw", "GW 그룹웨어", gwScreens],
   ["flow", "Factory Flow 프로젝트 협업", flowScreens],
 ];

@@ -13,6 +13,12 @@ from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fs.common.errors import ApiError
+from fs.core.backup import BackupError
+from fs.core.security.journal import verify as chain_verify
+from fs.gw.acceptance_sources import sign_current
+from fs.gw.evidence_trust import from_environment
+from fs.gw.journal_observation import observe
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from test_gw_backup import backup_env
@@ -20,13 +26,6 @@ from test_gw_company_work import api
 from test_gw_restore_observation_db import restored
 from test_hr_work import company_env
 from test_security_journal import journal
-
-from fs.common.errors import ApiError
-from fs.core.backup import BackupError
-from fs.core.security.journal import verify as chain_verify
-from fs.gw.acceptance_sources import sign_current
-from fs.gw.evidence_trust import from_environment
-from fs.gw.journal_observation import observe
 
 
 def add_keys(env, patch, config, folder):

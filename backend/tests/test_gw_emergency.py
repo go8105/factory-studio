@@ -12,14 +12,13 @@ import pyotp
 import pytest
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
-from sqlalchemy import text
-
 from fs.common.db import reset_engine
 from fs.core.security import emergency as credentials
 from fs.gw.emergency import approve
 from fs.hr.work_setup import create_company
 from fs.main import create_app
 from seed.generate import create_template
+from sqlalchemy import text
 
 
 @pytest.fixture

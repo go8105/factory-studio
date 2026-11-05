@@ -11,8 +11,11 @@ from fs.common.errors import ApiError
 from fs.common.page import Page
 from fs.fems import service
 from fs.fems.schema import (
+    AlarmEvaluate,
+    AlarmRuleCreate,
     ChannelCreate,
     ChannelUpdate,
+    CorrectionCreate,
     EnergySourceCreate,
     EnergySourceUpdate,
     EquipmentCreate,
@@ -21,12 +24,16 @@ from fs.fems.schema import (
     FactorUpdate,
     LocationCreate,
     LocationUpdate,
+    ManualReadingCreate,
     MeterCreate,
     MeterUpdate,
     ProductionCreate,
+    ProductionImport,
     ProductionUpdate,
+    ReadingUpload,
     SiteCreate,
     SiteUpdate,
+    TariffBandsReplace,
     TariffCreate,
     TariffUpdate,
 )
@@ -393,6 +400,138 @@ def delete_factor(
     return Response(status_code=204)
 
 
+@router.get("/reading-quality")
+def get_reading_quality(
+    context: Auth,
+    channel_id: Annotated[int, Query(alias="channelId", gt=0)],
+    date_from: Annotated[date | None, Query(alias="from")] = None,
+    date_to: Annotated[date | None, Query(alias="to")] = None,
+) -> dict[str, object]:
+    return {"data": service.reading_quality(context, channel_id, date_from, date_to)}
+
+
+@router.post("/readings", status_code=201)
+def post_manual_reading(
+    payload: ManualReadingCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_manual_reading(context, payload.model_dump(), key)}
+
+
+@router.post("/reading-corrections", status_code=201)
+def post_correction(
+    payload: CorrectionCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_correction(context, payload.model_dump(), key)}
+
+
+@router.post("/reading-uploads", status_code=201)
+def post_reading_upload(
+    payload: ReadingUpload,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    values = {
+        "file_name": payload.file_name,
+        "rows": [r.model_dump() for r in payload.rows],
+    }
+    return {"data": service.upload_readings(context, values, key)}
+
+
+@router.post("/production-records/import", status_code=201)
+def post_production_import(
+    payload: ProductionImport,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.import_production(context, payload.month, key)}
+
+
+@router.get("/alarm-rules")
+def list_alarm_rules(context: Auth) -> dict[str, object]:
+    return {"data": service.list_alarm_rules(context)}
+
+
+@router.post("/alarm-rules", status_code=201)
+def post_alarm_rule(
+    payload: AlarmRuleCreate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.create_alarm_rule(context, payload.model_dump(), key)}
+
+
+@router.get("/alarms")
+def list_alarms(
+    context: Auth,
+    open_only: Annotated[bool, Query(alias="openOnly")] = False,
+) -> dict[str, object]:
+    return {"data": service.list_alarms(context, open_only)}
+
+
+@router.post("/alarms/evaluate", status_code=201)
+def post_alarm_evaluate(
+    payload: AlarmEvaluate,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.evaluate_alarms(context, payload.month, key)}
+
+
+@router.post("/alarms/{alarm_id}/acknowledge")
+def post_alarm_ack(
+    alarm_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.change_alarm_status(context, alarm_id, "ACK", key)}
+
+
+@router.post("/alarms/{alarm_id}/clear")
+def post_alarm_clear(
+    alarm_id: int,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.change_alarm_status(context, alarm_id, "CLEARED", key)}
+
+
+@router.get("/equipment-comparison")
+def get_equipment_comparison(
+    context: Auth,
+    month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
+) -> dict[str, object]:
+    return {"data": service.equipment_comparison(context, month)}
+
+
+@router.get("/load-pattern")
+def get_load_pattern(
+    context: Auth,
+    month: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
+    energy_source_id: Annotated[int | None, Query(alias="energySourceId", gt=0)] = None,
+) -> dict[str, object]:
+    return {"data": service.load_pattern(context, month, energy_source_id)}
+
+
 @router.get("/tariffs")
 def list_tariffs(
     context: Auth,
@@ -425,6 +564,19 @@ def post_tariff(
 ) -> dict[str, object]:
     key = _mutation(context, x_csrf_token, idempotency_key)
     return {"data": service.create_tariff(context, payload.model_dump(), key)}
+
+
+@router.put("/tariffs/{tariff_id}/bands")
+def put_tariff_bands(
+    tariff_id: int,
+    payload: TariffBandsReplace,
+    context: Auth,
+    idempotency_key: IdempotencyKey = None,
+    x_csrf_token: CsrfToken = None,
+) -> dict[str, object]:
+    key = _mutation(context, x_csrf_token, idempotency_key)
+    bands = [b.model_dump() for b in payload.bands]
+    return {"data": service.replace_tariff_bands(context, tariff_id, bands, key)}
 
 
 @router.patch("/tariffs/{tariff_id}")

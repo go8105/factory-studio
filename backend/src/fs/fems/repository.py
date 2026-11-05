@@ -36,7 +36,7 @@ EQUIPMENT_REFERENCES = (
     ("fems.production_record", "생산 실적"),
 )
 LOCATION_COLUMNS = "id,site_id,parent_location_id,location_code,name,kind"
-TARIFF_COLUMNS = "id,energy_source_id,tariff_code,name,contract_type,basic_charge,usage_rate,currency,effective_from,effective_to,created_at"
+TARIFF_COLUMNS = "id,energy_source_id,tariff_code,name,contract_type,basic_charge,usage_rate,currency,effective_from,effective_to,tariff_kind,contract_kw,created_at"
 TARIFF_SORT = {
     "tariffCode": "tariff_code",
     "name": "name",
@@ -265,6 +265,8 @@ def tariff_dict(row: Any) -> dict[str, Any]:
         "currency": row["currency"],
         "effectiveFrom": row["effective_from"],
         "effectiveTo": row["effective_to"],
+        "tariffKind": row["tariff_kind"],
+        "contractKw": None if row["contract_kw"] is None else str(row["contract_kw"]),
         "createdAt": row["created_at"].isoformat(),
     }
 
@@ -1370,6 +1372,36 @@ def list_allocations(
     return [allocation_dict(r) for r in rows], total
 
 
+def production_by_equipment(
+    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+) -> dict[int, dict[str, Any]]:
+    """기간과 겹치는 **유효 확정본**의 설비별 생산량. 원단위의 분모다.
+
+    같은 원천 키의 최신 확정 버전만 센다 — 정정본이 있으면 옛 버전은 빠진다.
+    """
+    rows = connection.execute(
+        text(
+            """
+            SELECT equipment_id, unit, sum(production_qty) qty
+            FROM (
+              SELECT p.equipment_id, p.unit, p.production_qty,
+                     p.status='confirmed' AND p.version_no = max(p.version_no)
+                       FILTER (WHERE p.status='confirmed')
+                       OVER (PARTITION BY p.source_key) is_effective
+              FROM fems.production_record p
+              WHERE p.workspace_id=:w AND p.generation_id=:g
+                AND p.period_start < CAST(CAST(:date_to AS date) + 1 AS timestamp)
+                AND p.period_end > CAST(CAST(:date_from AS date) AS timestamp)
+            ) z
+            WHERE z.is_effective
+            GROUP BY equipment_id, unit
+            """
+        ),
+        {**_s(context), "date_from": date_from, "date_to": date_to},
+    ).mappings()
+    return {r["equipment_id"]: {"qty": r["qty"], "unit": r["unit"]} for r in rows}
+
+
 def allocation_summary(
     connection: Connection,
     context: AuthContext,
@@ -1500,13 +1532,501 @@ def monthly_consumption(
     return [dict(r) for r in rows]
 
 
+def tariff_bands(
+    connection: Connection, context: AuthContext, tariff_ids: list[int]
+) -> dict[int, list[dict[str, Any]]]:
+    """요금제별 시간대 구간. TOU 요금제가 아니면 빈 목록이다."""
+    if not tariff_ids:
+        return {}
+    rows = connection.execute(
+        text(
+            "SELECT id,tariff_id,season,day_kind,hour_from,hour_to,load_band,rate "
+            "FROM fems.tariff_band WHERE workspace_id=:w AND generation_id=:g "
+            " AND tariff_id = ANY(:ids) ORDER BY season,day_kind,hour_from"
+        ),
+        {**_s(context), "ids": tariff_ids},
+    ).mappings()
+    grouped: dict[int, list[dict[str, Any]]] = {i: [] for i in tariff_ids}
+    for row in rows:
+        grouped[row["tariff_id"]].append(dict(row))
+    return grouped
+
+
+ALARM_RULE_COLUMNS = "id,code,name,alarm_kind,meter_channel_id,equipment_id,threshold,unit,is_active,created_at"
+
+
+def alarm_rule_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "code": row["code"],
+        "name": row["name"],
+        "alarmKind": row["alarm_kind"],
+        "meterChannelId": row["meter_channel_id"],
+        "equipmentId": row["equipment_id"],
+        "threshold": str(row["threshold"]),
+        "unit": row["unit"],
+        "isActive": row["is_active"],
+        "createdAt": row["created_at"].isoformat(),
+    }
+
+
+def list_alarm_rules(
+    connection: Connection, context: AuthContext, active_only: bool = False
+) -> list[dict[str, Any]]:
+    where = " AND is_active" if active_only else ""
+    rows = connection.execute(
+        text(
+            f"SELECT {ALARM_RULE_COLUMNS} FROM fems.alarm_rule "
+            f"WHERE workspace_id=:w AND generation_id=:g{where} ORDER BY code"
+        ),
+        _s(context),
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
+def insert_alarm_rule(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    columns = ",".join(values.keys())
+    placeholders = ",".join(f":{c}" for c in values)
+    row = (
+        connection.execute(
+            text(
+                f"INSERT INTO fems.alarm_rule (workspace_id,generation_id,{columns}) "
+                f"VALUES (:w,:g,{placeholders}) RETURNING {ALARM_RULE_COLUMNS}"
+            ),
+            {**_s(context), **values},
+        )
+        .mappings()
+        .one()
+    )
+    return alarm_rule_dict(row)
+
+
+def alarm_rule_code_taken(
+    connection: Connection, context: AuthContext, code: str
+) -> bool:
+    return bool(
+        connection.execute(
+            text(
+                "SELECT 1 FROM fems.alarm_rule "
+                "WHERE workspace_id=:w AND generation_id=:g AND code=:code"
+            ),
+            {**_s(context), "code": code},
+        ).first()
+    )
+
+
+ALARM_SQL = """
+SELECT a.id,a.alarm_rule_id,r.code rule_code,r.name rule_name,r.alarm_kind,r.threshold,
+       r.unit,a.raised_at,a.peak_value,a.status,a.acknowledged_at,a.cleared_at,
+       c.channel_code,e.equipment_code
+FROM fems.alarm a
+JOIN fems.alarm_rule r ON r.workspace_id=a.workspace_id
+ AND r.generation_id=a.generation_id AND r.id=a.alarm_rule_id
+LEFT JOIN fems.meter_channel c ON c.workspace_id=r.workspace_id
+ AND c.generation_id=r.generation_id AND c.id=r.meter_channel_id
+LEFT JOIN fems.equipment e ON e.workspace_id=r.workspace_id
+ AND e.generation_id=r.generation_id AND e.id=r.equipment_id
+WHERE a.workspace_id=:w AND a.generation_id=:g
+"""
+
+
+def alarm_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "alarmRuleId": row["alarm_rule_id"],
+        "ruleCode": row["rule_code"],
+        "ruleName": row["rule_name"],
+        "alarmKind": row["alarm_kind"],
+        "threshold": str(row["threshold"]),
+        "unit": row["unit"],
+        "channelCode": row["channel_code"],
+        "equipmentCode": row["equipment_code"],
+        "raisedAt": row["raised_at"].isoformat(),
+        "peakValue": str(row["peak_value"]),
+        "status": row["status"],
+        "acknowledgedAt": None
+        if row["acknowledged_at"] is None
+        else row["acknowledged_at"].isoformat(),
+        "clearedAt": None
+        if row["cleared_at"] is None
+        else row["cleared_at"].isoformat(),
+    }
+
+
+def list_alarms(
+    connection: Connection, context: AuthContext, open_only: bool = False
+) -> list[dict[str, Any]]:
+    where = " AND a.status <> 'CLEARED'" if open_only else ""
+    rows = connection.execute(
+        text(ALARM_SQL + where + " ORDER BY a.raised_at DESC, a.id DESC LIMIT 100"),
+        _s(context),
+    ).mappings()
+    return [alarm_dict(r) for r in rows]
+
+
+def get_alarm(
+    connection: Connection, context: AuthContext, alarm_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(ALARM_SQL + " AND a.id=:id"), {**_s(context), "id": alarm_id}
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else alarm_dict(row)
+
+
+def open_alarm_rule_ids(connection: Connection, context: AuthContext) -> set[int]:
+    """진행 중(OPEN·ACK) 경보가 있는 규칙. 규칙당 한 건만 열어 둔다(UK_PARTIAL)."""
+    return set(
+        connection.execute(
+            text(
+                "SELECT alarm_rule_id FROM fems.alarm "
+                "WHERE workspace_id=:w AND generation_id=:g AND status <> 'CLEARED'"
+            ),
+            _s(context),
+        ).scalars()
+    )
+
+
+def raise_alarm(
+    connection: Connection, context: AuthContext, rule_id: int, peak_value: str
+) -> int:
+    return connection.execute(
+        text(
+            "INSERT INTO fems.alarm (workspace_id,generation_id,alarm_rule_id,"
+            "raised_at,peak_value,status) VALUES (:w,:g,:rule,now(),:peak,'OPEN') "
+            "RETURNING id"
+        ),
+        {**_s(context), "rule": rule_id, "peak": peak_value},
+    ).scalar_one()
+
+
+def update_alarm_status(
+    connection: Connection, context: AuthContext, alarm_id: int, status: str
+) -> None:
+    column = "acknowledged_at" if status == "ACK" else "cleared_at"
+    connection.execute(
+        text(
+            f"UPDATE fems.alarm SET status=:status, {column}=now() "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), "id": alarm_id, "status": status},
+    )
+
+
+def channel_ids_by_code(connection: Connection, context: AuthContext) -> dict[str, int]:
+    """채널 코드 → id. CSV가 코드로 오므로 한 번에 읽어 둔다."""
+    rows = connection.execute(
+        text(
+            "SELECT channel_code,id FROM fems.meter_channel "
+            "WHERE workspace_id=:w AND generation_id=:g AND is_active"
+        ),
+        _s(context),
+    ).mappings()
+    return {r["channel_code"]: r["id"] for r in rows}
+
+
+def equipment_ids_by_code(
+    connection: Connection, context: AuthContext
+) -> dict[str, int]:
+    """설비 코드 → id. MES 생산량을 FEMS 설비에 붙일 때 쓴다(FK 없음, 코드로만 맞춘다)."""
+    rows = connection.execute(
+        text(
+            "SELECT equipment_code,id FROM fems.equipment "
+            "WHERE workspace_id=:w AND generation_id=:g AND is_active"
+        ),
+        _s(context),
+    ).mappings()
+    return {r["equipment_code"]: r["id"] for r in rows}
+
+
+def insert_upload(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    row = (
+        connection.execute(
+            text(
+                "INSERT INTO fems.reading_upload (workspace_id,generation_id,upload_no,"
+                "file_name,row_count,accepted_count,rejected_count,uploaded_at,error_summary) "
+                "VALUES (:w,:g,:upload_no,:file_name,:row_count,:accepted,:rejected,now(),:errors) "
+                "RETURNING id,upload_no,file_name,row_count,accepted_count,rejected_count,"
+                "uploaded_at,error_summary"
+            ),
+            {**_s(context), **values},
+        )
+        .mappings()
+        .one()
+    )
+    return dict(row)
+
+
+def next_upload_no(connection: Connection, context: AuthContext, day: str) -> str:
+    taken = connection.execute(
+        text(
+            "SELECT count(*) FROM fems.reading_upload "
+            "WHERE workspace_id=:w AND generation_id=:g AND upload_no LIKE :prefix"
+        ),
+        {**_s(context), "prefix": f"UP-{day}-%"},
+    ).scalar_one()
+    return f"UP-{day}-{taken + 1:03d}"
+
+
+def list_uploads(
+    connection: Connection, context: AuthContext, limit: int = 20
+) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            "SELECT id,upload_no,file_name,row_count,accepted_count,rejected_count,"
+            "uploaded_at,error_summary FROM fems.reading_upload "
+            "WHERE workspace_id=:w AND generation_id=:g "
+            "ORDER BY uploaded_at DESC, id DESC LIMIT :limit"
+        ),
+        {**_s(context), "limit": limit},
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
+def production_keys(connection: Connection, context: AuthContext) -> set[str]:
+    return set(
+        connection.execute(
+            text(
+                "SELECT DISTINCT source_key FROM fems.production_record "
+                "WHERE workspace_id=:w AND generation_id=:g"
+            ),
+            _s(context),
+        ).scalars()
+    )
+
+
+def channel_for_reading(
+    connection: Connection, context: AuthContext, channel_id: int
+) -> dict[str, Any] | None:
+    """계측 채널 하나. 수동 검침·보정이 단위와 채널 코드를 여기서 가져온다."""
+    row = (
+        connection.execute(
+            text(
+                "SELECT c.id,c.channel_code,c.name,c.unit,c.measurement_kind,c.is_active,"
+                "m.meter_code,s.timezone "
+                "FROM fems.meter_channel c "
+                "JOIN fems.meter m ON m.workspace_id=c.workspace_id "
+                " AND m.generation_id=c.generation_id AND m.id=c.meter_id "
+                "JOIN fems.site s ON s.workspace_id=m.workspace_id "
+                " AND s.generation_id=m.generation_id AND s.id=m.site_id "
+                "WHERE c.workspace_id=:w AND c.generation_id=:g AND c.id=:id"
+            ),
+            {**_s(context), "id": channel_id},
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else dict(row)
+
+
+def channel_readings(
+    connection: Connection,
+    context: AuthContext,
+    channel_id: int,
+    date_from: Any,
+    date_to: Any,
+) -> list[dict[str, Any]]:
+    """한 채널의 구간별 계측. 결측·이상값 탐지는 이 목록을 파이썬에서 훑는다.
+
+    버려진 값(invalid)은 빼고 **구간마다 최신 input_revision 하나만** 돌려준다 —
+    보정이 쌓여도 한 구간은 한 값이다.
+    """
+    rows = connection.execute(
+        text(
+            "SELECT DISTINCT ON (r.period_start) r.id,r.period_start,r.observed_at,"
+            "r.value,r.quality,r.source_key,r.input_revision,r.entry_method "
+            "FROM fems.energy_reading r "
+            "JOIN fems.meter_channel c ON c.workspace_id=r.workspace_id "
+            " AND c.generation_id=r.generation_id AND c.id=r.meter_channel_id "
+            "JOIN fems.meter m ON m.workspace_id=c.workspace_id "
+            " AND m.generation_id=c.generation_id AND m.id=c.meter_id "
+            "JOIN fems.site s ON s.workspace_id=m.workspace_id "
+            " AND s.generation_id=m.generation_id AND s.id=m.site_id "
+            "WHERE r.workspace_id=:w AND r.generation_id=:g AND r.meter_channel_id=:id "
+            " AND r.quality <> 'invalid'"
+            " AND r.observed_at > (CAST(CAST(:date_from AS date) AS timestamp) AT TIME ZONE s.timezone)"
+            " AND r.observed_at <= (CAST(CAST(:date_to AS date) + 1 AS timestamp) AT TIME ZONE s.timezone)"
+            " ORDER BY r.period_start, r.input_revision DESC, r.id DESC"
+        ),
+        {**_s(context), "id": channel_id, "date_from": date_from, "date_to": date_to},
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
+def insert_reading(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    columns = ",".join(values.keys())
+    placeholders = ",".join(f":{c}" for c in values)
+    row = (
+        connection.execute(
+            text(
+                f"INSERT INTO fems.energy_reading (workspace_id, generation_id, {columns}) "
+                f"VALUES (:w, :g, {placeholders}) "
+                "RETURNING id,meter_channel_id,observed_at,period_start,value,unit,"
+                "quality,source_key,input_revision,entry_method,created_at"
+            ),
+            {**_s(context), **values},
+        )
+        .mappings()
+        .one()
+    )
+    return dict(row)
+
+
+def supersede_reading(
+    connection: Connection, context: AuthContext, reading_id: int
+) -> None:
+    """보정으로 대체된 원 계측을 **지우지 않고** 집계에서만 뺀다(quality=invalid).
+
+    값은 행에 그대로 남고, 보정 이력(`reading_correction.original_value`)에도 남는다.
+    집계 질의가 이미 invalid를 거르므로 읽는 쪽을 모두 고치지 않아도 된다.
+    """
+    connection.execute(
+        text(
+            "UPDATE fems.energy_reading SET quality='invalid' "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), "id": reading_id},
+    )
+
+
+def insert_correction(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    row = (
+        connection.execute(
+            text(
+                "INSERT INTO fems.reading_correction (workspace_id,generation_id,"
+                "meter_channel_id,period_start,original_value,corrected_value,method,"
+                "reason,corrected_at) VALUES (:w,:g,:channel,:period_start,:original,"
+                ":corrected,:method,:reason,now()) "
+                "RETURNING id,meter_channel_id,period_start,original_value,"
+                "corrected_value,method,reason,corrected_at"
+            ),
+            {**_s(context), **values},
+        )
+        .mappings()
+        .one()
+    )
+    return dict(row)
+
+
+def list_corrections(
+    connection: Connection, context: AuthContext, limit: int = 50
+) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            "SELECT k.id,k.meter_channel_id,c.channel_code,k.period_start,"
+            "k.original_value,k.corrected_value,k.method,k.reason,k.corrected_at "
+            "FROM fems.reading_correction k "
+            "JOIN fems.meter_channel c ON c.workspace_id=k.workspace_id "
+            " AND c.generation_id=k.generation_id AND c.id=k.meter_channel_id "
+            "WHERE k.workspace_id=:w AND k.generation_id=:g "
+            "ORDER BY k.corrected_at DESC, k.id DESC LIMIT :limit"
+        ),
+        {**_s(context), "limit": limit},
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
+def replace_tariff_bands(
+    connection: Connection,
+    context: AuthContext,
+    tariff_id: int,
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """구간을 통째로 바꾼다. 한 줄씩 고치면 하루를 못 덮는 중간 상태가 생긴다."""
+    connection.execute(
+        text(
+            "DELETE FROM fems.tariff_band "
+            "WHERE workspace_id=:w AND generation_id=:g AND tariff_id=:t"
+        ),
+        {**_s(context), "t": tariff_id},
+    )
+    for row in rows:
+        connection.execute(
+            text(
+                "INSERT INTO fems.tariff_band(workspace_id,generation_id,tariff_id,"
+                "season,day_kind,hour_from,hour_to,load_band,rate) "
+                "VALUES (:w,:g,:t,:season,:day_kind,:hour_from,:hour_to,:load_band,:rate)"
+            ),
+            {**_s(context), "t": tariff_id, **row},
+        )
+    return tariff_bands(connection, context, [tariff_id])[tariff_id]
+
+
+def holidays(
+    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+) -> set[Any]:
+    """그 기간의 휴일. core가 가진 공통 달력이고 FK 없이 날짜로만 읽는다(DSN-16 Q1)."""
+    return set(
+        connection.execute(
+            text(
+                "SELECT holiday_on FROM core.holiday "
+                "WHERE workspace_id=:w AND generation_id=:g "
+                " AND holiday_on BETWEEN CAST(:date_from AS date) AND CAST(:date_to AS date)"
+            ),
+            {**_s(context), "date_from": date_from, "date_to": date_to},
+        ).scalars()
+    )
+
+
+def hourly_consumption(
+    connection: Connection,
+    context: AuthContext,
+    date_from: Any,
+    date_to: Any,
+    energy_source_id: int | None = None,
+) -> list[dict[str, Any]]:
+    """최상위 계측기 기준 **사업장 시각별** 사용량. TOU 요금과 부하 패턴·피크가 함께 쓴다.
+
+    계측이 1시간 단위라 시간 사용량(kWh)이 곧 그 시간의 평균 kW다 — 수요전력을 이렇게
+    근사한다(DSN-15 Q2). 구간 끝이 정시라 1마이크로초를 빼고 그 시각이 속한 시간으로 센다.
+    """
+    local = "(r.observed_at - interval '1 microsecond') AT TIME ZONE s.timezone"
+    where = " AND e.id=:energy_source_id" if energy_source_id is not None else ""
+    rows = connection.execute(
+        text(
+            f"SELECT e.id source_id,e.source_code,e.name,e.is_billable,c.unit,"
+            f"CAST({local} AS date) reading_date,"
+            f'CAST(extract(hour FROM {local}) AS integer) AS "hour",'
+            "coalesce(sum(r.value*c.multiplier) FILTER (WHERE r.quality<>'invalid'),0) quantity "
+            + READING_FROM
+            + READING_PERIOD
+            + " AND m.parent_meter_id IS NULL"
+            + where
+            + ' GROUP BY e.id,e.source_code,e.name,e.is_billable,c.unit,reading_date,"hour"'
+            ' ORDER BY e.source_code,reading_date,"hour"'
+        ),
+        {
+            **_s(context),
+            "date_from": date_from,
+            "date_to": date_to,
+            **(
+                {"energy_source_id": energy_source_id}
+                if energy_source_id is not None
+                else {}
+            ),
+        },
+    ).mappings()
+    return [dict(r) for r in rows]
+
+
 def billing_tariffs(
     connection: Connection, context: AuthContext
 ) -> list[dict[str, Any]]:
     rows = connection.execute(
         text(
-            "SELECT energy_source_id,tariff_code,name,basic_charge,usage_rate,"
-            "effective_from,effective_to FROM fems.tariff "
+            "SELECT id,energy_source_id,tariff_code,name,basic_charge,usage_rate,"
+            "effective_from,effective_to,tariff_kind,contract_kw FROM fems.tariff "
             "WHERE workspace_id=:w AND generation_id=:g ORDER BY effective_from DESC"
         ),
         _s(context),

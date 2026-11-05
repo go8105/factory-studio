@@ -5,10 +5,9 @@ from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from test_gw_operating_contract import NOW, envelope, policy
-
 from fs.gw.acceptance_collection import collect
 from fs.gw.operating_contract import canonical
+from test_gw_operating_contract import NOW, envelope, policy
 
 
 def fixture():
@@ -252,11 +251,10 @@ def test_latest_registration_never_falls_back_to_older_success(change):
 
 
 def test_partial_measurements_are_visible_only_after_original_signature_and_row_match():
-    from test_gw_operating_contract import diagnostic
-
     from fs.gw.acceptance_collection import collect_registered
     from fs.gw.operating_contract import EvidenceEnvelope
     from fs.gw.readiness import SOURCE_FIELD
+    from test_gw_operating_contract import diagnostic
 
     key, rows, ctx = registered_fixture()
     restore = rows[1]

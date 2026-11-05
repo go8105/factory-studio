@@ -4,13 +4,12 @@
 import json
 
 import pytest
-from test_journal_bundle import payload
-from test_security_journal import journal  # noqa: F401
-
 from fs.core.backup import BackupError
 from fs.core.security import journal as chain
 from fs.core.security import journal_bundle as bundles
 from fs.gw import backup_journal as bridge
+from test_journal_bundle import payload
+from test_security_journal import journal  # noqa: F401
 
 
 def test_rollover_resets_active_capacity_and_keeps_backup_prefix(

@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from datetime import timedelta
 from decimal import Decimal, localcontext
+from typing import Any
 
 from sqlalchemy import text
 
@@ -184,10 +186,14 @@ def get_notice(context, id):
         return _detail(c, read_scope(c, context, base.MODULE), id)
 
 
+NOTICE_KINDS = {"PURCHASE", "PO", "SALES_RETURN", "SUBCONTRACT"}
+
+
 def list_notices(
     context,
     status=None,
     warehouse_id=None,
+    notice_kind=None,
     page=1,
     page_size=50,
     expected_from=None,
@@ -203,6 +209,9 @@ def list_notices(
         if warehouse_id:
             where += " AND warehouse_id=:warehouse"
             params["warehouse"] = warehouse_id
+        if notice_kind:
+            where += " AND notice_kind=:notice_kind"
+            params["notice_kind"] = notice_kind
         if expected_from and expected_to and expected_from > expected_to:
             _fail("expectedTo", "예정일 끝은 시작 이후여야 합니다.")
         for key, value, op in [
@@ -267,9 +276,10 @@ def _validate_lines(c, scoped, warehouse_id, lines):
             )
         lot = line.get("lot_no")
         lot = (lot.strip() or None) if lot else None
-        if bool(lot) != (item["itemClass"] == "FG"):
+        if bool(lot) != bool(item.get("lotTracked")):
             _fail(
-                path + ".lotNo", "완제품은 LOT 필수, 원자재는 LOT을 입력하지 않습니다."
+                path + ".lotNo",
+                "LOT 추적 품목은 LOT 필수, 추적하지 않는 품목은 LOT을 입력하지 않습니다.",
             )
         key = (item["id"], lot)
         if key in seen:
@@ -286,14 +296,25 @@ def _validate_lines(c, scoped, warehouse_id, lines):
             loc = base._location(c, scoped, id)
             if loc is None:
                 raise base._not_found("위치")
+            allowed = (
+                ("NORMAL", "RECEIVING")
+                if field == "normal_location_id"
+                else ("QUARANTINE",)
+            )
             if (
                 loc["warehouseId"] != warehouse_id
                 or not loc["isActive"]
-                or loc["locationType"] != kind
+                or loc["locationType"] not in allowed
             ):
                 _fail(
                     path + "." + base._camel(field),
-                    "같은 창고의 사용 중인 " + kind + " 위치를 선택해 주세요.",
+                    "같은 창고의 사용 중인 "
+                    + (
+                        "NORMAL 또는 RECEIVING"
+                        if field == "normal_location_id"
+                        else kind
+                    )
+                    + " 위치를 선택해 주세요.",
                 )
         normalized.append({**line, "lot_no": lot, "expected_qty": qty})
     return normalized
@@ -327,14 +348,18 @@ def create_notice(context, values, key):
                 "이미 등록된 업무 번호입니다.", "BUSINESS_KEY_EXISTS", noticeId=old
             )
         lines = _validate_lines(c, scoped, values["warehouse_id"], values["lines"])
+        kind = values.get("notice_kind") or "PURCHASE"
+        if kind not in NOTICE_KINDS:
+            _fail("noticeKind", "유효한 입고 구분을 선택해 주세요.")
         now = _now(c)
         id = _query(
             c,
             scoped,
-            "INSERT INTO wms.inbound_notice(workspace_id,generation_id,notice_no,business_key,warehouse_id,expected_on,vehicle_no,partner_ref,created_at,updated_at) VALUES (:w,:g,:no,:business,:warehouse,:on,:vehicle,:partner,:now,:now) RETURNING id",
+            "INSERT INTO wms.inbound_notice(workspace_id,generation_id,notice_no,business_key,warehouse_id,notice_kind,expected_on,vehicle_no,partner_ref,created_at,updated_at) VALUES (:w,:g,:no,:business,:warehouse,:kind,:on,:vehicle,:partner,:now,:now) RETURNING id",
             no=_next_no(c, scoped, now),
             business=business,
             warehouse=values["warehouse_id"],
+            kind=kind,
             on=values["expected_on"],
             vehicle=values.get("vehicle_no"),
             partner=values.get("partner_ref"),
@@ -352,14 +377,18 @@ def update_notice(context, id, values, key):
         _version(row, values)
         _state(row, {"PLANNED"})
         lines = _validate_lines(c, scoped, values["warehouse_id"], values["lines"])
+        kind = values.get("notice_kind") or row["notice_kind"]
+        if kind not in NOTICE_KINDS:
+            _fail("noticeKind", "유효한 입고 구분을 선택해 주세요.")
         linked = claim(c, scoped, notice_id=id)
         if linked:
             _match_expected(c, scoped, lines, linked["source_snapshot"])
         _query(
             c,
             scoped,
-            f"UPDATE wms.inbound_notice SET warehouse_id=:warehouse,expected_on=:on,vehicle_no=:vehicle,partner_ref=:partner,updated_at=clock_timestamp(),version=version+1 WHERE {S} AND id=:id",
+            f"UPDATE wms.inbound_notice SET warehouse_id=:warehouse,notice_kind=:kind,expected_on=:on,vehicle_no=:vehicle,partner_ref=:partner,updated_at=clock_timestamp(),version=version+1 WHERE {S} AND id=:id",
             warehouse=values["warehouse_id"],
+            kind=kind,
             on=values["expected_on"],
             vehicle=values.get("vehicle_no"),
             partner=values.get("partner_ref"),
@@ -642,6 +671,42 @@ def inspect_notice(context, id, values, key):
                 id=line["id"],
                 **result,
             )
+            total_received = result["accepted_qty"] + result["quarantined_qty"]
+            if total_received > 0 and line.get("lot_no"):
+                lot_no = line["lot_no"].strip()
+                item = base._item(c, scoped, line["item_id"])
+                shelf_days = (
+                    int(item["shelfLifeDays"])
+                    if item and item.get("shelfLifeDays")
+                    else None
+                )
+                received_on = now.astimezone(base.SEOUL).date()
+                expiry_date = (
+                    received_on + timedelta(days=shelf_days)
+                    if shelf_days and shelf_days > 0
+                    else None
+                )
+                supplier_lot_no = None
+                existing_lot = _query(
+                    c,
+                    scoped,
+                    f"SELECT id FROM wms.lot WHERE {S} AND item_id=:item_id AND lot_no=:lot_no",
+                    item_id=line["item_id"],
+                    lot_no=lot_no,
+                ).scalar_one_or_none()
+                if not existing_lot:
+                    _query(
+                        c,
+                        scoped,
+                        "INSERT INTO wms.lot(workspace_id, generation_id, item_id, lot_no, origin, received_on, expiry_date, supplier_lot_no, status, created_at) "
+                        "VALUES (:w, :g, :item_id, :lot_no, 'RECEIPT', :received_on, :expiry_date, :supplier_lot_no, 'AVAILABLE', :now)",
+                        item_id=line["item_id"],
+                        lot_no=lot_no,
+                        received_on=received_on,
+                        expiry_date=expiry_date,
+                        supplier_lot_no=supplier_lot_no,
+                        now=now,
+                    )
             for qty, loc in [
                 ("accepted_qty", "normal_location_id"),
                 ("quarantined_qty", "quarantine_location_id"),
@@ -673,6 +738,39 @@ def inspect_notice(context, id, values, key):
                 moves,
                 now.isoformat(),
             )
+        if doc_id is not None:
+            stem = f"PT-{now.astimezone(base.SEOUL):%Y%m%d}-"
+            base_count = _query(
+                c,
+                scoped,
+                f"SELECT count(*) FROM wms.putaway_task WHERE {S} AND task_no LIKE :stem",
+                stem=stem + "%",
+            ).scalar_one()
+            task_idx = 0
+            for line, result in zip(lines, normalized, strict=True):
+                if result["accepted_qty"] > 0:
+                    task_no = f"{stem}{base_count + task_idx + 1:03d}"
+                    _query(
+                        c,
+                        scoped,
+                        "INSERT INTO wms.putaway_task ("
+                        "  workspace_id, generation_id, task_no, source_document_id, "
+                        "  item_id, lot_no, qty, from_location_id, "
+                        "  suggested_location_id, to_location_id, status, done_at, stock_document_id, created_at"
+                        ") VALUES ("
+                        "  :w, :g, :task_no, :doc_id, "
+                        "  :item_id, :lot_no, :qty, :from_loc, "
+                        "  NULL, NULL, 'OPEN', NULL, NULL, :now"
+                        ")",
+                        task_no=task_no,
+                        doc_id=doc_id,
+                        item_id=line["item_id"],
+                        lot_no=line["lot_no"].strip() if line.get("lot_no") else None,
+                        qty=result["accepted_qty"],
+                        from_loc=line["normal_location_id"],
+                        now=now,
+                    )
+                    task_idx += 1
         _query(
             c,
             scoped,
@@ -719,3 +817,315 @@ def guard_master(c, scoped, kind, id, all_history=False):
             "입고 예정",
             count,
         )
+    pt_condition = {
+        "warehouse": "fl.warehouse_id=:id",
+        "item": "t.item_id=:id",
+        "location": "(t.from_location_id=:id OR t.suggested_location_id=:id OR t.to_location_id=:id)",
+    }[kind]
+    pt_status = "" if all_history else " AND t.status = 'OPEN'"
+    pt_count = _query(
+        c,
+        scoped,
+        "SELECT count(DISTINCT t.id) FROM wms.putaway_task t "
+        "JOIN wms.storage_location fl ON fl.workspace_id=t.workspace_id "
+        "AND fl.generation_id=t.generation_id AND fl.id=t.from_location_id "
+        "WHERE t.workspace_id=:w AND t.generation_id=:g AND "
+        + pt_condition
+        + pt_status,
+        id=id,
+    ).scalar_one()
+    if pt_count:
+        raise base._referenced(
+            "적치 작업이 참조하고 있습니다. 적치 완료 또는 취소 처리를 먼저 해 주세요.",
+            "적치 작업",
+            pt_count,
+        )
+    from fs.wms.counts import guard_master as guard_counts
+    from fs.wms.issues import guard_master as guard_issues
+    from fs.wms.picks import guard_master as guard_picks
+
+    guard_picks(c, scoped, kind, id, all_history)
+    guard_issues(c, scoped, kind, id, all_history)
+    guard_counts(c, scoped, kind, id, all_history)
+
+
+def _putaway_rows(
+    c, scoped, filter_sql: str, params: dict[str, Any]
+) -> tuple[list[dict[str, Any]], int]:
+    query = f"""
+    WITH filtered_tasks AS (
+        SELECT t.id, t.task_no, t.source_document_id, t.item_id, t.lot_no, t.qty,
+               t.from_location_id, t.suggested_location_id, t.to_location_id,
+               t.status, t.done_at, t.stock_document_id, t.created_at,
+               fl.warehouse_id,
+               w.code AS warehouse_code, w.name AS warehouse_name,
+               fl.code AS from_location_code, fl.name AS from_location_name,
+               i.item_code, i.name AS item_name, i.base_unit,
+               COUNT(*) OVER() AS full_count
+        FROM wms.putaway_task t
+        JOIN wms.storage_location fl ON fl.workspace_id = t.workspace_id 
+                                    AND fl.generation_id = t.generation_id 
+                                    AND fl.id = t.from_location_id
+        JOIN wms.warehouse w ON w.workspace_id = fl.workspace_id 
+                             AND w.generation_id = fl.generation_id 
+                             AND w.id = fl.warehouse_id
+        JOIN wms.item i ON i.workspace_id = t.workspace_id 
+                        AND i.generation_id = t.generation_id 
+                        AND i.id = t.item_id
+        WHERE t.workspace_id = :w AND t.generation_id = :g
+          {filter_sql}
+        ORDER BY t.created_at DESC, t.id DESC
+        LIMIT :limit OFFSET :offset
+    ),
+    candidate_locations AS (
+        SELECT sl.id, sl.warehouse_id, sl.code, sl.name, sl.capacity_qty, sl.mix_items, sl.mix_lots
+        FROM wms.storage_location sl
+        WHERE sl.workspace_id = :w AND sl.generation_id = :g
+          AND sl.is_active = TRUE
+          AND sl.location_type = 'NORMAL'
+          AND sl.level_kind = 'BIN'
+          AND sl.warehouse_id IN (SELECT DISTINCT warehouse_id FROM filtered_tasks)
+    ),
+    loc_stock AS (
+        SELECT sm.location_id,
+               sm.item_id,
+               sm.lot_no,
+               SUM(sm.qty_delta) AS on_hand
+        FROM wms.stock_move sm
+        WHERE sm.workspace_id = :w AND sm.generation_id = :g
+          AND sm.location_id IN (SELECT id FROM candidate_locations)
+        GROUP BY sm.location_id, sm.item_id, sm.lot_no
+        HAVING SUM(sm.qty_delta) > 0
+    ),
+    loc_totals AS (
+        SELECT location_id,
+               SUM(on_hand) AS total_on_hand
+        FROM loc_stock
+        GROUP BY location_id
+    )
+    SELECT ft.*,
+           sugg.suggested_location_id AS computed_suggested_location_id,
+           sugg.suggested_location_code AS computed_suggested_location_code,
+           sugg.suggested_location_name AS computed_suggested_location_name,
+           tl.code AS to_location_code,
+           tl.name AS to_location_name
+    FROM filtered_tasks ft
+    LEFT JOIN wms.storage_location tl ON tl.workspace_id = :w AND tl.generation_id = :g AND tl.id = ft.to_location_id
+    LEFT JOIN LATERAL (
+        SELECT c.id AS suggested_location_id,
+               c.code AS suggested_location_code,
+               c.name AS suggested_location_name
+        FROM candidate_locations c
+        LEFT JOIN loc_totals lt ON lt.location_id = c.id
+        WHERE c.warehouse_id = ft.warehouse_id
+          AND c.id <> ft.from_location_id
+          -- 1. 용량 필터
+          AND (c.capacity_qty IS NULL OR (COALESCE(lt.total_on_hand, 0) + ft.qty <= c.capacity_qty))
+          -- 2. 품목 혼적 필터 (다른 품목이 있으면 mix_items=true 여야 함)
+          AND (c.mix_items = TRUE OR NOT EXISTS (
+              SELECT 1 FROM loc_stock ls 
+              WHERE ls.location_id = c.id AND ls.item_id <> ft.item_id
+          ))
+          -- 3. LOT 혼적 필터 (같은 품목의 다른 LOT이 있으면 mix_lots=true 여야 함)
+          AND (c.mix_lots = TRUE OR NOT EXISTS (
+              SELECT 1 FROM loc_stock ls 
+              WHERE ls.location_id = c.id AND ls.item_id = ft.item_id 
+                AND COALESCE(ls.lot_no, '') <> COALESCE(ft.lot_no, '')
+          ))
+        ORDER BY 
+          CASE 
+            WHEN EXISTS (SELECT 1 FROM loc_stock ls WHERE ls.location_id = c.id AND ls.item_id = ft.item_id AND COALESCE(ls.lot_no, '') = COALESCE(ft.lot_no, '')) THEN 1
+            WHEN EXISTS (SELECT 1 FROM loc_stock ls WHERE ls.location_id = c.id AND ls.item_id = ft.item_id) THEN 2
+            WHEN COALESCE(lt.total_on_hand, 0) <= 0 THEN 3
+            ELSE 4
+          END ASC,
+          c.code ASC,
+          c.id ASC
+        LIMIT 1
+    ) sugg ON TRUE
+    ORDER BY ft.created_at DESC, ft.id DESC
+    """
+    result = c.execute(text(query), params).mappings().all()
+    total = int(result[0]["full_count"]) if result else 0
+    rows = [
+        {
+            "id": r["id"],
+            "taskNo": r["task_no"],
+            "sourceDocumentId": r["source_document_id"],
+            "warehouseId": r["warehouse_id"],
+            "warehouseCode": r["warehouse_code"],
+            "warehouseName": r["warehouse_name"],
+            "itemId": r["item_id"],
+            "itemCode": r["item_code"],
+            "itemName": r["item_name"],
+            "baseUnit": r["base_unit"],
+            "lotNo": r["lot_no"],
+            "qty": str(r["qty"]),
+            "fromLocationId": r["from_location_id"],
+            "fromLocationCode": r["from_location_code"],
+            "fromLocationName": r["from_location_name"],
+            "suggestedLocationId": r["computed_suggested_location_id"],
+            "suggestedLocationCode": r["computed_suggested_location_code"],
+            "suggestedLocationName": r["computed_suggested_location_name"],
+            "toLocationId": r["to_location_id"],
+            "toLocationCode": r["to_location_code"],
+            "toLocationName": r["to_location_name"],
+            "status": r["status"],
+            "doneAt": r["done_at"].isoformat() if r["done_at"] else None,
+            "stockDocumentId": r["stock_document_id"],
+            "createdAt": r["created_at"].isoformat() if r["created_at"] else None,
+        }
+        for r in result
+    ]
+    return rows, total
+
+
+def _putaway_detail(c, scoped, task_id: int) -> dict[str, Any]:
+    rows, _ = _putaway_rows(
+        c,
+        scoped,
+        " AND t.id = :task_id",
+        {**base._s(scoped), "task_id": task_id, "limit": 1, "offset": 0},
+    )
+    if not rows:
+        raise base._not_found("적치 작업")
+    return rows[0]
+
+
+def _putaway_header(c, scoped, id: int, lock: bool = False) -> dict[str, Any]:
+    sql = (
+        "SELECT t.*, fl.warehouse_id "
+        "FROM wms.putaway_task t "
+        "JOIN wms.storage_location fl ON fl.workspace_id = t.workspace_id "
+        "AND fl.generation_id = t.generation_id AND fl.id = t.from_location_id "
+        "WHERE t.workspace_id = :w AND t.generation_id = :g AND t.id = :id"
+        + (" FOR UPDATE OF t" if lock else "")
+    )
+    found = _query(c, scoped, sql, id=id).mappings().first()
+    if found is None:
+        raise base._not_found("적치 작업")
+    return dict(found)
+
+
+def list_putaway_tasks(
+    context: base.AuthContext,
+    status: str | None = None,
+    warehouse_id: int | None = None,
+    item_id: int | None = None,
+    page: int = 1,
+    page_size: int = 50,
+) -> dict[str, Any]:
+    with base._read() as c:
+        scoped = read_scope(c, context, base.MODULE)
+        filters = []
+        params: dict[str, Any] = {
+            **base._s(scoped),
+            "limit": page_size,
+            "offset": (page - 1) * page_size,
+        }
+        if status:
+            filters.append("t.status = :status")
+            params["status"] = status
+        if warehouse_id is not None:
+            filters.append("fl.warehouse_id = :warehouse_id")
+            params["warehouse_id"] = warehouse_id
+        if item_id is not None:
+            filters.append("t.item_id = :item_id")
+            params["item_id"] = item_id
+
+        filter_sql = (" AND " + " AND ".join(filters)) if filters else ""
+        rows, total = _putaway_rows(c, scoped, filter_sql, params)
+        return {
+            "rows": rows,
+            "total": total,
+            "page": page,
+            "pageSize": page_size,
+        }
+
+
+def complete_putaway_task(
+    context: base.AuthContext, id: int, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    def fn(c, scoped):
+        row = _putaway_header(c, scoped, id, lock=True)
+        if row["status"] != "OPEN":
+            raise base._conflict("이미 처리된 적치 작업입니다.", "INVALID_STATE")
+        to_location_id = values["to_location_id"]
+        if to_location_id == row["from_location_id"]:
+            _fail("toLocationId", "출발 위치와 다른 보관 위치를 선택해 주세요.")
+        loc = base._location(c, scoped, to_location_id)
+        if (
+            loc is None
+            or not loc["isActive"]
+            or loc["warehouseId"] != row["warehouse_id"]
+            or loc["locationType"] != "NORMAL"
+        ):
+            _fail(
+                "toLocationId",
+                "같은 창고의 활성 일반(NORMAL) 보관 위치를 선택해 주세요.",
+            )
+        now = _now(c)
+        moves = [
+            {
+                "item_id": row["item_id"],
+                "location_id": row["from_location_id"],
+                "lot_no": row["lot_no"],
+                "qty_delta": -row["qty"],
+                "source_qty": None,
+                "source_unit": None,
+            },
+            {
+                "item_id": row["item_id"],
+                "location_id": to_location_id,
+                "lot_no": row["lot_no"],
+                "qty_delta": row["qty"],
+                "source_qty": None,
+                "source_unit": None,
+            },
+        ]
+        doc_id = base._insert_document(
+            c,
+            scoped,
+            {
+                "document_type": "PUTAWAY",
+                "status": "posted",
+                "source_key": None,
+                "source_ref": row["task_no"],
+                "document_on": now.astimezone(base.SEOUL).date(),
+                "posted_at": now,
+            },
+            moves,
+            now.isoformat(),
+        )
+        _query(
+            c,
+            scoped,
+            f"UPDATE wms.putaway_task "
+            f"SET status = 'DONE', to_location_id = :to_loc, done_at = :now, stock_document_id = :doc_id "
+            f"WHERE {S} AND id = :id",
+            to_loc=to_location_id,
+            now=now,
+            doc_id=doc_id,
+            id=id,
+        )
+        return _putaway_detail(c, scoped, id), "putaway_task", id
+
+    return base._action(context, f"wms.putaway.complete:{id}", key, values, fn)
+
+
+def cancel_putaway_task(context: base.AuthContext, id: int, key: str) -> dict[str, Any]:
+    def fn(c, scoped):
+        row = _putaway_header(c, scoped, id, lock=True)
+        if row["status"] != "OPEN":
+            raise base._conflict("이미 처리된 적치 작업입니다.", "INVALID_STATE")
+        _query(
+            c,
+            scoped,
+            f"UPDATE wms.putaway_task "
+            f"SET status = 'CANCELLED', to_location_id = NULL, done_at = NULL, stock_document_id = NULL "
+            f"WHERE {S} AND id = :id",
+            id=id,
+        )
+        return _putaway_detail(c, scoped, id), "putaway_task", id
+
+    return base._action(context, f"wms.putaway.cancel:{id}", key, {}, fn)

@@ -2,11 +2,10 @@
 
 # ruff: noqa: F401,F811
 import pytest
-from test_gw_catalog_trust_store import environment, expanded, initialize, setup
-
 from fs.gw import catalog_trust_store as floor
 from fs.gw.evidence_trust import from_environment
 from fs.gw.trust_configuration import ISSUES, TrustConfigurationError, guidance
+from test_gw_catalog_trust_store import environment, expanded, initialize, setup
 
 
 @pytest.mark.parametrize("code", list(ISSUES))

@@ -1,7 +1,6 @@
 """Encrypted streaming artifacts fail closed without damaging existing files."""
 
 import pytest
-
 from fs.core.backup import BackupError, decrypt, encrypt, private_file
 
 

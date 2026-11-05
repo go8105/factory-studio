@@ -1,10 +1,10 @@
 {
-  "version": "target-0.21.0",
+  "version": "target-0.22.0",
   "task": "DSN-90",
-  "base_task": "GW-READY-02",
+  "base_task": "GW-READY-02-INTEGRATION",
   "target": true,
-  "date": "2026-10-18",
-  "status": "목표 설계 / 실제 적용 여부는 인계 참조",
+  "date": "2026-11-05",
+  "status": "목표 설계; 실제 DB 적용 없음",
   "migration_revision": null,
   "tables": [
     {
@@ -85068,6 +85068,13 @@
       "date": "2026-10-18",
       "change": "승인된 보안·운영 신규9표/기존2확장. 인증 앱·제한 복구 구현 중; 실제 운영 인수 미완료",
       "status": "격리 PostgreSQL18 DDL 대조 오류0 / 전체 제품 통합 진행 중"
+    },
+    {
+      "version": "target-0.22.0",
+      "task": "GW-READY-02 79차",
+      "date": "2026-11-05",
+      "change": "main 783a2c1과 GW 보안·운영 이력 보존 통합 및 이름 정규화",
+      "status": "격리 승격 검증 중; 운영 미적용"
     }
   ]
 }

@@ -4,15 +4,14 @@
 import json
 import os
 
+from fs.core.security.journal import verify
+from fs.core.security.recording import record_user
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from test_gw_backup import backup_env  # noqa: F401
 from test_gw_company import context
 from test_hr_work import company_env  # noqa: F401
 from test_security_journal import journal  # noqa: F401
-
-from fs.core.security.journal import verify
-from fs.core.security.recording import record_user
 
 
 def test_pending_then_aborted_rebuild_keeps_previous_target_closed(

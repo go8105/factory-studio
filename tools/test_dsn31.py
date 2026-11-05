@@ -24,13 +24,19 @@ class GwTargetTest(unittest.TestCase):
     def test_contract_holds(self):
         self.assertEqual(validate_gw_dsn31(self.target), [])
         self.assertEqual(
-            sum(t["name"].startswith("gw.") and not t["name"].startswith("gw.work_") for t in self.target["tables"]), 24
+            sum(t["name"].startswith("gw.") and not t["name"].startswith("gw.work_") and t.get("phase") != "GW-READY-02" for t in self.target["tables"]), 24
         )
 
     def test_demo_implementation_does_not_skip_future_team_design(self):
         current = json.loads((ROOT / "docs/db/schema-metadata/schema.json").read_text())
         target = apply_dsn00.base(copy.deepcopy(current))
+        operating = {t["name"]:copy.deepcopy(t) for t in target["tables"] if t["name"] in {"gw.operating_settings","gw.operating_policy_revision","gw.operating_evidence","gw.retention_review"}}
+        related = {k:[copy.deepcopy(x) for x in target[k] if x.get("table", x.get("source")) in operating] for k in ("constraints","relations","states")}
+        self.assertEqual(len(operating), 4)
         self.assertTrue(apply_dsn31.apply(target))
+        self.assertEqual({t["name"]:t for t in target["tables"] if t["name"] in operating}, operating)
+        for k, expected in related.items():
+            self.assertEqual([x for x in target[k] if x.get("table", x.get("source")) in operating], expected)
         names = {t["name"] for t in target["tables"]}
         self.assertIn("core.company", names)
         self.assertIn("hr.work_request", names)

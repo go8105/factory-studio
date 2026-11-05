@@ -26,6 +26,17 @@ def main() -> int:
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--private-output", type=Path, required=True)
     parser.add_argument("--test-node", action="append", default=[])
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--ci",
+        action="store_true",
+        help="Run local CI with an explicitly owned disposable URL",
+    )
+    mode.add_argument(
+        "--empty-roundtrip",
+        action="store_true",
+        help="Round-trip only a new empty disposable database",
+    )
     args = parser.parse_args()
     private = args.private_output.resolve()
     # Full logs/URLs must stay under the ignored local work directory.
@@ -75,7 +86,15 @@ def main() -> int:
     env.update(
         DATABASE_URL=target,
         TEST_DATABASE_URL=target,
-        GW_BACKUP_TEST_CONTAINER=args.container,
+        GW_BACKUP_TEST_CONTAINER=expected,
+        PG_TEST_CONTAINER=expected,
+        FS_CI_OWNED_DATABASE_URL=target,
+        FS_CI_CONTAINER=expected,
+        FS_CI_OWNER=args.owner,
+        FS_CI_EXPECTED_ID_FILE=str(args.expected_id_file.resolve()),
+        FS_CI_PORT=str(args.port),
+        FS_CI_PRIVATE_OUTPUT=str(private),
+        FS_CI_WORKERS="0",
         FS_GW_ROUTE_VERIFY_OWNER=args.owner,
         FS_GW_ROUTE_VERIFY_ADMIN_URL=url.render_as_string(hide_password=False),
     )
@@ -140,6 +159,34 @@ def main() -> int:
             ],
         ):
             return 1
+        if args.empty_roundtrip:
+            for label, revision in (("downgrade", "base"), ("reupgrade", "head")):
+                direction = "downgrade" if revision == "base" else "upgrade"
+                if stage(
+                    label,
+                    [
+                        sys.executable,
+                        "-m",
+                        "alembic",
+                        "-c",
+                        "backend/alembic.ini",
+                        direction,
+                        revision,
+                    ],
+                ):
+                    return 1
+            return stage(
+                "roundtrip-ddl",
+                [
+                    sys.executable,
+                    "tools/verify_ddl_matches_schema.py",
+                    "--output",
+                    str(private / "roundtrip-ddl.json"),
+                ],
+            )
+        if args.ci:
+            report["kind"] = "OWNED_LOCAL_CI"
+            return stage("local-ci", ["bash", "tools/ci_local.sh", "--owned-url"])
         tests = args.test_node or sorted(
             str(p.relative_to(ROOT))
             for p in (ROOT / "backend/tests").glob("test_gw*.py")
@@ -167,6 +214,7 @@ def main() -> int:
                 "-x",
                 "--tb=short",
                 f"--junitxml={junit}",
+                f"--basetemp={private / ('pytest-temp-' + uuid4().hex)}",
             ],
         )
         if junit.exists():

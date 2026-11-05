@@ -15,17 +15,16 @@ import pytest
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
+from fs.common.db import reset_engine
+from fs.common.security import hash_password
+from fs.core.backup import BackupError
+from fs.main import create_app
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from test_gw_company import context
 from test_gw_company_work import api, ok
 from test_gw_evidence import prepare
 from test_hr_work import company_env
-
-from fs.common.db import reset_engine
-from fs.common.security import hash_password
-from fs.core.backup import BackupError
-from fs.main import create_app
 
 
 def runner():

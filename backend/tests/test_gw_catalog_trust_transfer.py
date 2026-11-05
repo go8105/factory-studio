@@ -9,14 +9,13 @@ from copy import deepcopy
 from uuid import uuid4
 
 import pytest
-from test_gw_catalog_store import setup
-from test_gw_catalog_trust_store import environment, expanded, initialize
-
 from fs.gw import catalog_store as store
 from fs.gw import catalog_trust_store as floor
 from fs.gw import catalog_trust_transfer as transfer
 from fs.gw.evidence_trust import from_environment
 from fs.gw.operating_contract import canonical
+from test_gw_catalog_store import setup
+from test_gw_catalog_trust_store import environment, expanded, initialize
 
 
 def folder(parent, name):

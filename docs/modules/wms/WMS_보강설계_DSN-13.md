@@ -252,3 +252,57 @@
 
 - **설계 재현 스크립트(`apply_dsn90.py`) 재적용 제약**: `apply_dsn90.py`는 재적용하면 `CMMS_ISSUE`가 중복된다(문자열 치환이 멱등하지 않다). 설계 단계 스크립트라 지금은 영향이 없지만, 다시 돌릴 일이 생기면 먼저 고친다.
 - **기존 WMS 3표 칼럼 순서**: `apply_w2b1.py` 적용 시 기존 WMS 3표(`wms.warehouse`, `wms.item`, `wms.inbound_notice`)의 확장 칼럼이 `created_at` 뒤에 추가되어 `schema-target.json`과 칼럼 배열 순서 차이가 있으나, DDL 대조 0건이므로 기능 및 스키마 무결성에 영향이 없다.
+- **적치 위치 흐름 및 검증 완화 (W2b-1c / C-3a)**: 설계는 입고장 경유((a) 입고 예정 정상 위치 = 입고장 `RECEIVING` → 검수 확정 → 적치 작업 `PUTAWAY` → 보관 위치 `NORMAL`)이나, 기존 데이터(60건) 및 테스트를 보호하기 위해 `_validate_lines` 검증을 교체하지 않고 `location_type IN ('NORMAL', 'RECEIVING')`으로 완화했다. 기존 60건은 `NORMAL` 직입고로 남으며, 신규 등록 시 창고의 `RECEIVING` 입고장 위치가 기본 선택된다.
+- **적치 작업 생성 및 동적 위치 추천 (W2b-1c / C-3)**:
+  - 검수 확정 시 합격 수량(`accepted_qty > 0`)이 있는 명세마다 `wms.putaway_task`를 `status = 'OPEN'`, `suggested_location_id = NULL`로 자동 생성한다(검수 트랜잭션의 무거운 용량·혼적 계산 방지 및 멱등성 유지).
+  - 추천 위치는 W-11 적치 목록 조회 시(`GET /api/v1/wms/putaway-tasks`) CTE 쿼리를 통해 실시간 동적으로 산출한다.
+  - 후보 위치 필터: 동일 창고 · `is_active` · `location_type = 'NORMAL'` · `level_kind = 'BIN'` (출발 칸 제외).
+  - 제외 조건: 용량 초과(`현재고 + 적치수량 > capacity_qty`), 다른 품목 혼적 불가(`mix_items = false`), 다른 LOT 혼적 불가(`mix_lots = false`).
+  - 우선순위: 1순위(동일 품목+동일 LOT) → 2순위(동일 품목) → 3순위(빈 칸) → 4순위(혼적 허용 칸) → 없으면 추천 없음(NULL).
+  - 화면: W-11 적치 목록 화면(`frontend/src/wms/Putaways.tsx`) 신규 연결, 상태 배지(대기/완료/취소) 및 상세 패널 표시.
+- **적치 완료·취소 및 `PUTAWAY` 전표 반영 (W2b-1c / C-4)**:
+  - 적치 완료(`POST /api/v1/wms/putaway-tasks/{id}/complete`): `FOR UPDATE` 행 잠금 후 `status != 'OPEN'`이면 409(`INVALID_STATE`)로 차단한다. 목적지 위치가 같은 창고의 활성 `NORMAL` 칸(출발 칸 제외)인지 검증(위반 시 400)한 뒤, 단일 트랜잭션(`base._action`) 안에서 `PUTAWAY` 재고 전표(`wms.stock_document`, `status = 'posted'`, `source_key = NULL`[`c624_check`], `source_ref = task_no`)와 이동 2줄(`from_location_id` `-qty`, `to_location_id` `+qty`)을 생성하고, `c1480_check`(`(status = 'DONE') = (done_at IS NOT NULL AND to_location_id IS NOT NULL)`)를 만족하도록 한 `UPDATE` 문에서 `status = 'DONE'`, `to_location_id`, `done_at`, `stock_document_id`를 갱신한다.
+  - 적치 취소(`POST /api/v1/wms/putaway-tasks/{id}/cancel`): `FOR UPDATE` 잠금 후 `status != 'OPEN'`이면 409로 차단하고, 한 `UPDATE` 문에서 `status = 'CANCELLED'`, `to_location_id = NULL`, `done_at = NULL`, `stock_document_id = NULL`로 갱신한다(재고 전표 미생성).
+  - 대시보드 집계(`service.py::dashboard`): 월별 입출고 흐름 집계에서 내부 위치 이동인 `'PUTAWAY'`와 `'PICK'`을 `'TRANSFER'`와 함께 제외(`d.document_type NOT IN ('TRANSFER', 'PUTAWAY', 'PICK')`)한다.
+- **피킹 지시 생성 및 FEFO/FIFO LOT 배정 (W2b-1d / D-1)**:
+  - 출고 예약(`wms.stock_reservation`, `ACTIVE`) 1건당 피킹 지시(`wms.pick_order`) 1건을 생성(`POST /api/v1/wms/pick-orders`, 발번 `PK-YYYYMMDD-NNN`)한다.
+  - `c1482`(`UNIQUE (workspace_id, generation_id, reservation_id)`)가 조건부 인덱스가 아닌 무조건부 UNIQUE 제약이므로, 취소(`CANCELLED`)된 피킹 지시가 있는 예약에서 재생성할 때는 기존 `pick_order` 행을 `OPEN`으로 재개(`picked_at = NULL, stock_document_id = NULL, cancel_reason = NULL`)하고 `wms.pick_line`을 다시 구성한다.
+  - LOT 배정(`c1486`): `wms.stock_move` 잔량 집계에 `wms.lot`을 `LEFT JOIN`하여 마스터 행이 없는 시드 LOT(`LT-0001`~`LT-0012`)도 누락 없이 포함하고, 보류(`wms.lot_hold` 활성·`qms.held_lot_nos`·`wms.lot.status = 'HOLD'`) 및 만료(`expiry_date < business_today()`·`status = 'EXPIRED'`) LOT을 배정에서 제외한다.
+  - 예약 줄(`wms.stock_reservation_line`)에 LOT이 지정되어 있고 가용하면 그대로 존중하며, 보류·만료로 사용할 수 없거나 가용 수량이 부족할 때만 `expiry_date ASC NULLS LAST → received_on ASC NULLS LAST → lot_no ASC NULLS LAST → loc.code ASC`(FEFO → FIFO) 순으로 배정하고 대체 사유(`lotSubstitutions`)를 반환한다. 가용 재고 합계가 부족하면 `409 INSUFFICIENT_AVAILABLE`로 거절한다.
+  - 배정된 명세는 위치 코드(`storage_location.code ASC`) 순으로 `sequence_no = 1..N`을 부여하며, `inventory.py`에서 `SHIPPING`(출고장) 위치 재고도 `normalOnHand`로 인정한다.
+- **W-12 피킹 목록·상세 화면 및 동선 명세 (W2b-1d / D-2)**:
+  - 화면: W-12 피킹 화면(`frontend/src/wms/Picks.tsx`) 신규 생성 및 WMS 라우트(`picks`) 연결.
+  - 메뉴: `backend/src/fs/core/menu_catalog.json`에 `W-12` 피킹 등록(`group: "입출고"`, 전체 메뉴 116개).
+  - 목록: 서버 필터(`status`, `warehouseId`, `reservationId`, `itemCode`) 및 페이지네이션(`pageSize = 50`), 상태 배지(`대기`, `피킹 완료`, `취소`), `LOT 대체 N건` 배지 표시.
+  - 상세 패널:
+    - 피킹 동선 명세: `sequenceNo` 오름차순(위치 코드 순) 정렬하여 동선 순서(`#1`, `#2`), 위치 코드·이름, 품목, LOT·유효기간, 지시 수량을 `.table-scroll` 테이블에 렌더링(390px 모바일 화면 가로 오버플로 없음).
+    - LOT 대체 안내: `lotSubstitutions`가 있을 때 대체 사유(`HOLD`, `QMS_HOLD`, `EXPIRED`, `SHORTAGE`), 요청 LOT 및 위치, 배정된 대체 LOT 목록과 사유 메시지 표시.
+    - 도착 위치 선택(W-11 패턴): 상세 진입 시 해당 창고의 위치를 1회 조회하여 `SHIPPING`(출고장)과 `NORMAL`(보관) 칸으로 분리. `SHIPPING` 칸이 있으면 첫 번째 출고장 칸을 기본 선택(`toLocationId`)하고, 없으면 빈 선택값과 함께 `"출고장 칸이 없어 보관 칸으로 이동합니다. W-06에서 출고장을 만들 수 있습니다."` 안내 문구 표시.
+- **W-12 피킹 확정·취소 API 및 유효 현재 위치 도출 (W2b-1d / D-3)**:
+  - 피킹 확정 API (`POST /api/v1/wms/pick-orders/{id}/confirm`): `toLocationId` 및 명세별 `pickedQty`(기본값 지시 수량)를 받아 한 트랜잭션에서 `wms.pick_line.picked_qty` 기록, `PICK` 재고 이동 전표(`status='posted'`, `source_key=NULL`, `source_ref=pick_no`, 출발 -picked / 도착 +picked) 생성, `pick_order.status='PICKED'`, `picked_at=now`, `stock_document_id=doc_id` 갱신. 부분 피킹 허용(`picked_qty = 0`이면 전표 미생성, 1개 이상 양수 필수).
+  - 피킹 취소 API (`POST /api/v1/wms/pick-orders/{id}/cancel`): `cancelReason`(1~300자) 입력 필수. `status='CANCELLED'`, `picked_at=NULL`, `stock_document_id=NULL`, `cancel_reason` 기록. 취소 후 동일 예약에서 재요청 시 `OPEN`으로 재개(c1482) 지원.
+  - 유효 현재 위치 도출: `wms.stock_reservation_line`은 변경하지 않고, 피킹 전(미지시/OPEN/CANCELLED)에는 원래 `(location_id, lot_no, qty)`, 피킹 후(PICKED)에는 도착 칸 `(to_location_id, lot_no, picked_qty)` + 미피킹 잔량 `(location_id, lot_no, qty - picked_qty)`을 유효 현재 위치로 도출.
+    - `inventory.py`: amounts CTE의 `reserved_qty` 집계에 적용하여 보관 칸 음수 재고 방지.
+    - `reservations.py`: `consume`, `shipment_preview`, `_detail`, `list_reservations`에 적용하여 ERP 출하 소진 시 출고장 칸에서 차감(보관 칸 이중 차감 방지) 및 확정 후 W-09 예약 목록에 거짓 부족 경보(reservationShortage) 방지.
+  - 화면 연계 (`frontend/src/wms/Picks.tsx`): OPEN 상세에서 명세별 피킹 수량 입력 필드 제공, 피킹 확정 및 피킹 취소(사유 필수) 폼 연계. PICKED 상세에서 도착 위치(`toLocationCode · toLocationName`), 확정 시각, 생성된 PICK 전표 링크 노출. CANCELLED 상세에서 취소 사유 노출. 390px 반응형 검증 통과.
+- **W-09 출고 예약 피킹 상태 연계 및 완제품 예약 규칙 정규화 (W2b-1d / D-4)**:
+  - **피킹 상태 연계 및 목록 N+1 방지**:
+    - 예약 목록 조회(`GET /api/v1/wms/reservations`) 시 `wms.pick_order`를 `LEFT JOIN`하여 단일 쿼리로 `pickOrderId`, `pickOrderNo`, `pickOrderStatus`(`OPEN`='대기', `PICKED`='피킹 완료', `CANCELLED`='취소', 미지시=null)를 묶음 반환. N+1 쿼리 없음.
+    - 예약 상세(`_detail`)에서도 해당 예약에 바인딩된 최신 피킹 지시 정보를 조회하여 반환.
+  - **예약 상세에서 피킹 지시 생성 및 오류 상세 안내**:
+    - `ACTIVE` 상태이면서 피킹 지시가 없거나(`미지시`) 취소(`CANCELLED`)된 예약 상세 화면에서 "피킹 지시 생성" 버튼 노출.
+    - 이미 `OPEN` 또는 `PICKED` 상태인 피킹 지시가 존재하면 중복 지시 생성 버튼 숨김.
+    - 지시 생성 성공 시 알림 및 W-12 화면 링크(`/wms/picks?open={id}`) 제공.
+    - 피킹 지시 생성 실패(`409 INSUFFICIENT_AVAILABLE`) 시, 제외된 LOT(`excludedLots`: LOT 번호, 위치, 보류/만료 사유)과 부족 품목(`insufficientItems`: 품목 코드/명, 부족 수량)을 상세 패널 상단 알림(`role="alert"`)으로 명확히 안내.
+  - **예약 등록 규칙 정규화 (C-2 일관성)**:
+    - `backend/src/fs/wms/reservations.py`의 예약 생성 시 LOT 필수 여부 검증을 `bool(lot) != (item["itemClass"] == "FG")`에서 C-2(입고 검수)와 동일한 `bool(lot) != bool(item.get("lotTracked"))`로 수정하여 품목 마스터의 `lot_tracked` 플래그를 일관되게 적용.
+  - **HOLD·EXPIRED LOT 예약 차단**:
+    - 신규 예약 등록 시 `picks._lot_metadata` 및 `picks._lot_block_reason`, `qms.held_lot_nos`를 활용하여 WMS 활성 보류(`LOT_HOLD`), QMS 품질 보류(`LOT_QMS_HOLD`), 유효기간 만료(`LOT_EXPIRED`) 상태의 LOT 지정을 `409 Conflict`로 즉시 차단.
+
+### W2b-1e 생산 불출(W-13) 구현 메모
+
+- `wms.issue_request_line`에 위치·LOT 칸이 없다. 그래서 LOT 배정을 저장하지 않고 **불출 시점에 계산**한다. 목록·상세는 같은 함수로 미리보기만 돌려준다(적치 추천 위치와 같은 방식).
+- 배정 규칙은 피킹(W-12)과 같다. `picks._candidate_buckets`에 예약 id 대신 `-1`을 넘기면 "모든 예약·피킹 선점을 뺀 가용 재고"가 나온다. 기존 코드를 고치지 않고 보류·만료 제외와 FEFO → FIFO를 그대로 쓴다.
+- 설계상 도착 위치는 `location_type = 'LINE'`이나 시드에 LINE 칸이 없다. 피킹의 SHIPPING과 같이 `NORMAL`도 허용하고 화면에서 안내한다. 시드는 바꾸지 않았다(`SEED_VERSION` 재상승 회피).
+- `PRODUCTION_ISSUE` 전표는 `status='posted'`, `source_key=NULL`(c625), `source_ref=request_no`. 같은 창고 안의 내부 이동이라 대시보드 입출고 집계에서 `TRANSFER`·`PUTAWAY`·`PICK`과 함께 제외한다.
+- MES 자재 투입(`MES_ISSUE`)이 라인 재고에서 차감하는 흐름은 MES 소유이며 이번 범위가 아니다.

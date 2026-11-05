@@ -3,21 +3,44 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, Query, Response
 from pydantic import BaseModel
 
 from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
 from fs.common.errors import ApiError
+from fs.common.page import Page
 from fs.qms import service
 from fs.qms.schema import (
+    CalibrationCreate,
+    CapaCreate,
+    CapaUpdate,
+    CapaVerify,
+    ChangeNoticeCreate,
+    ChangeNoticeDecide,
+    ChangeNoticeUpdate,
+    ChangeNoticeVerify,
+    ClaimCreate,
+    ClaimInvestigate,
+    ClaimRespond,
+    ClaimUpdate,
+    DefectCountIn,
     DefectTypeCreate,
     DefectTypeUpdate,
+    FirstArticleCreate,
+    GaugeCreate,
+    GaugeUpdate,
     HoldRelease,
+    IncomingInspectionCreate,
     InspectionCreate,
     InspectionUpdate,
+    NcrCreate,
+    NcrUpdate,
+    ScarCreate,
+    ScarRespond,
     SpecCreate,
     SpecUpdate,
+    SupplierLevelCreate,
 )
 
 router = APIRouter()
@@ -50,6 +73,14 @@ def get_dashboard(
     context: Auth, month: Annotated[str | None, Query(pattern=MONTH)] = None
 ):
     return _data(service.dashboard(context, month))
+
+
+# ---- 품질 지표 (Q-13) ----
+@router.get("/metrics")
+def get_metrics(
+    context: Auth, month: Annotated[str | None, Query(pattern=MONTH)] = None
+):
+    return _data(service.quality_metrics(context, month))
 
 
 # ---- 불량 유형 (Q-06) ----
@@ -290,5 +321,603 @@ def release_hold(
     return _data(
         service.release_hold(
             context, hold_id, payload.model_dump(), _mutation(context, csrf, key)
+        )
+    )
+
+
+def _page(rows_total: tuple[list[dict[str, Any]], int], page: Page) -> dict[str, Any]:
+    rows, total = rows_total
+    return {
+        "data": rows,
+        "page": {"offset": page.offset, "limit": page.limit, "total": total},
+    }
+
+
+# ---- 계측기·교정 (Q-11) ----
+# 비워 둘 수 있는 칸 — 측정 범위·분해능은 모르면 비운다.
+GAUGE_NULLABLE = frozenset({"measure_range", "resolution"})
+
+
+@router.get("/gauges")
+def list_gauges(
+    context: Auth,
+    offset: int = 0,
+    limit: int = 50,
+    sort: str | None = None,
+    status: Annotated[str | None, Query(pattern="^(ACTIVE|REPAIR|RETIRED)$")] = None,
+):
+    page = Page(offset, limit).checked()
+    return _page(
+        service.gauges(
+            context,
+            filters={"status": status},
+            sort=sort,
+            offset=page.offset,
+            limit=page.limit,
+        ),
+        page,
+    )
+
+
+@router.post("/gauges", status_code=201)
+def post_gauge(
+    payload: GaugeCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_gauge(
+            context, _values(payload, GAUGE_NULLABLE), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.get("/gauges/{gauge_id}")
+def get_gauge(gauge_id: int, context: Auth):
+    return _data(service.gauge(context, gauge_id))
+
+
+@router.patch("/gauges/{gauge_id}")
+def patch_gauge(
+    gauge_id: int,
+    payload: GaugeUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_gauge(
+            context,
+            gauge_id,
+            _values(payload, GAUGE_NULLABLE),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.delete("/gauges/{gauge_id}", status_code=204)
+def delete_gauge(
+    gauge_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    service.delete_gauge(context, gauge_id, _mutation(context, csrf, key))
+    return Response(status_code=204)
+
+
+@router.post("/gauges/{gauge_id}/calibrations", status_code=201)
+def post_calibration(
+    gauge_id: int,
+    payload: CalibrationCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.add_calibration(
+            context,
+            gauge_id,
+            payload.model_dump(),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+# ---- 4M 변경 (Q-12) ----
+@router.get("/change-notices")
+def list_change_notices(
+    context: Auth,
+    status: Annotated[
+        str | None, Query(pattern="^(REQUESTED|APPROVED|REJECTED|VERIFIED)$")
+    ] = None,
+    change_type: Annotated[
+        str | None, Query(alias="changeType", pattern="^(MAN|MACHINE|MATERIAL|METHOD)$")
+    ] = None,
+):
+    return _data(service.list_change_notices(context, status, change_type))
+
+
+@router.post("/change-notices", status_code=201)
+def post_change_notice(
+    payload: ChangeNoticeCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_change_notice(
+            context,
+            _values(payload, frozenset({"requested_on"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.get("/change-notices/{cn_id}")
+def get_change_notice(cn_id: int, context: Auth):
+    return _data(service.get_change_notice(context, cn_id))
+
+
+@router.patch("/change-notices/{cn_id}")
+def patch_change_notice(
+    cn_id: int,
+    payload: ChangeNoticeUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_change_notice(
+            context, cn_id, _values(payload), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.post("/change-notices/{cn_id}/decision")
+def decide_change_notice(
+    cn_id: int,
+    payload: ChangeNoticeDecide,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.decide_change_notice(
+            context, cn_id, payload.model_dump(), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.post("/change-notices/{cn_id}/first-article", status_code=201)
+def post_first_article(
+    cn_id: int,
+    payload: FirstArticleCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_first_article(
+            context,
+            cn_id,
+            _values(payload, frozenset({"inspected_on", "note"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/change-notices/{cn_id}/verification")
+def verify_change_notice(
+    cn_id: int,
+    payload: ChangeNoticeVerify,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.verify_change_notice(
+            context, cn_id, payload.model_dump(), _mutation(context, csrf, key)
+        )
+    )
+
+
+# ---- 부적합 보고 (Q-07) ----
+# 비워 둘 수 있는 칸 — LOT·불량 유형·즉시 조치는 모르면 비운다.
+NCR_NULLABLE = frozenset(
+    {"lot_no", "defect_type_id", "immediate_action", "inspection_id", "source_ref"}
+)
+
+
+@router.get("/ncrs")
+def list_ncrs(
+    context: Auth,
+    status: Annotated[str | None, Query(pattern="^(OPEN|CLOSED)$")] = None,
+    origin: Annotated[
+        str | None, Query(pattern="^(INCOMING|PROCESS|OUTGOING|CUSTOMER)$")
+    ] = None,
+):
+    return _data(service.list_ncrs(context, status, origin))
+
+
+@router.get("/ncrs/sources")
+def ncr_sources(
+    context: Auth,
+    origin: Annotated[str, Query(pattern="^(INCOMING|PROCESS|OUTGOING)$")],
+    month: Annotated[str | None, Query(pattern=MONTH)] = None,
+):
+    return _data(service.ncr_sources(context, origin, month))
+
+
+@router.post("/ncrs", status_code=201)
+def post_ncr(
+    payload: NcrCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_ncr(
+            context,
+            _values(payload, NCR_NULLABLE | {"reported_on"}),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.get("/ncrs/{ncr_id}")
+def get_ncr(ncr_id: int, context: Auth):
+    return _data(service.get_ncr(context, ncr_id))
+
+
+@router.patch("/ncrs/{ncr_id}")
+def patch_ncr(
+    ncr_id: int,
+    payload: NcrUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_ncr(
+            context,
+            ncr_id,
+            _values(payload, NCR_NULLABLE),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/ncrs/{ncr_id}/closure")
+def close_ncr(
+    ncr_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(service.close_ncr(context, ncr_id, _mutation(context, csrf, key)))
+
+
+# ---- 시정·예방 조치 (Q-08) ----
+@router.get("/capas")
+def list_capas(
+    context: Auth,
+    status: Annotated[
+        str | None, Query(pattern="^(OPEN|DONE|VERIFIED|INEFFECTIVE)$")
+    ] = None,
+    ncr_id: Annotated[int | None, Query(alias="ncrId", gt=0)] = None,
+):
+    return _data(service.list_capas(context, status, ncr_id))
+
+
+@router.post("/capas", status_code=201)
+def post_capa(
+    payload: CapaCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_capa(context, _values(payload), _mutation(context, csrf, key))
+    )
+
+
+@router.get("/capas/{capa_id}")
+def get_capa(capa_id: int, context: Auth):
+    return _data(service.get_capa(context, capa_id))
+
+
+@router.patch("/capas/{capa_id}")
+def patch_capa(
+    capa_id: int,
+    payload: CapaUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_capa(
+            context, capa_id, _values(payload), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.post("/capas/{capa_id}/completion")
+def complete_capa(
+    capa_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(service.complete_capa(context, capa_id, _mutation(context, csrf, key)))
+
+
+@router.post("/capas/{capa_id}/verification")
+def verify_capa(
+    capa_id: int,
+    payload: CapaVerify,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.verify_capa(
+            context, capa_id, payload.model_dump(), _mutation(context, csrf, key)
+        )
+    )
+
+
+# ---- 고객 클레임 (Q-09) ----
+CLAIM_NULLABLE = frozenset({"lot_no", "return_ref", "received_on"})
+
+
+@router.get("/claims")
+def list_claims(
+    context: Auth,
+    status: Annotated[
+        str | None, Query(pattern="^(RECEIVED|INVESTIGATING|RESPONDED|CLOSED)$")
+    ] = None,
+    customer_code: Annotated[
+        str | None, Query(alias="customerCode", max_length=40)
+    ] = None,
+):
+    return _data(service.list_claims(context, status, customer_code))
+
+
+@router.get("/claims/customers")
+def claim_customers(context: Auth):
+    return _data(service.customers(context))
+
+
+@router.post("/claims", status_code=201)
+def post_claim(
+    payload: ClaimCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_claim(
+            context, _values(payload, CLAIM_NULLABLE), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.get("/claims/{claim_id}")
+def get_claim(claim_id: int, context: Auth):
+    return _data(service.get_claim(context, claim_id))
+
+
+@router.patch("/claims/{claim_id}")
+def patch_claim(
+    claim_id: int,
+    payload: ClaimUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_claim(
+            context,
+            claim_id,
+            _values(payload, CLAIM_NULLABLE),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/claims/{claim_id}/investigation")
+def investigate_claim(
+    claim_id: int,
+    payload: ClaimInvestigate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.start_investigation(
+            context,
+            claim_id,
+            _values(payload, frozenset({"qty", "defect_type_id", "immediate_action"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/claims/{claim_id}/response")
+def respond_claim(
+    claim_id: int,
+    payload: ClaimRespond,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.respond_claim(
+            context,
+            claim_id,
+            _values(payload, frozenset({"responded_on"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/claims/{claim_id}/closure")
+def close_claim(
+    claim_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(service.close_claim(context, claim_id, _mutation(context, csrf, key)))
+
+
+# ---- 공급처 품질 (Q-10) ----
+@router.get("/suppliers")
+def list_suppliers(context: Auth):
+    return _data(service.suppliers(context))
+
+
+@router.get("/supplier-levels")
+def list_supplier_levels(
+    context: Auth,
+    partner_code: Annotated[
+        str | None, Query(alias="partnerCode", max_length=40)
+    ] = None,
+):
+    return _data(service.supplier_levels(context, partner_code))
+
+
+@router.post("/supplier-levels", status_code=201)
+def post_supplier_level(
+    payload: SupplierLevelCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_supplier_level(
+            context,
+            _values(payload, frozenset({"item_code", "rating_id"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.get("/supplier-ratings")
+def list_supplier_ratings(
+    context: Auth, month: Annotated[str | None, Query(pattern=MONTH)] = None
+):
+    return _data(service.supplier_ratings(context, month))
+
+
+@router.post("/supplier-ratings")
+def calculate_supplier_ratings(
+    context: Auth,
+    month: Annotated[str, Query(pattern=MONTH)],
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.calculate_ratings(context, month, _mutation(context, csrf, key))
+    )
+
+
+@router.get("/scars")
+def list_scars(
+    context: Auth,
+    status: Annotated[str | None, Query(pattern="^(OPEN|RESPONDED|CLOSED)$")] = None,
+):
+    return _data(service.list_scars(context, status))
+
+
+@router.post("/scars", status_code=201)
+def post_scar(
+    payload: ScarCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_scar(
+            context,
+            _values(payload, frozenset({"inspection_id", "ncr_id", "issued_on"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/scars/{scar_id}/response")
+def respond_scar(
+    scar_id: int,
+    payload: ScarRespond,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.respond_scar(
+            context,
+            scar_id,
+            _values(payload, frozenset({"responded_on"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/scars/{scar_id}/closure")
+def close_scar(
+    scar_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(service.close_scar(context, scar_id, _mutation(context, csrf, key)))
+
+
+# ---- 수입 검사 (Q-03 수입 탭 · Q-04) ----
+@router.get("/lookups/incoming-lots")
+def incoming_lots(context: Auth):
+    return _data(service.incoming_lots(context))
+
+
+@router.get("/lookups/sampling-plan")
+def sampling_plan(
+    context: Auth,
+    lot_qty: Annotated[str, Query(alias="lotQty", pattern=r"^\d{1,12}(\.\d{1,3})?$")],
+    aql: Annotated[str, Query(pattern=r"^(0\.65|1\.0|1\.5|2\.5|4\.0|6\.5)$")],
+    level: Annotated[str, Query(pattern="^(NORMAL|TIGHTENED)$")] = "NORMAL",
+):
+    return _data(service.sampling_preview(context, lot_qty, aql, level))
+
+
+@router.post("/inspections/incoming", status_code=201)
+def post_incoming_inspection(
+    payload: IncomingInspectionCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_incoming_inspection(
+            context,
+            _values(payload, frozenset({"sample_qty", "inspected_on", "note"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.patch("/inspections/{inspection_id}/defect-count")
+def patch_defect_count(
+    inspection_id: int,
+    payload: DefectCountIn,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.set_defect_count(
+            context, inspection_id, payload.model_dump(), _mutation(context, csrf, key)
         )
     )

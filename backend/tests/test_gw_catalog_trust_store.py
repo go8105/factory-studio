@@ -10,14 +10,13 @@ from copy import deepcopy
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from test_gw_catalog_key_chain import Rotations
-from test_gw_catalog_store import setup
-
 from fs.gw import catalog_key_handover as handover
 from fs.gw import catalog_store as store
 from fs.gw import catalog_trust_store as floor
 from fs.gw.evidence_trust import EvidenceTrust, from_environment
 from fs.gw.operating_contract import canonical
+from test_gw_catalog_key_chain import Rotations
+from test_gw_catalog_store import setup
 
 
 def environment(patch, keys, config=None):

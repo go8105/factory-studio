@@ -733,3 +733,551 @@ def test_inspection_document_number_survives_deleted_draft_gap(
     doc = _ok(env[0].get(f"{W}/documents/{n['stockDocumentId']}"))
     assert int(doc["documentNo"][12:]) == int(b["documentNo"][12:]) + 1
     assert date.fromisoformat(doc["documentOn"]) == day
+
+
+def test_receiving_location_allowed_as_normal_location(receiving_env):
+    env = receiving_env
+    client, auth, _, ids = env
+    rec_loc = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-REC-T", "name": "입고장 시험", "locationType": "RECEIVING"},
+        ),
+        201,
+    )
+    n = notice(
+        env,
+        qty="50",
+        lines=[
+            {
+                "itemId": ids["RM-PBT"],
+                "expectedQty": "50",
+                "normalLocationId": rec_loc["id"],
+            }
+        ],
+    )
+    assert n["lines"][0]["normalLocationId"] == rec_loc["id"]
+
+    n = _ok(act(env, n, "arrive"))
+    n = _ok(
+        act(env, n, "inspect", **inspect_body(n, accepted="50", held="0", short="0"))
+    )
+    assert n["status"] == "INSPECTED"
+
+    bad_body = {
+        "businessKey": uuid4().hex,
+        "warehouseId": ids["warehouse"],
+        "expectedOn": "2026-09-24",
+        "lines": [
+            {
+                "itemId": ids["RM-PBT"],
+                "expectedQty": "10",
+                "normalLocationId": ids["quarantine"],
+            }
+        ],
+    }
+    r = _call(client, auth, "POST", "/inbound-notices", bad_body)
+    assert r.status_code == 400
+    assert "lines.0.normalLocationId" in r.json()["error"]["details"]["fields"]
+
+
+def test_putaway_task_creation_and_idempotency_on_inspection(receiving_env):
+    env = receiving_env
+    client, auth, engine, ids = env
+    rec_loc = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-REC-PT", "name": "입고장", "locationType": "RECEIVING"},
+        ),
+        201,
+    )
+    n = notice(
+        env,
+        qty="100",
+        lines=[
+            {
+                "itemId": ids["RM-PBT"],
+                "expectedQty": "100",
+                "normalLocationId": rec_loc["id"],
+                "quarantineLocationId": ids["quarantine"],
+            },
+            {
+                "itemId": ids["RM-PIN"],
+                "expectedQty": "50",
+                "normalLocationId": rec_loc["id"],
+                "quarantineLocationId": ids["quarantine"],
+            },
+        ],
+    )
+    n = _ok(act(env, n, "arrive"))
+    insp_body = {
+        "lines": [
+            {
+                "lineId": n["lines"][0]["id"],
+                "acceptedQty": "70",
+                "quarantinedQty": "20",
+                "shortageQty": "10",
+                "reason": "검수",
+            },
+            {
+                "lineId": n["lines"][1]["id"],
+                "acceptedQty": "0",
+                "quarantinedQty": "50",
+                "shortageQty": "0",
+                "reason": "불량 전량 격리",
+            },
+        ]
+    }
+    n = _ok(act(env, n, "inspect", **insp_body))
+    assert n["status"] == "INSPECTED"
+
+    res = _ok(_call(client, auth, "GET", "/putaway-tasks"))
+    assert res["total"] == 1
+    task = res["rows"][0]
+    assert task["taskNo"].startswith("PT-")
+    assert Decimal(task["qty"]) == Decimal(70)
+    assert task["itemId"] == ids["RM-PBT"]
+    assert task["fromLocationId"] == rec_loc["id"]
+    assert task["status"] == "OPEN"
+    assert task["toLocationId"] is None
+
+    with engine.connect() as c:
+        row = (
+            c.execute(
+                text(
+                    "SELECT suggested_location_id, to_location_id, status FROM wms.putaway_task WHERE id=:id"
+                ),
+                {"id": task["id"]},
+            )
+            .mappings()
+            .one()
+        )
+        assert row["suggested_location_id"] is None
+        assert row["to_location_id"] is None
+        assert row["status"] == "OPEN"
+
+    act(env, n, "inspect", **insp_body)
+    res_after = _ok(_call(client, auth, "GET", "/putaway-tasks"))
+    assert res_after["total"] == 1
+
+
+def test_putaway_task_recommendation_algorithm_and_filters(receiving_env):
+    env = receiving_env
+    client, auth, engine, ids = env
+
+    loc_same_lot = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-B01", "name": "1순위 후보", "locationType": "NORMAL"},
+        ),
+        201,
+    )
+    loc_same_item = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-B02", "name": "2순위 후보", "locationType": "NORMAL"},
+        ),
+        201,
+    )
+    loc_empty = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-B03", "name": "3순위 후보", "locationType": "NORMAL"},
+        ),
+        201,
+    )
+    loc_mix = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-B04", "name": "4순위 후보", "locationType": "NORMAL"},
+        ),
+        201,
+    )
+    rec_loc = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-REC-AL", "name": "입고장", "locationType": "RECEIVING"},
+        ),
+        201,
+    )
+
+    with engine.connect() as c:
+        c.execute(
+            text(
+                "UPDATE wms.storage_location SET capacity_qty=1 "
+                "WHERE workspace_id=:w AND generation_id=:g AND id NOT IN (:loc1, :loc2, :loc3, :loc4, :rec, :q)"
+            ),
+            {
+                "w": auth["workspaceId"],
+                "g": auth["generationId"],
+                "loc1": loc_same_lot["id"],
+                "loc2": loc_same_item["id"],
+                "loc3": loc_empty["id"],
+                "loc4": loc_mix["id"],
+                "rec": rec_loc["id"],
+                "q": ids["quarantine"],
+            },
+        )
+        c.commit()
+
+    _ok(_call(client, auth, "PATCH", f"/items/{ids['RM-PBT']}", {"lotTracked": True}))
+
+    opening = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            "/documents",
+            {
+                "documentType": "OPENING",
+                "documentOn": "2026-10-18",
+                "lines": [
+                    {
+                        "itemId": ids["RM-PBT"],
+                        "locationId": loc_same_lot["id"],
+                        "qty": "20",
+                        "lotNo": "LOT-100",
+                    },
+                    {
+                        "itemId": ids["RM-PBT"],
+                        "locationId": loc_same_item["id"],
+                        "qty": "20",
+                        "lotNo": "LOT-200",
+                    },
+                    {
+                        "itemId": ids["RM-PIN"],
+                        "locationId": loc_mix["id"],
+                        "qty": "20",
+                    },
+                ],
+            },
+        ),
+        201,
+    )
+    _ok(_call(client, auth, "POST", f"/documents/{opening['id']}/post"))
+
+    n = notice(
+        env,
+        qty="30",
+        lines=[
+            {
+                "itemId": ids["RM-PBT"],
+                "lotNo": "LOT-100",
+                "expectedQty": "30",
+                "normalLocationId": rec_loc["id"],
+            }
+        ],
+    )
+    n = _ok(act(env, n, "arrive"))
+    n = _ok(
+        act(env, n, "inspect", **inspect_body(n, accepted="30", held="0", short="0"))
+    )
+
+    # 1. 1순위: 같은 품목 + 같은 LOT이 있는 loc_same_lot (R-B01) 추천
+    res = _ok(_call(client, auth, "GET", "/putaway-tasks"))
+    task = res["rows"][0]
+    assert task["suggestedLocationId"] == loc_same_lot["id"]
+    assert task["suggestedLocationCode"] == "R-B01"
+
+    # 2. 용량 초과 및 LOT 혼적 차단 방어 테스트:
+    # loc_same_lot: 용량 20으로 설정 -> 현재고 20 + 30 = 50 > 20 이므로 탈락!
+    # loc_same_item: mix_lots = false 로 설정 -> 다른 LOT이므로 탈락!
+    # loc_empty: 빈 칸 -> 3순위로 추천되어야 함!
+    with engine.connect() as c:
+        c.execute(
+            text("UPDATE wms.storage_location SET capacity_qty=20 WHERE id=:id"),
+            {"id": loc_same_lot["id"]},
+        )
+        c.execute(
+            text("UPDATE wms.storage_location SET mix_lots=false WHERE id=:id"),
+            {"id": loc_same_item["id"]},
+        )
+        c.commit()
+
+    res = _ok(_call(client, auth, "GET", "/putaway-tasks"))
+    task = res["rows"][0]
+    assert task["suggestedLocationId"] == loc_empty["id"]
+    assert task["suggestedLocationCode"] == "R-B03"
+
+    # 3. 품목 혼적 차단 방어 테스트:
+    # loc_empty: 용량 10으로 설정 -> 적치 수량 30 > 10 이므로 탈락!
+    # loc_mix: 다른 품목(RM-PIN) 재고 있음, mix_items=true -> 4순위 추천!
+    with engine.connect() as c:
+        c.execute(
+            text("UPDATE wms.storage_location SET capacity_qty=10 WHERE id=:id"),
+            {"id": loc_empty["id"]},
+        )
+        c.commit()
+
+    res = _ok(_call(client, auth, "GET", "/putaway-tasks"))
+    task = res["rows"][0]
+    assert task["suggestedLocationId"] == loc_mix["id"]
+    assert task["suggestedLocationCode"] == "R-B04"
+
+    # loc_mix: mix_items = false 로 설정 -> 다른 품목 혼적 불가로 탈락!
+    # 모든 칸 탈락 -> "추천 없음"(None)
+    with engine.connect() as c:
+        c.execute(
+            text("UPDATE wms.storage_location SET mix_items=false WHERE id=:id"),
+            {"id": loc_mix["id"]},
+        )
+        c.commit()
+
+    res = _ok(_call(client, auth, "GET", "/putaway-tasks"))
+    task = res["rows"][0]
+    assert task["suggestedLocationId"] is None
+    assert task["suggestedLocationCode"] is None
+    assert task["suggestedLocationName"] is None
+
+
+def test_putaway_complete_and_cancel_full_flow(receiving_env):
+    """C-4: 적치 완료(PUTAWAY 전표 + 원장 입고장 차감/목적지 증가 + LOT 총량 유지), 멱등/409 방어, 취소 검증."""
+    env = receiving_env
+    client, auth, _engine, ids = env
+
+    def _err(r, status, code):
+        assert r.status_code == status, r.text
+        err = r.json()["error"]
+        assert err["code"] == code or err.get("details", {}).get("reason") == code
+
+    rec_loc = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-REC-C4", "name": "C4 입고장", "locationType": "RECEIVING"},
+        ),
+        201,
+    )
+    rack_loc = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/warehouses/{ids['warehouse']}/locations",
+            {"code": "R-RACK-C4", "name": "C4 보관랙", "locationType": "NORMAL"},
+        ),
+        201,
+    )
+    _ok(_call(client, auth, "PATCH", f"/items/{ids['RM-PBT']}", {"lotTracked": True}))
+
+    # 2줄 입고 예정: 1번 줄은 완료 테스트용, 2번 줄은 취소 테스트용
+    n = notice(
+        env,
+        lines=[
+            {
+                "itemId": ids["RM-PBT"],
+                "lotNo": "LOT-C4-001",
+                "expectedQty": "80",
+                "normalLocationId": rec_loc["id"],
+            },
+            {
+                "itemId": ids["RM-PIN"],
+                "expectedQty": "40",
+                "normalLocationId": rec_loc["id"],
+            },
+        ],
+    )
+    n = _ok(act(env, n, "arrive"))
+    n = _ok(
+        act(
+            env,
+            n,
+            "inspect",
+            expectedVersion=n["version"],
+            lines=[
+                {
+                    "lineId": n["lines"][0]["id"],
+                    "acceptedQty": "80",
+                    "quarantinedQty": "0",
+                    "shortageQty": "0",
+                },
+                {
+                    "lineId": n["lines"][1]["id"],
+                    "acceptedQty": "40",
+                    "quarantinedQty": "0",
+                    "shortageQty": "0",
+                },
+            ],
+        )
+    )
+
+    tasks = _ok(_call(client, auth, "GET", "/putaway-tasks?status=OPEN"))["rows"]
+    t_lot = next(t for t in tasks if t["itemId"] == ids["RM-PBT"])
+    t_cancel = next(t for t in tasks if t["itemId"] == ids["RM-PIN"])
+
+    # 적치 전 재고 현황: 입고장(R-REC-C4)에 LOT-C4-001 80개가 있어야 함
+    stock_before = _ok(_call(client, auth, "GET", "/stock?lotNo=LOT-C4-001"))["rows"]
+    assert len(stock_before) == 1
+    assert stock_before[0]["locationId"] == rec_loc["id"]
+    assert stock_before[0]["onHand"] == "80.000"
+
+    # 적치 전 LOT 현재고: 총량 80.000
+    lots_before = _ok(_call(client, auth, "GET", "/lots?lotNo=LOT-C4-001"))
+    assert lots_before[0]["qtyOnHand"] == "80.000"
+
+    # 비정상 목적지(출발 위치 동일 또는 QUARANTINE) 거부 (400)
+    _err(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_lot['id']}/complete",
+            {"toLocationId": rec_loc["id"]},
+        ),
+        400,
+        "VALIDATION_FAILED",
+    )
+    _err(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_lot['id']}/complete",
+            {"toLocationId": ids["quarantine"]},
+        ),
+        400,
+        "VALIDATION_FAILED",
+    )
+
+    # 적치 완료 요청 (동일 Idempotency-Key 재전송 테스트 포함)
+    idem_key = "idem-putaway-complete-c4-1"
+    done_task = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_lot['id']}/complete",
+            {"toLocationId": rack_loc["id"]},
+            key=idem_key,
+        )
+    )
+    assert done_task["status"] == "DONE"
+    assert done_task["toLocationId"] == rack_loc["id"]
+    assert done_task["toLocationCode"] == "R-RACK-C4"
+    assert done_task["doneAt"] is not None
+    assert done_task["stockDocumentId"] is not None
+    doc_id = done_task["stockDocumentId"]
+
+    # 같은 Idempotency-Key로 두 번째 요청 시 동일 전표 반환 (멱등)
+    done_again_same_key = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_lot['id']}/complete",
+            {"toLocationId": rack_loc["id"]},
+            key=idem_key,
+        )
+    )
+    assert done_again_same_key["stockDocumentId"] == doc_id
+
+    # 다른 Idempotency-Key로 이미 완료된 작업을 다시 완료 요청 시 409 Conflict 방어
+    _err(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_lot['id']}/complete",
+            {"toLocationId": rack_loc["id"]},
+            key="idem-putaway-complete-c4-2",
+        ),
+        409,
+        "INVALID_STATE",
+    )
+    # 이미 완료된 작업을 취소 요청 시 409 Conflict 방어
+    _err(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_lot['id']}/cancel",
+        ),
+        409,
+        "INVALID_STATE",
+    )
+
+    # 생성된 PUTAWAY 전표 및 원장(W-05) 검증: 전표는 딱 1장만 생겼고, 출발 -80 / 도착 +80
+    putaway_docs = _ok(_call(client, auth, "GET", "/documents?type=PUTAWAY"))
+    matching_docs = [d for d in putaway_docs if d["sourceRef"] == t_lot["taskNo"]]
+    assert len(matching_docs) == 1
+    assert matching_docs[0]["id"] == doc_id
+
+    moves = _ok(_call(client, auth, "GET", "/moves?type=PUTAWAY&lotNo=LOT-C4-001"))
+    assert len(moves) == 2
+    move_by_loc = {m["locationId"]: m["qtyDelta"] for m in moves}
+    assert move_by_loc[rec_loc["id"]] == "-80.000"
+    assert move_by_loc[rack_loc["id"]] == "80.000"
+
+    # 적치 후 재고 현황(W-02): 입고장 수량은 사라지고 보관랙(R-RACK-C4) 수량이 80.000으로 증가
+    stock_after = _ok(_call(client, auth, "GET", "/stock?lotNo=LOT-C4-001"))["rows"]
+    assert len(stock_after) == 1
+    assert stock_after[0]["locationId"] == rack_loc["id"]
+    assert stock_after[0]["onHand"] == "80.000"
+
+    # 적치 후 LOT(W-10): LOT 총 현재고는 80.000으로 동일하게 유지되고, 위치는 R-RACK-C4로 이동
+    lots_after = _ok(_call(client, auth, "GET", "/lots?lotNo=LOT-C4-001"))
+    assert lots_after[0]["qtyOnHand"] == "80.000"
+    lot_detail = _ok(_call(client, auth, "GET", f"/lots/{lots_after[0]['id']}"))
+    assert len(lot_detail["locations"]) == 1
+    assert lot_detail["locations"][0]["locationId"] == rack_loc["id"]
+    assert lot_detail["locations"][0]["qtyOnHand"] == "80.000"
+
+    # 취소 흐름 검증: 두 번째 적치 작업(t_cancel) 취소
+    cancelled_task = _ok(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_cancel['id']}/cancel",
+        )
+    )
+    assert cancelled_task["status"] == "CANCELLED"
+    assert cancelled_task["toLocationId"] is None
+    assert cancelled_task["doneAt"] is None
+    assert cancelled_task["stockDocumentId"] is None
+
+    # 취소된 작업을 다시 취소하거나 완료하려고 하면 409 Conflict로 차단
+    _err(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_cancel['id']}/cancel",
+        ),
+        409,
+        "INVALID_STATE",
+    )
+    _err(
+        _call(
+            client,
+            auth,
+            "POST",
+            f"/putaway-tasks/{t_cancel['id']}/complete",
+            {"toLocationId": rack_loc["id"]},
+        ),
+        409,
+        "INVALID_STATE",
+    )

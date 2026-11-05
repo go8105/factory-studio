@@ -1,5 +1,6 @@
 // FS-024b WMS 화면. 검증 항목별로 테스트를 나눈다.
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -692,4 +693,1715 @@ it("W-10 LOT 보류 해제 및 QMS 보류 표시를 검증한다", async () => {
   await waitFor(() =>
     expect(sent(fetcher, "POST", "/lots/201/release")).toHaveLength(1),
   );
+});
+
+it("W-08 입고 예정 목록과 상세에서 noticeKind 구분을 표시하고 등록 시 전송한다", async () => {
+  const inboundPo = {
+    id: 101,
+    noticeNo: "IN-20261017-001",
+    noticeKind: "PO" as const,
+    businessKey: "PO-20261017-01",
+    warehouseId: 1,
+    expectedOn: "2026-10-25",
+    vehicleNo: "서울12가3456",
+    partnerRef: "SUP-01",
+    status: "PLANNED" as const,
+    version: 1,
+    arrivedAt: null,
+    inspectedAt: null,
+    reason: null,
+    stockDocumentId: null,
+    lines: [
+      {
+        id: 1,
+        itemId: 10,
+        lotNo: null,
+        expectedQty: "100.000",
+        normalLocationId: 11,
+        quarantineLocationId: null,
+        acceptedQty: null,
+        quarantinedQty: null,
+        shortageQty: null,
+        reason: null,
+      },
+    ],
+    sourceClaim: null,
+    sourceState: "manual",
+  };
+
+  const fetcher = mount("/wms/inbounds", {
+    [`GET ${W}/inbound-notices`]: ok({
+      rows: [inboundPo],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 2,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      {
+        id: 10,
+        itemCode: "RM-TEST",
+        name: "테스트 원자재",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/inbound-notices/101`]: ok(inboundPo),
+    [`GET ${W}/warehouses/1/locations`]: ok(locations),
+    [`GET ${W}/sources`]: ok({ disabled: false, rows: [] }),
+    [`POST ${W}/inbound-notices`]: ok({
+      ...inboundPo,
+      id: 102,
+      noticeNo: "IN-20261017-002",
+      noticeKind: "SALES_RETURN",
+    }),
+  });
+
+  // 목록에 "발주" 배지와 번호 표시 확인
+  expect(await screen.findByText("IN-20261017-001")).toBeVisible();
+  const table = screen.getByRole("table");
+  expect(within(table).getByText("발주")).toBeVisible();
+
+  // 상세 패널 열기
+  fireEvent.click(screen.getByRole("button", { name: "상세" }));
+  const detailPanel = await screen.findByRole("dialog", {
+    name: "IN-20261017-001",
+  });
+  expect(within(detailPanel).getByText(/구분 발주/)).toBeVisible();
+
+  // 닫기
+  fireEvent.click(
+    within(detailPanel).getByRole("button", { name: "패널 닫기" }),
+  );
+
+  // 등록 패널 열기
+  fireEvent.click(screen.getByRole("button", { name: "입고 예정 등록" }));
+  const formPanel = await screen.findByRole("dialog", {
+    name: "입고 예정 등록",
+  });
+
+  // 업무 번호 입력
+  fireEvent.change(within(formPanel).getByLabelText("업무 중복 방지 번호"), {
+    target: { value: "RET-20261017-99" },
+  });
+
+  // 구분 선택: 판매 반품
+  fireEvent.change(within(formPanel).getByLabelText("입고 구분"), {
+    target: { value: "SALES_RETURN" },
+  });
+
+  // 품목 선택
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "10" },
+  });
+
+  // 예정 수량 입력
+  fireEvent.change(within(formPanel).getByLabelText("예정 수량"), {
+    target: { value: "25" },
+  });
+
+  // 정상 위치 선택
+  fireEvent.change(within(formPanel).getByLabelText("정상 위치"), {
+    target: { value: "11" },
+  });
+
+  // 등록 제출
+  fireEvent.click(within(formPanel).getByRole("button", { name: "예정 등록" }));
+
+  await waitFor(() => {
+    const postCalls = sent(fetcher, "POST", "/inbound-notices");
+    expect(postCalls).toHaveLength(1);
+    const sentBody = body(postCalls[0]);
+    expect(sentBody.noticeKind).toBe("SALES_RETURN");
+    expect(sentBody.businessKey).toBe("RET-20261017-99");
+  });
+});
+
+it("W-08 품목 lotTracked 여부에 따른 LOT 입력 필드 노출 및 초기화", async () => {
+  const fetcher = mount("/wms/inbounds", {
+    [`GET ${W}/inbound-notices`]: ok({
+      rows: [],
+      total: 0,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 2,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      {
+        id: 10,
+        itemCode: "RM-NORMAL",
+        name: "일반 원자재",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: false,
+        isActive: true,
+      },
+      {
+        id: 20,
+        itemCode: "RM-LOT",
+        name: "LOT 원자재",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: true,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/warehouses/1/locations`]: ok(locations),
+    [`GET ${W}/sources`]: ok({ disabled: false, rows: [] }),
+    [`POST ${W}/inbound-notices`]: ok({
+      id: 201,
+      noticeNo: "IN-20261017-099",
+      version: 1,
+    }),
+  });
+
+  // 등록 패널 열기
+  fireEvent.click(
+    await screen.findByRole("button", { name: "입고 예정 등록" }),
+  );
+  const formPanel = await screen.findByRole("dialog", {
+    name: "입고 예정 등록",
+  });
+
+  // 초기 상태: LOT 입력 필드 없음
+  expect(within(formPanel).queryByLabelText("LOT")).toBeNull();
+
+  // 1. lotTracked=false 품목(10) 선택 -> LOT 필드 미노출
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "10" },
+  });
+  expect(within(formPanel).queryByLabelText("LOT")).toBeNull();
+
+  // 2. lotTracked=true 품목(20) 선택 -> LOT 필드 필수 노출
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "20" },
+  });
+  const lotField = within(formPanel).getByLabelText("LOT");
+  expect(lotField).toBeVisible();
+  expect(lotField).toBeRequired();
+
+  // LOT 값 입력
+  fireEvent.change(lotField, { target: { value: "LOT-TEMP-123" } });
+  expect(lotField).toHaveValue("LOT-TEMP-123");
+
+  // 3. 다시 lotTracked=false 품목(10)으로 변경 -> LOT 필드 사라짐
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "10" },
+  });
+  expect(within(formPanel).queryByLabelText("LOT")).toBeNull();
+
+  // 4. 다시 lotTracked=true 품목(20)으로 변경 -> 빈 값으로 노출
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "20" },
+  });
+  const newLotField = within(formPanel).getByLabelText("LOT");
+  expect(newLotField).toBeVisible();
+  expect(newLotField).toHaveValue("");
+
+  // 최종 입력 및 제출
+  fireEvent.change(within(formPanel).getByLabelText("업무 중복 방지 번호"), {
+    target: { value: "BIZ-LOT-01" },
+  });
+  fireEvent.change(newLotField, { target: { value: "LOT-FINAL-999" } });
+  fireEvent.change(within(formPanel).getByLabelText("예정 수량"), {
+    target: { value: "120" },
+  });
+  fireEvent.change(within(formPanel).getByLabelText("정상 위치"), {
+    target: { value: "11" },
+  });
+  fireEvent.click(within(formPanel).getByRole("button", { name: "예정 등록" }));
+
+  await waitFor(() => {
+    const postCalls = sent(fetcher, "POST", "/inbound-notices");
+    expect(postCalls).toHaveLength(1);
+    const sentBody = body(postCalls[0]);
+    expect(sentBody.lines[0].itemId).toBe(20);
+    expect(sentBody.lines[0].lotNo).toBe("LOT-FINAL-999");
+  });
+});
+
+it("W-08 입고 예정 등록 시 RECEIVING 위치가 있으면 기본 선택되고 목록에 [입고장]이 표시된다", async () => {
+  const receivingLocations = [
+    {
+      id: 11,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-A01",
+      name: "일반 랙",
+      locationType: "NORMAL",
+      isDefault: true,
+      isActive: true,
+      moveCount: 0,
+    },
+    {
+      id: 15,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-REC",
+      name: "원자재 입고장",
+      locationType: "RECEIVING",
+      isDefault: false,
+      isActive: true,
+      moveCount: 0,
+    },
+  ];
+
+  const fetcher = mount("/wms/inbounds", {
+    [`GET ${W}/inbound-notices`]: ok({
+      rows: [],
+      total: 0,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 2,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      {
+        id: 10,
+        itemCode: "RM-RAW01",
+        name: "원자재 품목",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: false,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/warehouses/1/locations`]: ok(receivingLocations),
+    [`GET ${W}/sources`]: ok({ disabled: false, rows: [] }),
+    [`POST ${W}/inbound-notices`]: ok({
+      id: 301,
+      noticeNo: "IN-20261018-001",
+      version: 1,
+    }),
+  });
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "입고 예정 등록" }),
+  );
+  const formPanel = await screen.findByRole("dialog", {
+    name: "입고 예정 등록",
+  });
+
+  // RECEIVING 위치가 우선 기본값으로 선택되는지 확인
+  const normalSelect = (await within(formPanel).findByLabelText(
+    "정상 위치",
+  )) as HTMLSelectElement;
+  await waitFor(() => {
+    expect(normalSelect.value).toBe("15");
+  });
+
+  // 드롭다운에 RECEIVING과 NORMAL이 모두 표시되고, RECEIVING에는 [입고장] 꼬리표가 붙음
+  expect(
+    within(normalSelect).getByRole("option", {
+      name: "R-REC 원자재 입고장 [입고장]",
+    }),
+  ).toBeInTheDocument();
+  expect(
+    within(normalSelect).getByRole("option", {
+      name: "R-A01 일반 랙",
+    }),
+  ).toBeInTheDocument();
+
+  // 제출 시 normalLocationId로 15가 전송되는지 확인
+  fireEvent.change(within(formPanel).getByLabelText("업무 중복 방지 번호"), {
+    target: { value: "PO-REC-01" },
+  });
+  fireEvent.change(within(formPanel).getByLabelText("품목"), {
+    target: { value: "10" },
+  });
+  fireEvent.change(within(formPanel).getByLabelText("예정 수량"), {
+    target: { value: "50" },
+  });
+  fireEvent.click(within(formPanel).getByRole("button", { name: "예정 등록" }));
+
+  await waitFor(() => {
+    const postCalls = sent(fetcher, "POST", "/inbound-notices");
+    expect(postCalls).toHaveLength(1);
+    const sentBody = body(postCalls[0]);
+    expect(sentBody.lines[0].normalLocationId).toBe(15);
+  });
+});
+
+it("W-11 적치 목록 렌더링, 추천 위치 기본 선택·변경 적치 완료 및 취소 검증", async () => {
+  const tasks = [
+    {
+      id: 1,
+      taskNo: "PT-20261018-001",
+      sourceDocumentId: 101,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      warehouseName: "원자재 창고",
+      itemId: 10,
+      itemCode: "RM-RAW01",
+      itemName: "원자재 품목",
+      baseUnit: "KG",
+      lotNo: "LOT-100",
+      qty: "70.000",
+      fromLocationId: 15,
+      fromLocationCode: "R-REC",
+      fromLocationName: "원자재 입고장",
+      suggestedLocationId: 11,
+      suggestedLocationCode: "R-B01",
+      suggestedLocationName: "기본 랙",
+      toLocationId: null,
+      toLocationCode: null,
+      toLocationName: null,
+      status: "OPEN",
+      doneAt: null,
+      stockDocumentId: null,
+      createdAt: "2026-10-18T10:00:00+09:00",
+    },
+    {
+      id: 2,
+      taskNo: "PT-20261018-002",
+      sourceDocumentId: 102,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      warehouseName: "원자재 창고",
+      itemId: 20,
+      itemCode: "RM-RAW02",
+      itemName: "원자재 품목2",
+      baseUnit: "EA",
+      lotNo: null,
+      qty: "50.000",
+      fromLocationId: 15,
+      fromLocationCode: "R-REC",
+      fromLocationName: "원자재 입고장",
+      suggestedLocationId: null,
+      suggestedLocationCode: null,
+      suggestedLocationName: null,
+      toLocationId: null,
+      toLocationCode: null,
+      toLocationName: null,
+      status: "OPEN",
+      doneAt: null,
+      stockDocumentId: null,
+      createdAt: "2026-10-18T10:05:00+09:00",
+    },
+  ];
+
+  const whLocations = [
+    {
+      id: 11,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-B01",
+      name: "기본 랙",
+      isDefault: true,
+      isActive: true,
+      moveCount: 0,
+      locationType: "NORMAL",
+    },
+    {
+      id: 12,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-B02",
+      name: "보조 랙",
+      isDefault: false,
+      isActive: true,
+      moveCount: 0,
+      locationType: "NORMAL",
+    },
+    {
+      id: 15,
+      warehouseId: 1,
+      warehouseCode: "WH-RAW",
+      code: "R-REC",
+      name: "원자재 입고장",
+      isDefault: false,
+      isActive: true,
+      moveCount: 1,
+      locationType: "RECEIVING",
+    },
+  ];
+
+  const fetcher = mount("/wms/putaways", {
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 3,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      {
+        id: 10,
+        itemCode: "RM-RAW01",
+        name: "원자재 품목",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: true,
+        isActive: true,
+      },
+      {
+        id: 20,
+        itemCode: "RM-RAW02",
+        name: "원자재 품목2",
+        baseUnit: "EA",
+        itemClass: "RAW",
+        lotTracked: false,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/putaway-tasks`]: ok({
+      rows: tasks,
+      total: 2,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses/1/locations`]: ok(whLocations),
+    [`POST ${W}/putaway-tasks/1/complete`]: ok({
+      ...tasks[0],
+      toLocationId: 12,
+      toLocationCode: "R-B02",
+      toLocationName: "보조 랙",
+      status: "DONE",
+      doneAt: "2026-10-18T10:15:00+09:00",
+      stockDocumentId: 501,
+    }),
+    [`POST ${W}/putaway-tasks/2/cancel`]: ok({
+      ...tasks[1],
+      status: "CANCELLED",
+    }),
+  });
+
+  expect(
+    await screen.findByRole("heading", { name: "W-11 적치" }),
+  ).toBeVisible();
+
+  const table = screen.getByRole("table", { name: "적치 작업 목록" });
+  expect(within(table).getByText("PT-20261018-001")).toBeVisible();
+  expect(within(table).getByText("PT-20261018-002")).toBeVisible();
+  expect(within(table).getAllByText("대기")).toHaveLength(2);
+  expect(within(table).getByText(/R-B01/)).toBeVisible();
+  expect(within(table).getByText("추천 없음")).toBeVisible();
+
+  // 1. 첫 번째 적치 작업(추천 위치 있음) 상세 열기 -> 추천 위치(11)가 기본 선택됨
+  const detailButtons = within(table).getAllByRole("button", { name: "상세" });
+  fireEvent.click(detailButtons[0]);
+
+  const detailPanel = await screen.findByRole("dialog", {
+    name: "PT-20261018-001",
+  });
+  const locSelect = (await within(detailPanel).findByLabelText(
+    "적치 위치 선택",
+  )) as HTMLSelectElement;
+  expect(locSelect.value).toBe("11");
+
+  // 다른 NORMAL 위치(12: R-B02 보조 랙)로 수동 변경 후 적치 완료 제출
+  await waitFor(() => {
+    expect(
+      within(locSelect).getByRole("option", { name: "R-B02 보조 랙" }),
+    ).toBeInTheDocument();
+  });
+  fireEvent.change(locSelect, { target: { value: "12" } });
+  fireEvent.click(
+    within(detailPanel).getByRole("button", { name: "적치 완료" }),
+  );
+
+  await waitFor(() => {
+    const calls = sent(fetcher, "POST", "/putaway-tasks/1/complete");
+    expect(calls).toHaveLength(1);
+    expect(body(calls[0])).toEqual({ toLocationId: 12 });
+  });
+
+  // 패널 닫고 두 번째 적치 작업(추천 위치 없음) 열기 -> 비어 있고 적치 취소 실행
+  fireEvent.click(
+    within(detailPanel).getByRole("button", { name: "패널 닫기" }),
+  );
+  fireEvent.click(detailButtons[1]);
+
+  const detailPanel2 = await screen.findByRole("dialog", {
+    name: "PT-20261018-002",
+  });
+  const locSelect2 = (await within(detailPanel2).findByLabelText(
+    "적치 위치 선택",
+  )) as HTMLSelectElement;
+  expect(locSelect2.value).toBe("");
+  expect(
+    within(detailPanel2).getByRole("button", { name: "적치 완료" }),
+  ).toBeDisabled();
+
+  fireEvent.click(
+    within(detailPanel2).getByRole("button", { name: "적치 취소" }),
+  );
+  await waitFor(() => {
+    const cancelCalls = sent(fetcher, "POST", "/putaway-tasks/2/cancel");
+    expect(cancelCalls).toHaveLength(1);
+  });
+});
+
+it("W-12 피킹 지시 목록·필터·동선(sequenceNo) 명세·LOT 대체 사유·도착 위치 기본값 및 안내 검증", async () => {
+  const pickOrders = [
+    {
+      id: 101,
+      pickNo: "PK-20261018-001",
+      reservationId: 10,
+      reservationNo: "RV-20261018-001",
+      reservationStatus: "ACTIVE",
+      shipmentOrderRef: "SO-20261018-01",
+      warehouseId: 1,
+      warehouseCode: "WH-FG",
+      warehouseName: "완제품 창고",
+      status: "OPEN",
+      pickedAt: null,
+      stockDocumentId: null,
+      stockDocumentNo: null,
+      cancelReason: null,
+      createdAt: "2026-10-18T11:00:00+09:00",
+      lineCount: 2,
+      totalQty: "50.000",
+      totalPickedQty: null,
+      lotSubstitutions: [
+        {
+          lineNo: 1,
+          itemId: 21,
+          itemCode: "FG-C100",
+          requestedLotNo: "LOT-HELD-01",
+          requestedLocationCode: "F-A01",
+          requestedQty: "30.000",
+          keptQty: "0.000",
+          reason: "HOLD",
+          reasonLabel: "보류(HOLD) 상태",
+          allocatedLots: [
+            {
+              lotNo: "LOT-FEFO-02",
+              locationCode: "F-B02",
+              qty: "30.000",
+            },
+          ],
+          message:
+            "예약 LOT LOT-HELD-01이(가) 보류(HOLD) 상태여서 FEFO/FIFO 기준으로 LOT-FEFO-02(F-B02 · 30.000)을(를) 배정했습니다.",
+        },
+      ],
+      // 의도적으로 역순(sequenceNo 2 -> 1)으로 넣어 화면에서 sequenceNo 오름차순 정렬되는지 검증
+      lines: [
+        {
+          id: 1002,
+          pickOrderId: 101,
+          lineNo: 2,
+          sequenceNo: 2,
+          itemId: 21,
+          itemCode: "FG-C100",
+          itemName: "커넥터 C100",
+          itemClass: "FG",
+          baseUnit: "EA",
+          lotTracked: true,
+          locationId: 12,
+          locationCode: "F-B02",
+          locationName: "보조 랙",
+          warehouseId: 1,
+          warehouseCode: "WH-FG",
+          warehouseName: "완제품 창고",
+          lotNo: "LOT-FEFO-02",
+          expiryDate: "2026-11-30",
+          receivedOn: "2026-09-01",
+          qty: "30.000",
+          pickedQty: null,
+          createdAt: "2026-10-18T11:00:00+09:00",
+        },
+        {
+          id: 1001,
+          pickOrderId: 101,
+          lineNo: 1,
+          sequenceNo: 1,
+          itemId: 21,
+          itemCode: "FG-C100",
+          itemName: "커넥터 C100",
+          itemClass: "FG",
+          baseUnit: "EA",
+          lotTracked: true,
+          locationId: 11,
+          locationCode: "F-A01",
+          locationName: "기본 보관",
+          warehouseId: 1,
+          warehouseCode: "WH-FG",
+          warehouseName: "완제품 창고",
+          lotNo: "LOT-FEFO-01",
+          expiryDate: "2026-10-31",
+          receivedOn: "2026-08-15",
+          qty: "20.000",
+          pickedQty: null,
+          createdAt: "2026-10-18T11:00:00+09:00",
+        },
+      ],
+    },
+    {
+      id: 102,
+      pickNo: "PK-20261018-002",
+      reservationId: 11,
+      reservationNo: "RV-20261018-002",
+      reservationStatus: "ACTIVE",
+      shipmentOrderRef: null,
+      warehouseId: 2,
+      warehouseCode: "WH-RAW",
+      warehouseName: "원자재 창고",
+      status: "OPEN",
+      pickedAt: null,
+      stockDocumentId: null,
+      stockDocumentNo: null,
+      cancelReason: null,
+      createdAt: "2026-10-18T11:10:00+09:00",
+      lineCount: 1,
+      totalQty: "15.000",
+      totalPickedQty: null,
+      lotSubstitutions: [],
+      lines: [
+        {
+          id: 1003,
+          pickOrderId: 102,
+          lineNo: 1,
+          sequenceNo: 1,
+          itemId: 31,
+          itemCode: "RM-AL01",
+          itemName: "알루미늄 바",
+          itemClass: "RAW",
+          baseUnit: "KG",
+          lotTracked: false,
+          locationId: 21,
+          locationCode: "R-A01",
+          locationName: "원자재 랙1",
+          warehouseId: 2,
+          warehouseCode: "WH-RAW",
+          warehouseName: "원자재 창고",
+          lotNo: null,
+          expiryDate: null,
+          receivedOn: "2026-09-10",
+          qty: "15.000",
+          pickedQty: null,
+          createdAt: "2026-10-18T11:10:00+09:00",
+        },
+      ],
+    },
+  ];
+
+  // WH-FG(id=1): SHIPPING 위치(F-SHIP, id=19) 있음
+  const wh1Locations = [
+    {
+      id: 11,
+      warehouseId: 1,
+      warehouseCode: "WH-FG",
+      code: "F-A01",
+      name: "기본 보관",
+      isDefault: true,
+      isActive: true,
+      moveCount: 2,
+      locationType: "NORMAL",
+    },
+    {
+      id: 12,
+      warehouseId: 1,
+      warehouseCode: "WH-FG",
+      code: "F-B02",
+      name: "보조 랙",
+      isDefault: false,
+      isActive: true,
+      moveCount: 1,
+      locationType: "NORMAL",
+    },
+    {
+      id: 13,
+      warehouseId: 1,
+      warehouseCode: "WH-FG",
+      code: "F-C03",
+      name: "여유 랙",
+      isDefault: false,
+      isActive: true,
+      moveCount: 0,
+      locationType: "NORMAL",
+    },
+    {
+      id: 19,
+      warehouseId: 1,
+      warehouseCode: "WH-FG",
+      code: "F-SHIP",
+      name: "완제품 출고장",
+      isDefault: false,
+      isActive: true,
+      moveCount: 0,
+      locationType: "SHIPPING",
+    },
+  ];
+
+  // WH-RAW(id=2): SHIPPING 위치 없음 (NORMAL 위치만 존재)
+  const wh2Locations = [
+    {
+      id: 21,
+      warehouseId: 2,
+      warehouseCode: "WH-RAW",
+      code: "R-A01",
+      name: "원자재 랙1",
+      isDefault: true,
+      isActive: true,
+      moveCount: 1,
+      locationType: "NORMAL",
+    },
+    {
+      id: 22,
+      warehouseId: 2,
+      warehouseCode: "WH-RAW",
+      code: "R-A02",
+      name: "원자재 랙2",
+      isDefault: false,
+      isActive: true,
+      moveCount: 0,
+      locationType: "NORMAL",
+    },
+  ];
+
+  const fetcher = mount("/wms/picks", {
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-FG",
+        name: "완제품 창고",
+        purpose: "FG",
+        isActive: true,
+        locationCount: 4,
+      },
+      {
+        id: 2,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 2,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      ...items,
+      {
+        id: 31,
+        itemCode: "RM-AL01",
+        name: "알루미늄 바",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: false,
+        isActive: true,
+        moveCount: 1,
+        conversions: [],
+      },
+    ]),
+    [`GET ${W}/reservations`]: ok({
+      rows: [
+        {
+          id: 10,
+          reservationNo: "RV-20261018-001",
+          shipmentOrderRef: "SO-20261018-01",
+          status: "ACTIVE",
+        },
+        {
+          id: 11,
+          reservationNo: "RV-20261018-002",
+          shipmentOrderRef: null,
+          status: "ACTIVE",
+        },
+      ],
+      total: 2,
+    }),
+    [`GET ${W}/pick-orders`]: ok({
+      rows: pickOrders,
+      total: 2,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses/1/locations`]: ok(wh1Locations),
+    [`GET ${W}/warehouses/2/locations`]: ok(wh2Locations),
+  });
+
+  expect(
+    await screen.findByRole("heading", { name: "W-12 피킹" }),
+  ).toBeVisible();
+
+  const listTable = screen.getByRole("table", { name: "피킹 지시 목록" });
+  expect(within(listTable).getByText("PK-20261018-001")).toBeVisible();
+  expect(within(listTable).getByText("PK-20261018-002")).toBeVisible();
+  expect(within(listTable).getByText("LOT 대체 1건")).toBeVisible();
+
+  // 1. 첫 번째 지시(SHIPPING 칸 존재 + LOT 대체 1건) 상세 열기
+  const detailBtns = within(listTable).getAllByRole("button", { name: "상세" });
+  fireEvent.click(detailBtns[0]);
+
+  const panel1 = await screen.findByRole("dialog", {
+    name: "PK-20261018-001",
+  });
+
+  // LOT 대체 사유 안내 검증
+  const subNote = within(panel1).getByRole("note", {
+    name: "예약 LOT 대체 배정 안내",
+  });
+  expect(within(subNote).getByText("보류(HOLD)")).toBeVisible();
+  expect(within(subNote).getByText("LOT-HELD-01")).toBeVisible();
+  expect(within(subNote).getByText(/LOT-FEFO-02 \(F-B02 · 30\)/)).toBeVisible();
+
+  // 피킹 동선 명세가 sequenceNo 오름차순(#1 F-A01 -> #2 F-B02)으로 표시되는지 확인
+  const routeTable = within(panel1).getByRole("table", {
+    name: "피킹 동선 명세",
+  });
+  const bodyRows = within(routeTable).getAllByRole("row").slice(1);
+  expect(bodyRows).toHaveLength(2);
+  expect(bodyRows[0]).toHaveTextContent("#1");
+  expect(bodyRows[0]).toHaveTextContent("F-A01");
+  expect(bodyRows[0]).toHaveTextContent("LOT-FEFO-01");
+  expect(bodyRows[1]).toHaveTextContent("#2");
+  expect(bodyRows[1]).toHaveTextContent("F-B02");
+  expect(bodyRows[1]).toHaveTextContent("LOT-FEFO-02");
+
+  // SHIPPING 칸(19: F-SHIP)이 기본 선택되고, 출고장 부재 안내 문구가 없어야 함
+  const toLocSelect1 = (await within(panel1).findByLabelText(
+    "도착 위치 선택",
+  )) as HTMLSelectElement;
+  await waitFor(() => {
+    expect(toLocSelect1.value).toBe("19");
+  });
+  expect(
+    within(panel1).queryByText(/출고장 칸이 없어 보관 칸으로 이동합니다/),
+  ).toBeNull();
+  // 출발 칸(11: F-A01, 12: F-B02)은 도착 위치 후보에서 제외되고 F-SHIP(19), F-C03(13)만 노출
+  expect(
+    within(toLocSelect1).queryByRole("option", { name: /F-A01/ }),
+  ).toBeNull();
+  expect(
+    within(toLocSelect1).getByRole("option", {
+      name: "F-SHIP 완제품 출고장 [출고장]",
+    }),
+  ).toBeInTheDocument();
+  expect(
+    within(toLocSelect1).getByRole("option", {
+      name: "F-C03 여유 랙 [보관]",
+    }),
+  ).toBeInTheDocument();
+
+  // D-3 범위: 피킹 확정 및 피킹 취소 버튼 노출
+  const confirmBtn1 = within(panel1).getByRole("button", { name: "피킹 확정" });
+  const cancelBtn1 = within(panel1).getByRole("button", { name: "피킹 취소" });
+  expect(confirmBtn1).toBeInTheDocument();
+  expect(confirmBtn1).toBeEnabled();
+  expect(cancelBtn1).toBeInTheDocument();
+  expect(cancelBtn1).toBeDisabled(); // 취소 사유 입력 전에는 비활성화
+
+  // 2. 두 번째 지시(SHIPPING 칸 없음) 상세 열기 -> 빈 선택 + 안내 문구 노출
+  fireEvent.click(within(panel1).getByRole("button", { name: "패널 닫기" }));
+  fireEvent.click(detailBtns[1]);
+
+  const panel2 = await screen.findByRole("dialog", {
+    name: "PK-20261018-002",
+  });
+  expect(
+    await within(panel2).findByText(
+      "출고장 칸이 없어 보관 칸으로 이동합니다. W-06에서 출고장을 만들 수 있습니다.",
+    ),
+  ).toBeVisible();
+  const toLocSelect2 = within(panel2).getByLabelText(
+    "도착 위치 선택",
+  ) as HTMLSelectElement;
+  expect(toLocSelect2.value).toBe("");
+  expect(
+    within(toLocSelect2).getByRole("option", {
+      name: "R-A02 원자재 랙2 [보관]",
+    }),
+  ).toBeInTheDocument();
+
+  // 3. 서버 필터 변경 시 쿼리 파라미터 반영 검증
+  fireEvent.change(screen.getByLabelText("상태 필터"), {
+    target: { value: "OPEN" },
+  });
+  await waitFor(() => {
+    const pickCalls = fetcher.mock.calls.filter(([u]) =>
+      String(u).includes("/pick-orders?"),
+    );
+    expect(pickCalls.some(([u]) => String(u).includes("status=OPEN"))).toBe(
+      true,
+    );
+  });
+});
+
+it("W-09 출고 예약 목록 및 상세에서 피킹 상태 연계와 피킹 지시 생성을 지원한다", async () => {
+  const reservationRow = {
+    id: 101,
+    reservationNo: "RSV-20261018-001",
+    businessKey: "BK-RSV-001",
+    status: "ACTIVE",
+    version: 1,
+    shipmentOrderRef: "SO-101",
+    shipmentSourceKey: null,
+    stockDocumentId: null,
+    reason: null,
+    shortage: "0",
+    pickOrderId: null,
+    pickOrderNo: null,
+    pickOrderStatus: null,
+    lines: [
+      {
+        id: 201,
+        itemId: 1,
+        locationId: 10,
+        lotNo: "LOT-FG-001",
+        quantity: "50",
+        onHand: "100",
+        normalOnHand: "100",
+        reservedQty: "50",
+        available: "50",
+        reservationShortage: "0",
+      },
+    ],
+    shipmentOrderState: "match",
+    shipmentOrderComparison: {
+      state: "match",
+      lines: [
+        {
+          itemCode: "FG-C100",
+          unit: "EA",
+          reservedQty: "50",
+          orderQty: "50",
+        },
+      ],
+    },
+  };
+
+  const fetcher = mount("/wms/reservations", {
+    [`GET ${W}/items`]: ok([
+      {
+        id: 1,
+        itemCode: "FG-C100",
+        itemName: "완제품 C100",
+        itemClass: "FG",
+        baseUnit: "EA",
+        lotTracked: true,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/reservations`]: ok({
+      rows: [reservationRow],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/reservations/101`]: ok(reservationRow),
+    [`GET ${W}/reservation-sources`]: ok({
+      enabled: false,
+      orders: [],
+      shipments: [],
+    }),
+    [`POST ${W}/pick-orders`]: ok({
+      id: 501,
+      pickNo: "PK-20261018-501",
+      status: "OPEN",
+    }),
+  });
+
+  expect(
+    await screen.findByRole("heading", { name: "출고 예약" }),
+  ).toBeVisible();
+
+  // 1. 목록에 피킹 상태 컬럼 및 "미지시" 배지 확인
+  const table = await screen.findByRole("table", { name: "출고 예약" });
+  expect(within(table).getByText("피킹 상태")).toBeInTheDocument();
+  expect(within(table).getByText("미지시")).toBeInTheDocument();
+
+  // 2. 상세 열기
+  fireEvent.click(within(table).getByRole("button", { name: "상세" }));
+  const panel = await screen.findByRole("dialog", {
+    name: "RSV-20261018-001",
+  });
+  expect(within(panel).getByText("피킹: 미지시")).toBeVisible();
+  expect(
+    within(panel).getByText("아직 발행된 피킹 지시가 없습니다."),
+  ).toBeVisible();
+
+  // 3. 피킹 지시 생성 버튼 확인 및 클릭
+  const createBtn = within(panel).getByRole("button", {
+    name: "피킹 지시 생성",
+  });
+  expect(createBtn).toBeEnabled();
+  fireEvent.click(createBtn);
+
+  // 4. 생성 성공 알림 및 피킹 지시 이동 링크 확인
+  expect(
+    await within(panel).findByText(
+      "피킹 지시가 생성되었습니다 (PK-20261018-501).",
+    ),
+  ).toBeVisible();
+  expect(
+    within(panel).getByRole("link", { name: "피킹 지시로 이동" }),
+  ).toHaveAttribute("href", "/wms/picks?open=501");
+
+  // POST 요청 body 검증
+  const postCalls = fetcher.mock.calls.filter(([u]) =>
+    String(u).endsWith("/pick-orders"),
+  );
+  expect(postCalls.length).toBe(1);
+  const sentBody = JSON.parse(String(postCalls[0][1]?.body));
+  expect(sentBody).toEqual({ reservationId: 101 });
+});
+
+it("W-09 출고 예약에서 피킹 지시 생성 실패 시 제외된 LOT과 부족 품목을 상세하게 안내한다", async () => {
+  const reservationRow = {
+    id: 102,
+    reservationNo: "RSV-20261018-002",
+    businessKey: "BK-RSV-002",
+    status: "ACTIVE",
+    version: 1,
+    shipmentOrderRef: null,
+    shipmentSourceKey: null,
+    stockDocumentId: null,
+    reason: null,
+    shortage: "0",
+    pickOrderId: null,
+    pickOrderNo: null,
+    pickOrderStatus: null,
+    lines: [
+      {
+        id: 202,
+        itemId: 1,
+        locationId: 10,
+        lotNo: "LOT-HELD-001",
+        quantity: "40",
+        onHand: "40",
+        normalOnHand: "40",
+        reservedQty: "40",
+        available: "40",
+        reservationShortage: "0",
+      },
+    ],
+    shipmentOrderState: "unlinked",
+    shipmentOrderComparison: { state: "unlinked", lines: [] },
+  };
+
+  mount("/wms/reservations", {
+    [`GET ${W}/items`]: ok([
+      {
+        id: 1,
+        itemCode: "FG-C100",
+        itemName: "완제품 C100",
+        itemClass: "FG",
+        baseUnit: "EA",
+        lotTracked: true,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/reservations`]: ok({
+      rows: [reservationRow],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/reservations/102`]: ok(reservationRow),
+    [`GET ${W}/reservation-sources`]: ok({
+      enabled: false,
+      orders: [],
+      shipments: [],
+    }),
+    [`POST ${W}/pick-orders`]: {
+      status: 409,
+      body: {
+        error: {
+          code: "INSUFFICIENT_AVAILABLE",
+          message:
+            "가용 재고가 부족하여 피킹 지시를 생성할 수 없습니다. (제외된 LOT: LOT-HELD-001(보류(HOLD) 상태))",
+          details: {
+            reason: "INSUFFICIENT_AVAILABLE",
+            insufficientItems: [
+              {
+                itemId: 1,
+                itemCode: "FG-C100",
+                requested: "40",
+                available: "0",
+              },
+            ],
+            excludedLots: [
+              {
+                itemId: 1,
+                lotNo: "LOT-HELD-001",
+                reason: "HOLD",
+                reasonLabel: "보류(HOLD) 상태",
+              },
+            ],
+          },
+        },
+      },
+    },
+  });
+
+  const table = await screen.findByRole("table", { name: "출고 예약" });
+  fireEvent.click(within(table).getByRole("button", { name: "상세" }));
+  const panel = await screen.findByRole("dialog", {
+    name: "RSV-20261018-002",
+  });
+
+  const createBtn = within(panel).getByRole("button", {
+    name: "피킹 지시 생성",
+  });
+  fireEvent.click(createBtn);
+
+  // 에러 메시지 및 상세 부족 안내 노출 검증
+  expect(
+    await within(panel).findByText(
+      "가용 재고가 부족하여 피킹 지시를 생성할 수 없습니다. (제외된 LOT: LOT-HELD-001(보류(HOLD) 상태))",
+    ),
+  ).toBeVisible();
+  expect(within(panel).getByText("부족 품목:")).toBeVisible();
+  expect(within(panel).getByText("FG-C100: 요청 40 / 가용 0")).toBeVisible();
+  expect(within(panel).getByText("제외된 LOT (보류·만료):")).toBeVisible();
+  expect(
+    within(panel).getByText("LOT-HELD-001: 보류(HOLD) 상태"),
+  ).toBeVisible();
+});
+
+it("W-13 생산 불출 목록·배정 미리보기·부족 안내·확정과 취소를 지원한다", async () => {
+  const base = {
+    id: 1,
+    requestNo: "IR-20261018-001",
+    workOrderNo: "WO-2026-001",
+    lineLocationId: 30,
+    lineLocationCode: "R-LINE",
+    lineLocationName: "생산 라인",
+    lineLocationType: "LINE" as const,
+    warehouseId: 1,
+    warehouseCode: "WH-RAW",
+    warehouseName: "원자재 창고",
+    status: "OPEN" as const,
+    neededAt: null,
+    issuedAt: null,
+    stockDocumentId: null,
+    stockDocumentNo: null,
+    cancelReason: null,
+    createdAt: "2026-10-18T10:00:00+09:00",
+    lineCount: 1,
+    lines: [
+      {
+        id: 11,
+        lineNo: 1,
+        itemId: 10,
+        itemCode: "RM-RAW01",
+        itemName: "원자재 품목",
+        baseUnit: "KG",
+        qty: "50.000",
+        issuedQty: null,
+      },
+    ],
+    allocationPreview: [
+      {
+        itemId: 10,
+        locationId: 21,
+        locationCode: "R-A01",
+        locationName: "원자재 랙",
+        lotNo: "LOT-OLD",
+        qty: "40.000",
+      },
+      {
+        itemId: 10,
+        locationId: 21,
+        locationCode: "R-A01",
+        locationName: "원자재 랙",
+        lotNo: "LOT-NEW",
+        qty: "10.000",
+      },
+    ],
+    shortages: [] as unknown[],
+  };
+  const shortRow = {
+    ...base,
+    id: 2,
+    requestNo: "IR-20261018-002",
+    allocationPreview: [],
+    shortages: [
+      {
+        itemId: 10,
+        requestedQty: "25.000",
+        availableQty: "20.000",
+        shortageQty: "5.000",
+      },
+    ],
+  };
+
+  const fetcher = mount("/wms/issues", {
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 3,
+      },
+    ]),
+    [`GET ${W}/items`]: ok([
+      {
+        id: 10,
+        itemCode: "RM-RAW01",
+        name: "원자재 품목",
+        baseUnit: "KG",
+        itemClass: "RAW",
+        lotTracked: true,
+        isActive: true,
+      },
+    ]),
+    [`GET ${W}/locations`]: ok([
+      {
+        id: 30,
+        warehouseId: 1,
+        warehouseCode: "WH-RAW",
+        code: "R-LINE",
+        name: "생산 라인",
+        isDefault: false,
+        isActive: true,
+        moveCount: 0,
+        locationType: "LINE",
+      },
+      {
+        id: 21,
+        warehouseId: 1,
+        warehouseCode: "WH-RAW",
+        code: "R-A01",
+        name: "원자재 랙",
+        isDefault: true,
+        isActive: true,
+        moveCount: 2,
+        locationType: "NORMAL",
+      },
+    ]),
+    [`GET ${W}/issue-requests`]: ok({
+      rows: [base, shortRow],
+      total: 2,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`POST ${W}/issue-requests/1/confirm`]: ok({
+      ...base,
+      status: "ISSUED",
+      issuedAt: "2026-10-18T10:20:00+09:00",
+      stockDocumentId: 777,
+      stockDocumentNo: "WD-20261018-007",
+      lines: [{ ...base.lines[0], issuedQty: "50.000" }],
+      allocationPreview: [],
+    }),
+    [`POST ${W}/issue-requests/2/cancel`]: ok({
+      ...shortRow,
+      status: "CANCELLED",
+      cancelReason: "작업지시 취소",
+    }),
+  });
+
+  expect(
+    await screen.findByRole("heading", { name: "W-13 생산 불출" }),
+  ).toBeVisible();
+  expect(await screen.findByText("IR-20261018-001")).toBeVisible();
+  // 부족이 있는 요청은 목록에서 배지로 먼저 알린다.
+  expect(screen.getByText("부족 1건")).toBeVisible();
+
+  // 상세: 유효기간이 빠른 LOT부터 배정한 미리보기를 보여 준다.
+  fireEvent.click(screen.getAllByRole("button", { name: "상세" })[0]);
+  expect(await screen.findByText(/배정 미리보기/)).toBeVisible();
+  expect(screen.getByText(/LOT-OLD/)).toBeVisible();
+  expect(screen.getByText(/LOT-NEW/)).toBeVisible();
+
+  // 확정은 명세별 불출 수량을 함께 보낸다.
+  fireEvent.click(screen.getByRole("button", { name: "불출 확정" }));
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/issue-requests/1/confirm")).toHaveLength(1),
+  );
+  expect(body(sent(fetcher, "POST", "/issue-requests/1/confirm")[0])).toEqual({
+    lines: [{ lineId: 11, issuedQty: "50.000" }],
+  });
+  expect(await screen.findByText("WD-20261018-007")).toBeVisible();
+
+  // 부족한 요청은 어느 품목이 얼마나 모자라는지 풀어서 보여 준다.
+  fireEvent.click(screen.getByRole("button", { name: "패널 닫기" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "상세" })[1]);
+  expect(await screen.findByText(/가용 재고가 모자랍니다/)).toBeVisible();
+  expect(screen.getByText(/부족 5/)).toBeVisible();
+
+  // 취소는 사유를 적어야 눌린다.
+  const cancel = screen.getByRole("button", { name: "불출 취소" });
+  expect(cancel).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("취소 사유"), {
+    target: { value: "작업지시 취소" },
+  });
+  fireEvent.click(cancel);
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/issue-requests/2/cancel")).toHaveLength(1),
+  );
+  expect(await screen.findByText("작업지시 취소")).toBeVisible();
+});
+
+it("W-14 실사는 장부·실사·차이를 보여 주고 W-15 마감은 달 상태를 바꾼다", async () => {
+  const order = {
+    id: 1,
+    countNo: "CT-20261019-001",
+    kind: "FULL" as const,
+    warehouseId: 1,
+    warehouseCode: "WH-RAW",
+    warehouseName: "원자재 창고",
+    status: "COUNTED" as const,
+    snapshotAt: "2026-10-19T09:00:00+09:00",
+    adjustedAt: null,
+    stockDocumentId: null,
+    stockDocumentNo: null,
+    createdAt: "2026-10-19T09:00:00+09:00",
+    lineCount: 2,
+    countedCount: 2,
+    diffCount: 1,
+    lines: [
+      {
+        id: 11,
+        locationId: 21,
+        locationCode: "R-A01",
+        locationName: "원자재 랙",
+        itemId: 10,
+        itemCode: "RM-RAW01",
+        itemName: "원자재 품목",
+        baseUnit: "KG",
+        lotNo: null,
+        bookQty: "30.000",
+        countedQty: "28.000",
+        diffQty: "-2.000",
+        countedAt: "2026-10-19T09:30:00+09:00",
+      },
+      {
+        id: 12,
+        locationId: 21,
+        locationCode: "R-A01",
+        locationName: "원자재 랙",
+        itemId: 20,
+        itemCode: "RM-RAW02",
+        itemName: "원자재 품목2",
+        baseUnit: "EA",
+        lotNo: null,
+        bookQty: "20.000",
+        countedQty: "20.000",
+        diffQty: "0.000",
+        countedAt: "2026-10-19T09:30:00+09:00",
+      },
+    ],
+  };
+
+  const fetcher = mount("/wms/counts", {
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 2,
+      },
+    ]),
+    [`GET ${W}/count-orders`]: ok({
+      rows: [order],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/stock-periods`]: ok([
+      {
+        periodMonth: "2026-10",
+        status: "open",
+        closedAt: null,
+        documentCount: 7,
+      },
+      {
+        periodMonth: "2026-09",
+        status: "closed",
+        closedAt: "2026-10-01T00:00:00+09:00",
+        documentCount: 12,
+      },
+    ]),
+    [`POST ${W}/count-orders/1/adjust`]: ok({
+      ...order,
+      status: "ADJUSTED",
+      adjustedAt: "2026-10-19T10:00:00+09:00",
+      stockDocumentId: 900,
+      stockDocumentNo: "WD-20261019-009",
+    }),
+    [`POST ${W}/stock-periods/close`]: ok({
+      periodMonth: "2026-10",
+      status: "closed",
+    }),
+  });
+
+  expect(
+    await screen.findByRole("heading", {
+      name: "W-14 재고 실사 · W-15 재고 마감",
+    }),
+  ).toBeVisible();
+  expect(await screen.findByText("CT-20261019-001")).toBeVisible();
+  // 차이가 있는 줄만 센다.
+  expect(screen.getByText("1건")).toBeVisible();
+
+  // 상세: 장부·실사·차이가 한 줄에 보인다. 차이 0은 배지로 강조하지 않는다.
+  fireEvent.click(screen.getByRole("button", { name: "상세" }));
+  expect(await screen.findByRole("table", { name: "실사 명세" })).toBeVisible();
+  expect(screen.getByText("-2")).toBeVisible();
+
+  fireEvent.click(screen.getByRole("button", { name: "차이 조정 확정" }));
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/count-orders/1/adjust")).toHaveLength(1),
+  );
+  expect(await screen.findByText("WD-20261019-009")).toBeVisible();
+
+  // 마감: 열린 달은 마감, 마감된 달은 해제 버튼을 둔다.
+  fireEvent.click(screen.getByRole("button", { name: "패널 닫기" }));
+  const months = await screen.findByRole("table", { name: "재고 월 마감" });
+  expect(within(months).getByText("2026-09")).toBeVisible();
+  fireEvent.click(within(months).getAllByRole("button", { name: "마감" })[0]);
+  await waitFor(() =>
+    expect(sent(fetcher, "POST", "/stock-periods/close")).toHaveLength(1),
+  );
+  expect(body(sent(fetcher, "POST", "/stock-periods/close")[0])).toEqual({
+    periodMonth: "2026-10",
+  });
+});
+
+it("W-17 라벨은 창고의 위치를 고르고 재발행하면 이전 라벨이 무효로 보인다", async () => {
+  const first = {
+    id: 1,
+    labelKind: "LOCATION" as const,
+    barcodeValue: "R-A01",
+    copies: 2,
+    status: "VOID" as const,
+    printedAt: "2026-10-19T09:00:00+09:00",
+    reprintOfId: null,
+    reprintOfValue: null,
+    reprintReason: null,
+    createdAt: "2026-10-19T09:00:00+09:00",
+  };
+  const second = {
+    ...first,
+    id: 2,
+    status: "VALID" as const,
+    copies: 1,
+    reprintOfId: 1,
+    reprintOfValue: "R-A01",
+    reprintReason: "라벨 훼손",
+    printedAt: "2026-10-19T10:00:00+09:00",
+  };
+
+  const fetcher = mount("/wms/labels", {
+    [`GET ${W}/labels`]: ok({
+      rows: [second, first],
+      total: 2,
+      page: 1,
+      pageSize: 50,
+    }),
+    [`GET ${W}/warehouses`]: ok([
+      {
+        id: 1,
+        code: "WH-RAW",
+        name: "원자재 창고",
+        purpose: "RAW",
+        isActive: true,
+        locationCount: 1,
+      },
+    ]),
+    [`GET ${W}/lots`]: ok([]),
+    [`GET ${W}/warehouses/1/locations`]: ok([
+      {
+        id: 21,
+        warehouseId: 1,
+        warehouseCode: "WH-RAW",
+        code: "R-A01",
+        name: "원자재 랙",
+        isDefault: true,
+        isActive: true,
+        moveCount: 1,
+        locationType: "NORMAL",
+      },
+    ]),
+    [`POST ${W}/labels`]: { status: 201, body: { data: second } },
+  });
+
+  expect(
+    await screen.findByRole("heading", { name: "W-17 라벨 출력" }),
+  ).toBeVisible();
+  // 이전 라벨은 무효로, 재발행본은 유효로 보인다.
+  expect(await screen.findByText("무효")).toBeVisible();
+  expect(screen.getByText("유효")).toBeVisible();
+  expect(screen.getByText("라벨 훼손")).toBeVisible();
+
+  // 위치 라벨은 창고를 먼저 고른 뒤에 대상이 채워진다.
+  fireEvent.change(screen.getByLabelText("창고"), { target: { value: "1" } });
+  await waitFor(() =>
+    expect(screen.getByLabelText("대상")).toHaveTextContent("R-A01"),
+  );
+  fireEvent.change(screen.getByLabelText("대상"), {
+    target: { value: "R-A01" },
+  });
+  fireEvent.change(screen.getByLabelText("재발행 사유"), {
+    target: { value: "라벨 훼손" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "라벨 발행" }));
+  await waitFor(() => expect(sent(fetcher, "POST", "/labels")).toHaveLength(1));
+  expect(body(sent(fetcher, "POST", "/labels")[0])).toEqual({
+    labelKind: "LOCATION",
+    barcodeValue: "R-A01",
+    copies: 1,
+    reprintReason: "라벨 훼손",
+  });
+  // 발행하면 인쇄 미리보기가 뜬다.
+  expect(
+    await screen.findByRole("heading", { name: "인쇄 미리보기" }),
+  ).toBeVisible();
+});
+
+it("W-18·19·20 조회 화면은 수불·경고·점유율을 보여 준다", async () => {
+  const warehouses = ok([
+    {
+      id: 1,
+      code: "WH-RAW",
+      name: "원자재 창고",
+      purpose: "RAW",
+      isActive: true,
+      locationCount: 1,
+    },
+  ]);
+
+  // W-18 수불부: 기초·입고·출고·기말
+  mount("/wms/ledger", {
+    [`GET ${W}/warehouses`]: warehouses,
+    [`GET ${W}/ledger`]: ok({
+      month: "2026-10",
+      rows: [
+        {
+          id: "1-10",
+          itemId: 10,
+          itemCode: "RM-RAW01",
+          itemName: "원자재 품목",
+          baseUnit: "KG",
+          warehouseId: 1,
+          warehouseCode: "WH-RAW",
+          warehouseName: "원자재 창고",
+          opening: "0.000",
+          inbound: "100.000",
+          outbound: "30.000",
+          closing: "70.000",
+        },
+      ],
+    }),
+  });
+  expect(
+    await screen.findByRole("heading", { name: "W-18 재고 수불부" }),
+  ).toBeVisible();
+  const ledger = await screen.findByRole("table", {
+    name: /2026-10 재고 수불부/,
+  });
+  expect(within(ledger).getByText("100")).toBeVisible();
+  expect(within(ledger).getByText("70 KG")).toBeVisible();
+  cleanup();
+
+  // W-19 분석: 안전재고 부족과 출고 없음을 알린다
+  mount("/wms/analysis", {
+    [`GET ${W}/warehouses`]: warehouses,
+    [`GET ${W}/analysis`]: ok({
+      staleDays: 90,
+      rows: [
+        {
+          id: 10,
+          itemId: 10,
+          itemCode: "RM-RAW01",
+          itemName: "원자재 품목",
+          baseUnit: "KG",
+          abcClass: "A",
+          onHand: "5.000",
+          safetyStock: "10.000",
+          maxStock: "100.000",
+          belowSafety: true,
+          aboveMax: false,
+          outRecent: "0.000",
+          turnover: "0.00",
+          lastOutOn: null,
+          staleDays: null,
+          stale: true,
+        },
+      ],
+    }),
+  });
+  expect(
+    await screen.findByRole("heading", { name: "W-19 재고 분석" }),
+  ).toBeVisible();
+  expect(await screen.findByText("안전재고 부족")).toBeVisible();
+  expect(screen.getByText("출고 없음")).toBeVisible();
+  cleanup();
+
+  // W-20 점유: 용량이 있는 칸만 점유율을 낸다
+  mount("/wms/occupancy", {
+    [`GET ${W}/warehouses`]: warehouses,
+    [`GET ${W}/occupancy`]: ok({
+      rows: [
+        {
+          id: 21,
+          locationId: 21,
+          locationCode: "R-A01",
+          locationName: "원자재 랙",
+          locationType: "NORMAL",
+          warehouseCode: "WH-RAW",
+          warehouseName: "원자재 창고",
+          isActive: true,
+          capacityQty: "50.000",
+          onHand: "40.000",
+          usagePercent: "80.0",
+          over: false,
+          itemCount: 1,
+          lotCount: 0,
+          mixItems: true,
+          mixLots: false,
+        },
+        {
+          id: 22,
+          locationId: 22,
+          locationCode: "R-A02",
+          locationName: "예비",
+          locationType: "NORMAL",
+          warehouseCode: "WH-RAW",
+          warehouseName: "원자재 창고",
+          isActive: true,
+          capacityQty: null,
+          onHand: "0.000",
+          usagePercent: null,
+          over: false,
+          itemCount: 0,
+          lotCount: 0,
+          mixItems: true,
+          mixLots: true,
+        },
+      ],
+    }),
+  });
+  expect(
+    await screen.findByRole("heading", { name: "W-20 위치 점유" }),
+  ).toBeVisible();
+  expect(await screen.findByText("80.0%")).toBeVisible();
+  expect(screen.getByText("제한 없음")).toBeVisible();
+  expect(screen.getByText(/품목 허용 · LOT 금지/)).toBeVisible();
 });

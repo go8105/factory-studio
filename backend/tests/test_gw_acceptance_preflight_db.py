@@ -5,16 +5,15 @@ import hashlib
 import json
 
 import pytest
+from fs.core.backup import BackupError
+from fs.gw.acceptance_preflight import collect, snapshot
+from fs.gw.operating_contract import canonical
 from sqlalchemy import event, text
 from sqlalchemy.exc import DBAPIError
 from test_gw_company import context
 from test_gw_company_work import api
 from test_gw_evidence import prepare
 from test_hr_work import company_env
-
-from fs.core.backup import BackupError
-from fs.gw.acceptance_preflight import collect, snapshot
-from fs.gw.operating_contract import canonical
 
 
 def configured(company_env, monkeypatch):

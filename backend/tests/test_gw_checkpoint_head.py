@@ -8,13 +8,12 @@ from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from test_gw_restore_recheck import prepared
-from test_gw_source_checkpoint import observation
-
 from fs.gw.acceptance_reconciliation import sign_reconciliation
 from fs.gw.evidence_trust import load
 from fs.gw.operating_contract import canonical, timestamp, verify_evidence
 from fs.gw.restore_recheck import parse_envelope, sign, verify
+from test_gw_restore_recheck import prepared
+from test_gw_source_checkpoint import observation
 
 CONTEXT = b"FS-OPERATOR-BUNDLE-v1\0"
 

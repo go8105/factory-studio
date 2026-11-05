@@ -10,16 +10,15 @@ from uuid import uuid4
 
 import pytest
 from cryptography.exceptions import InvalidSignature
-from test_gw_catalog_recovery import interrupt, recover
-from test_gw_catalog_store import cli_env, invoke, setup
-from test_gw_catalog_transfer import outgoing, receiver
-from test_gw_catalog_transfer import receive as small_receive
-
 from fs.gw import catalog_segments as segments
 from fs.gw import catalog_store as store
 from fs.gw import catalog_transfer as transfer
 from fs.gw.evidence_trust import EvidenceTrust
 from fs.gw.operating_contract import canonical
+from test_gw_catalog_recovery import interrupt, recover
+from test_gw_catalog_store import cli_env, invoke, setup
+from test_gw_catalog_transfer import outgoing, receiver
+from test_gw_catalog_transfer import receive as small_receive
 
 
 def package(parts, base=0, sha="ABSENT", **changes):

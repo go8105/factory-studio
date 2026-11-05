@@ -7,6 +7,7 @@ import {
   DetailPanel,
   EmptyState,
   ErrorNotice,
+  Field,
   Loading,
   PageTitle,
   useDiscardGuard,
@@ -20,6 +21,7 @@ import {
   ModuleOff,
   moduleOff,
   num,
+  RESULT_LABEL,
   RULE_LABEL,
   RULE_TEXT,
   STATUS_LABEL,
@@ -28,11 +30,149 @@ import {
   useSend,
   type Cause,
   type ChartData,
+  type Checklist,
+  type OcapResult,
   type Signal,
 } from "./common";
 
 const tone = (s: Signal["status"]) =>
   s === "open" ? "issue" : s === "void" ? "warning" : "normal";
+
+/** 이상 대응 절차 점검표(S-09에서 정한 항목). 모두 기록해야 조치를 닫을 수 있다. */
+function OcapPanel({
+  signal,
+  onRecorded,
+}: {
+  signal: Signal;
+  onRecorded: (list: Checklist) => void;
+}) {
+  const list = useGet<Checklist>(`/signals/${signal.id}/ocap`);
+  const [draft, setDraft] = useState<
+    Record<number, { result: OcapResult; note: string }>
+  >({});
+  const { send, pending, error } = useSend(() => list.reload());
+  const errors = fieldErrors(error);
+  if (!list.data) return list.error ? <ErrorNotice error={list.error} /> : null;
+  const { items, missing, status } = list.data;
+  if (!items.length) return null;
+  const value = (id: number, recorded: Checklist["items"][number]["check"]) =>
+    draft[id] ?? {
+      result: recorded?.result ?? ("OK" as OcapResult),
+      note: recorded?.note ?? "",
+    };
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    const checks = Object.entries(draft).map(([id, v]) => ({
+      ocapItemId: Number(id),
+      result: v.result,
+      note: v.note || undefined,
+    }));
+    if (!checks.length) return;
+    const saved = await send<Checklist>(`/signals/${signal.id}/ocap`, "POST", {
+      checks,
+    });
+    if (saved) {
+      setDraft({});
+      onRecorded(saved);
+    }
+  }
+  return (
+    <section className="spc-ocap">
+      <h3>이상 대응 절차</h3>
+      {status === "open" && missing.length > 0 && (
+        <p role="note" className="muted">
+          남은 점검 {missing.length}개를 모두 기록해야 조치를 닫을 수 있습니다.
+        </p>
+      )}
+      <ErrorNotice error={Object.keys(errors).length ? undefined : error} />
+      <form onSubmit={(e) => void save(e)}>
+        <ol>
+          {items.map((item) => {
+            const current = value(item.id, item.check);
+            return (
+              <li key={item.id}>
+                <p>
+                  {item.seq}. {item.checkText}
+                  {item.causeCategory && (
+                    <span className="muted">
+                      {" "}
+                      · {CAUSE_LABEL[item.causeCategory]}
+                    </span>
+                  )}
+                </p>
+                {status === "open" ? (
+                  <>
+                    <div className="field">
+                      <label htmlFor={`ocap-${item.id}`}>결과</label>
+                      <select
+                        id={`ocap-${item.id}`}
+                        value={current.result}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            [item.id]: {
+                              ...current,
+                              result: e.target.value as OcapResult,
+                            },
+                          })
+                        }
+                      >
+                        {(Object.keys(RESULT_LABEL) as OcapResult[]).map(
+                          (k) => (
+                            <option key={k} value={k}>
+                              {RESULT_LABEL[k]}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </div>
+                    {current.result === "NG" && (
+                      <Field
+                        label="무엇이 문제였나요"
+                        value={current.note}
+                        required
+                        minLength={2}
+                        maxLength={300}
+                        error={errors[`checks.${item.id}`]}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            [item.id]: { ...current, note: e.target.value },
+                          })
+                        }
+                      />
+                    )}
+                    {item.check && (
+                      <small className="muted">
+                        기록 {RESULT_LABEL[item.check.result]} ·{" "}
+                        {time(item.check.checkedAt)}
+                      </small>
+                    )}
+                  </>
+                ) : (
+                  <p className="muted">
+                    {item.check
+                      ? `${RESULT_LABEL[item.check.result]}${item.check.note ? ` · ${item.check.note}` : ""}`
+                      : "기록 없음"}
+                  </p>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+        {status === "open" && (
+          <button
+            type="submit"
+            disabled={pending || !Object.keys(draft).length}
+            aria-busy={pending}
+          >
+            점검 저장
+          </button>
+        )}
+      </form>
+    </section>
+  );
+}
 
 function Around({ signal }: { signal: Signal }) {
   const day = 86_400_000;
@@ -199,6 +339,17 @@ export function Signals() {
                 </Badge>
               </p>
               <Around signal={open} />
+              <OcapPanel
+                key={`${open.id}:${open.status}`}
+                signal={open}
+                onRecorded={(saved) => {
+                  // NG로 적은 항목의 해당 원인을 조치 원인으로 제안한다(Q5).
+                  const ng = saved.items.find(
+                    (i) => i.check?.result === "NG" && i.causeCategory,
+                  );
+                  if (ng?.causeCategory) setCause(ng.causeCategory);
+                }}
+              />
               {open.status === "resolved" && (
                 <p>
                   원인 {open.causeCategory && CAUSE_LABEL[open.causeCategory]} ·

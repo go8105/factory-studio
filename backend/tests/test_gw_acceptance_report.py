@@ -9,15 +9,14 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
-from test_gw_acceptance_collection import registered_fixture
-from test_gw_acceptance_preflight import facts, runner
-
 from fs.common.errors import ApiError
 from fs.gw import acceptance_report
 from fs.gw.acceptance_preflight import assess
 from fs.gw.denial_catalog import FAMILIES
 from fs.gw.operating_contract import canonical, verify_evidence
 from fs.gw.readiness import SOURCE_FIELD
+from test_gw_acceptance_collection import registered_fixture
+from test_gw_acceptance_preflight import facts, runner
 
 
 def setup(monkeypatch):
@@ -215,10 +214,9 @@ def test_denial_map_points_only_to_real_existing_tests_and_claims_no_execution()
 def test_review_has_every_fixed_case_once_and_separates_legacy_references():
     from collections import Counter
 
-    from test_gw_route_verify import runner as route_runner
-
     from fs.gw.denial_catalog import CATALOG_VERSION, DENIAL_PROBES
     from fs.gw.restored_denial import ALL_CASES
+    from test_gw_route_verify import runner as route_runner
 
     review = acceptance_report.denial_review()
     cases = [item for row in review["checks"] for item in row["syntheticCases"]]

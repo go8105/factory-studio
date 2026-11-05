@@ -38,22 +38,30 @@ class WarehouseUpdate(ApiModel):
     is_active: bool | None = Field(None, alias="isActive")
 
 
+LocationType = Literal[
+    "NORMAL", "QUARANTINE", "LINE", "RECEIVING", "SHIPPING", "RETURN"
+]
+
+
 class LocationCreate(ApiModel):
-    location_type: Literal["NORMAL", "QUARANTINE"] = Field(
-        "NORMAL", alias="locationType"
-    )
+    location_type: LocationType = Field("NORMAL", alias="locationType")
     code: str = Field(pattern=CODE)
     name: str = Field(min_length=1, max_length=100)
     is_default: bool = Field(False, alias="isDefault")
+    # 적치 추천(F14)과 위치 점유(F55)가 쓰는 칸이다. 용량이 없으면 제한 없음으로 본다.
+    capacity_qty: str | None = Field(None, alias="capacityQty", pattern=QTY)
+    mix_items: bool = Field(True, alias="mixItems")
+    mix_lots: bool = Field(True, alias="mixLots")
 
 
 class LocationUpdate(ApiModel):
-    location_type: Literal["NORMAL", "QUARANTINE"] | None = Field(
-        None, alias="locationType"
-    )
+    location_type: LocationType | None = Field(None, alias="locationType")
     name: str | None = Field(None, min_length=1, max_length=100)
     is_default: bool | None = Field(None, alias="isDefault")
     is_active: bool | None = Field(None, alias="isActive")
+    capacity_qty: str | None = Field(None, alias="capacityQty", pattern=QTY)
+    mix_items: bool | None = Field(None, alias="mixItems")
+    mix_lots: bool | None = Field(None, alias="mixLots")
 
 
 class ItemCreate(ApiModel):

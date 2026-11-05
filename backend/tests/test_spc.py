@@ -55,7 +55,18 @@ def _module(client, created, key: str, enabled: bool) -> None:
     )
 
 
-SPC_TABLES = ("signal", "measurement", "control_limit", "subgroup", "characteristic")
+SPC_TABLES = (
+    "capability_report",
+    "ocap_check",
+    "ocap_item",
+    "signal",
+    "spec_violation",
+    "measurement",
+    "control_limit",
+    "subgroup",
+    "characteristic_rule",
+    "characteristic",
+)
 
 
 def _clear_seed(engine, created) -> None:
@@ -189,6 +200,15 @@ def test_limits_match_formula():
 LIMIT = stats.limits(
     [Decimal(10)] * 2, [Decimal(1)] * 2
 )  # CL 10, UCL 10.577, LCL 9.423
+D5 = Decimal("0.05")
+
+
+def _rules(previous, point) -> set[int]:
+    """모든 규칙을 켜고 판정했을 때 나온 규칙 번호."""
+    return {
+        rule
+        for _, rule, _ in stats.signals(previous, point, Decimal(1), LIMIT, ALL_RULES)
+    }
 
 
 def test_rule_one_on_both_charts():
@@ -221,6 +241,58 @@ def test_rule_three_needs_six_monotonic():
     assert stats.signals(rising[1:], Decimal("9.95"), Decimal(1), LIMIT) == []
     flat = [*rising[:-1], Decimal("9.93")]  # 같은 값은 끊김
     assert stats.signals(flat, Decimal("9.95"), Decimal(1), LIMIT) == []
+
+
+ALL_RULES = frozenset(range(1, 9))
+
+
+def test_rule_four_needs_fourteen_alternating():
+    """DSN-17 Q3: Nelson 4. 위아래로 번갈아 14점."""
+    alternating = [Decimal(10) + (D5 if i % 2 else -D5) for i in range(13)]
+    assert 4 in _rules(alternating, Decimal("10.05"))
+    assert 4 not in _rules(alternating[1:], Decimal("10.05"))
+    flat = [*alternating[:-1], alternating[-2]]  # 같은 값이 이어지면 번갈기가 끊긴다
+    assert 4 not in _rules(flat, Decimal("10.05"))
+
+
+def test_rules_five_and_six_count_one_side_beyond_zones():
+    """Nelson 5(3점 중 2점이 2σ 밖)·6(5점 중 4점이 1σ 밖). 마지막 점 자신이 구역 밖이어야 한다."""
+    assert 5 in _rules([Decimal("10.45"), Decimal(10)], Decimal("10.45"))
+    assert 5 not in _rules([Decimal(10), Decimal(10)], Decimal("10.45"))
+    # 반대쪽 점은 같은 쪽으로 세지 않는다.
+    assert 5 not in _rules([Decimal("9.55"), Decimal(10)], Decimal("10.45"))
+    beyond = [Decimal("10.25")] * 2 + [Decimal(10), Decimal("10.25")]
+    assert 6 in _rules(beyond, Decimal("10.25"))
+    assert 6 not in _rules(beyond, Decimal("10.05"))  # 마지막 점이 1σ 안
+
+
+def test_rules_seven_and_eight_are_about_one_sigma():
+    """Nelson 7(1σ 안 15점)·8(1σ 밖 8점, 쪽은 섞여도 된다)."""
+    assert 7 in _rules([Decimal("10.05")] * 14, Decimal("10.05"))
+    mixed = [Decimal("10.25"), Decimal("9.75")] * 3 + [Decimal("10.25")]
+    found = _rules(mixed, Decimal("9.75"))
+    assert 8 in found and 2 not in found  # 쪽이 섞였으니 규칙 2는 아니다
+
+
+def test_only_selected_rules_are_judged():
+    nine_above = [Decimal("10.1")] * 8
+    assert stats.signals(nine_above, Decimal("10.1"), Decimal(1), LIMIT, {1}) == []
+    assert 2 in _rules(nine_above, Decimal("10.1"))
+
+
+def test_i_mr_uses_moving_range_and_its_own_constants():
+    """Q1: n=1은 이웃 차이가 R 자리. 첫 점 MR 0은 평균에서 빠진다(E2 2.660·D4 3.267·d2 1.128)."""
+    assert stats.subgroup([Decimal(5)]) == (Decimal("5.000000"), Decimal("0.000000"))
+    assert stats.subgroup([Decimal(5)], Decimal(3)) == (
+        Decimal("5.000000"),
+        Decimal("2.000000"),
+    )
+    imr = stats.limits([Decimal(10)] * 3, [Decimal(0), Decimal(1), Decimal(1)], 1)
+    assert imr["r_cl"] == Decimal("1.000000")  # 0을 세었다면 0.666667
+    assert imr["xbar_ucl"] == Decimal("12.660000")
+    assert stats.signals([], Decimal(13), Decimal(0), imr, chart_type="I_MR") == [
+        ("I", 1, Decimal(13))
+    ]
 
 
 def test_capability_one_sided_and_judgement():
@@ -304,6 +376,100 @@ def test_characteristic_rules(spc):
         )
     )
     assert renamed["name"] == "핀 피치(조립)" and renamed["usl"] == "2.6000"
+
+
+def test_spec_violation_is_separate_from_control_limit(spc):
+    """Q4: 규격 밖 개별값은 한계 게시 전에도 기록되고, 부분군을 무효로 하면 함께 무효가 된다."""
+    client, created, _, ch = spc  # 규격 2.49~2.59
+    inside = _ok(
+        _record(client, created, ch, RUN_START + timedelta(hours=1), _around("2.54")),
+        201,
+    )
+    assert inside["specViolations"] == [] and inside["signals"] == []
+    out = _ok(
+        _record(
+            client,
+            created,
+            ch,
+            RUN_START + timedelta(hours=2),
+            [Decimal("2.60"), Decimal("2.48"), *_around("2.54")[:3]],
+        ),
+        201,
+    )
+    assert [(v["seq"], v["side"]) for v in out["specViolations"]] == [
+        (1, "HIGH"),
+        (2, "LOW"),
+    ]
+    rows = _ok(client.get(f"{P}/spec-violations"))
+    assert [(r["seq"], r["side"], r["limitValue"], r["status"]) for r in rows] == [
+        (2, "LOW", "2.490000", "open"),
+        (1, "HIGH", "2.590000", "open"),
+    ]
+    assert rows[0]["lotNo"] == "LT-0023" and rows[0]["characteristicCode"] == ch["code"]
+    _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/subgroups/{out['id']}/void",
+            {"reason": "오측정"},
+        )
+    )
+    assert _ok(client.get(f"{P}/spec-violations", params={"status": "open"})) == []
+    assert len(_ok(client.get(f"{P}/spec-violations", params={"status": "void"}))) == 2
+    assert _ok(client.get(f"{P}/dashboard"))["weekSpecViolations"] == 0
+
+
+def test_characteristic_chart_type_and_rule_selection(spc):
+    """Q1·Q3: I-MR은 측정값 1개만 받고, 특성이 고른 규칙만 판정한다."""
+    client, created, _, ch = spc
+    assert ch["chartType"] == "XBAR_R" and ch["subgroupSize"] == 5 and ch["rules"] == []
+    mismatch = _call(
+        client,
+        created,
+        "PATCH",
+        f"/characteristics/{ch['id']}",
+        {"chartType": "I_MR", "subgroupSize": 5},
+    )
+    assert (
+        mismatch.status_code == 400
+        and "subgroupSize" in mismatch.json()["error"]["details"]["fields"]
+    )
+    # 크기를 따로 주지 않으면 관리도 종류에 맞춰 준다.
+    imr = _ok(
+        _call(
+            client,
+            created,
+            "PATCH",
+            f"/characteristics/{ch['id']}",
+            {"chartType": "I_MR", "rules": [1, 2, 5]},
+        )
+    )
+    assert imr["subgroupSize"] == 1 and imr["rules"] == [1, 2, 5]
+    wrong_count = _record(
+        client, created, ch, RUN_START + timedelta(hours=1), _around("2.54")
+    )
+    assert (
+        wrong_count.status_code == 400
+        and "values" in wrong_count.json()["error"]["details"]["fields"]
+    )
+    first = _ok(
+        _record(client, created, ch, RUN_START + timedelta(hours=1), [Decimal("2.54")]),
+        201,
+    )
+    assert first["xbar"] == "2.540000" and first["r"] == "0.000000"
+    second = _ok(
+        _record(client, created, ch, RUN_START + timedelta(hours=2), [Decimal("2.56")]),
+        201,
+    )
+    assert second["r"] == "0.020000"  # 이웃 차이
+    no_one = _call(
+        client, created, "PATCH", f"/characteristics/{ch['id']}", {"rules": [2, 3]}
+    )
+    assert (
+        no_one.status_code == 400
+        and "rules" in no_one.json()["error"]["details"]["fields"]
+    )
 
 
 def test_runs_come_from_mes(spc):
@@ -652,3 +818,341 @@ def test_other_workspace_cannot_see_spc(spc):
     assert ch["id"] not in {
         c["id"] for c in other.get(f"{P}/characteristics").json()["data"]
     }
+
+
+def _ocap(client, created, body, key=None):
+    return _call(client, created, "POST", "/ocap-items", body, key)
+
+
+def test_ocap_items_scope_and_duplicate(spc):
+    """Q5: 특성·규칙이 비면 '모든 것'. DB UK가 NULL을 못 잡으므로 서비스가 같은 순서를 막는다."""
+    client, created, _, ch = spc
+    # 화면은 '모든 것'을 null로 보낸다. 키를 빼고 보내는 것과 같아야 한다.
+    common = _ok(
+        _ocap(
+            client,
+            created,
+            {
+                "seq": 1,
+                "checkText": "설비 공기압 확인",
+                "characteristicId": None,
+                "ruleNo": None,
+                "causeCategory": None,
+            },
+        ),
+        201,
+    )
+    assert common["characteristicId"] is None and common["ruleNo"] is None
+    same = _ocap(client, created, {"seq": 1, "checkText": "다른 내용"})
+    assert same.status_code == 409 and _reason(same) == "DUPLICATE"
+    # 적용 범위가 다르면 같은 순서를 쓸 수 있다.
+    scoped = _ok(
+        _ocap(
+            client,
+            created,
+            {
+                "seq": 1,
+                "checkText": "금형 핀 마모 확인",
+                "characteristicId": ch["id"],
+                "ruleNo": 1,
+                "causeCategory": "MACHINE",
+            },
+        ),
+        201,
+    )
+    assert scoped["causeCategory"] == "MACHINE"
+    assert [i["id"] for i in _ok(client.get(f"{P}/ocap-items"))] == [
+        common["id"],
+        scoped["id"],
+    ]
+
+
+def test_ocap_must_be_recorded_before_resolving(spc):
+    """Q5: 해당 점검 항목을 모두 기록해야 조치를 닫을 수 있다. NG는 메모가 필요하다."""
+    client, created, _, ch = spc
+    common = _ok(
+        _ocap(client, created, {"seq": 1, "checkText": "설비 공기압 확인"}), 201
+    )
+    rule_one = _ok(
+        _ocap(
+            client,
+            created,
+            {
+                "seq": 1,
+                "checkText": "측정기 영점 확인",
+                "ruleNo": 1,
+                "causeCategory": "MEASUREMENT",
+            },
+        ),
+        201,
+    )
+    other_rule = _ok(
+        _ocap(client, created, {"seq": 2, "checkText": "규칙 2 전용", "ruleNo": 2}), 201
+    )
+    _basis(client, created, ch)
+    _ok(_publish(client, created, ch), 201)
+    out = _ok(_later(client, created, ch, 21, _around("2.700")), 201)
+    signal = _ok(client.get(f"{P}/signals", params={"status": "open"}))[0]
+    assert signal["rule"] == 1 and out["signals"]
+
+    checklist = _ok(client.get(f"{P}/signals/{signal['id']}/ocap"))
+    assert [i["id"] for i in checklist["items"]] == [common["id"], rule_one["id"]]
+    assert other_rule["id"] not in [i["id"] for i in checklist["items"]]
+    assert checklist["missing"] == [common["id"], rule_one["id"]]
+
+    blocked = _call(
+        client,
+        created,
+        "POST",
+        f"/signals/{signal['id']}/resolve",
+        {"causeCategory": "MACHINE", "action": "지그 재조정"},
+    )
+    assert blocked.status_code == 409 and _reason(blocked) == "OCAP_INCOMPLETE"
+
+    no_note = _call(
+        client,
+        created,
+        "POST",
+        f"/signals/{signal['id']}/ocap",
+        {"checks": [{"ocapItemId": common["id"], "result": "NG"}]},
+    )
+    assert no_note.status_code == 400
+
+    recorded = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/signals/{signal['id']}/ocap",
+            {
+                "checks": [
+                    {"ocapItemId": common["id"], "result": "OK"},
+                    {
+                        "ocapItemId": rule_one["id"],
+                        "result": "NG",
+                        "note": "영점이 0.01 밀려 있었다",
+                    },
+                ]
+            },
+        )
+    )
+    assert recorded["missing"] == []
+    assert [i["check"]["result"] for i in recorded["items"]] == ["OK", "NG"]
+
+    resolved = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/signals/{signal['id']}/resolve",
+            {"causeCategory": "MEASUREMENT", "action": "영점 재조정"},
+        )
+    )
+    assert resolved["status"] == "resolved"
+    late = _call(
+        client,
+        created,
+        "POST",
+        f"/signals/{signal['id']}/ocap",
+        {"checks": [{"ocapItemId": common["id"], "result": "NA"}]},
+    )
+    assert late.status_code == 409 and _reason(late) == "NOT_OPEN"
+
+
+def test_ocap_item_scope_is_locked_once_checked(spc):
+    """기록이 생긴 항목의 적용 범위는 바꿀 수 없다. 내용·순서·사용 여부는 바꿀 수 있다."""
+    client, created, _, ch = spc
+    item = _ok(_ocap(client, created, {"seq": 1, "checkText": "설비 공기압 확인"}), 201)
+    _basis(client, created, ch)
+    _ok(_publish(client, created, ch), 201)
+    _ok(_later(client, created, ch, 21, _around("2.700")), 201)
+    signal = _ok(client.get(f"{P}/signals", params={"status": "open"}))[0]
+    _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/signals/{signal['id']}/ocap",
+            {"checks": [{"ocapItemId": item["id"], "result": "OK"}]},
+        )
+    )
+    locked = _call(
+        client,
+        created,
+        "PATCH",
+        f"/ocap-items/{item['id']}",
+        {"ruleNo": 2},
+    )
+    assert locked.status_code == 409 and _reason(locked) == "OCAP_ITEM_IN_USE"
+    edited = _ok(
+        _call(
+            client,
+            created,
+            "PATCH",
+            f"/ocap-items/{item['id']}",
+            {"checkText": "설비 공기압 6bar 확인", "isActive": False},
+        )
+    )
+    assert (
+        edited["checkText"] == "설비 공기압 6bar 확인" and edited["isActive"] is False
+    )
+    # 사용을 꺼도 이미 기록한 항목은 그 이상의 점검표에 남는다.
+    checklist = _ok(client.get(f"{P}/signals/{signal['id']}/ocap"))
+    assert [i["id"] for i in checklist["items"]] == [item["id"]]
+    assert checklist["missing"] == []
+
+
+def test_performance_separates_within_and_overall_spread():
+    """Q6 F42: 기간 중에 공정이 옮겨 가면 Pp·Ppk가 Cp·Cpk보다 작게 나온다 — 그 차이가 관리되지 않은 변동이다."""
+    shifted = [Decimal(10)] * 10 + [Decimal(12)] * 10
+    got = stats.performance(shifted, Decimal(8), Decimal(14))
+    assert got["mean"] == Decimal("11.000000")
+    assert got["sigma_overall"] == Decimal(
+        "1.025978"
+    )  # 군내 σ̂은 0이다(부분군 안은 같은 값)
+    assert got["pp"] == got["ppk"] == Decimal("0.974679")
+    assert got["skewness"] == Decimal("0.000000")  # 대칭
+    one_sided = stats.performance(shifted, None, Decimal(14))
+    assert one_sided["pp"] is None and one_sided["ppk"] is not None
+    flat = stats.performance([Decimal(10)] * 20, Decimal(8), Decimal(14))
+    assert flat["sigma_overall"] == 0 and flat["pp"] is None
+
+
+def test_capability_adds_overall_and_trend(spc):
+    """S-03 보강: Pp·Ppk·정규성·월별 추이가 함께 온다. 기준에 못 미치는 달은 수만 센다."""
+    client, created, _, ch = spc
+    _basis(client, created, ch)
+    data = _ok(client.get(f"{P}/characteristics/{ch['id']}/capability"))
+    assert data["insufficient"] is False
+    assert data["cpk"] and data["ppk"] and data["sigmaOverall"]
+    assert data["skewness"] is not None and data["kurtosis"] is not None
+    months = {t["month"]: t for t in data["trend"]}
+    assert sum(t["subgroupCount"] for t in data["trend"]) == 20
+    # 부분군 20개가 한 달에 다 들어가면 그 달만 계산된다.
+    assert any(t["cpk"] for t in data["trend"]) == any(
+        t["subgroupCount"] >= 20 for t in data["trend"]
+    )
+    assert all(m["cpk"] is None for m in months.values() if m["subgroupCount"] < 20)
+
+
+def _report(client, created, ch, start="2026-09-01", end="2026-12-31", key=None):
+    return _call(
+        client,
+        created,
+        "POST",
+        "/capability-reports",
+        {
+            "characteristicId": ch["id"],
+            "reportStartOn": start,
+            "reportEndOn": end,
+        },
+        key,
+    )
+
+
+def test_capability_report_is_a_snapshot_and_confirm_supersedes(spc):
+    """Q6 F46: 만들 때 계산해 굳히고, 확정은 기간당 1건이다. 재작성은 새 버전이 된다."""
+    client, created, _, ch = spc
+    short = _report(client, created, ch)
+    assert (
+        short.status_code == 400
+        and "reportStartOn" in short.json()["error"]["details"]["fields"]
+    )
+    _basis(client, created, ch)
+    backwards = _report(client, created, ch, start="2026-12-31", end="2026-09-01")
+    assert backwards.status_code == 400
+
+    first = _ok(_report(client, created, ch), 201)
+    assert first["status"] == "draft" and first["version"] == 1
+    assert first["subgroupCount"] == 20 and first["confirmedAt"] is None
+    assert first["cpk"] and first["ppk"]
+
+    # 스냅샷이다 — 뒤에 부분군이 늘어도 이미 만든 보고서는 그대로다.
+    _ok(_later(client, created, ch, 21, _around("2.700")), 201)
+    assert (
+        _ok(client.get(f"{P}/capability-reports/{first['id']}"))["subgroupCount"] == 20
+    )
+    second = _ok(_report(client, created, ch), 201)
+    assert second["version"] == 2 and second["subgroupCount"] == 21
+
+    confirmed = _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/capability-reports/{first['id']}/confirm",
+            {"comment": "9~12월 초기 능력"},
+        )
+    )
+    assert confirmed["status"] == "confirmed" and confirmed["confirmedAt"]
+    again = _call(
+        client, created, "POST", f"/capability-reports/{first['id']}/confirm", {}
+    )
+    assert again.status_code == 409 and _reason(again) == "NOT_DRAFT"
+
+    # 같은 기간의 새 확정본이 나오면 옛것은 대체됨으로 밀린다.
+    _ok(
+        _call(
+            client, created, "POST", f"/capability-reports/{second['id']}/confirm", {}
+        )
+    )
+    rows = {
+        r["id"]: r["status"]
+        for r in _ok(
+            client.get(f"{P}/capability-reports", params={"characteristicId": ch["id"]})
+        )
+    }
+    assert rows == {first["id"]: "superseded", second["id"]: "confirmed"}
+
+
+def test_strata_by_lot_and_equipment(spc):
+    """Q6 F45: 설비·LOT별로 평균을 견준다. 부분군이 20개 미만인 그룹은 평균만 보고 Cpk는 계산하지 않는다."""
+    client, created, _, ch = spc
+    _basis(client, created, ch)  # LT-0023 한 LOT·한 설비에 20개
+    by_lot = _ok(
+        client.get(f"{P}/characteristics/{ch['id']}/strata", params={"by": "lot"})
+    )
+    assert by_lot["by"] == "lot" and by_lot["minimum"] == 20
+    assert [(g["group"], g["subgroupCount"]) for g in by_lot["groups"]] == [
+        ("LT-0023", 20)
+    ]
+    only = by_lot["groups"][0]
+    assert only["shift"] == "0.000000"  # 그룹이 하나면 전체 평균과 같다
+    assert only["cpk"] is not None and only["judgement"] is not None
+
+    by_equipment = _ok(
+        client.get(f"{P}/characteristics/{ch['id']}/strata", params={"by": "equipment"})
+    )
+    assert [g["subgroupCount"] for g in by_equipment["groups"]] == [20]
+    assert (
+        by_equipment["groups"][0]["group"]
+        == _ok(client.get(f"{P}/subgroups", params={"characteristicId": ch["id"]}))[0][
+            "equipmentCode"
+        ]
+    )
+
+    # 무효 부분군은 층별 계산에서도 빠진다.
+    sub = _ok(client.get(f"{P}/subgroups", params={"characteristicId": ch["id"]}))[0]
+    _ok(
+        _call(
+            client,
+            created,
+            "POST",
+            f"/subgroups/{sub['id']}/void",
+            {"reason": "오측정"},
+        )
+    )
+    after = _ok(
+        client.get(f"{P}/characteristics/{ch['id']}/strata", params={"by": "lot"})
+    )
+    assert after["groups"][0]["subgroupCount"] == 19
+    assert after["groups"][0]["cpk"] is None  # 19개 — 기준 미달
+
+    bad = client.get(f"{P}/characteristics/{ch['id']}/strata", params={"by": "worker"})
+    assert bad.status_code == 400  # 작업자 축은 MES에 정보가 없어 두지 않는다
+
+
+def test_strata_empty_period_has_no_groups(spc):
+    client, _, _, ch = spc
+    data = _ok(client.get(f"{P}/characteristics/{ch['id']}/strata"))
+    assert data["groups"] == [] and data["overallMean"] is None

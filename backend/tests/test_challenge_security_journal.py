@@ -5,6 +5,9 @@ from datetime import UTC, datetime
 
 import pyotp
 import pytest
+from fs.common.errors import ApiError
+from fs.common.security import token_hash
+from fs.core.security import emergency, recording, service
 from sqlalchemy import text
 from test_account_security_journal import checked
 from test_gw_emergency import emergency_env, issue  # noqa:F401
@@ -16,10 +19,6 @@ from test_gw_security_transactions import (
     test_failed_otp_persists_and_new_challenge_does_not_reset_limit as denied_flow,
 )
 from test_security_journal import journal  # noqa:F401
-
-from fs.common.errors import ApiError
-from fs.common.security import token_hash
-from fs.core.security import emergency, recording, service
 
 
 def test_failed_attempts_and_lock_are_recorded(identity, journal):

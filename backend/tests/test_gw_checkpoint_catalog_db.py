@@ -14,6 +14,11 @@ from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fs.common.errors import ApiError
+from fs.gw.acceptance_sources import sign_current
+from fs.gw.checkpoint_catalog import ENV
+from fs.gw.evidence_trust import from_environment
+from fs.gw.operating_contract import canonical, timestamp
 from gw_catalog_trust_helpers import approve_environment
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
@@ -23,12 +28,6 @@ from test_gw_company_work import api
 from test_gw_restore_observation_db import restored
 from test_gw_restore_recheck_db import add_keys
 from test_hr_work import company_env
-
-from fs.common.errors import ApiError
-from fs.gw.acceptance_sources import sign_current
-from fs.gw.checkpoint_catalog import ENV
-from fs.gw.evidence_trust import from_environment
-from fs.gw.operating_contract import canonical, timestamp
 
 
 def test_real_catalog_current_fail_missing_rollback_fresh_restore_and_cli(

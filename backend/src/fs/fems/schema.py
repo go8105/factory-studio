@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -68,6 +68,25 @@ class TariffCreate(ApiModel):
     effective_to: str | None = Field(
         None, alias="effectiveTo", pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$"
     )
+    tariff_kind: Literal["FLAT", "TOU"] = Field("FLAT", alias="tariffKind")
+    contract_kw: str | None = Field(
+        None, alias="contractKw", pattern=r"^\d+(\.\d{1,2})?$"
+    )
+
+
+class TariffBandIn(ApiModel):
+    season: Literal["SUMMER", "SPRING_FALL", "WINTER"]
+    day_kind: Literal["WEEKDAY", "SATURDAY", "HOLIDAY"] = Field(alias="dayKind")
+    hour_from: int = Field(alias="hourFrom", ge=0, le=23)
+    hour_to: int = Field(alias="hourTo", ge=1, le=24)
+    load_band: Literal["OFF_PEAK", "MID", "PEAK"] = Field(alias="loadBand")
+    rate: str = Field(pattern=r"^\d+(\.\d{1,4})?$")
+
+
+class TariffBandsReplace(ApiModel):
+    """구간은 통째로 바꾼다 — 한 줄씩 고치면 하루를 덮지 못하는 중간 상태가 생긴다."""
+
+    bands: list[TariffBandIn] = Field(max_length=216)  # 3계절 × 3요일 × 24시
 
 
 class TariffUpdate(ApiModel):
@@ -89,6 +108,63 @@ class TariffUpdate(ApiModel):
     effective_to: str | None = Field(
         None, alias="effectiveTo", pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$"
     )
+    tariff_kind: Literal["FLAT", "TOU"] | None = Field(None, alias="tariffKind")
+    contract_kw: str | None = Field(
+        None, alias="contractKw", pattern=r"^\d+(\.\d{1,2})?$"
+    )
+
+
+# ---- F-15 계측 품질 (DSN-15 F12·F14) ----
+QTY = r"^\d{1,14}(\.\d{1,6})?$"  # numeric(20,6). 음수는 DB CHECK가 막는다
+
+
+class ManualReadingCreate(ApiModel):
+    channel_id: int = Field(alias="channelId", gt=0)
+    period_start: datetime = Field(alias="periodStart")
+    value: str = Field(pattern=QTY)
+
+
+class CorrectionCreate(ApiModel):
+    channel_id: int = Field(alias="channelId", gt=0)
+    period_start: datetime = Field(alias="periodStart")
+    corrected_value: str = Field(alias="correctedValue", pattern=QTY)
+    method: Literal["INTERPOLATE", "PREVIOUS", "MANUAL"]
+    reason: str = Field(min_length=2, max_length=300)
+
+
+class UploadRow(ApiModel):
+    channel_code: str = Field(alias="channelCode", min_length=1, max_length=20)
+    period_start: datetime = Field(alias="periodStart")
+    value: str = Field(pattern=QTY)
+
+
+class ReadingUpload(ApiModel):
+    """파일은 브라우저가 푼다 — 서버는 행만 받는다(multipart를 만들지 않는다)."""
+
+    file_name: str = Field(alias="fileName", min_length=1, max_length=200)
+    rows: list[UploadRow] = Field(min_length=1, max_length=5000)
+
+
+class ProductionImport(ApiModel):
+    month: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+
+
+# ---- F-18 에너지 경보 (DSN-15 F31) ----
+
+
+class AlarmRuleCreate(ApiModel):
+    code: str = Field(pattern=r"^[A-Z0-9][A-Z0-9_\-]{0,29}$")
+    name: str = Field(min_length=1, max_length=100)
+    alarm_kind: Literal["THRESHOLD", "PEAK", "IDLE_USAGE"] = Field(alias="alarmKind")
+    meter_channel_id: int | None = Field(None, alias="meterChannelId", gt=0)
+    equipment_id: int | None = Field(None, alias="equipmentId", gt=0)
+    threshold: str = Field(pattern=QTY)
+    unit: str = Field(min_length=1, max_length=10)
+    is_active: bool = Field(True, alias="isActive")
+
+
+class AlarmEvaluate(ApiModel):
+    month: str | None = Field(None, pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
 
 
 # ---- F-13 환산·배출계수 (FS-018k) ----

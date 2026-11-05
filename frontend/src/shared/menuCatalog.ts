@@ -29,6 +29,7 @@ export const femsScreens = screens("fems");
 export const qmsScreens = screens("qms");
 export const bemsScreens = screens("bems");
 export const spcScreens = screens("spc");
+export const cmmsScreens = screens("cmms");
 export const hrScreens = screens("hr");
 
 export const flowScreens = screens("flow");

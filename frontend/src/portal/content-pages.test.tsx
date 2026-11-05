@@ -46,8 +46,9 @@ it("화면 ID마다 도움말 파일이 있다", () => {
     count("wms/w-"),
     count("bems/b-"),
     count("spc/s-"),
+    count("cmms/c-"),
     count("gw/g-"),
-  ]).toEqual([7, 19, 18, 14, 6, 9, 7, 7, 15]);
+  ]).toEqual([7, 19, 18, 18, 13, 18, 7, 11, 10, 15]);
 });
 it("BEMS는 구현했으므로 설명 카드가 없다(SCM만)", () => {
   expect(Object.keys(cards)).toEqual([]);

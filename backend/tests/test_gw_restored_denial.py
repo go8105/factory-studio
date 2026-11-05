@@ -7,9 +7,6 @@ from uuid import uuid4
 from xml.etree import ElementTree as ET
 
 import pytest
-from pydantic import ValidationError
-from test_gw_route_verify import runner
-
 from fs.gw.restored_denial import (
     ALL_CASES,
     CALENDAR_CASES,
@@ -24,6 +21,8 @@ from fs.gw.restored_denial import (
     STORED_DELEGATION_CASES,
     RestoredDenialObservation,
 )
+from pydantic import ValidationError
+from test_gw_route_verify import runner
 
 NOW = datetime(2026, 10, 30, 0, 0, tzinfo=UTC)
 

@@ -6,7 +6,6 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
-
 from fs.core.backup import BackupError
 from fs.gw.acceptance_preflight import assess, collect
 

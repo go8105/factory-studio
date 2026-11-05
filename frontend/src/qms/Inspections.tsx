@@ -25,14 +25,22 @@ import {
   previewJudgement,
   QMS,
   ResultBadge,
+  SOURCE,
   useSend,
   type DefectType,
+  type Gauge,
   type Inspection,
   type InspectionValue,
+  GAUGE_STATUS,
   SpcBadge,
 } from "./common";
 
-type Entry = { measured: string; passed: boolean | null; defect: string };
+type Entry = {
+  measured: string;
+  passed: boolean | null;
+  defect: string;
+  gauge: string;
+};
 type Draft = { sample: string; note: string; entries: Record<number, Entry> };
 type Manual = {
   lotNo: string;
@@ -51,6 +59,21 @@ const EMPTY_MANUAL: Manual = {
   sample: "",
 };
 
+/** F27 경고. 교정이 지났거나 수리 중인 계측기로도 검사는 할 수 있다 — 막지 않고 알린다. */
+function GaugeWarning({ gauge }: { gauge?: Gauge }) {
+  if (!gauge) return null;
+  const stale =
+    gauge.dueState === "OVERDUE" ||
+    gauge.lastResult === "FAIL" ||
+    gauge.status === "REPAIR";
+  if (!stale) return null;
+  return (
+    <small className="field-error" role="note">
+      {gauge.status === "REPAIR" ? GAUGE_STATUS.REPAIR : "교정 기한 경과"}
+    </small>
+  );
+}
+
 function toDraft(inspection: Inspection): Draft {
   return {
     sample: String(Number(inspection.sampleQty)),
@@ -63,6 +86,7 @@ function toDraft(inspection: Inspection): Draft {
             v.measuredValue === null ? "" : String(Number(v.measuredValue)),
           passed: v.passValue,
           defect: v.defectTypeId === null ? "" : String(v.defectTypeId),
+          gauge: v.gaugeId === null ? "" : String(v.gaugeId),
         },
       ]),
     ),
@@ -75,6 +99,7 @@ export function Inspections() {
   const [filters, setFilters] = useState({ status: "", result: "" });
   const [rows, setRows] = useState<Inspection[]>();
   const [defects, setDefects] = useState<DefectType[]>([]);
+  const [gauges, setGauges] = useState<Gauge[]>([]);
   const [error, setError] = useState<unknown>();
   const [reload, setReload] = useState(0);
   const [panel, setPanel] = useState<
@@ -85,6 +110,8 @@ export function Inspections() {
   const [initial, setInitial] = useState<Draft>();
   const [manual, setManual] = useState<Manual>(EMPTY_MANUAL);
   const [done, setDone] = useState<{ text: string; holdId?: number }>();
+  // AQL 검사의 시료 불량 개수. 표본 수량과 달리 검사 본문과 따로 저장한다.
+  const [defectCount, setDefectCount] = useState("");
   const {
     send,
     pending,
@@ -118,6 +145,10 @@ export function Inspections() {
     api<DefectType[]>(`${QMS}/defect-types`)
       .then((r) => setDefects(r.data.filter((d) => d.isActive)))
       .catch(() => undefined);
+    // F27. 폐기한 계측기는 고를 수 없지만, 예전 기록에 남은 것은 그대로 보인다.
+    api<Gauge[]>(`${QMS}/gauges`)
+      .then((r) => setGauges(r.data.filter((g) => g.status !== "RETIRED")))
+      .catch(() => undefined);
   }, [reload]);
   // Q-03에서 넘어오면(?open=id) 그 검사를, ?manual=1이면 직접 입력 패널을 연다.
   useEffect(() => {
@@ -135,6 +166,9 @@ export function Inspections() {
     try {
       const r = await api<Inspection>(`${QMS}/inspections/${id}`);
       setDetail(r.data);
+      setDefectCount(
+        r.data.defectCount === null ? "" : String(r.data.defectCount),
+      );
       const d = toDraft(r.data);
       setDraft(d);
       setInitial(d);
@@ -160,22 +194,31 @@ export function Inspections() {
       values: values.map((v) => {
         const e = d.entries[v.specItemId];
         const judged = previewJudgement(v, e.measured, e.passed);
+        const common = {
+          specItemId: v.specItemId,
+          defectTypeId: judged === "FAIL" && e.defect ? Number(e.defect) : null,
+          gaugeId: e.gauge ? Number(e.gauge) : null,
+        };
         return v.method === "RANGE"
           ? {
-              specItemId: v.specItemId,
+              ...common,
               measuredValue:
                 e.measured.trim() === "" ? null : e.measured.trim(),
-              defectTypeId:
-                judged === "FAIL" && e.defect ? Number(e.defect) : null,
             }
-          : {
-              specItemId: v.specItemId,
-              passValue: e.passed,
-              defectTypeId:
-                judged === "FAIL" && e.defect ? Number(e.defect) : null,
-            };
+          : { ...common, passValue: e.passed };
       }),
     };
+  }
+  async function saveDefects(inspectionId: number) {
+    const saved = await send<Inspection>(
+      `/inspections/${inspectionId}/defect-count`,
+      "PATCH",
+      { defectCount: Number(defectCount) },
+    );
+    if (saved) {
+      setDetail(saved);
+      setDone({ text: `시료 불량 ${saved.defectCount}개를 적었습니다.` });
+    }
   }
   async function save(confirm: boolean) {
     if (!detail || !draft || pending) return;
@@ -272,7 +315,7 @@ export function Inspections() {
     {
       key: "source",
       label: "출처",
-      render: (r) => (r.source === "MES" ? "MES 조회" : "직접 입력"),
+      render: (r) => SOURCE[r.source],
     },
     { key: "inspectedOn", label: "검사일" },
   ];
@@ -291,6 +334,7 @@ export function Inspections() {
             </th>
             <th scope="col">판정</th>
             <th scope="col">불량 유형</th>
+            <th scope="col">계측기</th>
           </tr>
         </thead>
         <tbody>
@@ -313,6 +357,7 @@ export function Inspections() {
                 {v.judgement ? <ResultBadge result={v.judgement} /> : "—"}
               </td>
               <td>{v.defectCode ? `${v.defectCode} ${v.defectName}` : "—"}</td>
+              <td>{v.gaugeCode ? `${v.gaugeCode} ${v.gaugeName}` : "—"}</td>
             </tr>
           ))}
         </tbody>
@@ -458,18 +503,48 @@ export function Inspections() {
                   재검사에 합격하면 보류를 풀 수 있습니다.
                 </p>
               )}
-              <div className="field-row">
-                <Field
-                  label={`표본 수량 (${detail.unit})`}
-                  inputMode="decimal"
-                  value={draft.sample}
-                  required
-                  error={errors.sampleQty}
-                  onChange={(e) =>
-                    setDraft({ ...draft, sample: e.target.value })
-                  }
-                />
-              </div>
+              {detail.sampling === "AQL" ? (
+                <>
+                  <p className="muted" role="note">
+                    <strong>
+                      AQL {detail.specAql} · 시료 {num(detail.sampleQty)}{" "}
+                      {detail.unit} · 합격 판정 개수 {detail.acceptNumber}
+                    </strong>{" "}
+                    — 표가 정한 시료 수라 바꾸지 않습니다. 시료 불량이{" "}
+                    {detail.rejectNumber}개 이상이면 불합격입니다.
+                  </p>
+                  <div className="field-row">
+                    <Field
+                      label="시료 불량 개수"
+                      inputMode="numeric"
+                      value={defectCount}
+                      error={errors.defectCount}
+                      onChange={(e) => setDefectCount(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={pending || defectCount.trim() === ""}
+                      onClick={() => void saveDefects(detail.id)}
+                    >
+                      불량 개수 저장
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="field-row">
+                  <Field
+                    label={`표본 수량 (${detail.unit})`}
+                    inputMode="decimal"
+                    value={draft.sample}
+                    required
+                    error={errors.sampleQty}
+                    onChange={(e) =>
+                      setDraft({ ...draft, sample: e.target.value })
+                    }
+                  />
+                </div>
+              )}
               <div className="table-scroll section-block">
                 <table>
                   <caption>측정값 입력</caption>
@@ -480,6 +555,7 @@ export function Inspections() {
                       <th scope="col">측정·판정 입력</th>
                       <th scope="col">판정</th>
                       <th scope="col">불량 유형</th>
+                      <th scope="col">계측기</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -574,6 +650,25 @@ export function Inspections() {
                               "—"
                             )}
                           </td>
+                          <td>
+                            <select
+                              aria-label={`${v.name} 계측기`}
+                              value={e.gauge}
+                              onChange={(ev) => set({ gauge: ev.target.value })}
+                            >
+                              <option value="">선택 안 함</option>
+                              {gauges.map((g) => (
+                                <option key={g.id} value={g.id}>
+                                  {g.code} {g.name}
+                                </option>
+                              ))}
+                            </select>
+                            <GaugeWarning
+                              gauge={gauges.find(
+                                (g) => String(g.id) === e.gauge,
+                              )}
+                            />
+                          </td>
                         </tr>
                       );
                     })}
@@ -603,33 +698,49 @@ export function Inspections() {
               title={`${detail.inspectionNo} · ${detail.lotNo}`}
               onClose={close}
               actions={
-                <button
-                  type="button"
-                  className="secondary"
-                  disabled={pending}
-                  onClick={() => void reinspect(detail.id)}
-                >
-                  재검사
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={pending}
+                    onClick={() => void reinspect(detail.id)}
+                  >
+                    재검사
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => window.print()}
+                  >
+                    성적서 인쇄
+                  </button>
+                </>
               }
             >
               <ErrorNotice error={saveError} />
-              <p>
-                <ResultBadge result={detail.result} /> {detail.itemCode}{" "}
-                {detail.itemName} · 기준 v{detail.specVersion} · 표본{" "}
-                {num(detail.sampleQty)} / {num(detail.lotQty)} {detail.unit} ·{" "}
-                {detail.inspectedOn}
-              </p>
-              {detail.activeHold && (
-                <p className="notice" role="note">
-                  품질 보류 중 · {detail.activeHold.holdNo}{" "}
-                  <Link className="text-link" to="/qms/holds">
-                    보류 보기 →
-                  </Link>
+              <div className="print-area">
+                <h3 className="print-only">검사 성적서 (COA)</h3>
+                <p className="print-only">
+                  검사 번호 {detail.inspectionNo} · LOT {detail.lotNo} ·{" "}
+                  {SOURCE[detail.source]}
                 </p>
-              )}
-              {readOnlyRows}
-              {detail.note && <p className="muted">메모: {detail.note}</p>}
+                <p>
+                  <ResultBadge result={detail.result} /> {detail.itemCode}{" "}
+                  {detail.itemName} · 기준 v{detail.specVersion} · 표본{" "}
+                  {num(detail.sampleQty)} / {num(detail.lotQty)} {detail.unit} ·{" "}
+                  {detail.inspectedOn}
+                </p>
+                {detail.activeHold && (
+                  <p className="notice" role="note">
+                    품질 보류 중 · {detail.activeHold.holdNo}{" "}
+                    <Link className="text-link" to="/qms/holds">
+                      보류 보기 →
+                    </Link>
+                  </p>
+                )}
+                {readOnlyRows}
+                {detail.note && <p className="muted">메모: {detail.note}</p>}
+              </div>
             </DetailPanel>
           )}
 

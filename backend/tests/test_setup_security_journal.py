@@ -5,17 +5,16 @@ from datetime import date, timedelta
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import text
-from test_account_security_journal import checked
-from test_gw_security_transactions import identity  # noqa:F401
-from test_security_journal import journal  # noqa:F401
-
 from fs.common.auth import _resolve_member
 from fs.common.errors import ApiError
 from fs.core.security import backup, recording
 from fs.core.service import create_member_account
 from fs.hr.work_setup import activate_example_company, prepare_example_company
 from seed.generate import create_template
+from sqlalchemy import text
+from test_account_security_journal import checked
+from test_gw_security_transactions import identity  # noqa:F401
+from test_security_journal import journal  # noqa:F401
 
 
 def template(engine):

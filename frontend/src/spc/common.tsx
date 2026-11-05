@@ -23,10 +23,16 @@ export type Characteristic = {
   subgroupSize: number;
   decimals: number;
   isActive: boolean;
+  chartType: ChartType;
+  defectSource: string | null;
+  rules: RuleNo[];
   subgroupCount: number;
   limitVersion: number | null;
   openSignals: number;
 };
+export type ChartType = "XBAR_R" | "I_MR";
+export type RuleNo = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export type ChartKey = "XBAR" | "R" | "I" | "MR";
 export type Limit = {
   id: number;
   characteristicId: number;
@@ -47,8 +53,8 @@ export type Limit = {
 export type SignalMark = {
   id: number;
   subgroupId: number;
-  chart: "XBAR" | "R";
-  rule: 1 | 2 | 3;
+  chart: ChartKey;
+  rule: RuleNo;
   status: SignalStatus;
 };
 export type Point = {
@@ -80,8 +86,8 @@ export type Signal = {
   characteristicName: string;
   lotNo: string;
   equipmentCode: string;
-  chart: "XBAR" | "R";
-  rule: 1 | 2 | 3;
+  chart: ChartKey;
+  rule: RuleNo;
   value: string;
   detectedAt: string;
   status: SignalStatus;
@@ -106,24 +112,161 @@ export type Subgroup = {
   status: "valid" | "void";
   voidReason: string | null;
   voidedAt: string | null;
-  source: "SEED" | "MANUAL";
+  source: "SEED" | "MANUAL" | "MES" | "FILE";
   note: string | null;
   measurements: string[];
 };
 export type Judgement = "CAPABLE" | "MARGINAL" | "INCAPABLE";
+export type SpecViolation = {
+  id: number;
+  subgroupId: number;
+  characteristicId: number;
+  characteristicCode: string;
+  characteristicName: string;
+  itemCode: string;
+  itemName: string;
+  processCode: string;
+  unit: string;
+  seq: number;
+  lotNo: string;
+  equipmentCode: string;
+  value: string;
+  side: "LOW" | "HIGH";
+  limitValue: string;
+  detectedAt: string;
+  voidedAt: string | null;
+  status: "open" | "void";
+};
+export const SIDE_LABEL = { LOW: "하한 미만", HIGH: "상한 초과" } as const;
+export type OcapItem = {
+  id: number;
+  characteristicId: number | null;
+  characteristicCode: string | null;
+  characteristicName: string | null;
+  itemCode: string | null;
+  processCode: string | null;
+  ruleNo: RuleNo | null;
+  seq: number;
+  checkText: string;
+  causeCategory: Cause | null;
+  isActive: boolean;
+  checkCount: number;
+};
+export type OcapResult = "OK" | "NG" | "NA";
+export type OcapCheck = {
+  id: number;
+  signalId: number;
+  ocapItemId: number;
+  result: OcapResult;
+  note: string | null;
+  checkedAt: string;
+};
+export type Checklist = {
+  signalId: number;
+  status: SignalStatus;
+  items: (OcapItem & { check: OcapCheck | null })[];
+  missing: number[];
+};
+export type ReportStatus = "draft" | "confirmed" | "superseded";
+export type CapabilityReport = {
+  id: number;
+  characteristicId: number;
+  characteristicCode: string;
+  characteristicName: string;
+  itemCode: string;
+  itemName: string;
+  processCode: string;
+  unit: string;
+  lsl: string | null;
+  usl: string | null;
+  target: string | null;
+  decimals: number;
+  chartType: ChartType;
+  reportStartOn: string;
+  reportEndOn: string;
+  version: number;
+  status: ReportStatus;
+  subgroupCount: number;
+  mean: string;
+  sigmaWithin: string;
+  sigmaOverall: string;
+  cp: string | null;
+  cpk: string | null;
+  pp: string | null;
+  ppk: string | null;
+  skewness: string | null;
+  kurtosis: string | null;
+  comment: string | null;
+  confirmedAt: string | null;
+  createdAt: string;
+};
+export const REPORT_STATUS_LABEL: Record<ReportStatus, string> = {
+  draft: "초안",
+  confirmed: "확정",
+  superseded: "대체됨",
+};
+export const REPORT_STATUS_TONE: Record<
+  ReportStatus,
+  "normal" | "warning" | "issue"
+> = { draft: "warning", confirmed: "normal", superseded: "normal" };
+export type StratumBy = "equipment" | "lot";
+export type Stratum = {
+  id: string;
+  group: string;
+  subgroupCount: number;
+  mean: string;
+  shift: string | null;
+  cpk: string | null;
+  judgement: Judgement | null;
+};
+export type TrendPoint = {
+  month: string;
+  subgroupCount: number;
+  cpk: string | null;
+  judgement: Judgement | null;
+};
+export const RESULT_LABEL: Record<OcapResult, string> = {
+  OK: "이상 없음",
+  NG: "문제 있음",
+  NA: "해당 없음",
+};
+/** 점검 항목의 적용 범위를 한 줄로. 비면 '모든 …'이다. */
+export const ocapScope = (i: OcapItem) =>
+  `${i.characteristicId ? `${i.itemCode} · ${i.processCode} · ${i.characteristicName}` : "모든 특성"} · ${
+    i.ruleNo ? `규칙 ${i.ruleNo}` : "모든 규칙"
+  }`;
 
-export const CHART_LABEL = { XBAR: "X̄", R: "R" } as const;
-export const RULE_LABEL: Record<Signal["rule"], string> = {
+export const CHART_LABEL = { XBAR: "X̄", R: "R", I: "I", MR: "MR" } as const;
+export const CHART_TYPE_LABEL: Record<ChartType, string> = {
+  XBAR_R: "X̄-R (부분군 2~10개)",
+  I_MR: "I-MR (개별값 1개)",
+};
+/** Nelson 판정 규칙(DSN-17 Q3). 규칙 1은 끌 수 없다. */
+export const RULE_LABEL: Record<RuleNo, string> = {
   1: "규칙 1 · 한계 밖",
   2: "규칙 2 · 한쪽 연속 9점",
   3: "규칙 3 · 연속 6점 증가·감소",
+  4: "규칙 4 · 번갈아 14점",
+  5: "규칙 5 · 3점 중 2점이 2σ 밖",
+  6: "규칙 6 · 5점 중 4점이 1σ 밖",
+  7: "규칙 7 · 1σ 안 15점",
+  8: "규칙 8 · 1σ 밖 8점",
 };
 /** S-05 규칙 설명(도움말과 같은 문장). */
-export const RULE_TEXT: Record<Signal["rule"], string> = {
+export const RULE_TEXT: Record<RuleNo, string> = {
   1: "점이 관리 상한 또는 하한을 벗어났습니다.",
-  2: "X̄가 중심선 한쪽에 연속 9점 찍혔습니다. 평균이 한쪽으로 옮겨 갔을 수 있습니다.",
-  3: "X̄가 연속 6점 증가 또는 감소했습니다. 공정이 한 방향으로 흘러가고 있을 수 있습니다.",
+  2: "중심선 한쪽에 연속 9점 찍혔습니다. 평균이 한쪽으로 옮겨 갔을 수 있습니다.",
+  3: "연속 6점 증가 또는 감소했습니다. 공정이 한 방향으로 흘러가고 있을 수 있습니다.",
+  4: "위아래로 번갈아 14점 찍혔습니다. 서로 다른 두 조건이 섞였을 수 있습니다.",
+  5: "연속 3점 중 2점이 같은 쪽 2σ 밖입니다. 큰 치우침이 시작됐을 수 있습니다.",
+  6: "연속 5점 중 4점이 같은 쪽 1σ 밖입니다. 평균이 조금씩 옮겨 가고 있을 수 있습니다.",
+  7: "연속 15점이 1σ 안에 모였습니다. 산포가 줄었거나 관리 한계가 실제보다 넓습니다.",
+  8: "연속 8점이 1σ 밖입니다. 서로 다른 조건의 값이 섞였을 수 있습니다.",
 };
+export const DEFAULT_RULES: RuleNo[] = [1, 2, 3];
+/** 특성이 쓰는 규칙. 고른 것이 없으면 기본 1~3이다(서버와 같은 규칙). */
+export const rulesOf = (c: Pick<Characteristic, "rules">) =>
+  c.rules.length ? c.rules : DEFAULT_RULES;
 export const STATUS_LABEL: Record<SignalStatus, string> = {
   open: "미조치",
   resolved: "조치 완료",
@@ -167,6 +310,11 @@ export const spec = (c: Pick<Characteristic, "lsl" | "usl" | "unit">) =>
     : c.usl
       ? `≤ ${Number(c.usl)} ${c.unit}`
       : `≥ ${Number(c.lsl)} ${c.unit}`;
+/** 특성의 관리도 두 짝. 위치(X̄·I)와 산포(R·MR)는 같은 칸을 쓰고 이름만 다르다. */
+export const chartKeys = (
+  c: Pick<Characteristic, "chartType">,
+): [ChartKey, ChartKey] =>
+  c.chartType === "I_MR" ? ["I", "MR"] : ["XBAR", "R"];
 export const label = (c: Characteristic) =>
   `${c.itemCode} · ${c.processCode} · ${c.name}`;
 
@@ -252,7 +400,8 @@ export function CharacteristicSelect({
 
 type Segment = { from: number; to: number; limit: Limit; basis: boolean };
 
-/** X̄ 또는 R 관리도(reading-chart SVG). 한계선은 버전 구간마다 따로, 버전이 바뀌는 곳은 세로 점선.
+/** 위치(X̄·I) 또는 산포(R·MR) 관리도(reading-chart SVG). 값은 어느 종류든 같은 칸에 들어 있다.
+ *  한계선은 버전 구간마다 따로, 버전이 바뀌는 곳은 세로 점선.
  *  점: 정상 ● · 이상 ◆ · 무효 ○(계산 제외). 점마다 초점을 받을 수 있고, 같은 값은 화면 아래 표에도 있다. */
 export function ControlChart({
   kind,
@@ -260,13 +409,14 @@ export function ControlChart({
   onSignal,
   height = 190,
 }: {
-  kind: "XBAR" | "R";
+  kind: ChartKey;
   data: ChartData;
   onSignal?: (point: Point) => void;
   height?: number;
 }) {
   const { points, limits, characteristic: c } = data;
-  const caption = kind === "XBAR" ? "X̄ 관리도" : "R 관리도";
+  const spread = kind === "R" || kind === "MR"; // 산포 관리도는 r 칸을, 위치 관리도는 xbar 칸을 읽는다
+  const caption = `${CHART_LABEL[kind]} 관리도`;
   if (!points.length)
     return (
       <figure className="reading-chart" aria-label={caption}>
@@ -274,11 +424,11 @@ export function ControlChart({
         <p className="muted">이 기간에 부분군이 없습니다.</p>
       </figure>
     );
-  const value = (p: Point) => Number(kind === "XBAR" ? p.xbar : p.r);
+  const value = (p: Point) => Number(spread ? p.r : p.xbar);
   const lines = (l: Limit) =>
-    kind === "XBAR"
-      ? { ucl: +l.xbarUcl, cl: +l.xbarCl, lcl: +l.xbarLcl }
-      : { ucl: +l.rUcl, cl: +l.rCl, lcl: +l.rLcl };
+    spread
+      ? { ucl: +l.rUcl, cl: +l.rCl, lcl: +l.rLcl }
+      : { ucl: +l.xbarUcl, cl: +l.xbarCl, lcl: +l.xbarLcl };
   const segments: Segment[] = [];
   points.forEach((p, i) => {
     // 판정 버전이 없는 점(게시 전)은 그 점을 기준 구간에 넣어 계산한 버전의 선을 옅게 그린다.

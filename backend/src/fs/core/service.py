@@ -4,6 +4,7 @@ import secrets
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
+from seed.copy import copy_template, copy_template_generation
 from sqlalchemy import Connection, inspect, text
 
 from fs.common.auth import AuthContext
@@ -24,7 +25,6 @@ from fs.common.security import (
     token_hash,
     verify_password,
 )
-from seed.copy import copy_template, copy_template_generation
 
 GUEST_POOL_LOCK = 7_160_016
 

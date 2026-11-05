@@ -6,7 +6,6 @@ from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
 from fs.gw.operating_contract import EvidenceEnvelope, OperatingPolicy, canonical
 from fs.gw.readiness import SOURCE_FIELD, assess
 

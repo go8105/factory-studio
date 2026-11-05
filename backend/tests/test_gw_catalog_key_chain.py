@@ -9,16 +9,15 @@ from datetime import timedelta
 import pytest
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from test_gw_catalog_key_handover import source
-from test_gw_catalog_segments import finish, package
-from test_gw_catalog_store import setup
-from test_gw_catalog_transfer import outgoing, receive, receiver
-
 from fs.gw import catalog_key_chain as chain
 from fs.gw import catalog_key_handover as handover
 from fs.gw import catalog_store as store
 from fs.gw.evidence_trust import EvidenceTrust
 from fs.gw.operating_contract import canonical
+from test_gw_catalog_key_handover import source
+from test_gw_catalog_segments import finish, package
+from test_gw_catalog_store import setup
+from test_gw_catalog_transfer import outgoing, receive, receiver
 
 
 class Rotations:

@@ -10,9 +10,6 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from test_gw_acceptance_collection import fixture, registered_fixture, signed
-from test_gw_operating_contract import NOW
-
 from fs.common.errors import ApiError
 from fs.gw.acceptance_reconciliation import (
     sign_reconciliation,
@@ -21,6 +18,8 @@ from fs.gw.acceptance_reconciliation import (
 from fs.gw.launch_gate import build
 from fs.gw.operating_contract import EvidenceEnvelope, canonical, verify_evidence
 from fs.gw.readiness import SOURCE_FIELD, assess
+from test_gw_acceptance_collection import fixture, registered_fixture, signed
+from test_gw_operating_contract import NOW
 
 
 def proof_fixture():

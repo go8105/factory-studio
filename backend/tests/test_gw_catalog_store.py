@@ -11,12 +11,11 @@ from pathlib import Path
 import pytest
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from test_gw_checkpoint_catalog import add_authority
-from test_gw_checkpoint_head import CONTEXT, prepared_head
-
 from fs.gw import catalog_store as store
 from fs.gw.checkpoint_catalog import ENV, read
 from fs.gw.operating_contract import canonical
+from test_gw_checkpoint_catalog import add_authority
+from test_gw_checkpoint_head import CONTEXT, prepared_head
 
 
 @pytest.fixture
@@ -339,9 +338,8 @@ def cli_env(parts):
         "FS_GW_CATALOG_KEY_FILE": str(key),
         "FS_GW_CATALOG_KEY_ID": "catalog",
     }
-    from gw_catalog_trust_helpers import approve_subprocess
-
     from fs.gw.catalog_trust_store import ENV as TRUST_ENV
+    from gw_catalog_trust_helpers import approve_subprocess
 
     trust_directory = folder.parent / "trust"
     trust_directory.mkdir(mode=0o700, exist_ok=True)

@@ -5,11 +5,10 @@ from uuid import uuid4
 
 import pyotp
 from fastapi.testclient import TestClient
-from sqlalchemy import text
-from test_gw_security_transactions import identity
-
 from fs.common.db import reset_engine
 from fs.main import create_app
+from sqlalchemy import text
+from test_gw_security_transactions import identity
 
 
 def test_login_enroll_otp_recovery_http(identity, monkeypatch):

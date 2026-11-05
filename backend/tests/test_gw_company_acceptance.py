@@ -261,8 +261,17 @@ def test_closed_restore_preserves_rows_then_reapplies_revocation(
     container = os.environ.get("PG_TEST_CONTAINER")
     if not container:
         pytest.skip("PG_TEST_CONTAINER is required for isolated pg_dump/restore")
-    assert container.startswith("factory-studio-codex-gw-company-")
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "owned_restore_guard", Path(__file__).parents[2] / "tools/gw_route_verify.py"
+    )
+    guard = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(guard)
     url = engine.url
+    guard.validate_restore_container(
+        url, container, os.environ.get("FS_GW_ROUTE_VERIFY_OWNER"), strict=True
+    )
     columns, before = fingerprint(engine)
     started = perf_counter()
     dump = subprocess.run(

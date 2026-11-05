@@ -13,9 +13,11 @@
 set -euo pipefail
 
 DRY_RUN=0
+OWNED_URL=0
 for argument in "$@"; do
   case "$argument" in
     --dry-run) DRY_RUN=1 ;;
+    --owned-url) OWNED_URL=1 ;;
     --help | -h)
       sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
@@ -62,7 +64,25 @@ command -v python >/dev/null || fail "python이 없습니다 (backend/.venv/bin)
 command -v uv >/dev/null || fail "uv가 없습니다."
 
 # 3. .env 파일 및 대상 DB 확인
-[ -f "$ROOT/.env" ] || fail ".env 파일이 없습니다."
+if [ "$OWNED_URL" = 1 ]; then
+  # The GW runner creates this UUID database after verifying full ID/owner/loopback.
+  # Recheck the same contract here; never read or rewrite .env in this mode.
+  CI_DB_URL="${FS_CI_OWNED_DATABASE_URL:?owned runner URL required}"
+  export CI_DB_URL
+  python - <<'OWNED_PY'
+import os, re
+from pathlib import Path
+from sqlalchemy.engine import make_url
+from tools.gw_route_verify import validate_restore_container
+url = make_url(os.environ["CI_DB_URL"])
+assert re.fullmatch(r"gw_integration_[0-9a-f]{32}_test", url.database or "")
+assert url.host == "127.0.0.1"
+container = os.environ["FS_CI_CONTAINER"]
+assert Path(os.environ["FS_CI_EXPECTED_ID_FILE"]).read_text().strip() == container
+validate_restore_container(url, container, os.environ["FS_CI_OWNER"], strict=True)
+OWNED_PY
+  CI_DB_NAME="$(CI_DB_URL="$CI_DB_URL" python -c 'import os; from sqlalchemy.engine import make_url; print(make_url(os.environ["CI_DB_URL"]).database)')"
+else
 CI_DB_NAME="${TEST_DB:-factory_studio_ci_test}"
 
 # 안전장치: DB 이름은 반드시 _test 로 끝나야 한다 (backend/tests/conftest.py 및 개발 DB 보호)
@@ -71,6 +91,11 @@ case "$CI_DB_NAME" in
   *) fail "테스트 DB 이름은 _test로 끝나야 합니다 ($CI_DB_NAME)." ;;
 esac
 
+# Dry-run needs no saved credentials or real database connection.
+if [ "$DRY_RUN" = 1 ]; then
+  CI_DB_URL="postgresql+psycopg://127.0.0.1/$CI_DB_NAME"
+else
+[ -f "$ROOT/.env" ] || fail ".env 파일이 없습니다."
 # .env에서 연결 정보를 읽고 DB 이름만 치환 (비밀번호는 터미널/로그에 절대 출력하지 않는다)
 CI_DB_URL="$(python -c '
 import os, sys
@@ -85,6 +110,9 @@ target_db = sys.argv[1]
 ci_url = orig_url.set(database=target_db).render_as_string(hide_password=False)
 print(ci_url)
 ' "$CI_DB_NAME")" || fail "DATABASE_URL 파싱에 실패했습니다."
+fi
+
+fi
 
 echo "대상 DB: $CI_DB_NAME"
 
@@ -100,14 +128,15 @@ admin_url = url.set(database="postgres")
 target_db = url.database
 
 try:
-    admin_eng = create_engine(admin_url)
+    # CREATE DATABASE는 트랜잭션 안에서 못 돈다. 아래 146·182·220행과 같은 틀.
+    admin_eng = create_engine(admin_url, isolation_level="AUTOCOMMIT")
     with admin_eng.connect() as conn:
         ver = conn.execute(text("SHOW server_version")).scalar()
         if not ver.startswith("18."):
             sys.exit(f"PostgreSQL 18이 아닙니다 (현재: {ver}). 포트 55432의 PostgreSQL 18.6을 확인하세요.")
         exists = conn.execute(text("SELECT 1 FROM pg_database WHERE datname = :d"), {"d": target_db}).scalar()
         if not exists:
-            conn.execution_options(isolation_level="AUTOCOMMIT").execute(text(f"CREATE DATABASE \"{target_db}\""))
+            conn.execute(text(f"CREATE DATABASE \"{target_db}\""))
             print(f"새 테스트 DB 생성 완료: {target_db}")
 except Exception as e:
     sys.exit(f"PostgreSQL 점검 실패: {e}")
@@ -148,7 +177,7 @@ with admin_eng.connect() as conn:
     conn.execute(text("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :d AND pid <> pg_backend_pid()"), {"d": url.database})
 ' 2>/dev/null || true
 
-  DATABASE_URL="$CI_DB_URL" TEST_DATABASE_URL="$CI_DB_URL" uv run --project backend pytest backend/tests -q -n auto -m "not perf"
+  DATABASE_URL="$CI_DB_URL" TEST_DATABASE_URL="$CI_DB_URL" uv run --project backend pytest backend/tests -q -n "${FS_CI_WORKERS:-auto}" -m "not perf"
 
   # perf 테스트 전 대기 (병렬 작업자 디스크 I/O 정리)
   sleep 3
@@ -162,7 +191,12 @@ fi
 # ── 4단계: DB 초기화 및 마이그레이션 왕복 검증 ─────────────────────────────────
 step "4단계: DB 초기화 및 마이그레이션 왕복 (downgrade base → upgrade head)"
 echo "주의: $CI_DB_NAME 데이터가 초기화되고 마이그레이션 왕복이 실행됩니다."
-if [ "$DRY_RUN" = 1 ]; then
+if [ "$OWNED_URL" = 1 ]; then
+  # Preserve the populated regression DB. The nested runner owns a second empty DB.
+  run_cmd python tools/gw_integration_check.py --container "$FS_CI_CONTAINER" \
+    --expected-id-file "$FS_CI_EXPECTED_ID_FILE" --owner "$FS_CI_OWNER" \
+    --port "$FS_CI_PORT" --private-output "$FS_CI_PRIVATE_OUTPUT/empty-roundtrip" --empty-roundtrip
+elif [ "$DRY_RUN" = 1 ]; then
   echo "[dry-run] python tools/clear_test_data.py (DB: $CI_DB_NAME)"
   echo "[dry-run] alembic -c backend/alembic.ini downgrade base (DB: $CI_DB_NAME)"
   echo "[dry-run] alembic -c backend/alembic.ini upgrade head (DB: $CI_DB_NAME)"
@@ -198,9 +232,9 @@ run_cmd npm --prefix frontend run build
 if [ "$DRY_RUN" = 1 ]; then
   echo "[dry-run] npm --prefix frontend test"
 else
-  if ! npm --prefix frontend test; then
+  if ! npm --prefix frontend test -- --maxWorkers=1; then
     echo "프런트엔드 테스트 1회 재실행 (간헐적 타이밍 문제 점검)..."
-    npm --prefix frontend test
+    npm --prefix frontend test -- --maxWorkers=1
   fi
 fi
 

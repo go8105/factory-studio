@@ -124,12 +124,25 @@ def build(
             f"CREATE TABLE {t['name']} ({', '.join(column_sql(c) for c in t['columns'])})"
         )
     added: list[tuple[str, str]] = []
+    widened: list[tuple[str, str]] = []
     for t in tables:
         if t["name"] not in kept:
             continue
-        existing = {c["name"] for c in old_tables[t["name"]]["columns"]}
+        before = {c["name"]: c for c in old_tables[t["name"]]["columns"]}
         for c in t["columns"]:
-            if c["name"] in existing:
+            was = before.get(c["name"])
+            if was is not None:
+                # NOT NULL을 푸는 것만 자동으로 만든다. 조이는 쪽은 기존 행을 봐야 한다.
+                if was["nullable"] == c["nullable"]:
+                    continue
+                if not c["nullable"]:
+                    raise SystemExit(
+                        f"{t['name']}.{c['name']}: NOT NULL로 조이는 변경은 손으로 쓴다"
+                    )
+                up.append(
+                    f"ALTER TABLE {t['name']} ALTER COLUMN {c['name']} DROP NOT NULL"
+                )
+                widened.append((t["name"], c["name"]))
                 continue
             if not c["nullable"] and not c.get("default"):
                 raise SystemExit(
@@ -180,6 +193,9 @@ def build(
         if statement:
             down.append(statement)
     down.extend(f"ALTER TABLE {t} DROP COLUMN {c}" for t, c in reversed(added))
+    down.extend(
+        f"ALTER TABLE {t} ALTER COLUMN {c} SET NOT NULL" for t, c in reversed(widened)
+    )
     down.extend(f"DROP TABLE {t['name']}" for t in reversed(fresh))
     down.extend(f"DROP SCHEMA {s}" for s in schemas)
     for i in reversed(replaced):
@@ -197,8 +213,10 @@ def build(
                 and c["kind"] == "CHECK"
                 and "module_key IN" in c["expression"]
             )
-            old = new.rstrip(")")[: -len(f", '{module_key}'")] + ")"
-            module.append((table, f"c{index}_check", old, new))
+            tail = f", '{module_key}')"
+            if not new.endswith(tail):
+                continue  # 이미 목록에 있는 모듈 키다. CHECK를 바꿀 것이 없다.
+            module.append((table, f"c{index}_check", new[: -len(tail)] + ")", new))
     return up, down, module
 
 
@@ -206,9 +224,11 @@ def render(args, up: list[str], down: list[str], module: list, digest: str) -> s
     # 비어 있을 수 있으니 줄마다 쉼표를 붙인다 — join은 빈 목록에서 쉼표만 남긴다.
     quoted = "".join(f'    "{s}",\n' for s in up).rstrip("\n")
     down_quoted = "".join(f'    "{s}",\n' for s in down).rstrip("\n")
+    # 빈 목록은 ruff format이 한 줄로 줄인다. 처음부터 한 줄로 만든다.
     module_rows = "".join(
         f'    ("{t}", "{n}", "{o}", "{w}"),\n' for t, n, o, w in module
     ).rstrip("\n")
+    module_block = f"[\n{module_rows}\n]" if module else "[]"
     return f'''"""{args.title}.
 
 설계 schema.json {args.version}({args.task})에서 tools/build_migration.py로 생성했다. 실행할 때 JSON을 읽지 않는다.
@@ -230,9 +250,7 @@ DROPS = [
 {down_quoted}
 ]
 # 모듈 키: (표, 제약 이름, 옛 식, 새 식)
-MODULE_CHECKS = [
-{module_rows}
-]
+MODULE_CHECKS = {module_block}
 
 
 def upgrade() -> None:

@@ -11,12 +11,42 @@ from fs.common.auth import AuthContext, resolve_auth
 from fs.common.engine import mutation_key
 from fs.common.errors import ApiError
 from fs.common.page import Page
-from fs.wms import receiving, reservations, service
+from fs.wms import (
+    analytics,
+    counts,
+    issues,
+    labels,
+    picks,
+    receiving,
+    reservations,
+    service,
+)
+from fs.wms.count_schema import (
+    CountOrderCount,
+    CountOrderCreate,
+    CountStatus,
+    PeriodClose,
+)
+from fs.wms.issue_schema import (
+    IssueRequestCancel,
+    IssueRequestConfirm,
+    IssueRequestCreate,
+    IssueRequestStatus,
+)
+from fs.wms.label_schema import LabelKind, LabelPrint, LabelStatus
+from fs.wms.pick_schema import (
+    PickOrderCancel,
+    PickOrderConfirm,
+    PickOrderCreate,
+    PickOrderStatus,
+)
 from fs.wms.receiving_schema import (
     InspectionInput,
     NoticeCreate,
+    NoticeKind,
     NoticeStatus,
     NoticeUpdate,
+    PutawayComplete,
     ReasonInput,
     SourceLink,
     VersionInput,
@@ -34,6 +64,7 @@ from fs.wms.schema import (
     ItemImport,
     ItemUpdate,
     LocationCreate,
+    LocationType,
     LocationUpdate,
     LotCreate,
     LotHoldCreate,
@@ -50,7 +81,12 @@ Auth = Annotated[AuthContext, Depends(resolve_auth)]
 IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
 CsrfToken = Annotated[str | None, Header(alias="X-CSRF-Token")]
 MONTH = r"^[0-9]{4}-(0[1-9]|1[0-2])$"
-DocumentType = ManualType | SourceKind | Literal["WMS_INSPECTION"] | None
+DocumentType = (
+    ManualType
+    | SourceKind
+    | Literal["WMS_INSPECTION", "PUTAWAY", "PICK", "PRODUCTION_ISSUE", "CYCLE_COUNT"]
+    | None
+)
 
 
 # 공통 엔진: CSRF·멱등 키 확인
@@ -367,9 +403,7 @@ def get_stock(
     warehouse_id: Annotated[int | None, Query(alias="warehouseId")] = None,
     lot_no: Annotated[str | None, Query(alias="lotNo", max_length=50)] = None,
     location_id: Annotated[int | None, Query(alias="locationId", gt=0)] = None,
-    location_type: Annotated[
-        Literal["NORMAL", "QUARANTINE"] | None, Query(alias="locationType")
-    ] = None,
+    location_type: Annotated[LocationType | None, Query(alias="locationType")] = None,
     negative_only: Annotated[bool, Query(alias="negativeOnly")] = False,
     unassigned_only: Annotated[bool, Query(alias="unassignedOnly")] = False,
 ):
@@ -508,6 +542,7 @@ def list_inbound_notices(
     context: Auth,
     status: NoticeStatus | None = None,
     warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+    notice_kind: Annotated[NoticeKind | None, Query(alias="noticeKind")] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
     expected_from: Annotated[date | None, Query(alias="expectedFrom")] = None,
@@ -515,7 +550,14 @@ def list_inbound_notices(
 ):
     return _data(
         receiving.list_notices(
-            context, status, warehouse_id, page, page_size, expected_from, expected_to
+            context,
+            status,
+            warehouse_id,
+            notice_kind,
+            page,
+            page_size,
+            expected_from,
+            expected_to,
         )
     )
 
@@ -733,3 +775,367 @@ def reservation_preview(
     ],
 ):
     return _data(reservations.shipment_preview(context, row_id, source_key))
+
+
+# ---- 적치 작업 (W-11) ----
+PutawayTaskStatus = Literal["OPEN", "DONE", "CANCELLED"]
+
+
+@router.get("/putaway-tasks")
+def list_putaway_tasks(
+    context: Auth,
+    status: PutawayTaskStatus | None = None,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId")] = None,
+    item_id: Annotated[int | None, Query(alias="itemId")] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+):
+    return _data(
+        receiving.list_putaway_tasks(
+            context, status, warehouse_id, item_id, page, page_size
+        )
+    )
+
+
+@router.post("/putaway-tasks/{row_id}/complete")
+def complete_putaway_task(
+    row_id: int,
+    payload: PutawayComplete,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        receiving.complete_putaway_task(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/putaway-tasks/{row_id}/cancel")
+def cancel_putaway_task(
+    row_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        receiving.cancel_putaway_task(
+            context,
+            row_id,
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+# ---- 피킹 지시 (W-12) ----
+@router.get("/pick-orders")
+def list_pick_orders(
+    context: Auth,
+    status: PickOrderStatus | None = None,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+    reservation_id: Annotated[int | None, Query(alias="reservationId", gt=0)] = None,
+    item_code: Annotated[str | None, Query(alias="itemCode", max_length=40)] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+):
+    return _data(
+        picks.list_pick_orders(
+            context,
+            status,
+            warehouse_id,
+            reservation_id,
+            item_code,
+            page,
+            page_size,
+        )
+    )
+
+
+@router.get("/pick-orders/{row_id}")
+def get_pick_order(row_id: int, context: Auth):
+    return _data(picks.get_pick_order(context, row_id))
+
+
+@router.post("/pick-orders", status_code=201)
+def create_pick_order(
+    payload: PickOrderCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        picks.create_pick_order(
+            context,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/pick-orders/{row_id}/confirm")
+def confirm_pick_order(
+    row_id: int,
+    payload: PickOrderConfirm,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        picks.confirm_pick_order(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/pick-orders/{row_id}/cancel")
+def cancel_pick_order(
+    row_id: int,
+    payload: PickOrderCancel,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        picks.cancel_pick_order(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+# ---- 생산 불출 (W-13) ----
+@router.get("/issue-requests")
+def list_issue_requests(
+    context: Auth,
+    status: IssueRequestStatus | None = None,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+    work_order_no: Annotated[
+        str | None, Query(alias="workOrderNo", max_length=40)
+    ] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+):
+    return _data(
+        issues.list_issue_requests(
+            context, status, warehouse_id, work_order_no, page, page_size
+        )
+    )
+
+
+@router.get("/issue-requests/{row_id}")
+def get_issue_request(row_id: int, context: Auth):
+    return _data(issues.get_issue_request(context, row_id))
+
+
+@router.post("/issue-requests", status_code=201)
+def create_issue_request(
+    payload: IssueRequestCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        issues.create_issue_request(
+            context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.post("/issue-requests/{row_id}/confirm")
+def confirm_issue_request(
+    row_id: int,
+    payload: IssueRequestConfirm,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        issues.confirm_issue_request(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/issue-requests/{row_id}/cancel")
+def cancel_issue_request(
+    row_id: int,
+    payload: IssueRequestCancel,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        issues.cancel_issue_request(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+# ---- 재고 실사 (W-14) · 재고 마감 (W-15) ----
+@router.get("/count-orders")
+def list_count_orders(
+    context: Auth,
+    status: CountStatus | None = None,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+):
+    return _data(
+        counts.list_count_orders(context, status, warehouse_id, page, page_size)
+    )
+
+
+@router.get("/count-orders/{row_id}")
+def get_count_order(row_id: int, context: Auth):
+    return _data(counts.get_count_order(context, row_id))
+
+
+@router.post("/count-orders", status_code=201)
+def create_count_order(
+    payload: CountOrderCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        counts.create_count_order(
+            context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.post("/count-orders/{row_id}/count")
+def count_lines(
+    row_id: int,
+    payload: CountOrderCount,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        counts.count_lines(
+            context,
+            row_id,
+            payload.model_dump(mode="json"),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.post("/count-orders/{row_id}/adjust")
+def adjust_count_order(
+    row_id: int, context: Auth, csrf: CsrfToken = None, key: IdempotencyKey = None
+):
+    return _data(
+        counts.adjust_count_order(context, row_id, {}, _mutation(context, csrf, key))
+    )
+
+
+@router.post("/count-orders/{row_id}/cancel")
+def cancel_count_order(
+    row_id: int, context: Auth, csrf: CsrfToken = None, key: IdempotencyKey = None
+):
+    return _data(
+        counts.cancel_count_order(context, row_id, {}, _mutation(context, csrf, key))
+    )
+
+
+@router.get("/stock-periods")
+def list_periods(context: Auth):
+    return _data(counts.list_periods(context))
+
+
+@router.post("/stock-periods/close")
+def close_period(
+    payload: PeriodClose,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        counts.close_period(
+            context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.post("/stock-periods/reopen")
+def reopen_period(
+    payload: PeriodClose,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        counts.reopen_period(
+            context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
+        )
+    )
+
+
+# ---- 라벨 출력 (W-17) ----
+@router.get("/labels")
+def list_labels(
+    context: Auth,
+    label_kind: Annotated[LabelKind | None, Query(alias="labelKind")] = None,
+    status: LabelStatus | None = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+):
+    return _data(labels.list_labels(context, label_kind, status, page, page_size))
+
+
+@router.post("/labels", status_code=201)
+def print_label(
+    payload: LabelPrint,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        labels.print_label(
+            context, payload.model_dump(mode="json"), _mutation(context, csrf, key)
+        )
+    )
+
+
+# ---- 재고 수불부 (W-18) · 재고 분석 (W-19) · 위치 점유 (W-20) ----
+@router.get("/ledger")
+def stock_ledger(
+    context: Auth,
+    month: Annotated[str | None, Query(pattern=MONTH)] = None,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+    item_id: Annotated[int | None, Query(alias="itemId", gt=0)] = None,
+):
+    return _data(analytics.ledger(context, month, warehouse_id, item_id))
+
+
+@router.get("/analysis")
+def stock_analysis(
+    context: Auth,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+):
+    return _data(analytics.analysis(context, warehouse_id))
+
+
+@router.get("/occupancy")
+def location_occupancy(
+    context: Auth,
+    warehouse_id: Annotated[int | None, Query(alias="warehouseId", gt=0)] = None,
+):
+    return _data(analytics.occupancy(context, warehouse_id))

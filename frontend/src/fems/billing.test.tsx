@@ -20,6 +20,8 @@ const tariff = (
 ) => ({
   tariffCode: code,
   name: "산업용",
+  tariffKind: "FLAT" as const,
+  contractKw: null,
   basicCharge: "250000",
   usageRate: rate,
   effectiveFrom: from,

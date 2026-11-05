@@ -1,7 +1,6 @@
 """A complete local checklist cannot stand in for unconnected live evidence."""
 
 import pytest
-
 from fs.gw.launch_gate import build
 from fs.gw.operating_contract import OperatingPolicy
 

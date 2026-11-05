@@ -7,16 +7,15 @@ import os
 from copy import deepcopy
 
 import pytest
-from sqlalchemy import text
-from test_gw_acceptance_sources_db import configured
-from test_gw_company_work import api
-from test_hr_work import company_env
-
 from fs.common.errors import ApiError
 from fs.gw.acceptance_sources import sign_current
 from fs.gw.evidence_trust import from_environment
 from fs.gw.operating_contract import canonical
 from fs.gw.readiness import SOURCE_FIELD
+from sqlalchemy import text
+from test_gw_acceptance_sources_db import configured
+from test_gw_company_work import api
+from test_hr_work import company_env
 
 
 def scope_for(co):

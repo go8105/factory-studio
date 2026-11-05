@@ -11,6 +11,18 @@ from uuid import uuid4
 import pyotp
 import pytest
 from fastapi.testclient import TestClient
+from fs.common.db import reset_engine
+from fs.common.errors import ApiError
+from fs.core.security.config import security_settings
+from fs.gw import company, policy
+from fs.gw import service as gw
+from fs.gw.operating_contract import canonical
+from fs.gw.restored_denial import (
+    PROPERTY,
+    STORED_DELEGATION_CASES,
+    StoredDelegationRuntimeObservation,
+)
+from fs.main import create_app
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from test_gw_backup import backup_env
@@ -27,19 +39,6 @@ from test_gw_restored_delegation_relations_db import route, submitted
 from test_gw_restored_denial_db import closed, mfa
 from test_gw_restored_object_db import denied
 from test_hr_work import company_env
-
-from fs.common.db import reset_engine
-from fs.common.errors import ApiError
-from fs.core.security.config import security_settings
-from fs.gw import company, policy
-from fs.gw import service as gw
-from fs.gw.operating_contract import canonical
-from fs.gw.restored_denial import (
-    PROPERTY,
-    STORED_DELEGATION_CASES,
-    StoredDelegationRuntimeObservation,
-)
-from fs.main import create_app
 
 MARKER = "STORED-DELEGATION-68"
 

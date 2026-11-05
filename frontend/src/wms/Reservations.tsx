@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useSession } from "../app/session";
+import { api, ApiError } from "../shared/api";
 import {
   Badge,
   DataTable,
@@ -10,7 +12,15 @@ import {
   PageTitle,
   useDiscardGuard,
 } from "../shared/components";
-import { ModuleOff, moduleOff, num, type Item, type StockRow } from "./common";
+import {
+  ModuleOff,
+  moduleOff,
+  num,
+  PICK_STATUS_LABEL,
+  PICK_SUBSTITUTION_REASON_LABEL,
+  type Item,
+  type StockRow,
+} from "./common";
 import {
   OperationError,
   comparison,
@@ -105,6 +115,24 @@ export function Reservations() {
               key: "status",
               label: "상태",
               render: (r) => <Badge>{states[r.status]}</Badge>,
+            },
+            {
+              key: "pickOrderStatus",
+              label: "피킹 상태",
+              render: (r) => {
+                if (!r.pickOrderStatus) return <Badge>미지시</Badge>;
+                const tone =
+                  r.pickOrderStatus === "PICKED"
+                    ? "normal"
+                    : r.pickOrderStatus === "OPEN"
+                      ? "warning"
+                      : "issue";
+                return (
+                  <Badge tone={tone}>
+                    {PICK_STATUS_LABEL[r.pickOrderStatus]}
+                  </Badge>
+                );
+              },
             },
             {
               key: "shortage",
@@ -347,8 +375,23 @@ function ReservationDetail({
   refresh: () => void;
   changed: (row: Reservation) => void;
 }) {
+  const { session } = useSession();
   const [reason, setReason] = useState("");
   const [source, setSource] = useState("");
+  const [creatingPick, setCreatingPick] = useState(false);
+  const [pickSuccess, setPickSuccess] = useState<{
+    id: number;
+    pickNo: string;
+  } | null>(null);
+  const [pickError, setPickError] = useState<{
+    message: string;
+    insufficientItems?: {
+      itemCode: string;
+      requested: string;
+      available: string;
+    }[];
+    excludedLots?: { lotNo: string; reasonLabel: string }[];
+  } | null>(null);
   const sources = useWmsQuery<ReservationSources>("/reservation-sources");
   const preview = useWmsQuery<{
     matches: boolean;
@@ -382,10 +425,83 @@ function ReservationDetail({
       preview.reload();
     }
   }
+
+  async function handleCreatePick() {
+    setCreatingPick(true);
+    setPickError(null);
+    setPickSuccess(null);
+    try {
+      const res = await api<{ id: number; pickNo: string }>(
+        "/api/v1/wms/pick-orders",
+        {
+          method: "POST",
+          body: { reservationId: row.id },
+          csrf: session?.csrfToken,
+          key: `pick-create-${row.id}-${Date.now()}`,
+        },
+      );
+      setPickSuccess(res.data);
+      refresh();
+    } catch (e: unknown) {
+      if (e instanceof ApiError) {
+        const d = e.error.details;
+        const insufficient = Array.isArray(d?.insufficientItems)
+          ? (d.insufficientItems as Array<{
+              itemCode: string;
+              requested: string;
+              available: string;
+            }>)
+          : undefined;
+        const excluded = Array.isArray(d?.excludedLots)
+          ? (
+              d.excludedLots as Array<{
+                lotNo: string;
+                reason?: string;
+                reasonLabel?: string;
+              }>
+            ).map((l) => ({
+              lotNo: l.lotNo,
+              reasonLabel:
+                l.reasonLabel ??
+                PICK_SUBSTITUTION_REASON_LABEL[
+                  l.reason as keyof typeof PICK_SUBSTITUTION_REASON_LABEL
+                ] ??
+                l.reason ??
+                "사용 불가",
+            }))
+          : undefined;
+        setPickError({
+          message: e.error.message,
+          insufficientItems: insufficient,
+          excludedLots: excluded,
+        });
+      } else {
+        setPickError({ message: "피킹 지시 생성 중 오류가 발생했습니다." });
+      }
+    } finally {
+      setCreatingPick(false);
+    }
+  }
+
   const selected = sources.data?.shipments.find((s) => s.sourceKey === source);
   return (
     <DetailPanel wide title={row.reservationNo} onClose={close} guard={guard}>
-      <Badge>{states[row.status]}</Badge>
+      <Badge>{states[row.status]}</Badge>{" "}
+      {row.pickOrderStatus ? (
+        <Badge
+          tone={
+            row.pickOrderStatus === "PICKED"
+              ? "normal"
+              : row.pickOrderStatus === "OPEN"
+                ? "warning"
+                : "issue"
+          }
+        >
+          피킹: {PICK_STATUS_LABEL[row.pickOrderStatus]}
+        </Badge>
+      ) : (
+        <Badge>피킹: 미지시</Badge>
+      )}
       <p>
         참고 출하지시 {row.shipmentOrderRef ?? "없음"} ·{" "}
         {comparison[row.shipmentOrderComparison.state] ??
@@ -397,6 +513,73 @@ function ReservationDetail({
           {l.unit}
         </p>
       ))}
+      <section className="wms-operation-fields" style={{ margin: "1rem 0" }}>
+        <h3>피킹 지시</h3>
+        {row.pickOrderId ? (
+          <p>
+            지시 번호:{" "}
+            <strong>{row.pickOrderNo ?? `PK-${row.pickOrderId}`}</strong> (
+            {row.pickOrderStatus ? PICK_STATUS_LABEL[row.pickOrderStatus] : "—"}
+            ) ·{" "}
+            <Link to={`/wms/picks?open=${row.pickOrderId}`}>
+              피킹 화면에서 보기
+            </Link>
+          </p>
+        ) : (
+          <p>아직 발행된 피킹 지시가 없습니다.</p>
+        )}
+        {row.status === "ACTIVE" &&
+          (!row.pickOrderStatus || row.pickOrderStatus === "CANCELLED") && (
+            <div style={{ marginTop: "0.5rem" }}>
+              <button
+                type="button"
+                disabled={creatingPick}
+                onClick={handleCreatePick}
+              >
+                {creatingPick ? "피킹 지시 생성 중..." : "피킹 지시 생성"}
+              </button>
+            </div>
+          )}
+        {pickSuccess && (
+          <div role="status" className="notice" style={{ marginTop: "0.5rem" }}>
+            <strong>피킹 지시가 생성되었습니다 ({pickSuccess.pickNo}).</strong>{" "}
+            <Link to={`/wms/picks?open=${pickSuccess.id}`}>
+              피킹 지시로 이동
+            </Link>
+          </div>
+        )}
+        {pickError && (
+          <div role="alert" className="notice" style={{ marginTop: "0.5rem" }}>
+            <strong>{pickError.message}</strong>
+            {pickError.insufficientItems &&
+              pickError.insufficientItems.length > 0 && (
+                <div style={{ marginTop: "0.25rem" }}>
+                  <span>부족 품목:</span>
+                  <ul>
+                    {pickError.insufficientItems.map((item) => (
+                      <li key={item.itemCode}>
+                        {item.itemCode}: 요청 {num(item.requested)} / 가용{" "}
+                        {num(item.available)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            {pickError.excludedLots && pickError.excludedLots.length > 0 && (
+              <div style={{ marginTop: "0.25rem" }}>
+                <span>제외된 LOT (보류·만료):</span>
+                <ul>
+                  {pickError.excludedLots.map((l) => (
+                    <li key={l.lotNo}>
+                      {l.lotNo}: {l.reasonLabel}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
       {row.lines.map((l) => (
         <section className="wms-operation-line" key={l.id}>
           <h3>

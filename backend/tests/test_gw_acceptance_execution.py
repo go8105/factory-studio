@@ -4,15 +4,14 @@ import base64
 from copy import deepcopy
 
 import pytest
-from test_gw_acceptance_collection import registered_fixture
-from test_gw_launch_gate import inputs
-
 from fs.common.errors import ApiError
 from fs.gw.acceptance_contract import attach
 from fs.gw.acceptance_execution import execute
 from fs.gw.launch_gate import build
 from fs.gw.operating_contract import canonical
 from fs.gw.readiness import SOURCE_FIELD
+from test_gw_acceptance_collection import registered_fixture
+from test_gw_launch_gate import inputs
 
 
 def test_twelve_conditions_share_closed_boundary_and_never_support_pass():

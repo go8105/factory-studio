@@ -13,20 +13,24 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from functools import partial
 from typing import Any
 
 from sqlalchemy import Connection, text
 
+from fs.common import master
 from fs.common.auth import AuthContext
 from fs.common.clock import business_today
 from fs.common.engine import action, read
 from fs.common.errors import ApiError
 from fs.common.scope import read_scope
+from fs.erp import interface as erp
 from fs.mes import interface as mes
+from fs.qms import sampling
 from fs.spc import interface as spc
+from fs.wms import interface as wms
 
 MODULE = "qms"
 _S = "workspace_id=:w AND generation_id=:g"
@@ -230,7 +234,8 @@ def delete_defect_type(context: AuthContext, row_id: int, key: str) -> dict[str,
 # ---------- 검사 기준 (Q-02) ----------
 
 SPEC_SQL = """
-SELECT s.id, s.item_code, s.item_name, s.version_no, s.status, s.published_at, s.note, s.created_at,
+SELECT s.id, s.item_code, s.item_name, s.version_no, s.status, s.published_at, s.note,
+       s.inspection_kind, s.aql, s.created_at,
        (SELECT count(*) FROM qms.inspection_spec_item i
          WHERE i.workspace_id=s.workspace_id AND i.generation_id=s.generation_id AND i.spec_id=s.id) item_count,
        (SELECT count(*) FROM qms.inspection x
@@ -261,6 +266,7 @@ def _spec(
     if row is None:
         return None
     spec = _row(row)
+    spec["aql"] = sampling.label(spec["aql"]) or None
     spec["items"] = [
         _row(r)
         for r in connection.execute(
@@ -328,13 +334,15 @@ def _insert_items(
 
 
 def _draft_for_item(
-    connection: Connection, scoped: AuthContext, item_code: str
+    connection: Connection, scoped: AuthContext, item_code: str, kind: str
 ) -> int | None:
+    """작성 중인 기준은 **품목·검사 종류당 1건**이다 — 게시본 유니크와 같은 범위다."""
     return connection.execute(
         text(
-            f"SELECT id FROM qms.inspection_spec WHERE {_S} AND item_code=:item AND status='draft'"
+            f"SELECT id FROM qms.inspection_spec WHERE {_S} AND item_code=:item "
+            "AND inspection_kind=:kind AND status='draft'"
         ),
-        {**_s(scoped), "item": item_code},
+        {**_s(scoped), "item": item_code, "kind": kind},
     ).scalar()
 
 
@@ -353,7 +361,7 @@ def list_specs(
         rows = connection.execute(
             text(sql + " ORDER BY s.item_code, s.version_no DESC"), params
         ).mappings()
-        return [_row(r) for r in rows]
+        return [{**_row(r), "aql": sampling.label(r["aql"]) or None} for r in rows]
 
 
 def get_spec(context: AuthContext, spec_id: int) -> dict[str, Any]:
@@ -370,21 +378,27 @@ def create_spec(
     items = _spec_items(values.get("items", []))
 
     def fn(connection: Connection, scoped: AuthContext):
-        draft = _draft_for_item(connection, scoped, values["item_code"])
+        kind = values.get("inspection_kind") or "OUTGOING"
+        draft = _draft_for_item(connection, scoped, values["item_code"], kind)
         if draft is not None:
             raise _conflict(
-                "이 품목에는 작성 중인 기준이 있습니다.", "DRAFT_EXISTS", specId=draft
+                "이 품목·검사 종류에는 작성 중인 기준이 있습니다.",
+                "DRAFT_EXISTS",
+                specId=draft,
             )
+        # 버전은 **품목 단위로** 올라간다(UK item_code·version_no). 종류가 달라도 번호는 이어진다.
         version = connection.execute(
             text(
-                f"SELECT coalesce(max(version_no),0)+1 FROM qms.inspection_spec WHERE {_S} AND item_code=:item"
+                f"SELECT coalesce(max(version_no),0)+1 FROM qms.inspection_spec WHERE {_S} "
+                "AND item_code=:item"
             ),
             {**_s(scoped), "item": values["item_code"]},
         ).scalar_one()
         spec_id = connection.execute(
             text(
-                "INSERT INTO qms.inspection_spec(workspace_id,generation_id,item_code,item_name,version_no,note) "
-                "VALUES (:w,:g,:item,:name,:version,:note) RETURNING id"
+                "INSERT INTO qms.inspection_spec(workspace_id,generation_id,item_code,item_name,"
+                "version_no,note,inspection_kind,aql) "
+                "VALUES (:w,:g,:item,:name,:version,:note,:kind,:aql) RETURNING id"
             ),
             {
                 **_s(scoped),
@@ -392,6 +406,8 @@ def create_spec(
                 "name": values["item_name"],
                 "version": version,
                 "note": values.get("note"),
+                "kind": kind,
+                "aql": values.get("aql"),
             },
         ).scalar_one()
         _insert_items(connection, scoped, spec_id, items)
@@ -468,17 +484,25 @@ def publish_spec(context: AuthContext, spec_id: int, key: str) -> dict[str, Any]
             raise _conflict(
                 "검사 항목이 1개 이상 있어야 게시할 수 있습니다.", "NO_ITEMS"
             )
+        # 게시본은 **품목·검사 종류당 1건**이다. 출하 기준을 내리며 수입 기준까지 내리지 않는다.
+        scope_keys = {
+            **_s(scoped),
+            "item": spec["itemCode"],
+            "kind": spec["inspectionKind"],
+        }
         connection.execute(
             text(
-                f"SELECT 1 FROM qms.inspection_spec WHERE {_S} AND item_code=:item AND status='published' FOR UPDATE"
+                f"SELECT 1 FROM qms.inspection_spec WHERE {_S} AND item_code=:item "
+                "AND inspection_kind=:kind AND status='published' FOR UPDATE"
             ),
-            {**_s(scoped), "item": spec["itemCode"]},
+            scope_keys,
         )
         connection.execute(
             text(
-                f"UPDATE qms.inspection_spec SET status='retired' WHERE {_S} AND item_code=:item AND status='published'"
+                f"UPDATE qms.inspection_spec SET status='retired' WHERE {_S} AND item_code=:item "
+                "AND inspection_kind=:kind AND status='published'"
             ),
-            {**_s(scoped), "item": spec["itemCode"]},
+            scope_keys,
         )
         connection.execute(
             text(
@@ -518,10 +542,14 @@ def revise_spec(context: AuthContext, spec_id: int, key: str) -> dict[str, Any]:
             raise _not_found("검사 기준")
         if spec["status"] == "draft":
             raise _conflict("작성 중인 기준은 그대로 고치면 됩니다.", "ALREADY_DRAFT")
-        draft = _draft_for_item(connection, scoped, spec["itemCode"])
+        draft = _draft_for_item(
+            connection, scoped, spec["itemCode"], spec["inspectionKind"]
+        )
         if draft is not None:
             raise _conflict(
-                "이 품목에는 작성 중인 기준이 있습니다.", "DRAFT_EXISTS", specId=draft
+                "이 품목·검사 종류에는 작성 중인 기준이 있습니다.",
+                "DRAFT_EXISTS",
+                specId=draft,
             )
         version = connection.execute(
             text(
@@ -531,8 +559,9 @@ def revise_spec(context: AuthContext, spec_id: int, key: str) -> dict[str, Any]:
         ).scalar_one()
         new_id = connection.execute(
             text(
-                "INSERT INTO qms.inspection_spec(workspace_id,generation_id,item_code,item_name,version_no,note) "
-                "VALUES (:w,:g,:item,:name,:version,:note) RETURNING id"
+                "INSERT INTO qms.inspection_spec(workspace_id,generation_id,item_code,item_name,"
+                "version_no,note,inspection_kind,aql) "
+                "VALUES (:w,:g,:item,:name,:version,:note,:kind,:aql) RETURNING id"
             ),
             {
                 **_s(scoped),
@@ -540,6 +569,8 @@ def revise_spec(context: AuthContext, spec_id: int, key: str) -> dict[str, Any]:
                 "name": spec["itemName"],
                 "version": version,
                 "note": spec["note"],
+                "kind": spec["inspectionKind"],
+                "aql": spec["aql"],
             },
         ).scalar_one()
         _insert_items(
@@ -650,18 +681,22 @@ def mes_lots(context: AuthContext, pending: bool) -> list[dict[str, Any]]:
 INSPECTION_SQL = """
 SELECT i.id, i.inspection_no, i.source, i.lot_no, i.item_code, i.item_name, i.lot_qty, i.unit,
        i.sample_qty, i.spec_id, s.version_no spec_version, i.reinspection_of_id, i.status, i.result,
-       i.inspected_on, i.inspection_month, i.confirmed_at, i.note, i.created_at
+       i.inspected_on, i.inspection_month, i.confirmed_at, i.note, i.inspection_kind, i.partner_code,
+       i.source_ref, i.sampling, i.accept_number, i.reject_number, i.defect_count, s.aql spec_aql,
+       i.created_at
 FROM qms.inspection i
 JOIN qms.inspection_spec s ON s.workspace_id=i.workspace_id AND s.generation_id=i.generation_id AND s.id=i.spec_id
 WHERE i.workspace_id=:w AND i.generation_id=:g
 """
 VALUE_SQL = """
 SELECT t.id spec_item_id, t.seq, t.name, t.method, t.lower_limit, t.upper_limit, t.unit, t.is_required,
-       v.id value_id, v.measured_value, v.pass_value, v.judgement, v.defect_type_id, d.code defect_code, d.name defect_name
+       v.id value_id, v.measured_value, v.pass_value, v.judgement, v.defect_type_id, d.code defect_code, d.name defect_name,
+       v.gauge_id, ga.code gauge_code, ga.name gauge_name
 FROM qms.inspection_spec_item t
 LEFT JOIN qms.inspection_value v ON v.workspace_id=t.workspace_id AND v.generation_id=t.generation_id
  AND v.spec_item_id=t.id AND v.inspection_id=:inspection
 LEFT JOIN qms.defect_type d ON d.workspace_id=v.workspace_id AND d.generation_id=v.generation_id AND d.id=v.defect_type_id
+LEFT JOIN qms.gauge ga ON ga.workspace_id=v.workspace_id AND ga.generation_id=v.generation_id AND ga.id=v.gauge_id
 WHERE t.workspace_id=:w AND t.generation_id=:g AND t.spec_id=:spec
 ORDER BY t.seq
 """
@@ -695,6 +730,7 @@ def _inspection(
     if row is None:
         return None
     found = _row(row)
+    found["specAql"] = sampling.label(found["specAql"]) or None
     found["values"] = [
         _row(r)
         for r in connection.execute(
@@ -714,18 +750,37 @@ def _inspection(
     return found
 
 
-def _published_spec(connection: Connection, scoped: AuthContext, item_code: str) -> int:
+# 반품·초품은 **출하 기준**을 쓴다(DSN-14 3장) — 따로 기준을 게시하지 않는다.
+_SPEC_KIND = {
+    "OUTGOING": "OUTGOING",
+    "RETURN": "OUTGOING",
+    "FIRST_ARTICLE": "OUTGOING",
+    "INCOMING": "INCOMING",
+}
+
+
+def _published_spec(
+    connection: Connection,
+    scoped: AuthContext,
+    item_code: str,
+    kind: str = "OUTGOING",
+) -> int:
+    """그 품목·검사 종류의 게시본. 종류를 보지 않으면 출하·수입 기준이 섞인다(1c의 빚)."""
+    spec_kind = _SPEC_KIND[kind]
     spec_id = connection.execute(
         text(
-            f"SELECT id FROM qms.inspection_spec WHERE {_S} AND item_code=:item AND status='published'"
+            f"SELECT id FROM qms.inspection_spec WHERE {_S} AND item_code=:item "
+            "AND inspection_kind=:kind AND status='published'"
         ),
-        {**_s(scoped), "item": item_code},
+        {**_s(scoped), "item": item_code, "kind": spec_kind},
     ).scalar()
     if spec_id is None:
         raise _conflict(
-            "이 품목에는 게시한 검사 기준이 없습니다. 검사 기준을 먼저 게시하세요.",
+            f"이 품목에는 게시한 {'수입' if spec_kind == 'INCOMING' else '출하'} 검사 기준이 없습니다. "
+            "검사 기준을 먼저 게시하세요.",
             "NO_PUBLISHED_SPEC",
             itemCode=item_code,
+            inspectionKind=spec_kind,
         )
     return spec_id
 
@@ -749,13 +804,17 @@ def _insert_inspection(
     snap: dict[str, Any],
     spec_id: int,
     reinspection_of: int | None,
+    kind: str = "OUTGOING",
+    source_ref: str | None = None,
 ) -> int:
     inspected_on = snap["inspected_on"]
     inspection_id = connection.execute(
         text(
             "INSERT INTO qms.inspection(workspace_id,generation_id,inspection_no,source,lot_no,item_code,item_name,"
-            "lot_qty,unit,sample_qty,spec_id,reinspection_of_id,inspected_on,inspection_month,note) "
-            "VALUES (:w,:g,:no,:source,:lot,:item,:name,:lot_qty,:unit,:sample,:spec,:again,:on,:month,:note) RETURNING id"
+            "lot_qty,unit,sample_qty,spec_id,reinspection_of_id,inspected_on,inspection_month,note,"
+            "inspection_kind,source_ref,partner_code,sampling,accept_number,reject_number) "
+            "VALUES (:w,:g,:no,:source,:lot,:item,:name,:lot_qty,:unit,:sample,:spec,:again,:on,:month,:note,"
+            ":kind,:ref,:partner,:sampling,:accept,:reject) RETURNING id"
         ),
         {
             **_s(scoped),
@@ -772,6 +831,12 @@ def _insert_inspection(
             "on": inspected_on,
             "month": f"{inspected_on:%Y-%m}",
             "note": snap.get("note"),
+            "kind": kind,
+            "ref": source_ref,
+            "partner": snap.get("partner_code"),
+            "sampling": snap.get("sampling") or "MANUAL",
+            "accept": snap.get("accept_number"),
+            "reject": snap.get("reject_number"),
         },
     ).scalar_one()
     # 항목마다 빈 측정값 행을 만들어 둔다. 수정은 행 단위 UPDATE로 한다.
@@ -939,6 +1004,12 @@ def update_inspection(
                 _s(scoped),
             ).scalars()
         )
+        # F27 사용 계측기. 폐기·수리 중도 받는다 — 설계는 경고까지이고 검사를 막지 않는다.
+        known_gauges = set(
+            connection.execute(
+                text(f"SELECT id FROM qms.gauge WHERE {_S}"), _s(scoped)
+            ).scalars()
+        )
         errors: dict[str, str] = {}
         for entry in values.get("values") or []:
             item = items.get(entry["spec_item_id"])
@@ -968,9 +1039,14 @@ def update_inspection(
             if defect is not None and defect not in active_defects:
                 errors[f"values.{seq}.defectTypeId"] = "사용 중인 불량 유형을 고르세요."
                 continue
+            gauge = entry.get("gauge_id")
+            if gauge is not None and gauge not in known_gauges:
+                errors[f"values.{seq}.gaugeId"] = "계측기를 찾을 수 없습니다."
+                continue
             connection.execute(
                 text(
-                    "UPDATE qms.inspection_value SET measured_value=:m, pass_value=:p, judgement=:j, defect_type_id=:d "
+                    "UPDATE qms.inspection_value SET measured_value=:m, pass_value=:p, judgement=:j, "
+                    "defect_type_id=:d, gauge_id=:ga "
                     f"WHERE {_S} AND inspection_id=:inspection AND spec_item_id=:item"
                 ),
                 {
@@ -979,6 +1055,7 @@ def update_inspection(
                     "p": entry.get("pass_value"),
                     "j": judgement,
                     "d": defect,
+                    "ga": gauge,
                     "inspection": inspection_id,
                     "item": entry["spec_item_id"],
                 },
@@ -1011,9 +1088,18 @@ def confirm_inspection(
                 )
         if errors:
             raise _fields(errors)
-        result = (
-            "FAIL" if any(v["judgement"] == "FAIL" for v in found["values"]) else "PASS"
-        )
+        items_passed = all(v["judgement"] != "FAIL" for v in found["values"])
+        if found["sampling"] == "AQL":
+            if found["defectCount"] is None:
+                raise _field("defectCount", "시료에서 나온 불량 개수를 적어 주세요.")
+            if found["defectCount"] > int(Decimal(str(found["sampleQty"]))):
+                raise _field("defectCount", "불량 개수는 시료 수를 넘을 수 없습니다.")
+            # 계수(불량 개수 ≤ Ac)와 계량(항목 판정)을 함께 본다(DSN-14 Q2).
+            result = sampling.judge(
+                found["defectCount"], found["acceptNumber"], items_passed
+            )
+        else:
+            result = "PASS" if items_passed else "FAIL"
         connection.execute(
             text(
                 f"UPDATE qms.inspection SET status='confirmed', result=:r, confirmed_at=clock_timestamp() WHERE {_S} AND id=:id"
@@ -1057,7 +1143,9 @@ def reinspect(context: AuthContext, inspection_id: int, key: str) -> dict[str, A
         if original["status"] != "confirmed":
             raise _conflict("확정한 검사만 재검사할 수 있습니다.", "NOT_CONFIRMED")
         _no_draft_for_lot(connection, scoped, original["lotNo"])
-        spec_id = _published_spec(connection, scoped, original["itemCode"])
+        spec_id = _published_spec(
+            connection, scoped, original["itemCode"], original["inspectionKind"]
+        )
         snap = {
             "source": original["source"],
             "lot_no": original["lotNo"],
@@ -1067,8 +1155,20 @@ def reinspect(context: AuthContext, inspection_id: int, key: str) -> dict[str, A
             "unit": original["unit"],
             "sample_qty": original["sampleQty"],
             "inspected_on": business_today(),
+            "partner_code": original["partnerCode"],
+            "sampling": original["sampling"],
+            "accept_number": original["acceptNumber"],
+            "reject_number": original["rejectNumber"],
         }
-        new_id = _insert_inspection(connection, scoped, snap, spec_id, inspection_id)
+        new_id = _insert_inspection(
+            connection,
+            scoped,
+            snap,
+            spec_id,
+            inspection_id,
+            kind=original["inspectionKind"],
+            source_ref=original["sourceRef"],
+        )
         return _inspection(connection, scoped, new_id), "inspection", new_id
 
     return _action(
@@ -1305,6 +1405,34 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
                 for lot in lots
                 if not states.get(lot["lotNo"], {}).get("latestResult")
             )
+        # F71 미결 카드. WMS가 꺼져 있으면 수입 대기는 0이 아니라 '모름'이다.
+        incoming = _incoming_targets(connection, scoped)
+        open_counts = (
+            connection.execute(
+                text(
+                    f"SELECT (SELECT count(*) FROM qms.ncr WHERE {_S} AND status='OPEN') ncrs, "
+                    f" (SELECT count(*) FROM qms.capa WHERE {_S} "
+                    "   AND status IN ('OPEN','DONE','INEFFECTIVE')) capas, "
+                    f" (SELECT count(*) FROM qms.claim WHERE {_S} AND status <> 'CLOSED') claims"
+                ),
+                _s(scoped),
+            )
+            .mappings()
+            .one()
+        )
+        gauge_ids = list(
+            connection.execute(
+                text(f"SELECT id FROM qms.gauge WHERE {_S} AND status <> 'RETIRED'"),
+                _s(scoped),
+            ).scalars()
+        )
+        due = _calibration_state(connection, scoped, gauge_ids)
+        # 기록이 아예 없는 계측기(NONE)는 세지 않는다 — 기한이 다가온 것이 아니다.
+        gauges_due = sum(
+            1
+            for state in due.values()
+            if state["dueState"] in ("SOON", "OVERDUE") or state["lastResult"] == "FAIL"
+        )
     total, passed = counts["total"], counts["passed"]
     return {
         "month": month,
@@ -1314,8 +1442,1839 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
         else f"{Decimal(passed) * 100 / Decimal(total):.1f}",
         "activeHolds": len(holds),
         "pendingLots": pending,
+        "incomingPending": None if incoming is None else len(incoming),
+        "openNcrs": open_counts["ncrs"],
+        "openCapas": open_counts["capas"],
+        "openClaims": open_counts["claims"],
+        "gaugesDue": gauges_due,
         "daily": daily,
         "topDefects": defects,
         "recentFails": recent,
         "holds": holds,
+    }
+
+
+# ---------- 계측기·교정 (Q-11, DSN-14 F61·F62) ----------
+
+GAUGE = master.Master(
+    module=MODULE,
+    table="qms.gauge",
+    columns=(
+        "code",
+        "name",
+        "gauge_kind",
+        "measure_range",
+        "resolution",
+        "calibration_cycle_days",
+        "status",
+    ),
+    sort={"code": "code", "name": "name", "status": "status"},
+    default_sort="code ASC",
+    unique=("code",),
+    filters={"status": "status"},
+    references=(
+        master.Reference("qms.inspection_value", "gauge_id", "검사 사용 기록"),
+    ),
+    not_found="계측기를 찾을 수 없습니다.",
+    duplicate_field="code",
+    duplicate_message="이미 사용 중인 계측기 번호입니다.",
+    referenced_message=(
+        "검사에 사용한 기록이 있어 삭제할 수 없습니다. 폐기로 바꿔 주세요."
+    ),
+)
+
+# 교정 도래 경고는 30일 전부터(DSN-14 Q6). 차단이 아니라 표시다.
+DUE_SOON_DAYS = 30
+
+CALIBRATION_SQL = """
+SELECT c.id, c.gauge_id, c.calibrated_on, c.next_due_on, c.result, c.agency,
+       c.certificate_no, c.created_at
+FROM qms.calibration c WHERE c.workspace_id=:w AND c.generation_id=:g
+"""
+
+
+def _due_state(next_due: date | None, today: date) -> str:
+    """교정 상태: 기록 없음 / 기한 경과 / 임박 / 정상."""
+    if next_due is None:
+        return "NONE"
+    if next_due < today:
+        return "OVERDUE"
+    return "SOON" if (next_due - today).days <= DUE_SOON_DAYS else "OK"
+
+
+def _calibration_state(
+    connection: Connection, scoped: AuthContext, gauge_ids: list[int]
+) -> dict[int, dict[str, Any]]:
+    """계측기별 **마지막 교정**. 도래는 저장하지 않고 여기서 파생한다(설계 노트)."""
+    if not gauge_ids:
+        return {}
+    today = business_today()
+    rows = connection.execute(
+        text(
+            "SELECT DISTINCT ON (gauge_id) gauge_id, calibrated_on, next_due_on, result "
+            f"FROM qms.calibration WHERE {_S} AND gauge_id = ANY(:ids) "
+            "ORDER BY gauge_id, calibrated_on DESC, id DESC"
+        ),
+        {**_s(scoped), "ids": gauge_ids},
+    ).mappings()
+    found = {
+        r["gauge_id"]: {
+            "lastCalibratedOn": r["calibrated_on"].isoformat(),
+            "nextDueOn": r["next_due_on"].isoformat(),
+            "lastResult": r["result"],
+            "dueState": _due_state(r["next_due_on"], today),
+            "dueInDays": (r["next_due_on"] - today).days,
+        }
+        for r in rows
+    }
+    blank = {
+        "lastCalibratedOn": None,
+        "nextDueOn": None,
+        "lastResult": None,
+        "dueState": "NONE",
+        "dueInDays": None,
+    }
+    return {gauge_id: found.get(gauge_id, blank) for gauge_id in gauge_ids}
+
+
+def gauges(context: AuthContext, **kwargs) -> tuple[list[dict[str, Any]], int]:
+    """계측기 목록에 마지막 교정과 도래 상태를 얹는다."""
+    rows, total = master.listing(GAUGE, context, **kwargs)
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        state = _calibration_state(connection, scoped, [r["id"] for r in rows])
+    return [{**r, **state[r["id"]]} for r in rows], total
+
+
+def gauge(context: AuthContext, gauge_id: int) -> dict[str, Any]:
+    found = master.detail(GAUGE, context, gauge_id)
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        state = _calibration_state(connection, scoped, [gauge_id])[gauge_id]
+        history = [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    CALIBRATION_SQL
+                    + " AND c.gauge_id=:id ORDER BY c.calibrated_on DESC, c.id DESC"
+                ),
+                {**_s(scoped), "id": gauge_id},
+            ).mappings()
+        ]
+    return {**found, **state, "calibrations": history}
+
+
+def create_gauge(context: AuthContext, values: dict[str, Any], key: str):
+    return master.create(GAUGE, context, values, key)
+
+
+def update_gauge(context: AuthContext, gauge_id: int, values: dict, key: str):
+    return master.update(GAUGE, context, gauge_id, values, key)
+
+
+def delete_gauge(context: AuthContext, gauge_id: int, key: str) -> None:
+    master.delete(GAUGE, context, gauge_id, key)
+
+
+def add_calibration(
+    context: AuthContext, gauge_id: int, values: dict[str, Any], key: str
+):
+    """교정 이력 1건. **불합격이면 계측기를 수리 중으로, 수리 중이 합격하면 사용 중으로** 돌린다(F62)."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = (
+            connection.execute(
+                text(
+                    f"SELECT id, code, status, calibration_cycle_days FROM qms.gauge WHERE {_S} AND id=:id FOR UPDATE"
+                ),
+                {**_s(scoped), "id": gauge_id},
+            )
+            .mappings()
+            .first()
+        )
+        if found is None:
+            raise _not_found("계측기")
+        if found["status"] == "RETIRED":
+            raise _conflict(
+                "폐기한 계측기에는 교정을 기록할 수 없습니다.", "GAUGE_RETIRED"
+            )
+        calibrated_on = values["calibrated_on"]
+        if calibrated_on > business_today():
+            raise _field("calibratedOn", "교정일은 오늘 이후일 수 없습니다.")
+        # 기한을 적지 않으면 교정 주기로 정한다. 기관 성적서의 기한이 다르면 직접 적는다.
+        next_due = values.get("next_due_on") or calibrated_on + timedelta(
+            days=found["calibration_cycle_days"]
+        )
+        if next_due <= calibrated_on:
+            raise _field("nextDueOn", "다음 기한은 교정일보다 뒤여야 합니다.")
+        if connection.execute(
+            text(
+                f"SELECT 1 FROM qms.calibration WHERE {_S} AND gauge_id=:id AND calibrated_on=:on"
+            ),
+            {**_s(scoped), "id": gauge_id, "on": calibrated_on},
+        ).first():
+            raise _field("calibratedOn", "같은 날짜의 교정 기록이 이미 있습니다.")
+        row = (
+            connection.execute(
+                text(
+                    "INSERT INTO qms.calibration(workspace_id,generation_id,gauge_id,calibrated_on,"
+                    "next_due_on,result,agency,certificate_no) "
+                    "VALUES (:w,:g,:id,:on,:due,:result,:agency,:cert) "
+                    "RETURNING id, gauge_id, calibrated_on, next_due_on, result, agency, certificate_no, created_at"
+                ),
+                {
+                    **_s(scoped),
+                    "id": gauge_id,
+                    "on": calibrated_on,
+                    "due": next_due,
+                    "result": values["result"],
+                    "agency": values.get("agency"),
+                    "cert": values.get("certificate_no"),
+                },
+            )
+            .mappings()
+            .one()
+        )
+        status = (
+            "REPAIR"
+            if values["result"] == "FAIL"
+            else ("ACTIVE" if found["status"] == "REPAIR" else found["status"])
+        )
+        if status != found["status"]:
+            connection.execute(
+                text(f"UPDATE qms.gauge SET status=:s WHERE {_S} AND id=:id"),
+                {**_s(scoped), "s": status, "id": gauge_id},
+            )
+        return {**_row(row), "gaugeStatus": status}, "calibration", row["id"]
+
+    return _action(
+        context, "qms.calibration.create", key, {"id": gauge_id, **values}, fn, 201
+    )
+
+
+# ---------- 4M 변경 (Q-12, DSN-14 F06) ----------
+
+CHANGE_SQL = """
+SELECT n.id, n.cn_no, n.change_type, n.item_code, n.description, n.requested_on,
+       n.effective_on, n.status, n.decided_at, n.decision_note,
+       n.first_article_inspection_id, f.inspection_no first_article_no, f.result first_article_result,
+       n.plm_eco_no, n.created_at
+FROM qms.change_notice n
+LEFT JOIN qms.inspection f ON f.workspace_id=n.workspace_id AND f.generation_id=n.generation_id
+ AND f.id=n.first_article_inspection_id
+WHERE n.workspace_id=:w AND n.generation_id=:g
+"""
+
+
+def _change(
+    connection: Connection, scoped: AuthContext, cn_id: int, lock: bool = False
+) -> dict[str, Any] | None:
+    if lock:
+        connection.execute(
+            text(f"SELECT 1 FROM qms.change_notice WHERE {_S} AND id=:id FOR UPDATE"),
+            {**_s(scoped), "id": cn_id},
+        )
+    row = (
+        connection.execute(
+            text(CHANGE_SQL + " AND n.id=:id"), {**_s(scoped), "id": cn_id}
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else _row(row)
+
+
+def _first_articles(
+    connection: Connection, scoped: AuthContext, cn_no: str
+) -> list[dict[str, Any]]:
+    """이 신고 번호를 원천으로 만든 초품 검사. 확정 합격 1건이면 확인 완료로 닫을 수 있다."""
+    return [
+        _row(r)
+        for r in connection.execute(
+            text(
+                INSPECTION_SQL
+                + " AND i.inspection_kind='FIRST_ARTICLE' AND i.source_ref=:ref"
+                " ORDER BY i.id DESC"
+            ),
+            {**_s(scoped), "ref": cn_no},
+        ).mappings()
+    ]
+
+
+def list_change_notices(
+    context: AuthContext, status: str | None, change_type: str | None
+) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    CHANGE_SQL
+                    + " AND (CAST(:status AS text) IS NULL OR n.status=:status)"
+                    " AND (CAST(:kind AS text) IS NULL OR n.change_type=:kind)"
+                    " ORDER BY n.requested_on DESC, n.id DESC"
+                ),
+                {**_s(scoped), "status": status, "kind": change_type},
+            ).mappings()
+        ]
+
+
+def get_change_notice(context: AuthContext, cn_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = _change(connection, scoped, cn_id)
+        if found is None:
+            raise _not_found("4M 변경 신고")
+        return {
+            **found,
+            "firstArticles": _first_articles(connection, scoped, found["cnNo"]),
+        }
+
+
+def create_change_notice(context: AuthContext, values: dict[str, Any], key: str):
+    def fn(connection: Connection, scoped: AuthContext):
+        requested_on = values.get("requested_on") or business_today()
+        if values["effective_on"] < requested_on:
+            raise _field("effectiveOn", "적용 예정일은 신청일 이후여야 합니다.")
+        cn_id = connection.execute(
+            text(
+                "INSERT INTO qms.change_notice(workspace_id,generation_id,cn_no,change_type,"
+                "item_code,description,requested_on,effective_on) "
+                "VALUES (:w,:g,:no,:kind,:item,:desc,:on,:eff) RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "no": _next_no(connection, scoped, "qms.change_notice", "cn_no", "CN"),
+                "kind": values["change_type"],
+                "item": values["item_code"],
+                "desc": values["description"],
+                "on": requested_on,
+                "eff": values["effective_on"],
+            },
+        ).scalar_one()
+        return _change(connection, scoped, cn_id), "change_notice", cn_id
+
+    return _action(context, "qms.change_notice.create", key, values, fn, 201)
+
+
+def update_change_notice(context: AuthContext, cn_id: int, values: dict, key: str):
+    """신청 중일 때만 고친다. 승인·반려 뒤에는 기록을 바꾸지 않는다."""
+    if not values:
+        raise _fields({"description": "변경할 항목이 없습니다."})
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _change(connection, scoped, cn_id, lock=True)
+        if found is None:
+            raise _not_found("4M 변경 신고")
+        if found["status"] != "REQUESTED":
+            raise _conflict(
+                "결정한 신고는 고칠 수 없습니다.",
+                "NOT_REQUESTED",
+                status=found["status"],
+            )
+        merged = {
+            "requested_on": date.fromisoformat(found["requestedOn"]),
+            "effective_on": date.fromisoformat(found["effectiveOn"]),
+            **values,
+        }
+        if merged["effective_on"] < merged["requested_on"]:
+            raise _field("effectiveOn", "적용 예정일은 신청일 이후여야 합니다.")
+        assignments = ",".join(f"{name}=:{name}" for name in values)
+        connection.execute(
+            text(f"UPDATE qms.change_notice SET {assignments} WHERE {_S} AND id=:id"),
+            {**_s(scoped), **values, "id": cn_id},
+        )
+        return _change(connection, scoped, cn_id), "change_notice", cn_id
+
+    return _action(
+        context, "qms.change_notice.update", key, {"id": cn_id, **values}, fn
+    )
+
+
+def decide_change_notice(
+    context: AuthContext, cn_id: int, values: dict[str, Any], key: str
+):
+    """승인 또는 반려. 신청 중일 때만 결정하고, 반려에는 의견을 받는다."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _change(connection, scoped, cn_id, lock=True)
+        if found is None:
+            raise _not_found("4M 변경 신고")
+        if found["status"] != "REQUESTED":
+            raise _conflict(
+                "이미 결정한 신고입니다.", "ALREADY_DECIDED", status=found["status"]
+            )
+        status = "APPROVED" if values["approve"] else "REJECTED"
+        note = (values.get("note") or "").strip()
+        if status == "REJECTED" and not note:
+            raise _field("note", "반려 의견을 적어 주세요.")
+        connection.execute(
+            text(
+                f"UPDATE qms.change_notice SET status=:s, decided_at=clock_timestamp(), "
+                f"decision_note=:note WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "s": status, "note": note or None, "id": cn_id},
+        )
+        return _change(connection, scoped, cn_id), "change_notice", cn_id
+
+    return _action(
+        context, "qms.change_notice.decide", key, {"id": cn_id, **values}, fn
+    )
+
+
+def create_first_article(
+    context: AuthContext, cn_id: int, values: dict[str, Any], key: str
+):
+    """승인된 신고의 초품 검사를 만든다. 원천은 신고 번호이고 검사 기준은 품목의 게시본이다."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _change(connection, scoped, cn_id, lock=True)
+        if found is None:
+            raise _not_found("4M 변경 신고")
+        if found["status"] != "APPROVED":
+            raise _conflict(
+                "승인한 신고에만 초품 검사를 만들 수 있습니다.",
+                "NOT_APPROVED",
+                status=found["status"],
+            )
+        spec_id = _published_spec(
+            connection, scoped, found["itemCode"], "FIRST_ARTICLE"
+        )
+        item_name = connection.execute(
+            text(f"SELECT item_name FROM qms.inspection_spec WHERE {_S} AND id=:id"),
+            {**_s(scoped), "id": spec_id},
+        ).scalar_one()
+        _no_draft_for_lot(connection, scoped, values["lot_no"])
+        _sample_ok(values["sample_qty"], values["lot_qty"])
+        inspection_id = _insert_inspection(
+            connection,
+            scoped,
+            {
+                "source": "QMS",
+                "lot_no": values["lot_no"],
+                "item_code": found["itemCode"],
+                "item_name": item_name,
+                "lot_qty": values["lot_qty"],
+                "unit": values["unit"],
+                "sample_qty": values["sample_qty"],
+                "inspected_on": values.get("inspected_on") or business_today(),
+                "note": values.get("note"),
+            },
+            spec_id,
+            None,
+            kind="FIRST_ARTICLE",
+            source_ref=found["cnNo"],
+        )
+        return (
+            _inspection(connection, scoped, inspection_id),
+            "inspection",
+            inspection_id,
+        )
+
+    return _action(
+        context,
+        "qms.change_notice.first_article",
+        key,
+        {"id": cn_id, **values},
+        fn,
+        201,
+    )
+
+
+def verify_change_notice(context: AuthContext, cn_id: int, values: dict, key: str):
+    """초품 검사 합격으로 확인 완료. 불합격이면 승인 상태 그대로 두고 다시 검사한다(DB_POLICY)."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _change(connection, scoped, cn_id, lock=True)
+        if found is None:
+            raise _not_found("4M 변경 신고")
+        if found["status"] != "APPROVED":
+            raise _conflict(
+                "승인한 신고만 확인 완료할 수 있습니다.",
+                "NOT_APPROVED",
+                status=found["status"],
+            )
+        inspection_id = values["first_article_inspection_id"]
+        passed = {
+            i["id"]
+            for i in _first_articles(connection, scoped, found["cnNo"])
+            if i["status"] == "confirmed" and i["result"] == "PASS"
+        }
+        if inspection_id not in passed:
+            raise _field(
+                "firstArticleInspectionId",
+                "이 신고를 원천으로 확정·합격한 초품 검사만 고를 수 있습니다.",
+            )
+        connection.execute(
+            text(
+                "UPDATE qms.change_notice SET status='VERIFIED', "
+                f"first_article_inspection_id=:f WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "f": inspection_id, "id": cn_id},
+        )
+        return _change(connection, scoped, cn_id), "change_notice", cn_id
+
+    return _action(
+        context, "qms.change_notice.verify", key, {"id": cn_id, **values}, fn
+    )
+
+
+# ---------- 부적합 보고 (Q-07, DSN-14 F31) ----------
+
+NCR_SQL = """
+SELECT n.id, n.ncr_no, n.origin, n.item_code, n.lot_no, n.qty, n.defect_type_id,
+       d.code defect_code, d.name defect_name, n.description, n.immediate_action,
+       n.inspection_id, i.inspection_no, n.claim_id, n.source_ref, n.reported_on,
+       n.status, n.closed_at, n.created_at,
+       (SELECT count(*) FROM qms.capa c WHERE c.workspace_id=n.workspace_id
+         AND c.generation_id=n.generation_id AND c.ncr_id=n.id) capa_count,
+       (SELECT count(*) FROM qms.capa c WHERE c.workspace_id=n.workspace_id
+         AND c.generation_id=n.generation_id AND c.ncr_id=n.id AND c.status='VERIFIED') verified_count
+FROM qms.ncr n
+LEFT JOIN qms.defect_type d ON d.workspace_id=n.workspace_id
+ AND d.generation_id=n.generation_id AND d.id=n.defect_type_id
+LEFT JOIN qms.inspection i ON i.workspace_id=n.workspace_id
+ AND i.generation_id=n.generation_id AND i.id=n.inspection_id
+WHERE n.workspace_id=:w AND n.generation_id=:g
+"""
+
+# 발생처별 근거 규칙은 DB CHECK와 같다 — 서비스는 같은 말을 사람 말로 돌려줄 뿐이다.
+_NEEDS_INSPECTION = ("INCOMING", "OUTGOING")
+
+
+def _ncr(
+    connection: Connection, scoped: AuthContext, ncr_id: int, lock: bool = False
+) -> dict[str, Any] | None:
+    if lock:
+        connection.execute(
+            text(f"SELECT 1 FROM qms.ncr WHERE {_S} AND id=:id FOR UPDATE"),
+            {**_s(scoped), "id": ncr_id},
+        )
+    row = (
+        connection.execute(
+            text(NCR_SQL + " AND n.id=:id"), {**_s(scoped), "id": ncr_id}
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else _row(row)
+
+
+def list_ncrs(
+    context: AuthContext, status: str | None, origin: str | None
+) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    NCR_SQL + " AND (CAST(:status AS text) IS NULL OR n.status=:status)"
+                    " AND (CAST(:origin AS text) IS NULL OR n.origin=:origin)"
+                    " ORDER BY n.reported_on DESC, n.id DESC"
+                ),
+                {**_s(scoped), "status": status, "origin": origin},
+            ).mappings()
+        ]
+
+
+def get_ncr(context: AuthContext, ncr_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = _ncr(connection, scoped, ncr_id)
+        if found is None:
+            raise _not_found("부적합 보고")
+        return {**found, "capas": _capas(connection, scoped, ncr_id)}
+
+
+def ncr_sources(context: AuthContext, origin: str, month: str | None) -> dict[str, Any]:
+    """발생처별 근거 후보. 검사는 QMS가, 공정 불량은 MES가 준다(1b `defects`의 첫 소비자).
+
+    이미 부적합 보고를 만든 원천은 빼 준다 — 원천당 1건이 설계다(UK_PARTIAL).
+    """
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        used = set(
+            connection.execute(
+                text(f"SELECT source_ref FROM qms.ncr WHERE {_S} AND origin=:o"),
+                {**_s(scoped), "o": origin},
+            ).scalars()
+        )
+        if origin == "PROCESS":
+            rows = mes.defects(connection, scoped, month or f"{business_today():%Y-%m}")
+            if rows is None:
+                return {"mesEnabled": False, "rows": []}
+            return {
+                "mesEnabled": True,
+                "rows": [
+                    {**r, "sourceRef": ref}
+                    for r in rows
+                    if (ref := f"{r['lotNo']}:{r['processCode']}") not in used
+                ],
+            }
+        kind = "INCOMING" if origin == "INCOMING" else "OUTGOING"
+        taken = set(
+            connection.execute(
+                text(
+                    f"SELECT inspection_id FROM qms.ncr WHERE {_S} AND inspection_id IS NOT NULL"
+                ),
+                _s(scoped),
+            ).scalars()
+        )
+        rows = [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    INSPECTION_SQL + " AND i.status='confirmed' AND i.result='FAIL'"
+                    " AND i.inspection_kind=:kind ORDER BY i.confirmed_at DESC"
+                ),
+                {**_s(scoped), "kind": kind},
+            ).mappings()
+        ]
+        return {
+            "mesEnabled": True,
+            "rows": [r for r in rows if r["id"] not in taken],
+        }
+
+
+def _check_origin(
+    connection: Connection, scoped: AuthContext, values: dict[str, Any]
+) -> None:
+    origin = values["origin"]
+    if origin == "CUSTOMER":
+        raise _conflict(
+            "고객 발생 부적합은 클레임에서 만듭니다.", "CLAIM_REQUIRED", origin=origin
+        )
+    if origin in _NEEDS_INSPECTION and not values.get("inspection_id"):
+        raise _field("inspectionId", "근거가 되는 불합격 검사를 고르세요.")
+    if origin not in _NEEDS_INSPECTION and values.get("inspection_id"):
+        raise _field("inspectionId", "이 발생처에는 근거 검사를 달 수 없습니다.")
+    if values.get("inspection_id"):
+        found = _inspection(connection, scoped, values["inspection_id"])
+        if found is None:
+            raise _field("inspectionId", "검사를 찾을 수 없습니다.")
+        if found["status"] != "confirmed" or found["result"] != "FAIL":
+            raise _field("inspectionId", "확정·불합격한 검사만 근거가 됩니다.")
+
+
+def _insert_ncr(
+    connection: Connection, scoped: AuthContext, values: dict[str, Any]
+) -> int:
+    """부적합 보고 1행. 클레임 조사도 이 길로 들어온다(발생처 CUSTOMER·근거 클레임)."""
+    return connection.execute(
+        text(
+            "INSERT INTO qms.ncr(workspace_id,generation_id,ncr_no,origin,item_code,lot_no,"
+            "qty,defect_type_id,description,immediate_action,inspection_id,claim_id,source_ref,"
+            "reported_on) "
+            "VALUES (:w,:g,:no,:origin,:item,:lot,:qty,:defect,:desc,:act,:inspection,:claim,:ref,:on) "
+            "RETURNING id"
+        ),
+        {
+            **_s(scoped),
+            "no": _next_no(connection, scoped, "qms.ncr", "ncr_no", "NCR"),
+            "origin": values["origin"],
+            "item": values["item_code"],
+            "lot": values.get("lot_no"),
+            "qty": values["qty"],
+            "defect": values.get("defect_type_id"),
+            "desc": values["description"],
+            "act": values.get("immediate_action"),
+            "inspection": values.get("inspection_id"),
+            "claim": values.get("claim_id"),
+            "ref": values.get("source_ref"),
+            "on": values.get("reported_on") or business_today(),
+        },
+    ).scalar_one()
+
+
+def create_ncr(context: AuthContext, values: dict[str, Any], key: str):
+    def fn(connection: Connection, scoped: AuthContext):
+        _check_origin(connection, scoped, values)
+        if (
+            values.get("source_ref")
+            and connection.execute(
+                text(
+                    f"SELECT 1 FROM qms.ncr WHERE {_S} AND origin=:o AND source_ref=:ref"
+                ),
+                {**_s(scoped), "o": values["origin"], "ref": values["source_ref"]},
+            ).first()
+        ):
+            raise _field("sourceRef", "이 원천으로 만든 부적합 보고가 이미 있습니다.")
+        ncr_id = _insert_ncr(connection, scoped, values)
+        return _ncr(connection, scoped, ncr_id), "ncr", ncr_id
+
+    return _action(context, "qms.ncr.create", key, values, fn, 201)
+
+
+_NCR_EDITABLE = ("description", "immediate_action", "qty", "defect_type_id", "lot_no")
+
+
+def update_ncr(context: AuthContext, ncr_id: int, values: dict, key: str):
+    """종결 전에만 고친다. 발생처·근거는 바꾸지 않는다 — 바꿀 일이면 새 보고다."""
+    if not values:
+        raise _fields({"description": "변경할 항목이 없습니다."})
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _ncr(connection, scoped, ncr_id, lock=True)
+        if found is None:
+            raise _not_found("부적합 보고")
+        if found["status"] != "OPEN":
+            raise _conflict("종결한 보고는 고칠 수 없습니다.", "NCR_CLOSED")
+        assignments = ",".join(f"{name}=:{name}" for name in values)
+        connection.execute(
+            text(f"UPDATE qms.ncr SET {assignments} WHERE {_S} AND id=:id"),
+            {**_s(scoped), **values, "id": ncr_id},
+        )
+        return _ncr(connection, scoped, ncr_id), "ncr", ncr_id
+
+    return _action(context, "qms.ncr.update", key, {"id": ncr_id, **values}, fn)
+
+
+def close_ncr(context: AuthContext, ncr_id: int, key: str):
+    """연결 CAPA가 **하나 이상 있고 모두 유효성 확인**되어야 종결한다(DB_POLICY Q3)."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _ncr(connection, scoped, ncr_id, lock=True)
+        if found is None:
+            raise _not_found("부적합 보고")
+        if found["status"] != "OPEN":
+            raise _conflict("이미 종결한 보고입니다.", "NCR_CLOSED")
+        total, verified = found["capaCount"], found["verifiedCount"]
+        if total == 0:
+            raise _conflict(
+                "시정·예방 조치가 없습니다. 조치를 만들고 유효성을 확인한 뒤 종결하세요.",
+                "NO_CAPA",
+            )
+        if verified < total:
+            raise _conflict(
+                "유효성을 확인하지 않은 조치가 남았습니다.",
+                "CAPA_NOT_VERIFIED",
+                open=total - verified,
+            )
+        connection.execute(
+            text(
+                "UPDATE qms.ncr SET status='CLOSED', closed_at=clock_timestamp() "
+                f"WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "id": ncr_id},
+        )
+        return _ncr(connection, scoped, ncr_id), "ncr", ncr_id
+
+    return _action(context, "qms.ncr.close", key, {"id": ncr_id}, fn)
+
+
+# ---------- 시정·예방 조치 (Q-08, DSN-14 F32) ----------
+
+CAPA_SQL = """
+SELECT c.id, c.capa_no, c.ncr_id, n.ncr_no, n.item_code, c.kind, c.root_cause, c.action,
+       c.owner_name, c.due_on, c.status, c.done_at, c.verified_at, c.verification_note,
+       c.owner_hr_code, c.created_at
+FROM qms.capa c
+JOIN qms.ncr n ON n.workspace_id=c.workspace_id AND n.generation_id=c.generation_id
+ AND n.id=c.ncr_id
+WHERE c.workspace_id=:w AND c.generation_id=:g
+"""
+
+
+def _capas(
+    connection: Connection, scoped: AuthContext, ncr_id: int
+) -> list[dict[str, Any]]:
+    return [
+        _row(r)
+        for r in connection.execute(
+            text(CAPA_SQL + " AND c.ncr_id=:id ORDER BY c.id"),
+            {**_s(scoped), "id": ncr_id},
+        ).mappings()
+    ]
+
+
+def _capa(
+    connection: Connection, scoped: AuthContext, capa_id: int, lock: bool = False
+) -> dict[str, Any] | None:
+    if lock:
+        connection.execute(
+            text(f"SELECT 1 FROM qms.capa WHERE {_S} AND id=:id FOR UPDATE"),
+            {**_s(scoped), "id": capa_id},
+        )
+    row = (
+        connection.execute(
+            text(CAPA_SQL + " AND c.id=:id"), {**_s(scoped), "id": capa_id}
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else _row(row)
+
+
+def list_capas(
+    context: AuthContext, status: str | None, ncr_id: int | None
+) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    CAPA_SQL
+                    + " AND (CAST(:status AS text) IS NULL OR c.status=:status)"
+                    " AND (CAST(:ncr AS bigint) IS NULL OR c.ncr_id=:ncr)"
+                    " ORDER BY c.due_on, c.id"
+                ),
+                {**_s(scoped), "status": status, "ncr": ncr_id},
+            ).mappings()
+        ]
+
+
+def get_capa(context: AuthContext, capa_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = _capa(connection, scoped, capa_id)
+        if found is None:
+            raise _not_found("시정·예방 조치")
+        return found
+
+
+def create_capa(context: AuthContext, values: dict[str, Any], key: str):
+    """조치는 부적합 보고에 속한다. 종결한 보고에는 더 달지 않는다."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        parent = _ncr(connection, scoped, values["ncr_id"], lock=True)
+        if parent is None:
+            raise _field("ncrId", "부적합 보고를 찾을 수 없습니다.")
+        if parent["status"] != "OPEN":
+            raise _conflict("종결한 보고에는 조치를 더할 수 없습니다.", "NCR_CLOSED")
+        capa_id = connection.execute(
+            text(
+                "INSERT INTO qms.capa(workspace_id,generation_id,capa_no,ncr_id,kind,root_cause,"
+                "action,owner_name,due_on) VALUES (:w,:g,:no,:ncr,:kind,:cause,:act,:owner,:due) "
+                "RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "no": _next_no(connection, scoped, "qms.capa", "capa_no", "CA"),
+                "ncr": values["ncr_id"],
+                "kind": values["kind"],
+                "cause": values["root_cause"],
+                "act": values["action"],
+                "owner": values["owner_name"],
+                "due": values["due_on"],
+            },
+        ).scalar_one()
+        return _capa(connection, scoped, capa_id), "capa", capa_id
+
+    return _action(context, "qms.capa.create", key, values, fn, 201)
+
+
+def update_capa(context: AuthContext, capa_id: int, values: dict, key: str):
+    """완료 전에만 고친다. 완료·확인 뒤의 기록은 그대로 둔다."""
+    if not values:
+        raise _fields({"action": "변경할 항목이 없습니다."})
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _capa(connection, scoped, capa_id, lock=True)
+        if found is None:
+            raise _not_found("시정·예방 조치")
+        if found["status"] != "OPEN":
+            raise _conflict(
+                "완료한 조치는 고칠 수 없습니다.",
+                "CAPA_NOT_OPEN",
+                status=found["status"],
+            )
+        assignments = ",".join(f"{name}=:{name}" for name in values)
+        connection.execute(
+            text(f"UPDATE qms.capa SET {assignments} WHERE {_S} AND id=:id"),
+            {**_s(scoped), **values, "id": capa_id},
+        )
+        return _capa(connection, scoped, capa_id), "capa", capa_id
+
+    return _action(context, "qms.capa.update", key, {"id": capa_id, **values}, fn)
+
+
+def complete_capa(context: AuthContext, capa_id: int, key: str):
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _capa(connection, scoped, capa_id, lock=True)
+        if found is None:
+            raise _not_found("시정·예방 조치")
+        if found["status"] != "OPEN":
+            raise _conflict(
+                "이미 완료한 조치입니다.", "CAPA_NOT_OPEN", status=found["status"]
+            )
+        connection.execute(
+            text(
+                "UPDATE qms.capa SET status='DONE', done_at=clock_timestamp() "
+                f"WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "id": capa_id},
+        )
+        return _capa(connection, scoped, capa_id), "capa", capa_id
+
+    return _action(context, "qms.capa.complete", key, {"id": capa_id}, fn)
+
+
+def verify_capa(context: AuthContext, capa_id: int, values: dict, key: str):
+    """완료한 조치의 유효성을 확인한다. **무효면 새 조치를 만든다** — 되돌리지 않는다."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _capa(connection, scoped, capa_id, lock=True)
+        if found is None:
+            raise _not_found("시정·예방 조치")
+        if found["status"] != "DONE":
+            raise _conflict(
+                "완료한 조치만 확인할 수 있습니다.",
+                "CAPA_NOT_DONE",
+                status=found["status"],
+            )
+        note = (values.get("note") or "").strip()
+        if len(note) < 2:
+            raise _field("note", "확인 내용을 두 글자 이상 적어 주세요.")
+        connection.execute(
+            text(
+                "UPDATE qms.capa SET status=:s, verified_at=clock_timestamp(), "
+                f"verification_note=:note WHERE {_S} AND id=:id"
+            ),
+            {
+                **_s(scoped),
+                "s": "VERIFIED" if values["effective"] else "INEFFECTIVE",
+                "note": note,
+                "id": capa_id,
+            },
+        )
+        return _capa(connection, scoped, capa_id), "capa", capa_id
+
+    return _action(context, "qms.capa.verify", key, {"id": capa_id, **values}, fn)
+
+
+# ---------- 고객 클레임 (Q-09, DSN-14 F41~F43) ----------
+
+CLAIM_SQL = """
+SELECT c.id, c.claim_no, c.customer_code, c.received_on, c.item_code, c.lot_no, c.qty,
+       c.severity, c.description, c.return_ref, c.status, c.response, c.responded_on,
+       c.closed_at, c.crm_inquiry_no, c.created_at,
+       (SELECT count(*) FROM qms.ncr n WHERE n.workspace_id=c.workspace_id
+         AND n.generation_id=c.generation_id AND n.claim_id=c.id) ncr_count
+FROM qms.claim c WHERE c.workspace_id=:w AND c.generation_id=:g
+"""
+
+
+def _claim(
+    connection: Connection, scoped: AuthContext, claim_id: int, lock: bool = False
+) -> dict[str, Any] | None:
+    if lock:
+        connection.execute(
+            text(f"SELECT 1 FROM qms.claim WHERE {_S} AND id=:id FOR UPDATE"),
+            {**_s(scoped), "id": claim_id},
+        )
+    row = (
+        connection.execute(
+            text(CLAIM_SQL + " AND c.id=:id"), {**_s(scoped), "id": claim_id}
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else _row(row)
+
+
+def list_claims(
+    context: AuthContext, status: str | None, customer_code: str | None
+) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    CLAIM_SQL
+                    + " AND (CAST(:status AS text) IS NULL OR c.status=:status)"
+                    " AND (CAST(:customer AS text) IS NULL OR c.customer_code=:customer)"
+                    " ORDER BY c.received_on DESC, c.id DESC"
+                ),
+                {**_s(scoped), "status": status, "customer": customer_code},
+            ).mappings()
+        ]
+
+
+def get_claim(context: AuthContext, claim_id: int) -> dict[str, Any]:
+    """클레임 1건 + 연결 부적합 + **LOT 역추적**(F43). MES가 꺼졌거나 LOT이 없으면 trace는 None."""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = _claim(connection, scoped, claim_id)
+        if found is None:
+            raise _not_found("클레임")
+        ncrs = [
+            _row(r)
+            for r in connection.execute(
+                text(NCR_SQL + " AND n.claim_id=:id ORDER BY n.id"),
+                {**_s(scoped), "id": claim_id},
+            ).mappings()
+        ]
+        trace = (
+            mes.lot_trace(connection, scoped, found["lotNo"])
+            if found["lotNo"]
+            else None
+        )
+        return {
+            **found,
+            "ncrs": ncrs,
+            "trace": trace,
+            "mesEnabled": mes.enabled(connection, scoped),
+        }
+
+
+def customers(context: AuthContext) -> list[dict[str, Any]]:
+    """클레임을 걸 고객 목록. ERP가 꺼져 있으면 빈 목록이고 코드를 직접 적는다."""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return erp.partners(connection, scoped, "CUSTOMER") or []
+
+
+def create_claim(context: AuthContext, values: dict[str, Any], key: str):
+    def fn(connection: Connection, scoped: AuthContext):
+        claim_id = connection.execute(
+            text(
+                "INSERT INTO qms.claim(workspace_id,generation_id,claim_no,customer_code,"
+                "received_on,item_code,lot_no,qty,severity,description,return_ref) "
+                "VALUES (:w,:g,:no,:customer,:on,:item,:lot,:qty,:severity,:desc,:ret) RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "no": _next_no(connection, scoped, "qms.claim", "claim_no", "CL"),
+                "customer": values["customer_code"],
+                "on": values.get("received_on") or business_today(),
+                "item": values["item_code"],
+                "lot": values.get("lot_no"),
+                "qty": values["qty"],
+                "severity": values["severity"],
+                "desc": values["description"],
+                "ret": values.get("return_ref"),
+            },
+        ).scalar_one()
+        return _claim(connection, scoped, claim_id), "claim", claim_id
+
+    return _action(context, "qms.claim.create", key, values, fn, 201)
+
+
+def update_claim(context: AuthContext, claim_id: int, values: dict, key: str):
+    """회신 전에만 고친다. 회신·종결한 클레임은 고객에게 나간 기록이라 바꾸지 않는다."""
+    if not values:
+        raise _fields({"description": "변경할 항목이 없습니다."})
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _claim(connection, scoped, claim_id, lock=True)
+        if found is None:
+            raise _not_found("클레임")
+        if found["status"] not in ("RECEIVED", "INVESTIGATING"):
+            raise _conflict(
+                "회신한 클레임은 고칠 수 없습니다.",
+                "CLAIM_RESPONDED",
+                status=found["status"],
+            )
+        assignments = ",".join(f"{name}=:{name}" for name in values)
+        connection.execute(
+            text(f"UPDATE qms.claim SET {assignments} WHERE {_S} AND id=:id"),
+            {**_s(scoped), **values, "id": claim_id},
+        )
+        return _claim(connection, scoped, claim_id), "claim", claim_id
+
+    return _action(context, "qms.claim.update", key, {"id": claim_id, **values}, fn)
+
+
+def start_investigation(
+    context: AuthContext, claim_id: int, values: dict[str, Any], key: str
+):
+    """조사 시작 — **고객 발생 부적합 보고를 같은 트랜잭션에서 만든다**(DB_POLICY Q4).
+
+    클레임은 고객이 말한 것이고, 부적합 보고는 우리가 확인한 것이다. 둘을 갈라 두면
+    조사 없이 회신하는 길이 열린다. 그래서 조사 시작 = 부적합 보고 생성이다.
+    """
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _claim(connection, scoped, claim_id, lock=True)
+        if found is None:
+            raise _not_found("클레임")
+        if found["status"] != "RECEIVED":
+            raise _conflict(
+                "접수 상태의 클레임만 조사를 시작합니다.",
+                "NOT_RECEIVED",
+                status=found["status"],
+            )
+        ncr_id = _insert_ncr(
+            connection,
+            scoped,
+            {
+                "origin": "CUSTOMER",
+                "item_code": found["itemCode"],
+                "lot_no": found["lotNo"],
+                "qty": values.get("qty") or found["qty"],
+                "defect_type_id": values.get("defect_type_id"),
+                "description": values["description"],
+                "immediate_action": values.get("immediate_action"),
+                "claim_id": claim_id,
+            },
+        )
+        connection.execute(
+            text(f"UPDATE qms.claim SET status='INVESTIGATING' WHERE {_S} AND id=:id"),
+            {**_s(scoped), "id": claim_id},
+        )
+        return (
+            {**_claim(connection, scoped, claim_id), "ncrId": ncr_id},
+            "claim",
+            claim_id,
+        )
+
+    return _action(
+        context, "qms.claim.investigate", key, {"id": claim_id, **values}, fn
+    )
+
+
+def respond_claim(context: AuthContext, claim_id: int, values: dict, key: str):
+    """고객 회신. **조사(부적합 보고)를 거친 뒤에만** 회신한다 — 확인 없이 답하지 않는다."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _claim(connection, scoped, claim_id, lock=True)
+        if found is None:
+            raise _not_found("클레임")
+        if found["status"] != "INVESTIGATING":
+            raise _conflict(
+                "조사 중인 클레임만 회신합니다.",
+                "NOT_INVESTIGATING",
+                status=found["status"],
+            )
+        connection.execute(
+            text(
+                "UPDATE qms.claim SET status='RESPONDED', response=:res, responded_on=:on "
+                f"WHERE {_S} AND id=:id"
+            ),
+            {
+                **_s(scoped),
+                "res": values["response"],
+                "on": values.get("responded_on") or business_today(),
+                "id": claim_id,
+            },
+        )
+        return _claim(connection, scoped, claim_id), "claim", claim_id
+
+    return _action(context, "qms.claim.respond", key, {"id": claim_id, **values}, fn)
+
+
+def close_claim(context: AuthContext, claim_id: int, key: str):
+    """연결 부적합이 모두 종결되어야 클레임을 닫는다 — 조치가 남은 채로 닫지 않는다."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _claim(connection, scoped, claim_id, lock=True)
+        if found is None:
+            raise _not_found("클레임")
+        if found["status"] != "RESPONDED":
+            raise _conflict(
+                "회신한 클레임만 종결합니다.", "NOT_RESPONDED", status=found["status"]
+            )
+        open_ncrs = connection.execute(
+            text(
+                f"SELECT count(*) FROM qms.ncr WHERE {_S} AND claim_id=:id AND status='OPEN'"
+            ),
+            {**_s(scoped), "id": claim_id},
+        ).scalar_one()
+        if open_ncrs:
+            raise _conflict(
+                "종결하지 않은 부적합 보고가 남았습니다.",
+                "NCR_OPEN",
+                open=open_ncrs,
+            )
+        connection.execute(
+            text(
+                "UPDATE qms.claim SET status='CLOSED', closed_at=clock_timestamp() "
+                f"WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "id": claim_id},
+        )
+        return _claim(connection, scoped, claim_id), "claim", claim_id
+
+    return _action(context, "qms.claim.close", key, {"id": claim_id}, fn)
+
+
+# ---------- 공급처 품질 (Q-10, DSN-14 F05·F14·F51) ----------
+
+LEVEL_SQL = """
+SELECT l.id, l.partner_code, l.item_code, l.level, l.valid_from, l.reason, l.rating_id,
+       r.rating_month, r.grade, l.created_at
+FROM qms.supplier_level l
+LEFT JOIN qms.supplier_rating r ON r.workspace_id=l.workspace_id
+ AND r.generation_id=l.generation_id AND r.id=l.rating_id
+WHERE l.workspace_id=:w AND l.generation_id=:g
+"""
+SCAR_SQL = """
+SELECT s.id, s.scar_no, s.partner_code, s.inspection_id, i.inspection_no, s.ncr_id,
+       n.ncr_no, s.issued_on, s.due_on, s.response, s.responded_on, s.status,
+       s.closed_at, s.created_at
+FROM qms.scar s
+LEFT JOIN qms.inspection i ON i.workspace_id=s.workspace_id
+ AND i.generation_id=s.generation_id AND i.id=s.inspection_id
+LEFT JOIN qms.ncr n ON n.workspace_id=s.workspace_id
+ AND n.generation_id=s.generation_id AND n.id=s.ncr_id
+WHERE s.workspace_id=:w AND s.generation_id=:g
+"""
+
+# 등급 기준은 설계에 수치가 없다. **불합격 LOT 비율**로 가르고, 시정 요구가 있으면 한 단계 내린다.
+_GRADE_BANDS = ((Decimal(0), "A"), (Decimal("0.05"), "B"), (Decimal("0.10"), "C"))
+# 연속 합격 10 LOT이면 면제, 연속 불합격 2 LOT이면 강화를 제안한다(DSN-14 Q5).
+_EXEMPT_RUN, _TIGHTEN_RUN = 10, 2
+
+
+def _grade(lot_count: int, failed: int, scar_count: int) -> str:
+    if lot_count == 0:
+        return "A"
+    rate = Decimal(failed) / Decimal(lot_count)
+    grade = next((g for limit, g in _GRADE_BANDS if rate <= limit), "D")
+    if scar_count:  # 시정 요구가 있었으면 한 단계 내린다. D는 더 내려갈 곳이 없다.
+        grade = {"A": "B", "B": "C", "C": "D", "D": "D"}[grade]
+    return grade
+
+
+def _suggested_level(results: list[str]) -> str | None:
+    """최신순 판정 목록에서 앞쪽 연속만 본다. 섞여 있으면 제안하지 않는다."""
+    if len(results) >= _EXEMPT_RUN and all(r == "PASS" for r in results[:_EXEMPT_RUN]):
+        return "EXEMPT"
+    if len(results) >= _TIGHTEN_RUN and all(
+        r == "FAIL" for r in results[:_TIGHTEN_RUN]
+    ):
+        return "TIGHTENED"
+    return None
+
+
+def suppliers(context: AuthContext) -> list[dict[str, Any]]:
+    """공급처 목록. ERP가 꺼져 있으면 빈 목록이고 코드를 직접 적는다."""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return erp.partners(connection, scoped, "SUPPLIER") or []
+
+
+def supplier_levels(
+    context: AuthContext, partner_code: str | None
+) -> list[dict[str, Any]]:
+    """검사 수준 이력. **현재 수준은 저장하지 않는다** — 적용일이 오늘 이하인 최신 행이다."""
+    today = business_today()
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        rows = [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    LEVEL_SQL
+                    + " AND (CAST(:code AS text) IS NULL OR l.partner_code=:code)"
+                    " ORDER BY l.partner_code, l.item_code NULLS FIRST,"
+                    " l.valid_from DESC, l.id DESC"
+                ),
+                {**_s(scoped), "code": partner_code},
+            ).mappings()
+        ]
+    current: set[tuple[str, str | None]] = set()
+    for row in rows:
+        scope_key = (row["partnerCode"], row["itemCode"])
+        applied = date.fromisoformat(row["validFrom"]) <= today
+        row["isCurrent"] = applied and scope_key not in current
+        if row["isCurrent"]:
+            current.add(scope_key)
+    return rows
+
+
+def create_supplier_level(context: AuthContext, values: dict[str, Any], key: str):
+    def fn(connection: Connection, scoped: AuthContext):
+        if connection.execute(
+            text(
+                f"SELECT 1 FROM qms.supplier_level WHERE {_S} AND partner_code=:code "
+                "AND item_code IS NOT DISTINCT FROM :item AND valid_from=:on"
+            ),
+            {
+                **_s(scoped),
+                "code": values["partner_code"],
+                "item": values.get("item_code"),
+                "on": values["valid_from"],
+            },
+        ).first():
+            raise _field("validFrom", "같은 공급처·품목·적용일의 수준이 이미 있습니다.")
+        row_id = connection.execute(
+            text(
+                "INSERT INTO qms.supplier_level(workspace_id,generation_id,partner_code,"
+                "item_code,level,valid_from,reason,rating_id) "
+                "VALUES (:w,:g,:code,:item,:level,:on,:reason,:rating) RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "code": values["partner_code"],
+                "item": values.get("item_code"),
+                "level": values["level"],
+                "on": values["valid_from"],
+                "reason": values["reason"],
+                "rating": values.get("rating_id"),
+            },
+        ).scalar_one()
+        row = (
+            connection.execute(
+                text(LEVEL_SQL + " AND l.id=:id"), {**_s(scoped), "id": row_id}
+            )
+            .mappings()
+            .one()
+        )
+        return _row(row), "supplier_level", row_id
+
+    return _action(context, "qms.supplier_level.create", key, values, fn, 201)
+
+
+def supplier_ratings(context: AuthContext, month: str | None) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    f"SELECT * FROM qms.supplier_rating WHERE {_S} "
+                    "AND (CAST(:month AS text) IS NULL OR rating_month=:month) "
+                    "ORDER BY rating_month DESC, partner_code"
+                ),
+                {**_s(scoped), "month": month},
+            ).mappings()
+        ]
+
+
+def calculate_ratings(context: AuthContext, month: str, key: str):
+    """그 달 **수입 검사**로 공급처를 평가한다(F51). 다시 계산하면 그 달 행을 덮어쓴다.
+
+    수입 검사가 아직 없는 공간에서는 평가할 공급처가 없어 빈 목록이 나온다 — 0점이 아니라
+    '아직 아님'이다. 등급을 확정하는 것은 사람이고, 이 함수는 제안까지만 한다.
+    """
+
+    def fn(connection: Connection, scoped: AuthContext):
+        rows = connection.execute(
+            text(
+                "SELECT partner_code, count(*) lot_count, "
+                " count(*) FILTER (WHERE result='FAIL') failed, "
+                " COALESCE(sum(defect_count), 0) defects, COALESCE(sum(sample_qty), 0) sampled "
+                f"FROM qms.inspection WHERE {_S} AND inspection_kind='INCOMING' "
+                "  AND status='confirmed' AND partner_code IS NOT NULL "
+                "  AND inspection_month=:month GROUP BY partner_code ORDER BY partner_code"
+            ),
+            {**_s(scoped), "month": month},
+        ).mappings()
+        saved = []
+        for row in rows:
+            partner = row["partner_code"]
+            scar_count = connection.execute(
+                text(
+                    f"SELECT count(*) FROM qms.scar WHERE {_S} AND partner_code=:code "
+                    "AND to_char(issued_on, 'YYYY-MM')=:month"
+                ),
+                {**_s(scoped), "code": partner, "month": month},
+            ).scalar_one()
+            sampled = Decimal(str(row["sampled"]))
+            ppm = (
+                Decimal(0)
+                if sampled == 0
+                else (Decimal(str(row["defects"])) * 1000000 / sampled)
+            )
+            recent = list(
+                connection.execute(
+                    text(
+                        f"SELECT result FROM qms.inspection WHERE {_S} "
+                        "AND inspection_kind='INCOMING' AND status='confirmed' "
+                        "AND partner_code=:code ORDER BY confirmed_at DESC, id DESC LIMIT :n"
+                    ),
+                    {**_s(scoped), "code": partner, "n": _EXEMPT_RUN},
+                ).scalars()
+            )
+            grade = _grade(row["lot_count"], row["failed"], scar_count)
+            connection.execute(
+                text(
+                    "INSERT INTO qms.supplier_rating(workspace_id,generation_id,rating_month,"
+                    "partner_code,lot_count,failed_lot_count,defect_ppm,scar_count,grade,"
+                    "suggested_level) VALUES (:w,:g,:month,:code,:lots,:failed,:ppm,:scars,"
+                    ":grade,:suggest) "
+                    "ON CONFLICT (workspace_id,generation_id,rating_month,partner_code) "
+                    "DO UPDATE SET lot_count=EXCLUDED.lot_count, "
+                    " failed_lot_count=EXCLUDED.failed_lot_count, defect_ppm=EXCLUDED.defect_ppm, "
+                    " scar_count=EXCLUDED.scar_count, grade=EXCLUDED.grade, "
+                    " suggested_level=EXCLUDED.suggested_level"
+                ),
+                {
+                    **_s(scoped),
+                    "month": month,
+                    "code": partner,
+                    "lots": row["lot_count"],
+                    "failed": row["failed"],
+                    "ppm": ppm.quantize(Decimal("0.1")),
+                    "scars": scar_count,
+                    "grade": grade,
+                    "suggest": _suggested_level(recent),
+                },
+            )
+            saved.append(partner)
+        return {"month": month, "partners": saved}, "supplier_rating", len(saved)
+
+    return _action(context, "qms.supplier_rating.calculate", key, {"month": month}, fn)
+
+
+def list_scars(context: AuthContext, status: str | None) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    SCAR_SQL
+                    + " AND (CAST(:status AS text) IS NULL OR s.status=:status)"
+                    " ORDER BY s.issued_on DESC, s.id DESC"
+                ),
+                {**_s(scoped), "status": status},
+            ).mappings()
+        ]
+
+
+def _scar(
+    connection: Connection, scoped: AuthContext, scar_id: int, lock: bool = False
+) -> dict[str, Any] | None:
+    if lock:
+        connection.execute(
+            text(f"SELECT 1 FROM qms.scar WHERE {_S} AND id=:id FOR UPDATE"),
+            {**_s(scoped), "id": scar_id},
+        )
+    row = (
+        connection.execute(
+            text(SCAR_SQL + " AND s.id=:id"), {**_s(scoped), "id": scar_id}
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else _row(row)
+
+
+def create_scar(context: AuthContext, values: dict[str, Any], key: str):
+    """공급처 시정 요구. **통보는 기록만 한다 — 메일이나 팩스를 보내지 않는다**(설계 F14)."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        if values.get("ncr_id"):
+            parent = _ncr(connection, scoped, values["ncr_id"])
+            if parent is None:
+                raise _field("ncrId", "부적합 보고를 찾을 수 없습니다.")
+        issued_on = values.get("issued_on") or business_today()
+        if values["due_on"] < issued_on:
+            raise _field("dueOn", "회신 기한은 발행일 이후여야 합니다.")
+        scar_id = connection.execute(
+            text(
+                "INSERT INTO qms.scar(workspace_id,generation_id,scar_no,partner_code,"
+                "inspection_id,ncr_id,issued_on,due_on) "
+                "VALUES (:w,:g,:no,:code,:inspection,:ncr,:on,:due) RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "no": _next_no(connection, scoped, "qms.scar", "scar_no", "SC"),
+                "code": values["partner_code"],
+                "inspection": values.get("inspection_id"),
+                "ncr": values.get("ncr_id"),
+                "on": issued_on,
+                "due": values["due_on"],
+            },
+        ).scalar_one()
+        return _scar(connection, scoped, scar_id), "scar", scar_id
+
+    return _action(context, "qms.scar.create", key, values, fn, 201)
+
+
+def respond_scar(context: AuthContext, scar_id: int, values: dict, key: str):
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _scar(connection, scoped, scar_id, lock=True)
+        if found is None:
+            raise _not_found("시정 요구")
+        if found["status"] != "OPEN":
+            raise _conflict(
+                "회신을 받은 요구입니다.", "SCAR_RESPONDED", status=found["status"]
+            )
+        connection.execute(
+            text(
+                "UPDATE qms.scar SET status='RESPONDED', response=:res, responded_on=:on "
+                f"WHERE {_S} AND id=:id"
+            ),
+            {
+                **_s(scoped),
+                "res": values["response"],
+                "on": values.get("responded_on") or business_today(),
+                "id": scar_id,
+            },
+        )
+        return _scar(connection, scoped, scar_id), "scar", scar_id
+
+    return _action(context, "qms.scar.respond", key, {"id": scar_id, **values}, fn)
+
+
+def close_scar(context: AuthContext, scar_id: int, key: str):
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _scar(connection, scoped, scar_id, lock=True)
+        if found is None:
+            raise _not_found("시정 요구")
+        if found["status"] != "RESPONDED":
+            raise _conflict(
+                "회신을 받은 요구만 종결합니다.",
+                "SCAR_NOT_RESPONDED",
+                status=found["status"],
+            )
+        connection.execute(
+            text(
+                "UPDATE qms.scar SET status='CLOSED', closed_at=clock_timestamp() "
+                f"WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "id": scar_id},
+        )
+        return _scar(connection, scoped, scar_id), "scar", scar_id
+
+    return _action(context, "qms.scar.close", key, {"id": scar_id}, fn)
+
+
+# ---------- 수입 검사 (Q-03 수입 탭 · Q-04, DSN-14 F11·F12) ----------
+
+
+def _current_levels(
+    connection: Connection, scoped: AuthContext
+) -> dict[tuple[str, str | None], str]:
+    """공급처·품목별 현재 검사 수준. 적용일이 오늘 이하인 최신 행만 남긴다."""
+    rows = connection.execute(
+        text(
+            f"SELECT DISTINCT ON (partner_code, item_code) partner_code, item_code, level "
+            f"FROM qms.supplier_level WHERE {_S} AND valid_from <= :today "
+            "ORDER BY partner_code, item_code, valid_from DESC, id DESC"
+        ),
+        {**_s(scoped), "today": business_today()},
+    ).mappings()
+    return {(r["partner_code"], r["item_code"]): r["level"] for r in rows}
+
+
+def _level_for(
+    levels: dict[tuple[str, str | None], str], partner: str, item: str
+) -> str:
+    """품목 지정이 공급처 전체보다 우선한다. 정하지 않았으면 보통이다."""
+    return levels.get((partner, item)) or levels.get((partner, None)) or "NORMAL"
+
+
+def _incoming_targets(
+    connection: Connection, scoped: AuthContext
+) -> list[dict[str, Any]] | None:
+    """검사해야 할 입고 줄. WMS가 꺼져 있으면 None(0건이 아니다)."""
+    rows = wms.inbound_lots_to_inspect(connection, scoped)
+    if rows is None:
+        return None
+    used = set(
+        connection.execute(
+            text(
+                f"SELECT source_ref FROM qms.inspection WHERE {_S} "
+                "AND inspection_kind='INCOMING' AND source_ref IS NOT NULL"
+            ),
+            _s(scoped),
+        ).scalars()
+    )
+    levels = _current_levels(connection, scoped)
+    published = set(
+        connection.execute(
+            text(
+                f"SELECT item_code FROM qms.inspection_spec WHERE {_S} "
+                "AND inspection_kind='INCOMING' AND status='published'"
+            ),
+            _s(scoped),
+        ).scalars()
+    )
+    out = []
+    for row in rows:
+        if row["sourceRef"] in used:
+            continue
+        level = _level_for(levels, row["partnerCode"] or "", row["itemCode"])
+        # 면제는 검사하지 않는다(Q1). 목록에 남겨 두면 왜 없는지 알 수 없다.
+        if level == "EXEMPT":
+            continue
+        out.append({**row, "level": level, "hasSpec": row["itemCode"] in published})
+    return out
+
+
+def incoming_lots(context: AuthContext) -> dict[str, Any]:
+    """수입 검사 대기 — WMS에서 **격리된 입고 줄**을 읽어 검사 수준으로 거른다(F11·Q1).
+
+    1b `inbound_lots_to_inspect`의 첫 소비자다. 면제 공급처는 대상에서 빠지고, 이미 검사를
+    만든 원천도 빠진다. WMS를 꺼 두었으면 `wmsEnabled: False`이고 목록은 비어 있다.
+    """
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        rows = _incoming_targets(connection, scoped)
+    return {"wmsEnabled": rows is not None, "rows": rows or []}
+
+
+def create_incoming_inspection(context: AuthContext, values: dict[str, Any], key: str):
+    """격리된 입고 줄 하나로 수입 검사를 만든다. **시료 수는 AQL 표가 정한다**(Q2).
+
+    기준에 AQL이 없으면 지금까지처럼 시료 수를 직접 받는다. 공급처가 강화 수준이면
+    한 단계 엄격한 AQL로 본다(`sampling.tightened`).
+    """
+
+    def fn(connection: Connection, scoped: AuthContext):
+        rows = wms.inbound_lots_to_inspect(connection, scoped)
+        if rows is None:
+            raise _conflict(
+                "WMS를 사용하지 않도록 설정했습니다. 수입 검사 대상을 읽을 수 없습니다.",
+                "SOURCE_MODULE_DISABLED",
+                sourceModule="wms",
+            )
+        source = next((r for r in rows if r["sourceRef"] == values["source_ref"]), None)
+        if source is None:
+            raise _field("sourceRef", "검사할 입고 줄을 찾을 수 없습니다.")
+        if connection.execute(
+            text(
+                f"SELECT 1 FROM qms.inspection WHERE {_S} AND inspection_kind='INCOMING' "
+                "AND source_ref=:ref"
+            ),
+            {**_s(scoped), "ref": values["source_ref"]},
+        ).first():
+            raise _field("sourceRef", "이 입고 줄의 수입 검사가 이미 있습니다.")
+
+        partner = source["partnerCode"] or ""
+        level = _level_for(
+            _current_levels(connection, scoped), partner, source["itemCode"]
+        )
+        if level == "EXEMPT":
+            raise _conflict(
+                "면제 수준 공급처입니다. 수입 검사를 하지 않습니다.",
+                "SUPPLIER_EXEMPT",
+                partnerCode=partner,
+            )
+        spec_id = _published_spec(connection, scoped, source["itemCode"], "INCOMING")
+        aql = connection.execute(
+            text(f"SELECT aql FROM qms.inspection_spec WHERE {_S} AND id=:id"),
+            {**_s(scoped), "id": spec_id},
+        ).scalar()
+
+        lot_qty = source["qty"]
+        if aql is None:
+            if not values.get("sample_qty"):
+                raise _field(
+                    "sampleQty", "기준에 AQL이 없어 시료 수를 직접 적어야 합니다."
+                )
+            _sample_ok(values["sample_qty"], lot_qty)
+            extra = {"sample_qty": values["sample_qty"], "sampling": "MANUAL"}
+        else:
+            found = sampling.plan(
+                sampling.lot_size_of(lot_qty), sampling.label(aql), level
+            )
+            extra = {
+                "sample_qty": str(found["sampleSize"]),
+                "sampling": "AQL",
+                "accept_number": found["acceptNumber"],
+                "reject_number": found["rejectNumber"],
+            }
+        _no_draft_for_lot(connection, scoped, source["lotNo"] or source["sourceRef"])
+        inspection_id = _insert_inspection(
+            connection,
+            scoped,
+            {
+                "source": "WMS",
+                "lot_no": source["lotNo"] or source["sourceRef"],
+                "item_code": source["itemCode"],
+                "item_name": source["itemName"],
+                "lot_qty": lot_qty,
+                "unit": source["unit"],
+                "inspected_on": values.get("inspected_on") or business_today(),
+                "note": values.get("note"),
+                "partner_code": partner or None,
+                **extra,
+            },
+            spec_id,
+            None,
+            kind="INCOMING",
+            source_ref=values["source_ref"],
+        )
+        return (
+            _inspection(connection, scoped, inspection_id),
+            "inspection",
+            inspection_id,
+        )
+
+    return _action(context, "qms.inspection.incoming", key, values, fn, 201)
+
+
+def set_defect_count(context: AuthContext, inspection_id: int, values: dict, key: str):
+    """AQL 검사의 시료 불량 개수. 확정 전에만 고친다."""
+
+    def fn(connection: Connection, scoped: AuthContext):
+        found = _draft_inspection(connection, scoped, inspection_id)
+        if found["sampling"] != "AQL":
+            raise _conflict(
+                "AQL 검사에만 불량 개수를 적습니다.",
+                "NOT_AQL",
+                sampling=found["sampling"],
+            )
+        count = values["defect_count"]
+        if count > int(Decimal(str(found["sampleQty"]))):
+            raise _field("defectCount", "불량 개수는 시료 수를 넘을 수 없습니다.")
+        connection.execute(
+            text(f"UPDATE qms.inspection SET defect_count=:c WHERE {_S} AND id=:id"),
+            {**_s(scoped), "c": count, "id": inspection_id},
+        )
+        return (
+            _inspection(connection, scoped, inspection_id),
+            "inspection",
+            inspection_id,
+        )
+
+    return _action(
+        context, "qms.inspection.defect_count", key, {"id": inspection_id, **values}, fn
+    )
+
+
+def sampling_preview(context: AuthContext, lot_qty: str, aql: str, level: str):
+    """기준 화면에서 'AQL 2.5면 시료 몇 개?'를 미리 보여 준다. 저장하지 않는다."""
+    with _read() as connection:
+        read_scope(connection, context, MODULE)
+    return sampling.plan(sampling.lot_size_of(lot_qty), aql, level)
+
+
+# ---------- 품질 지표 (Q-13, DSN-14 F72) ----------
+
+# 월 추이는 한 해만 본다. 더 길게 잡아도 시드가 없는 공간에서는 빈 칸만 늘어난다.
+_TREND_MONTHS = 12
+
+
+def _ppm(defects: Any, base: Any) -> str | None:
+    """100만 개당 불량. **분모가 0이면 0이 아니라 모름**이다."""
+    total = Decimal(str(base or 0))
+    if total == 0:
+        return None
+    return f"{Decimal(str(defects or 0)) * 1000000 / total:.1f}"
+
+
+def quality_metrics(context: AuthContext, month: str | None) -> dict[str, Any]:
+    """발생처별 불량률·PPM, 불량 유형 파레토, 월 추이(F72). 저장하지 않고 그때그때 센다.
+
+    **PPM은 불량 '개수'가 있는 곳에서만 낸다** — 수입 검사는 시료 불량 개수를, 공정은 MES
+    실적의 불량 수량을 센다. 출하·고객 검사에는 개수 칸이 없어 LOT 불합격률·클레임 건수까지만
+    내고, 화면이 그 사실을 밝힌다. 없는 숫자를 만들어 내지 않는다.
+    """
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        months = list(
+            connection.execute(
+                text(
+                    f"SELECT DISTINCT inspection_month FROM qms.inspection WHERE {_S} "
+                    "AND status='confirmed' ORDER BY inspection_month DESC"
+                ),
+                _s(scoped),
+            ).scalars()
+        )
+        if not month:
+            month = months[0] if months else f"{business_today():%Y-%m}"
+        params = {**_s(scoped), "month": month}
+
+        by_kind = {
+            r["inspection_kind"]: _row(r)
+            for r in connection.execute(
+                text(
+                    "SELECT inspection_kind, count(*) lots, "
+                    " count(*) FILTER (WHERE result='FAIL') failed_lots, "
+                    " COALESCE(sum(defect_count), 0) defects, "
+                    " COALESCE(sum(sample_qty) FILTER (WHERE defect_count IS NOT NULL), 0) sampled "
+                    f"FROM qms.inspection WHERE {_S} AND status='confirmed' "
+                    "AND inspection_month=:month GROUP BY inspection_kind"
+                ),
+                params,
+            ).mappings()
+        }
+
+        def kind(name: str) -> dict[str, Any]:
+            row = by_kind.get(name) or {"lots": 0, "failedLots": 0}
+            return {
+                "lots": row["lots"],
+                "failedLots": row["failedLots"],
+                "failRate": None
+                if row["lots"] == 0
+                else f"{Decimal(row['failedLots']) * 100 / Decimal(row['lots']):.1f}",
+                "ppm": _ppm(row.get("defects"), row.get("sampled")),
+            }
+
+        claims = (
+            connection.execute(
+                text(
+                    f"SELECT count(*) count, COALESCE(sum(qty), 0) qty FROM qms.claim WHERE {_S} "
+                    "AND to_char(received_on, 'YYYY-MM')=:month"
+                ),
+                params,
+            )
+            .mappings()
+            .one()
+        )
+        pareto = [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    "SELECT d.code, d.name, count(*) count FROM qms.inspection_value v "
+                    "JOIN qms.inspection i ON i.workspace_id=v.workspace_id "
+                    " AND i.generation_id=v.generation_id AND i.id=v.inspection_id "
+                    "JOIN qms.defect_type d ON d.workspace_id=v.workspace_id "
+                    " AND d.generation_id=v.generation_id AND d.id=v.defect_type_id "
+                    "WHERE v.workspace_id=:w AND v.generation_id=:g AND v.judgement='FAIL' "
+                    " AND i.status='confirmed' AND i.inspection_month=:month "
+                    "GROUP BY d.code, d.name ORDER BY count(*) DESC, d.code"
+                ),
+                params,
+            ).mappings()
+        ]
+        trend = [
+            _row(r)
+            for r in connection.execute(
+                text(
+                    # month는 예약어라 별칭에 따옴표가 필요하다.
+                    'SELECT inspection_month AS "month", count(*) inspected, '
+                    " count(*) FILTER (WHERE result='FAIL') failed, "
+                    " COALESCE(sum(defect_count), 0) defects, "
+                    " COALESCE(sum(sample_qty) FILTER (WHERE defect_count IS NOT NULL), 0) sampled "
+                    f"FROM qms.inspection WHERE {_S} AND status='confirmed' "
+                    "AND inspection_month <= :month "
+                    "GROUP BY inspection_month ORDER BY inspection_month DESC LIMIT :n"
+                ),
+                {**params, "n": _TREND_MONTHS},
+            ).mappings()
+        ]
+        # 공정은 MES가 원천이다. 꺼져 있으면 0이 아니라 모름이고, 달마다 한 번만 읽는다.
+        process_rows = mes.defects(connection, scoped, month)
+
+    process = None
+    process_pareto = None
+    if process_rows is not None:
+        input_qty = sum(Decimal(r["inputQty"]) for r in process_rows)
+        defect_qty = sum(Decimal(r["defectQty"]) for r in process_rows)
+        counted: dict[tuple[str, str], Decimal] = {}
+        for record in process_rows:
+            # 코드가 없는 실적은 사유 한 줄뿐이다(mes.defect_code 시드 0건). 그대로 묶는다.
+            keys = [(c["defectCode"], c["defectName"]) for c in record["codes"]] or [
+                ("—", record["reason"] or "사유 없음")
+            ]
+            share = Decimal(record["defectQty"]) / len(keys)
+            for key in keys:
+                counted[key] = counted.get(key, Decimal(0)) + share
+        process = {
+            "records": len(process_rows),
+            "inputQty": str(input_qty),
+            "defectQty": str(defect_qty),
+            "ppm": _ppm(defect_qty, input_qty),
+        }
+        process_pareto = [
+            {"code": code, "name": name, "qty": f"{qty:.3f}"}
+            for (code, name), qty in sorted(
+                counted.items(), key=lambda kv: (-kv[1], kv[0])
+            )
+        ]
+
+    return {
+        "month": month,
+        "months": months,
+        "incoming": kind("INCOMING"),
+        "outgoing": kind("OUTGOING"),
+        "customer": {"claims": claims["count"], "qty": str(claims["qty"])},
+        "process": process,
+        "pareto": pareto,
+        "processPareto": process_pareto,
+        "trend": [
+            {**row, "ppm": _ppm(row["defects"], row["sampled"])}
+            for row in reversed(trend)
+        ],
     }

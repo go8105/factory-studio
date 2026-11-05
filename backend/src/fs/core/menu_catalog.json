@@ -366,10 +366,58 @@
           "group": "입출고"
         },
         {
+          "path": "putaways",
+          "id": "W-11",
+          "label": "적치",
+          "group": "입출고"
+        },
+        {
           "path": "reservations",
           "id": "W-09",
           "label": "출고 예약",
           "group": "입출고"
+        },
+        {
+          "path": "picks",
+          "id": "W-12",
+          "label": "피킹",
+          "group": "입출고"
+        },
+        {
+          "path": "issues",
+          "id": "W-13",
+          "label": "생산 불출",
+          "group": "입출고"
+        },
+        {
+          "path": "counts",
+          "id": "W-14",
+          "label": "재고 실사·마감",
+          "group": "재고"
+        },
+        {
+          "path": "labels",
+          "id": "W-17",
+          "label": "라벨 출력",
+          "group": "기준정보"
+        },
+        {
+          "path": "ledger",
+          "id": "W-18",
+          "label": "재고 수불부",
+          "group": "현황"
+        },
+        {
+          "path": "analysis",
+          "id": "W-19",
+          "label": "재고 분석",
+          "group": "현황"
+        },
+        {
+          "path": "occupancy",
+          "id": "W-20",
+          "label": "위치 점유",
+          "group": "현황"
         },
         {
           "path": "documents",
@@ -415,6 +463,12 @@
           "group": "에너지 현황"
         },
         {
+          "path": "reading-quality",
+          "id": "F-15",
+          "label": "계측 품질",
+          "group": "에너지 현황"
+        },
+        {
           "path": "allocations",
           "id": "F-03",
           "label": "설비별 배분",
@@ -449,6 +503,24 @@
           "id": "F-08",
           "label": "요금 산정",
           "group": "요금"
+        },
+        {
+          "path": "load-pattern",
+          "id": "F-16",
+          "label": "부하 패턴·피크",
+          "group": "요금"
+        },
+        {
+          "path": "equipment-comparison",
+          "id": "F-17",
+          "label": "설비 비교",
+          "group": "분석"
+        },
+        {
+          "path": "alarms",
+          "id": "F-18",
+          "label": "에너지 경보",
+          "group": "분석"
         },
         {
           "path": "sites",
@@ -518,6 +590,30 @@
           "group": "검사"
         },
         {
+          "path": "ncrs",
+          "id": "Q-07",
+          "label": "부적합 보고",
+          "group": "부적합"
+        },
+        {
+          "path": "capas",
+          "id": "Q-08",
+          "label": "시정·예방 조치",
+          "group": "부적합"
+        },
+        {
+          "path": "claims",
+          "id": "Q-09",
+          "label": "고객 클레임",
+          "group": "부적합"
+        },
+        {
+          "path": "suppliers",
+          "id": "Q-10",
+          "label": "공급처 품질",
+          "group": "기준정보"
+        },
+        {
           "path": "specs",
           "id": "Q-02",
           "label": "검사 기준",
@@ -528,6 +624,24 @@
           "id": "Q-06",
           "label": "불량 유형",
           "group": "기준정보"
+        },
+        {
+          "path": "gauges",
+          "id": "Q-11",
+          "label": "계측기·교정",
+          "group": "기준정보"
+        },
+        {
+          "path": "change-notices",
+          "id": "Q-12",
+          "label": "4M 변경",
+          "group": "변경 관리"
+        },
+        {
+          "path": "metrics",
+          "id": "Q-13",
+          "label": "품질 지표",
+          "group": "분석"
         }
       ]
     },
@@ -625,6 +739,97 @@
           "path": "characteristics",
           "id": "S-07",
           "label": "관리 특성·한계",
+          "group": "기준정보"
+        },
+        {
+          "path": "violations",
+          "id": "S-08",
+          "label": "규격 이탈",
+          "group": "측정·이상"
+        },
+        {
+          "path": "ocap",
+          "id": "S-09",
+          "label": "이상 대응 절차",
+          "group": "기준정보"
+        },
+        {
+          "path": "reports",
+          "id": "S-11",
+          "label": "공정능력 보고서",
+          "group": "공정 현황"
+        },
+        {
+          "path": "strata",
+          "id": "S-10",
+          "label": "층별 비교",
+          "group": "공정 현황"
+        }
+      ]
+    },
+    {
+      "key": "cmms",
+      "name": "CMMS",
+      "title": "설비보전",
+      "screens": [
+        {
+          "path": "overview",
+          "id": "C-01",
+          "label": "보전 개요",
+          "group": "보전 현황"
+        },
+        {
+          "path": "signals",
+          "id": "C-02",
+          "label": "전환 대기 신호",
+          "group": "보전 현황"
+        },
+        {
+          "path": "work-orders",
+          "id": "C-03",
+          "label": "작업지시",
+          "group": "보전 현황"
+        },
+        {
+          "path": "pm-plans",
+          "id": "C-04",
+          "label": "예방보전 계획",
+          "group": "보전 현황"
+        },
+        {
+          "path": "metrics",
+          "id": "C-07",
+          "label": "보전 지표",
+          "group": "분석"
+        },
+        {
+          "path": "cost",
+          "id": "C-10",
+          "label": "보전 비용",
+          "group": "분석"
+        },
+        {
+          "path": "assets",
+          "id": "C-05",
+          "label": "설비 대장",
+          "group": "기준정보"
+        },
+        {
+          "path": "spare-parts",
+          "id": "C-06",
+          "label": "예비품",
+          "group": "기준정보"
+        },
+        {
+          "path": "technicians",
+          "id": "C-08",
+          "label": "정비원·외주 업체",
+          "group": "기준정보"
+        },
+        {
+          "path": "failure-codes",
+          "id": "C-09",
+          "label": "고장 코드",
           "group": "기준정보"
         }
       ]

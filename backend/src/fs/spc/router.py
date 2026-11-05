@@ -15,6 +15,11 @@ from fs.spc.schema import (
     CharacteristicCreate,
     CharacteristicUpdate,
     LimitPublish,
+    OcapChecks,
+    OcapItemCreate,
+    OcapItemUpdate,
+    ReportConfirm,
+    ReportCreate,
     Resolve,
     SubgroupCreate,
     VoidBody,
@@ -113,6 +118,17 @@ def get_capability(
     return _data(service.capability(context, characteristic_id, date_from, date_to))
 
 
+@router.get("/characteristics/{characteristic_id}/strata")
+def get_strata(
+    characteristic_id: int,
+    context: Auth,
+    by: Literal["equipment", "lot"] = "equipment",
+    date_from: From = None,
+    date_to: To = None,
+):
+    return _data(service.strata(context, characteristic_id, by, date_from, date_to))
+
+
 @router.get("/characteristics/{characteristic_id}/limits")
 def list_limits(characteristic_id: int, context: Auth):
     return _data(service.limits(context, characteristic_id))
@@ -191,6 +207,133 @@ def post_void(
             context, subgroup_id, payload.reason, _mutation(context, csrf, key)
         )
     )
+
+
+@router.get("/capability-reports")
+def list_capability_reports(
+    context: Auth,
+    characteristic_id: Annotated[int | None, Query(alias="characteristicId")] = None,
+    status: Literal["draft", "confirmed", "superseded"] | None = None,
+):
+    return _data(service.capability_reports(context, characteristic_id, status))
+
+
+@router.post("/capability-reports", status_code=201)
+def post_capability_report(
+    payload: ReportCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_capability_report(
+            context,
+            _values(payload, frozenset({"comment"})),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.get("/capability-reports/{report_id}")
+def get_capability_report(report_id: int, context: Auth):
+    return _data(service.capability_report(context, report_id))
+
+
+@router.post("/capability-reports/{report_id}/confirm")
+def post_capability_report_confirm(
+    report_id: int,
+    payload: ReportConfirm,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.confirm_capability_report(
+            context,
+            report_id,
+            payload.model_dump(exclude_unset=True),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.get("/ocap-items")
+def list_ocap_items(
+    context: Auth,
+    characteristic_id: Annotated[int | None, Query(alias="characteristicId")] = None,
+):
+    return _data(service.ocap_items(context, characteristic_id))
+
+
+@router.post("/ocap-items", status_code=201)
+def post_ocap_item(
+    payload: OcapItemCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.create_ocap_item(
+            context,
+            _values(
+                payload, frozenset({"characteristic_id", "rule_no", "cause_category"})
+            ),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.patch("/ocap-items/{item_id}")
+def patch_ocap_item(
+    item_id: int,
+    payload: OcapItemUpdate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.update_ocap_item(
+            context,
+            item_id,
+            _values(
+                payload, frozenset({"characteristic_id", "rule_no", "cause_category"})
+            ),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.get("/signals/{signal_id}/ocap")
+def get_ocap_checks(signal_id: int, context: Auth):
+    return _data(service.ocap_checks(context, signal_id))
+
+
+@router.post("/signals/{signal_id}/ocap")
+def post_ocap_checks(
+    signal_id: int,
+    payload: OcapChecks,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.record_ocap_checks(
+            context,
+            signal_id,
+            payload.model_dump(exclude_unset=True),
+            _mutation(context, csrf, key),
+        )
+    )
+
+
+@router.get("/spec-violations")
+def list_spec_violations(
+    context: Auth,
+    characteristic_id: Annotated[int | None, Query(alias="characteristicId")] = None,
+    lot_no: Annotated[str | None, Query(alias="lotNo")] = None,
+    status: Literal["open", "void"] | None = None,
+):
+    return _data(service.spec_violations(context, characteristic_id, lot_no, status))
 
 
 @router.get("/signals")

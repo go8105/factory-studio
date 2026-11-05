@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 import pyotp
 import pytest
 from cryptography.fernet import Fernet
-
 from fs.common.errors import ApiError
 from fs.common.security import hash_password, verify_password
 from fs.core.security.config import security_settings

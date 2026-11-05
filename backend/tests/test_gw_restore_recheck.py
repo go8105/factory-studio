@@ -8,15 +8,14 @@ from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from test_gw_acceptance_collection import fixture as sources
-from test_gw_acceptance_collection import signed
-from test_gw_restore_observation import payload as restore_payload
-
 from fs.common.errors import ApiError
 from fs.gw.acceptance_reconciliation import sign_reconciliation
 from fs.gw.evidence_trust import load
 from fs.gw.operating_contract import canonical, verify_evidence
 from fs.gw.restore_recheck import sign, verify
+from test_gw_acceptance_collection import fixture as sources
+from test_gw_acceptance_collection import signed
+from test_gw_restore_observation import payload as restore_payload
 
 
 def prepared():

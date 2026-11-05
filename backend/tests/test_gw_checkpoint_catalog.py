@@ -11,15 +11,14 @@ from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from test_gw_checkpoint_head import prepared_head
-from test_gw_source_checkpoint import observation
-
 from fs.common.errors import ApiError
 from fs.gw.acceptance_reconciliation import sign_reconciliation
 from fs.gw.checkpoint_catalog import DOMAIN, ENV, observe, require_history
 from fs.gw.evidence_trust import load
 from fs.gw.operating_contract import canonical, verify_evidence
 from fs.gw.restore_recheck import sign, verify
+from test_gw_checkpoint_head import prepared_head
+from test_gw_source_checkpoint import observation
 
 
 def add_authority(keys, workspace_id, authority):

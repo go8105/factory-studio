@@ -24,6 +24,7 @@ import {
   useSend,
   WMS,
   type Location,
+  type LocationType,
   type Purpose,
   type Warehouse,
 } from "./common";
@@ -38,7 +39,10 @@ type Draft = {
   purpose: Purpose;
   isActive: boolean;
   isDefault: boolean;
-  locationType: "NORMAL" | "QUARANTINE";
+  locationType: LocationType;
+  capacityQty: string;
+  mixItems: boolean;
+  mixLots: boolean;
 };
 const EMPTY: Draft = {
   code: "",
@@ -47,6 +51,9 @@ const EMPTY: Draft = {
   isActive: true,
   isDefault: false,
   locationType: "NORMAL",
+  capacityQty: "",
+  mixItems: true,
+  mixLots: true,
 };
 
 export function Warehouses() {
@@ -112,6 +119,9 @@ export function Warehouses() {
             name: draft.name,
             isActive: draft.isActive,
             locationType: draft.locationType,
+            capacityQty: draft.capacityQty.trim() || null,
+            mixItems: draft.mixItems,
+            mixLots: draft.mixLots,
             ...(draft.isDefault && !panel.row.isDefault
               ? { isDefault: true }
               : {}),
@@ -121,6 +131,9 @@ export function Warehouses() {
             name: draft.name,
             isDefault: draft.isDefault,
             locationType: draft.locationType,
+            capacityQty: draft.capacityQty.trim() || null,
+            mixItems: draft.mixItems,
+            mixLots: draft.mixLots,
           });
       if (saved) setPanel({ kind: "locations", warehouse: panel.warehouse });
     }
@@ -295,6 +308,9 @@ export function Warehouses() {
                                       isActive: l.isActive,
                                       isDefault: l.isDefault,
                                       locationType: l.locationType ?? "NORMAL",
+                                      capacityQty: l.capacityQty ?? "",
+                                      mixItems: l.mixItems ?? true,
+                                      mixLots: l.mixLots ?? true,
                                     },
                                   )
                                 }
@@ -412,21 +428,59 @@ export function Warehouses() {
                   위치 유형
                   <select
                     value={draft.locationType}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const nextType = e.target.value as LocationType;
                       setDraft({
                         ...draft,
-                        locationType: e.target.value as "NORMAL" | "QUARANTINE",
+                        locationType: nextType,
                         isDefault:
-                          e.target.value === "QUARANTINE"
-                            ? false
-                            : draft.isDefault,
-                      })
-                    }
+                          nextType === "NORMAL" ? draft.isDefault : false,
+                      });
+                    }}
                   >
                     <option value="NORMAL">정상</option>
+                    <option value="RECEIVING">입고장</option>
+                    <option value="SHIPPING">출고장</option>
+                    <option value="LINE">라인</option>
                     <option value="QUARANTINE">격리</option>
+                    <option value="RETURN">반품</option>
                   </select>
                 </label>
+              )}
+              {panel.kind === "location" && (
+                <>
+                  <label>
+                    용량 (비우면 제한 없음)
+                    <input
+                      value={draft.capacityQty}
+                      inputMode="decimal"
+                      onChange={(e) =>
+                        setDraft({ ...draft, capacityQty: e.target.value })
+                      }
+                    />
+                    {errors.capacityQty && <small>{errors.capacityQty}</small>}
+                  </label>
+                  <label className="inline-check">
+                    <input
+                      type="checkbox"
+                      checked={draft.mixItems}
+                      onChange={(e) =>
+                        setDraft({ ...draft, mixItems: e.target.checked })
+                      }
+                    />
+                    다른 품목 혼적 허용
+                  </label>
+                  <label className="inline-check">
+                    <input
+                      type="checkbox"
+                      checked={draft.mixLots}
+                      onChange={(e) =>
+                        setDraft({ ...draft, mixLots: e.target.checked })
+                      }
+                    />
+                    다른 LOT 혼적 허용
+                  </label>
+                </>
               )}
               {panel.kind === "location" && (
                 <label className="inline-check">
@@ -434,8 +488,7 @@ export function Warehouses() {
                     type="checkbox"
                     checked={draft.isDefault}
                     disabled={
-                      !!panel.row?.isDefault ||
-                      draft.locationType === "QUARANTINE"
+                      !!panel.row?.isDefault || draft.locationType !== "NORMAL"
                     }
                     onChange={(e) =>
                       setDraft({ ...draft, isDefault: e.target.checked })

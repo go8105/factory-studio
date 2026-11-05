@@ -20,6 +20,7 @@ import {
   ModuleOff,
   moduleOff,
   num,
+  rulesOf,
   spec,
   SPC,
   time,
@@ -27,8 +28,13 @@ import {
   toLocal,
   useGet,
   useSend,
+  CHART_TYPE_LABEL,
+  DEFAULT_RULES,
+  RULE_LABEL,
   type Characteristic,
+  type ChartType,
   type Limit,
+  type RuleNo,
 } from "./common";
 
 type Item = { itemCode: string; name: string };
@@ -43,6 +49,9 @@ type Draft = {
   target: string;
   decimals: string;
   isActive: boolean;
+  chartType: ChartType;
+  subgroupSize: string;
+  rules: RuleNo[];
 };
 type Preview = {
   basisCount: number;
@@ -65,6 +74,9 @@ const blank: Draft = {
   target: "",
   decimals: "3",
   isActive: true,
+  chartType: "XBAR_R",
+  subgroupSize: "5",
+  rules: DEFAULT_RULES,
 };
 const orNull = (v: string) => (v.trim() === "" ? null : v.trim());
 
@@ -273,6 +285,9 @@ export function Characteristics() {
             target: target.target ?? "",
             decimals: String(target.decimals),
             isActive: target.isActive,
+            chartType: target.chartType,
+            subgroupSize: String(target.subgroupSize),
+            rules: rulesOf(target),
           };
     guard.guard(() => {
       setEdit(target);
@@ -289,7 +304,11 @@ export function Characteristics() {
       lsl: orNull(draft.lsl),
       usl: orNull(draft.usl),
       target: orNull(draft.target),
+      chartType: draft.chartType,
+      subgroupSize: Number(draft.subgroupSize),
     };
+    // 규칙은 부분군이 있어도 바꿀 수 있다 — 지난 판정은 그대로 두고 다음 부분군부터 적용된다.
+    const rules = [...draft.rules].sort((a, b) => a - b);
     const saved =
       edit === "new"
         ? await send("/characteristics", "POST", {
@@ -298,12 +317,14 @@ export function Characteristics() {
             processCode: draft.processCode,
             name: draft.name,
             decimals: Number(draft.decimals),
+            rules,
             ...specFields,
           })
         : await send(`/characteristics/${edit.id}`, "PATCH", {
             name: draft.name,
             decimals: Number(draft.decimals),
             isActive: draft.isActive,
+            rules,
             ...(inUse ? {} : specFields),
           });
     if (saved) setEdit(null);
@@ -337,6 +358,17 @@ export function Characteristics() {
     { key: "processCode", label: "공정" },
     { key: "name", label: "특성명" },
     { key: "lsl", label: "규격", render: (c) => spec(c) },
+    {
+      key: "chartType",
+      label: "관리도",
+      render: (c) =>
+        c.chartType === "I_MR" ? "I-MR" : `X̄-R (n=${c.subgroupSize})`,
+    },
+    {
+      key: "rules",
+      label: "판정 규칙",
+      render: (c) => rulesOf(c).join("·"),
+    },
     {
       key: "limitVersion",
       label: "한계",
@@ -441,8 +473,9 @@ export function Characteristics() {
               />
               {inUse && (
                 <p role="note" className="muted">
-                  부분군이 있어 규격·단위·품목·공정은 바꿀 수 없습니다. 바꾸려면
-                  새 특성을 등록하세요.
+                  부분군이 있어 규격·단위·품목·공정·관리도 종류는 바꿀 수
+                  없습니다. 바꾸려면 새 특성을 등록하세요. 판정 규칙은 바꿀 수
+                  있고 다음 부분군부터 적용됩니다.
                 </p>
               )}
               <Field
@@ -531,6 +564,72 @@ export function Characteristics() {
                   onChange={(e) => setDraft({ ...draft, [k]: e.target.value })}
                 />
               ))}
+              <div className="field">
+                <label htmlFor="spc-chart">관리도 종류</label>
+                <select
+                  id="spc-chart"
+                  value={draft.chartType}
+                  disabled={inUse}
+                  onChange={(e) => {
+                    const chartType = e.target.value as ChartType;
+                    setDraft({
+                      ...draft,
+                      chartType,
+                      subgroupSize:
+                        chartType === "I_MR"
+                          ? "1"
+                          : draft.subgroupSize === "1"
+                            ? "5"
+                            : draft.subgroupSize,
+                    });
+                  }}
+                >
+                  {(Object.keys(CHART_TYPE_LABEL) as ChartType[]).map((k) => (
+                    <option key={k} value={k}>
+                      {CHART_TYPE_LABEL[k]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {draft.chartType === "XBAR_R" && (
+                <Field
+                  label="부분군 크기(2~10)"
+                  type="number"
+                  min={2}
+                  max={10}
+                  value={draft.subgroupSize}
+                  disabled={inUse}
+                  error={errors.subgroupSize}
+                  onChange={(e) =>
+                    setDraft({ ...draft, subgroupSize: e.target.value })
+                  }
+                />
+              )}
+              <fieldset className="field">
+                <legend>판정 규칙(Nelson)</legend>
+                {(Object.keys(RULE_LABEL) as unknown as RuleNo[])
+                  .map(Number)
+                  .map((n) => n as RuleNo)
+                  .map((n) => (
+                    <label key={n} className="inline-check">
+                      <input
+                        type="checkbox"
+                        checked={draft.rules.includes(n)}
+                        disabled={n === 1}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            rules: e.target.checked
+                              ? [...draft.rules, n]
+                              : draft.rules.filter((r) => r !== n),
+                          })
+                        }
+                      />
+                      {RULE_LABEL[n]}
+                    </label>
+                  ))}
+                {errors.rules && <small>{errors.rules}</small>}
+              </fieldset>
               <Field
                 label="표시 소수 자릿수(0~4)"
                 type="number"
@@ -564,8 +663,12 @@ export function Characteristics() {
               >
                 <p className="muted">
                   {open.code} · 규격 {spec(open)}
-                  {open.target && ` · 목표 ${Number(open.target)}`} · 부분군{" "}
-                  {open.subgroupCount}개
+                  {open.target && ` · 목표 ${Number(open.target)}`} ·{" "}
+                  {open.chartType === "I_MR"
+                    ? "I-MR"
+                    : `X̄-R (n=${open.subgroupSize})`}{" "}
+                  · 규칙 {rulesOf(open).join("·")} · 부분군 {open.subgroupCount}
+                  개
                 </p>
                 <LimitsPanel
                   key={open.id}

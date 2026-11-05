@@ -6,12 +6,11 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fs.gw.operating_contract import OperatingPolicy, canonical
 from sqlalchemy import text
 from test_gw_company import context
 from test_gw_company_work import api, connect_staff, initialize
 from test_hr_work import company_env
-
-from fs.gw.operating_contract import OperatingPolicy, canonical
 
 
 def prepare(env, monkeypatch):

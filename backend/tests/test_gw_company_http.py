@@ -5,6 +5,8 @@ import re
 from uuid import uuid4
 
 import pytest
+from fs.gw import company
+from fs.gw.router import router
 from test_gw_company_work import (
     api,
     connect_staff,
@@ -13,9 +15,6 @@ from test_gw_company_work import (
     third,  # noqa: F401
 )
 from test_hr_work import company_env  # noqa: F401
-
-from fs.gw import company
-from fs.gw.router import router
 
 
 def ok(response):

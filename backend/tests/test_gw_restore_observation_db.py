@@ -7,14 +7,13 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from fs.core.backup import BackupError
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
 from test_gw_backup import backup_env
 from test_gw_company_work import api
 from test_hr_work import company_env
-
-from fs.core.backup import BackupError
 
 
 def restored(env, backup_env):

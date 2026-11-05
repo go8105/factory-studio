@@ -7,11 +7,10 @@ from uuid import uuid4
 import pyotp
 import pytest
 from cryptography.fernet import Fernet
-from sqlalchemy import text
-
 from fs.common.auth import AuthContext
 from fs.common.security import hash_password, token_hash
 from fs.core.security import service
+from sqlalchemy import text
 
 
 @pytest.fixture

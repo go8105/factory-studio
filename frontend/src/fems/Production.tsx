@@ -69,6 +69,10 @@ function fieldErrors(error: unknown): Record<string, string> {
 export function Production() {
   const { session, fail } = useSession();
   const keys = useRef(new MutationKeys());
+  // F51. 가져온 행은 초안이고 확정은 아래 목록에서 사람이 한다.
+  const [importMonth, setImportMonth] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importNote, setImportNote] = useState<string>();
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [rows, setRows] = useState<ProductionRecord[]>();
   const [total, setTotal] = useState(0);
@@ -143,6 +147,36 @@ export function Production() {
     setPanel(null);
     setSaveError(undefined);
   }
+  async function importFromMes() {
+    if (!importMonth || !session?.csrfToken) return;
+    setImporting(true);
+    setSaveError(undefined);
+    setImportNote(undefined);
+    try {
+      const r = await api<{ imported: number; skipped: string[] }>(
+        `${BASE}/import`,
+        {
+          method: "POST",
+          body: { month: importMonth },
+          csrf: session.csrfToken,
+          key: `import-${importMonth}-${Date.now()}`,
+        },
+      );
+      setReload((n) => n + 1);
+      setImportNote(
+        `${importMonth}: ${r.data.imported}건을 초안으로 가져왔습니다.` +
+          (r.data.skipped.length
+            ? ` 건너뛴 ${r.data.skipped.length}건 — ${r.data.skipped.slice(0, 3).join(" ")}`
+            : ""),
+      );
+    } catch (e) {
+      setSaveError(e);
+      handle(e);
+    } finally {
+      setImporting(false);
+    }
+  }
+
   async function send(
     operation: string,
     path: string,
@@ -345,15 +379,34 @@ export function Production() {
         subtitle="원단위의 분모 · 확정한 기록은 바꾸지 않고 새 버전으로 정정합니다"
         help="fems/f-05"
         actions={
-          <button
-            type="button"
-            aria-pressed={!!panel && !editing}
-            onClick={() => guard.guard(() => openPanel(null))}
-          >
-            생산량 등록
-          </button>
+          <>
+            <label>
+              가져올 월
+              <input
+                type="month"
+                value={importMonth}
+                onChange={(e) => setImportMonth(e.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              className="secondary"
+              disabled={!importMonth || importing}
+              onClick={() => void importFromMes()}
+            >
+              MES에서 가져오기
+            </button>
+            <button
+              type="button"
+              aria-pressed={!!panel && !editing}
+              onClick={() => guard.guard(() => openPanel(null))}
+            >
+              생산량 등록
+            </button>
+          </>
         }
       />
+      {importNote && <p role="status">{importNote}</p>}
       <p className="muted" role="note">
         MES를 쓰는 환경이라면 생산실적에서 자동으로 넘어오는 값입니다. FEMS는
         독립 솔루션이라 여기서 직접 입력하고, 품목은 코드 문자열로 받습니다.

@@ -9,8 +9,6 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from test_gw_acceptance_collection import registered_fixture
-
 from fs.common.errors import ApiError
 from fs.gw.acceptance_reconciliation import (
     sign_reconciliation,
@@ -18,6 +16,7 @@ from fs.gw.acceptance_reconciliation import (
 )
 from fs.gw.operating_contract import canonical, verify_evidence
 from fs.gw.readiness import SOURCE_FIELD
+from test_gw_acceptance_collection import registered_fixture
 
 
 def prepared():

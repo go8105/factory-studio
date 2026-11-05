@@ -3,16 +3,15 @@
 # ruff: noqa:F401,F811
 from uuid import uuid4
 
+from fs.common.security import hash_password
+from fs.core.security import backup as core_checkpoint
+from fs.gw import backup as gw_checkpoint
+from fs.hr import backup as hr_checkpoint
 from sqlalchemy import text
 from test_gw_backup import backup_env
 from test_gw_company_work import call_work
 from test_gw_emergency import emergency_env
 from test_hr_work import company_env
-
-from fs.common.security import hash_password
-from fs.core.security import backup as core_checkpoint
-from fs.gw import backup as gw_checkpoint
-from fs.hr import backup as hr_checkpoint
 
 
 def test_used_real_mfa_code_and_counter_cannot_return_after_replay(emergency_env):

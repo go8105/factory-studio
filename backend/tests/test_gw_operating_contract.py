@@ -5,8 +5,6 @@ from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from pydantic import ValidationError
-
 from fs.common.errors import ApiError
 from fs.gw.operating_contract import (
     OperatingPolicy,
@@ -14,6 +12,7 @@ from fs.gw.operating_contract import (
     canonical,
     verify_evidence,
 )
+from pydantic import ValidationError
 
 NOW = datetime(2026, 10, 18, 4, 0, tzinfo=UTC)
 

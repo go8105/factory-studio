@@ -1,9 +1,9 @@
 {
-  "version": "0.28.0",
-  "task": "GW-READY-02",
-  "date": "2026-10-18",
-  "status": "구현 중 / 로컬 검증 전",
-  "migration_revision": "gw_readiness",
+  "version": "0.34.0",
+  "task": "GW-READY-02-INTEGRATION",
+  "date": "2026-11-05",
+  "status": "통합 검증 중; 운영 미적용",
+  "migration_revision": "gw_main_ready02_merge",
   "tables": [
     {
       "name": "core.app_user",
@@ -1306,6 +1306,14 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "department_code",
+          "label": "부서 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "F06 ERP 부서 코드 스냅샷"
         }
       ],
       "note": "",
@@ -2982,6 +2990,14 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "entry_method",
+          "label": "입력 방법",
+          "type": "varchar(6)",
+          "nullable": false,
+          "default": "'METER'",
+          "rule": "METER / MANUAL(검침) / FILE(F12·F13)"
         }
       ],
       "note": "누락은 0값 행으로 만들지 않음. 구간형은 period_start 필수",
@@ -4789,6 +4805,22 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "tariff_kind",
+          "label": "요금 구분",
+          "type": "varchar(4)",
+          "nullable": false,
+          "default": "'FLAT'",
+          "rule": "FLAT 단일 / TOU 시간대별(Q1)"
+        },
+        {
+          "name": "contract_kw",
+          "label": "계약전력(kW)",
+          "type": "numeric(12,2)",
+          "nullable": true,
+          "default": null,
+          "rule": "TOU면 필수. 기본요금 = 계약전력 × basic_charge"
         }
       ],
       "sub_module": "fems_master"
@@ -5821,6 +5853,14 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "source",
+          "label": "출처",
+          "type": "varchar(6)",
+          "nullable": false,
+          "default": "'MANUAL'",
+          "rule": "MES(조회 가져오기) / MANUAL(Q3)"
         }
       ]
     },
@@ -7055,6 +7095,22 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "inspection_kind",
+          "label": "검사 종류",
+          "type": "varchar(14)",
+          "nullable": false,
+          "default": "'OUTGOING'",
+          "rule": "OUTGOING 출하 / INCOMING 수입. RETURN·FIRST_ARTICLE은 출하 기준 사용"
+        },
+        {
+          "name": "aql",
+          "label": "AQL",
+          "type": "numeric(5,3)",
+          "nullable": true,
+          "default": null,
+          "rule": "Q2. NULL이면 시료 수 직접 입력"
         }
       ]
     },
@@ -7333,6 +7389,62 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "inspection_kind",
+          "label": "검사 종류",
+          "type": "varchar(14)",
+          "nullable": false,
+          "default": "'OUTGOING'",
+          "rule": "OUTGOING / INCOMING / RETURN / FIRST_ARTICLE"
+        },
+        {
+          "name": "partner_code",
+          "label": "공급처·고객 코드",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "수입: 공급처, 반품: 고객(ERP 코드 스냅샷)"
+        },
+        {
+          "name": "source_ref",
+          "label": "원천 번호",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": null,
+          "rule": "WMS 입고 번호·ERP 반품 번호·4M 신고 번호"
+        },
+        {
+          "name": "sampling",
+          "label": "샘플링",
+          "type": "varchar(6)",
+          "nullable": false,
+          "default": "'MANUAL'",
+          "rule": "AQL / MANUAL"
+        },
+        {
+          "name": "accept_number",
+          "label": "합격 판정 개수(Ac)",
+          "type": "integer",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reject_number",
+          "label": "불합격 판정 개수(Re)",
+          "type": "integer",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "defect_count",
+          "label": "시료 불량 개수",
+          "type": "integer",
+          "nullable": true,
+          "default": null,
+          "rule": "AQL 판정 입력"
         }
       ]
     },
@@ -7424,6 +7536,14 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "gauge_id",
+          "label": "사용 계측기",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "F27"
         }
       ]
     },
@@ -9326,6 +9446,22 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "chart_type",
+          "label": "관리도 종류",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": "'XBAR_R'",
+          "rule": "XBAR_R / I_MR / P / NP / C / U(Q1·Q2)"
+        },
+        {
+          "name": "defect_source",
+          "label": "불량 수 출처",
+          "type": "varchar(6)",
+          "nullable": true,
+          "default": null,
+          "rule": "계수형: MES(확정 실적 조회) / MANUAL"
         }
       ]
     },
@@ -9414,7 +9550,7 @@
           "name": "xbar_cl",
           "label": "X̄ 중심선",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9422,7 +9558,7 @@
           "name": "xbar_ucl",
           "label": "X̄ 관리 상한",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9430,7 +9566,7 @@
           "name": "xbar_lcl",
           "label": "X̄ 관리 하한",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9438,7 +9574,7 @@
           "name": "r_cl",
           "label": "R 중심선",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9446,7 +9582,7 @@
           "name": "r_ucl",
           "label": "R 관리 상한",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9454,7 +9590,7 @@
           "name": "r_lcl",
           "label": "R 관리 하한",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": ""
         },
@@ -9473,6 +9609,14 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "attr_center",
+          "label": "계수형 중심값",
+          "type": "numeric(18,6)",
+          "nullable": true,
+          "default": null,
+          "rule": "p̄·np̄·c̄·ū. 한계는 부분군 크기마다 계산"
         }
       ]
     },
@@ -9577,7 +9721,7 @@
           "name": "xbar",
           "label": "평균 X̄",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": "측정값 5개 평균(기록 때 계산)"
         },
@@ -9585,7 +9729,7 @@
           "name": "r",
           "label": "범위 R",
           "type": "numeric(14,6)",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": "최대 − 최소"
         },
@@ -9636,6 +9780,30 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "inspected_qty",
+          "label": "검사 수(n)",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": null,
+          "rule": "계수형 부분군"
+        },
+        {
+          "name": "defect_count",
+          "label": "불량·결점 수",
+          "type": "numeric(18,3)",
+          "nullable": true,
+          "default": null,
+          "rule": "계수형 부분군"
+        },
+        {
+          "name": "gauge_code",
+          "label": "계측기 번호",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "F07 QMS 계측기 코드 스냅샷"
         }
       ]
     },
@@ -11784,6 +11952,62 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "parent_asset_id",
+          "label": "상위 설비",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "F04 라인 > 설비 > 구성품"
+        },
+        {
+          "name": "manufacturer",
+          "label": "제조사",
+          "type": "varchar(100)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "model",
+          "label": "모델",
+          "type": "varchar(100)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "serial_no",
+          "label": "일련번호",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "installed_on",
+          "label": "설치일",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "acquisition_cost",
+          "label": "취득가",
+          "type": "numeric(18,2)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "criticality",
+          "label": "중요도",
+          "type": "varchar(1)",
+          "nullable": true,
+          "default": null,
+          "rule": "A / B / C"
         }
       ]
     },
@@ -11856,7 +12080,7 @@
           "name": "interval_days",
           "label": "주기(일)",
           "type": "integer",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "rule": "1~365"
         },
@@ -11891,6 +12115,30 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "trigger_kind",
+          "label": "기준",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'CALENDAR'",
+          "rule": "CALENDAR / RUN_HOURS / SHOTS(Q2)"
+        },
+        {
+          "name": "interval_usage",
+          "label": "사용량 주기",
+          "type": "numeric(14,2)",
+          "nullable": true,
+          "default": null,
+          "rule": "RUN_HOURS: 시간, SHOTS: 타수"
+        },
+        {
+          "name": "last_done_usage",
+          "label": "마지막 수행 시 사용량",
+          "type": "numeric(14,2)",
+          "nullable": true,
+          "default": null,
+          "rule": "PM 완료로만 바뀐다"
         }
       ]
     },
@@ -12094,6 +12342,54 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "technician_id",
+          "label": "담당 정비원",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "Q5"
+        },
+        {
+          "name": "vendor_id",
+          "label": "외주 업체",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "Q5 외주 수리"
+        },
+        {
+          "name": "external_cost",
+          "label": "외주 비용",
+          "type": "numeric(18,2)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "symptom_code_id",
+          "label": "증상 코드",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "action_code_id",
+          "label": "조치 코드",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "usage_at_due",
+          "label": "생성 시 사용량",
+          "type": "numeric(14,2)",
+          "nullable": true,
+          "default": null,
+          "rule": "사용량 기준 PM 스냅샷"
         }
       ]
     },
@@ -12169,6 +12465,14 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "technician_id",
+          "label": "정비원",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "Q5 정비원별 시간"
         }
       ]
     },
@@ -12252,6 +12556,22 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "item_code",
+          "label": "WMS 품목 코드",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "Q6 WMS SUPPLY 품목 스냅샷(재고 조회 키)"
+        },
+        {
+          "name": "unit_cost",
+          "label": "표준 단가",
+          "type": "numeric(18,4)",
+          "nullable": true,
+          "default": null,
+          "rule": "비용 집계용"
         }
       ]
     },
@@ -12327,6 +12647,14 @@
           "nullable": false,
           "default": "now()",
           "rule": ""
+        },
+        {
+          "name": "unit_cost",
+          "label": "사용 단가",
+          "type": "numeric(18,4)",
+          "nullable": true,
+          "default": null,
+          "rule": "사용 시점 표준 단가 스냅샷"
         }
       ]
     },
@@ -20765,6 +21093,3422 @@
       "note": "회사 GW 보안 원장. 인증 user_id는 검증된 식별자이며 core 업무 FK 없음",
       "retention": "회사 운영 보존 정책에 따라 관리·물리 삭제 UI 없음",
       "guest_cleanup": "공개 템플릿 0행·게스트 복사 금지"
+    },
+    {
+      "name": "spc.characteristic_rule",
+      "label": "특성별 판정 규칙",
+      "scope": "generation",
+      "phase": "DSN-17",
+      "retention": "세대 정리",
+      "note": "DSN-17 F22·F23(Q3). 특성이 쓰는 Nelson 규칙(1~8). 행이 없으면 기본 1~3(FS-028 D41)",
+      "sub_module": "rule",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "characteristic_id",
+          "label": "관리 특성",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "rule_no",
+          "label": "규칙 번호",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "1 한계 밖 · 2 한쪽 9점 · 3 6점 증감 · 4 14점 교대 · 5 3점 중 2점 2σ 밖 · 6 5점 중 4점 1σ 밖 · 7 15점 1σ 안 · 8 8점 1σ 밖 양쪽"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "spc.spec_violation",
+      "label": "규격 이탈",
+      "scope": "generation",
+      "phase": "DSN-17",
+      "retention": "세대 정리",
+      "note": "DSN-17 F24·F33(Q4). 개별 측정값이 LSL·USL 밖. 관리 이탈(이상 기록)과 별개. QMS가 읽어 부적합 보고(발생처 공정) 후보로",
+      "sub_module": "signal",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "subgroup_id",
+          "label": "부분군",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "characteristic_id",
+          "label": "관리 특성",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "seq",
+          "label": "측정 순번",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lot_no",
+          "label": "LOT 번호",
+          "type": "varchar(50)",
+          "nullable": false,
+          "default": null,
+          "rule": "부분군 스냅샷"
+        },
+        {
+          "name": "value",
+          "label": "측정값",
+          "type": "numeric(18,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "side",
+          "label": "이탈 방향",
+          "type": "varchar(4)",
+          "nullable": false,
+          "default": null,
+          "rule": "LOW / HIGH"
+        },
+        {
+          "name": "limit_value",
+          "label": "규격 한계",
+          "type": "numeric(18,6)",
+          "nullable": false,
+          "default": null,
+          "rule": "그때 LSL 또는 USL 스냅샷"
+        },
+        {
+          "name": "detected_at",
+          "label": "탐지 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "voided_at",
+          "label": "무효 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": "부분군 무효화와 함께"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "spc.ocap_item",
+      "label": "이상 대응 점검 항목",
+      "scope": "generation",
+      "phase": "DSN-17",
+      "retention": "세대 정리",
+      "note": "DSN-17 F32(Q5). 특성(NULL = 공통)·규칙(NULL = 모든 규칙)별 표준 점검 순서",
+      "sub_module": "ocap",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "characteristic_id",
+          "label": "관리 특성",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "rule_no",
+          "label": "규칙 번호",
+          "type": "integer",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "seq",
+          "label": "순서",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "check_text",
+          "label": "점검 내용",
+          "type": "varchar(300)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cause_category",
+          "label": "해당 원인",
+          "type": "varchar(12)",
+          "nullable": true,
+          "default": null,
+          "rule": "MACHINE / MATERIAL / MAN / METHOD / MEASUREMENT / ENVIRONMENT"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "spc.ocap_check",
+      "label": "이상 대응 점검 결과",
+      "scope": "generation",
+      "phase": "DSN-17",
+      "retention": "세대 정리",
+      "note": "DSN-17 F32. 이상 1건 × 점검 항목. 조치 완료 전에 해당 항목 모두 기록",
+      "sub_module": "ocap",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "signal_id",
+          "label": "이상 기록",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "ocap_item_id",
+          "label": "점검 항목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "result",
+          "label": "결과",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": null,
+          "rule": "OK / NG / NA"
+        },
+        {
+          "name": "note",
+          "label": "메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "checked_at",
+          "label": "점검 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "spc.capability_report",
+      "label": "공정능력 보고서",
+      "scope": "generation",
+      "phase": "DSN-17",
+      "retention": "세대 정리",
+      "note": "DSN-17 F41~F46(Q6). 특성·기간의 능력 지표 확정 스냅샷. 재작성은 새 버전",
+      "sub_module": "report",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "characteristic_id",
+          "label": "관리 특성",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "report_start_on",
+          "label": "기간 시작",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "report_end_on",
+          "label": "기간 끝",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "version",
+          "label": "버전",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / confirmed / superseded"
+        },
+        {
+          "name": "subgroup_count",
+          "label": "부분군 수",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "mean",
+          "label": "평균",
+          "type": "numeric(18,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "sigma_within",
+          "label": "군내 σ(R̄/d2)",
+          "type": "numeric(18,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "sigma_overall",
+          "label": "전체 σ",
+          "type": "numeric(18,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cp",
+          "label": "Cp",
+          "type": "numeric(8,3)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cpk",
+          "label": "Cpk",
+          "type": "numeric(8,3)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "pp",
+          "label": "Pp",
+          "type": "numeric(8,3)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "ppk",
+          "label": "Ppk",
+          "type": "numeric(8,3)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "skewness",
+          "label": "왜도",
+          "type": "numeric(8,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kurtosis",
+          "label": "첨도",
+          "type": "numeric(8,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "comment",
+          "label": "의견",
+          "type": "varchar(1000)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "confirmed_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "cmms.checklist_item",
+      "label": "점검 항목",
+      "scope": "generation",
+      "phase": "DSN-21",
+      "retention": "세대 정리",
+      "note": "DSN-21 F13·F14(Q3). PM 계획의 점검표. 시설 일상 점검은 일 주기 계획의 점검표",
+      "sub_module": "pm",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "pm_plan_id",
+          "label": "예방보전 계획",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "seq",
+          "label": "순서",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "항목",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "method",
+          "label": "판정 방식",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "OK_NG / RANGE"
+        },
+        {
+          "name": "standard_text",
+          "label": "기준",
+          "type": "varchar(200)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lower_limit",
+          "label": "하한",
+          "type": "numeric(15,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "upper_limit",
+          "label": "상한",
+          "type": "numeric(15,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(10)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "cmms.checklist_result",
+      "label": "점검 결과",
+      "scope": "generation",
+      "phase": "DSN-21",
+      "retention": "세대 정리",
+      "note": "DSN-21 F13. PM 작업지시 완료 전 항목별 결과. NG가 있으면 고장 작업지시 제안",
+      "sub_module": "pm",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "work_order_id",
+          "label": "작업지시",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "checklist_item_id",
+          "label": "점검 항목",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "result",
+          "label": "결과",
+          "type": "varchar(2)",
+          "nullable": false,
+          "default": null,
+          "rule": "OK / NG"
+        },
+        {
+          "name": "measured_value",
+          "label": "측정값",
+          "type": "numeric(15,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "note",
+          "label": "메모",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "checked_at",
+          "label": "점검 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "cmms.technician",
+      "label": "정비원",
+      "scope": "generation",
+      "phase": "DSN-21",
+      "retention": "세대 정리",
+      "note": "DSN-21 F25(Q5). 인사 정보는 HR(D79), 사원 코드는 스냅샷. 시간당 인건비는 비용 집계용 합성 값",
+      "sub_module": "people",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "정비원 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "이름",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "skill",
+          "label": "기술 분야",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "MECHANICAL / ELECTRICAL / UTILITY / GENERAL"
+        },
+        {
+          "name": "hourly_rate",
+          "label": "시간당 인건비",
+          "type": "numeric(12,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "currency",
+          "label": "통화",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": "'KRW'",
+          "rule": ""
+        },
+        {
+          "name": "hr_employee_code",
+          "label": "HR 사원 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "cmms.vendor",
+      "label": "외주 업체",
+      "scope": "generation",
+      "phase": "DSN-21",
+      "retention": "세대 정리",
+      "note": "DSN-21 F26(Q5). ERP 거래처 코드 스냅샷. 비용 회계는 ERP 직접 매입",
+      "sub_module": "people",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "업체 코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "업체명",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "erp_partner_code",
+          "label": "ERP 거래처 코드",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "phone",
+          "label": "연락처",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "cmms.failure_code",
+      "label": "고장 코드",
+      "scope": "generation",
+      "phase": "DSN-21",
+      "retention": "세대 정리",
+      "note": "DSN-21 F24. 증상·조치 코드(원인은 기존 6분류 + 상세 코드)",
+      "sub_module": "failure",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kind",
+          "label": "구분",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "SYMPTOM 증상 / CAUSE 원인 / ACTION 조치"
+        },
+        {
+          "name": "code",
+          "label": "코드",
+          "type": "varchar(20)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "이름",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cause_category",
+          "label": "원인 분류",
+          "type": "varchar(12)",
+          "nullable": true,
+          "default": null,
+          "rule": "CAUSE면 FS-029 6분류 중 하나"
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "cmms.asset_part",
+      "label": "설비별 예비품",
+      "scope": "generation",
+      "phase": "DSN-21",
+      "retention": "세대 정리",
+      "note": "DSN-21 F34. 적용 설비·표준 수량. 작업지시 부품 선택에서 먼저 보여 준다",
+      "sub_module": "parts",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "asset_id",
+          "label": "설비",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "spare_part_id",
+          "label": "예비품",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "qty_per",
+          "label": "표준 수량",
+          "type": "numeric(12,3)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "qms.supplier_level",
+      "label": "공급처 검사 수준",
+      "scope": "generation",
+      "phase": "DSN-14",
+      "retention": "세대 정리",
+      "note": "DSN-14 F05(Q1·Q5). 공급처(·품목)별 면제·보통·강화, 적용일 이력. 현재 = 적용일 최신",
+      "sub_module": "supplier",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "partner_code",
+          "label": "공급처 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": "ERP 거래처 코드 스냅샷"
+        },
+        {
+          "name": "item_code",
+          "label": "품목 코드",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "NULL이면 공급처 전체"
+        },
+        {
+          "name": "level",
+          "label": "검사 수준",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "EXEMPT / NORMAL / TIGHTENED"
+        },
+        {
+          "name": "valid_from",
+          "label": "적용일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "reason",
+          "label": "사유",
+          "type": "varchar(300)",
+          "nullable": false,
+          "default": null,
+          "rule": "등급 제안 근거 또는 수동 사유"
+        },
+        {
+          "name": "rating_id",
+          "label": "근거 평가",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "qms.supplier_rating",
+      "label": "공급처 품질 평가",
+      "scope": "generation",
+      "phase": "DSN-14",
+      "retention": "세대 정리",
+      "note": "DSN-14 F51(Q5). 월 계산 스냅샷 → 등급·전환 제안. 확정은 사람이 검사 수준 행으로",
+      "sub_module": "supplier",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "rating_month",
+          "label": "평가 월",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY-MM'"
+        },
+        {
+          "name": "partner_code",
+          "label": "공급처 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lot_count",
+          "label": "검사 LOT 수",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "failed_lot_count",
+          "label": "불합격 LOT 수",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "defect_ppm",
+          "label": "불량 PPM",
+          "type": "numeric(12,1)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "scar_count",
+          "label": "시정 요구 건수",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "grade",
+          "label": "등급",
+          "type": "varchar(1)",
+          "nullable": false,
+          "default": null,
+          "rule": "A / B / C / D"
+        },
+        {
+          "name": "suggested_level",
+          "label": "전환 제안",
+          "type": "varchar(10)",
+          "nullable": true,
+          "default": null,
+          "rule": "연속 합격 → EXEMPT, 연속 불합격 → TIGHTENED"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "qms.scar",
+      "label": "공급처 시정 요구",
+      "scope": "generation",
+      "phase": "DSN-14",
+      "retention": "세대 정리",
+      "note": "DSN-14 F14. 수입 불합격 → 공급처 통보·회신·종결(통보는 기록만, 발송 없음)",
+      "sub_module": "supplier",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "scar_no",
+          "label": "요구 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "partner_code",
+          "label": "공급처 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "inspection_id",
+          "label": "근거 검사",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "ncr_id",
+          "label": "근거 부적합",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "issued_on",
+          "label": "발행일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "due_on",
+          "label": "회신 기한",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "response",
+          "label": "공급처 회신",
+          "type": "varchar(1000)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "responded_on",
+          "label": "회신일",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'OPEN'",
+          "rule": "OPEN / RESPONDED / CLOSED"
+        },
+        {
+          "name": "closed_at",
+          "label": "종결 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "qms.ncr",
+      "label": "부적합 보고",
+      "scope": "generation",
+      "phase": "DSN-14",
+      "retention": "세대 정리",
+      "note": "DSN-14 F31(Q3). 발생처 4종. 불합격 검사·클레임·MES 공정 불량에서 생성. CAPA로 이어짐",
+      "sub_module": "ncr",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "ncr_no",
+          "label": "보고 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "origin",
+          "label": "발생처",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "INCOMING / PROCESS / OUTGOING / CUSTOMER"
+        },
+        {
+          "name": "item_code",
+          "label": "품목 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lot_no",
+          "label": "LOT 번호",
+          "type": "varchar(50)",
+          "nullable": true,
+          "default": null,
+          "rule": "스냅샷"
+        },
+        {
+          "name": "qty",
+          "label": "부적합 수량",
+          "type": "numeric(18,3)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "defect_type_id",
+          "label": "불량 유형",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "description",
+          "label": "내용",
+          "type": "varchar(1000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "immediate_action",
+          "label": "즉시 조치",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "inspection_id",
+          "label": "근거 검사",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "claim_id",
+          "label": "근거 클레임",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "source_ref",
+          "label": "외부 원천",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": null,
+          "rule": "MES 불량 명세 등 코드 스냅샷"
+        },
+        {
+          "name": "reported_on",
+          "label": "보고일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'OPEN'",
+          "rule": "OPEN / CLOSED"
+        },
+        {
+          "name": "closed_at",
+          "label": "종결 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "qms.capa",
+      "label": "시정·예방 조치",
+      "scope": "generation",
+      "phase": "DSN-14",
+      "retention": "세대 정리",
+      "note": "DSN-14 F32(Q3). 원인·대책·담당·기한 → 완료 → 유효성 확인. 무효면 새 CAPA",
+      "sub_module": "ncr",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "capa_no",
+          "label": "조치 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "ncr_id",
+          "label": "부적합 보고",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "kind",
+          "label": "종류",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "CORRECTIVE 시정 / PREVENTIVE 예방"
+        },
+        {
+          "name": "root_cause",
+          "label": "근본 원인",
+          "type": "varchar(1000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "action",
+          "label": "대책",
+          "type": "varchar(1000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "owner_name",
+          "label": "담당",
+          "type": "varchar(60)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "due_on",
+          "label": "기한",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'OPEN'",
+          "rule": "OPEN / DONE / VERIFIED / INEFFECTIVE"
+        },
+        {
+          "name": "done_at",
+          "label": "완료 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "verified_at",
+          "label": "확인 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "verification_note",
+          "label": "유효성 확인",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "owner_hr_code",
+          "label": "담당 HR 사원 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-28 Q3-1"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "qms.claim",
+      "label": "고객 클레임",
+      "scope": "generation",
+      "phase": "DSN-14",
+      "retention": "세대 정리",
+      "note": "DSN-14 F41(Q4). QMS 소유. 접수 → 조사 → 회신 → 종결. CRM은 읽기",
+      "sub_module": "claim",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "claim_no",
+          "label": "클레임 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "customer_code",
+          "label": "고객 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": "ERP 거래처 코드 스냅샷"
+        },
+        {
+          "name": "received_on",
+          "label": "접수일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "item_code",
+          "label": "품목 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "lot_no",
+          "label": "LOT 번호",
+          "type": "varchar(50)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "qty",
+          "label": "수량",
+          "type": "numeric(18,3)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "severity",
+          "label": "심각도",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "MINOR / MAJOR / CRITICAL"
+        },
+        {
+          "name": "description",
+          "label": "내용",
+          "type": "varchar(1000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "return_ref",
+          "label": "판매 반품 번호",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "ERP 반품 코드 스냅샷"
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(14)",
+          "nullable": false,
+          "default": "'RECEIVED'",
+          "rule": "RECEIVED / INVESTIGATING / RESPONDED / CLOSED"
+        },
+        {
+          "name": "response",
+          "label": "회신 내용",
+          "type": "varchar(1000)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "responded_on",
+          "label": "회신일",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "closed_at",
+          "label": "종결 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "crm_inquiry_no",
+          "label": "CRM 품질 문의 번호",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-90 CRM 품질 문의 → 클레임(DSN-25 Q4)"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "qms.gauge",
+      "label": "계측기",
+      "scope": "generation",
+      "phase": "DSN-14",
+      "retention": "세대 정리",
+      "note": "DSN-14 F61(Q6). 교정 도래 = 마지막 교정 다음 기한(조회 파생)",
+      "sub_module": "gauge",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "계측기 번호",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "계측기명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "gauge_kind",
+          "label": "종류",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": "버니어 캘리퍼스·마이크로미터·하이트 게이지 등"
+        },
+        {
+          "name": "measure_range",
+          "label": "측정 범위",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "resolution",
+          "label": "분해능",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "calibration_cycle_days",
+          "label": "교정 주기(일)",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": "'ACTIVE'",
+          "rule": "ACTIVE / REPAIR / RETIRED"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "qms.calibration",
+      "label": "교정 이력",
+      "scope": "generation",
+      "phase": "DSN-14",
+      "retention": "세대 정리",
+      "note": "DSN-14 F62. 교정 결과·다음 기한. 불합격이면 계측기 REPAIR",
+      "sub_module": "gauge",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "gauge_id",
+          "label": "계측기",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "calibrated_on",
+          "label": "교정일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "next_due_on",
+          "label": "다음 기한",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "result",
+          "label": "결과",
+          "type": "varchar(4)",
+          "nullable": false,
+          "default": null,
+          "rule": "PASS / FAIL"
+        },
+        {
+          "name": "agency",
+          "label": "교정 기관",
+          "type": "varchar(100)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "certificate_no",
+          "label": "성적서 번호",
+          "type": "varchar(60)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "qms.change_notice",
+      "label": "4M 변경 신고",
+      "scope": "generation",
+      "phase": "DSN-14",
+      "retention": "세대 정리",
+      "note": "DSN-14 F06(Q7). 사람·설비·자재·방법 변경 → 승인 → 초품 검사 합격 → 확인",
+      "sub_module": "change",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cn_no",
+          "label": "신고 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "change_type",
+          "label": "변경 구분",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "MAN / MACHINE / MATERIAL / METHOD"
+        },
+        {
+          "name": "item_code",
+          "label": "품목 코드",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "description",
+          "label": "변경 내용",
+          "type": "varchar(1000)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "requested_on",
+          "label": "신청일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "effective_on",
+          "label": "적용 예정일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'REQUESTED'",
+          "rule": "REQUESTED / APPROVED / REJECTED / VERIFIED"
+        },
+        {
+          "name": "decided_at",
+          "label": "승인·반려 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "decision_note",
+          "label": "승인 의견",
+          "type": "varchar(500)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "first_article_inspection_id",
+          "label": "초품 검사",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "plm_eco_no",
+          "label": "PLM ECO 번호",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "DSN-90 PLM 배포 ECO → 4M 후보(DSN-24 Q3)"
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "fems.tariff_band",
+      "label": "시간대별 요율",
+      "scope": "generation",
+      "phase": "DSN-15",
+      "retention": "세대 정리",
+      "note": "DSN-15 F05(Q1). 요금제 버전의 계절 × 요일 × 시간 구간 → 부하 구분·요율. 계절 월 구분은 코드 상수",
+      "sub_module": "tariff",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "tariff_id",
+          "label": "요금제",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "season",
+          "label": "계절",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "SUMMER / SPRING_FALL / WINTER"
+        },
+        {
+          "name": "day_kind",
+          "label": "요일 구분",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "WEEKDAY / SATURDAY / HOLIDAY"
+        },
+        {
+          "name": "hour_from",
+          "label": "시작 시(포함)",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "0~23"
+        },
+        {
+          "name": "hour_to",
+          "label": "끝 시(제외)",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "1~24"
+        },
+        {
+          "name": "load_band",
+          "label": "부하 구분",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": null,
+          "rule": "OFF_PEAK / MID / PEAK"
+        },
+        {
+          "name": "rate",
+          "label": "사용 요율(원/kWh)",
+          "type": "numeric(12,4)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "fems.reading_upload",
+      "label": "계측 파일 올리기",
+      "scope": "generation",
+      "phase": "DSN-15",
+      "retention": "세대 정리",
+      "note": "DSN-15 F13. CSV 한 번 = 1행. 행별 검증 결과 합계만 저장, 반영 행은 계측(입력 방법 FILE)",
+      "sub_module": "reading",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "upload_no",
+          "label": "올리기 번호",
+          "type": "varchar(40)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "file_name",
+          "label": "파일 이름",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "row_count",
+          "label": "행 수",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "accepted_count",
+          "label": "반영",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "rejected_count",
+          "label": "거부",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "uploaded_at",
+          "label": "올린 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "error_summary",
+          "label": "거부 사유 요약",
+          "type": "varchar(1000)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "fems.reading_correction",
+      "label": "계측 보정",
+      "scope": "generation",
+      "phase": "DSN-15",
+      "retention": "세대 정리",
+      "note": "DSN-15 F14. 결측·이상값 보정 이력. 보정은 새 입력 수정 버전으로 계측에 반영(원 값 보존)",
+      "sub_module": "reading",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "meter_channel_id",
+          "label": "계측 채널",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "period_start",
+          "label": "구간 시작",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "original_value",
+          "label": "원 값",
+          "type": "numeric(20,6)",
+          "nullable": true,
+          "default": null,
+          "rule": "결측이면 NULL"
+        },
+        {
+          "name": "corrected_value",
+          "label": "보정 값",
+          "type": "numeric(20,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "method",
+          "label": "보정 방법",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": null,
+          "rule": "INTERPOLATE 보간 / PREVIOUS 직전값 / MANUAL 수동"
+        },
+        {
+          "name": "reason",
+          "label": "사유",
+          "type": "varchar(300)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "corrected_at",
+          "label": "보정 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "fems.alarm_rule",
+      "label": "에너지 경보 규칙",
+      "scope": "generation",
+      "phase": "DSN-15",
+      "retention": "세대 정리",
+      "note": "DSN-15 F31. 임계 초과·피크 임박(계약전력 비율)·비가동 시간 사용",
+      "sub_module": "alarm",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "규칙 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "name",
+          "label": "규칙명",
+          "type": "varchar(100)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "alarm_kind",
+          "label": "종류",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": "THRESHOLD / PEAK / IDLE_USAGE"
+        },
+        {
+          "name": "meter_channel_id",
+          "label": "계측 채널",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "equipment_id",
+          "label": "설비",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "threshold",
+          "label": "임계값",
+          "type": "numeric(20,6)",
+          "nullable": false,
+          "default": null,
+          "rule": "THRESHOLD: 시간 사용량, PEAK: 계약전력 대비 비율(0~1), IDLE_USAGE: 비가동 시간 사용량"
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "is_active",
+          "label": "사용 여부",
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "fems.alarm",
+      "label": "에너지 경보",
+      "scope": "generation",
+      "phase": "DSN-15",
+      "retention": "세대 정리",
+      "note": "DSN-15 F31. 규칙당 진행 경보 1건. PEAK 경보는 BEMS 피크 감축이 읽는다(CMMS 신호 아님, DSN-21 Q4)",
+      "sub_module": "alarm",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "alarm_rule_id",
+          "label": "경보 규칙",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "raised_at",
+          "label": "발생 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "peak_value",
+          "label": "최대값",
+          "type": "numeric(20,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(8)",
+          "nullable": false,
+          "default": "'OPEN'",
+          "rule": "OPEN / ACK / CLEARED"
+        },
+        {
+          "name": "acknowledged_at",
+          "label": "확인 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cleared_at",
+          "label": "해제 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "fems.saving_project",
+      "label": "절감 활동",
+      "scope": "generation",
+      "phase": "DSN-15",
+      "retention": "세대 정리",
+      "note": "DSN-15 F32(Q5). 예상 절감 → 시행 → 시행 전·후 같은 길이 기간 비교(생산량 보정)로 실제 절감 검증",
+      "sub_module": "management",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "code",
+          "label": "활동 코드",
+          "type": "varchar(30)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "title",
+          "label": "제목",
+          "type": "varchar(200)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "equipment_id",
+          "label": "대상 설비",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "energy_source_id",
+          "label": "에너지원",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "expected_saving",
+          "label": "예상 절감(연, 기본 단위)",
+          "type": "numeric(20,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "investment",
+          "label": "투자비",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "currency",
+          "label": "통화",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": "'KRW'",
+          "rule": ""
+        },
+        {
+          "name": "start_on",
+          "label": "시행일",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "baseline_start_on",
+          "label": "비교 전 시작",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "baseline_end_on",
+          "label": "비교 전 끝",
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "review_end_on",
+          "label": "비교 후 끝",
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "measured_saving",
+          "label": "검증 절감(연 환산)",
+          "type": "numeric(20,6)",
+          "nullable": true,
+          "default": null,
+          "rule": "검증 시점 스냅샷"
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": "'PLANNED'",
+          "rule": "PLANNED / ACTIVE / VERIFIED / CANCELLED"
+        },
+        {
+          "name": "verified_at",
+          "label": "검증 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "fems.energy_review",
+      "label": "월간 에너지 검토",
+      "scope": "generation",
+      "phase": "DSN-15",
+      "retention": "세대 정리",
+      "note": "DSN-15 F33(Q5). 월 마감 후 확정 스냅샷(사용·비용·원단위·목표·주요 이슈). 재작성은 새 버전",
+      "sub_module": "management",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "review_month",
+          "label": "검토 월",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY-MM'"
+        },
+        {
+          "name": "version",
+          "label": "버전",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / confirmed / superseded"
+        },
+        {
+          "name": "primary_energy_toe",
+          "label": "1차에너지(toe)",
+          "type": "numeric(18,4)",
+          "nullable": false,
+          "default": null,
+          "rule": "PRIMARY 계수 환산 후 합산"
+        },
+        {
+          "name": "energy_cost",
+          "label": "에너지 비용",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "currency",
+          "label": "통화",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": "'KRW'",
+          "rule": ""
+        },
+        {
+          "name": "emission_tco2e",
+          "label": "배출량(tCO2e)",
+          "type": "numeric(18,4)",
+          "nullable": false,
+          "default": null,
+          "rule": "EMISSION 계수"
+        },
+        {
+          "name": "target_achievement",
+          "label": "목표 달성률",
+          "type": "numeric(7,4)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "issues",
+          "label": "주요 이슈·조치",
+          "type": "varchar(2000)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "confirmed_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "fems.ghg_inventory",
+      "label": "온실가스 명세서",
+      "scope": "generation",
+      "phase": "DSN-15",
+      "retention": "세대 정리",
+      "note": "DSN-15 F35(Q6). 연간 Scope 1·2. 확정 후 불변, 재산정은 새 버전",
+      "sub_module": "ghg",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "inventory_year",
+          "label": "보고 연도",
+          "type": "varchar(4)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY'"
+        },
+        {
+          "name": "version",
+          "label": "버전",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / confirmed / superseded"
+        },
+        {
+          "name": "scope1_tco2e",
+          "label": "Scope 1",
+          "type": "numeric(18,4)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "scope2_tco2e",
+          "label": "Scope 2",
+          "type": "numeric(18,4)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "confirmed_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "fems.ghg_inventory_line",
+      "label": "명세서 배출 시설",
+      "scope": "generation",
+      "phase": "DSN-15",
+      "retention": "세대 정리",
+      "note": "DSN-15 F35. 설비(시설)·에너지원별 활동량 × 배출 계수(EMISSION, 해당 연도) 스냅샷",
+      "sub_module": "ghg",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "ghg_inventory_id",
+          "label": "온실가스 명세서",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "equipment_id",
+          "label": "배출 시설",
+          "type": "bigint",
+          "nullable": true,
+          "default": null,
+          "rule": "NULL이면 사업장 공용"
+        },
+        {
+          "name": "energy_source_id",
+          "label": "에너지원",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "scope",
+          "label": "범위",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": "1 연료 직접 / 2 전력·열 간접"
+        },
+        {
+          "name": "activity_qty",
+          "label": "활동량",
+          "type": "numeric(20,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "factor_value",
+          "label": "배출 계수",
+          "type": "numeric(20,10)",
+          "nullable": false,
+          "default": null,
+          "rule": "스냅샷"
+        },
+        {
+          "name": "emission_tco2e",
+          "label": "배출량",
+          "type": "numeric(18,4)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "fems.cost_run",
+      "label": "에너지 비용 배분 실행",
+      "scope": "generation",
+      "phase": "DSN-15",
+      "retention": "세대 정리",
+      "note": "DSN-15 F43(Q4). 월 설비·부서·품목 배분. 확정 1건 + 새 버전. ERP가 참고로 읽음",
+      "sub_module": "cost",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cost_month",
+          "label": "배분 월",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY-MM'"
+        },
+        {
+          "name": "version",
+          "label": "버전",
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "status",
+          "label": "상태",
+          "type": "varchar(12)",
+          "nullable": false,
+          "default": "'draft'",
+          "rule": "draft / confirmed / superseded"
+        },
+        {
+          "name": "confirmed_at",
+          "label": "확정 시각",
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "fems.cost_allocation_line",
+      "label": "에너지 비용 배분",
+      "scope": "generation",
+      "phase": "DSN-15",
+      "retention": "세대 정리",
+      "note": "DSN-15 F43. 설비 배분량 × 시간대별 요율 산정 비용. 부서·품목은 스냅샷",
+      "sub_module": "cost",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cost_run_id",
+          "label": "배분 실행",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "equipment_id",
+          "label": "설비",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "energy_source_id",
+          "label": "에너지원",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "department_code",
+          "label": "부서 코드",
+          "type": "varchar(30)",
+          "nullable": true,
+          "default": null,
+          "rule": "ERP 부서 코드 스냅샷"
+        },
+        {
+          "name": "item_code",
+          "label": "주 생산 품목",
+          "type": "varchar(40)",
+          "nullable": true,
+          "default": null,
+          "rule": "그 달 생산량 최다 품목"
+        },
+        {
+          "name": "quantity",
+          "label": "사용량",
+          "type": "numeric(20,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "unit",
+          "label": "단위",
+          "type": "varchar(10)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "cost",
+          "label": "비용",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "currency",
+          "label": "통화",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": "'KRW'",
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
+    },
+    {
+      "name": "fems.utility_bill",
+      "label": "고지서 대조",
+      "scope": "generation",
+      "phase": "DSN-15",
+      "retention": "세대 정리",
+      "note": "DSN-15 F42. 실제 청구 금액 입력 vs 산정(스냅샷). 회계 처리는 ERP 매입",
+      "sub_module": "cost",
+      "columns": [
+        {
+          "name": "id",
+          "label": "내부 식별자",
+          "type": "bigint",
+          "nullable": false,
+          "default": "GENERATED ALWAYS AS IDENTITY",
+          "rule": ""
+        },
+        {
+          "name": "workspace_id",
+          "label": "개인 체험 공간",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "generation_id",
+          "label": "데이터 세대",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "energy_source_id",
+          "label": "에너지원",
+          "type": "bigint",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "bill_month",
+          "label": "청구 월",
+          "type": "varchar(7)",
+          "nullable": false,
+          "default": null,
+          "rule": "'YYYY-MM'"
+        },
+        {
+          "name": "billed_qty",
+          "label": "청구 사용량",
+          "type": "numeric(20,6)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "billed_amount",
+          "label": "청구 금액",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "calculated_amount",
+          "label": "산정 금액",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "default": null,
+          "rule": "입력 시점 스냅샷"
+        },
+        {
+          "name": "currency",
+          "label": "통화",
+          "type": "varchar(3)",
+          "nullable": false,
+          "default": "'KRW'",
+          "rule": ""
+        },
+        {
+          "name": "note",
+          "label": "차이 사유",
+          "type": "varchar(300)",
+          "nullable": true,
+          "default": null,
+          "rule": ""
+        },
+        {
+          "name": "created_at",
+          "label": "등록 시각",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "rule": ""
+        }
+      ]
     },
     {
       "name": "core.mfa_factor",
@@ -30182,6 +33926,1200 @@
       "note": "회사 공간·세대 복합 참조"
     },
     {
+      "source": "spc.characteristic_rule",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.spec_violation",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.ocap_item",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.ocap_check",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.capability_report",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "spc.characteristic_rule",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id"
+      ],
+      "target": "spc.characteristic",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "관리 특성"
+    },
+    {
+      "source": "spc.spec_violation",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "subgroup_id"
+      ],
+      "target": "spc.subgroup",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "부분군"
+    },
+    {
+      "source": "spc.spec_violation",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id"
+      ],
+      "target": "spc.characteristic",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "관리 특성"
+    },
+    {
+      "source": "spc.ocap_item",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id"
+      ],
+      "target": "spc.characteristic",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "관리 특성"
+    },
+    {
+      "source": "spc.ocap_check",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "signal_id"
+      ],
+      "target": "spc.signal",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "이상 기록"
+    },
+    {
+      "source": "spc.ocap_check",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "ocap_item_id"
+      ],
+      "target": "spc.ocap_item",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "점검 항목"
+    },
+    {
+      "source": "spc.capability_report",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id"
+      ],
+      "target": "spc.characteristic",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "관리 특성"
+    },
+    {
+      "source": "cmms.checklist_item",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "cmms.checklist_result",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "cmms.technician",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "cmms.vendor",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "cmms.failure_code",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "cmms.asset_part",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "cmms.checklist_item",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pm_plan_id"
+      ],
+      "target": "cmms.pm_plan",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "예방보전 계획"
+    },
+    {
+      "source": "cmms.checklist_result",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "work_order_id"
+      ],
+      "target": "cmms.work_order",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "작업지시"
+    },
+    {
+      "source": "cmms.checklist_result",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "checklist_item_id"
+      ],
+      "target": "cmms.checklist_item",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "점검 항목"
+    },
+    {
+      "source": "cmms.asset_part",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "asset_id"
+      ],
+      "target": "cmms.asset",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "설비"
+    },
+    {
+      "source": "cmms.asset_part",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "spare_part_id"
+      ],
+      "target": "cmms.spare_part",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "예비품"
+    },
+    {
+      "source": "cmms.asset",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "parent_asset_id"
+      ],
+      "target": "cmms.asset",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "상위 설비"
+    },
+    {
+      "source": "cmms.work_order",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "technician_id"
+      ],
+      "target": "cmms.technician",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "담당 정비원"
+    },
+    {
+      "source": "cmms.work_order",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "vendor_id"
+      ],
+      "target": "cmms.vendor",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "외주 업체"
+    },
+    {
+      "source": "cmms.work_order",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "symptom_code_id"
+      ],
+      "target": "cmms.failure_code",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "증상 코드"
+    },
+    {
+      "source": "cmms.work_order",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "action_code_id"
+      ],
+      "target": "cmms.failure_code",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "조치 코드"
+    },
+    {
+      "source": "cmms.work_log",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "technician_id"
+      ],
+      "target": "cmms.technician",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "정비원"
+    },
+    {
+      "source": "qms.supplier_level",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.supplier_rating",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.scar",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.ncr",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.capa",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.claim",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.gauge",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.calibration",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.change_notice",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "qms.supplier_level",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "rating_id"
+      ],
+      "target": "qms.supplier_rating",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "근거 평가"
+    },
+    {
+      "source": "qms.scar",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "inspection_id"
+      ],
+      "target": "qms.inspection",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "근거 검사"
+    },
+    {
+      "source": "qms.scar",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "ncr_id"
+      ],
+      "target": "qms.ncr",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "근거 부적합"
+    },
+    {
+      "source": "qms.ncr",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "defect_type_id"
+      ],
+      "target": "qms.defect_type",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "불량 유형"
+    },
+    {
+      "source": "qms.ncr",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "inspection_id"
+      ],
+      "target": "qms.inspection",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "근거 검사"
+    },
+    {
+      "source": "qms.ncr",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "claim_id"
+      ],
+      "target": "qms.claim",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "근거 클레임"
+    },
+    {
+      "source": "qms.capa",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "ncr_id"
+      ],
+      "target": "qms.ncr",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "부적합 보고"
+    },
+    {
+      "source": "qms.calibration",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "gauge_id"
+      ],
+      "target": "qms.gauge",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "계측기"
+    },
+    {
+      "source": "qms.change_notice",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "first_article_inspection_id"
+      ],
+      "target": "qms.inspection",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "초품 검사"
+    },
+    {
+      "source": "qms.inspection_value",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "gauge_id"
+      ],
+      "target": "qms.gauge",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "사용 계측기"
+    },
+    {
+      "source": "fems.tariff_band",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "fems.reading_upload",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "fems.reading_correction",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "fems.alarm_rule",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "fems.alarm",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "fems.saving_project",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "fems.energy_review",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "fems.ghg_inventory",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "fems.ghg_inventory_line",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "fems.cost_run",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "fems.cost_allocation_line",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "fems.utility_bill",
+      "columns": [
+        "workspace_id",
+        "generation_id"
+      ],
+      "target": "core.data_generation",
+      "target_columns": [
+        "workspace_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "같은 참조 범위 유지"
+    },
+    {
+      "source": "fems.tariff_band",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "tariff_id"
+      ],
+      "target": "fems.tariff",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "요금제"
+    },
+    {
+      "source": "fems.reading_correction",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "meter_channel_id"
+      ],
+      "target": "fems.meter_channel",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "계측 채널"
+    },
+    {
+      "source": "fems.alarm_rule",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "meter_channel_id"
+      ],
+      "target": "fems.meter_channel",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "계측 채널"
+    },
+    {
+      "source": "fems.alarm_rule",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "equipment_id"
+      ],
+      "target": "fems.equipment",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "설비"
+    },
+    {
+      "source": "fems.alarm",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "alarm_rule_id"
+      ],
+      "target": "fems.alarm_rule",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "경보 규칙"
+    },
+    {
+      "source": "fems.saving_project",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "equipment_id"
+      ],
+      "target": "fems.equipment",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "대상 설비"
+    },
+    {
+      "source": "fems.saving_project",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "energy_source_id"
+      ],
+      "target": "fems.energy_source",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "에너지원"
+    },
+    {
+      "source": "fems.ghg_inventory_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "ghg_inventory_id"
+      ],
+      "target": "fems.ghg_inventory",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "명세서"
+    },
+    {
+      "source": "fems.ghg_inventory_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "equipment_id"
+      ],
+      "target": "fems.equipment",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "배출 시설"
+    },
+    {
+      "source": "fems.ghg_inventory_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "energy_source_id"
+      ],
+      "target": "fems.energy_source",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "에너지원"
+    },
+    {
+      "source": "fems.cost_allocation_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cost_run_id"
+      ],
+      "target": "fems.cost_run",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "배분 실행"
+    },
+    {
+      "source": "fems.cost_allocation_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "equipment_id"
+      ],
+      "target": "fems.equipment",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "설비"
+    },
+    {
+      "source": "fems.cost_allocation_line",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "energy_source_id"
+      ],
+      "target": "fems.energy_source",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "에너지원"
+    },
+    {
+      "source": "fems.utility_bill",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "energy_source_id"
+      ],
+      "target": "fems.energy_source",
+      "target_columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "on_delete": "RESTRICT",
+      "on_update": "RESTRICT",
+      "note": "에너지원"
+    },
+    {
       "source": "core.mfa_factor",
       "columns": [
         "user_id"
@@ -31771,7 +36709,7 @@
       "table": "fems.meter",
       "kind": "CHECK",
       "columns": [],
-      "expression": "scope_kind IN ('factory','site_total')",
+      "expression": "scope_kind IN ('factory','site_total','generation')",
       "reason": "행 내부 데이터 정합성"
     },
     {
@@ -33484,7 +38422,7 @@
       "columns": [
         "source_kind"
       ],
-      "expression": "source_kind IN ('ELECTRIC','FUEL','HEAT','UTILITY')",
+      "expression": "source_kind IN ('ELECTRIC','FUEL','HEAT','UTILITY','GENERATION')",
       "reason": "에너지 구분 제한"
     },
     {
@@ -35836,10 +40774,11 @@
       "columns": [
         "workspace_id",
         "generation_id",
-        "item_code"
+        "item_code",
+        "inspection_kind"
       ],
-      "expression": "UNIQUE (workspace_id, generation_id, item_code) WHERE status = 'published'",
-      "reason": "품목당 게시 버전 1건"
+      "expression": "UNIQUE (workspace_id, generation_id, item_code, inspection_kind) WHERE status = 'published'",
+      "reason": "품목·검사 종류당 게시 기준 1개(DSN-14)"
     },
     {
       "table": "qms.inspection_spec",
@@ -35918,7 +40857,7 @@
       "columns": [
         "source"
       ],
-      "expression": "source IN ('MES', 'MANUAL')",
+      "expression": "source IN ('MES', 'WMS', 'ERP', 'QMS', 'MANUAL')",
       "reason": "출처 값"
     },
     {
@@ -36096,7 +41035,7 @@
         "disposition",
         "released_at"
       ],
-      "expression": "(status = 'held' AND disposition IS NULL AND released_at IS NULL AND release_inspection_id IS NULL AND release_reason IS NULL) OR (status = 'released' AND disposition IN ('REINSPECTED', 'CONCESSION', 'SCRAP') AND released_at IS NOT NULL)",
+      "expression": "(status = 'held' AND disposition IS NULL AND released_at IS NULL AND release_inspection_id IS NULL AND release_reason IS NULL) OR (status = 'released' AND disposition IN ('REINSPECTED', 'CONCESSION', 'SCRAP', 'RETURN') AND released_at IS NOT NULL)",
       "reason": "해제와 처분·해제 시각 일치"
     },
     {
@@ -36107,7 +41046,7 @@
         "release_inspection_id",
         "release_reason"
       ],
-      "expression": "(disposition IS NULL) OR (disposition = 'REINSPECTED' AND release_inspection_id IS NOT NULL) OR (disposition IN ('CONCESSION', 'SCRAP') AND release_inspection_id IS NULL AND release_reason IS NOT NULL AND length(btrim(release_reason)) > 0)",
+      "expression": "(disposition IS NULL) OR (disposition = 'REINSPECTED' AND release_inspection_id IS NOT NULL) OR (disposition IN ('CONCESSION', 'SCRAP', 'RETURN') AND release_inspection_id IS NULL AND release_reason IS NOT NULL AND length(btrim(release_reason)) > 0)",
       "reason": "처분별 재검사·사유"
     },
     {
@@ -37770,7 +42709,7 @@
         "lsl",
         "usl"
       ],
-      "expression": "(lsl IS NOT NULL OR usl IS NOT NULL) AND (lsl IS NULL OR usl IS NULL OR lsl < usl)",
+      "expression": "(chart_type IN ('P', 'NP', 'C', 'U') OR lsl IS NOT NULL OR usl IS NOT NULL) AND (lsl IS NULL OR usl IS NULL OR lsl < usl)",
       "reason": "규격 하나 이상, 하한 < 상한"
     },
     {
@@ -37790,7 +42729,7 @@
       "columns": [
         "subgroup_size"
       ],
-      "expression": "subgroup_size = 5",
+      "expression": "subgroup_size BETWEEN 1 AND 10",
       "reason": "부분군 크기 5 고정(13장 1)"
     },
     {
@@ -37942,7 +42881,7 @@
       "columns": [
         "source"
       ],
-      "expression": "source IN ('SEED', 'MANUAL')",
+      "expression": "source IN ('SEED', 'MANUAL', 'MES', 'FILE')",
       "reason": "출처 값"
     },
     {
@@ -37983,7 +42922,7 @@
       "columns": [
         "seq"
       ],
-      "expression": "seq BETWEEN 1 AND 5",
+      "expression": "seq BETWEEN 1 AND 10",
       "reason": "순서 범위"
     },
     {
@@ -38014,7 +42953,7 @@
       "columns": [
         "chart"
       ],
-      "expression": "chart IN ('XBAR', 'R')",
+      "expression": "chart IN ('XBAR', 'R', 'I', 'MR', 'P', 'NP', 'C', 'U')",
       "reason": "관리도 값"
     },
     {
@@ -38023,7 +42962,7 @@
       "columns": [
         "rule"
       ],
-      "expression": "rule BETWEEN 1 AND 3",
+      "expression": "rule BETWEEN 1 AND 8",
       "reason": "규칙 값"
     },
     {
@@ -38033,7 +42972,7 @@
         "chart",
         "rule"
       ],
-      "expression": "rule = 1 OR chart = 'XBAR'",
+      "expression": "rule = 1 OR chart IN ('XBAR', 'I', 'P', 'NP', 'C', 'U')",
       "reason": "규칙 2·3은 X̄만"
     },
     {
@@ -40346,7 +45285,7 @@
       "columns": [
         "asset_type"
       ],
-      "expression": "asset_type IN ('INJECTION', 'ASSEMBLY', 'INSPECTION', 'HVAC', 'UTILITY', 'OTHER')",
+      "expression": "asset_type IN ('INJECTION', 'ASSEMBLY', 'INSPECTION', 'HVAC', 'UTILITY', 'OTHER', 'MOLD', 'LINE', 'COMPONENT', 'FACILITY')",
       "reason": "설비 종류 값"
     },
     {
@@ -40355,7 +45294,7 @@
       "columns": [
         "source"
       ],
-      "expression": "source IN ('MES', 'BEMS', 'CMMS')",
+      "expression": "source IN ('MES', 'BEMS', 'CMMS', 'MES_MOLD')",
       "reason": "출처 값"
     },
     {
@@ -40415,7 +45354,7 @@
       "columns": [
         "interval_days"
       ],
-      "expression": "interval_days BETWEEN 1 AND 365",
+      "expression": "interval_days IS NULL OR interval_days BETWEEN 1 AND 365",
       "reason": "주기 범위"
     },
     {
@@ -40463,7 +45402,7 @@
       "columns": [
         "source"
       ],
-      "expression": "source IN ('MANUAL', 'BEMS_ALARM', 'SPC_SIGNAL', 'PM_PLAN')",
+      "expression": "source IN ('MANUAL', 'BEMS_ALARM', 'SPC_SIGNAL', 'PM_PLAN', 'RWS_REQUEST')",
       "reason": "출처 값"
     },
     {
@@ -40494,7 +45433,7 @@
         "source",
         "source_ref"
       ],
-      "expression": "(source IN ('BEMS_ALARM', 'SPC_SIGNAL')) = (source_ref IS NOT NULL)",
+      "expression": "(source IN ('BEMS_ALARM', 'SPC_SIGNAL', 'RWS_REQUEST')) = (source_ref IS NOT NULL)",
       "reason": "신호 출처만 원천 id"
     },
     {
@@ -40591,7 +45530,7 @@
         "source",
         "source_ref"
       ],
-      "expression": "UNIQUE (workspace_id, generation_id, source, source_ref) WHERE source IN ('BEMS_ALARM', 'SPC_SIGNAL') AND status <> 'CANCELLED'",
+      "expression": "UNIQUE (workspace_id, generation_id, source, source_ref) WHERE source IN ('BEMS_ALARM', 'SPC_SIGNAL', 'RWS_REQUEST') AND status <> 'CANCELLED'",
       "reason": "신호 1건당 취소되지 않은 작업지시 1건(D48)"
     },
     {
@@ -46118,6 +51057,2341 @@
       "reason": "GW-COMPANY-02 회사 범위·보안 무결성"
     },
     {
+      "table": "spc.characteristic_rule",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.characteristic_rule",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.spec_violation",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.spec_violation",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.ocap_item",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.ocap_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.ocap_check",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.ocap_check",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "spc.characteristic_rule",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id",
+        "rule_no"
+      ],
+      "expression": "",
+      "reason": "특성·규칙 1회"
+    },
+    {
+      "table": "spc.characteristic_rule",
+      "kind": "CHECK",
+      "columns": [
+        "rule_no"
+      ],
+      "expression": "rule_no BETWEEN 1 AND 8",
+      "reason": "Nelson 규칙 1~8"
+    },
+    {
+      "table": "spc.characteristic_rule",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "rule_no"
+      ],
+      "expression": "규칙 2~8은 위치 관리도(X̄·I·p·np·c·u)에만. 계수형은 규칙 1~4만 쓴다. 행이 없으면 1~3",
+      "reason": "판정 규칙 선택(Q3)"
+    },
+    {
+      "table": "spc.spec_violation",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "subgroup_id",
+        "seq"
+      ],
+      "expression": "",
+      "reason": "측정값당 이탈 1건"
+    },
+    {
+      "table": "spc.spec_violation",
+      "kind": "CHECK",
+      "columns": [
+        "side",
+        "value",
+        "limit_value"
+      ],
+      "expression": "(side = 'LOW' AND value < limit_value) OR (side = 'HIGH' AND value > limit_value)",
+      "reason": "방향·값"
+    },
+    {
+      "table": "spc.spec_violation",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "detected_at"
+      ],
+      "expression": "부분군 기록 때 측정값별로 규격과 비교해 생성(관리 이탈 판정과 같은 트랜잭션). QMS가 fs.spc.interface.spec_violations(since)로 읽어 부적합 보고 후보(Q4). SPC는 QMS 결과를 저장하지 않는다",
+      "reason": "규격 이탈 → QMS(Q4)"
+    },
+    {
+      "table": "spc.ocap_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id",
+        "rule_no",
+        "seq"
+      ],
+      "expression": "",
+      "reason": "특성·규칙·순서 유일"
+    },
+    {
+      "table": "spc.ocap_item",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "seq"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, seq) WHERE characteristic_id IS NULL AND rule_no IS NULL",
+      "reason": "공통 항목 순서 유일"
+    },
+    {
+      "table": "spc.ocap_item",
+      "kind": "CHECK",
+      "columns": [
+        "rule_no",
+        "seq",
+        "check_text",
+        "cause_category"
+      ],
+      "expression": "(rule_no IS NULL OR rule_no BETWEEN 1 AND 8) AND seq >= 1 AND length(btrim(check_text)) >= 2 AND (cause_category IS NULL OR cause_category IN ('MACHINE', 'MATERIAL', 'MAN', 'METHOD', 'MEASUREMENT', 'ENVIRONMENT'))",
+      "reason": "규칙·순서·내용·원인"
+    },
+    {
+      "table": "spc.ocap_check",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "signal_id",
+        "ocap_item_id"
+      ],
+      "expression": "",
+      "reason": "이상·항목당 결과 1건"
+    },
+    {
+      "table": "spc.ocap_check",
+      "kind": "CHECK",
+      "columns": [
+        "result",
+        "note"
+      ],
+      "expression": "result IN ('OK', 'NG', 'NA') AND (result <> 'NG' OR length(btrim(note)) >= 2)",
+      "reason": "결과·NG 메모"
+    },
+    {
+      "table": "spc.ocap_check",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "signal_id"
+      ],
+      "expression": "조치 완료 전에 그 이상에 해당하는 사용 항목(특성·규칙 일치 + 공통)을 모두 기록. NG 항목의 원인 분류를 조치 원인 기본값으로 제안. 조치 완료 후 불변",
+      "reason": "OCAP 기록(Q5)"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id",
+        "report_start_on",
+        "report_end_on",
+        "version"
+      ],
+      "expression": "",
+      "reason": "특성·기간·버전 유일"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id",
+        "report_start_on",
+        "report_end_on"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, characteristic_id, report_start_on, report_end_on) WHERE status = 'confirmed'",
+      "reason": "특성·기간당 확정 1건"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "version",
+        "confirmed_at"
+      ],
+      "expression": "status IN ('draft', 'confirmed', 'superseded') AND version >= 1 AND ((status = 'draft') = (confirmed_at IS NULL))",
+      "reason": "상태·버전"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "CHECK",
+      "columns": [
+        "report_start_on",
+        "report_end_on",
+        "subgroup_count",
+        "sigma_within",
+        "sigma_overall"
+      ],
+      "expression": "report_end_on >= report_start_on AND subgroup_count >= 20 AND sigma_within >= 0 AND sigma_overall >= 0",
+      "reason": "기간·부분군 수·σ"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "cp",
+        "pp"
+      ],
+      "expression": "Cp·Cpk는 군내 σ(R̄/d2 또는 MR̄/1.128), Pp·Ppk는 전체 σ(표본 표준편차). 한쪽 규격이면 해당 쪽만. 유효 부분군만. 확정 후 불변",
+      "reason": "능력 지표 계산(Q6)"
+    },
+    {
+      "table": "spc.spec_violation",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id",
+        "detected_at"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "spc.ocap_check",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "signal_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "spc.capability_report",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "characteristic_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "spc.characteristic",
+      "kind": "CHECK",
+      "columns": [
+        "chart_type",
+        "subgroup_size",
+        "defect_source"
+      ],
+      "expression": "chart_type IN ('XBAR_R', 'I_MR', 'P', 'NP', 'C', 'U') AND ((chart_type = 'I_MR') = (subgroup_size = 1)) AND ((chart_type IN ('P', 'NP', 'C', 'U')) = (defect_source IS NOT NULL)) AND (defect_source IS NULL OR defect_source IN ('MES', 'MANUAL'))",
+      "reason": "관리도 종류·부분군 크기·불량 출처(Q1·Q2)"
+    },
+    {
+      "table": "spc.subgroup",
+      "kind": "CHECK",
+      "columns": [
+        "xbar",
+        "r",
+        "inspected_qty",
+        "defect_count"
+      ],
+      "expression": "(xbar IS NOT NULL AND inspected_qty IS NULL AND defect_count IS NULL) OR (xbar IS NULL AND r IS NULL AND inspected_qty > 0 AND defect_count >= 0)",
+      "reason": "계량형(X̄·R) 또는 계수형(검사 수·불량 수) 하나"
+    },
+    {
+      "table": "spc.subgroup",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "defect_count"
+      ],
+      "expression": "계수형 부분군 = MES 확정 실적(fs.mes.interface 조회: 투입 = 검사 수, 불량 수)을 LOT·일별로 읽어 생성(원천 1건당 1건) 또는 수동. p·np는 불량 수 ≤ 검사 수",
+      "reason": "계수형 부분군(Q2)"
+    },
+    {
+      "table": "spc.control_limit",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "attr_center"
+      ],
+      "expression": "계량형은 xbar_*·r_*(I-MR이면 I·MR), 계수형은 attr_center만 저장하고 한계는 부분군 검사 수마다 계산. 계수(A2·D3·D4·d2·E2, n=1~10)는 코드 상수",
+      "reason": "관리도별 한계(Q1·Q2)"
+    },
+    {
+      "table": "cmms.checklist_item",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "cmms.checklist_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "cmms.checklist_result",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "cmms.checklist_result",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "cmms.technician",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "cmms.technician",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "cmms.vendor",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "cmms.vendor",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "cmms.failure_code",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "cmms.failure_code",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "cmms.asset_part",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "cmms.asset_part",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "cmms.technician",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "cmms.technician",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "cmms.vendor",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "cmms.vendor",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z][A-Z0-9-]{1,19}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "cmms.checklist_item",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pm_plan_id",
+        "seq"
+      ],
+      "expression": "",
+      "reason": "계획·순서 유일"
+    },
+    {
+      "table": "cmms.checklist_item",
+      "kind": "CHECK",
+      "columns": [
+        "method",
+        "lower_limit",
+        "upper_limit",
+        "unit"
+      ],
+      "expression": "method IN ('OK_NG', 'RANGE') AND (method = 'OK_NG' OR (COALESCE(lower_limit, upper_limit) IS NOT NULL AND unit IS NOT NULL)) AND (lower_limit IS NULL OR upper_limit IS NULL OR lower_limit <= upper_limit)",
+      "reason": "판정 방식별 기준"
+    },
+    {
+      "table": "cmms.checklist_result",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "work_order_id",
+        "checklist_item_id"
+      ],
+      "expression": "",
+      "reason": "작업지시·항목당 결과 1건"
+    },
+    {
+      "table": "cmms.checklist_result",
+      "kind": "CHECK",
+      "columns": [
+        "result",
+        "note"
+      ],
+      "expression": "result IN ('OK', 'NG') AND (result = 'OK' OR length(btrim(note)) >= 2)",
+      "reason": "결과·NG 메모"
+    },
+    {
+      "table": "cmms.checklist_result",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "result"
+      ],
+      "expression": "PM 작업지시는 계획의 사용 항목 결과를 모두 기록해야 완료. RANGE는 값으로 판정(서버). NG가 있으면 같은 설비 고장(BM) 작업지시 생성을 제안. 완료 후 불변",
+      "reason": "점검표 완료 조건(Q3)"
+    },
+    {
+      "table": "cmms.technician",
+      "kind": "CHECK",
+      "columns": [
+        "skill",
+        "hourly_rate",
+        "currency"
+      ],
+      "expression": "skill IN ('MECHANICAL', 'ELECTRICAL', 'UTILITY', 'GENERAL') AND hourly_rate >= 0 AND currency = 'KRW'",
+      "reason": "분야·단가·통화"
+    },
+    {
+      "table": "cmms.failure_code",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "kind",
+        "code"
+      ],
+      "expression": "",
+      "reason": "구분·코드 유일"
+    },
+    {
+      "table": "cmms.failure_code",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "code",
+        "cause_category"
+      ],
+      "expression": "kind IN ('SYMPTOM', 'CAUSE', 'ACTION') AND code ~ '^[A-Z][A-Z0-9-]{1,19}$' AND ((kind = 'CAUSE') = (cause_category IS NOT NULL)) AND (cause_category IS NULL OR cause_category IN ('WEAR', 'LUBRICATION', 'ELECTRICAL', 'SETTING', 'EXTERNAL', 'OTHER'))",
+      "reason": "구분·코드·원인 분류"
+    },
+    {
+      "table": "cmms.asset_part",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "asset_id",
+        "spare_part_id"
+      ],
+      "expression": "",
+      "reason": "설비·예비품 1행"
+    },
+    {
+      "table": "cmms.asset_part",
+      "kind": "CHECK",
+      "columns": [
+        "qty_per"
+      ],
+      "expression": "qty_per > 0",
+      "reason": "표준 수량 양수"
+    },
+    {
+      "table": "cmms.checklist_item",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "pm_plan_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "cmms.checklist_result",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "work_order_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "cmms.asset_part",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "spare_part_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "cmms.asset",
+      "kind": "CHECK",
+      "columns": [
+        "criticality",
+        "acquisition_cost",
+        "parent_asset_id"
+      ],
+      "expression": "(criticality IS NULL OR criticality IN ('A', 'B', 'C')) AND (acquisition_cost IS NULL OR acquisition_cost >= 0) AND (parent_asset_id IS NULL OR parent_asset_id <> id)",
+      "reason": "중요도·취득가·자기 참조"
+    },
+    {
+      "table": "cmms.asset",
+      "kind": "CHECK",
+      "columns": [
+        "source",
+        "asset_type"
+      ],
+      "expression": "(source = 'MES_MOLD') = (asset_type = 'MOLD')",
+      "reason": "금형은 MES 금형 출처(Q1)"
+    },
+    {
+      "table": "cmms.pm_plan",
+      "kind": "CHECK",
+      "columns": [
+        "trigger_kind",
+        "interval_days",
+        "interval_usage"
+      ],
+      "expression": "trigger_kind IN ('CALENDAR', 'RUN_HOURS', 'SHOTS') AND ((trigger_kind = 'CALENDAR') = (interval_days IS NOT NULL)) AND ((trigger_kind = 'CALENDAR') = (interval_usage IS NULL)) AND (interval_usage IS NULL OR interval_usage > 0)",
+      "reason": "기준별 주기(Q2)"
+    },
+    {
+      "table": "cmms.pm_plan",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "interval_usage"
+      ],
+      "expression": "RUN_HOURS: MES 공정 실행 시간 합(fs.mes.interface.operation_runs, 설비 코드), SHOTS: MES 금형 누적 타수(molds). 도래 = 현재 사용량 − 마지막 수행 사용량 ≥ 주기 → 사람이 작업지시 생성(D49와 같음, 자동 생성 없음). MES 꺼짐이면 도래 판정 불가 표시",
+      "reason": "사용량 기준 PM(Q2)"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "CHECK",
+      "columns": [
+        "external_cost",
+        "vendor_id"
+      ],
+      "expression": "(external_cost IS NULL OR external_cost >= 0) AND (external_cost IS NULL OR vendor_id IS NOT NULL)",
+      "reason": "외주 비용은 업체 필수"
+    },
+    {
+      "table": "cmms.work_order",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "technician_id",
+        "external_cost"
+      ],
+      "expression": "보전 비용 = 부품(Σ사용 수량 × 사용 단가) + 인건비(Σ작업 기록 분 ÷ 60 × 정비원 시간당 인건비) + 외주 비용. 조회 계산(저장 안 함). 외주 수리의 회계 처리는 ERP 직접 매입",
+      "reason": "보전 비용(Q5)"
+    },
+    {
+      "table": "cmms.spare_part",
+      "kind": "CHECK",
+      "columns": [
+        "unit_cost"
+      ],
+      "expression": "unit_cost IS NULL OR unit_cost >= 0",
+      "reason": "단가 음수 금지"
+    },
+    {
+      "table": "cmms.spare_part",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "item_code"
+      ],
+      "expression": "재고 = fs.wms.interface.stock_on_hand(item_code)(CMMS 재고 원장 없음, D50 유지). 재고 < 안전 재고 → 부족, fs.cmms.interface.part_requests()로 ERP 구매 요청 원천(출처 CMMS). 부품 사용은 fs.cmms.interface.part_usages()로 WMS가 읽어 출고",
+      "reason": "예비품 재고·구매 연계(Q6)"
+    },
+    {
+      "table": "qms.supplier_level",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.supplier_level",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.supplier_rating",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.supplier_rating",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.scar",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.scar",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.ncr",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.ncr",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.capa",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.capa",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.claim",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.claim",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.gauge",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.gauge",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.calibration",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.calibration",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.change_notice",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "qms.change_notice",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "qms.scar",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "scar_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "qms.scar",
+      "kind": "CHECK",
+      "columns": [
+        "scar_no"
+      ],
+      "expression": "length(btrim(scar_no)) > 0",
+      "reason": "번호 필수"
+    },
+    {
+      "table": "qms.ncr",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "ncr_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "qms.ncr",
+      "kind": "CHECK",
+      "columns": [
+        "ncr_no"
+      ],
+      "expression": "length(btrim(ncr_no)) > 0",
+      "reason": "번호 필수"
+    },
+    {
+      "table": "qms.capa",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "capa_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "qms.capa",
+      "kind": "CHECK",
+      "columns": [
+        "capa_no"
+      ],
+      "expression": "length(btrim(capa_no)) > 0",
+      "reason": "번호 필수"
+    },
+    {
+      "table": "qms.claim",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "claim_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "qms.claim",
+      "kind": "CHECK",
+      "columns": [
+        "claim_no"
+      ],
+      "expression": "length(btrim(claim_no)) > 0",
+      "reason": "번호 필수"
+    },
+    {
+      "table": "qms.change_notice",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cn_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "qms.change_notice",
+      "kind": "CHECK",
+      "columns": [
+        "cn_no"
+      ],
+      "expression": "length(btrim(cn_no)) > 0",
+      "reason": "번호 필수"
+    },
+    {
+      "table": "qms.supplier_level",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "partner_code",
+        "item_code",
+        "valid_from"
+      ],
+      "expression": "",
+      "reason": "공급처·품목·적용일 1건"
+    },
+    {
+      "table": "qms.supplier_level",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "partner_code",
+        "valid_from"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, partner_code, valid_from) WHERE item_code IS NULL",
+      "reason": "공급처 전체 수준·적용일 1건"
+    },
+    {
+      "table": "qms.supplier_level",
+      "kind": "CHECK",
+      "columns": [
+        "level",
+        "reason"
+      ],
+      "expression": "level IN ('EXEMPT', 'NORMAL', 'TIGHTENED') AND length(btrim(reason)) >= 2",
+      "reason": "수준·사유"
+    },
+    {
+      "table": "qms.supplier_level",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "level"
+      ],
+      "expression": "수입 검사 대상 = 품목 출하 검사 필요(MES·WMS 품목 속성) AND 현재 수준 <> EXEMPT. TIGHTENED는 AQL 표 강화 검사. 전환은 평가 제안을 담당자가 확정할 때만 새 행",
+      "reason": "검사 대상·수준 전환(Q1·Q5)"
+    },
+    {
+      "table": "qms.supplier_rating",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "rating_month",
+        "partner_code"
+      ],
+      "expression": "",
+      "reason": "월·공급처 1건"
+    },
+    {
+      "table": "qms.supplier_rating",
+      "kind": "CHECK",
+      "columns": [
+        "rating_month"
+      ],
+      "expression": "rating_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+      "reason": "'YYYY-MM' 형식"
+    },
+    {
+      "table": "qms.supplier_rating",
+      "kind": "CHECK",
+      "columns": [
+        "lot_count",
+        "failed_lot_count",
+        "defect_ppm",
+        "scar_count",
+        "grade",
+        "suggested_level"
+      ],
+      "expression": "lot_count >= 0 AND failed_lot_count BETWEEN 0 AND lot_count AND defect_ppm >= 0 AND scar_count >= 0 AND grade IN ('A', 'B', 'C', 'D') AND (suggested_level IS NULL OR suggested_level IN ('EXEMPT', 'NORMAL', 'TIGHTENED'))",
+      "reason": "평가 값"
+    },
+    {
+      "table": "qms.scar",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "responded_on",
+        "closed_at"
+      ],
+      "expression": "status IN ('OPEN', 'RESPONDED', 'CLOSED') AND ((status = 'OPEN') = (responded_on IS NULL)) AND ((status = 'CLOSED') = (closed_at IS NOT NULL))",
+      "reason": "상태별 값"
+    },
+    {
+      "table": "qms.scar",
+      "kind": "CHECK",
+      "columns": [
+        "issued_on",
+        "due_on"
+      ],
+      "expression": "due_on >= issued_on",
+      "reason": "기한 순서"
+    },
+    {
+      "table": "qms.ncr",
+      "kind": "CHECK",
+      "columns": [
+        "origin",
+        "qty",
+        "description"
+      ],
+      "expression": "origin IN ('INCOMING', 'PROCESS', 'OUTGOING', 'CUSTOMER') AND qty > 0 AND length(btrim(description)) >= 2",
+      "reason": "발생처·수량·내용"
+    },
+    {
+      "table": "qms.ncr",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "closed_at"
+      ],
+      "expression": "status IN ('OPEN', 'CLOSED') AND ((status = 'CLOSED') = (closed_at IS NOT NULL))",
+      "reason": "종결 시각"
+    },
+    {
+      "table": "qms.ncr",
+      "kind": "CHECK",
+      "columns": [
+        "origin",
+        "inspection_id",
+        "claim_id"
+      ],
+      "expression": "(origin <> 'CUSTOMER' OR claim_id IS NOT NULL) AND (origin NOT IN ('INCOMING', 'OUTGOING') OR inspection_id IS NOT NULL)",
+      "reason": "발생처별 근거"
+    },
+    {
+      "table": "qms.ncr",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "종결 조건: 연결 CAPA가 모두 VERIFIED(또는 CAPA 불필요 사유 기록). 종결 후 불변",
+      "reason": "부적합 종결(Q3)"
+    },
+    {
+      "table": "qms.capa",
+      "kind": "CHECK",
+      "columns": [
+        "kind",
+        "status"
+      ],
+      "expression": "kind IN ('CORRECTIVE', 'PREVENTIVE') AND status IN ('OPEN', 'DONE', 'VERIFIED', 'INEFFECTIVE')",
+      "reason": "종류·상태"
+    },
+    {
+      "table": "qms.capa",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "done_at",
+        "verified_at",
+        "verification_note"
+      ],
+      "expression": "(status = 'OPEN' AND done_at IS NULL AND verified_at IS NULL) OR (status = 'DONE' AND done_at IS NOT NULL AND verified_at IS NULL) OR (status IN ('VERIFIED', 'INEFFECTIVE') AND done_at IS NOT NULL AND verified_at >= done_at AND length(btrim(verification_note)) >= 2)",
+      "reason": "상태별 시각·확인"
+    },
+    {
+      "table": "qms.capa",
+      "kind": "CHECK",
+      "columns": [
+        "root_cause",
+        "action"
+      ],
+      "expression": "length(btrim(root_cause)) >= 2 AND length(btrim(action)) >= 2",
+      "reason": "원인·대책"
+    },
+    {
+      "table": "qms.claim",
+      "kind": "CHECK",
+      "columns": [
+        "severity",
+        "status",
+        "qty"
+      ],
+      "expression": "severity IN ('MINOR', 'MAJOR', 'CRITICAL') AND status IN ('RECEIVED', 'INVESTIGATING', 'RESPONDED', 'CLOSED') AND qty > 0",
+      "reason": "심각도·상태·수량"
+    },
+    {
+      "table": "qms.claim",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "response",
+        "responded_on",
+        "closed_at"
+      ],
+      "expression": "((status IN ('RECEIVED', 'INVESTIGATING') AND responded_on IS NULL) OR (status IN ('RESPONDED', 'CLOSED') AND responded_on IS NOT NULL AND length(btrim(response)) >= 2)) AND ((status = 'CLOSED') = (closed_at IS NOT NULL))",
+      "reason": "회신·종결"
+    },
+    {
+      "table": "qms.claim",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "조사 시작 시 부적합 보고(origin CUSTOMER) 생성. LOT 역추적은 MES·WMS 조회. CRM은 fs.qms.interface.claims()로 읽기만",
+      "reason": "클레임 흐름(Q4)"
+    },
+    {
+      "table": "qms.gauge",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 계측기 번호 유일"
+    },
+    {
+      "table": "qms.gauge",
+      "kind": "CHECK",
+      "columns": [
+        "code",
+        "calibration_cycle_days",
+        "status"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$' AND calibration_cycle_days BETWEEN 1 AND 1825 AND status IN ('ACTIVE', 'REPAIR', 'RETIRED')",
+      "reason": "번호·주기·상태"
+    },
+    {
+      "table": "qms.gauge",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "calibration_cycle_days"
+      ],
+      "expression": "교정 도래 = 최신 교정의 next_due_on. 30일 이내 경고, 기한 경과·REPAIR 계측기를 검사 값에 쓰면 경고(차단 아님)",
+      "reason": "교정 도래·사용 경고(Q6)"
+    },
+    {
+      "table": "qms.calibration",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "gauge_id",
+        "calibrated_on"
+      ],
+      "expression": "",
+      "reason": "계측기·교정일 1건"
+    },
+    {
+      "table": "qms.calibration",
+      "kind": "CHECK",
+      "columns": [
+        "calibrated_on",
+        "next_due_on",
+        "result"
+      ],
+      "expression": "next_due_on > calibrated_on AND result IN ('PASS', 'FAIL')",
+      "reason": "기한·결과"
+    },
+    {
+      "table": "qms.change_notice",
+      "kind": "CHECK",
+      "columns": [
+        "change_type",
+        "status"
+      ],
+      "expression": "change_type IN ('MAN', 'MACHINE', 'MATERIAL', 'METHOD') AND status IN ('REQUESTED', 'APPROVED', 'REJECTED', 'VERIFIED')",
+      "reason": "구분·상태"
+    },
+    {
+      "table": "qms.change_notice",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "decided_at",
+        "first_article_inspection_id"
+      ],
+      "expression": "((status = 'REQUESTED') = (decided_at IS NULL)) AND (status <> 'VERIFIED' OR first_article_inspection_id IS NOT NULL)",
+      "reason": "승인·초품 검사"
+    },
+    {
+      "table": "qms.change_notice",
+      "kind": "CHECK",
+      "columns": [
+        "requested_on",
+        "effective_on"
+      ],
+      "expression": "effective_on >= requested_on",
+      "reason": "적용일 순서"
+    },
+    {
+      "table": "qms.change_notice",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "APPROVED 후 초품 검사(inspection_kind FIRST_ARTICLE, source_ref = 신고 번호) 합격 확정 시 VERIFIED. 불합격이면 APPROVED 유지·부적합 보고",
+      "reason": "4M 변경 검증(Q7)"
+    },
+    {
+      "table": "qms.scar",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "partner_code"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "qms.ncr",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "status",
+        "reported_on"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "qms.capa",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "ncr_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "qms.claim",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "customer_code",
+        "received_on"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "qms.calibration",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "gauge_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "qms.supplier_level",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "partner_code"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "qms.inspection_spec",
+      "kind": "CHECK",
+      "columns": [
+        "inspection_kind",
+        "aql"
+      ],
+      "expression": "inspection_kind IN ('OUTGOING', 'INCOMING') AND (aql IS NULL OR aql > 0)",
+      "reason": "검사 종류·AQL"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "CHECK",
+      "columns": [
+        "inspection_kind",
+        "sampling"
+      ],
+      "expression": "inspection_kind IN ('OUTGOING', 'INCOMING', 'RETURN', 'FIRST_ARTICLE') AND sampling IN ('AQL', 'MANUAL')",
+      "reason": "검사 종류·샘플링"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "CHECK",
+      "columns": [
+        "sampling",
+        "accept_number",
+        "reject_number"
+      ],
+      "expression": "(sampling = 'MANUAL' AND accept_number IS NULL AND reject_number IS NULL) OR (sampling = 'AQL' AND accept_number >= 0 AND reject_number = accept_number + 1)",
+      "reason": "AQL Ac/Re"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "CHECK",
+      "columns": [
+        "inspection_kind",
+        "partner_code",
+        "source_ref"
+      ],
+      "expression": "(inspection_kind = 'OUTGOING') OR (source_ref IS NOT NULL AND (inspection_kind = 'FIRST_ARTICLE' OR partner_code IS NOT NULL))",
+      "reason": "종류별 원천·거래처"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "sampling"
+      ],
+      "expression": "AQL: 로트 크기 → 시료 문자 → 시료 수·Ac/Re를 KS Q ISO 2859-1(일반 수준 II, 보통/강화 1회) 코드 상수 표로 계산. 판정 = 시료 불량 개수 ≤ Ac이면 합격(항목 판정과 함께). 표는 DB가 아니라 코드",
+      "reason": "AQL 샘플링(Q2)"
+    },
+    {
+      "table": "qms.inspection",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "inspection_kind"
+      ],
+      "expression": "INCOMING 판정 확정 → fs.qms.interface.incoming_results()로 WMS가 읽어 합격 정상 위치·불합격 불량 위치(또는 반품). 불합격이면 보류 + 부적합 보고 + 시정 요구 제안",
+      "reason": "수입 검사 → WMS(Q1)"
+    },
+    {
+      "table": "qms.claim",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "crm_inquiry_no"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, crm_inquiry_no) WHERE crm_inquiry_no IS NOT NULL",
+      "reason": "CRM 문의당 클레임 1건"
+    },
+    {
+      "table": "qms.change_notice",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "plm_eco_no",
+        "item_code"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, plm_eco_no, item_code) WHERE plm_eco_no IS NOT NULL AND status <> 'REJECTED'",
+      "reason": "ECO·품목당 진행 4M 1건"
+    },
+    {
+      "table": "qms.ncr",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "origin",
+        "source_ref"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, origin, source_ref) WHERE source_ref IS NOT NULL",
+      "reason": "원천(SPC 이탈 등)당 NCR 1건"
+    },
+    {
+      "table": "fems.tariff_band",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "fems.tariff_band",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "fems.reading_upload",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "fems.reading_upload",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "fems.reading_correction",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "fems.reading_correction",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "fems.alarm_rule",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "fems.alarm_rule",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "fems.alarm",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "fems.alarm",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "fems.saving_project",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "fems.saving_project",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "fems.energy_review",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "fems.energy_review",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "fems.ghg_inventory",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "fems.ghg_inventory",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "fems.ghg_inventory_line",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "fems.ghg_inventory_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "fems.cost_run",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "fems.cost_run",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "fems.cost_allocation_line",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "fems.cost_allocation_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "fems.utility_bill",
+      "kind": "PK",
+      "columns": [
+        "id"
+      ],
+      "expression": "",
+      "reason": "기본키"
+    },
+    {
+      "table": "fems.utility_bill",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "id"
+      ],
+      "expression": "",
+      "reason": "공간·세대 복합 참조 대상"
+    },
+    {
+      "table": "fems.saving_project",
+      "kind": "CHECK",
+      "columns": [
+        "currency"
+      ],
+      "expression": "currency = 'KRW'",
+      "reason": "KRW 고정"
+    },
+    {
+      "table": "fems.energy_review",
+      "kind": "CHECK",
+      "columns": [
+        "currency"
+      ],
+      "expression": "currency = 'KRW'",
+      "reason": "KRW 고정"
+    },
+    {
+      "table": "fems.cost_allocation_line",
+      "kind": "CHECK",
+      "columns": [
+        "currency"
+      ],
+      "expression": "currency = 'KRW'",
+      "reason": "KRW 고정"
+    },
+    {
+      "table": "fems.utility_bill",
+      "kind": "CHECK",
+      "columns": [
+        "currency"
+      ],
+      "expression": "currency = 'KRW'",
+      "reason": "KRW 고정"
+    },
+    {
+      "table": "fems.alarm_rule",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "fems.alarm_rule",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "fems.saving_project",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "code"
+      ],
+      "expression": "",
+      "reason": "세대 내 코드 유일"
+    },
+    {
+      "table": "fems.saving_project",
+      "kind": "CHECK",
+      "columns": [
+        "code"
+      ],
+      "expression": "code ~ '^[A-Z0-9][A-Z0-9_-]{0,29}$'",
+      "reason": "코드 형식"
+    },
+    {
+      "table": "fems.energy_review",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "review_month",
+        "version"
+      ],
+      "expression": "",
+      "reason": "기간·버전 유일"
+    },
+    {
+      "table": "fems.energy_review",
+      "kind": "CHECK",
+      "columns": [
+        "review_month"
+      ],
+      "expression": "review_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+      "reason": "기간 형식"
+    },
+    {
+      "table": "fems.energy_review",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "version",
+        "confirmed_at"
+      ],
+      "expression": "status IN ('draft', 'confirmed', 'superseded') AND version >= 1 AND ((status = 'draft') = (confirmed_at IS NULL))",
+      "reason": "상태·버전"
+    },
+    {
+      "table": "fems.energy_review",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "review_month"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, review_month) WHERE status = 'confirmed'",
+      "reason": "기간당 확정 1건(재작성은 새 버전)"
+    },
+    {
+      "table": "fems.cost_run",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cost_month",
+        "version"
+      ],
+      "expression": "",
+      "reason": "기간·버전 유일"
+    },
+    {
+      "table": "fems.cost_run",
+      "kind": "CHECK",
+      "columns": [
+        "cost_month"
+      ],
+      "expression": "cost_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+      "reason": "기간 형식"
+    },
+    {
+      "table": "fems.cost_run",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "version",
+        "confirmed_at"
+      ],
+      "expression": "status IN ('draft', 'confirmed', 'superseded') AND version >= 1 AND ((status = 'draft') = (confirmed_at IS NULL))",
+      "reason": "상태·버전"
+    },
+    {
+      "table": "fems.cost_run",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cost_month"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, cost_month) WHERE status = 'confirmed'",
+      "reason": "기간당 확정 1건(재작성은 새 버전)"
+    },
+    {
+      "table": "fems.ghg_inventory",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "inventory_year",
+        "version"
+      ],
+      "expression": "",
+      "reason": "기간·버전 유일"
+    },
+    {
+      "table": "fems.ghg_inventory",
+      "kind": "CHECK",
+      "columns": [
+        "inventory_year"
+      ],
+      "expression": "inventory_year ~ '^[0-9]{4}$'",
+      "reason": "기간 형식"
+    },
+    {
+      "table": "fems.ghg_inventory",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "version",
+        "confirmed_at"
+      ],
+      "expression": "status IN ('draft', 'confirmed', 'superseded') AND version >= 1 AND ((status = 'draft') = (confirmed_at IS NULL))",
+      "reason": "상태·버전"
+    },
+    {
+      "table": "fems.ghg_inventory",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "inventory_year"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, inventory_year) WHERE status = 'confirmed'",
+      "reason": "기간당 확정 1건(재작성은 새 버전)"
+    },
+    {
+      "table": "fems.tariff_band",
+      "kind": "CHECK",
+      "columns": [
+        "season",
+        "day_kind",
+        "load_band"
+      ],
+      "expression": "season IN ('SUMMER', 'SPRING_FALL', 'WINTER') AND day_kind IN ('WEEKDAY', 'SATURDAY', 'HOLIDAY') AND load_band IN ('OFF_PEAK', 'MID', 'PEAK')",
+      "reason": "계절·요일·부하 값"
+    },
+    {
+      "table": "fems.tariff_band",
+      "kind": "CHECK",
+      "columns": [
+        "hour_from",
+        "hour_to",
+        "rate"
+      ],
+      "expression": "hour_from BETWEEN 0 AND 23 AND hour_to BETWEEN 1 AND 24 AND hour_to > hour_from AND rate >= 0",
+      "reason": "시간 구간·요율"
+    },
+    {
+      "table": "fems.tariff_band",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "tariff_id",
+        "season",
+        "day_kind",
+        "hour_from"
+      ],
+      "expression": "",
+      "reason": "요금제·계절·요일·시작 시 1구간"
+    },
+    {
+      "table": "fems.tariff_band",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "hour_from",
+        "hour_to"
+      ],
+      "expression": "같은 요금제·계절·요일의 구간은 0~24시를 겹침 없이 빈틈없이 덮는다(저장 시 검사). TOU 요금제는 3계절 × 3요일이 모두 있어야 게시",
+      "reason": "구간 완전성(Q1)"
+    },
+    {
+      "table": "fems.reading_upload",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "upload_no"
+      ],
+      "expression": "",
+      "reason": "세대 내 번호 유일"
+    },
+    {
+      "table": "fems.reading_upload",
+      "kind": "CHECK",
+      "columns": [
+        "row_count",
+        "accepted_count",
+        "rejected_count"
+      ],
+      "expression": "row_count >= 0 AND accepted_count >= 0 AND rejected_count >= 0 AND accepted_count + rejected_count = row_count",
+      "reason": "행 합계"
+    },
+    {
+      "table": "fems.reading_correction",
+      "kind": "CHECK",
+      "columns": [
+        "method",
+        "reason"
+      ],
+      "expression": "method IN ('INTERPOLATE', 'PREVIOUS', 'MANUAL') AND length(btrim(reason)) >= 2",
+      "reason": "방법·사유"
+    },
+    {
+      "table": "fems.reading_correction",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "corrected_value"
+      ],
+      "expression": "보정은 같은 채널·구간 계측의 새 input_revision(quality estimated)으로 반영, 원 계측은 남긴다. 배분·원단위는 최신 revision 기준",
+      "reason": "보정 = 새 버전"
+    },
+    {
+      "table": "fems.alarm_rule",
+      "kind": "CHECK",
+      "columns": [
+        "alarm_kind",
+        "threshold",
+        "meter_channel_id",
+        "equipment_id"
+      ],
+      "expression": "alarm_kind IN ('THRESHOLD', 'PEAK', 'IDLE_USAGE') AND threshold > 0 AND (meter_channel_id IS NOT NULL OR equipment_id IS NOT NULL) AND (alarm_kind <> 'PEAK' OR threshold <= 1)",
+      "reason": "종류·임계·대상"
+    },
+    {
+      "table": "fems.alarm",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "acknowledged_at",
+        "cleared_at",
+        "raised_at"
+      ],
+      "expression": "status IN ('OPEN', 'ACK', 'CLEARED') AND ((status = 'OPEN') = (acknowledged_at IS NULL AND cleared_at IS NULL)) AND ((status = 'CLEARED') = (cleared_at IS NOT NULL)) AND (cleared_at IS NULL OR cleared_at >= raised_at)",
+      "reason": "상태별 시각"
+    },
+    {
+      "table": "fems.alarm",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "alarm_rule_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, alarm_rule_id) WHERE status <> 'CLEARED'",
+      "reason": "규칙당 진행 경보 1건"
+    },
+    {
+      "table": "fems.saving_project",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "expected_saving",
+        "investment"
+      ],
+      "expression": "status IN ('PLANNED', 'ACTIVE', 'VERIFIED', 'CANCELLED') AND expected_saving > 0 AND investment >= 0",
+      "reason": "상태·예상·투자"
+    },
+    {
+      "table": "fems.saving_project",
+      "kind": "CHECK",
+      "columns": [
+        "baseline_start_on",
+        "baseline_end_on",
+        "start_on",
+        "review_end_on"
+      ],
+      "expression": "baseline_end_on > baseline_start_on AND baseline_end_on <= start_on AND (review_end_on IS NULL OR review_end_on > start_on)",
+      "reason": "비교 기간 순서"
+    },
+    {
+      "table": "fems.saving_project",
+      "kind": "CHECK",
+      "columns": [
+        "status",
+        "measured_saving",
+        "verified_at"
+      ],
+      "expression": "(status = 'VERIFIED') = (verified_at IS NOT NULL AND measured_saving IS NOT NULL)",
+      "reason": "검증 값"
+    },
+    {
+      "table": "fems.saving_project",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "measured_saving"
+      ],
+      "expression": "실제 절감 = (비교 전 원단위 − 비교 후 원단위) × 비교 후 생산량, 연 환산. 비교 후 기간은 비교 전과 같은 길이. 검증 후 불변",
+      "reason": "절감 측정·검증(Q5)"
+    },
+    {
+      "table": "fems.energy_review",
+      "kind": "CHECK",
+      "columns": [
+        "primary_energy_toe",
+        "energy_cost",
+        "emission_tco2e"
+      ],
+      "expression": "primary_energy_toe >= 0 AND energy_cost >= 0 AND emission_tco2e >= 0",
+      "reason": "값 음수 금지"
+    },
+    {
+      "table": "fems.energy_review",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "primary_energy_toe",
+        "emission_tco2e"
+      ],
+      "expression": "1차에너지는 PRIMARY 계수로 환산 후 합산, 배출은 EMISSION 계수 — 섞지 않는다(AGENTS §3). 확정 = 그 달 스냅샷",
+      "reason": "환산·배출 계수 분리"
+    },
+    {
+      "table": "fems.ghg_inventory",
+      "kind": "CHECK",
+      "columns": [
+        "scope1_tco2e",
+        "scope2_tco2e"
+      ],
+      "expression": "scope1_tco2e >= 0 AND scope2_tco2e >= 0",
+      "reason": "배출 음수 금지"
+    },
+    {
+      "table": "fems.ghg_inventory_line",
+      "kind": "CHECK",
+      "columns": [
+        "scope",
+        "activity_qty",
+        "factor_value",
+        "emission_tco2e"
+      ],
+      "expression": "scope IN (1, 2) AND activity_qty >= 0 AND factor_value >= 0 AND emission_tco2e >= 0",
+      "reason": "범위·값"
+    },
+    {
+      "table": "fems.ghg_inventory_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "ghg_inventory_id",
+        "equipment_id",
+        "energy_source_id"
+      ],
+      "expression": "",
+      "reason": "명세서·시설·에너지원 1행"
+    },
+    {
+      "table": "fems.ghg_inventory_line",
+      "kind": "UK_PARTIAL",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "ghg_inventory_id",
+        "energy_source_id"
+      ],
+      "expression": "UNIQUE (workspace_id, generation_id, ghg_inventory_id, energy_source_id) WHERE equipment_id IS NULL",
+      "reason": "사업장 공용 행 에너지원당 1행"
+    },
+    {
+      "table": "fems.ghg_inventory",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "scope1_tco2e",
+        "scope2_tco2e"
+      ],
+      "expression": "Scope 1 = 연료(FUEL), Scope 2 = 전력(ELECTRIC)·열(HEAT), 계수는 그 연도 EMISSION. 합계 = 배출 시설 합. 확정 후 불변(Q6)",
+      "reason": "온실가스 명세서(Q6)"
+    },
+    {
+      "table": "fems.cost_allocation_line",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cost_run_id",
+        "equipment_id",
+        "energy_source_id"
+      ],
+      "expression": "",
+      "reason": "실행·설비·에너지원 1행"
+    },
+    {
+      "table": "fems.cost_allocation_line",
+      "kind": "CHECK",
+      "columns": [
+        "quantity",
+        "cost"
+      ],
+      "expression": "quantity >= 0 AND cost >= 0",
+      "reason": "값 음수 금지"
+    },
+    {
+      "table": "fems.cost_run",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "status"
+      ],
+      "expression": "비용 = 설비 배분량 × 시간대별 요율(TOU) + 기본요금 사용량 비율 배분. 확정분을 fs.fems.interface.energy_costs(month)로 ERP가 참고로 읽음(원가 배부 기준은 ERP 생산량 그대로, Q4)",
+      "reason": "비용 배분 제공(Q4)"
+    },
+    {
+      "table": "fems.utility_bill",
+      "kind": "UK",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "energy_source_id",
+        "bill_month"
+      ],
+      "expression": "",
+      "reason": "에너지원·월 고지서 1건"
+    },
+    {
+      "table": "fems.utility_bill",
+      "kind": "CHECK",
+      "columns": [
+        "bill_month"
+      ],
+      "expression": "bill_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'",
+      "reason": "'YYYY-MM' 형식"
+    },
+    {
+      "table": "fems.utility_bill",
+      "kind": "CHECK",
+      "columns": [
+        "billed_qty",
+        "billed_amount",
+        "calculated_amount"
+      ],
+      "expression": "billed_qty >= 0 AND billed_amount >= 0 AND calculated_amount >= 0",
+      "reason": "값 음수 금지"
+    },
+    {
+      "table": "fems.tariff_band",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "tariff_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "fems.reading_correction",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "meter_channel_id",
+        "period_start"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "fems.alarm",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "alarm_rule_id",
+        "raised_at"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "fems.ghg_inventory_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "ghg_inventory_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "fems.cost_allocation_line",
+      "kind": "INDEX",
+      "columns": [
+        "workspace_id",
+        "generation_id",
+        "cost_run_id"
+      ],
+      "expression": "",
+      "reason": "FK·목록 조회"
+    },
+    {
+      "table": "fems.tariff",
+      "kind": "CHECK",
+      "columns": [
+        "tariff_kind",
+        "contract_kw"
+      ],
+      "expression": "tariff_kind IN ('FLAT', 'TOU') AND (tariff_kind = 'FLAT' OR contract_kw > 0)",
+      "reason": "TOU는 계약전력 필수(Q1)"
+    },
+    {
+      "table": "fems.energy_reading",
+      "kind": "CHECK",
+      "columns": [
+        "entry_method"
+      ],
+      "expression": "entry_method IN ('METER', 'MANUAL', 'FILE')",
+      "reason": "입력 방법 값"
+    },
+    {
+      "table": "fems.production_record",
+      "kind": "CHECK",
+      "columns": [
+        "source"
+      ],
+      "expression": "source IN ('MES', 'MANUAL')",
+      "reason": "출처 값"
+    },
+    {
+      "table": "fems.production_record",
+      "kind": "SERVICE/DB_POLICY",
+      "columns": [
+        "source"
+      ],
+      "expression": "MES 출처는 fs.mes.interface.production_results(month)를 읽어 새 version_no로 확정(원 행 불변). MES 꺼짐이면 수동만",
+      "reason": "MES 생산량 가져오기(Q3)"
+    },
+    {
       "table": "core.mfa_factor",
       "kind": "PK",
       "columns": [
@@ -48037,10 +55311,59 @@
     },
     {
       "version": "0.28.0",
+      "task": "SPC-1a",
+      "date": "2026-10-19",
+      "change": "SPC 보강: 새 표 5개(특성별 판정 규칙, 규격 이탈, 이상 대응 점검 항목·결과, 공정능력 보고서)와 기존 3표 칼럼 6개(특성 관리도 종류·불량 출처, 관리 한계 계수형 중심선, 부분군 검사 수량·불량 수·계측기) 및 제약 교체 7건(부분군 크기 1~10, 측정 순번 10, 관리도 8종, Nelson 규칙 1~8, 계수형 규격 한계 허용, 부분군 출처 4종). 목표 설계 DSN-17에서 그대로 옮김",
+      "status": "마이그레이션 spc1 적용 대상"
+    },
+    {
+      "version": "0.29.0",
+      "task": "SPC-1c",
+      "date": "2026-10-20",
+      "change": "SPC-1a 보완: 기존 칼럼의 NULL 허용을 목표 설계와 맞춤 (spc.subgroup.xbar·r, spc.control_limit.xbar_cl·xbar_ucl·xbar_lcl·r_cl·r_ucl·r_lcl). 계수형 관리도(P·NP·C·U) 부분군은 이 칸이 비어야 해서 지금 구조로는 넣을 수 없었다",
+      "status": "마이그레이션 spc2 적용 대상"
+    },
+    {
+      "version": "0.30.0",
+      "task": "CMMS-1a",
+      "date": "2026-10-20",
+      "change": "CMMS 보강: 새 표 6개(점검 항목·결과, 정비원, 외주 업체, 고장 코드, 설비별 예비품)와 기존 6표 칼럼 추가(설비 계층·상세, PM 사용량 기준, 작업지시 정비원·외주·고장 코드, 작업 기록 정비원, 예비품 WMS 품목·단가, 부품 사용 단가). 목표 설계 DSN-21에서 그대로 옮김",
+      "status": "마이그레이션 cmms1 적용 대상"
+    },
+    {
+      "version": "0.31.0",
+      "task": "CMMS-1e",
+      "date": "2026-10-20",
+      "change": "CMMS-1a 보완: 기존 칼럼의 NULL 허용을 목표 설계와 맞춤 (cmms.pm_plan.interval_days). 운전 시간·타수 기준 PM 계획은 일 주기가 없어야 해서 지금 구조로는 넣을 수 없었다",
+      "status": "마이그레이션 cmms2 적용 대상"
+    },
+    {
+      "version": "0.32.0",
+      "task": "QMS-1a",
+      "date": "2026-10-23",
+      "change": "QMS 보강: 새 표 9개(공급처 등급·평가·시정 요구, 부적합 보고, 시정·예방 조치, 고객 클레임, 계측기·교정, 4M 변경 신고)와 기존 3표 칼럼 추가(검사 기준 종류·AQL, 검사 종류·공급처·원천·샘플링·합부 판정 수, 측정값 계측기) 및 제약 교체 4건. 목표 설계 DSN-14에서 그대로 옮김",
+      "status": "마이그레이션 qms1 적용 대상"
+    },
+    {
+      "version": "0.33.0",
+      "task": "FEMS-1a",
+      "date": "2026-10-31",
+      "change": "FEMS 보강: 새 표 12개(시간대별 요율, 계측 올리기·보정, 경보 규칙·경보, 절감 활동, 월간 검토, 온실가스 명세서·배출 시설, 비용 배분 실행·배분, 고지서 대조)와 기존 4표 칼럼 추가(요금제 종류·계약전력, 계측 입력 방법, 설비 부서 코드, 생산량 출처) 및 에너지원 GENERATION·계측기 generation 제약 교체. 목표 설계 DSN-15에서 그대로 옮김",
+      "status": "마이그레이션 fems1 적용 대상"
+    },
+    {
+      "version": "0.28.0",
       "task": "GW-READY-02",
       "date": "2026-10-18",
       "change": "승인된 보안·운영 신규9표/기존2확장. 인증 앱·제한 복구 구현 중; 실제 운영 인수 미완료",
       "status": "격리 PostgreSQL18 DDL 대조 오류0 / 전체 제품 통합 진행 중"
+    },
+    {
+      "version": "0.34.0",
+      "task": "GW-READY-02 79차",
+      "date": "2026-11-05",
+      "change": "main 783a2c1과 GW 보안·운영 이력 보존 통합 및 이름 정규화",
+      "status": "격리 승격 검증 중; 운영 미적용"
     }
   ]
 }

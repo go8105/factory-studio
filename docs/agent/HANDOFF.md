@@ -1,3 +1,12 @@
+## 79차 WIP — GW 브랜치 통합 적용·승격 검증 중 (2026-11-05)
+
+- GW 저장소/브랜치 안에서 고정 main783a2c1을 통합 중이다. 공유 main checkout·다른 WMS checkout·원격 push·배포는 변경하지 않는다. 시작 d6a02c7. 최종 완료 기록 전까지 이번 작업을 완료로 보지 않는다.
+- 새 gw_main_ready02_merge(parents gw_readiness/fems1)는 92개 이름을 정의/점유 선검사 후 변경하며 OID를 보존한다. metadata 현재0.34.0/251표·2833열·617FK, 목표390표·4464열·950FK로 동기화. Excel51/83시트·native링크716/1113·셀오류0·GW렌더, ERD양쪽 재생성 확인.
+- 실행한 U0는 migration/실DDL/스키마6pass. 고정 GW/main 코드에서 각각 합성 데이터를 만든 UG/UM·이름 역/순·실패롤백 집중7pass. 이후 권한부족/보존 검사를 보강해 전체 CI에서 다시 검증 중이다. 프런트 전체822pass, type/lint/format/build 확인. 초기 main 증인은 빈 CMMS/QMS 시드를 잘못 기대해 실패했고 합성 행을 명시 추가한 뒤 통과했다.
+- 소유 실행기에 명시URL CI 경로/별도 빈DB 왕복을 연결하고, 구형10인복원은 기존 전체ID/owner/loopback 검증을 재사용한다. CI 초기 도구검사4failure/1error는 .env 의존 dry-run·옛 GW표개수/목표재생성 계약 때문. 보정 뒤 도구138pass, backend Ruff/포맷 확인. 전체CI는 아직 실행 중이며 통과로 기록하지 않는다.
+- 전체 Ruff의 기존 I001 76건은 import 순서만 정리했다. 공개된 기존 migration은 새로 수정하지 않았다(main의 공유 WMS 파일을 그대로 수용). main 인계/진행 원문은 main_인계_783a2c1_통합참조.md와 ../plan/main_진행이력_783a2c1_통합참조.md로 보존했다.
+- ready=false/최종4UNVERIFIED·실제복원PARTIAL·ACCEPTANCE PASS거부 유지. 실회사10인/실 API브라우저·실외부공급자/전체회수·운영전환은 미검증이다. 남은 일: 전체CI/8개승격보강 결과 확인·자원정리·최종문서/커밋. 이 기록의 커밋은 WIP이며 실제 main 통합/배포 승인이 아니다.
+
 ## 78차 — 두 head 연결·metadata 충돌 해소·승격 검증 설계 (2026-11-05)
 
 - 저장소 `/Users/hwang-kyoungho/projects/factory-studio-gw-company`, `codex/gw-company-01`, 시작4c898ac/깨끗한 작업 트리. 최신77차 인계 후속을 사용자 승인으로 진행했다. main재조회783a2c1 동일, 공통2be292e·GW88/main90커밋 분기. 최종 커밋은 git log -1로 확인한다.

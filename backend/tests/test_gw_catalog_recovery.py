@@ -9,14 +9,13 @@ from datetime import timedelta
 
 import pytest
 from cryptography.exceptions import InvalidSignature
-from test_gw_catalog_store import invoke, setup
-from test_gw_catalog_transfer import outgoing, receive, receiver
-
 from fs.gw import catalog_recovery as recovery
 from fs.gw import catalog_store as store
 from fs.gw import catalog_transfer as transfer
 from fs.gw.checkpoint_catalog import DOMAIN, CatalogConfig, verify_document
 from fs.gw.operating_contract import canonical
+from test_gw_catalog_store import invoke, setup
+from test_gw_catalog_transfer import outgoing, receive, receiver
 
 
 def interrupt(parts, patch, *, size=None, initial=False, complete=False):

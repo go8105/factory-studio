@@ -85,7 +85,7 @@ EXPECTED_COUNTS = {
     "qms.inspection_value": 68,
     "qms.quality_hold": 2,
     "wms.warehouse": 2,
-    "wms.storage_location": 6,
+    "wms.storage_location": 8,
     "wms.item": 5,
     "wms.item_unit_conversion": 1,
     "wms.stock_document": 41,
@@ -148,7 +148,7 @@ def validate_all(
         f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}",
     )
     _require(
-        sum(actual.values()) == 14784 + len(MODULE_KEYS) + sum(GW_COUNTS.values()),
+        sum(actual.values()) == 14786 + len(MODULE_KEYS) + sum(GW_COUNTS.values()),
         f"V1 total={sum(actual.values())}",
     )
     _require(all(varying.values()), f"V1 date-varying empty: {varying}")

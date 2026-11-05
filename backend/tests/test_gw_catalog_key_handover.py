@@ -12,17 +12,16 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from gw_catalog_trust_helpers import approve_subprocess
-from test_gw_catalog_recovery import interrupt, recover
-from test_gw_catalog_segments import finish, package
-from test_gw_catalog_store import cli_env, invoke, setup
-from test_gw_catalog_transfer import outgoing, receive, receiver
-
 from fs.gw import catalog_key_handover as handover
 from fs.gw import catalog_store as store
 from fs.gw.checkpoint_catalog import DOMAIN, CatalogConfig, verify_document
 from fs.gw.evidence_trust import EvidenceTrust, authorize, from_environment
 from fs.gw.operating_contract import canonical
+from gw_catalog_trust_helpers import approve_subprocess
+from test_gw_catalog_recovery import interrupt, recover
+from test_gw_catalog_segments import finish, package
+from test_gw_catalog_store import cli_env, invoke, setup
+from test_gw_catalog_transfer import outgoing, receive, receiver
 
 
 def add_successor(parts):

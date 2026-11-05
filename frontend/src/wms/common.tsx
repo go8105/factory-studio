@@ -14,7 +14,12 @@ export type Warehouse = {
   isActive: boolean;
   locationCount: number;
 };
+export type LocationType =
+  "NORMAL" | "QUARANTINE" | "LINE" | "RECEIVING" | "SHIPPING" | "RETURN";
 export type Location = {
+  capacityQty?: string | null;
+  mixItems?: boolean;
+  mixLots?: boolean;
   id: number;
   warehouseId: number;
   warehouseCode: string;
@@ -23,7 +28,7 @@ export type Location = {
   isDefault: boolean;
   isActive: boolean;
   moveCount: number;
-  locationType: "NORMAL" | "QUARANTINE";
+  locationType: LocationType;
 };
 export type Conversion = { id: number; fromUnit: string; factor: string };
 export type Item = {
@@ -109,6 +114,134 @@ export type LotRow = {
   qmsHold?: QmsHoldInfo | boolean | null;
 };
 
+export type PutawayStatus = "OPEN" | "DONE" | "CANCELLED";
+
+export const PUTAWAY_STATUS_LABEL: Record<PutawayStatus, string> = {
+  OPEN: "대기",
+  DONE: "완료",
+  CANCELLED: "취소",
+};
+
+export type PutawayTask = {
+  id: number;
+  taskNo: string;
+  sourceDocumentId: number;
+  warehouseId: number;
+  warehouseCode: string;
+  warehouseName: string;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  baseUnit: string;
+  lotNo: string | null;
+  qty: string;
+  fromLocationId: number;
+  fromLocationCode: string;
+  fromLocationName: string;
+  suggestedLocationId: number | null;
+  suggestedLocationCode: string | null;
+  suggestedLocationName: string | null;
+  toLocationId: number | null;
+  toLocationCode: string | null;
+  toLocationName: string | null;
+  status: PutawayStatus;
+  doneAt: string | null;
+  stockDocumentId: number | null;
+  createdAt: string;
+};
+
+export type PickOrderStatus = "OPEN" | "PICKED" | "CANCELLED";
+
+export const PICK_STATUS_LABEL: Record<PickOrderStatus, string> = {
+  OPEN: "대기",
+  PICKED: "피킹 완료",
+  CANCELLED: "취소",
+};
+
+export type PickSubstitutionReason =
+  "HOLD" | "QMS_HOLD" | "EXPIRED" | "SHORTAGE";
+
+export const PICK_SUBSTITUTION_REASON_LABEL: Record<
+  PickSubstitutionReason,
+  string
+> = {
+  HOLD: "보류(HOLD)",
+  QMS_HOLD: "QMS 품질 보류",
+  EXPIRED: "유효기간 만료",
+  SHORTAGE: "가용 수량 부족",
+};
+
+export type PickAllocatedLot = {
+  lotNo: string | null;
+  locationCode: string;
+  qty: string;
+};
+
+export type LotSubstitution = {
+  lineNo: number;
+  itemId: number;
+  itemCode: string;
+  requestedLotNo: string;
+  requestedLocationCode: string;
+  requestedQty: string;
+  keptQty: string;
+  reason: PickSubstitutionReason;
+  reasonLabel: string;
+  allocatedLots: PickAllocatedLot[];
+  message: string;
+};
+
+export type PickLine = {
+  id: number;
+  pickOrderId: number;
+  lineNo: number;
+  sequenceNo: number;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  itemClass: Purpose;
+  baseUnit: string;
+  lotTracked: boolean;
+  locationId: number;
+  locationCode: string;
+  locationName: string;
+  warehouseId: number;
+  warehouseCode: string;
+  warehouseName: string;
+  lotNo: string | null;
+  expiryDate: string | null;
+  receivedOn: string | null;
+  qty: string;
+  pickedQty: string | null;
+  createdAt: string;
+};
+
+export type PickOrder = {
+  id: number;
+  pickNo: string;
+  reservationId: number;
+  reservationNo: string;
+  reservationStatus: "ACTIVE" | "RELEASED" | "CONSUMED";
+  shipmentOrderRef: string | null;
+  warehouseId: number | null;
+  warehouseCode: string | null;
+  warehouseName: string | null;
+  status: PickOrderStatus;
+  pickedAt: string | null;
+  stockDocumentId: number | null;
+  stockDocumentNo: string | null;
+  toLocationId?: number | null;
+  toLocationCode?: string | null;
+  toLocationName?: string | null;
+  cancelReason: string | null;
+  createdAt: string;
+  lineCount: number;
+  totalQty: string;
+  totalPickedQty: string | null;
+  lotSubstitutions: LotSubstitution[];
+  lines: PickLine[];
+};
+
 export type PageInfo = {
   offset: number;
   limit: number;
@@ -134,7 +267,7 @@ export type StockRow = StockQuantities & {
   unit: string;
   locationId: number;
   locationCode: string;
-  locationType: "NORMAL" | "QUARANTINE";
+  locationType: LocationType;
   warehouseId: number;
   warehouseCode: string;
   lotNo: string | null;
@@ -151,7 +284,14 @@ export type SourceKind =
   "MES_RECEIPT" | "MES_ISSUE" | "ERP_SHIPMENT" | "ERP_PURCHASE";
 export type ManualType = "OPENING" | "ADJUSTMENT" | "TRANSFER";
 export type DocumentType =
-  SourceKind | ManualType | "REVERSAL" | "WMS_INSPECTION";
+  | SourceKind
+  | ManualType
+  | "REVERSAL"
+  | "WMS_INSPECTION"
+  | "PUTAWAY"
+  | "PICK"
+  | "PRODUCTION_ISSUE"
+  | "CYCLE_COUNT";
 export type Move = {
   id: number;
   documentId: number;
@@ -162,7 +302,7 @@ export type Move = {
   itemClass: Purpose;
   locationId: number;
   locationCode: string;
-  locationType?: "NORMAL" | "QUARANTINE";
+  locationType?: LocationType;
   warehouseCode: string;
   lotNo: string | null;
   qtyDelta: string;
@@ -238,6 +378,10 @@ export const TYPE_LABEL: Record<DocumentType, string> = {
   TRANSFER: "창고 간 이동",
   REVERSAL: "되돌림",
   WMS_INSPECTION: "입고 검수",
+  PUTAWAY: "적치 이동",
+  PICK: "피킹 이동",
+  PRODUCTION_ISSUE: "생산 불출",
+  CYCLE_COUNT: "실사 조정",
 };
 export const REASON_LABEL: Record<Reason, string> = {
   RETURN: "반품 입고",
@@ -310,6 +454,190 @@ export function StockBadges({ row }: { row: StockRow }) {
     </>
   );
 }
+
+/** W-13 생산 불출 (DSN-13 F25). 위치·LOT 배정은 저장하지 않고 불출 시점에 계산한다. */
+export type IssueRequestStatus = "OPEN" | "ISSUED" | "CANCELLED";
+export const ISSUE_STATUS_LABEL: Record<IssueRequestStatus, string> = {
+  OPEN: "대기",
+  ISSUED: "불출 완료",
+  CANCELLED: "취소",
+};
+
+export type IssueLine = {
+  id: number;
+  lineNo: number;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  baseUnit: string;
+  qty: string;
+  issuedQty: string | null;
+};
+
+export type IssueAllocation = {
+  itemId: number;
+  locationId: number;
+  locationCode: string;
+  locationName: string;
+  lotNo: string | null;
+  qty: string;
+};
+
+export type IssueShortage = {
+  itemId: number;
+  requestedQty: string;
+  availableQty: string;
+  shortageQty: string;
+};
+
+export type IssueRequest = {
+  id: number;
+  requestNo: string;
+  workOrderNo: string | null;
+  lineLocationId: number;
+  lineLocationCode: string;
+  lineLocationName: string;
+  lineLocationType: LocationType;
+  warehouseId: number;
+  warehouseCode: string;
+  warehouseName: string;
+  status: IssueRequestStatus;
+  neededAt: string | null;
+  issuedAt: string | null;
+  stockDocumentId: number | null;
+  stockDocumentNo: string | null;
+  cancelReason: string | null;
+  createdAt: string;
+  lineCount: number;
+  lines: IssueLine[];
+  allocationPreview: IssueAllocation[];
+  shortages: IssueShortage[];
+};
+
+/** W-14 재고 실사 · W-15 재고 마감 (DSN-13 F35·F39, Q6). 차이는 저장하지 않고 조회 때 계산한다. */
+export type CountStatus = "OPEN" | "COUNTED" | "ADJUSTED" | "CANCELLED";
+export const COUNT_STATUS_LABEL: Record<CountStatus, string> = {
+  OPEN: "실사 중",
+  COUNTED: "실사 완료",
+  ADJUSTED: "조정 완료",
+  CANCELLED: "취소",
+};
+
+export type CountLine = {
+  id: number;
+  locationId: number;
+  locationCode: string;
+  locationName: string;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  baseUnit: string;
+  lotNo: string | null;
+  bookQty: string;
+  countedQty: string | null;
+  diffQty: string | null;
+  countedAt: string | null;
+};
+
+export type CountOrder = {
+  id: number;
+  countNo: string;
+  kind: "FULL" | "CYCLE";
+  warehouseId: number;
+  warehouseCode: string;
+  warehouseName: string;
+  status: CountStatus;
+  snapshotAt: string;
+  adjustedAt: string | null;
+  stockDocumentId: number | null;
+  stockDocumentNo: string | null;
+  createdAt: string;
+  lineCount: number;
+  countedCount: number;
+  diffCount: number;
+  lines: CountLine[];
+};
+
+export type StockPeriod = {
+  periodMonth: string;
+  status: "open" | "closed";
+  closedAt: string | null;
+  documentCount: number;
+};
+
+/** W-17 라벨 출력 (DSN-13 F07·F13). 대상당 유효 라벨은 1건이고, 재발행하면 이전 것이 무효가 된다. */
+export type LabelKind = "LOCATION" | "MATERIAL_LOT";
+export const LABEL_KIND_LABEL: Record<LabelKind, string> = {
+  LOCATION: "위치 라벨",
+  MATERIAL_LOT: "자재 LOT 라벨",
+};
+
+export type LabelPrint = {
+  id: number;
+  labelKind: LabelKind;
+  barcodeValue: string;
+  copies: number;
+  status: "VALID" | "VOID";
+  printedAt: string;
+  reprintOfId: number | null;
+  reprintOfValue: string | null;
+  reprintReason: string | null;
+  createdAt: string;
+};
+
+/** W-18 수불부 · W-19 분석 · W-20 점유 (DSN-13 F52·F54·F55·F37). 표 없이 조회 때 집계한다. */
+export type LedgerRow = {
+  id: string;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  baseUnit: string;
+  warehouseId: number;
+  warehouseCode: string;
+  warehouseName: string;
+  opening: string;
+  inbound: string;
+  outbound: string;
+  closing: string;
+};
+
+export type AnalysisRow = {
+  id: number;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  baseUnit: string;
+  abcClass: string | null;
+  onHand: string;
+  safetyStock: string | null;
+  maxStock: string | null;
+  belowSafety: boolean;
+  aboveMax: boolean;
+  outRecent: string;
+  turnover: string | null;
+  lastOutOn: string | null;
+  staleDays: number | null;
+  stale: boolean;
+};
+
+export type OccupancyRow = {
+  id: number;
+  locationId: number;
+  locationCode: string;
+  locationName: string;
+  locationType: LocationType;
+  warehouseCode: string;
+  warehouseName: string;
+  isActive: boolean;
+  capacityQty: string | null;
+  onHand: string;
+  usagePercent: string | null;
+  over: boolean;
+  itemCount: number;
+  lotCount: number;
+  mixItems: boolean;
+  mixLots: boolean;
+};
 
 export const useLists = <T extends unknown[]>(paths: string[]) =>
   useApiLists<T>(WMS, paths);

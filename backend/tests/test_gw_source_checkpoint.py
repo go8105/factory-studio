@@ -5,12 +5,11 @@ from copy import deepcopy
 from datetime import timedelta
 
 import pytest
-from test_gw_restore_recheck import prepared
-
 from fs.gw.acceptance_reconciliation import sign_reconciliation
 from fs.gw.operating_contract import canonical, verify_evidence
 from fs.gw.restore_recheck import sign, verify
 from fs.gw.source_checkpoint import changed_groups, state_digest
+from test_gw_restore_recheck import prepared
 
 
 def observation(obs, ctx, mode="match"):
@@ -151,9 +150,8 @@ def test_source_and_journal_observations_keep_either_failure(
 ):
     import json
 
-    from test_gw_journal_acceptance import prepared as journal_prepared
-
     from fs.gw.evidence_trust import load
+    from test_gw_journal_acceptance import prepared as journal_prepared
 
     document, docs, collector, _key, ctx = proof(
         "changed" if source_changed else "match"

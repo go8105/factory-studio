@@ -9,11 +9,10 @@ from uuid import uuid4
 import pytest
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from pydantic import ValidationError
-
 from fs.gw.evidence_trust import load
 from fs.gw.journal_observation import JournalObservation, verify
 from fs.gw.operating_contract import canonical
+from pydantic import ValidationError
 
 NOW = datetime(2026, 10, 23, 3, 0, tzinfo=UTC)
 

@@ -3,7 +3,6 @@
 from copy import deepcopy
 
 import pytest
-
 from fs.core.security.backup import restriction_violations
 from fs.hr.backup import restriction_violations as hr_violations
 

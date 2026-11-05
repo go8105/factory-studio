@@ -6,17 +6,16 @@ import json
 from uuid import uuid4
 
 import pytest
+from fs.gw.acceptance_preflight import read_transaction
+from fs.gw.acceptance_report import collect
+from fs.gw.evidence_trust import from_environment
+from fs.gw.operating_contract import canonical
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from test_gw_acceptance_preflight import runner
 from test_gw_company_work import api
 from test_gw_evidence import prepare
 from test_hr_work import company_env
-
-from fs.gw.acceptance_preflight import read_transaction
-from fs.gw.acceptance_report import collect
-from fs.gw.evidence_trust import from_environment
-from fs.gw.operating_contract import canonical
 
 
 def state(engine):

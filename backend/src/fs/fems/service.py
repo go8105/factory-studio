@@ -14,12 +14,15 @@ from sqlalchemy import Connection
 
 from fs.common import master
 from fs.common.auth import AuthContext
+from fs.common.clock import business_today
 from fs.common.db import get_engine
 from fs.common.engine import read
 from fs.common.errors import ApiError
 from fs.common.idempotency import find_receipt, request_digest, save_receipt
 from fs.common.scope import read_scope, write_scope
 from fs.fems import repository as repo
+from fs.fems import tou
+from fs.mes import interface as mes
 
 MODULE = "fems"
 
@@ -111,6 +114,37 @@ def _replay(
 ) -> tuple[str, dict[str, Any] | None]:
     digest = request_digest(body)
     return digest, find_receipt(connection, scoped, operation, key, digest)
+
+
+def _run_once(
+    context: AuthContext,
+    operation: str,
+    key: str,
+    body: Any,
+    run: Any,
+    status: int = 200,
+    entity: str = "reading",
+) -> dict[str, Any]:
+    """멱등 쓰기 한 번. 같은 키로 다시 부르면 저장해 둔 결과를 그대로 돌려준다."""
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        digest, cached = _replay(connection, scoped, operation, key, body)
+        if cached is not None:
+            return cached
+        result = run(connection, scoped)
+        save_receipt(
+            connection,
+            scoped,
+            operation,
+            key,
+            digest,
+            entity,
+            # 행 하나에 매이지 않는 작업(가져오기·올리기)은 0으로 둔다 — 칸이 NOT NULL이다.
+            result.get("id") or 0,
+            result,
+            status,
+        )
+        return result
 
 
 def create_source(
@@ -378,9 +412,11 @@ def get_tariff(context: AuthContext, tariff_id: int) -> dict[str, Any]:
     with _read() as connection:
         scoped = read_scope(connection, context, MODULE)
         found = repo.get_tariff(connection, scoped, tariff_id)
-    if found is None:
-        raise _tariff_not_found()
-    return found
+        if found is None:
+            raise _tariff_not_found()
+        bands = repo.tariff_bands(connection, scoped, [tariff_id])[tariff_id]
+    # 단일요금제는 구간이 없다. 빈 목록이 곧 그 사실이다.
+    return {**found, "bands": [_band_dict(b) for b in bands]}
 
 
 def create_tariff(
@@ -428,6 +464,60 @@ def create_tariff(
             201,
         )
         return created
+
+
+def replace_tariff_bands(
+    context: AuthContext, tariff_id: int, bands: list[dict[str, Any]], key: str
+) -> dict[str, Any]:
+    """TOU 구간표를 통째로 바꾼다(F05·Q1).
+
+    저장 전에 **계절·요일마다 0~24시를 빈틈·겹침 없이 덮는지** 본다. DB CHECK는 구간 하나의
+    모양까지만 보고, 구간 사이의 빈틈은 여러 행을 함께 봐야 알 수 있다.
+    """
+    with get_engine().begin() as connection:
+        scoped = write_scope(connection, context, MODULE)
+        operation = "fems.tariff.bands"
+        digest, cached = _replay(
+            connection, scoped, operation, key, {"id": tariff_id, "bands": bands}
+        )
+        if cached is not None:
+            return cached
+        current = repo.get_tariff(connection, scoped, tariff_id)
+        if current is None:
+            raise _tariff_not_found()
+        if current["tariffKind"] != "TOU":
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "단일요금제에는 시간대 구간을 둘 수 없습니다. 요금제 종류를 TOU로 바꾸세요.",
+                {"reason": "NOT_TOU"},
+            )
+        errors = tou.coverage_errors(bands)
+        if errors:
+            raise ApiError(
+                400,
+                "VALIDATION_FAILED",
+                "시간대 구간이 하루를 덮지 못합니다.",
+                {"fields": {"bands": " ".join(errors)}},
+            )
+        rows = repo.replace_tariff_bands(connection, scoped, tariff_id, bands)
+        result = {"tariffId": tariff_id, "bands": [_band_dict(r) for r in rows]}
+        save_receipt(
+            connection, scoped, operation, key, digest, "tariff", tariff_id, result, 200
+        )
+        return result
+
+
+def _band_dict(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "season": row["season"],
+        "dayKind": row["day_kind"],
+        "hourFrom": row["hour_from"],
+        "hourTo": row["hour_to"],
+        "loadBand": row["load_band"],
+        "rate": str(row["rate"]),
+    }
 
 
 def update_tariff(
@@ -1474,13 +1564,58 @@ def _tariff_for(
     return None
 
 
+def _tou_charge(
+    hourly: list[dict[str, Any]],
+    bands: list[dict[str, Any]],
+    holiday_days: set[date],
+) -> tuple[Decimal, dict[str, dict[str, Decimal]]]:
+    """시간 사용량마다 그 시각의 요율을 곱해 더한다(Q1). 부하 구분별 소계도 함께 낸다.
+
+    구간표에 없는 시각은 **버리지 않고 요율 0으로 센다** — 사용량이 사라지면 합계가 조용히
+    틀린다. 구간 완전성은 요금제를 저장할 때 막으므로 여기까지 오는 일은 없어야 한다.
+    """
+    table = tou.rate_lookup(bands)
+    charge = Decimal(0)
+    by_band: dict[str, dict[str, Decimal]] = {
+        band: {"usage": Decimal(0), "charge": Decimal(0)} for band in tou.LOAD_BANDS
+    }
+    for row in hourly:
+        day = row["reading_date"]
+        key = (
+            tou.season_of(day.month),
+            tou.day_kind_of(day, holiday_days),
+            row["hour"],
+        )
+        band = table.get(key)
+        rate = band["rate"] if band else Decimal(0)
+        amount = row["quantity"] * rate
+        charge += amount
+        bucket = by_band[band["load_band"]] if band else None
+        if bucket is not None:
+            bucket["usage"] += row["quantity"]
+            bucket["charge"] += amount
+    return charge, by_band
+
+
 def _billing(
-    rows: list[dict[str, Any]], tariffs: list[dict[str, Any]]
+    rows: list[dict[str, Any]],
+    tariffs: list[dict[str, Any]],
+    bands: dict[int, list[dict[str, Any]]] | None = None,
+    hourly: list[dict[str, Any]] | None = None,
+    holiday_days: set[date] | None = None,
 ) -> tuple[list[dict[str, Any]], str, bool]:
     """에너지원별로 월마다 그 달의 요금제를 적용한다. 요금제가 바뀌는 달에서 구간이 나뉜다.
 
-    월 요금 = 기본요금 + 사용량 × 단가(원 단위 반올림). 시간대 가중치 없음(FS-008a F-08).
+    FLAT: 기본요금 + 사용량 × 단가. TOU: **계약전력 × 기본요금 단가** + Σ(시간 사용량 × 그
+    시각의 요율)(Q1). 둘 다 원 단위 반올림이다.
     """
+    bands = bands or {}
+    holiday_days = holiday_days or set()
+    by_month: dict[tuple[int, str], list[dict[str, Any]]] = {}
+    for row in hourly or []:
+        by_month.setdefault(
+            (row["source_id"], row["reading_date"].strftime("%Y-%m")), []
+        ).append(row)
     sources: dict[tuple[int, str], dict[str, Any]] = {}
     for r in rows:
         source = sources.setdefault(
@@ -1511,12 +1646,34 @@ def _billing(
         if tariff is None:
             source["status"] = "TARIFF_MISSING"
         else:
-            usage_charge = (r["quantity"] * tariff["usage_rate"]).quantize(WON)
-            basic = tariff["basic_charge"].quantize(WON)
+            is_tou = tariff.get("tariff_kind") == "TOU"
+            band_rows = bands.get(tariff.get("id"), [])
+            if is_tou:
+                hours = by_month.get((r["source_id"], r["reading_month"]), [])
+                raw_charge, by_band = _tou_charge(hours, band_rows, holiday_days)
+                usage_charge = raw_charge.quantize(WON)
+                basic = (
+                    (tariff["contract_kw"] or Decimal(0)) * tariff["basic_charge"]
+                ).quantize(WON)
+                segment["loadBands"] = [
+                    {
+                        "loadBand": name,
+                        "usage": str(value["usage"].quantize(SIX)),
+                        "charge": str(value["charge"].quantize(WON)),
+                    }
+                    for name, value in by_band.items()
+                ]
+            else:
+                usage_charge = (r["quantity"] * tariff["usage_rate"]).quantize(WON)
+                basic = tariff["basic_charge"].quantize(WON)
             segment.update(
                 tariff={
                     "tariffCode": tariff["tariff_code"],
                     "name": tariff["name"],
+                    "tariffKind": tariff.get("tariff_kind", "FLAT"),
+                    "contractKw": None
+                    if tariff.get("contract_kw") is None
+                    else str(tariff["contract_kw"]),
                     "basicCharge": str(tariff["basic_charge"]),
                     "usageRate": str(tariff["usage_rate"]),
                     "effectiveFrom": tariff["effective_from"],
@@ -1593,7 +1750,22 @@ def billing(
         _, _, last = _month_period(connection, scoped, month_to)
         rows = repo.monthly_consumption(connection, scoped, first, last)
         tariffs = repo.billing_tariffs(connection, scoped)
-    sources, total, complete = _billing(rows, tariffs)
+        # TOU 요금제가 걸린 달이 있을 때만 시각별 계측을 읽는다 — 12개월치는 가볍지 않다.
+        tou_ids = [
+            t["id"]
+            for t in tariffs
+            if t["tariff_kind"] == "TOU"
+            and t["effective_from"] <= month_to
+            and (t["effective_to"] is None or t["effective_to"] >= month_from)
+        ]
+        bands = repo.tariff_bands(connection, scoped, tou_ids)
+        hourly = (
+            repo.hourly_consumption(connection, scoped, first, last) if tou_ids else []
+        )
+        holiday_days = (
+            repo.holidays(connection, scoped, first, last) if tou_ids else set()
+        )
+    sources, total, complete = _billing(rows, tariffs, bands, hourly, holiday_days)
     return {
         "period": {
             "from": month_from,
@@ -1643,6 +1815,9 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
         tariffs = repo.billing_tariffs(connection, scoped)
         summary = repo.allocation_summary(connection, scoped, {}, first, last)
         issues, recent = repo.quality_issues(connection, scoped, first, last)
+        # F-01 보강: 진행 중인 경보와 그 달 피크. 저장하지 않고 센다.
+        open_alarms = repo.list_alarms(connection, scoped, open_only=True)
+        hourly = repo.hourly_consumption(connection, scoped, first, last)
     toe_sources, toe_total, toe_complete = _converted(rows, primary, "PRIMARY", "toe")
     _, emission_total, emission_complete = _converted(
         rows, emission, "EMISSION", "emission"
@@ -1666,8 +1841,22 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
     if target:
         # 달성률 = 실적 ÷ 목표. 100% 이하면 목표 이내.
         achievement = str((Decimal(toe_total) / target * 100).quantize(Decimal("0.1")))
+    peak = max((Decimal(str(r["quantity"])) for r in hourly), default=None)
     return {
         "period": {"month": month, "from": first.isoformat(), "to": last.isoformat()},
+        "openAlarms": [
+            {
+                "id": a["id"],
+                "ruleCode": a["ruleCode"],
+                "ruleName": a["ruleName"],
+                "alarmKind": a["alarmKind"],
+                "status": a["status"],
+            }
+            for a in open_alarms[:5]
+        ],
+        "openAlarmCount": len(open_alarms),
+        # 계측이 없는 달은 0이 아니라 모름이다.
+        "peak": None if peak is None else str(peak.quantize(SIX)),
         "primaryEnergy": {
             "total": toe_total,
             "unit": "TOE",
@@ -2253,3 +2442,826 @@ def intensity(
         "records": records,
         "items": item_rows,
     }
+
+
+# ---------- 부하 패턴·피크 (F-16, DSN-15 F25·F26) ----------
+
+# 기저부하는 밤에 돌지 않아도 쓰는 양이다. 0~6시를 본다.
+BASE_LOAD_HOURS = range(6)
+
+
+def load_pattern(
+    context: AuthContext, month: str | None, energy_source_id: int | None
+) -> dict[str, Any]:
+    """시간대·요일 프로파일, 기저부하, 수요전력 피크(F25·F26). **저장하지 않는다.**
+
+    수요전력은 **1시간 계측의 최대값으로 근사**한다(Q2). 15분 수요를 재지 않으므로 실제
+    최대수요전력보다 낮게 나온다 — 화면이 "1시간 근사"라고 밝힌다.
+
+    계약전력이 없는 요금제(FLAT)면 비율을 내지 않는다. 0%가 아니라 '모름'이다.
+    """
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        period = _month_period(connection, scoped, month)
+        if period is None:
+            return {
+                "month": None,
+                "source": None,
+                "profile": [],
+                "peak": None,
+                "baseLoad": None,
+                "hasHolidayCalendar": False,
+            }
+        month, first, last = period
+        sources = repo.active_sources(connection, scoped)
+        source = next(
+            (s for s in sources if s["id"] == energy_source_id),
+            next((s for s in sources if s["source_code"] == "ELEC"), None)
+            or (sources[0] if sources else None),
+        )
+        if source is None:
+            return {
+                "month": month,
+                "source": None,
+                "profile": [],
+                "peak": None,
+                "baseLoad": None,
+                "hasHolidayCalendar": False,
+            }
+        rows = repo.hourly_consumption(connection, scoped, first, last, source["id"])
+        holiday_days = repo.holidays(connection, scoped, first, last)
+        tariffs = repo.billing_tariffs(connection, scoped)
+    tariff = _tariff_for(tariffs, source["id"], month)
+    contract_kw = (tariff or {}).get("contract_kw")
+
+    # 시간 × 요일 구분 평균. 같은 칸에 며칠이 들어가므로 합이 아니라 평균이어야 비교된다.
+    buckets: dict[tuple[str, int], list[Decimal]] = {}
+    peak: dict[str, Any] | None = None
+    base_values: list[Decimal] = []
+    for row in rows:
+        day_kind = tou.day_kind_of(row["reading_date"], holiday_days)
+        buckets.setdefault((day_kind, row["hour"]), []).append(row["quantity"])
+        if row["hour"] in BASE_LOAD_HOURS:
+            base_values.append(row["quantity"])
+        if peak is None or row["quantity"] > peak["value"]:
+            peak = {
+                "value": row["quantity"],
+                "date": row["reading_date"],
+                "hour": row["hour"],
+            }
+    profile = [
+        {
+            "dayKind": day_kind,
+            "hour": hour,
+            "days": len(values),
+            "average": str((sum(values) / len(values)).quantize(SIX)),
+            "max": str(max(values).quantize(SIX)),
+        }
+        for (day_kind, hour), values in sorted(buckets.items())
+    ]
+    return {
+        "month": month,
+        "source": {
+            "id": source["id"],
+            "sourceCode": source["source_code"],
+            "name": source["name"],
+            "unit": source["measure_unit"],
+        },
+        "sources": [
+            {"id": s["id"], "sourceCode": s["source_code"], "name": s["name"]}
+            for s in sources
+        ],
+        "profile": profile,
+        "peak": None
+        if peak is None
+        else {
+            "value": str(peak["value"].quantize(SIX)),
+            "date": peak["date"].isoformat(),
+            "hour": peak["hour"],
+            "contractKw": None if contract_kw is None else str(contract_kw),
+            # 계약전력이 없으면 비율은 0이 아니라 모름이다.
+            "contractRatio": None
+            if not contract_kw
+            else str((peak["value"] * 100 / contract_kw).quantize(Decimal("0.1"))),
+        },
+        # 기저부하 = 밤(0~6시) 시간 사용량의 최솟값. 멈춰도 빠지지 않는 양이다.
+        "baseLoad": None
+        if not base_values
+        else {
+            "value": str(min(base_values).quantize(SIX)),
+            "average": str((sum(base_values) / len(base_values)).quantize(SIX)),
+            "hours": f"{BASE_LOAD_HOURS.start}~{BASE_LOAD_HOURS.stop}",
+        },
+        # 휴일 달력이 비어 있으면 일요일만 휴일로 본다 — 화면이 그 사실을 밝힌다.
+        "hasHolidayCalendar": bool(holiday_days),
+    }
+
+
+# ---------- 계측 품질 (F-15, DSN-15 F12·F14) ----------
+
+# 0이 몇 시간 이어지면 멈춘 것이 아니라 못 읽은 것으로 본다.
+ZERO_RUN_HOURS = 3
+# 중앙값의 몇 배를 넘으면 급증으로 본다. 평균이 아니라 중앙값이어야 한 번의 급증에 흔들리지 않는다.
+SPIKE_FACTOR = Decimal(3)
+HOUR = timedelta(hours=1)
+
+
+def _median(values: list[Decimal]) -> Decimal:
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if not ordered:
+        return Decimal(0)
+    if len(ordered) % 2:
+        return ordered[middle]
+    return (ordered[middle - 1] + ordered[middle]) / 2
+
+
+def _detect(rows: list[dict[str, Any]], zone: ZoneInfo) -> list[dict[str, Any]]:
+    """결측·0 연속·급증을 찾는다. **판단 근거를 함께 돌려준다** — 숫자만 주면 못 고친다."""
+    found: list[dict[str, Any]] = []
+    by_period = {r["period_start"]: r for r in rows}
+    if not rows:
+        return found
+    values = [Decimal(str(r["value"])) for r in rows]
+    median = _median([v for v in values if v > 0])
+
+    # 1) 빠진 시각. 첫 계측과 마지막 계측 사이만 본다 — 바깥은 아직 안 잰 것이지 결측이 아니다.
+    cursor = min(by_period)
+    last = max(by_period)
+    while cursor < last:
+        cursor += HOUR
+        if cursor not in by_period and cursor < last:
+            found.append(
+                {
+                    "kind": "MISSING",
+                    "periodStart": cursor.astimezone(zone).isoformat(),
+                    "value": None,
+                    "note": "계측값이 없습니다.",
+                }
+            )
+
+    # 2) 0이 이어지는 구간. 한두 시간은 정지일 수 있어 ZERO_RUN_HOURS부터 본다.
+    run: list[dict[str, Any]] = []
+    for row in sorted(rows, key=lambda r: r["period_start"]):
+        if Decimal(str(row["value"])) == 0:
+            run.append(row)
+            continue
+        if len(run) >= ZERO_RUN_HOURS:
+            found.extend(_zero_run(run, zone))
+        run = []
+    if len(run) >= ZERO_RUN_HOURS:
+        found.extend(_zero_run(run, zone))
+
+    # 3) 급증. 중앙값이 0이면(거의 안 쓰는 채널) 판단하지 않는다.
+    if median > 0:
+        for row in rows:
+            value = Decimal(str(row["value"]))
+            if value > median * SPIKE_FACTOR:
+                found.append(
+                    {
+                        "kind": "SPIKE",
+                        "periodStart": row["period_start"].astimezone(zone).isoformat(),
+                        "value": str(value),
+                        "note": f"중앙값 {median:.3f}의 {SPIKE_FACTOR}배를 넘습니다.",
+                    }
+                )
+    found.sort(key=lambda f: f["periodStart"])
+    return found
+
+
+def _zero_run(run: list[dict[str, Any]], zone: ZoneInfo) -> list[dict[str, Any]]:
+    note = f"0이 {len(run)}시간 이어집니다."
+    return [
+        {
+            "kind": "ZERO_RUN",
+            "periodStart": row["period_start"].astimezone(zone).isoformat(),
+            "value": "0",
+            "note": note,
+        }
+        for row in run
+    ]
+
+
+def reading_quality(
+    context: AuthContext, channel_id: int, date_from: date | None, date_to: date | None
+) -> dict[str, Any]:
+    """한 채널의 결측·이상값과 보정 이력(F14). 저장하지 않고 그때그때 훑는다."""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        channel = repo.channel_for_reading(connection, scoped, channel_id)
+        if channel is None:
+            raise ApiError(404, "NOT_FOUND", "계측 채널을 찾을 수 없습니다.")
+        if date_to is None:
+            latest = repo.latest_reading_date(connection, scoped)
+            if latest is None:
+                return {
+                    "channel": None,
+                    "period": None,
+                    "issues": [],
+                    "corrections": [],
+                }
+            date_to = latest
+            date_from = date_to - timedelta(days=DEFAULT_READING_DAYS - 1)
+        _check_period(date_from, date_to)
+        rows = repo.channel_readings(connection, scoped, channel_id, date_from, date_to)
+        corrections = repo.list_corrections(connection, scoped)
+    zone = ZoneInfo(channel["timezone"])
+    return {
+        "channel": {
+            "id": channel["id"],
+            "channelCode": channel["channel_code"],
+            "name": channel["name"],
+            "unit": channel["unit"],
+            "meterCode": channel["meter_code"],
+        },
+        "period": {"from": date_from.isoformat(), "to": date_to.isoformat()},
+        "readingCount": len(rows),
+        "issues": _detect(rows, zone),
+        "corrections": [
+            {
+                "id": c["id"],
+                "channelCode": c["channel_code"],
+                "periodStart": c["period_start"].astimezone(zone).isoformat(),
+                "originalValue": None
+                if c["original_value"] is None
+                else str(c["original_value"]),
+                "correctedValue": str(c["corrected_value"]),
+                "method": c["method"],
+                "reason": c["reason"],
+                "correctedAt": c["corrected_at"].isoformat(),
+            }
+            for c in corrections
+        ],
+    }
+
+
+def _reading_payload(
+    channel: dict[str, Any],
+    period_start: datetime,
+    value: str,
+    entry_method: str,
+    source_key: str,
+    revision: int,
+    quality: str,
+) -> dict[str, Any]:
+    return {
+        "meter_channel_id": channel["id"],
+        # 구간형 계측이라 관측 시각은 구간 끝이다(시드와 같은 규칙).
+        "observed_at": period_start + HOUR,
+        "period_start": period_start,
+        "value": value,
+        "unit": channel["unit"],
+        "quality": quality,
+        "source_key": source_key,
+        "input_revision": revision,
+        "entry_method": entry_method,
+    }
+
+
+def _reading_dict(row: dict[str, Any]) -> dict[str, Any]:
+    """영수증(멱등 재생)에 그대로 들어가므로 날짜를 문자열로 바꾼다."""
+    return {
+        "id": row["id"],
+        "meterChannelId": row["meter_channel_id"],
+        "observedAt": row["observed_at"].isoformat(),
+        "periodStart": None
+        if row["period_start"] is None
+        else row["period_start"].isoformat(),
+        "value": str(row["value"]),
+        "unit": row["unit"],
+        "quality": row["quality"],
+        "sourceKey": row["source_key"],
+        "inputRevision": row["input_revision"],
+        "entryMethod": row["entry_method"],
+    }
+
+
+def create_manual_reading(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """계측기가 없는 연료·용수를 손으로 적는다(F12).
+
+    같은 채널·구간에 이미 값이 있으면 덮지 않는다 — 고치는 것은 **보정**이고 이력이 남아야 한다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        channel = repo.channel_for_reading(connection, scoped, values["channel_id"])
+        if channel is None:
+            raise ApiError(404, "NOT_FOUND", "계측 채널을 찾을 수 없습니다.")
+        period_start = values["period_start"]
+        existing = repo.channel_readings(
+            connection,
+            scoped,
+            channel["id"],
+            period_start.date(),
+            period_start.date(),
+        )
+        if any(r["period_start"] == period_start for r in existing):
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "이 구간에는 이미 계측값이 있습니다. 고치려면 보정을 쓰세요.",
+                {"reason": "READING_EXISTS"},
+            )
+        row = repo.insert_reading(
+            connection,
+            scoped,
+            _reading_payload(
+                channel,
+                period_start,
+                values["value"],
+                "MANUAL",
+                f"{channel['channel_code']}:MANUAL-{period_start:%Y%m%dT%H}",
+                1,
+                "valid",
+            ),
+        )
+        return _reading_dict(row)
+
+    return _run_once(context, "fems.reading.manual", key, values, run, 201)
+
+
+def create_correction(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """결측·이상값을 고친다(F14). **원 계측은 지우지 않는다.**
+
+    고친 값은 같은 구간의 새 `input_revision` 행(quality=estimated)으로 들어가고, 원 계측은
+    집계에서만 빠진다(quality=invalid). 원래 값은 행에도, 보정 이력에도 남는다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        channel = repo.channel_for_reading(connection, scoped, values["channel_id"])
+        if channel is None:
+            raise ApiError(404, "NOT_FOUND", "계측 채널을 찾을 수 없습니다.")
+        period_start = values["period_start"]
+        rows = repo.channel_readings(
+            connection, scoped, channel["id"], period_start.date(), period_start.date()
+        )
+        original = next((r for r in rows if r["period_start"] == period_start), None)
+        revision = (original["input_revision"] + 1) if original else 1
+        if original is not None:
+            repo.supersede_reading(connection, scoped, original["id"])
+        row = repo.insert_reading(
+            connection,
+            scoped,
+            _reading_payload(
+                channel,
+                period_start,
+                values["corrected_value"],
+                original["entry_method"] if original else "MANUAL",
+                f"{channel['channel_code']}:FIX-{period_start:%Y%m%dT%H}-r{revision}",
+                revision,
+                "estimated",
+            ),
+        )
+        correction = repo.insert_correction(
+            connection,
+            scoped,
+            {
+                "channel": channel["id"],
+                "period_start": period_start,
+                "original": None if original is None else original["value"],
+                "corrected": values["corrected_value"],
+                "method": values["method"],
+                "reason": values["reason"],
+            },
+        )
+        return {
+            "id": correction["id"],
+            "readingId": row["id"],
+            "inputRevision": row["input_revision"],
+            "originalValue": None
+            if correction["original_value"] is None
+            else str(correction["original_value"]),
+            "correctedValue": str(correction["corrected_value"]),
+            "method": correction["method"],
+            "reason": correction["reason"],
+        }
+
+    return _run_once(context, "fems.reading.correction", key, values, run, 201)
+
+
+# ---------- 계측 올리기·생산량 가져오기 (F-15·F-05, DSN-15 F13·F51) ----------
+
+MAX_UPLOAD_ROWS = 5000
+
+
+def upload_readings(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """CSV로 받은 행을 검증해 반영한다(F13).
+
+    **파일을 서버가 읽지 않는다.** 브라우저가 CSV를 풀어 행 배열로 보내고, 서버는 행마다
+    검증해 받아들이거나 사유와 함께 돌려보낸다. 올린 기록은 합계만 남는다(설계 4-1).
+
+    한 행이라도 틀리면 통째로 막지 않는다 — 500행 중 3행이 틀렸다고 497행을 버릴 이유가 없다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        channels = repo.channel_ids_by_code(connection, scoped)
+        accepted, rejected = 0, []
+        for index, row in enumerate(values["rows"], start=1):
+            channel_id = channels.get(row["channel_code"])
+            if channel_id is None:
+                rejected.append(
+                    f"{index}행: 채널 {row['channel_code']}을(를) 찾을 수 없습니다."
+                )
+                continue
+            channel = repo.channel_for_reading(connection, scoped, channel_id)
+            period_start = row["period_start"]
+            existing = repo.channel_readings(
+                connection,
+                scoped,
+                channel_id,
+                period_start.date(),
+                period_start.date(),
+            )
+            if any(r["period_start"] == period_start for r in existing):
+                rejected.append(f"{index}행: 이미 계측값이 있는 구간입니다.")
+                continue
+            repo.insert_reading(
+                connection,
+                scoped,
+                _reading_payload(
+                    channel,
+                    period_start,
+                    row["value"],
+                    "FILE",
+                    f"{channel['channel_code']}:FILE-{period_start:%Y%m%dT%H}",
+                    1,
+                    "valid",
+                ),
+            )
+            accepted += 1
+        upload = repo.insert_upload(
+            connection,
+            scoped,
+            {
+                "upload_no": repo.next_upload_no(
+                    connection, scoped, f"{business_today():%Y%m%d}"
+                ),
+                "file_name": values["file_name"],
+                "row_count": len(values["rows"]),
+                "accepted": accepted,
+                "rejected": len(rejected),
+                # 사유를 다 담지 않는다 — 1,000자 칸이고 화면이 전체를 받아 본다.
+                "errors": "\n".join(rejected[:10])[:1000] or None,
+            },
+        )
+        return {
+            "id": upload["id"],
+            "uploadNo": upload["upload_no"],
+            "fileName": upload["file_name"],
+            "rowCount": upload["row_count"],
+            "acceptedCount": upload["accepted_count"],
+            "rejectedCount": upload["rejected_count"],
+            "rejected": rejected,
+        }
+
+    body = {
+        "file_name": values["file_name"],
+        "rows": [{**r, "period_start": str(r["period_start"])} for r in values["rows"]],
+    }
+    return _run_once(context, "fems.reading.upload", key, body, run, 201, "upload")
+
+
+def import_production(context: AuthContext, month: str, key: str) -> dict[str, Any]:
+    """MES 확정 실적을 생산량으로 가져온다(F51·Q3).
+
+    1b `mes.production_results(month)`의 첫 소비자다. 설비 코드로만 맞추고 FK를 두지 않는다.
+    **가져온 행은 초안**이다 — 확정은 사람이 F-05에서 한다.
+
+    이미 같은 원천 키가 있으면 건너뛴다. 덮어쓰면 확정한 값이 조용히 바뀐다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        rows = mes.production_results(connection, scoped, month)
+        if rows is None:
+            raise _conflict_module_off()
+        equipment = repo.equipment_ids_by_code(connection, scoped)
+        existing = repo.production_keys(connection, scoped)
+        first = date(int(month[:4]), int(month[5:]), 1)
+        last = (first.replace(day=28) + timedelta(days=4)).replace(day=1)
+        imported, skipped = 0, []
+        for row in rows:
+            code = row["equipmentCode"]
+            if not code:
+                # FEMS 생산량은 설비별이다. 설비 없는 실적은 붙일 곳이 없다.
+                skipped.append(
+                    f"{row['itemCode']}: 설비가 없는 실적이라 가져올 수 없습니다."
+                )
+                continue
+            equipment_id = equipment.get(code)
+            if equipment_id is None:
+                skipped.append(f"{code}: FEMS에 같은 코드의 설비가 없습니다.")
+                continue
+            source_key = f"MES:{month}:{code}:{row['itemCode']}"
+            if source_key in existing:
+                skipped.append(f"{code} {row['itemCode']}: 이미 가져왔습니다.")
+                continue
+            repo.insert_production(
+                connection,
+                scoped,
+                {
+                    "source_key": source_key,
+                    "version_no": 1,
+                    "equipment_id": equipment_id,
+                    "item_code": row["itemCode"],
+                    "period_start": datetime.combine(first, time()),
+                    "period_end": datetime.combine(last, time()),
+                    "production_qty": row["goodQty"],
+                    "unit": row["unit"],
+                },
+            )
+            imported += 1
+        return {"month": month, "imported": imported, "skipped": skipped}
+
+    return _run_once(
+        context, "fems.production.import", key, {"month": month}, run, 201, "production"
+    )
+
+
+def _conflict_module_off() -> ApiError:
+    return ApiError(
+        409,
+        "PRECONDITION_NOT_MET",
+        "MES를 사용하지 않도록 설정했습니다. 생산 실적을 읽을 수 없습니다.",
+        {"reason": "SOURCE_MODULE_DISABLED", "sourceModule": "mes"},
+    )
+
+
+# ---------- 에너지 경보 (F-18, DSN-15 F31) ----------
+
+ALARM_KIND_LABEL = {
+    "THRESHOLD": "시간 사용량 임계",
+    "PEAK": "계약전력 대비 피크",
+    "IDLE_USAGE": "비가동 시간 사용",
+}
+
+
+def list_alarm_rules(context: AuthContext) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return [
+            repo.alarm_rule_dict(r) for r in repo.list_alarm_rules(connection, scoped)
+        ]
+
+
+def create_alarm_rule(
+    context: AuthContext, values: dict[str, Any], key: str
+) -> dict[str, Any]:
+    """경보 규칙을 만든다. 채널이나 설비 중 **하나는 있어야** 무엇을 보는지 정해진다."""
+
+    def run(connection: Connection, scoped: AuthContext):
+        if repo.alarm_rule_code_taken(connection, scoped, values["code"]):
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "이미 사용 중인 규칙 코드입니다.",
+                {"reason": "DUPLICATE_CODE"},
+            )
+        if (
+            values.get("meter_channel_id") is None
+            and values.get("equipment_id") is None
+        ):
+            raise ApiError(
+                400,
+                "VALIDATION_FAILED",
+                "입력값을 확인해 주세요.",
+                {
+                    "fields": {
+                        "meterChannelId": "채널이나 설비 중 하나는 골라야 합니다."
+                    }
+                },
+            )
+        if (
+            values.get("meter_channel_id") is not None
+            and repo.channel_for_reading(connection, scoped, values["meter_channel_id"])
+            is None
+        ):
+            raise ApiError(404, "NOT_FOUND", "계측 채널을 찾을 수 없습니다.")
+        return repo.insert_alarm_rule(connection, scoped, values)
+
+    return _run_once(context, "fems.alarm_rule.create", key, values, run, 201, "alarm")
+
+
+def _peak_ratio(
+    connection: Connection, scoped: AuthContext, rule: dict[str, Any], month: str
+) -> tuple[Decimal, Decimal] | None:
+    """피크 규칙: 그 달 최대 시간 사용량 ÷ 계약전력. 계약전력이 없으면 판단하지 않는다."""
+    period = _month_period(connection, scoped, month)
+    if period is None:
+        return None
+    _, first, last = period
+    rows = repo.hourly_consumption(connection, scoped, first, last)
+    if not rows:
+        return None
+    peak = max(Decimal(str(r["quantity"])) for r in rows)
+    tariffs = repo.billing_tariffs(connection, scoped)
+    contract = next(
+        (
+            t["contract_kw"]
+            for t in tariffs
+            if t["contract_kw"]
+            and t["effective_from"] <= month
+            and (t["effective_to"] is None or t["effective_to"] >= month)
+        ),
+        None,
+    )
+    if not contract:
+        return None
+    return peak, peak / contract
+
+
+def evaluate_alarms(
+    context: AuthContext, month: str | None, key: str
+) -> dict[str, Any]:
+    """규칙을 지금 한 번 본다(F31). **상시 감시 서버를 만들지 않는다**(FEMS 범위).
+
+    규칙당 진행 경보는 하나다(UK_PARTIAL). 이미 열려 있으면 다시 올리지 않고 건너뛴다 —
+    같은 일로 경보가 쌓이면 아무도 보지 않게 된다.
+    """
+
+    def run(connection: Connection, scoped: AuthContext):
+        target = month or f"{business_today():%Y-%m}"
+        period = _month_period(connection, scoped, target)
+        rules = repo.list_alarm_rules(connection, scoped, active_only=True)
+        already = repo.open_alarm_rule_ids(connection, scoped)
+        raised, skipped = [], []
+        idle_hours: set[Any] | None = None
+        for rule in rules:
+            if rule["id"] in already:
+                skipped.append(f"{rule['code']}: 이미 진행 중인 경보가 있습니다.")
+                continue
+            hit = _rule_hit(connection, scoped, rule, target, period, idle_hours)
+            if hit is None:
+                continue
+            value, idle_hours = hit
+            repo.raise_alarm(connection, scoped, rule["id"], str(value))
+            raised.append(rule["code"])
+        return {"month": target, "raised": raised, "skipped": skipped}
+
+    return _run_once(
+        context, "fems.alarm.evaluate", key, {"month": month}, run, 201, "alarm"
+    )
+
+
+def _rule_hit(
+    connection: Connection,
+    scoped: AuthContext,
+    rule: dict[str, Any],
+    month: str,
+    period: Any,
+    idle_hours: set[Any] | None,
+) -> tuple[Decimal, set[Any] | None] | None:
+    """규칙 하나를 본다. 걸리면 (넘은 값, 비가동 시각 캐시)를 돌려준다."""
+    threshold = Decimal(str(rule["threshold"]))
+    if rule["alarm_kind"] == "PEAK":
+        measured = _peak_ratio(connection, scoped, rule, month)
+        if measured is None:
+            return None
+        peak, ratio = measured
+        return (peak, idle_hours) if ratio > threshold else None
+
+    if period is None or rule["meter_channel_id"] is None:
+        return None
+    _, first, last = period
+    rows = repo.channel_readings(
+        connection, scoped, rule["meter_channel_id"], first, last
+    )
+    if not rows:
+        return None
+
+    if rule["alarm_kind"] == "THRESHOLD":
+        peak = max(Decimal(str(r["value"])) for r in rows)
+        return (peak, idle_hours) if peak > threshold else None
+
+    # IDLE_USAGE — MES 가동 구간 밖의 사용량. MES가 꺼져 있으면 판단하지 않는다.
+    if idle_hours is None:
+        runs = mes.operation_runs(connection, scoped, first, last)
+        if runs is None:
+            return None
+        busy = set()
+        for run_row in runs:
+            started = datetime.fromisoformat(run_row["startedAt"])
+            ended = (
+                datetime.fromisoformat(run_row["endedAt"])
+                if run_row["endedAt"]
+                else started + HOUR
+            )
+            cursor = started.replace(minute=0, second=0, microsecond=0)
+            while cursor < ended:
+                busy.add(cursor)
+                cursor += HOUR
+        idle_hours = busy
+    worst = Decimal(0)
+    for row in rows:
+        start = row["period_start"]
+        if start.replace(minute=0, second=0, microsecond=0) in (idle_hours or set()):
+            continue
+        worst = max(worst, Decimal(str(row["value"])))
+    return (worst, idle_hours) if worst > threshold else None
+
+
+def list_alarms(context: AuthContext, open_only: bool) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return repo.list_alarms(connection, scoped, open_only)
+
+
+def change_alarm_status(
+    context: AuthContext, alarm_id: int, status: str, key: str
+) -> dict[str, Any]:
+    """발생 → 확인 → 해제. 뒤로 가지 않는다 — 되돌릴 일이면 새 경보가 올라온다."""
+    allowed = {"ACK": ("OPEN",), "CLEARED": ("OPEN", "ACK")}
+
+    def run(connection: Connection, scoped: AuthContext):
+        found = repo.get_alarm(connection, scoped, alarm_id)
+        if found is None:
+            raise ApiError(404, "NOT_FOUND", "경보를 찾을 수 없습니다.")
+        if found["status"] not in allowed[status]:
+            raise ApiError(
+                409,
+                "PRECONDITION_NOT_MET",
+                "이 경보에서는 할 수 없는 처리입니다.",
+                {"reason": "BAD_STATE", "status": found["status"]},
+            )
+        repo.update_alarm_status(connection, scoped, alarm_id, status)
+        return repo.get_alarm(connection, scoped, alarm_id)
+
+    return _run_once(
+        context,
+        f"fems.alarm.{status.lower()}",
+        key,
+        {"id": alarm_id},
+        run,
+        200,
+        "alarm",
+    )
+
+
+# ---------- 설비 비교 (F-17, DSN-15 F27) ----------
+
+
+def equipment_comparison(context: AuthContext, month: str | None) -> dict[str, Any]:
+    """같은 **종류** 설비끼리 원단위를 줄 세운다(F27). 저장하지 않는다.
+
+    종류가 다른 설비는 비교하지 않는다 — 사출기와 검사기의 원단위를 나란히 두면 뜻이 없다.
+    생산량이 없는 설비는 **0위가 아니라 순위 밖**이다. 나눌 수 없는 것과 나쁜 것은 다르다.
+    """
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        period = _month_period(connection, scoped, month)
+        if period is None:
+            return {"month": None, "groups": []}
+        month, first, last = period
+        allocations = repo.allocation_summary(connection, scoped, {}, first, last)
+        production = repo.production_by_equipment(connection, scoped, first, last)
+        equipments, _ = repo.list_equipments(
+            connection, scoped, None, None, "equipment_code ASC", 0, 500
+        )
+    types: dict[str, list[dict[str, Any]]] = {}
+    by_id = {e["id"]: e for e in equipments}
+    energy: dict[tuple[int, str], Decimal] = {}
+    for row in allocations:
+        key = (row["equipmentId"], row["unit"])
+        energy[key] = energy.get(key, Decimal(0)) + Decimal(row["quantity"])
+    for (equipment_id, unit), quantity in sorted(energy.items()):
+        equipment = by_id.get(equipment_id)
+        if equipment is None:
+            continue
+        made = production.get(equipment_id)
+        kind = equipment["equipmentType"] or "미분류"
+        types.setdefault(kind, []).append(
+            {
+                "equipmentId": equipment_id,
+                "equipmentCode": equipment["equipmentCode"],
+                "equipmentName": equipment["name"],
+                "energy": str(quantity.quantize(SIX)),
+                "energyUnit": unit,
+                "production": None if made is None else str(made["qty"]),
+                "productionUnit": None if made is None else made["unit"],
+                # 생산량이 없으면 원단위는 0이 아니라 낼 수 없는 값이다.
+                "intensity": None
+                if not made or Decimal(str(made["qty"])) == 0
+                else str((quantity / Decimal(str(made["qty"]))).quantize(SIX)),
+            }
+        )
+    groups = []
+    for kind, rows in sorted(types.items()):
+        ranked = sorted(
+            [r for r in rows if r["intensity"] is not None],
+            key=lambda r: Decimal(r["intensity"]),
+        )
+        for index, row in enumerate(ranked, start=1):
+            row["rank"] = index
+        groups.append(
+            {
+                "equipmentType": kind,
+                "ranked": ranked,
+                # 비교할 수 없는 설비도 숨기지 않는다 — 왜 빠졌는지 보여야 한다.
+                "unranked": [r for r in rows if r["intensity"] is None],
+            }
+        )
+    return {"month": month, "groups": groups}

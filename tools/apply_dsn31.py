@@ -1211,6 +1211,9 @@ def _apply(d):
         # planned GW from its canonical initial definition, then carry forward
         # extra implemented columns (e.g. the HR employee code snapshot).
         project_names = {"gw." + n for n in ("work_board", "work_board_member", "work_group", "work_task", "work_task_assignee", "work_task_comment", "work_task_event", "work_board_favorite", "work_view_preference", "work_project_settings")}
+        # Implemented operating evidence is independent of the future TEAM design.
+        # Preserve only the explicitly known extension; unknown tables still abort.
+        project_names |= {"gw.operating_settings", "gw.operating_policy_revision", "gw.operating_evidence", "gw.retention_review"}
         implemented = {n: t for n, t in tables.items() if n.startswith(P) and n not in project_names}
         allowed = {t["name"] for t in apply_fs030a.TABLES + TABLES}
         if set(implemented) - allowed:

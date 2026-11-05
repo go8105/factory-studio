@@ -9,14 +9,13 @@ from uuid import uuid4
 
 import pyotp
 from cryptography.fernet import Fernet
+from fs.gw.acceptance_business import PROPERTY, SyntheticBusinessObservation
+from fs.gw.acceptance_preflight import collect
+from fs.gw.operating_contract import OperatingPolicy, canonical
 from sqlalchemy import text
 from test_gw_company_acceptance import ten_people
 from test_gw_company_work import api
 from test_gw_wms_merge import isolated_database
-
-from fs.gw.acceptance_business import PROPERTY, SyntheticBusinessObservation
-from fs.gw.acceptance_preflight import collect
-from fs.gw.operating_contract import OperatingPolicy, canonical
 
 
 def data(response, status=None):

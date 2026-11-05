@@ -5,15 +5,6 @@ import json
 import os
 
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
-from test_gw_backup import backup_env  # noqa: F401
-from test_gw_company import context
-from test_gw_company_work import api, ok
-from test_hr_users import manage
-from test_hr_work import company_env  # noqa: F401
-from test_security_journal import journal  # noqa: F401
-
 from fs.common.auth import _resolve_member
 from fs.common.errors import ApiError
 from fs.core.backup import BackupError
@@ -23,6 +14,14 @@ from fs.core.security.journal_bundle import export
 from fs.core.security.journal_witness import publish
 from fs.core.security.recording import record_user
 from fs.core.security.service import verify_login
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
+from test_gw_backup import backup_env  # noqa: F401
+from test_gw_company import context
+from test_gw_company_work import api, ok
+from test_hr_users import manage
+from test_hr_work import company_env  # noqa: F401
+from test_security_journal import journal  # noqa: F401
 
 
 @pytest.mark.parametrize("rollover", [False, True])

@@ -8,13 +8,12 @@ from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from test_gw_acceptance_collection import fixture, signed
-
 from fs.common.errors import ApiError
 from fs.core.backup import BackupError
 from fs.gw.acceptance_reconciliation import sign_reconciliation
 from fs.gw.evidence_trust import authorize, load
 from fs.gw.operating_contract import canonical, verify_evidence
+from test_gw_acceptance_collection import fixture, signed
 
 
 def settings():

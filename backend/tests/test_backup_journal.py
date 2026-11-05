@@ -1,11 +1,10 @@
 """Pinned history, pre-snapshot uncertainty, and conservative restriction plans."""
 
 import pytest
-from test_security_journal import journal  # noqa: F401
-
 from fs.core.backup import BackupError
 from fs.core.security.journal import ZERO, append
 from fs.gw import backup_journal as bridge
+from test_security_journal import journal  # noqa: F401
 
 
 def row(digest, kind, **fields):

@@ -133,6 +133,7 @@ FROM wms.warehouse h WHERE h.{_S.replace(" AND ", " AND h.")}
 """
 LOCATION_SQL = """
 SELECT l.id, l.warehouse_id, h.code warehouse_code, l.code, l.name, l.is_default, l.is_active, l.location_type,
+       l.capacity_qty, l.mix_items, l.mix_lots,
        (SELECT count(*) FROM wms.stock_move m
          WHERE m.workspace_id=l.workspace_id AND m.generation_id=l.generation_id AND m.location_id=l.id) move_count
 FROM wms.storage_location l
@@ -296,8 +297,9 @@ def create_location(
             _clear_default(connection, scoped, warehouse_id)
         row_id = connection.execute(
             text(
-                "INSERT INTO wms.storage_location(workspace_id,generation_id,warehouse_id,code,name,is_default,location_type) "
-                "VALUES (:w,:g,:h,:code,:name,:d,:lt) RETURNING id"
+                "INSERT INTO wms.storage_location(workspace_id,generation_id,warehouse_id,code,name,is_default,"
+                "location_type,capacity_qty,mix_items,mix_lots) "
+                "VALUES (:w,:g,:h,:code,:name,:d,:lt,:cap,:mi,:ml) RETURNING id"
             ),
             {
                 **_s(scoped),
@@ -306,6 +308,9 @@ def create_location(
                 "name": values["name"],
                 "d": default,
                 "lt": location_type,
+                "cap": values.get("capacity_qty"),
+                "mi": values.get("mix_items", True),
+                "ml": values.get("mix_lots", True),
             },
         ).scalar_one()
         return _location(connection, scoped, row_id), "storage_location", row_id
@@ -830,6 +835,51 @@ def _document_by_source(connection, scoped, source_key: str, reversal: bool = Fa
     )
 
 
+def _guard_stock_writable(connection, scoped, on, moves) -> None:
+    """마감 월 전표 금지(F39·Q6)와 실사 잠금(F35)을 전표 쓰기 길목에서 한 번만 막는다."""
+    closed = connection.execute(
+        text(
+            f"SELECT 1 FROM wms.stock_period WHERE {_S} AND period_month=:m AND status='closed'"
+        ),
+        {**_s(scoped), "m": f"{on:%Y-%m}"},
+    ).first()
+    if closed:
+        raise _conflict(
+            f"{on:%Y-%m}은 재고 마감된 달이라 전표를 만들 수 없습니다. 다음 달에 조정하세요.",
+            "PERIOD_CLOSED",
+            periodMonth=f"{on:%Y-%m}",
+        )
+    location_ids = sorted({m["location_id"] for m in moves if m.get("location_id")})
+    if not location_ids:
+        return
+    locked = (
+        connection.execute(
+            text(
+                """
+            SELECT co.count_no, cl.location_id
+            FROM wms.count_line cl
+            JOIN wms.count_order co
+              ON co.workspace_id=cl.workspace_id AND co.generation_id=cl.generation_id
+             AND co.id=cl.count_order_id
+            WHERE cl.workspace_id=:w AND cl.generation_id=:g
+              AND co.status='OPEN' AND cl.location_id = ANY(:ids)
+            LIMIT 1
+            """
+            ),
+            {**_s(scoped), "ids": location_ids},
+        )
+        .mappings()
+        .first()
+    )
+    if locked:
+        raise _conflict(
+            f"실사({locked['count_no']}) 중인 위치는 재고를 옮길 수 없습니다. 실사를 끝내고 다시 시도하세요.",
+            "COUNT_IN_PROGRESS",
+            countNo=locked["count_no"],
+            locationId=locked["location_id"],
+        )
+
+
 def _insert_document(
     connection,
     scoped,
@@ -838,6 +888,8 @@ def _insert_document(
     moved_at: str | None,
 ) -> int:
     on = header["document_on"]
+    if header["status"] == "posted":
+        _guard_stock_writable(connection, scoped, on, moves)
     doc_id = connection.execute(
         text(
             "INSERT INTO wms.stock_document(workspace_id,generation_id,document_no,document_type,status,"
@@ -1383,6 +1435,12 @@ def post_document(context: AuthContext, doc_id: int, key: str) -> dict[str, Any]
                 raise _conflict(
                     "이동 전표는 품목·LOT별 합이 0이어야 합니다.", "TRANSFER_UNBALANCED"
                 )
+        _guard_stock_writable(
+            connection,
+            scoped,
+            date.fromisoformat(doc["documentOn"]),
+            [{"location_id": m["locationId"]} for m in doc["moves"]],
+        )
         connection.execute(
             text(
                 f"UPDATE wms.stock_document SET status='posted', posted_at=clock_timestamp() WHERE {_S} AND id=:id"
@@ -1549,7 +1607,7 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
                     "sum(CASE WHEN m.qty_delta<0 THEN -m.qty_delta ELSE 0 END) outbound, i.base_unit unit "
                     "FROM wms.stock_move m JOIN wms.stock_document d ON d.workspace_id=m.workspace_id "
                     "AND d.generation_id=m.generation_id AND d.id=m.document_id AND d.status='posted' "
-                    "AND d.document_type<>'TRANSFER' "
+                    "AND d.document_type NOT IN ('TRANSFER', 'PUTAWAY', 'PICK', 'PRODUCTION_ISSUE') "
                     "JOIN wms.item i ON i.workspace_id=m.workspace_id AND i.generation_id=m.generation_id AND i.id=m.item_id "
                     "WHERE m.workspace_id=:w AND m.generation_id=:g AND d.document_month=:month "
                     "GROUP BY i.item_code, i.base_unit ORDER BY i.item_code"

@@ -23,6 +23,11 @@ type DashboardData = {
   topDefects: { code: string; name: string; count: number }[];
   recentFails: Inspection[];
   holds: Hold[];
+  incomingPending: number | null;
+  openNcrs: number;
+  openCapas: number;
+  openClaims: number;
+  gaugesDue: number;
 };
 
 function Tile({
@@ -120,6 +125,63 @@ function DailyBars({ daily }: { daily: DashboardData["daily"] }) {
   );
 }
 
+/** F71 미결 업무. 숫자만 보여 주고 끝내지 않고 처리할 화면으로 바로 보낸다. */
+function OpenWork({ data }: { data: DashboardData }) {
+  const rows: { to: string; label: string; value: string; warn: boolean }[] = [
+    {
+      to: "/qms/pending",
+      label: "수입 검사 대기",
+      // WMS를 꺼 두면 0건이 아니라 읽을 수 없는 것이다.
+      value:
+        data.incomingPending === null
+          ? "조회 불가"
+          : `${data.incomingPending}건`,
+      warn: (data.incomingPending ?? 0) > 0,
+    },
+    {
+      to: "/qms/ncrs",
+      label: "미결 부적합",
+      value: `${data.openNcrs}건`,
+      warn: data.openNcrs > 0,
+    },
+    {
+      to: "/qms/capas",
+      label: "미결 시정·예방 조치",
+      value: `${data.openCapas}건`,
+      warn: data.openCapas > 0,
+    },
+    {
+      to: "/qms/claims",
+      label: "열린 클레임",
+      value: `${data.openClaims}건`,
+      warn: data.openClaims > 0,
+    },
+    {
+      to: "/qms/gauges",
+      label: "교정 도래 계측기",
+      value: `${data.gaugesDue}대`,
+      warn: data.gaugesDue > 0,
+    },
+  ];
+  return (
+    <section className="panel" aria-label="미결 업무">
+      <h2>미결 업무</h2>
+      <ul className="rank-list">
+        {rows.map((row) => (
+          <li key={row.to}>
+            <Link className="text-link" to={row.to}>
+              {row.label}
+            </Link>
+            <span>
+              {row.warn ? <Badge tone="issue">{row.value}</Badge> : row.value}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function Dashboard() {
   const { fail } = useSession();
   const [month, setMonth] = useState("");
@@ -209,6 +271,7 @@ export function Dashboard() {
           </div>
           <div className="dashboard-grid has-lead">
             <DailyBars daily={data.daily} />
+            <OpenWork data={data} />
             <section className="panel" aria-label="불량 유형 상위">
               <h2>불량 유형 상위 5 · {data.month}</h2>
               {data.topDefects.length ? (
@@ -225,8 +288,8 @@ export function Dashboard() {
               ) : (
                 <p className="muted">이 달 불합격 항목이 없습니다.</p>
               )}
-              <Link className="text-link" to="/qms/defect-types">
-                불량 유형 →
+              <Link className="text-link" to="/qms/metrics">
+                품질 지표 →
               </Link>
             </section>
             <section className="panel" aria-label="활성 보류 LOT">

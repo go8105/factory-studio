@@ -72,6 +72,8 @@ function data(board = false) {
   };
 }
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-13T09:00:00+09:00"));
   state.actor = "MEMBER";
   state.role = "OWNER";
   vi.stubGlobal(
@@ -98,6 +100,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 it("게스트 체험은 실제 회사 API를 호출하지 않는다", () => {
   state.actor = "GUEST";

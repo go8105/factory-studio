@@ -5,14 +5,13 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from test_journal_bundle import payload
-from test_security_journal import journal  # noqa: F401
-
 from fs.core.backup import BackupError
 from fs.core.security import journal_witness as witness
 from fs.core.security.journal import append, verify
 from fs.core.security.journal_bundle import export
 from fs.gw import backup_journal
+from test_journal_bundle import payload
+from test_security_journal import journal  # noqa: F401
 
 
 @pytest.fixture

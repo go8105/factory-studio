@@ -12,17 +12,16 @@ from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from sqlalchemy import event, text
-from sqlalchemy.exc import DBAPIError
-from test_gw_company_work import api
-from test_gw_evidence import prepare
-from test_hr_work import company_env
-
 from fs.common.errors import ApiError
 from fs.core.security.service import database_now
 from fs.gw.acceptance_sources import sign_current
 from fs.gw.operating_contract import canonical
 from fs.gw.readiness import SOURCE_FIELD
+from sqlalchemy import event, text
+from sqlalchemy.exc import DBAPIError
+from test_gw_company_work import api
+from test_gw_evidence import prepare
+from test_hr_work import company_env
 
 
 def configured(env, monkeypatch):

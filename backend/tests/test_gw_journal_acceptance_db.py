@@ -11,13 +11,6 @@ from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from sqlalchemy import text
-from test_gw_company import context
-from test_gw_company_work import api
-from test_gw_journal_observation_db import prepared
-from test_hr_work import company_env
-from test_security_journal import journal
-
 from fs.common.errors import ApiError
 from fs.core.security.journal import append
 from fs.core.security.journal import verify as chain_verify
@@ -27,6 +20,12 @@ from fs.gw.evidence_trust import from_environment
 from fs.gw.journal_observation import observe
 from fs.gw.readiness import SOURCE_FIELD
 from fs.gw.security_journal import record
+from sqlalchemy import text
+from test_gw_company import context
+from test_gw_company_work import api
+from test_gw_journal_observation_db import prepared
+from test_hr_work import company_env
+from test_security_journal import journal
 
 
 def pin(patch, journal):

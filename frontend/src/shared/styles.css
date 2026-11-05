@@ -2584,6 +2584,77 @@ th[aria-sort="none"] button span {
 .spc-publish h3 {
   font-size: var(--fs);
 }
+/* S-03 월별 Cpk · S-11 보고서 수치 */
+.spc-trend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin: var(--s2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.spc-trend li {
+  display: grid;
+  gap: 2px;
+  min-width: 96px;
+  padding: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+}
+.spc-trend strong {
+  font-size: var(--fs-s);
+  color: var(--muted);
+}
+.spc-figures {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s1) var(--s3);
+  margin: var(--s3) 0;
+}
+.spc-figures dt {
+  color: var(--muted);
+}
+.spc-figures dd {
+  margin: 0;
+}
+/* C-03 PM 점검표 — S-05 OCAP과 같은 모양 */
+.spc-ocap-list {
+  display: grid;
+  gap: var(--s3);
+  margin: var(--s3) 0;
+  padding: 0;
+  list-style: none;
+}
+.spc-ocap-list li {
+  display: grid;
+  gap: var(--s1);
+}
+.spc-ocap-list li p {
+  margin: 0;
+}
+/* S-05 이상 대응 절차 점검표 */
+.spc-ocap {
+  margin-top: var(--s4);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--border);
+}
+.spc-ocap h3 {
+  font-size: var(--fs);
+}
+.spc-ocap ol {
+  display: grid;
+  gap: var(--s3);
+  margin: var(--s3) 0;
+  padding: 0;
+  list-style: none;
+}
+.spc-ocap li {
+  display: grid;
+  gap: var(--s1);
+}
+.spc-ocap li p {
+  margin: 0;
+}
 @media (max-width: 540px) {
   .spc-values {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2600,4 +2671,43 @@ th[aria-sort="none"] button span {
   cursor: pointer;
   font-weight: 600;
   margin-bottom: var(--s2);
+}
+
+/* 성적서·전표 인쇄. `.print-area`로 가는 길만 남기고 나머지 형제를 접는다.
+   감추기만 하면(visibility) 자리를 차지해 앞뒤로 빈 쪽이 생긴다. */
+.print-only {
+  display: none;
+}
+@media print {
+  body:has(.print-area) > *:not(:has(.print-area), .print-area),
+  body:has(.print-area)
+    *:has(.print-area)
+    > *:not(:has(.print-area), .print-area) {
+    display: none;
+  }
+  body:has(.print-area) *:has(.print-area) {
+    position: static;
+    display: block;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    width: auto;
+    overflow: visible;
+    transform: none;
+  }
+  .print-only {
+    display: block;
+  }
+}
+
+/* 히트맵 칸. 색 농도 대신 막대 길이로 읽는다(저채도 기준, UI-02). */
+.bar-cell {
+  display: inline-block;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: linear-gradient(
+    to right,
+    var(--accent-soft, rgba(31, 45, 61, 0.12)) var(--share, 0%),
+    transparent var(--share, 0%)
+  );
 }

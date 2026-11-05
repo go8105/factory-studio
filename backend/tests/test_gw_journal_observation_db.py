@@ -11,6 +11,12 @@ from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fs.core.backup import BackupError
+from fs.core.security.journal import verify as chain_verify
+from fs.gw import company
+from fs.gw.evidence_trust import from_environment
+from fs.gw.journal_observation import observe, verify_current
+from fs.gw.security_journal import record
 from sqlalchemy import event, text
 from sqlalchemy.exc import DBAPIError
 from test_gw_acceptance_sources_db import configured
@@ -18,13 +24,6 @@ from test_gw_company import context
 from test_gw_company_work import api
 from test_hr_work import company_env
 from test_security_journal import journal
-
-from fs.core.backup import BackupError
-from fs.core.security.journal import verify as chain_verify
-from fs.gw import company
-from fs.gw.evidence_trust import from_environment
-from fs.gw.journal_observation import observe, verify_current
-from fs.gw.security_journal import record
 
 
 def prepared(env, patch, journal):

@@ -39,10 +39,18 @@ class SpecItemIn(ApiModel):
     is_required: bool = Field(True, alias="isRequired")
 
 
+SpecKind = Literal["OUTGOING", "INCOMING"]
+# 기준에 적을 수 있는 AQL (KS Q ISO 2859-1 표의 열). sampling.AQLS와 같아야 한다.
+Aql = Literal["0.65", "1.0", "1.5", "2.5", "4.0", "6.5"]
+
+
 class SpecCreate(ApiModel):
     item_code: str = Field(alias="itemCode", pattern=ITEM_CODE)
     item_name: str = Field(alias="itemName", min_length=1, max_length=100)
     note: str | None = Field(None, max_length=300)
+    # 반품·초품은 출하 기준을 쓴다. 기준은 출하·수입 둘만 게시한다.
+    inspection_kind: SpecKind = Field("OUTGOING", alias="inspectionKind")
+    aql: Aql | None = None
     items: list[SpecItemIn] = Field(default_factory=list, max_length=50)
 
 
@@ -69,6 +77,7 @@ class ValueIn(ApiModel):
     measured_value: str | None = Field(None, alias="measuredValue", pattern=NUMBER)
     pass_value: bool | None = Field(None, alias="passValue")
     defect_type_id: int | None = Field(None, alias="defectTypeId", gt=0)
+    gauge_id: int | None = Field(None, alias="gaugeId", gt=0)
 
 
 class InspectionUpdate(ApiModel):
@@ -82,3 +91,191 @@ class HoldRelease(ApiModel):
     disposition: Disposition
     release_inspection_id: int | None = Field(None, alias="releaseInspectionId", gt=0)
     reason: str | None = Field(None, max_length=300)
+
+
+GAUGE_CODE = r"^[A-Z0-9][A-Z0-9_\-]{0,29}$"
+CN_TYPE = Literal["MAN", "MACHINE", "MATERIAL", "METHOD"]
+
+
+class GaugeCreate(ApiModel):
+    code: str = Field(pattern=GAUGE_CODE)
+    name: str = Field(min_length=1, max_length=100)
+    gauge_kind: str = Field(alias="gaugeKind", min_length=1, max_length=40)
+    measure_range: str | None = Field(None, alias="measureRange", max_length=60)
+    resolution: str | None = Field(None, max_length=30)
+    calibration_cycle_days: int = Field(alias="calibrationCycleDays", ge=1, le=1825)
+    status: Literal["ACTIVE", "REPAIR", "RETIRED"] = "ACTIVE"
+
+
+class GaugeUpdate(ApiModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    gauge_kind: str | None = Field(None, alias="gaugeKind", min_length=1, max_length=40)
+    measure_range: str | None = Field(None, alias="measureRange", max_length=60)
+    resolution: str | None = Field(None, max_length=30)
+    calibration_cycle_days: int | None = Field(
+        None, alias="calibrationCycleDays", ge=1, le=1825
+    )
+    status: Literal["ACTIVE", "REPAIR", "RETIRED"] | None = None
+
+
+class CalibrationCreate(ApiModel):
+    calibrated_on: date = Field(alias="calibratedOn")
+    # 비워 두면 계측기의 교정 주기로 정한다.
+    next_due_on: date | None = Field(None, alias="nextDueOn")
+    result: Literal["PASS", "FAIL"]
+    agency: str | None = Field(None, max_length=100)
+    certificate_no: str | None = Field(None, alias="certificateNo", max_length=60)
+
+
+class ChangeNoticeCreate(ApiModel):
+    change_type: CN_TYPE = Field(alias="changeType")
+    item_code: str = Field(alias="itemCode", pattern=ITEM_CODE)
+    description: str = Field(min_length=1, max_length=1000)
+    requested_on: date | None = Field(None, alias="requestedOn")
+    effective_on: date = Field(alias="effectiveOn")
+
+
+class ChangeNoticeUpdate(ApiModel):
+    change_type: CN_TYPE | None = Field(None, alias="changeType")
+    item_code: str | None = Field(None, alias="itemCode", pattern=ITEM_CODE)
+    description: str | None = Field(None, min_length=1, max_length=1000)
+    effective_on: date | None = Field(None, alias="effectiveOn")
+
+
+class ChangeNoticeDecide(ApiModel):
+    approve: bool
+    note: str | None = Field(None, max_length=500)
+
+
+class FirstArticleCreate(ApiModel):
+    lot_no: str = Field(alias="lotNo", min_length=1, max_length=50)
+    lot_qty: str = Field(alias="lotQty", pattern=QTY)
+    unit: str = Field(min_length=1, max_length=10)
+    sample_qty: str = Field(alias="sampleQty", pattern=QTY)
+    inspected_on: date | None = Field(None, alias="inspectedOn")
+    note: str | None = Field(None, max_length=300)
+
+
+class ChangeNoticeVerify(ApiModel):
+    first_article_inspection_id: int = Field(alias="firstArticleInspectionId", gt=0)
+
+
+Origin = Literal["INCOMING", "PROCESS", "OUTGOING", "CUSTOMER"]
+CapaKind = Literal["CORRECTIVE", "PREVENTIVE"]
+
+
+class NcrCreate(ApiModel):
+    origin: Origin
+    item_code: str = Field(alias="itemCode", pattern=ITEM_CODE)
+    lot_no: str | None = Field(None, alias="lotNo", min_length=1, max_length=50)
+    qty: str = Field(pattern=QTY)
+    defect_type_id: int | None = Field(None, alias="defectTypeId", gt=0)
+    description: str = Field(min_length=2, max_length=1000)
+    immediate_action: str | None = Field(None, alias="immediateAction", max_length=500)
+    inspection_id: int | None = Field(None, alias="inspectionId", gt=0)
+    source_ref: str | None = Field(None, alias="sourceRef", max_length=60)
+    reported_on: date | None = Field(None, alias="reportedOn")
+
+
+class NcrUpdate(ApiModel):
+    lot_no: str | None = Field(None, alias="lotNo", min_length=1, max_length=50)
+    qty: str | None = Field(None, pattern=QTY)
+    defect_type_id: int | None = Field(None, alias="defectTypeId", gt=0)
+    description: str | None = Field(None, min_length=2, max_length=1000)
+    immediate_action: str | None = Field(None, alias="immediateAction", max_length=500)
+
+
+class CapaCreate(ApiModel):
+    ncr_id: int = Field(alias="ncrId", gt=0)
+    kind: CapaKind
+    root_cause: str = Field(alias="rootCause", min_length=2, max_length=1000)
+    action: str = Field(min_length=2, max_length=1000)
+    owner_name: str = Field(alias="ownerName", min_length=1, max_length=60)
+    due_on: date = Field(alias="dueOn")
+
+
+class CapaUpdate(ApiModel):
+    kind: CapaKind | None = None
+    root_cause: str | None = Field(
+        None, alias="rootCause", min_length=2, max_length=1000
+    )
+    action: str | None = Field(None, min_length=2, max_length=1000)
+    owner_name: str | None = Field(None, alias="ownerName", min_length=1, max_length=60)
+    due_on: date | None = Field(None, alias="dueOn")
+
+
+class CapaVerify(ApiModel):
+    effective: bool
+    note: str = Field(min_length=2, max_length=500)
+
+
+PARTNER_CODE = r"^[A-Z0-9][A-Z0-9_\-]{0,39}$"
+Severity = Literal["MINOR", "MAJOR", "CRITICAL"]
+InspectionLevel = Literal["EXEMPT", "NORMAL", "TIGHTENED"]
+
+
+class ClaimCreate(ApiModel):
+    customer_code: str = Field(alias="customerCode", pattern=PARTNER_CODE)
+    received_on: date | None = Field(None, alias="receivedOn")
+    item_code: str = Field(alias="itemCode", pattern=ITEM_CODE)
+    lot_no: str | None = Field(None, alias="lotNo", min_length=1, max_length=50)
+    qty: str = Field(pattern=QTY)
+    severity: Severity
+    description: str = Field(min_length=1, max_length=1000)
+    return_ref: str | None = Field(None, alias="returnRef", max_length=40)
+
+
+class ClaimUpdate(ApiModel):
+    lot_no: str | None = Field(None, alias="lotNo", min_length=1, max_length=50)
+    qty: str | None = Field(None, pattern=QTY)
+    severity: Severity | None = None
+    description: str | None = Field(None, min_length=1, max_length=1000)
+    return_ref: str | None = Field(None, alias="returnRef", max_length=40)
+
+
+class ClaimInvestigate(ApiModel):
+    """조사 시작 = 고객 발생 부적합 보고 생성. 수량을 비우면 클레임 수량을 쓴다."""
+
+    description: str = Field(min_length=2, max_length=1000)
+    qty: str | None = Field(None, pattern=QTY)
+    defect_type_id: int | None = Field(None, alias="defectTypeId", gt=0)
+    immediate_action: str | None = Field(None, alias="immediateAction", max_length=500)
+
+
+class ClaimRespond(ApiModel):
+    response: str = Field(min_length=2, max_length=1000)
+    responded_on: date | None = Field(None, alias="respondedOn")
+
+
+class SupplierLevelCreate(ApiModel):
+    partner_code: str = Field(alias="partnerCode", pattern=PARTNER_CODE)
+    item_code: str | None = Field(None, alias="itemCode", pattern=ITEM_CODE)
+    level: InspectionLevel
+    valid_from: date = Field(alias="validFrom")
+    reason: str = Field(min_length=2, max_length=300)
+    rating_id: int | None = Field(None, alias="ratingId", gt=0)
+
+
+class ScarCreate(ApiModel):
+    partner_code: str = Field(alias="partnerCode", pattern=PARTNER_CODE)
+    inspection_id: int | None = Field(None, alias="inspectionId", gt=0)
+    ncr_id: int | None = Field(None, alias="ncrId", gt=0)
+    issued_on: date | None = Field(None, alias="issuedOn")
+    due_on: date = Field(alias="dueOn")
+
+
+class ScarRespond(ApiModel):
+    response: str = Field(min_length=2, max_length=1000)
+    responded_on: date | None = Field(None, alias="respondedOn")
+
+
+class IncomingInspectionCreate(ApiModel):
+    source_ref: str = Field(alias="sourceRef", min_length=1, max_length=60)
+    # 기준에 AQL이 있으면 표가 정한다. 없을 때만 직접 적는다.
+    sample_qty: str | None = Field(None, alias="sampleQty", pattern=QTY)
+    inspected_on: date | None = Field(None, alias="inspectedOn")
+    note: str | None = Field(None, max_length=300)
+
+
+class DefectCountIn(ApiModel):
+    defect_count: int = Field(alias="defectCount", ge=0)

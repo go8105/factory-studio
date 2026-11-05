@@ -11,7 +11,7 @@ import {
   useNavigate,
   type NavigateFunction,
 } from "react-router-dom";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { App } from "../app/App";
 const session = {
   actorKind: "GUEST",
@@ -94,6 +94,10 @@ function deferred() {
   });
   return { promise, resolve };
 }
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-09-24T14:50:00Z"));
+});
 afterEach(() => vi.useRealTimers());
 it("초기화 확인 단계에서 되돌릴 수 없음을 경고한다", async () => {
   mock();
@@ -251,7 +255,6 @@ it("게스트 만료 시각은 KST 자정으로 표시한다", async () => {
   );
 });
 it("남은 시간은 서버 만료 시각과 현재 시간의 차이다", async () => {
-  vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-09-24T14:50:00Z"));
   mock();
   show();
   expect(await screen.findByText("남은 시간 10분")).toBeVisible();

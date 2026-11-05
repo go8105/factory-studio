@@ -5,11 +5,10 @@ from datetime import timedelta
 from uuid import uuid4
 
 import pytest
-from test_gw_source_checkpoint import proof
-
 from fs.gw.acceptance_reconciliation import sign_reconciliation
 from fs.gw.operating_contract import EvidenceEnvelope
 from fs.gw.recovery import boundary, next_step
+from test_gw_source_checkpoint import proof
 
 
 def fixture():

@@ -40,7 +40,7 @@ class ApplyTest(unittest.TestCase):
         again = copy.deepcopy(current)
         self.assertFalse(apply_fs023a.apply(again))
         self.assertEqual(again, current)
-        self.assertEqual(sum(t['name'].startswith('qms.') for t in current['tables']), 6)
+        self.assertEqual(sum(t['name'].startswith('qms.') for t in current['tables']), 15)
         self.assertEqual(audit(current), [])
 
 

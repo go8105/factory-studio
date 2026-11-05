@@ -11,12 +11,11 @@ from pathlib import Path
 
 import pytest
 from cryptography.exceptions import InvalidSignature
-from test_gw_catalog_store import cli_env, invoke, setup
-
 from fs.gw import catalog_store as store
 from fs.gw import catalog_transfer as transfer
 from fs.gw.checkpoint_catalog import DOMAIN, read
 from fs.gw.operating_contract import canonical
+from test_gw_catalog_store import cli_env, invoke, setup
 
 
 def outgoing(parts, base=0, sha="ABSENT", now=None):

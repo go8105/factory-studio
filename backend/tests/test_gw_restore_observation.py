@@ -5,12 +5,11 @@ from datetime import timedelta
 from uuid import uuid4
 
 import pytest
+from fs.common.errors import ApiError
+from fs.gw.acceptance_reconciliation import sign_reconciliation
 from test_gw_acceptance_collection import fixture as source_fixture
 from test_gw_acceptance_collection import signed
 from test_gw_operating_contract import NOW, envelope, verify
-
-from fs.common.errors import ApiError
-from fs.gw.acceptance_reconciliation import sign_reconciliation
 
 
 def observation():

@@ -4,7 +4,6 @@ import json
 import stat
 
 import pytest
-
 from fs.core.backup import BackupError
 from fs.core.security.journal_review import GUIDANCE, build, write
 
