@@ -26,6 +26,7 @@ export type Equipment = {
   equipmentCode: string;
   name: string;
   equipmentType: string;
+  departmentCode: string | null;
   isActive: boolean;
   createdAt: string;
 };
@@ -43,6 +44,7 @@ const EMPTY: Draft = {
   equipmentCode: "",
   name: "",
   equipmentType: "",
+  departmentCode: null,
   locationId: 0,
   isActive: true,
 };
@@ -113,6 +115,18 @@ export function Equipments() {
       (k) => draft[k] !== initial[k],
     );
   const guard = useDiscardGuard(dirty);
+  // 부서는 HR 코드다. HR을 껐으면 목록이 없어 코드를 직접 적는다(FEMS는 코드 문자열만 보관).
+  const [departments, setDepartments] = useState<{
+    hrEnabled: boolean;
+    rows: { code: string; name: string }[];
+  }>();
+  useEffect(() => {
+    api<{ hrEnabled: boolean; rows: { code: string; name: string }[] }>(
+      "/api/v1/fems/lookups/departments",
+    )
+      .then((r) => setDepartments(r.data))
+      .catch(() => undefined);
+  }, []);
 
   function openPanel(row: Equipment | null) {
     const defaultLoc = locations && locations.length > 0 ? locations[0].id : 0;
@@ -121,6 +135,7 @@ export function Equipments() {
           equipmentCode: row.equipmentCode,
           name: row.name,
           equipmentType: row.equipmentType,
+          departmentCode: row.departmentCode,
           locationId: row.locationId,
           isActive: row.isActive,
         }
@@ -242,6 +257,11 @@ export function Equipments() {
     { key: "equipmentCode", label: "코드" },
     { key: "name", label: "설비명" },
     { key: "equipmentType", label: "설비 유형" },
+    {
+      key: "departmentCode",
+      label: "부서",
+      render: (r) => r.departmentCode ?? "미지정",
+    },
     {
       key: "locationId",
       label: "설치 공간",
@@ -414,6 +434,45 @@ export function Equipments() {
                 setDraft({ ...draft, equipmentType: e.target.value })
               }
             />
+            {departments?.hrEnabled ? (
+              <div className="field">
+                <label htmlFor="department-code">부서</label>
+                <select
+                  id="department-code"
+                  value={draft.departmentCode ?? ""}
+                  aria-invalid={Boolean(errors.departmentCode)}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      departmentCode: e.target.value || null,
+                    })
+                  }
+                >
+                  <option value="">미지정</option>
+                  {departments.rows.map((d) => (
+                    <option key={d.code} value={d.code}>
+                      {d.name} ({d.code})
+                    </option>
+                  ))}
+                </select>
+                {errors.departmentCode && (
+                  <small>{errors.departmentCode}</small>
+                )}
+              </div>
+            ) : (
+              <Field
+                label="부서 코드 (HR를 꺼서 직접 입력)"
+                value={draft.departmentCode ?? ""}
+                maxLength={30}
+                error={errors.departmentCode}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    departmentCode: e.target.value.trim() || null,
+                  })
+                }
+              />
+            )}
             <div className="field">
               <label htmlFor="location-id">설치 공간</label>
               <select

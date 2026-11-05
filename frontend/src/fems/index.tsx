@@ -20,6 +20,11 @@ import { LoadPattern } from "./LoadPattern";
 import { ReadingQuality } from "./ReadingQuality";
 import { Alarms } from "./Alarms";
 import { EquipmentComparison } from "./EquipmentComparison";
+import { Savings } from "./Savings";
+import { EnergyReviews } from "./EnergyReviews";
+import { GhgInventories } from "./GhgInventories";
+import { CostRuns } from "./CostRuns";
+import { UtilityBills } from "./UtilityBills";
 export default function FemsRoutes() {
   return (
     <Routes>
@@ -37,6 +42,11 @@ export default function FemsRoutes() {
         <Route path="load-pattern" element={<LoadPattern />} />
         <Route path="reading-quality" element={<ReadingQuality />} />
         <Route path="alarms" element={<Alarms />} />
+        <Route path="savings" element={<Savings />} />
+        <Route path="energy-reviews" element={<EnergyReviews />} />
+        <Route path="ghg-inventories" element={<GhgInventories />} />
+        <Route path="cost-runs" element={<CostRuns />} />
+        <Route path="utility-bills" element={<UtilityBills />} />
         <Route path="equipment-comparison" element={<EquipmentComparison />} />
         <Route path="energy-sources" element={<EnergySources />} />
         <Route path="sites" element={<Sites />} />

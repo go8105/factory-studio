@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -18,9 +19,7 @@ def _s(context: AuthContext) -> dict[str, int]:
     return {"w": context.workspace_id, "g": context.generation_id}
 
 
-EQUIPMENT_COLUMNS = (
-    "id,location_id,equipment_code,name,equipment_type,is_active,created_at"
-)
+EQUIPMENT_COLUMNS = "id,location_id,equipment_code,name,equipment_type,department_code,is_active,created_at"
 EQUIPMENT_SORT = {
     "equipmentCode": "equipment_code",
     "name": "name",
@@ -52,6 +51,8 @@ def equipment_dict(row: Any) -> dict[str, Any]:
         "equipmentCode": row["equipment_code"],
         "name": row["name"],
         "equipmentType": row["equipment_type"],
+        # HR 부서 코드 스냅샷(F06). 비용 배분이 부서별로 묶는 기준이다.
+        "departmentCode": row["department_code"],
         "isActive": row["is_active"],
         "createdAt": row["created_at"].isoformat(),
     }
@@ -152,8 +153,10 @@ def insert_equipment(
             text(
                 f"""
             INSERT INTO fems.equipment
-              (workspace_id,generation_id,equipment_code,name,equipment_type,location_id,is_active)
-            VALUES (:w,:g,:equipment_code,:name,:equipment_type,:location_id,:is_active)
+              (workspace_id,generation_id,equipment_code,name,equipment_type,location_id,
+               department_code,is_active)
+            VALUES (:w,:g,:equipment_code,:name,:equipment_type,:location_id,
+                    :department_code,:is_active)
             RETURNING {EQUIPMENT_COLUMNS}
             """
             ),
@@ -1154,6 +1157,9 @@ READING_PERIOD = (
     " AND r.observed_at > (CAST(CAST(:date_from AS date) AS timestamp) AT TIME ZONE s.timezone)"
     " AND r.observed_at <= (CAST(CAST(:date_to AS date) + 1 AS timestamp) AT TIME ZONE s.timezone)"
 )
+# 소비 집계의 공통 조건. 하위 계측기는 수전에 이미 포함돼 이중 합산이 되고, **발전(GENERATION)은
+# 만든 양이라 소비가 아니다** — 거르지 않으면 발전량이 소비량·피크·요금에 섞인다.
+CONSUMPTION_ONLY = " AND m.parent_meter_id IS NULL AND e.source_kind <> 'GENERATION'"
 READING_FILTERS = {
     "site_id": "s.id=:site_id",
     "meter_id": "m.id=:meter_id",
@@ -1373,25 +1379,49 @@ def list_allocations(
 
 
 def production_by_equipment(
-    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+    connection: Connection,
+    context: AuthContext,
+    date_from: Any,
+    date_to: Any,
+    prorate: bool = False,
 ) -> dict[int, dict[str, Any]]:
     """기간과 겹치는 **유효 확정본**의 설비별 생산량. 원단위의 분모다.
 
     같은 원천 키의 최신 확정 버전만 센다 — 정정본이 있으면 옛 버전은 빠진다.
+
+    `prorate`면 기간에 걸친 만큼만 일할 계산한다. 기록이 월 단위인데 비교 기간이 월
+    경계와 어긋나면 겹친 기록 전체를 세게 되어 원단위가 틀린다(절감 검증이 쓴다).
     """
+    # 기록이 사업장 시간대 기준이라 기간도 그 시간대로 자른다. 세션 시간대(UTC)로 자르면
+    # 한국 자정이 UTC 15:00이라 9시간이 어긋나 일할 계산이 틀어진다.
+    start = "(CAST(CAST(:date_from AS date) AS timestamp) AT TIME ZONE s.timezone)"
+    end = "(CAST(CAST(:date_to AS date) + 1 AS timestamp) AT TIME ZONE s.timezone)"
+    share = (
+        f"greatest(0, extract(epoch FROM (least(p.period_end, {end}) "
+        f"- greatest(p.period_start, {start})))) "
+        "/ extract(epoch FROM (p.period_end - p.period_start))"
+        if prorate
+        else "1"
+    )
     rows = connection.execute(
         text(
-            """
-            SELECT equipment_id, unit, sum(production_qty) qty
+            f"""
+            SELECT equipment_id, unit, sum(production_qty * share) qty
             FROM (
-              SELECT p.equipment_id, p.unit, p.production_qty,
+              SELECT p.equipment_id, p.unit, p.production_qty, {share} share,
                      p.status='confirmed' AND p.version_no = max(p.version_no)
                        FILTER (WHERE p.status='confirmed')
                        OVER (PARTITION BY p.source_key) is_effective
               FROM fems.production_record p
+              JOIN fems.equipment q ON q.workspace_id=p.workspace_id
+               AND q.generation_id=p.generation_id AND q.id=p.equipment_id
+              JOIN fems.location l ON l.workspace_id=q.workspace_id
+               AND l.generation_id=q.generation_id AND l.id=q.location_id
+              JOIN fems.site s ON s.workspace_id=l.workspace_id
+               AND s.generation_id=l.generation_id AND s.id=l.site_id
               WHERE p.workspace_id=:w AND p.generation_id=:g
-                AND p.period_start < CAST(CAST(:date_to AS date) + 1 AS timestamp)
-                AND p.period_end > CAST(CAST(:date_from AS date) AS timestamp)
+                AND p.period_start < {end}
+                AND p.period_end > {start}
             ) z
             WHERE z.is_effective
             GROUP BY equipment_id, unit
@@ -1456,8 +1486,8 @@ def emission_consumption(
             "count(*) FILTER (WHERE r.quality='invalid') excluded "
             + READING_FROM
             + READING_PERIOD
-            + " AND m.parent_meter_id IS NULL"
-            " GROUP BY e.id,e.source_code,e.name,e.source_kind,c.unit,reading_year"
+            + CONSUMPTION_ONLY
+            + " GROUP BY e.id,e.source_code,e.name,e.source_kind,c.unit,reading_year"
             " ORDER BY e.source_code,c.unit,reading_year"
         ),
         {**_s(context), "date_from": date_from, "date_to": date_to},
@@ -1492,8 +1522,8 @@ def daily_consumption(
             "coalesce(sum(r.value*c.multiplier) FILTER (WHERE r.quality<>'invalid'),0) quantity "
             + READING_FROM
             + READING_PERIOD
-            + " AND m.parent_meter_id IS NULL"
-            " GROUP BY e.id,e.source_kind,c.unit,reading_date ORDER BY reading_date"
+            + CONSUMPTION_ONLY
+            + " GROUP BY e.id,e.source_kind,c.unit,reading_date ORDER BY reading_date"
         ),
         {**_s(context), "date_from": date_from, "date_to": date_to},
     ).mappings()
@@ -1523,8 +1553,8 @@ def monthly_consumption(
             "coalesce(sum(r.value*c.multiplier) FILTER (WHERE r.quality<>'invalid'),0) quantity "
             + READING_FROM
             + READING_PERIOD
-            + " AND m.parent_meter_id IS NULL"
-            " GROUP BY e.id,e.source_code,e.name,e.is_billable,c.unit,reading_month"
+            + CONSUMPTION_ONLY
+            + " GROUP BY e.id,e.source_code,e.name,e.is_billable,c.unit,reading_month"
             " ORDER BY e.source_code,reading_month"
         ),
         {**_s(context), "date_from": date_from, "date_to": date_to},
@@ -2001,7 +2031,7 @@ def hourly_consumption(
             "coalesce(sum(r.value*c.multiplier) FILTER (WHERE r.quality<>'invalid'),0) quantity "
             + READING_FROM
             + READING_PERIOD
-            + " AND m.parent_meter_id IS NULL"
+            + CONSUMPTION_ONLY
             + where
             + ' GROUP BY e.id,e.source_code,e.name,e.is_billable,c.unit,reading_date,"hour"'
             ' ORDER BY e.source_code,reading_date,"hour"'
@@ -2038,7 +2068,15 @@ def quality_issues(
     connection: Connection, context: AuthContext, date_from: Any, date_to: Any
 ) -> tuple[int, list[dict[str, Any]]]:
     """정상(valid)이 아닌 계측값. 하위 계측기를 포함한 모든 채널이 대상이다."""
-    where = READING_FROM + READING_PERIOD + " AND r.quality<>'valid'"
+    # 보정으로 대체된 원본(invalid)은 보정본(estimated)과 같은 구간이라 이중으로 세지 않는다.
+    where = (
+        READING_FROM
+        + READING_PERIOD
+        + " AND r.quality<>'valid' AND NOT (r.quality='invalid' AND EXISTS ("
+        "SELECT 1 FROM fems.reading_correction rc WHERE rc.workspace_id=r.workspace_id"
+        " AND rc.generation_id=r.generation_id AND rc.meter_channel_id=r.meter_channel_id"
+        " AND rc.period_start=r.period_start))"
+    )
     params = {**_s(context), "date_from": date_from, "date_to": date_to}
     count = connection.execute(text("SELECT count(*) " + where), params).scalar_one()
     rows = connection.execute(
@@ -2374,3 +2412,674 @@ def item_baselines(
         _s(context),
     ).mappings()
     return {r["item_code"]: dict(r) for r in rows}
+
+
+# ---- F-19·F-20·F-21 에너지 경영 (DSN-15 F32·F33·F35) ----
+
+SAVING_COLUMNS = (
+    "id,code,title,equipment_id,energy_source_id,expected_saving,investment,currency,"
+    "start_on,baseline_start_on,baseline_end_on,review_end_on,measured_saving,status,"
+    "verified_at,created_at"
+)
+
+
+def saving_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "code": row["code"],
+        "title": row["title"],
+        "equipmentId": row["equipment_id"],
+        "energySourceId": row["energy_source_id"],
+        "expectedSaving": str(row["expected_saving"]),
+        "investment": str(row["investment"]),
+        "currency": row["currency"],
+        "startOn": row["start_on"].isoformat(),
+        "baselineStartOn": row["baseline_start_on"].isoformat(),
+        "baselineEndOn": row["baseline_end_on"].isoformat(),
+        "reviewEndOn": None
+        if row["review_end_on"] is None
+        else row["review_end_on"].isoformat(),
+        "measuredSaving": None
+        if row["measured_saving"] is None
+        else str(row["measured_saving"]),
+        "status": row["status"],
+        "verifiedAt": None
+        if row["verified_at"] is None
+        else row["verified_at"].isoformat(),
+    }
+
+
+def list_savings(connection: Connection, context: AuthContext) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            f"SELECT {SAVING_COLUMNS} FROM fems.saving_project "
+            "WHERE workspace_id=:w AND generation_id=:g ORDER BY start_on DESC, code"
+        ),
+        _s(context),
+    ).mappings()
+    return [saving_dict(r) for r in rows]
+
+
+def get_saving(
+    connection: Connection, context: AuthContext, saving_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(
+                f"SELECT {SAVING_COLUMNS} FROM fems.saving_project "
+                "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+            ),
+            {**_s(context), "id": saving_id},
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else saving_dict(row)
+
+
+def insert_saving(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> dict[str, Any]:
+    columns = ",".join(values.keys())
+    placeholders = ",".join(f":{c}" for c in values)
+    row = (
+        connection.execute(
+            text(
+                f"INSERT INTO fems.saving_project (workspace_id,generation_id,{columns}) "
+                f"VALUES (:w,:g,{placeholders}) RETURNING {SAVING_COLUMNS}"
+            ),
+            {**_s(context), **values},
+        )
+        .mappings()
+        .one()
+    )
+    return saving_dict(row)
+
+
+def update_saving(
+    connection: Connection, context: AuthContext, saving_id: int, values: dict[str, Any]
+) -> dict[str, Any]:
+    sets = ",".join(f"{k}=:{k}" for k in values)
+    row = (
+        connection.execute(
+            text(
+                f"UPDATE fems.saving_project SET {sets} "
+                f"WHERE workspace_id=:w AND generation_id=:g AND id=:id "
+                f"RETURNING {SAVING_COLUMNS}"
+            ),
+            {**_s(context), "id": saving_id, **values},
+        )
+        .mappings()
+        .one()
+    )
+    return saving_dict(row)
+
+
+def next_version(
+    connection: Connection, context: AuthContext, table: str, column: str, value: str
+) -> int:
+    """같은 기간의 다음 버전 번호. 확정본이 있어도 새 버전은 초안으로 시작한다."""
+    taken = connection.execute(
+        text(
+            f"SELECT coalesce(max(version),0) FROM fems.{table} "
+            f"WHERE workspace_id=:w AND generation_id=:g AND {column}=:value"
+        ),
+        {**_s(context), "value": value},
+    ).scalar_one()
+    return taken + 1
+
+
+def drop_drafts(
+    connection: Connection,
+    context: AuthContext,
+    table: str,
+    column: str,
+    value: str,
+    child: tuple[str, str] | None = None,
+) -> None:
+    """같은 기간의 옛 **초안**을 지운다. 확정본은 건드리지 않는다(불변).
+
+    초안을 `superseded`로 돌릴 수 없다 — CHECK가 `(status='draft') = (confirmed_at IS NULL)`
+    이라 확정한 적 없는 행은 draft여야 한다. 확정 전 초안은 기록이 아니라 작업 중인 계산이다.
+    `child`는 (자식 표, 부모 id 칼럼)이다 — 부모를 지우기 전에 자식부터 지운다(RESTRICT).
+    """
+    scope = "workspace_id=:w AND generation_id=:g"
+    ids = f"SELECT id FROM fems.{table} WHERE {scope} AND {column}=:value AND status='draft'"
+    if child:
+        connection.execute(
+            text(
+                f"DELETE FROM fems.{child[0]} WHERE {scope} AND {child[1]} IN ({ids})"
+            ),
+            {**_s(context), "value": value},
+        )
+    connection.execute(
+        text(
+            f"DELETE FROM fems.{table} WHERE {scope} AND {column}=:value AND status='draft'"
+        ),
+        {**_s(context), "value": value},
+    )
+
+
+def confirm_snapshot(
+    connection: Connection,
+    context: AuthContext,
+    table: str,
+    column: str,
+    row_id: int,
+) -> None:
+    """초안을 확정한다. 같은 기간의 기존 확정본은 `superseded`로 넘긴다(새 버전이 이긴다)."""
+    scope = "workspace_id=:w AND generation_id=:g"
+    params = {**_s(context), "id": row_id}
+    connection.execute(
+        text(
+            f"UPDATE fems.{table} SET status='superseded' WHERE {scope} AND status='confirmed' "
+            f"AND {column}=(SELECT {column} FROM fems.{table} WHERE {scope} AND id=:id)"
+        ),
+        params,
+    )
+    connection.execute(
+        text(
+            f"UPDATE fems.{table} SET status='confirmed', confirmed_at=now() "
+            f"WHERE {scope} AND id=:id"
+        ),
+        params,
+    )
+
+
+def reading_coverage(
+    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+) -> dict[str, Any]:
+    """기간에 계측이 **있는 날**이 며칠인지. 최상위 계측기 기준이다.
+
+    확정 명세서·검토가 연·월 전체를 덮는지 알려면 필요하다 — 시드처럼 한 달치뿐이면
+    '연간 명세서'라는 이름이 거짓이 된다.
+    """
+    local = "(r.observed_at - interval '1 microsecond') AT TIME ZONE s.timezone"
+    row = (
+        connection.execute(
+            text(
+                f"SELECT count(DISTINCT CAST({local} AS date)) days, "
+                f"min(CAST({local} AS date)) first_day, max(CAST({local} AS date)) last_day "
+                + READING_FROM
+                + READING_PERIOD
+                + CONSUMPTION_ONLY
+            ),
+            {**_s(context), "date_from": date_from, "date_to": date_to},
+        )
+        .mappings()
+        .one()
+    )
+    return {
+        "days": row["days"],
+        "from": None if row["first_day"] is None else row["first_day"].isoformat(),
+        "to": None if row["last_day"] is None else row["last_day"].isoformat(),
+    }
+
+
+REVIEW_COLUMNS = (
+    "id,review_month,version,status,primary_energy_toe,energy_cost,currency,"
+    "emission_tco2e,target_achievement,issues,confirmed_at,created_at"
+)
+
+
+def review_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "reviewMonth": row["review_month"],
+        "version": row["version"],
+        "status": row["status"],
+        "primaryEnergyToe": str(row["primary_energy_toe"]),
+        "energyCost": str(row["energy_cost"]),
+        "currency": row["currency"],
+        "emissionTco2e": str(row["emission_tco2e"]),
+        # 목표가 없으면 0%가 아니라 모름이다.
+        "targetAchievement": None
+        if row["target_achievement"] is None
+        else str(row["target_achievement"]),
+        "issues": row["issues"],
+        "confirmedAt": None
+        if row["confirmed_at"] is None
+        else row["confirmed_at"].isoformat(),
+        "createdAt": row["created_at"].isoformat(),
+    }
+
+
+def list_reviews(connection: Connection, context: AuthContext) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            f"SELECT {REVIEW_COLUMNS} FROM fems.energy_review "
+            "WHERE workspace_id=:w AND generation_id=:g "
+            "ORDER BY review_month DESC, version DESC LIMIT 60"
+        ),
+        _s(context),
+    ).mappings()
+    return [review_dict(r) for r in rows]
+
+
+def get_review(
+    connection: Connection, context: AuthContext, review_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(
+                f"SELECT {REVIEW_COLUMNS} FROM fems.energy_review "
+                "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+            ),
+            {**_s(context), "id": review_id},
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else review_dict(row)
+
+
+def insert_review(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> int:
+    columns = ",".join(values.keys())
+    placeholders = ",".join(f":{c}" for c in values)
+    return connection.execute(
+        text(
+            f"INSERT INTO fems.energy_review (workspace_id,generation_id,{columns}) "
+            f"VALUES (:w,:g,{placeholders}) RETURNING id"
+        ),
+        {**_s(context), **values},
+    ).scalar_one()
+
+
+GHG_COLUMNS = (
+    "id,inventory_year,version,status,scope1_tco2e,scope2_tco2e,confirmed_at,created_at"
+)
+
+
+def ghg_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "inventoryYear": row["inventory_year"],
+        "version": row["version"],
+        "status": row["status"],
+        "scope1Tco2e": str(row["scope1_tco2e"]),
+        "scope2Tco2e": str(row["scope2_tco2e"]),
+        "confirmedAt": None
+        if row["confirmed_at"] is None
+        else row["confirmed_at"].isoformat(),
+        "createdAt": row["created_at"].isoformat(),
+    }
+
+
+def list_ghg(connection: Connection, context: AuthContext) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            f"SELECT {GHG_COLUMNS} FROM fems.ghg_inventory "
+            "WHERE workspace_id=:w AND generation_id=:g "
+            "ORDER BY inventory_year DESC, version DESC LIMIT 30"
+        ),
+        _s(context),
+    ).mappings()
+    return [ghg_dict(r) for r in rows]
+
+
+def get_ghg(
+    connection: Connection, context: AuthContext, ghg_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(
+                f"SELECT {GHG_COLUMNS} FROM fems.ghg_inventory "
+                "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+            ),
+            {**_s(context), "id": ghg_id},
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        return None
+    lines = connection.execute(
+        text(
+            "SELECT l.scope,l.activity_qty,l.unit,l.factor_value,l.emission_tco2e,"
+            "q.equipment_code,q.name equipment_name,s.source_code,s.name source_name "
+            "FROM fems.ghg_inventory_line l "
+            "JOIN fems.energy_source s ON s.workspace_id=l.workspace_id "
+            " AND s.generation_id=l.generation_id AND s.id=l.energy_source_id "
+            "LEFT JOIN fems.equipment q ON q.workspace_id=l.workspace_id "
+            " AND q.generation_id=l.generation_id AND q.id=l.equipment_id "
+            "WHERE l.workspace_id=:w AND l.generation_id=:g AND l.ghg_inventory_id=:id "
+            "ORDER BY l.scope, s.source_code, q.equipment_code NULLS LAST"
+        ),
+        {**_s(context), "id": ghg_id},
+    ).mappings()
+    return {
+        **ghg_dict(row),
+        "lines": [
+            {
+                "scope": ln["scope"],
+                "equipmentCode": ln["equipment_code"],
+                "equipmentName": ln["equipment_name"],
+                "sourceCode": ln["source_code"],
+                "sourceName": ln["source_name"],
+                "activityQty": str(ln["activity_qty"]),
+                "unit": ln["unit"],
+                "factorValue": str(ln["factor_value"]),
+                "emissionTco2e": str(ln["emission_tco2e"]),
+            }
+            for ln in lines
+        ],
+    }
+
+
+def insert_ghg(
+    connection: Connection,
+    context: AuthContext,
+    values: dict[str, Any],
+    lines: list[dict[str, Any]],
+) -> int:
+    ghg_id = connection.execute(
+        text(
+            "INSERT INTO fems.ghg_inventory (workspace_id,generation_id,inventory_year,"
+            "version,status,scope1_tco2e,scope2_tco2e) "
+            "VALUES (:w,:g,:year,:version,'draft',:scope1,:scope2) RETURNING id"
+        ),
+        {**_s(context), **values},
+    ).scalar_one()
+    for line in lines:
+        connection.execute(
+            text(
+                "INSERT INTO fems.ghg_inventory_line (workspace_id,generation_id,"
+                "ghg_inventory_id,equipment_id,energy_source_id,scope,activity_qty,unit,"
+                "factor_value,emission_tco2e) VALUES (:w,:g,:inv,:equipment,:source,:scope,"
+                ":qty,:unit,:factor,:emission)"
+            ),
+            {**_s(context), "inv": ghg_id, **line},
+        )
+    return ghg_id
+
+
+def saving_code_taken(connection: Connection, context: AuthContext, code: str) -> bool:
+    return bool(
+        connection.execute(
+            text(
+                "SELECT 1 FROM fems.saving_project "
+                "WHERE workspace_id=:w AND generation_id=:g AND code=:code"
+            ),
+            {**_s(context), "code": code},
+        ).first()
+    )
+
+
+# ---- F-22 비용 배분·F-23 고지서 대조 (DSN-15 F43·F42) ----
+
+
+def equipment_departments(
+    connection: Connection, context: AuthContext
+) -> dict[int, str | None]:
+    rows = connection.execute(
+        text(
+            "SELECT id,department_code FROM fems.equipment "
+            "WHERE workspace_id=:w AND generation_id=:g"
+        ),
+        _s(context),
+    ).mappings()
+    return {r["id"]: r["department_code"] for r in rows}
+
+
+def main_items(
+    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+) -> dict[int, str]:
+    """설비별로 그 기간 **생산량이 가장 많은 품목**. 유효 확정본만 센다."""
+    rows = connection.execute(
+        text(
+            """
+            SELECT equipment_id, item_code, sum(production_qty) qty
+            FROM (
+              SELECT p.equipment_id, p.item_code, p.production_qty,
+                     p.status='confirmed' AND p.version_no = max(p.version_no)
+                       FILTER (WHERE p.status='confirmed')
+                       OVER (PARTITION BY p.source_key) is_effective
+              FROM fems.production_record p
+              JOIN fems.equipment q ON q.workspace_id=p.workspace_id
+               AND q.generation_id=p.generation_id AND q.id=p.equipment_id
+              JOIN fems.location l ON l.workspace_id=q.workspace_id
+               AND l.generation_id=q.generation_id AND l.id=q.location_id
+              JOIN fems.site s ON s.workspace_id=l.workspace_id
+               AND s.generation_id=l.generation_id AND s.id=l.site_id
+              WHERE p.workspace_id=:w AND p.generation_id=:g
+                AND p.period_start < (CAST(CAST(:date_to AS date) + 1 AS timestamp) AT TIME ZONE s.timezone)
+                AND p.period_end > (CAST(CAST(:date_from AS date) AS timestamp) AT TIME ZONE s.timezone)
+            ) z
+            WHERE z.is_effective
+            GROUP BY equipment_id, item_code
+            """
+        ),
+        {**_s(context), "date_from": date_from, "date_to": date_to},
+    ).mappings()
+    best: dict[int, tuple[Any, str]] = {}
+    for r in rows:
+        if r["equipment_id"] not in best or r["qty"] > best[r["equipment_id"]][0]:
+            best[r["equipment_id"]] = (r["qty"], r["item_code"])
+    return {k: v[1] for k, v in best.items()}
+
+
+COST_COLUMNS = "id,cost_month,version,status,confirmed_at,created_at"
+
+
+def cost_run_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "costMonth": row["cost_month"],
+        "version": row["version"],
+        "status": row["status"],
+        "confirmedAt": None
+        if row["confirmed_at"] is None
+        else row["confirmed_at"].isoformat(),
+        "createdAt": row["created_at"].isoformat(),
+    }
+
+
+def list_cost_runs(
+    connection: Connection, context: AuthContext
+) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            f"SELECT {COST_COLUMNS} FROM fems.cost_run "
+            "WHERE workspace_id=:w AND generation_id=:g "
+            "ORDER BY cost_month DESC, version DESC LIMIT 60"
+        ),
+        _s(context),
+    ).mappings()
+    return [cost_run_dict(r) for r in rows]
+
+
+def cost_lines(
+    connection: Connection, context: AuthContext, run_id: int
+) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            "SELECT l.department_code,l.item_code,l.quantity,l.unit,l.cost,"
+            "q.equipment_code,q.name equipment_name,s.source_code,s.name source_name "
+            "FROM fems.cost_allocation_line l "
+            "JOIN fems.equipment q ON q.workspace_id=l.workspace_id "
+            " AND q.generation_id=l.generation_id AND q.id=l.equipment_id "
+            "JOIN fems.energy_source s ON s.workspace_id=l.workspace_id "
+            " AND s.generation_id=l.generation_id AND s.id=l.energy_source_id "
+            "WHERE l.workspace_id=:w AND l.generation_id=:g AND l.cost_run_id=:id "
+            "ORDER BY l.cost DESC, q.equipment_code, s.source_code"
+        ),
+        {**_s(context), "id": run_id},
+    ).mappings()
+    return [
+        {
+            "equipmentCode": r["equipment_code"],
+            "equipmentName": r["equipment_name"],
+            "sourceCode": r["source_code"],
+            "sourceName": r["source_name"],
+            "departmentCode": r["department_code"],
+            "itemCode": r["item_code"],
+            "quantity": str(r["quantity"]),
+            "unit": r["unit"],
+            "cost": str(r["cost"]),
+        }
+        for r in rows
+    ]
+
+
+def get_cost_run(
+    connection: Connection, context: AuthContext, run_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(
+                f"SELECT {COST_COLUMNS} FROM fems.cost_run "
+                "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+            ),
+            {**_s(context), "id": run_id},
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        return None
+    return {**cost_run_dict(row), "lines": cost_lines(connection, context, run_id)}
+
+
+def insert_cost_run(
+    connection: Connection,
+    context: AuthContext,
+    month: str,
+    version: int,
+    lines: list[dict[str, Any]],
+) -> int:
+    run_id = connection.execute(
+        text(
+            "INSERT INTO fems.cost_run (workspace_id,generation_id,cost_month,version,status) "
+            "VALUES (:w,:g,:month,:version,'draft') RETURNING id"
+        ),
+        {**_s(context), "month": month, "version": version},
+    ).scalar_one()
+    for line in lines:
+        connection.execute(
+            text(
+                "INSERT INTO fems.cost_allocation_line (workspace_id,generation_id,"
+                "cost_run_id,equipment_id,energy_source_id,department_code,item_code,"
+                "quantity,unit,cost,currency) VALUES (:w,:g,:run,:equipment,:source,"
+                ":department,:item,:qty,:unit,:cost,'KRW')"
+            ),
+            {**_s(context), "run": run_id, **line},
+        )
+    return run_id
+
+
+BILL_COLUMNS = (
+    "b.id,b.energy_source_id,s.source_code,s.name source_name,b.bill_month,"
+    "b.billed_qty,b.billed_amount,b.calculated_amount,b.currency,b.note"
+)
+
+
+def bill_dict(row: Any) -> dict[str, Any]:
+    billed, calculated = row["billed_amount"], row["calculated_amount"]
+    diff = billed - calculated
+    return {
+        "id": row["id"],
+        "energySourceId": row["energy_source_id"],
+        "sourceCode": row["source_code"],
+        "sourceName": row["source_name"],
+        "billMonth": row["bill_month"],
+        "billedQty": str(row["billed_qty"]),
+        "billedAmount": str(billed),
+        "calculatedAmount": str(calculated),
+        "difference": str(diff),
+        # 산정이 0이면 비율을 낼 수 없다. 0%가 아니라 모름이다.
+        "differenceRate": None
+        if calculated == 0
+        else str((diff * 100 / calculated).quantize(Decimal("0.1"))),
+        "currency": row["currency"],
+        "note": row["note"],
+    }
+
+
+def list_bills(connection: Connection, context: AuthContext) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        text(
+            f"SELECT {BILL_COLUMNS} FROM fems.utility_bill b "
+            "JOIN fems.energy_source s ON s.workspace_id=b.workspace_id "
+            " AND s.generation_id=b.generation_id AND s.id=b.energy_source_id "
+            "WHERE b.workspace_id=:w AND b.generation_id=:g "
+            "ORDER BY b.bill_month DESC, s.source_code LIMIT 120"
+        ),
+        _s(context),
+    ).mappings()
+    return [bill_dict(r) for r in rows]
+
+
+def get_bill(
+    connection: Connection, context: AuthContext, bill_id: int
+) -> dict[str, Any] | None:
+    row = (
+        connection.execute(
+            text(
+                f"SELECT {BILL_COLUMNS} FROM fems.utility_bill b "
+                "JOIN fems.energy_source s ON s.workspace_id=b.workspace_id "
+                " AND s.generation_id=b.generation_id AND s.id=b.energy_source_id "
+                "WHERE b.workspace_id=:w AND b.generation_id=:g AND b.id=:id"
+            ),
+            {**_s(context), "id": bill_id},
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else bill_dict(row)
+
+
+def bill_taken(
+    connection: Connection, context: AuthContext, source_id: int, month: str
+) -> bool:
+    return bool(
+        connection.execute(
+            text(
+                "SELECT 1 FROM fems.utility_bill WHERE workspace_id=:w AND generation_id=:g "
+                "AND energy_source_id=:s AND bill_month=:m"
+            ),
+            {**_s(context), "s": source_id, "m": month},
+        ).first()
+    )
+
+
+def insert_bill(
+    connection: Connection, context: AuthContext, values: dict[str, Any]
+) -> int:
+    return connection.execute(
+        text(
+            "INSERT INTO fems.utility_bill (workspace_id,generation_id,energy_source_id,"
+            "bill_month,billed_qty,billed_amount,calculated_amount,currency,note) "
+            "VALUES (:w,:g,:source,:month,:qty,:billed,:calculated,'KRW',:note) RETURNING id"
+        ),
+        {**_s(context), **values},
+    ).scalar_one()
+
+
+def delete_bill(connection: Connection, context: AuthContext, bill_id: int) -> None:
+    connection.execute(
+        text(
+            "DELETE FROM fems.utility_bill "
+            "WHERE workspace_id=:w AND generation_id=:g AND id=:id"
+        ),
+        {**_s(context), "id": bill_id},
+    )
+
+
+def generation_quantity(
+    connection: Connection, context: AuthContext, date_from: Any, date_to: Any
+) -> list[dict[str, Any]]:
+    """발전 에너지원의 기간 발전량. 소비 집계는 이것을 일부러 뺀다(`CONSUMPTION_ONLY`)."""
+    rows = connection.execute(
+        text(
+            "SELECT e.source_code,e.name,c.unit,"
+            "coalesce(sum(r.value*c.multiplier) FILTER (WHERE r.quality<>'invalid'),0) quantity "
+            + READING_FROM
+            + READING_PERIOD
+            + " AND e.source_kind='GENERATION' GROUP BY e.source_code,e.name,c.unit "
+            "ORDER BY e.source_code"
+        ),
+        {**_s(context), "date_from": date_from, "date_to": date_to},
+    ).mappings()
+    return [dict(r) for r in rows]

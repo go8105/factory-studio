@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-SourceKind = Literal["ELECTRIC", "FUEL", "HEAT", "UTILITY"]
+SourceKind = Literal["ELECTRIC", "FUEL", "HEAT", "UTILITY", "GENERATION"]
 MeasureUnit = Literal["kWh", "Nm3", "m3", "ton"]
 
 
@@ -40,6 +41,7 @@ class EquipmentCreate(ApiModel):
     name: str = Field(min_length=1, max_length=100)
     equipment_type: str = Field(alias="equipmentType", min_length=1, max_length=40)
     location_id: int = Field(alias="locationId", gt=0)
+    department_code: str | None = Field(None, alias="departmentCode", max_length=30)
     is_active: bool = Field(True, alias="isActive")
 
 
@@ -52,6 +54,7 @@ class EquipmentUpdate(ApiModel):
         None, alias="equipmentType", min_length=1, max_length=40
     )
     location_id: int | None = Field(None, alias="locationId", gt=0)
+    department_code: str | None = Field(None, alias="departmentCode", max_length=30)
     is_active: bool | None = Field(None, alias="isActive")
 
 
@@ -167,6 +170,52 @@ class AlarmEvaluate(ApiModel):
     month: str | None = Field(None, pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
 
 
+# ---- F-19~F-21 에너지 경영 (DSN-15 F32·F33·F35) ----
+
+
+class SavingCreate(ApiModel):
+    code: str = Field(pattern=r"^[A-Z0-9][A-Z0-9_\-]{0,29}$")
+    title: str = Field(min_length=1, max_length=200)
+    equipment_id: int | None = Field(None, alias="equipmentId", gt=0)
+    energy_source_id: int = Field(alias="energySourceId", gt=0)
+    expected_saving: Decimal = Field(
+        alias="expectedSaving", gt=0, max_digits=20, decimal_places=6
+    )
+    investment: Decimal = Field(Decimal(0), ge=0, max_digits=18, decimal_places=2)
+    start_on: date = Field(alias="startOn")
+    baseline_start_on: date = Field(alias="baselineStartOn")
+    baseline_end_on: date = Field(alias="baselineEndOn")
+    review_end_on: date | None = Field(None, alias="reviewEndOn")
+
+
+class ReviewCreate(ApiModel):
+    month: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    issues: str | None = Field(None, max_length=1800)
+
+
+class GhgCreate(ApiModel):
+    year: str = Field(pattern=r"^[0-9]{4}$")
+
+
+# ---- F-22·F-23 비용 (DSN-15 F43·F42) ----
+
+
+class CostRunCreate(ApiModel):
+    month: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+
+
+class BillCreate(ApiModel):
+    energy_source_id: int = Field(alias="energySourceId", gt=0)
+    bill_month: str = Field(alias="billMonth", pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    billed_qty: Decimal = Field(
+        alias="billedQty", ge=0, max_digits=20, decimal_places=6
+    )
+    billed_amount: Decimal = Field(
+        alias="billedAmount", ge=0, max_digits=18, decimal_places=2
+    )
+    note: str | None = Field(None, max_length=300)
+
+
 # ---- F-13 환산·배출계수 (FS-018k) ----
 FACTOR = r"^\d{1,12}(\.\d{1,6})?$"  # numeric(18,6). 0은 서비스에서 거부(> 0)
 YEAR = r"^[0-9]{4}$"
@@ -192,7 +241,7 @@ class FactorUpdate(ApiModel):
 # ---- F-12 계측기·채널 (FS-018l) ----
 METER_CODE = r"^[A-Z][A-Z0-9_\-]{1,39}$"
 CHANNEL_CODE = r"^[A-Z][A-Z0-9_\-]{1,19}$"
-ScopeKind = Literal["factory", "site_total"]
+ScopeKind = Literal["factory", "site_total", "generation"]
 MeasurementKind = Literal["CUMULATIVE", "INSTANT"]
 
 
