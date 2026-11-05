@@ -9,6 +9,8 @@ import os
 import re
 import subprocess
 import sys
+import time
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 from xml.etree import ElementTree
@@ -59,6 +61,47 @@ def pytest_counts(junit):
         counts[k] for k in ("failures", "errors", "skipped")
     )
     return counts
+
+
+def clock_preflight(connection, *, samples=20, delay=0.1, host_clock=None, pause=None):
+    """Local CI guard only: sampling cannot certify future time stability."""
+    host_clock = host_clock or (lambda: datetime.now(UTC))
+    pause = pause or time.sleep
+    previous_db = previous_host = None
+    backwards_db = backwards_host = 0
+    outside_window = []
+    for _ in range(samples):
+        before = host_clock()
+        database = connection.scalar(text("SELECT clock_timestamp()"))
+        after = host_clock()
+        if previous_db is not None and database < previous_db:
+            backwards_db += 1
+        if after < before or (previous_host is not None and before < previous_host):
+            backwards_host += 1
+        # Account for the entire SQL round trip; query latency is not clock skew.
+        outside_window.append(
+            max(
+                (database - after).total_seconds(),
+                (before - database).total_seconds(),
+                0,
+            )
+        )
+        previous_db, previous_host = database, after
+        pause(delay)
+    maximum = max(outside_window)
+    return {
+        "kind": "LOCAL_TEST_CLOCK_PREFLIGHT",
+        "samples": samples,
+        "databaseBackwardsCount": backwards_db,
+        "hostBackwardsCount": backwards_host,
+        "maxOutsideHostWindowMs": round(maximum * 1000, 3),
+        "testHarnessMaxOutsideWindowMs": 250,
+        "stableSample": not backwards_db and not backwards_host and maximum <= 0.25,
+        "continuousStabilityVerified": False,
+        "clockConfigurationChanged": False,
+        "signedEvidence": False,
+        "liveCompanyAcceptance": False,
+    }
 
 
 def main() -> int:
@@ -148,7 +191,8 @@ def main() -> int:
         "liveCompanyAcceptance": False,
         "releaseAuthorized": False,
         "database": database,
-        "createdDatabaseRemoved": False,
+        "databaseCreated": False,
+        "createdDatabaseRemoved": None,
         "stages": [],
     }
     created = False
@@ -173,11 +217,18 @@ def main() -> int:
         with admin.connect() as connection:
             if connection.scalar(text("SHOW server_version_num"))[:2] != "18":
                 raise ValueError("PG18 required")
+            report["clockPreflight"] = clock_preflight(connection)
+            (private / "clock-preflight.json").write_text(
+                json.dumps(report["clockPreflight"], indent=2) + "\n"
+            )
+            if not report["clockPreflight"]["stableSample"]:
+                raise ValueError("GW_TEST_CLOCK_UNSTABLE")
             before = set(connection.scalars(text("SELECT datname FROM pg_database")))
             connection.exec_driver_sql(
                 f'CREATE DATABASE "{database}" TEMPLATE template0'
             )
             created = True
+            report["databaseCreated"] = True
         print("Owned PG18 verified; new UUID test database created", flush=True)
         if stage(
             "migration",
@@ -311,7 +362,9 @@ def main() -> int:
         (private / "summary.json").write_text(json.dumps(report, indent=2) + "\n")
         (private / "summary.json").chmod(0o600)
         print(
-            "Created test database removed: " + str(report["createdDatabaseRemoved"]),
+            "Created test database removed: " + str(report["createdDatabaseRemoved"])
+            if created
+            else "No test database created",
             flush=True,
         )
 
@@ -321,5 +374,10 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except (OSError, ValueError, SQLAlchemyError, subprocess.SubprocessError) as error:
         # Connection strings and full test tracebacks are intentionally not printed.
-        print("GW integration check stopped: " + type(error).__name__, file=sys.stderr)
+        reason = (
+            "GW_TEST_CLOCK_UNSTABLE"
+            if error.args == ("GW_TEST_CLOCK_UNSTABLE",)
+            else type(error).__name__
+        )
+        print("GW integration check stopped: " + reason, file=sys.stderr)
         raise SystemExit(1) from None
