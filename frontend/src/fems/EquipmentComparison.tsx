@@ -16,7 +16,12 @@ type Row = {
   intensity: string | null;
   rank?: number;
 };
-type Group = { equipmentType: string; ranked: Row[]; unranked: Row[] };
+type Group = {
+  equipmentType: string;
+  energyUnit: string;
+  ranked: Row[];
+  unranked: Row[];
+};
 type Comparison = { month: string | null; groups: Group[] };
 
 const num = (v: string, digits = 3) =>
@@ -73,17 +78,19 @@ export function EquipmentComparison() {
           <p className="muted" role="note">
             원단위 = 설비 배분 에너지 ÷ 그 설비 생산량.{" "}
             <strong>종류가 다른 설비는 비교하지 않습니다</strong> — 사출기와
-            검사기의 원단위를 나란히 두면 뜻이 없습니다. 생산량이 없는 설비는
-            0위가 아니라 순위 밖입니다.
+            검사기의 원단위를 나란히 두면 뜻이 없습니다. 에너지원이 다르면
+            단위가 달라 표를 따로 나눕니다. 생산량이 없는 설비는 0위가 아니라
+            순위 밖입니다.
           </p>
           {data.groups.map((group) => (
             <section
               className="panel"
-              key={group.equipmentType}
-              aria-label={`${group.equipmentType} 비교`}
+              key={`${group.equipmentType}|${group.energyUnit}`}
+              aria-label={`${group.equipmentType} ${group.energyUnit} 비교`}
             >
               <h2>
-                {group.equipmentType} · {group.ranked.length}대
+                {group.equipmentType} · {group.energyUnit} ·{" "}
+                {group.ranked.length}대
               </h2>
               {group.ranked.length === 0 ? (
                 <p className="muted">
@@ -91,7 +98,9 @@ export function EquipmentComparison() {
                 </p>
               ) : (
                 <div className="table-scroll">
-                  <table aria-label={`${group.equipmentType} 원단위 순위`}>
+                  <table
+                    aria-label={`${group.equipmentType} ${group.energyUnit} 원단위 순위`}
+                  >
                     <thead>
                       <tr>
                         <th scope="col">순위</th>

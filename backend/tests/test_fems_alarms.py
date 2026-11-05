@@ -208,5 +208,9 @@ def test_comparison_ranks_within_a_type_only(space):
         assert ranks == sorted(ranks) == list(range(1, len(ranks) + 1))
         values = [Decimal(r["intensity"]) for r in group["ranked"]]
         assert values == sorted(values)
+        # 에너지원이 다르면 단위가 다르다 — 한 순위표 안의 단위는 하나여야 한다.
+        assert {r["energyUnit"] for r in group["ranked"] + group["unranked"]} == {
+            group["energyUnit"]
+        }
         # 생산량이 없어 못 센 설비는 0위가 아니라 순위 밖이다.
         assert all(r["intensity"] is None for r in group["unranked"])

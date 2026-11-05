@@ -3290,7 +3290,7 @@ def change_alarm_status(
 
 
 def equipment_comparison(context: AuthContext, month: str | None) -> dict[str, Any]:
-    """같은 **종류** 설비끼리 원단위를 줄 세운다(F27). 저장하지 않는다.
+    """같은 **종류·같은 단위** 설비끼리 원단위를 줄 세운다(F27). 저장하지 않는다.
 
     종류가 다른 설비는 비교하지 않는다 — 사출기와 검사기의 원단위를 나란히 두면 뜻이 없다.
     생산량이 없는 설비는 **0위가 아니라 순위 밖**이다. 나눌 수 없는 것과 나쁜 것은 다르다.
@@ -3306,7 +3306,8 @@ def equipment_comparison(context: AuthContext, month: str | None) -> dict[str, A
         equipments, _ = repo.list_equipments(
             connection, scoped, None, None, "equipment_code ASC", 0, 500
         )
-    types: dict[str, list[dict[str, Any]]] = {}
+    # 에너지원이 다르면 단위가 다르다 — 종류뿐 아니라 단위까지 같아야 한 순위표에 둔다.
+    types: dict[tuple[str, str], list[dict[str, Any]]] = {}
     by_id = {e["id"]: e for e in equipments}
     energy: dict[tuple[int, str], Decimal] = {}
     for row in allocations:
@@ -3318,7 +3319,7 @@ def equipment_comparison(context: AuthContext, month: str | None) -> dict[str, A
             continue
         made = production.get(equipment_id)
         kind = equipment["equipmentType"] or "미분류"
-        types.setdefault(kind, []).append(
+        types.setdefault((kind, unit), []).append(
             {
                 "equipmentId": equipment_id,
                 "equipmentCode": equipment["equipmentCode"],
@@ -3334,7 +3335,7 @@ def equipment_comparison(context: AuthContext, month: str | None) -> dict[str, A
             }
         )
     groups = []
-    for kind, rows in sorted(types.items()):
+    for (kind, unit), rows in sorted(types.items()):
         ranked = sorted(
             [r for r in rows if r["intensity"] is not None],
             key=lambda r: Decimal(r["intensity"]),
@@ -3344,6 +3345,7 @@ def equipment_comparison(context: AuthContext, month: str | None) -> dict[str, A
         groups.append(
             {
                 "equipmentType": kind,
+                "energyUnit": unit,
                 "ranked": ranked,
                 # 비교할 수 없는 설비도 숨기지 않는다 — 왜 빠졌는지 보여야 한다.
                 "unranked": [r for r in rows if r["intensity"] is None],

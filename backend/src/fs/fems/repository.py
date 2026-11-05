@@ -2068,7 +2068,15 @@ def quality_issues(
     connection: Connection, context: AuthContext, date_from: Any, date_to: Any
 ) -> tuple[int, list[dict[str, Any]]]:
     """정상(valid)이 아닌 계측값. 하위 계측기를 포함한 모든 채널이 대상이다."""
-    where = READING_FROM + READING_PERIOD + " AND r.quality<>'valid'"
+    # 보정으로 대체된 원본(invalid)은 보정본(estimated)과 같은 구간이라 이중으로 세지 않는다.
+    where = (
+        READING_FROM
+        + READING_PERIOD
+        + " AND r.quality<>'valid' AND NOT (r.quality='invalid' AND EXISTS ("
+        "SELECT 1 FROM fems.reading_correction rc WHERE rc.workspace_id=r.workspace_id"
+        " AND rc.generation_id=r.generation_id AND rc.meter_channel_id=r.meter_channel_id"
+        " AND rc.period_start=r.period_start))"
+    )
     params = {**_s(context), "date_from": date_from, "date_to": date_to}
     count = connection.execute(text("SELECT count(*) " + where), params).scalar_one()
     rows = connection.execute(
