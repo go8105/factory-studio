@@ -1,3 +1,10 @@
+## 2026-11-06 79차 WIP — main 병합 완료·통합 소스 전체 CI 실행 중
+
+- 사용자 승인한 로컬main병합은완료했다. merge0ac0727/기록ce06e84가로컬main과GW에반영됐고, 이후코드·테스트·metadata변경0이다. main1815db2의FEMS9커밋과GWb71ad85를모두보존했다. 다른checkout/WMS개발·원격push/배포·실DB/계정변경없음.
+- 현재work/gw-readiness-02-main-20261106/ci/에서소유PG18·새UUID시험DB의전체CI가실행중(약40%). 별도DB검사/다른CI를병행시작하지말고현재프로세스/로그를확인한다. 새DBmigration/실DDL·정적DB/격리·도구144/Ruff·포맷단계는통과했지만전체backend/성능/빈DB왕복/frontend가끝나지않았으므로전체CI통과가아니다.
+- 이번사전프런트847pass/0skip/type/build·도구144pass,읽기시각20/400표본최대67.873/69.258ms·역전0을확인했다. 표본통과는연속안정성/인수통과를증명하지않는다. 시각·Docker/서버설정은바꾸지않았다.
+- 상세진행은docs/agent/GW_로컬main병합_잔여검증_GW-READY-02_79.md,공개요약outputs/gw-readiness-02-main-20261106/validation.json(실행중)이다. source지문동일성·JUnit/모든stageexit·추가DB잔존/생성DB제거를끝에서확인하고최종현황/progress/HANDOFF·커밋을남긴다. 다음ID자동착수없음,ready=false/최종4UNVERIFIED·복원PARTIAL/PASS거부/실회사인수미완료유지.
+
 ## 2026-11-06 로컬 main 병합 완료 — 79차 전체 CI 재개
 
 - 사용자 승인으로 로컬 main1815db2와 GWb71ad85를 통합했다. GW의 merge커밋은0ac0727이며 로컬main도0ac0727로fast-forward했고 양쪽작업트리clean을확인했다. 다른checkout·병행WMS개발·원격push/배포·실DB마이그레이션/계정변경은하지않았다.

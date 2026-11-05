@@ -1,3 +1,7 @@
+## 2026-11-06 — GW 로컬 main 병합·79차 잔여 CI 실행 중
+
+[병합·검증 기록](agent/GW_로컬main병합_잔여검증_GW-READY-02_79.md) · [검증 요약](../outputs/gw-readiness-02-main-20261106/validation.json). 사용자 승인으로 최신 main1815db2/FEMS9커밋과 GWb71ad85를0ac0727에 통합하고 로컬main에 반영했다(기록ce06e84). 이번 프런트847/도구144pass, schema변경0. 시각20/400표본 통과 후 전체CI 재실행 중이며 아직 완료가 아니다. 실인수/운영전환·push/배포없음.
+
 ## 79차 — 통합 구현·집중 검증 / 전체 CI 시각 차단 (2026-11-05)
 
 [상세·재현](agent/GW_통합적용_승격검증_GW-READY-02_79.md) · [검증 요약](../outputs/gw-readiness-02-phase79/validation.json) · [최신 인계](agent/HANDOFF.md). GW브랜치 main783a2c1 통합·92이름/현재251표·목표390표와Excel/ERD동기화. 단독승격9/선행3·도구144/프런트822pass. 전체CI는1510pass/1fail 후 DB시각역전/host범위밖약2초로미통과다. 시각가드실제DB생성전거부/설정변경없음. 다음은79차잔여시각안정성확인/전체CI재실행이다. [main 인계](agent/main_인계_783a2c1_통합참조.md)와 [main 진행](main_진행이력_783a2c1_통합참조.md)을보존했다. 실인수/공유main/push/배포미완료.

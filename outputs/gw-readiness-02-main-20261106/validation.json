@@ -1,0 +1,44 @@
+{
+  "task": "GW-READY-02",
+  "phase": 79,
+  "date": "2026-11-06",
+  "status": "LOCAL_MAIN_MERGED_CI_RUNNING",
+  "signedEvidence": false,
+  "ready": false,
+  "liveCompanyAcceptance": false,
+  "releaseAuthorized": false,
+  "mergeCommit": "0ac072716929870958041b6bb330538a0752d104",
+  "localMainRecordCommit": "ce06e840a85a6bbaa2a1d75eb5dcdb8ae6391deb",
+  "gwInput": "b71ad85",
+  "mainInput": "1815db2",
+  "conflictsResolved": [
+    "docs/agent/HANDOFF.md",
+    "docs/progress.md"
+  ],
+  "additionalMainSchemaChanges": false,
+  "frontendBeforeCi": {
+    "passed": 847,
+    "failed": 0,
+    "skipped": 0
+  },
+  "toolsBeforeCi": {
+    "passed": 144
+  },
+  "clockExtended": {
+    "kind": "LOCAL_TEST_CLOCK_PREFLIGHT",
+    "samples": 400,
+    "databaseBackwardsCount": 0,
+    "hostBackwardsCount": 0,
+    "maxOutsideHostWindowMs": 69.258,
+    "testHarnessMaxOutsideWindowMs": 250,
+    "stableSample": true,
+    "continuousStabilityVerified": false,
+    "clockConfigurationChanged": false,
+    "signedEvidence": false,
+    "liveCompanyAcceptance": false
+  },
+  "ciComplete": false,
+  "pushed": false,
+  "deployed": false,
+  "previewDatabaseChanged": false
+}
