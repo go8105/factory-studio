@@ -1,3 +1,10 @@
+## 2026-11-06 79차 WIP3 — 통합 source 유지·전체 backend 약87% 진행
+
+- 현재단일전체CI는work/gw-readiness-02-main-20261106/ci/에서계속실행중이다. backend약87%까지진행했지만전체backend/성능/별도빈DB왕복/frontend·source지문/자원정리가아직끝나지않았다. 완료/전체CI통과로기록하지않는다.
+- 로컬main병합0ac0727/기록ce06e84는완료했다. 이후검증대상코드·테스트·metadata변경0이며문서WIPb7128a1/4b15466만추가했다. 현재검사를중복실행하거나별도DB검사를병행시작하지말고진행프로세스/로그를확인한다.
+- 기존이번사전검사프런트847/도구144·type/Ruff/build/DB정적·격리통과와시각표본통과를전체CI로대체하지않는다. 생성한소유시험DB만정리하고미리보기/실계정·시각/서버설정·다른checkout/WMS·원격push/배포는변경하지않는다.
+- 다음은현재CI결과확정후현황/progress/HANDOFF·병합검증보고/공개요약을갱신·최종커밋하는것이다. ready=false/최종4UNVERIFIED·실제복원PARTIAL/PASS거부·실회사인수미완료유지. 다음ID자동착수없음.
+
 ## 2026-11-06 79차 WIP2 — 통합 소스 backend 약70% 진행
 
 - 로컬main병합0ac0727/기록ce06e84 완료 상태는 유지한다. GW브랜치에서 소스변경 없이 work/gw-readiness-02-main-20261106/ci/의 단일 전체CI를 계속 실행 중이다. 현재 backend 약70%이며 전체 backend/성능/빈DB왕복/frontend·source 지문/자원 정리는 아직 최종 결과가 아니다.
