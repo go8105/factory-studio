@@ -1,5 +1,8 @@
 # GW-READY-02 79차 검증 근거 — 전체 CI 미통과
 
+> 2026-11-06 새 통합 소스의 전체 로컬CI 통과: [최신 요약](../gw-readiness-02-main-20261106/validation.json). 아래는2026-11-05부분/실패기록이다. 실인수/운영전환과구분한다.
+
+
 **통합 구현·집중 검증은 끝났지만 전체 CI는 DB/host 시각 문제로 미통과다.** [보고서](../../docs/agent/GW_통합적용_승격검증_GW-READY-02_79.md) · [최신 인계](../../docs/agent/HANDOFF.md) · [공개 검증 요약](validation.json).
 
 - 단독 승격9pass/0skip·선행3분기3pass, 각 생성DB 제거 확인.

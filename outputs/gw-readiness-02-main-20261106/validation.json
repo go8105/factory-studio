@@ -2,7 +2,7 @@
   "task": "GW-READY-02",
   "phase": 79,
   "date": "2026-11-06",
-  "status": "LOCAL_MAIN_MERGED_CI_RUNNING",
+  "status": "LOCAL_MAIN_MERGED_FULL_LOCAL_CI_PASSED",
   "signedEvidence": false,
   "ready": false,
   "liveCompanyAcceptance": false,
@@ -37,8 +37,109 @@
     "signedEvidence": false,
     "liveCompanyAcceptance": false
   },
-  "ciComplete": false,
+  "ciComplete": true,
   "pushed": false,
   "deployed": false,
-  "previewDatabaseChanged": false
+  "previewDatabaseChanged": false,
+  "phase79TechnicalValidationComplete": true,
+  "actualGithubActionsExecuted": false,
+  "fullCi": {
+    "stages": [
+      {
+        "name": "migration",
+        "exitCode": 0
+      },
+      {
+        "name": "ddl",
+        "exitCode": 0
+      },
+      {
+        "name": "local-ci",
+        "exitCode": 0
+      }
+    ],
+    "sourceDigestBefore": "e1548ad488e22bb83fd9bd5554567048598de59a71f28f5c41ec10472f2993ca",
+    "sourceDigestAfter": "e1548ad488e22bb83fd9bd5554567048598de59a71f28f5c41ec10472f2993ca",
+    "validationSourceUnchanged": true,
+    "backendPytest": {
+      "collectedExecuted": 2875,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2,
+      "passed": 2873
+    },
+    "perfPytest": {
+      "collectedExecuted": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 1
+    },
+    "unexpectedNewDatabaseCount": 0,
+    "createdDatabaseRemoved": true
+  },
+  "frontendInCi": {
+    "filesPassed": 99,
+    "passed": 847,
+    "failed": 0,
+    "skipped": 0
+  },
+  "skipReasons": [
+    {
+      "test": "tests.test_factory_native::test_real_binary",
+      "reason": "Build native core first"
+    },
+    {
+      "test": "tests.test_cmms_assets::test_mold_import_sets_type_mold",
+      "reason": "시드에 금형이 없다"
+    }
+  ],
+  "emptyRoundtrip": [
+    {
+      "name": "migration",
+      "exitCode": 0
+    },
+    {
+      "name": "ddl",
+      "exitCode": 0
+    },
+    {
+      "name": "downgrade",
+      "exitCode": 0
+    },
+    {
+      "name": "reupgrade",
+      "exitCode": 0
+    },
+    {
+      "name": "roundtrip-ddl",
+      "exitCode": 0
+    }
+  ],
+  "resources": {
+    "ownerAndLoopbackVerified": true,
+    "createdRootDatabases": 2,
+    "createdRootDatabasesRemaining": 0,
+    "pinnedSourceTemporaryDirectories": 0,
+    "previewDatabaseChanged": false,
+    "deletedUnownedResources": false
+  },
+  "upgradeCasesInFullCi": {
+    "passed": 9,
+    "skipped": 0
+  },
+  "legacyBranchCasesInFullCi": {
+    "passed": 3,
+    "skipped": 0
+  },
+  "performanceRetried": false,
+  "frontendRetried": false,
+  "limitations": [
+    "Current run passed all local CI stages; it does not certify permanent clock stability.",
+    "Two non-GW backend cases were skipped with explicit reasons.",
+    "Actual API browser flow and real-company ten-person acceptance remain unverified.",
+    "External provider, independent currentness and complete revocation remain unverified.",
+    "ready=false / final four UNVERIFIED / real restore PARTIAL / acceptance PASS refusal retained.",
+    "No actual GitHub Actions run, remote push, deployment, preview or production DB migration."
+  ]
 }

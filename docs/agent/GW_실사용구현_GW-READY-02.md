@@ -1,3 +1,7 @@
+## 2026-11-06 79차 — 로컬 main 병합·단일 전체 로컬 CI 완료
+
+[최신 통합/검증·한계·재현](GW_로컬main병합_잔여검증_GW-READY-02_79.md). 사용자승인으로 최신localmain1815db2/FEMS9커밋을보존해GW와통합하고로컬main반영완료(merge0ac0727/기록ce06e84). 이번단일CI backend2873pass/2skip·perf1pass·frontend847pass/99파일·도구144·type/lint/format/build/DB정적·격리·실DDL/별도빈DB왕복모두통과. source동일/생성자원정리확인. skip2는nativebinary미빌드/CMMS금형seed없음이며GW10인폐쇄복원은통과했다. 실제GitHubActions/실API브라우저·실회사인수는아니다. schema추가변경0,운영12조건·최종4·화면7코드·ready=false/복원PARTIAL/ACCEPTANCE PASS거부유지. 다음은격리된실API·브라우저검증제안이며다른ID자동착수없음.
+
 ## 2026-11-05 79차 — 통합 구현·집중 검증 / 전체 CI 미통과
 
 [통합 적용·재현·한계](GW_통합적용_승격검증_GW-READY-02_79.md). GW브랜치에서고정main783a2c1을통합하고새연결revision/현재251표·목표390표/Excel·ERD를동기화했다. 단독승격9/선행3·도구144/프런트822pass. 전체CI는1510pass/1fail 뒤실제시각역전으로차단됐으며통과처리하지않았다. 시험실행기만시각사전검사/읽기전용clock-only를추가했고운영12조건·최종4·화면7코드/백업시각정책은바꾸지않았다. 실API브라우저/실회사10인인수·외부독립성/전체회수는미완료다. 실제복원PARTIAL/ready=false/ACCEPTANCE PASS거부유지. 다음은79차잔여시각안정성/전체CI재검증이며다른ID자동착수없음.

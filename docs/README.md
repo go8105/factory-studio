@@ -1,6 +1,6 @@
-## 2026-11-06 — GW 로컬 main 병합·79차 잔여 CI 실행 중
+## 2026-11-06 — GW 로컬 main 병합·79차 전체 로컬 CI 완료
 
-[병합·검증 기록](agent/GW_로컬main병합_잔여검증_GW-READY-02_79.md) · [검증 요약](../outputs/gw-readiness-02-main-20261106/validation.json). 사용자 승인으로 최신 main1815db2/FEMS9커밋과 GWb71ad85를0ac0727에 통합하고 로컬main에 반영했다(기록ce06e84). 이번 프런트847/도구144pass, schema변경0. 시각20/400표본 통과 후 전체CI 재실행 중이며 아직 완료가 아니다. 실인수/운영전환·push/배포없음.
+[병합·검증 기록](agent/GW_로컬main병합_잔여검증_GW-READY-02_79.md) · [검증 요약](../outputs/gw-readiness-02-main-20261106/validation.json). 사용자승인으로 최신main1815db2/FEMS9커밋과GWb71ad85를0ac0727에통합하고로컬main반영완료(기록ce06e84). 고정소스단일로컬CI: backend2873pass/2skip+perf1pass,frontend847pass/99파일·도구144·type/lint/format/build/DB정적·격리·실DDL/빈DB전체왕복통과. source지문동일/생성DB정리확인. 79차기술검증완료한정, 실API브라우저·실회사인수/운영전환미완료·ready=false/4UNVERIFIED·복원PARTIAL/PASS거부·push/배포없음.
 
 ## 79차 — 통합 구현·집중 검증 / 전체 CI 시각 차단 (2026-11-05)
 

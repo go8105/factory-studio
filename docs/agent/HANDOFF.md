@@ -1,3 +1,22 @@
+## 2026-11-06 GW 로컬 main 병합·79차 전체 로컬 기술 검증 완료
+
+- 사용자 승인으로 GWb71ad85와 최신 localmain1815db2(FEMS9커밋)를0ac0727에서 통합하고 localmain에 반영했다(기록ce06e84). 충돌은 HANDOFF/progress2개만이었으며 양쪽 사실 보존, 최신main인계는 접속URL을 비공개 처리한 main_인계_1815db2_통합참조.md에 보존했다. source코드·테스트·metadata는ce06e84 이후변경0이고 이후WIPb7128a1/4b15466/ecae010은 문서뿐이다. 마지막 기록 커밋은 git log -1로 확인한다.
+- 이번 **단일 전체 로컬CI 모든stage exit0**: backend2873pass/2skip/0fail,perf1pass/0skip,frontend99파일/847pass/0skip. 도구144건·type/lint/format/build·정적DB/R1~R6·실DDL·별도빈DB의 downgrade base→upgrade head/실DDL왕복까지 통과했다. 성능/프런트 재시도0, 실제GitHubActions실행은아니다. 이전부분/단독결과와합산하지않는다.
+- skip2는 native core binary미빌드(test_factory_native::test_real_binary), CMMS금형seed없음(test_cmms_assets::test_mold_import_sets_type_mold)이다. GW의 구형10인폐쇄복원은 이번 전체실행에서 통과했다. 고정pin승격9/선행3분기3도 JUnit상모두pass/0skip. backend시간1시간30분9초.
+- sourceDigestBefore/After=e1548ad488e22bb83fd9bd5554567048598de59a71f28f5c41ec10472f2993ca 동일, 추가DB잔존0/생성DB제거true. 생성rootDB/별도왕복DB2개 잔존0·pin임시폴더0을소유전체ID/owner/running·단일127.0.0.1:55439/PG18 확인후읽기재확인했다. 미리보기DB/실계정·비밀번호/MFA/브라우저설정과 다른checkout/WMS작업은변경없다.
+- 시각20회표본최대67.873ms,400회69.258ms/역전0 이후이번실제CI구간도보호를통과했다. 시각·OS/Docker/서버설정·재시작은하지않았다. 과거약2초역전/차단은2026-11-05이력으로보존하며이번통과로지우지않는다. 표본/한번의CI통과는영구적시각안정성증명이아니다. 하네스250ms·운영백업시각정책·화면7코드/12전환조건은유지한다.
+- 79차의통합·로컬기술검증을완료했다. 추가main변경은schema변경0이어서251표/2833열/617FK·target390표·gw_main_ready02_merge 및metadata/Excel/ERD는그대로다. 실제운영/미리보기DB migration·공유서비스재시작·원격push/배포는하지않았다.
+- **ready=false/최종4UNVERIFIED·실제복원PARTIAL·ACCEPTANCE PASS거부유지.** 실API로그인후브라우저·실회사1회사/1부서/총10명인수·외부공급자/독립최신성·전체회수·운영전환은여전히미완료다. 작은도움말/합성검사를UI전체/실인수완료로보고하지않는다.
+- 다음제안은 별도소유격리환경의실API로그인→회사선택→운영준비→권한거부/연결재확인 브라우저1440/390·키보드동선이다. 기존미리보기계정생성/이름변경·비밀번호/MFA초기화를임의로하지않는다. 연결1/예정10미리보기를실10인인수로취급하지않는다. 다른ID자동착수없음. GPT-6 Astra + High제안유지(모델자동변경없음).
+
+상세 [최신 보고서](GW_로컬main병합_잔여검증_GW-READY-02_79.md), 공개요약 [실행 요약](../../outputs/gw-readiness-02-main-20261106/validation.json). 원문로그/JUnit/접속값·키는무시되는work/gw-readiness-02-main-20261106/에만둔다. GW작업저장소/브랜치는 /Users/hwang-kyoungho/projects/factory-studio-gw-company / codex/gw-company-01 이다. 현재main에추가변경이생겼다면검증기준ce06e84와별도로대조한다.
+
+재현(이 GW 저장소, 새output 경로·소유전체ID/owner/loopback/PG18·시각가드유지, pin이력필요):
+```sh
+backend/.venv/bin/python tools/gw_integration_check.py --container fs-gw-ready02-preview --expected-id-file work/gw-readiness-02-preview/container-id --owner gw-ready-02-preview --port 55439 --private-output work/gw-readiness-02-main-20261106/reproduce-ci --ci
+```
+소유컨테이너전체ID는직전79차기록과 work/gw-readiness-02-preview/container-id를현재docker inspect/owner와다시대조한다. 보호를낮추거나미리보기DB를테스트초기화대상으로쓰지않는다.
+
 ## 2026-11-06 79차 WIP3 — 통합 source 유지·전체 backend 약87% 진행
 
 - 현재단일전체CI는work/gw-readiness-02-main-20261106/ci/에서계속실행중이다. backend약87%까지진행했지만전체backend/성능/별도빈DB왕복/frontend·source지문/자원정리가아직끝나지않았다. 완료/전체CI통과로기록하지않는다.
