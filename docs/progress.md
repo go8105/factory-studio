@@ -1,3 +1,30 @@
+# 2026-11-07 UI-REDESIGN-01 — 프런트엔드 전체 UI 진단·공통화 제안 (제품 코드 변경 0)
+
+Claude Code. 브랜치 `ui-redesign-01`. 사용자 요청("UI 구조가 최악이다, 공통화하고 Figma와 통신하며 전체 구조를 다시 잡자")에 대해 AGENTS.md §1·§2대로 **진단과 제안까지만** 했다. [문서](ui/UI전면재설계_진단_제안_UI-REDESIGN-01.md).
+
+## 진단 (frontend/src 14개 모듈 전수 + 로컬 브라우저 실화면)
+- **공통 체계는 이미 있다. 문제는 적용률이다.** 토큰 50여 개(`styles.css :root`)·공통 컴포넌트 20여 개(`DataTable`·`FormPanel`·`EmptyState`·`ErrorNotice`·`Badge`·`Field`·`MasterScreen`)·UI-02 규약이 다 있는데 — 직접 `<table>` **56곳**(공통 표의 `<table>`은 1개), 상태 배지 **6가지**, 오류 표시 마크업 **7가지**, 빈 상태를 `<p className="muted">`로 때운 곳 spc만 약 40, raw input이 `Field`보다 많다(qms 89:18 · wms 88:34 · flow 43:0), `useGet` 4벌 중복, 하드코딩 색 **470개**(flow 201·factory 134·portal 75), `onPage` noop 관용구 2종 약 100곳, 인쇄 체계 2개(hr Payslips·wms Labels는 `.print-area` 마커 없이 `window.print()`).
+- **가장 나쁜 곳은 탐색 구조.** 11솔루션 **152화면** 49그룹. 전역 헤더 10항목(`App.tsx:85-116` 하드코딩, 카탈로그 미사용)과 사이드바 최대 23항목이 동시에 경쟁하고, 헤더는 지금 어느 솔루션인지 안 알려 준다(늘 "Factory Studio · 제조 현장의 올인원 시스템" — FS-013 독립 솔루션 전제와도 어긋나고 UI-DESIGN-01이 이미 지적했다). 사이드바 "다른 앱"이 9개 `*Layout.tsx`에 **복사**돼 서로 다르고 **어디에도 `/hr`·`/cmms`가 없어** CMMS·HR에 들어가면 사이드바로는 못 나온다. 화면 ID(`F-01`·`M-03`)가 사용자 라벨에 그대로 노출된다. 375px에서 헤더 nav 내용 폭 620px(`overflow-x:auto`)라 절반이 단서 없이 숨는다(페이지 넘침은 아님 — `document.scrollWidth` 375로 실측).
+- **셸이 4갈래**: `SolutionLayout` 10개 / flow 자체 셸(`:has()`로 포털 헤더를 숨김, CSS 1,757줄) / factory·cad-cam 단일 페이지(`/factory`는 `work` 정규식에서 빠져 포털 폭·푸터) / 포털 내 공간 P-06(`WorkspaceFavorites.css` 804줄이 `.solution-layout`·`.page-title` 재정의, 화면 시각 언어가 업무 화면과 다름). GW만 셸 확장(`GwLayout.tsx` 388줄)이라 **G-01은 페이지 제목이 첫 요소가 아니다**(UI-02 §3 위반).
+- 체감: FEMS·WMS 대시보드가 첫 1~2초 백지(스켈레톤 없음).
+- **잘 된 것**(바꾸지 말 것): 백자·먹색·쪽빛 토큰, `FormPanel` 붙음/겹침/전체화면 3단 규칙, `useDiscardGuard`, `menu_catalog.json` 단일 출처.
+
+## Figma
+**MCP `plugin:figma:figma`가 미인증이다 — 사용자가 `/mcp`로 승인해야 쓸 수 있다. 이번에 Figma 접속 0건.** 과거 기록상 Starter 플랜·View 좌석이고, CAD-UI03(2026-10-13)은 **7화면 1개 파일**에서 MCP tool call limit에 걸려 최종 캡처가 거절됐다. 152화면을 통째로 옮기는 것은 Starter에서 완주 불가라고 보고 **토큰(F1) → 핵심 컴포넌트 9가족(F2) → 대표 화면 4장(F3)** 까지만 제안했다. 나머지 148화면은 같은 3패턴 반복이라 코드에서 찍는다.
+
+## 제안 (R1 → R3 → R2 → R4 → R5 → R6)
+R1 앱 셸·탐색(헤더 축약·현재 솔루션 표시·"다른 앱"을 카탈로그에서 생성해 9곳 하드코딩 제거·화면 ID 분리) → R3 Figma F1~F3 → R2 공통 흡수 시범 1솔루션(**FEMS 권장** — 직접 표 20곳 최다) → R4 포털 P-06 셸 통일 → R5 토큰화·lint 강제 → R6 나머지는 솔루션 보강에 얹기. 새 UI 라이브러리 도입 없음, flow·factory 내부 재작성 제외(Figma 유래 코드라 회귀 위험), GW는 Codex 소유라 직접 수정 금지.
+
+## 미실행·한계
+- **제품 코드 변경 0건.** 문서만 추가. CI 미실행(코드 변경이 없어 대상 아님).
+- Figma 접속·실제 인쇄·Safari/실기기·접근성 자동 검사·성능 프로파일링 미실행.
+- `styles.css`와 모듈 CSS의 실제 속성 충돌은 클래스 이름 겹침까지만 확인.
+- 하드코딩 색 470 중 색이 아닌 `#` 값(`#main` 등) 미분리.
+- **AGENTS.md §7의 "사용자가 수정한 UI 파일"이 어느 것인지 미확인** — R1 착수 전에 필요.
+
+## 다음
+사용자가 문서 8장 Q1~Q5(기준 사용자 / 범위 / Figma 플랜 / UI-02 유지 여부 / BEMS 보강과의 순서)에 답하고 7-2 단계 전체를 확인하면 R1 착수. Figma는 `/mcp` 승인 뒤에만. 다른 ID 자동 착수 없음.
+
 # 2026-11-07 BEMS-1b — 교차 조회 (제공 함수 3개)
 
 Claude Code 직접(D85). 브랜치 `bems-1b`. **DB 변경 없음, 화면 없음.** DSN-16 §6의 조회 함수를 만든다. 소비자는 뒤 단계에서 생긴다(FEMS-1b와 같은 방식).

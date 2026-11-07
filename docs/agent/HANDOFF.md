@@ -1,3 +1,18 @@
+## 2026-11-07 UI-REDESIGN-01 진단·제안 완료 (다음: 사용자 Q1~Q5 답 → R1)
+
+- **브랜치**: `ui-redesign-01` (main 기준 `2def342`에서 분기, **미병합**). **담당**: Claude Code. **제품 코드 변경 0건 — 문서만.**
+- **끝난 것**: 프런트엔드 전체 UI 진단 + 공통화·Figma 제안. 문서 `docs/ui/UI전면재설계_진단_제안_UI-REDESIGN-01.md`. 요약은 `docs/progress.md` 맨 위.
+  - 핵심: 디자인 시스템은 **이미 있다**(토큰 50여·공통 컴포넌트 20여·UI-02 규약). 문제는 적용률 — 직접 `<table>` 56곳·배지 6종·오류 마크업 7종·하드코딩 색 470·`useGet` 4벌.
+  - 가장 나쁜 곳은 탐색 구조: 11솔루션 152화면, 전역 헤더 10(하드코딩)과 사이드바 23의 이중 내비, "다른 앱"이 9개 `*Layout.tsx`에 복사돼 hr·cmms로 가는 길이 없음.
+  - 셸 4갈래: `SolutionLayout` 10 / flow 자체 / factory·cad-cam 단일 / 포털 P-06 재정의.
+- **다음 할 일**: 사용자가 문서 8장 **Q1~Q5**(기준 사용자 / 범위 / Figma 플랜 / UI-02 유지 여부 / BEMS 보강과의 순서)에 답하고 7-2 단계를 전체 확인하면 **R1(앱 셸·탐색)** 부터. 그다음 R3 Figma → R2 FEMS 시범 → R4 → R5 → R6.
+- **주의**:
+  - **Figma MCP(`plugin:figma:figma`)가 미인증이다.** 사용자가 `/mcp`로 승인해야 쓸 수 있다. Starter 플랜이면 CAD-UI03처럼 호출 한도에 걸린다(7화면 1파일에서 소진된 전례) → 토큰·컴포넌트·대표 4화면까지만.
+  - GW(`gw/*`)는 Codex 소유라 직접 수정 금지. flow·factory CSS는 Figma 유래라 토큰화 대상에서 뺐다.
+  - **AGENTS.md §7 "사용자가 수정한 UI 파일"이 어느 것인지 아직 확인 안 했다.** R1 착수 전에 사용자에게 물어야 한다.
+  - R1은 공통 파일 3개(`app/App.tsx`·`shared/SolutionLayout.tsx`·`shared/menuCatalog.ts`)와 9개 `*Layout.tsx`를 건드린다. BEMS 보강 세션과 파일이 겹치지 않지만 CSS를 바꾸면 e2e 스모크 전체 재실행이 필요하다.
+- **재현**: 진단은 읽기만 했다. 화면 확인은 사용자 IntelliJ dev 서버(8000/5173)를 그대로 썼다 — `lsof -nP -iTCP:8000 -iTCP:5173 -sTCP:LISTEN`로 먼저 확인할 것. 메뉴 수치는 `python3 -c` 로 `backend/src/fs/core/menu_catalog.json` 집계. CI는 코드 변경이 없어 돌리지 않았다.
+
 ## 2026-11-07 BEMS-1b 완료 — 교차 조회 (다음: BEMS-1c)
 
 - **브랜치**: `bems-1b` (병합 뒤 `main`). **담당**: Claude Code(D85). DB 변경 없음.
