@@ -7,6 +7,7 @@ FEMS를 꺼 두었으면 None을 돌려주고, 호출 쪽은 분해만 "계산 �
 
 from __future__ import annotations
 
+from calendar import monthrange
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -16,6 +17,7 @@ from sqlalchemy import Connection, text
 from fs.common.auth import AuthContext
 from fs.common.scope import module_available
 from fs.fems import repository as repo
+from fs.fems import tou
 
 
 def _s(scoped: AuthContext) -> dict[str, int]:
@@ -147,3 +149,84 @@ def energy_costs(
         }
         for r in rows
     ]
+
+
+def tariff_rates(
+    connection: Connection, scoped: AuthContext, month: str
+) -> list[dict[str, Any]] | None:
+    """그 달 **전력** 요금제의 시간별 단가 `[{sourceCode, unit, tariffCode, kind, contractKw, basicCharge, rates}]`.
+
+    `rates`는 `{YYYY-MM-DD: [0시~23시 단가 24개]}`(사업장 시간대 기준 시각). 계절·요일 구분·휴일 달력은
+    FEMS 요금 산정과 같은 규칙으로 여기서 풀어 준다 — BEMS가 TOU 구간표를 따로 해석하지 않게 한다.
+    FLAT은 24칸이 모두 같은 사용 단가이고, 구간표에 없는 시각은 FEMS 요금 산정처럼 0이다.
+    `basicCharge`는 단가가 아니라 **기본요금 단가**(계약전력당, FLAT은 고정액)라 쓰는 쪽이 정한다.
+    그 달 요금제가 없는 전력원은 빠진다. FEMS가 꺼져 있으면 None.
+    """
+    if not enabled(connection, scoped):
+        return None
+    last_day = monthrange(int(month[:4]), int(month[5:7]))[1]
+    first, last = (
+        date(int(month[:4]), int(month[5:7]), 1),
+        date(int(month[:4]), int(month[5:7]), last_day),
+    )
+    holiday_days = repo.holidays(connection, scoped, first, last)
+    result = []
+    for source in connection.execute(
+        text(
+            "SELECT id, source_code, measure_unit FROM fems.energy_source "
+            "WHERE workspace_id=:w AND generation_id=:g AND source_kind='ELECTRIC' "
+            " AND is_billable AND is_active ORDER BY source_code"
+        ),
+        _s(scoped),
+    ).mappings():
+        tariff = (
+            connection.execute(
+                text(
+                    f"SELECT {repo.TARIFF_COLUMNS} FROM fems.tariff "
+                    "WHERE workspace_id=:w AND generation_id=:g AND energy_source_id=:source "
+                    " AND effective_from <= :month AND (effective_to IS NULL OR effective_to >= :month) "
+                    "ORDER BY effective_from DESC, id DESC LIMIT 1"
+                ),
+                {**_s(scoped), "source": source["id"], "month": month},
+            )
+            .mappings()
+            .first()
+        )
+        if tariff is None:
+            continue
+        table = (
+            tou.rate_lookup(
+                repo.tariff_bands(connection, scoped, [tariff["id"]])[tariff["id"]]
+            )
+            if tariff["tariff_kind"] == "TOU"
+            else None
+        )
+        rates = {}
+        for offset in range(last_day):
+            day = first.replace(day=offset + 1)
+            kind = tou.day_kind_of(day, holiday_days)
+            season = tou.season_of(day.month)
+            rates[day.isoformat()] = [
+                str(
+                    tariff["usage_rate"]
+                    if table is None
+                    else table[(season, kind, hour)]["rate"]
+                    if (season, kind, hour) in table
+                    else Decimal(0)
+                )
+                for hour in range(tou.HOURS_IN_DAY)
+            ]
+        result.append(
+            {
+                "sourceCode": source["source_code"],
+                "unit": source["measure_unit"],
+                "tariffCode": tariff["tariff_code"],
+                "kind": tariff["tariff_kind"],
+                "contractKw": None
+                if tariff["contract_kw"] is None
+                else str(tariff["contract_kw"]),
+                "basicCharge": str(tariff["basic_charge"]),
+                "rates": rates,
+            }
+        )
+    return result

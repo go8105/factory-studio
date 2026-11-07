@@ -8,7 +8,7 @@
 
 ### 제공 조회 함수 (`backend/src/fs/bems/interface.py`)
 
-아직 없다. `backend/src/fs/bems/interface.py`는 CMMS(로드맵 2번)가 경보 조회를 요청할 때 만든다.
+`hvac_units()`·`active_alarms()`(CMMS가 읽는다, 환경 경보만) · `monthly_summary(month)`(확정한 월간 보고서의 공용 kWh·EUI·비용·목표 달성·쾌적 비율, EIP용 — BEMS-1b). BEMS가 읽는 것: FEMS `tariff_rates(month)`(시간별 전력 단가, TOU·휴일 해석은 FEMS가 끝낸 값)·`open_alarms()`, core `holidays(from, to)`(`fs/core/interface.py`).
 
 > 아래는 작성 당시 메모다. 위 "현재 기준"과 다르면 위가 우선한다.
 
