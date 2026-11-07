@@ -1,3 +1,24 @@
+# 2026-11-07 BEMS-1a — bems 10 → 21표 (DB만)
+
+Claude Code 직접(D85). 브랜치 `bems-1a`. **DB·마이그레이션·설계 산출물만, 서비스·화면 없음.** 목표 설계(`schema-target.json`)에 DSN-16이 이미 반영돼 있어 옮기기만 했다.
+
+## 한 일
+- `tools/apply_bems1.py` — `apply_fems1.py` 복사(SCHEMA·버전·문구만 교체, `sync_nullable()` 포함). 두 번 돌려 `changed:false`로 멱등 확인. schema.json 0.34.0 → **0.35.0**, 251 → **262표**, FK 617 → 644, 제약 1,845 → 1,915.
+- 새 표 11: `building`·`lighting_circuit`·`demand_plan`·`demand_plan_step`·`comfort_standard`·`equipment_alarm_rule`·`equipment_alarm`·`energy_target`·`cost_run`·`cost_allocation_line`·`energy_review`.
+- 기존 4표 변경: `zone`(+건물·층·부서), `hvac_unit`(+감축 우선순위, 기본 5), `schedule_slot`(+조명 회로, `hvac_unit_id` NULL 허용), `control_command`(+조명 회로·감축안). 제약 5건 **제자리 교체**(센서 지표 6종·스케줄 HOLIDAY·모드 ON·제어 출처 PEAK·명령 대상) — 제약 순번 밀림 0.
+- 마이그레이션 `bems1`(124문, `--previous`로 달라진 것만). **down은 `gw_main_ready02_merge`**(GW 세션이 `fems1`과 `gw_readiness`를 합친 head).
+- `npm run db:validate`(오류 0)·`db:build`(Excel 51시트·262표)·`build_erd.py` 재생성.
+
+## 알아둘 것
+- **`core.holiday`는 이미 있다**(schema.json에 7칼럼, FEMS-1c가 날짜로 읽는다). DSN-16이 '신설'이라 적은 건 이미 끝난 일이라 이번에 안 건드렸다. 남은 일은 `holidays()` 조회 함수와 포털 휴일 달력(P-08).
+- **Q5 불편 신고는 제외**라 표 없음. BEMS 화면은 7 → 13(+포털 1).
+- 구역 부서는 HR 코드로 읽는 게 맞아 보인다(DSN-16 §6의 ERP `departments()`는 FEMS에서 같은 문제가 있었고 HR이 제공했다) — 1b에서 확인.
+- `tools/test_fs025a.py`가 BEMS 표 수를 10으로 고정해 CI 1단계가 깨졌다 → 21로 고침(10 + BEMS-1a 11).
+- `tools/clear_test_data.py`는 시스템 python3에 sqlalchemy가 없어 안 돈다. **`backend/.venv/bin/python`으로 돌려야 한다.**
+
+## 다음
+BEMS-1b — 교차 조회: FEMS `tariff_rates(period)`·`open_alarms()` 소비, core `holidays()`, `fs/bems/interface.py`(`hvac_units`·`active_alarms`·`monthly_summary`).
+
 ## 2026-11-06 GW 로컬 main 병합·79차 전체 로컬 기술 검증 완료
 
 - 사용자 승인으로 GWb71ad85와 최신 localmain1815db2(FEMS9커밋)를0ac0727에서 통합하고 localmain에 반영했다(기록ce06e84). 충돌은 HANDOFF/progress2개만이었으며 양쪽 사실 보존, 최신main인계는 접속URL을 비공개 처리한 main_인계_1815db2_통합참조.md에 보존했다. source코드·테스트·metadata는ce06e84 이후변경0이고 이후WIPb7128a1/4b15466/ecae010은 문서뿐이다. 마지막 기록 커밋은 git log -1로 확인한다.

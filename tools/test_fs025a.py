@@ -19,7 +19,8 @@ class ApplyTest(unittest.TestCase):
         again = copy.deepcopy(self.current)
         self.assertFalse(apply_fs025a.apply(again))
         self.assertEqual(again, self.current)
-        self.assertEqual(sum(t['name'].startswith('bems.') for t in self.current['tables']), 10)
+        # 10(FS-025a) + 11(BEMS-1a 보강)
+        self.assertEqual(sum(t['name'].startswith('bems.') for t in self.current['tables']), 21)
         self.assertEqual(audit(self.current), [])
         self.assertEqual(validate_bems(self.current), [])
 

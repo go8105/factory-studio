@@ -12,6 +12,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
+from alembic.script import ScriptDirectory
 from gw_integration_sources import pinned_source
 from sqlalchemy import event, text
 from sqlalchemy.exc import DBAPIError
@@ -164,7 +165,9 @@ def test_seed():
     with engine.connect() as c:
         assert (
             c.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
-            == "gw_main_ready02_merge"
+            == ScriptDirectory.from_config(
+                Config("backend/alembic.ini")
+            ).get_current_head()  # 새 마이그레이션이 생겨도 깨지지 않게 head를 읽는다
         )
         if pin == "783a2c1":
             assert set(

@@ -1,3 +1,11 @@
+## 2026-11-07 BEMS-1a 완료 — bems 10 → 21표 (다음: BEMS-1b)
+
+- **브랜치**: `bems-1a` (병합 뒤 `main`). **담당**: Claude Code(D85).
+- **끝난 것**: DB만. `tools/apply_bems1.py`(멱등), 마이그레이션 `bems1`(down `gw_main_ready02_merge`), schema.json 0.35.0·262표, Excel·ERD 갱신. 자세한 것은 `docs/progress.md` 맨 위.
+- **다음 할 일**: BEMS-1b 교차 조회 — FEMS `tariff_rates`·`open_alarms()` 소비, core `holidays()`, `fs/bems/interface.py`. 그다음 1c 휴일·조명 → 1d 쾌적·설비 경보 → 1e 피크 감축 → 1f 건물 에너지·비용·보고서.
+- **주의**: 운영 미배포 마이그레이션이 `spc1`~`fems1` + GW 통합분 + `bems1`. `core.holiday`는 이미 있다. 로컬 dev DB(`factory_studio`)에는 `bems1`을 아직 적용하지 않았다(적용 후 템플릿 재생성 필요).
+- **재현**: `python3 tools/apply_bems1.py`; `backend/.venv/bin/python tools/build_migration.py --revision bems1 --down gw_main_ready02_merge --tables 'bems.*' --previous <git show HEAD~:schema.json> --title "BEMS-1a 11표 신설·기존 4표 보강." --out backend/alembic/versions/20261107_bems1.py`; `npm run db:validate`; `npm run db:build`; `python3 tools/build_erd.py`; `TEST_DB=factory_studio_ci_<작업>_test bash tools/ci_local.sh`. 테스트 DB 정리는 `backend/.venv/bin/python tools/clear_test_data.py`.
+
 ## 2026-11-06 GW 로컬 main 병합·79차 전체 로컬 기술 검증 완료
 
 - 사용자 승인으로 GWb71ad85와 최신 localmain1815db2(FEMS9커밋)를0ac0727에서 통합하고 localmain에 반영했다(기록ce06e84). 충돌은 HANDOFF/progress2개만이었으며 양쪽 사실 보존, 최신main인계는 접속URL을 비공개 처리한 main_인계_1815db2_통합참조.md에 보존했다. source코드·테스트·metadata는ce06e84 이후변경0이고 이후WIPb7128a1/4b15466/ecae010은 문서뿐이다. 마지막 기록 커밋은 git log -1로 확인한다.
