@@ -302,3 +302,15 @@ ready=false/최종4조건 UNVERIFIED·실제 복원 PARTIAL/ACCEPTANCE PASS 거�
 - 새 도구는읽기Git/설계계산이며제품수집기/복원기아니다. 후보JSON은work의review_only/migration_revision=null 초안이고정식metadata아니다. 공개출력은 outputs/gw-readiness-02-phase78/의계획/거부검사, 상세 docs/agent/GW_통합설계_승격검증_GW-READY-02_78.md. DB접속·실DDL/rename·canonical검증기·Excel/ERD재생성·브라우저/제품단위·통합/전체CI는이번미실행이다.
 - 제품/적용migration·정식schema/Excel/ERD·실계정/권한/MFA/비밀번호·미리보기DB/브라우저설정·다른checkout/병행WMS/main·push/배포변경없음. ready=false/최종4UNVERIFIED·실제복원PARTIAL/ACCEPTANCE PASS거부유지. 78차는설계완료한정이며승격/실회사10인인수완료가아니다.
 - 다음79차: GW브랜치안의통합구현·신규이름정규화revision/정식metadata·Excel·ERD동기화와U0/UG/UM합성승격검증. 공유main/다른checkout·운영DB/push/배포제외. 외부공급자·독립최신성/전체회수·구형skip/통합후전체회귀·실10인/최종전환은남는다. GPT-6 Astra + High추천, 모델자동변경/다음ID자동착수없음.
+
+## 80차 — 격리 실제 API·브라우저의 관리자/직원 동선 (2026-11-07)
+
+최신79차 완료커밋 fcd69c5에서 이어 별도 소유 postgres:18/새UUID *_test DB에 통합head gw_main_ready02_merge를 적용했다. 합성회사1개·연결2명/예정10명과 운영기준을 준비하고, 실제 HTTP API·제품 Vite 화면에서 관리자 admin과 일반직원의 비밀번호/MFA 로그인을 확인했다. TEAM_TEST·loopback HTTP 환경이며 인증앱 factor와 준비단계 MFA assurance는 합성fixture로 넣었다. 실제기기등록·COMPANY/HTTPS 배포검증이나 실제10인인수가 아니다.
+
+관리자는 회사선택→회사운영안내→운영준비/GET재점검→12조건/미확인4→서버도움말 해당절/뒤로를 확인했다. 일반직원에게 운영관리 상세가 숨겨지고, 관리자가 실제열람한 다른기안자초안은 직원API404·원문비표시/open제거로 거부됨을1440/390에서 확인했다. 같은회사 키보드재조회·소유시험관리자API 연결정지→기존주기에서 정지안내→직원재조회로는정지유지→관리자API재개→현재회사재조회/원문자동재선택없음을 확인했다.
+
+브라우저구간 제품소스지문은79차와같은 e1548ad4…1213ca였다. 제품코드수정은없고 도움말/검증문서·공개재현fixture와화면근거를추가했다. [실행요약](../../outputs/gw-readiness-02-phase80/validation.json)과 [상세·재현](../agent/GW_격리실API_브라우저_GW-READY-02_80.md)을 따른다. 생성서비스2개/DB/컨테이너·익명볼륨1개를정리했고 기존미리보기는중지상태/DB접속없음을확인했다. Colima기존프로필은설정변경없이기동했으며런타임은남겨뒀다.
+
+ready=false/최종4UNVERIFIED·실제복원PARTIAL/ACCEPTANCE PASS거부유지. 수집기/복원기·새공급자중복구현없음, 기존계정/권한·비밀번호/MFA·미리보기DB/다른checkout/WMS/main/push/배포변경없음. 감사자·PENDING동의실브라우저/전체권한회수·외부독립성/실회사10인/운영전환은남는다. 다음제안은같은격리계약의감사자·PENDING동의실API브라우저검증이며 다른ID자동착수없음.
+
+80차최종검사: 실제격리API/브라우저 선택동선12항목·1440/390/Enter·관리자/직원로그인2회와별도제어MFA1회를확인했다. 단위시험건수로합산하지않는다. 도움말19건/3.79초·공개fixture3개Ruff/포맷·구문검사/JSON·로컬링크·diff·현황200줄제한통과. 명시플래그/기존state덮어쓰기·3recipe work밖경로거부5조건확인. 제품소스는검증구간79차와동일, 전체CI는이번재실행하지않음. 생성API/Vite·시험DB/컨테이너/볼륨정리·owner잔여0/3포트리스너0·기존preview중지유지.

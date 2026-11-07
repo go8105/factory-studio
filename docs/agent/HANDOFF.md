@@ -1,3 +1,21 @@
+## 2026-11-07 GW-READY-02 80차 — 격리 실제 API·브라우저 동선 검증
+
+- 실제시작fcd69c5/codex/gw-company-01/깨끗한GW작업트리. 채팅73차와달리실제저장소79차/로컬main통합완료를확인해이미있는PENDING보완을중복구현하지않았다. 최신인계의별도격리실API브라우저검증을진행했다. 최종커밋은git log -1로확인한다.
+- 기존API/Vite·Colima가내려가있어기존factory-studio프로필을기본명령으로기동했다. 시각/CPU·메모리/서버보안정책수정없음. 기존preview는중지상태유지/DB접속없음. 새owner gw-ready-02-phase80 postgres:18 전체ID/running/단일loopback55480/시각가드20표본을확인한뒤새UUID *_test DB만생성·통합head migration했다.
+- 새합성회사1개/연결2명/예정10·관리자admin/직원과기준을준비했다. 기존계정생성/이름변경·비밀번호/MFA초기화아님. MFA factor직접삽입/준비단계assurance는합성fixture이고그준비세션은회수했다. TEAM_TEST/loopback HTTP에서브라우저비밀번호202→MFA201을관리자/직원각1회실행하고제어관리자별도MFA1회확인. 최종활성제어/직원세션2개MFA확인. 실제앱등록/COMPANY HTTPS/실10인인수로세지않는다.
+- 실제제품/HTTP만사용(응답가로채기없음): 런처GW→회사선택→운영안내→운영준비·GET재점검→12조건4확인/4조치/4미확인→서버도움말절·뒤로/회사유지. 관리자양성대조원문은읽히고직원은관리상세가숨겨진다. 다른기안자초안GET404/원문비표시/open제거·현재회사키보드재조회를1440/390확인했다.
+- 새시험직원만관리자실API로정지version3→기존브라우저조회주기에정지안내→직원재조회로정지유지→관리자실API재개version4→Enter재조회/동일회사목록/옛원문자동재선택없음확인. 실제계정/미리보기권한은건드리지않았다. 이선택문서경계를전체권한회수·전체경로검증으로표현하지않는다.
+- 실제API최종ready=false/미확인4/연결2명·관리자양성원문/직원ACTIVE확인. 브라우저구간지문 e1548ad488e22bb83fd9bd5554567048598de59a71f28f5c41ec10472f2993ca 는79차와동일하고제품backend/frontend/tools·metadata/migration수정0이다. 이후도움말설명·문서/재현fixture추가는별도기록/검사한다. 79차전체CI2873+perf1/프런트847은과거결과이며이번재실행/합산없음.
+- 초기제어helper의201→200기대실패,자기기안자결재선fixture의실제400거부,연결목록rows→items해석을보정했다. 제품검사완화/실패삭제없고로그는비공개보존. 시스템Python3.9의UTC import실패는프로젝트Python재실행으로해결했다. 공개recipe Ruff/포맷보정후검사,플래그없음/기존state덮어쓰기/3recipe work밖경로거부를확인했다. 준비recipe최종guard가추가된바이트전체를새환경에서재실행한것은아니며실제실행한준비/API제어·정리와추가가드를구분한다.
+- API/Vite생성PID/명령대조후종료,생성컨테이너/그안의시험DB·익명볼륨1개제거·owner잔여0/3포트리스너0확인. 기존preview저장ID/중지상태불변/DB접속없음,생성검증탭만종료/viewport원복. Colima런타임은남겨뒀다. 다른checkout/WMS/main·원격push/배포/실DB·기존실계정·브라우저설정변경없음.
+- 공개근거 outputs/gw-readiness-02-phase80/validation.json·9화면/재현fixture3개, 상세 docs/agent/GW_격리실API_브라우저_GW-READY-02_80.md. 비밀번호/OTP/키/쿠키/DB URL·전체로그는work0700·비공개자료0600만사용/Git제외. 이무서명요약은운영실행증거/최종인수PASS로등록하지않는다.
+- ready=false/최종4UNVERIFIED·실제복원PARTIAL/ACCEPTANCE PASS거부유지. 실제백업/복원·증거등록/독립외부저장소·전체권한회수·실기기·실회사1회사/1부서/10인/전체UI완성·전체CI/전체회귀는이번범위아님. 스키마변경0으로metadata/Excel/ERD재생성없음.
+- 다음제안: 같은격리계약에서감사자조회전용범위와PENDING본인동의의재조회·회사전환을실API브라우저로검증한다. 기존미리보기계정/권한변경없음. 외부공급자/독립최신성·전체수집/회수·실10인/최종전환은남는다. GPT-6 Astra + High제안유지, 모델자동변경없음/다음ID자동착수없음.
+
+- 80차최종검사: 실제격리API/브라우저 선택동선12항목·1440/390/Enter·관리자/직원로그인2회와별도제어MFA1회를확인했다. 단위시험건수로합산하지않는다. 도움말19건/3.79초·공개fixture3개Ruff/포맷·구문검사/JSON·로컬링크·diff·현황200줄제한통과. 명시플래그/기존state덮어쓰기·3recipe work밖경로거부5조건확인. 제품소스는검증구간79차와동일, 전체CI는이번재실행하지않음. 생성API/Vite·시험DB/컨테이너/볼륨정리·owner잔여0/3포트리스너0·기존preview중지유지.
+
+재현은 docs/agent/GW_격리실API_브라우저_GW-READY-02_80.md 의새private경로/명시플래그·소유ID/owner/loopback/시각가드를따른다. 소유합성fixture의새DB쓰기/계정생성·선택정지/재개이며preview/운영DB에적용할명령이아니다.
+
 ## 2026-11-06 GW 로컬 main 병합·79차 전체 로컬 기술 검증 완료
 
 - 사용자 승인으로 GWb71ad85와 최신 localmain1815db2(FEMS9커밋)를0ac0727에서 통합하고 localmain에 반영했다(기록ce06e84). 충돌은 HANDOFF/progress2개만이었으며 양쪽 사실 보존, 최신main인계는 접속URL을 비공개 처리한 main_인계_1815db2_통합참조.md에 보존했다. source코드·테스트·metadata는ce06e84 이후변경0이고 이후WIPb7128a1/4b15466/ecae010은 문서뿐이다. 마지막 기록 커밋은 git log -1로 확인한다.
