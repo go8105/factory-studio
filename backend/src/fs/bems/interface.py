@@ -10,6 +10,7 @@ BEMS를 꺼 두었으면 None을 돌려주고, CMMS는 그 출처 없이 동작�
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import Connection, text
@@ -97,3 +98,42 @@ def active_alarms(
         }
         for row in rows
     ]
+
+
+def monthly_summary(
+    connection: Connection, scoped: AuthContext, month: str
+) -> dict[str, Any] | None:
+    """지표 키 → 값 (DSN-90 2-1 공통). **확정한** 월간 건물 보고서의 최신 버전만 읽는다.
+
+    EIP 경영 요약이 읽는다. 초안·대체된 버전은 주지 않는다. 확정본이 없으면 지표 값이 모두 None이다
+    (0으로 보이면 '쓰지 않았다'와 '아직 안 만들었다'가 섞인다). BEMS가 꺼져 있으면 None.
+    """
+    if not enabled(connection, scoped):
+        return None
+    row = (
+        connection.execute(
+            text(
+                "SELECT total_kwh, eui_kwh_m2, total_cost, target_achievement, comfort_ratio "
+                "FROM bems.energy_review WHERE workspace_id=:w AND generation_id=:g "
+                " AND review_month=:month AND status='confirmed' "
+                "ORDER BY version DESC LIMIT 1"
+            ),
+            {"w": scoped.workspace_id, "g": scoped.generation_id, "month": month},
+        )
+        .mappings()
+        .first()
+    )
+
+    def value(key: str) -> str | None:
+        return None if row is None or row[key] is None else str(Decimal(row[key]))
+
+    return {
+        "month": month,
+        "metrics": {
+            "commonKwh": value("total_kwh"),
+            "euiKwhPerM2": value("eui_kwh_m2"),
+            "commonCost": value("total_cost"),
+            "targetAchievement": value("target_achievement"),
+            "comfortRatio": value("comfort_ratio"),
+        },
+    }

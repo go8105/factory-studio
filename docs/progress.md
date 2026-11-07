@@ -1,3 +1,28 @@
+# 2026-11-07 BEMS-1b — 교차 조회 (제공 함수 3개)
+
+Claude Code 직접(D85). 브랜치 `bems-1b`. **DB 변경 없음, 화면 없음.** DSN-16 §6의 조회 함수를 만든다. 소비자는 뒤 단계에서 생긴다(FEMS-1b와 같은 방식).
+
+## 만든 것
+| 함수 | 파일 | 돌려주는 것 | 쓰는 곳 |
+|---|---|---|---|
+| `fems.tariff_rates(month)` | `fs/fems/interface.py` | 전력 요금제의 `{날짜: [0~23시 단가 24개]}` + 종류·계약전력·기본요금 | BEMS 1f 공용 비용 |
+| `core.holidays(from, to)` | `fs/core/interface.py`(신설) | `[{date, name, kind}]` | BEMS 1c 스케줄(휴일 구분) |
+| `bems.monthly_summary(month)` | `fs/bems/interface.py` | 확정 보고서의 공용 kWh·EUI·비용·목표 달성·쾌적 비율 | EIP |
+
+## 결정
+- **단가를 구간표째 주지 않고 날짜별 24칸으로 풀어서 준다.** 구간표를 주면 BEMS가 계절·요일·휴일 해석을 다시 구현해야 하고 FEMS와 어긋난다. 해석은 FEMS의 `tou.py`를 그대로 쓴다. FLAT은 24칸이 모두 사용 단가, 구간표에 없는 시각은 FEMS 요금 산정과 같이 0.
+- `basicCharge`는 단가가 아니라 기본요금 단가라 그대로 넘기고 쓰는 쪽이 정한다(공용 비용에 기본요금을 넣을지는 1f에서).
+- `monthly_summary`는 확정본이 없으면 **지표가 0이 아니라 None** — '쓰지 않았다'와 '아직 안 만들었다'를 섞지 않는다. 초안·대체된 버전은 읽지 않는다.
+- 부서 조회는 소비 화면(1c B-07)에서 만든다. 부서는 HR이 제공한다(DSN-16 §6의 ERP는 FEMS와 같은 설계서 오류).
+
+## 검증
+- 신규 계약 테스트 9건(`test_bems_interfaces.py` 5·`test_fems_interfaces.py` +4), 기존 FEMS 5건 포함 14건 통과. 꺼진 솔루션 None, 휴일 날짜순·양끝 포함, FLAT 24칸 동일, TOU 평일·토·일·**휴일>토요일**, 확정 최신 버전만.
+- **휴일 인자를 빼고 돌려 `holiday_on_weekday` 단언이 100 ≠ 40으로 실패함을 확인한 뒤 되돌렸다.**
+
+## 안 한 것
+- 소비자가 없는 함수라 화면·서비스에서 호출되는 경로는 시험하지 않았다(1c·1f).
+- `monthly_summary`의 지표 이름은 보고서 화면(1f)을 만들 때 바뀔 수 있다.
+
 # 2026-11-07 BEMS-1a — bems 10 → 21표 (DB만)
 
 Claude Code 직접(D85). 브랜치 `bems-1a`. **DB·마이그레이션·설계 산출물만, 서비스·화면 없음.** 목표 설계(`schema-target.json`)에 DSN-16이 이미 반영돼 있어 옮기기만 했다.

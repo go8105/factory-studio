@@ -1,3 +1,11 @@
+## 2026-11-07 BEMS-1b 완료 — 교차 조회 (다음: BEMS-1c)
+
+- **브랜치**: `bems-1b` (병합 뒤 `main`). **담당**: Claude Code(D85). DB 변경 없음.
+- **끝난 것**: `fems.tariff_rates(month)`·`core.holidays(from,to)`(`fs/core/interface.py` 신설)·`bems.monthly_summary(month)`와 계약 테스트. 자세한 것은 `docs/progress.md` 맨 위.
+- **다음 할 일**: BEMS-1c — 휴일 달력(포털 P-08)·조명(B-08)·스케줄 휴일 구분(B-05)·구역 건물·층·부서(B-07, 부서는 HR `departments`). 이때 `core.holidays`의 첫 소비자가 생기고, 부서 조회 route가 필요하다.
+- **주의**: `tariff_rates`·`monthly_summary`는 소비자가 없다(1f·EIP). 로컬 dev DB(`factory_studio`)에 `bems1`을 아직 적용하지 않았다. 운영 미배포 마이그레이션은 `spc1`~`fems1` + GW 통합분 + `bems1`.
+- **재현**: `backend/.venv/bin/python tools/clear_test_data.py`(DATABASE_URL 필요) 후 `TEST_DB=factory_studio_ci_<작업>_test bash tools/ci_local.sh`; 단독 시험은 `DATABASE_URL=… uv run --project backend pytest backend/tests/test_bems_interfaces.py backend/tests/test_fems_interfaces.py`.
+
 ## 2026-11-07 BEMS-1a 완료 — bems 10 → 21표 (다음: BEMS-1b)
 
 - **브랜치**: `bems-1a` (병합 뒤 `main`). **담당**: Claude Code(D85).
