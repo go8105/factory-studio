@@ -1,3 +1,41 @@
+# 2026-11-07 UI-REDESIGN-01 R1 — 앱 셸·탐색 재구성
+
+Claude Code. 브랜치 `ui-redesign-01`. 사용자 결정 D1~D5(앞 기록) 뒤 첫 구현 단계. **백엔드·DB 변경 없음.** [설계·결과](ui/UI전면재설계_진단_제안_UI-REDESIGN-01.md) 7-4·7-5절.
+
+## 한 것
+| ID | 내용 |
+|---|---|
+| R1-a | 헤더 항목 **10 → 3**. 왼쪽 브랜드, 오른쪽 `앱 전환기 ▾`(요약이 **현재 솔루션 이름** — 이전에는 헤더가 어디에 있는지 안 알려 줬다) · `도움말` · `계정 ▾`. 전환기에 앱 런처 + 나머지 솔루션 전부 + CAD·CAM·3D 공장·전체 흐름 14개, 계정 메뉴에 내 공간·내 계정 보안·사용자 관리·운영 기록·나가기. `<details>`로 만들어 **새 라이브러리 0** |
+| R1-b | `menuCatalog`에 `otherSolutions(current)`·`solutionPath()`·`solutionLabel()`·`solutionFromPath()` 신설 → 9개 `*Layout.tsx`의 `others` 배열(각 10줄) 삭제 |
+| R1-c | 사이드바 행을 `이름 → ID` 순으로. ID는 작은 보조 표기 |
+| R1-d | 모바일 헤더 내비 내용 폭 **620px → 215px**(375px 화면), 가로 넘침 0 |
+| R1-e | "제조 현장의 올인원 시스템" → 헤더 "독립 솔루션 제조 업무 플랫폼" / 런처 "제조 업무 솔루션 N 가지" (FS-013 D1) |
+
+## 결정
+- **`others` prop을 지우지 않고 선택으로 남겼다.** GW만 자기 목록(Factory Flow·내 근무·근무 체험)을 넘긴다 — `gw/*`는 Codex 소유라 안 건드린다. 나머지 9개는 생략해서 카탈로그가 만든다.
+- **표시 이름을 카탈로그 `title`에서 만들지 않는다.** spc는 `통계적 공정관리`라 사이드바에 길고, hr은 급여를 포함하며, flow에는 `title`이 아예 없다. 세 건이 어긋나므로 `DISPLAY` 표 한 곳에서 정하고 이유를 코드에 적었다. 그래도 **하드코딩 위치는 9곳 → 1곳**이다.
+- **전환기는 닫혀 있으면 항목을 DOM에 그리지 않는다.** 접근성 트리와 화면의 링크 목록이 같아지고, 같은 이름의 본문 링크와 겹치지 않는다(이게 아니면 테스트 7건이 아니라 더 많이 고쳐야 했다).
+- 화면 ID와 `aria-label`은 그대로 뒀다 — 도움말 `content/help/<mod>/f-NN.md`·카탈로그·포털 카운터가 ID로 묶여 있다.
+
+## 고친 결함
+- **CMMS·HR에서는 사이드바만으로 다른 솔루션에 못 갔다.** `others`가 9개 파일에 복사돼 있었고 어디에도 `/hr`·`/cmms`가 없었으며 cmms에는 `/gw`도 빠져 있었다. 이제 카탈로그가 만들어 11솔루션이 서로 다 닿는다(브라우저에서 CMMS → GW·HR·Factory Flow 확인).
+- 모바일 전역 내비가 620px라 절반이 단서 없이 숨던 것.
+
+## 검증
+- 타입 검사 0 · eslint 0 · prettier 0 · **vitest 847 passed / 99 files**.
+- 브라우저(로그인 `admin`, 로컬 dev 8000/5173): 1440×900에서 런처·FEMS F-01·MES M-01·CMMS C-01 진입, 전환기 14항목·계정 5항목, CMMS 사이드바 → GW·HR·Factory Flow. 375×812에서 `nav.scrollWidth 215 = clientWidth`·`document.scrollWidth 375`·헤더 1줄 52px·계정 메뉴 열림. 로그인 전 401 외 콘솔 오류 0.
+- 로컬 CI `TEST_DB=factory_studio_ci_uiredesign_test bash tools/ci_local.sh` 1~5단계.
+- **바뀐 테스트 7건**(헤더 링크가 전환기로 들어가 전역 이름 조회가 깨진 것): `cad-cam/CadCam.test.tsx`·`portal/systems.test.tsx`·`portal/favorites.test.tsx`·`portal/workspace-records.test.tsx`·`portal/home-polish.test.tsx`·e2e `factory.spec.ts`·`portal.spec.ts`.
+
+## 미실행·한계
+- **e2e(Playwright) 미실행.** 스펙은 새 구조에 맞춰 고쳤으나 실제로 돌리지 않았다 — 배포 전 공식 스모크가 필요하다.
+- **AGENTS.md §7 "사용자가 수정한 UI 파일" 확인을 못 받고 진행했다.** 사용자가 직접 고친 파일이 대상에 있으면 되돌려야 한다.
+- GW 셸(`gw/*`)은 그대로라 GW 사이드바의 "다른 앱"은 여전히 3개다. Codex 범위.
+- 화면 내부(표·배지·오류·빈 상태)·flow·factory·포털 P-06·색 토큰화는 R2 이후. DB·API·운영 배포 변경 없음.
+
+## 다음
+R3 Figma — `/mcp` 승인 뒤 `whoami`로 플랜·좌석 확인하고 범위를 보고한다(D3). 그다음 R2(FEMS 시범)는 BEMS 보강이 끝난 뒤(D5).
+
 # 2026-11-07 UI-REDESIGN-01 — 프런트엔드 전체 UI 진단·공통화 제안 (제품 코드 변경 0)
 
 Claude Code. 브랜치 `ui-redesign-01`. 사용자 요청("UI 구조가 최악이다, 공통화하고 Figma와 통신하며 전체 구조를 다시 잡자")에 대해 AGENTS.md §1·§2대로 **진단과 제안까지만** 했다. [문서](ui/UI전면재설계_진단_제안_UI-REDESIGN-01.md).

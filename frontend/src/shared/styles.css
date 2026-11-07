@@ -336,6 +336,64 @@ fieldset.field legend {
   padding: 0 10px;
   color: var(--muted);
 }
+/* 헤더 드롭다운(앱 전환·계정). 항목을 10개 늘어놓지 않고 두 묶음으로 접는다(UI-REDESIGN-01 R1-a). */
+.header-menu {
+  position: relative;
+}
+.header-menu > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  list-style: none;
+}
+.header-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.header-menu > summary::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.3px solid var(--muted);
+  border-bottom: 1.3px solid var(--muted);
+  transform: translateY(-2px) rotate(45deg);
+}
+.header-menu[open] > summary::after {
+  transform: translateY(1px) rotate(225deg);
+}
+.header-menu > summary:hover {
+  background: var(--surface-2);
+}
+.header-menu-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  min-width: 200px;
+  max-height: calc(100dvh - var(--header-h) - var(--s4));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.site-header nav .header-menu-list a,
+.site-header nav .header-menu-list .link-button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  text-align: left;
+  color: var(--ink);
+}
 /* 앱 틀: 헤더 · 본문(남은 높이) · 바닥글. 바닥글은 포털 화면에만 있다(업무 화면은 사이드바가 대신). */
 .app-shell {
   display: flex;
@@ -441,6 +499,19 @@ main:focus {
 .solution-sidebar nav a span {
   display: inline-block;
   min-width: 3.1em;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+/* 화면 이름을 본문 색으로 앞에 두고, 화면 ID는 뒤에 작게 붙인다(UI-REDESIGN-01 R1-c). */
+.solution-sidebar nav a .sidebar-menu-label {
+  min-width: 0;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+}
+.solution-sidebar nav a .sidebar-menu-id {
+  min-width: 0;
+  margin-left: var(--s1);
   color: var(--muted);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
@@ -2184,23 +2255,18 @@ th[aria-sort="none"] button span {
     --fs-xl: 20px;
     --fs-num: 20px;
   }
+  /* 항목이 전환기·도움말·계정 셋뿐이라 한 줄에 들어간다.
+     예전의 두 줄 가로 스크롤 내비(내용 620px)는 R1-a로 없앴다. */
   .site-header {
-    position: relative;
-    height: auto;
-    flex-wrap: wrap;
-    gap: var(--s1);
-    padding: var(--s2) var(--gutter) 0;
+    gap: var(--s2);
+    padding: 0 var(--gutter);
   }
   .brand span {
     display: none;
   }
   .site-header nav {
-    order: 2;
-    width: calc(100% + var(--gutter) * 2);
-    margin: 0 calc(var(--gutter) * -1);
-    padding: 0 calc(var(--gutter) - 10px) var(--s1);
-    overflow-x: auto;
-    scrollbar-width: none;
+    gap: 2px;
+    min-width: 0;
   }
   .site-header nav > * {
     flex: 0 0 auto;
@@ -2208,11 +2274,16 @@ th[aria-sort="none"] button span {
   .site-header nav a {
     padding: 6px 8px;
   }
-  /* 나가기는 가로 스크롤에 묻히지 않도록 브랜드 줄 오른쪽에 둔다. */
-  .site-header nav .link-button {
-    position: absolute;
-    top: var(--s2);
-    right: calc(var(--gutter) - 10px);
+  /* 솔루션 이름이 길면 줄여서 보여 준다. 전체 이름은 메뉴를 열면 보인다. */
+  .header-menu > summary {
+    max-width: 38vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+  }
+  .header-menu > summary::after {
+    display: none;
   }
   .site-footer {
     flex-wrap: wrap;

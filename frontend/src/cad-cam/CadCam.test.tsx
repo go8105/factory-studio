@@ -36,21 +36,34 @@ function show(
     </MemoryRouter>,
   );
 }
-it("places CAD menu immediately after launcher and scopes the embedded editor", async () => {
+it("reaches CAD from the app switcher and scopes the embedded editor", async () => {
   show();
   const frame = await screen.findByTitle("CAD·CAM 편집기");
   expect(frame).toHaveAttribute(
     "src",
     "/cad-cam-app/index.html?embedded=1&scope=10%3A20",
   );
-  const links = within(
-    screen.getByRole("navigation", { name: "주 메뉴" }),
-  ).getAllByRole("link");
-  expect(links.slice(0, 3).map((x) => x.textContent)).toEqual([
-    "앱 런처",
-    "CAD·CAM",
-    "3D 공장",
-  ]);
+  // CAD·CAM은 헤더에 따로 두지 않고 앱 전환기 안에 있다(UI-REDESIGN-01 R1-a).
+  const nav = within(screen.getByRole("navigation", { name: "주 메뉴" }));
+  expect(nav.queryByRole("link", { name: "CAD·CAM" })).toBeNull();
+  // jsdom은 summary 클릭으로 details를 열지 않는다. open을 직접 주고 toggle을 보낸다.
+  const switcher = nav.getByRole("group", {
+    name: "앱 전환",
+  }) as HTMLDetailsElement;
+  switcher.open = true;
+  fireEvent(switcher, new Event("toggle", { bubbles: false }));
+  expect(nav.getByRole("link", { name: "CAD·CAM" })).toHaveAttribute(
+    "href",
+    "/cad-cam",
+  );
+  expect(nav.getByRole("link", { name: "3D 공장" })).toHaveAttribute(
+    "href",
+    "/factory",
+  );
+  expect(nav.getByRole("link", { name: "앱 런처" })).toHaveAttribute(
+    "href",
+    "/home",
+  );
   expect(
     screen.queryByRole("link", { name: "비누 그라인더 POC" }),
   ).not.toBeInTheDocument();

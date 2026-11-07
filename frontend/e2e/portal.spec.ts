@@ -14,6 +14,11 @@ test("게스트 진입 → 시드 공간 앱 런처", async ({ page }) => {
   });
 });
 test("런처에서 전체 흐름으로 이동", async ({ page }) => {
+  await page
+    .getByRole("navigation", { name: "주 메뉴" })
+    .getByRole("group", { name: "앱 전환" })
+    .locator("summary")
+    .click();
   await page.getByRole("link", { name: "전체 흐름", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "전체 업무 흐름", exact: true }),
@@ -54,6 +59,11 @@ test("참고 문서 ↔ 업무 화면 왕복: 이 화면 열기와 ? 도움말",
   ).toHaveAttribute("aria-current", "page");
 });
 test("런처에서 내 공간으로 이동", async ({ page }) => {
+  await page
+    .getByRole("navigation", { name: "주 메뉴" })
+    .getByRole("group", { name: "계정 메뉴" })
+    .locator("summary")
+    .click();
   await page.getByRole("link", { name: "내 공간", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "내 공간", exact: true }),
@@ -102,7 +112,7 @@ test("게스트 운영 기록 직접 접근은 404", async ({ page }) => {
   await expect(page.getByText("404 · NOT_FOUND")).toBeVisible();
 });
 for (const [route, title] of [
-  ["home", "제조 현장의 올인원 시스템"],
+  ["home", "제조 업무 솔루션"],
   ["flow", "전체 업무 흐름"],
   ["cards/scm", "설명 카드"],
   ["help", "참고 문서"],

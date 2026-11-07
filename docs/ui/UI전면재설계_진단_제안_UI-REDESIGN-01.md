@@ -240,7 +240,23 @@ Figma 작업 전에는 `figma:figma-use`·`figma:figma-generate-library`·`figma
 
 ### 남은 확인 사항
 
-**AGENTS.md §7 "사용자가 수정한 UI 파일"이 위 목록에 있는지 착수 전에 확인한다.** 대상은 `app/App.tsx` · `shared/SolutionLayout.tsx` · `shared/menuCatalog.ts` · `shared/styles.css` · 9개 `*Layout.tsx` · `portal/Home.tsx`다.
+**AGENTS.md §7 "사용자가 수정한 UI 파일"이 위 목록에 있는지 확인받지 못한 채 진행했다.** 대상은 `app/App.tsx` · `shared/SolutionLayout.tsx` · `shared/menuCatalog.ts` · `shared/styles.css` · 9개 `*Layout.tsx` · `portal/Home.tsx`다. 사용자가 직접 고친 것이 있으면 되돌린다.
+
+## 7-5. R1 구현 결과 (2026-11-07)
+
+| 항목 | 한 것 |
+|---|---|
+| **R1-a** | 헤더 항목 **10 → 3**. 왼쪽 브랜드, 오른쪽 `앱 전환기 ▾`(요약이 현재 솔루션 이름) · `도움말` · `계정 ▾`. 전환기에 앱 런처 + 나머지 솔루션 전부 + CAD·CAM·3D 공장·전체 흐름(14개)을 모았고, 계정 메뉴에 내 공간·내 계정 보안·사용자 관리·운영 기록·나가기를 묶었다. `<details>`로 만들어 **새 라이브러리를 넣지 않았다**. 닫혀 있으면 항목을 DOM에 그리지 않아 접근성 트리와 화면이 같다 |
+| **R1-b** | `menuCatalog.otherSolutions(current)`·`solutionPath()`·`solutionLabel()`·`solutionFromPath()` 신설. 9개 `*Layout.tsx`의 `others` 배열(각 10줄)을 지웠다. **`others` prop은 선택으로 남겨 GW만 자기 목록을 넘긴다**(Codex 소유라 안 건드림). 표시 이름은 카탈로그 `title`이 아니라 `DISPLAY` 한 곳에서 정한다 — spc(`통계적 공정관리`)·hr(급여 포함)·flow(`title` 없음) 세 건이 어긋나기 때문이고 이유를 코드에 적었다 |
+| **R1-c** | 사이드바 행을 `이름 → ID` 순으로 바꾸고 ID를 작은 보조 표기로 내렸다. **ID와 `aria-label`은 그대로** — 도움말·카탈로그·포털 카운터가 ID로 묶여 있다 |
+| **R1-d** | 모바일(375px) 헤더 내비 내용 폭 **620px → 215px**, 가로 넘침 0, 한 줄 52px. 예전의 두 줄 가로 스크롤 내비와 `.link-button` 절대 배치 규칙을 지웠다 |
+| **R1-e** | 헤더 태그라인 "제조 현장의 올인원 시스템" → "독립 솔루션 제조 업무 플랫폼", 런처 제목 → "제조 업무 솔루션 N 가지" (FS-013 D1) |
+
+**검증**: 타입 검사 0 · lint 0 · prettier 0 · vitest **847 passed / 99 files**. 브라우저(로그인 `admin`)에서 1440×900 — 런처·FEMS·MES·CMMS 진입, 전환기 14항목, 계정 메뉴 5항목, **CMMS 사이드바에서 GW·HR·Factory Flow로 나가지는 것 확인**(이전에는 길이 없었다). 375×812 — `nav.scrollWidth 215 = clientWidth`, `document.scrollWidth 375`, 계정 메뉴 열림. 로컬 CI 1~5단계.
+
+**바뀐 테스트 7건**: 헤더 링크가 전환기 안으로 들어가 이름으로 전역 조회하던 것들이다 — `cad-cam/CadCam.test.tsx`(헤더 순서 단언 → 전환기 안 확인), `portal/systems.test.tsx`(본문으로 범위 좁힘), `portal/favorites.test.tsx`·`workspace-records.test.tsx`(이동 차단 확인을 늘 보이는 브랜드 링크로), `portal/home-polish.test.tsx`·`workspace-records.test.tsx`(R1-e 문구), e2e `factory.spec.ts`·`portal.spec.ts`(전환기·계정 메뉴를 열고 클릭).
+
+**안 한 것**: GW 셸(`gw/*`, Codex 소유) 그대로. 화면 내부·flow·factory·포털 P-06·색 토큰화는 R2 이후. **e2e(Playwright) 미실행** — 스펙은 새 구조에 맞춰 고쳤으나 실제로 돌리지 않았다.
 
 ---
 

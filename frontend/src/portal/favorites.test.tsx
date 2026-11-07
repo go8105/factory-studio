@@ -335,7 +335,8 @@ it("불확실한 저장은 같은 본문·키로 재시도하며 임시 편집�
     name: "동일 요청 다시 적용",
   });
   expect(within(dialog).getByRole("button", { name: "취소" })).toBeDisabled();
-  fireEvent.click(screen.getByRole("link", { name: "앱 런처" }));
+  // 앱 런처는 헤더 전환기 안으로 들어갔다. 늘 보이는 브랜드 링크로 같은 차단을 확인한다.
+  fireEvent.click(screen.getByRole("link", { name: /Factory Studio/ }));
   expect(screen.getByRole("dialog")).toBeInTheDocument();
   fireEvent.click(retry);
   await waitFor(() =>

@@ -231,8 +231,9 @@ export function Home() {
       <div className="home-hero">
         <div>
           <span className="home-eyebrow">YOUR WORKSPACE</span>
-          <h1>제조 현장의 올인원 시스템</h1>
-          <p>하나의 공간에서 만나는 {solutionCount} 가지 독립 솔루션</p>
+          {/* "올인원"은 FS-013 D1(독립 솔루션)과 어긋나 바꿨다(UI-REDESIGN-01 R1-e). */}
+          <h1>제조 업무 솔루션 {solutionCount} 가지</h1>
+          <p>각각 자기 대시보드와 업무 흐름을 갖는 독립 솔루션입니다</p>
         </div>
         <div className="home-context">
           <Link to="/workspace" className="home-space">

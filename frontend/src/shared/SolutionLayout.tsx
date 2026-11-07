@@ -4,7 +4,12 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useFavorites } from "./favorites";
 import { MenuIcon } from "./MenuIcon";
 import { ErrorNotice } from "./components";
-import { menuByKey, type Menu, type Screen } from "./menuCatalog";
+import {
+  menuByKey,
+  otherSolutions,
+  type Menu,
+  type Screen,
+} from "./menuCatalog";
 
 export type { Screen } from "./menuCatalog";
 
@@ -32,7 +37,8 @@ export function SolutionLayout({
   title: string;
   base: string;
   screens: Screen[];
-  others: { to: string; label: string }[];
+  // 생략하면 카탈로그에서 나머지 솔루션 전부를 만든다. GW만 자기 목록을 넘긴다.
+  others?: { to: string; label: string }[];
   beforeContent?: ReactNode;
   content?: ReactNode;
   linkQuery?: string;
@@ -42,6 +48,7 @@ export function SolutionLayout({
   const favorites = useFavorites();
   const favoriteMode = favorites.data?.sidebarMode === "favorites";
   const moduleKey = base.slice(1);
+  const otherApps = others ?? otherSolutions(moduleKey);
   const selected = favorites.data?.menuIds ?? [];
   const visibleScreens: Menu[] = favoriteMode
     ? selected.flatMap((key) => {
@@ -68,8 +75,10 @@ export function SolutionLayout({
           <span className="sidebar-menu-icon">
             <MenuIcon menu={screen} />
           </span>
+          {/* 화면 이름이 먼저다. ID는 뒤에 작게 — 도움말·카탈로그가 ID로 묶여 있어 없애지 않는다(R1-c). */}
           <span className="sidebar-menu-label">
-            <span>{screen.id}</span> {label}
+            {label}
+            <span className="sidebar-menu-id">{screen.id}</span>
             {favoriteMode && <small>{screen.solution}</small>}
           </span>
         </NavLink>
@@ -258,11 +267,17 @@ export function SolutionLayout({
               <section>
                 <h2>{favoriteMode ? "내 공간" : "다른 앱"}</h2>
                 {!favoriteMode &&
-                  others.map((o) => (
+                  otherApps.map((o) => (
                     <NavLink key={o.to} to={o.to} onClick={closeMenu}>
                       {o.label}
                     </NavLink>
                   ))}
+                {/* 포털 홈은 솔루션이 아니라서 카탈로그에 없다. 목록 끝에 그대로 둔다. */}
+                {!favoriteMode && !others && (
+                  <NavLink to="/home" onClick={closeMenu}>
+                    포털 홈
+                  </NavLink>
+                )}
                 {favoriteMode && (
                   <NavLink to="/home" title="앱 런처" onClick={closeMenu}>
                     앱 런처

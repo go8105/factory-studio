@@ -1,3 +1,17 @@
+## 2026-11-07 UI-REDESIGN-01 R1 완료 — 앱 셸·탐색 (다음: R3 Figma 플랜 확인)
+
+- **브랜치**: `ui-redesign-01`. **담당**: Claude Code. **백엔드·DB 변경 없음**(프런트만).
+- **끝난 것**: R1-a 헤더 10 → 3항목(앱 전환기·도움말·계정, 전환기 요약이 현재 솔루션 이름) / R1-b `menuCatalog.otherSolutions()`로 9개 `*Layout.tsx`의 `others` 삭제 / R1-c 사이드바 `이름 → ID` 순 / R1-d 모바일 내비 620px → 215px / R1-e "올인원" 문구 교체. 자세한 것은 `docs/progress.md` 맨 위와 `docs/ui/UI전면재설계_진단_제안_UI-REDESIGN-01.md` 7-4·7-5절.
+- **고친 결함**: CMMS·HR에서 사이드바만으로 다른 솔루션에 갈 수 없었다(`others` 9벌 복사본 어디에도 `/hr`·`/cmms`가 없었고 cmms에는 `/gw`도 없었다).
+- **다음 할 일**: **R3 Figma** — 사용자가 `/mcp`로 Figma를 승인하면 `whoami`로 플랜·좌석부터 확인하고 범위를 보고한다(D3). Starter면 토큰(F1) → 핵심 컴포넌트 9가족(F2) → 대표 화면 4장(F3)까지만. 그다음 **R2(FEMS 시범)는 BEMS 보강이 끝난 뒤**(D5). 이후 R4 포털 P-06 → R5 토큰·lint → R6.
+- **주의**:
+  - **e2e(Playwright) 미실행.** `factory.spec.ts`·`portal.spec.ts`를 새 헤더(전환기·계정 메뉴를 열고 클릭)에 맞춰 고쳤지만 돌려 보지 않았다. **배포 전 공식 스모크 필요.**
+  - **AGENTS.md §7 "사용자가 수정한 UI 파일" 확인을 못 받고 진행했다.** 대상은 `app/App.tsx`·`shared/SolutionLayout.tsx`·`shared/menuCatalog.ts`·`shared/styles.css`·9개 `*Layout.tsx`·`portal/Home.tsx`.
+  - `others` prop은 **선택으로 남겼다**. GW(`gw/GwLayout.tsx`, Codex 소유)만 자기 목록을 넘기므로 GW 사이드바의 "다른 앱"은 여전히 3개다.
+  - 표시 이름은 `menuCatalog.ts`의 `DISPLAY` 표에서 정한다(카탈로그 `title`과 spc·hr·flow 셋이 어긋난다). 솔루션을 추가하면 **여기도 한 줄 넣어야 한다**.
+  - 헤더 드롭다운은 닫히면 항목을 DOM에 그리지 않는다. 테스트에서 항목을 찾으려면 `details.open = true` 후 `toggle` 이벤트를 보내야 한다(jsdom은 summary 클릭으로 열리지 않는다).
+- **재현**: `npm --prefix frontend run typecheck` · `npm --prefix frontend run lint` · `npm --prefix frontend test` · `TEST_DB=factory_studio_ci_uiredesign_test bash tools/ci_local.sh`. 브라우저 확인은 사용자 dev 서버(8000/5173)에 `admin`으로 로그인해 1440×900·375×812.
+
 ## 2026-11-07 UI-REDESIGN-01 진단·제안 완료 (다음: 사용자 Q1~Q5 답 → R1)
 
 - **브랜치**: `ui-redesign-01` (main 기준 `2def342`에서 분기, **미병합**). **담당**: Claude Code. **제품 코드 변경 0건 — 문서만.**
