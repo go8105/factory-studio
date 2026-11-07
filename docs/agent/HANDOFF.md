@@ -1,3 +1,11 @@
+## 2026-11-07 BEMS-1a 완료 — bems 10 → 21표 (다음: BEMS-1b)
+
+- **브랜치**: `bems-1a` (병합 뒤 `main`). **담당**: Claude Code(D85).
+- **끝난 것**: DB만. `tools/apply_bems1.py`(멱등), 마이그레이션 `bems1`(down `gw_main_ready02_merge`), schema.json 0.35.0·262표, Excel·ERD 갱신. 자세한 것은 `docs/progress.md` 맨 위.
+- **다음 할 일**: BEMS-1b 교차 조회 — FEMS `tariff_rates`·`open_alarms()` 소비, core `holidays()`, `fs/bems/interface.py`. 그다음 1c 휴일·조명 → 1d 쾌적·설비 경보 → 1e 피크 감축 → 1f 건물 에너지·비용·보고서.
+- **주의**: 운영 미배포 마이그레이션이 `spc1`~`fems1` + GW 통합분 + `bems1`. `core.holiday`는 이미 있다. 로컬 dev DB(`factory_studio`)에는 `bems1`을 아직 적용하지 않았다(적용 후 템플릿 재생성 필요).
+- **재현**: `python3 tools/apply_bems1.py`; `backend/.venv/bin/python tools/build_migration.py --revision bems1 --down gw_main_ready02_merge --tables 'bems.*' --previous <git show HEAD~:schema.json> --title "BEMS-1a 11표 신설·기존 4표 보강." --out backend/alembic/versions/20261107_bems1.py`; `npm run db:validate`; `npm run db:build`; `python3 tools/build_erd.py`; `TEST_DB=factory_studio_ci_<작업>_test bash tools/ci_local.sh`. 테스트 DB 정리는 `backend/.venv/bin/python tools/clear_test_data.py`.
+
 ## 2026-11-07 GW 80차 로컬 main 반영
 
 사용자의 로컬 main 반영 요청에 따라 fcd69c5에서 80차 bd9ed3e와 이 기록을 fast-forward로 반영한다. 양쪽 분기 0/1·깨끗한 GW 작업트리와 main 미체크아웃을 확인했다. 다른 checkout/BEMS 작업 파일을 수정하지 않고 로컬 main 참조만 갱신하며, 최종 반영 커밋은 git log -1 main으로 확인한다. 제품 코드·DB 변경/새 검증 실행·원격 push·운영 배포는 없다. ready=false/최종4UNVERIFIED·복원PARTIAL/PASS거부를 유지한다.
