@@ -214,9 +214,49 @@ Figma 작업 전에는 `figma:figma-use`·`figma:figma-generate-library`·`figma
 
 ---
 
-## 8. 질문
+## 7-4. R1 상세 범위 (사용자 결정 D1·D2·D4로 확정된 첫 단계)
 
-착수 전에 다섯 가지를 확인받아야 한다.
+### 고칠 것
+
+| # | 내용 | 파일 |
+|---|---|---|
+| **R1-a** | **헤더 재구성.** 왼쪽 = 브랜드 + **현재 솔루션 이름**(지금은 사이드바 작은 회색 글씨뿐) + 솔루션 전환기. 오른쪽 = 사용자 메뉴 하나로 묶기(도움말·내 공간·계정 보안·사용자 관리·운영 기록·나가기). 노출 항목 10 → 3~4 | `app/App.tsx:85-116` · `shared/styles.css` 헤더 절 |
+| **R1-b** | **"다른 앱"을 카탈로그에서 생성.** `menuCatalog.ts`에 `otherSolutions(current)` 추가 — 카탈로그의 `name`+`title`로 라벨을 만든다(`"MES"`+`"생산관리"` → `"MES 생산관리"`, 지금 하드코딩된 문자열과 같다). 9개 `*Layout.tsx`에서 `others` 배열 삭제 | `shared/menuCatalog.ts` · `shared/SolutionLayout.tsx` · 9개 `*Layout.tsx`(각 10줄 삭제) |
+| **R1-c** | **화면 ID를 라벨에서 분리.** 사이드바에서 `F-01`을 보조 표기로 내린다. **ID 자체는 유지한다** — `menu_catalog.json`·`content/help/<mod>/f-NN.md`·포털 카운터 테스트가 ID로 묶여 있다(C8). `PageTitle`의 ID 표시도 유지한다(도움말 추적용) | `shared/SolutionLayout.tsx` · `shared/styles.css` |
+| **R1-d** | **모바일 내비.** 375px에서 내용 폭 620px가 단서 없이 숨는 문제 → R1-a로 항목이 줄면 대부분 풀린다. 남는 것은 "더보기"로 접는다 | `app/App.tsx` · `shared/styles.css` |
+| **R1-e** | **"올인원 시스템" 문구 교체.** FS-013 D1(독립 솔루션)과 어긋난다 | `app/App.tsx` · `portal/Home.tsx` |
+
+### 안 고칠 것 (R1에서)
+
+화면 내부(표·폼·배지·빈 상태), flow·factory·cad-cam 셸, 포털 내 공간 P-06, GW 셸(Codex 소유), 색 토큰화. 전부 R2 이후다.
+
+### 검증 계획
+
+- vitest 전체(현재 696건). 헤더·사이드바 테스트는 재작성이 생긴다.
+- e2e `layout.spec.ts`·`portal.spec.ts` — 사이드바 이동·UI-04 미저장 보호 경로가 걸린다.
+- 브라우저 1440×900·375×812에서 11솔루션 전부 진입 → 다른 솔루션으로 전환 → 되돌아오기. **특히 CMMS·HR에서 사이드바만으로 나올 수 있는지**(지금 안 된다).
+- `TEST_DB=factory_studio_ci_uiredesign_test bash tools/ci_local.sh`.
+- 백엔드·DB 변경 없음 → `db:validate`·ERD 재생성 대상 아님.
+
+### 남은 확인 사항
+
+**AGENTS.md §7 "사용자가 수정한 UI 파일"이 위 목록에 있는지 착수 전에 확인한다.** 대상은 `app/App.tsx` · `shared/SolutionLayout.tsx` · `shared/menuCatalog.ts` · `shared/styles.css` · 9개 `*Layout.tsx` · `portal/Home.tsx`다.
+
+---
+
+## 8. 질문과 사용자 결정 (2026-11-07)
+
+착수 전 다섯 가지를 확인받았다. **Q1·Q2·Q3·Q5 답변 완료, Q4는 권장안대로 진행한다.**
+
+| ID | 질문 | 결정 |
+|---|---|---|
+| **D1** | 기준 사용자 | **포트폴리오 평가자 우선, GW만 운영성 예외** |
+| **D2** | 개편 범위 | **R1 공통층 먼저 전체 적용**, 솔루션 내부는 보강 순서에 얹기 |
+| **D3** | Figma 플랜 | **보류 — `/mcp` 승인 뒤 `whoami`로 현재 플랜·좌석을 확인하고 다시 보고한다.** 그동안 R1은 Figma 없이 진행한다 |
+| **D4** | UI-01/UI-02 규약 | **유지·보강**(권장안대로, 별도 이견 없음). 폐기하지 않는다 |
+| **D5** | BEMS 보강과의 순서 | **R1만 먼저 끼워 넣고**, R2 이후는 BEMS 보강이 끝난 뒤 |
+
+원래 질문 전문은 아래에 남긴다.
 
 **Q1. 기준 사용자는 누구인가?**
 포트폴리오 평가자(3~5분 체험, 첫인상·설명력 우선)와 GW 실제 회사 도입(매일 쓰는 운영성 우선)은 설계가 다르다. 지금 코드는 둘이 섞여 있다. 어느 쪽을 우선하는가?
@@ -258,5 +298,7 @@ Figma 작업 전에는 `figma:figma-use`·`figma:figma-generate-library`·`figma
 
 ## 10. 다음
 
-**사용자가 8장 Q1~Q5에 답하고 7-2 단계 전체를 확인하면 R1부터 착수한다.** AGENTS.md §2에 따라 개별 단계 확인을 개발 착수 승인으로 보지 않는다.
-Figma 작업(R3)은 `/mcp` 승인 뒤에만 가능하다.
+- Q1~Q5 답변 완료(8장 D1~D5). **남은 것은 7-2 단계와 7-4 R1 범위에 대한 사용자 전체 확인이다.** AGENTS.md §2에 따라 질문 답변을 개발 착수 승인으로 보지 않는다.
+- 착수 전에 **AGENTS.md §7 "사용자가 수정한 UI 파일"**이 7-4 대상 목록에 있는지 확인받아야 한다.
+- **D3에 따라 `/mcp` Figma 승인 뒤 `whoami`로 플랜·좌석을 먼저 확인하고 보고한다.** 그 결과로 R3 범위를 정한다. R1은 Figma와 무관하게 진행할 수 있다.
+- 순서는 **R1 → (Figma 플랜 확인) R3 → R2(FEMS) → R4 → R5 → R6**.
