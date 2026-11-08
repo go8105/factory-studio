@@ -1,3 +1,13 @@
+# 2026-11-08 ABOUT-02 착수 차단 — Figma 파일 접근 권한
+
+- 브랜치: `codex/about-02`, `docs/about-01`의 `0281a08`에서 분기. 구현 진행률 0/6(ABOUT-02~07), 완료 ID 없음.
+- 공식 Figma 연결 도구 `create_session`으로 파일 `v7bouCuBnFf2E7qpqqzRMX` 접근을 시도했으나 편집 권한 없음 오류로 거부됐다. Debug UUID: `298c5b85-d148-4536-9d86-6df3b4a40a4a`.
+- 사용자 지침에 따라 추측 구현 없이 중단. 제품 코드·공통 CSS·DB 변경 없음. 원격 push·배포 없음.
+- 실행 확인: 셸 실행 가능, 시작 브랜치/깨끗한 작업 트리 확인. 디자인 context·스크린샷을 받지 못해 typecheck/lint/format:check/test/build·브라우저 비교는 미실행.
+- 다음: 연결된 Figma 계정의 파일 접근 권한을 복구한 뒤 ABOUT-02부터 재개. ABOUT-03~07 미착수.
+
+- 마지막 기준 커밋: `0281a08`. 차단 기록 최종 커밋은 `git log -1 --oneline`으로 확인한다. 재현: 공식 Figma `create_session(fileKey="v7bouCuBnFf2E7qpqqzRMX")`; 성공 후 반환 sessionId로 지정 노드의 context·screenshot을 받는다.
+
 ## 2026-11-08 ABOUT-01 설계·Figma 완료 → Codex 인계 (다음: Codex ABOUT-02)
 
 - **브랜치**: `docs/about-01` (`ui-redesign-01` `90487bf`에서 분기, 미병합·미푸시). **담당**: Claude Code(설계) → Codex(구현). **문서만, 제품 코드·DB 변경 0.**
