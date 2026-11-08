@@ -1,3 +1,11 @@
+# 2026-11-08 ABOUT-03 배포 WIP — 전체 CI 실행 중
+
+- 로컬 main `98a34d1`에 ABOUT-02·03 반영 완료. 사용자 누적 main 전체 수동 배포 승인. 아직 원격 push/운영 코드·DB 변경 없음.
+- `FS_CI_WORKERS=0 TEST_DB=factory_studio_ci_about03_20261108_test bash tools/ci_local.sh` 실행 중. 로그 `work/about-02/full-ci.log`는 임시 파일이며, 중단 인계 시 미통과로 간주한다. 1·2단계 및 새 DB schema262표/2960열/644FK 대조0, 백엔드 pytest 직렬 진행 중(종료 결과 미확정). 프런트5검증/854건은 별도 통과 기록이다.
+- 서버 기준 6df6e71·gw_wms_merge·앱/세대12/12. 백업 `/srv/factory-studio/backups/20261108-about03-98a34d1`에 custom DB dump/TOC·프런트 tar(목록 검사)·코드revision·기존 테이블별 건수 저장(디렉터리700, 파일600). 실제 데이터 로컬/Git 반출 없음. secretary-api/secretary-scheduler/nginx active, office200 확인.
+- 재현 가능한 배포 후 공개 브라우저 검사 추가: `node docs/agent/assets/about03/public-check.mjs`. 기본 운영URL, 출력 work/about-03-public. 로그인/업무 쓰기 없이 /about와 기존 진입 화면만 검사한다. 이번 WIP에서는 구문 검사만 실행했고 운영 검사는 아직 미실행.
+- 다음: 전체 CI 통과 확인 → main push → 변경 직전 최종 백업/FS 서비스·정리 타이머 제어 → `tools/deploy.sh --skip-ci-check`(로컬 전체CI로 게이트 대체, GitHub 성공으로 기록하지 않음) → DB/공개화면/이지스생존 확인 → 진행/현황/HANDOFF 최종 기록. CI 실패 시 운영 변경하지 말고 원인부터 해결한다. ABOUT-04 이후 착수 금지.
+
 # 2026-11-08 ABOUT-03 완료 — 누적 main 전체 수동 배포 진행
 
 - 브랜치 codex/about-02, main af12ef8 병합 39f7df2. 사용자 ABOUT-03·로컬main 병합·수동 배포 승인, 운영 6df6e71 대비 누적 변경 범위를 고지한 뒤 전체 main 배포 선택 받음.
