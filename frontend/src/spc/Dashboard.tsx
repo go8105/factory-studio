@@ -1,6 +1,12 @@
 // S-01 SPC 대시보드 — KPI 4개 + 특성 카드(최근 20점 X̄·Cpk·미조치) (UI-02 D 패턴, F-01 기준).
 import { Link } from "react-router-dom";
-import { Badge, ErrorNotice, Loading, PageTitle } from "../shared/components";
+import {
+  Badge,
+  EmptyState,
+  ErrorNotice,
+  Loading,
+  PageTitle,
+} from "../shared/components";
 import {
   JUDGEMENT_LABEL,
   JUDGEMENT_TONE,
@@ -80,55 +86,61 @@ export function Dashboard() {
               value={`충분 ${data.capability.CAPABLE}`}
               note={`주의 ${data.capability.MARGINAL} · 부족 ${data.capability.INCAPABLE} (Cpk 1.33·1.00 기준)`}
             />
+            {/* 타일은 네 개로 맞춘다. 규격 이탈은 같은 "최근 7일"이라 한 타일에 묶었다
+                (다섯 개면 솔루션마다 KPI 줄 규격이 달라진다. UI-REDESIGN-02). */}
             <Tile
-              label="최근 7일 부분군"
-              value={String(data.weekSubgroups)}
-              note="유효 부분군"
-            />
-            <Tile
-              label="최근 7일 규격 이탈"
-              value={`${data.weekSpecViolations}건`}
-              note="관리 이탈과 별개(개별 측정값)"
+              label="최근 7일"
+              value={`부분군 ${data.weekSubgroups}`}
+              note={`규격 이탈 ${data.weekSpecViolations}건 · 관리 이탈과 별개(개별 측정값)`}
             />
           </div>
-          <div className="spc-cards">
-            {data.cards.map((c) => (
-              <Link
-                key={c.id}
-                to={`/spc/chart?c=${c.id}`}
-                className="spc-card"
-                aria-label={`${c.itemCode} ${c.processCode} ${c.name} 관리도`}
-              >
-                <div className="spc-card-head">
-                  <strong>
-                    {c.itemCode} · {c.processCode} · {c.name}
-                  </strong>
-                  <span>
-                    {c.openSignals > 0 && (
-                      <Badge tone="issue">미조치 {c.openSignals}</Badge>
-                    )}{" "}
-                    {!c.limit ? (
-                      <Badge tone="warning">한계 미게시</Badge>
-                    ) : !c.capability?.judgement ? (
-                      <Badge>표본 부족</Badge>
-                    ) : (
-                      <Badge tone={JUDGEMENT_TONE[c.capability.judgement]}>
-                        Cpk {num(c.capability.cpk, 2)}{" "}
-                        {JUDGEMENT_LABEL[c.capability.judgement]}
-                      </Badge>
-                    )}
-                  </span>
-                </div>
-                <Spark
-                  values={c.recent.map((r) => Number(r.xbar))}
-                  limit={c.limit}
-                />
-                <small className="muted">
-                  규격 {spec(c)} · 부분군 {c.subgroupCount} · 관리도 보기 →
-                </small>
-              </Link>
-            ))}
-          </div>
+          {/* 카드가 0건이면 아무것도 그리지 않아 화면이 백지로 보였다(UI-REDESIGN-02). */}
+          {data.cards.length === 0 ? (
+            <EmptyState
+              reason="관리 특성이 없어 보여 줄 관리도가 없습니다."
+              to="/spc/characteristics"
+              action="관리 특성 등록으로 이동"
+            />
+          ) : (
+            <div className="spc-cards">
+              {data.cards.map((c) => (
+                <Link
+                  key={c.id}
+                  to={`/spc/chart?c=${c.id}`}
+                  className="spc-card"
+                  aria-label={`${c.itemCode} ${c.processCode} ${c.name} 관리도`}
+                >
+                  <div className="spc-card-head">
+                    <strong>
+                      {c.itemCode} · {c.processCode} · {c.name}
+                    </strong>
+                    <span>
+                      {c.openSignals > 0 && (
+                        <Badge tone="issue">미조치 {c.openSignals}</Badge>
+                      )}{" "}
+                      {!c.limit ? (
+                        <Badge tone="warning">한계 미게시</Badge>
+                      ) : !c.capability?.judgement ? (
+                        <Badge>표본 부족</Badge>
+                      ) : (
+                        <Badge tone={JUDGEMENT_TONE[c.capability.judgement]}>
+                          Cpk {num(c.capability.cpk, 2)}{" "}
+                          {JUDGEMENT_LABEL[c.capability.judgement]}
+                        </Badge>
+                      )}
+                    </span>
+                  </div>
+                  <Spark
+                    values={c.recent.map((r) => Number(r.xbar))}
+                    limit={c.limit}
+                  />
+                  <small className="muted">
+                    규격 {spec(c)} · 부분군 {c.subgroupCount} · 관리도 보기 →
+                  </small>
+                </Link>
+              ))}
+            </div>
+          )}
         </>
       )}
     </>

@@ -156,11 +156,11 @@ export function Dashboard() {
                 공정 실행으로 →
               </Link>
             </section>
-            <section className="panel" aria-label="불량 사유 상위">
-              <h2>불량 사유 상위</h2>
-              {data.defectReasons.length === 0 ? (
-                <p className="muted">이달 불량이 없습니다.</p>
-              ) : (
+            {/* 내용이 있을 때만 카드를 만든다. 빈 카드 한 장이 세로 150px을 먹던 것을
+                아래 "처리할 일"의 한 줄로 대신한다(UI-REDESIGN-02). */}
+            {data.defectReasons.length > 0 && (
+              <section className="panel" aria-label="불량 사유 상위">
+                <h2>불량 사유 상위</h2>
                 <ol className="rank-list">
                   {data.defectReasons.map((r) => (
                     <li key={r.reason}>
@@ -169,16 +169,14 @@ export function Dashboard() {
                     </li>
                   ))}
                 </ol>
-              )}
-              <Link className="text-link" to="/mes/results">
-                실적 보기 →
-              </Link>
-            </section>
-            <section className="panel" aria-label="계획 대비 실적">
-              <h2>계획 대비 실적 · {data.month}</h2>
-              {data.planVsActual.length === 0 ? (
-                <p className="muted">이달 확정된 생산계획이 없습니다.</p>
-              ) : (
+                <Link className="text-link" to="/mes/results">
+                  실적 보기 →
+                </Link>
+              </section>
+            )}
+            {data.planVsActual.length > 0 && (
+              <section className="panel" aria-label="계획 대비 실적">
+                <h2>계획 대비 실적 · {data.month}</h2>
                 <ul className="rank-list">
                   {data.planVsActual.map((r) => (
                     <li key={r.itemId}>
@@ -190,13 +188,13 @@ export function Dashboard() {
                     </li>
                   ))}
                 </ul>
-              )}
-              <Link className="text-link" to="/mes/production-plans">
-                생산계획 보기 →
-              </Link>
-            </section>
-            <section className="panel" aria-label="처리 대기">
-              <h2>처리 대기</h2>
+                <Link className="text-link" to="/mes/production-plans">
+                  생산계획 보기 →
+                </Link>
+              </section>
+            )}
+            <section className="panel" aria-label="처리할 일">
+              <h2>처리할 일</h2>
               <ul className="rank-list">
                 <li>
                   <Link className="text-link" to="/mes/results">
@@ -210,6 +208,23 @@ export function Dashboard() {
                   </Link>
                   <span>{data.pending.unpackedLots}건</span>
                 </li>
+                {/* 값이 0이면 카드를 따로 두지 않고 왜 비었는지 이 줄에서 밝힌다. */}
+                {data.planVsActual.length === 0 && (
+                  <li>
+                    <Link className="text-link" to="/mes/production-plans">
+                      확정할 생산계획
+                    </Link>
+                    <span className="muted">이달 확정된 계획 없음</span>
+                  </li>
+                )}
+                {data.defectReasons.length === 0 && (
+                  <li>
+                    <Link className="text-link" to="/mes/results">
+                      이달 불량
+                    </Link>
+                    <span className="muted">0건</span>
+                  </li>
+                )}
               </ul>
             </section>
           </div>

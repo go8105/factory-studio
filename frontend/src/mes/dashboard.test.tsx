@@ -93,10 +93,10 @@ it("공정별 진행 파이프라인을 공정 순서대로 보여주고 가동�
   expect(within(pipeline).getByText(/가동률은 설비 상태/)).toBeVisible();
 });
 
-it("처리 대기에서 실적·패킹 화면으로 간다", async () => {
+it("처리할 일에서 실적·패킹 화면으로 간다", async () => {
   mockApi();
   show();
-  const pending = await screen.findByLabelText("처리 대기");
+  const pending = await screen.findByLabelText("처리할 일");
   expect(
     within(pending).getByRole("link", { name: "미확정 실적" }),
   ).toHaveAttribute("href", "/mes/results");
@@ -116,7 +116,13 @@ it("실적이 없는 달은 양품률을 비워 둔다", async () => {
   });
   show();
   expect(await screen.findByText("이달 확정 실적 없음")).toBeVisible();
-  expect(screen.getByText("이달 확정된 생산계획이 없습니다.")).toBeVisible();
+  // 빈 카드를 만들지 않고 "처리할 일"의 한 줄로 밝힌다(UI-REDESIGN-02).
+  expect(screen.queryByLabelText("계획 대비 실적")).not.toBeInTheDocument();
+  const todo = screen.getByLabelText("처리할 일");
+  expect(
+    within(todo).getByRole("link", { name: "확정할 생산계획" }),
+  ).toHaveAttribute("href", "/mes/production-plans");
+  expect(within(todo).getByText("이달 확정된 계획 없음")).toBeVisible();
 });
 
 it("조회 월을 바꾸면 그 달로 다시 조회한다", async () => {

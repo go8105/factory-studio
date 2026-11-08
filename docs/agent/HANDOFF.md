@@ -1,3 +1,15 @@
+## 2026-11-08 UI-REDESIGN-02 R2 1차 완료 — 화면 구도 (다음: 목록 조건 접기·열 선택)
+
+- **브랜치**: `ui-redesign-01` (미병합·미푸시). **담당**: Claude Code. **프런트만, 백엔드·DB 변경 0.**
+- **끝난 것**: 대시보드가 남은 높이를 쓰도록 공통 CSS 한 곳 수정(10개 대시보드 일괄) · `ScreenIntro` 공통 컴포넌트로 화면 안내 접기(`MasterScreen` 화면 전부 + MES M-12) · SPC S-01 KPI 5→4와 **백지였던 빈 상태 보완** · MES M-01 빈 카드 제거(4→2). 자세한 것은 `docs/progress.md` 맨 위, 시안은 `docs/ui/previews/UI-REDESIGN-02.html`.
+- **다음 할 일**: 시안 2·3장의 나머지 — **조회 목록 조건 접기·상태 칩**, **표 빈 열 숨김과 "열 선택"**. 둘 다 새 공통 UI(조건 서랍·열 선택기)가 필요하다. 그다음 R3 Figma(`/mcp` 승인 뒤 플랜 확인), R4 포털 P-06, R5 토큰·lint.
+- **주의 — 로컬 CI 백엔드 3단계가 불안정하다(내 변경과 무관)**:
+  - 3회 실행 결과가 매번 다르다. 1차 2건(GW journal·emergency), 2차 16건+에러 3(GW security·FEMS·ERP), 3차 10건(GW acceptance·account security·CMMS metrics). **겹치는 실패가 거의 없다.**
+  - 3차 실패 10건을 포함한 **63건을 직렬로 돌리면 전부 통과한다**(6분 26초). `pytest -n auto` 병렬에서만 깨진다.
+  - 이 브랜치의 diff에는 `backend/` 파일이 0건이라 원인일 수 없다. 마지막으로 기록된 전체 CI 통과는 2026-10-31(FEMS-1a, 1,233건)이고 그 뒤 GW 79·80차와 BEMS-1a·1b가 들어와 테스트가 2,830건으로 늘었다. **main 자체가 빨간 상태인지는 확인하지 않았다** — 확인하려면 깨끗한 worktree에서 CI를 한 번 돌려야 한다.
+  - **CI 정리 단계는 3단계가 실패하면 돌지 않는다.** 워커 DB `factory_studio_ci_<작업>_gw0~9_test`가 남아 다음 실행을 오염시킨다(2차가 그래서 16건이 됐다). 재실행 전에 반드시 지울 것.
+- **재현**: `npm --prefix frontend run typecheck|lint|format:check|build|test`(5단계 전부 수동 통과, vitest 847). 백엔드 직렬 확인은 `TEST_DATABASE_URL=<base>/factory_studio_ci_uiredesign_test uv run --project backend pytest -q <파일들>`. 브라우저는 `.claude/launch.json`의 backend·frontend를 띄우고 `admin`으로 로그인해 1440×900.
+
 ## 2026-11-07 UI-REDESIGN-01 R1 완료 — 앱 셸·탐색 (다음: R3 Figma 플랜 확인)
 
 - **브랜치**: `ui-redesign-01`. **담당**: Claude Code. **백엔드·DB 변경 없음**(프런트만).

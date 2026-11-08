@@ -231,8 +231,14 @@ it("설비 수정은 바뀐 값만 보낸다", async () => {
 it("M-12는 ERP와 별개 품목임을 안내한다", async () => {
   mockApi();
   show("/mes/items");
+  // 안내는 접혀 있다. 펼치면 보인다(UI-REDESIGN-02 ScreenIntro).
+  const intro = await screen.findByText("이 화면 안내");
+  const details = intro.closest("details") as HTMLDetailsElement;
+  expect(details).not.toBeNull();
+  details.open = true;
+  fireEvent(details, new Event("toggle", { bubbles: false }));
   expect(
-    await screen.findByText(/ERP 품목과 코드가 같아도 별개 데이터입니다/),
+    screen.getByText(/ERP 품목과 코드가 같아도 별개 데이터입니다/),
   ).toBeVisible();
 });
 

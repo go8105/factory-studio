@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UI-REDESIGN-02 구도 시안</title>
+    <style>
+      /* 제품의 shared/styles.css 토큰을 그대로 쓴다. 새 색을 만들지 않는다. */
+      :root {
+        --bg: #f7f7f6;
+        --surface: #fff;
+        --surface-2: #f1f1ef;
+        --ink: #1a1c1e;
+        --muted: #5d6165;
+        --border: rgba(26, 28, 30, 0.12);
+        --accent: #1f2d3d;
+        --accent-soft: #e7ebef;
+        --ok-bg: #e8efe9;
+        --ok-fg: #34513b;
+        --warn-bg: #f3ecdc;
+        --warn-fg: #664f1f;
+        --radius: 8px;
+        --radius-sm: 6px;
+        --shadow: 0 1px 2px rgb(0 0 0 / 4%);
+        --s1: 4px;
+        --s2: 8px;
+        --s3: 12px;
+        --s4: 16px;
+        --s5: 20px;
+        --s6: 24px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          14px/1.55 -apple-system,
+          BlinkMacSystemFont,
+          "Apple SD Gothic Neo",
+          "Noto Sans KR",
+          sans-serif;
+      }
+      .wrap {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 32px 24px 80px;
+      }
+      h1 {
+        font-size: 24px;
+        margin: 0 0 4px;
+      }
+      .lede {
+        color: var(--muted);
+        margin: 0 0 8px;
+      }
+      .warn {
+        border: 1px solid var(--border);
+        background: var(--warn-bg);
+        color: var(--warn-fg);
+        border-radius: var(--radius);
+        padding: var(--s3) var(--s4);
+        margin: 16px 0 32px;
+        font-size: 13px;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 40px 0 2px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+      }
+      h2:first-of-type {
+        border-top: 0;
+        padding-top: 0;
+      }
+      .why {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 0 0 16px;
+      }
+      .pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--s5);
+        align-items: start;
+      }
+      @media (max-width: 900px) {
+        .pair {
+          grid-template-columns: 1fr;
+        }
+      }
+      .side > h3 {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        margin: 0 0 8px;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .side.after > h3 {
+        color: var(--accent);
+      }
+      /* 축소 모형. 실제 화면이 아니라 구도만 본다. */
+      .screen {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        height: 330px;
+        display: flex;
+        flex-direction: column;
+        font-size: 9px;
+        line-height: 1.4;
+      }
+      .screen .bar {
+        height: 18px;
+        flex: 0 0 18px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0 6px;
+        font-size: 8px;
+        color: var(--muted);
+      }
+      .screen .body {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 54px 1fr;
+        min-height: 0;
+      }
+      .sb {
+        border-right: 1px solid var(--border);
+        padding: 5px 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        background: var(--bg);
+      }
+      .sb i {
+        display: block;
+        height: 5px;
+        border-radius: 2px;
+        background: var(--surface-2);
+      }
+      .main {
+        padding: 7px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .ttl {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .ttl b {
+        font-size: 11px;
+      }
+      .kpis {
+        display: grid;
+        gap: 5px;
+      }
+      .k {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 5px 6px;
+        background: var(--surface);
+      }
+      .k.tall {
+        padding: 10px 6px 14px;
+      }
+      .k s {
+        display: block;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 8px;
+      }
+      .k b {
+        font-size: 13px;
+      }
+      .cards {
+        display: grid;
+        gap: 5px;
+        min-height: 0;
+      }
+      .c {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 6px;
+        background: var(--surface);
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-height: 0;
+      }
+      .c em {
+        font-style: normal;
+        font-weight: 600;
+        font-size: 9px;
+      }
+      .c p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 8px;
+      }
+      .rows {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .rows u {
+        text-decoration: none;
+        display: flex;
+        justify-content: space-between;
+        border-bottom: 1px dotted var(--border);
+        padding-bottom: 1px;
+        color: var(--muted);
+        font-size: 8px;
+      }
+      .chart {
+        flex: 1;
+        min-height: 26px;
+        border-radius: 3px;
+        background: linear-gradient(
+          180deg,
+          var(--surface-2) 0%,
+          var(--surface) 100%
+        );
+        position: relative;
+      }
+      .chart::after {
+        content: "";
+        position: absolute;
+        inset: auto 4px 5px 4px;
+        height: 1px;
+        background: var(--border);
+      }
+      .empty-space {
+        flex: 1;
+        border: 1px dashed rgba(130, 58, 44, 0.45);
+        border-radius: 4px;
+        display: grid;
+        place-items: center;
+        color: #823a2c;
+        font-size: 8px;
+        background: repeating-linear-gradient(
+          45deg,
+          transparent,
+          transparent 5px,
+          rgba(130, 58, 44, 0.05) 5px,
+          rgba(130, 58, 44, 0.05) 10px
+        );
+      }
+      .tbl {
+        flex: 1;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .tbl .th,
+      .tbl .tr {
+        display: grid;
+        gap: 3px;
+        padding: 3px 5px;
+        border-bottom: 1px solid var(--border);
+        font-size: 8px;
+      }
+      .tbl .th {
+        background: var(--bg);
+        font-weight: 600;
+      }
+      .tbl .tr span,
+      .tbl .th span {
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      .filters {
+        display: flex;
+        gap: 3px;
+        flex-wrap: wrap;
+      }
+      .f {
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 2px 5px;
+        font-size: 8px;
+        color: var(--muted);
+        background: var(--surface);
+      }
+      .f.go {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+      .note {
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 4px 5px;
+        font-size: 8px;
+        color: var(--muted);
+        background: var(--bg);
+      }
+      .chips {
+        display: flex;
+        gap: 3px;
+        font-size: 8px;
+      }
+      .chip {
+        border: 1px solid var(--border);
+        border-radius: 99px;
+        padding: 1px 6px;
+        color: var(--muted);
+      }
+      .chip.on {
+        background: var(--accent-soft);
+        color: var(--ink);
+        border-color: transparent;
+        font-weight: 600;
+      }
+      ul.pts {
+        margin: 12px 0 0;
+        padding-left: 18px;
+        font-size: 13px;
+      }
+      ul.pts li {
+        margin-bottom: 5px;
+      }
+      ul.pts b {
+        color: var(--ink);
+      }
+      .bad {
+        color: #823a2c;
+        font-weight: 600;
+      }
+      .good {
+        color: var(--ok-fg);
+        font-weight: 600;
+      }
+      table.ev {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 13px;
+        margin-top: 10px;
+      }
+      table.ev th,
+      table.ev td {
+        border: 1px solid var(--border);
+        padding: 6px 9px;
+        text-align: left;
+      }
+      table.ev th {
+        background: var(--bg);
+        font-weight: 600;
+      }
+      table.ev td:last-child,
+      table.ev th:last-child {
+        text-align: right;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>UI-REDESIGN-02 — 화면 구도 시안</h1>
+      <p class="lede">
+        2026-11-08 · 현재 화면 구도를 확인하고 바뀔 모습을 먼저 본다. 제품 코드는
+        아직 바꾸지 않았다.
+      </p>
+      <div class="warn">
+        <b>이 페이지는 구도만 보는 축소 모형이다.</b> 실제 화면·실제 데이터가
+        아니고, 글자는 읽을 수 없게 줄여 두었다. 보려는 것은 “무엇이 어디에, 얼마나
+        크게 놓이는가”다. 색·글꼴·아이콘은 기존 기준(백자·먹색·쪽빛)을 그대로 쓴다.
+      </div>
+
+      <h2>0. 지금 무엇이 문제인가 — 실제 화면에서 잰 것</h2>
+      <p class="why">
+        1440×900에서 솔루션 8곳의 대시보드를 열어 본문 아래쪽 빈 공간의 비율을
+        눈으로 쟀다.
+      </p>
+      <table class="ev">
+        <tr>
+          <th>화면</th>
+          <th>본문 구성</th>
+          <th>아래쪽 빈 공간</th>
+        </tr>
+        <tr>
+          <td>SPC S-01</td>
+          <td>KPI 5개뿐. 아래 아무것도 없음</td>
+          <td class="bad">약 85%</td>
+        </tr>
+        <tr>
+          <td>HR 인사 현황</td>
+          <td>KPI 4 + 표 3개(모두 머리글만, 내용 1줄)</td>
+          <td class="bad">약 60%</td>
+        </tr>
+        <tr>
+          <td>MES M-01</td>
+          <td>KPI 4 + 2열 카드 5장(대부분 빈 상태)</td>
+          <td class="bad">약 45%</td>
+        </tr>
+        <tr>
+          <td>WMS W-01</td>
+          <td>KPI 4 + 2열 카드 3장</td>
+          <td class="bad">약 40%</td>
+        </tr>
+        <tr>
+          <td>QMS Q-01</td>
+          <td>KPI 4 + 2열(왼쪽 3장·오른쪽 2장, 높이 어긋남)</td>
+          <td class="bad">약 35%</td>
+        </tr>
+        <tr>
+          <td>FEMS F-01</td>
+          <td>KPI 4 + 차트 + 2열 카드 4장</td>
+          <td class="good">거의 없음 — 가장 잘 된 화면</td>
+        </tr>
+      </table>
+      <ul class="pts">
+        <li>
+          <b>세로를 못 쓴다.</b> 카드가 내용만큼만 높아지고 남은 높이를 아무도
+          가져가지 않는다. 데이터가 적은 솔루션일수록 화면이 비어 보인다.
+        </li>
+        <li>
+          <b>가로를 못 쓴다.</b> 본문 폭 제한이 없어 1440px에서 카드 한 장이
+          1,100px인데 담긴 내용은 “0건” 한 줄이다.
+        </li>
+        <li>
+          <s
+            >카드 높이가 어긋나 계단이 된다 — <b>틀린 진단이었다.</b></s
+          >
+          2026-11-08에 1440×900에서 실제로 재 보니 같은 행의 카드는 229/229,
+          151/151로 <b>이미 맞고 있었다.</b> 앞서 2열로 보이지 않는 좁은 폭에서
+          본 것을 계단으로 착각했다.
+        </li>
+        <li>
+          <b>규격이 솔루션마다 다르다.</b> KPI가 SPC만 5개, 나머지는 4개다.
+        </li>
+        <li>
+          <b>빈 상태가 큰 면적을 먹는다.</b> “이달 불량이 없습니다” 한 줄에 카드 한
+          장(약 160px)을 쓴다.
+        </li>
+      </ul>
+
+      <h2>1. 대시보드 — KPI 줄 + 주요 차트 + 처리할 일</h2>
+      <p class="why">
+        고치는 것: 남은 높이를 본문이 흡수한다 · 빈 카드는 카드를 없애고 한 줄로
+        접는다 · KPI는 어느 솔루션이든 4개 한 줄.
+      </p>
+      <div class="pair">
+        <div class="side">
+          <h3>현재 (MES M-01)</h3>
+          <div class="screen">
+            <div class="bar">Factory Studio · MES 생산관리</div>
+            <div class="body">
+              <div class="sb">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
+                ><i></i><i></i><i></i>
+              </div>
+              <div class="main">
+                <div class="ttl"><b>생산 개요</b><span>2026년 11월</span></div>
+                <div class="kpis" style="grid-template-columns: repeat(4, 1fr)">
+                  <div class="k tall"><s>진행 중 지시</s><b>11</b></div>
+                  <div class="k tall"><s>당월 생산</s><b>0</b></div>
+                  <div class="k tall"><s>양품률</s><b>—</b></div>
+                  <div class="k tall"><s>입고 완료</s><b>0</b></div>
+                </div>
+                <div class="cards" style="grid-template-columns: 1fr 1fr">
+                  <div class="c">
+                    <em>공정별 진행 현황</em>
+                    <div class="rows">
+                      <u><span>사출</span><span>0 · 2</span></u>
+                      <u><span>조립</span><span>2 · 2</span></u>
+                      <u><span>검사</span><span>0 · 2</span></u>
+                    </div>
+                  </div>
+                  <div class="c">
+                    <em>불량 사유 상위</em>
+                    <p>이달 불량이 없습니다.</p>
+                  </div>
+                  <div class="c">
+                    <em>계획 대비 실적</em>
+                    <p>이달 확정한 생산계획이 없습니다.</p>
+                  </div>
+                  <div class="c">
+                    <em>자재 대기</em>
+                    <div class="rows">
+                      <u><span>미해결 상태</span><span>2건</span></u>
+                      <u><span>미해결 LOT</span><span>2건</span></u>
+                    </div>
+                  </div>
+                </div>
+                <div class="empty-space">빈 공간 — 화면의 약 45%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="side after">
+          <h3>제안</h3>
+          <div class="screen">
+            <div class="bar">Factory Studio · MES 생산관리</div>
+            <div class="body">
+              <div class="sb">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
+                ><i></i><i></i><i></i>
+              </div>
+              <div class="main">
+                <div class="ttl"><b>생산 개요</b><span>2026년 11월</span></div>
+                <div class="kpis" style="grid-template-columns: repeat(4, 1fr)">
+                  <div class="k"><s>진행 중 지시</s><b>11</b></div>
+                  <div class="k"><s>당월 생산</s><b>0</b></div>
+                  <div class="k"><s>양품률</s><b>—</b></div>
+                  <div class="k"><s>입고 완료</s><b>0</b></div>
+                </div>
+                <div
+                  class="cards"
+                  style="grid-template-columns: 3fr 2fr; flex: 1"
+                >
+                  <div class="c">
+                    <em>공정별 진행 추이</em>
+                    <div class="chart"></div>
+                    <div class="rows">
+                      <u><span>사출</span><span>0 · 2</span></u>
+                      <u><span>조립</span><span>2 · 2</span></u>
+                      <u><span>검사</span><span>0 · 2</span></u>
+                    </div>
+                  </div>
+                  <div class="c">
+                    <em>처리할 일 4</em>
+                    <div class="rows">
+                      <u><span>자재 대기</span><span>2건 →</span></u>
+                      <u><span>미해결 LOT</span><span>2건 →</span></u>
+                      <u><span>확정할 생산계획</span><span>0건</span></u>
+                      <u><span>이달 불량</span><span>0건</span></u>
+                    </div>
+                    <p style="margin-top: auto">
+                      값이 없는 줄도 왜 없는지 여기서 밝힌다.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ul class="pts">
+        <li>
+          빈 카드 3장(불량 사유·계획 대비 실적·자재 대기)을
+          <b>“처리할 일” 한 장의 목록 줄</b>로 합친다. 카드 수가 줄고 각 줄이 바로
+          처리 화면으로 간다.
+        </li>
+        <li>
+          왼쪽 주요 카드가 <b>남은 높이를 흡수</b>한다. 데이터가 적어도 화면이
+          비지 않는다.
+        </li>
+        <li>
+          KPI 타일 높이를 줄여(현재 약 110px → 88px) 본문에 세로를 돌려준다.
+        </li>
+        <li>
+          <b>SPC는 KPI 5개 → 4개</b>로 맞추고 다섯째 값은 주요 카드 안으로
+          내린다.
+        </li>
+      </ul>
+
+      <h2>2. 조회 목록 — 필터가 길고 표가 가로를 못 채운다</h2>
+      <p class="why">
+        고치는 것: 자주 쓰는 조건만 남기고 나머지는 접는다 · 표가 남은 높이를
+        채운다(이미 규약에 있으나 일부 화면만 지킨다) · 열 수에 맞춰 폭을 나눈다.
+      </p>
+      <div class="pair">
+        <div class="side">
+          <h3>현재 (FEMS F-02 계측 조회)</h3>
+          <div class="screen">
+            <div class="bar">Factory Studio · FEMS 에너지관리</div>
+            <div class="body">
+              <div class="sb">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
+                ><i></i><i></i><i></i>
+              </div>
+              <div class="main">
+                <div class="ttl"><b>계측 조회</b><span>? 도움말</span></div>
+                <div class="filters">
+                  <span class="f">시작일 2026.09.17</span>
+                  <span class="f">종료일 2026.09.23</span>
+                  <span class="f">계측기 전체</span>
+                  <span class="f">채널 전체</span>
+                  <span class="f">에너지원 전체</span>
+                  <span class="f">품질 전체</span>
+                  <span class="f go">조회</span>
+                </div>
+                <div class="note">총 1,528건 · 열 정렬은 현재 페이지 기준</div>
+                <div class="tbl">
+                  <div
+                    class="th"
+                    style="grid-template-columns: 1.2fr 1fr 1.4fr 1fr 0.5fr 0.5fr 0.5fr"
+                  >
+                    <span>관측 시각</span><span>계측기</span><span>채널</span
+                    ><span>에너지원</span><span>값</span><span>단위</span
+                    ><span>품질</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1.2fr 1fr 1.4fr 1fr 0.5fr 0.5fr 0.5fr"
+                  >
+                    <span>09.17 01:00</span><span>M-ASM-01</span
+                    ><span>조립1호 전력</span><span>ELEC</span><span>1.06</span
+                    ><span>kWh</span><span>정상</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1.2fr 1fr 1.4fr 1fr 0.5fr 0.5fr 0.5fr"
+                  >
+                    <span>09.17 01:00</span><span>M-ASM-02</span
+                    ><span>조립2호 전력</span><span>ELEC</span><span>1.06</span
+                    ><span>kWh</span><span>정상</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1.2fr 1fr 1.4fr 1fr 0.5fr 0.5fr 0.5fr"
+                  >
+                    <span>09.17 01:00</span><span>M-INJ-01</span
+                    ><span>사출1호 전력</span><span>ELEC</span><span>45.0</span
+                    ><span>kWh</span><span>정상</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1.2fr 1fr 1.4fr 1fr 0.5fr 0.5fr 0.5fr"
+                  >
+                    <span>09.17 01:00</span><span>M-INJ-02</span
+                    ><span>사출2호 전력</span><span>ELEC</span><span>45.0</span
+                    ><span>kWh</span><span>정상</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1.2fr 1fr 1.4fr 1fr 0.5fr 0.5fr 0.5fr"
+                  >
+                    <span>09.17 01:00</span><span>M-MAIN</span
+                    ><span>수전 전력</span><span>ELEC</span><span>156.1</span
+                    ><span>kWh</span><span>정상</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="side after">
+          <h3>제안</h3>
+          <div class="screen">
+            <div class="bar">Factory Studio · FEMS 에너지관리</div>
+            <div class="body">
+              <div class="sb">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
+                ><i></i><i></i><i></i>
+              </div>
+              <div class="main">
+                <div class="ttl"><b>계측 조회</b><span>? 도움말</span></div>
+                <div class="filters">
+                  <span class="f">2026.09.17 ~ 09.23</span>
+                  <span class="f">계측기 전체</span>
+                  <span class="f">조건 3개 더 ▾</span>
+                  <span class="f go">조회</span>
+                  <span style="flex: 1"></span>
+                  <span class="f">CSV</span>
+                </div>
+                <div class="chips">
+                  <span class="chip on">전체 1,528</span>
+                  <span class="chip">이상 6</span>
+                  <span class="chip">보정됨 2</span>
+                </div>
+                <div class="tbl">
+                  <div
+                    class="th"
+                    style="grid-template-columns: 1fr 1fr 1.6fr 0.8fr 0.7fr 0.6fr"
+                  >
+                    <span>관측 시각</span><span>계측기</span><span>채널</span
+                    ><span>값</span><span>단위</span><span>품질</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1fr 1fr 1.6fr 0.8fr 0.7fr 0.6fr"
+                  >
+                    <span>09.17 01:00</span><span>M-ASM-01</span
+                    ><span>조립1호 전력</span><span>1.06</span><span>kWh</span
+                    ><span>정상</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1fr 1fr 1.6fr 0.8fr 0.7fr 0.6fr"
+                  >
+                    <span>09.17 01:00</span><span>M-ASM-02</span
+                    ><span>조립2호 전력</span><span>1.06</span><span>kWh</span
+                    ><span>정상</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1fr 1fr 1.6fr 0.8fr 0.7fr 0.6fr"
+                  >
+                    <span>09.17 01:00</span><span>M-INJ-01</span
+                    ><span>사출1호 전력</span><span>45.0</span><span>kWh</span
+                    ><span>정상</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1fr 1fr 1.6fr 0.8fr 0.7fr 0.6fr"
+                  >
+                    <span>09.17 01:00</span><span>M-INJ-02</span
+                    ><span>사출2호 전력</span><span>45.0</span><span>kWh</span
+                    ><span>정상</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1fr 1fr 1.6fr 0.8fr 0.7fr 0.6fr"
+                  >
+                    <span>09.17 01:00</span><span>M-MAIN</span
+                    ><span>수전 전력</span><span>156.1</span><span>kWh</span
+                    ><span>정상</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1fr 1fr 1.6fr 0.8fr 0.7fr 0.6fr"
+                  >
+                    <span>09.17 02:00</span><span>M-ASM-01</span
+                    ><span>조립1호 전력</span><span>1.06</span><span>kWh</span
+                    ><span>정상</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1fr 1fr 1.6fr 0.8fr 0.7fr 0.6fr"
+                  >
+                    <span>09.17 02:00</span><span>M-INJ-01</span
+                    ><span>사출1호 전력</span><span>45.0</span><span>kWh</span
+                    ><span>정상</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ul class="pts">
+        <li>
+          조건 6개를 <b>기간·계측기 둘만 남기고 나머지는 “조건 더” 안으로</b> 접는다.
+          접힌 조건을 쓰면 칩으로 남아 무엇이 걸려 있는지 보인다.
+        </li>
+        <li>
+          “에너지원” 열은 채널 이름에 이미 들어 있어 <b>열 하나를 지운다</b>.
+          남은 폭을 채널·값이 가져간다.
+        </li>
+        <li>
+          결과 수 줄을 <b>상태 칩</b>으로 바꾼다. 총계만 보여 주는 대신 이상·보정
+          건수를 함께 보여 주고 눌러서 거른다.
+        </li>
+        <li>표가 가져가는 높이가 늘어 한 화면에 보이는 행이 5 → 7행이 된다.</li>
+      </ul>
+
+      <h2>3. 기준정보 — 안내문이 표 위를 덮는다</h2>
+      <p class="why">
+        고치는 것: 화면 위 안내 블록 2개를 접는다 · 비어 있는 열(“—”만 있는 열)을
+        숨긴다 · 표가 남은 높이를 쓴다.
+      </p>
+      <div class="pair">
+        <div class="side">
+          <h3>현재 (MES M-12 품목)</h3>
+          <div class="screen">
+            <div class="bar">Factory Studio · MES 생산관리</div>
+            <div class="body">
+              <div class="sb">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
+                ><i></i><i></i><i></i>
+              </div>
+              <div class="main">
+                <div class="ttl"><b>품목</b><span>품목 등록</span></div>
+                <div class="note">
+                  1. 사업장 → 공정 → 설비 순서로 등록합니다. 2. 품목과 공정이
+                  있어야 BOM·경로를 등록합니다.
+                </div>
+                <div class="note">
+                  이 품목은 MES 전용입니다. ERP 품목과 코드가 같아도 별개
+                  데이터입니다.
+                </div>
+                <div class="note">총 7건 · 열 정렬은 현재 페이지 기준</div>
+                <div class="tbl" style="flex: 0 0 auto">
+                  <div
+                    class="th"
+                    style="grid-template-columns: repeat(9, 1fr)"
+                  >
+                    <span>코드</span><span>품목</span><span>규격</span
+                    ><span>소재</span><span>색상</span><span>단위</span
+                    ><span>종류</span><span>구분</span><span>상태</span>
+                  </div>
+                  <div class="tr" style="grid-template-columns: repeat(9, 1fr)">
+                    <span>FG-C100</span><span>—</span><span>—</span
+                    ><span>—</span><span>완성 A</span><span>EA</span
+                    ><span>사출</span><span>완제품</span><span>사용</span>
+                  </div>
+                  <div class="tr" style="grid-template-columns: repeat(9, 1fr)">
+                    <span>FG-C200</span><span>—</span><span>—</span
+                    ><span>—</span><span>완성 B</span><span>EA</span
+                    ><span>사출</span><span>완제품</span><span>사용</span>
+                  </div>
+                  <div class="tr" style="grid-template-columns: repeat(9, 1fr)">
+                    <span>RM-PBT</span><span>—</span><span>—</span
+                    ><span>—</span><span>원자재</span><span>KG</span
+                    ><span>—</span><span>원자재</span><span>사용</span>
+                  </div>
+                  <div class="tr" style="grid-template-columns: repeat(9, 1fr)">
+                    <span>SF-H100</span><span>—</span><span>—</span
+                    ><span>—</span><span>반제품</span><span>EA</span
+                    ><span>조립</span><span>반제품</span><span>사용</span>
+                  </div>
+                </div>
+                <div class="empty-space">빈 공간 — 화면의 약 40%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="side after">
+          <h3>제안</h3>
+          <div class="screen">
+            <div class="bar">Factory Studio · MES 생산관리</div>
+            <div class="body">
+              <div class="sb">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
+                ><i></i><i></i><i></i>
+              </div>
+              <div class="main">
+                <div class="ttl"><b>품목</b><span>품목 등록</span></div>
+                <div class="filters">
+                  <span class="f">검색</span>
+                  <span class="f">종류 전체</span>
+                  <span class="f">? 이 화면 안내 ▾</span>
+                  <span style="flex: 1"></span>
+                  <span class="f">열 선택</span>
+                  <span class="f">CSV</span>
+                </div>
+                <div class="chips">
+                  <span class="chip on">전체 7</span>
+                  <span class="chip">완제품 2</span>
+                  <span class="chip">반제품 1</span>
+                  <span class="chip">원자재 4</span>
+                </div>
+                <div class="tbl">
+                  <div
+                    class="th"
+                    style="grid-template-columns: 1fr 1.6fr 0.8fr 1fr 1fr 0.8fr"
+                  >
+                    <span>코드</span><span>품목명</span><span>단위</span
+                    ><span>종류</span><span>구분</span><span>상태</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1fr 1.6fr 0.8fr 1fr 1fr 0.8fr"
+                  >
+                    <span>FG-C100</span><span>커버 C100</span><span>EA</span
+                    ><span>사출</span><span>완제품</span><span>사용</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1fr 1.6fr 0.8fr 1fr 1fr 0.8fr"
+                  >
+                    <span>FG-C200</span><span>커버 C200</span><span>EA</span
+                    ><span>사출</span><span>완제품</span><span>사용</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1fr 1.6fr 0.8fr 1fr 1fr 0.8fr"
+                  >
+                    <span>FG-T300</span><span>단자함 T300</span><span>EA</span
+                    ><span>사출</span><span>완제품</span><span>사용</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1fr 1.6fr 0.8fr 1fr 1fr 0.8fr"
+                  >
+                    <span>RM-PBT</span><span>PBT 수지</span><span>KG</span
+                    ><span>—</span><span>원자재</span><span>사용</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1fr 1.6fr 0.8fr 1fr 1fr 0.8fr"
+                  >
+                    <span>RM-PA6</span><span>PA6 수지</span><span>KG</span
+                    ><span>—</span><span>원자재</span><span>사용</span>
+                  </div>
+                  <div
+                    class="tr"
+                    style="grid-template-columns: 1fr 1.6fr 0.8fr 1fr 1fr 0.8fr"
+                  >
+                    <span>SF-H100</span><span>서브 하우징 H100</span
+                    ><span>EA</span><span>조립</span><span>반제품</span
+                    ><span>사용</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ul class="pts">
+        <li>
+          안내 블록 2개를 <b>“이 화면 안내” 한 버튼으로 접는다</b>. 처음 온 사람은
+          눌러서 보고, 매일 쓰는 사람은 표부터 본다.
+        </li>
+        <li>
+          값이 전부 “—”인 열(규격·소재·색상)을 <b>기본에서 숨기고 “열 선택”</b>으로
+          켠다. 9열 → 6열이 되어 품목명이 읽을 수 있는 폭을 얻는다.
+        </li>
+        <li>종류별 건수를 칩으로 올려 표를 거르는 입구로 쓴다.</li>
+      </ul>
+
+      <h2>4. 이 시안에 없는 것</h2>
+      <ul class="pts">
+        <li>
+          <b>색·글꼴·아이콘을 바꾸지 않는다.</b> 백자·먹색·쪽빛과 단색 선 아이콘,
+          그림자 4% 기준은 그대로다. 바꾸는 것은 <b>배치와 밀도</b>뿐이다.
+        </li>
+        <li>
+          <b>새 라이브러리를 넣지 않는다.</b> 차트는 지금 쓰는 방식 그대로다.
+        </li>
+        <li>
+          <b>업무 규칙·계산·DB를 건드리지 않는다.</b> 화면에 무엇을 보여 줄지만
+          바꾼다.
+        </li>
+        <li>
+          flow·3D 공장·CAD·CAM·GW 셸은 이번 범위 밖이다(각각 다른 셸이고 GW는 다른
+          담당이다).
+        </li>
+      </ul>
+    </div>
+  </body>
+</html>

@@ -220,6 +220,25 @@ export function RevealAnchor({ when }: { when: unknown }) {
   }, [key]);
   return <div ref={ref} className="reveal-anchor" aria-hidden="true" />;
 }
+/**
+ * 화면 위 안내를 접어 둔다. 처음 온 사람은 펼쳐 보고, 매일 쓰는 사람은 표부터 본다.
+ * 기준정보 화면의 안내 블록이 표 위 100px을 늘 차지하던 것을 대신한다(UI-REDESIGN-02).
+ */
+export function ScreenIntro({
+  children,
+  label = "이 화면 안내",
+}: {
+  children: ReactNode;
+  label?: string;
+}) {
+  return (
+    <details className="screen-intro">
+      <summary>{label}</summary>
+      <div className="screen-intro-body">{children}</div>
+    </details>
+  );
+}
+
 export function NotFound() {
   return (
     <section className="panel">

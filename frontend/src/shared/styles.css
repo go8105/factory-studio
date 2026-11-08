@@ -1284,6 +1284,40 @@ th[aria-sort="none"] button span {
   }
 }
 
+/* 화면 위 안내는 접어 둔다. 늘 펼쳐 두면 표가 그만큼 아래로 밀린다(UI-REDESIGN-02). */
+.screen-intro {
+  margin: 0 0 var(--s4);
+}
+.screen-intro > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  list-style: none;
+}
+.screen-intro > summary::-webkit-details-marker {
+  display: none;
+}
+.screen-intro > summary::before {
+  content: "?";
+  font-weight: 700;
+}
+.screen-intro > summary:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+.screen-intro[open] > summary {
+  margin-bottom: var(--s3);
+}
+.screen-intro-body > :last-child {
+  margin-bottom: 0;
+}
+
 /* ---- 핵심 지표(KPI) · 차트 ---- */
 /* KPI: 본문 폭 640px 이상이면 한 줄, 그보다 좁으면 2열(3+1로 떨어지지 않는다).
    flex-basis가 (640px − 본문 폭)에 비례해 음수(→0, 한 줄) 또는 매우 큰 값(→최대 폭 50%, 2열)이 된다. */
@@ -1355,6 +1389,19 @@ th[aria-sort="none"] button span {
 .dashboard-grid > .panel,
 .dashboard-grid > figure {
   margin: 0;
+}
+/* 대시보드가 남은 높이를 쓴다. 넓고 높은 화면에서만 — 좁거나 낮으면 자연 스크롤 그대로다.
+   재어 보니 MES는 아래쪽 253px(28%), SPC는 648px(72%)이 빈 채로 남았다(UI-REDESIGN-02). */
+@media (min-width: 1025px) and (min-height: 600px) {
+  .solution-content:has(> .dashboard-grid:last-child) {
+    display: flex;
+    flex-direction: column;
+    min-height: var(--app-h);
+  }
+  .solution-content > .dashboard-grid:last-child {
+    flex: 1;
+    align-content: stretch;
+  }
 }
 .reading-chart {
   margin: 0 0 var(--s4);
