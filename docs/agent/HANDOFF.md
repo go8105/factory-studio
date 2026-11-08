@@ -1,3 +1,13 @@
+# 2026-11-08 ABOUT-03 완료·누적 main 운영 배포 완료
+
+- 브랜치 **main**, 운영제품 **d932345**, 제품변경98a34d1(ABOUT-02·03), 기록 커밋은 git log -1 확인. main/origin에 반영했고 최종 기록은 문서만이다. 진행2/6, **ABOUT-04는 사용자 확인 전 시작하지 않는다**.
+- 결과/재현/주의: [ABOUT-03 상세](ABOUT_콘텐츠검증_수동배포_ABOUT-03.md). 공개 https://eip.hugh-d.com/about. profile.json 설계서4장 대조·누락시연안내 보완·문서제목 데이터 연결. 노트/PDF/로그인링크/OG 미구현.
+- 전체 로컬CI 직렬 성공: 도구144·backend2830pass/54skip/1deselected·perf1·DB왕복/DDL0·프런트854/5검증. GitHub CI 성공을 주장하지 않으며 실제로컬검증으로 수동배포 게이트 대체. backend 직렬87분, 전체18:19~19:50KST. WIP들은 제품코드 불변.
+- 서버6df6e71/gw_wms_merge→d932345/bems1/262표로 사용자 승인 전체누적배포. 시드 sv-20261018-wms1 동일·템플릿유지. 원점/공개200·DDL0·직후5xx0·기존210표 건수감소0. FS API/정리타이머 및 이지스/nginx active·office200. 운영 실로그인 전체업무/GW실회사인수·외부보관/전체회수는 미검증·기존ready=false/PARTIAL제한유지.
+- 보호백업은 서버 `/srv/factory-studio/backups/20261108-about03-final-r2`(700/600). dump/TOC/기존프런트·비공개자산tar/체크섬/전후건수. **SSH bash -s의 pg_dump stdin 소비로 후속검사 누락**을 보완했고, 변경 전 dump를 별도 새DB에 실제 복원해 건수기준 확보·검증DB삭제. 운영DB 복원/초기화 없음. 입력 불필요한 docker exec는 `< /dev/null` 사용. 최초보호백업도 서버에 보존.
+- 공개 읽기검사: `node docs/agent/assets/about03/public-check.mjs`. 실제Chromium1440/390·소개API요청0/탭·카드·시연안내·앵커·노트0편·기존진입·가로넘침/pageerror0 확인. 캡처는 work 임시파일이며 필수인계자료 아님. 로컬CI DB/서버검증DB/임시빌드worktree 정리 완료.
+- 다음: 사용자 확인 후 ABOUT-04(Figma context/스크린샷 먼저) →05→06→07 각각 보고/확인. Nginx 이번변경0, ABOUT-06은 블록보고만. 실제원본/공개PDF 미제공 상태.
+
 # 2026-11-08 ABOUT-03 배포 WIP 3 — 백엔드 회귀 약95%
 
 - 전체CI는 계속 실행 중이며 미통과다. 백엔드 직렬 마지막 구간에서 실패 표시 없음. main 런타임 기준98a34d1 이후 제품 소스 차이0, 운영변경/push 없음.
