@@ -21,6 +21,7 @@ import { SessionProvider, useSession } from "./session";
 import { api } from "../shared/api";
 import { FavoritesProvider } from "../shared/favorites";
 import { ErrorNotice, Loading, NotFound } from "../shared/components";
+import { About } from "../portal/About";
 import { Entry } from "../portal/Entry";
 import { Home } from "../portal/Home";
 // Markdown 렌더러와 정적 콘텐츠는 첫 화면에 필요 없으므로 분리한다.
@@ -280,12 +281,22 @@ function PortalRoutes() {
   );
 }
 
-export function App() {
+function SessionApp() {
   return (
     <SessionProvider>
       <FavoritesProvider>
         <PortalRoutes />
       </FavoritesProvider>
     </SessionProvider>
+  );
+}
+
+// 공개 소개는 세션 확인/API 응답 없이 열리며 기존 인증 흐름은 그대로 둔다.
+export function App() {
+  return (
+    <Routes>
+      <Route path="/about" element={<About />} />
+      <Route path="*" element={<SessionApp />} />
+    </Routes>
   );
 }

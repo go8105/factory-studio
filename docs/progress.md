@@ -1,3 +1,15 @@
+# 2026-11-08 ABOUT-02 완료 — 공개 자기소개 화면
+
+- 브랜치 `codex/about-02`(`docs/about-01` 0281a08 기반). 사용자 확인 대기. 완료 ID ABOUT-02, 진행 1/6. 사용자 답변에 따라 `profile.json`을 이번 ID에서 함께 작성했고 ABOUT-03은 문안 대조·분리 검증으로 남긴다.
+- 변경: `frontend/src/app/App.tsx`, `portal/About.tsx`·`About.css`·`about.test.tsx`, `content/about/profile.json`. 상단 바·200px sticky 목차/스크롤 강조·880px 본문·Hero/숫자·경력 2열/분류 이동·프로젝트 3분류 17개/펼침·스택 6그룹·수상/교육 2열·연락. 공통 Badge/버튼/tabs 및 기존 CSS 토큰 재사용. shared/styles.css·로그인/세션·GW·백엔드·DB 변경 없음.
+- Figma: OAuth 계정/파일 세션 접근 복구 확인. `7:309`·`8:436`·`2:24` 모두 get_design_context(스크린샷 포함) 및 get_screenshot 수신, 시안/구현 이미지 나란히 눈으로 비교. 이미지·사진 자산 없음. 문안은 ABOUT-01 4장 우선, 연락값은 Figma 시안의 공개 이메일/GitHub 사용.
+- 시안 차이: Pretendard 시스템 글꼴(시안 Noto Sans KR), 설계서 소개·스택·수상·외국어 전체 문안과 FEMS 8개 전부 노출로 높이/줄바꿈 변경(시안은 6개 + 전체 보기). 없는 기술 노트·PDF는 숨김. 프로젝트별 미정 기간/역할/스택은 시안 문구로 추정하지 않음. 공통 토큰 radius-lg 사용. 공개 경로는 세션 장애에도 열리도록 SessionProvider 밖 App 라우트에 배치(기존 `/`는 기존 SessionApp 라우트 유지).
+- 기술 노트 최신 3편 미리보기 UI/날짜 역순·0편 숨김 완료. 실제 Markdown glob/목록·본문·라우트 연결은 ABOUT-04 범위로 미착수. 기본값 0편이며 상단/목차 노트 링크도 숨긴다. PDF 버튼 구현은 ABOUT-07로 남긴다.
+- 최종 실행 검증: `npm --prefix frontend run typecheck`, `lint`, `format:check`, `test`, `build` 모두 exit 0. 전체 100파일/853건(소개 6건 포함). 소개 검증: 세션 API 없이 비로그인 접근·이름/숫자·분류 전환·펼침/접힘·경력 분류 이동·스크롤 목차·0편 숨김·미리보기 최신 3편·전화번호 패턴 없음. 초기 버튼 접근성 이름/노트 렌더 누락 테스트 실패는 수정 후 재통과. 빌드에는 기존 CAD/WASM·500kB 청크 경고, 전체 테스트에는 jsdom 문서 이동 안내가 있으나 종료 0.
+- 실제 headless Chromium: 1440×900 렌더/펼침/분류/목차(기술 스택 현재 항목 확인), 390×900 1열/목차 숨김·가로 넘침 false·pageerror 0. 이미지 비교는 `work/about-02/` 임시 캡처 사용(제품 자산 아님). HTML/CSS 구현에 Figma 스크린샷 삽입 없음.
+- 미실행: `/notes`·`/notes/:slug` 비로그인 및 없는 slug 검증(ABOUT-04 미구현), 노트 실제 파일 연동, 백엔드/DB/전체 로컬 CI, 운영 Nginx·배포. 원격 push·main 병합 없음.
+- 다음: 사용자 ABOUT-02 확인 → ABOUT-03 콘텐츠 대조·분리 검증 → ABOUT-04~07 순차. 공개 PDF·사용자 노트 원고 미제공 상태 유지.
+
 # 2026-11-08 ABOUT-02 착수 차단 — Figma 파일 접근 권한
 
 - 브랜치: `codex/about-02`, `docs/about-01`의 `0281a08`에서 분기. 구현 진행률 0/6(ABOUT-02~07), 완료 ID 없음.
