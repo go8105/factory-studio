@@ -60,6 +60,7 @@ function ProjectCard({ project }: { project: Project }) {
             <dt>{project.problem ? "해결" : "소개"}</dt>
             <dd>{project.solution}</dd>
           </dl>
+          {project.linkLabel && <p>{project.linkLabel}</p>}
           {project.link && <Link to={project.link}>프로젝트 보기 →</Link>}
         </div>
       )}
@@ -92,7 +93,7 @@ export function About({ notes = noNotes }: { notes?: AboutNote[] }) {
   const [active, setActive] = useState("intro");
   useEffect(() => {
     const previous = document.title;
-    document.title = `${profile.name} · 제조 IT 개발자`;
+    document.title = `${profile.name} · ${profile.tagline}`;
     const update = () => {
       let current = "intro";
       for (const [id] of sections) {

@@ -127,3 +127,11 @@ it("노트 미리보기는 실제로 전달된 데이터의 최신 3편만 표�
     "/notes/note-4",
   );
 });
+it("개인 프로젝트의 시연 안내는 JSON 공개 문안으로 표시한다", () => {
+  openAbout();
+  fireEvent.click(screen.getByRole("button", { name: "개인 2" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "자세히 보기 · 이지스(Aegis) AI 비서" }),
+  );
+  expect(screen.getByText("시연 요청 시")).toBeVisible();
+});

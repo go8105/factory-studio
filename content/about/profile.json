@@ -59,7 +59,8 @@
       "problem": "기획~운영을 1인이 해야 하고, 여러 도입기업을 받아야 함",
       "solution": "FE · BFF · REST · 알람엔진 · 전력 파이프라인 5모듈 분리(Java+Python), 운영/테스트 분리",
       "result": "모듈별 독립 배포 · 28개 테이블 설계 · 운영 중",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "fems-2",
@@ -69,7 +70,8 @@
       "problem": "15분 배치 구조라 피크·과전류를 즉시 못 잡음",
       "solution": "asyncio 알람 엔진 분리, Redis TTL 중복 억제",
       "result": "감지 지연 15분 → 5초 이내",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "fems-3",
@@ -79,7 +81,8 @@
       "problem": "신규 계측 단말의 채널별 데이터 식별 불가",
       "solution": "(device, channel) 복합 키 전환 — Flux 템플릿 12종·엔티티 10여 종·DB 뷰 일괄 개편",
       "result": "운영 중단 없이 전환",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "fems-4",
@@ -89,7 +92,8 @@
       "problem": "데이터 12개월 미만",
       "solution": "XGBoost vs LSTM 비교, 계절성 나이브 대비 Skill Score 검증",
       "result": "학습 기준 MAPE 3.68%, 공인시험(MAPE ≤10%) 2026.11",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "fems-5",
@@ -99,7 +103,8 @@
       "problem": "공급·도입기업 데이터 혼용, 외부 포털 인증 부재",
       "solution": "기업 필터를 FE→BFF→REST 전 계층 전파, JWT SSO",
       "result": "전 화면 기업 간 데이터 격리",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "fems-6",
@@ -109,7 +114,8 @@
       "problem": "정부과제 KPI 수기 집계",
       "solution": "일별 자동 집계 배치 5종 + 관리 화면 3종",
       "result": "수기 집계 제거",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "fems-7",
@@ -119,7 +125,8 @@
       "problem": "5모듈 수동 배포, 운영 DB 포트 외부 노출",
       "solution": "GitHub Actions + Docker Compose + Nginx/SSL, 노출 포트 전수 점검",
       "result": "커밋→운영 자동화, 노출 포트 차단",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "fems-8",
@@ -129,7 +136,8 @@
       "problem": "실시간 조회 3~10분 지연 / 이미지 도면의 3D 정합성",
       "solution": "Redis Pub/Sub 구독 구조 / DXF 변환 표준화 → 3D(JSON)",
       "result": "지연 0초대 / 실치수 3D 시각화",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "mes-1",
@@ -139,7 +147,8 @@
       "problem": "재고 결산 오차",
       "solution": "PDA 바코드 실사 + 재고 차이 자동 조정 프로시저",
       "result": "결산 시간 50%↓, 정합성 99%+",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "mes-2",
@@ -149,7 +158,8 @@
       "problem": "100건 10초",
       "solution": "트랜잭션 범위 분리 + Bulk Insert",
       "result": "10초 → 2초",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "mes-3",
@@ -159,7 +169,8 @@
       "problem": "설비별 수집 프로그램 20개",
       "solution": "설정 기반 통합 엔진",
       "result": "관리 포인트 95%↓ (20→1)",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "mes-4",
@@ -169,7 +180,8 @@
       "problem": "원자재 부족 예측 불가",
       "solution": "임계치 알림 + 생산계획 연동 자동 발주",
       "result": "품절로 인한 공정 중단 0건",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "mes-5",
@@ -179,7 +191,8 @@
       "problem": "콘솔 수집기 비정상 종료",
       "solution": "Windows Service 전환 + 로깅",
       "result": "재시작 시 자동 실행",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "mes-6",
@@ -189,7 +202,8 @@
       "problem": "동시 스캔 혼선",
       "solution": "메시지 큐 + Locking",
       "result": "오입력 0건, 처리 1초+↓",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "mes-7",
@@ -199,7 +213,8 @@
       "problem": "하드코딩 쿼리",
       "solution": "CTE·계층형 동적 쿼리",
       "result": "100줄→20줄, 15초→5초",
-      "link": ""
+      "link": "",
+      "linkLabel": ""
     },
     {
       "id": "personal-1",
@@ -209,7 +224,8 @@
       "problem": "",
       "solution": "MES를 몰라도 제조 업무 흐름을 눌러보며 이해하는 체험형 통합 플랫폼 — 지금 보고 있는 이 사이트",
       "result": "MES를 몰라도 제조 업무 흐름을 눌러보며 이해하는 체험형 통합 플랫폼 — 지금 보고 있는 이 사이트",
-      "link": "/"
+      "link": "/",
+      "linkLabel": ""
     },
     {
       "id": "personal-2",
@@ -219,7 +235,8 @@
       "problem": "",
       "solution": "회사·개인 메일 분류, 답장 초안, 아침 브리핑. Gmail API + Claude tool_use + FastAPI",
       "result": "회사·개인 메일 분류, 답장 초안, 아침 브리핑. Gmail API + Claude tool_use + FastAPI",
-      "link": ""
+      "link": "",
+      "linkLabel": "시연 요청 시"
     }
   ],
   "stacks": [

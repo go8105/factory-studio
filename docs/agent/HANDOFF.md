@@ -1,3 +1,10 @@
+# 2026-11-08 ABOUT-03 완료 — 누적 main 전체 수동 배포 진행
+
+- 브랜치 codex/about-02, main af12ef8 병합 39f7df2. 사용자 ABOUT-03·로컬main 병합·수동 배포 승인, 운영 6df6e71 대비 누적 변경 범위를 고지한 뒤 전체 main 배포 선택 받음.
+- 완료 ABOUT-02·03(2/6). profile.json 전체 대조·시연 요청 시 안내 보완·문서 제목 데이터 연결, 프런트5검증/854건 통과. ABOUT-04~07 미착수. 작업 커밋은 git log 확인.
+- 다음: 로컬main 병합 → FS_CI_WORKERS=0의 고유 *_test DB 전체CI → 통과 시 origin/main push·tools/deploy.sh 기반 수동배포. 배포 전 서버 DB 백업/보존 확인. 기존 운영 DB 초기화 금지. 완료 결과를 세 문서에 다시 남긴다.
+- 주의: 서버 운영은 6df6e71/WMS, 최신main에는 이후9개 migration파일이 있어 프런트만 덮으면 API와 불일치한다. 병렬CI 불안정 이력은 아래 인계 참조. 도중 실패는 통과로 세지 않는다.
+
 # 2026-11-08 ABOUT-02 완료 — 다음 ABOUT-03 사용자 확인 대기
 
 - 브랜치: `codex/about-02`, `docs/about-01`의 0281a08 기반. 제품/진행 문서 커밋: `c4f4c44`. 이 HANDOFF 기록의 최종 커밋은 `git log -1 --oneline`으로 확인. 원격 push·main 병합·배포 없음.
