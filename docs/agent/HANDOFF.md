@@ -1,3 +1,16 @@
+# 2026-11-08 ABOUT-02 완료 — 다음 ABOUT-03 사용자 확인 대기
+
+- 브랜치: `codex/about-02`, `docs/about-01`의 0281a08 기반. 제품/진행 문서 커밋: `c4f4c44`. 이 HANDOFF 기록의 최종 커밋은 `git log -1 --oneline`으로 확인. 원격 push·main 병합·배포 없음.
+- 완료: 공개 `/about`, Figma `7:309`·`8:436`·`2:24`의 context/스크린샷 확인. 상단/목차·Hero·경력·17개 프로젝트 탭/펼침·스택·수상/교육·연락. 공통 토큰/Badge/버튼/tabs 사용, CSS는 About.css에 한정. 디자인에 정적 이미지 없음.
+- 사용자 추가 승인: ABOUT-02에서 `content/about/profile.json`도 작성. ABOUT-03은 설계서 4장 문안 대조·분리 검증으로 진행한다. **다음 ID는 사용자 ABOUT-02 확인 전 시작하지 않는다.** 진행 1/6, ABOUT-03~07 미완료.
+- 공개 경로는 SessionProvider 바깥 App 라우트로 분리해 API/세션 확인 없이 열린다. 로그인/세션 구현은 변경하지 않음. shared/styles.css·GW·백엔드·DB 변경 없음.
+- 실제 노트 0편: 기술 노트 섹션과 메뉴 숨김. About의 notes prop 미리보기는 최신 3편 역순 UI까지 구현; 실제 glob/전달·`/notes`·본문·없는 slug는 ABOUT-04에서 한다. PDF/버튼은 ABOUT-07 미구현. 원본 자료·PDF·예시 노트 추가 없음.
+- Figma 차이: 코드 글꼴은 기존 Pretendard 순서. 설계서 전체 문안/경력 스택·6그룹/외국어·FEMS 8카드 모두 노출해 높이와 줄바꿈이 다름. 시안은 FEMS 6카드+전체 보기, 기술 노트/PDF는 자리 표시. 없는 프로젝트 기간/역할/스택은 추정하지 않았다. 연락은 시안의 go8105 공개 이메일/GitHub.
+- 최종 검증: typecheck·lint·format:check·test·build exit 0, 100파일/853건(소개 6건 포함). 초기 접근성 이름·노트 렌더 누락 실패 수정 후 재검증. 빌드 기존 WASM/청크 경고와 jsdom 문서 이동 안내 있음. 실제 Chromium 1440×900/390×900, 탭·카드·앵커/스크롤 목차·0편 숨김·가로 넘침 없음/pageerror 0, Figma 나란히 비교 완료. 캡처는 work의 임시 검증 산출물이라 인계의 필수 입력이 아니다.
+- 미실행: 노트 라우트/없는 slug(ABOUT-04), 백엔드/DB/전체 로컬 CI·배포. 아래 UI-REDESIGN 인계의 백엔드 병렬 CI 불안정 주의는 계속 유효하다.
+- 재현: `npm --prefix frontend run typecheck`, `npm --prefix frontend run lint`, `npm --prefix frontend run format:check`, `npm --prefix frontend run test`, `npm --prefix frontend run build`. 소개만: `npm --prefix frontend run test -- src/portal/about.test.tsx`. 브라우저: `FS_SMOKE_WEB_PORT=5177 npm --prefix frontend run dev` 후 `http://localhost:5177/about`, 1440×900과390×900 확인(백엔드 불필요). 검증용 dev 서버는 종료했다.
+- 다음: ABOUT-03 확인 후 문안 대조(개인 프로젝트 요청형 시연 안내 등 상세 포함), 그다음 ABOUT-04/05/06/07 각각 보고·확인. Nginx는 레포 밖이므로 ABOUT-06은 설정 블록 보고만, 실제 배포 금지.
+
 # 2026-11-08 ABOUT-02 착수 차단 — Figma 파일 접근 권한
 
 - 브랜치: `codex/about-02`, `docs/about-01`의 `0281a08`에서 분기. 구현 진행률 0/6(ABOUT-02~07), 완료 ID 없음.
