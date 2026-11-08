@@ -30,11 +30,15 @@ test("공장 장면은 브라우저 오류 없이 렌더링된다", async ({ pag
   ).toBeAttached({ timeout: 15000 });
   expect(errors).toEqual([]);
 });
-test("앱 런처 바로 다음 메뉴로 3D 공장에 진입한다", async ({ page }) => {
-  const links = page
-    .getByRole("navigation", { name: "주 메뉴" })
-    .getByRole("link");
-  await expect(links.nth(1)).toHaveText("3D 공장");
+test("3D 공장은 헤더 앱 전환기에서 연다", async ({ page }) => {
+  // CAD·CAM·3D 공장·전체 흐름은 헤더에 늘어놓지 않고 전환기 안에 있다(UI-REDESIGN-01 R1-a).
+  const nav = page.getByRole("navigation", { name: "주 메뉴" });
+  await expect(nav.getByRole("link", { name: "3D 공장" })).toBeHidden();
+  await nav.getByRole("group", { name: "앱 전환" }).locator("summary").click();
+  await expect(nav.getByRole("link", { name: "3D 공장" })).toHaveAttribute(
+    "href",
+    "/factory",
+  );
 });
 test("걷기 입력은 3인칭 화면을 이동시킨다", async ({ page }) => {
   await page.getByRole("button", { name: "시연 일시정지" }).click();
@@ -428,6 +432,11 @@ test("연속 검사 설정 이동과 종료 및 화면 이탈", async ({ page })
     360,
   );
   await run.getByRole("button", { name: "새 배치 시작" }).click();
+  await page
+    .getByRole("navigation", { name: "주 메뉴" })
+    .getByRole("group", { name: "앱 전환" })
+    .locator("summary")
+    .click();
   await page.getByRole("link", { name: "앱 런처", exact: true }).click();
   await page.goto("/factory/vision-lab");
   await page.getByRole("button", { name: "연속 검사", exact: true }).click();

@@ -221,7 +221,8 @@ it("초기화 결과 불확실 중에도 이동 차단을 유지한다", async (
   show();
   await confirmReset();
   await screen.findByRole("alert");
-  fireEvent.click(screen.getByRole("link", { name: "앱 런처" }));
+  // 앱 런처는 헤더 전환기 안으로 들어갔다. 늘 보이는 브랜드 링크로 같은 차단을 확인한다.
+  fireEvent.click(screen.getByRole("link", { name: /Factory Studio/ }));
   expect(screen.getByRole("heading", { name: "내 공간" })).toBeVisible();
 });
 it("초기화 성공 뒤 조회 실패 재시도는 POST를 반복하지 않는다", async () => {
@@ -275,7 +276,7 @@ it("OWNER 직접 접근은 404다", async () => {
 it("OWNER에게 운영 기록 메뉴를 표시하지 않는다", async () => {
   mock(() => undefined, ["OWNER"]);
   show("/home");
-  await screen.findByRole("heading", { name: "제조 현장의 올인원 시스템" });
+  await screen.findByRole("heading", { name: /제조 업무 솔루션/ });
   expect(
     screen.queryByRole("link", { name: "운영 기록" }),
   ).not.toBeInTheDocument();

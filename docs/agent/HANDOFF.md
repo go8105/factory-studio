@@ -1,3 +1,45 @@
+## 2026-11-08 UI-REDESIGN-02 R2 1차 완료 — 화면 구도 (다음: 목록 조건 접기·열 선택)
+
+- **브랜치**: `ui-redesign-01` (미병합·미푸시). **담당**: Claude Code. **프런트만, 백엔드·DB 변경 0.**
+- **끝난 것**: 대시보드가 남은 높이를 쓰도록 공통 CSS 한 곳 수정(10개 대시보드 일괄) · `ScreenIntro` 공통 컴포넌트로 화면 안내 접기(`MasterScreen` 화면 전부 + MES M-12) · SPC S-01 KPI 5→4와 **백지였던 빈 상태 보완** · MES M-01 빈 카드 제거(4→2). 자세한 것은 `docs/progress.md` 맨 위, 시안은 `docs/ui/previews/UI-REDESIGN-02.html`.
+- **다음 할 일**: 시안 2·3장의 나머지 — **조회 목록 조건 접기·상태 칩**, **표 빈 열 숨김과 "열 선택"**. 둘 다 새 공통 UI(조건 서랍·열 선택기)가 필요하다. 그다음 R3 Figma(`/mcp` 승인 뒤 플랜 확인), R4 포털 P-06, R5 토큰·lint.
+- **주의 — 로컬 CI 백엔드 3단계가 불안정하다(내 변경과 무관)**:
+  - 3회 실행 결과가 매번 다르다. 1차 2건(GW journal·emergency), 2차 16건+에러 3(GW security·FEMS·ERP), 3차 10건(GW acceptance·account security·CMMS metrics). **겹치는 실패가 거의 없다.**
+  - 3차 실패 10건을 포함한 **63건을 직렬로 돌리면 전부 통과한다**(6분 26초). `pytest -n auto` 병렬에서만 깨진다.
+  - 이 브랜치의 diff에는 `backend/` 파일이 0건이라 원인일 수 없다. 마지막으로 기록된 전체 CI 통과는 2026-10-31(FEMS-1a, 1,233건)이고 그 뒤 GW 79·80차와 BEMS-1a·1b가 들어와 테스트가 2,830건으로 늘었다. **main 자체가 빨간 상태인지는 확인하지 않았다** — 확인하려면 깨끗한 worktree에서 CI를 한 번 돌려야 한다.
+  - **CI 정리 단계는 3단계가 실패하면 돌지 않는다.** 워커 DB `factory_studio_ci_<작업>_gw0~9_test`가 남아 다음 실행을 오염시킨다(2차가 그래서 16건이 됐다). 재실행 전에 반드시 지울 것.
+- **재현**: `npm --prefix frontend run typecheck|lint|format:check|build|test`(5단계 전부 수동 통과, vitest 847). 백엔드 직렬 확인은 `TEST_DATABASE_URL=<base>/factory_studio_ci_uiredesign_test uv run --project backend pytest -q <파일들>`. 브라우저는 `.claude/launch.json`의 backend·frontend를 띄우고 `admin`으로 로그인해 1440×900.
+
+## 2026-11-07 UI-REDESIGN-01 R1 완료 — 앱 셸·탐색 (다음: R3 Figma 플랜 확인)
+
+- **브랜치**: `ui-redesign-01`. **담당**: Claude Code. **백엔드·DB 변경 없음**(프런트만).
+- **끝난 것**: R1-a 헤더 10 → 3항목(앱 전환기·도움말·계정, 전환기 요약이 현재 솔루션 이름) / R1-b `menuCatalog.otherSolutions()`로 9개 `*Layout.tsx`의 `others` 삭제 / R1-c 사이드바 `이름 → ID` 순 / R1-d 모바일 내비 620px → 215px / R1-e "올인원" 문구 교체. 자세한 것은 `docs/progress.md` 맨 위와 `docs/ui/UI전면재설계_진단_제안_UI-REDESIGN-01.md` 7-4·7-5절.
+- **고친 결함**: CMMS·HR에서 사이드바만으로 다른 솔루션에 갈 수 없었다(`others` 9벌 복사본 어디에도 `/hr`·`/cmms`가 없었고 cmms에는 `/gw`도 없었다).
+- **다음 할 일**: **R3 Figma** — 사용자가 `/mcp`로 Figma를 승인하면 `whoami`로 플랜·좌석부터 확인하고 범위를 보고한다(D3). Starter면 토큰(F1) → 핵심 컴포넌트 9가족(F2) → 대표 화면 4장(F3)까지만. 그다음 **R2(FEMS 시범)는 BEMS 보강이 끝난 뒤**(D5). 이후 R4 포털 P-06 → R5 토큰·lint → R6.
+- **주의**:
+  - **e2e(Playwright) 미실행.** `factory.spec.ts`·`portal.spec.ts`를 새 헤더(전환기·계정 메뉴를 열고 클릭)에 맞춰 고쳤지만 돌려 보지 않았다. **배포 전 공식 스모크 필요.**
+  - **AGENTS.md §7 "사용자가 수정한 UI 파일" 확인을 못 받고 진행했다.** 대상은 `app/App.tsx`·`shared/SolutionLayout.tsx`·`shared/menuCatalog.ts`·`shared/styles.css`·9개 `*Layout.tsx`·`portal/Home.tsx`.
+  - `others` prop은 **선택으로 남겼다**. GW(`gw/GwLayout.tsx`, Codex 소유)만 자기 목록을 넘기므로 GW 사이드바의 "다른 앱"은 여전히 3개다.
+  - 표시 이름은 `menuCatalog.ts`의 `DISPLAY` 표에서 정한다(카탈로그 `title`과 spc·hr·flow 셋이 어긋난다). 솔루션을 추가하면 **여기도 한 줄 넣어야 한다**.
+  - 헤더 드롭다운은 닫히면 항목을 DOM에 그리지 않는다. 테스트에서 항목을 찾으려면 `details.open = true` 후 `toggle` 이벤트를 보내야 한다(jsdom은 summary 클릭으로 열리지 않는다).
+- **재현**: `npm --prefix frontend run typecheck` · `npm --prefix frontend run lint` · `npm --prefix frontend test` · `TEST_DB=factory_studio_ci_uiredesign_test bash tools/ci_local.sh`. 브라우저 확인은 사용자 dev 서버(8000/5173)에 `admin`으로 로그인해 1440×900·375×812.
+
+## 2026-11-07 UI-REDESIGN-01 진단·제안 완료 (다음: 사용자 Q1~Q5 답 → R1)
+
+- **브랜치**: `ui-redesign-01` (main 기준 `2def342`에서 분기, **미병합**). **담당**: Claude Code. **제품 코드 변경 0건 — 문서만.**
+- **끝난 것**: 프런트엔드 전체 UI 진단 + 공통화·Figma 제안. 문서 `docs/ui/UI전면재설계_진단_제안_UI-REDESIGN-01.md`. 요약은 `docs/progress.md` 맨 위.
+  - 핵심: 디자인 시스템은 **이미 있다**(토큰 50여·공통 컴포넌트 20여·UI-02 규약). 문제는 적용률 — 직접 `<table>` 56곳·배지 6종·오류 마크업 7종·하드코딩 색 470·`useGet` 4벌.
+  - 가장 나쁜 곳은 탐색 구조: 11솔루션 152화면, 전역 헤더 10(하드코딩)과 사이드바 23의 이중 내비, "다른 앱"이 9개 `*Layout.tsx`에 복사돼 hr·cmms로 가는 길이 없음.
+  - 셸 4갈래: `SolutionLayout` 10 / flow 자체 / factory·cad-cam 단일 / 포털 P-06 재정의.
+- **사용자 결정(2026-11-07)**: D1 평가자 우선·GW만 예외 / D2 R1 공통층 먼저 / **D3 Figma 플랜 보류 — `/mcp` 승인 뒤 `whoami`로 확인하고 보고** / D4 UI-01·UI-02 유지·보강 / D5 R1만 먼저 끼워 넣고 R2 이후는 BEMS 보강 뒤. 문서 8장 표에 D1~D5로 기록.
+- **다음 할 일**: 7-2 단계·**7-4 R1 상세 범위**의 사용자 전체 확인 → **R1 착수**. R1은 R1-a 헤더 축약 / R1-b `menuCatalog.otherSolutions()`로 9개 `*Layout.tsx`의 `others` 삭제 / R1-c 사이드바 화면 ID 보조 표기(**ID 유지**) / R1-d 모바일 내비 / R1-e "올인원" 문구. 그다음 R3 Figma → R2 FEMS 시범 → R4 → R5 → R6.
+- **주의**:
+  - **Figma MCP(`plugin:figma:figma`)가 미인증이다.** 사용자가 `/mcp`로 승인해야 쓸 수 있다. Starter 플랜이면 CAD-UI03처럼 호출 한도에 걸린다(7화면 1파일에서 소진된 전례) → 토큰·컴포넌트·대표 4화면까지만.
+  - GW(`gw/*`)는 Codex 소유라 직접 수정 금지. flow·factory CSS는 Figma 유래라 토큰화 대상에서 뺐다.
+  - **AGENTS.md §7 "사용자가 수정한 UI 파일"이 어느 것인지 아직 확인 안 했다.** R1 착수 전에 사용자에게 물어야 한다.
+  - R1은 공통 파일 3개(`app/App.tsx`·`shared/SolutionLayout.tsx`·`shared/menuCatalog.ts`)와 9개 `*Layout.tsx`를 건드린다. BEMS 보강 세션과 파일이 겹치지 않지만 CSS를 바꾸면 e2e 스모크 전체 재실행이 필요하다.
+- **재현**: 진단은 읽기만 했다. 화면 확인은 사용자 IntelliJ dev 서버(8000/5173)를 그대로 썼다 — `lsof -nP -iTCP:8000 -iTCP:5173 -sTCP:LISTEN`로 먼저 확인할 것. 메뉴 수치는 `python3 -c` 로 `backend/src/fs/core/menu_catalog.json` 집계. CI는 코드 변경이 없어 돌리지 않았다.
+
 ## 2026-11-07 BEMS-1b 완료 — 교차 조회 (다음: BEMS-1c)
 
 - **브랜치**: `bems-1b` (병합 뒤 `main`). **담당**: Claude Code(D85). DB 변경 없음.

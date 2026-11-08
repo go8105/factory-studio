@@ -23,6 +23,7 @@ import {
   FormPanel,
   Loading,
   PageTitle,
+  ScreenIntro,
   useDiscardGuard,
   type Column,
 } from "./components";
@@ -352,7 +353,7 @@ export function MasterScreen<
           </button>
         }
       />
-      {spec.intro}
+      {spec.intro && <ScreenIntro>{spec.intro}</ScreenIntro>}
       {!panel && <ErrorNotice error={panelError} />}
       {done && <p role="status">{done}</p>}
       <div className="split-view fill">

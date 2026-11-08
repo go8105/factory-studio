@@ -9,7 +9,13 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import {
+  otherSolutions,
+  solutionFromPath,
+  solutionLabel,
+} from "../shared/menuCatalog";
 import "./HomeShell.css";
 import { SessionProvider, useSession } from "./session";
 import { api } from "../shared/api";
@@ -38,6 +44,58 @@ const GwRoutes = lazy(() => import("../gw"));
 const VisionLab = lazy(() => import("../factory/VisionLab"));
 const Factory = lazy(() => import("../factory/Factory"));
 const CadCam = lazy(() => import("../cad-cam/CadCam"));
+
+// 헤더 드롭다운. 사이드바 서랍과 같이 <details>로 만든다(새 라이브러리 없음).
+function HeaderMenu({
+  summary,
+  label,
+  children,
+}: {
+  summary: string;
+  label: string;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  const [open, setOpen] = useState(false);
+  const { pathname } = useLocation();
+  const close = () => {
+    if (ref.current) ref.current.open = false;
+    setOpen(false);
+  };
+  // 이동하면 닫는다. 메뉴 안의 링크를 눌러 화면이 바뀌는 경우를 포함한다.
+  useEffect(close, [pathname]);
+  useEffect(() => {
+    const outside = (e: MouseEvent) => {
+      if (
+        ref.current?.open &&
+        e.target instanceof Node &&
+        !ref.current.contains(e.target)
+      )
+        close();
+    };
+    document.addEventListener("click", outside);
+    return () => document.removeEventListener("click", outside);
+  }, []);
+  return (
+    <details
+      className="header-menu"
+      aria-label={label}
+      ref={ref}
+      // 닫혀 있으면 항목을 그리지 않는다. 접근성 트리와 화면의 링크 목록이 같아진다.
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && ref.current?.open) {
+          close();
+          ref.current.querySelector("summary")?.focus();
+        }
+      }}
+    >
+      <summary>{summary}</summary>
+      {open && <div className="header-menu-list">{children}</div>}
+    </details>
+  );
+}
+
 function Layout() {
   const { session, setSession, busy, navigationBlocked, fail } = useSession();
   const navigate = useNavigate();
@@ -49,6 +107,7 @@ function Layout() {
     /^\/(fems|mes|erp|qms|wms|bems|spc|cmms|gw|hr|work-os|cad-cam)(\/|$)/.test(
       pathname,
     );
+  const current = solutionFromPath(pathname);
   async function logout() {
     setLeaving(true);
     try {
@@ -80,36 +139,48 @@ function Layout() {
         <Link className="brand" to={session ? "/home" : "/"}>
           <img className="brand-mark" src="/logo.svg" alt="" />
           Factory Studio
-          <span className="brand-tagline">제조 현장의 올인원 시스템</span>
+          <span className="brand-tagline">독립 솔루션 제조 업무 플랫폼</span>
         </Link>
         <nav aria-label="주 메뉴">
+          {/* 앱 전환기. 요약에 현재 솔루션 이름이 보여 어디에 있는지 헤더가 알려 준다.
+              11개 솔루션과 CAD·CAM·3D 공장·전체 흐름이 모두 여기 한 곳에 있다. */}
           {session && (
-            <>
+            <HeaderMenu
+              summary={current ? solutionLabel(current) : "앱 선택"}
+              label="앱 전환"
+            >
               <NavLink to="/home">앱 런처</NavLink>
+              {otherSolutions(current ?? "").map((o) => (
+                <NavLink key={o.to} to={o.to}>
+                  {o.label}
+                </NavLink>
+              ))}
               <NavLink to="/cad-cam">CAD·CAM</NavLink>
               <NavLink to="/factory">3D 공장</NavLink>
               <NavLink to="/flow">전체 흐름</NavLink>
+            </HeaderMenu>
+          )}
+          <NavLink to="/help">도움말</NavLink>
+          {session ? (
+            <HeaderMenu summary="계정" label="계정 메뉴">
               <NavLink to="/workspace">내 공간</NavLink>
               {session.actorKind === "MEMBER" && (
                 <NavLink to="/account/security">내 계정 보안</NavLink>
               )}
-            </>
-          )}
-          <NavLink to="/help">도움말</NavLink>
-          {session?.roles.includes("ADMIN") && (
-            <>
-              <NavLink to="/hr/users">사용자 관리</NavLink>
-              <NavLink to="/records">운영 기록</NavLink>
-            </>
-          )}
-          {session ? (
-            <button
-              className="link-button"
-              disabled={busy || navigationBlocked || leaving}
-              onClick={() => void logout()}
-            >
-              나가기
-            </button>
+              {session.roles.includes("ADMIN") && (
+                <>
+                  <NavLink to="/hr/users">사용자 관리</NavLink>
+                  <NavLink to="/records">운영 기록</NavLink>
+                </>
+              )}
+              <button
+                className="link-button"
+                disabled={busy || navigationBlocked || leaving}
+                onClick={() => void logout()}
+              >
+                나가기
+              </button>
+            </HeaderMenu>
           ) : (
             <Link to="/">시작하기</Link>
           )}

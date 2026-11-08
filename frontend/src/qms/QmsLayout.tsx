@@ -3,16 +3,6 @@ import { SolutionLayout } from "../shared/SolutionLayout";
 import { qmsScreens } from "../shared/menuCatalog";
 export { qmsScreens } from "../shared/menuCatalog";
 
-const others = [
-  { to: "/mes", label: "MES 생산관리" },
-  { to: "/erp", label: "ERP 경영관리" },
-  { to: "/fems", label: "FEMS 에너지관리" },
-  { to: "/wms", label: "WMS 창고관리" },
-  { to: "/bems", label: "BEMS 건물관리" },
-  { to: "/spc", label: "SPC 공정관리" },
-  { to: "/gw", label: "GW 그룹웨어" },
-  { to: "/home", label: "포털 홈" },
-];
 export function QmsLayout() {
   return (
     <SolutionLayout
@@ -20,7 +10,6 @@ export function QmsLayout() {
       title="QMS 품질관리"
       base="/qms"
       screens={qmsScreens}
-      others={others}
     />
   );
 }

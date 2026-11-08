@@ -9,6 +9,7 @@ import {
   FormPanel,
   Loading,
   PageTitle,
+  ScreenIntro,
   useDiscardGuard,
   type Column,
 } from "../shared/components";
@@ -324,10 +325,12 @@ export function Items() {
           </button>
         }
       />
-      <MesOrder />
-      <p className="notice" role="note">
-        이 품목은 MES 전용입니다. ERP 품목과 코드가 같아도 별개 데이터입니다.
-      </p>
+      <ScreenIntro>
+        <MesOrder />
+        <p className="notice" role="note">
+          이 품목은 MES 전용입니다. ERP 품목과 코드가 같아도 별개 데이터입니다.
+        </p>
+      </ScreenIntro>
       {!panel && (
         <ErrorNotice
           error={Object.keys(errors).length ? undefined : saveError}

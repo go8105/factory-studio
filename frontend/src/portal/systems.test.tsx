@@ -1,5 +1,5 @@
 // MAP-02 P-03 계층 아키텍처·시스템 카탈로그 — 정적 데이터 계약과 화면 동작.
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { App } from "../app/App";
@@ -62,7 +62,10 @@ it("운영이 아닌 9개는 모두 예정이고 운영 SPC·GW는 제외한다"
 it("계층 아키텍처에서 시스템을 누르면 카탈로그 상세로 간다", async () => {
   show("/flow?view=arch");
   expect(await screen.findByRole("region", { name: "생산실행" })).toBeTruthy();
-  fireEvent.click(screen.getByRole("link", { name: /^CMMS/ }));
+  // 헤더 앱 전환기에도 같은 이름의 링크가 있으므로 본문으로 좁힌다.
+  fireEvent.click(
+    within(screen.getByRole("main")).getByRole("link", { name: /^CMMS/ }),
+  );
   expect(await screen.findByText(/← BEMS 경보/)).toBeTruthy();
 });
 it("카탈로그의 구현 솔루션은 화면으로 이동 링크가 있다", async () => {
