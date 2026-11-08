@@ -1,3 +1,38 @@
+# 2026-11-08 ABOUT-01 Codex 인계 프롬프트
+
+Claude Code. 브랜치 `docs/about-01`. [ABOUT 코덱스 인계](agent/ABOUT_코덱스_인계.md) 작성 — Figma fileKey·nodeId, 토큰 대응표, ABOUT-02~07 단계·파일, 공개 콘텐츠 금지 목록, 검증 항목. HANDOFF 갱신. **제품 코드 변경 없음.**
+
+# 2026-11-08 ABOUT-01 Figma 시안 — PC 기준으로 재작성
+
+Claude Code. 브랜치 `docs/about-01`. 사용자 피드백 "모바일로 구성하지 말고 PC로 보는 UI로". **제품 코드 변경 없음.**
+
+- 모바일 375 시안 4장·첫 데스크톱 시안 삭제. PC 1440 시안 4장 새로 작성: `/about`(Hero 2단 — 소개+숫자, 경력 2열, 프로젝트 2열, 수상/교육 2열, 노트 3열), 카드 펼침, `/notes`(좌측 카테고리+2열), `/notes/:slug`(본문 720+우측 목차·관련 프로젝트).
+- 고친 것: 2열 그리드가 소수점 반올림으로 1열로 떨어지던 문제(카드 폭 내림), 간격 변수가 없는 값(14·28)을 바인딩하려다 간격 0이 된 곳.
+- 설계서 2·3·7·8장을 PC 기준으로 수정. 모바일은 별도 설계 없이 1열로 떨어지는 최소 처리만.
+
+# 2026-11-08 ABOUT-01 Figma 시안
+
+Claude Code. 브랜치 `docs/about-01`. [Figma 파일](https://www.figma.com/design/v7bouCuBnFf2E7qpqqzRMX) — 설계서 7장 범위 4장 + 데스크톱 1장(/about 모바일·데스크톱, 카드 펼침, /notes 목록, /notes 본문). **제품 코드 변경 없음.**
+
+- `shared/styles.css` 토큰 21개를 Figma 변수로 옮기고 컴포넌트 8종을 만들어 화면을 인스턴스로 조립(인스턴스 55·텍스트 122, 이미지 0 — 전부 편집 가능한 레이어).
+- 1차 조립에서 컴포넌트 높이가 `resize()` 때문에 고정돼 글자가 겹쳤다 → 컴포넌트 세로 크기를 내용 맞춤으로 바꿔 해결. 카드 토글의 ▾ 글리프가 Noto Sans KR에서 깨져 글자로 바꿨다.
+- 한계: Pretendard 미설치로 Noto Sans KR 사용. 노트 날짜·요약은 자리 표시용. 소개 문구·카드 구성·노트 첫 묶음 수정안은 아직 받지 않았다.
+
+# 2026-11-08 ABOUT-01 — 자기소개(`/about`)·기술 노트(`/notes`) 설계
+
+Claude Code. 브랜치 `docs/about-01`(`ui-redesign-01` `90487bf`에서 분기). **설계 문서만. 제품 코드·DB 변경 없음.** [설계서](ui/자기소개_기술노트_설계_ABOUT-01.md)
+
+## 한 것
+- 이력서·경력기술서·포트폴리오를 공개용으로 다시 정리: Hero·About·경력·프로젝트 카드(문제→해결→성과)·스택·자격. 논문(학회 포스터) 제외, 개인정보·지원서 전용 문장·고객사 실명 제외 기준 명시.
+- 정보 구조: `/about`·`/notes`·`/notes/:slug`를 `Private`·`Layout` 밖 공개 경로로. 로그인 화면 하단 링크 1개.
+- Notion 2곳(약 110편) 제목 분류: 블로그 첫 묶음 6편·후속 후보·싣지 않을 글(회사 내부·서버 정보·일반 학습). 실시간 연동 대신 `content/notes/*.md` + 기존 `MarkdownContent` 재사용.
+- Figma 프레임 4장 범위, Codex 인계 ID ABOUT-02~07, 질문 Q1~Q6.
+
+## 미실행·한계
+- Notion 본문은 1편(Query 분기처리 설계)만 열어 봤다. 나머지는 제목 기준 분류.
+- 경력기술서 PDF는 텍스트 추출만 했다(레이아웃 미확인). 원천 자료 불일치 5건은 Q1로 남김.
+- Figma MCP 미인증. `tools/validate_db_design.py` 통과(errors 0).
+
 # 2026-11-08 UI-REDESIGN-02 R2 1차 — 화면 구도
 
 Claude Code. 브랜치 `ui-redesign-01`. 사용자 지적("R1은 탐색만 바뀌고 화면은 그대로다")에 따라 **바로 고치지 않고 구도 시안을 먼저 보여 확인받은 뒤** 구현했다. 시안 [UI-REDESIGN-02.html](ui/previews/UI-REDESIGN-02.html), 설계·결과는 [UI-REDESIGN-01](ui/UI전면재설계_진단_제안_UI-REDESIGN-01.md) 7-6절. **백엔드·DB 변경 없음.**

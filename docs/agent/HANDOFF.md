@@ -1,3 +1,11 @@
+## 2026-11-08 ABOUT-01 설계·Figma 완료 → Codex 인계 (다음: Codex ABOUT-02)
+
+- **브랜치**: `docs/about-01` (`ui-redesign-01` `90487bf`에서 분기, 미병합·미푸시). **담당**: Claude Code(설계) → Codex(구현). **문서만, 제품 코드·DB 변경 0.**
+- **끝난 것**: 공개 자기소개 `/about`·기술 노트 `/notes` 설계서 `docs/ui/자기소개_기술노트_설계_ABOUT-01.md`, Figma 시안 `v7bouCuBnFf2E7qpqqzRMX`(PC 1440 4장 + Components), Codex 인계 프롬프트 `docs/agent/ABOUT_코덱스_인계.md`.
+- **사용자 결정**: 엘앤코리아 입사 2022.02 · 2022.11 전자부품/2022.07 자동차부품 · `/about` 전용 링크 미리보기 · 공개용 이력서 PDF 버튼 · 논문 제외 · **PC 기준(모바일 시안 없음)**.
+- **다음 할 일**: 사용자가 인계 프롬프트를 Codex에 붙여 넣어 ABOUT-02부터. 사용자 몫: 소개 문구·카드 구성·노트 첫 묶음 수정안, 공개용 PDF, 기술 노트 본문 다시 쓰기.
+- **주의**: 이 브랜치는 미병합 `ui-redesign-01` 위에 있다. Figma 계정에 Pretendard 없음(시안은 Noto Sans KR). Nginx 설정은 레포 밖이라 ABOUT-06의 운영 반영은 수동.
+
 ## 2026-11-08 UI-REDESIGN-02 R2 1차 완료 — 화면 구도 (다음: 목록 조건 접기·열 선택)
 
 - **브랜치**: `ui-redesign-01` (미병합·미푸시). **담당**: Claude Code. **프런트만, 백엔드·DB 변경 0.**
