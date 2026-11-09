@@ -1,3 +1,22 @@
+# 2026-11-08 BEMS-1c — 휴일 달력·조명 제어·건물/층/부서
+
+- 브랜치 **bems-1c**(로컬, 미병합·미푸시). 마지막 커밋은 `git log -1 --oneline`. 기준 main `0aed8f1`. **DB 마이그레이션 없음**(`bems1`이 head 그대로).
+- 끝난 것: BEMS-1c 전부. **P-08 휴일 달력(포털 core)·B-08 조명 제어 신설**(BEMS 7 → 8화면 + 포털 1), B-05 스케줄(평일·주말·휴일 + 조명)·B-07 구역(건물·층·부서·조명 회로) 보강. 백엔드 11·프런트 6 테스트 신설, 도움말 2편 신설·2편 보강. 전체 로컬 CI 1~5단계 통과.
+- 다음 할 일: **BEMS-1d**(B-10 쾌적도·B-03 환경 지표 6종·B-06 설비 경보 탭) — 사용자 확인 후 시작. 이어서 1e 피크 감축(FEMS `open_alarms()` 소비), 1f 건물 에너지·공용 비용(`tariff_rates()` 소비)·월간 보고서 + B-01 대시보드.
+- 주의점:
+  - 과거 관측·시드는 휴일 달력을 보지 않는다. 공휴일은 실제 달력 날짜이고 복사본의 업무 날짜는 밀리기 때문이다. 휴일 구분은 1시간 진행부터 적용된다.
+  - 휴일 시간대를 하나도 두지 않은 대상은 그날 **주말 시간대**를 따른다(전부 끄려면 주말도 비운다).
+  - 스케줄 표의 행 id는 `구분:id`다(공조기·조명 id가 겹친다). `DataTable`은 행을 `row.id`, 열을 `column.key`로 키잉하므로 열 key 중복(`id` 두 번)도 React 경고가 난다.
+  - **시드 행 수를 바꾸면 하드코딩 상수가 네 군데 있다** — `backend/seed/validate.py`(14808·표별 EXPECTED), `backend/tests/test_seed.py`(14824 / 14822 / 14808), `backend/tests/test_common.py`(14699 × 3곳). 전체 CI 전에는 `test_common.py`를 꼭 돌려 본다(이번에 마지막 하나를 전체 CI에서야 발견했다).
+  - **GW·보안 저널 테스트는 main에서도 불안정하다.** 이번에 세 번 돌려 실패 집합이 모두 달랐다(병렬 22건 / 이 브랜치 직렬 8건 / main 직렬 6건). 원인 다수는 `fs/gw/acceptance_preflight.snapshot()`의 **30초 시계 차이 검사** — `transaction_timestamp()`와 현재 시각을 비교하는데, 부하가 걸리면 트랜잭션을 연 뒤 파이썬 쪽이 30초 넘게 밀려 터진다. BEMS-1c는 GW·보안 코드를 건드리지 않았다. `test_gw_main_integration::test_pinned_parent_data_survives_upgrade[4c898ac]`는 직렬에서도 재현되지만 **단독 반복에서 이 브랜치 7회 중 4회·main 4회 중 2회 실패**라 main도 같다. 같은 판정을 다시 하려면: 별도 worktree(`git worktree add --detach <경로> main`) + 별도 테스트 DB를 만들어 같은 명령을 양쪽에서 **여러 번** 돌린다. 한 번만 돌리면 결론이 뒤집힌다.
+  - 로컬 개발 DB는 2026-11-08 템플릿으로 다시 만들었다(workspace 360). 기존 게스트 공간은 옛 데이터 그대로다.
+- 재현 명령:
+  - 테스트 DB: `TEST_DB=factory_studio_bems1c_test bash tools/ci_local.sh`
+  - 단위: `DATABASE_URL=<ci> TEST_DATABASE_URL=<ci> uv run --project backend pytest backend/tests/test_bems_lighting.py backend/tests/test_core_holidays.py -q`
+  - 프런트: `npm --prefix frontend test -- src/bems`
+  - 로컬 실행: `.claude/launch.json`의 backend·frontend (uvicorn 8000 / vite 5173)
+- 미실행: 운영 배포·원격 push·e2e. 1d 이후 미착수.
+
 # 2026-11-08 ABOUT-03 완료·누적 main 운영 배포 완료
 
 - 브랜치 **main**, 운영제품 **d932345**, 제품변경98a34d1(ABOUT-02·03), 기록 커밋은 git log -1 확인. main/origin에 반영했고 최종 기록은 문서만이다. 진행2/6, **ABOUT-04는 사용자 확인 전 시작하지 않는다**.

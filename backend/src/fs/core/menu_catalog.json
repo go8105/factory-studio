@@ -711,6 +711,12 @@
           "group": "운전·경보"
         },
         {
+          "path": "lighting",
+          "id": "B-08",
+          "label": "조명 제어",
+          "group": "운전·경보"
+        },
+        {
           "path": "alarms",
           "id": "B-06",
           "label": "경보",

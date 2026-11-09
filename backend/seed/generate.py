@@ -2730,6 +2730,58 @@ def _wms(writer: SeedWriter) -> None:
 # 과거 관측은 1시간 진행과 같은 모델(fs.bems.simulation)로 만든다. 공용 전력 30일, 환경 14일.
 # 합은 FEMS 수전에 숨긴 공용 부하(주간 25·야간 15 kWh/h)보다 작다 → 잔여 음수 없음.
 BEMS_SCHEDULE = [("WEEKDAY", 8, 19, "COOL"), ("WEEKEND", 10, 16, "FAN")]
+# 휴일 시간대(공조기 공통). 과거 관측 이력은 휴일 달력을 보지 않고 평일·주말로만 만든다 —
+# 공휴일은 실제 달력 날짜이고 복사본의 업무 날짜는 밀리기 때문이다. 휴일 구분은 1시간 진행부터 적용된다.
+BEMS_HOLIDAY_SLOT = ("HOLIDAY", 11, 15, "FAN")
+# 건물 > 층 > 구역. 연면적 ≥ 구역 면적 합. 부서 코드는 HR 시드의 코드 문자열이다(FK 없음).
+BEMS_BUILDINGS = [
+    ("BLD-OFF", "사무동", 3, Decimal("1800")),
+    ("BLD-PRD", "생산동", 2, Decimal("3600")),
+]
+BEMS_ZONE_PLACE = {
+    "Z-OFF": ("BLD-OFF", "2F", "ADM"),
+    "Z-PRD": ("BLD-PRD", "1F", "PROD"),
+    "Z-UTL": ("BLD-PRD", "1F", "ENG"),
+}
+# 조명 회로: (코드, 구역, 이름, 정격 kW, 시간대[(요일, 시작, 끝)]) — 모드는 ON 하나.
+BEMS_LIGHTING = [
+    (
+        "L-OFF",
+        "Z-OFF",
+        "사무동 조명",
+        Decimal("6"),
+        [("WEEKDAY", 7, 20), ("WEEKEND", 10, 16)],
+    ),
+    (
+        "L-PRD",
+        "Z-PRD",
+        "생산동 조명",
+        Decimal("14"),
+        [("WEEKDAY", 6, 22), ("WEEKEND", 8, 18), ("HOLIDAY", 8, 12)],
+    ),
+    (
+        "L-UTL",
+        "Z-UTL",
+        "유틸리티 조명(상시)",
+        Decimal("1.5"),
+        [("WEEKDAY", 0, 24), ("WEEKEND", 0, 24)],
+    ),
+]
+
+
+def _bems_place(buildings: dict[str, int], zone: str) -> Row:
+    building, floor, department = BEMS_ZONE_PLACE[zone]
+    return {
+        "building_id": buildings[building],
+        "floor_label": floor,
+        "department_code": department,
+    }
+
+
+def _bems_light_on(slots: list[tuple[str, int, int]], kind: str, hour: int) -> bool:
+    return any(k == kind and s <= hour < e for k, s, e in slots)
+
+
 BEMS_RULES = [
     ("Z-OFF", "CO2", "HIGH", "1000", 2, "WARNING"),
     ("Z-OFF", "TEMP", "HIGH", "28", 2, "WARNING"),
@@ -2749,10 +2801,85 @@ def _bems_mode(seed_date: date, day: int, hour: int) -> str:
     )
 
 
+def _bems_lighting(
+    writer: SeedWriter, zones: dict[str, int]
+) -> tuple[dict[str, int], list[Row]]:
+    """조명 회로와 최근 2일의 스케줄 전환 이력. 상태는 시드 시각 직전 시간대의 스케줄 상태다."""
+    seed_date = writer.seed_date
+    state = {
+        code: "ON"
+        if _bems_light_on(
+            slots, "WEEKDAY" if _bems_weekday(seed_date, -3) else "WEEKEND", 23
+        )
+        else "OFF"
+        for code, _, _, _, slots in BEMS_LIGHTING
+    }
+    changed: dict[str, datetime | None] = {code: None for code in state}
+    commands: list[Row] = []
+    for day in (-2, -1):
+        kind = "WEEKDAY" if _bems_weekday(seed_date, day) else "WEEKEND"
+        for hour in range(24):
+            moment = at(seed_date, day, hour)
+            for code, zone, _, _, slots in BEMS_LIGHTING:
+                planned = "ON" if _bems_light_on(slots, kind, hour) else "OFF"
+                if planned != state[code]:
+                    state[code] = planned
+                    changed[code] = moment
+                    commands.append(
+                        {
+                            "zone": zone,
+                            "circuit": code,
+                            "at": moment,
+                            "source": "SCHEDULE",
+                            "result": "APPLIED",
+                            "command": "POWER_ON" if planned == "ON" else "POWER_OFF",
+                        }
+                    )
+    circuits = writer.add(
+        "bems.lighting_circuit",
+        [
+            {
+                "zone_id": zones[zone],
+                "code": code,
+                "name": name,
+                "rated_kw": rated,
+                "state": state[code],
+                "control_source": "SCHEDULE",
+                "state_changed_at": changed[code],
+            }
+            for code, zone, name, rated, _ in BEMS_LIGHTING
+        ],
+        "code",
+    )
+    writer.add(
+        "bems.schedule_slot",
+        [
+            {
+                "lighting_circuit_id": circuits[code],
+                "day_kind": kind,
+                "start_hour": start,
+                "end_hour": end,
+                "mode": "ON",
+            }
+            for code, _, _, _, slots in BEMS_LIGHTING
+            for kind, start, end in slots
+        ],
+    )
+    return circuits, commands
+
+
 def _bems(writer: SeedWriter) -> None:
     from fs.bems import simulation as sim
 
     seed_date = writer.seed_date
+    buildings = writer.add(
+        "bems.building",
+        [
+            {"code": c, "name": n, "floors": f, "gross_area_m2": a}
+            for c, n, f, a in BEMS_BUILDINGS
+        ],
+        "code",
+    )
     zones = writer.add(
         "bems.zone",
         [
@@ -2761,18 +2888,21 @@ def _bems(writer: SeedWriter) -> None:
                 "name": "사무동",
                 "kind": "OFFICE",
                 "floor_area_m2": Decimal("1200"),
+                **_bems_place(buildings, "Z-OFF"),
             },
             {
                 "code": "Z-PRD",
                 "name": "생산동 공조 구역",
                 "kind": "PRODUCTION",
                 "floor_area_m2": Decimal("3000"),
+                **_bems_place(buildings, "Z-PRD"),
             },
             {
                 "code": "Z-UTL",
                 "name": "유틸리티",
                 "kind": "UTILITY",
                 "floor_area_m2": Decimal("400"),
+                **_bems_place(buildings, "Z-UTL"),
             },
         ],
         "code",
@@ -3018,9 +3148,10 @@ def _bems(writer: SeedWriter) -> None:
                 "mode": mode,
             }
             for u in hvac
-            for k, s, e, mode in BEMS_SCHEDULE
+            for k, s, e, mode in [*BEMS_SCHEDULE, BEMS_HOLIDAY_SLOT]
         ],
     )
+    light_ids, light_commands = _bems_lighting(writer, zones)
     writer.add("bems.energy_reading", energy_rows)
     writer.add("bems.environment_reading", env_rows)
     writer.add(
@@ -3028,7 +3159,10 @@ def _bems(writer: SeedWriter) -> None:
         [
             {
                 "zone_id": zones[c["zone"]],
-                "hvac_unit_id": hvac_ids[c["unit"]],
+                "hvac_unit_id": hvac_ids[c["unit"]] if "unit" in c else None,
+                "lighting_circuit_id": light_ids[c["circuit"]]
+                if "circuit" in c
+                else None,
                 "command": c["command"],
                 "mode": c.get("mode"),
                 "setpoint_kind": c.get("kind"),
@@ -3039,7 +3173,7 @@ def _bems(writer: SeedWriter) -> None:
                 "reject_reason": c.get("reason"),
                 "note": c.get("note"),
             }
-            for c in commands
+            for c in [*commands, *light_commands]
         ],
     )
     rules = writer.add(

@@ -20,6 +20,37 @@ export type Zone = {
   kind: "OFFICE" | "PRODUCTION" | "UTILITY";
   floorAreaM2: string | null;
   isActive: boolean;
+  buildingId: number | null;
+  floorLabel: string | null;
+  departmentCode: string | null;
+};
+export type Building = {
+  id: number;
+  code: string;
+  name: string;
+  floors: number;
+  grossAreaM2: string;
+  isActive: boolean;
+};
+export type LightingCircuit = {
+  id: number;
+  zoneId: number;
+  code: string;
+  name: string;
+  meterId: number | null;
+  ratedKw: string;
+  state: "ON" | "OFF";
+  controlSource: "SCHEDULE" | "MANUAL";
+  stateChangedAt: string | null;
+  isActive: boolean;
+};
+export type CircuitDetail = LightingCircuit & {
+  commands: Command[];
+  schedule: Slot[];
+};
+export type Departments = {
+  hrEnabled: boolean;
+  rows: { code: string; name: string }[];
 };
 export type Meter = {
   id: number;
@@ -50,18 +81,21 @@ export type HvacUnit = {
   stateChangedAt: string | null;
   isActive: boolean;
 };
+export type DayKind = "WEEKDAY" | "WEEKEND" | "HOLIDAY";
 export type Slot = {
   id?: number;
-  dayKind: "WEEKDAY" | "WEEKEND";
+  dayKind: DayKind;
   startHour: number;
   endHour: number;
-  mode: Mode;
+  mode: Mode | "ON";
 };
 export type Command = {
   id: number;
   zoneId: number;
   hvacUnitId: number | null;
   hvacCode: string | null;
+  lightingCircuitId: number | null;
+  lightingCode: string | null;
   command: "POWER_ON" | "POWER_OFF" | "SET_MODE" | "SET_SETPOINT";
   mode: Mode | null;
   setpointKind: SetpointKind | null;
@@ -148,6 +182,12 @@ export const STATE_LABEL: Record<State, string> = {
   HEAT: "난방",
   FAN: "송풍",
 };
+/** 스케줄·명령 표시용. 조명 회로는 켜짐(ON)뿐이라 공조 모드와 섞지 않는다. */
+export const SLOT_LABEL: Record<Mode | "ON", string> = {
+  ...{ COOL: "냉방", HEAT: "난방", FAN: "송풍" },
+  ON: "켜짐",
+};
+export const LIGHT_LABEL = { ON: "켜짐", OFF: "꺼짐" } as const;
 export const SOURCE_LABEL = { SCHEDULE: "스케줄", MANUAL: "수동" } as const;
 export const KIND_LABEL: Record<Zone["kind"], string> = {
   OFFICE: "사무동",
@@ -185,7 +225,13 @@ export const REJECT_LABEL: Record<string, string> = {
   ALREADY_OFF: "이미 꺼져 있음",
   SAME_STATE: "이미 같은 모드",
 };
-export const DAY_LABEL = { WEEKDAY: "평일", WEEKEND: "주말" } as const;
+export const DAY_LABEL: Record<DayKind, string> = {
+  WEEKDAY: "평일",
+  WEEKEND: "주말",
+  HOLIDAY: "휴일",
+};
+/** 스케줄 요일 구분 순서. 서버 _scheduled_mode와 같다(휴일 > 토·일 > 평일). */
+export const DAY_KINDS: DayKind[] = ["WEEKDAY", "WEEKEND", "HOLIDAY"];
 export const SEVERITY_LABEL = { WARNING: "경고", CRITICAL: "위험" } as const;
 export const STATUS_LABEL: Record<Alarm["status"], string> = {
   raised: "확인 대기",
@@ -526,7 +572,7 @@ export function ShareBars({
 }
 
 /** 스케줄 모드(서버 _scheduled_mode와 같은 규칙: KST 요일·시각, 없으면 OFF). */
-function scheduledMode(slots: Slot[], at: number): State {
+function scheduledMode(slots: Slot[], at: number): string {
   const d = new Date(at);
   const hour = Number(
     d.toLocaleString("en-US", {

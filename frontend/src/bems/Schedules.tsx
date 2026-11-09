@@ -1,5 +1,7 @@
-// B-05 운전 스케줄 — 공조기별 평일/주말 시간대를 넓은 행 편집 패널로 전체 교체 (UI-03 W 패턴, E-04 기준).
+// B-05 운전 스케줄 — 공조기·조명 회로별 평일/주말/휴일 시간대를 넓은 행 편집 패널로 전체 교체 (UI-03 W 패턴, E-04 기준).
+// 휴일은 core 공통 달력(P-08)을 본다. 휴일 시간대를 하나도 두지 않으면 그날은 주말 시간대를 따른다(DSN-16 Q1).
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../shared/api";
 import {
   DataTable,
@@ -8,41 +10,63 @@ import {
   FormPanel,
   Loading,
   PageTitle,
+  ScreenIntro,
   useDiscardGuard,
   type Column,
 } from "../shared/components";
 import {
   BEMS,
+  DAY_KINDS,
   DAY_LABEL,
   fieldErrors,
   ModuleOff,
   moduleOff,
-  STATE_LABEL,
+  SLOT_LABEL,
   useLists,
   useSend,
+  type CircuitDetail,
+  type DayKind,
   type HvacUnit,
+  type LightingCircuit,
   type Mode,
   type Slot,
   type UnitDetail,
 } from "./common";
 
-type Row = HvacUnit & { weekday: string; weekend: string; slots: Slot[] };
+/** 스케줄 대상 한 줄. 공조기와 조명 회로는 경로와 고를 수 있는 모드만 다르다.
+ *  공조기와 조명 회로의 id는 서로 겹치므로 표의 행 id는 "구분:id"로 만든다. */
+type Row = {
+  id: string;
+  targetId: number;
+  code: string;
+  name: string;
+  target: "hvac" | "light";
+  targetLabel: string;
+  weekday: string;
+  weekend: string;
+  holiday: string;
+  slots: Slot[];
+};
+const PATH = { hvac: "/hvac-units", light: "/lighting-circuits" } as const;
+const MODES: Record<Row["target"], (Mode | "ON")[]> = {
+  hvac: ["COOL", "HEAT", "FAN"],
+  light: ["ON"],
+};
 const HOURS = Array.from({ length: 25 }, (_, h) => h);
-const MODES: Mode[] = ["COOL", "HEAT", "FAN"];
-const summary = (slots: Slot[], day: Slot["dayKind"]) =>
+const summary = (slots: Slot[], day: DayKind) =>
   slots
     .filter((s) => s.dayKind === day)
     .map(
       (s) =>
-        `${String(s.startHour).padStart(2, "0")}–${s.endHour} ${STATE_LABEL[s.mode]}`,
+        `${String(s.startHour).padStart(2, "0")}–${s.endHour} ${SLOT_LABEL[s.mode]}`,
     )
     .join(", ") || "—";
 
-/** 24시간 막대 미리보기(평일·주말 두 줄). 모드는 무늬(글자)로도 구분한다. */
+/** 24시간 막대 미리보기(평일·주말·휴일 세 줄). 모드는 무늬(글자)로도 구분한다. */
 function Preview({ slots }: { slots: Slot[] }) {
   return (
     <figure className="bems-schedule-preview" aria-label="스케줄 미리보기">
-      {(["WEEKDAY", "WEEKEND"] as const).map((day) => (
+      {DAY_KINDS.map((day) => (
         <div key={day} className="bems-schedule-row">
           <span>{DAY_LABEL[day]}</span>
           <div className="bems-schedule-track">
@@ -56,9 +80,9 @@ function Preview({ slots }: { slots: Slot[] }) {
                     left: `${(s.startHour / 24) * 100}%`,
                     width: `${((s.endHour - s.startHour) / 24) * 100}%`,
                   }}
-                  title={`${s.startHour}–${s.endHour}시 ${STATE_LABEL[s.mode]}`}
+                  title={`${s.startHour}–${s.endHour}시 ${SLOT_LABEL[s.mode]}`}
                 >
-                  {STATE_LABEL[s.mode]}
+                  {SLOT_LABEL[s.mode]}
                 </span>
               ))}
           </div>
@@ -70,8 +94,11 @@ function Preview({ slots }: { slots: Slot[] }) {
 }
 
 export function Schedules() {
-  const { data, error, reload } = useLists<[HvacUnit[]]>(["/hvac-units"]);
-  const [schedules, setSchedules] = useState<Record<number, Slot[]>>();
+  const { data, error, reload } = useLists<[HvacUnit[], LightingCircuit[]]>([
+    "/hvac-units",
+    "/lighting-circuits",
+  ]);
+  const [schedules, setSchedules] = useState<Record<string, Slot[]>>();
   const [tick, setTick] = useState(0);
   const [editing, setEditing] = useState<Row | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -83,20 +110,24 @@ export function Schedules() {
   const guard = useDiscardGuard(
     !!editing && JSON.stringify(slots) !== JSON.stringify(editing.slots),
   );
-  const units = data?.[0];
+  const [units, circuits] = data ?? [[], []];
   useEffect(() => {
-    if (!units) return;
-    // ponytail: 공조기마다 상세를 부른다(수 대). 공조기가 많아지면 스케줄 목록 API를 둔다.
+    if (!data) return;
+    // ponytail: 대상마다 상세를 부른다(수 대). 대상이 많아지면 스케줄 목록 API를 둔다.
+    const targets: [Row["target"], { id: number }][] = [
+      ...units.map((u) => ["hvac", u] as [Row["target"], { id: number }]),
+      ...circuits.map((c) => ["light", c] as [Row["target"], { id: number }]),
+    ];
     void Promise.all(
-      units.map((u) =>
-        api<UnitDetail>(`${BEMS}/hvac-units/${u.id}/detail`).then(
-          (r) => [u.id, r.data.schedule] as const,
-        ),
+      targets.map(([target, row]) =>
+        api<UnitDetail | CircuitDetail>(
+          `${BEMS}${PATH[target]}/${row.id}/detail`,
+        ).then((r) => [`${target}:${row.id}`, r.data.schedule] as const),
       ),
     )
       .then((pairs) => setSchedules(Object.fromEntries(pairs)))
       .catch(setError);
-  }, [units, tick]);
+  }, [data, tick]);
   if (moduleOff(error)) return <ModuleOff />;
   const errors = fieldErrors(saveError);
   const clean = (list: Slot[]) =>
@@ -106,15 +137,30 @@ export function Schedules() {
       endHour,
       mode,
     }));
-  const rows: Row[] = (units ?? []).map((u) => {
-    const list = clean(schedules?.[u.id] ?? []);
+  const toRow = (
+    target: Row["target"],
+    targetLabel: string,
+    row: HvacUnit | LightingCircuit,
+  ): Row => {
+    const id = `${target}:${row.id}`;
+    const list = clean(schedules?.[id] ?? []);
     return {
-      ...u,
+      id,
+      targetId: row.id,
+      code: row.code,
+      name: row.name,
+      target,
+      targetLabel,
       slots: list,
       weekday: summary(list, "WEEKDAY"),
       weekend: summary(list, "WEEKEND"),
+      holiday: summary(list, "HOLIDAY"),
     };
-  });
+  };
+  const rows: Row[] = [
+    ...units.map((u) => toRow("hvac", "공조기", u)),
+    ...circuits.map((c) => toRow("light", "조명", c)),
+  ];
 
   function edit(row: Row) {
     guard.guard(() => {
@@ -126,16 +172,18 @@ export function Schedules() {
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!editing) return;
-    const saved = await send(`/hvac-units/${editing.id}/schedule`, "PUT", {
-      slots,
-    });
+    const saved = await send(
+      `${PATH[editing.target]}/${editing.targetId}/schedule`,
+      "PUT",
+      { slots },
+    );
     if (saved) setEditing(null);
   }
   const change = (i: number, patch: Partial<Slot>) =>
     setSlots(slots.map((s, j) => (j === i ? { ...s, ...patch } : s)));
 
   const columns: Column<Row>[] = [
-    { key: "code", label: "공조기" },
+    { key: "code", label: "대상" },
     {
       key: "id",
       label: "관리",
@@ -150,22 +198,29 @@ export function Schedules() {
         </button>
       ),
     },
+    { key: "targetLabel", label: "구분" },
     { key: "name", label: "이름" },
     { key: "weekday", label: "평일" },
     { key: "weekend", label: "주말" },
+    { key: "holiday", label: "휴일" },
   ];
+  const modes = MODES[editing?.target ?? "hvac"];
 
   return (
     <div className="page-fill">
       <PageTitle
         id="B-05"
         title="운전 스케줄"
-        subtitle="공조기별 평일·주말 운전 시간대입니다. 시간대 밖은 정지합니다"
+        subtitle="공조기·조명 회로의 평일·주말·휴일 운전 시간대입니다. 시간대 밖은 정지합니다"
         help="bems/b-05"
       />
+      <ScreenIntro>
+        휴일은 <Link to="/holidays">휴일 달력</Link>에 등록한 날입니다. 휴일
+        시간대를 하나도 두지 않으면 그날은 주말 시간대를 따릅니다.
+      </ScreenIntro>
       {!editing && <ErrorNotice error={saveError} />}
       <ErrorNotice error={error} retry={reload} />
-      {!units || !schedules ? (
+      {!data || !schedules ? (
         !error && <Loading />
       ) : (
         <div className="split-view fill">
@@ -173,14 +228,14 @@ export function Schedules() {
             <DataTable
               rows={rows}
               columns={columns}
-              caption="공조기 스케줄"
+              caption="운전 스케줄"
               offset={0}
               total={rows.length}
               limit={rows.length || 1}
               onPage={() => undefined}
               empty={
                 <EmptyState
-                  reason="공조기가 없습니다. 구역·계측에서 공조기를 등록하세요."
+                  reason="공조기·조명 회로가 없습니다. 구역·계측에서 등록하세요."
                   to="/bems/zones"
                   action="구역·계측으로"
                 />
@@ -237,12 +292,15 @@ export function Schedules() {
                             value={s.dayKind}
                             onChange={(e) =>
                               change(i, {
-                                dayKind: e.target.value as Slot["dayKind"],
+                                dayKind: e.target.value as DayKind,
                               })
                             }
                           >
-                            <option value="WEEKDAY">평일</option>
-                            <option value="WEEKEND">주말</option>
+                            {DAY_KINDS.map((d) => (
+                              <option key={d} value={d}>
+                                {DAY_LABEL[d]}
+                              </option>
+                            ))}
                           </select>
                         </td>
                         <td>
@@ -284,13 +342,14 @@ export function Schedules() {
                           <select
                             aria-label={`${i + 1}번째 모드`}
                             value={s.mode}
+                            disabled={modes.length === 1}
                             onChange={(e) =>
-                              change(i, { mode: e.target.value as Mode })
+                              change(i, { mode: e.target.value as Mode | "ON" })
                             }
                           >
-                            {MODES.map((m) => (
+                            {modes.map((m) => (
                               <option key={m} value={m}>
-                                {STATE_LABEL[m]}
+                                {SLOT_LABEL[m]}
                               </option>
                             ))}
                           </select>
@@ -313,7 +372,8 @@ export function Schedules() {
               </div>
               {!slots.length && (
                 <p className="muted">
-                  시간대가 없으면 공조기는 스케줄상 정지입니다.
+                  시간대가 없으면 {editing.targetLabel}은(는) 스케줄상
+                  정지입니다.
                 </p>
               )}
               <button
@@ -326,7 +386,7 @@ export function Schedules() {
                       dayKind: "WEEKDAY",
                       startHour: 8,
                       endHour: 19,
-                      mode: "COOL",
+                      mode: modes[0],
                     },
                   ])
                 }

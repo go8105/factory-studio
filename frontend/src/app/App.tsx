@@ -23,6 +23,7 @@ import { FavoritesProvider } from "../shared/favorites";
 import { ErrorNotice, Loading, NotFound } from "../shared/components";
 import { About } from "../portal/About";
 import { Entry } from "../portal/Entry";
+import { Holidays } from "../portal/Holidays";
 import { Home } from "../portal/Home";
 // Markdown 렌더러와 정적 콘텐츠는 첫 화면에 필요 없으므로 분리한다.
 const content = () => import("../portal/ContentPages");
@@ -165,6 +166,7 @@ function Layout() {
           {session ? (
             <HeaderMenu summary="계정" label="계정 메뉴">
               <NavLink to="/workspace">내 공간</NavLink>
+              <NavLink to="/holidays">휴일 달력</NavLink>
               {session.actorKind === "MEMBER" && (
                 <NavLink to="/account/security">내 계정 보안</NavLink>
               )}
@@ -261,6 +263,7 @@ function PortalRoutes() {
             <Route path="/flow" element={<FlowMap />} />
             <Route path="/cards/:card?" element={<Cards />} />
             <Route path="/workspace" element={<Workspace />} />
+            <Route path="/holidays" element={<Holidays />} />
             <Route path="/records" element={<Admin />} />
             <Route path="/fems/*" element={<FemsRoutes />} />
             <Route path="/mes/*" element={<MesRoutes />} />

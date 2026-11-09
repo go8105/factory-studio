@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
@@ -26,7 +27,9 @@ from fs.common.clock import business_today
 from fs.common.engine import action, read
 from fs.common.errors import ApiError
 from fs.common.scope import read_scope
+from fs.core import interface as core
 from fs.fems import interface as fems
+from fs.hr import interface as hr
 
 MODULE = "bems"
 SEOUL = ZoneInfo("Asia/Seoul")
@@ -95,7 +98,15 @@ def _all(connection, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
 # ---------- 기준정보 (B-07) ----------
 
 MASTER = {
-    "zone": ("구역", "code, name, kind, floor_area_m2, is_active"),
+    "building": ("건물", "code, name, floors, gross_area_m2, is_active"),
+    "zone": (
+        "구역",
+        "code, name, kind, floor_area_m2, is_active, building_id, floor_label, department_code",
+    ),
+    "lighting_circuit": (
+        "조명 회로",
+        "zone_id, code, name, meter_id, rated_kw, state, control_source, state_changed_at, is_active",
+    ),
     "meter": ("공용 계측기", "zone_id, code, name, usage, unit, is_active"),
     "sensor": ("환경 센서", "zone_id, code, metric, unit, is_active"),
     "hvac_unit": (
@@ -118,7 +129,7 @@ def list_master(
     context: AuthContext, table: str, zone_id: int | None = None
 ) -> list[dict[str, Any]]:
     columns = MASTER[table][1]
-    where = " AND zone_id=:z" if zone_id and table != "zone" else ""
+    where = " AND zone_id=:z" if zone_id and table not in ("zone", "building") else ""
     with _read() as connection:
         scoped = read_scope(connection, context, MODULE)
         return _all(
@@ -135,17 +146,67 @@ def _check_refs(connection, scoped, table: str, values: dict[str, Any]) -> None:
         and _master(connection, scoped, "zone", values["zone_id"]) is None
     ):
         errors["zoneId"] = "구역을 고르세요."
-    if table == "hvac_unit" and values.get("meter_id") is not None:
+    if (
+        table in ("hvac_unit", "lighting_circuit")
+        and values.get("meter_id") is not None
+    ):
         meter = _master(connection, scoped, "meter", values["meter_id"])
         zone = values.get("zone_id")
+        usage = "HVAC" if table == "hvac_unit" else "LIGHTING"
         if (
             meter is None
-            or meter["usage"] != "HVAC"
+            or meter["usage"] != usage
             or (zone and meter["zoneId"] != zone)
         ):
-            errors["meterId"] = "같은 구역의 공조 용도 계측기만 고를 수 있습니다."
+            errors["meterId"] = (
+                "같은 구역의 "
+                + ("공조" if usage == "HVAC" else "조명")
+                + " 용도 계측기만 고를 수 있습니다."
+            )
+    if table == "zone":
+        errors.update(_check_zone_place(connection, scoped, values))
     if errors:
         raise _fields(errors)
+
+
+FLOOR_ABOVE = re.compile(r"^([1-9]\d{0,2})F$")
+
+
+def _check_zone_place(connection, scoped, values: dict[str, Any]) -> dict[str, str]:
+    """건물·층·부서. 층 표기는 건물이 있어야 하고 지상층 번호는 건물 층수를 넘을 수 없다."""
+    errors: dict[str, str] = {}
+    building = None
+    if values.get("building_id") is not None:
+        building = _master(connection, scoped, "building", values["building_id"])
+        if building is None:
+            errors["buildingId"] = "건물을 고르세요."
+    if values.get("floor_label") is not None:
+        if values.get("building_id") is None:
+            errors["floorLabel"] = "건물을 먼저 고르세요."
+        elif building is not None:
+            above = FLOOR_ABOVE.match(values["floor_label"])
+            if above and int(above.group(1)) > building["floors"]:
+                errors["floorLabel"] = f"이 건물은 {building['floors']}층까지입니다."
+    code = values.get("department_code")
+    if code is not None:
+        # 부서 코드는 HR이 원천이다. HR을 껐으면 목록이 없어 형식만 본다(FEMS 설비와 같은 규칙).
+        rows = hr.departments(connection, scoped)
+        if rows is not None and code not in {r["code"] for r in rows}:
+            errors["departmentCode"] = "HR에 없는 부서 코드입니다."
+    return errors
+
+
+def list_departments(context: AuthContext) -> dict[str, Any]:
+    """구역에 붙일 부서 후보. HR이 꺼져 있으면 목록이 아니라 꺼졌다고 답한다."""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        rows = hr.departments(connection, scoped)
+    if rows is None:
+        return {"hrEnabled": False, "rows": []}
+    return {
+        "hrEnabled": True,
+        "rows": [{"code": r["code"], "name": r["name"]} for r in rows if r["isActive"]],
+    }
 
 
 def create_master(
@@ -195,9 +256,36 @@ def update_master(
         found = _master(connection, scoped, table, row_id)
         if found is None:
             raise _not_found(MASTER[table][0])
-        if table == "hvac_unit" and "meter_id" in values:
+        if table in ("hvac_unit", "lighting_circuit") and "meter_id" in values:
             _check_refs(
                 connection, scoped, table, {**values, "zone_id": found["zoneId"]}
+            )
+        if table == "zone" and {"building_id", "floor_label", "department_code"} & set(
+            values
+        ):
+            merged = {
+                "building_id": found["buildingId"],
+                "floor_label": found["floorLabel"],
+                **values,
+            }
+            # 바꾸지 않은 부서 코드는 다시 검사하지 않는다(HR에서 사라진 옛 코드도 그대로 둘 수 있다).
+            merged["department_code"] = values.get("department_code")
+            errors = _check_zone_place(connection, scoped, merged)
+            if errors:
+                raise _fields(errors)
+        if (
+            table == "building"
+            and values.get("is_active") is False
+            and connection.execute(
+                text(
+                    f"SELECT 1 FROM bems.zone WHERE {_S} AND building_id=:b AND is_active LIMIT 1"
+                ),
+                {**_s(scoped), "b": row_id},
+            ).first()
+        ):
+            raise _conflict(
+                "사용 중인 구역이 있는 건물은 사용 안 함으로 바꿀 수 없습니다.",
+                "BUILDING_HAS_ACTIVE_ZONES",
             )
         sets = ", ".join(f"{k}=:{k}" for k in values)
         connection.execute(
@@ -371,12 +459,42 @@ def _setpoints(connection, scoped, zone_id: int) -> dict[str, Decimal]:
     return current
 
 
-def _scheduled_mode(connection, scoped, unit_id: int, moment: datetime) -> str:
+def day_kind(connection, scoped, day: date) -> str:
+    """요일 구분. 휴일(core 달력) > 토·일 > 평일(DSN-16 Q1)."""
+    if core.holidays(connection, scoped, day, day):
+        return "HOLIDAY"
+    return "WEEKDAY" if day.weekday() < 5 else "WEEKEND"
+
+
+# 스케줄 대상(공조기·조명 회로)별 FK 열. 이름은 상수라 SQL에 직접 넣는다.
+TARGET = {"hvac_unit": "hvac_unit_id", "lighting_circuit": "lighting_circuit_id"}
+
+
+def _scheduled_mode(
+    connection, scoped, unit_id: int, moment: datetime, table: str = "hvac_unit"
+) -> str:
+    """그 시각의 스케줄 모드(조명 회로는 ON). 없으면 OFF.
+
+    휴일에 그 대상의 휴일 시간대가 하나도 없으면 주말 시간대를 따른다 — 휴일 칸을 비워 두면
+    '휴일은 주말처럼'이다. 하루 종일 끄려면 휴일 시간대를 아예 두지 않은 채 주말도 비운다.
+    """
+    column = TARGET[table]
     local = moment.astimezone(SEOUL)
-    kind = "WEEKDAY" if local.weekday() < 5 else "WEEKEND"
+    kind = day_kind(connection, scoped, local.date())
+    if (
+        kind == "HOLIDAY"
+        and not connection.execute(
+            text(
+                f"SELECT 1 FROM bems.schedule_slot WHERE {_S} AND {column}=:u AND is_active "
+                "AND day_kind='HOLIDAY' LIMIT 1"
+            ),
+            {**_s(scoped), "u": unit_id},
+        ).first()
+    ):
+        kind = "WEEKEND"
     mode = connection.execute(
         text(
-            f"SELECT mode FROM bems.schedule_slot WHERE {_S} AND hvac_unit_id=:u AND is_active "
+            f"SELECT mode FROM bems.schedule_slot WHERE {_S} AND {column}=:u AND is_active "
             "AND day_kind=:k AND start_hour<=:h AND end_hour>:h ORDER BY start_hour LIMIT 1"
         ),
         {**_s(scoped), "u": unit_id, "k": kind, "h": local.hour},
@@ -385,10 +503,12 @@ def _scheduled_mode(connection, scoped, unit_id: int, moment: datetime) -> str:
 
 
 COMMAND_SQL = f"""
-SELECT c.id, c.zone_id, c.hvac_unit_id, h.code hvac_code, c.command, c.mode, c.setpoint_kind, c.value, c.source,
+SELECT c.id, c.zone_id, c.hvac_unit_id, h.code hvac_code, c.lighting_circuit_id, l.code lighting_code,
+       c.command, c.mode, c.setpoint_kind, c.value, c.source,
        c.requested_at, c.result, c.reject_reason, c.note
 FROM bems.control_command c
 LEFT JOIN bems.hvac_unit h ON h.workspace_id=c.workspace_id AND h.generation_id=c.generation_id AND h.id=c.hvac_unit_id
+LEFT JOIN bems.lighting_circuit l ON l.workspace_id=c.workspace_id AND l.generation_id=c.generation_id AND l.id=c.lighting_circuit_id
 WHERE c.{_S.replace(" AND ", " AND c.")}
 """
 
@@ -438,7 +558,7 @@ def hvac_unit(context: AuthContext, unit_id: int) -> dict[str, Any]:
         unit["commands"] = _all(
             connection,
             COMMAND_SQL
-            + " AND (c.hvac_unit_id=:u OR (c.hvac_unit_id IS NULL AND c.zone_id=:z)) "
+            + " AND (c.hvac_unit_id=:u OR (c.hvac_unit_id IS NULL AND c.lighting_circuit_id IS NULL AND c.zone_id=:z)) "
             "ORDER BY c.requested_at DESC, c.id DESC LIMIT 20",
             {**_s(scoped), "u": unit_id, "z": unit["zoneId"]},
         )
@@ -447,19 +567,27 @@ def hvac_unit(context: AuthContext, unit_id: int) -> dict[str, Any]:
 
 
 def commands(
-    context: AuthContext, zone_id: int | None, unit_id: int | None
+    context: AuthContext,
+    zone_id: int | None,
+    unit_id: int | None,
+    circuit_id: int | None = None,
 ) -> list[dict[str, Any]]:
     where = ""
     if zone_id:
         where += " AND c.zone_id=:z"
     if unit_id:
         where += " AND c.hvac_unit_id=:u"
+    if circuit_id:
+        where += " AND c.lighting_circuit_id=:l"
+    elif not unit_id:
+        # 공조 화면의 이력에 조명 명령이 섞이지 않게 한다. 조명은 회로를 지정해 본다.
+        where += " AND c.lighting_circuit_id IS NULL"
     with _read() as connection:
         scoped = read_scope(connection, context, MODULE)
         return _all(
             connection,
             COMMAND_SQL + where + " ORDER BY c.requested_at DESC, c.id DESC LIMIT 200",
-            {**_s(scoped), "z": zone_id, "u": unit_id},
+            {**_s(scoped), "z": zone_id, "u": unit_id, "l": circuit_id},
         )
 
 
@@ -468,14 +596,15 @@ def _insert_command(
 ) -> int:
     return connection.execute(
         text(
-            "INSERT INTO bems.control_command(workspace_id,generation_id,zone_id,hvac_unit_id,command,mode,"
+            "INSERT INTO bems.control_command(workspace_id,generation_id,zone_id,hvac_unit_id,lighting_circuit_id,command,mode,"
             "setpoint_kind,value,source,requested_at,result,reject_reason,note) VALUES "
-            "(:w,:g,:zone_id,:hvac_unit_id,:command,:mode,:setpoint_kind,:value,:source,"
+            "(:w,:g,:zone_id,:hvac_unit_id,:lighting_circuit_id,:command,:mode,:setpoint_kind,:value,:source,"
             "COALESCE(CAST(:at AS timestamptz), clock_timestamp()),:result,:reject_reason,:note) RETURNING id"
         ),
         {
             **_s(scoped),
             "hvac_unit_id": None,
+            "lighting_circuit_id": None,
             "mode": None,
             "setpoint_kind": None,
             "value": None,
@@ -494,10 +623,11 @@ def _set_state(
     state: str,
     source: str,
     at: datetime | None = None,
+    table: str = "hvac_unit",
 ) -> None:
     connection.execute(
         text(
-            f"UPDATE bems.hvac_unit SET state=:s, control_source=:src, "
+            f"UPDATE bems.{table} SET state=:s, control_source=:src, "
             f"state_changed_at=COALESCE(CAST(:at AS timestamptz), clock_timestamp()) WHERE {_S} AND id=:id"
         ),
         {**_s(scoped), "s": state, "src": source, "id": unit_id, "at": at},
@@ -522,7 +652,27 @@ def send_command(
         }
         reason = None
         unit = None
-        if command == "SET_SETPOINT":
+        circuit = None
+        if values.get("lighting_circuit_id") is not None:
+            if command not in ("POWER_ON", "POWER_OFF"):
+                raise _fields({"command": "조명 회로는 켜기·끄기만 할 수 있습니다."})
+            if values.get("hvac_unit_id") is not None:
+                raise _fields(
+                    {"hvacUnitId": "공조기와 조명 회로를 함께 고를 수 없습니다."}
+                )
+            circuit = _master(
+                connection, scoped, "lighting_circuit", values["lighting_circuit_id"]
+            )
+            if circuit is None or circuit["zoneId"] != zone["id"]:
+                raise _fields({"lightingCircuitId": "이 구역의 조명 회로를 고르세요."})
+            row["lighting_circuit_id"] = circuit["id"]
+            if not circuit["isActive"]:
+                reason = "UNIT_INACTIVE"
+            elif command == "POWER_OFF" and circuit["state"] == "OFF":
+                reason = "ALREADY_OFF"
+            elif command == "POWER_ON" and circuit["state"] == "ON":
+                reason = "ALREADY_ON"
+        elif command == "SET_SETPOINT":
             kind, value = values.get("setpoint_kind"), values.get("value")
             if kind is None or value is None:
                 raise _fields({"value": "설정값 항목과 값을 입력하세요."})
@@ -556,6 +706,16 @@ def send_command(
         # 수동 명령도 시뮬레이션 시계(다음 구간 시작)로 기록해 스케줄 명령·관측과 한 시간축에 놓는다.
         now = _simulation_clock(connection, scoped)[0]
         command_id = _insert_command(connection, scoped, row, now)
+        if not reason and circuit is not None:
+            _set_state(
+                connection,
+                scoped,
+                circuit["id"],
+                "ON" if command == "POWER_ON" else "OFF",
+                "MANUAL",
+                now,
+                "lighting_circuit",
+            )
         if not reason and unit is not None:
             if command == "POWER_ON":
                 # 켜면 시뮬레이션 현재 시각의 스케줄 모드로, 스케줄이 없는 시간이면 송풍으로 운전한다.
@@ -572,20 +732,36 @@ def send_command(
     return _action(context, "bems.command", key, values, fn, 201)
 
 
-def _schedule(connection, scoped, unit_id: int) -> list[dict[str, Any]]:
+def _schedule(
+    connection, scoped, unit_id: int, table: str = "hvac_unit"
+) -> list[dict[str, Any]]:
     return _all(
         connection,
         f"SELECT id, day_kind, start_hour, end_hour, mode, is_active FROM bems.schedule_slot "
-        f"WHERE {_S} AND hvac_unit_id=:u ORDER BY day_kind DESC, start_hour",
+        f"WHERE {_S} AND {TARGET[table]}=:u "
+        "ORDER BY CASE day_kind WHEN 'WEEKDAY' THEN 1 WHEN 'WEEKEND' THEN 2 ELSE 3 END, start_hour",
         {**_s(scoped), "u": unit_id},
     )
 
 
-def replace_schedule(
-    context: AuthContext, unit_id: int, slots: list[dict[str, Any]], key: str
+def _replace_schedule(
+    context: AuthContext,
+    table: str,
+    unit_id: int,
+    slots: list[dict[str, Any]],
+    key: str,
 ) -> list[dict[str, Any]]:
+    column = TARGET[table]
+    lighting = table == "lighting_circuit"
     errors: dict[str, str] = {}
     for i, a in enumerate(slots):
+        if (a["mode"] == "ON") != lighting:
+            errors[f"slots.{i}"] = (
+                "조명 회로는 켜짐(ON) 시간대만 둡니다."
+                if lighting
+                else "공조기는 냉방·난방·송풍 중에서 고르세요."
+            )
+            continue
         if a["start_hour"] >= a["end_hour"]:
             errors[f"slots.{i}"] = "종료 시각이 시작보다 늦어야 합니다."
             continue
@@ -600,23 +776,55 @@ def replace_schedule(
         raise _fields(errors)
 
     def fn(connection, scoped):
-        if _master(connection, scoped, "hvac_unit", unit_id) is None:
-            raise _not_found("공조기")
+        if _master(connection, scoped, table, unit_id) is None:
+            raise _not_found("조명 회로" if lighting else "공조기")
         connection.execute(
-            text(f"DELETE FROM bems.schedule_slot WHERE {_S} AND hvac_unit_id=:u"),
+            text(f"DELETE FROM bems.schedule_slot WHERE {_S} AND {column}=:u"),
             {**_s(scoped), "u": unit_id},
         )
         for slot in slots:
             connection.execute(
                 text(
-                    "INSERT INTO bems.schedule_slot(workspace_id,generation_id,hvac_unit_id,day_kind,start_hour,end_hour,mode) "
+                    f"INSERT INTO bems.schedule_slot(workspace_id,generation_id,{column},day_kind,start_hour,end_hour,mode) "
                     "VALUES (:w,:g,:u,:day_kind,:start_hour,:end_hour,:mode)"
                 ),
                 {**_s(scoped), "u": unit_id, **slot},
             )
-        return _schedule(connection, scoped, unit_id), "hvac_unit", unit_id
+        return _schedule(connection, scoped, unit_id, table), table, unit_id
 
-    return _action(context, f"bems.schedule:{unit_id}", key, {"slots": slots}, fn)
+    return _action(
+        context, f"bems.schedule:{table}:{unit_id}", key, {"slots": slots}, fn
+    )
+
+
+def replace_schedule(
+    context: AuthContext, unit_id: int, slots: list[dict[str, Any]], key: str
+) -> list[dict[str, Any]]:
+    return _replace_schedule(context, "hvac_unit", unit_id, slots, key)
+
+
+def replace_lighting_schedule(
+    context: AuthContext, circuit_id: int, slots: list[dict[str, Any]], key: str
+) -> list[dict[str, Any]]:
+    return _replace_schedule(context, "lighting_circuit", circuit_id, slots, key)
+
+
+def lighting_circuit(context: AuthContext, circuit_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        circuit = _master(connection, scoped, "lighting_circuit", circuit_id)
+        if circuit is None:
+            raise _not_found("조명 회로")
+        circuit["commands"] = _all(
+            connection,
+            COMMAND_SQL
+            + " AND c.lighting_circuit_id=:l ORDER BY c.requested_at DESC, c.id DESC LIMIT 20",
+            {**_s(scoped), "l": circuit_id},
+        )
+        circuit["schedule"] = _schedule(
+            connection, scoped, circuit_id, "lighting_circuit"
+        )
+        return circuit
 
 
 # ---------- 1시간 진행 (TX-B2, D21) ----------
@@ -656,39 +864,58 @@ def _simulation_clock(connection, scoped) -> tuple[datetime, datetime]:
 
 def _step(connection, scoped, moment: datetime) -> dict[str, int]:
     local = moment.astimezone(SEOUL)
-    weekday = local.weekday() < 5
+    # 휴일(core 달력)에는 사람이 없다 — 평일 재실 모델은 평일에만 쓴다.
+    weekday = day_kind(connection, scoped, local.date()) == "WEEKDAY"
     summary = {"readings": 0, "switches": 0, "raised": 0, "cleared": 0}
     units = list_master_in(connection, scoped, "hvac_unit")
     previous = moment - timedelta(hours=1)
-    for u in units:
-        if not u["isActive"]:
-            continue
-        planned = _scheduled_mode(connection, scoped, u["id"], moment)
-        boundary = planned != _scheduled_mode(connection, scoped, u["id"], previous)
-        if (u["controlSource"] == "SCHEDULE" or boundary) and (
-            u["state"] != planned or u["controlSource"] != "SCHEDULE"
-        ):
-            command = (
-                "POWER_OFF"
-                if planned == "OFF"
-                else ("POWER_ON" if u["state"] == "OFF" else "SET_MODE")
+    for table, targets in (
+        ("hvac_unit", units),
+        ("lighting_circuit", list_master_in(connection, scoped, "lighting_circuit")),
+    ):
+        for u in targets:
+            if not u["isActive"]:
+                continue
+            planned = _scheduled_mode(connection, scoped, u["id"], moment, table)
+            boundary = planned != _scheduled_mode(
+                connection, scoped, u["id"], previous, table
             )
-            _insert_command(
-                connection,
-                scoped,
-                {
-                    "zone_id": u["zoneId"],
-                    "hvac_unit_id": u["id"],
-                    "command": command,
-                    "mode": planned if command == "SET_MODE" else None,
-                    "source": "SCHEDULE",
-                    "result": "APPLIED",
-                },
-                moment,
-            )
-            _set_state(connection, scoped, u["id"], planned, "SCHEDULE", moment)
-            u["state"], u["controlSource"] = planned, "SCHEDULE"
-            summary["switches"] += 1
+            if (u["controlSource"] == "SCHEDULE" or boundary) and (
+                u["state"] != planned or u["controlSource"] != "SCHEDULE"
+            ):
+                if table == "lighting_circuit":
+                    command, mode = (
+                        ("POWER_ON" if planned == "ON" else "POWER_OFF"),
+                        None,
+                    )
+                else:
+                    command = (
+                        "POWER_OFF"
+                        if planned == "OFF"
+                        else ("POWER_ON" if u["state"] == "OFF" else "SET_MODE")
+                    )
+                    mode = planned if command == "SET_MODE" else None
+                _insert_command(
+                    connection,
+                    scoped,
+                    {
+                        "zone_id": u["zoneId"],
+                        "hvac_unit_id": u["id"] if table == "hvac_unit" else None,
+                        "lighting_circuit_id": u["id"]
+                        if table == "lighting_circuit"
+                        else None,
+                        "command": command,
+                        "mode": mode,
+                        "source": "SCHEDULE",
+                        "result": "APPLIED",
+                    },
+                    moment,
+                )
+                _set_state(
+                    connection, scoped, u["id"], planned, "SCHEDULE", moment, table
+                )
+                u["state"], u["controlSource"] = planned, "SCHEDULE"
+                summary["switches"] += 1
     latest = _latest_environment(connection, scoped)
     zones = list_master_in(connection, scoped, "zone")
     state_by_zone = {u["zoneId"]: u["state"] for u in units if u["isActive"]}

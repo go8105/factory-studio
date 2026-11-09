@@ -8,6 +8,7 @@ from fs.cmms.router import router as cmms_router
 from fs.common.errors import install_error_handlers
 from fs.common.request_logging import RequestLogMiddleware
 from fs.common.scope import seed_ready
+from fs.core.holidays import router as holiday_router
 from fs.core.review import router as review_router
 from fs.core.router import router as core_router
 from fs.core.security.router import router as security_router
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(hr_work_router, prefix="/api/v1/hr/work")
     app.include_router(gw_company_router, prefix="/api/v1/gw")
     app.include_router(review_router, prefix="/api/v1/core")
+    app.include_router(holiday_router, prefix="/api/v1/core/holidays")
     app.include_router(
         fems_router, prefix="/api/v1/fems", dependencies=[Depends(seed_ready("fems"))]
     )

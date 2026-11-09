@@ -117,9 +117,11 @@ BEMS_TABLES = (
     "environment_reading",
     "energy_reading",
     "hvac_unit",
+    "lighting_circuit",
     "sensor",
     "meter",
     "zone",
+    "building",
 )
 
 
