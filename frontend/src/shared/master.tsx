@@ -102,6 +102,8 @@ export type MasterSpec<Row extends { id: number | string }, Draft> = {
   fields: MasterField<Draft>[];
   /** 목록 위 안내(등록 순서 등) */
   intro?: ReactNode;
+  /** 제목 줄의 등록 버튼 왼쪽에 둘 조회 조건(연도 선택 등) */
+  actions?: ReactNode;
   /** 조건 체크박스 한 개 (예: 사용 중만 → "active=true") */
   filter?: { label: string; query: string };
   /** 폼 아래에 직접 넣는 입력 */
@@ -343,14 +345,17 @@ export function MasterScreen<
         subtitle={spec.subtitle}
         help={spec.help}
         actions={
-          <button
-            type="button"
-            disabled={spec.readOnly}
-            aria-pressed={!!panel && !editing}
-            onClick={() => guard.guard(() => openPanel(null))}
-          >
-            {spec.labels.create}
-          </button>
+          <>
+            {spec.actions}
+            <button
+              type="button"
+              disabled={spec.readOnly}
+              aria-pressed={!!panel && !editing}
+              onClick={() => guard.guard(() => openPanel(null))}
+            >
+              {spec.labels.create}
+            </button>
+          </>
         }
       />
       {spec.intro && <ScreenIntro>{spec.intro}</ScreenIntro>}

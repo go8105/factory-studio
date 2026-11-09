@@ -12,9 +12,13 @@ from fs.bems.schema import (
     Acknowledge,
     ActiveUpdate,
     Advance,
+    BuildingCreate,
+    BuildingUpdate,
     CommandCreate,
     HvacCreate,
     HvacUpdate,
+    LightingCreate,
+    LightingUpdate,
     MeterCreate,
     NameUpdate,
     RuleCreate,
@@ -90,10 +94,24 @@ def get_energy(
 
 # ---- 기준정보 (B-07) ----
 MASTERS: list[tuple[str, str, type[BaseModel], type[BaseModel], frozenset[str]]] = [
-    ("zones", "zone", ZoneCreate, ZoneUpdate, frozenset({"floor_area_m2"})),
+    ("buildings", "building", BuildingCreate, BuildingUpdate, frozenset()),
+    (
+        "zones",
+        "zone",
+        ZoneCreate,
+        ZoneUpdate,
+        frozenset({"floor_area_m2", "building_id", "floor_label", "department_code"}),
+    ),
     ("meters", "meter", MeterCreate, NameUpdate, frozenset()),
     ("sensors", "sensor", SensorCreate, ActiveUpdate, frozenset()),
     ("hvac-units", "hvac_unit", HvacCreate, HvacUpdate, frozenset({"meter_id"})),
+    (
+        "lighting-circuits",
+        "lighting_circuit",
+        LightingCreate,
+        LightingUpdate,
+        frozenset({"meter_id"}),
+    ),
 ]
 
 
@@ -147,6 +165,11 @@ for _path, _table, _create, _update, _nullable in MASTERS:
     _register(_path, _table, _create, _update, _nullable)
 
 
+@router.get("/lookups/departments")
+def lookup_departments(context: Auth):
+    return _data(service.list_departments(context))
+
+
 # ---- 공조 운전 (B-04·B-05) ----
 @router.get("/hvac-overview")
 def hvac_overview(context: Auth):
@@ -172,13 +195,35 @@ def put_schedule(
     )
 
 
+@router.get("/lighting-circuits/{circuit_id}/detail")
+def lighting_detail(circuit_id: int, context: Auth):
+    return _data(service.lighting_circuit(context, circuit_id))
+
+
+@router.put("/lighting-circuits/{circuit_id}/schedule")
+def put_lighting_schedule(
+    circuit_id: int,
+    payload: ScheduleReplace,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    slots = [s.model_dump() for s in payload.slots]
+    return _data(
+        service.replace_lighting_schedule(
+            context, circuit_id, slots, _mutation(context, csrf, key)
+        )
+    )
+
+
 @router.get("/commands")
 def list_commands(
     context: Auth,
     zone_id: Annotated[int | None, Query(alias="zoneId")] = None,
     unit_id: Annotated[int | None, Query(alias="hvacUnitId")] = None,
+    circuit_id: Annotated[int | None, Query(alias="lightingCircuitId")] = None,
 ):
-    return _data(service.commands(context, zone_id, unit_id))
+    return _data(service.commands(context, zone_id, unit_id, circuit_id))
 
 
 @router.post("/commands", status_code=201)

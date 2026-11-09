@@ -8,6 +8,7 @@ import { Environment } from "./Environment";
 import { Hvac } from "./Hvac";
 import { Schedules } from "./Schedules";
 import { Alarms } from "./Alarms";
+import { Lighting } from "./Lighting";
 import { Zones } from "./Zones";
 
 export default function BemsRoutes() {
@@ -20,6 +21,7 @@ export default function BemsRoutes() {
         <Route path="environment" element={<Environment />} />
         <Route path="hvac" element={<Hvac />} />
         <Route path="schedules" element={<Schedules />} />
+        <Route path="lighting" element={<Lighting />} />
         <Route path="alarms" element={<Alarms />} />
         <Route path="zones" element={<Zones />} />
         <Route path="*" element={<NotFound />} />

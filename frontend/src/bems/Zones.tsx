@@ -23,28 +23,39 @@ import {
   num,
   STATE_LABEL,
   USAGE_LABEL,
+  useGet,
   useLists,
   useSend,
+  LIGHT_LABEL,
+  type Building,
+  type Departments,
   type HvacUnit,
+  type LightingCircuit,
   type Meter,
   type Metric,
   type Sensor,
   type Zone,
 } from "./common";
 
-type Kind = "zone" | "meter" | "sensor" | "hvac";
+type Kind = "building" | "zone" | "meter" | "sensor" | "hvac" | "light";
 const PATH: Record<Kind, string> = {
+  building: "/buildings",
   zone: "/zones",
   meter: "/meters",
   sensor: "/sensors",
   hvac: "/hvac-units",
+  light: "/lighting-circuits",
 };
 const TITLE: Record<Kind, string> = {
+  building: "건물",
   zone: "구역",
   meter: "공용 계측기",
   sensor: "환경 센서",
   hvac: "공조기",
+  light: "조명 회로",
 };
+/** 지하 B1·지상 3F·옥상 RF. 서버 schema.FLOOR와 같다. */
+const FLOOR_PATTERN = "(B[1-9]\\d?|[1-9]\\d{0,2}F|RF)";
 type Draft = {
   code: string;
   name: string;
@@ -55,6 +66,11 @@ type Draft = {
   meterId: string;
   ratedKw: string;
   isActive: boolean;
+  floors: string;
+  grossAreaM2: string;
+  buildingId: string;
+  floorLabel: string;
+  departmentCode: string;
 };
 const EMPTY: Draft = {
   code: "",
@@ -66,6 +82,11 @@ const EMPTY: Draft = {
   meterId: "",
   ratedKw: "",
   isActive: true,
+  floors: "",
+  grossAreaM2: "",
+  buildingId: "",
+  floorLabel: "",
+  departmentCode: "",
 };
 type Row = { id: number; code: string; isActive: boolean };
 type FormRow = Row & {
@@ -76,6 +97,11 @@ type FormRow = Row & {
   metric?: Metric;
   meterId?: number | null;
   ratedKw?: string;
+  floors?: number;
+  grossAreaM2?: string;
+  buildingId?: number | null;
+  floorLabel?: string | null;
+  departmentCode?: string | null;
 };
 type Form = { kind: Kind; row: FormRow | null };
 
@@ -145,8 +171,16 @@ function Sub<T extends Row>({
 
 export function Zones() {
   const { data, error, reload } = useLists<
-    [Zone[], Meter[], Sensor[], HvacUnit[]]
-  >(["/zones", "/meters", "/sensors", "/hvac-units"]);
+    [Zone[], Meter[], Sensor[], HvacUnit[], Building[], LightingCircuit[]]
+  >([
+    "/zones",
+    "/meters",
+    "/sensors",
+    "/hvac-units",
+    "/buildings",
+    "/lighting-circuits",
+  ]);
+  const departments = useGet<Departments>("/lookups/departments");
   const [zoneId, setZoneId] = useState<number | null>(null);
   const [form, setForm] = useState<Form | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -156,12 +190,28 @@ export function Zones() {
     !!form && JSON.stringify(draft) !== JSON.stringify(initial),
   );
   if (moduleOff(error)) return <ModuleOff />;
-  const [zones, meters, sensors, units] = data ?? [[], [], [], []];
+  const [zones, meters, sensors, units, buildings, circuits] = data ?? [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+  ];
   const zone = zones.find((z) => z.id === zoneId);
   const errors = fieldErrors(saveError);
   const inZone = <T extends { zoneId: number }>(rows: T[]) =>
     rows.filter((r) => r.zoneId === zoneId);
   const hvacMeters = inZone(meters).filter((m) => m.usage === "HVAC");
+  const lightMeters = inZone(meters).filter((m) => m.usage === "LIGHTING");
+  const buildingText = (z: Zone) => {
+    const b = buildings.find((x) => x.id === z.buildingId);
+    return b ? `${b.name}${z.floorLabel ? ` ${z.floorLabel}` : ""}` : "—";
+  };
+  const departmentText = (code: string | null) =>
+    code
+      ? (departments.data?.rows.find((d) => d.code === code)?.name ?? code)
+      : "—";
 
   function openForm(kind: Kind, row: Form["row"]) {
     const values: Draft = row
@@ -176,6 +226,11 @@ export function Zones() {
           meterId: row.meterId ? String(row.meterId) : "",
           ratedKw: row.ratedKw ?? "",
           isActive: row.isActive,
+          floors: row.floors ? String(row.floors) : "",
+          grossAreaM2: row.grossAreaM2 ?? "",
+          buildingId: row.buildingId ? String(row.buildingId) : "",
+          floorLabel: row.floorLabel ?? "",
+          departmentCode: row.departmentCode ?? "",
         }
       : EMPTY;
     guard.guard(() => {
@@ -191,12 +246,25 @@ export function Zones() {
     if (!form) return;
     const { kind, row } = form;
     const code = draft.code.trim().toUpperCase();
+    const place = {
+      buildingId: draft.buildingId ? Number(draft.buildingId) : null,
+      // 건물을 비우면 층 표기도 함께 비운다 — 서버가 건물 없는 층 표기를 거부한다.
+      floorLabel: (draft.buildingId && draft.floorLabel) || null,
+      departmentCode: draft.departmentCode || null,
+    };
     const body: Record<Kind, Record<string, unknown>> = row
       ? {
+          building: {
+            name: draft.name,
+            floors: Number(draft.floors),
+            grossAreaM2: draft.grossAreaM2,
+            isActive: draft.isActive,
+          },
           zone: {
             name: draft.name,
             floorAreaM2: draft.floorAreaM2 || null,
             isActive: draft.isActive,
+            ...place,
           },
           meter: { name: draft.name, isActive: draft.isActive },
           sensor: { isActive: draft.isActive },
@@ -206,17 +274,37 @@ export function Zones() {
             ratedKw: draft.ratedKw,
             isActive: draft.isActive,
           },
+          light: {
+            name: draft.name,
+            meterId: draft.meterId ? Number(draft.meterId) : null,
+            ratedKw: draft.ratedKw,
+            isActive: draft.isActive,
+          },
         }
       : {
+          building: {
+            code,
+            name: draft.name,
+            floors: Number(draft.floors),
+            grossAreaM2: draft.grossAreaM2,
+          },
           zone: {
             code,
             name: draft.name,
             kind: draft.kind,
             floorAreaM2: draft.floorAreaM2 || undefined,
+            ...place,
           },
           meter: { zoneId, code, name: draft.name, usage: draft.usage },
           sensor: { zoneId, code, metric: draft.metric },
           hvac: {
+            zoneId,
+            code,
+            name: draft.name,
+            meterId: draft.meterId ? Number(draft.meterId) : undefined,
+            ratedKw: draft.ratedKw,
+          },
+          light: {
             zoneId,
             code,
             name: draft.name,
@@ -264,6 +352,12 @@ export function Zones() {
     },
     { key: "name", label: "이름" },
     { key: "kind", label: "유형", render: (z) => KIND_LABEL[z.kind] },
+    { key: "buildingId", label: "건물·층", render: buildingText },
+    {
+      key: "departmentCode",
+      label: "사용 부서",
+      render: (z) => departmentText(z.departmentCode),
+    },
     {
       key: "floorAreaM2",
       label: "면적 ㎡",
@@ -279,7 +373,7 @@ export function Zones() {
       <PageTitle
         id="B-07"
         title="구역·계측"
-        subtitle="건물 구역과 구역별 공용 계측기·환경 센서·공조기입니다. 이 계측은 FEMS와 따로 BEMS가 가집니다"
+        subtitle="건물·구역과 구역별 공용 계측기·환경 센서·공조기·조명 회로입니다. 이 계측은 FEMS와 따로 BEMS가 가집니다"
         help="bems/b-07"
         actions={
           <button
@@ -292,6 +386,24 @@ export function Zones() {
         }
       />
       {!form && !zone && <ErrorNotice error={saveError} />}
+      <details className="bems-buildings">
+        <summary>건물 {buildings.length}동</summary>
+        <Sub
+          caption="건물"
+          rows={buildings}
+          head={["이름", "층수", "연면적 ㎡"]}
+          cells={(b) => [b.name, b.floors, num(b.grossAreaM2, 2)]}
+          onEdit={(b) => openForm("building", b)}
+        />
+        <button
+          type="button"
+          className="secondary"
+          aria-pressed={form?.kind === "building" && !form.row}
+          onClick={() => openForm("building", null)}
+        >
+          건물 등록
+        </button>
+      </details>
       <ErrorNotice error={error} retry={reload} />
       {!data ? (
         !error && <Loading />
@@ -339,6 +451,13 @@ export function Zones() {
                   >
                     공조기 추가
                   </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => openForm("light", null)}
+                  >
+                    조명 회로 추가
+                  </button>
                 </>
               }
             >
@@ -368,6 +487,18 @@ export function Zones() {
                   STATE_LABEL[u.state],
                 ]}
                 onEdit={(u) => openForm("hvac", u)}
+              />
+              <Sub
+                caption="조명 회로"
+                rows={inZone(circuits)}
+                head={["이름", "정격 kW", "조명 계측기", "상태"]}
+                cells={(c) => [
+                  c.name,
+                  num(c.ratedKw, 2),
+                  meters.find((m) => m.id === c.meterId)?.code ?? "—",
+                  LIGHT_LABEL[c.state],
+                ]}
+                onEdit={(c) => openForm("light", c)}
               />
             </DetailPanel>
           )}
@@ -451,6 +582,111 @@ export function Zones() {
                       setDraft({ ...draft, floorAreaM2: e.target.value })
                     }
                   />
+                  <div className="field">
+                    <label htmlFor="bems-zone-building">건물(선택)</label>
+                    <select
+                      id="bems-zone-building"
+                      value={draft.buildingId}
+                      aria-invalid={!!errors.buildingId}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          buildingId: e.target.value,
+                          floorLabel: e.target.value ? draft.floorLabel : "",
+                        })
+                      }
+                    >
+                      <option value="">없음</option>
+                      {buildings.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.code} {b.name}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.buildingId && <small>{errors.buildingId}</small>}
+                  </div>
+                  <Field
+                    label="층 표기(선택)"
+                    value={draft.floorLabel}
+                    disabled={!draft.buildingId}
+                    maxLength={10}
+                    pattern={FLOOR_PATTERN}
+                    title="지하 B1 · 지상 3F · 옥상 RF"
+                    error={errors.floorLabel}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        floorLabel: e.target.value.toUpperCase(),
+                      })
+                    }
+                  />
+                  <div className="field">
+                    <label htmlFor="bems-zone-department">
+                      사용 부서(선택)
+                    </label>
+                    {departments.data?.hrEnabled ? (
+                      <select
+                        id="bems-zone-department"
+                        value={draft.departmentCode}
+                        aria-invalid={!!errors.departmentCode}
+                        onChange={(e) =>
+                          setDraft({ ...draft, departmentCode: e.target.value })
+                        }
+                      >
+                        <option value="">없음</option>
+                        {departments.data.rows.map((d) => (
+                          <option key={d.code} value={d.code}>
+                            {d.code} {d.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        id="bems-zone-department"
+                        value={draft.departmentCode}
+                        maxLength={30}
+                        aria-invalid={!!errors.departmentCode}
+                        onChange={(e) =>
+                          setDraft({ ...draft, departmentCode: e.target.value })
+                        }
+                      />
+                    )}
+                    {errors.departmentCode ? (
+                      <small>{errors.departmentCode}</small>
+                    ) : (
+                      <small className="muted">
+                        {departments.data?.hrEnabled
+                          ? "부서 코드는 HR이 가집니다. 공용 비용 배분에 씁니다"
+                          : "HR을 켜면 부서 목록에서 고를 수 있습니다"}
+                      </small>
+                    )}
+                  </div>
+                </>
+              )}
+              {k === "building" && (
+                <>
+                  <Field
+                    label="층수"
+                    value={draft.floors}
+                    required
+                    inputMode="numeric"
+                    pattern="[1-9]\d{0,2}"
+                    error={errors.floors}
+                    onChange={(e) =>
+                      setDraft({ ...draft, floors: e.target.value })
+                    }
+                  />
+                  <Field
+                    label="연면적 ㎡"
+                    value={draft.grossAreaM2}
+                    required
+                    inputMode="decimal"
+                    pattern="\d{1,10}(\.\d{1,2})?"
+                    error={errors.grossAreaM2}
+                    onChange={(e) =>
+                      setDraft({ ...draft, grossAreaM2: e.target.value })
+                    }
+                  />
                 </>
               )}
               {k === "meter" && (
@@ -499,12 +735,14 @@ export function Zones() {
                   {errors.metric && <small>{errors.metric}</small>}
                 </div>
               )}
-              {k === "hvac" && (
+              {(k === "hvac" || k === "light") && (
                 <>
                   <div className="field">
-                    <label htmlFor="bems-hvac-meter">공조 전력 계측기</label>
+                    <label htmlFor="bems-unit-meter">
+                      {k === "hvac" ? "공조" : "조명"} 전력 계측기
+                    </label>
                     <select
-                      id="bems-hvac-meter"
+                      id="bems-unit-meter"
                       value={draft.meterId}
                       aria-invalid={!!errors.meterId}
                       onChange={(e) =>
@@ -512,7 +750,7 @@ export function Zones() {
                       }
                     >
                       <option value="">없음</option>
-                      {hvacMeters.map((m) => (
+                      {(k === "hvac" ? hvacMeters : lightMeters).map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.code} {m.name}
                         </option>
@@ -522,7 +760,8 @@ export function Zones() {
                       <small>{errors.meterId}</small>
                     ) : (
                       <small className="muted">
-                        같은 구역의 공조 용도 계측기만 고를 수 있습니다
+                        같은 구역의 {k === "hvac" ? "공조" : "조명"} 용도
+                        계측기만 고를 수 있습니다
                       </small>
                     )}
                   </div>
@@ -531,7 +770,7 @@ export function Zones() {
                     value={draft.ratedKw}
                     required
                     inputMode="decimal"
-                    pattern="\d{1,6}(\.\d{1,2})?"
+                    pattern="\d{1,8}(\.\d{1,2})?"
                     error={errors.ratedKw}
                     onChange={(e) =>
                       setDraft({ ...draft, ratedKw: e.target.value })

@@ -10,6 +10,7 @@ CODE = r"^[A-Z][A-Z0-9-]{1,19}$"
 NUMBER = r"^-?\d{1,6}(\.\d{1,2})?$"  # numeric(8,2)
 Metric = Literal["TEMP", "HUMIDITY", "CO2"]
 Mode = Literal["COOL", "HEAT", "FAN"]
+FLOOR = r"^(B[1-9]\d?|[1-9]\d{0,2}F|RF)$"  # 지하 B1, 지상 3F, 옥상 RF
 
 
 class ApiModel(BaseModel):
@@ -23,12 +24,38 @@ class ZoneCreate(ApiModel):
     floor_area_m2: str | None = Field(
         None, alias="floorAreaM2", pattern=r"^\d{1,8}(\.\d{1,2})?$"
     )
+    building_id: int | None = Field(None, alias="buildingId")
+    floor_label: str | None = Field(None, alias="floorLabel", pattern=FLOOR)
+    department_code: str | None = Field(
+        None, alias="departmentCode", min_length=1, max_length=30
+    )
 
 
 class ZoneUpdate(ApiModel):
     name: str | None = Field(None, min_length=1, max_length=100)
     floor_area_m2: str | None = Field(
         None, alias="floorAreaM2", pattern=r"^\d{1,8}(\.\d{1,2})?$"
+    )
+    is_active: bool | None = Field(None, alias="isActive")
+    building_id: int | None = Field(None, alias="buildingId")
+    floor_label: str | None = Field(None, alias="floorLabel", pattern=FLOOR)
+    department_code: str | None = Field(
+        None, alias="departmentCode", min_length=1, max_length=30
+    )
+
+
+class BuildingCreate(ApiModel):
+    code: str = Field(pattern=CODE)
+    name: str = Field(min_length=1, max_length=100)
+    floors: int = Field(ge=1, le=200)
+    gross_area_m2: str = Field(alias="grossAreaM2", pattern=r"^\d{1,10}(\.\d{1,2})?$")
+
+
+class BuildingUpdate(ApiModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    floors: int | None = Field(None, ge=1, le=200)
+    gross_area_m2: str | None = Field(
+        None, alias="grossAreaM2", pattern=r"^\d{1,10}(\.\d{1,2})?$"
     )
     is_active: bool | None = Field(None, alias="isActive")
 
@@ -72,9 +99,27 @@ class HvacUpdate(ApiModel):
     is_active: bool | None = Field(None, alias="isActive")
 
 
+class LightingCreate(ApiModel):
+    zone_id: int = Field(alias="zoneId")
+    code: str = Field(pattern=CODE)
+    name: str = Field(min_length=1, max_length=100)
+    meter_id: int | None = Field(None, alias="meterId")
+    rated_kw: str = Field(alias="ratedKw", pattern=r"^\d{1,8}(\.\d{1,2})?$")
+
+
+class LightingUpdate(ApiModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    meter_id: int | None = Field(None, alias="meterId")
+    rated_kw: str | None = Field(
+        None, alias="ratedKw", pattern=r"^\d{1,8}(\.\d{1,2})?$"
+    )
+    is_active: bool | None = Field(None, alias="isActive")
+
+
 class CommandCreate(ApiModel):
     zone_id: int = Field(alias="zoneId")
     hvac_unit_id: int | None = Field(None, alias="hvacUnitId")
+    lighting_circuit_id: int | None = Field(None, alias="lightingCircuitId")
     command: Literal["POWER_ON", "POWER_OFF", "SET_MODE", "SET_SETPOINT"]
     mode: Mode | None = None
     setpoint_kind: Literal["COOL_TEMP", "HEAT_TEMP", "CO2_MAX"] | None = Field(
@@ -85,10 +130,12 @@ class CommandCreate(ApiModel):
 
 
 class Slot(ApiModel):
-    day_kind: Literal["WEEKDAY", "WEEKEND"] = Field(alias="dayKind")
+    day_kind: Literal["WEEKDAY", "WEEKEND", "HOLIDAY"] = Field(alias="dayKind")
     start_hour: int = Field(alias="startHour", ge=0, le=23)
     end_hour: int = Field(alias="endHour", ge=1, le=24)
-    mode: Mode
+    mode: (
+        Mode | Literal["ON"]
+    )  # 공조기는 COOL·HEAT·FAN, 조명 회로는 ON (서비스가 대상별로 확인)
 
 
 class ScheduleReplace(ApiModel):
