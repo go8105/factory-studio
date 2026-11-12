@@ -1,3 +1,23 @@
+# 2026-11-11 BEMS-1d — 쾌적도·환경 지표 6종·설비 경보
+
+- 브랜치 **bems-1d**(로컬, 미병합·미푸시). 기준 main `e95d8ed`. **DB 마이그레이션 없음**(`bems1`이 head 그대로).
+- 끝난 것: BEMS-1d 전부. **B-10 쾌적도 신설**(BEMS 8 → 9화면), B-03 지표 6종·B-06 설비 경보 탭. 백엔드 8·프런트 5 테스트 신설, 도움말 1편 신설·2편 보강.
+- 다음 할 일: **BEMS-1e 피크 감축**(B-09) — FEMS `open_alarms()`의 첫 소비자. 이어서 1f 건물 에너지·공용 비용(`tariff_rates()` 소비)·월간 보고서 + B-01 대시보드 보강.
+- 주의점:
+  - **시드 행 수 하드코딩이 네 군데**다: `backend/seed/validate.py`(16167 + 표별 EXPECTED), `backend/tests/test_seed.py`(16183 / 16181 / 16167), `backend/tests/test_common.py`(16058 × 3곳). 시드를 건드렸으면 **전체 CI 전에 `test_common.py`를 꼭 돌린다**.
+  - 테스트 픽스처 `test_bems.BEMS_TABLES`는 지우는 순서가 중요하다(자식 → 부모). 새 표를 더하면 여기도 더한다.
+  - 쾌적도의 "근무 시간"은 운전 스케줄에서 나온다. 스케줄을 바꾸면 비율이 바뀐다.
+  - 설비 경보는 공조기 전용이다. 조명 회로까지 넓히려면 `bems.equipment_alarm`에 `lighting_circuit_id`를 더하는 마이그레이션이 필요하다.
+  - **GW·보안 저널 테스트는 main에서도 불안정하다.** 실패를 보면 main과 여러 번 비교한다(2026-11-09 기록 참조). 다만 **직렬에서 매번 재현되면 불안정이 아니다** — 1c에서 `test_gw_projects`의 재현되는 실패를 불안정으로 넘겼다가 1d에서야 잡았다.
+  - **화면을 더하면 프런트 수 테스트 두 곳도 고친다**: `frontend/src/portal/favorites.test.tsx`(메뉴 수 154)와 `frontend/src/portal/content-pages.test.tsx`(솔루션별 도움말 수). 1c가 이 둘을 깨뜨린 채 main에 들어갔는데 CI가 백엔드에서 멈춰 못 잡았다. **백엔드가 실패해도 프런트 단계는 따로 돌려 본다.**
+  - **`bems1` 되돌리기는 `REMOVED_ROWS`를 먼저 지운다.** 조명 회로·휴일 시간대·피크 명령·지표 6종 센서는 옛 스키마에 존재할 수 없다. BEMS에 새 열·값을 더하면 이 목록도 함께 본다. `bems1`은 운영에 이미 적용됐으므로 **올리기 경로는 고치지 않는다.**
+- 재현 명령:
+  - 전체 CI: `TEST_DB=factory_studio_bems1d_test bash tools/ci_local.sh`
+  - 단위: `DATABASE_URL=<ci> TEST_DATABASE_URL=<ci> uv run --project backend pytest backend/tests/test_bems_comfort.py -q`
+  - 프런트: `npm --prefix frontend test -- src/bems`
+  - 로컬 실행: `.claude/launch.json`의 backend·frontend
+- 미실행: 운영 배포·원격 push·e2e. 1e 이후 미착수.
+
 # 2026-11-08 BEMS-1c — 휴일 달력·조명 제어·건물/층/부서
 
 - 브랜치 **bems-1c**(로컬, 미병합·미푸시). 마지막 커밋은 `git log -1 --oneline`. 기준 main `0aed8f1`. **DB 마이그레이션 없음**(`bems1`이 head 그대로).

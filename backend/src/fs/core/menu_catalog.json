@@ -699,6 +699,12 @@
           "group": "건물 현황"
         },
         {
+          "path": "comfort",
+          "id": "B-10",
+          "label": "쾌적도",
+          "group": "건물 현황"
+        },
+        {
           "path": "hvac",
           "id": "B-04",
           "label": "공조 운전",

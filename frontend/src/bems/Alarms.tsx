@@ -15,7 +15,9 @@ import {
   useDiscardGuard,
   type Column,
 } from "../shared/components";
+import { EquipmentAlarms } from "./EquipmentAlarms";
 import {
+  ALARM_METRICS,
   fieldErrors,
   LineChart,
   METRIC_LABEL,
@@ -31,15 +33,21 @@ import {
   useLists,
   useSend,
   type Alarm,
-  type Metric,
+  type AlarmMetric,
   type Rule,
   type Zone,
 } from "./common";
 
-type Tab = "alarms" | "rules";
+type Tab = "alarms" | "rules" | "equipment" | "equipmentRules";
+const TABS: [Tab, string][] = [
+  ["alarms", "환경 경보"],
+  ["rules", "환경 규칙"],
+  ["equipment", "설비 경보"],
+  ["equipmentRules", "설비 규칙"],
+];
 type Draft = {
   zoneId: number;
-  metric: Metric;
+  metric: AlarmMetric;
   comparator: "HIGH" | "LOW";
   threshold: string;
   durationHours: string;
@@ -48,7 +56,7 @@ type Draft = {
 };
 type Reading = {
   periodStart: string;
-  metric: Metric;
+  metric: AlarmMetric;
   value: string;
   source: string;
 };
@@ -243,7 +251,7 @@ export function Alarms() {
       <PageTitle
         id="B-06"
         title="경보"
-        subtitle="환경 관측이 규칙을 지속 시간 동안 넘으면 발생하고, 돌아오면 해제됩니다"
+        subtitle="환경 관측과 공조기 이상을 규칙으로 봅니다. 발생·해제는 1시간 진행이 하고 확인은 사람이 합니다"
         help="bems/b-06"
         actions={
           tab === "rules" && (
@@ -258,12 +266,7 @@ export function Alarms() {
         }
       />
       <div className="tabs" role="tablist">
-        {(
-          [
-            ["alarms", "경보"],
-            ["rules", "규칙"],
-          ] as const
-        ).map(([k, label]) => (
+        {TABS.map(([k, label]) => (
           <button
             key={k}
             type="button"
@@ -282,7 +285,9 @@ export function Alarms() {
         ))}
       </div>
       <ErrorNotice error={alarms.error ?? lists.error} retry={refresh} />
-      {tab === "alarms" ? (
+      {tab === "equipment" || tab === "equipmentRules" ? (
+        <EquipmentAlarms view={tab === "equipment" ? "alarms" : "rules"} />
+      ) : tab === "alarms" ? (
         <>
           <div className="filter-bar">
             <label>
@@ -445,10 +450,13 @@ export function Alarms() {
                   value={draft.metric}
                   disabled={rule !== "new"}
                   onChange={(e) =>
-                    setDraft({ ...draft, metric: e.target.value as Metric })
+                    setDraft({
+                      ...draft,
+                      metric: e.target.value as AlarmMetric,
+                    })
                   }
                 >
-                  {(Object.keys(METRIC_LABEL) as Metric[]).map((m) => (
+                  {ALARM_METRICS.map((m) => (
                     <option key={m} value={m}>
                       {METRIC_LABEL[m]}
                     </option>
