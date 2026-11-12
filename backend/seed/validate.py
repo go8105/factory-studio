@@ -97,13 +97,15 @@ EXPECTED_COUNTS = {
     "bems.building": 2,
     "bems.zone": 3,
     "bems.meter": 3,
-    "bems.sensor": 6,
+    "bems.sensor": 10,
     "bems.hvac_unit": 2,
     "bems.lighting_circuit": 3,
     "bems.schedule_slot": 13,
     "bems.energy_reading": 2160,
-    "bems.environment_reading": 2016,
+    "bems.environment_reading": 3360,
     "bems.control_command": 24,
+    "bems.comfort_standard": 9,
+    "bems.equipment_alarm_rule": 2,
     "bems.alarm_rule": 4,
     "bems.alarm": 4,
     "spc.characteristic": 6,
@@ -150,7 +152,7 @@ def validate_all(
         f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}",
     )
     _require(
-        sum(actual.values()) == 14808 + len(MODULE_KEYS) + sum(GW_COUNTS.values()),
+        sum(actual.values()) == 16167 + len(MODULE_KEYS) + sum(GW_COUNTS.values()),
         f"V1 total={sum(actual.values())}",
     )
     _require(all(varying.values()), f"V1 date-varying empty: {varying}")

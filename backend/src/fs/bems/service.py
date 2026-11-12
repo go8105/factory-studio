@@ -34,7 +34,14 @@ from fs.hr import interface as hr
 MODULE = "bems"
 SEOUL = ZoneInfo("Asia/Seoul")
 _S = "workspace_id=:w AND generation_id=:g"
-UNITS = {"TEMP": "℃", "HUMIDITY": "%", "CO2": "ppm"}
+UNITS = {
+    "TEMP": "℃",
+    "HUMIDITY": "%",
+    "CO2": "ppm",
+    "PM25": "㎍/㎥",
+    "LUX": "lx",
+    "OCCUPANCY": "명",
+}
 
 
 # ---------- 공통 ----------
@@ -98,22 +105,37 @@ def _all(connection, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
 # ---------- 기준정보 (B-07) ----------
 
 MASTER = {
-    "building": ("건물", "code, name, floors, gross_area_m2, is_active"),
+    "building": ("건물", "code, name, floors, gross_area_m2, is_active", "code"),
     "zone": (
         "구역",
         "code, name, kind, floor_area_m2, is_active, building_id, floor_label, department_code",
+        "code",
+    ),
+    "meter": ("공용 계측기", "zone_id, code, name, usage, unit, is_active", "code"),
+    "sensor": ("환경 센서", "zone_id, code, metric, unit, is_active", "code"),
+    "hvac_unit": (
+        "공조기",
+        "zone_id, code, name, meter_id, rated_kw, state, control_source, state_changed_at, is_active",
+        "code",
     ),
     "lighting_circuit": (
         "조명 회로",
         "zone_id, code, name, meter_id, rated_kw, state, control_source, state_changed_at, is_active",
+        "code",
     ),
-    "meter": ("공용 계측기", "zone_id, code, name, usage, unit, is_active"),
-    "sensor": ("환경 센서", "zone_id, code, metric, unit, is_active"),
-    "hvac_unit": (
-        "공조기",
-        "zone_id, code, name, meter_id, rated_kw, state, control_source, state_changed_at, is_active",
+    "comfort_standard": (
+        "쾌적 기준",
+        "zone_kind, metric, low, high, occupied_only",
+        "zone_kind, metric",
+    ),
+    "equipment_alarm_rule": (
+        "설비 경보 규칙",
+        "code, condition, hvac_unit_id, threshold, severity, is_active",
+        "code",
     ),
 }
+# zone_id 칼럼이 없는 기준정보. 구역으로 거르지 않는다.
+NO_ZONE = frozenset({"zone", "building", "comfort_standard", "equipment_alarm_rule"})
 
 
 def _master(connection, scoped, table: str, row_id: int) -> dict[str, Any] | None:
@@ -128,13 +150,13 @@ def _master(connection, scoped, table: str, row_id: int) -> dict[str, Any] | Non
 def list_master(
     context: AuthContext, table: str, zone_id: int | None = None
 ) -> list[dict[str, Any]]:
-    columns = MASTER[table][1]
-    where = " AND zone_id=:z" if zone_id and table not in ("zone", "building") else ""
+    _, columns, order = MASTER[table]
+    where = " AND zone_id=:z" if zone_id and table not in NO_ZONE else ""
     with _read() as connection:
         scoped = read_scope(connection, context, MODULE)
         return _all(
             connection,
-            f"SELECT id, {columns} FROM bems.{table} WHERE {_S}{where} ORDER BY code",
+            f"SELECT id, {columns} FROM bems.{table} WHERE {_S}{where} ORDER BY {order}",
             {**_s(scoped), "z": zone_id},
         )
 
@@ -165,11 +187,26 @@ def _check_refs(connection, scoped, table: str, values: dict[str, Any]) -> None:
             )
     if table == "zone":
         errors.update(_check_zone_place(connection, scoped, values))
+    if (
+        table == "equipment_alarm_rule"
+        and values.get("hvac_unit_id") is not None
+        and _master(connection, scoped, "hvac_unit", values["hvac_unit_id"]) is None
+    ):
+        errors["hvacUnitId"] = "공조기를 고르세요."
     if errors:
         raise _fields(errors)
 
 
 FLOOR_ABOVE = re.compile(r"^([1-9]\d{0,2})F$")
+
+
+def _check_comfort_range(values: dict[str, Any]) -> None:
+    """하한·상한 중 적어도 하나는 있어야 하고, 둘 다면 하한 < 상한이다(DB CHECK보다 먼저 본다)."""
+    low, high = values.get("low"), values.get("high")
+    if low is None and high is None:
+        raise _fields({"low": "하한과 상한 중 하나는 입력하세요."})
+    if low is not None and high is not None and Decimal(low) >= Decimal(high):
+        raise _fields({"high": "상한은 하한보다 커야 합니다."})
 
 
 def _check_zone_place(connection, scoped, values: dict[str, Any]) -> dict[str, str]:
@@ -214,11 +251,26 @@ def create_master(
 ) -> dict[str, Any]:
 
     def fn(connection, scoped):
-        if connection.execute(
-            text(f"SELECT 1 FROM bems.{table} WHERE {_S} AND code=:c"),
-            {**_s(scoped), "c": values["code"]},
-        ).first():
+        if (
+            "code" in values
+            and connection.execute(
+                text(f"SELECT 1 FROM bems.{table} WHERE {_S} AND code=:c"),
+                {**_s(scoped), "c": values["code"]},
+            ).first()
+        ):
             raise _fields({"code": "이미 사용 중인 코드입니다."})
+        if table == "comfort_standard":
+            _check_comfort_range(values)
+        if (
+            table == "comfort_standard"
+            and connection.execute(
+                text(
+                    f"SELECT 1 FROM bems.comfort_standard WHERE {_S} AND zone_kind=:k AND metric=:m"
+                ),
+                {**_s(scoped), "k": values["zone_kind"], "m": values["metric"]},
+            ).first()
+        ):
+            raise _fields({"metric": "이 용도에는 같은 지표의 기준이 이미 있습니다."})
         row = dict(values)
         if table == "sensor":
             row["unit"] = UNITS[row["metric"]]
@@ -273,6 +325,14 @@ def update_master(
             errors = _check_zone_place(connection, scoped, merged)
             if errors:
                 raise _fields(errors)
+        if table == "comfort_standard":
+            _check_comfort_range(
+                {
+                    "low": found["low"],
+                    "high": found["high"],
+                    **{k: v for k, v in values.items() if k in ("low", "high")},
+                }
+            )
         if (
             table == "building"
             and values.get("is_active") is False
@@ -541,7 +601,7 @@ def hvac_units(context: AuthContext) -> list[dict[str, Any]]:
 def list_master_in(connection, scoped, table: str) -> list[dict[str, Any]]:
     return _all(
         connection,
-        f"SELECT id, {MASTER[table][1]} FROM bems.{table} WHERE {_S} ORDER BY code",
+        f"SELECT id, {MASTER[table][1]} FROM bems.{table} WHERE {_S} ORDER BY {MASTER[table][2]}",
         _s(scoped),
     )
 
@@ -919,6 +979,12 @@ def _step(connection, scoped, moment: datetime) -> dict[str, int]:
     latest = _latest_environment(connection, scoped)
     zones = list_master_in(connection, scoped, "zone")
     state_by_zone = {u["zoneId"]: u["state"] for u in units if u["isActive"]}
+    # 조도는 그 구역 조명 회로가 하나라도 켜져 있는지로 정한다.
+    lit_zones = {
+        c["zoneId"]
+        for c in list_master_in(connection, scoped, "lighting_circuit")
+        if c["isActive"] and c["state"] == "ON"
+    }
     temps: dict[int, Decimal] = {}
     for z in zones:
         # 관측 이력이 없는 센서(새로 등록)는 시작값에서 출발한다.
@@ -933,6 +999,7 @@ def _step(connection, scoped, moment: datetime) -> dict[str, int]:
             temps[z["id"]] = nxt["TEMP"]
         if "HUMIDITY" in values:
             nxt["HUMIDITY"] = sim.next_humidity(Decimal(values["HUMIDITY"]), state)
+        occupied = sim.occupancy(local.hour, weekday, z["kind"]) > 0
         if "CO2" in values:
             nxt["CO2"] = sim.next_co2(
                 Decimal(values["CO2"]),
@@ -941,6 +1008,11 @@ def _step(connection, scoped, moment: datetime) -> dict[str, int]:
                 z["kind"] == "OFFICE",
                 state,
             )
+        if "PM25" in values:
+            nxt["PM25"] = sim.next_pm25(Decimal(values["PM25"]), occupied, state)
+        # 조도·재실은 누적이 아니라 그 시각의 상태에서 바로 나온다.
+        nxt["LUX"] = sim.lux(local.hour, z["id"] in lit_zones)
+        nxt["OCCUPANCY"] = sim.occupancy(local.hour, weekday, z["kind"])
         for metric, value in nxt.items():
             summary["readings"] += connection.execute(
                 text(
@@ -973,9 +1045,10 @@ def _step(connection, scoped, moment: datetime) -> dict[str, int]:
             ),
             {**_s(scoped), "m": m["id"], "t": moment, "v": value},
         ).rowcount
-    raised, cleared = _evaluate_alarms(connection, scoped, moment)
-    summary["raised"] += raised
-    summary["cleared"] += cleared
+    for evaluate in (_evaluate_alarms, _evaluate_equipment_alarms):
+        raised, cleared = evaluate(connection, scoped, moment)
+        summary["raised"] += raised
+        summary["cleared"] += cleared
     return summary
 
 
@@ -1045,6 +1118,273 @@ def _evaluate_alarms(connection, scoped, moment: datetime) -> tuple[int, int]:
                 {**_s(scoped), "p": better, "id": open_alarm["id"]},
             )
     return raised, cleared
+
+
+# ---------- 쾌적도 (B-10, DSN-16 F14) ----------
+#
+# 쾌적 시간 비율 = 쾌적 범위 안 관측 시간 ÷ 센 관측 시간. 저장하지 않고 조회로 계산한다.
+# "근무 시간만" 기준은 그 구역의 운전 스케줄(공조기·조명)이 켜져 있도록 잡힌 시각을 쓴다.
+# 스케줄이 하나도 없으면 근무 시간을 알 수 없으므로 **0%가 아니라 '모름'**으로 돌려준다.
+
+
+def _occupied_hours(connection, scoped) -> dict[int, set[tuple[str, int]]]:
+    """구역별 (요일 구분, 시각) 집합. 스케줄이 없는 구역은 키 자체가 없다."""
+    rows = connection.execute(
+        text(
+            f"""
+        SELECT COALESCE(h.zone_id, l.zone_id) zone_id, s.day_kind, s.start_hour, s.end_hour
+        FROM bems.schedule_slot s
+        LEFT JOIN bems.hvac_unit h ON h.workspace_id=s.workspace_id AND h.generation_id=s.generation_id AND h.id=s.hvac_unit_id
+        LEFT JOIN bems.lighting_circuit l ON l.workspace_id=s.workspace_id AND l.generation_id=s.generation_id AND l.id=s.lighting_circuit_id
+        WHERE s.{_S.replace(" AND ", " AND s.")} AND s.is_active
+        """
+        ),
+        _s(scoped),
+    ).mappings()
+    slots: dict[int, set[tuple[str, int]]] = {}
+    for r in rows:
+        if r["zone_id"] is None:
+            continue
+        bucket = slots.setdefault(r["zone_id"], set())
+        for hour in range(r["start_hour"], r["end_hour"]):
+            bucket.add((r["day_kind"], hour))
+    return slots
+
+
+def comfort(
+    context: AuthContext, date_from: date | None, date_to: date | None
+) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        start, end = _period(date_from, date_to, 14)
+        first, last = start.date(), (end - timedelta(hours=1)).date()
+        standards = list_master_in(connection, scoped, "comfort_standard")
+        zones = {z["id"]: z for z in list_master_in(connection, scoped, "zone")}
+        slots = _occupied_hours(connection, scoped)
+        holidays = {h["date"] for h in core.holidays(connection, scoped, first, last)}
+        rows = connection.execute(
+            text(
+                f"""
+            SELECT s.zone_id, s.metric, r.period_start, r.value
+            FROM bems.environment_reading r
+            JOIN bems.sensor s ON s.workspace_id=r.workspace_id AND s.generation_id=r.generation_id AND s.id=r.sensor_id
+            WHERE r.{_S.replace(" AND ", " AND r.")} AND r.quality='valid'
+              AND r.period_start >= CAST(:start AS timestamptz) AND r.period_start < CAST(:end AS timestamptz)
+            """
+            ),
+            {**_s(scoped), "start": start, "end": end},
+        ).mappings()
+        counted: dict[tuple[int, str], int] = {}
+        inside: dict[tuple[int, str], int] = {}
+        by_kind = {(c["zoneKind"], c["metric"]): c for c in standards}
+        for r in rows:
+            zone = zones.get(r["zone_id"])
+            if zone is None:
+                continue
+            standard = by_kind.get((zone["kind"], r["metric"]))
+            if standard is None:
+                continue
+            local = r["period_start"].astimezone(SEOUL)
+            if standard["occupiedOnly"]:
+                zone_slots = slots.get(zone["id"])
+                if zone_slots is None:
+                    continue  # 스케줄이 없는 구역은 아래에서 '모름'으로 답한다.
+                kind = (
+                    "HOLIDAY"
+                    if local.date().isoformat() in holidays
+                    else ("WEEKDAY" if local.weekday() < 5 else "WEEKEND")
+                )
+                if (kind, local.hour) not in zone_slots:
+                    continue
+            key = (zone["id"], r["metric"])
+            counted[key] = counted.get(key, 0) + 1
+            low, high = standard["low"], standard["high"]
+            value = r["value"]
+            if (low is None or value >= Decimal(low)) and (
+                high is None or value <= Decimal(high)
+            ):
+                inside[key] = inside.get(key, 0) + 1
+        result = []
+        for zone in zones.values():
+            for standard in standards:
+                if standard["zoneKind"] != zone["kind"]:
+                    continue
+                key = (zone["id"], standard["metric"])
+                hours = counted.get(key, 0)
+                unknown = standard["occupiedOnly"] and zone["id"] not in slots
+                result.append(
+                    {
+                        "zoneId": zone["id"],
+                        "zoneCode": zone["code"],
+                        "zoneName": zone["name"],
+                        "zoneKind": zone["kind"],
+                        "metric": standard["metric"],
+                        "unit": UNITS[standard["metric"]],
+                        "low": standard["low"],
+                        "high": standard["high"],
+                        "occupiedOnly": standard["occupiedOnly"],
+                        "hours": hours,
+                        "insideHours": inside.get(key, 0),
+                        "ratio": None
+                        if unknown or not hours
+                        else str(
+                            (Decimal(inside.get(key, 0)) * 100 / hours).quantize(
+                                Decimal("0.1")
+                            )
+                        ),
+                        "reason": "NO_SCHEDULE"
+                        if unknown
+                        else ("NO_READINGS" if not hours else None),
+                    }
+                )
+        return {"from": first.isoformat(), "to": last.isoformat(), "rows": result}
+
+
+# ---------- 설비 경보 (B-06, DSN-16 F32) ----------
+
+
+def _rejected_streak(connection, scoped, unit_id: int, limit: int) -> int:
+    """마지막 적용 명령 뒤로 이어진 거부 횟수. 적용이 하나 끼면 거기서 끊긴다."""
+    rows = connection.execute(
+        text(
+            f"SELECT result FROM bems.control_command WHERE {_S} AND hvac_unit_id=:u "
+            "ORDER BY requested_at DESC, id DESC LIMIT :n"
+        ),
+        {**_s(scoped), "u": unit_id, "n": limit},
+    ).scalars()
+    streak = 0
+    for result in rows:
+        if result != "REJECTED":
+            break
+        streak += 1
+    return streak
+
+
+def _running_hours(connection, scoped, unit_id: int, moment: datetime) -> int | None:
+    """마지막으로 정지한 뒤 지난 시간. 정지한 적이 없으면 **판단하지 않는다**(None)."""
+    stopped = connection.execute(
+        text(
+            f"SELECT max(requested_at) FROM bems.control_command WHERE {_S} AND hvac_unit_id=:u "
+            "AND command='POWER_OFF' AND result='APPLIED' AND requested_at<=:t"
+        ),
+        {**_s(scoped), "u": unit_id, "t": moment},
+    ).scalar()
+    if stopped is None:
+        return None
+    return int((moment - stopped).total_seconds() // 3600)
+
+
+def _evaluate_equipment_alarms(connection, scoped, moment: datetime) -> tuple[int, int]:
+    """규칙·설비당 진행 경보 1건. 조건이 풀리면 그 시각에 해제한다(환경 경보와 같은 수명)."""
+    raised = cleared = 0
+    rules = [
+        r
+        for r in list_master_in(connection, scoped, "equipment_alarm_rule")
+        if r["isActive"]
+    ]
+    if not rules:
+        return 0, 0
+    units = {u["id"]: u for u in list_master_in(connection, scoped, "hvac_unit")}
+    for rule in rules:
+        threshold = int(Decimal(rule["threshold"]))
+        targets = [rule["hvacUnitId"]] if rule["hvacUnitId"] else list(units)
+        for unit_id in targets:
+            unit = units.get(unit_id)
+            if unit is None or not unit["isActive"]:
+                continue
+            if rule["condition"] == "COMMAND_REJECTED":
+                hit = (
+                    _rejected_streak(connection, scoped, unit_id, threshold)
+                    >= threshold
+                )
+            else:
+                hours = (
+                    _running_hours(connection, scoped, unit_id, moment)
+                    if unit["state"] != "OFF"
+                    else None
+                )
+                hit = hours is not None and hours >= threshold
+            open_alarm = _one(
+                connection,
+                f"SELECT id FROM bems.equipment_alarm WHERE {_S} AND rule_id=:r "
+                "AND hvac_unit_id=:u AND status<>'cleared'",
+                {**_s(scoped), "r": rule["id"], "u": unit_id},
+            )
+            if hit and open_alarm is None:
+                connection.execute(
+                    text(
+                        "INSERT INTO bems.equipment_alarm(workspace_id,generation_id,rule_id,hvac_unit_id,raised_at) "
+                        "VALUES (:w,:g,:r,:u,:t) ON CONFLICT DO NOTHING"
+                    ),
+                    {**_s(scoped), "r": rule["id"], "u": unit_id, "t": moment},
+                )
+                raised += 1
+            elif not hit and open_alarm is not None:
+                connection.execute(
+                    text(
+                        f"UPDATE bems.equipment_alarm SET status='cleared', cleared_at=:t WHERE {_S} AND id=:id"
+                    ),
+                    {**_s(scoped), "t": moment, "id": open_alarm["id"]},
+                )
+                cleared += 1
+    return raised, cleared
+
+
+EQUIPMENT_ALARM_SQL = f"""
+SELECT a.id, a.rule_id, a.hvac_unit_id, a.status, a.raised_at, a.acknowledged_at, a.cleared_at,
+       r.code rule_code, r.condition, r.threshold, r.severity, h.code hvac_code, h.name hvac_name, h.zone_id
+FROM bems.equipment_alarm a
+JOIN bems.equipment_alarm_rule r ON r.workspace_id=a.workspace_id AND r.generation_id=a.generation_id AND r.id=a.rule_id
+JOIN bems.hvac_unit h ON h.workspace_id=a.workspace_id AND h.generation_id=a.generation_id AND h.id=a.hvac_unit_id
+WHERE a.{_S.replace(" AND ", " AND a.")}
+"""
+
+
+def equipment_alarms(context: AuthContext, status: str | None) -> list[dict[str, Any]]:
+    where = " AND a.status=:s" if status else ""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return _all(
+            connection,
+            EQUIPMENT_ALARM_SQL + where + " ORDER BY a.raised_at DESC, a.id DESC",
+            {**_s(scoped), "s": status},
+        )
+
+
+def acknowledge_equipment_alarm(
+    context: AuthContext, alarm_id: int, key: str
+) -> dict[str, Any]:
+    """확인은 사람만 한다. 해제는 1시간 진행의 판정으로만 일어난다(환경 경보와 같다)."""
+
+    def fn(connection, scoped):
+        found = _one(
+            connection,
+            EQUIPMENT_ALARM_SQL + " AND a.id=:id",
+            {**_s(scoped), "id": alarm_id},
+        )
+        if found is None:
+            raise _not_found("설비 경보")
+        if found["status"] != "raised":
+            raise _conflict(
+                "확인 대기 상태의 경보만 확인할 수 있습니다.",
+                "NOT_RAISED",
+                status=found["status"],
+            )
+        connection.execute(
+            text(
+                f"UPDATE bems.equipment_alarm SET status='acknowledged', acknowledged_at=clock_timestamp() "
+                f"WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "id": alarm_id},
+        )
+        result = _one(
+            connection,
+            EQUIPMENT_ALARM_SQL + " AND a.id=:id",
+            {**_s(scoped), "id": alarm_id},
+        )
+        return result, "equipment_alarm", alarm_id
+
+    return _action(context, f"bems.equipment_alarm.ack:{alarm_id}", key, {}, fn)
 
 
 def advance(context: AuthContext, hours: int, key: str) -> dict[str, Any]:

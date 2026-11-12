@@ -2733,6 +2733,36 @@ BEMS_SCHEDULE = [("WEEKDAY", 8, 19, "COOL"), ("WEEKEND", 10, 16, "FAN")]
 # 휴일 시간대(공조기 공통). 과거 관측 이력은 휴일 달력을 보지 않고 평일·주말로만 만든다 —
 # 공휴일은 실제 달력 날짜이고 복사본의 업무 날짜는 밀리기 때문이다. 휴일 구분은 1시간 진행부터 적용된다.
 BEMS_HOLIDAY_SLOT = ("HOLIDAY", 11, 15, "FAN")
+BEMS_UNITS = {
+    "TEMP": "℃",
+    "HUMIDITY": "%",
+    "CO2": "ppm",
+    "PM25": "㎍/㎥",
+    "LUX": "lx",
+    "OCCUPANCY": "명",
+}
+# 지표 6종(DSN-16 Q4). 사무동은 전부, 생산동은 사람이 상주하지 않아 조도·재실을 두지 않는다.
+BEMS_SENSORS = [
+    ("Z-OFF", ("TEMP", "HUMIDITY", "CO2", "PM25", "LUX", "OCCUPANCY")),
+    ("Z-PRD", ("TEMP", "HUMIDITY", "CO2", "PM25")),
+]
+# 쾌적 기준: (구역 용도, 지표, 하한, 상한, 근무 시간만). 미세먼지는 건강이라 늘 본다.
+BEMS_COMFORT = [
+    ("OFFICE", "TEMP", "20", "26", True),
+    ("OFFICE", "HUMIDITY", "40", "60", True),
+    ("OFFICE", "CO2", None, "1000", True),
+    ("OFFICE", "PM25", None, "35", False),
+    ("OFFICE", "LUX", "400", None, True),
+    ("PRODUCTION", "TEMP", "18", "28", True),
+    ("PRODUCTION", "HUMIDITY", "30", "70", True),
+    ("PRODUCTION", "CO2", None, "1500", True),
+    ("PRODUCTION", "PM25", None, "50", False),
+]
+# 설비 경보 규칙: 전체 공조기 대상. 거부 3연속, 연속 운전 12시간.
+BEMS_EQUIPMENT_RULES = [
+    ("EQ-REJECT", "COMMAND_REJECTED", "3", "WARNING"),
+    ("EQ-LONGRUN", "LONG_RUN", "12", "WARNING"),
+]
 # 건물 > 층 > 구역. 연면적 ≥ 구역 면적 합. 부서 코드는 HR 시드의 코드 문자열이다(FK 없음).
 BEMS_BUILDINGS = [
     ("BLD-OFF", "사무동", 3, Decimal("1800")),
@@ -2767,6 +2797,19 @@ BEMS_LIGHTING = [
         [("WEEKDAY", 0, 24), ("WEEKEND", 0, 24)],
     ),
 ]
+
+
+BEMS_ZONE_KIND = {"Z-OFF": "OFFICE", "Z-PRD": "PRODUCTION", "Z-UTL": "UTILITY"}
+
+
+def _bems_lit(zone: str, weekday: bool, hour: int) -> bool:
+    """그 구역 조명 회로가 스케줄상 켜져 있는가. 과거 관측은 휴일 달력을 보지 않는다."""
+    kind = "WEEKDAY" if weekday else "WEEKEND"
+    return any(
+        _bems_light_on(slots, kind, hour)
+        for _, circuit_zone, _, _, slots in BEMS_LIGHTING
+        if circuit_zone == zone
+    )
 
 
 def _bems_place(buildings: dict[str, int], zone: str) -> Row:
@@ -2931,7 +2974,6 @@ def _bems(writer: SeedWriter) -> None:
         ],
         "code",
     )
-    units = {"TEMP": "℃", "HUMIDITY": "%", "CO2": "ppm"}
     sensors = writer.add(
         "bems.sensor",
         [
@@ -2939,10 +2981,10 @@ def _bems(writer: SeedWriter) -> None:
                 "zone_id": zones[z],
                 "code": f"S-{z[2:]}-{m[:3]}",
                 "metric": m,
-                "unit": units[m],
+                "unit": BEMS_UNITS[m],
             }
-            for z in ("Z-OFF", "Z-PRD")
-            for m in ("TEMP", "HUMIDITY", "CO2")
+            for z, metrics in BEMS_SENSORS
+            for m in metrics
         ],
         ("zone_id", "metric"),
     )
@@ -3077,6 +3119,8 @@ def _bems(writer: SeedWriter) -> None:
             for zone in setpoints:
                 unit = next(u for u in hvac if hvac[u][0] == zone)
                 mode = state[unit][0]
+                kind = BEMS_ZONE_KIND[zone]
+                occupied = sim.occupancy(hour, weekday, kind) > 0
                 env[zone] = {
                     "TEMP": sim.next_temperature(
                         env[zone]["TEMP"], hour, mode, setpoints[zone]
@@ -3085,16 +3129,25 @@ def _bems(writer: SeedWriter) -> None:
                     "CO2": sim.next_co2(
                         env[zone]["CO2"], hour, weekday, zone == "Z-OFF", mode
                     ),
+                    "PM25": sim.next_pm25(env[zone]["PM25"], occupied, mode),
                 }
                 if hvac[unit][2]:
                     hvac_kwh += sim.hvac_power(
                         mode, hvac[unit][3], env[zone]["TEMP"], setpoints[zone]
                     )
                 if day >= -14:
-                    for metric, value in env[zone].items():
+                    # 조도·재실은 누적이 아니라 그 시각의 상태에서 바로 나온다(1시간 진행과 같은 모델).
+                    readings = env[zone] | {
+                        "LUX": sim.lux(hour, _bems_lit(zone, weekday, hour)),
+                        "OCCUPANCY": sim.occupancy(hour, weekday, kind),
+                    }
+                    for metric, value in readings.items():
+                        sensor = sensors.get((zones[zone], metric))
+                        if sensor is None:
+                            continue
                         env_rows.append(
                             {
-                                "sensor_id": sensors[(zones[zone], metric)],
+                                "sensor_id": sensor,
                                 "period_start": moment,
                                 "value": value,
                                 "source": "SEED",
@@ -3175,6 +3228,33 @@ def _bems(writer: SeedWriter) -> None:
             }
             for c in [*commands, *light_commands]
         ],
+    )
+    writer.add(
+        "bems.comfort_standard",
+        [
+            {
+                "zone_kind": kind,
+                "metric": metric,
+                "low": Decimal(low) if low else None,
+                "high": Decimal(high) if high else None,
+                "occupied_only": occupied,
+            }
+            for kind, metric, low, high, occupied in BEMS_COMFORT
+        ],
+    )
+    writer.add(
+        "bems.equipment_alarm_rule",
+        [
+            {
+                "code": code,
+                "condition": condition,
+                "hvac_unit_id": None,
+                "threshold": Decimal(threshold),
+                "severity": severity,
+            }
+            for code, condition, threshold, severity in BEMS_EQUIPMENT_RULES
+        ],
+        "code",
     )
     rules = writer.add(
         "bems.alarm_rule",

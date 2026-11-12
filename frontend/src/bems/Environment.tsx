@@ -10,6 +10,7 @@ import {
 } from "../shared/components";
 import {
   LineChart,
+  METRICS,
   METRIC_LABEL,
   ModuleOff,
   moduleOff,
@@ -85,9 +86,12 @@ export function Environment() {
     byHour.set(r.periodStart, row);
   }
   const rows = [...byHour.values()].reverse();
+  // 센서가 없는 지표는 칸도 그래프도 만들지 않는다 — 구역마다 둔 지표가 다르다.
+  const measured = new Set(readings.map((r) => r.metric));
+  const shown = METRICS.filter((m) => measured.has(m));
   const columns: Column<Row>[] = [
     { key: "at", label: "시각", render: (r) => time(r.at) },
-    ...(["TEMP", "HUMIDITY", "CO2"] as Metric[]).map((m) => ({
+    ...shown.map((m) => ({
       key: m,
       label: `${METRIC_LABEL[m]} ${UNIT[m]}`,
       render: (r: Row) => num(r[m]),
@@ -100,7 +104,7 @@ export function Environment() {
       <PageTitle
         id="B-03"
         title="환경 모니터링"
-        subtitle="구역별 1시간 관측과 공조 설정값"
+        subtitle="구역별 1시간 관측(온도·습도·CO₂·미세먼지·조도·재실)과 공조 설정값"
         help="bems/b-03"
         actions={
           <label>
@@ -168,6 +172,16 @@ export function Environment() {
                 }
               />
               <LineChart caption="습도" unit="%" series={series("HUMIDITY")} />
+              {(["PM25", "LUX", "OCCUPANCY"] as Metric[])
+                .filter((m) => measured.has(m))
+                .map((m) => (
+                  <LineChart
+                    key={m}
+                    caption={METRIC_LABEL[m]}
+                    unit={UNIT[m]}
+                    series={series(m)}
+                  />
+                ))}
               <button
                 type="button"
                 className="secondary"

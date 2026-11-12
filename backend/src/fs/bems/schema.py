@@ -8,7 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 CODE = r"^[A-Z][A-Z0-9-]{1,19}$"
 NUMBER = r"^-?\d{1,6}(\.\d{1,2})?$"  # numeric(8,2)
-Metric = Literal["TEMP", "HUMIDITY", "CO2"]
+Metric = Literal["TEMP", "HUMIDITY", "CO2", "PM25", "LUX", "OCCUPANCY"]
+# 환경 경보 규칙은 지표 3종 그대로다(DSN-16 §4-2는 센서만 6종으로 늘렸다).
+AlarmMetric = Literal["TEMP", "HUMIDITY", "CO2"]
+AMOUNT = r"^\d{1,8}(\.\d{1,2})?$"  # numeric(10,2) 양수
 Mode = Literal["COOL", "HEAT", "FAN"]
 FLOOR = r"^(B[1-9]\d?|[1-9]\d{0,2}F|RF)$"  # 지하 B1, 지상 3F, 옥상 RF
 
@@ -150,9 +153,38 @@ class Acknowledge(ApiModel):
     note: str | None = Field(None, max_length=300)
 
 
+class ComfortCreate(ApiModel):
+    zone_kind: Literal["OFFICE", "PRODUCTION", "UTILITY"] = Field(alias="zoneKind")
+    metric: Metric
+    low: str | None = Field(None, pattern=AMOUNT)
+    high: str | None = Field(None, pattern=AMOUNT)
+    occupied_only: bool = Field(True, alias="occupiedOnly")
+
+
+class ComfortUpdate(ApiModel):
+    low: str | None = Field(None, pattern=AMOUNT)
+    high: str | None = Field(None, pattern=AMOUNT)
+    occupied_only: bool | None = Field(None, alias="occupiedOnly")
+
+
+class EquipmentRuleCreate(ApiModel):
+    code: str = Field(pattern=CODE)
+    condition: Literal["COMMAND_REJECTED", "LONG_RUN"]
+    hvac_unit_id: int | None = Field(None, alias="hvacUnitId")
+    threshold: str = Field(pattern=AMOUNT)
+    severity: Literal["WARNING", "CRITICAL"]
+
+
+class EquipmentRuleUpdate(ApiModel):
+    hvac_unit_id: int | None = Field(None, alias="hvacUnitId")
+    threshold: str | None = Field(None, pattern=AMOUNT)
+    severity: Literal["WARNING", "CRITICAL"] | None = None
+    is_active: bool | None = Field(None, alias="isActive")
+
+
 class RuleCreate(ApiModel):
     zone_id: int = Field(alias="zoneId")
-    metric: Metric
+    metric: AlarmMetric
     comparator: Literal["HIGH", "LOW"]
     threshold: str = Field(pattern=NUMBER)
     duration_hours: int = Field(alias="durationHours", ge=1, le=24)

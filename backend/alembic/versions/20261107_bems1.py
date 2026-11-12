@@ -138,6 +138,18 @@ STATEMENTS = [
     "ALTER TABLE bems.control_command ADD CONSTRAINT r642_fk FOREIGN KEY (workspace_id,generation_id,lighting_circuit_id) REFERENCES bems.lighting_circuit (workspace_id,generation_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
     "ALTER TABLE bems.control_command ADD CONSTRAINT r643_fk FOREIGN KEY (workspace_id,generation_id,demand_plan_id) REFERENCES bems.demand_plan (workspace_id,generation_id,id) ON DELETE RESTRICT ON UPDATE RESTRICT",
 ]
+# 되돌리기 전에, **옛 스키마에서 존재할 수 없는 행**을 먼저 지운다.
+# 이 기능들을 쓴 뒤(조명 회로·휴일 시간대·피크 명령·지표 6종) 되돌리면 NOT NULL 복원과
+# 옛 CHECK 복원이 그 행들 때문에 실패한다. 되돌리기는 기능을 걷어내는 일이라 그 데이터도 함께 걷는다.
+# 올리기 경로는 바꾸지 않았다 — 이미 적용한 DB의 상태는 그대로다.
+NEW_METRICS = "('PM25', 'LUX', 'OCCUPANCY')"
+REMOVED_ROWS = [
+    "DELETE FROM bems.control_command WHERE lighting_circuit_id IS NOT NULL OR demand_plan_id IS NOT NULL OR source = 'PEAK'",
+    "DELETE FROM bems.schedule_slot WHERE lighting_circuit_id IS NOT NULL OR hvac_unit_id IS NULL OR day_kind = 'HOLIDAY' OR mode = 'ON'",
+    f"DELETE FROM bems.environment_reading r USING bems.sensor s WHERE s.id = r.sensor_id AND s.metric IN {NEW_METRICS}",
+    f"DELETE FROM bems.sensor WHERE metric IN {NEW_METRICS}",
+]
+
 DROPS = [
     "ALTER TABLE bems.control_command DROP CONSTRAINT r643_fk",
     "ALTER TABLE bems.control_command DROP CONSTRAINT r642_fk",
@@ -281,5 +293,7 @@ def downgrade() -> None:
     for table, name, old, _new in MODULE_CHECKS:
         op.execute(f"ALTER TABLE {table} DROP CONSTRAINT {name}")
         op.execute(f"ALTER TABLE {table} ADD CONSTRAINT {name} CHECK ({old})")
+    for statement in REMOVED_ROWS:
+        op.execute(statement)
     for statement in DROPS:
         op.execute(statement)

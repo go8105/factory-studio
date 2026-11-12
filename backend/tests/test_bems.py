@@ -110,6 +110,9 @@ def _setup(client, created) -> dict:
 
 
 BEMS_TABLES = (
+    "equipment_alarm",
+    "equipment_alarm_rule",
+    "comfort_standard",
     "alarm",
     "alarm_rule",
     "control_command",

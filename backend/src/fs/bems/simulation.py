@@ -51,6 +51,47 @@ CO2_IDLE = Decimal(
 )  # 비재실: 자연 환기로 감소(FS-025c 보정 — +10이면 밤새 쌓여 경보가 다시 떴다)
 CO2_VENT = Decimal(150)  # 공조기 운전(환기) −ppm/h
 OCCUPIED_HOURS = range(9, 18)  # 사무동 재실(평일 09~18시)
+# 미세먼지(㎍/㎥): 외기 쪽으로 끌리고, 재실이면 늘고, 공조 운전(필터)이면 준다.
+PM25_OUTDOOR = Decimal(28)
+PM25_PULL = Decimal("0.3")
+PM25_OCCUPIED = Decimal(5)
+PM25_FILTER = Decimal(7)
+PM25_FLOOR = Decimal(5)
+# 조도(lx): 창으로 드는 자연광 + 조명 회로가 켜져 있으면 더한다. 누적이 아니라 그 시각의 값이다.
+DAYLIGHT = [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    30,
+    120,
+    260,
+    380,
+    460,
+    520,
+    540,
+    520,
+    460,
+    380,
+    260,
+    140,
+    40,
+    0,
+    0,
+    0,
+    0,
+    0,
+]
+LUX_LIGHTING = Decimal(420)
+# 재실 인원(명): 구역 용도별 최대. 사무동은 점심(12시)에 절반으로 준다.
+OCCUPANCY_PEAK = {
+    "OFFICE": Decimal(24),
+    "PRODUCTION": Decimal(12),
+    "UTILITY": Decimal(1),
+}
+LUNCH_HOUR = 12
 FAN_SHARE = Decimal("0.25")  # 송풍 전력 = 정격 × 0.25
 LOAD_BASE = Decimal("0.4")  # 냉·난방 전력 = 정격 × min(1, 0.4 + 0.15 × |편차|)
 LOAD_PER_DEGREE = Decimal("0.15")
@@ -76,8 +117,13 @@ def outdoor(hour: int) -> Decimal:
 
 
 def start_values(hour: int) -> dict[str, str]:
-    """관측 이력이 없는 센서의 시작값: 외기 온도, 습도 50%, CO₂ 450 ppm."""
-    return {"TEMP": str(outdoor(hour)), "HUMIDITY": "50", "CO2": "450"}
+    """관측 이력이 없는 센서의 시작값. 조도·재실은 누적이 아니라 매 시각 다시 계산한다."""
+    return {
+        "TEMP": str(outdoor(hour)),
+        "HUMIDITY": "50",
+        "CO2": "450",
+        "PM25": str(PM25_OUTDOOR),
+    }
 
 
 def daytime(hour: int, weekday: bool) -> bool:
@@ -110,6 +156,32 @@ def next_co2(
     if state != "OFF":
         value -= CO2_VENT
     return max(CO2_FLOOR, value).quantize(Q2)
+
+
+def next_pm25(current: Decimal, occupied: bool, state: str) -> Decimal:
+    """외기 쪽으로 끌리고, 재실이면 늘고, 공조기가 돌면 필터로 준다."""
+    value = current + PM25_PULL * (PM25_OUTDOOR - current)
+    if occupied:
+        value += PM25_OCCUPIED
+    if state != "OFF":
+        value -= PM25_FILTER
+    return max(PM25_FLOOR, value).quantize(Q2)
+
+
+def lux(hour: int, lighting_on: bool) -> Decimal:
+    """그 시각의 조도. 자연광 + 조명 회로(켜짐)."""
+    value = Decimal(DAYLIGHT[hour]) + (LUX_LIGHTING if lighting_on else Decimal(0))
+    return value.quantize(Q2)
+
+
+def occupancy(hour: int, weekday: bool, zone_kind: str) -> Decimal:
+    """그 시각의 재실 인원. 근무 시간 밖과 휴일·주말은 0명이다."""
+    if not weekday or hour not in OCCUPIED_HOURS:
+        return Decimal(0).quantize(Q2)
+    peak = OCCUPANCY_PEAK.get(zone_kind, Decimal(0))
+    if hour == LUNCH_HOUR:
+        peak /= 2
+    return peak.quantize(Q2)
 
 
 def hvac_power(
@@ -159,4 +231,10 @@ if __name__ == "__main__":
     assert setpoint_error("COOL_TEMP", Decimal(31), sp) == "OUT_OF_RANGE"
     assert setpoint_error("HEAT_TEMP", Decimal(25), sp) == "OUT_OF_RANGE"
     assert setpoint_error("COOL_TEMP", Decimal(21), sp) == "BAND_TOO_NARROW"
+    # 공조기가 돌면 미세먼지가 줄고, 조명을 켜면 조도가 오르며, 휴일·야간 재실은 0명이다(DSN-16 Q4).
+    assert next_pm25(Decimal(40), True, "FAN") < next_pm25(Decimal(40), True, "OFF")
+    assert next_pm25(Decimal(0), False, "FAN") >= PM25_FLOOR
+    assert lux(12, True) > lux(12, False) > lux(2, False)
+    assert occupancy(10, True, "OFFICE") > occupancy(LUNCH_HOUR, True, "OFFICE") > 0
+    assert occupancy(10, False, "OFFICE") == occupancy(3, True, "OFFICE") == 0
     print("ok")

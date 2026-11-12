@@ -14,7 +14,11 @@ from fs.bems.schema import (
     Advance,
     BuildingCreate,
     BuildingUpdate,
+    ComfortCreate,
+    ComfortUpdate,
     CommandCreate,
+    EquipmentRuleCreate,
+    EquipmentRuleUpdate,
     HvacCreate,
     HvacUpdate,
     LightingCreate,
@@ -111,6 +115,20 @@ MASTERS: list[tuple[str, str, type[BaseModel], type[BaseModel], frozenset[str]]]
         LightingCreate,
         LightingUpdate,
         frozenset({"meter_id"}),
+    ),
+    (
+        "comfort-standards",
+        "comfort_standard",
+        ComfortCreate,
+        ComfortUpdate,
+        frozenset({"low", "high"}),
+    ),
+    (
+        "equipment-alarm-rules",
+        "equipment_alarm_rule",
+        EquipmentRuleCreate,
+        EquipmentRuleUpdate,
+        frozenset({"hvac_unit_id"}),
     ),
 ]
 
@@ -274,6 +292,33 @@ def post_acknowledge(
     return _data(
         service.acknowledge(
             context, alarm_id, payload.note, _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.get("/comfort")
+def get_comfort(context: Auth, date_from: From = None, date_to: To = None):
+    return _data(service.comfort(context, date_from, date_to))
+
+
+@router.get("/equipment-alarms")
+def list_equipment_alarms(
+    context: Auth,
+    status: Literal["raised", "acknowledged", "cleared"] | None = None,
+):
+    return _data(service.equipment_alarms(context, status))
+
+
+@router.post("/equipment-alarms/{alarm_id}/acknowledge")
+def post_equipment_acknowledge(
+    alarm_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.acknowledge_equipment_alarm(
+            context, alarm_id, _mutation(context, csrf, key)
         )
     )
 

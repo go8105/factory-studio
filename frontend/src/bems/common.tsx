@@ -8,7 +8,18 @@ export { fieldErrors, moduleOff } from "../shared/hooks";
 
 export const BEMS = "/api/v1/bems";
 
-export type Metric = "TEMP" | "HUMIDITY" | "CO2";
+export type Metric = "TEMP" | "HUMIDITY" | "CO2" | "PM25" | "LUX" | "OCCUPANCY";
+/** 환경 경보 규칙은 지표 3종 그대로다(DSN-16은 센서만 6종으로 늘렸다). */
+export type AlarmMetric = "TEMP" | "HUMIDITY" | "CO2";
+export const ALARM_METRICS: AlarmMetric[] = ["TEMP", "HUMIDITY", "CO2"];
+export const METRICS: Metric[] = [
+  "TEMP",
+  "HUMIDITY",
+  "CO2",
+  "PM25",
+  "LUX",
+  "OCCUPANCY",
+];
 export type Mode = "COOL" | "HEAT" | "FAN";
 export type State = "OFF" | Mode;
 export type SetpointKind = "COOL_TEMP" | "HEAT_TEMP" | "CO2_MAX";
@@ -129,16 +140,77 @@ export type Alarm = {
   zoneId: number;
   zoneCode: string;
   zoneName: string;
-  metric: Metric;
+  metric: AlarmMetric;
   comparator: "HIGH" | "LOW";
   threshold: string;
   durationHours: number;
   severity: "WARNING" | "CRITICAL";
 };
+export type ComfortStandard = {
+  id: number;
+  zoneKind: Zone["kind"];
+  metric: Metric;
+  low: string | null;
+  high: string | null;
+  occupiedOnly: boolean;
+};
+export type ComfortRow = {
+  zoneId: number;
+  zoneCode: string;
+  zoneName: string;
+  zoneKind: Zone["kind"];
+  metric: Metric;
+  unit: string;
+  low: string | null;
+  high: string | null;
+  occupiedOnly: boolean;
+  hours: number;
+  insideHours: number;
+  ratio: string | null;
+  reason: "NO_SCHEDULE" | "NO_READINGS" | null;
+};
+export type EquipmentRule = {
+  id: number;
+  code: string;
+  condition: "COMMAND_REJECTED" | "LONG_RUN";
+  hvacUnitId: number | null;
+  threshold: string;
+  severity: "WARNING" | "CRITICAL";
+  isActive: boolean;
+};
+export type EquipmentAlarm = {
+  id: number;
+  ruleId: number;
+  hvacUnitId: number;
+  status: "raised" | "acknowledged" | "cleared";
+  raisedAt: string;
+  acknowledgedAt: string | null;
+  clearedAt: string | null;
+  ruleCode: string;
+  condition: EquipmentRule["condition"];
+  threshold: string;
+  severity: EquipmentRule["severity"];
+  hvacCode: string;
+  hvacName: string;
+  zoneId: number;
+};
+export const CONDITION_LABEL: Record<EquipmentRule["condition"], string> = {
+  COMMAND_REJECTED: "명령 연속 거부",
+  LONG_RUN: "연속 운전",
+};
+export const CONDITION_UNIT: Record<EquipmentRule["condition"], string> = {
+  COMMAND_REJECTED: "회",
+  LONG_RUN: "시간",
+};
+export const COMFORT_REASON: Record<string, string> = {
+  NO_SCHEDULE: "운전 스케줄이 없어 근무 시간을 알 수 없습니다",
+  NO_READINGS: "이 기간에 관측이 없습니다",
+};
+
 export type Rule = {
   id: number;
   zoneId: number;
-  metric: Metric;
+  metric: AlarmMetric;
   comparator: "HIGH" | "LOW";
   threshold: string;
   durationHours: number;
@@ -170,11 +242,17 @@ export const METRIC_LABEL: Record<Metric, string> = {
   TEMP: "실내 온도",
   HUMIDITY: "습도",
   CO2: "CO₂",
+  PM25: "미세먼지",
+  LUX: "조도",
+  OCCUPANCY: "재실 인원",
 };
 export const UNIT: Record<Metric, string> = {
   TEMP: "℃",
   HUMIDITY: "%",
   CO2: "ppm",
+  PM25: "㎍/㎥",
+  LUX: "lx",
+  OCCUPANCY: "명",
 };
 export const STATE_LABEL: Record<State, string> = {
   OFF: "정지",
