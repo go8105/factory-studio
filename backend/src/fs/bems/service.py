@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from datetime import date, datetime, time, timedelta
-from decimal import Decimal
+from decimal import ROUND_CEILING, Decimal
 from functools import partial
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -115,7 +115,7 @@ MASTER = {
     "sensor": ("환경 센서", "zone_id, code, metric, unit, is_active", "code"),
     "hvac_unit": (
         "공조기",
-        "zone_id, code, name, meter_id, rated_kw, state, control_source, state_changed_at, is_active",
+        "zone_id, code, name, meter_id, rated_kw, state, control_source, state_changed_at, is_active, curtail_priority",
         "code",
     ),
     "lighting_circuit": (
@@ -564,7 +564,7 @@ def _scheduled_mode(
 
 COMMAND_SQL = f"""
 SELECT c.id, c.zone_id, c.hvac_unit_id, h.code hvac_code, c.lighting_circuit_id, l.code lighting_code,
-       c.command, c.mode, c.setpoint_kind, c.value, c.source,
+       c.demand_plan_id, c.command, c.mode, c.setpoint_kind, c.value, c.source,
        c.requested_at, c.result, c.reject_reason, c.note
 FROM bems.control_command c
 LEFT JOIN bems.hvac_unit h ON h.workspace_id=c.workspace_id AND h.generation_id=c.generation_id AND h.id=c.hvac_unit_id
@@ -656,15 +656,17 @@ def _insert_command(
 ) -> int:
     return connection.execute(
         text(
-            "INSERT INTO bems.control_command(workspace_id,generation_id,zone_id,hvac_unit_id,lighting_circuit_id,command,mode,"
-            "setpoint_kind,value,source,requested_at,result,reject_reason,note) VALUES "
-            "(:w,:g,:zone_id,:hvac_unit_id,:lighting_circuit_id,:command,:mode,:setpoint_kind,:value,:source,"
+            "INSERT INTO bems.control_command(workspace_id,generation_id,zone_id,hvac_unit_id,lighting_circuit_id,demand_plan_id,"
+            "command,mode,setpoint_kind,value,source,requested_at,result,reject_reason,note) VALUES "
+            "(:w,:g,:zone_id,:hvac_unit_id,:lighting_circuit_id,:demand_plan_id,"
+            ":command,:mode,:setpoint_kind,:value,:source,"
             "COALESCE(CAST(:at AS timestamptz), clock_timestamp()),:result,:reject_reason,:note) RETURNING id"
         ),
         {
             **_s(scoped),
             "hvac_unit_id": None,
             "lighting_circuit_id": None,
+            "demand_plan_id": None,
             "mode": None,
             "setpoint_kind": None,
             "value": None,
@@ -1118,6 +1120,428 @@ def _evaluate_alarms(connection, scoped, moment: datetime) -> tuple[int, int]:
                 {**_s(scoped), "p": better, "id": open_alarm["id"]},
             )
     return raised, cleared
+
+
+# ---------- 피크 감축 (B-09, DSN-16 F24·Q2) ----------
+#
+# FEMS 진행 PEAK 경보 1건당 감축안 1건. **자동 제어는 하지 않는다**(Q2) —
+# 서버가 감축안을 계산해 두고, 담당자가 승인할 때 비로소 제어 명령(출처 PEAK)이 나간다.
+# 경보가 해제된 뒤 복귀를 승인하면 각 공조기를 스케줄 운전으로 되돌린다.
+#
+# 공조기의 control_source는 'SCHEDULE'·'MANUAL'뿐이라(1a CHECK) 감축 중에는 MANUAL로 둔다.
+# 수동 명령과 같은 규칙이므로 감축은 다음 스케줄 경계까지 유지된다.
+
+PEAK_ACTIONS = ("RAISE_SETPOINT", "SET_FAN", "POWER_OFF")
+PLAN_SQL = f"""
+SELECT id, plan_no, fems_alarm_ref, proposed_at, target_reduction_kw, status,
+       decided_at, executed_at, restored_at, decision_note
+FROM bems.demand_plan WHERE {_S}
+"""
+
+
+def _peak_alarms(connection, scoped) -> list[dict[str, Any]] | None:
+    """FEMS 진행 피크 경보. FEMS가 꺼져 있으면 None(0건과 구분한다)."""
+    alarms = fems.open_alarms(connection, scoped)
+    if alarms is None:
+        return None
+    return [a for a in alarms if a["alarmKind"] == "PEAK"]
+
+
+def _alarm_ref(alarm: dict[str, Any]) -> str:
+    """경보 1건을 가리키는 코드 스냅샷. FEMS로 FK를 두지 않는다(FS-013 §6)."""
+    return f"{alarm['ruleCode']}@{alarm['raisedAt'][:16]}"
+
+
+def _over_kw(connection, scoped, alarm: dict[str, Any]) -> Decimal | None:
+    """감축할 양(kW) = 측정 피크 − 한계. **PEAK 규칙의 한계값은 kW가 아니라 계약전력 대비 비율**이라
+    계약전력을 알아야 kW가 나온다(FEMS `tariff_rates`). 계약전력이 없으면 0이 아니라 **모름**이다."""
+    rates = fems.tariff_rates(connection, scoped, alarm["raisedAt"][:7]) or []
+    contract = next((r["contractKw"] for r in rates if r["contractKw"]), None)
+    if contract is None:
+        return None
+    limit = Decimal(alarm["threshold"]) * Decimal(contract)
+    return (Decimal(alarm["peakValue"]) - limit).quantize(sim.Q2)
+
+
+def _zone_temperature(connection, scoped, zone_id: int, cool: Decimal) -> Decimal:
+    latest = _latest_environment(connection, scoped).get(zone_id, {})
+    return Decimal(latest["TEMP"]) if "TEMP" in latest else cool
+
+
+def _curtail_step(
+    unit: dict[str, Any],
+    temp: Decimal,
+    setpoints: dict[str, Decimal],
+    remaining: Decimal,
+) -> dict[str, Any] | None:
+    """공조기 한 대에서 뽑을 단계. 모자란 만큼만 완화한 동작으로 고르고, 없으면 더 센 동작으로 올린다."""
+    rated = Decimal(unit["ratedKw"])
+    now = sim.hvac_power(unit["state"], rated, temp, setpoints)
+    if now <= 0:
+        return None
+    options: list[tuple[str, Decimal, Decimal | None]] = []
+    if unit["state"] == "COOL":
+        # 필요한 만큼만 올린다(0.5 단위, 0.5~5℃). 상향 1℃당 감축은 정격 × LOAD_PER_DEGREE다.
+        per_degree = rated * sim.LOAD_PER_DEGREE
+        steps = (remaining / per_degree * 2).to_integral_value(
+            rounding=ROUND_CEILING
+        ) / 2
+        delta = min(Decimal(5), max(Decimal("0.5"), steps))
+        raised = {**setpoints, "COOL_TEMP": setpoints["COOL_TEMP"] + delta}
+        options.append(
+            ("RAISE_SETPOINT", now - sim.hvac_power("COOL", rated, temp, raised), delta)
+        )
+    if unit["state"] in ("COOL", "HEAT"):
+        options.append(("SET_FAN", now - rated * sim.FAN_SHARE, None))
+    options.append(("POWER_OFF", now, None))
+    for name, saving, delta in options:
+        if saving >= remaining and saving > 0:
+            return {
+                "action": name,
+                "expected_kw": saving.quantize(sim.Q2),
+                "delta_value": delta,
+            }
+    name, saving, delta = options[-1]
+    return (
+        None
+        if saving <= 0
+        else {
+            "action": name,
+            "expected_kw": saving.quantize(sim.Q2),
+            "delta_value": delta,
+        }
+    )
+
+
+def _build_steps(connection, scoped, target: Decimal) -> list[dict[str, Any]]:
+    """감축 우선순위가 낮은 번호부터 한 대씩, 예상 감축 합이 목표에 닿을 때까지."""
+    units = sorted(
+        (
+            u
+            for u in list_master_in(connection, scoped, "hvac_unit")
+            if u["isActive"] and u["state"] != "OFF"
+        ),
+        key=lambda u: (u["curtailPriority"], u["code"]),
+    )
+    steps: list[dict[str, Any]] = []
+    total = Decimal(0)
+    for unit in units:
+        if total >= target:
+            break
+        setpoints = _setpoints(connection, scoped, unit["zoneId"])
+        temp = _zone_temperature(
+            connection, scoped, unit["zoneId"], setpoints["COOL_TEMP"]
+        )
+        step = _curtail_step(unit, temp, setpoints, target - total)
+        if step is None:
+            continue
+        total += step["expected_kw"]
+        steps.append({**step, "seq": len(steps) + 1, "hvac_unit_id": unit["id"]})
+    return steps
+
+
+def _plan(connection, scoped, plan_id: int) -> dict[str, Any] | None:
+    plan = _one(connection, PLAN_SQL + " AND id=:id", {**_s(scoped), "id": plan_id})
+    if plan is None:
+        return None
+    plan["steps"] = _all(
+        connection,
+        "SELECT s.id, s.seq, s.hvac_unit_id, h.code hvac_code, h.name hvac_name, h.curtail_priority, "
+        "s.lighting_circuit_id, s.action, s.delta_value, s.expected_kw, s.command_id, s.restore_command_id "
+        "FROM bems.demand_plan_step s "
+        "LEFT JOIN bems.hvac_unit h ON h.workspace_id=s.workspace_id AND h.generation_id=s.generation_id "
+        " AND h.id=s.hvac_unit_id "
+        f"WHERE s.{_S.replace(' AND ', ' AND s.')} AND s.demand_plan_id=:p ORDER BY s.seq",
+        {**_s(scoped), "p": plan_id},
+    )
+    return plan
+
+
+def peak_alarms(context: AuthContext) -> dict[str, Any]:
+    """진행 피크 경보와 각 경보의 감축안 여부. FEMS가 꺼져 있으면 알린다."""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        alarms = _peak_alarms(connection, scoped)
+        if alarms is None:
+            return {"femsEnabled": False, "rows": []}
+        planned = {
+            r["femsAlarmRef"]: r["id"]
+            for r in _all(connection, PLAN_SQL + " AND status<>'REJECTED'", _s(scoped))
+        }
+        rows = []
+        for a in alarms:
+            over = _over_kw(connection, scoped, a)
+            rows.append(
+                {
+                    **a,
+                    "alarmRef": _alarm_ref(a),
+                    "planId": planned.get(_alarm_ref(a)),
+                    "overKw": None if over is None else str(max(Decimal(0), over)),
+                }
+            )
+        return {"femsEnabled": True, "rows": rows}
+
+
+def demand_plans(context: AuthContext, status: str | None) -> list[dict[str, Any]]:
+    where = " AND status=:s" if status else ""
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        plans = _all(
+            connection,
+            PLAN_SQL + where + " ORDER BY proposed_at DESC, id DESC",
+            {**_s(scoped), "s": status},
+        )
+        totals = {
+            r["demandPlanId"]: r["expected"]
+            for r in _all(
+                connection,
+                "SELECT demand_plan_id, sum(expected_kw) expected, count(*) steps "
+                f"FROM bems.demand_plan_step WHERE {_S} GROUP BY demand_plan_id",
+                _s(scoped),
+            )
+        }
+        for plan in plans:
+            plan["expectedKw"] = totals.get(plan["id"], "0")
+        return plans
+
+
+def demand_plan(context: AuthContext, plan_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        plan = _plan(connection, scoped, plan_id)
+        if plan is None:
+            raise _not_found("감축안")
+        alarms = _peak_alarms(connection, scoped)
+        # 경보가 아직 열려 있으면 복귀는 이르다. FEMS가 꺼져 있으면 판단하지 않는다.
+        plan["alarmOpen"] = (
+            None
+            if alarms is None
+            else any(_alarm_ref(a) == plan["femsAlarmRef"] for a in alarms)
+        )
+        return plan
+
+
+def propose_plan(context: AuthContext, alarm_ref: str, key: str) -> dict[str, Any]:
+    def fn(connection, scoped):
+        alarms = _peak_alarms(connection, scoped)
+        if alarms is None:
+            raise _conflict(
+                "FEMS를 사용하지 않도록 설정해 피크 경보를 읽을 수 없습니다.",
+                "SOURCE_MODULE_DISABLED",
+                sourceModule="fems",
+            )
+        alarm = next((a for a in alarms if _alarm_ref(a) == alarm_ref), None)
+        if alarm is None:
+            raise _fields({"alarmRef": "진행 중인 피크 경보가 아닙니다."})
+        target = _over_kw(connection, scoped, alarm)
+        if target is None:
+            raise _conflict(
+                "계약전력을 알 수 없어 감축할 양을 계산할 수 없습니다. FEMS 요금제를 먼저 등록하세요.",
+                "NO_CONTRACT_KW",
+            )
+        if target <= 0:
+            raise _conflict(
+                "측정 피크가 한계를 넘지 않아 감축할 양이 없습니다.", "NO_REDUCTION"
+            )
+        if connection.execute(
+            text(
+                f"SELECT 1 FROM bems.demand_plan WHERE {_S} AND fems_alarm_ref=:r AND status<>'REJECTED'"
+            ),
+            {**_s(scoped), "r": alarm_ref},
+        ).first():
+            raise _conflict("이 경보의 감축안이 이미 있습니다.", "PLAN_EXISTS")
+        steps = _build_steps(connection, scoped, target)
+        if not steps:
+            raise _conflict(
+                "운전 중인 공조기가 없어 감축안을 만들 수 없습니다.",
+                "NO_CURTAILABLE_UNIT",
+            )
+        now = _simulation_clock(connection, scoped)[0]
+        same_day = connection.execute(
+            text(
+                f"SELECT count(*) FROM bems.demand_plan WHERE {_S} "
+                "AND (proposed_at AT TIME ZONE 'Asia/Seoul')::date=:d"
+            ),
+            {**_s(scoped), "d": now.astimezone(SEOUL).date()},
+        ).scalar_one()
+        plan_no = f"PK-{now.astimezone(SEOUL):%Y%m%d}-{same_day + 1:02d}"
+        plan_id = connection.execute(
+            text(
+                "INSERT INTO bems.demand_plan(workspace_id,generation_id,plan_no,fems_alarm_ref,"
+                "proposed_at,target_reduction_kw) VALUES (:w,:g,:n,:r,:t,:k) RETURNING id"
+            ),
+            {**_s(scoped), "n": plan_no, "r": alarm_ref, "t": now, "k": target},
+        ).scalar_one()
+        for step in steps:
+            connection.execute(
+                text(
+                    "INSERT INTO bems.demand_plan_step(workspace_id,generation_id,demand_plan_id,seq,"
+                    "hvac_unit_id,action,delta_value,expected_kw) "
+                    "VALUES (:w,:g,:p,:seq,:hvac_unit_id,:action,:delta_value,:expected_kw)"
+                ),
+                {**_s(scoped), "p": plan_id, **step},
+            )
+        return _plan(connection, scoped, plan_id), "demand_plan", plan_id
+
+    return _action(context, f"bems.demand_plan.propose:{alarm_ref}", key, {}, fn, 201)
+
+
+def _decide(connection, scoped, plan_id: int, expected: str, label: str):
+    plan = _plan(connection, scoped, plan_id)
+    if plan is None:
+        raise _not_found("감축안")
+    if plan["status"] != expected:
+        raise _conflict(
+            f"{label} 상태의 감축안만 처리할 수 있습니다.",
+            "WRONG_STATUS",
+            status=plan["status"],
+        )
+    return plan
+
+
+def reject_plan(context: AuthContext, plan_id: int, note: str | None, key: str):
+    def fn(connection, scoped):
+        _decide(connection, scoped, plan_id, "PROPOSED", "제안")
+        connection.execute(
+            text(
+                f"UPDATE bems.demand_plan SET status='REJECTED', decided_at=clock_timestamp(), "
+                f"decision_note=:note WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "id": plan_id, "note": note},
+        )
+        return _plan(connection, scoped, plan_id), "demand_plan", plan_id
+
+    return _action(
+        context, f"bems.demand_plan.reject:{plan_id}", key, {"note": note}, fn
+    )
+
+
+def approve_plan(context: AuthContext, plan_id: int, note: str | None, key: str):
+    """승인과 동시에 단계마다 제어 명령을 낸다(Q2: 자동 제어 없음, 사람이 승인해야 나간다)."""
+
+    def fn(connection, scoped):
+        plan = _decide(connection, scoped, plan_id, "PROPOSED", "제안")
+        now = _simulation_clock(connection, scoped)[0]
+        for step in plan["steps"]:
+            unit = _master(connection, scoped, "hvac_unit", step["hvacUnitId"])
+            if unit is None:
+                continue
+            command_id = _execute_step(connection, scoped, plan_id, step, unit, now)
+            connection.execute(
+                text(
+                    f"UPDATE bems.demand_plan_step SET command_id=:c WHERE {_S} AND id=:id"
+                ),
+                {**_s(scoped), "c": command_id, "id": step["id"]},
+            )
+        connection.execute(
+            text(
+                f"UPDATE bems.demand_plan SET status='EXECUTED', decided_at=clock_timestamp(), "
+                f"executed_at=:t, decision_note=:note WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "id": plan_id, "t": now, "note": note},
+        )
+        return _plan(connection, scoped, plan_id), "demand_plan", plan_id
+
+    return _action(
+        context, f"bems.demand_plan.approve:{plan_id}", key, {"note": note}, fn
+    )
+
+
+def _execute_step(connection, scoped, plan_id, step, unit, now) -> int:
+    row = {
+        "zone_id": unit["zoneId"],
+        "hvac_unit_id": unit["id"],
+        "demand_plan_id": plan_id,
+        "source": "PEAK",
+        "result": "APPLIED",
+        "note": f"피크 감축 {step['seq']}단계",
+    }
+    if step["action"] == "RAISE_SETPOINT":
+        setpoints = _setpoints(connection, scoped, unit["zoneId"])
+        value = setpoints["COOL_TEMP"] + Decimal(step["deltaValue"])
+        row.update(command="SET_SETPOINT", setpoint_kind="COOL_TEMP", value=value)
+        reason = sim.setpoint_error("COOL_TEMP", value, setpoints)
+        if reason:
+            row.update(result="REJECTED", reject_reason=reason)
+        return _insert_command(connection, scoped, row, now)
+    if step["action"] == "SET_FAN":
+        row.update(command="SET_MODE", mode="FAN")
+        command_id = _insert_command(connection, scoped, row, now)
+        _set_state(connection, scoped, unit["id"], "FAN", "MANUAL", now)
+        return command_id
+    row.update(command="POWER_OFF")
+    command_id = _insert_command(connection, scoped, row, now)
+    _set_state(connection, scoped, unit["id"], "OFF", "MANUAL", now)
+    return command_id
+
+
+def restore_plan(context: AuthContext, plan_id: int, note: str | None, key: str):
+    """경보가 해제된 뒤 복귀를 승인하면 공조기를 **스케줄 운전**으로 되돌린다."""
+
+    def fn(connection, scoped):
+        plan = _decide(connection, scoped, plan_id, "EXECUTED", "실행")
+        alarms = _peak_alarms(connection, scoped)
+        if alarms is not None and any(
+            _alarm_ref(a) == plan["femsAlarmRef"] for a in alarms
+        ):
+            raise _conflict(
+                "피크 경보가 아직 진행 중입니다. 해제된 뒤에 복귀하세요.", "ALARM_OPEN"
+            )
+        now = _simulation_clock(connection, scoped)[0]
+        for step in plan["steps"]:
+            unit = _master(connection, scoped, "hvac_unit", step["hvacUnitId"])
+            if unit is None:
+                continue
+            command_id = _restore_step(connection, scoped, plan_id, step, unit, now)
+            connection.execute(
+                text(
+                    f"UPDATE bems.demand_plan_step SET restore_command_id=:c WHERE {_S} AND id=:id"
+                ),
+                {**_s(scoped), "c": command_id, "id": step["id"]},
+            )
+        connection.execute(
+            text(
+                f"UPDATE bems.demand_plan SET status='RESTORED', restored_at=:t WHERE {_S} AND id=:id"
+            ),
+            {**_s(scoped), "id": plan_id, "t": now},
+        )
+        return _plan(connection, scoped, plan_id), "demand_plan", plan_id
+
+    return _action(
+        context, f"bems.demand_plan.restore:{plan_id}", key, {"note": note}, fn
+    )
+
+
+def _restore_step(connection, scoped, plan_id, step, unit, now) -> int:
+    row = {
+        "zone_id": unit["zoneId"],
+        "hvac_unit_id": unit["id"],
+        "demand_plan_id": plan_id,
+        "source": "PEAK",
+        "result": "APPLIED",
+        "note": f"피크 감축 {step['seq']}단계 복귀",
+    }
+    if step["action"] == "RAISE_SETPOINT":
+        setpoints = _setpoints(connection, scoped, unit["zoneId"])
+        value = setpoints["COOL_TEMP"] - Decimal(step["deltaValue"])
+        row.update(command="SET_SETPOINT", setpoint_kind="COOL_TEMP", value=value)
+        reason = sim.setpoint_error("COOL_TEMP", value, setpoints)
+        if reason:
+            row.update(result="REJECTED", reject_reason=reason)
+        return _insert_command(connection, scoped, row, now)
+    planned = _scheduled_mode(connection, scoped, unit["id"], now)
+    if planned == "OFF":
+        row.update(command="POWER_OFF")
+        state = "OFF"
+    elif unit["state"] == "OFF":
+        row.update(command="POWER_ON")
+        state = planned
+    else:
+        row.update(command="SET_MODE", mode=planned)
+        state = planned
+    command_id = _insert_command(connection, scoped, row, now)
+    _set_state(connection, scoped, unit["id"], state, "SCHEDULE", now)
+    return command_id
 
 
 # ---------- 쾌적도 (B-10, DSN-16 F14) ----------

@@ -176,6 +176,11 @@ export function Hvac() {
           SOURCE_LABEL.SCHEDULE
         ),
     },
+    {
+      key: "curtailPriority",
+      label: "감축 순위",
+      render: (r) => r.curtailPriority,
+    },
     { key: "temp", label: "실내 온도", render: (r) => num(r.temp) },
     { key: "cool", label: "냉방 설정", render: (r) => num(r.cool) },
     { key: "co2", label: "CO₂", render: (r) => num(r.co2, 0) },
@@ -237,7 +242,7 @@ export function Hvac() {
                     {num(unit.ratedKw)} kW · {zoneName(unit.zoneId)}
                   </p>
                   <p className="muted">
-                    설정값{" "}
+                    감축 우선순위 {unit.curtailPriority} · 설정값{" "}
                     {(Object.keys(SETPOINT_LABEL) as SetpointKind[])
                       .map(
                         (k) =>

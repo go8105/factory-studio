@@ -100,6 +100,7 @@ class HvacUpdate(ApiModel):
         None, alias="ratedKw", pattern=r"^\d{1,6}(\.\d{1,2})?$"
     )
     is_active: bool | None = Field(None, alias="isActive")
+    curtail_priority: int | None = Field(None, alias="curtailPriority", ge=1, le=9)
 
 
 class LightingCreate(ApiModel):
@@ -147,6 +148,14 @@ class ScheduleReplace(ApiModel):
 
 class Advance(ApiModel):
     hours: int = Field(1, ge=1, le=6)
+
+
+class PlanCreate(ApiModel):
+    alarm_ref: str = Field(alias="alarmRef", min_length=1, max_length=60)
+
+
+class PlanDecision(ApiModel):
+    note: str | None = Field(None, max_length=300)
 
 
 class Acknowledge(ApiModel):
