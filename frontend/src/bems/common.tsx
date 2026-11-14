@@ -91,6 +91,7 @@ export type HvacUnit = {
   controlSource: "SCHEDULE" | "MANUAL";
   stateChangedAt: string | null;
   isActive: boolean;
+  curtailPriority: number;
 };
 export type DayKind = "WEEKDAY" | "WEEKEND" | "HOLIDAY";
 export type Slot = {
@@ -107,11 +108,12 @@ export type Command = {
   hvacCode: string | null;
   lightingCircuitId: number | null;
   lightingCode: string | null;
+  demandPlanId: number | null;
   command: "POWER_ON" | "POWER_OFF" | "SET_MODE" | "SET_SETPOINT";
   mode: Mode | null;
   setpointKind: SetpointKind | null;
   value: string | null;
-  source: "MANUAL" | "SCHEDULE";
+  source: "MANUAL" | "SCHEDULE" | "PEAK";
   requestedAt: string;
   result: "APPLIED" | "REJECTED";
   rejectReason: string | null;
@@ -169,6 +171,65 @@ export type ComfortRow = {
   ratio: string | null;
   reason: "NO_SCHEDULE" | "NO_READINGS" | null;
 };
+export type PeakAlarm = {
+  ruleCode: string;
+  ruleName: string;
+  alarmKind: string;
+  threshold: string;
+  unit: string;
+  peakValue: string;
+  status: string;
+  raisedAt: string;
+  alarmRef: string;
+  planId: number | null;
+  overKw: string | null;
+};
+export type PlanStep = {
+  id: number;
+  seq: number;
+  hvacUnitId: number | null;
+  hvacCode: string | null;
+  hvacName: string | null;
+  curtailPriority: number | null;
+  lightingCircuitId: number | null;
+  action: "RAISE_SETPOINT" | "SET_FAN" | "POWER_OFF";
+  deltaValue: string | null;
+  expectedKw: string;
+  commandId: number | null;
+  restoreCommandId: number | null;
+};
+export type DemandPlan = {
+  id: number;
+  planNo: string;
+  femsAlarmRef: string;
+  proposedAt: string;
+  targetReductionKw: string;
+  status: "PROPOSED" | "APPROVED" | "EXECUTED" | "RESTORED" | "REJECTED";
+  decidedAt: string | null;
+  executedAt: string | null;
+  restoredAt: string | null;
+  decisionNote: string | null;
+  expectedKw?: string;
+  steps?: PlanStep[];
+  alarmOpen?: boolean | null;
+};
+export const PLAN_STATUS: Record<DemandPlan["status"], string> = {
+  PROPOSED: "제안",
+  APPROVED: "승인",
+  EXECUTED: "실행",
+  RESTORED: "복귀",
+  REJECTED: "반려",
+};
+export const ACTION_LABEL: Record<PlanStep["action"], string> = {
+  RAISE_SETPOINT: "냉방 설정 상향",
+  SET_FAN: "송풍 전환",
+  POWER_OFF: "정지",
+};
+export const actionText = (s: Pick<PlanStep, "action" | "deltaValue">) =>
+  s.action === "RAISE_SETPOINT"
+    ? `${ACTION_LABEL[s.action]} +${num(s.deltaValue)}℃`
+    : ACTION_LABEL[s.action];
+
 export type EquipmentRule = {
   id: number;
   code: string;
@@ -266,7 +327,11 @@ export const SLOT_LABEL: Record<Mode | "ON", string> = {
   ON: "켜짐",
 };
 export const LIGHT_LABEL = { ON: "켜짐", OFF: "꺼짐" } as const;
-export const SOURCE_LABEL = { SCHEDULE: "스케줄", MANUAL: "수동" } as const;
+export const SOURCE_LABEL = {
+  SCHEDULE: "스케줄",
+  MANUAL: "수동",
+  PEAK: "피크 감축",
+} as const;
 export const KIND_LABEL: Record<Zone["kind"], string> = {
   OFFICE: "사무동",
   PRODUCTION: "생산동",

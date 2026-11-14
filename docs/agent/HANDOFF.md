@@ -1,3 +1,20 @@
+# 2026-11-14 BEMS-1e — 피크 감축
+
+- 브랜치 **bems-1e**(로컬, 미병합·미푸시). 기준 main `e95bcad`. **DB 마이그레이션 없음**(`bems1`이 head 그대로), 시드 변경 없음.
+- 끝난 것: BEMS-1e 전부. **B-09 피크 감축 신설**(BEMS 9 → 10화면), 감축 우선순위 노출. 백엔드 5·프런트 5 테스트 신설.
+- 다음 할 일: **BEMS-1f**(B-11 건물 에너지·목표, B-12 공용 비용 배분, B-13 월간 건물 보고서 + B-01 대시보드 보강) — DSN-16의 마지막 묶음이다. `tariff_rates`의 시간별 단가를 비용 배분이 쓴다.
+- 주의점:
+  - **PEAK 경보의 `threshold`는 비율이다**(≤1). kW로 보면 안 된다. 줄일 양 = 측정 피크 − 계약전력 × 비율.
+  - **계약전력은 TOU 요금제에만** 입력할 수 있다(FEMS F-14). 시드는 FLAT이라 피크 경보 자체가 안 생긴다 — 체험·검증 때는 요금제를 TOU로 바꾸거나 SQL로 `contract_kw`를 넣는다.
+  - 공조기 `control_source`는 SCHEDULE·MANUAL뿐이다. 감축 중에는 MANUAL이고, 그래서 **다음 스케줄 경계에 자동으로 풀린다.** PEAK를 쓰려면 마이그레이션이 필요하다.
+  - 날짜로 번호를 매길 때는 **KST로 잘라야 한다**(`AT TIME ZONE 'Asia/Seoul'`). 세션 시간대는 UTC다.
+  - 화면 안내(ScreenIntro)와 상태 메시지에 같은 문장을 쓰면 프런트 테스트의 `findByText`가 중복으로 터진다.
+- 재현 명령:
+  - 전체 CI: `TEST_DB=factory_studio_bems1e_test bash tools/ci_local.sh`
+  - 단위: `DATABASE_URL=<ci> TEST_DATABASE_URL=<ci> uv run --project backend pytest backend/tests/test_bems_peak.py -q`
+  - 프런트: `npm --prefix frontend test -- src/bems`
+- 미실행: 운영 배포·원격 push·e2e. 1f 이후 미착수.
+
 # 2026-11-11 BEMS-1d — 쾌적도·환경 지표 6종·설비 경보
 
 - 브랜치 **bems-1d**(로컬, 미병합·미푸시). 기준 main `e95d8ed`. **DB 마이그레이션 없음**(`bems1`이 head 그대로).

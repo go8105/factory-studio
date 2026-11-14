@@ -25,6 +25,8 @@ from fs.bems.schema import (
     LightingUpdate,
     MeterCreate,
     NameUpdate,
+    PlanCreate,
+    PlanDecision,
     RuleCreate,
     RuleUpdate,
     ScheduleReplace,
@@ -294,6 +296,61 @@ def post_acknowledge(
             context, alarm_id, payload.note, _mutation(context, csrf, key)
         )
     )
+
+
+# ---- 피크 감축 (B-09) ----
+
+
+@router.get("/peak-alarms")
+def list_peak_alarms(context: Auth):
+    return _data(service.peak_alarms(context))
+
+
+@router.get("/demand-plans")
+def list_demand_plans(
+    context: Auth,
+    status: Literal["PROPOSED", "EXECUTED", "RESTORED", "REJECTED"] | None = None,
+):
+    return _data(service.demand_plans(context, status))
+
+
+@router.get("/demand-plans/{plan_id}")
+def get_demand_plan(plan_id: int, context: Auth):
+    return _data(service.demand_plan(context, plan_id))
+
+
+@router.post("/demand-plans", status_code=201)
+def post_demand_plan(
+    payload: PlanCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.propose_plan(context, payload.alarm_ref, _mutation(context, csrf, key))
+    )
+
+
+def _register_decision(path: str, call) -> None:
+    def decide(
+        plan_id: int,
+        payload: PlanDecision | None = None,
+        context: Auth = None,  # type: ignore[assignment]
+        csrf: CsrfToken = None,
+        key: IdempotencyKey = None,
+    ):
+        note = payload.note if payload else None
+        return _data(call(context, plan_id, note, _mutation(context, csrf, key)))
+
+    router.add_api_route(f"/demand-plans/{{plan_id}}/{path}", decide, methods=["POST"])
+
+
+for _path, _call in (
+    ("approve", service.approve_plan),
+    ("reject", service.reject_plan),
+    ("restore", service.restore_plan),
+):
+    _register_decision(_path, _call)
 
 
 @router.get("/comfort")

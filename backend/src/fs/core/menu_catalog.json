@@ -723,6 +723,12 @@
           "group": "운전·경보"
         },
         {
+          "path": "peak",
+          "id": "B-09",
+          "label": "피크 감축",
+          "group": "운전·경보"
+        },
+        {
           "path": "alarms",
           "id": "B-06",
           "label": "경보",

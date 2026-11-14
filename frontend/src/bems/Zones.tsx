@@ -68,6 +68,7 @@ type Draft = {
   isActive: boolean;
   floors: string;
   grossAreaM2: string;
+  curtailPriority: string;
   buildingId: string;
   floorLabel: string;
   departmentCode: string;
@@ -84,6 +85,7 @@ const EMPTY: Draft = {
   isActive: true,
   floors: "",
   grossAreaM2: "",
+  curtailPriority: "5",
   buildingId: "",
   floorLabel: "",
   departmentCode: "",
@@ -99,6 +101,7 @@ type FormRow = Row & {
   ratedKw?: string;
   floors?: number;
   grossAreaM2?: string;
+  curtailPriority?: number;
   buildingId?: number | null;
   floorLabel?: string | null;
   departmentCode?: string | null;
@@ -227,6 +230,9 @@ export function Zones() {
           ratedKw: row.ratedKw ?? "",
           isActive: row.isActive,
           floors: row.floors ? String(row.floors) : "",
+          curtailPriority: row.curtailPriority
+            ? String(row.curtailPriority)
+            : EMPTY.curtailPriority,
           grossAreaM2: row.grossAreaM2 ?? "",
           buildingId: row.buildingId ? String(row.buildingId) : "",
           floorLabel: row.floorLabel ?? "",
@@ -273,6 +279,7 @@ export function Zones() {
             meterId: draft.meterId ? Number(draft.meterId) : null,
             ratedKw: draft.ratedKw,
             isActive: draft.isActive,
+            curtailPriority: Number(draft.curtailPriority),
           },
           light: {
             name: draft.name,
@@ -479,12 +486,13 @@ export function Zones() {
               <Sub
                 caption="공조기"
                 rows={inZone(units)}
-                head={["이름", "정격 kW", "공조 계측기", "상태"]}
+                head={["이름", "정격 kW", "공조 계측기", "상태", "감축 순위"]}
                 cells={(u) => [
                   u.name,
                   num(u.ratedKw),
                   meters.find((m) => m.id === u.meterId)?.code ?? "—",
                   STATE_LABEL[u.state],
+                  u.curtailPriority,
                 ]}
                 onEdit={(u) => openForm("hvac", u)}
               />
@@ -776,6 +784,19 @@ export function Zones() {
                       setDraft({ ...draft, ratedKw: e.target.value })
                     }
                   />
+                  {k === "hvac" && editing && (
+                    <Field
+                      label="감축 우선순위 (1~9)"
+                      value={draft.curtailPriority}
+                      inputMode="numeric"
+                      pattern="[1-9]"
+                      title="피크 감축에서 낮은 번호부터 줄입니다"
+                      error={errors.curtailPriority}
+                      onChange={(e) =>
+                        setDraft({ ...draft, curtailPriority: e.target.value })
+                      }
+                    />
+                  )}
                 </>
               )}
               {editing && (
