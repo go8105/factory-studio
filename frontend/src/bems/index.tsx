@@ -11,6 +11,9 @@ import { Alarms } from "./Alarms";
 import { Lighting } from "./Lighting";
 import { Comfort } from "./Comfort";
 import { Peak } from "./Peak";
+import { Energy } from "./Energy";
+import { Costs } from "./Costs";
+import { Reviews } from "./Reviews";
 import { Zones } from "./Zones";
 
 export default function BemsRoutes() {
@@ -27,6 +30,9 @@ export default function BemsRoutes() {
         <Route path="peak" element={<Peak />} />
         <Route path="alarms" element={<Alarms />} />
         <Route path="comfort" element={<Comfort />} />
+        <Route path="energy" element={<Energy />} />
+        <Route path="costs" element={<Costs />} />
+        <Route path="reviews" element={<Reviews />} />
         <Route path="zones" element={<Zones />} />
         <Route path="*" element={<NotFound />} />
       </Route>

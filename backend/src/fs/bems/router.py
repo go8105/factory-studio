@@ -24,13 +24,17 @@ from fs.bems.schema import (
     LightingCreate,
     LightingUpdate,
     MeterCreate,
+    MonthRequest,
     NameUpdate,
     PlanCreate,
     PlanDecision,
+    ReviewCreate,
     RuleCreate,
     RuleUpdate,
     ScheduleReplace,
     SensorCreate,
+    TargetCreate,
+    TargetUpdate,
     ZoneCreate,
     ZoneUpdate,
 )
@@ -131,6 +135,13 @@ MASTERS: list[tuple[str, str, type[BaseModel], type[BaseModel], frozenset[str]]]
         EquipmentRuleCreate,
         EquipmentRuleUpdate,
         frozenset({"hvac_unit_id"}),
+    ),
+    (
+        "energy-targets",
+        "energy_target",
+        TargetCreate,
+        TargetUpdate,
+        frozenset({"zone_id"}),
     ),
 ]
 
@@ -295,6 +306,84 @@ def post_acknowledge(
         service.acknowledge(
             context, alarm_id, payload.note, _mutation(context, csrf, key)
         )
+    )
+
+
+# ---- 건물 에너지·비용·보고서 (B-11~B-13) ----
+
+Month = Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")]
+
+
+@router.get("/building-energy")
+def get_building_energy(context: Auth, month: Month = None):
+    return _data(service.building_energy(context, month))
+
+
+@router.get("/cost-runs")
+def list_cost_runs(context: Auth):
+    return _data(service.cost_runs(context))
+
+
+@router.get("/cost-runs/{run_id}")
+def get_cost_run(run_id: int, context: Auth):
+    return _data(service.cost_run(context, run_id))
+
+
+@router.post("/cost-runs", status_code=201)
+def post_cost_run(
+    payload: MonthRequest,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.calculate_cost(context, payload.month, _mutation(context, csrf, key))
+    )
+
+
+@router.post("/cost-runs/{run_id}/confirm")
+def post_cost_confirm(
+    run_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(service.confirm_cost(context, run_id, _mutation(context, csrf, key)))
+
+
+@router.get("/reviews")
+def list_reviews(context: Auth):
+    return _data(service.reviews(context))
+
+
+@router.get("/reviews/{review_id}")
+def get_review(review_id: int, context: Auth):
+    return _data(service.review(context, review_id))
+
+
+@router.post("/reviews", status_code=201)
+def post_review(
+    payload: ReviewCreate,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.draft_review(
+            context, payload.month, payload.issues, _mutation(context, csrf, key)
+        )
+    )
+
+
+@router.post("/reviews/{review_id}/confirm")
+def post_review_confirm(
+    review_id: int,
+    context: Auth,
+    csrf: CsrfToken = None,
+    key: IdempotencyKey = None,
+):
+    return _data(
+        service.confirm_review(context, review_id, _mutation(context, csrf, key))
     )
 
 

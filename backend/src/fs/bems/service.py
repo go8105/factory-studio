@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import re
+from calendar import monthrange
 from collections.abc import Callable
 from datetime import date, datetime, time, timedelta
 from decimal import ROUND_CEILING, Decimal
@@ -133,6 +134,11 @@ MASTER = {
         "code, condition, hvac_unit_id, threshold, severity, is_active",
         "code",
     ),
+    "energy_target": (
+        "건물 에너지 목표",
+        "target_month, zone_id, target_kwh",
+        "target_month DESC, zone_id NULLS FIRST",
+    ),
 }
 # zone_id 칼럼이 없는 기준정보. 구역으로 거르지 않는다.
 NO_ZONE = frozenset({"zone", "building", "comfort_standard", "equipment_alarm_rule"})
@@ -164,7 +170,7 @@ def list_master(
 def _check_refs(connection, scoped, table: str, values: dict[str, Any]) -> None:
     errors: dict[str, str] = {}
     if (
-        "zone_id" in values
+        values.get("zone_id") is not None
         and _master(connection, scoped, "zone", values["zone_id"]) is None
     ):
         errors["zoneId"] = "구역을 고르세요."
@@ -261,6 +267,17 @@ def create_master(
             raise _fields({"code": "이미 사용 중인 코드입니다."})
         if table == "comfort_standard":
             _check_comfort_range(values)
+        if (
+            table == "energy_target"
+            and connection.execute(
+                text(
+                    f"SELECT 1 FROM bems.energy_target WHERE {_S} AND target_month=:m "
+                    "AND zone_id IS NOT DISTINCT FROM :z"
+                ),
+                {**_s(scoped), "m": values["target_month"], "z": values.get("zone_id")},
+            ).first()
+        ):
+            raise _fields({"targetMonth": "이 달의 같은 범위 목표가 이미 있습니다."})
         if (
             table == "comfort_standard"
             and connection.execute(
@@ -1120,6 +1137,424 @@ def _evaluate_alarms(connection, scoped, moment: datetime) -> tuple[int, int]:
                 {**_s(scoped), "p": better, "id": open_alarm["id"]},
             )
     return raised, cleared
+
+
+# ---------- 건물 에너지·공용 비용·월간 보고서 (B-11~B-13, DSN-16 F41~F44·Q6) ----------
+#
+# 원단위(EUI) = 공용 kWh ÷ 연면적. 저장하지 않고 조회로 계산한다(보고서를 확정할 때만 스냅샷으로 남는다).
+# 달성률 = 실적 ÷ 목표다(FEMS와 같은 규칙: 100% 이하면 목표 이내).
+# 공용 비용 = 시간별 공용 사용량 × 그 시각 FEMS 전력 단가. FEMS가 꺼져 있으면 **계산을 거부한다** —
+# 요율을 모르면 부분 합계가 확정본에 남기 때문이다.
+
+RATIO4 = Decimal("0.0001")
+MONEY = Decimal("0.01")
+
+
+def _month_range(month: str) -> tuple[datetime, datetime, date, date]:
+    first = date(int(month[:4]), int(month[5:7]), 1)
+    last = date(first.year, first.month, monthrange(first.year, first.month)[1])
+    start = datetime.combine(first, time(), SEOUL)
+    end = datetime.combine(last + timedelta(days=1), time(), SEOUL)
+    return start, end, first, last
+
+
+def _common_hourly(connection, scoped, start, end) -> list[dict[str, Any]]:
+    """공용 계측 시간별 합 `[{day, hour, zone_id, kwh}]`. 품질이 valid인 것만 센다."""
+    return _all(
+        connection,
+        "SELECT to_char(r.period_start AT TIME ZONE 'Asia/Seoul','YYYY-MM-DD') \"day\", "
+        "CAST(to_char(r.period_start AT TIME ZONE 'Asia/Seoul','HH24') AS integer) \"hour\", "
+        "m.zone_id, sum(r.value) kwh "
+        "FROM bems.energy_reading r JOIN bems.meter m ON m.workspace_id=r.workspace_id "
+        " AND m.generation_id=r.generation_id AND m.id=r.meter_id "
+        f"WHERE r.{_S.replace(' AND ', ' AND r.')} AND r.quality='valid' "
+        'AND r.period_start>=:a AND r.period_start<:b GROUP BY "day", "hour", m.zone_id',
+        {**_s(scoped), "a": start, "b": end},
+    )
+
+
+def _gross_area(connection, scoped) -> Decimal:
+    """건물 연면적 합. 건물이 없으면 구역 면적 합으로 대신한다."""
+    buildings = [
+        Decimal(b["grossAreaM2"])
+        for b in list_master_in(connection, scoped, "building")
+        if b["isActive"]
+    ]
+    if buildings:
+        return sum(buildings, Decimal(0))
+    return sum(
+        (
+            Decimal(z["floorAreaM2"])
+            for z in list_master_in(connection, scoped, "zone")
+            if z["isActive"] and z["floorAreaM2"]
+        ),
+        Decimal(0),
+    )
+
+
+def _targets(connection, scoped, month: str) -> dict[int | None, Decimal]:
+    return {
+        t["zoneId"]: Decimal(t["targetKwh"])
+        for t in list_master_in(connection, scoped, "energy_target")
+        if t["targetMonth"] == month
+    }
+
+
+def _achievement(actual: Decimal, target: Decimal | None) -> str | None:
+    """달성률 = 실적 ÷ 목표(FEMS와 같다). 목표가 없으면 0이 아니라 모름이다."""
+    if not target:
+        return None
+    return str((actual / target).quantize(RATIO4))
+
+
+def building_energy(context: AuthContext, month: str | None) -> dict[str, Any]:
+    """B-11. 그 달 공용 사용량·원단위·목표 달성률을 건물 전체와 구역별로 본다."""
+    month = month or business_today().strftime("%Y-%m")
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        start, end, _, _ = _month_range(month)
+        rows = _common_hourly(connection, scoped, start, end)
+        zones = {z["id"]: z for z in list_master_in(connection, scoped, "zone")}
+        targets = _targets(connection, scoped, month)
+        by_zone: dict[int, Decimal] = {}
+        for r in rows:
+            by_zone[r["zoneId"]] = by_zone.get(r["zoneId"], Decimal(0)) + Decimal(
+                r["kwh"]
+            )
+        total = sum(by_zone.values(), Decimal(0))
+        area = _gross_area(connection, scoped)
+        return {
+            "month": month,
+            "totalKwh": str(total.quantize(MONEY)),
+            "grossAreaM2": str(area.quantize(MONEY)),
+            # 연면적이 0이면 원단위를 0으로 적지 않는다 — 나눌 수 없는 것이다.
+            "euiKwhPerM2": None if not area else str((total / area).quantize(RATIO4)),
+            "targetKwh": None if None not in targets else str(targets[None]),
+            "achievement": _achievement(total, targets.get(None)),
+            "zones": [
+                {
+                    "zoneId": zone_id,
+                    "zoneCode": zones[zone_id]["code"],
+                    "zoneName": zones[zone_id]["name"],
+                    "kind": zones[zone_id]["kind"],
+                    "floorAreaM2": zones[zone_id]["floorAreaM2"],
+                    "kwh": str(kwh.quantize(MONEY)),
+                    "euiKwhPerM2": None
+                    if not zones[zone_id]["floorAreaM2"]
+                    else str(
+                        (kwh / Decimal(zones[zone_id]["floorAreaM2"])).quantize(RATIO4)
+                    ),
+                    "targetKwh": None
+                    if zone_id not in targets
+                    else str(targets[zone_id]),
+                    "achievement": _achievement(kwh, targets.get(zone_id)),
+                }
+                for zone_id, kwh in sorted(by_zone.items())
+                if zone_id in zones
+            ],
+        }
+
+
+# ---- 공용 비용 배분 (B-12) ----
+
+COST_SQL = f"""
+SELECT id, cost_month, version, status, total_kwh, total_cost, currency, confirmed_at
+FROM bems.cost_run WHERE {_S}
+"""
+
+
+def _cost_lines(connection, scoped, run_id: int) -> list[dict[str, Any]]:
+    return _all(
+        connection,
+        "SELECT id, department_code, area_m2, share, cost, currency FROM bems.cost_allocation_line "
+        f"WHERE {_S} AND cost_run_id=:r ORDER BY department_code",
+        {**_s(scoped), "r": run_id},
+    )
+
+
+def _cost_run(connection, scoped, run_id: int) -> dict[str, Any] | None:
+    run = _one(connection, COST_SQL + " AND id=:id", {**_s(scoped), "id": run_id})
+    if run is not None:
+        run["lines"] = _cost_lines(connection, scoped, run_id)
+    return run
+
+
+def _hourly_cost(connection, scoped, month: str, rows) -> Decimal:
+    """시간별 공용 사용량 × 그 시각 전력 단가. 요금제가 없으면 계산을 거부한다."""
+    rates = fems.tariff_rates(connection, scoped, month)
+    if rates is None:
+        raise _conflict(
+            "FEMS를 사용하지 않도록 설정해 전력 단가를 읽을 수 없습니다.",
+            "SOURCE_MODULE_DISABLED",
+            sourceModule="fems",
+        )
+    if not rates:
+        raise _conflict(
+            "그 달 전력 요금제가 없어 공용 비용을 계산할 수 없습니다.", "NO_TARIFF"
+        )
+    # 전력원이 여럿이면 첫 요금제를 쓴다(공용 계측은 모두 전력이다).
+    table = rates[0]["rates"]
+    total = Decimal(0)
+    for r in rows:
+        day = table.get(r["day"])
+        if day is None:
+            continue
+        total += Decimal(r["kwh"]) * Decimal(day[r["hour"]])
+    return total.quantize(MONEY)
+
+
+def _department_areas(connection, scoped) -> dict[str, Decimal]:
+    areas: dict[str, Decimal] = {}
+    for zone in list_master_in(connection, scoped, "zone"):
+        code, area = zone["departmentCode"], zone["floorAreaM2"]
+        if not zone["isActive"] or not code or not area:
+            continue
+        areas[code] = areas.get(code, Decimal(0)) + Decimal(area)
+    return areas
+
+
+def cost_runs(context: AuthContext) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return _all(
+            connection, COST_SQL + " ORDER BY cost_month DESC, version DESC", _s(scoped)
+        )
+
+
+def cost_run(context: AuthContext, run_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = _cost_run(connection, scoped, run_id)
+        if found is None:
+            raise _not_found("비용 배분")
+        return found
+
+
+def calculate_cost(context: AuthContext, month: str, key: str) -> dict[str, Any]:
+    """그 달 공용 비용을 계산해 초안을 만든다. 같은 달의 옛 초안은 지운다(작업 중인 계산이다)."""
+
+    def fn(connection, scoped):
+        start, end, _, _ = _month_range(month)
+        rows = _common_hourly(connection, scoped, start, end)
+        if not rows:
+            raise _conflict("그 달 공용 계측이 없습니다.", "NO_READINGS")
+        areas = _department_areas(connection, scoped)
+        if not areas:
+            raise _conflict(
+                "부서를 지정한 구역이 없어 배분할 수 없습니다. 구역·계측에서 사용 부서를 정하세요.",
+                "NO_DEPARTMENT_AREA",
+            )
+        total_kwh = sum((Decimal(r["kwh"]) for r in rows), Decimal(0)).quantize(MONEY)
+        total_cost = _hourly_cost(connection, scoped, month, rows)
+        connection.execute(
+            text(
+                f"DELETE FROM bems.cost_run WHERE {_S} AND cost_month=:m AND status='draft'"
+            ),
+            {**_s(scoped), "m": month},
+        )
+        version = connection.execute(
+            text(
+                f"SELECT COALESCE(max(version),0)+1 FROM bems.cost_run WHERE {_S} AND cost_month=:m"
+            ),
+            {**_s(scoped), "m": month},
+        ).scalar_one()
+        run_id = connection.execute(
+            text(
+                "INSERT INTO bems.cost_run(workspace_id,generation_id,cost_month,version,total_kwh,total_cost) "
+                "VALUES (:w,:g,:m,:v,:k,:c) RETURNING id"
+            ),
+            {**_s(scoped), "m": month, "v": version, "k": total_kwh, "c": total_cost},
+        ).scalar_one()
+        area_sum = sum(areas.values(), Decimal(0))
+        assigned = Decimal(0)
+        codes = sorted(areas)
+        for index, code in enumerate(codes):
+            share = (areas[code] / area_sum).quantize(Decimal("0.000001"))
+            # 마지막 줄이 끝수를 떠안아 줄의 합이 총액과 정확히 같아진다.
+            cost = (
+                total_cost - assigned
+                if index == len(codes) - 1
+                else (total_cost * share).quantize(MONEY)
+            )
+            assigned += cost
+            connection.execute(
+                text(
+                    "INSERT INTO bems.cost_allocation_line(workspace_id,generation_id,cost_run_id,"
+                    "department_code,area_m2,share,cost) VALUES (:w,:g,:r,:code,:area,:share,:cost)"
+                ),
+                {
+                    **_s(scoped),
+                    "r": run_id,
+                    "code": code,
+                    "area": areas[code],
+                    "share": share,
+                    "cost": cost,
+                },
+            )
+        return _cost_run(connection, scoped, run_id), "cost_run", run_id
+
+    return _action(context, f"bems.cost.calculate:{month}", key, {}, fn, 201)
+
+
+def _confirm_snapshot(connection, scoped, table: str, column: str, row_id: int) -> None:
+    """초안을 확정한다. 같은 기간의 기존 확정본은 superseded로 넘긴다(새 버전이 이긴다)."""
+    params = {**_s(scoped), "id": row_id}
+    connection.execute(
+        text(
+            f"UPDATE bems.{table} SET status='superseded' WHERE {_S} AND status='confirmed' "
+            f"AND {column}=(SELECT {column} FROM bems.{table} WHERE {_S} AND id=:id)"
+        ),
+        params,
+    )
+    connection.execute(
+        text(
+            f"UPDATE bems.{table} SET status='confirmed', confirmed_at=now() WHERE {_S} AND id=:id"
+        ),
+        params,
+    )
+
+
+def confirm_cost(context: AuthContext, run_id: int, key: str) -> dict[str, Any]:
+    def fn(connection, scoped):
+        found = _cost_run(connection, scoped, run_id)
+        if found is None:
+            raise _not_found("비용 배분")
+        if found["status"] != "draft":
+            raise _conflict(
+                "초안만 확정할 수 있습니다.", "BAD_STATE", status=found["status"]
+            )
+        _confirm_snapshot(connection, scoped, "cost_run", "cost_month", run_id)
+        return _cost_run(connection, scoped, run_id), "cost_run", run_id
+
+    return _action(context, f"bems.cost.confirm:{run_id}", key, {}, fn)
+
+
+# ---- 월간 건물 보고서 (B-13) ----
+
+REVIEW_SQL = f"""
+SELECT id, review_month, version, status, total_kwh, eui_kwh_m2 AS eui_kwh_per_m2, target_achievement,
+       total_cost, currency, comfort_ratio, issues, confirmed_at
+FROM bems.energy_review WHERE {_S}
+"""
+
+
+def reviews(context: AuthContext) -> list[dict[str, Any]]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        return _all(
+            connection,
+            REVIEW_SQL + " ORDER BY review_month DESC, version DESC",
+            _s(scoped),
+        )
+
+
+def review(context: AuthContext, review_id: int) -> dict[str, Any]:
+    with _read() as connection:
+        scoped = read_scope(connection, context, MODULE)
+        found = _one(
+            connection, REVIEW_SQL + " AND id=:id", {**_s(scoped), "id": review_id}
+        )
+        if found is None:
+            raise _not_found("월간 보고서")
+        return found
+
+
+def _month_comfort(context: AuthContext, month: str) -> str | None:
+    """그 달 쾌적 시간 비율(전 구역·지표 합산). 셀 관측이 없으면 모름이다."""
+    _, _, first, last = _month_range(month)
+    rows = comfort(context, first, last)["rows"]
+    hours = sum(r["hours"] for r in rows)
+    if not hours:
+        return None
+    inside = sum(r["insideHours"] for r in rows)
+    return str((Decimal(inside) / Decimal(hours)).quantize(RATIO4))
+
+
+def draft_review(
+    context: AuthContext, month: str, issues: str | None, key: str
+) -> dict[str, Any]:
+    """월간 보고서 초안. 비용은 **확정한 배분**만 가져온다(초안 비용을 보고서에 싣지 않는다)."""
+    comfort_ratio = _month_comfort(context, month)
+
+    def fn(connection, scoped):
+        start, end, _, _ = _month_range(month)
+        rows = _common_hourly(connection, scoped, start, end)
+        if not rows:
+            raise _conflict("그 달 공용 계측이 없습니다.", "NO_READINGS")
+        total_kwh = sum((Decimal(r["kwh"]) for r in rows), Decimal(0)).quantize(MONEY)
+        area = _gross_area(connection, scoped)
+        if not area:
+            raise _conflict(
+                "건물 연면적이 없어 원단위를 낼 수 없습니다. 건물을 먼저 등록하세요.",
+                "NO_AREA",
+            )
+        confirmed = _one(
+            connection,
+            COST_SQL + " AND cost_month=:m AND status='confirmed'",
+            {**_s(scoped), "m": month},
+        )
+        connection.execute(
+            text(
+                f"DELETE FROM bems.energy_review WHERE {_S} AND review_month=:m AND status='draft'"
+            ),
+            {**_s(scoped), "m": month},
+        )
+        version = connection.execute(
+            text(
+                f"SELECT COALESCE(max(version),0)+1 FROM bems.energy_review WHERE {_S} AND review_month=:m"
+            ),
+            {**_s(scoped), "m": month},
+        ).scalar_one()
+        review_id = connection.execute(
+            text(
+                "INSERT INTO bems.energy_review(workspace_id,generation_id,review_month,version,"
+                "total_kwh,eui_kwh_m2,target_achievement,total_cost,comfort_ratio,issues) "
+                "VALUES (:w,:g,:m,:v,:k,:e,:a,:c,:r,:i) RETURNING id"
+            ),
+            {
+                **_s(scoped),
+                "m": month,
+                "v": version,
+                "k": total_kwh,
+                "e": (total_kwh / area).quantize(RATIO4),
+                "a": _achievement(
+                    total_kwh, _targets(connection, scoped, month).get(None)
+                ),
+                "c": Decimal(confirmed["totalCost"]) if confirmed else Decimal(0),
+                "r": comfort_ratio,
+                "i": issues,
+            },
+        ).scalar_one()
+        result = _one(
+            connection, REVIEW_SQL + " AND id=:id", {**_s(scoped), "id": review_id}
+        )
+        return result, "energy_review", review_id
+
+    return _action(
+        context, f"bems.review.draft:{month}", key, {"issues": issues}, fn, 201
+    )
+
+
+def confirm_review(context: AuthContext, review_id: int, key: str) -> dict[str, Any]:
+    def fn(connection, scoped):
+        found = _one(
+            connection, REVIEW_SQL + " AND id=:id", {**_s(scoped), "id": review_id}
+        )
+        if found is None:
+            raise _not_found("월간 보고서")
+        if found["status"] != "draft":
+            raise _conflict(
+                "초안만 확정할 수 있습니다.", "BAD_STATE", status=found["status"]
+            )
+        _confirm_snapshot(
+            connection, scoped, "energy_review", "review_month", review_id
+        )
+        result = _one(
+            connection, REVIEW_SQL + " AND id=:id", {**_s(scoped), "id": review_id}
+        )
+        return result, "energy_review", review_id
+
+    return _action(context, f"bems.review.confirm:{review_id}", key, {}, fn)
 
 
 # ---------- 피크 감축 (B-09, DSN-16 F24·Q2) ----------
@@ -2022,10 +2457,46 @@ def dashboard(context: AuthContext) -> dict[str, Any]:
             ALARM_SQL + " AND a.status<>'cleared' ORDER BY a.raised_at DESC",
             _s(scoped),
         )
+        equipment = _all(
+            connection,
+            EQUIPMENT_ALARM_SQL + " AND a.status<>'cleared' ORDER BY a.raised_at DESC",
+            _s(scoped),
+        )
+        plans = _all(
+            connection,
+            PLAN_SQL
+            + " AND status IN ('PROPOSED','EXECUTED') ORDER BY proposed_at DESC",
+            _s(scoped),
+        )
         return {
             "yesterday": yesterday.isoformat(),
             "week": week,
             "zones": zones,
             "alarms": open_alarms,
+            "equipmentAlarms": equipment,
+            "demandPlans": plans,
+            "month": _month_card(context, connection, scoped),
             "clock": clock(connection, scoped),
         }
+
+
+def _month_card(context: AuthContext, connection, scoped) -> dict[str, Any]:
+    """대시보드 이번 달 카드. 원단위·목표 달성률·쾌적 시간 비율은 모르면 None이다."""
+    month = business_today().strftime("%Y-%m")
+    start, end, first, last = _month_range(month)
+    rows = _common_hourly(connection, scoped, start, end)
+    total = sum((Decimal(r["kwh"]) for r in rows), Decimal(0))
+    area = _gross_area(connection, scoped)
+    target = _targets(connection, scoped, month).get(None)
+    comfort_rows = comfort(context, first, last)["rows"]
+    hours = sum(r["hours"] for r in comfort_rows)
+    inside = sum(r["insideHours"] for r in comfort_rows)
+    return {
+        "month": month,
+        "totalKwh": str(total.quantize(MONEY)),
+        "euiKwhPerM2": None if not area else str((total / area).quantize(RATIO4)),
+        "achievement": _achievement(total, target),
+        "comfortRatio": None
+        if not hours
+        else str((Decimal(inside) / Decimal(hours)).quantize(RATIO4)),
+    }

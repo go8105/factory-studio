@@ -735,6 +735,24 @@
           "group": "운전·경보"
         },
         {
+          "path": "energy",
+          "id": "B-11",
+          "label": "건물 에너지",
+          "group": "에너지 관리"
+        },
+        {
+          "path": "costs",
+          "id": "B-12",
+          "label": "공용 비용 배분",
+          "group": "에너지 관리"
+        },
+        {
+          "path": "reviews",
+          "id": "B-13",
+          "label": "월간 건물 보고서",
+          "group": "에너지 관리"
+        },
+        {
           "path": "zones",
           "id": "B-07",
           "label": "구역·계측",

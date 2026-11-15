@@ -150,6 +150,30 @@ class Advance(ApiModel):
     hours: int = Field(1, ge=1, le=6)
 
 
+MONTH = r"^[0-9]{4}-(0[1-9]|1[0-2])$"
+
+
+class TargetCreate(ApiModel):
+    target_month: str = Field(alias="targetMonth", pattern=MONTH)
+    zone_id: int | None = Field(None, alias="zoneId")
+    target_kwh: str = Field(alias="targetKwh", pattern=r"^\d{1,12}(\.\d{1,2})?$")
+
+
+class TargetUpdate(ApiModel):
+    target_kwh: str | None = Field(
+        None, alias="targetKwh", pattern=r"^\d{1,12}(\.\d{1,2})?$"
+    )
+
+
+class MonthRequest(ApiModel):
+    month: str = Field(pattern=MONTH)
+
+
+class ReviewCreate(ApiModel):
+    month: str = Field(pattern=MONTH)
+    issues: str | None = Field(None, max_length=2000)
+
+
 class PlanCreate(ApiModel):
     alarm_ref: str = Field(alias="alarmRef", min_length=1, max_length=60)
 

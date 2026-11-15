@@ -171,6 +171,77 @@ export type ComfortRow = {
   ratio: string | null;
   reason: "NO_SCHEDULE" | "NO_READINGS" | null;
 };
+export type EnergyTarget = {
+  id: number;
+  targetMonth: string;
+  zoneId: number | null;
+  targetKwh: string;
+};
+export type BuildingEnergyZone = {
+  zoneId: number;
+  zoneCode: string;
+  zoneName: string;
+  kind: Zone["kind"];
+  floorAreaM2: string | null;
+  kwh: string;
+  euiKwhPerM2: string | null;
+  targetKwh: string | null;
+  achievement: string | null;
+};
+export type BuildingEnergy = {
+  month: string;
+  totalKwh: string;
+  grossAreaM2: string;
+  euiKwhPerM2: string | null;
+  targetKwh: string | null;
+  achievement: string | null;
+  zones: BuildingEnergyZone[];
+};
+export type Snapshot = "draft" | "confirmed" | "superseded";
+export const SNAPSHOT_LABEL: Record<Snapshot, string> = {
+  draft: "초안",
+  confirmed: "확정",
+  superseded: "대체됨",
+};
+export type CostLine = {
+  id: number;
+  departmentCode: string;
+  areaM2: string;
+  share: string;
+  cost: string;
+  currency: string;
+};
+export type CostRun = {
+  id: number;
+  costMonth: string;
+  version: number;
+  status: Snapshot;
+  totalKwh: string;
+  totalCost: string;
+  currency: string;
+  confirmedAt: string | null;
+  lines?: CostLine[];
+};
+export type EnergyReview = {
+  id: number;
+  reviewMonth: string;
+  version: number;
+  status: Snapshot;
+  totalKwh: string;
+  euiKwhPerM2: string;
+  targetAchievement: string | null;
+  totalCost: string;
+  currency: string;
+  comfortRatio: string | null;
+  issues: string | null;
+  confirmedAt: string | null;
+};
+/** 비율(0~1)을 백분율 글자로. 모르는 값은 0%가 아니라 '—'다. */
+export const percent = (v: string | null | undefined, digits = 1) =>
+  v == null ? "—" : `${num(Number(v) * 100, digits)}%`;
+export const money = (v: string | null | undefined) =>
+  v == null ? "—" : `${num(v, 0)}원`;
+
 export type PeakAlarm = {
   ruleCode: string;
   ruleName: string;
