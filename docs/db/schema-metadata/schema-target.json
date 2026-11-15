@@ -1,7 +1,7 @@
 {
   "version": "target-0.22.0",
   "task": "DSN-90",
-  "base_task": "BEMS-1a",
+  "base_task": "ERP-1a",
   "target": true,
   "date": "2026-11-05",
   "status": "목표 설계; 실제 DB 적용 없음",
