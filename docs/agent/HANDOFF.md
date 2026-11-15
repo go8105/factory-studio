@@ -1,3 +1,19 @@
+# 2026-11-14 BEMS-1f — 건물 에너지·공용 비용·월간 보고서 (BEMS 보강 마감)
+
+- 브랜치 **bems-1f**(로컬, 미병합·미푸시). 기준 main `e39a06e`(1e 병합·push 완료). **DB 마이그레이션 없음**, 시드 변경 없음.
+- 끝난 것: BEMS-1f 전부. **B-11·B-12·B-13 신설**(BEMS 10 → 13화면), B-01 대시보드 보강. 백엔드 4·프런트 4 테스트 신설, 도움말 3편.
+- **BEMS 보강(DSN-16)이 끝났다.** 다음은 **ERP 보강**(+38표) — 설계서부터 확인한다(`docs/modules/erp/`).
+- 주의점:
+  - `day`·`hour`는 Postgres 예약어다. SQL 별칭에 따옴표를 씌운다(`month`·`hour`에 이어 세 번째).
+  - 공용 비용은 FEMS 요금제가 있어야 계산된다. 시드 FLAT 요금제로도 계산은 되지만 **피크 경보는 TOU 계약전력이 있어야** 생긴다(1e 기록 참조).
+  - 보고서·배분의 버전은 **옛 초안을 지운 뒤** 매기므로, 확정 전에 다시 만들면 버전이 그대로 1이다.
+  - 화면을 더하면 `favorites.test.tsx`(메뉴 수 158)와 `content-pages.test.tsx`(bems 도움말 13)도 함께 고친다.
+- 재현 명령:
+  - 전체 CI: `TEST_DB=factory_studio_bems1e_test bash tools/ci_local.sh`
+  - 단위: `DATABASE_URL=<ci> TEST_DATABASE_URL=<ci> uv run --project backend pytest backend/tests/test_bems_energy.py -q`
+  - 프런트: `npm --prefix frontend test -- src/bems`
+- 미실행: 운영 배포·원격 push·e2e.
+
 # 2026-11-14 BEMS-1e — 피크 감축
 
 - 브랜치 **bems-1e**(로컬, 미병합·미푸시). 기준 main `e95bcad`. **DB 마이그레이션 없음**(`bems1`이 head 그대로), 시드 변경 없음.

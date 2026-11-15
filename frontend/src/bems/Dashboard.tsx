@@ -7,6 +7,8 @@ import {
   ModuleOff,
   moduleOff,
   num,
+  percent,
+  PLAN_STATUS,
   ruleText,
   SEVERITY_LABEL,
   ShareBars,
@@ -17,6 +19,8 @@ import {
   useGet,
   type Alarm,
   type BreakdownRow,
+  type DemandPlan,
+  type EquipmentAlarm,
   type Metric,
   type Setpoints,
   type State,
@@ -36,6 +40,15 @@ type DashboardData = {
     }[];
   })[];
   alarms: Alarm[];
+  equipmentAlarms: EquipmentAlarm[];
+  demandPlans: DemandPlan[];
+  month: {
+    month: string;
+    totalKwh: string;
+    euiKwhPerM2: string | null;
+    achievement: string | null;
+    comfortRatio: string | null;
+  };
 };
 
 function Tile({
@@ -111,6 +124,51 @@ export function Dashboard() {
                 raised > 0 && (
                   <Link to="/bems/alarms">
                     <Badge tone="issue">확인 필요</Badge>
+                  </Link>
+                )
+              }
+            />
+            <Tile
+              label="이번 달 원단위"
+              value={data.month.euiKwhPerM2 ?? "—"}
+              unit={data.month.euiKwhPerM2 ? "kWh/㎡" : undefined}
+              note={`${data.month.month} · 공용 ${num(data.month.totalKwh, 0)} kWh`}
+              badge={
+                <Link to="/bems/energy">
+                  <Badge
+                    tone={
+                      data.month.achievement &&
+                      Number(data.month.achievement) > 1
+                        ? "issue"
+                        : "normal"
+                    }
+                  >
+                    목표 {percent(data.month.achievement)}
+                  </Badge>
+                </Link>
+              }
+            />
+            <Tile
+              label="쾌적 시간 비율"
+              value={percent(data.month.comfortRatio)}
+              note={`${data.month.month} · 전 구역·지표 합산`}
+              badge={
+                <Link to="/bems/comfort">
+                  <Badge>쾌적도</Badge>
+                </Link>
+              }
+            />
+            <Tile
+              label="설비 경보·피크"
+              value={String(
+                data.equipmentAlarms.length + data.demandPlans.length,
+              )}
+              unit="건"
+              note={`설비 ${data.equipmentAlarms.length} · 감축안 ${data.demandPlans.length}`}
+              badge={
+                data.demandPlans.some((p) => p.status === "PROPOSED") && (
+                  <Link to="/bems/peak">
+                    <Badge tone="issue">{PLAN_STATUS.PROPOSED} 대기</Badge>
                   </Link>
                 )
               }
