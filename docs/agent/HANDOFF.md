@@ -1,3 +1,20 @@
+# 2026-11-15 ERP-1a — ERP 보강 DB (27 → 63표)
+
+- 브랜치 **erp-1a**(로컬, 미병합·미푸시). 기준 main `2838e08`. 마이그레이션 **`erp1`**(432문, down `bems1`).
+- 끝난 것: ERP-1a 전부(DB만). `tools/apply_erp1.py` 신설, schema.json v0.36.0, Excel·ERD 재생성, 로컬 DB 적용·템플릿 재생성.
+- 다음 할 일: **ERP-1b 교차 조회** — ERP가 읽을 WMS 수불·재고(원가), MES 생산 수량(배부), HR 급여 결과(F94 급여 전표). 설계 §6 교차 조회를 먼저 읽는다.
+- 주의점:
+  - **새 표 36개는 시드가 없다.** 화면을 만드는 1c부터 `backend/seed/generate.py`에 함께 넣는다. 시드 행 수를 바꾸면 하드코딩 상수 네 군데(validate.py·test_seed.py 3개·test_common.py)를 함께 고친다.
+  - `apply_erp1.py`의 `REPLACEMENTS`는 **제약 순번(=DB 제약 이름)을 지키려고** 둔 것이다. 다음 apply 도구에서도 칼럼이 바뀌는 제약이 있으면 같은 표가 필요하다.
+  - `states`·`code_lists`도 함께 옮겨야 한다. 빠뜨리면 `npm run db:validate`가 잡는다.
+  - DSN-31 F44(확정 통제) 표 2개와 PLM·CRM·SCM 칼럼 5개는 **일부러 남겼다**. 그 작업에서 새 revision으로 넣는다.
+- 재현 명령:
+  - 적용: `python3 tools/apply_erp1.py` (멱등)
+  - 검증: `npm run db:validate` · `backend/.venv/bin/python tools/audit_schema_isolation.py` · `backend/.venv/bin/python -m unittest discover -s tools -p 'test_*.py'`
+  - 왕복: `DATABASE_URL=<test> uv run --project backend alembic -c backend/alembic.ini downgrade bems1 && ... upgrade head && ... tools/verify_ddl_matches_schema.py`
+  - 전체 CI: `TEST_DB=factory_studio_erp1a_test bash tools/ci_local.sh`
+- 미실행: 전체 CI·운영 배포·원격 push.
+
 # 2026-11-14 BEMS-1f — 건물 에너지·공용 비용·월간 보고서 (BEMS 보강 마감)
 
 - 브랜치 **bems-1f**(로컬, 미병합·미푸시). 기준 main `e39a06e`(1e 병합·push 완료). **DB 마이그레이션 없음**, 시드 변경 없음.

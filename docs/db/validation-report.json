@@ -1,13 +1,13 @@
 {
-  "task": "BEMS-1a",
+  "task": "ERP-1a",
   "validation": "정적 메타데이터 검증 + FS-013 R1~R6",
   "database_applied": false,
-  "tables": 262,
+  "tables": 298,
   "tables_by_schema": {
     "bems": 21,
     "cmms": 12,
     "core": 19,
-    "erp": 27,
+    "erp": 63,
     "fems": 25,
     "flow": 12,
     "gw": 28,
@@ -17,10 +17,10 @@
     "spc": 10,
     "wms": 23
   },
-  "columns": 2960,
-  "foreign_keys": 644,
-  "constraints_and_policies": 1915,
-  "source_sha256": "69da5fbe827d34d3df0803f286b275ae3577adec435b921edf18f10ea8634d15",
+  "columns": 3436,
+  "foreign_keys": 759,
+  "constraints_and_policies": 2161,
+  "source_sha256": "83babaac581c25746f15c7c400c309950e7f7df0fe6bcd046b6e542f607843a3",
   "errors": [],
   "not_tested": [
     "실제 DDL 적용",
