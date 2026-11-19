@@ -1,7 +1,8 @@
 """WMS 읽기 전용 조회 인터페이스 (FS-013 §6 · DSN-21 Q6).
 
-CMMS가 WMS를 이 모듈로만 읽어 예비품 재고를 본다. **재고 원장은 WMS만 가진다**(FS-029 D50) —
-CMMS는 수량을 저장하지 않고 볼 때마다 여기서 읽는다.
+CMMS가 WMS를 이 모듈로만 읽어 예비품 재고를 보고, ERP가 입고·수불을 읽어 매입·재고자산 평가를 한다
+(DSN-11 F23·F35). **재고 원장은 WMS만 가진다**(FS-029 D50) — 읽는 쪽은 수량을 저장하지 않고
+볼 때마다 여기서 읽는다.
 WMS를 꺼 두었으면 None을 돌려주고, CMMS는 재고 칸 없이 동작한다.
 
 호출자의 범위(scoped: 활성 세대가 확정된 AuthContext)로만 조회한다.
@@ -9,6 +10,7 @@ WMS를 꺼 두었으면 None을 돌려주고, CMMS는 재고 칸 없이 동작�
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -179,3 +181,105 @@ def lots(
         }
         for row in rows
     ]
+
+
+def receipts(
+    connection: Connection, scoped: AuthContext, date_from: date, date_to: date
+) -> list[dict[str, Any]] | None:
+    """검수를 마친 입고 `[{noticeNo, noticeKind, partnerRef, inspectedAt, lines:[...]}]`. WMS 꺼짐이면 None.
+
+    ERP 매입이 발주 입고분을 읽는다(DSN-11 F23 PO_RECEIPT). **검수한 것만** 준다 —
+    도착만 하고 검수 전인 입고는 아직 받은 수량이 정해지지 않았다.
+    `acceptedQty`는 정상 입고, `quarantinedQty`는 격리다. 격리분은 매입 대상이 아니라고 읽는 쪽이 정한다.
+    """
+    if not enabled(connection, scoped):
+        return None
+    rows = connection.execute(
+        text(
+            "SELECT n.notice_no, n.notice_kind, n.partner_ref, n.inspected_at, n.warehouse_id, "
+            "       l.line_no, i.item_code, i.base_unit, l.accepted_qty, l.quarantined_qty, l.shortage_qty "
+            "FROM wms.inbound_notice n "
+            "JOIN wms.inbound_notice_line l ON l.workspace_id=n.workspace_id "
+            " AND l.generation_id=n.generation_id AND l.notice_id=n.id "
+            "JOIN wms.item i ON i.workspace_id=l.workspace_id AND i.generation_id=l.generation_id "
+            " AND i.id=l.item_id "
+            "WHERE n.workspace_id=:w AND n.generation_id=:g AND n.status='INSPECTED' "
+            "  AND n.inspected_at >= CAST(:date_from AS date) "
+            "  AND n.inspected_at < CAST(:date_to AS date) + interval '1 day' "
+            "ORDER BY n.inspected_at, n.notice_no, l.line_no"
+        ),
+        {
+            "w": scoped.workspace_id,
+            "g": scoped.generation_id,
+            "date_from": date_from,
+            "date_to": date_to,
+        },
+    ).mappings()
+    notices: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        notice = notices.setdefault(
+            r["notice_no"],
+            {
+                "noticeNo": r["notice_no"],
+                "noticeKind": r["notice_kind"],
+                "partnerRef": r["partner_ref"],
+                "inspectedAt": r["inspected_at"].isoformat(),
+                "lines": [],
+            },
+        )
+        notice["lines"].append(
+            {
+                "lineNo": r["line_no"],
+                "itemCode": r["item_code"],
+                "unit": r["base_unit"],
+                "acceptedQty": f"{Decimal(str(r['accepted_qty'])):.3f}",
+                "quarantinedQty": f"{Decimal(str(r['quarantined_qty'])):.3f}",
+                "shortageQty": f"{Decimal(str(r['shortage_qty'])):.3f}",
+            }
+        )
+    return list(notices.values())
+
+
+def stock_moves(
+    connection: Connection, scoped: AuthContext, month: str
+) -> list[dict[str, Any]] | None:
+    """그 달 품목별 수불 `[{itemCode, unit, openingQty, inQty, outQty, closingQty}]`. WMS 꺼짐이면 None.
+
+    ERP 재고자산 평가(DSN-11 F35)가 월 이동평균 단가를 낼 때 **수량**을 여기서 읽는다.
+    금액은 ERP의 매입 금액이라 여기서 주지 않는다. 확정(posted) 전표만 센다.
+    움직임이 없어도 기초 수량이 있으면 준다 — 그 달 재고가 0이라는 뜻이 아니다.
+    """
+    if not enabled(connection, scoped):
+        return None
+    rows = connection.execute(
+        text(
+            "SELECT i.item_code, i.base_unit, "
+            " COALESCE(sum(m.qty_delta) FILTER (WHERE d.document_month < :month), 0) opening, "
+            " COALESCE(sum(m.qty_delta) FILTER (WHERE d.document_month = :month AND m.qty_delta > 0), 0) moved_in, "
+            " COALESCE(-sum(m.qty_delta) FILTER (WHERE d.document_month = :month AND m.qty_delta < 0), 0) moved_out "
+            "FROM wms.item i "
+            "LEFT JOIN wms.stock_move m ON m.workspace_id=i.workspace_id "
+            " AND m.generation_id=i.generation_id AND m.item_id=i.id "
+            "LEFT JOIN wms.stock_document d ON d.workspace_id=m.workspace_id "
+            " AND d.generation_id=m.generation_id AND d.id=m.document_id AND d.status='posted' "
+            "WHERE i.workspace_id=:w AND i.generation_id=:g "
+            "GROUP BY i.item_code, i.base_unit ORDER BY i.item_code"
+        ),
+        {"w": scoped.workspace_id, "g": scoped.generation_id, "month": month},
+    ).mappings()
+    out = []
+    for r in rows:
+        opening = Decimal(str(r["opening"]))
+        moved_in = Decimal(str(r["moved_in"]))
+        moved_out = Decimal(str(r["moved_out"]))
+        out.append(
+            {
+                "itemCode": r["item_code"],
+                "unit": r["base_unit"],
+                "openingQty": f"{opening:.3f}",
+                "inQty": f"{moved_in:.3f}",
+                "outQty": f"{moved_out:.3f}",
+                "closingQty": f"{opening + moved_in - moved_out:.3f}",
+            }
+        )
+    return out
