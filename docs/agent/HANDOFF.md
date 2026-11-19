@@ -1,3 +1,19 @@
+# 2026-11-18 ERP-1b — 교차 조회 함수
+
+- 브랜치 **erp-1b**(로컬, 미병합·미푸시). 기준 main `191bb4a`. **DB 마이그레이션·화면 변경 없음.**
+- 끝난 것: ERP-1b 전부. WMS `receipts`·`stock_moves`, MES `subcontract_results` 신설, ERP `purchase_orders`·`journal_summary`·`sales_summary` 신설, 계약 테스트 8건.
+- 다음 할 일: **ERP-1c 기초등록** — E-19 부서·담당자·프로젝트(신규), E-15·E-16 거래처·품목 보강(상세·여신·규격·표준 단가), E-17 단가 그룹, E-18 계정과목·분개규칙(분류·정상 잔액·14종). **새 표에 시드를 처음 넣는 단계다.**
+- 주의점:
+  - `conftest.PROVIDERS["erp"]`를 `("gw","wms","mes","hr")`로 넓혔다. ERP 테스트 공간이 무거워졌으니 새 ERP 테스트는 필요한 시드만 쓴다(`SEEDS` 모듈 변수로 줄일 수 있다).
+  - `mes.lot`에는 품목이 없다 — `work_order`를 거쳐야 한다.
+  - `erp.partner.partner_name`, `erp.sales_record.recognized_at`. 이름을 추측하지 말고 schema.json을 본다.
+  - 같은 이름의 매개변수를 한 문장에서 두 번 쓰면 `CAST(:x AS varchar)`가 필요하다.
+  - 발주 입고 진행은 **ERP에 저장하지 않는다**. WMS `receipts`를 읽어 파생한다.
+- 재현 명령:
+  - 단위: `DATABASE_URL=<test> TEST_DATABASE_URL=<test> uv run --project backend pytest backend/tests/test_erp_interfaces.py -q`
+  - 전체 CI: `TEST_DB=factory_studio_erp1b_test bash tools/ci_local.sh`
+- 미실행: 전체 CI 결과 확인 전·운영 배포·원격 push.
+
 # 2026-11-15 ERP-1a — ERP 보강 DB (27 → 63표)
 
 - 브랜치 **erp-1a**(로컬, 미병합·미푸시). 기준 main `2838e08`. 마이그레이션 **`erp1`**(432문, down `bems1`).

@@ -1,12 +1,14 @@
 """ERP 읽기 전용 조회 인터페이스 (FS-023 D9 · X1~X6, FS-024 7.2).
 
-다른 솔루션(WMS)은 ERP를 이 모듈로만 읽는다. 반환은 값(dict/list)이며 행을 잠그지 않는다.
+다른 솔루션(WMS·GW·EIP)은 ERP를 이 모듈로만 읽는다. 반환은 값(dict/list)이며 행을 잠그지 않는다.
 ERP를 꺼 두었으면 None을 돌려주고, 호출 쪽은 기능을 줄여 동작한다(D12).
 ERP는 다른 솔루션을 읽지 않는다 — 출하·매입은 재고를 확인하지 않는다(FS-024 D15).
 """
 
 from __future__ import annotations
 
+from datetime import date
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import Connection, text
@@ -337,3 +339,158 @@ def partners(
         }
         for row in rows
     ]
+
+
+def purchase_orders(
+    connection: Connection, scoped: AuthContext, open_only: bool = True
+) -> list[dict[str, Any]] | None:
+    """확정 발주 `[{poNo, partnerCode, partnerName, dueOn, status, lines:[...]}]`. ERP 꺼짐이면 None.
+
+    WMS 입고 예정이 읽는다(DSN-11 §6). **확정한 발주만** 준다 — 초안은 아직 거래처에 나가지 않았다.
+    `open_only`면 종결·취소를 뺀다. **입고 진행은 여기에 없다** — 얼마나 들어왔는지는 WMS가 알고,
+    ERP는 저장하지 않고 WMS를 읽어 파생한다(DSN-11 §4-1 발주 진행 파생).
+    """
+    if not enabled(connection, scoped):
+        return None
+    where = " AND o.status='confirmed'" if open_only else " AND o.status<>'draft'"
+    rows = connection.execute(
+        text(
+            "SELECT o.po_no, o.ordered_on, o.due_on, o.status, o.currency, o.total_amount, "
+            "       p.partner_code, p.partner_name, "
+            "       l.line_no, i.item_code, i.name item_name, l.quantity, l.unit, l.unit_price, l.due_on line_due_on "
+            "FROM erp.purchase_order o "
+            "JOIN erp.partner p ON p.workspace_id=o.workspace_id AND p.generation_id=o.generation_id "
+            " AND p.id=o.partner_id "
+            "JOIN erp.purchase_order_line l ON l.workspace_id=o.workspace_id "
+            " AND l.generation_id=o.generation_id AND l.purchase_order_id=o.id "
+            "JOIN erp.item i ON i.workspace_id=l.workspace_id AND i.generation_id=l.generation_id "
+            " AND i.id=l.item_id "
+            f"WHERE o.workspace_id=:w AND o.generation_id=:g{where} "
+            "ORDER BY o.ordered_on, o.po_no, l.line_no"
+        ),
+        _s(scoped),
+    ).mappings()
+    orders: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        order = orders.setdefault(
+            r["po_no"],
+            {
+                "poNo": r["po_no"],
+                "partnerCode": r["partner_code"],
+                "partnerName": r["partner_name"],
+                "orderedOn": r["ordered_on"].isoformat(),
+                "dueOn": None if r["due_on"] is None else r["due_on"].isoformat(),
+                "status": r["status"],
+                "currency": r["currency"],
+                "totalAmount": str(r["total_amount"]),
+                "lines": [],
+            },
+        )
+        order["lines"].append(
+            {
+                "lineNo": r["line_no"],
+                "itemCode": r["item_code"],
+                "itemName": r["item_name"],
+                "quantity": str(r["quantity"]),
+                "unit": r["unit"],
+                "unitPrice": str(r["unit_price"]),
+                "dueOn": None
+                if r["line_due_on"] is None
+                else r["line_due_on"].isoformat(),
+            }
+        )
+    return list(orders.values())
+
+
+def journal_summary(
+    connection: Connection, scoped: AuthContext, month: str
+) -> dict[str, Any] | None:
+    """그 달 **확정 전표**의 계정별 차·대 합계. ERP 꺼짐이면 None.
+
+    EIP 경영 요약이 읽는다. 초안·역분개된 전표는 빼고 역분개 전표 자체는 넣는다 —
+    정정은 지우는 것이 아니라 반대 전표를 더하는 것이라 합계가 맞는다.
+    계정이 하나도 없으면 빈 목록이고, 그것은 '쓰지 않았다'가 아니라 '전표가 없다'이다.
+    """
+    if not enabled(connection, scoped):
+        return None
+    rows = connection.execute(
+        text(
+            "SELECT a.account_code, a.account_name, a.account_class, a.normal_side, "
+            "       sum(l.amount) FILTER (WHERE l.side='DEBIT') debit, "
+            "       sum(l.amount) FILTER (WHERE l.side='CREDIT') credit "
+            "FROM erp.journal_entry e "
+            "JOIN erp.journal_line l ON l.workspace_id=e.workspace_id "
+            " AND l.generation_id=e.generation_id AND l.journal_entry_id=e.id "
+            "JOIN erp.account a ON a.workspace_id=l.workspace_id "
+            " AND a.generation_id=l.generation_id AND a.id=l.account_id "
+            "WHERE e.workspace_id=:w AND e.generation_id=:g AND e.status<>'draft' "
+            "  AND to_char(e.entry_date,'YYYY-MM')=:month "
+            "GROUP BY a.account_code, a.account_name, a.account_class, a.normal_side "
+            "ORDER BY a.account_code"
+        ),
+        {**_s(scoped), "month": month},
+    ).mappings()
+    accounts = [
+        {
+            "accountCode": r["account_code"],
+            "accountName": r["account_name"],
+            "accountClass": r["account_class"],
+            "normalSide": r["normal_side"],
+            "debit": str(r["debit"] or 0),
+            "credit": str(r["credit"] or 0),
+        }
+        for r in rows
+    ]
+    return {"month": month, "accounts": accounts}
+
+
+def sales_summary(
+    connection: Connection, scoped: AuthContext, date_from: date, date_to: date
+) -> dict[str, Any] | None:
+    """기간 매출·채권 요약 `{salesAmount, salesCount, receivableOpen, partners:[...]}`. ERP 꺼짐이면 None.
+
+    EIP 경영 요약과 CRM이 읽는다. 매출은 그 기간 **확정 매출**이고, 채권 미수는
+    기간이 아니라 **지금 남은 금액**이다(원금 − 소명). 둘은 기준이 달라 더하지 않는다.
+    """
+    if not enabled(connection, scoped):
+        return None
+    period = {**_s(scoped), "date_from": date_from, "date_to": date_to}
+    sales = connection.execute(
+        text(
+            "SELECT p.partner_code, p.partner_name, count(*) sales_count, "
+            "       sum(s.total_amount) amount "
+            "FROM erp.sales_record s "
+            "JOIN erp.partner p ON p.workspace_id=s.workspace_id "
+            " AND p.generation_id=s.generation_id AND p.id=s.partner_id "
+            "WHERE s.workspace_id=:w AND s.generation_id=:g AND s.cancelled_at IS NULL "
+            "  AND (s.recognized_at AT TIME ZONE 'Asia/Seoul')::date BETWEEN :date_from AND :date_to "
+            "GROUP BY p.partner_code, p.partner_name ORDER BY p.partner_code"
+        ),
+        period,
+    ).mappings()
+    partners = [
+        {
+            "partnerCode": r["partner_code"],
+            "partnerName": r["partner_name"],
+            "salesCount": r["sales_count"],
+            "amount": str(r["amount"] or 0),
+        }
+        for r in sales
+    ]
+    open_amount = connection.execute(
+        text(
+            "SELECT COALESCE((SELECT sum(r.amount) FROM erp.receivable r "
+            "   WHERE r.workspace_id=:w AND r.generation_id=:g), 0) "
+            " - COALESCE((SELECT sum(a.amount) FROM erp.receipt_apply a "
+            "   WHERE a.workspace_id=:w AND a.generation_id=:g), 0)"
+        ),
+        _s(scoped),
+    ).scalar_one()
+    return {
+        "from": date_from.isoformat(),
+        "to": date_to.isoformat(),
+        "salesAmount": str(sum(Decimal(p["amount"]) for p in partners)),
+        "salesCount": sum(p["salesCount"] for p in partners),
+        "receivableOpen": str(open_amount),
+        "partners": partners,
+    }

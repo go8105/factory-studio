@@ -657,3 +657,58 @@ def lot_trace(
             for r in used_in
         ],
     }
+
+
+def subcontract_results(
+    connection: Connection, scoped: AuthContext, month: str
+) -> list[dict[str, Any]] | None:
+    """그 달 **받은** 외주 실적 `[{scNo, subcontractorCode, itemCode, processCode, goodQty, defectQty, unit, receivedAt}]`.
+
+    ERP 외주비 매입(DSN-11 F34)이 읽는다. 외주 발주·입고는 MES가 가지고 ERP는 매입·전표만 만든다.
+    **받은 것만** 준다 — 보낸 뒤 아직 받지 않은 건은 치를 금액이 정해지지 않았다.
+    수량은 `good_qty`(양품)다. 불량은 함께 주되 금액 산정은 읽는 쪽이 정한다. MES 꺼짐이면 None.
+    """
+    if not _enabled(connection, scoped):
+        return None
+    start, end = _month_bounds(month)
+    rows = connection.execute(
+        text(
+            "SELECT o.sc_no, o.subcontractor_code, o.qty, o.good_qty, o.defect_qty, o.unit, "
+            "       o.received_at, i.item_code, i.name item_name, p.process_code "
+            "FROM mes.subcontract_order o "
+            "JOIN mes.lot t ON t.workspace_id=o.workspace_id AND t.generation_id=o.generation_id "
+            " AND t.id=o.lot_id "
+            "JOIN mes.work_order wo ON wo.workspace_id=t.workspace_id "
+            " AND wo.generation_id=t.generation_id AND wo.id=t.work_order_id "
+            "JOIN mes.item i ON i.workspace_id=wo.workspace_id AND i.generation_id=wo.generation_id "
+            " AND i.id=wo.item_id "
+            "LEFT JOIN mes.route_step s ON s.workspace_id=o.workspace_id "
+            " AND s.generation_id=o.generation_id AND s.id=o.route_step_id "
+            "LEFT JOIN mes.process p ON p.workspace_id=s.workspace_id "
+            " AND p.generation_id=s.generation_id AND p.id=s.process_id "
+            "WHERE o.workspace_id=:w AND o.generation_id=:g AND o.received_at IS NOT NULL "
+            "  AND o.received_at >= :start AND o.received_at < :end "
+            "ORDER BY o.received_at, o.sc_no"
+        ),
+        {
+            "w": scoped.workspace_id,
+            "g": scoped.generation_id,
+            "start": start,
+            "end": end,
+        },
+    ).mappings()
+    return [
+        {
+            "scNo": r["sc_no"],
+            "subcontractorCode": r["subcontractor_code"],
+            "itemCode": r["item_code"],
+            "itemName": r["item_name"],
+            "processCode": r["process_code"],
+            "qty": str(r["qty"]),
+            "goodQty": str(r["good_qty"]),
+            "defectQty": str(r["defect_qty"]),
+            "unit": r["unit"],
+            "receivedAt": r["received_at"].isoformat(),
+        }
+        for r in rows
+    ]

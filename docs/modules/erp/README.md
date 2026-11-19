@@ -4,7 +4,7 @@
 
 - 상태: **보강 중(DSN-11)** — 18화면(E-01~18), 목표 41화면. **DB 반영 완료(ERP-1a, 2026-11-15, 마이그레이션 `erp1`, 27 → 63표)**, 서비스·화면은 1b부터. 기능 추가는 [로드맵](../../plan/로드맵_17개시스템_ROADMAP-01.md)의 "살 붙이기" 단계에서만 한다. 다른 솔루션이 요청하는 **조회 함수 추가는 동결 중에도 허용**한다.
 - 설계: [ERP 모듈 설계서](ERP_모듈설계_FS-005e.md) · **보강 설계: [DSN-11](ERP_보강설계_DSN-11.md)**(ROADMAP-02 — 72기능 중 58 범위, 27 → 63테이블, 화면 41. 설계 완료·**DB 반영 완료**. 단계: 1a DB / 1b 교차 조회 / 1c 기초등록 / 1d 영업·구매 / 1e 회계 전표 / 1f 장부·결산 / 1g 세무 / 1h 채권·채무·자금 / 1i 원가·예산·자산)
-- 읽는 조회: `fs.gw.interface.approvals` — E-11 상세 읽기 전용 배지(확정 통제 없음).
+- 읽는 조회: GW `approvals` — E-11 상세 읽기 전용 배지(확정 통제 없음) · WMS `receipts(from,to)`·`stock_moves(month)`·`stock_on_hand()` · MES `production_results(month)`·`subcontract_results(month)` · HR `payroll_runs(month)`. **CMMS `part_requests()`는 CMMS에 요청 표가 없어 미구현**이다.
 
 ### 제공 조회 함수 (`backend/src/fs/erp/interface.py`)
 
@@ -16,6 +16,9 @@
 | `confirmed_shipments()` | 확정 출하 | WMS |
 | `purchase_receipts()` | 확정(취소 포함) 매입 | WMS |
 | `open_shipment_qty()` | 미출하 출하지시 수량(품목별) | WMS |
+| `purchase_orders(open_only)` | 확정 발주 명세(입고 예정). **입고 진행은 주지 않는다** — WMS가 안다 | WMS |
+| `journal_summary(month)` | 확정 전표의 계정별 차·대 합계(초안 제외) | EIP |
+| `sales_summary(from,to)` | 기간 매출과 지금 남은 채권 미수(따로) | EIP·CRM |
 
 모든 함수의 앞 두 인자는 `(connection, scoped)`이고, 이 솔루션이 꺼져 있으면 `None`을 돌려준다.
 

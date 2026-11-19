@@ -203,7 +203,7 @@ def guest_template(db_engine: Engine) -> Iterator[GuestTemplate]:
 # interface는 다른 interface를 다시 부르지 않으므로(FS-030 §3) 직접 제공자로 충분하다.
 PROVIDERS = {
     "mes": ("qms",),
-    "erp": ("gw",),
+    "erp": ("gw", "wms", "mes", "hr"),
     "fems": ("mes", "hr"),
     "qms": ("mes", "spc", "wms"),
     "wms": ("erp", "mes"),
