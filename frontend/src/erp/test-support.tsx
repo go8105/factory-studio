@@ -30,6 +30,84 @@ export const price = {
   effectiveTo: null,
   isActive: true,
 };
+export const department = {
+  id: 7,
+  code: "D-SALES",
+  name: "영업부",
+  costCenterKind: "SALES",
+  isActive: true,
+};
+const ROWS: Record<string, unknown[]> = {
+  "/partners": [partner],
+  "/items": [item],
+  "/partner-prices": [price],
+  "/accounts": [
+    {
+      id: 4,
+      accountCode: "AR",
+      accountName: "외상매출금",
+      accountClass: "ASSET",
+      normalSide: "DEBIT",
+      statementGroup: "유동자산",
+      requiresPartner: true,
+      requiresDepartment: false,
+      isActive: true,
+    },
+  ],
+  "/posting-rules": [
+    {
+      id: 5,
+      transactionKind: "SALE",
+      lineNo: 1,
+      entrySide: "DEBIT",
+      accountCode: "AR",
+      amountBasis: "TOTAL",
+    },
+  ],
+  "/conversions": [
+    { id: 6, fromUnit: "BOX", toUnit: "EA", factor: "12.000000" },
+  ],
+  "/departments": [department],
+  "/employees": [
+    {
+      id: 8,
+      code: "E-2001",
+      name: "박영업",
+      departmentId: 7,
+      hrEmployeeCode: null,
+      isActive: true,
+    },
+  ],
+  "/projects": [
+    {
+      id: 9,
+      code: "PJ-2026A",
+      name: "커넥터 라인 증설",
+      startOn: "2026-01-02",
+      endOn: null,
+      isActive: true,
+    },
+  ],
+  "/price-groups": [
+    {
+      id: 10,
+      code: "PG-SALE-A",
+      name: "판매 A군",
+      priceKind: "SALE",
+      isActive: true,
+    },
+  ],
+  "/group-prices": [
+    {
+      id: 11,
+      priceGroupId: 10,
+      itemId: 2,
+      unitPrice: "860.0000",
+      currency: "KRW",
+      validFrom: "2026-01-02",
+    },
+  ],
+};
 export function mount(
   path: string,
   replies: Record<string, { status: number; body?: unknown }> = {},
@@ -65,35 +143,8 @@ export function mount(
             },
           }),
         );
-      const data = url.endsWith("/partners")
-        ? [partner]
-        : url.endsWith("/items")
-          ? [item]
-          : url.endsWith("/partner-prices")
-            ? [price]
-            : url.endsWith("/accounts")
-              ? [{ id: 4, accountCode: "AR", accountName: "외상매출금" }]
-              : url.endsWith("/posting-rules")
-                ? [
-                    {
-                      id: 5,
-                      transactionKind: "SALE",
-                      lineNo: 1,
-                      entrySide: "DEBIT",
-                      accountCode: "AR",
-                      amountBasis: "TOTAL",
-                    },
-                  ]
-                : url.endsWith("/conversions")
-                  ? [
-                      {
-                        id: 6,
-                        fromUnit: "BOX",
-                        toUnit: "EA",
-                        factor: "12.000000",
-                      },
-                    ]
-                  : [];
+      const data =
+        ROWS[Object.keys(ROWS).find((k) => url.endsWith(k)) ?? ""] ?? [];
       return new Response(
         JSON.stringify({
           data,

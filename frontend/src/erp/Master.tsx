@@ -25,7 +25,7 @@ export type Row = {
 export type InputField = {
   key: string;
   label: string;
-  type?: "text" | "number" | "checkbox" | "month";
+  type?: "text" | "number" | "checkbox" | "month" | "date";
   options?: [string, string][];
   nullable?: boolean;
   initial?: string | number | boolean | null;
@@ -51,7 +51,9 @@ export function Master({
   path,
   fields,
   extraColumns = [],
+  columns: shown,
   readOnly = false,
+  deletable = true,
   embedded = false,
   note,
   children,
@@ -61,7 +63,11 @@ export function Master({
   path: string;
   fields: InputField[];
   extraColumns?: InputField[];
+  /** 표에 세울 입력 항목 키. 비우면 전부 — 상세가 많은 마스터는 표를 좁히고 패널에서 본다. */
+  columns?: string[];
   readOnly?: boolean;
+  /** 삭제가 없는 마스터(계정과목은 사용 여부만 끈다). 단추를 숨긴다. */
+  deletable?: boolean;
   embedded?: boolean;
   note?: string;
   children?: ReactNode;
@@ -232,7 +238,10 @@ export function Master({
       ? ((saveError.error.details?.fields ?? {}) as Record<string, string>)
       : {};
 
-  const columns: Column<Row>[] = [...fields, ...extraColumns].map((f) => ({
+  const columns: Column<Row>[] = [
+    ...(shown ? fields.filter((f) => shown.includes(f.key)) : fields),
+    ...extraColumns,
+  ].map((f) => ({
     key: f.key,
     label: f.label,
     render: (r) => {
@@ -265,17 +274,19 @@ export function Master({
           >
             수정
           </button>
-          <button
-            type="button"
-            className="link-button"
-            disabled={pending}
-            onClick={() => {
-              setDeleting(r);
-              setSaveError(undefined);
-            }}
-          >
-            삭제
-          </button>
+          {deletable && (
+            <button
+              type="button"
+              className="link-button"
+              disabled={pending}
+              onClick={() => {
+                setDeleting(r);
+                setSaveError(undefined);
+              }}
+            >
+              삭제
+            </button>
+          )}
         </span>
       ),
     });
@@ -313,7 +324,7 @@ export function Master({
                 <label htmlFor={inputId}>{f.label}</label>
                 <select
                   id={inputId}
-                  required
+                  required={!f.nullable}
                   aria-invalid={!!error}
                   aria-describedby={error ? `${inputId}-error` : undefined}
                   value={String(draft[f.key] ?? "")}
@@ -323,8 +334,12 @@ export function Master({
                       [f.key]: f.lookup
                         ? e.target.value
                           ? Number(e.target.value)
-                          : ""
-                        : e.target.value,
+                          : f.nullable
+                            ? null
+                            : ""
+                        : e.target.value === "" && f.nullable
+                          ? null
+                          : e.target.value,
                     })
                   }
                 >
@@ -457,7 +472,7 @@ export function Master({
       <PageTitle
         id={id}
         title={title}
-        help={`/help/erp/${id.toLowerCase()}`}
+        help={`erp/${id.toLowerCase()}`}
         actions={
           !readOnly && (
             <button

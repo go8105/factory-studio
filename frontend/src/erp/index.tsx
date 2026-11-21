@@ -5,6 +5,7 @@ import { Partners } from "./Partners";
 import { Items } from "./Items";
 import { Prices } from "./Prices";
 import { Accounts } from "./Accounts";
+import { Organization } from "./Organization";
 import { Quotations } from "./Quotations";
 import { SalesPlans } from "./SalesPlans";
 import { SalesOrders } from "./SalesOrders";
@@ -41,6 +42,7 @@ export default function ErpRoutes() {
         <Route path="items" element={<Items />} />
         <Route path="partner-prices" element={<Prices />} />
         <Route path="accounts" element={<Accounts />} />
+        <Route path="organization" element={<Organization />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

@@ -171,10 +171,10 @@ beforeEach(() => {
   });
 });
 
-it("158개 실제 메뉴는 고유한 경로와 등록 키를 갖는다", () => {
-  expect(menuCatalog).toHaveLength(158);
-  expect(new Set(menuCatalog.map((m) => m.key)).size).toBe(158);
-  expect(new Set(menuCatalog.map((m) => m.to)).size).toBe(158);
+it("159개 실제 메뉴는 고유한 경로와 등록 키를 갖는다", () => {
+  expect(menuCatalog).toHaveLength(159);
+  expect(new Set(menuCatalog.map((m) => m.key)).size).toBe(159);
+  expect(new Set(menuCatalog.map((m) => m.to)).size).toBe(159);
   expect(
     defaultMenuIds.every((key) => menuCatalog.some((m) => m.key === key)),
   ).toBe(true);

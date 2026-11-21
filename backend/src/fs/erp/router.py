@@ -341,6 +341,129 @@ def get_posting_rules(row_id: int, context: Auth):
     return {"data": service.detail(context, "posting-rules", row_id)}
 
 
+# ---- DSN-11 1c 기초등록: 같은 모양의 기준정보 다섯은 한 틀에서 만든다 ----
+def master(path: str, resource: str, create, update, active: bool = True):
+    """목록·상세·등록·수정·삭제 5개 경로를 등록한다. 손으로 25벌 적지 않는다."""
+
+    def register(name, method, url, handler, **kwargs):
+        handler.__name__ = f"{name}_{resource.replace('-', '_')}"
+        router.add_api_route(url, handler, methods=[method], **kwargs)
+
+    def list_rows(
+        context: Auth,
+        offset: int = Query(0, ge=0),
+        limit: int = Query(50, ge=1, le=200),
+        sort: str | None = None,
+        is_active: bool | None = Query(None, alias="active"),
+    ):
+        page = Page(offset, limit).checked()
+        data, total = service.listing(
+            context,
+            resource,
+            page.offset,
+            page.limit,
+            sort,
+            {"is_active": is_active} if active else {},
+        )
+        return {
+            "data": data,
+            "page": {"offset": page.offset, "limit": page.limit, "total": total},
+        }
+
+    def get_row(row_id: int, context: Auth):
+        return {"data": service.detail(context, resource, row_id)}
+
+    def post_row(
+        payload: create,  # type: ignore[valid-type]
+        context: Auth,
+        idempotency_key: Key = None,
+        x_csrf_token: Csrf = None,
+    ):
+        key = mutation(context, x_csrf_token, idempotency_key)
+        return {"data": service.mutate(context, resource, payload.model_dump(), key)}
+
+    def patch_row(
+        row_id: int,
+        payload: update,  # type: ignore[valid-type]
+        context: Auth,
+        idempotency_key: Key = None,
+        x_csrf_token: Csrf = None,
+    ):
+        key = mutation(context, x_csrf_token, idempotency_key)
+        return {
+            "data": service.mutate(
+                context,
+                resource,
+                payload.model_dump(exclude_unset=True),
+                key,
+                row_id=row_id,
+            )
+        }
+
+    def delete_row(
+        row_id: int,
+        context: Auth,
+        idempotency_key: Key = None,
+        x_csrf_token: Csrf = None,
+    ):
+        key = mutation(context, x_csrf_token, idempotency_key)
+        service.mutate(context, resource, {}, key, row_id=row_id, deleting=True)
+        return Response(status_code=204)
+
+    register("list", "GET", path, list_rows)
+    register("get", "GET", f"{path}/{{row_id}}", get_row)
+    register("post", "POST", path, post_row, status_code=201)
+    register("patch", "PATCH", f"{path}/{{row_id}}", patch_row)
+    register("delete", "DELETE", f"{path}/{{row_id}}", delete_row, status_code=204)
+
+
+master("/departments", "departments", schema.DepartmentCreate, schema.DepartmentUpdate)
+master("/employees", "employees", schema.EmployeeCreate, schema.EmployeeUpdate)
+master("/projects", "projects", schema.ProjectCreate, schema.ProjectUpdate)
+master(
+    "/price-groups", "price-groups", schema.PriceGroupCreate, schema.PriceGroupUpdate
+)
+master(
+    "/group-prices",
+    "group-prices",
+    schema.GroupPriceCreate,
+    schema.GroupPriceUpdate,
+    active=False,
+)
+
+
+# 계정은 더하고 사용중단한다. 삭제는 service가 405로 막는다(지난 전표가 계정을 잃는다).
+@router.post("/accounts", status_code=201)
+def post_accounts(
+    payload: schema.AccountCreate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": service.mutate(context, "accounts", payload.model_dump(), key)}
+
+
+@router.patch("/accounts/{row_id}")
+def patch_accounts(
+    row_id: int,
+    payload: schema.AccountUpdate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": service.mutate(
+            context,
+            "accounts",
+            payload.model_dump(exclude_unset=True),
+            key,
+            row_id=row_id,
+        )
+    }
+
+
 # ---- FS-019b 영업: 견적·판매계획·수주 (목록은 페이지 없이 전체) ----
 def _json(payload, nullable=frozenset()):
     values = payload.model_dump(mode="json", exclude_unset=True)

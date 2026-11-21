@@ -883,6 +883,24 @@ DROPS = [
 # 모듈 키: (표, 제약 이름, 옛 식, 새 식)
 MODULE_CHECKS = []
 
+# 되돌리기 전에 지우는 행(ERP-1c). 올리기는 건드리지 않는다 — 이미 올린 DB는 영향이 없다.
+# 옛 CHECK는 DSN-11 이전 세계의 값만 담는다. 그 세계가 표현할 수 없는 행을 먼저 비운다.
+# 참조가 있으면 CASCADE 없이 멈춘다(아래 downgrade 주석과 같은 태도).
+# 계정 이름을 바꿔 둔 공간은 c505 복원에서 멈춘다 — 옛 CHECK가 코드와 이름 짝을 박아 두었다.
+OLD_ACCOUNTS = (
+    "'AR','PRODUCT_SALES','VAT_PAYABLE','BANK','RAW_MATERIAL','VAT_RECEIVABLE','AP'"
+)
+REMOVED_ROWS = [
+    # 분개규칙이 계정을 참조하므로 규칙 → 계정 순서로 비운다.
+    (
+        "DELETE FROM erp.posting_rule "
+        "WHERE transaction_kind NOT IN ('SALE', 'RECEIPT', 'PURCHASE', 'PAYMENT')"
+    ),
+    f"DELETE FROM erp.account WHERE account_code NOT IN ({OLD_ACCOUNTS})",
+    "DELETE FROM erp.item WHERE item_type IN ('merchandise', 'intangible')",
+    "DELETE FROM erp.partner WHERE partner_kind = 'BOTH'",
+]
+
 
 def upgrade() -> None:
     for statement in STATEMENTS:
@@ -893,6 +911,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    for statement in REMOVED_ROWS:
+        op.execute(statement)
     # 모듈 행·평가가 남아 있으면 옛 CHECK 복원이 실패한다. CASCADE 없이 멈추는 쪽이 안전하다.
     for table, name, old, _new in MODULE_CHECKS:
         op.execute(f"ALTER TABLE {table} DROP CONSTRAINT {name}")

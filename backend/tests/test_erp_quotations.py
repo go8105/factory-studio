@@ -120,9 +120,38 @@ def test_manual_price_and_discount(erp):
     assert quote["totalAmount"] == "2703"  # 3003 × 0.9 = 2702.7 → 2703
 
 
-def test_missing_partner_price_requires_manual_price(erp):
+def test_price_falls_back_to_the_group_when_the_partner_has_none(erp):
     client, created = erp
-    item = _id(client, "/items", "itemCode", "FG-T300")  # C-001 단가 없음
+    # C-001은 FG-T300에 거래처별 단가가 없지만 PG-SALE-A에 속한다(DSN-11 F06).
+    item = _id(client, "/items", "itemCode", "FG-T300")
+    quote = _new_quote(client, created)
+    response = _call(
+        client,
+        created,
+        "PUT",
+        f"/quotations/{quote['id']}/lines",
+        {"lines": [{"itemId": item, "quoteQty": "1"}]},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["lines"][0]["unitPrice"] == "2500.0000"
+
+
+def test_missing_price_everywhere_requires_manual_price(erp):
+    client, created = erp
+    # 거래처별 단가도 그룹 단가도 표준 판매가도 없는 품목은 단가를 지어내지 않는다.
+    item = _call(
+        client,
+        created,
+        "POST",
+        "/items",
+        {
+            "itemCode": "Q-NOPRICE",
+            "name": "단가 없는 품목",
+            "baseUnit": "EA",
+            "itemType": "finished",
+            "taxCategory": "TAXABLE",
+        },
+    ).json()["data"]["id"]
     quote = _new_quote(client, created)
     response = _call(
         client,
@@ -132,7 +161,10 @@ def test_missing_partner_price_requires_manual_price(erp):
         {"lines": [{"itemId": item, "quoteQty": "1"}]},
     )
     assert response.status_code == 400
-    assert "거래처 단가" in response.json()["error"]["details"]["fields"]["lines"]
+    assert (
+        "적용할 단가가 없습니다"
+        in response.json()["error"]["details"]["fields"]["lines"]
+    )
 
 
 def test_supplier_partner_rejected(erp):

@@ -327,7 +327,8 @@ def partners(
         text(
             "SELECT partner_code, partner_name, partner_kind FROM erp.partner "
             "WHERE workspace_id=:w AND generation_id=:g AND is_active "
-            "AND (CAST(:kind AS text) IS NULL OR partner_kind=:kind) ORDER BY partner_code"
+            "AND (CAST(:kind AS text) IS NULL OR partner_kind IN (:kind, 'BOTH')) "
+            "ORDER BY partner_code"
         ),
         {**_s(scoped), "kind": partner_kind},
     ).mappings()

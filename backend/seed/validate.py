@@ -38,12 +38,17 @@ EXPECTED_COUNTS = {
     "mes.packing_unit": 36,
     "mes.packing_member": 30,
     "mes.finished_goods_receipt": 6,
-    "erp.partner": 4,
-    "erp.item": 6,
+    "erp.partner": 5,
+    "erp.item": 8,
+    "erp.department": 4,
+    "erp.employee": 4,
+    "erp.project": 2,
+    "erp.price_group": 2,
+    "erp.price_group_price": 6,
     "erp.item_unit_conversion": 1,
     "erp.partner_item_price": 7,
-    "erp.account": 7,
-    "erp.posting_rule": 10,
+    "erp.account": 24,
+    "erp.posting_rule": 33,
     "erp.quotation": 5,
     "erp.quotation_line": 8,
     "erp.quotation_status_history": 16,
@@ -152,7 +157,7 @@ def validate_all(
         f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}",
     )
     _require(
-        sum(actual.values()) == 16167 + len(MODULE_KEYS) + sum(GW_COUNTS.values()),
+        sum(actual.values()) == 16228 + len(MODULE_KEYS) + sum(GW_COUNTS.values()),
         f"V1 total={sum(actual.values())}",
     )
     _require(all(varying.values()), f"V1 date-varying empty: {varying}")

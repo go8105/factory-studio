@@ -40,3 +40,14 @@ it("겹침 오류를 표시한다", async () => {
   fireEvent.click(screen.getByRole("button", { name: "저장" }));
   expect(await screen.findByText("겹치는 단가 1건")).toBeVisible();
 });
+it("단가 그룹과 그룹 단가를 함께 보여 준다", async () => {
+  mount("/erp/partner-prices");
+  expect(await screen.findByText("판매 A군")).toBeVisible();
+  expect(await screen.findByText("860.0000")).toBeVisible();
+});
+it("단가가 정해지는 순서를 안내한다", async () => {
+  mount("/erp/partner-prices");
+  expect(await screen.findByRole("note")).toHaveTextContent(
+    /거래처별 단가 → 거래처가 속한 단가 그룹.*→ 품목 표준 판매가/,
+  );
+});
