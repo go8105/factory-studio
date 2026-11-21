@@ -19,6 +19,8 @@ const fields: InputField[] = [
       ["semi_finished", "반제품"],
       ["raw", "원재료"],
       ["auxiliary", "부자재"],
+      ["merchandise", "상품"],
+      ["intangible", "무형"],
     ],
     initial: "finished",
   },
@@ -33,6 +35,10 @@ const fields: InputField[] = [
     initial: "TAXABLE",
   },
   { key: "isActive", label: "사용 여부", type: "checkbox" },
+  { key: "spec", label: "규격", nullable: true, maxLength: 100 },
+  { key: "standardCost", label: "표준 원가", nullable: true },
+  { key: "standardPrice", label: "표준 판매가", nullable: true },
+  { key: "trackStock", label: "재고 관리", type: "checkbox" },
 ];
 const conversions: InputField[] = [
   { key: "fromUnit", label: "환산 전 단위", maxLength: 10 },
@@ -63,7 +69,7 @@ export function Items() {
       title="품목"
       path="/api/v1/erp/items"
       fields={fields}
-      note="MES 품목과 독립 — 이 품목은 ERP 전용입니다. MES 품목과 코드가 같아도 별개 데이터입니다."
+      note="MES 품목과 독립 — 이 품목은 ERP 전용입니다. MES 품목과 코드가 같아도 별개 데이터입니다. 표준 판매가는 거래처별 단가와 단가 그룹이 모두 없을 때 쓰는 마지막 단가이고, 무형 품목처럼 재고를 잡지 않는 것은 재고 관리를 끕니다."
     >
       <section className="section-block">
         <div className="section-heading">

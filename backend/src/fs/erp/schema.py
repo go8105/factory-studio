@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field
 Code = Annotated[str, Field(min_length=1, max_length=40)]
 Unit = Literal["EA", "BOX", "KG", "M", "L", "SET"]
 Month = Annotated[str, Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")]
+Money = Annotated[str, Field(pattern=r"^\d{1,16}(\.\d{1,2})?$")]  # numeric(18,2)
+UnitPrice = Annotated[str, Field(pattern=r"^\d{1,14}(\.\d{1,4})?$")]  # numeric(18,4)
 
 
 class ApiModel(BaseModel):
@@ -14,24 +16,58 @@ class ApiModel(BaseModel):
     )
 
 
-class PartnerCreate(ApiModel):
+# DSN-11 F02·F03: 구분에 BOTH(매출·매입 둘 다), 상세·여신·단가 그룹 추가
+PartnerKind = Literal["CUSTOMER", "SUPPLIER", "BOTH"]
+BusinessNo = Annotated[str, Field(pattern=r"^[0-9]{3}-[0-9]{2}-[0-9]{5}$")]
+# DSN-11 F05: 품목 구분에 상품(merchandise)·무형(intangible) 추가
+ItemType = Literal[
+    "finished", "semi_finished", "raw", "auxiliary", "merchandise", "intangible"
+]
+
+
+class PartnerDetail(ApiModel):
+    """상세·여신·단가 그룹. 전부 비울 수 있다(옛 공간에는 값이 없다)."""
+
+    business_no: BusinessNo | None = Field(None, alias="businessNo")
+    representative: str | None = Field(None, min_length=1, max_length=60)
+    business_type: str | None = Field(
+        None, alias="businessType", min_length=1, max_length=60
+    )
+    business_item: str | None = Field(
+        None, alias="businessItem", min_length=1, max_length=60
+    )
+    address: str | None = Field(None, min_length=1, max_length=300)
+    phone: str | None = Field(None, min_length=1, max_length=30)
+    contact_name: str | None = Field(
+        None, alias="contactName", min_length=1, max_length=60
+    )
+    partner_group: str | None = Field(
+        None, alias="partnerGroup", min_length=1, max_length=40
+    )
+    credit_limit: Money | None = Field(None, alias="creditLimit")
+    credit_days: int | None = Field(None, alias="creditDays", ge=0, le=2147483647)
+    sale_price_group_id: int | None = Field(None, alias="salePriceGroupId", gt=0)
+    purchase_price_group_id: int | None = Field(
+        None, alias="purchasePriceGroupId", gt=0
+    )
+
+
+class PartnerCreate(PartnerDetail):
     partner_code: Code = Field(alias="partnerCode")
     partner_name: str = Field(alias="partnerName", min_length=1, max_length=200)
-    partner_kind: Literal["CUSTOMER", "SUPPLIER"] = Field(alias="partnerKind")
+    partner_kind: PartnerKind = Field(alias="partnerKind")
     payment_term_days: int | None = Field(
         None, alias="paymentTermDays", ge=0, le=2147483647
     )
     is_active: bool = Field(True, alias="isActive")
 
 
-class PartnerUpdate(ApiModel):
+class PartnerUpdate(PartnerDetail):
     partner_code: Code | None = Field(None, alias="partnerCode")
     partner_name: str | None = Field(
         None, alias="partnerName", min_length=1, max_length=200
     )
-    partner_kind: Literal["CUSTOMER", "SUPPLIER"] | None = Field(
-        None, alias="partnerKind"
-    )
+    partner_kind: PartnerKind | None = Field(None, alias="partnerKind")
     payment_term_days: int | None = Field(
         None, alias="paymentTermDays", ge=0, le=2147483647
     )
@@ -42,24 +78,28 @@ class ItemCreate(ApiModel):
     item_code: Code = Field(alias="itemCode")
     name: str = Field(min_length=1, max_length=100)
     base_unit: Unit = Field("EA", alias="baseUnit")
-    item_type: Literal["finished", "semi_finished", "raw", "auxiliary"] = Field(
-        "finished", alias="itemType"
-    )
+    item_type: ItemType = Field("finished", alias="itemType")
     tax_category: Literal["TAXABLE", "ZERO", "EXEMPT"] = Field(alias="taxCategory")
     is_active: bool = Field(True, alias="isActive")
+    spec: str | None = Field(None, min_length=1, max_length=100)
+    standard_cost: UnitPrice | None = Field(None, alias="standardCost")
+    standard_price: UnitPrice | None = Field(None, alias="standardPrice")
+    track_stock: bool = Field(True, alias="trackStock")
 
 
 class ItemUpdate(ApiModel):
     item_code: Code | None = Field(None, alias="itemCode")
     name: str | None = Field(None, min_length=1, max_length=100)
     base_unit: Unit | None = Field(None, alias="baseUnit")
-    item_type: Literal["finished", "semi_finished", "raw", "auxiliary"] | None = Field(
-        None, alias="itemType"
-    )
+    item_type: ItemType | None = Field(None, alias="itemType")
     tax_category: Literal["TAXABLE", "ZERO", "EXEMPT"] | None = Field(
         None, alias="taxCategory"
     )
     is_active: bool | None = Field(None, alias="isActive")
+    spec: str | None = Field(None, min_length=1, max_length=100)
+    standard_cost: UnitPrice | None = Field(None, alias="standardCost")
+    standard_price: UnitPrice | None = Field(None, alias="standardPrice")
+    track_stock: bool | None = Field(None, alias="trackStock")
 
 
 class ConversionCreate(ApiModel):
@@ -93,6 +133,129 @@ class PriceUpdate(ApiModel):
     currency: str | None = Field(None, pattern=r"^[A-Z]{3}$")
     effective_from: Month | None = Field(None, alias="effectiveFrom")
     effective_to: Month | None = Field(None, alias="effectiveTo")
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+# ---- DSN-11 1c 기초등록: 부서·담당자·프로젝트·단가 그룹·계정 ----
+# DB CHECK와 같은 모양이다. 여기서 막으면 DB 오류 대신 필드별 메시지가 나간다.
+MasterCode = Annotated[str, Field(pattern=r"^[A-Z0-9][A-Z0-9_-]{0,29}$")]
+CostCenter = Literal["MFG", "SALES", "ADMIN"]
+AccountClass = Literal[
+    "ASSET",
+    "LIABILITY",
+    "EQUITY",
+    "REVENUE",
+    "COGS",
+    "EXPENSE",
+    "MFG_COST",
+    "NON_OPERATING",
+]
+
+
+class DepartmentCreate(ApiModel):
+    code: MasterCode
+    name: str = Field(min_length=1, max_length=100)
+    cost_center_kind: CostCenter = Field("ADMIN", alias="costCenterKind")
+    is_active: bool = Field(True, alias="isActive")
+
+
+class DepartmentUpdate(ApiModel):
+    code: MasterCode | None = None
+    name: str | None = Field(None, min_length=1, max_length=100)
+    cost_center_kind: CostCenter | None = Field(None, alias="costCenterKind")
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+class EmployeeCreate(ApiModel):
+    code: MasterCode
+    name: str = Field(min_length=1, max_length=100)
+    department_id: int = Field(alias="departmentId", gt=0)
+    hr_employee_code: str | None = Field(
+        None, alias="hrEmployeeCode", min_length=1, max_length=30
+    )
+    is_active: bool = Field(True, alias="isActive")
+
+
+class EmployeeUpdate(ApiModel):
+    code: MasterCode | None = None
+    name: str | None = Field(None, min_length=1, max_length=100)
+    department_id: int | None = Field(None, alias="departmentId", gt=0)
+    hr_employee_code: str | None = Field(
+        None, alias="hrEmployeeCode", min_length=1, max_length=30
+    )
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+class ProjectCreate(ApiModel):
+    code: MasterCode
+    name: str = Field(min_length=1, max_length=200)
+    start_on: date | None = Field(None, alias="startOn")
+    end_on: date | None = Field(None, alias="endOn")
+    is_active: bool = Field(True, alias="isActive")
+
+
+class ProjectUpdate(ApiModel):
+    code: MasterCode | None = None
+    name: str | None = Field(None, min_length=1, max_length=200)
+    start_on: date | None = Field(None, alias="startOn")
+    end_on: date | None = Field(None, alias="endOn")
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+class PriceGroupCreate(ApiModel):
+    code: MasterCode
+    name: str = Field(min_length=1, max_length=100)
+    price_kind: Literal["SALE", "PURCHASE"] = Field("SALE", alias="priceKind")
+    is_active: bool = Field(True, alias="isActive")
+
+
+class PriceGroupUpdate(ApiModel):
+    code: MasterCode | None = None
+    name: str | None = Field(None, min_length=1, max_length=100)
+    price_kind: Literal["SALE", "PURCHASE"] | None = Field(None, alias="priceKind")
+    is_active: bool | None = Field(None, alias="isActive")
+
+
+class GroupPriceCreate(ApiModel):
+    price_group_id: int = Field(alias="priceGroupId", gt=0)
+    item_id: int = Field(alias="itemId", gt=0)
+    unit_price: UnitPrice = Field(alias="unitPrice")
+    currency: Literal["KRW"] = "KRW"
+    valid_from: date = Field(alias="validFrom")
+
+
+class GroupPriceUpdate(ApiModel):
+    price_group_id: int | None = Field(None, alias="priceGroupId", gt=0)
+    item_id: int | None = Field(None, alias="itemId", gt=0)
+    unit_price: UnitPrice | None = Field(None, alias="unitPrice")
+    currency: Literal["KRW"] | None = None
+    valid_from: date | None = Field(None, alias="validFrom")
+
+
+class AccountCreate(ApiModel):
+    account_code: MasterCode = Field(alias="accountCode")
+    account_name: str = Field(alias="accountName", min_length=1, max_length=100)
+    account_class: AccountClass = Field(alias="accountClass")
+    normal_side: Literal["DEBIT", "CREDIT"] = Field(alias="normalSide")
+    statement_group: str | None = Field(
+        None, alias="statementGroup", min_length=1, max_length=40
+    )
+    requires_partner: bool = Field(False, alias="requiresPartner")
+    requires_department: bool = Field(False, alias="requiresDepartment")
+    is_active: bool = Field(True, alias="isActive")
+
+
+class AccountUpdate(ApiModel):
+    account_name: str | None = Field(
+        None, alias="accountName", min_length=1, max_length=100
+    )
+    account_class: AccountClass | None = Field(None, alias="accountClass")
+    normal_side: Literal["DEBIT", "CREDIT"] | None = Field(None, alias="normalSide")
+    statement_group: str | None = Field(
+        None, alias="statementGroup", min_length=1, max_length=40
+    )
+    requires_partner: bool | None = Field(None, alias="requiresPartner")
+    requires_department: bool | None = Field(None, alias="requiresDepartment")
     is_active: bool | None = Field(None, alias="isActive")
 
 
@@ -219,7 +382,6 @@ class TaxInvoiceIssue(ApiModel):
 
 
 # ---- FS-019e 수금·소명 ----
-Money = Annotated[str, Field(pattern=r"^\d{1,16}(\.\d{1,2})?$")]  # numeric(18,2)
 
 
 class ReceiptCreate(ApiModel):

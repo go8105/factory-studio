@@ -106,7 +106,7 @@ def seed_env() -> Generator[SeedFixtureData]:
             if name not in ("hr.attendance", "hr.payslip_line")
         )
         # 14,795(검증기 기준) + core.holiday 16 — 휴일은 core라 validate의 표 수에 안 들어간다.
-        assert fixed == 16183 + len(MODULE_KEYS) + sum(
+        assert fixed == 16244 + len(MODULE_KEYS) + sum(
             GW_COUNTS.values()
         )  # SPC +2,752, gw·cmms·hr 모듈 행 +3, HR 시드 +107, 휴일 +16
         assert counts["hr.attendance"] > 0 and counts["hr.payslip_line"] > 0
@@ -133,7 +133,7 @@ def seed_env() -> Generator[SeedFixtureData]:
                 if name not in ("hr.attendance", "hr.payslip_line")
             )
             # 템플릿과 같되 core.workspace·data_generation 2행이 빠지고 휴일 16행이 더해진다.
-            assert fixed_copy == 16181 + len(MODULE_KEYS) + sum(
+            assert fixed_copy == 16242 + len(MODULE_KEYS) + sum(
                 GW_COUNTS.values()
             )  # SPC +2,752, HR 시드 +107, 휴일 +16
             copied.append((copied_workspace, copied_generation, target))
@@ -168,7 +168,7 @@ def test_seed_v1_row_counts(seed_env: SeedFixtureData) -> None:
         assert actual == EXPECTED_COUNTS, (
             f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}"
         )
-        assert sum(actual.values()) == 16167 + len(MODULE_KEYS) + sum(
+        assert sum(actual.values()) == 16228 + len(MODULE_KEYS) + sum(
             GW_COUNTS.values()
         ), f"V1 total={sum(actual.values())}"
         assert all(varying.values()), f"V1 date-varying empty: {varying}"

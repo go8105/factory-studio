@@ -8,19 +8,59 @@ from sqlalchemy import text
 TABLES = {
     "partners": (
         "partner",
-        "partner_code,partner_name,partner_kind,payment_term_days,is_active",
+        (
+            "partner_code,partner_name,partner_kind,payment_term_days,is_active,"
+            "business_no,representative,business_type,business_item,address,phone,"
+            "contact_name,partner_group,credit_limit,credit_days,"
+            "sale_price_group_id,purchase_price_group_id"
+        ),
     ),
-    "items": ("item", "item_code,name,base_unit,item_type,tax_category,is_active"),
+    "items": (
+        "item",
+        (
+            "item_code,name,base_unit,item_type,tax_category,is_active,"
+            "spec,standard_cost,standard_price,track_stock"
+        ),
+    ),
     "conversions": ("item_unit_conversion", "item_id,from_unit,to_unit,factor"),
     "partner-prices": (
         "partner_item_price",
         "partner_id,item_id,price_kind,unit_price,currency,effective_from,effective_to,is_active",
     ),
-    "accounts": ("account", "account_code,account_name"),
+    "price-groups": ("price_group", "code,name,price_kind,is_active"),
+    "group-prices": (
+        "price_group_price",
+        "price_group_id,item_id,unit_price,currency,valid_from",
+    ),
+    "departments": ("department", "code,name,cost_center_kind,is_active"),
+    "employees": (
+        "employee",
+        "code,name,department_id,hr_employee_code,is_active",
+    ),
+    "projects": ("project", "code,name,start_on,end_on,is_active"),
+    "accounts": (
+        "account",
+        (
+            "account_code,account_name,account_class,normal_side,statement_group,"
+            "requires_partner,requires_department,is_active"
+        ),
+    ),
     "posting-rules": (
         "posting_rule",
         "transaction_kind,line_no,entry_side,account_id,account_code,amount_basis",
     ),
+}
+# 코드 유일성을 서비스가 먼저 본다(DB UK보다 친절한 메시지).
+UNIQUE = {
+    "partners": ["partner_code"],
+    "items": ["item_code"],
+    "conversions": ["item_id", "from_unit"],
+    "price-groups": ["code"],
+    "group-prices": ["price_group_id", "item_id", "valid_from"],
+    "departments": ["code"],
+    "employees": ["code"],
+    "projects": ["code"],
+    "accounts": ["account_code"],
 }
 REFERENCES = {
     "partners": [
@@ -40,6 +80,53 @@ REFERENCES = {
         ("partner_item_price", "item_id", "거래처별 단가"),
         ("shipment_line", "item_id", "출하 명세"),
         ("purchase_invoice_line", "item_id", "매입 명세"),
+        ("price_group_price", "item_id", "단가 그룹 단가"),
+        ("sales_return_line", "item_id", "판매 반품 명세"),
+        ("purchase_request_line", "item_id", "구매 요청 명세"),
+        ("purchase_order_line", "item_id", "발주 명세"),
+        ("purchase_return_line", "item_id", "구매 반품 명세"),
+        ("cost_item_result", "item_id", "재고자산 평가"),
+        ("cost_allocation", "item_id", "제조원가 배부"),
+    ],
+    "price-groups": [
+        ("price_group_price", "price_group_id", "단가 그룹 단가"),
+        ("partner", "sale_price_group_id", "거래처 판매 단가 그룹"),
+        ("partner", "purchase_price_group_id", "거래처 구매 단가 그룹"),
+    ],
+    "departments": [
+        ("employee", "department_id", "담당자"),
+        ("purchase_request", "department_id", "구매 요청"),
+        ("purchase_order", "department_id", "발주서"),
+        ("purchase_invoice", "department_id", "매입 전표"),
+        ("journal_entry", "department_id", "전표"),
+        ("journal_line", "department_id", "전표 라인"),
+        ("expense_claim", "department_id", "지출결의서"),
+        ("card_transaction", "department_id", "카드 사용 내역"),
+        ("budget_line", "department_id", "예산 명세"),
+        ("fixed_asset", "department_id", "고정자산"),
+    ],
+    "employees": [
+        ("purchase_request", "employee_id", "구매 요청"),
+        ("journal_entry", "employee_id", "전표"),
+        ("expense_claim", "employee_id", "지출결의서"),
+        ("corporate_card", "employee_id", "법인카드"),
+    ],
+    "projects": [
+        ("purchase_order", "project_id", "발주서"),
+        ("purchase_invoice", "project_id", "매입 전표"),
+        ("journal_line", "project_id", "전표 라인"),
+        ("expense_claim_line", "project_id", "지출결의 명세"),
+        ("card_transaction", "project_id", "카드 사용 내역"),
+    ],
+    # 계정은 삭제하지 않는다(사용중단만). 분류·정상 잔액을 바꿀 수 있는지 볼 때 쓴다.
+    "accounts": [
+        ("posting_rule", "account_id", "분개규칙"),
+        ("journal_line", "account_id", "전표 라인"),
+        ("expense_claim_line", "account_id", "지출결의 명세"),
+        ("opening_balance", "account_id", "기초 잔액"),
+        ("bank_account", "account_id", "계좌"),
+        ("corporate_card", "account_id", "법인카드"),
+        ("budget_line", "account_id", "예산 명세"),
     ],
 }
 
@@ -106,11 +193,7 @@ def listing(connection, context, resource, order, offset, limit, filters):
 
 
 def duplicate(connection, context, resource, values, row_id):
-    fields = {
-        "partners": ["partner_code"],
-        "items": ["item_code"],
-        "conversions": ["item_id", "from_unit"],
-    }.get(resource)
+    fields = UNIQUE.get(resource)
     if not fields:
         return False
     where = " AND ".join(f"{field}=:{field}" for field in fields)

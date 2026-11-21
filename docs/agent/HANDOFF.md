@@ -1,3 +1,23 @@
+# 2026-11-21 ERP-1c — 기초등록(부서·담당자·프로젝트, 단가 그룹, 계정 보강)
+
+- 브랜치 **erp-1c**(로컬). 기준 main `b875481`. **DB 마이그레이션 없음**(erp1에 이미 있다).
+- 끝난 것: ERP-1c 전부. E-19 신설(ERP 18 → 19화면), E-15·E-16·E-17·E-18 보강, 도움말 e-19 신설·e-15~18 개정, 새 표 5개에 시드 투입, 단가 3단 결정, 거래처 BOTH, 계정 쓰기(삭제 없음).
+- 다음 할 일: **ERP-1d 영업·구매** — E-20 판매 반품, E-21 영업 현황, E-22 구매 요청, E-23 발주서, E-24 구매 반품, E-25 구매 현황, E-26 재고 현황(WMS 조회), E-11 매입 전표 보강(매입 종류 3가지). 1b가 만든 `wms.receipts`·`erp.purchase_orders`의 첫 소비자다.
+- 주의점:
+  - **시드 행 수 상수는 네 군데**(validate.py·test_seed.py 3개·test_common.py). 이번에 16,183 → 16,244로 올렸다.
+  - **`SeedWriter.add`가 한 묶음의 빠진 키를 NULL로 채운다.** 이제 선택 칼럼을 일부 행만 써도 된다.
+  - 기준정보 새 리소스는 `router.master(path, resource, Create, Update)` 한 줄 + `repo.TABLES`/`UNIQUE`/`REFERENCES` 항목 + `service.LINKS`면 끝난다.
+  - **거래처 구분을 보는 코드를 새로 쓰면 BOTH를 넣는다.** 지금 다섯 곳이 받아들인다(sales `_customer`·purchases·receipts·interface.partners·schema).
+  - **계정은 삭제 경로가 없다**(405). 분류·정상 잔액은 참조가 있으면 409.
+  - 단가를 찾는 곳은 `sales._price_sql` 한 곳이다. 새 업무에서도 이 함수를 쓴다.
+  - **시드에 새 값을 넣으면 `erp1` downgrade를 확인한다.** 옛 CHECK가 복원되므로 그 세계에 없는 값은 `REMOVED_ROWS`에 삭제를 더해야 한다(1c에서 분개규칙·계정·품목·거래처 네 줄을 넣었다). **1g 세금계산서 전송 상태가 다음 차례다**(`c499_check`는 2상태뿐이다).
+- 재현 명령:
+  - 단위: `TEST_DATABASE_URL=<test> uv run --project backend pytest backend/tests/test_erp_basics.py -q -p no:randomly`
+  - 프런트: `cd frontend && npx vitest run src/erp`
+  - 전체 CI: `TEST_DB=factory_studio_erp1c_test bash tools/ci_local.sh`
+- 검증: **전체 로컬 CI 1~5단계 통과(exit 0)** — 백엔드 2,904·프런트 884. 브라우저로 E-15·17·18·19 확인.
+- 미실행: e2e·운영 배포.
+
 # 2026-11-18 ERP-1b — 교차 조회 함수
 
 - 브랜치 **erp-1b**(로컬, 미병합·미푸시). 기준 main `191bb4a`. **DB 마이그레이션·화면 변경 없음.**

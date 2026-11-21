@@ -209,6 +209,12 @@ class SeedWriter:
             materialized.append(row)
         if not materialized:
             return {}
+        # 한 묶음의 키가 서로 다르면 executemany가 거부한다. 빠진 칸은 NULL로 채운다
+        # (선택 칼럼을 쓰는 행과 안 쓰는 행을 한 목록에 두는 일이 흔하다).
+        columns = {name for row in materialized for name in row}
+        if any(len(row) != len(columns) for row in materialized):
+            blank = dict.fromkeys(columns)
+            materialized = [{**blank, **row} for row in materialized]
         self.counts[name] += len(materialized)
         if key is None:
             self.connection.execute(insert(table), materialized)
@@ -477,12 +483,56 @@ def _masters(writer: SeedWriter) -> None:
                     "base_unit": row["unit"],
                     "item_type": row["type"],
                     "is_active": True,
-                    **({"tax_category": row["tax"]} if schema == "erp" else {}),
+                    **(
+                        {
+                            "tax_category": row["tax"],
+                            "spec": row["spec"],
+                            "standard_cost": decimal(row["cost"]),
+                            "standard_price": decimal(row["price"])
+                            if row.get("price")
+                            else None,
+                            "track_stock": True,
+                        }
+                        if schema == "erp"
+                        else {}
+                    ),
                 }
                 for row in book["items"]
             ],
             "item_code",
         )
+        if schema == "erp":
+            # DSN-11 F05: ERP만 쓰는 구분 둘(상품·무형). 무형은 재고를 잡지 않는다.
+            writer.add(
+                "erp.item",
+                [
+                    {
+                        "item_code": "MD-BOX",
+                        "name": "포장 박스(상품)",
+                        "base_unit": "BOX",
+                        "item_type": "merchandise",
+                        "tax_category": "TAXABLE",
+                        "is_active": True,
+                        "spec": "골판지 5겹 400x300x200",
+                        "standard_cost": Decimal("900"),
+                        "standard_price": Decimal("1200"),
+                        "track_stock": True,
+                    },
+                    {
+                        "item_code": "SV-SETUP",
+                        "name": "설치 용역(무형)",
+                        "base_unit": "EA",
+                        "item_type": "intangible",
+                        "tax_category": "TAXABLE",
+                        "is_active": True,
+                        "spec": None,
+                        "standard_cost": None,
+                        "standard_price": Decimal("150000"),
+                        "track_stock": False,
+                    },
+                ],
+                "item_code",
+            )
         item_id = _id(writer, f"{schema}.item", "item_code", "RM-PIN")
         writer.add(
             f"{schema}.item_unit_conversion",
@@ -970,6 +1020,67 @@ def _erp(writer: SeedWriter, context: dict[str, Any]) -> None:
         row["code"]: _id(writer, "erp.item", "item_code", row["code"])
         for row in book["items"]
     }
+    # DSN-11 F07·F08 기초등록. 부서는 원가 구분(제조·판매·관리)을 가진다.
+    departments = writer.add(
+        "erp.department",
+        [
+            {"code": "D-PROD", "name": "생산부", "cost_center_kind": "MFG"},
+            {"code": "D-QA", "name": "품질부", "cost_center_kind": "MFG"},
+            {"code": "D-SALES", "name": "영업부", "cost_center_kind": "SALES"},
+            {"code": "D-ADMIN", "name": "경영지원부", "cost_center_kind": "ADMIN"},
+        ],
+        "code",
+    )
+    writer.add(
+        "erp.employee",
+        [
+            {
+                "code": "E-1001",
+                "name": "김생산",
+                "department_id": departments["D-PROD"],
+            },
+            {"code": "E-1002", "name": "이품질", "department_id": departments["D-QA"]},
+            {
+                "code": "E-2001",
+                "name": "박영업",
+                "department_id": departments["D-SALES"],
+            },
+            {
+                "code": "E-3001",
+                "name": "최경리",
+                "department_id": departments["D-ADMIN"],
+                "hr_employee_code": "EMP-0004",
+            },
+        ],
+        "code",
+    )
+    writer.add(
+        "erp.project",
+        [
+            {
+                "code": "PJ-2026A",
+                "name": "커넥터 라인 증설",
+                "start_on": calendar_date(seed_date, -120),
+                "end_on": calendar_date(seed_date, 60),
+            },
+            {
+                "code": "PJ-ENERGY",
+                "name": "에너지 절감 과제",
+                "start_on": calendar_date(seed_date, -60),
+                "end_on": None,
+            },
+        ],
+        "code",
+    )
+    # F06 단가 그룹. 거래처별 단가가 없을 때 쓰는 두 번째 자리다.
+    price_groups = writer.add(
+        "erp.price_group",
+        [
+            {"code": "PG-SALE-A", "name": "판매 A군", "price_kind": "SALE"},
+            {"code": "PG-BUY-A", "name": "구매 A군", "price_kind": "PURCHASE"},
+        ],
+        "code",
+    )
     partners = writer.add(
         "erp.partner",
         [
@@ -979,6 +1090,17 @@ def _erp(writer: SeedWriter, context: dict[str, Any]) -> None:
                 "partner_kind": "CUSTOMER",
                 "is_active": True,
                 "payment_term_days": 30,
+                "business_no": "101-81-00001",
+                "representative": "가대표",
+                "business_type": "제조",
+                "business_item": "전자부품",
+                "address": "합성 주소 1",
+                "phone": "02-0000-0001",
+                "contact_name": "가담당",
+                "partner_group": "수도권",
+                "credit_limit": Decimal("50000000"),
+                "credit_days": 45,
+                "sale_price_group_id": price_groups["PG-SALE-A"],
             },
             {
                 "partner_code": "C-002",
@@ -986,6 +1108,12 @@ def _erp(writer: SeedWriter, context: dict[str, Any]) -> None:
                 "partner_kind": "CUSTOMER",
                 "is_active": True,
                 "payment_term_days": 60,
+                "business_no": "101-81-00002",
+                "representative": "나대표",
+                "partner_group": "영남",
+                "credit_limit": Decimal("20000000"),
+                "credit_days": 60,
+                "sale_price_group_id": price_groups["PG-SALE-A"],
             },
             {
                 "partner_code": "C-003",
@@ -993,6 +1121,8 @@ def _erp(writer: SeedWriter, context: dict[str, Any]) -> None:
                 "partner_kind": "CUSTOMER",
                 "is_active": True,
                 "payment_term_days": None,
+                "business_no": "101-81-00003",
+                "partner_group": "호남",
             },
             {
                 "partner_code": "V-001",
@@ -1000,9 +1130,48 @@ def _erp(writer: SeedWriter, context: dict[str, Any]) -> None:
                 "partner_kind": "SUPPLIER",
                 "is_active": True,
                 "payment_term_days": 30,
+                "business_no": "201-81-00004",
+                "representative": "라대표",
+                "purchase_price_group_id": price_groups["PG-BUY-A"],
+            },
+            {
+                # 매출·매입을 함께 하는 거래처(BOTH). 두 단가 그룹을 모두 가진다.
+                "partner_code": "B-001",
+                "partner_name": "협력사 마",
+                "partner_kind": "BOTH",
+                "is_active": True,
+                "payment_term_days": 30,
+                "business_no": "201-81-00005",
+                "representative": "마대표",
+                "partner_group": "수도권",
+                "credit_limit": Decimal("10000000"),
+                "credit_days": 30,
+                "sale_price_group_id": price_groups["PG-SALE-A"],
+                "purchase_price_group_id": price_groups["PG-BUY-A"],
             },
         ],
         "partner_code",
+    )
+    group_price_spec = [
+        ("PG-SALE-A", "FG-C100", "860", -300),
+        ("PG-SALE-A", "FG-C200", "1210", -300),
+        ("PG-SALE-A", "FG-T300", "2470", -300),
+        ("PG-SALE-A", "FG-T300", "2500", -30),
+        ("PG-BUY-A", "RM-PBT", "3350", -300),
+        ("PG-BUY-A", "RM-PIN", "17", -300),
+    ]
+    writer.add(
+        "erp.price_group_price",
+        [
+            {
+                "price_group_id": price_groups[group],
+                "item_id": erp_items[item],
+                "unit_price": decimal(price),
+                "currency": "KRW",
+                "valid_from": calendar_date(seed_date, days),
+            }
+            for group, item, price, days in group_price_spec
+        ],
     )
     price_spec = [
         ("C-001", "FG-C100", 820, -12, -3),
@@ -1029,20 +1198,133 @@ def _erp(writer: SeedWriter, context: dict[str, Any]) -> None:
             for partner, item, price, start, end in price_spec
         ],
     )
+    # DSN-11 F41 표준 계정표. (코드, 이름, 분류, 정상 잔액, 재무제표 묶음,
+    # 거래처 필수, 부서 필수). 감가상각누계액은 자산이지만 대변이 정상(차감 계정)이다.
     accounts_spec = [
-        ("AR", "외상매출금"),
-        ("PRODUCT_SALES", "제품매출"),
-        ("VAT_PAYABLE", "부가세예수금"),
-        ("BANK", "보통예금"),
-        ("RAW_MATERIAL", "원재료"),
-        ("VAT_RECEIVABLE", "부가세대급금"),
-        ("AP", "외상매입금"),
+        ("BANK", "보통예금", "ASSET", "DEBIT", "유동자산", False, False),
+        ("AR", "외상매출금", "ASSET", "DEBIT", "유동자산", True, False),
+        ("VAT_RECEIVABLE", "부가세대급금", "ASSET", "DEBIT", "유동자산", False, False),
+        ("RAW_MATERIAL", "원재료", "ASSET", "DEBIT", "재고자산", False, False),
+        ("FINISHED_GOODS", "제품", "ASSET", "DEBIT", "재고자산", False, False),
+        ("FIXED_ASSET", "비품", "ASSET", "DEBIT", "유형자산", False, False),
+        (
+            "ACC_DEPRECIATION",
+            "감가상각누계액",
+            "ASSET",
+            "CREDIT",
+            "유형자산",
+            False,
+            False,
+        ),
+        ("AP", "외상매입금", "LIABILITY", "CREDIT", "유동부채", True, False),
+        (
+            "VAT_PAYABLE",
+            "부가세예수금",
+            "LIABILITY",
+            "CREDIT",
+            "유동부채",
+            False,
+            False,
+        ),
+        ("CARD_PAYABLE", "미지급금", "LIABILITY", "CREDIT", "유동부채", False, False),
+        (
+            "PAYROLL_PAYABLE",
+            "미지급비용",
+            "LIABILITY",
+            "CREDIT",
+            "유동부채",
+            False,
+            False,
+        ),
+        (
+            "RETAINED_EARNINGS",
+            "이월이익잉여금",
+            "EQUITY",
+            "CREDIT",
+            "자본",
+            False,
+            False,
+        ),
+        ("PRODUCT_SALES", "제품매출", "REVENUE", "CREDIT", "매출액", False, False),
+        ("SALES_RETURNS", "매출환입", "REVENUE", "DEBIT", "매출액", False, False),
+        ("COGS", "제품매출원가", "COGS", "DEBIT", "매출원가", False, False),
+        ("LABOR_COST", "노무비", "MFG_COST", "DEBIT", "제조원가", False, True),
+        (
+            "SUBCONTRACT_COST",
+            "외주가공비",
+            "MFG_COST",
+            "DEBIT",
+            "제조원가",
+            False,
+            True,
+        ),
+        ("MFG_OVERHEAD", "제조경비", "MFG_COST", "DEBIT", "제조원가", False, True),
+        ("SALARY_EXPENSE", "급여", "EXPENSE", "DEBIT", "판매비와관리비", False, True),
+        (
+            "WELFARE_EXPENSE",
+            "복리후생비",
+            "EXPENSE",
+            "DEBIT",
+            "판매비와관리비",
+            False,
+            True,
+        ),
+        (
+            "TRAVEL_EXPENSE",
+            "여비교통비",
+            "EXPENSE",
+            "DEBIT",
+            "판매비와관리비",
+            False,
+            True,
+        ),
+        (
+            "DEPRECIATION_EXPENSE",
+            "감가상각비",
+            "EXPENSE",
+            "DEBIT",
+            "판매비와관리비",
+            False,
+            True,
+        ),
+        (
+            "BAD_DEBT_EXPENSE",
+            "대손상각비",
+            "EXPENSE",
+            "DEBIT",
+            "판매비와관리비",
+            False,
+            False,
+        ),
+        (
+            "INTEREST_INCOME",
+            "이자수익",
+            "NON_OPERATING",
+            "CREDIT",
+            "영업외수익",
+            False,
+            False,
+        ),
     ]
     accounts = writer.add(
         "erp.account",
-        [{"account_code": code, "account_name": name} for code, name in accounts_spec],
+        [
+            {
+                "account_code": code,
+                "account_name": name,
+                "account_class": klass,
+                "normal_side": side,
+                "statement_group": group,
+                "requires_partner": partner,
+                "requires_department": department,
+                "is_active": True,
+            }
+            for code, name, klass, side, group, partner, department in accounts_spec
+        ],
         "account_code",
     )
+    # F43 자동 전표 규칙 14종. 업무를 확정할 때 이 규칙으로 전표를 만든다(1e부터).
+    # 지출결의·카드는 명세가 비용 계정을 직접 고르고, 여기 규칙은 기본값이다.
     posting_spec = [
         ("SALE", 1, "DEBIT", "AR", "TOTAL"),
         ("SALE", 2, "CREDIT", "PRODUCT_SALES", "SUPPLY"),
@@ -1054,6 +1336,29 @@ def _erp(writer: SeedWriter, context: dict[str, Any]) -> None:
         ("PURCHASE", 3, "CREDIT", "AP", "TOTAL"),
         ("PAYMENT", 1, "DEBIT", "AP", "APPLY"),
         ("PAYMENT", 2, "CREDIT", "BANK", "APPLY"),
+        ("SALES_RETURN", 1, "DEBIT", "SALES_RETURNS", "SUPPLY"),
+        ("SALES_RETURN", 2, "DEBIT", "VAT_PAYABLE", "TAX"),
+        ("SALES_RETURN", 3, "CREDIT", "AR", "TOTAL"),
+        ("PURCHASE_RETURN", 1, "DEBIT", "AP", "TOTAL"),
+        ("PURCHASE_RETURN", 2, "CREDIT", "RAW_MATERIAL", "SUPPLY"),
+        ("PURCHASE_RETURN", 3, "CREDIT", "VAT_RECEIVABLE", "TAX"),
+        ("SUBCONTRACT", 1, "DEBIT", "SUBCONTRACT_COST", "SUPPLY"),
+        ("SUBCONTRACT", 2, "DEBIT", "VAT_RECEIVABLE", "TAX"),
+        ("SUBCONTRACT", 3, "CREDIT", "AP", "TOTAL"),
+        ("EXPENSE_CLAIM", 1, "DEBIT", "WELFARE_EXPENSE", "AMOUNT"),
+        ("EXPENSE_CLAIM", 2, "CREDIT", "BANK", "AMOUNT"),
+        ("CARD", 1, "DEBIT", "WELFARE_EXPENSE", "AMOUNT"),
+        ("CARD", 2, "CREDIT", "CARD_PAYABLE", "AMOUNT"),
+        ("PAYROLL", 1, "DEBIT", "SALARY_EXPENSE", "AMOUNT"),
+        ("PAYROLL", 2, "CREDIT", "PAYROLL_PAYABLE", "AMOUNT"),
+        ("DEPRECIATION", 1, "DEBIT", "DEPRECIATION_EXPENSE", "AMOUNT"),
+        ("DEPRECIATION", 2, "CREDIT", "ACC_DEPRECIATION", "AMOUNT"),
+        ("BAD_DEBT", 1, "DEBIT", "BAD_DEBT_EXPENSE", "AMOUNT"),
+        ("BAD_DEBT", 2, "CREDIT", "AR", "AMOUNT"),
+        ("OFFSET", 1, "DEBIT", "AP", "AMOUNT"),
+        ("OFFSET", 2, "CREDIT", "AR", "AMOUNT"),
+        ("COGS", 1, "DEBIT", "COGS", "AMOUNT"),
+        ("COGS", 2, "CREDIT", "FINISHED_GOODS", "AMOUNT"),
     ]
     writer.add(
         "erp.posting_rule",

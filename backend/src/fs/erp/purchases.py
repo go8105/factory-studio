@@ -92,7 +92,7 @@ def _supplier(connection, scoped, partner_id: int):
         ),
         {**_s(scoped), "id": partner_id},
     ).first()
-    if row is None or row.partner_kind != "SUPPLIER" or not row.is_active:
+    if row is None or row.partner_kind not in ("SUPPLIER", "BOTH") or not row.is_active:
         raise invalid("partner_id", "현재 공간의 사용 중인 공급처를 선택하세요.")
     return row
 

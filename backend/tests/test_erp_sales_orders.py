@@ -72,12 +72,21 @@ def test_direct_order_uses_partner_price(erp):
 
 def test_missing_price_and_bad_due_date(erp):
     client, created = erp
-    no_price = _body(
+    # 단가 세 자리(거래처·그룹·표준)가 모두 비어야 단가 없음이다(DSN-11 F06).
+    bare = _call(
         client,
-        lines=[
-            {"itemId": _id(client, "/items", "itemCode", "FG-C200"), "orderQty": "1"}
-        ],
-    )
+        created,
+        "POST",
+        "/items",
+        {
+            "itemCode": "SO-NOPRICE",
+            "name": "단가 없는 품목",
+            "baseUnit": "EA",
+            "itemType": "finished",
+            "taxCategory": "TAXABLE",
+        },
+    ).json()["data"]["id"]
+    no_price = _body(client, lines=[{"itemId": bare, "orderQty": "1"}])
     response = _call(client, created, "POST", "/sales-orders", no_price)
     assert "lines" in response.json()["error"]["details"]["fields"]
     early = _call(

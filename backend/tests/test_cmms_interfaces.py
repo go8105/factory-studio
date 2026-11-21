@@ -212,16 +212,16 @@ def test_wms_stock_is_read_not_stored(scoped):
 
 
 def test_erp_partners_can_be_narrowed_to_suppliers(scoped):
-    """외주 업체는 매입처(SUPPLIER)만 고른다."""
+    """외주 업체는 매입하는 거래처만 고른다 — BOTH도 매입처다(DSN-11 F02)."""
     engine, context = scoped
     with engine.begin() as c:
         every = erp.partners(c, context)
         suppliers = erp.partners(c, context, "SUPPLIER")
         assert every is not None and suppliers is not None
-        assert all(p["partnerKind"] == "SUPPLIER" for p in suppliers)
-        assert len(suppliers) <= len(every)
-        if suppliers:
-            assert {"partnerCode", "partnerName", "partnerKind"} == set(suppliers[0])
+        assert all(p["partnerKind"] in ("SUPPLIER", "BOTH") for p in suppliers)
+        assert {p["partnerKind"] for p in suppliers} == {"SUPPLIER", "BOTH"}
+        assert len(suppliers) < len(every)
+        assert {"partnerCode", "partnerName", "partnerKind"} == set(suppliers[0])
 
 
 def test_readers_do_not_change_the_source(scoped):

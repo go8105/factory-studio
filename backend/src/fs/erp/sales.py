@@ -53,14 +53,27 @@ def _amount(qty, price, discount="0") -> str:
     return str(value.quantize(WON, ROUND_HALF_UP))
 
 
-# 거래처·품목·일자의 판매 단가(사용 중, 적용 월 포함). 구간 겹침은 E-17이 막으므로 최대 1건.
+# 거래처·품목·일자의 판매 단가. 순서는 DSN-11 F06:
+# 거래처별 단가(E-17) → 거래처가 속한 판매 단가 그룹(적용 시작일 최신) → 품목 표준 판매가.
+# 구간 겹침은 E-17이 막으므로 거래처별 단가는 최대 1건이다.
 def _price_sql(partner: str, item: str, on: str) -> str:
-    return f"""(SELECT p.unit_price FROM erp.partner_item_price p
+    return f"""COALESCE(
+ (SELECT p.unit_price FROM erp.partner_item_price p
   WHERE p.workspace_id=:w AND p.generation_id=:g AND p.partner_id={partner}
     AND p.item_id={item} AND p.price_kind='SALE' AND p.is_active
     AND p.effective_from <= to_char({on}, 'YYYY-MM')
     AND (p.effective_to IS NULL OR p.effective_to >= to_char({on}, 'YYYY-MM'))
-  ORDER BY p.effective_from DESC LIMIT 1)"""
+  ORDER BY p.effective_from DESC LIMIT 1),
+ (SELECT gp.unit_price FROM erp.price_group_price gp
+  JOIN erp.price_group pg ON pg.workspace_id=gp.workspace_id
+   AND pg.generation_id=gp.generation_id AND pg.id=gp.price_group_id AND pg.is_active
+  JOIN erp.partner pr ON pr.workspace_id=gp.workspace_id
+   AND pr.generation_id=gp.generation_id AND pr.sale_price_group_id=pg.id
+  WHERE gp.workspace_id=:w AND gp.generation_id=:g AND pr.id={partner}
+    AND gp.item_id={item} AND gp.valid_from <= {on}
+  ORDER BY gp.valid_from DESC LIMIT 1),
+ (SELECT si.standard_price FROM erp.item si
+  WHERE si.workspace_id=:w AND si.generation_id=:g AND si.id={item}))"""
 
 
 def _customer(connection, scoped, partner_id: int) -> None:
@@ -68,7 +81,8 @@ def _customer(connection, scoped, partner_id: int) -> None:
         text(f"SELECT partner_kind, is_active FROM erp.partner WHERE {_S} AND id=:id"),
         {**_s(scoped), "id": partner_id},
     ).first()
-    if row is None or row.partner_kind != "CUSTOMER":
+    # BOTH는 매출·매입을 함께 하는 거래처다(DSN-11 F02).
+    if row is None or row.partner_kind not in ("CUSTOMER", "BOTH"):
         raise invalid("partner_id", "현재 공간의 고객 거래처를 선택하세요.")
     if not row.is_active:
         raise invalid("partner_id", "사용 중지된 거래처입니다.")
@@ -108,7 +122,8 @@ def _priced_lines(
             ).scalar_one()
             if price is None:
                 raise invalid(
-                    "lines", where + "적용할 거래처 단가가 없습니다. 단가를 입력하세요."
+                    "lines",
+                    where + "적용할 단가가 없습니다. 단가를 입력하세요.",
                 )
         rows.append({**line, "line_no": n, "unit": item.base_unit, "unit_price": price})
     return rows

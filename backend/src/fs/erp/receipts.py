@@ -229,7 +229,11 @@ def _check(side: Side, connection, scoped, values: dict[str, Any], money_id=None
             ),
             {**_s(scoped), "id": values["partner_id"]},
         ).first()
-        if row is None or row.partner_kind != side.partner_kind or not row.is_active:
+        if (
+            row is None
+            or row.partner_kind not in (side.partner_kind, "BOTH")
+            or not row.is_active
+        ):
             raise invalid("partner_id", "현재 공간의 사용 중인 거래처를 선택하세요.")
     if "amount" in values and Decimal(values["amount"]) <= 0:
         raise invalid("amount", f"{side.money_label}액은 0보다 커야 합니다.")
