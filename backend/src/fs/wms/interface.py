@@ -62,7 +62,8 @@ def stock_on_hand(
             "qtyOnHand": f"{on_hand:.3f}",
             "unit": row["base_unit"],
             "safetyStock": None if safety is None else f"{Decimal(str(safety)):.3f}",
-            "isShort": safety is not None and on_hand < Decimal(str(safety)),
+            # 기준이 없으면 '부족하지 않다'가 아니라 **판단하지 않는다**(None).
+            "isShort": None if safety is None else on_hand < Decimal(str(safety)),
         }
     return out
 

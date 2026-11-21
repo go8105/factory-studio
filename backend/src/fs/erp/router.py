@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Response
@@ -8,8 +9,11 @@ from fs.common.page import Page
 from fs.erp import (
     dashboard,
     journal,
+    overview,
+    procurement,
     purchases,
     receipts,
+    returns,
     revenue,
     sales,
     schema,
@@ -973,3 +977,265 @@ def get_dashboard(context: Auth, month: str | None = None):
 @router.get("/purchase-invoices/{invoice_id}/gw-approval")
 def get_purchase_approval(invoice_id: int, context: Auth):
     return {"data": purchases.approval_badge(context, invoice_id)}
+
+
+# ---- DSN-11 1d 구매: E-22 요청 · E-23 발주 ----
+@router.get("/purchase-requests")
+def list_purchase_requests(context: Auth):
+    return {"data": procurement.list_requests(context)}
+
+
+@router.post("/purchase-requests", status_code=201)
+def post_purchase_request(
+    payload: schema.PurchaseRequestCreate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(mode="json")
+    return {"data": procurement.create_request(context, values, key)}
+
+
+@router.put("/purchase-requests/{request_id}/lines")
+def put_request_lines(
+    request_id: int,
+    payload: schema.RequestLines,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    lines = payload.model_dump(mode="json")["lines"]
+    return {"data": procurement.set_request_lines(context, request_id, lines, key)}
+
+
+@router.post("/purchase-requests/{request_id}/confirm")
+def post_request_confirm(
+    request_id: int,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": procurement.confirm_request(context, request_id, key)}
+
+
+@router.post("/purchase-requests/{request_id}/cancel")
+def post_request_cancel(
+    request_id: int,
+    payload: schema.CancelIn,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": procurement.cancel_request(context, request_id, payload.reason, key)
+    }
+
+
+@router.delete("/purchase-requests/{request_id}", status_code=204)
+def delete_purchase_request(
+    request_id: int,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    procurement.delete_request(context, request_id, key)
+    return Response(status_code=204)
+
+
+@router.get("/purchase-orders")
+def list_purchase_orders(context: Auth):
+    return {"data": procurement.list_orders(context)}
+
+
+@router.post("/purchase-orders", status_code=201)
+def post_purchase_order(
+    payload: schema.PurchaseOrderCreate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(mode="json")
+    return {"data": procurement.create_order(context, values, key)}
+
+
+@router.put("/purchase-orders/{order_id}/lines")
+def put_order_lines(
+    order_id: int,
+    payload: schema.PurchaseOrderLines,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    lines = payload.model_dump(mode="json")["lines"]
+    return {"data": procurement.set_order_lines(context, order_id, lines, key)}
+
+
+@router.post("/purchase-orders/{order_id}/load-request")
+def post_order_load_request(
+    order_id: int,
+    payload: schema.LoadRequestIn,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {
+        "data": procurement.load_request(context, order_id, payload.request_id, key)
+    }
+
+
+@router.post("/purchase-orders/{order_id}/confirm")
+def post_order_confirm(
+    order_id: int,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": procurement.confirm_order(context, order_id, key)}
+
+
+@router.post("/purchase-orders/{order_id}/close")
+def post_order_close(
+    order_id: int,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": procurement.close_order(context, order_id, key)}
+
+
+@router.post("/purchase-orders/{order_id}/cancel")
+def post_order_cancel(
+    order_id: int,
+    payload: schema.CancelIn,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": procurement.cancel_order(context, order_id, payload.reason, key)}
+
+
+@router.delete("/purchase-orders/{order_id}", status_code=204)
+def delete_purchase_order(
+    order_id: int,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    procurement.delete_order(context, order_id, key)
+    return Response(status_code=204)
+
+
+# ---- DSN-11 1d 반품: E-20 판매 · E-24 구매 ----
+def returns_routes(path: str, kind, create_model) -> None:
+    """판매 반품과 구매 반품은 규칙이 같다. 경로만 둘로 낸다."""
+
+    def register(name, method, url, handler, **kwargs):
+        handler.__name__ = f"{name}_{kind.table}"
+        router.add_api_route(url, handler, methods=[method], **kwargs)
+
+    def list_rows(context: Auth):
+        return {"data": returns.listing(context, kind)}
+
+    def post_row(
+        payload: create_model,  # type: ignore[valid-type]
+        context: Auth,
+        idempotency_key: Key = None,
+        x_csrf_token: Csrf = None,
+    ):
+        key = mutation(context, x_csrf_token, idempotency_key)
+        values = payload.model_dump(mode="json")
+        return {"data": returns.create(context, kind, values, key)}
+
+    def put_lines(
+        return_id: int,
+        payload: schema.ReturnLines,
+        context: Auth,
+        idempotency_key: Key = None,
+        x_csrf_token: Csrf = None,
+    ):
+        key = mutation(context, x_csrf_token, idempotency_key)
+        lines = payload.model_dump(mode="json")["lines"]
+        return {"data": returns.set_lines(context, kind, return_id, lines, key)}
+
+    def post_confirm(
+        return_id: int,
+        context: Auth,
+        idempotency_key: Key = None,
+        x_csrf_token: Csrf = None,
+    ):
+        key = mutation(context, x_csrf_token, idempotency_key)
+        return {"data": returns.confirm(context, kind, return_id, key)}
+
+    def post_cancel(
+        return_id: int,
+        payload: schema.CancelIn,
+        context: Auth,
+        idempotency_key: Key = None,
+        x_csrf_token: Csrf = None,
+    ):
+        key = mutation(context, x_csrf_token, idempotency_key)
+        return {"data": returns.cancel(context, kind, return_id, payload.reason, key)}
+
+    def delete_row(
+        return_id: int,
+        context: Auth,
+        idempotency_key: Key = None,
+        x_csrf_token: Csrf = None,
+    ):
+        key = mutation(context, x_csrf_token, idempotency_key)
+        returns.delete(context, kind, return_id, key)
+        return Response(status_code=204)
+
+    def get_returnable(source_id: int, context: Auth):
+        return {"data": returns.returnable(context, kind, source_id)}
+
+    register("list", "GET", path, list_rows)
+    register("post", "POST", path, post_row, status_code=201)
+    register("lines", "PUT", f"{path}/{{return_id}}/lines", put_lines)
+    register("confirm", "POST", f"{path}/{{return_id}}/confirm", post_confirm)
+    register("cancel", "POST", f"{path}/{{return_id}}/cancel", post_cancel)
+    register("delete", "DELETE", f"{path}/{{return_id}}", delete_row, status_code=204)
+    register("returnable", "GET", f"{path}-available/{{source_id}}", get_returnable)
+
+
+returns_routes("/sales-returns", returns.SALES, schema.SalesReturnCreate)
+returns_routes("/purchase-returns", returns.PURCHASE, schema.PurchaseReturnCreate)
+
+
+# ---- DSN-11 1d 현황: E-21 영업 · E-25 구매 · E-26 재고 ----
+@router.get("/sales-status")
+def get_sales_status(context: Auth, date_from: date, date_to: date):
+    return {"data": overview.sales_status(context, date_from, date_to)}
+
+
+@router.get("/purchase-status")
+def get_purchase_status(context: Auth, date_from: date, date_to: date):
+    return {"data": overview.purchase_status(context, date_from, date_to)}
+
+
+@router.get("/stock-status")
+def get_stock_status(context: Auth):
+    return {"data": overview.stock_status(context)}
+
+
+@router.post("/purchase-invoices/{invoice_id}/load")
+def post_invoice_load(
+    invoice_id: int,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": purchases.load_lines(context, invoice_id, key)}

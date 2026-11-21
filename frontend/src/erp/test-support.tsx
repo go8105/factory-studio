@@ -18,6 +18,7 @@ export const item = {
   itemType: "finished",
   taxCategory: "TAXABLE",
   isActive: true,
+  trackStock: true,
 };
 export const price = {
   id: 3,
@@ -97,6 +98,67 @@ const ROWS: Record<string, unknown[]> = {
       isActive: true,
     },
   ],
+  "/purchase-requests": [
+    {
+      id: 30,
+      requestNo: "PR-20260924-001",
+      requestedOn: "2026-09-24",
+      departmentCode: "D-PROD",
+      employeeCode: "E-1001",
+      source: "MANUAL",
+      sourceRef: null,
+      status: "confirmed",
+      cancelReason: null,
+      lines: [
+        {
+          id: 31,
+          lineNo: 1,
+          itemId: 2,
+          itemCode: "RM-PBT",
+          itemName: "PBT 수지",
+          quantity: "100.000",
+          unit: "KG",
+          ordered: false,
+        },
+      ],
+    },
+  ],
+  "/purchase-orders": [
+    {
+      id: 40,
+      poNo: "PO-SEED-0001",
+      orderedOn: "2026-09-04",
+      dueOn: "2026-09-19",
+      partnerId: 1,
+      partnerCode: "V-001",
+      partnerName: "공급사 라",
+      totalAmount: "385000.00",
+      status: "confirmed",
+      cancelReason: null,
+      lines: [],
+      receipt: {
+        state: "PARTIAL",
+        orderedQty: "100.000",
+        receivedQty: "95.000",
+        lines: [],
+      },
+    },
+  ],
+  "/sales-returns": [
+    {
+      id: 50,
+      returnNo: "SR-20260909-001",
+      returnedOn: "2026-09-09",
+      partnerCode: "C-003",
+      partnerName: "고객 다",
+      reason: "외관 불량 반품(합성)",
+      totalAmount: "132000.00",
+      status: "confirmed",
+      cancelReason: null,
+      lines: [],
+    },
+  ],
+  "/purchase-returns": [],
   "/group-prices": [
     {
       id: 11,

@@ -480,10 +480,13 @@ def sales_summary(
     ]
     open_amount = connection.execute(
         text(
+            # 잔액 = 원금 − 수금 소명 − 조정(반품 대변·상계·대손). E-09와 같은 규칙이다.
             "SELECT COALESCE((SELECT sum(r.amount) FROM erp.receivable r "
             "   WHERE r.workspace_id=:w AND r.generation_id=:g), 0) "
             " - COALESCE((SELECT sum(a.amount) FROM erp.receipt_apply a "
-            "   WHERE a.workspace_id=:w AND a.generation_id=:g), 0)"
+            "   WHERE a.workspace_id=:w AND a.generation_id=:g), 0) "
+            " - COALESCE((SELECT sum(j.amount) FROM erp.receivable_adjust j "
+            "   WHERE j.workspace_id=:w AND j.generation_id=:g), 0)"
         ),
         _s(scoped),
     ).scalar_one()

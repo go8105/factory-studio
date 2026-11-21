@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from sqlalchemy import select
 
-from seed.common import at
+from seed.common import PO_WITH_RECEIPT, at
 
 
 def append_examples(writer, houses, locations, items):
@@ -86,7 +86,8 @@ def append_examples(writer, houses, locations, items):
                     "status": status,
                     "expected_on": day,
                     "vehicle_no": f"합성트럭-{n:02d}",
-                    "partner_ref": "DEMO-SUPPLIER",
+                    # 3번 입고만 ERP 발주를 가리킨다. ERP는 이 값으로 입고 진행을 본다.
+                    "partner_ref": PO_WITH_RECEIPT if n == 3 else "DEMO-SUPPLIER",
                     "version": 3 if inspected else 2 if status != "PLANNED" else 1,
                     "arrived_at": stamp - timedelta(hours=1) if arrived else None,
                     "inspected_at": stamp if inspected else None,

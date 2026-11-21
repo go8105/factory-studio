@@ -74,7 +74,8 @@ def test_seed_balances_and_derived_status(erp):
     }
     assert rows == {
         "SH-0001": ("1827800.00", "PARTIAL"),
-        "SH-0002": ("5071440.00", "OPEN"),
+        # SH-0002는 수금이 없지만 판매 반품 132,000이 잔액에서 빠진다(DSN-11 F75).
+        "SH-0002": ("4939440.00", "PARTIAL"),
         "SH-0003": ("0.00", "CLOSED"),
         "SH-0004": ("4786916.00", "PARTIAL"),
     }

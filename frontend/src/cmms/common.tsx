@@ -304,7 +304,8 @@ export type Stock = {
   qtyOnHand: string;
   unit: string;
   safetyStock: string | null;
-  isShort: boolean;
+  /** 안전 재고가 없으면 null — 부족한지 판단하지 않는다. */
+  isShort: boolean | null;
 };
 export type SparePart = {
   id: number;

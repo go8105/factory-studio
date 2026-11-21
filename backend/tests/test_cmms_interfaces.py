@@ -205,9 +205,11 @@ def test_wms_stock_is_read_not_stored(scoped):
                 },
             ).scalar_one()
             assert row["qtyOnHand"] == f"{moved:.3f}"
+            # 안전 재고가 없으면 부족 여부를 판단하지 않는다(False가 아니라 None).
             assert row["isShort"] == (
-                row["safetyStock"] is not None
-                and float(row["qtyOnHand"]) < float(row["safetyStock"])
+                None
+                if row["safetyStock"] is None
+                else float(row["qtyOnHand"]) < float(row["safetyStock"])
             )
 
 

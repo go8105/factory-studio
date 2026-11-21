@@ -438,11 +438,19 @@ class PurchaseLineIn(ApiModel):
     unit_price: Price = Field(alias="unitPrice")
 
 
+InvoiceKind = Literal["PO_RECEIPT", "DIRECT", "SUBCONTRACT"]
+
+
 class PurchaseInvoiceCreate(ApiModel):
     invoice_no: Code = Field(alias="invoiceNo")
     partner_id: int = Field(alias="partnerId", gt=0)
     invoice_date: date = Field(alias="invoiceDate")
     due_date: date | None = Field(None, alias="dueDate")  # 비우면 확정 때 결제조건
+    invoice_kind: InvoiceKind = Field("DIRECT", alias="invoiceKind")
+    purchase_order_id: int | None = Field(None, alias="purchaseOrderId", gt=0)
+    source_ref: str | None = Field(None, alias="sourceRef", min_length=1, max_length=60)
+    department_id: int | None = Field(None, alias="departmentId", gt=0)
+    project_id: int | None = Field(None, alias="projectId", gt=0)
 
 
 class PurchaseInvoiceUpdate(ApiModel):
@@ -454,3 +462,72 @@ class PurchaseInvoiceUpdate(ApiModel):
 
 class PurchaseLines(ApiModel):
     lines: list[PurchaseLineIn] = Field(max_length=200)
+
+
+# ---- DSN-11 1d 구매: 요청 · 발주 ----
+class RequestLineIn(ApiModel):
+    item_id: int = Field(alias="itemId", gt=0)
+    quantity: Qty
+    unit: str | None = Field(None, min_length=1, max_length=10)
+    needed_on: date | None = Field(None, alias="neededOn")
+
+
+class PurchaseRequestCreate(ApiModel):
+    requested_on: date = Field(alias="requestedOn")
+    department_id: int | None = Field(None, alias="departmentId", gt=0)
+    employee_id: int | None = Field(None, alias="employeeId", gt=0)
+    # 수동 말고는 아직 만드는 쪽이 없다(CMMS에 요청 표가 없다 — ERP-1b).
+    source: Literal["MANUAL", "CMMS", "ELB", "MES"] = "MANUAL"
+    source_ref: str | None = Field(None, alias="sourceRef", min_length=1, max_length=60)
+
+
+class RequestLines(ApiModel):
+    lines: list[RequestLineIn] = Field(max_length=200)
+
+
+class PurchaseOrderLineIn(ApiModel):
+    item_id: int = Field(alias="itemId", gt=0)
+    quantity: Qty
+    unit: str | None = Field(None, min_length=1, max_length=10)
+    unit_price: Price | None = Field(None, alias="unitPrice")
+    due_on: date | None = Field(None, alias="dueOn")
+
+
+class PurchaseOrderCreate(ApiModel):
+    partner_id: int = Field(alias="partnerId", gt=0)
+    ordered_on: date = Field(alias="orderedOn")
+    due_on: date | None = Field(None, alias="dueOn")
+    department_id: int | None = Field(None, alias="departmentId", gt=0)
+    project_id: int | None = Field(None, alias="projectId", gt=0)
+
+
+class PurchaseOrderLines(ApiModel):
+    lines: list[PurchaseOrderLineIn] = Field(max_length=200)
+
+
+class LoadRequestIn(ApiModel):
+    request_id: int = Field(alias="requestId", gt=0)
+
+
+# ---- DSN-11 1d 반품(판매·구매 공통) ----
+class ReturnLineIn(ApiModel):
+    item_id: int = Field(alias="itemId", gt=0)
+    quantity: Qty
+
+
+class ReturnLines(ApiModel):
+    lines: list[ReturnLineIn] = Field(max_length=200)
+
+
+class SalesReturnCreate(ApiModel):
+    partner_id: int = Field(alias="partnerId", gt=0)
+    sales_record_id: int = Field(alias="salesRecordId", gt=0)
+    returned_on: date = Field(alias="returnedOn")
+    reason: Reason
+
+
+class PurchaseReturnCreate(ApiModel):
+    partner_id: int = Field(alias="partnerId", gt=0)
+    purchase_invoice_id: int = Field(alias="purchaseInvoiceId", gt=0)
+    returned_on: date = Field(alias="returnedOn")
+    reason: Reason

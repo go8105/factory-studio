@@ -19,6 +19,7 @@ import {
   moduleOff,
   PARTNERS,
   qty,
+  suppliers,
   useLists,
   useSend,
   won,
@@ -108,10 +109,11 @@ export function PurchaseInvoices() {
   const [create, setCreate] = useState(blank);
 
   const [invoices, partners, allItems] = data ?? [undefined, [], []];
-  const suppliers = partners.filter(
-    (p) => p.partnerKind === "SUPPLIER" && p.isActive,
+  const vendors = suppliers(partners);
+  // 우리가 만드는 품목만 매입에서 뺀다. 원재료·부자재·상품·용역은 모두 산다(DSN-11 F23).
+  const raws = allItems.filter(
+    (i) => !["finished", "semi_finished"].includes(i.itemType) && i.isActive,
   );
-  const raws = allItems.filter((i) => i.itemType === "raw" && i.isActive);
   const name = labels(partners, allItems);
   const errors = fieldErrors(saveError);
   const selected = invoices?.find((i) => i.id === selectedId);
@@ -167,7 +169,7 @@ export function PurchaseInvoices() {
     if (pending) return;
     const created = await send<Invoice>("/purchase-invoices", "POST", {
       invoiceNo: create.invoiceNo.trim().toUpperCase(),
-      partnerId: create.partnerId || suppliers[0]?.id,
+      partnerId: create.partnerId || vendors[0]?.id,
       invoiceDate: create.invoiceDate,
       dueDate: create.dueDate || null,
     });
@@ -572,12 +574,12 @@ export function PurchaseInvoices() {
                 <label htmlFor="purchase-partner">공급처</label>
                 <select
                   id="purchase-partner"
-                  value={create.partnerId || suppliers[0]?.id || ""}
+                  value={create.partnerId || vendors[0]?.id || ""}
                   onChange={(e) =>
                     setCreate({ ...create, partnerId: Number(e.target.value) })
                   }
                 >
-                  {suppliers.map((p) => (
+                  {vendors.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.partnerCode} {p.partnerName}
                     </option>

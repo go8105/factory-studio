@@ -11,6 +11,7 @@ from sqlalchemy import MetaData, Table, inspect, insert, text, update
 from sqlalchemy.engine import Connection
 
 from seed.common import (
+    PO_WITH_RECEIPT,
     SEED_VERSION,
     target_ratio,
     SEOUL,
@@ -1031,7 +1032,7 @@ def _erp(writer: SeedWriter, context: dict[str, Any]) -> None:
         ],
         "code",
     )
-    writer.add(
+    employees = writer.add(
         "erp.employee",
         [
             {
@@ -1054,7 +1055,7 @@ def _erp(writer: SeedWriter, context: dict[str, Any]) -> None:
         ],
         "code",
     )
-    writer.add(
+    projects = writer.add(
         "erp.project",
         [
             {
@@ -1735,12 +1736,21 @@ def _erp(writer: SeedWriter, context: dict[str, Any]) -> None:
             },
         ],
     )
-    _purchases(writer, partners, erp_items)
+    invoices, payables = _purchases(writer, partners, erp_items)
+    _procurement(writer, partners, erp_items, departments, employees, projects)
+    _returns(
+        writer,
+        partners,
+        erp_items,
+        receivables[sales_records[shipments["SH-0002"]]],
+        invoices,
+        payables,
+    )
 
 
 def _purchases(
     writer: SeedWriter, partners: dict[str, int], erp_items: dict[str, int]
-) -> None:
+) -> tuple[dict[str, int], dict[int, int]]:
     seed_date = writer.seed_date
     invoice_spec = [
         (
@@ -1882,6 +1892,267 @@ def _purchases(
                 "apply_key": "SEED:PA-0002",
                 "applied_at": at(seed_date, -8, 10),
             },
+        ],
+    )
+    return invoices, payables
+
+
+def _procurement(
+    writer: SeedWriter,
+    partners: dict[str, int],
+    erp_items: dict[str, int],
+    departments: dict[str, int],
+    employees: dict[str, int],
+    projects: dict[str, int],
+) -> None:
+    """DSN-11 F21·F22 구매 요청·발주. 발주번호는 WMS 입고의 `partner_ref`와 맞춰 둔다."""
+    seed_date = writer.seed_date
+    day = f"{calendar_date(seed_date, -20):%Y%m%d}"
+    requests = writer.add(
+        "erp.purchase_request",
+        [
+            {
+                "request_no": f"PR-{day}-001",
+                "requested_on": calendar_date(seed_date, -20),
+                "department_id": departments["D-PROD"],
+                "employee_id": employees["E-1001"],
+                "source": "MANUAL",
+                "source_ref": None,
+                "status": "ordered",
+                "confirmed_at": at(seed_date, -20, 11),
+            },
+            {
+                "request_no": f"PR-{day}-002",
+                "requested_on": calendar_date(seed_date, -5),
+                "department_id": departments["D-QA"],
+                "employee_id": employees["E-1002"],
+                "source": "MANUAL",
+                "source_ref": None,
+                "status": "draft",
+                "confirmed_at": None,
+            },
+        ],
+        "request_no",
+    )
+    writer.add(
+        "erp.purchase_request_line",
+        [
+            {
+                "purchase_request_id": requests[f"PR-{day}-001"],
+                "line_no": 1,
+                "item_id": erp_items["RM-PBT"],
+                "quantity": Decimal(100),
+                "unit": "KG",
+                "needed_on": calendar_date(seed_date, -10),
+            },
+            {
+                "purchase_request_id": requests[f"PR-{day}-002"],
+                "line_no": 1,
+                "item_id": erp_items["RM-PIN"],
+                "quantity": Decimal(5),
+                "unit": "BOX",
+                "needed_on": calendar_date(seed_date, 10),
+            },
+        ],
+    )
+    # 확정 발주 1건(입고 일부 도착)과 작성 중 1건.
+    order_no = PO_WITH_RECEIPT
+    draft_no = f"PO-{day}-002"
+    orders = writer.add(
+        "erp.purchase_order",
+        [
+            {
+                "po_no": order_no,
+                "partner_id": partners["V-001"],
+                "ordered_on": calendar_date(seed_date, -20),
+                "due_on": calendar_date(seed_date, -5),
+                "department_id": departments["D-PROD"],
+                "project_id": projects["PJ-2026A"],
+                "currency": "KRW",
+                "supply_amount": 350000,
+                "tax_amount": 35000,
+                "total_amount": 385000,
+                "status": "confirmed",
+                "confirmed_at": at(seed_date, -20, 12),
+            },
+            {
+                "po_no": draft_no,
+                "partner_id": partners["V-001"],
+                "ordered_on": calendar_date(seed_date, -2),
+                "due_on": calendar_date(seed_date, 12),
+                "department_id": departments["D-QA"],
+                "project_id": None,
+                "currency": "KRW",
+                "supply_amount": 900000,
+                "tax_amount": 90000,
+                "total_amount": 990000,
+                "status": "draft",
+                "confirmed_at": None,
+            },
+        ],
+        "po_no",
+    )
+    request_line = _id(
+        writer,
+        "erp.purchase_request_line",
+        "purchase_request_id",
+        requests[f"PR-{day}-001"],
+    )
+    writer.add(
+        "erp.purchase_order_line",
+        [
+            {
+                "purchase_order_id": orders[order_no],
+                "line_no": 1,
+                "item_id": erp_items["RM-PBT"],
+                "quantity": Decimal(100),
+                "unit": "KG",
+                "unit_price": Decimal(3500),
+                "supply_amount": 350000,
+                "tax_amount": 35000,
+                "total_amount": 385000,
+                "purchase_request_line_id": request_line,
+                "due_on": calendar_date(seed_date, -5),
+            },
+            {
+                "purchase_order_id": orders[draft_no],
+                "line_no": 1,
+                "item_id": erp_items["RM-PIN"],
+                "quantity": Decimal(5),
+                "unit": "BOX",
+                "unit_price": Decimal(180000),
+                "supply_amount": 900000,
+                "tax_amount": 90000,
+                "total_amount": 990000,
+                "purchase_request_line_id": None,
+                "due_on": None,
+            },
+        ],
+    )
+
+
+def _returns(
+    writer: SeedWriter,
+    partners: dict[str, int],
+    erp_items: dict[str, int],
+    receivable_id: int,
+    invoices: dict[str, int],
+    payables: dict[int, int],
+) -> None:
+    """DSN-11 F16·F25 반품. 확정분은 채권·채무 조정을 함께 남긴다(전표는 1e 몫)."""
+    seed_date = writer.seed_date
+    day = f"{calendar_date(seed_date, -15):%Y%m%d}"
+    sales_no = f"SR-{day}-001"
+    record = writer.connection.execute(
+        text(
+            "SELECT sales_record_id FROM erp.receivable WHERE workspace_id=:w "
+            "AND generation_id=:g AND id=:id"
+        ),
+        {"w": writer.workspace_id, "g": writer.generation_id, "id": receivable_id},
+    ).scalar_one()
+    sales_returns = writer.add(
+        "erp.sales_return",
+        [
+            {
+                "return_no": sales_no,
+                "partner_id": partners["C-003"],
+                "sales_record_id": record,
+                "returned_on": calendar_date(seed_date, -15),
+                "reason": "외관 불량 반품(합성)",
+                "currency": "KRW",
+                "supply_amount": 120000,
+                "tax_amount": 12000,
+                "total_amount": 132000,
+                "status": "confirmed",
+                "confirmed_at": at(seed_date, -15, 14),
+            }
+        ],
+        "return_no",
+    )
+    writer.add(
+        "erp.sales_return_line",
+        [
+            {
+                "sales_return_id": sales_returns[sales_no],
+                "line_no": 1,
+                "item_id": erp_items["FG-C200"],
+                "quantity": Decimal(100),
+                "unit": "EA",
+                "unit_price": Decimal(1200),
+                "supply_amount": 120000,
+                "tax_amount": 12000,
+                "total_amount": 132000,
+            }
+        ],
+    )
+    writer.add(
+        "erp.receivable_adjust",
+        [
+            {
+                "receivable_id": receivable_id,
+                "partner_id": partners["C-003"],
+                "currency": "KRW",
+                "adjust_kind": "RETURN_CREDIT",
+                "amount": 132000,
+                "adjusted_on": calendar_date(seed_date, -15),
+                "source_id": sales_returns[sales_no],
+                "offset_no": None,
+                "reason": "외관 불량 반품(합성)",
+                "apply_key": f"sales_return:{sales_returns[sales_no]}",
+            }
+        ],
+    )
+    purchase_no = f"PR-RET-{day}-001"
+    purchase_returns = writer.add(
+        "erp.purchase_return",
+        [
+            {
+                "return_no": purchase_no,
+                "partner_id": partners["V-001"],
+                "purchase_invoice_id": invoices["PI-0003"],
+                "returned_on": calendar_date(seed_date, -15),
+                "reason": "수분 과다 원재료 반송(합성)",
+                "currency": "KRW",
+                "supply_amount": 35000,
+                "tax_amount": 3500,
+                "total_amount": 38500,
+                "status": "confirmed",
+                "confirmed_at": at(seed_date, -15, 15),
+            }
+        ],
+        "return_no",
+    )
+    writer.add(
+        "erp.purchase_return_line",
+        [
+            {
+                "purchase_return_id": purchase_returns[purchase_no],
+                "line_no": 1,
+                "item_id": erp_items["RM-PBT"],
+                "quantity": Decimal(10),
+                "unit": "KG",
+                "unit_price": Decimal(3500),
+                "supply_amount": 35000,
+                "tax_amount": 3500,
+                "total_amount": 38500,
+            }
+        ],
+    )
+    writer.add(
+        "erp.payable_adjust",
+        [
+            {
+                "payable_id": payables[invoices["PI-0003"]],
+                "partner_id": partners["V-001"],
+                "currency": "KRW",
+                "adjust_kind": "RETURN_CREDIT",
+                "amount": 38500,
+                "adjusted_on": calendar_date(seed_date, -15),
+                "source_id": purchase_returns[purchase_no],
+                "offset_no": None,
+                "reason": "수분 과다 원재료 반송(합성)",
+                "apply_key": f"purchase_return:{purchase_returns[purchase_no]}",
+            }
         ],
     )
 

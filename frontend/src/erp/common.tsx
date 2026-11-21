@@ -8,7 +8,7 @@ export type Partner = {
   id: number;
   partnerCode: string;
   partnerName: string;
-  partnerKind: "CUSTOMER" | "SUPPLIER";
+  partnerKind: "CUSTOMER" | "SUPPLIER" | "BOTH";
   isActive: boolean;
 };
 export type Item = {
@@ -17,6 +17,8 @@ export type Item = {
   name: string;
   baseUnit: string;
   isActive: boolean;
+  itemType: string;
+  trackStock: boolean;
 };
 // 기준정보 목록은 페이지 API다. 영업 화면 선택지에는 한 번에 최대 200건을 쓴다.
 export const PARTNERS = "/partners?limit=200";
@@ -42,8 +44,16 @@ export function labels(partners: Partner[], items: Item[]) {
   };
 }
 
+// 매출·매입을 함께 하는 거래처(BOTH)는 양쪽 목록에 모두 나온다(DSN-11 F02).
 export const customers = (partners: Partner[]) =>
-  partners.filter((p) => p.partnerKind === "CUSTOMER" && p.isActive);
+  partners.filter(
+    (p) => ["CUSTOMER", "BOTH"].includes(p.partnerKind) && p.isActive,
+  );
+
+export const suppliers = (partners: Partner[]) =>
+  partners.filter(
+    (p) => ["SUPPLIER", "BOTH"].includes(p.partnerKind) && p.isActive,
+  );
 
 export function ModuleOff() {
   return (
