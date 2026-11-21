@@ -98,7 +98,8 @@ def test_seed_invoices_and_payables(erp):
     assert rows == {
         "PI-0001": "CLOSED",
         "PI-0002": "PARTIAL",
-        "PI-0003": "OPEN",
+        # PI-0003은 지급은 없지만 구매 반품 조정이 있어 PARTIAL이다(DSN-11 F76).
+        "PI-0003": "PARTIAL",
         "PI-0004": "OPEN",
     }  # 취소 매입 PI-0006 제외
 
@@ -115,7 +116,7 @@ def test_lines_are_priced_by_server_and_totaled(erp):
     assert (invoice["totalAmount"], invoice["status"]) == ("385000.00", "draft")
 
 
-def test_only_raw_items_and_known_units(erp):
+def test_our_own_products_and_unknown_units_are_rejected(erp):
     client, created = erp
     invoice = _draft(client, created)
     path = f"/purchase-invoices/{invoice['id']}/lines"
@@ -124,12 +125,32 @@ def test_only_raw_items_and_known_units(erp):
     for line, message in [
         (
             {"itemId": finished, "quantity": "1", "unit": "EA", "unitPrice": "1"},
-            "원재료",
+            "우리가 만드는 품목",
         ),
         ({"itemId": pbt, "quantity": "1", "unit": "L", "unitPrice": "1"}, "단위"),
     ]:
         response = _call(client, created, "PUT", path, {"lines": [line]})
         assert message in response.json()["error"]["details"]["fields"]["lines"]
+
+
+def test_merchandise_can_be_purchased(erp):
+    """상품·소모품·용역도 매입한다(DSN-11 F23 DIRECT). 막는 것은 우리가 만드는 품목뿐이다."""
+    client, created = erp
+    invoice = _draft(client, created)
+    box = _id(client, "/items", "itemCode", "MD-BOX")
+    response = _call(
+        client,
+        created,
+        "PUT",
+        f"/purchase-invoices/{invoice['id']}/lines",
+        {
+            "lines": [
+                {"itemId": box, "quantity": "10", "unit": "BOX", "unitPrice": "900"}
+            ]
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["totalAmount"] == "9900.00"
 
 
 def test_customer_partner_rejected(erp):

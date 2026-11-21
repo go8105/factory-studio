@@ -169,9 +169,12 @@ def test_purchase_orders_give_confirmed_only_and_no_progress(scoped):
     with engine.connect() as c:
         open_only = erp.purchase_orders(c, context)
         every = erp.purchase_orders(c, context, open_only=False)
-    assert [o["poNo"] for o in open_only] == ["PO-OPEN"]
-    assert sorted(o["poNo"] for o in every) == ["PO-CLOSED", "PO-OPEN"]
-    order = open_only[0]
+    # 시드에도 확정 발주가 하나 있다(PO-SEED-0001). 이 테스트가 만든 것만 추린다.
+    made = [o["poNo"] for o in open_only if o["poNo"].startswith("PO-")]
+    assert "PO-OPEN" in made and "PO-DRAFT" not in made and "PO-CLOSED" not in made
+    assert {"PO-CLOSED", "PO-OPEN"} <= {o["poNo"] for o in every}
+    assert "PO-DRAFT" not in {o["poNo"] for o in every}
+    order = next(o for o in open_only if o["poNo"] == "PO-OPEN")
     assert order["lines"][0]["quantity"] == "10.000"
     # 입고 진행은 WMS가 안다. 여기에 두면 두 곳이 어긋난다.
     assert not any(k in order for k in ("receivedQty", "openQty", "progress"))

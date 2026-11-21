@@ -53,6 +53,10 @@ class Side:
         return f"{self.open_item}_id"
 
     @property
+    def adjust(self) -> str:
+        return f"{self.open_item}_adjust"
+
+    @property
     def money_fk(self) -> str:
         return f"{self.money}_id"
 
@@ -96,19 +100,26 @@ PAYABLE = Side(
 
 
 def _open_sql(side: Side) -> str:
-    """유효 채권·채무의 잔액·상태. 대시보드(019h)도 이 SQL을 쓴다."""
+    """유효 채권·채무의 잔액·상태. 대시보드(019h)도 이 SQL을 쓴다.
+
+    잔액 = 원금 − 소명 − 조정(반품 대변·상계·대손). 조정도 저장하지 않고 여기서 뺀다(DSN-11 F75).
+    """
     return f"""
 SELECT * FROM (
   SELECT rv.id, rv.{side.source}_id, rv.partner_id, rv.amount, rv.due_date, rv.currency,
-         {side.source_cols}, x.applied_amount,
-         rv.amount - x.applied_amount balance,
-         CASE WHEN rv.amount - x.applied_amount = 0 THEN 'CLOSED'
-              WHEN x.applied_amount > 0 THEN 'PARTIAL' ELSE 'OPEN' END status
+         {side.source_cols}, x.applied_amount, j.adjusted_amount,
+         rv.amount - x.applied_amount - j.adjusted_amount balance,
+         CASE WHEN rv.amount - x.applied_amount - j.adjusted_amount = 0 THEN 'CLOSED'
+              WHEN x.applied_amount + j.adjusted_amount > 0 THEN 'PARTIAL'
+              ELSE 'OPEN' END status
   FROM erp.{side.open_item} rv
   {side.source_join}
   CROSS JOIN LATERAL (SELECT coalesce(sum(a.amount), 0) applied_amount
     FROM erp.{side.apply} a WHERE a.workspace_id=rv.workspace_id
      AND a.generation_id=rv.generation_id AND a.{side.item_fk}=rv.id) x
+  CROSS JOIN LATERAL (SELECT coalesce(sum(b.amount), 0) adjusted_amount
+    FROM erp.{side.adjust} b WHERE b.workspace_id=rv.workspace_id
+     AND b.generation_id=rv.generation_id AND b.{side.item_fk}=rv.id) j
   WHERE rv.workspace_id=:w AND rv.generation_id=:g AND {side.source_valid}
 ) v WHERE true"""
 

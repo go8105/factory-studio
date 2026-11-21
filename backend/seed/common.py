@@ -48,6 +48,11 @@ def at(seed_date: date, day: int, hour: int = 0, minute: int = 0) -> datetime:
     return local.astimezone(UTC)
 
 
+# ERP 발주(E-23)와 WMS 입고(W-04)를 잇는 번호. WMS는 발주번호를 `partner_ref`에
+# 코드 문자열로 들고 있고, ERP는 그 값으로 입고 진행을 파생한다(스키마 간 FK 없음).
+PO_WITH_RECEIPT = "PO-SEED-0001"
+
+
 def calendar_date(seed_date: date, day: int) -> date:
     return seed_date + timedelta(days=day)
 

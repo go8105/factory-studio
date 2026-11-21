@@ -6,6 +6,10 @@ import { Items } from "./Items";
 import { Prices } from "./Prices";
 import { Accounts } from "./Accounts";
 import { Organization } from "./Organization";
+import { PurchaseRequests } from "./PurchaseRequests";
+import { PurchaseOrders } from "./PurchaseOrders";
+import { Returns, SALES_RETURN, PURCHASE_RETURN } from "./Returns";
+import { SalesStatus, PurchaseStatus, StockStatus } from "./Status";
 import { Quotations } from "./Quotations";
 import { SalesPlans } from "./SalesPlans";
 import { SalesOrders } from "./SalesOrders";
@@ -43,6 +47,16 @@ export default function ErpRoutes() {
         <Route path="partner-prices" element={<Prices />} />
         <Route path="accounts" element={<Accounts />} />
         <Route path="organization" element={<Organization />} />
+        <Route path="sales-returns" element={<Returns side={SALES_RETURN} />} />
+        <Route path="sales-status" element={<SalesStatus />} />
+        <Route path="purchase-requests" element={<PurchaseRequests />} />
+        <Route path="purchase-orders" element={<PurchaseOrders />} />
+        <Route
+          path="purchase-returns"
+          element={<Returns side={PURCHASE_RETURN} />}
+        />
+        <Route path="purchase-status" element={<PurchaseStatus />} />
+        <Route path="stock-status" element={<StockStatus />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

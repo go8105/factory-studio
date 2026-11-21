@@ -1,3 +1,23 @@
+# 2026-11-21 ERP-1d — 영업·구매(반품·요청·발주·현황)
+
+- 브랜치 **erp-1d**(로컬). 기준 main `22a65e9`. **DB 마이그레이션 없음.**
+- 끝난 것: ERP-1d 전부. E-20~E-26 신설(ERP 19 → 26화면), E-11 매입 종류 3가지, 시드 +14행, 도움말 7편.
+- 다음 할 일: **ERP-1e 회계 전표** — E-30 전표 입력·조회, E-31 회계 미반영 현황, E-29 지출결의서, E-14 폐지. **1d가 확정한 반품·매입·발주가 이때 자동 분개를 얻는다.**
+- 주의점:
+  - **입고 진행·채권 잔액은 저장하지 않는다.** 발주 진행은 WMS를 발주번호로 읽고, 잔액은 `receipts._open_sql` 한 곳에서 원금 − 소명 − 조정으로 계산한다. 새 화면도 이 둘을 따로 저장하지 않는다.
+  - **출하 명세에는 단가가 없다.** 판 값은 `sales_order_line`에 있다(조인 3단).
+  - 머리글 금액 칼럼은 NOT NULL이라 INSERT에 0을 넣는다.
+  - **시드를 늘리면 시드 모양을 단정한 테스트가 깨진다.** 1d에서 3건 고쳤다(`test_erp_purchases`·`test_erp_receipts`·`test_erp_interfaces`).
+  - 문서형 화면은 `frontend/src/erp/document.tsx`의 `DocumentScreen`을 쓴다. 반품처럼 규칙이 같은 두 화면은 백엔드도 설정 하나로 묶는다(`returns.ReturnKind`).
+  - **시드에 새 값을 넣으면 `erp1` downgrade의 `REMOVED_ROWS`를 다시 본다**(1c에서 넣었다). 1g 세금계산서 전송 상태가 다음 차례다.
+  - **시드 복사 성능이 한계다.** 비용은 행 수가 아니라 **시드가 든 표 수**를 따른다(`copy.py`가 부모 표마다 임시 지도를 만든다). 1d에서 표 10개를 채우자 중앙값이 2초를 넘어 한도를 2.5초로 올렸다. **1e에서 또 넘으면 한도를 올리지 말고 `copy.py`를 빠르게 만든다.**
+- 재현 명령:
+  - 단위: `TEST_DATABASE_URL=<test> uv run --project backend pytest backend/tests/test_erp_procurement.py backend/tests/test_erp_returns.py -q -p no:randomly`
+  - 프런트: `cd frontend && npx vitest run src/erp`
+  - 전체 CI: `TEST_DB=factory_studio_erp1d_test bash tools/ci_local.sh`
+- 검증: **전체 로컬 CI 1~5단계 통과(exit 0)** — 백엔드 2,928·프런트 889. 브라우저로 E-20·E-23·E-26 확인.
+- 미실행: e2e·운영 배포.
+
 # 2026-11-21 ERP-1c — 기초등록(부서·담당자·프로젝트, 단가 그룹, 계정 보강)
 
 - 브랜치 **erp-1c**(로컬). 기준 main `b875481`. **DB 마이그레이션 없음**(erp1에 이미 있다).
