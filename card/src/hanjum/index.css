@@ -82,9 +82,13 @@
 .step h3 { margin: 0 0 6px; font-family: 'Noto Serif KR', serif; font-size: 22px; font-weight: 500; }
 
 .inside { display: grid; grid-template-columns: .68fr 1.32fr; align-items: start; }
-.exploded { min-height: 650px; background: var(--white); display: grid; grid-template-columns: 1.1fr .9fr; align-items: center; padding: 50px 45px; box-shadow: 0 12px 32px rgba(26,28,30,.035); }
-.exploded-art { width: 100%; height: 540px; }
-.exploded-labels { height: 455px; display: flex; flex-direction: column; justify-content: space-between; padding-block: 23px 18px; }
+.explode-track { height: 260vh; position: relative; }
+.exploded { position: sticky; top: max(24px, calc(50vh - 300px)); background: var(--white); display: grid; grid-template-columns: 1.25fr .75fr; grid-template-rows: auto auto 1fr; column-gap: 40px; padding: 40px; box-shadow: 0 12px 32px rgba(26,28,30,.035); }
+.explode-frame { grid-row: 1 / 4; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #d4d4d2; }
+.explode-progress { height: 1px; background: var(--line); }
+.explode-progress i { display: block; height: 1px; background: var(--indigo); transform-origin: left; }
+.explode-hint { margin: 12px 0 28px; color: var(--muted); font-size: 12px; letter-spacing: .04em; }
+.exploded-labels { display: flex; flex-direction: column; gap: 26px; }
 .exploded-label { display: flex; gap: 14px; align-items: flex-start; }
 .exploded-label > span { width: 25px; height: 25px; flex: 0 0 25px; border: 1px solid #c7c8c6; border-radius: 50%; display: grid; place-items: center; font-size: 11px; }
 .exploded-label p { margin: -2px 0 0; }
@@ -170,9 +174,13 @@ footer small { justify-self: end; color: var(--muted); font-size: 10px; letter-s
   .step-visual { height: 240px; }
   .inside { display: block; }
   /* Phone: the art can't share a row with the labels, so stack them. */
-  .exploded { min-height: 0; grid-template-columns: 1fr; padding: 24px 20px 28px; }
-  .exploded-art { height: auto; max-height: 440px; }
-  .exploded-labels { height: auto; gap: 18px; padding-block: 8px 0; }
+  .explode-track { height: 230vh; }
+  .exploded { top: max(12px, calc(50vh - 270px)); grid-template-columns: 1fr; grid-template-rows: none; padding: 16px 16px 20px; }
+  .explode-frame { grid-row: auto; }
+  .explode-progress { margin-top: 14px; }
+  .explode-hint { margin: 8px 0 14px; font-size: 11px; }
+  .exploded-labels { gap: 10px; }
+  .exploded-label small { font-size: 12px; }
   .detail-grid { grid-template-columns: 1fr; gap: 45px; }
   .detail-image { height: 240px; }
   .statement { padding: 13px; }
