@@ -1,3 +1,15 @@
+## 2026-11-22 UI-REDESIGN-02 R2 2차 완료 — 빈 열 접기·조건 접기 (다음: R3 Figma 또는 나머지 조회 화면)
+
+- **브랜치**: `ui-redesign-03` (origin/main `57dd87e` 기준, **미병합·미푸시**). **담당**: Claude Code. **프런트만, 백엔드·DB 변경 0.**
+- **끝난 것**: `DataTable`이 현재 페이지의 빈 열을 접고 `빈 열 N개 보기`로 펼친다(**화면 변경 0 — 모든 표에 적용**) · `FilterMore` 신설로 조회 조건 접기 · FEMS F-02에 적용(조건 6 → 3). 자세한 것은 `docs/progress.md` 맨 위와 `docs/ui/UI전면재설계_진단_제안_UI-REDESIGN-01.md` 7-7절.
+- **다음 할 일**: ① 나머지 조회 화면에 `FilterMore` 적용(화면마다 무엇을 접을지 골라야 해서 일괄 불가) ② **R3 Figma** — `/mcp` 승인 뒤 `whoami`로 플랜 확인부터(D3) ③ R4 포털 P-06 셸 통일 ④ R5 색 토큰화·lint 강제.
+- **주의**:
+  - **공유 체크아웃(`/Users/hwang-kyoungho/projects/factory-studio`)에 다른 세션의 ERP 작업 47개 파일이 스테이징돼 있었다**(erp1 마이그레이션·expenses/journals/posting·프런트 erp/*). 그래서 이번 작업은 **별도 worktree**에서 했다. `shared/*`와 겹치지 않음을 먼저 확인했다. **병합하려면 main이 비어야 한다** — 그 세션이 끝난 뒤에 하거나 그쪽과 순서를 맞춰야 한다.
+  - 빈 열 판정은 **현재 페이지 기준**이다. 다음 페이지에 값이 있어도 이 페이지가 전부 비면 접힌다.
+  - 판정이 `render` 결과까지 본다(`"—"`를 빈 칸으로). 새 열을 만들 때 값 없음을 다른 글자로 적으면 접히지 않는다.
+  - worktree에서 브라우저 확인하려면 **vite를 다른 포트로** 띄운다(`npm --prefix frontend run dev -- --port 5175 --strictPort`). 공유 체크아웃의 5173은 그쪽 코드를 서빙한다. API는 8000을 함께 쓴다.
+- **재현**: worktree에서 `npm --prefix frontend ci` 후 `npm --prefix frontend run typecheck|lint|format:check|build|test`, `TEST_DB=factory_studio_ci_ui03_test bash tools/ci_local.sh`.
+
 # 2026-11-22 HANJUM-01 — 한줌 제품 홍보 페이지
 
 - `card/`에 두 번째 페이지 `/hanjum/`. 운영 Nginx는 이미 라우팅됨, 코드 반영은 CI 후 `tools/deploy.sh`.

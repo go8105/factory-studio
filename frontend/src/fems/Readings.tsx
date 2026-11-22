@@ -11,6 +11,7 @@ import {
   Loading,
   PageTitle,
   type Column,
+  FilterMore,
 } from "../shared/components";
 import type { EnergySource } from "./EnergySources";
 export type Reading = {
@@ -252,48 +253,57 @@ export function Readings() {
             ))}
           </select>
         </label>
-        <label>
-          채널
-          <select
-            value={draft.channelId}
-            onChange={(e) => set("channelId")(e.target.value)}
-          >
-            <option value="">전체</option>
-            {channels.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          에너지원
-          <select
-            value={draft.energySourceId}
-            onChange={(e) => set("energySourceId")(e.target.value)}
-          >
-            <option value="">전체</option>
-            {sources.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          품질
-          <select
-            value={draft.quality}
-            onChange={(e) => set("quality")(e.target.value)}
-          >
-            <option value="">전체</option>
-            {Object.entries(QUALITY).map(([value, [label]]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* 기간·계측기만 조건 줄에 두고 나머지 셋은 접는다(UI-REDESIGN-02). */}
+        <FilterMore
+          active={
+            [draft.channelId, draft.energySourceId, draft.quality].filter(
+              Boolean,
+            ).length
+          }
+        >
+          <label>
+            채널
+            <select
+              value={draft.channelId}
+              onChange={(e) => set("channelId")(e.target.value)}
+            >
+              <option value="">전체</option>
+              {channels.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            에너지원
+            <select
+              value={draft.energySourceId}
+              onChange={(e) => set("energySourceId")(e.target.value)}
+            >
+              <option value="">전체</option>
+              {sources.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            품질
+            <select
+              value={draft.quality}
+              onChange={(e) => set("quality")(e.target.value)}
+            >
+              <option value="">전체</option>
+              {Object.entries(QUALITY).map(([value, [label]]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </FilterMore>
         <button type="submit">조회</button>
       </form>
       <ErrorNotice error={error} retry={() => setReload((n) => n + 1)} />

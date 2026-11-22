@@ -166,3 +166,57 @@ it("제목 줄에 화면의 주요 행동을 둘 수 있다", () => {
     screen.getByRole("link", { name: "생산량 등록 도움말" }),
   ).toBeVisible();
 });
+it("모든 행이 빈 열은 접고, 눌러서 펼치며, CSV에는 남는다", () => {
+  const blankRows = [
+    { id: 1, no: 2, name: "둘째", spec: "", note: null },
+    { id: 2, no: 1, name: "첫째", spec: "", note: null },
+  ];
+  const blankColumns = [
+    ...columns,
+    { key: "spec" as const, label: "규격" },
+    // 값 없음을 "—"로 그리는 렌더러도 빈 칸으로 본다(화면에서 흔한 꼴이다).
+    {
+      key: "note" as const,
+      label: "비고",
+      render: (r: (typeof blankRows)[number]) => r.note ?? "—",
+    },
+  ];
+  render(
+    <MemoryRouter>
+      <DataTable
+        rows={blankRows}
+        columns={blankColumns}
+        caption="목록"
+        offset={0}
+        total={2}
+        limit={20}
+        onPage={() => {}}
+      />
+    </MemoryRouter>,
+  );
+  expect(screen.queryByRole("columnheader", { name: /규격/ })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "빈 열 2개 보기" }));
+  expect(screen.getByRole("columnheader", { name: /규격/ })).toBeVisible();
+  // 숨겨도 내보내는 값은 줄지 않는다.
+  expect(csvText(blankRows, blankColumns)).toContain("규격");
+});
+it("값이 하나라도 있는 열은 접지 않는다", () => {
+  render(
+    <MemoryRouter>
+      <DataTable
+        rows={[
+          { id: 1, no: 1, name: "첫째", spec: "A" },
+          { id: 2, no: 2, name: "둘째", spec: "" },
+        ]}
+        columns={[...columns, { key: "spec" as const, label: "규격" }]}
+        caption="목록"
+        offset={0}
+        total={2}
+        limit={20}
+        onPage={() => {}}
+      />
+    </MemoryRouter>,
+  );
+  expect(screen.getByRole("columnheader", { name: /규격/ })).toBeVisible();
+  expect(screen.queryByRole("button", { name: /빈 열/ })).toBeNull();
+});

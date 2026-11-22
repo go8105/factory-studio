@@ -1284,6 +1284,69 @@ th[aria-sort="none"] button span {
   }
 }
 
+/* 조회 조건 접기. 조건 줄 높이가 열고 닫아도 변하지 않도록 본문은 띄워 둔다. */
+.filter-more {
+  position: relative;
+  align-self: end;
+}
+.filter-more > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  height: var(--control);
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  list-style: none;
+  white-space: nowrap;
+}
+.filter-more > summary::-webkit-details-marker {
+  display: none;
+}
+.filter-more > summary::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-right: 1.3px solid var(--muted);
+  border-bottom: 1.3px solid var(--muted);
+  transform: translateY(-2px) rotate(45deg);
+}
+.filter-more[open] > summary::after {
+  transform: translateY(1px) rotate(225deg);
+}
+.filter-more > summary:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+.filter-more-count {
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-align: center;
+}
+.filter-more-body {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  min-width: 260px;
+  padding: var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
 /* 화면 위 안내는 접어 둔다. 늘 펼쳐 두면 표가 그만큼 아래로 밀린다(UI-REDESIGN-02). */
 .screen-intro {
   margin: 0 0 var(--s4);
