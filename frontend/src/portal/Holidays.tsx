@@ -19,7 +19,7 @@ const KIND_LABEL: Record<Holiday["kind"], string> = {
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 /** 'YYYY-MM-DD'를 그대로 읽는다 — Date 파싱은 시간대에 따라 하루가 밀린다. */
 const weekdayOf = (iso: string) =>
-  WEEKDAYS[new Date(`${iso}T00:00:00+09:00`).getDay()];
+  WEEKDAYS[new Date(`${iso}T00:00:00Z`).getUTCDay()];
 
 export function Holidays() {
   const { session } = useSession();
