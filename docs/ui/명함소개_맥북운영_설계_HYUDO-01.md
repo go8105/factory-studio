@@ -83,10 +83,10 @@ Cloudflare (hyudo.kr 영역, 네임서버 이미 연결됨)
 |---|---|
 | 맥북 `.env` | `FS_PUBLIC_ORIGIN=https://eip.hyudo.kr` |
 | Cloudflare | 터널 공개 호스트 2개(www·eip), `hyudo.kr` → www 301 |
-| `docs/agent/assets/about03/public-check.mjs` | 기본 URL `https://eip.hyudo.kr` |
+| `docs/agent/assets/about03/public-check.mjs` | **삭제**(HYUDO-04) — 검사 대상 `/about`이 HYUDO-03에서 없어졌다. 공개 확인은 `tools/deploy.sh` 확인 단계 |
 | 배포 문서 | 새 맥북 운영 절차서(`docs/deploy/`)를 만들고 FS-022는 "폐기(Vultr 삭제)" 표시 |
-| `tools/deploy.sh` | ssh 대상(Vultr)이 없어졌다. 맥북 로컬 배포 스크립트로 대체 |
-| EIP 내 링크 | `/about`의 "만든 사람"·명함 페이지의 체험 링크를 새 주소로 |
+| `tools/deploy.sh` | **맥북 로컬 배포로 교체**(HYUDO-04). ssh·rsync·systemctl 제거, 백업·명함 빌드 추가 |
+| EIP 내 링크 | `/about` 폐지(HYUDO-03). 명함 페이지 체험 링크는 `eip.hyudo.kr` |
 
 - **과거 작업 기록(HANDOFF·progress·agent 결과 문서)의 `hugh-d.com`은 고치지 않는다.** 당시 사실이다.
 - `hugh-D Company`(시드의 예시 회사명)는 도메인이 아니라 브랜드명이므로 이번 범위가 아니다.
