@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 type IconName = 'soap' | 'bag' | 'reuse' | 'press' | 'twist' | 'drawer'
 
@@ -23,7 +23,12 @@ const details = [
 
 const scenes = ['여행', '캠핑', '헬스장', '사무실']
 
-const faqs = ['어떤 비누를 쓰나요?', '세척은 어떻게 하나요?', '언제 살 수 있나요?', '대량·협업 문의는?']
+const faqs = [
+  ['어떤 비누를 쓰나요?', '집에서 쓰는 일반 고형 비누를 그대로 넣어 씁니다. 시제품은 가로 5cm·세로 4cm 정도로 자른 비누를 기준으로 맞추고 있습니다. 물러진 비누나 물기가 많은 비누가 어떻게 갈리는지는 실사용 테스트로 확인하고 있습니다.'],
+  ['세척은 어떻게 하나요?', '덮개를 열고 가루통을 빼면 비누가 닿는 곳을 물로 헹굴 수 있도록 설계하고 있습니다. 헹군 뒤에는 완전히 말려서 다시 조립해 주세요. 소재가 확정되면 정확한 세척·건조 방법을 안내드리겠습니다.'],
+  ['언제 살 수 있나요?', '지금은 3D 프린팅 시제품으로 실사용 테스트를 하고 있습니다. 출시 일정이 정해지면 출시 소식 받기로 메일을 보내주신 분께 가장 먼저 알려드리겠습니다.'],
+  ['대량·협업 문의는?', '숙박·캠핑·기념품 브랜드 협업이나 대량 구매는 go8105@gmail.com으로 보내주세요. 아직 시제품 단계라 가능한 범위부터 함께 이야기하겠습니다.'],
+]
 
 function Monogram({ size = 30 }: { size?: number }) {
   return (
@@ -95,33 +100,66 @@ function ProductDrawing() {
   )
 }
 
+const FRAMES = 30
+const frameSrc = (i: number) => `/images/hanjum-explode/f${String(i + 1).padStart(4, '0')}.jpg`
+// shortcut: only the cover, drawer and bottom skin move; the grinding module stays closed until the patent is filed.
+const layers = [
+  ['①', '부드러운 덮개', '열어서 비누를 넣습니다'],
+  ['②', '주름 외피 · 그라인딩 모듈', '눌러 비틀면 안에서 비누가 갈립니다'],
+  ['③', '가루통', '앞으로 당겨 통째로 뺍니다'],
+  ['④', '하단 스킨', '바닥을 부드럽게 감쌉니다'],
+]
+
+/** Scroll down through the tall track and the pre-rendered frames go from closed to taken apart. */
 function ExplodedView() {
-  const layers = [
-    ['①', '부드러운 덮개', '뚜껑을 열어 비누를 넣습니다'],
-    ['②', '주름 외피', '눌렀다 놓으면 다시 펴집니다'],
-    ['③', '그라인딩 모듈', '비누를 가는 부분'],
-    ['④', '가루통', '통째로 빠집니다'],
-  ]
+  const track = useRef<HTMLDivElement>(null)
+  const [frame, setFrame] = useState(0)
+  useEffect(() => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setFrame(FRAMES - 1)
+      return
+    }
+    let raf = 0
+    let preloaded = false
+    const update = () => {
+      const el = track.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      if (!preloaded && r.top < innerHeight * 2) {
+        preloaded = true
+        for (let i = 1; i < FRAMES; i++) new Image().src = frameSrc(i)
+      }
+      const total = r.height - innerHeight
+      const progress = total > 0 ? Math.min(1, Math.max(0, -r.top / total)) : 1
+      setFrame(Math.round(progress * (FRAMES - 1)))
+    }
+    const onScroll = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(update)
+    }
+    update()
+    addEventListener('scroll', onScroll, { passive: true })
+    addEventListener('resize', onScroll)
+    return () => {
+      cancelAnimationFrame(raf)
+      removeEventListener('scroll', onScroll)
+      removeEventListener('resize', onScroll)
+    }
+  }, [])
   return (
-    <div className="exploded">
-      <svg className="exploded-art" viewBox="0 0 360 500" aria-label="한줌 분해도 일러스트">
-        <g fill="none" stroke="#8D9194" strokeWidth="1.5">
-          <rect x="64" y="40" width="194" height="58" rx="22" fill="#F7F7F6" />
-          <rect x="54" y="150" width="214" height="84" rx="26" fill="#F2F0E9" />
-          <path d="M70 171c20-7 36-7 55 0s36 7 55 0 36-7 72 1M65 197c20-7 39-7 60 0s36 7 55 0 36-7 77 1" />
-          <rect x="69" y="287" width="184" height="42" rx="15" fill="#F7F7F6" />
-          <rect x="55" y="390" width="212" height="66" rx="16" fill="#F7F7F6" />
-          <path d="M130 420h62" />
-          <path d="M268 68h48M270 192h46M254 308h62M268 423h48" stroke="#C7C8C6" />
-        </g>
-      </svg>
-      <div className="exploded-labels">
-        {layers.map(([number, title, text]) => (
-          <div className="exploded-label" key={number}>
-            <span>{number}</span>
-            <p><strong>{title}</strong><small>{text}</small></p>
-          </div>
-        ))}
+    <div className="explode-track" ref={track}>
+      <div className="exploded">
+        <img className="explode-frame" src={frameSrc(frame)} alt="한줌을 펼친 모습: 덮개, 주름 외피와 그라인딩 모듈, 가루통, 하단 스킨" />
+        <div className="explode-progress" aria-hidden="true"><i style={{ transform: `scaleX(${frame / (FRAMES - 1)})` }} /></div>
+        <p className="explode-hint">{frame < FRAMES - 1 ? '아래로 내리면 펼쳐집니다' : '펼쳐 본 한줌'}</p>
+        <div className="exploded-labels">
+          {layers.map(([number, title, text]) => (
+            <div className="exploded-label" key={number}>
+              <span>{number}</span>
+              <p><strong>{title}</strong><small>{text}</small></p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -232,7 +270,7 @@ function App() {
             <SectionHeading eyebrow="SPECIFICATION">시제품 사양</SectionHeading>
             <dl className="spec-table">
               <div><dt>크기</dt><dd>86×106×46mm</dd></div>
-              <div><dt>구성</dt><dd>덮개·외피·그라인딩 모듈·가루통</dd></div>
+              <div><dt>구성</dt><dd>덮개·외피·그라인딩 모듈·가루통·하단 스킨</dd></div>
               <div><dt>사용 비누</dt><dd>일반 고형 비누</dd></div>
               <div><dt>소재</dt><dd>검토 중</dd></div>
             </dl>
@@ -256,14 +294,14 @@ function App() {
       <section className="section faq shell">
         <SectionHeading eyebrow="FAQ">자주 묻는 질문</SectionHeading>
         <div className="faq-list">
-          {faqs.map((question, index) => {
+          {faqs.map(([question, answer], index) => {
             const open = openFaq === index
             return (
               <div className="faq-item" key={question}>
                 <button type="button" onClick={() => setOpenFaq(open ? null : index)} aria-expanded={open}>
                   <span>{question}</span><i>{open ? '−' : '+'}</i>
                 </button>
-                {open && <p>자세한 내용은 출시 준비와 함께 안내드릴 예정입니다.</p>}
+                {open && <p>{answer}</p>}
               </div>
             )
           })}
