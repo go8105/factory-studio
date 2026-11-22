@@ -1,3 +1,12 @@
+# 2026-11-22 HYUDO-04 완료 — 도메인·배포 도구 정리
+
+- 작업 ID: HYUDO-04. main `4ccada3`(병합·push). 제품 코드 변경 없음.
+- `tools/deploy.sh` 교체: Vultr ssh 대신 개발 폴더 main → 운영 worktree(`~/projects/factory-studio-prod`). 순서: 사전 점검(main·깨끗함·origin 같음·CI·운영 폴더 깨끗함·DB 접속) → `pg_dump` 백업 → 운영 폴더 전환 → EIP·명함 빌드(비누 비공개 자산 위치·공개 폴더 누출 확인) → uv sync·alembic → 시드 버전 비교 → `launchctl kickstart`(401 대기) → eip·www 200·DDL 대조 0·재시작 뒤 5xx.
+- `tools/test_deploy.py` 재작성(가짜 docker·uv·npm·curl·gh·launchctl, 가짜 저장소+운영 worktree): 순서, 비공개 자산 누락 시 마이그레이션 전 중단, 시드 재생성, 운영 폴더 더러움·CI 실패 시 무변경, dry-run 무변경 — **6건 통과**, ruff 통과.
+- `docs/agent/assets/about03/public-check.mjs` 삭제(검사 대상 `/about` 폐지). 절차서 3장을 스크립트 한 줄로, 설계서 4장 표·docs/README 지도 갱신. 과거 기록의 `hugh-d.com`은 당시 사실이라 유지.
+- 실행함: 실제 운영 `tools/deploy.sh --dry-run --skip-ci-check` 통과(운영 b517d75 → 4ccada3 예정). GitHub CI는 그 시점 진행 중.
+- 미실행: **실제 배포 실행**(Claude 권한 확인에서 막힘 → 사용자 승인 필요). 운영은 b517d75로 제품 코드는 동일.
+
 # 2026-11-22 HYUDO-03 완료 — 명함 페이지 www.hyudo.kr
 
 - 작업 ID: HYUDO-03. 브랜치 `hyudo-03`. 백엔드·DB 변경 없음.
