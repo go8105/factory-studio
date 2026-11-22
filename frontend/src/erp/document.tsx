@@ -32,6 +32,8 @@ export type DocLine = {
   itemName: string;
   quantity: string;
   unit: string;
+  /** 문서마다 다른 칸(지출결의의 계정·금액 등)은 lineColumns가 읽는다. */
+  [key: string]: unknown;
 };
 export type Doc = {
   id: number;
@@ -40,7 +42,11 @@ export type Doc = {
   lines: DocLine[];
   [key: string]: unknown;
 };
-export type DraftLine = { itemId: number; quantity: string };
+export type DraftLine = {
+  itemId: number;
+  quantity: string;
+  [key: string]: unknown;
+};
 /** 입력 칸이 고르는 목록 한 줄(코드·이름을 가진 기준정보). */
 export type Row = { id: number; code?: string; name?: string } & Record<
   string,
@@ -72,6 +78,8 @@ export function DocumentScreen<T extends Doc>({
   extraActions,
   detail,
   extraPaths = [],
+  lineColumns,
+  lineEditor,
 }: {
   id: string;
   title: string;
@@ -91,6 +99,15 @@ export function DocumentScreen<T extends Doc>({
   detail?: (doc: T) => ReactNode;
   /** 입력 칸이 고를 목록(부서·프로젝트·요청 등). form의 넷째 인자로 들어온다. */
   extraPaths?: string[];
+  /** 명세 표의 열. 비우면 품목·수량. */
+  lineColumns?: Column<DocLine>[];
+  /** 명세 편집 칸. 비우면 품목·수량 줄. 지출결의처럼 모양이 다른 문서가 쓴다. */
+  lineEditor?: (
+    lines: DraftLine[],
+    set: (next: DraftLine[]) => void,
+    lists: { partners: Partner[]; items: Item[]; extras: Row[][] },
+    errors: Record<string, string>,
+  ) => ReactNode;
 }) {
   const { data, error, reload } = useLists<unknown[][]>([
     path,
@@ -207,20 +224,22 @@ export function DocumentScreen<T extends Doc>({
                 {detail?.(selected)}
                 <DataTable
                   rows={selected.lines}
-                  columns={[
-                    { key: "lineNo", label: "순서", render: (l) => l.lineNo },
-                    {
-                      key: "itemCode",
-                      label: "품목",
-                      render: (l) => `${l.itemCode} ${l.itemName}`,
-                    },
-                    {
-                      key: "quantity",
-                      label: "수량",
-                      render: (l) =>
-                        `${Number(l.quantity).toLocaleString()} ${l.unit}`,
-                    },
-                  ]}
+                  columns={
+                    lineColumns ?? [
+                      { key: "lineNo", label: "순서", render: (l) => l.lineNo },
+                      {
+                        key: "itemCode",
+                        label: "품목",
+                        render: (l) => `${l.itemCode} ${l.itemName}`,
+                      },
+                      {
+                        key: "quantity",
+                        label: "수량",
+                        render: (l) =>
+                          `${Number(l.quantity).toLocaleString()} ${l.unit}`,
+                      },
+                    ]
+                  }
                   caption="명세"
                   offset={0}
                   total={selected.lines.length}
@@ -231,52 +250,59 @@ export function DocumentScreen<T extends Doc>({
                 {selected.status === "draft" && (
                   <div className="section-block">
                     <h3>명세 편집</h3>
-                    {lines.map((line, index) => (
-                      <div className="field-row" key={index}>
-                        <select
-                          aria-label={`${index + 1}번째 품목`}
-                          value={line.itemId || ""}
-                          onChange={(e) =>
-                            setLines(
-                              lines.map((l, i) =>
-                                i === index
-                                  ? { ...l, itemId: Number(e.target.value) }
-                                  : l,
-                              ),
-                            )
-                          }
-                        >
-                          <option value="">품목 선택</option>
-                          {items.map((i) => (
-                            <option key={i.id} value={i.id}>
-                              {i.itemCode} {i.name}
-                            </option>
-                          ))}
-                        </select>
-                        <Field
-                          label={`${index + 1}번째 수량`}
-                          value={line.quantity}
-                          onChange={(e) =>
-                            setLines(
-                              lines.map((l, i) =>
-                                i === index
-                                  ? { ...l, quantity: e.target.value }
-                                  : l,
-                              ),
-                            )
-                          }
-                        />
-                        <button
-                          type="button"
-                          className="link-button"
-                          onClick={() =>
-                            setLines(lines.filter((_, i) => i !== index))
-                          }
-                        >
-                          줄 삭제
-                        </button>
-                      </div>
-                    ))}
+                    {lineEditor
+                      ? lineEditor(
+                          lines,
+                          setLines,
+                          { partners, items: allItems, extras },
+                          errors,
+                        )
+                      : lines.map((line, index) => (
+                          <div className="field-row" key={index}>
+                            <select
+                              aria-label={`${index + 1}번째 품목`}
+                              value={line.itemId || ""}
+                              onChange={(e) =>
+                                setLines(
+                                  lines.map((l, i) =>
+                                    i === index
+                                      ? { ...l, itemId: Number(e.target.value) }
+                                      : l,
+                                  ),
+                                )
+                              }
+                            >
+                              <option value="">품목 선택</option>
+                              {items.map((i) => (
+                                <option key={i.id} value={i.id}>
+                                  {i.itemCode} {i.name}
+                                </option>
+                              ))}
+                            </select>
+                            <Field
+                              label={`${index + 1}번째 수량`}
+                              value={line.quantity}
+                              onChange={(e) =>
+                                setLines(
+                                  lines.map((l, i) =>
+                                    i === index
+                                      ? { ...l, quantity: e.target.value }
+                                      : l,
+                                  ),
+                                )
+                              }
+                            />
+                            <button
+                              type="button"
+                              className="link-button"
+                              onClick={() =>
+                                setLines(lines.filter((_, i) => i !== index))
+                              }
+                            >
+                              줄 삭제
+                            </button>
+                          </div>
+                        ))}
                     {errors.lines && <small role="alert">{errors.lines}</small>}
                     <button
                       type="button"

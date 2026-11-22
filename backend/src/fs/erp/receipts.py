@@ -22,6 +22,7 @@ from sqlalchemy import text
 from fs.common.errors import ApiError
 from fs.common.scope import read_scope
 from fs.core.service import _audit
+from fs.erp import posting
 from fs.erp.repository import camel
 from fs.erp.sales import _S, MODULE, _action, _exists, _locked, _rows, _s
 from fs.erp.service import _read, invalid, not_found
@@ -55,6 +56,12 @@ class Side:
     @property
     def adjust(self) -> str:
         return f"{self.open_item}_adjust"
+
+    @property
+    def posting(self):
+        from fs.erp import posting as _posting
+
+        return _posting.RECEIPT if self.money == "receipt" else _posting.PAYMENT
 
     @property
     def money_fk(self) -> str:
@@ -421,12 +428,13 @@ def add_applications(side: Side, context, money_id: int, lines: list[dict], key:
             )
         for n, line in enumerate(lines):
             apply_key = hashlib.sha256(f"{money_id}:{key}:{n}".encode()).hexdigest()
-            connection.execute(
+            apply_id = connection.execute(
                 text(
                     f"INSERT INTO erp.{side.apply} (workspace_id, generation_id, "
                     f"{side.money_fk}, {side.item_fk}, partner_id, amount, apply_key, "
                     "applied_at) VALUES "
-                    "(:w, :g, :money, :item, :p, :amount, :apply_key, clock_timestamp())"
+                    "(:w, :g, :money, :item, :p, :amount, :apply_key, clock_timestamp()) "
+                    "RETURNING id"
                 ),
                 {
                     **_s(scoped),
@@ -436,7 +444,9 @@ def add_applications(side: Side, context, money_id: int, lines: list[dict], key:
                     "amount": line["amount"],
                     "apply_key": apply_key,
                 },
-            )
+            ).scalar_one()
+            # 소명 1행이 분개 1세트다(DSN-11 F43). 전표를 못 만들어도 소명은 남는다.
+            posting.post(connection, scoped, side.posting, apply_id)
         return _money(side, connection, scoped, money_id), side.money, money_id
 
     body = {"id": money_id, "lines": lines}
