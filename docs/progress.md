@@ -1,3 +1,12 @@
+# 2026-11-22 HYUDO-02 완료 — 맥북 운영·eip.hyudo.kr 공개
+
+- 작업 ID: HYUDO-02. 브랜치 `hyudo`. 제품 코드·스키마 변경 없음. [절차서](deploy/맥북운영_HYUDO-02.md). FS-022 절차서에 폐기 표시.
+- 구성: 운영 worktree `~/projects/factory-studio-prod`(detached main `b4524ed`), 새 비밀값 `.env`(Git 제외), Colima 컨테이너 `factory-studio-prod-db-1`(127.0.0.1:55442, unless-stopped, 개발 DB와 분리), alembic head + 시드 템플릿, 프런트 빌드(비누 POC 공개 폴더 부재 확인). LaunchAgent: `kr.hyudo.fs-api`·`fs-cleanup`(900초)·`cloudflared`·`colima`, Nginx(Homebrew) 127.0.0.1:8080.
+- Cloudflare: 터널 `factory-studio-mac`, CNAME eip·www·apex. 첫 로그인은 승인 대기 초과로 인증서 미수령 → 재시도 성공.
+- 검증(실행함): 로컬 200/401/302/444, 정리 작업 exit 0. 공개 eip 200·API 401·www/apex 302 → `/about`·http 301. 내장 브라우저 게스트 생성 → `/home`, 세션·FEMS·ERP·MES 200, API 5xx 0.
+- 미실행: 실제 재부팅 복구, 관리자 계정(사용자가 비밀번호 직접 입력), 전체 CI(코드 변경 없어 생략), 휴대폰 실기기, Cloudflare "Always Use HTTPS"(Nginx 301로 대체).
+- 다음: 사용자 관리자 계정 생성, HYUDO-03 명함 페이지, HYUDO-04 도메인 문서·`tools/deploy.sh` 대체.
+
 # 2026-11-22 HYUDO-01 완료 — 명함 소개 페이지·맥북 운영 설계
 
 - 작업 ID: HYUDO-01. **설계만**(제품 코드·DB 변경 없음). [설계서](ui/명함소개_맥북운영_설계_HYUDO-01.md).

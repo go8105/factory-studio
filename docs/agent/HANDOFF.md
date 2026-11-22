@@ -1,3 +1,15 @@
+# 2026-11-22 HYUDO-02 — 맥북 운영·eip.hyudo.kr 공개
+
+- 브랜치 **hyudo**(로컬, main 미병합). 커밋: HYUDO-01 설계 `765a618`, HYUDO-02 문서 `git log -1`. 제품 코드 변경 없음.
+- 끝난 것: Vultr·`hugh-d.com` 폐기 후 **맥북 운영 재개** — https://eip.hyudo.kr (main `b4524ed`, 시드 새 DB). `www`·`hyudo.kr`은 임시로 `/about` 302. 절차서 `docs/deploy/맥북운영_HYUDO-02.md`.
+- 다음 할 일: ①사용자가 관리자 계정 생성(절차서 4장) ②HYUDO-03 명함 페이지(사용자 피그마 시안 + 비누 그라인더 홍보 사진 대기, 설계 `docs/ui/명함소개_맥북운영_설계_HYUDO-01.md`) ③HYUDO-04 도메인 문서·`public-check.mjs` 기본 URL·`tools/deploy.sh`(ssh 대상 없음) 대체.
+- 주의점:
+  - **운영 DB는 `factory-studio-prod-db-1`(55442)**, 개발 DB(55432)와 다르다. 운영 docker-compose 명령은 `-p factory-studio-prod`. 이 맥북은 Docker Desktop이 아니라 **Colima**(`docker-compose` 바이너리).
+  - 운영 worktree `~/projects/factory-studio-prod`는 detached HEAD다. 브랜치를 체크아웃하지 않는다.
+  - 예전 운영 DB·계정·GW 글·관리자 비누 파일은 복구 불가(Vultr 콘솔 확인).
+  - 재부팅 후 로그인해야 서비스가 뜬다. 실제 재부팅 복구는 미확인.
+- 재현: `launchctl list | grep hyudo`, `curl -s -o /dev/null -w '%{http_code}' https://eip.hyudo.kr/api/v1/core/sessions/current`(401).
+
 # 2026-11-21 ERP-1d — 영업·구매(반품·요청·발주·현황)
 
 - 브랜치 **erp-1d**(로컬). 기준 main `22a65e9`. **DB 마이그레이션 없음.**
