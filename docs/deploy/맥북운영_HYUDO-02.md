@@ -44,22 +44,15 @@ grep -c '" 5[0-9][0-9]' ~/Library/Logs/factory-studio/kr.hyudo.fs-api.log
 
 ## 3. 업데이트 배포 (main 새 커밋 반영)
 
-```bash
-cd ~/projects/factory-studio-prod
-git checkout --detach main   # 개발 폴더와 같은 저장소라 로컬 main을 그대로 쓴다
-uv sync --project backend --frozen --no-dev
-uv run --frozen --project backend --env-file .env alembic -c backend/alembic.ini upgrade head
-# 시드 버전이 바뀐 경우만: (cd backend && uv run --frozen --env-file ../.env python -m seed.cli template --date $(TZ=Asia/Seoul date +%F))
-(cd frontend && PATH=/opt/homebrew/opt/node@24/bin:$PATH npm ci && npm run build)
-(cd card && PATH=/opt/homebrew/opt/node@24/bin:$PATH npm ci && npm run build)   # 명함 페이지
-launchctl kickstart -k gui/$(id -u)/kr.hyudo.fs-api
-```
-
-배포 전 백업(맥북 안):
+개발 폴더(`~/projects/factory-studio`)의 main에서 한 줄. **ssh가 없으니 Claude Code도 실행할 수 있다.**
 
 ```bash
-mkdir -p ~/fs-backups && docker exec factory-studio-prod-db-1 pg_dump -U factory_studio -Fc factory_studio < /dev/null > ~/fs-backups/$(date +%Y%m%d-%H%M).dump
+tools/deploy.sh --dry-run     # 점검만
+tools/deploy.sh               # CI 통과 확인 포함. CI가 막혀 있으면 직접 검증한 뒤 --skip-ci-check
 ```
+
+하는 일: main·변경 없음·origin과 같음·CI → 운영 폴더 깨끗함·DB 접속 → **DB 백업(`~/fs-backups/`)** → 운영 폴더를 그 커밋으로 → EIP·명함 빌드(비누 비공개 자산이 웹 루트 밖에 있는지 확인) → `uv sync`·alembic → 시드 버전이 바뀌었으면 템플릿 재생성 → API 재시작(401 대기) → eip·www 200, DDL 대조 0, 재시작 뒤 5xx 건수.
+환경 변수 `FS_DEPLOY_*`로 경로·이름을 바꾼다(스크립트 머리). 동작은 `tools/test_deploy.py`가 가짜 docker·uv·launchctl로 검사한다.
 
 ## 4. 운영자 계정
 

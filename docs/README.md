@@ -205,8 +205,8 @@ npm run db:validate                        # 검증기 경로 확인
 ## CAD·CAM·공장 UI와 디자인 스킬
 
 - [UI 전체 검토안 UI-DESIGN-01](ui/UI개선_전체검토안_UI-DESIGN-01.md)·[구조 시제품](ui/previews/UI-DESIGN-01.html): 랜딩·CAD·CAM·3D 공장 제안. 사용자 추천안 확인 후 [UI-DESIGN-02 적용](agent/UI개선_적용결과_UI-DESIGN-02.md).
-- [ABOUT 코덱스 인계](agent/ABOUT_코덱스_인계.md): `/about`·`/notes` 구현 프롬프트(Figma 노드 포함).
-- [자기소개·기술 노트 설계 ABOUT-01](ui/자기소개_기술노트_설계_ABOUT-01.md): `/about`·`/notes` 공개 페이지, 공개 콘텐츠 정리본, Notion 글 선별 기준.
+- [명함 소개·맥북 운영 설계 HYUDO-01](ui/명함소개_맥북운영_설계_HYUDO-01.md): **www.hyudo.kr 명함 페이지(`card/`)**, eip.hyudo.kr 이전. 운영 절차는 [맥북 운영 HYUDO-02](deploy/맥북운영_HYUDO-02.md), 배포는 `tools/deploy.sh`.
+- (폐지) [ABOUT 코덱스 인계](agent/ABOUT_코덱스_인계.md)·[ABOUT-01](ui/자기소개_기술노트_설계_ABOUT-01.md): EIP `/about`은 HYUDO-03에서 없앴다. 기록으로만 둔다.
 - [프로젝트 디자인 스킬](../.agents/skills/README.md): Taste는 랜딩, Impeccable은 작업 화면과 도움말.
 - 공개 사용자 안내는 `content/help/portal/{cad-cam,part-design,nc-review,hugh-d,factory}.md`에 있다. 관리자 비공개 POC 설계를 공개 도움말에 싣지 않는다.
 

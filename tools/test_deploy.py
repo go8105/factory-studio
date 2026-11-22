@@ -1,7 +1,8 @@
-"""W0-3 배포 스크립트 계약: 가짜 ssh·rsync·npm·curl·gh로 tools/deploy.sh를 실제로 실행한다.
+"""맥북 배포 스크립트 계약(HYUDO-04): 가짜 docker·uv·npm·curl·gh·launchctl로 tools/deploy.sh를 실제로 실행한다.
 
-서버에 접속하지 않는다. 확인하는 것: 순서(코드 → 마이그레이션 → 시드 → 재시작 → **프런트 업로드** → 확인),
-서버 커밋이 다르면 중단, CI가 통과하지 않으면 서버를 건드리지 않음, 시드 버전이 같으면 템플릿 유지.
+운영 DB·API·Nginx는 건드리지 않는다. 확인하는 것: 순서(백업 → 전환 → 빌드 → 마이그레이션 → 시드 → 재시작 → 확인),
+CI가 통과하지 않거나 운영 폴더가 더러우면 아무것도 바꾸지 않음, 비공개 자산 누락 시 마이그레이션 전에 멈춤,
+시드 버전이 같으면 템플릿 유지.
 """
 
 import os
@@ -13,38 +14,39 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEPLOY = ROOT / "tools/deploy.sh"
-
-SSH_STUB = """#!/usr/bin/env bash
-echo "ssh $*" >> "$FS_LOG"
-case "$*" in
-  *"git merge --ff-only"*) touch "$FS_STATE/merged" ;;
-  *"git rev-parse HEAD"*)
-    if [ -f "$FS_STATE/merged" ] && [ ! -f "$FS_STATE/stuck" ]; then cat "$FS_STATE/new_sha"; else cat "$FS_STATE/old_sha"; fi ;;
-  *"git status --porcelain"*) : ;;
-  *SEED_VERSION*) cat "$FS_STATE/code_seed" ;;
-  *psql*) cat "$FS_STATE/db_seed" ;;
-  *"test -s"*) [ ! -f "$FS_STATE/private_missing" ] ;;
-  *"is-active"*) exit 0 ;;
-  *curl*) echo 200 ;;
-  *verify_ddl_matches_schema*) echo '{"errors": []}' ;;
-  *"grep -c"*) echo 0 ;;
-  *) : ;;
-esac
-"""
+PRIVATE = "soap-poc.html research-notebook.html soap-poc/assembly-v3.json soap-poc/research-history.json soap-poc/soap-poc-03.zip soap-poc/drawer-v3.stl"
 
 STUBS = {
-    "rsync": '#!/usr/bin/env bash\necho "rsync $*" >> "$FS_LOG"\n',
-    "curl": '#!/usr/bin/env bash\necho "curl $*" >> "$FS_LOG"\necho 200\n',
-    "gh": '#!/usr/bin/env bash\necho "gh $*" >> "$FS_LOG"\ncat "$FS_STATE/ci"\n',
-    "npm": """#!/usr/bin/env bash
+    "docker": """#!/usr/bin/env bash
+echo "docker $*" >> "$FS_LOG"
+case "$*" in
+  *pg_dump*) echo dump ;;
+  *seed_version*) cat "$FS_STATE/db_seed" ;;
+  *psql*) echo 1 ;;
+esac
+""",
+    "uv": """#!/usr/bin/env bash
+echo "uv $*" >> "$FS_LOG"
+case "$*" in
+  *SEED_VERSION*) cat "$FS_STATE/code_seed" ;;
+  *verify_ddl_matches_schema*) echo '{"errors": []}' ;;
+esac
+""",
+    "npm": f"""#!/usr/bin/env bash
 echo "npm $*" >> "$FS_LOG"
 case "$*" in *"run build"*)
- mkdir -p frontend/dist backend/private-assets/soap-poc/soap-poc
- echo ok > frontend/dist/index.html
- for asset in soap-poc.html research-notebook.html soap-poc/assembly-v3.json soap-poc/research-history.json soap-poc/soap-poc-03.zip soap-poc/drawer-v3.stl; do
-   if [ ! -f "$FS_STATE/build_private_missing" ]; then echo private > "backend/private-assets/soap-poc/$asset"; fi
- done ;; esac
+  mkdir -p "$2/dist" && echo ok > "$2/dist/index.html"
+  if [ "$2" = frontend ] && [ ! -f "$FS_STATE/private_missing" ]; then
+    for asset in {PRIVATE}; do mkdir -p "backend/private-assets/soap-poc/$(dirname "$asset")"; echo p > "backend/private-assets/soap-poc/$asset"; done
+  fi ;;
+esac
 """,
+    "curl": """#!/usr/bin/env bash
+echo "curl $*" >> "$FS_LOG"
+case "$*" in *127.0.0.1*) echo -n 401 ;; *) echo -n 200 ;; esac
+""",
+    "gh": '#!/usr/bin/env bash\necho "gh $*" >> "$FS_LOG"\ncat "$FS_STATE/ci"\n',
+    "launchctl": '#!/usr/bin/env bash\necho "launchctl $*" >> "$FS_LOG"\n',
 }
 
 
@@ -54,7 +56,7 @@ class DeployScriptTest(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.bin = self.tmp / "bin"
         self.bin.mkdir()
-        for name, body in {"ssh": SSH_STUB, **STUBS}.items():
+        for name, body in STUBS.items():
             path = self.bin / name
             path.write_text(body, encoding="utf-8")
             path.chmod(0o755)
@@ -62,24 +64,30 @@ class DeployScriptTest(unittest.TestCase):
         self.state.mkdir()
         self.log = self.tmp / "log"
         self.log.write_text("", encoding="utf-8")
-        # 가짜 저장소: main 브랜치 + bare origin. 실제 저장소 상태와 무관하게 돌린다.
+        self.api_log = self.tmp / "api.log"
+        self.api_log.write_text('old "GET / HTTP/1.1" 500\n', encoding="utf-8")  # 재시작 전 5xx는 세지 않는다
+        # 가짜 저장소: main + bare origin + 운영 worktree. 실제 저장소·운영과 무관하게 돌린다.
         self.origin = self.tmp / "origin.git"
         self.repo = self.tmp / "repo"
+        self.prod = self.tmp / "prod"
         subprocess.run(["git", "init", "--bare", "-b", "main", str(self.origin)], check=True, capture_output=True)
         subprocess.run(["git", "init", "-b", "main", str(self.repo)], check=True, capture_output=True)
         (self.repo / "tools").mkdir()
         shutil.copy(DEPLOY, self.repo / "tools/deploy.sh")
-        (self.repo / "frontend").mkdir()
-        (self.repo / "frontend/package.json").write_text("{}\n", encoding="utf-8")
+        (self.repo / ".gitignore").write_text(".env\n*/dist/\nbackend/private-assets/\n", encoding="utf-8")
         self._git("config", "user.email", "test@example.com")
         self._git("config", "user.name", "test")
         self._git("add", "-A")
-        self._git("commit", "-qm", "test")
+        self._git("commit", "-qm", "old")
+        self._git("worktree", "add", "-q", "--detach", str(self.prod))
+        (self.prod / ".env").write_text("X=1\n", encoding="utf-8")
+        (self.repo / "frontend").mkdir()
+        (self.repo / "frontend/package.json").write_text("{}\n", encoding="utf-8")
+        self._git("add", "-A")
+        self._git("commit", "-qm", "new")
         self._git("remote", "add", "origin", str(self.origin))
         self._git("push", "-q", "-u", "origin", "main")
         self.sha = self._git("rev-parse", "HEAD", capture=True)
-        (self.state / "new_sha").write_text(self.sha + "\n", encoding="utf-8")
-        (self.state / "old_sha").write_text("0" * 40 + "\n", encoding="utf-8")
         (self.state / "code_seed").write_text("sv-test-1\n", encoding="utf-8")
         (self.state / "db_seed").write_text("sv-test-1\n", encoding="utf-8")
         (self.state / "ci").write_text("completed success\n", encoding="utf-8")
@@ -95,47 +103,44 @@ class DeployScriptTest(unittest.TestCase):
             "FS_DEPLOY_NODE_BIN": str(self.bin),
             "FS_LOG": str(self.log),
             "FS_STATE": str(self.state),
-            "FS_DEPLOY_HOST": "deploy@test.invalid",
-            "FS_DEPLOY_SITE": "test.invalid",
+            "FS_DEPLOY_PROD_DIR": str(self.prod),
+            "FS_DEPLOY_BACKUP_DIR": str(self.tmp / "backups"),
+            "FS_DEPLOY_API_LOG": str(self.api_log),
+            "FS_DEPLOY_SITE": "eip.test.invalid",
+            "FS_DEPLOY_CARD_SITE": "www.test.invalid",
         }
         return subprocess.run(
             ["bash", str(self.repo / "tools/deploy.sh"), *args],
-            capture_output=True, text=True, env=env, cwd=str(self.repo),
+            capture_output=True, text=True, env=env, cwd=str(self.repo), check=False,
         )
 
     def _commands(self):
         return self.log.read_text(encoding="utf-8")
 
+    def _prod_head(self):
+        return subprocess.run(["git", "-C", str(self.prod), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+
     def test_deploy_runs_every_step_in_order(self):
         result = self._run()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         log = self._commands()
-        order = ["git merge --ff-only", "uv sync", "alembic", "SEED_VERSION", "mkdir -p", "rsync -az --delete", "systemctl restart", "frontend/dist/", "verify_ddl_matches_schema"]
+        order = ["pg_dump", "npm --prefix frontend run build", "npm --prefix card run build", "uv sync", "alembic", "SEED_VERSION", "launchctl kickstart -k", "https://eip.test.invalid/", "https://www.test.invalid/", "verify_ddl_matches_schema"]
         positions = [log.find(step) for step in order]
         self.assertNotIn(-1, positions, log)
         self.assertEqual(positions, sorted(positions), log)
-        self.assertIn("backend/private-assets/soap-poc/", log)
-        self.assertIn("sudo -u factory test -s", log)
-        self.assertNotIn("frontend/dist/soap", log)
-        self.assertIn("frontend/dist", log)  # 프런트 업로드 누락(2026-10-04) 재발 방지
+        self.assertEqual(self._prod_head(), self.sha)
         self.assertNotIn("seed.cli template", log)  # 시드 버전이 같으면 템플릿 유지
+        self.assertEqual(len(list((self.tmp / "backups").iterdir())), 1)
+        self.assertIn("5xx 0건", result.stdout)
         self.assertIn("배포 완료", result.stdout)
 
-    def test_missing_local_private_build_stops_before_server_changes(self):
-        (self.state / "build_private_missing").touch()
-        result = self._run()
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("관리자 비누 자산이 없습니다", result.stderr)
-        self.assertNotIn("git merge", self._commands())
-        self.assertNotIn("rsync ", self._commands())
-
-    def test_unreadable_uploaded_private_files_stop_before_restart(self):
+    def test_missing_private_assets_stop_before_migration(self):
         (self.state / "private_missing").touch()
         result = self._run()
         self.assertEqual(result.returncode, 1)
-        self.assertIn("서버 관리자 비누 자산", result.stderr)
-        self.assertIn("rsync ", self._commands())
-        self.assertNotIn("systemctl restart", self._commands())
+        self.assertIn("관리자 비누 자산이 없습니다", result.stderr)
+        self.assertNotIn("alembic", self._commands())
+        self.assertNotIn("launchctl", self._commands())
 
     def test_new_seed_version_rebuilds_template(self):
         (self.state / "db_seed").write_text("sv-old-9\n", encoding="utf-8")
@@ -143,27 +148,29 @@ class DeployScriptTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("seed.cli template", self._commands())
 
-    def test_stops_when_server_commit_differs(self):
-        (self.state / "stuck").write_text("", encoding="utf-8")
+    def test_dirty_prod_folder_changes_nothing(self):
+        (self.prod / ".gitignore").write_text("changed\n", encoding="utf-8")
         result = self._run()
         self.assertEqual(result.returncode, 1)
-        self.assertIn("서버 커밋이 다릅니다", result.stderr)
-        self.assertNotIn("rsync ", self._commands())  # 프런트를 올리지 않는다
+        self.assertIn("운영 폴더에 고친 파일", result.stderr)
+        self.assertNotIn("pg_dump", self._commands())
+        self.assertNotEqual(self._prod_head(), self.sha)
 
-    def test_stops_before_touching_server_when_ci_is_not_green(self):
+    def test_stops_before_touching_prod_when_ci_is_not_green(self):
         (self.state / "ci").write_text("completed failure\n", encoding="utf-8")
         result = self._run()
         self.assertEqual(result.returncode, 1)
         self.assertIn("CI가 통과하지 않았습니다", result.stderr)
-        self.assertNotIn("ssh ", self._commands())
+        self.assertNotIn("docker", self._commands())
+        self.assertNotEqual(self._prod_head(), self.sha)
 
-    def test_dry_run_builds_but_changes_nothing(self):
+    def test_dry_run_changes_nothing(self):
         result = self._run("--dry-run")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         log = self._commands()
-        self.assertIn("npm", log)
-        for changing in ("git merge", "alembic", "systemctl restart", "rsync "):
+        for changing in ("pg_dump", "npm", "alembic", "launchctl"):
             self.assertNotIn(changing, log)
+        self.assertNotEqual(self._prod_head(), self.sha)
 
 
 if __name__ == "__main__":
