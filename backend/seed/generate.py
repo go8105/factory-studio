@@ -5,6 +5,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_CEILING
+from types import SimpleNamespace
 from typing import Any
 
 from sqlalchemy import MetaData, Table, inspect, insert, text, update
@@ -1746,6 +1747,7 @@ def _erp(writer: SeedWriter, context: dict[str, Any]) -> None:
         invoices,
         payables,
     )
+    _expenses_and_journals(writer, departments, employees, projects)
 
 
 def _purchases(
@@ -2155,6 +2157,121 @@ def _returns(
             }
         ],
     )
+
+
+def _expenses_and_journals(
+    writer: SeedWriter,
+    departments: dict[str, int],
+    employees: dict[str, int],
+    projects: dict[str, int],
+) -> None:
+    """DSN-11 F46·Q3 지출결의와 자동 전표.
+
+    전표는 손으로 넣지 않고 **제품과 같은 엔진**(`fs.erp.posting`)으로 만든다. 시드가 따로
+    적으면 규칙이 바뀔 때 시드만 옛 모양으로 남는다.
+    """
+    from fs.erp import posting
+
+    seed_date = writer.seed_date
+    day = f"{calendar_date(seed_date, -8):%Y%m%d}"
+    claim_no = f"EC-{day}-001"
+    claims = writer.add(
+        "erp.expense_claim",
+        [
+            {
+                "claim_no": claim_no,
+                "claimed_on": calendar_date(seed_date, -8),
+                "employee_id": employees["E-3001"],
+                "department_id": departments["D-ADMIN"],
+                "pay_method": "BANK",
+                "currency": "KRW",
+                "total_amount": 180000,
+                "status": "confirmed",
+                "confirmed_at": at(seed_date, -8, 16),
+            },
+            {
+                "claim_no": f"EC-{day}-002",
+                "claimed_on": calendar_date(seed_date, -1),
+                "employee_id": employees["E-2001"],
+                "department_id": departments["D-SALES"],
+                "pay_method": "CARD",
+                "currency": "KRW",
+                # 합계 > 0이 DB 제약이라 작성 중 결의서도 명세가 한 줄 있다.
+                "total_amount": 45000,
+                "status": "draft",
+                "confirmed_at": None,
+            },
+        ],
+        "claim_no",
+    )
+    accounts = {
+        code: _id(writer, "erp.account", "account_code", code)
+        for code in ("WELFARE_EXPENSE", "TRAVEL_EXPENSE")
+    }
+    writer.add(
+        "erp.expense_claim_line",
+        [
+            {
+                "expense_claim_id": claims[claim_no],
+                "line_no": 1,
+                "account_id": accounts["WELFARE_EXPENSE"],
+                "amount": 120000,
+                "project_id": None,
+                "memo": "팀 간식(합성)",
+            },
+            {
+                "expense_claim_id": claims[claim_no],
+                "line_no": 2,
+                "account_id": accounts["TRAVEL_EXPENSE"],
+                "amount": 60000,
+                "project_id": projects["PJ-2026A"],
+                "memo": "고객사 방문 교통비(합성)",
+            },
+            {
+                "expense_claim_id": claims[f"EC-{day}-002"],
+                "line_no": 1,
+                "account_id": accounts["TRAVEL_EXPENSE"],
+                "amount": 45000,
+                "project_id": None,
+                "memo": "출장 택시비(합성)",
+            },
+        ],
+    )
+    scoped = SimpleNamespace(
+        workspace_id=writer.workspace_id, generation_id=writer.generation_id
+    )
+    for source in posting.SOURCES:
+        rows = writer.connection.execute(
+            text(f"SELECT src.id FROM ({source.sql}) src ORDER BY src.id"),
+            {"w": writer.workspace_id, "g": writer.generation_id},
+        ).scalars()
+        for source_id in rows:
+            posting.post(writer.connection, scoped, source, source_id)
+    # 전표 시각은 제품에서 `clock_timestamp()`다. 시드는 결정적이어야 하므로 전표 일자로 고정한다.
+    for table, column in (
+        ("erp.journal_entry", "confirmed_at"),
+        ("erp.journal_line", None),
+    ):
+        if column:
+            writer.connection.execute(
+                text(
+                    f"UPDATE {table} SET {column} = (entry_date + time '10:00') "
+                    "AT TIME ZONE 'Asia/Seoul' "
+                    "WHERE workspace_id=:w AND generation_id=:g "
+                    f"AND {column} IS NOT NULL"
+                ),
+                {"w": writer.workspace_id, "g": writer.generation_id},
+            )
+        writer.counts[table] += _business_row_count(writer, table)
+
+
+def _business_row_count(writer: SeedWriter, table: str) -> int:
+    return writer.connection.execute(
+        text(
+            f"SELECT count(*) FROM {table} WHERE workspace_id=:w AND generation_id=:g"
+        ),
+        {"w": writer.workspace_id, "g": writer.generation_id},
+    ).scalar_one()
 
 
 def _fems(writer: SeedWriter, context: dict[str, Any]) -> None:

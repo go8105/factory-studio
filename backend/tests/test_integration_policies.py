@@ -89,8 +89,9 @@ CASES = [
         None,
     ),
     (
+        # E-14 분개 미리보기는 폐지했다. 이제 그 자리는 실제 전표 조회다(ERP-1e).
         "GET",
-        "/api/v1/erp/journal-preview?kind=SALES&sourceId={id}",
+        "/api/v1/erp/journal-entries/for-source?sourceKind=sales_record&sourceId={id}",
         "erp.sales_record",
         None,
     ),

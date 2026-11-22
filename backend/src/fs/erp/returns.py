@@ -18,6 +18,7 @@ from typing import Any
 from sqlalchemy import text
 
 from fs.common.scope import read_scope
+from fs.erp import posting
 from fs.erp.procurement import _next_no
 from fs.erp.revenue import line_amounts
 from fs.erp.sales import _S, MODULE, _action, _exists, _locked, _rows, _s
@@ -40,6 +41,16 @@ class ReturnKind:
     @property
     def adjust(self) -> str:
         return f"{self.open_item}_adjust"
+
+    @property
+    def source_posting(self):
+        from fs.erp import posting as _posting
+
+        return (
+            _posting.SALES_RETURN
+            if self.table == "sales_return"
+            else _posting.PURCHASE_RETURN
+        )
 
     @property
     def apply(self) -> str:
@@ -417,6 +428,7 @@ def confirm(context, kind: ReturnKind, return_id: int, key: str):
                 "apply_key": f"{kind.table}:{return_id}",
             },
         )
+        posting.post(connection, scoped, kind.source_posting, return_id)
         return _one(connection, scoped, kind, return_id), kind.table, return_id
 
     return _action(context, f"erp.{kind.table}.confirm", key, {"id": return_id}, run)

@@ -22,6 +22,7 @@ from typing import Any
 from sqlalchemy import text
 
 from fs.common.scope import read_scope
+from fs.erp import posting
 from fs.erp.procurement import PURCHASE_PRICE_SQL
 from fs.erp.revenue import line_amounts
 from fs.erp.sales import _S, MODULE, _action, _exists, _locked, _rows, _s
@@ -473,6 +474,12 @@ def confirm_invoice(context, invoice_id: int, key: str):
             ),
             {**_s(scoped), "id": invoice_id},
         )
+        source = (
+            posting.SUBCONTRACT
+            if invoice["invoiceKind"] == "SUBCONTRACT"
+            else posting.PURCHASE
+        )
+        posting.post(connection, scoped, source, invoice_id)
         return _invoice(connection, scoped, invoice_id), "purchase_invoice", invoice_id
 
     return _action(

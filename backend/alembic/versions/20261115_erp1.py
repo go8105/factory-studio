@@ -890,8 +890,25 @@ MODULE_CHECKS = []
 OLD_ACCOUNTS = (
     "'AR','PRODUCT_SALES','VAT_PAYABLE','BANK','RAW_MATERIAL','VAT_RECEIVABLE','AP'"
 )
+# 계정을 참조하는 erp1 표들. 어차피 아래 DROPS가 표째로 지우지만, 계정 행을 먼저
+# 비우려면 자식부터 끊어야 한다(참조 삭제는 RESTRICT — AGENTS §3).
+ACCOUNT_CHILDREN = (
+    "depreciation",
+    "card_transaction",
+    "corporate_card",
+    "bank_transaction",
+    "bank_account",
+    "budget_line",
+    "opening_balance",
+    "fixed_asset",
+    "expense_claim_line",
+    "expense_claim",
+    "journal_line",
+    "journal_entry",
+)
 REMOVED_ROWS = [
-    # 분개규칙이 계정을 참조하므로 규칙 → 계정 순서로 비운다.
+    # 자식 → 부모 순. 전표가 계정을 참조하므로 전표부터 비운다(ERP-1e 시드가 전표를 만든다).
+    *(f"DELETE FROM erp.{table}" for table in ACCOUNT_CHILDREN),
     (
         "DELETE FROM erp.posting_rule "
         "WHERE transaction_kind NOT IN ('SALE', 'RECEIPT', 'PURCHASE', 'PAYMENT')"

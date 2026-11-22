@@ -443,7 +443,9 @@ export function Receipts({ side = RECEIVABLE }: { side?: Side }) {
                 {journalId &&
                   selected.applications.some((a) => a.id === journalId) && (
                     <JournalPanel
-                      kind={receivable ? "RECEIPT" : "PAYMENT"}
+                      sourceKind={
+                        receivable ? "receipt_apply" : "payment_apply"
+                      }
                       id={journalId}
                       onClose={() => setJournalId(undefined)}
                     />
