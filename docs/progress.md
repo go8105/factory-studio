@@ -1,3 +1,9 @@
+# 2026-11-22 HYUDO-04 배포 — 새 deploy.sh 첫 실행
+
+- GitHub CI가 휴일 화면 요일 테스트 1건으로 실패(제 변경 전 `b4524ed`부터). 원인: `Holidays.tsx`가 `+09:00` 시각의 `getDay()`로 요일을 구해 KST가 아닌 시간대(UTC CI·해외 방문자)에서 하루 밀림 → `T00:00:00Z`+`getUTCDay()`로 수정. 수정 전 코드 TZ=UTC 실패 재현, 수정 후 UTC·LA·서울 111건 통과. main `fa1c5f6` CI **success**.
+- `tools/deploy.sh` 실제 실행(CI 확인 포함): 백업 `~/fs-backups/20261122-174531-fa1c5f6.dump`, 운영 b517d75 → **fa1c5f6**, EIP·명함 빌드, 마이그레이션·시드 유지(sv-20261018-wms1), API 재시작, eip 200·www 200·DDL 대조 0·재시작 뒤 5xx 0.
+- 개발 폴더가 다른 세션 작업(`erp-1e`)으로 바뀌어 있어 임시 worktree(`factory-studio-deploy`)에서 배포·기록 후 제거했다.
+
 # 2026-11-22 HYUDO-04 완료 — 도메인·배포 도구 정리
 
 - 작업 ID: HYUDO-04. main `4ccada3`(병합·push). 제품 코드 변경 없음.

@@ -1,7 +1,7 @@
 # 2026-11-22 HYUDO-04 — 도메인·배포 도구 정리
 
 - main `4ccada3` push. 배포는 이제 개발 폴더 main에서 `tools/deploy.sh`(맥북 로컬, ssh 없음). 절차서 `docs/deploy/맥북운영_HYUDO-02.md` 3장.
-- 다음 할 일: ①사용자 승인 후 `tools/deploy.sh`(CI 통과 후) 실제 1회 실행으로 새 스크립트 종단 확인 ②비누 실물 사진 교체.
+- 다음 할 일: ①(완료) `tools/deploy.sh` 실제 실행 — 운영 `fa1c5f6` ②비누 실물 사진 교체.
 - 주의점: 스크립트는 DB 백업을 매번 `~/fs-backups/`에 쌓는다(정리 정책 없음). CI가 막혀 있으면 직접 검증 후에만 `--skip-ci-check`.
 
 # 2026-11-22 HYUDO-03 — 명함 페이지 www.hyudo.kr
