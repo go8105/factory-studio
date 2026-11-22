@@ -1,3 +1,7 @@
+## LICENSE-01 코드 재사용 조건 (2026-11-22)
+
+MIT/2026 go8105·저작권/라이선스문구유지·코드외자산/제삼자권리구분. [상세](agent/코드라이선스_출처표시_LICENSE-01.md).
+
 ## 80차 — 격리 실제 API·브라우저의 관리자/직원 동선 (2026-11-07)
 
 최신79차 완료커밋 fcd69c5에서 이어 별도 소유 postgres:18/새UUID *_test DB에 통합head gw_main_ready02_merge를 적용했다. 합성회사1개·연결2명/예정10명과 운영기준을 준비하고, 실제 HTTP API·제품 Vite 화면에서 관리자 admin과 일반직원의 비밀번호/MFA 로그인을 확인했다. TEAM_TEST·loopback HTTP 환경이며 인증앱 factor와 준비단계 MFA assurance는 합성fixture로 넣었다. 실제기기등록·COMPANY/HTTPS 배포검증이나 실제10인인수가 아니다.

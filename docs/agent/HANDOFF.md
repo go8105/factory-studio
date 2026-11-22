@@ -9,6 +9,10 @@
   - 판정이 `render` 결과까지 본다(`"—"`를 빈 칸으로). 새 열을 만들 때 값 없음을 다른 글자로 적으면 접히지 않는다.
   - worktree에서 브라우저 확인하려면 **vite를 다른 포트로** 띄운다(`npm --prefix frontend run dev -- --port 5175 --strictPort`). 공유 체크아웃의 5173은 그쪽 코드를 서빙한다. API는 8000을 함께 쓴다.
 - **재현**: worktree에서 `npm --prefix frontend ci` 후 `npm --prefix frontend run typecheck|lint|format:check|build|test`, `TEST_DB=factory_studio_ci_ui03_test bash tools/ci_local.sh`.
+# 2026-11-22 LICENSE-01 — 공개 코드 MIT/저작권·원본 안내
+
+사용자 ‘출처·저작권 표시 조건으로 재사용 허용’ 선택에따라 별도codex/source-license/origin-main57dd87e기준 LICENSE(MIT·2026 go8105)/NOTICE.md/README안내추가. 상업재사용허용/저작권·라이선스문구보존·UI상시크레딧의무추가없음. 이미지/폰트/CAD·제품설계/제삼자권리 별도보존·전체소유권/라이선스호환성감사아님. 원본URL표시·추적코드/인증서추가없음. 제품/DB·실계정/키변경0. [범위와검증](코드라이선스_출처표시_LICENSE-01.md). 완료커밋/원격상태는git기록·완료보고확인. 다음GW111차는별도브랜치/제품미통합.
+
 # 2026-11-22 ERP-1e — 회계 전표(자동 분개·미반영 현황·지출결의)
 
 - 브랜치 **erp-1e**(로컬). 기준 main `b4524ed`. **DB 마이그레이션 없음.**
