@@ -21,7 +21,6 @@ import { SessionProvider, useSession } from "./session";
 import { api } from "../shared/api";
 import { FavoritesProvider } from "../shared/favorites";
 import { ErrorNotice, Loading, NotFound } from "../shared/components";
-import { About } from "../portal/About";
 import { Entry } from "../portal/Entry";
 import { Holidays } from "../portal/Holidays";
 import { Home } from "../portal/Home";
@@ -298,7 +297,6 @@ function SessionApp() {
 export function App() {
   return (
     <Routes>
-      <Route path="/about" element={<About />} />
       <Route path="*" element={<SessionApp />} />
     </Routes>
   );
