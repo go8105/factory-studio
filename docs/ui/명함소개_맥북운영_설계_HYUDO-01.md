@@ -8,6 +8,8 @@
 
 ---
 
+> **HYUDO-03 반영(2026-11-22):** 사용자가 Figma Make로 화면을 만들어 넘겼다(명함 앞뒤면과 같은 쪽빛·샴페인 골드 `#B39B6E`·携渡 디자인). 그 코드를 `card/`에 그대로 옮겼다(3-1의 profile.json 재사용·별도 진입점 안 대신). **EIP `/about`과 `content/about/profile.json`은 폐지**하고 `eip.hyudo.kr/about`은 www로 301. 비누 이미지는 v3 STL 9개를 Blender로 조립한 스튜디오 렌더(실물 사진 오면 `card/public/images/soap-grinder.jpg` 교체).
+
 ## 1. 확정 결정 (2026-11-22 사용자)
 
 | # | 결정 | 이전 결정과의 관계 |

@@ -1,3 +1,11 @@
+# 2026-11-22 HYUDO-03 — 명함 페이지 www.hyudo.kr
+
+- main 병합·push(아래 커밋). 운영 맥북은 이 커밋으로 반영됨.
+- 끝난 것: `card/` 명함 페이지 공개, EIP `/about` 폐지(→ www 301), 비누 v3 렌더.
+- 다음 할 일: ①내일 오는 비누 그라인더 실물 사진으로 `card/public/images/soap-grinder.jpg` 교체(4:3, 가로 1280 권장) 후 `card` 빌드 ②HYUDO-04: `docs/agent/assets/about03/public-check.mjs`(이제 /about 없음)·`tools/deploy.sh`(Vultr ssh) 정리.
+- 주의점: card는 Figma Make 원본 CSS를 그대로 쓴다(Prettier/ESLint 대상 아님). 명함 화면의 문구 일부("누르고 비틀어…", "시제품 개발 중")는 임시. 렌더 스크립트는 `work/hyudo/`(Git 제외)에 있다.
+- 재현: `cd card && npm ci && npm run build`, 운영 반영은 `docs/deploy/맥북운영_HYUDO-02.md` 3장.
+
 # 2026-11-22 HYUDO-02 — 맥북 운영·eip.hyudo.kr 공개
 
 - 브랜치 **hyudo**(로컬, main 미병합). 커밋: HYUDO-01 설계 `765a618`, HYUDO-02 문서 `git log -1`. 제품 코드 변경 없음.
