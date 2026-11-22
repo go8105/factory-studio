@@ -1430,6 +1430,33 @@ th[aria-sort="none"] button span {
   font-weight: 500;
   letter-spacing: 0;
 }
+.stat-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.stat-delta.good {
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+.stat-delta.bad {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+.stat-delta.none {
+  background: transparent;
+  font-weight: 500;
+}
+a.stat-tile {
+  color: inherit;
+}
 .stat-tile small {
   color: var(--muted);
   font-size: var(--fs-xs);

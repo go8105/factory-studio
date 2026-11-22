@@ -3,7 +3,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSession } from "../app/session";
 import { api, ApiError } from "../shared/api";
-import { ErrorNotice, Loading, PageTitle } from "../shared/components";
+import {
+  ErrorNotice,
+  Loading,
+  PageTitle,
+  StatTile,
+} from "../shared/components";
 import { MES, ModuleOff, moduleOff, useLists } from "./common";
 
 type DashboardData = {
@@ -21,33 +26,18 @@ type DashboardData = {
     finalGoodQty: string;
   }[];
   pending: { unconfirmedResults: number; unpackedLots: number };
+  previous: {
+    month: string;
+    samePeriod: boolean;
+    producedQty: string;
+    goodRate: string | null;
+    receivedPallets: number;
+  };
 };
 type Process = { id: number; processCode: string; name: string };
 type Item = { id: number; itemCode: string; name: string };
 
 const num = (v: string | number) => Number(v).toLocaleString();
-
-function Tile({
-  label,
-  value,
-  unit,
-  note,
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  note: string;
-}) {
-  return (
-    <section className="stat-tile" aria-label={label}>
-      <p>{label}</p>
-      <strong>
-        {value} {unit && <span>{unit}</span>}
-      </strong>
-      <small>{note}</small>
-    </section>
-  );
-}
 
 export function Dashboard() {
   const { fail } = useSession();
@@ -55,6 +45,8 @@ export function Dashboard() {
   const [month, setMonth] = useState("");
   const [data, setData] = useState<DashboardData>();
   const [error, setError] = useState<unknown>();
+  // 진행 중인 달은 전월도 같은 날까지만 센다. 기준 이름을 그에 맞춘다.
+  const base = data?.previous.samePeriod ? "전월 같은 기간" : "전월";
 
   useEffect(() => {
     const controller = new AbortController();
@@ -104,19 +96,26 @@ export function Dashboard() {
       ) : (
         <>
           <div className="kpi-grid">
-            <Tile
+            {/* 진행 중 지시는 월과 무관한 상태 집계라 전월과 비교하지 않는다. */}
+            <StatTile
               label="진행 중 지시"
               value={num(data.openOrders)}
               unit="건"
               note="발행·진행 상태(월과 무관)"
             />
-            <Tile
+            <StatTile
               label="당월 생산"
               value={num(data.producedQty)}
               unit="EA"
               note="마지막 공정 양품 · 공정별 양품은 합치지 않음"
+              delta={{
+                current: Number(data.producedQty),
+                base: Number(data.previous.producedQty),
+                baseLabel: base,
+                better: "up",
+              }}
             />
-            <Tile
+            <StatTile
               label="양품률"
               value={data.goodRate === null ? "-" : data.goodRate}
               unit={data.goodRate === null ? undefined : "%"}
@@ -125,12 +124,27 @@ export function Dashboard() {
                   ? "이달 확정 실적 없음"
                   : "확정 실적 Σ양품 ÷ Σ산출(전 공정)"
               }
+              delta={{
+                current: data.goodRate === null ? null : Number(data.goodRate),
+                base:
+                  data.previous.goodRate === null
+                    ? null
+                    : Number(data.previous.goodRate),
+                baseLabel: base,
+                better: "up",
+              }}
             />
-            <Tile
+            <StatTile
               label="입고 완료"
               value={num(data.receivedPallets)}
               unit="PALLET"
               note="이달 완제품 입고"
+              delta={{
+                current: data.receivedPallets,
+                base: data.previous.receivedPallets,
+                baseLabel: base,
+                better: "up",
+              }}
             />
           </div>
           <div className="dashboard-grid">

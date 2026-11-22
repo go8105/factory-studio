@@ -118,3 +118,34 @@ def test_pipeline_follows_route_order(mes):
     codes = {p["id"]: p["processCode"] for p in _rows(client, "/processes")}
     order = [codes[p["processId"]] for p in _dash(client)["pipeline"]]
     assert order == ["INJ", "ASM", "INS"]
+
+
+def test_previous_month_block_matches_that_month(mes):
+    """전월 블록은 그 달을 직접 조회한 값과 같아야 한다."""
+    client, _ = mes
+    this = _dash(client, month="2026-09")
+    previous = _dash(client, month="2026-08")
+    assert this["previous"]["month"] == "2026-08"
+    if this["previous"]["samePeriod"]:
+        # 진행 중인 달이면 전월도 같은 날까지만 세므로 전체 조회와 다를 수 있다.
+        pytest.skip("조회 월이 진행 중이라 같은 기간 비교다")
+    for key in ("producedQty", "goodRate", "receivedPallets"):
+        assert this["previous"][key] == previous[key], key
+
+
+def test_previous_month_crosses_the_year(mes):
+    """1월의 전월은 지난해 12월이다."""
+    client, _ = mes
+    assert _dash(client, month="2026-01")["previous"]["month"] == "2025-12"
+
+
+def test_running_month_compares_the_same_period(mes):
+    """진행 중인 달은 전월도 같은 날까지만 센다 — 전월 전체보다 크지 않아야 한다."""
+    client, _ = mes
+    running = _dash(client)
+    previous = running["previous"]
+    whole = _dash(client, month=previous["month"])
+    if not previous["samePeriod"]:
+        pytest.skip("업무 기준일이 시드 범위 밖이라 진행 중인 달이 아니다")
+    assert previous["receivedPallets"] <= whole["receivedPallets"]
+    assert Decimal(previous["producedQty"]) <= Decimal(whole["producedQty"])

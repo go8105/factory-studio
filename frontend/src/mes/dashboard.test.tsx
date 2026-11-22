@@ -39,6 +39,13 @@ const dashboard = {
     },
   ],
   pending: { unconfirmedResults: 2, unpackedLots: 2 },
+  previous: {
+    month: "2026-08",
+    samePeriod: false,
+    producedQty: "9600.000",
+    goodRate: "98.0",
+    receivedPallets: 2,
+  },
 };
 const LISTS: Record<string, unknown> = {
   "/api/v1/mes/processes": [
@@ -138,4 +145,28 @@ it("조회 월을 바꾸면 그 달로 다시 조회한다", async () => {
       ),
     ).toBe(true),
   );
+});
+
+it("KPI에 전월 대비 증감을 적고, 비교할 수 없는 값은 그렇게 적는다", async () => {
+  mockApi();
+  show();
+  // 11520 대 9600 = +20.0%, 좋아진 방향이다.
+  const produced = await screen.findByLabelText("당월 생산");
+  expect(within(produced).getByText(/20\.0%/)).toBeVisible();
+  expect(within(produced).getByText(/전월/)).toBeVisible();
+  // 입고 0건 대 전월 2건 = 나빠진 방향.
+  const received = screen.getByLabelText("입고 완료");
+  expect(within(received).getByText(/100\.0%/)).toBeVisible();
+  // 진행 중 지시는 월과 무관이라 비교를 붙이지 않는다.
+  const open = screen.getByLabelText("진행 중 지시");
+  expect(within(open).queryByText(/전월/)).toBeNull();
+});
+it("전월이 0이면 증감률 대신 비율 없음을 적는다", async () => {
+  mockApi({
+    ...dashboard,
+    previous: { ...dashboard.previous, producedQty: "0" },
+  });
+  show();
+  const produced = await screen.findByLabelText("당월 생산");
+  expect(within(produced).getByText(/비율 없음/)).toBeVisible();
 });
