@@ -1,3 +1,12 @@
+# 2026-11-22 HANJUM-01 — 한줌 제품 홍보 페이지
+
+- 작업 ID: HANJUM-01. 브랜치 `hanjum`(별도 worktree — 공용 폴더는 다른 세션의 `erp-1e`). 백엔드·DB 변경 없음.
+- `card/hanjum/index.html` + `card/src/hanjum/`(Figma Make 원본 App·CSS), `vite.config.ts` 다중 페이지 입력. 원본에서 바꾼 것: "HD" 글자 원형 → 명함 HD 모노그램 SVG, 손그림 제품 SVG → v3 스튜디오 렌더, `hello@hyudo.kr`(수신 불가) → 실제 메일, "만든 사람" → `/`, 휴대폰에서 분해도 그림·이름표 세로 배치, 한글 `word-break: keep-all`.
+- 공개 범위 결정: 사용자가 특허 출원 예정 → 분해도는 덮개·외피·그라인딩 모듈·가루통 4층의 단순 선화만. 마찰판 돌기·슬롯·핀·치수·파일명 비공개. 성능·위생·방수 주장 문구 없음. `noindex`.
+- Nginx(저장소 밖): `www` 서버에 `/hanjum` → `/hanjum/` 301, `absolute_redirect off`. 이전 설정 `nginx.conf.before-hanjum`.
+- 검증(실행함): card `tsc`+build, 로컬 정적 서버로 375×812·1440×900 확인(가로 넘침 없음, 이미지 로드), 분해도·마지막 CTA 줄바꿈 수정 후 재확인. 운영 Nginx `/hanjum` 301 확인.
+- 미실행: 운영 반영(CI 후 `tools/deploy.sh`), 휴대폰 실기기, FAQ 실제 답변(자리 표시 문장).
+
 # 2026-11-22 HYUDO-04 배포 — 새 deploy.sh 첫 실행
 
 - GitHub CI가 휴일 화면 요일 테스트 1건으로 실패(제 변경 전 `b4524ed`부터). 원인: `Holidays.tsx`가 `+09:00` 시각의 `getDay()`로 요일을 구해 KST가 아닌 시간대(UTC CI·해외 방문자)에서 하루 밀림 → `T00:00:00Z`+`getUTCDay()`로 수정. 수정 전 코드 TZ=UTC 실패 재현, 수정 후 UTC·LA·서울 111건 통과. main `fa1c5f6` CI **success**.
