@@ -1,3 +1,13 @@
+# 2026-11-22 HYUDO-03 완료 — 명함 페이지 www.hyudo.kr
+
+- 작업 ID: HYUDO-03. 브랜치 `hyudo-03`. 백엔드·DB 변경 없음.
+- `card/` 신설: 사용자가 Figma Make로 만든 모바일 화면(명함과 같은 쪽빛·골드·携渡)을 옮겼다. Figma 전용 Vite 플러그인은 걷어내고 React+Vite+Tailwind만 남겼다. 이메일·GitHub·vCard 이메일 채움(전화번호는 넣지 않음), `noindex`, HD 모노그램 SVG 파비콘(Figma 기본 아이콘 교체).
+- 비누 그라인더 이미지: Figma가 넣은 이미지는 실제 설계와 다른 원통형이라 버렸다. v3 STL 9개를 assembly-v3.json 위치대로 Blender Cycles 스튜디오 렌더(첫 시도는 mm 단위 때문에 조명 부족 → 세기 보정). 실물 사진이 오면 같은 경로로 교체.
+- EIP `/about` 폐지: `About.tsx`·`About.css`·`about.test.tsx`·`content/about/profile.json`·라우트 삭제. Nginx에서 `eip.hyudo.kr/about` → www 301.
+- 검증(실행함): frontend typecheck·lint·format:check, vitest **105파일 882건**(소개 테스트 7건 삭제분 반영), card `tsc`+build. 운영: www 200, apex·eip/about 301, eip 200, 이미지·파비콘 200, 내장 브라우저 375×812 전체 스크롤·가로 넘침 없음·콘솔 오류 0. 배포 전 운영 DB 백업.
+- 미실행: 전체 로컬 CI(백엔드 무변경이라 생략), 휴대폰 실기기, vCard 실제 저장 동작.
+- 다음: 실물 사진 교체, HYUDO-04.
+
 # 2026-11-22 HYUDO-02 완료 — 맥북 운영·eip.hyudo.kr 공개
 
 - 작업 ID: HYUDO-02. 브랜치 `hyudo`. 제품 코드·스키마 변경 없음. [절차서](deploy/맥북운영_HYUDO-02.md). FS-022 절차서에 폐기 표시.

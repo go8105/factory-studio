@@ -8,7 +8,8 @@
 방문자 ─https─ Cloudflare(hyudo.kr) ─Tunnel factory-studio-mac─ 맥북
   cloudflared (kr.hyudo.cloudflared) → Nginx 127.0.0.1:8080 (sh.brew.nginx)
      eip.hyudo.kr  → frontend/dist + /api/ → uvicorn 127.0.0.1:8021 (kr.hyudo.fs-api)
-     www.hyudo.kr, hyudo.kr → 302 https://eip.hyudo.kr/about   (HYUDO-03 전까지 임시)
+     www.hyudo.kr  → card/dist (명함 페이지, HYUDO-03)
+     hyudo.kr → 301 www,  eip.hyudo.kr/about → 301 www (EIP 소개 화면은 HYUDO-03에서 폐지)
      그 외 이름 → 444(연결 끊음), http → https 301(X-Forwarded-Proto 기준)
   Postgres: Colima(profile factory-studio) 컨테이너 factory-studio-prod-db-1, 127.0.0.1:55442, restart unless-stopped
   게스트 정리: kr.hyudo.fs-cleanup 900초마다
@@ -50,6 +51,7 @@ uv sync --project backend --frozen --no-dev
 uv run --frozen --project backend --env-file .env alembic -c backend/alembic.ini upgrade head
 # 시드 버전이 바뀐 경우만: (cd backend && uv run --frozen --env-file ../.env python -m seed.cli template --date $(TZ=Asia/Seoul date +%F))
 (cd frontend && PATH=/opt/homebrew/opt/node@24/bin:$PATH npm ci && npm run build)
+(cd card && PATH=/opt/homebrew/opt/node@24/bin:$PATH npm ci && npm run build)   # 명함 페이지
 launchctl kickstart -k gui/$(id -u)/kr.hyudo.fs-api
 ```
 
@@ -77,6 +79,9 @@ docker stop factory-studio-prod-db-1
 터널·DNS 삭제는 `cloudflared tunnel route`로 만든 CNAME 3개(eip·www·apex)를 Cloudflare 대시보드에서 지우고 `cloudflared tunnel delete factory-studio-mac`.
 
 ## 6. 2026-11-22 확인 결과
+
+- **HYUDO-03 반영(같은 날):** www → 명함 페이지 200, apex·`eip/about` 301 → www, 이미지·파비콘 200. 배포 전 DB 백업 `~/fs-backups/20261122-1556-before-hyudo03.dump`. Nginx 이전 설정 `nginx.conf.before-hyudo03`.
+
 
 - 로컬: 화면 200, API 401, www 302 → `/about`, 모르는 이름 444, 정리 작업 1회 종료 코드 0(`cleaned_guest_workspaces=0`).
 - 공개: `https://eip.hyudo.kr` 200, API 401, `www`·apex 302 → `https://eip.hyudo.kr/about`, `http://` 301 → https. 터널 연결 4개(icn05·06·07).
