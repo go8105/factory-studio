@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -54,6 +54,36 @@ def _month_range(month: str | None) -> tuple[str, datetime, datetime]:
     )
 
 
+def _produced_and_rate(results) -> tuple[Decimal, str | None]:
+    """마지막 공정 양품(생산량)과 전 공정 Σ양품÷Σ산출(양품률)."""
+    good = sum((r["good_qty"] for r in results), Decimal(0))
+    output = sum((r["output_qty"] for r in results), Decimal(0))
+    produced = sum(
+        (r["good_qty"] for r in results if r["sequence_no"] == r["last_sequence"]),
+        Decimal(0),
+    )
+    rate = None if output == 0 else str((good / output * 100).quantize(Decimal("0.1")))
+    return produced, rate
+
+
+def _previous_month(month: str) -> tuple[str, datetime, datetime, bool]:
+    """바로 앞 달. 조회 월이 1월이면 지난해 12월이다.
+
+    진행 중인 달을 전월 **전체**와 비교하면 늘 크게 모자라 보인다(22일까지 쌓인 값을
+    30일치와 견주는 꼴). 그래서 이달을 볼 때는 전월도 **같은 날까지만** 센다.
+    네 번째 값이 그 '같은 기간'인지 여부다.
+    """
+    year, mon = (int(part) for part in month.split("-"))
+    year, mon = (year - 1, 12) if mon == 1 else (year, mon - 1)
+    prev_month, start, end = _month_range(f"{year:04d}-{mon:02d}")
+    today = business_today()
+    if month != f"{today.year:04d}-{today.month:02d}":
+        return prev_month, start, end, False
+    # 이달에 흐른 일수만큼만 전월에서 센다. 전월이 더 짧으면 전월 끝까지다.
+    elapsed = timedelta(days=today.day - 1)
+    return prev_month, start, min(start + elapsed, end), True
+
+
 RESULT_SQL = """
 SELECT x.good_qty, x.output_qty, x.defect_qty, x.defect_reason, s.sequence_no,
        (SELECT max(s2.sequence_no) FROM mes.route_step s2
@@ -81,13 +111,25 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
             ),
             params,
         ).scalar_one()
-        received = connection.execute(
-            text(
-                f"SELECT count(*) FROM mes.finished_goods_receipt WHERE {_S} "
-                "AND received_at >= :start AND received_at < :end"
-            ),
-            params,
-        ).scalar_one()
+        received_sql = text(
+            f"SELECT count(*) FROM mes.finished_goods_receipt WHERE {_S} "
+            "AND received_at >= :start AND received_at < :end"
+        )
+        received = connection.execute(received_sql, params).scalar_one()
+        prev_month, prev_start, prev_end, same_period = _previous_month(month)
+        prev_params = {**params, "start": prev_start, "end": prev_end}
+        prev_produced, prev_rate = _produced_and_rate(
+            connection.execute(text(RESULT_SQL), prev_params).mappings().all()
+        )
+        previous = {
+            "month": prev_month,
+            "samePeriod": same_period,
+            "producedQty": str(prev_produced),
+            "goodRate": prev_rate,
+            "receivedPallets": connection.execute(
+                received_sql, prev_params
+            ).scalar_one(),
+        }
         lots = [
             _summary(lot, _steps(connection, scoped, lot))
             for lot in (
@@ -154,12 +196,7 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
             ).mappings()
         ]
 
-    good = sum((r["good_qty"] for r in results), Decimal(0))
-    output = sum((r["output_qty"] for r in results), Decimal(0))
-    produced = sum(
-        (r["good_qty"] for r in results if r["sequence_no"] == r["last_sequence"]),
-        Decimal(0),
-    )
+    produced, good_rate = _produced_and_rate(results)
     reasons: dict[str, Decimal] = {}
     for r in results:
         if r["defect_qty"] > 0:
@@ -178,10 +215,10 @@ def dashboard(context: AuthContext, month: str | None) -> dict[str, Any]:
         "month": month,
         "openOrders": open_orders,
         "producedQty": str(produced),
-        "goodRate": None
-        if output == 0
-        else str((good / output * 100).quantize(Decimal("0.1"))),
+        "goodRate": good_rate,
         "receivedPallets": received,
+        # 전월 같은 집계. 비교할 수 없는 값(진행 중 지시는 월과 무관)은 넣지 않는다.
+        "previous": previous,
         "pipeline": list(pipeline.values()),
         "defectReasons": [
             {"reason": k, "defectQty": str(v)}

@@ -1,3 +1,16 @@
+## 2026-11-22 UI-REDESIGN-04 — KPI 비교 기준(전월 대비) (다음: 나머지 솔루션 전월 집계 + StatTile 이관)
+
+- **브랜치**: `ui-kpi-delta` (origin/main `7f44c8c` 기준). **담당**: Claude Code. **DB·마이그레이션 변경 없음.**
+- **끝난 것**: 공통 `StatTile` 신설(지금까지 9개 솔루션에 복제돼 있었다) · `delta`가 기준 없음/기준 0을 거부하고 그 사실을 적는다 · MES M-01에 전월 비교 3개 연결 · 백엔드 `mes/dashboard.py`에 `previous` 블록(질의 2개 추가). 자세한 것은 `docs/progress.md` 맨 위.
+- **다음 할 일**: 솔루션마다 전월 집계를 붙이면서 복제 `Tile`을 `StatTile`로 옮긴다(ERP·FEMS·WMS·QMS·BEMS·SPC·CMMS·HR 8개). **지금은 타일 구현이 공통 1 + 복제 9 = 10개로 한 번 늘어 있다.** 그다음 레퍼런스 분석 제안 1번(LOT 계보 그래프, `mes/interface.py:557 lot_trace` 이미 있음)·2번(행 맥락 칩)·4번(브레드크럼).
+- **주의**:
+  - **진행 중인 달은 전월도 같은 날까지만 센다**(`previous.samePeriod: true`, 표시는 "전월 같은 기간"). 이걸 안 하면 22일치를 30일치와 비교해 `▼81%` 같은 거짓이 나온다. 다른 솔루션에 붙일 때 **반드시 같은 규칙을 쓴다.**
+  - `delta`의 기준이 0이면 증감률을 내지 않는다("0 · 비율 없음"). 기준이 `null`이면 "비교 불가".
+  - **월과 무관한 상태 집계(진행 중 지시 등)에는 비교를 붙이지 않는다.**
+  - `StatTile`은 `to`를 주면 타일 전체가 링크가 된다(CMMS Overview 방식).
+  - 백엔드 포맷은 `uv run --project backend ruff format`을 돌려야 한다 — CI 1단계에서 걸린다.
+- **재현**: worktree에서 `npm --prefix frontend ci`, `TEST_DATABASE_URL=<base>/factory_studio_ci_kpi_test uv run --project backend pytest backend/tests/test_mes_dashboard.py -q`, `TEST_DB=factory_studio_ci_kpi_test bash tools/ci_local.sh`. 브라우저는 worktree API를 8010에 띄우고 `FS_SMOKE_API_PORT=8010 npm --prefix frontend run dev -- --port 5175`.
+
 ## 2026-11-22 UI-REDESIGN-02 R2 2차 완료 — 빈 열 접기·조건 접기 (다음: R3 Figma 또는 나머지 조회 화면)
 
 - **브랜치**: `ui-redesign-03` (origin/main `57dd87e` 기준, **미병합·미푸시**). **담당**: Claude Code. **프런트만, 백엔드·DB 변경 0.**

@@ -263,6 +263,90 @@ export function FilterMore({
   );
 }
 
+/**
+ * KPI 타일. 솔루션마다 똑같은 것을 아홉 번 복제해 두고 있었다(UI-REDESIGN-03).
+ *
+ * `delta`는 "이 숫자가 좋은지 나쁜지"를 말해 준다. 기준값이 0이거나 없으면 비율을
+ * 내지 않고 그 사실을 적는다 — 0을 기준으로 삼으면 증감률이 거짓이 된다.
+ * `better`는 어느 방향이 좋은지다(소비·불량은 "down"). 주지 않으면 색을 입히지 않고
+ * 변화만 적는다.
+ */
+export function StatTile({
+  label,
+  value,
+  unit,
+  note,
+  badge,
+  to,
+  delta,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  note: ReactNode;
+  badge?: ReactNode;
+  /** 주면 타일 전체가 링크가 된다. */
+  to?: string;
+  delta?: {
+    current: number | null;
+    base: number | null;
+    baseLabel: string;
+    better?: "up" | "down";
+  };
+}) {
+  const body = (
+    <>
+      <p>{label}</p>
+      <strong>
+        {value} {unit && <span>{unit}</span>}
+      </strong>
+      {badge}
+      {delta && <StatDelta {...delta} />}
+      <small>{note}</small>
+    </>
+  );
+  return to ? (
+    <Link className="stat-tile" to={to} aria-label={label}>
+      {body}
+    </Link>
+  ) : (
+    <section className="stat-tile" aria-label={label}>
+      {body}
+    </section>
+  );
+}
+
+function StatDelta({
+  current,
+  base,
+  baseLabel,
+  better,
+}: {
+  current: number | null;
+  base: number | null;
+  baseLabel: string;
+  better?: "up" | "down";
+}) {
+  if (current == null || base == null)
+    return <small className="stat-delta none">{baseLabel} 비교 불가</small>;
+  if (base === 0)
+    return <small className="stat-delta none">{baseLabel} 0 · 비율 없음</small>;
+  const change = ((current - base) / Math.abs(base)) * 100;
+  const up = change > 0;
+  const flat = Math.abs(change) < 0.05;
+  const good = better && !flat && (better === "up") === up;
+  const bad = better && !flat && (better === "up") !== up;
+  return (
+    <small
+      className={`stat-delta${good ? " good" : ""}${bad ? " bad" : ""}`}
+      aria-label={`${baseLabel} 대비 ${flat ? "변화 없음" : `${up ? "증가" : "감소"} ${Math.abs(change).toFixed(1)}퍼센트`}`}
+    >
+      <span aria-hidden="true">{flat ? "=" : up ? "▲" : "▼"}</span>
+      {flat ? "변화 없음" : `${Math.abs(change).toFixed(1)}%`} · {baseLabel}
+    </small>
+  );
+}
+
 export function NotFound() {
   return (
     <section className="panel">
