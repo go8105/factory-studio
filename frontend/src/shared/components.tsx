@@ -239,6 +239,30 @@ export function ScreenIntro({
   );
 }
 
+/**
+ * 조회 조건 접기. 자주 쓰는 조건만 조건 줄에 남기고 나머지를 여기에 둔다.
+ * `active`는 접힌 조건 중 값이 걸린 개수 — 접혀 있어도 무엇이 걸렸는지 알려 준다.
+ */
+export function FilterMore({
+  active,
+  children,
+}: {
+  active: number;
+  children: ReactNode;
+}) {
+  return (
+    <details className="filter-more">
+      <summary
+        aria-label={`조건 더 보기${active ? ` · ${active}개 적용 중` : ""}`}
+      >
+        조건 더
+        {active > 0 && <span className="filter-more-count">{active}</span>}
+      </summary>
+      <div className="filter-more-body">{children}</div>
+    </details>
+  );
+}
+
 export function NotFound() {
   return (
     <section className="panel">
@@ -426,6 +450,22 @@ export function DataTable<T extends { id: number | string }>({
       )
       .map((c) => c.key),
   );
+  // 모든 행이 빈 열은 기본에서 숨긴다. 이 코드베이스는 값 없음을 "—"로 적으므로
+  // 렌더러가 돌려준 "—"도 빈 칸으로 본다(배지·버튼을 그리는 열은 문자열이 아니라 남는다).
+  // 숨길 게 전부면 접지 않고, CSV는 늘 전체 열을 내보낸다.
+  const [showBlank, setShowBlank] = useState(false);
+  const blankCell = (c: Column<T>, r: T) => {
+    const v = c.render ? c.render(r) : r[c.key];
+    return v == null || v === "" || v === "—";
+  };
+  const blankCols = rows.length
+    ? columns.filter((c) => rows.every((r) => blankCell(c, r)))
+    : [];
+  const folded = blankCols.length < columns.length ? blankCols : [];
+  const shown =
+    showBlank || !folded.length
+      ? columns
+      : columns.filter((c) => !folded.includes(c));
   function download() {
     const url = URL.createObjectURL(
       new Blob([csvText(ordered, columns)], { type: "text/csv;charset=utf-8" }),
@@ -446,6 +486,15 @@ export function DataTable<T extends { id: number | string }>({
             페이지 기준
           </p>
         </div>
+        {folded.length > 0 && (
+          <button
+            className="secondary"
+            aria-pressed={showBlank}
+            onClick={() => setShowBlank(!showBlank)}
+          >
+            {showBlank ? "빈 열 접기" : `빈 열 ${folded.length}개 보기`}
+          </button>
+        )}
         <button
           className="secondary"
           onClick={download}
@@ -460,7 +509,7 @@ export function DataTable<T extends { id: number | string }>({
             <caption>{caption}</caption>
             <thead>
               <tr>
-                {columns.map((c) => (
+                {shown.map((c) => (
                   <th
                     key={c.key}
                     scope="col"
@@ -490,7 +539,7 @@ export function DataTable<T extends { id: number | string }>({
             <tbody>
               {ordered.map((row) => (
                 <tr key={row.id}>
-                  {columns.map((c) => {
+                  {shown.map((c) => {
                     const text = String(row[c.key] ?? "—");
                     // 렌더러가 없는 긴 글자는 줄인다. 칸에 포커스(탭·터치)하거나 올리면 전체 값이 펼쳐진다.
                     const long = !c.render && !c.wrap && text.length > 28;
