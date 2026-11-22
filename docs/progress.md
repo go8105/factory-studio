@@ -5,7 +5,8 @@
 - Cloudflare: 터널 `factory-studio-mac`, CNAME eip·www·apex. 첫 로그인은 승인 대기 초과로 인증서 미수령 → 재시도 성공.
 - 검증(실행함): 로컬 200/401/302/444, 정리 작업 exit 0. 공개 eip 200·API 401·www/apex 302 → `/about`·http 301. 내장 브라우저 게스트 생성 → `/home`, 세션·FEMS·ERP·MES 200, API 5xx 0.
 - 미실행: 실제 재부팅 복구, 관리자 계정(사용자가 비밀번호 직접 입력), 전체 CI(코드 변경 없어 생략), 휴대폰 실기기, Cloudflare "Always Use HTTPS"(Nginx 301로 대체).
-- 다음: 사용자 관리자 계정 생성, HYUDO-03 명함 페이지, HYUDO-04 도메인 문서·`tools/deploy.sh` 대체.
+- 2026-11-22 사용자가 관리자 계정 생성 → 운영 DB `core.app_user` 활성 1건·ADMIN 역할 확인(로그인 자체는 미확인).
+- 다음: HYUDO-03 명함 페이지, HYUDO-04 도메인 문서·`tools/deploy.sh` 대체.
 
 # 2026-11-22 HYUDO-01 완료 — 명함 소개 페이지·맥북 운영 설계
 
