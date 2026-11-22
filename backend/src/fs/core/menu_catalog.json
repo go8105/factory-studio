@@ -299,12 +299,6 @@
           "group": "매입·채무"
         },
         {
-          "path": "journal-preview",
-          "id": "E-14",
-          "label": "분개 미리보기",
-          "group": "회계"
-        },
-        {
           "path": "partners",
           "id": "E-15",
           "label": "거래처",
@@ -375,6 +369,24 @@
           "id": "E-26",
           "label": "재고 현황",
           "group": "구매"
+        },
+        {
+          "path": "expense-claims",
+          "id": "E-29",
+          "label": "지출결의서",
+          "group": "회계"
+        },
+        {
+          "path": "journal-entries",
+          "id": "E-30",
+          "label": "전표 입력·조회",
+          "group": "회계"
+        },
+        {
+          "path": "unposted",
+          "id": "E-31",
+          "label": "회계 미반영 현황",
+          "group": "회계"
         }
       ]
     },

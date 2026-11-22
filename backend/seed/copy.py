@@ -258,6 +258,9 @@ def _copy_business_rows(
     }
     # GW JSON 사건·다형 알림 참조도 같은 ID 지도가 필요하다.
     parents |= {name for name in seeded if name.startswith("gw.")}
+    # ERP 전표·조정의 원천(`source_kind` + `source_id`)은 FK가 아니라 다형 참조다.
+    # 복사하면서 새 id로 바꿔 주지 않으면 복사본이 템플릿의 id를 가리킨 채 남는다.
+    parents |= {name for name in seeded if name in ERP_SOURCE_TABLES}
     for table_name in sorted(parents):
         schema, table = table_name.split(".")
         map_name = _map_name(table_name)
@@ -296,12 +299,80 @@ def _copy_business_rows(
         counts[table_name] = result.rowcount
     if "gw" in schemas:
         _remap_gw_references(connection, seeded, params)
+    if "erp" in schemas:
+        _remap_erp_sources(connection, seeded, params)
     # 같은 트랜잭션에서 여러 공간·세대를 복사해도 ID 지도를 재사용하지 않는다.
     for table_name in sorted(parents):
         connection.execute(text(f'DROP TABLE "{_map_name(table_name)}"'))
     if copy_modules:
         _mark_seeded(connection, target_workspace_id, target_generation_id, schemas)
     return counts
+
+
+# 다형 원천을 가진 ERP 표와, 그 `source_kind`가 가리킬 수 있는 표들.
+ERP_SOURCE_HOLDERS = {
+    "erp.journal_entry": "source_kind",
+    "erp.receivable_adjust": None,  # 반품 1종뿐이라 종류 칸이 없다
+    "erp.payable_adjust": None,
+}
+ERP_SOURCE_TABLES = {
+    "erp.sales_record",
+    "erp.purchase_invoice",
+    "erp.sales_return",
+    "erp.purchase_return",
+    "erp.receipt_apply",
+    "erp.payment_apply",
+    "erp.expense_claim",
+}
+# 종류 칸이 없는 표는 원천이 고정이다.
+ERP_FIXED_SOURCE = {
+    "erp.receivable_adjust": "sales_return",
+    "erp.payable_adjust": "purchase_return",
+}
+
+
+def _remap_erp_sources(connection, seeded, params):
+    """FK가 아닌 ERP 다형 참조(`source_id`)를 새 세대의 id로 옮긴다.
+
+    전표는 `source_kind`가 어느 표인지 말해 주고, 채권·채무 조정은 반품 하나뿐이라 고정이다.
+    지도에 없는 id는 **건드리지 않는다** — 조용히 0이나 NULL로 만들면 더 나쁘다.
+    """
+    maps = {
+        name: dict(
+            connection.execute(
+                text(f'SELECT old_id,new_id FROM "{_map_name(name)}"')
+            ).all()
+        )
+        for name in seeded
+        if name in ERP_SOURCE_TABLES
+    }
+    for table, kind_column in ERP_SOURCE_HOLDERS.items():
+        if table not in seeded:
+            continue
+        columns = "id,source_id" + (f",{kind_column}" if kind_column else "")
+        rows = (
+            connection.execute(
+                text(
+                    f"SELECT {columns} FROM {table} WHERE workspace_id=:target_workspace "
+                    "AND generation_id=:target_generation AND source_id IS NOT NULL"
+                ),
+                params,
+            )
+            .mappings()
+            .all()
+        )
+        for row in rows:
+            kind = row[kind_column] if kind_column else ERP_FIXED_SOURCE[table]
+            new_id = maps.get(f"erp.{kind}", {}).get(row["source_id"])
+            if new_id is None:
+                continue
+            connection.execute(
+                text(
+                    f"UPDATE {table} SET source_id=:new WHERE id=:id "
+                    "AND workspace_id=:target_workspace AND generation_id=:target_generation"
+                ),
+                dict(params, id=row["id"], new=new_id),
+            )
 
 
 def _remap_gw_references(connection, seeded, params):

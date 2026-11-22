@@ -1,3 +1,22 @@
+# 2026-11-22 ERP-1e — 회계 전표(자동 분개·미반영 현황·지출결의)
+
+- 브랜치 **erp-1e**(로컬). 기준 main `b4524ed`. **DB 마이그레이션 없음.**
+- 끝난 것: ERP-1e 전부. E-29·E-30·E-31 신설, E-14 폐지(ERP 26 → 28화면), 자동 분개 8원천, 시드 전표 16건, 도움말 3편.
+- 다음 할 일: **ERP-1f 장부·결산** — E-32 원장, E-33 일계표·월계표·시산표, E-34 재무제표, E-35 월 마감·기초 잔액. **장부는 저장하지 않고 확정 전표 + 기초 잔액에서 조회 계산한다**(F51~F56). 월 마감 화면이 생기면 1e가 만든 `fiscal_period` 검사가 실제로 동작한다.
+- 주의점:
+  - **원천 질의는 `posting.SOURCES`에 한 벌만 둔다.** 새 원천(급여·감가상각·원가·카드)을 더할 때도 질의 하나만 추가하면 생성·미반영·배지가 함께 따라온다.
+  - **업무 확정을 회계로 막지 않는다.** 전표를 못 만들어도 업무는 확정되고 E-31에 남는다.
+  - **`journal_entry`의 겹침 금지는 `(source_kind, source_id)`와 `(entry_kind, source_ref)` 둘 다 걸려 있다.** 번호가 전표 1건을 가리키지 않는 원천은 `Source(unique_ref=False)`로 둔다.
+  - 전표 날짜는 SQL에서 date, 화면 응답에서 ISO 문자열로 온다. `posting.as_date()`로 맞춘다.
+  - **FK가 아닌 다형 참조(`source_kind`+`source_id`)는 복사기가 자동으로 못 옮긴다.** 새로 만들면 `copy.py`의 `ERP_SOURCE_TABLES`·`ERP_SOURCE_HOLDERS`에 등록한다. 빠뜨리면 복사본이 템플릿 id를 가리킨 채 남는다.
+  - **시드는 전표를 손으로 적지 않는다.** `posting` 엔진을 불러 만들고 시각만 고정한다.
+  - **시드가 새 표를 채우면 `erp1` downgrade의 `REMOVED_ROWS`를 반드시 다시 본다**(1c·1e에서 두 번 걸렸다). 계정·거래처·품목을 지우기 전에 그것을 참조하는 erp1 표를 자식부터 비워야 한다.
+- 재현 명령:
+  - 단위: `TEST_DATABASE_URL=<test> uv run --project backend pytest backend/tests/test_erp_journals.py -q -p no:randomly`
+  - 프런트: `cd frontend && npx vitest run src/erp`
+  - 전체 CI: `TEST_DB=factory_studio_erp1e_test bash tools/ci_local.sh`
+- 미실행: e2e·운영 배포.
+
 # 2026-11-22 HYUDO-04 — 도메인·배포 도구 정리
 
 - main `4ccada3` push. 배포는 이제 개발 폴더 main에서 `tools/deploy.sh`(맥북 로컬, ssh 없음). 절차서 `docs/deploy/맥북운영_HYUDO-02.md` 3장.

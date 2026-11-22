@@ -214,21 +214,39 @@ def _journal(connection, context, *, entry_no, status="confirmed", amount=50000)
         )
 
 
+def _account_total(summary, code: str) -> tuple[Decimal, Decimal]:
+    row = next((a for a in summary["accounts"] if a["accountCode"] == code), None)
+    return (
+        (Decimal(0), Decimal(0))
+        if row is None
+        else (Decimal(row["debit"]), Decimal(row["credit"]))
+    )
+
+
 def test_journal_summary_counts_confirmed_and_reversed_only(scoped):
     engine, context = scoped
+    # 시드에도 ERP-1e부터 자동 전표가 있으므로 **늘어난 만큼**을 본다.
+    with engine.connect() as c:
+        before = erp.journal_summary(c, context, "2026-09")
+        code = c.execute(
+            text(
+                "SELECT account_code FROM erp.account WHERE workspace_id=:w "
+                "AND generation_id=:g ORDER BY id LIMIT 1"
+            ),
+            _scope(context),
+        ).scalar_one()
     with engine.begin() as c:
         _journal(c, context, entry_no="JE-DRAFT", status="draft")
         _journal(c, context, entry_no="JE-OK")
         _journal(c, context, entry_no="JE-REV", status="reversed", amount=20000)
     with engine.connect() as c:
         summary = erp.journal_summary(c, context, "2026-09")
-        other = erp.journal_summary(c, context, "2026-10")
     assert summary["month"] == "2026-09" and summary["accounts"]
-    row = summary["accounts"][0]
+    was_debit, was_credit = _account_total(before, code)
+    now_debit, now_credit = _account_total(summary, code)
     # 초안은 빠지고, 역분개된 전표와 역분개 전표는 둘 다 센다(정정은 지우는 것이 아니다).
-    assert Decimal(row["debit"]) == Decimal(70000)
-    assert Decimal(row["credit"]) == Decimal(70000)
-    assert other["accounts"] == []
+    assert now_debit - was_debit == Decimal(70000)
+    assert now_credit - was_credit == Decimal(70000)
 
 
 def test_sales_summary_separates_period_sales_from_open_receivable(scoped):

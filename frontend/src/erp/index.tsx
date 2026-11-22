@@ -10,6 +10,9 @@ import { PurchaseRequests } from "./PurchaseRequests";
 import { PurchaseOrders } from "./PurchaseOrders";
 import { Returns, SALES_RETURN, PURCHASE_RETURN } from "./Returns";
 import { SalesStatus, PurchaseStatus, StockStatus } from "./Status";
+import { ExpenseClaims } from "./ExpenseClaims";
+import { JournalEntries } from "./JournalEntries";
+import { Unposted } from "./Unposted";
 import { Quotations } from "./Quotations";
 import { SalesPlans } from "./SalesPlans";
 import { SalesOrders } from "./SalesOrders";
@@ -21,7 +24,6 @@ import { Receivables } from "./Receivables";
 import { Receipts } from "./Receipts";
 import { PurchaseInvoices } from "./PurchaseInvoices";
 import { PAYABLE } from "./settlement";
-import { Journal } from "./Journal";
 import { Dashboard } from "./Dashboard";
 export default function ErpRoutes() {
   return (
@@ -41,7 +43,6 @@ export default function ErpRoutes() {
         <Route path="purchase-invoices" element={<PurchaseInvoices />} />
         <Route path="payables" element={<Receivables side={PAYABLE} />} />
         <Route path="payments" element={<Receipts side={PAYABLE} />} />
-        <Route path="journal-preview" element={<Journal />} />
         <Route path="partners" element={<Partners />} />
         <Route path="items" element={<Items />} />
         <Route path="partner-prices" element={<Prices />} />
@@ -57,6 +58,9 @@ export default function ErpRoutes() {
         />
         <Route path="purchase-status" element={<PurchaseStatus />} />
         <Route path="stock-status" element={<StockStatus />} />
+        <Route path="expense-claims" element={<ExpenseClaims />} />
+        <Route path="journal-entries" element={<JournalEntries />} />
+        <Route path="unposted" element={<Unposted />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

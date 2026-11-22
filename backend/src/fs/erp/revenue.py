@@ -14,6 +14,7 @@ from typing import Any
 from sqlalchemy import text
 
 from fs.common.scope import read_scope
+from fs.erp import posting
 from fs.erp.sales import _S, MODULE, _action, _locked, _rows, _s
 from fs.erp.service import _read, invalid, not_found
 
@@ -72,6 +73,8 @@ def recognize(connection, scoped, shipment_id: int, partner_id: int) -> int:
         ),
         {**params, "r": record_id},
     )
+    # 업무 확정과 같은 트랜잭션에서 전표를 만든다. 못 만들어도 매출은 선다(DSN-11 Q3).
+    posting.post(connection, scoped, posting.SALE, record_id)
     return record_id
 
 

@@ -8,7 +8,8 @@ from fs.common.errors import ApiError
 from fs.common.page import Page
 from fs.erp import (
     dashboard,
-    journal,
+    expenses,
+    journals,
     overview,
     procurement,
     purchases,
@@ -949,23 +950,166 @@ def delete_purchase_invoice(
     return Response(status_code=204)
 
 
-# ---- FS-019g 분개 미리보기 (저장 없음, GET만) ----
-@router.get("/journal-preview")
-def get_journal_preview(
+# ---- DSN-11 1e 회계: E-30 전표 · E-31 미반영 · E-29 지출결의 ----
+# E-14 분개 미리보기는 폐지했다. 이제 전표는 업무 확정과 함께 **실제로 생긴다**(posting.py).
+@router.get("/journal-entries")
+def list_journal_entries(
     context: Auth,
-    kind: Literal["SALES", "PURCHASE", "RECEIPT", "PAYMENT"],
-    source_id: int | None = Query(None, alias="sourceId", gt=0),
-    apply_id: int | None = Query(None, alias="applyId", gt=0),
+    month: str | None = None,
+    status: Literal["draft", "confirmed", "reversed"] | None = None,
 ):
-    # 매출·매입은 원천 id, 수금·지급은 소명 행 id(소명 1행 = 분개 1세트)
-    needed, field = (
-        (source_id, "sourceId")
-        if kind in ("SALES", "PURCHASE")
-        else (apply_id, "applyId")
-    )
-    if needed is None:
-        raise service.invalid(field, f"{kind}는 {field}가 필요합니다.")
-    return {"data": journal.preview(context, kind, needed)}
+    return {"data": journals.list_entries(context, month, status)}
+
+
+@router.get("/journal-entries/for-source")
+def get_entry_for_source(
+    context: Auth,
+    source_kind: Annotated[str, Query(alias="sourceKind", max_length=30)],
+    source_id: Annotated[int, Query(alias="sourceId", gt=0)],
+):
+    return {"data": journals.entry_for_source(context, source_kind, source_id)}
+
+
+@router.post("/journal-entries", status_code=201)
+def post_journal_entry(
+    payload: schema.JournalEntryCreate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(mode="json")
+    return {"data": journals.create_entry(context, values, key)}
+
+
+@router.put("/journal-entries/{entry_id}/lines")
+def put_journal_lines(
+    entry_id: int,
+    payload: schema.JournalLines,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    lines = payload.model_dump(mode="json")["lines"]
+    return {"data": journals.set_lines(context, entry_id, lines, key)}
+
+
+@router.post("/journal-entries/{entry_id}/confirm")
+def post_journal_confirm(
+    entry_id: int,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": journals.confirm_entry(context, entry_id, key)}
+
+
+@router.post("/journal-entries/{entry_id}/reverse")
+def post_journal_reverse(
+    entry_id: int,
+    payload: schema.ReverseIn,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": journals.reverse_entry(context, entry_id, payload.reason, key)}
+
+
+@router.delete("/journal-entries/{entry_id}", status_code=204)
+def delete_journal_entry(
+    entry_id: int,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    journals.delete_entry(context, entry_id, key)
+    return Response(status_code=204)
+
+
+@router.get("/unposted")
+def list_unposted(context: Auth):
+    return {"data": journals.list_pending(context)}
+
+
+@router.post("/unposted/post")
+def post_unposted(
+    payload: schema.PendingPost,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    targets = payload.model_dump(mode="json")["targets"]
+    return {"data": journals.post_pending(context, targets, key)}
+
+
+@router.get("/expense-claims")
+def list_expense_claims(context: Auth):
+    return {"data": expenses.list_claims(context)}
+
+
+@router.post("/expense-claims", status_code=201)
+def post_expense_claim(
+    payload: schema.ExpenseClaimCreate,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    values = payload.model_dump(mode="json")
+    return {"data": expenses.create_claim(context, values, key)}
+
+
+@router.put("/expense-claims/{claim_id}/lines")
+def put_expense_lines(
+    claim_id: int,
+    payload: schema.ExpenseLines,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    lines = payload.model_dump(mode="json")["lines"]
+    return {"data": expenses.set_lines(context, claim_id, lines, key)}
+
+
+@router.post("/expense-claims/{claim_id}/confirm")
+def post_expense_confirm(
+    claim_id: int,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": expenses.confirm_claim(context, claim_id, key)}
+
+
+@router.post("/expense-claims/{claim_id}/cancel")
+def post_expense_cancel(
+    claim_id: int,
+    payload: schema.CancelIn,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": expenses.cancel_claim(context, claim_id, payload.reason, key)}
+
+
+@router.delete("/expense-claims/{claim_id}", status_code=204)
+def delete_expense_claim(
+    claim_id: int,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    expenses.delete_claim(context, claim_id, key)
+    return Response(status_code=204)
 
 
 # ---- FS-019h 대시보드 ----
