@@ -8,7 +8,7 @@
 방문자 ─https─ Cloudflare(hyudo.kr) ─Tunnel factory-studio-mac─ 맥북
   cloudflared (kr.hyudo.cloudflared) → Nginx 127.0.0.1:8080 (sh.brew.nginx)
      eip.hyudo.kr  → frontend/dist + /api/ → uvicorn 127.0.0.1:8021 (kr.hyudo.fs-api)
-     www.hyudo.kr  → card/dist (명함 페이지, HYUDO-03)
+     www.hyudo.kr  → card/dist (명함 페이지 /, 한줌 제품 페이지 /hanjum/ — HANJUM-01)
      hyudo.kr → 301 www,  eip.hyudo.kr/about → 301 www (EIP 소개 화면은 HYUDO-03에서 폐지)
      그 외 이름 → 444(연결 끊음), http → https 301(X-Forwarded-Proto 기준)
   Postgres: Colima(profile factory-studio) 컨테이너 factory-studio-prod-db-1, 127.0.0.1:55442, restart unless-stopped

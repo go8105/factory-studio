@@ -1,3 +1,8 @@
+# 2026-11-22 HANJUM-01 — 한줌 제품 홍보 페이지
+
+- `card/`에 두 번째 페이지 `/hanjum/`. 운영 Nginx는 이미 라우팅됨, 코드 반영은 CI 후 `tools/deploy.sh`.
+- 주의점: **특허 출원 전에는 분해도를 단순 4층 그대로 둔다.** 내부 상세(마찰판 돌기·슬롯·핀)는 출원 후에만. FAQ 답변·사용 장면 사진은 자리 표시. 비누 이미지는 명함과 같은 `card/public/images/soap-grinder.jpg`를 같이 쓴다(실물 사진 오면 한 번에 바뀜).
+
 # 2026-11-22 HYUDO-04 — 도메인·배포 도구 정리
 
 - main `4ccada3` push. 배포는 이제 개발 폴더 main에서 `tools/deploy.sh`(맥북 로컬, ssh 없음). 절차서 `docs/deploy/맥북운영_HYUDO-02.md` 3장.
