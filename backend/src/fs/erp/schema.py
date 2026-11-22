@@ -509,6 +509,61 @@ class LoadRequestIn(ApiModel):
     request_id: int = Field(alias="requestId", gt=0)
 
 
+# ---- DSN-11 1e 회계: 전표 · 미반영 · 지출결의 ----
+class JournalLineIn(ApiModel):
+    account_id: int = Field(alias="accountId", gt=0)
+    side: Literal["DEBIT", "CREDIT"]
+    amount: Money
+    partner_id: int | None = Field(None, alias="partnerId", gt=0)
+    department_id: int | None = Field(None, alias="departmentId", gt=0)
+    project_id: int | None = Field(None, alias="projectId", gt=0)
+    memo: str | None = Field(None, min_length=1, max_length=300)
+
+
+class JournalEntryCreate(ApiModel):
+    entry_date: date = Field(alias="entryDate")
+    description: str | None = Field(None, min_length=1, max_length=300)
+    department_id: int | None = Field(None, alias="departmentId", gt=0)
+
+
+class JournalLines(ApiModel):
+    lines: list[JournalLineIn] = Field(max_length=200)
+
+
+class ReverseIn(ApiModel):
+    reason: Reason
+
+
+class PendingTarget(ApiModel):
+    source_kind: str = Field(alias="sourceKind", min_length=1, max_length=30)
+    entry_kind: str = Field(alias="entryKind", min_length=1, max_length=16)
+    source_id: int = Field(alias="sourceId", gt=0)
+
+
+class PendingPost(ApiModel):
+    targets: list[PendingTarget] = Field(max_length=500)
+
+
+class ExpenseLineIn(ApiModel):
+    account_id: int = Field(alias="accountId", gt=0)
+    amount: Money
+    project_id: int | None = Field(None, alias="projectId", gt=0)
+    memo: str | None = Field(None, min_length=1, max_length=300)
+
+
+class ExpenseClaimCreate(ApiModel):
+    claimed_on: date = Field(alias="claimedOn")
+    employee_id: int = Field(alias="employeeId", gt=0)
+    department_id: int = Field(alias="departmentId", gt=0)
+    pay_method: Literal["BANK", "CARD", "CASH"] = Field("BANK", alias="payMethod")
+    # 합계 > 0이 DB 제약이라 결의서는 명세 한 줄과 함께 태어난다.
+    lines: list[ExpenseLineIn] = Field(min_length=1, max_length=200)
+
+
+class ExpenseLines(ApiModel):
+    lines: list[ExpenseLineIn] = Field(max_length=200)
+
+
 # ---- DSN-11 1d 반품(판매·구매 공통) ----
 class ReturnLineIn(ApiModel):
     item_id: int = Field(alias="itemId", gt=0)

@@ -450,7 +450,7 @@ export function PurchaseInvoices() {
 
             {journalId && (
               <JournalPanel
-                kind="PURCHASE"
+                sourceKind="purchase_invoice"
                 id={journalId}
                 onClose={() => setJournalId(undefined)}
               />

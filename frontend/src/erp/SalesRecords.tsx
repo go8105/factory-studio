@@ -192,7 +192,7 @@ export function SalesRecords() {
           />
           {journalId && (
             <JournalPanel
-              kind="SALES"
+              sourceKind="sales_record"
               id={journalId}
               onClose={() => setJournalId(undefined)}
             />
