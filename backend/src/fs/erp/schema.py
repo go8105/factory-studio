@@ -586,3 +586,25 @@ class PurchaseReturnCreate(ApiModel):
     purchase_invoice_id: int = Field(alias="purchaseInvoiceId", gt=0)
     returned_on: date = Field(alias="returnedOn")
     reason: Reason
+
+
+# ---- DSN-11 1f 장부·결산: E-35 기초 잔액·월 마감 ----
+Year = Annotated[str, Field(pattern=r"^[0-9]{4}$")]
+
+
+class OpeningBalanceCreate(ApiModel):
+    fiscal_year: Year = Field(alias="fiscalYear")
+    account_id: int = Field(alias="accountId", gt=0)
+    partner_id: int | None = Field(None, alias="partnerId", gt=0)
+    side: Literal["DEBIT", "CREDIT"]
+    amount: Money
+
+
+class OpeningBalanceUpdate(ApiModel):
+    partner_id: int | None = Field(None, alias="partnerId", gt=0)
+    side: Literal["DEBIT", "CREDIT"] | None = None
+    amount: Money | None = None
+
+
+class CarryForwardIn(ApiModel):
+    fiscal_year: Year = Field(alias="fiscalYear")

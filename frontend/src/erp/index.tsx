@@ -13,6 +13,10 @@ import { SalesStatus, PurchaseStatus, StockStatus } from "./Status";
 import { ExpenseClaims } from "./ExpenseClaims";
 import { JournalEntries } from "./JournalEntries";
 import { Unposted } from "./Unposted";
+import { Books } from "./Books";
+import { TrialBalance } from "./TrialBalance";
+import { Statements } from "./Statements";
+import { Closing } from "./Closing";
 import { Quotations } from "./Quotations";
 import { SalesPlans } from "./SalesPlans";
 import { SalesOrders } from "./SalesOrders";
@@ -61,6 +65,10 @@ export default function ErpRoutes() {
         <Route path="expense-claims" element={<ExpenseClaims />} />
         <Route path="journal-entries" element={<JournalEntries />} />
         <Route path="unposted" element={<Unposted />} />
+        <Route path="books" element={<Books />} />
+        <Route path="trial-balance" element={<TrialBalance />} />
+        <Route path="statements" element={<Statements />} />
+        <Route path="closing" element={<Closing />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

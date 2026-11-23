@@ -8,45 +8,15 @@ import {
   Loading,
   PageTitle,
 } from "../shared/components";
-import { ModuleOff, moduleOff, useLists, won } from "./common";
-
-const today = () => new Date().toISOString().slice(0, 10);
-const monthsAgo = (n: number) => {
-  const d = new Date();
-  d.setMonth(d.getMonth() - n);
-  return d.toISOString().slice(0, 10);
-};
-
-function Period({
-  from,
-  to,
-  set,
-}: {
-  from: string;
-  to: string;
-  set: (patch: { from?: string; to?: string }) => void;
-}) {
-  return (
-    <span className="row-actions">
-      <label>
-        시작
-        <input
-          type="date"
-          value={from}
-          onChange={(e) => set({ from: e.target.value })}
-        />
-      </label>
-      <label>
-        끝
-        <input
-          type="date"
-          value={to}
-          onChange={(e) => set({ to: e.target.value })}
-        />
-      </label>
-    </span>
-  );
-}
+import {
+  ModuleOff,
+  moduleOff,
+  monthsAgo,
+  Period,
+  today,
+  useLists,
+  won,
+} from "./common";
 
 type Revenue = {
   partnerCode: string;

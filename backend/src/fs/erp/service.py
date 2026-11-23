@@ -129,6 +129,11 @@ def validate(connection, scoped, resource, values, current, row_id):
                     "쓰이고 있는 계정의 분류와 정상 잔액은 바꿀 수 없습니다.",
                     {"reason": "ACCOUNT_IN_USE", "references": refs},
                 )
+    if resource == "opening-balances":
+        # 장부(closing)가 service를 쓰므로 여기서는 늦게 들여온다(순환 회피).
+        from fs.erp.closing import check_opening
+
+        check_opening(connection, scoped, merged)
     if resource == "partner-prices":
         for field, target in [("partner_id", "partners"), ("item_id", "items")]:
             if repo.get(connection, scoped, target, merged[field]) is None:
@@ -169,6 +174,7 @@ def mutate(context, resource, values, key, row_id=None, parent=None, deleting=Fa
             "employees": {"hr_employee_code"},
             "projects": {"start_on", "end_on"},
             "accounts": {"statement_group"},
+            "opening-balances": {"partner_id"},
         }.get(resource, set())
         for field, value in values.items():
             if value is None and field not in nullable:
@@ -192,6 +198,10 @@ def mutate(context, resource, values, key, row_id=None, parent=None, deleting=Fa
                 raise not_found()
             values = {**values, "item_id": parent}
         if deleting:
+            if resource == "opening-balances":
+                from fs.erp.closing import opening_locked
+
+                opening_locked(connection, scoped, current["fiscal_year"])
             refs = repo.references(connection, scoped, resource, row_id)
             if refs:
                 raise ApiError(

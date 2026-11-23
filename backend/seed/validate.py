@@ -69,6 +69,8 @@ EXPECTED_COUNTS = {
     "erp.expense_claim_line": 3,
     "erp.journal_entry": 16,
     "erp.journal_line": 42,
+    "erp.opening_balance": 2,
+    "erp.fiscal_period": 3,
     "erp.purchase_request": 2,
     "erp.purchase_request_line": 2,
     "erp.purchase_order": 2,
