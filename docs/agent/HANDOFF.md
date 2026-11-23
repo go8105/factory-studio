@@ -13,6 +13,7 @@
   - **공통 `useApiLists`의 의존성에 `paths`가 없었다.** 이번에 넣었다 — **E-21·E-25의 기간 고르개가 1f 이전부터 먹통이었다.** 경로를 상태로 만드는 화면을 더 만들 때 이 훅을 믿어도 된다.
   - **E-21 영업 현황은 1d 내내 500이었다**(`shipment_order_line.item_id`는 없는 칼럼). 이번에 고치고 테스트를 더했다 — **화면마다 백엔드 테스트가 있는지 확인할 것.** 1d는 purchase-status·stock-status만 테스트했다.
   - **`Master`는 제 목록을 따로 불러온다.** 바깥에서 그 표를 바꾸면(이월처럼) `key`를 바꿔 다시 태워야 한다.
+  - **시드 복사 성능 한도를 2.0/3.5로 되돌렸다**(중앙값 1.5초). `copy.py`의 `_nullable_targets`가 표마다 두 번씩 묻던 introspection을 캐시했다. **다음에 또 넘치면 한도부터 올리지 말 것** — 남은 몫은 임시 ID 지도 98개의 CREATE/DROP(0.37초)과 복사마다 다시 만드는 MetaData다.
   - `erp1` 되돌리기 블록(`REMOVED_ROWS`)이 또 커졌다. **`erp1`이 배포되면 새 revision으로 옮긴다.**
 - **재현**: `TEST_DB=factory_studio_erp1f_test bash tools/ci_local.sh`. 단독은 `DATABASE_URL=<base>/factory_studio_erp1f_test TEST_DATABASE_URL=<같은 값> backend/.venv/bin/python -m pytest backend/tests/test_erp_books.py -q`, 프런트는 `npm --prefix frontend test -- src/erp/books.test.tsx`. 브라우저는 `preview_start backend|frontend` 뒤 **새 게스트 공간**으로 /erp/books·/erp/trial-balance·/erp/statements·/erp/closing.
 
