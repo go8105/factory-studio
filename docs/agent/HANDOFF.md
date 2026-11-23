@@ -1,7 +1,7 @@
 ## 2026-11-23 ERP-1f — 장부·결산 (다음: ERP-1g 세무)
 
 - **브랜치**: `erp-1f` (main `b72a655` 기준). **담당**: Claude Code. **마이그레이션 없음** — 1a에서 만든 `erp.fiscal_period`·`erp.opening_balance`를 처음 쓴다.
-- **끝난 것**: E-32 원장 · E-33 일계표·월계표·시산표 · E-34 재무제표 · E-35 월 마감·기초 잔액(ERP 28 → **32화면**). 백엔드 `fs/erp/books.py`(조회 계산)·`fs/erp/closing.py`(마감·이월), 기초 잔액은 기존 `master()` 틀에 리소스 하나를 더해 CRUD를 얻었다. 시드 +5행(기초 잔액 2·회계 기간 3), 템플릿 **16,326행**. 도움말 e-32~e-35. 자세한 것은 `docs/progress.md` 맨 위.
+- **끝난 것**(+ 지나다 고친 것: **E-21 영업 현황 500**): E-32 원장 · E-33 일계표·월계표·시산표 · E-34 재무제표 · E-35 월 마감·기초 잔액(ERP 28 → **32화면**). 백엔드 `fs/erp/books.py`(조회 계산)·`fs/erp/closing.py`(마감·이월), 기초 잔액은 기존 `master()` 틀에 리소스 하나를 더해 CRUD를 얻었다. 시드 +5행(기초 잔액 2·회계 기간 3), 템플릿 **16,326행**. 도움말 e-32~e-35. 자세한 것은 `docs/progress.md` 맨 위.
 - **다음 할 일**: **ERP-1g 세무**(DSN-11 F60~F64 — 매입 세금계산서·부가세 신고). 그다음 1h 채권·채무·자금, 1i 원가·예산·자산.
 - **주의**:
   - **장부는 어디에도 저장하지 않는다.** 바꿀 일이 생기면 저장할 생각부터 하지 말 것 — 전표와 어긋나는 순간 아무도 못 고친다.
@@ -11,6 +11,7 @@
   - **시드는 전표를 다 만든 뒤에 달을 닫는다**(`_closing`이 `_expenses_and_journals` 끝에 있다). 순서를 바꾸면 그 달 전표가 막혀 시드가 미반영 더미가 된다.
   - `both`는 **Postgres 예약어**다(`TRIM(BOTH ...)`). CTE 이름으로 쓰면 구문 오류 — `moves`로 바꿨다. `month`·`hour`·`day`에 이어 네 번째.
   - **공통 `useApiLists`의 의존성에 `paths`가 없었다.** 이번에 넣었다 — **E-21·E-25의 기간 고르개가 1f 이전부터 먹통이었다.** 경로를 상태로 만드는 화면을 더 만들 때 이 훅을 믿어도 된다.
+  - **E-21 영업 현황은 1d 내내 500이었다**(`shipment_order_line.item_id`는 없는 칼럼). 이번에 고치고 테스트를 더했다 — **화면마다 백엔드 테스트가 있는지 확인할 것.** 1d는 purchase-status·stock-status만 테스트했다.
   - **`Master`는 제 목록을 따로 불러온다.** 바깥에서 그 표를 바꾸면(이월처럼) `key`를 바꿔 다시 태워야 한다.
   - `erp1` 되돌리기 블록(`REMOVED_ROWS`)이 또 커졌다. **`erp1`이 배포되면 새 revision으로 옮긴다.**
 - **재현**: `TEST_DB=factory_studio_erp1f_test bash tools/ci_local.sh`. 단독은 `DATABASE_URL=<base>/factory_studio_erp1f_test TEST_DATABASE_URL=<같은 값> backend/.venv/bin/python -m pytest backend/tests/test_erp_books.py -q`, 프런트는 `npm --prefix frontend test -- src/erp/books.test.tsx`. 브라우저는 `preview_start backend|frontend` 뒤 **새 게스트 공간**으로 /erp/books·/erp/trial-balance·/erp/statements·/erp/closing.
