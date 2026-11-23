@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from typing import Annotated, Literal
 
@@ -7,6 +8,8 @@ from fs.common.auth import AuthContext, require_csrf, resolve_auth
 from fs.common.errors import ApiError
 from fs.common.page import Page
 from fs.erp import (
+    books,
+    closing,
     dashboard,
     expenses,
     journals,
@@ -26,6 +29,18 @@ router = APIRouter()
 Auth = Annotated[AuthContext, Depends(resolve_auth)]
 Key = Annotated[str | None, Header(alias="Idempotency-Key")]
 Csrf = Annotated[str | None, Header(alias="X-CSRF-Token")]
+
+
+def _month(value: str) -> str:
+    """경로의 회계 월. 경로 변수는 pydantic이 봐 주지 않아 여기서 본다."""
+    if not re.fullmatch(r"[0-9]{4}-(0[1-9]|1[0-2])", value):
+        raise ApiError(
+            400,
+            "VALIDATION_FAILED",
+            "입력값을 확인해 주세요.",
+            {"fields": {"month": "YYYY-MM 형식이어야 합니다."}},
+        )
+    return value
 
 
 def mutation(context, csrf, key):
@@ -425,6 +440,13 @@ def master(path: str, resource: str, create, update, active: bool = True):
 master("/departments", "departments", schema.DepartmentCreate, schema.DepartmentUpdate)
 master("/employees", "employees", schema.EmployeeCreate, schema.EmployeeUpdate)
 master("/projects", "projects", schema.ProjectCreate, schema.ProjectUpdate)
+master(
+    "/opening-balances",
+    "opening-balances",
+    schema.OpeningBalanceCreate,
+    schema.OpeningBalanceUpdate,
+    active=False,
+)
 master(
     "/price-groups", "price-groups", schema.PriceGroupCreate, schema.PriceGroupUpdate
 )
@@ -1383,3 +1405,68 @@ def post_invoice_load(
 ):
     key = mutation(context, x_csrf_token, idempotency_key)
     return {"data": purchases.load_lines(context, invoice_id, key)}
+
+
+# ---- DSN-11 1f 장부·결산: E-32 원장 · E-33 시산표 · E-34 재무제표 · E-35 마감 ----
+@router.get("/trial-balance")
+def get_trial_balance(context: Auth, date_from: date, date_to: date):
+    return {"data": books.trial_balance(context, date_from, date_to)}
+
+
+@router.get("/ledger")
+def get_ledger(
+    context: Auth,
+    date_from: date,
+    date_to: date,
+    account_id: int | None = Query(None, gt=0),
+    partner_id: int | None = Query(None, gt=0),
+):
+    return {"data": books.ledger(context, date_from, date_to, account_id, partner_id)}
+
+
+@router.get("/ledger/partners")
+def get_partner_balances(context: Auth, date_from: date, date_to: date):
+    return {"data": books.partner_balances(context, date_from, date_to)}
+
+
+@router.get("/statements")
+def get_statements(context: Auth, date_from: date, date_to: date):
+    return {"data": books.statements(context, date_from, date_to)}
+
+
+@router.get("/fiscal-periods")
+def get_fiscal_periods(context: Auth, year: str = Query(pattern=r"^[0-9]{4}$")):
+    return {"data": closing.list_periods(context, year)}
+
+
+@router.post("/fiscal-periods/{month}/close")
+def post_close_month(
+    month: str,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": closing.close_month(context, _month(month), key)}
+
+
+@router.post("/fiscal-periods/{month}/reopen")
+def post_reopen_month(
+    month: str,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": closing.reopen_month(context, _month(month), key)}
+
+
+@router.post("/opening-balances/carry-forward", status_code=201)
+def post_carry_forward(
+    payload: schema.CarryForwardIn,
+    context: Auth,
+    idempotency_key: Key = None,
+    x_csrf_token: Csrf = None,
+):
+    key = mutation(context, x_csrf_token, idempotency_key)
+    return {"data": closing.carry_forward(context, payload.fiscal_year, key)}

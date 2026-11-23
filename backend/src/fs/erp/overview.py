@@ -53,18 +53,13 @@ JOIN erp.sales_order_line l ON l.workspace_id=o.workspace_id
 JOIN erp.item i ON i.workspace_id=l.workspace_id AND i.generation_id=l.generation_id
  AND i.id=l.item_id
 LEFT JOIN LATERAL (
+  -- 출하지시 명세는 품목이 아니라 **수주 명세**를 가리킨다(`shipment_order_line`에 item_id가 없다).
   SELECT sum(sl.shipped_qty) shipped_qty
-  FROM erp.shipment_order so
-  JOIN erp.shipment_order_line sol ON sol.workspace_id=so.workspace_id
-   AND sol.generation_id=so.generation_id AND sol.shipment_order_id=so.id
-   AND sol.item_id=l.item_id
-  JOIN erp.shipment sh ON sh.workspace_id=so.workspace_id
-   AND sh.generation_id=so.generation_id AND sh.shipment_order_id=so.id
-  JOIN erp.shipment_line sl ON sl.workspace_id=sh.workspace_id
-   AND sl.generation_id=sh.generation_id AND sl.shipment_id=sh.id
-   AND sl.item_id=l.item_id
-  WHERE so.workspace_id=o.workspace_id AND so.generation_id=o.generation_id
-    AND so.sales_order_id=o.id
+  FROM erp.shipment_order_line sol
+  JOIN erp.shipment_line sl ON sl.workspace_id=sol.workspace_id
+   AND sl.generation_id=sol.generation_id AND sl.shipment_order_line_id=sol.id
+  WHERE sol.workspace_id=l.workspace_id AND sol.generation_id=l.generation_id
+    AND sol.sales_order_line_id=l.id
 ) s ON true
 WHERE o.workspace_id=:w AND o.generation_id=:g AND o.status <> 'cancelled'
   AND o.ordered_on BETWEEN :date_from AND :date_to

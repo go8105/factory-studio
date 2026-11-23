@@ -581,6 +581,7 @@ def copy_module_seed(
 # DB·스키마별로 한 번만 반영한다. 마이그레이션 뒤에는 프로세스를 다시 시작한다(배포 절차와 같음).
 _CATALOG: dict[tuple[str, str], MetaData] = {}
 _RAW_FKS: dict[tuple[str, str], list[tuple[str, str, str]]] = {}
+_NULLABLE_FKS: dict[tuple[str, str], frozenset[str]] = {}
 
 
 def _reflected(connection: Connection, schemas: tuple[str, ...]) -> MetaData:
@@ -663,23 +664,35 @@ def _foreign_keys(
     return result
 
 
-def _nullable_targets(connection: Connection, seeded: set[str]) -> dict[str, set[str]]:
-    """표마다 '비울 수 있는 칼럼으로 가리키는' 다른 시드 표. 고리를 끊을 때만 쓴다."""
-    inspector = inspect(connection)
-    result: dict[str, set[str]] = {}
-    for table_name in seeded:
+def _nullable_fk_targets(connection: Connection, table_name: str) -> frozenset[str]:
+    """이 표가 '비울 수 있는 칼럼으로' 가리키는 표들. 스키마에만 달려 있어 캐시한다.
+
+    캐시가 없을 때는 시드 표마다 `get_columns`+`get_foreign_keys` 두 번을 물어
+    복사 한 번에 카탈로그 질의가 300건 넘게 나갔다(`_RAW_FKS`와 같은 계약).
+    """
+    key = (connection.engine.url.render_as_string(hide_password=True), table_name)
+    if key not in _NULLABLE_FKS:
+        inspector = inspect(connection)
         schema, table = table_name.split(".")
         nullable = {
             column["name"]
             for column in inspector.get_columns(table, schema=schema)
             if column["nullable"]
         }
-        result[table_name] = {
+        _NULLABLE_FKS[key] = frozenset(
             f"{fk['referred_schema']}.{fk['referred_table']}"
             for fk in inspector.get_foreign_keys(table, schema=schema)
             if set(fk["constrained_columns"]) & nullable
-        } & seeded
-    return result
+        )
+    return _NULLABLE_FKS[key]
+
+
+def _nullable_targets(connection: Connection, seeded: set[str]) -> dict[str, set[str]]:
+    """표마다 '비울 수 있는 칼럼으로 가리키는' 다른 시드 표. 고리를 끊을 때만 쓴다."""
+    return {
+        table_name: set(_nullable_fk_targets(connection, table_name)) & seeded
+        for table_name in seeded
+    }
 
 
 def _table_order(

@@ -64,3 +64,43 @@ export function ModuleOff() {
     />
   );
 }
+
+// 조회 화면의 기간 고르개. 현황(E-21·E-25)과 장부(E-32~E-34)가 같은 것을 쓴다.
+export const today = () => new Date().toISOString().slice(0, 10);
+export const monthsAgo = (n: number) => {
+  const d = new Date();
+  d.setMonth(d.getMonth() - n);
+  return d.toISOString().slice(0, 10);
+};
+export const monthStart = () => today().slice(0, 7) + "-01";
+
+export function Period({
+  from,
+  to,
+  set,
+}: {
+  from: string;
+  to: string;
+  set: (patch: { from?: string; to?: string }) => void;
+}) {
+  return (
+    <span className="row-actions">
+      <label>
+        시작
+        <input
+          type="date"
+          value={from}
+          onChange={(e) => set({ from: e.target.value })}
+        />
+      </label>
+      <label>
+        끝
+        <input
+          type="date"
+          value={to}
+          onChange={(e) => set({ to: e.target.value })}
+        />
+      </label>
+    </span>
+  );
+}

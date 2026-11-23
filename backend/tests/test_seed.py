@@ -106,7 +106,7 @@ def seed_env() -> Generator[SeedFixtureData]:
             if name not in ("hr.attendance", "hr.payslip_line")
         )
         # 14,795(검증기 기준) + core.holiday 16 — 휴일은 core라 validate의 표 수에 안 들어간다.
-        assert fixed == 16321 + len(MODULE_KEYS) + sum(
+        assert fixed == 16326 + len(MODULE_KEYS) + sum(
             GW_COUNTS.values()
         )  # SPC +2,752, gw·cmms·hr 모듈 행 +3, HR 시드 +107, 휴일 +16
         assert counts["hr.attendance"] > 0 and counts["hr.payslip_line"] > 0
@@ -133,7 +133,7 @@ def seed_env() -> Generator[SeedFixtureData]:
                 if name not in ("hr.attendance", "hr.payslip_line")
             )
             # 템플릿과 같되 core.workspace·data_generation 2행이 빠지고 휴일 16행이 더해진다.
-            assert fixed_copy == 16319 + len(MODULE_KEYS) + sum(
+            assert fixed_copy == 16324 + len(MODULE_KEYS) + sum(
                 GW_COUNTS.values()
             )  # SPC +2,752, HR 시드 +107, 휴일 +16
             copied.append((copied_workspace, copied_generation, target))
@@ -168,7 +168,7 @@ def test_seed_v1_row_counts(seed_env: SeedFixtureData) -> None:
         assert actual == EXPECTED_COUNTS, (
             f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}"
         )
-        assert sum(actual.values()) == 16305 + len(MODULE_KEYS) + sum(
+        assert sum(actual.values()) == 16310 + len(MODULE_KEYS) + sum(
             GW_COUNTS.values()
         ), f"V1 total={sum(actual.values())}"
         assert all(varying.values()), f"V1 date-varying empty: {varying}"
@@ -494,9 +494,11 @@ def test_seed_copy_performance_benchmark(
     # 중앙값에 거는 이유: 10회 중 한 번의 디스크 지연으로 깨지면 신호가 아니라 잡음이다.
     # 최대값은 진짜 느려짐을 잡는 상한으로만 둔다.
     # 추이: FS-015 중앙값 0.456초(표 ~150) → 2026-10-23 1.67초(표 230)
-    #       → 2026-11-21 ERP-1d 약 2.0초(업무 표 279, 시드가 든 표 ~148).
-    # ERP-1d에서 시드가 든 표가 10개 늘자 중앙값이 2초 선에 걸터앉아 한도를 올렸다.
-    # **이 숫자를 또 올리기 전에 copy.py를 실제로 빠르게 만든다.** 1e~1i가 표를
-    # 20개쯤 더 채우고 목표는 381표다 — 지금 속도로는 DSN-01의 2초 약속을 못 지킨다.
-    assert report["median_seconds"] < 2.5
-    assert report["max_seconds"] < 4
+    #       → 2026-11-21 ERP-1d 약 2.0초(업무 표 279, 시드가 든 표 ~148)
+    #       → 2026-11-23 ERP-1f **1.5초**(표 150). 1d가 올려 둔 한도를 되돌렸다.
+    # 1d에서 한도를 올리며 "다음엔 copy.py를 빠르게 만든다"고 적었고, 1f에서 그렇게 했다:
+    # 시드 표마다 두 번씩 묻던 nullable FK 조회를 캐시해 카탈로그 질의 300여 건을 없앴다
+    # (복사 한 번에 약 0.45초). **다음에도 한도부터 올리지 말 것** — 아직 남은 몫은
+    # 임시 ID 지도 98개의 CREATE/DROP(약 0.37초)과 표마다 다시 만드는 MetaData다.
+    assert report["median_seconds"] < 2.0
+    assert report["max_seconds"] < 3.5

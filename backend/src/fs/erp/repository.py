@@ -49,6 +49,10 @@ TABLES = {
         "posting_rule",
         "transaction_kind,line_no,entry_side,account_id,account_code,amount_basis",
     ),
+    "opening-balances": (
+        "opening_balance",
+        "fiscal_year,account_id,partner_id,side,amount,currency",
+    ),
 }
 # 코드 유일성을 서비스가 먼저 본다(DB UK보다 친절한 메시지).
 UNIQUE = {
@@ -61,6 +65,8 @@ UNIQUE = {
     "employees": ["code"],
     "projects": ["code"],
     "accounts": ["account_code"],
+    # 거래처가 없는 기초 잔액이 있어서 NULL까지 같은 값으로 본다(IS NOT DISTINCT FROM).
+    "opening-balances": ["fiscal_year", "partner_id", "account_id"],
 }
 REFERENCES = {
     "partners": [
@@ -196,7 +202,7 @@ def duplicate(connection, context, resource, values, row_id):
     fields = UNIQUE.get(resource)
     if not fields:
         return False
-    where = " AND ".join(f"{field}=:{field}" for field in fields)
+    where = " AND ".join(f"{field} IS NOT DISTINCT FROM :{field}" for field in fields)
     return (
         connection.execute(
             text(

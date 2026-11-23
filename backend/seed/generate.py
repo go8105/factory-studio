@@ -2263,6 +2263,41 @@ def _expenses_and_journals(
                 {"w": writer.workspace_id, "g": writer.generation_id},
             )
         writer.counts[table] += _business_row_count(writer, table)
+    _closing(writer)
+
+
+def _closing(writer: SeedWriter) -> None:
+    """DSN-11 F57·F58 기초 잔액과 월 마감.
+
+    **전표를 다 만든 뒤에 닫는다.** 먼저 닫으면 그 달 전표가 막혀 시드가 미반영 더미가 된다.
+    기초 잔액은 차·대가 맞는 한 쌍이다 — 한쪽만 넣으면 시산표가 첫 화면부터 어긋난다.
+    """
+    seed_date = writer.seed_date
+    writer.add(
+        "erp.opening_balance",
+        [
+            {
+                "fiscal_year": f"{seed_date.year:04d}",
+                "account_id": _id(writer, "erp.account", "account_code", code),
+                "partner_id": None,
+                "side": side,
+                "amount": 50_000_000,
+                "currency": "KRW",
+            }
+            for code, side in (("BANK", "DEBIT"), ("RETAINED_EARNINGS", "CREDIT"))
+        ],
+    )
+    writer.add(
+        "erp.fiscal_period",
+        [
+            {
+                "period_month": month_text(seed_date, months),
+                "status": "closed" if months == -2 else "open",
+                "closed_at": at(seed_date, -1, 9) if months == -2 else None,
+            }
+            for months in (-2, -1, 0)
+        ],
+    )
 
 
 def _business_row_count(writer: SeedWriter, table: str) -> int:

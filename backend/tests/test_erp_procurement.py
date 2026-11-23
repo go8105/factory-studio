@@ -1,5 +1,6 @@
 """DSN-11 1d 구매: 요청 → 발주 → 입고 진행 파생 → 발주 입고 매입."""
 
+from decimal import Decimal
 from uuid import uuid4
 
 import pytest
@@ -293,3 +294,21 @@ def test_stock_status_does_not_judge_without_a_safety_stock(erp):
     rows = client.get(f"{BASE}/stock-status").json()["data"]["rows"]
     unset = [r for r in rows if r["linked"] and r["safetyStock"] is None]
     assert unset and all(r["isShort"] is None for r in unset)
+
+
+def test_sales_status_counts_shipped_against_each_order_line(erp):
+    """E-21은 테스트가 없어 1d 내내 500이었다(출하지시 명세에 item_id가 없다)."""
+    client, _ = erp
+    body = client.get(
+        f"{BASE}/sales-status?date_from=2020-01-01&date_to=2030-12-31"
+    ).json()["data"]
+    assert body["orders"], body
+    shipped = [r for r in body["orders"] if Decimal(r["shippedQty"]) > 0]
+    assert shipped, body["orders"]
+    for row in body["orders"]:
+        assert Decimal(row["openQty"]) == Decimal(row["orderQty"]) - Decimal(
+            row["shippedQty"]
+        )
+        # 출하는 수주 수량을 넘지 않는다(명세를 섞어 세면 넘는다).
+        assert Decimal(row["shippedQty"]) <= Decimal(row["orderQty"])
+    assert Decimal(body["supplyTotal"]) > 0

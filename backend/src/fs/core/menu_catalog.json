@@ -387,6 +387,30 @@
           "id": "E-31",
           "label": "회계 미반영 현황",
           "group": "회계"
+        },
+        {
+          "path": "books",
+          "id": "E-32",
+          "label": "원장",
+          "group": "회계"
+        },
+        {
+          "path": "trial-balance",
+          "id": "E-33",
+          "label": "일계표·월계표·시산표",
+          "group": "회계"
+        },
+        {
+          "path": "statements",
+          "id": "E-34",
+          "label": "재무제표",
+          "group": "회계"
+        },
+        {
+          "path": "closing",
+          "id": "E-35",
+          "label": "월 마감·기초 잔액",
+          "group": "회계"
         }
       ]
     },

@@ -51,7 +51,9 @@ export function useApiLists<T extends unknown[]>(
         if (e instanceof ApiError && [401, 410].includes(e.status)) fail(e);
       });
     return () => controller.abort();
-  }, [tick]);
+    // 경로가 바뀌면 다시 부른다 — 기간·고른 행을 경로에 담는 조회 화면이 많다.
+    // 배열은 렌더마다 새로 만들어지므로 내용으로 비교한다.
+  }, [tick, paths.join("|"), base]);
   return { data, error, reload: () => setTick((n) => n + 1) };
 }
 
