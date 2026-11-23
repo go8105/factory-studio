@@ -173,7 +173,7 @@ def validate_all(
         f"V1 row counts differ: {Counter(EXPECTED_COUNTS) - Counter(actual)}, extra={Counter(actual) - Counter(EXPECTED_COUNTS)}",
     )
     _require(
-        sum(actual.values()) == 16305 + len(MODULE_KEYS) + sum(GW_COUNTS.values()),
+        sum(actual.values()) == 16310 + len(MODULE_KEYS) + sum(GW_COUNTS.values()),
         f"V1 total={sum(actual.values())}",
     )
     _require(all(varying.values()), f"V1 date-varying empty: {varying}")
